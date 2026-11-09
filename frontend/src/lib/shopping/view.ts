@@ -25,13 +25,19 @@ export function linesOf(view: ViewItem): ViewItem[] {
 /** One trolley row per ingredient: the lines of the same ingredient fold into the first of them
  * (the list is already most recently ticked first). */
 export function joinTrolley(views: ViewItem[]): ViewItem[] {
+  // Rows that already carry folded lines are taken apart first, so every line is counted once
+  // and joining twice gives the same rows as joining once.
   const rows = new Map<number, ViewItem>();
-  for (const view of views) {
-    const first = rows.get(view.food.id);
-    if (first) first.more = [...(first.more ?? []), ...linesOf(view)];
-    else rows.set(view.food.id, { ...view, more: [...(view.more ?? [])] });
+  const seen = new Set<string>();
+  for (const line of views.flatMap(linesOf)) {
+    if (seen.has(line.item.id)) continue;
+    seen.add(line.item.id);
+    const bare: ViewItem = { ...line, more: undefined };
+    const first = rows.get(line.food.id);
+    if (first) first.more = [...(first.more ?? []), bare];
+    else rows.set(line.food.id, bare);
   }
-  return [...rows.values()].map((v) => (v.more?.length ? v : { ...v, more: undefined }));
+  return [...rows.values()];
 }
 
 /** "1" and "1" are "2"; anything with units is joined: "200 g + 1 packet". */

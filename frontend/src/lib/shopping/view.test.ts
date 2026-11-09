@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   groupByShop,
   inTrolleyOrder,
+  linesOf,
   joinAmounts,
   joinTrolley,
   listCounts,
@@ -269,5 +270,37 @@ describe('one trolley row per ingredient (F198, cabledrawer 8 Nov)', () => {
     expect(a).toHaveLength(2);
     expect(joinTrolley(a)).toHaveLength(1);
     expect(joinTrolley(a)[0]!.more).toHaveLength(1);
+  });
+});
+
+describe('the desktop trolley panel counts each line once (FR2 review, finding 1)', () => {
+  const ticked = (id: string, food: number, shop: number, at: string) =>
+    item(id, food, { shop_id: shop, ticks: [{ ...tick, id: `t${id}`, at }] });
+
+  it('builds the panel rows the way the page does: every line once, joining twice changes nothing', () => {
+    const lines = [
+      ticked('a1', 6, 1, '2026-11-08T10:00:00Z'),
+      ticked('a2', 6, 1, '2026-11-08T10:01:00Z'),
+      ticked('b1', 6, 2, '2026-11-08T10:02:00Z'),
+      ticked('b2', 6, 2, '2026-11-08T10:03:00Z'),
+      ticked('b3', 6, 2, '2026-11-08T10:04:00Z'),
+      ticked('o', 2, 1, '2026-11-08T10:05:00Z')
+    ];
+    const groups = groupByShop({ ...copy, items: lines }, 'L');
+    // The page: flatten what each shop's group holds, put in order, join.
+    const panel = joinTrolley(inTrolleyOrder(groups.flatMap((g) => g.trolley.flatMap(linesOf))));
+    expect(panel.map((v) => v.food.id).sort()).toEqual([2, 6]);
+    const ids = panel.flatMap(linesOf).map((v) => v.item.id);
+    expect(ids.sort()).toEqual(['a1', 'a2', 'b1', 'b2', 'b3', 'o']);
+    expect(new Set(ids).size).toBe(ids.length);
+    const again = joinTrolley(panel);
+    expect(
+      again
+        .flatMap(linesOf)
+        .map((v) => v.item.id)
+        .sort()
+    ).toEqual(ids);
+    // The groups' own rows are not changed by building the panel.
+    expect(groups.find((g) => g.shopId === 2)!.trolley[0]!.more).toHaveLength(2);
   });
 });
