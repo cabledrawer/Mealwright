@@ -251,6 +251,8 @@ export interface Lot {
   date_kind: DateKind;
   use_soon: boolean;
   added_on: string;
+  /** "found": typed in, counted in a stocktake or found at home; "bought": the rest (F201). */
+  how_added: 'bought' | 'found';
   frozen_on: string | null;
   size_id: number | null;
   /** Holds less than its size: show "· open". (Every packet of a known size has the ¼ ½ ¾ Full picks.) */

@@ -567,7 +567,7 @@ What Today shows, and the three answers to "Did you cook Sambar yesterday?". Onl
 - `GET /api/v1/today` → `{ today, first_day, slots, plan, people, waiting, tubs_left, tubs_left_more, use_soon_lots, use_soon_tubs, next_cook }`.
   - `slots`: the meals that are on, in order. `plan`: the same shape as `GET /plan`, from 7 days ago to 6 days ahead (a week from today; the meals, their items, and the batch cooks and tubs they use). `people`: as `GET /plan/people`.
   - `waiting`: planned meals on days before today, back 7 days (`WAITING_DAYS`), in a slot that is on, newest first (later meals of a day first): `{ meal_id, date, slot_id, leftover_item_id, use_by_fridge, use_by_freezer }`. `leftover_item_id` is the meal's first recipe (what "Any left over?" is about), or null when the meal has no recipe. The two dates are the use-by a new tub would get, from the meal's day.
-  - `tubs_left`: as `GET /plan/tubs-left` (up to 200; `tubs_left_more` says there are more). `use_soon_lots`: as `GET /pantry/use-soon`. `use_soon_tubs`: the tubs left whose use-by is within the household's Use soon days.
+  - `tubs_left`: as `GET /plan/tubs-left` (up to 200; `tubs_left_more` says there are more). `use_soon_lots`: as `GET /pantry/use-soon`. `use_soon_tubs`: as the `tubs` of `GET /pantry/use-soon` (F203): one row per batch and place, when its soonest tub is within the household's Use soon days or passed, with the batch's tubs in that place counted in it.
   - `next_cook`: the first batch cook from today on whose cook meal is still planned: `{ date, slot_id, meal_id, batch_id, recipe_name, tub_count }`, or null.
   - `first_day`: true when the household has no recipe (not removed), nothing in the pantry and no meal ever planned. The web app then shows "Your kitchen is ready".
   - The shopping list's "to buy" count and the "Did you buy 2?" cards come from the shopping list's own copy, as on Shopping.
@@ -622,7 +622,7 @@ What "Cooked it" would take from the pantry, and the confirm that takes it. The 
           "use_by": "2026-10-19", "days_left": 2, "use_soon": true,
           "running_low": false,
           "lots": [
-            { "id": 501, "stock": { "display": "200 g · 1 pack", "…": "…" }, "use_by": "2026-10-19", "days_left": 2, "use_soon": true, "added_on": "2026-10-12", "frozen_on": null, "size_id": 30, "open": false },
+            { "id": 501, "stock": { "display": "200 g · 1 pack", "…": "…" }, "use_by": "2026-10-19", "days_left": 2, "use_soon": true, "added_on": "2026-10-12", "how_added": "bought", "frozen_on": null, "size_id": 30, "open": false },
             { "id": 502, "…": "…" }
           ]
         }

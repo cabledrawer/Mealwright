@@ -57,7 +57,7 @@
   /** The soonest use-by; with none, "bought 20 Oct" (when the oldest packet went in). */
   const bought = $derived(
     !group.use_by && today && group.lots[0]?.added_on
-      ? boughtWords(group.lots[0].added_on, today)
+      ? boughtWords(group.lots[0].added_on, today, group.lots[0].how_added)
       : ''
   );
   /** "Use by Mon" · "best before 1 Nov" · red "Use by passed: don’t eat" · grey "Best before

@@ -56,9 +56,15 @@ export function useByWords(iso: string | null, daysLeft: number | null): string 
   return `use by ${words === 'Today' || words === 'Tomorrow' ? words.toLowerCase() : words}`;
 }
 
-/** "bought today", "bought yesterday", "bought Mon", "bought 20 Oct": on a row with no use-by (0.5). */
-export function boughtWords(iso: string, today: string): string {
-  return addedWords(iso, today).replace(/^added/, 'bought');
+/** "bought today", "bought yesterday", "bought Mon", "bought 20 Oct": on a row with no use-by (0.5).
+ * A lot found at home, typed in or counted in a stocktake says "found at home today", and so on
+ * (F201). */
+export function boughtWords(
+  iso: string,
+  today: string,
+  how: 'bought' | 'found' = 'bought'
+): string {
+  return addedWords(iso, today).replace(/^added/, how === 'found' ? 'found at home' : 'bought');
 }
 
 /** "added today", "added Mon", "added 3 Oct", from the household's today. */

@@ -18,6 +18,7 @@ export function lot(
     date_kind: 'use_by',
     use_soon: daysLeft !== null && daysLeft <= 2,
     added_on: '2026-10-12',
+    how_added: 'bought',
     frozen_on: null,
     size_id: null,
     open: false,
@@ -105,7 +106,9 @@ export function samplePantry() {
           group(7, 'Toor dal', 'about 750 g · 1½ packets', [
             lot('about 750 g · 1½ packets', null, null)
           ]),
-          group(41, 'Basmati rice', '300 g', [lot('300 g', null, null)], { running_low: true })
+          group(41, 'Basmati rice', '300 g', [lot('300 g', null, null, { how_added: 'found' })], {
+            running_low: true
+          })
         ]
       },
       { id: 4, name: 'Spice rack', kind: 'cupboard', items: 0, groups: [], tubs: [] }

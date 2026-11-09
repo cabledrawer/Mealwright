@@ -62,6 +62,9 @@ class PlaceRef(BaseModel):
     kind: Literal["fridge", "freezer", "cupboard"]
 
 
+# Changes whose new lots are not bought: typed in, counted in a stocktake, found at home.
+FOUND_KINDS = ("found", "added", "stocktake")
+
 DateKindName = Literal["use_by", "best_before"]
 
 
@@ -75,6 +78,9 @@ class LotOut(BaseModel):
     date_kind: DateKindName
     use_soon: bool
     added_on: date
+    # How it got here (F201): "found" for a lot typed in, counted in a stocktake or found at home
+    # while shopping; "bought" for the rest, and for anything the change record can't tell.
+    how_added: Literal["bought", "found"] = "bought"
     frozen_on: date | None
     size_id: int | None
     open: bool  # holds less than its size: show the ¼ ½ ¾ Full picker
@@ -190,6 +196,24 @@ class Pantry:
         self._usual: dict[int, FoodSize | None] = {}
         self._totals: dict[int, int] | None = None
         self._other_names: dict[int, list[str]] | None = None
+        self._found: set[int] | None = None
+
+    def found_lots(self) -> set[int]:
+        """The lots that came in as "found at home", from the change that made each one: a
+        change of a found kind with a line that took the lot from nothing (F201)."""
+        if self._found is None:
+            rows = self.kitchen.db.scalars(
+                select(ChangeLine.lot_id)
+                .join(Change, Change.id == ChangeLine.change_id)
+                .where(
+                    ChangeLine.household_id == self.kitchen.household_id,
+                    ChangeLine.lot_id.is_not(None),
+                    ChangeLine.amount_before_milli == 0,
+                    Change.kind.in_(FOUND_KINDS),
+                )
+            )
+            self._found = {lot_id for lot_id in rows if lot_id is not None}
+        return self._found
 
     def kind(self, food: Food) -> date_kinds.DateKind:
         """Use by or Best before for this ingredient."""
@@ -272,6 +296,7 @@ class Pantry:
             date_kind=kind,
             use_soon=self.is_soon(lot.use_by, kind),
             added_on=as_utc(lot.added_at).astimezone(zone(self.kitchen.household)).date(),
+            how_added="found" if lot.id in self.found_lots() else "bought",
             frozen_on=lot.frozen_on,
             size_id=lot.size_id,
             open=size is not None and 0 < lot.amount_milli < size.amount_milli,

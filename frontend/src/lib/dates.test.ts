@@ -65,6 +65,13 @@ describe('boughtWords (a pantry row with no use-by, cabledrawer 20 Oct)', () => 
     expect(boughtWords('2026-10-23', '2026-10-24')).toBe('bought yesterday');
     expect(boughtWords('2026-10-03', '2026-10-24')).toBe('bought 3 Oct');
   });
+
+  it('says "found at home" for stock that was found, typed in or counted (F201)', () => {
+    expect(boughtWords('2026-10-24', '2026-10-24', 'found')).toBe('found at home today');
+    expect(boughtWords('2026-10-23', '2026-10-24', 'found')).toBe('found at home yesterday');
+    expect(boughtWords('2026-10-20', '2026-10-24', 'found')).toBe('found at home Tue');
+    expect(boughtWords('2026-10-03', '2026-10-24', 'found')).toBe('found at home 3 Oct');
+  });
 });
 
 describe('Use by and Best before words (0.8, cabledrawer 7 Nov)', () => {

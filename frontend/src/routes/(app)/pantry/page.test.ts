@@ -402,6 +402,16 @@ describe('the Pantry page', () => {
     expect(spinach.textContent).not.toContain('bought');
   });
 
+  it('a row found at home says so, never "bought" (F201)', async () => {
+    await render(1300);
+    const rice = page
+      .getByRole('button', { name: /^Basmati rice/ })
+      .first()
+      .element();
+    expect(rice.textContent).toContain('found at home Mon');
+    expect(rice.textContent).not.toContain('bought');
+  });
+
   describe('searching the pantry', () => {
     /** The pantry as the server answers a search: only what matched. */
     function searchRoutes(query: string, keep: number[], matched: Record<number, string> = {}) {

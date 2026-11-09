@@ -50,6 +50,37 @@ def test_found_goes_into_the_pantry_as_found_not_bought(kitchen: TestClient) -> 
     assert t["place_id"] == s.places["Cupboard"]
 
 
+def _how_added(client: TestClient) -> dict[str, list[str]]:
+    """Each ingredient's lots in the Pantry, with how each one got there."""
+    out: dict[str, list[str]] = {}
+    for place in client.get(f"{API}/pantry").json()["places"]:
+        for group in place["groups"]:
+            out.setdefault(group["food"]["name"], []).extend(
+                lot["how_added"] for lot in group["lots"]
+            )
+    return out
+
+
+def test_a_lot_found_at_home_says_found_and_a_bought_one_says_bought(kitchen: TestClient) -> None:
+    """F201: the Pantry tells a lot found at home from a bought one, from the change that made it."""
+    s = s0(kitchen)
+    _found(kitchen, s, "Toor dal", 500, "Cupboard", size_id=s.sizes["Toor dal"])
+    tick(kitchen, s, "Milk")
+    typed = kitchen.post(
+        f"{API}/stock",
+        json={
+            "food_id": s.foods["Paneer"],
+            "place_id": s.places["Fridge"],
+            "amount": {"amount": 200, "unit": "g"},
+        },
+    )
+    assert typed.status_code == 201, typed.text
+    seen = _how_added(kitchen)
+    assert seen["Toor dal"] == ["found"]
+    assert seen["Milk"] == ["bought"]
+    assert seen["Paneer"] == ["found"]  # typed in: nobody bought it here
+
+
 def test_found_takes_only_what_is_at_home_not_the_list_amount(kitchen: TestClient) -> None:
     s = s0(kitchen)
     _found(kitchen, s, "Paneer", 100, "Fridge")
