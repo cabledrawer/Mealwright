@@ -529,14 +529,23 @@ export class ShoppingModel {
    * The packet sizes picked in "Pantry keeps it by" go inside it (`new_food.sizes`), so it
    * works offline too.
    */
-  async addNew(chosen: Chosen, amount?: { amount: number; sizeId: number | null }) {
+  async addNew(
+    chosen: Chosen,
+    amount?: { amount: number; sizeId: number | null },
+    /** "Add as bought" for a brand-new name (F196): an add and a tick, one Undo for both. */
+    bought = false
+  ) {
     const list = this.list;
     if (!list) return null;
-    const outcome = await this.#act(
+    const itemId = newChangeId();
+    let addQueued: Promise<string> | undefined;
+    let queued: ((actionId: string) => void) | undefined;
+    if (bought) addQueued = new Promise<string>((resolve) => (queued = resolve));
+    const outcome = this.#act(
       {
         kind: 'add',
         list_id: list.id,
-        item_id: newChangeId(),
+        item_id: itemId,
         ...(amount ? { amount: amount.amount, size_id: amount.sizeId } : {}),
         new_food: {
           name: chosen.name,
@@ -554,9 +563,15 @@ export class ShoppingModel {
       },
       {
         label: `${chosen.name} added`,
-        saved: () => kitchen.changed()
+        saved: () => kitchen.changed(),
+        ...(queued ? { quiet: true, queued } : {})
       }
     );
+    if (addQueued) {
+      const addId = await addQueued;
+      const line = this.item(itemId);
+      if (line) void this.tick(line, addId);
+    }
     return outcome;
   }
 

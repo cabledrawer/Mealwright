@@ -66,7 +66,7 @@ test('slow phone: ticking an item shows it ticked at once', async ({ page }) => 
   const server = hold(page, /\/api\/v1\/shopping\/actions/, ['POST']);
   await tick.click();
   // The list has let go of it and says so with an Undo toast, before the server has said anything.
-  await expect(page.getByRole('status').filter({ hasText: `${name} ticked` })).toBeVisible({
+  await expect(page.getByRole('status').filter({ hasText: `${name} → Cupboard` })).toBeVisible({
     timeout: STRAIGHT_AWAY,
   });
   await expect(tick).toHaveCount(0);

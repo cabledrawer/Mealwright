@@ -257,17 +257,19 @@
     void model.add(food);
   }
 
-  async function create() {
+  async function create(asBought = false) {
     if (busy) return;
     busy = true;
     try {
-      await createNow();
+      await createNow(asBought);
     } finally {
       busy = false;
     }
   }
 
-  async function createNow() {
+  /** `asBought`: "Add as bought" for a brand-new name (F196): the same questions, then it is
+   * added and ticked in one go, offline too. */
+  async function createNow(asBought: boolean) {
     if (zeroTyped()) return; // never a new item called "0 g butter"
     const name = typed;
     const typedAmount = split?.amountText;
@@ -286,11 +288,11 @@
     if (!amount && chosen.counted_as === 'count' && !chosen.staple && !chosen.sizes.length) {
       howMany = {
         name: chosen.name,
-        run: (n) => void model.addNew(chosen, { amount: n, sizeId: null })
+        run: (n) => void model.addNew(chosen, { amount: n, sizeId: null }, asBought)
       };
       return;
     }
-    void model.addNew(chosen, amount ?? undefined);
+    void model.addNew(chosen, amount ?? undefined, asBought);
   }
 
   function submit(event: SubmitEvent) {
@@ -386,6 +388,11 @@
       <li>
         <button type="button" class="new" onclick={() => void create()}>
           + New ingredient: “{typed}”
+        </button>
+      </li>
+      <li>
+        <button type="button" class="new" onclick={() => void create(true)}>
+          + New ingredient, as bought: “{typed}”
         </button>
       </li>
     {/if}

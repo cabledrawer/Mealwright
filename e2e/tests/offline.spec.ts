@@ -160,12 +160,13 @@ test('offline: a tick offers Undo at once; Undo is queued after it, and the serv
 
   await context.setOffline(true);
   await page.getByRole('checkbox', { name: `Tick ${name}` }).click();
-  // No usual place yet, so the toast says it's ticked; Change and Undo are there at once.
-  const toast = page.getByRole('status').filter({ hasText: `${name} ticked` });
+  // No usual place: the phone says where the server will put it, the first Cupboard (F199); Change
+  // and Undo are there at once.
+  const toast = page.getByRole('status').filter({ hasText: `${name} → Cupboard` });
   await expect(toast).toBeVisible();
   await expect(toast.getByRole('button', { name: 'Change' })).toBeVisible();
   await toast.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(page.getByRole('status').filter({ hasText: `Undone: ${name} ticked` })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: `Undone: ${name} → Cupboard` })).toBeVisible();
   await expect(bar(page)).toContainText(waitingText(page, 2), { timeout: 10_000 });
   await expect(page.getByRole('checkbox', { name: `Tick ${name}` })).not.toBeChecked();
 
@@ -239,6 +240,49 @@ test('F130: offline, a new item name asks Pantry keeps it by, adds at once, and 
   const { foods } = await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(name)}`)).json();
   expect(foods.filter((f: { name: string; counted_as: string }) => f.name === name)).toHaveLength(1);
   expect(foods.find((f: { name: string }) => f.name === name).counted_as).toBe('count');
+});
+
+test('F196: offline, a brand-new name can be added as bought in one go: an add and a tick, one ingredient made when the server is back', async ({
+  page,
+  context,
+}) => {
+  const name = `Quince ${tag()}`;
+  await signIn(page);
+  await start(page);
+
+  await context.setOffline(true);
+  await page.getByRole('textbox', { name: 'Add an item' }).fill(name);
+  await page.getByRole('button', { name: `+ New ingredient, as bought: “${name}”` }).click();
+  const dialog = page.getByRole('dialog', { name: 'Pantry keeps it by' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('radio', { name: /One by one/ }).click();
+  await dialog.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByRole('group', { name: `How many ${name}` }).getByRole('button', { name: '2', exact: true }).click();
+  // Not left on the list to buy: it is in the trolley, ticked, with its place on the row.
+  await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+  // (On a phone the trolley is a fold; on a computer it is a panel that is always open.)
+  const fold = page.getByRole('button', { name: /^In the trolley/ });
+  if (await fold.count()) {
+    if ((await fold.first().getAttribute('aria-expanded')) === 'false') await fold.first().click();
+  }
+  await expect(page.getByRole('checkbox', { name: `Untick ${name}` })).toBeVisible();
+  await expect(page.getByRole('button', { name: `Change where ${name} went` })).toHaveText(/→ \w/);
+  await expect(bar(page)).toContainText(waitingText(page, 2), { timeout: 10_000 });
+
+  await context.setOffline(false);
+  await expect(page.getByRole('status').filter({ hasText: 'Back online — all saved' })).toBeVisible({
+    timeout: 15_000,
+  });
+  const lines = (await serverItems(page)).filter((i) => i.food.name === name);
+  expect(lines).toHaveLength(1);
+  const { foods } = await (await page.request.get(`/api/v1/foods?q=${encodeURIComponent(name)}`)).json();
+  expect(foods.filter((f: { name: string }) => f.name === name)).toHaveLength(1);
+  const pantry = await (await page.request.get('/api/v1/pantry')).json();
+  const inPantry = pantry.places.flatMap((p: { groups: { food: { name: string }; stock: { amount: number } }[] }) =>
+    p.groups.filter((g) => g.food.name === name).map((g) => g.stock.amount),
+  );
+  expect(inPantry).toEqual([2]);
 });
 
 test('F62: offline, ticking a line with no amount still asks How much?, and the answer is a second queued change', async ({
