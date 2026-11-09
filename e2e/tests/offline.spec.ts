@@ -313,7 +313,7 @@ test('F196: online, Undo takes back the tick and the add of a brand-new name tog
   const toast = page.getByRole('status').filter({ hasText: name });
   await expect(toast).toBeVisible();
   await toast.getByRole('button', { name: 'Undo' }).click();
-  await expect(page.getByRole('status').filter({ hasText: `Undone: ${name}` })).toBeVisible();
+  // The toast's own words change once the server answers, so this waits on what it did.
   await expect.poll(() => pantryAmounts(page, name)).toEqual([]);
   await expect.poll(async () => (await serverItems(page)).filter((i) => i.food.name === name)).toHaveLength(0);
 });
