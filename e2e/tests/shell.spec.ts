@@ -293,87 +293,97 @@ test.describe('theme', () => {
   // cabledrawer 9 Nov (PR 153 review): the most recent pick wins, online or offline, including
   // straight after a reload. These two stop the save on its way (the server can't be reached, or
   // only the save fails) so the account still holds the older choice when the page reloads.
-  for (const [name, glob, method] of [
-    ['the server can’t be reached', '**/api/v1/**', null],
-    ['the save hasn’t landed yet', '**/api/v1/me/preferences', 'PUT'],
-  ] as const) {
-    test(`a pick stays over a reload, and reaches the account when it can (${name})`, async ({
+  test.describe('the account is out of reach', () => {
+    // A service worker's requests skip page.route in WebKit, so the save would get through.
+    test.use({ serviceWorkers: 'block' });
+
+    for (const [name, glob, method] of [
+      ['the server can’t be reached', '**/api/v1/**', null],
+      ['the save hasn’t landed yet', '**/api/v1/me/preferences', 'PUT'],
+    ] as const) {
+      test(`a pick stays over a reload, and reaches the account when it can (${name})`, async ({
+        page,
+      }) => {
+        // The app notices the server is back on its own timer (every few seconds), so this takes a while.
+        test.setTimeout(90_000);
+        await page.goto('/');
+        let group = await themeControls(page);
+        await group.getByRole('button', { name: 'Light' }).click();
+        await savedToAccount(page, 'light');
+
+        // The reverse proxy answering 503 is "can't reach the server" (WebKit lets an aborted request through).
+        const stop = (route: Route) =>
+          !method || route.request().method() === method
+            ? route.fulfill({ status: 503, contentType: 'text/plain', body: 'Service Unavailable' })
+            : route.continue();
+        await page.route(glob, stop);
+        await group.getByRole('button', { name: 'Dark' }).click();
+        await expect.poll(() => ground(page)).toBe(GROUND.dark);
+
+        // The account still says Light; the page is reloaded and asks it.
+        await page.reload();
+        group = await themeControls(page);
+        await expect(group.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
+        expect(await ground(page)).toBe(GROUND.dark);
+        const account = async () =>
+          ((await (await page.request.get('/api/v1/me')).json()) as { theme: string }).theme;
+        expect(await account()).toBe('light');
+
+        // Back: the pick is sent (the app notices by itself within a few seconds), then it stays.
+        await page.unroute(glob, stop);
+        await expect.poll(account, { timeout: 30_000 }).toBe('dark');
+        await page.reload();
+        group = await themeControls(page);
+        await expect(group.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
+
+        await group.getByRole('button', { name: 'Auto' }).click();
+        await savedToAccount(page, 'auto');
+      });
+    }
+
+    test('a slower server answer at start-up never undoes a theme picked after the app opened', async ({
       page,
     }) => {
+      // cabledrawer 8 Nov: the person's most recent theme choice always wins (full check 3 on 8 Nov).
+      await page.emulateMedia({ colorScheme: 'dark' });
       await page.goto('/');
-      let group = await themeControls(page);
-      await group.getByRole('button', { name: 'Light' }).click();
+      await (await themeControls(page)).getByRole('button', { name: 'Light' }).click();
+      await expect.poll(() => ground(page)).toBe(GROUND.light);
       await savedToAccount(page, 'light');
 
-      const stop = (route: Route) =>
-        !method || route.request().method() === method ? route.abort('connectionrefused') : route.continue();
-      await page.route(glob, stop);
-      await group.getByRole('button', { name: 'Dark' }).click();
+      // A busy server: it reads who is signed in (theme Light) at once, but its answer only
+      // arrives after the person has picked Auto (the app opens from this device meanwhile).
+      let release!: () => void;
+      const picked = new Promise<void>((done) => (release = done));
+      let held = false;
+      await page.route('**/api/v1/me', async (route) => {
+        if (held || route.request().method() !== 'GET') return route.continue();
+        held = true;
+        const response = await route.fetch();
+        await picked;
+        await route.fulfill({ response });
+      });
+      const late = page.waitForResponse(
+        (r) => r.url().endsWith('/api/v1/me') && r.request().method() === 'GET',
+      );
+      await page.reload();
+      const group = isPhone(page)
+        ? page.locator('main').getByRole('group', { name: 'Theme' })
+        : page.getByRole('complementary', { name: 'Sidebar' }).getByRole('group', { name: 'Theme' });
+      await group.getByRole('button', { name: 'Auto' }).click();
       await expect.poll(() => ground(page)).toBe(GROUND.dark);
 
-      // The account still says Light; the page is reloaded and asks it.
-      await page.reload();
-      group = await themeControls(page);
-      await expect(group.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
-      expect(await ground(page)).toBe(GROUND.dark);
-      const account = async () =>
-        ((await (await page.request.get('/api/v1/me')).json()) as { theme: string }).theme;
-      expect(await account()).toBe('light');
-
-      // Back: the pick is sent (the app notices by itself within a few seconds), then it stays.
-      await page.unroute(glob, stop);
-      await expect.poll(account, { timeout: 30_000 }).toBe('dark');
-      await page.reload();
-      group = await themeControls(page);
-      await expect(group.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
-
-      await group.getByRole('button', { name: 'Auto' }).click();
+      // The app asks for the shopping list only once it has acted on the server's answer (the
+      // lists are held back until then): that request is the sign the late answer was acted on.
+      const listAsked = page.waitForRequest((r) => r.url().includes('/api/v1/shopping/changes'));
+      await page.getByRole('link', { name: isPhone(page) ? 'Shop' : 'Shopping' }).first().click();
+      release();
+      await late;
+      await listAsked;
+      expect(await ground(page), 'still the Auto the person picked').toBe(GROUND.dark);
+      expect(await page.evaluate(() => document.documentElement.dataset.themeChoice)).toBe('auto');
       await savedToAccount(page, 'auto');
     });
-  }
-
-  test('a slower server answer at start-up never undoes a theme picked after the app opened', async ({
-    page,
-  }) => {
-    // cabledrawer 8 Nov: the person's most recent theme choice always wins (full check 3 on 8 Nov).
-    await page.emulateMedia({ colorScheme: 'dark' });
-    await page.goto('/');
-    await (await themeControls(page)).getByRole('button', { name: 'Light' }).click();
-    await expect.poll(() => ground(page)).toBe(GROUND.light);
-    await savedToAccount(page, 'light');
-
-    // A busy server: it reads who is signed in (theme Light) at once, but its answer only
-    // arrives after the person has picked Auto (the app opens from this device meanwhile).
-    let release!: () => void;
-    const picked = new Promise<void>((done) => (release = done));
-    let held = false;
-    await page.route('**/api/v1/me', async (route) => {
-      if (held || route.request().method() !== 'GET') return route.continue();
-      held = true;
-      const response = await route.fetch();
-      await picked;
-      await route.fulfill({ response });
-    });
-    const late = page.waitForResponse(
-      (r) => r.url().endsWith('/api/v1/me') && r.request().method() === 'GET',
-    );
-    await page.reload();
-    const group = isPhone(page)
-      ? page.locator('main').getByRole('group', { name: 'Theme' })
-      : page.getByRole('complementary', { name: 'Sidebar' }).getByRole('group', { name: 'Theme' });
-    await group.getByRole('button', { name: 'Auto' }).click();
-    await expect.poll(() => ground(page)).toBe(GROUND.dark);
-
-    // The app asks for the shopping list only once it has acted on the server's answer (the
-    // lists are held back until then): that request is the sign the late answer was acted on.
-    const listAsked = page.waitForRequest((r) => r.url().includes('/api/v1/shopping/changes'));
-    await page.getByRole('link', { name: isPhone(page) ? 'Shop' : 'Shopping' }).first().click();
-    release();
-    await late;
-    await listAsked;
-    expect(await ground(page), 'still the Auto the person picked').toBe(GROUND.dark);
-    expect(await page.evaluate(() => document.documentElement.dataset.themeChoice)).toBe('auto');
-    await savedToAccount(page, 'auto');
   });
 
   test('the dark theme is its own palette, not inverted colours', async ({ page }) => {
