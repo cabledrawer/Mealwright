@@ -98,3 +98,23 @@ describe('manyOf (F197)', () => {
     expect(manyOf('Peach')).toBe('peaches');
   });
 });
+
+// The same list is in backend/tests/test_amounts.py (SHARED_PLURALS): the server and the screen
+// make the plural of a counted ingredient's name by one rule, so the two lists must not drift.
+describe('manyOf, the list shared with the server', () => {
+  it.each([
+    ['Lemon', 'lemons'],
+    ['Potato', 'potatoes'],
+    ['Tomato', 'tomatoes'],
+    ['Leaf', 'leaves'],
+    ['Loaf', 'loaves'],
+    ['Fish', 'fish'],
+    ['Cherry', 'cherries'],
+    ['Peach', 'peaches'],
+    ['Glass', 'glasses'],
+    ['Red onion', 'red onions'],
+    ['Eggs', 'eggs']
+  ])('%s → %s', (name, many) => {
+    expect(manyOf(name)).toBe(many);
+  });
+});

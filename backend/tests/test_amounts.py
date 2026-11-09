@@ -265,6 +265,33 @@ def test_counted_name_is_plural_for_more_than_one() -> None:
     assert counted_name("Lemon", 1_000) == "lemon"
     assert counted_name("Onion", 500) == "onion"
     assert counted_name("Onion", 1_500) == "onions"
+    # By the number shown, to the nearest ½ (count_text): 1.2 reads "1", 1.3 reads "1½".
+    assert counted_name("Onion", 1_200) == "onion"
+    assert counted_name("Onion", 1_300) == "onions"
+    assert counted_name("Onion", 0) == "onions"
+    assert counted_name("Onion", 2_000) == "onions"
     assert counted_name("Eggs", 6_000) == "eggs"
     assert counted_name("Chilli", 3_000) == "chillis"
     assert counted_name("Mango", 3_000) == "mangos"
+
+
+# The same list is in frontend/src/lib/amountText.test.ts: the server and the screen make the
+# plural of a counted ingredient's name by one rule, so the two lists must not drift.
+SHARED_PLURALS = [
+    ("Lemon", "lemons"),
+    ("Potato", "potatoes"),
+    ("Tomato", "tomatoes"),
+    ("Leaf", "leaves"),
+    ("Loaf", "loaves"),
+    ("Fish", "fish"),
+    ("Cherry", "cherries"),
+    ("Peach", "peaches"),
+    ("Glass", "glasses"),
+    ("Red onion", "red onions"),
+    ("Eggs", "eggs"),
+]
+
+
+def test_counted_name_matches_the_screens_list() -> None:
+    for name, many in SHARED_PLURALS:
+        assert counted_name(name, 2_000) == many
