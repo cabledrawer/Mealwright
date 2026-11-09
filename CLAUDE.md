@@ -12,7 +12,7 @@ Self-hosted meal-prep and pantry app: recipe → plan → shopping list → pant
 ## Helpers, skills and hooks (cabledrawer 25 Oct)
 
 - Saved helper types in `.claude/agents/`: `checker` (Sonnet), `security-checker` (Opus, high effort) and `builder` (Sonnet). Each has its model and tools fixed.
-- Skills in `.claude/skills/`: `checker-brief` (how to brief a checker), `security-review` (the security pass), `pr-open` (check, push, open a PR) and `release-pr` (a version's release PR). Follow them instead of writing those steps out each time.
+- Skills in `.claude/skills/`: `checker-brief` (how to brief a checker), `security-review` (the security pass), `pr-open` (check, push, open a PR), `release-pr` (a version's release PR) and `lead-rules` (the lead's working rules: read at the start of every lead session; cabledrawer 9 Nov). Follow them instead of writing those steps out each time.
 - A hook formats and lints each file Claude edits (ruff for `backend/`, Prettier and ESLint for `frontend/`), offline, and reports lint problems back to fix.
 
 ## The ethos (never break these)
