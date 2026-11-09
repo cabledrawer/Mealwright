@@ -85,7 +85,7 @@ test('Add a pack offers common sizes, and a tap makes one the Usual size', async
   // F179: the toast keeps its one wording once the server has answered (it used to change from
   // "added pack · 500 g" to "added Pack = 500 g" while showing).
   const toast = page.getByRole('status').filter({ hasText: `${name}: added` });
-  await expect(toast).toHaveText(new RegExp(`${name}: added pack · 500 g`));
+  await expect(toast).toContainText(`${name}: added pack · 500 g`);
   await expect(toast).not.toContainText('=');
 });
 

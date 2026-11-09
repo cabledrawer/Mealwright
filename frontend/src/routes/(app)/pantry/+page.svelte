@@ -160,6 +160,12 @@
   /** While there's a search: one list of what it found, whatever column or card is showing. */
   const searching = $derived(model.searched !== '');
   const found = $derived(searching ? searchResults(places, model.matches) : []);
+  const itemsText = $derived(
+    pantry
+      ? `${pantry.counts.items} ${pantry.counts.items === 1 ? 'ingredient' : 'ingredients'}`
+      : ''
+  );
+  const soonText = $derived(pantry?.counts.use_soon ? `${pantry.counts.use_soon} use soon` : '');
   const summary = $derived(
     pantry
       ? [
@@ -236,10 +242,29 @@
 
 <svelte:document onvisibilitychange={onVisible} />
 
-<PageHeader title="Pantry" overline={summary}>
+<!-- The phone's count line (F194, mockup Dark-PantryHead08-Phone): the count on its own line under
+     the title, Stocktake at its right, dropping under it when the line is too narrow. -->
+{#snippet countLine()}
+  <div class="count-line">
+    {#if pantry}
+      <span class="summary"
+        >{itemsText}{#if soonText}{' · '}<span class="soon">{soonText}</span>{/if}</span
+      >
+    {/if}
+    <a class="stocktake-pill" href={resolve('/(app)/pantry/stocktake')}>Stocktake</a>
+  </div>
+{/snippet}
+
+<PageHeader
+  title="Pantry"
+  overline={phone ? undefined : summary}
+  count={phone ? countLine : undefined}
+>
   {#snippet actions()}
     <!-- The Stocktake (F118): place by place, in its own screen. -->
-    <a class="stocktake-pill" href={resolve('/(app)/pantry/stocktake')}>Stocktake</a>
+    {#if !phone}
+      <a class="stocktake-pill" href={resolve('/(app)/pantry/stocktake')}>Stocktake</a>
+    {/if}
     <!-- Adding needs the server: offline the button stays, and a tap says why (cabledrawer 18 Oct). -->
     {#if phone}
       <button type="button" class="add-round" aria-label="Add to pantry" onclick={addClicked}
@@ -566,6 +591,25 @@
     background: var(--color-inverse);
     color: var(--color-inverse-text);
     cursor: pointer;
+  }
+
+  .count-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  .summary {
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
+    font-weight: var(--weight-medium);
+  }
+
+  .soon {
+    color: var(--color-use-soon-text);
+    font-weight: var(--weight-bold);
   }
 
   .stocktake-pill {

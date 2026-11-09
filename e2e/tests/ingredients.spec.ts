@@ -247,3 +247,23 @@ test('F191: below the width where the editor fits beside the list it opens in vi
   await expect(beside()).toBeInViewport();
   await expect(editor()).toHaveCount(0);
 });
+
+test('F194: on the phone the Ingredients count line has its own full-width line under the title row', async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone's header");
+  await page.goto('/recipes/ingredients');
+  const header = page.locator('header.page-header');
+  const title = header.getByRole('heading', { level: 1, name: 'Ingredients' });
+  const add = header.getByRole('button', { name: 'New ingredient', exact: true });
+  const count = header.getByText(/\d+ ingredients? · shared by recipes, pantry and shopping/);
+  await expect(count).toBeVisible();
+  const box = async (locator: typeof title) => (await locator.boundingBox())!;
+  const titleBox = await box(title);
+  const addBox = await box(add);
+  const countBox = await box(count);
+  // The + stays level with the title; the count sits below the whole row, as wide as the header.
+  expect(addBox.y).toBeLessThan(titleBox.y + titleBox.height);
+  expect(countBox.y).toBeGreaterThanOrEqual(Math.max(titleBox.y + titleBox.height, addBox.y + addBox.height) - 1);
+  expect(countBox.width).toBeGreaterThan(page.viewportSize()!.width * 0.7);
+});

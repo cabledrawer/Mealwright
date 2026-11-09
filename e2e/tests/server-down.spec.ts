@@ -214,7 +214,9 @@ for (const screen of [
   { name: 'Settings', path: '/settings', shows: /Appearance/ },
 ] as const) {
   test(`${screen.name} already showing stays when the server stops`, async ({ page }) => {
-    await page.goto(screen.path);
+    // The phone's Settings is a list with each section on its own page (F193): Amounts' own page
+    // has the pint switch the test looks for.
+    await page.goto(screen.name === 'Settings' && isPhone(page) ? `${screen.path}?section=amounts` : screen.path);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await page.waitForLoadState('networkidle');
     await page.route('**/api/**', proxyGap);
@@ -224,7 +226,7 @@ for (const screen of [
     await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     if (screen.name === 'Settings') {
-      await expect(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: isPhone(page) ? 'Amounts' : 'Appearance' })).toBeVisible();
       await expect(page.getByRole('switch', { name: /pints/i })).toBeDisabled();
     }
   });

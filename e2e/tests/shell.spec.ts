@@ -158,11 +158,13 @@ test('pages never scroll sideways', async ({ page }) => {
 
 test('on phones every button and link is at least 44 px', async ({ page }) => {
   test.skip(!isPhone(page), 'touch targets are a phone rule');
-  for (const path of ['/', '/settings']) {
+  for (const path of ['/', '/settings', '/settings?section=amounts', '/settings?section=appearance']) {
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    // Settings' Amounts arrives after the heading; wait for it, so it is always measured.
-    if (path === '/settings') await expect(page.getByRole('heading', { name: 'Amounts' })).toBeVisible();
+    // Settings' Amounts arrives after the heading; wait for it, so it is always measured (its row
+    // on the list, its switch on its own page).
+    if (path === '/settings') await expect(page.getByRole('link', { name: /^Amounts/ })).toBeVisible();
+    if (path === '/settings?section=amounts') await expect(page.getByRole('switch', { name: /pints/i })).toBeVisible();
     // The shared check: it counts a switch's larger invisible touch area (the pint switch in
     // Settings), which measuring the visible box alone missed whenever Amounts had loaded.
     await expectTouchTargets(page);
@@ -239,6 +241,9 @@ test.describe('theme', () => {
       // Phones find the theme switch in Settings, behind the round button at the top.
       await page.getByRole('link', { name: 'Settings' }).first().click();
       await expect(page.getByRole('heading', { level: 1 })).toHaveText('Settings');
+      // The phone's Settings is a list of sections (F193): Appearance has the switch.
+      await page.getByRole('link', { name: /^Appearance/ }).click();
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText('Appearance');
       return page.locator('main').getByRole('group', { name: 'Theme' });
     }
     return page.getByRole('complementary', { name: 'Sidebar' }).getByRole('group', {

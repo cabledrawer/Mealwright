@@ -571,7 +571,7 @@ test('after Undo of Cooked it, Cook mode from the same meal ends with Back and C
   await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
   await expect(review).toHaveCount(0);
   // Undo it from Settings → Recent changes (the toast is gone once Cook mode has left).
-  await page.goto('/settings');
+  await page.goto('/settings?section=recent-changes');
   const undo = page.getByRole('region', { name: 'Recent changes' }).getByRole('button', { name: new RegExp(`^Undo: Cooked ${name} \\(\\d+ portions?\\)`) });
   await undo.click();
   await expect(page.getByRole('status')).toContainText(`Undone: Cooked ${name}`);
@@ -831,7 +831,7 @@ test('F157: cooking one recipe of a meal cooks only it; the meal is Cooked when 
     expect((await flags()).status).toBe('cooked');
 
     // Recent changes names each press on its own; the Undo of the first puts back only the soup.
-    await page.goto('/settings');
+    await page.goto('/settings?section=recent-changes');
     const recent = page.getByRole('region', { name: 'Recent changes' });
     // (One Cooked it is one row, the pantry's with the portions; the plan's own line is folded into it.)
     await expect(recent.getByRole('button', { name: new RegExp(`^Undo: Cooked ${khichdi.name} \\(\\d+ portions?\\)`) })).toHaveCount(1);

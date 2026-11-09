@@ -13,12 +13,21 @@
     title,
     overline,
     subtitle,
+    count,
     parent,
     actions
   }: {
     title: string;
     overline?: string;
     subtitle?: string;
+    /**
+     * The count line on the phone (F194, cabledrawer 9 Nov; mockups Dark-IngredientsHead08-Phone and
+     * Dark-PantryHead08-Phone): the title row holds only the title and its round buttons, and
+     * this goes on its own full-width line under it, so nothing squeezes it or the buttons. What
+     * it holds is the page's own (Pantry's has Stocktake on the right, dropping under it when
+     * the line is too narrow). Leave it out where the page has none.
+     */
+    count?: Snippet;
     /** The page this one sits under. */
     parent?: {
       href: '/(app)/recipes' | '/(app)/recipes/drafts' | '/(app)/settings';
@@ -33,7 +42,7 @@
   <title>{title} · Mealwright</title>
 </svelte:head>
 
-<header class="page-header">
+<header class="page-header" class:has-count={!!count}>
   <div class="titles">
     {#if parent}
       <a class="back" href={resolve(parent.href)}>
@@ -59,6 +68,7 @@
     <span class="avatar" aria-hidden="true">{initial(session.me?.name ?? '')}</span>
     <span class="cog" aria-hidden="true"><Icon name="cog" size={22} stroke={2} /></span>
   </a>
+  {#if count}<div class="count">{@render count()}</div>{/if}
 </header>
 
 <style>
@@ -67,6 +77,27 @@
     justify-content: space-between;
     align-items: flex-end;
     gap: var(--space-6);
+  }
+
+  /* With a count line: the title row is the first line (the title takes what the buttons leave, as
+     before) and the count is its own full-width line under it. */
+  .page-header.has-count {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    row-gap: var(--space-3);
+  }
+
+  .has-count .actions {
+    grid-column: 2;
+  }
+
+  .has-count .settings {
+    grid-column: 3;
+  }
+
+  .count {
+    grid-column: 1 / -1;
+    min-width: 0;
   }
 
   .titles {

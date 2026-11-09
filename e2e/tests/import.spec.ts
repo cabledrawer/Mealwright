@@ -383,7 +383,7 @@ test('F144: an import is undone from Settings → Recent changes once its toast 
   await page.mouse.move(0, 0); // a toast under the pointer waits; move it away
   await expect(undo).toBeHidden({ timeout: 15_000 }); // let the toast go
   // The import is in Settings → Recent changes (F172: the only place), on a phone and a computer.
-  await page.goto('/settings');
+  await page.goto('/settings?section=recent-changes');
   const recent = page.getByRole('region', { name: 'Recent changes' });
   await expect(recent.getByText(`Imported ${title}`, { exact: false })).toBeVisible();
   await recent.getByRole('button', { name: new RegExp(`^Undo: Imported ${title}`) }).click();

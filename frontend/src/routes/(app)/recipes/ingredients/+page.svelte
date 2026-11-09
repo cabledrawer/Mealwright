@@ -150,6 +150,13 @@
     return '';
   }
 
+  /** "121 ingredients · shared by recipes, pantry and shopping", once the list has loaded. */
+  const countText = $derived(
+    list.loaded && !list.problem
+      ? `${list.counts.all} ${list.counts.all === 1 ? 'ingredient' : 'ingredients'} · ${desktop ? 'shared by your recipes, pantry and shopping list' : 'shared by recipes, pantry and shopping'}`
+      : ''
+  );
+
   function open(food: FoodRow) {
     // Editing needs the server: while it is down, say so instead of opening an editor.
     if (network.offline) {
@@ -216,12 +223,17 @@
 
 <svelte:document onvisibilitychange={onVisible} />
 
+<!-- The count line (F194): beside the title on a computer, on its own full-width line on the phone,
+     so the buttons don't squeeze it. -->
+{#snippet countLine()}
+  <p class="count-line">{countText}</p>
+{/snippet}
+
 <PageHeader
   title="Ingredients"
   parent={fromPantry ? undefined : { href: '/(app)/recipes', label: 'Recipes' }}
-  subtitle={list.loaded && !list.problem
-    ? `${list.counts.all} ${list.counts.all === 1 ? 'ingredient' : 'ingredients'} · ${desktop ? 'shared by your recipes, pantry and shopping list' : 'shared by recipes, pantry and shopping'}`
-    : undefined}
+  subtitle={desktop ? countText : undefined}
+  count={!desktop && countText ? countLine : undefined}
 >
   {#snippet actions()}
     {#if !network.offline}
@@ -419,6 +431,12 @@
 {/if}
 
 <style>
+  .count-line {
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
+    font-weight: var(--weight-medium);
+  }
+
   .new-round {
     display: grid;
     place-items: center;

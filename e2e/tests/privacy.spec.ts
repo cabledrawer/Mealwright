@@ -1,5 +1,5 @@
 import { test, expect, type Page } from './clock.ts';
-import { checkPage, expectNoSidewaysScroll, setAccountTheme } from './a11y.ts';
+import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 
 // Settings → Privacy (0.5 PR 4): the switches for outside connections and "Your own network",
 // against the real server, signed in as the test admin. A member (who sees the same page and
@@ -41,7 +41,11 @@ test('Settings leads to Privacy, which starts with everything off, and passes th
   page,
 }) => {
   await page.goto('/settings');
-  await page.getByRole('link', { name: /Outside connections/ }).click();
+  // A computer's Settings has the Privacy section with this link in it; the phone's list has a
+  // Privacy row that goes straight to the page (F193).
+  await page
+    .getByRole('link', { name: isPhone(page) ? /^Privacy/ : /Outside connections/ })
+    .click();
   await expect(page).toHaveURL('/settings/privacy');
   await expect(page.getByRole('heading', { level: 1, name: 'Privacy' })).toBeVisible();
   await expect(page.getByText('Nothing leaves this server unless you switch it on.')).toBeVisible();

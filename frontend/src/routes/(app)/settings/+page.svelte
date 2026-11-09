@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import { resolve } from '$app/paths';
   import Button from '#lib/components/Button.svelte';
   import Icon from '#lib/components/Icon.svelte';
@@ -10,11 +11,15 @@
   import ThemeSwitch from '#lib/components/ThemeSwitch.svelte';
   import { ApiError, cantReach } from '#lib/api.js';
   import { nothingChanged } from '#lib/downWords.js';
+  import { getShops, getPlaces } from '#lib/client/foods.js';
   import { changePints, getHousehold } from '#lib/client/household.js';
+  import { getMealSlots } from '#lib/client/plan.js';
   import { checkMode, type CheckMode } from '#lib/checkMode.svelte.js';
   import type { Pints } from '#lib/client/types.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
+  import { privacy } from '#lib/privacy.svelte.js';
+  import { THEME_LABELS, theme } from '#lib/theme.svelte.js';
   import {
     cantCheckText,
     loseOnSignOutText,
@@ -26,8 +31,10 @@
   import { VERSION_WORDS } from '#lib/version.js';
   import { session } from '#lib/session.svelte.js';
   import MealSlots from './MealSlots.svelte';
+  import PhoneList from './PhoneList.svelte';
   import RecentSection from './RecentSection.svelte';
   import ShopsPlaces from './ShopsPlaces.svelte';
+  import type { Group } from './sectionIcons.js';
 
   // Who is shown stays put while signing out (session.me goes first).
   const who = untrack(() => session.me);
@@ -102,6 +109,126 @@
   );
   let current = $state('appearance');
 
+  // --- The phone (F193, cabledrawer 9 Nov, option B; mockups Dark-Settings08-Phone and
+  // Dark-SettingsSlots08-Phone): a grouped list, and each section on its own page ("?section=…",
+  // or the "#…" an older link ends with), with "‹ Settings" to come back. The computer keeps its
+  // list of sections beside all of them, and goes to the section a link names.
+  let phone = $state(matchMedia('(max-width: 767px)').matches);
+  $effect(() => {
+    const media = matchMedia('(max-width: 767px)');
+    const onChange = () => (phone = media.matches);
+    media.addEventListener('change', onChange);
+    return () => media.removeEventListener('change', onChange);
+  });
+
+  /** The section a link asks for, if it is one shown to this person. */
+  const asked = $derived.by(() => {
+    const id = page.url.searchParams.get('section') ?? page.url.hash.slice(1);
+    return SECTIONS.find((section) => section.id === id)?.id ?? null;
+  });
+  /** On the phone, the one section that has the page (null: the list). */
+  const only = $derived(phone ? asked : null);
+  /** A section is drawn on a computer always, on the phone only when it has the page. */
+  const showing = (id: string) => !phone || only === id;
+  const heading = $derived(SECTIONS.find((section) => section.id === only)?.label);
+
+  // What the list's rows show (proposed, for cabledrawer: the words under "Settings" in the mockup).
+  let slotsOn = $state<number | null>(null);
+  let shopsCount = $state<number | null>(null);
+  let placesCount = $state<number | null>(null);
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const privacyOn = $derived(
+    privacy.loaded && privacy.problem === null
+      ? Object.values(privacy.switches).filter(Boolean).length + (privacy.entries.length ? 1 : 0)
+      : null
+  );
+
+  function readRowValues() {
+    if (admin)
+      getMealSlots().then(
+        (slots) => (slotsOn = slots.filter((s) => s.enabled).length),
+        () => {}
+      );
+    getShops().then(
+      (shops) => (shopsCount = shops.length),
+      () => {}
+    );
+    getPlaces().then(
+      (places) => (placesCount = places.length),
+      () => {}
+    );
+    void privacy.load().catch(() => {});
+  }
+  // Each time the list is shown (first, and coming back to it from a section): read the values.
+  $effect(() => {
+    if (phone && only === null) untrack(readRowValues);
+  });
+
+  const groups: Group[] = $derived([
+    {
+      name: 'You',
+      label: 'Your settings',
+      rows: [
+        {
+          id: 'appearance',
+          label: 'Appearance',
+          icon: 'appearance',
+          value: THEME_LABELS[theme.choice]
+        },
+        ...(pints !== null
+          ? [
+              {
+                id: 'amounts',
+                label: 'Amounts',
+                icon: 'amounts' as const,
+                value: pints === 'us' ? 'US pints' : 'UK pints'
+              }
+            ]
+          : [])
+      ]
+    },
+    {
+      name: 'Kitchen',
+      label: 'Kitchen settings',
+      rows: [
+        ...(admin
+          ? [
+              {
+                id: 'meal-slots',
+                label: 'Meal slots',
+                icon: 'meal-slots' as const,
+                value: slotsOn === null ? undefined : `${slotsOn} on`
+              }
+            ]
+          : []),
+        {
+          id: 'shops-places',
+          label: 'Shops & places',
+          icon: 'shops-places',
+          value:
+            shopsCount === null || placesCount === null
+              ? undefined
+              : `${plural(shopsCount, 'shop', 'shops')} · ${plural(placesCount, 'place', 'places')}`
+        },
+        { id: 'recent-changes', label: 'Recent changes', icon: 'recent-changes' }
+      ]
+    },
+    {
+      name: 'Household',
+      label: 'Household settings',
+      rows: [
+        {
+          id: 'privacy',
+          label: 'Privacy',
+          icon: 'privacy',
+          href: resolve('/(app)/settings/privacy'),
+          value: privacyOn === null ? undefined : privacyOn === 0 ? 'All off' : `${privacyOn} on`
+        },
+        { id: 'sign-in', label: 'Sign-in', icon: 'sign-in' }
+      ]
+    }
+  ]);
+
   async function goTo(id: string) {
     current = id;
     await tick();
@@ -109,6 +236,11 @@
     heading?.scrollIntoView({ block: 'start' });
     heading?.focus({ preventScroll: true });
   }
+
+  // A computer opened with "?section=…" goes to that section.
+  onMount(() => {
+    if (!phone && asked) void goTo(asked);
+  });
 
   let busy = $state(false);
   /** Changes not sent yet: the warning is showing. */
@@ -203,23 +335,32 @@
   }
 </script>
 
-<PageHeader title="Settings" />
+{#if only !== null && heading}
+  <PageHeader title={heading} parent={{ href: '/(app)/settings', label: 'Settings' }} />
+{:else}
+  <PageHeader title="Settings" />
+{/if}
 
 <div class="layout">
-  <nav class="list" aria-label="Settings sections">
-    <ul>
-      {#each SECTIONS as section (section.id)}
-        <li>
-          <button
-            type="button"
-            aria-current={current === section.id ? 'true' : undefined}
-            onclick={() => void goTo(section.id)}>{section.label}</button
-          >
-        </li>
-      {/each}
-    </ul>
+  {#if phone && only === null}
+    <PhoneList {groups} />
     <p class="later">Household, Your data and About come in 0.9.</p>
-  </nav>
+  {:else if !phone}
+    <nav class="list" aria-label="Settings sections">
+      <ul>
+        {#each SECTIONS as section (section.id)}
+          <li>
+            <button
+              type="button"
+              aria-current={current === section.id ? 'true' : undefined}
+              onclick={() => void goTo(section.id)}>{section.label}</button
+            >
+          </li>
+        {/each}
+      </ul>
+      <p class="later">Household, Your data and About come in 0.9.</p>
+    </nav>
+  {/if}
   <div class="sections">
     <!-- Settings needs the server (spec section 6, "Opening the app offline"). Two parts still
        work offline, so they stay: the theme switch, which is saved on this device (cabledrawer
@@ -229,44 +370,46 @@
     {#if network.down && pints === null}
       <OfflineNote screen="Settings" />
     {/if}
-    <section class="section" aria-labelledby="appearance">
-      <h2 id="appearance" tabindex="-1">Appearance</h2>
-      <div class="card">
-        <div class="row">
-          <span class="label">Theme</span>
-          <ThemeSwitch variant="pill" />
-        </div>
-        <!-- F141 (cabledrawer 3 Nov), mockup Dark-SettingsCheckMode07-Phone: how Check looks on the
+    {#if showing('appearance')}
+      <section class="section" aria-labelledby="appearance">
+        <h2 class="title" id="appearance" tabindex="-1">Appearance</h2>
+        <div class="card">
+          <div class="row">
+            <span class="label">Theme</span>
+            <ThemeSwitch variant="pill" />
+          </div>
+          <!-- F141 (cabledrawer 3 Nov), mockup Dark-SettingsCheckMode07-Phone: how Check looks on the
            phone, kept on this device. Shown at every width; the line under it says a computer
            always shows the whole list (the mockup is phone-only, so showing it on a computer too is
            cabledrawer 5 Nov). -->
-        <fieldset class="check-mode">
-          <legend>Checking a recipe on the phone</legend>
-          <span class="detail">How the Check screen looks after an import.</span>
-          {#each CHECK_MODE_CHOICES as option (option.value)}
-            <label class="choice" class:on={checkMode.choice === option.value}>
-              <input
-                type="radio"
-                name="checkmode"
-                value={option.value}
-                checked={checkMode.choice === option.value}
-                onchange={() => checkMode.set(option.value)}
-              />
-              <span class="dot" aria-hidden="true"></span>
-              <span class="choice-words">
-                <span class="choice-name">{option.label}</span>
-                <span class="choice-hint">{option.hint}</span>
-              </span>
-            </label>
-          {/each}
-          <span class="detail small">On a computer, Check always shows the whole list.</span>
-        </fieldset>
-      </div>
-    </section>
+          <fieldset class="check-mode">
+            <legend>Checking a recipe on the phone</legend>
+            <span class="detail">How the Check screen looks after an import.</span>
+            {#each CHECK_MODE_CHOICES as option (option.value)}
+              <label class="choice" class:on={checkMode.choice === option.value}>
+                <input
+                  type="radio"
+                  name="checkmode"
+                  value={option.value}
+                  checked={checkMode.choice === option.value}
+                  onchange={() => checkMode.set(option.value)}
+                />
+                <span class="dot" aria-hidden="true"></span>
+                <span class="choice-words">
+                  <span class="choice-name">{option.label}</span>
+                  <span class="choice-hint">{option.hint}</span>
+                </span>
+              </label>
+            {/each}
+            <span class="detail small">On a computer, Check always shows the whole list.</span>
+          </fieldset>
+        </div>
+      </section>
+    {/if}
 
-    {#if pints !== null}
+    {#if pints !== null && showing('amounts')}
       <section class="section" aria-labelledby="amounts">
-        <h2 id="amounts" tabindex="-1">Amounts</h2>
+        <h2 class="title" id="amounts" tabindex="-1">Amounts</h2>
         <div class="card">
           <div class="row">
             <span class="who">
@@ -290,82 +433,90 @@
       </section>
     {/if}
 
-    {#if admin}
+    {#if admin && showing('meal-slots')}
       <section class="section" aria-labelledby="meal-slots">
-        <h2 id="meal-slots" tabindex="-1">Meal slots</h2>
+        <h2 class="title" id="meal-slots" tabindex="-1">Meal slots</h2>
         <MealSlots />
       </section>
     {/if}
 
-    <section class="section" aria-labelledby="shops-places">
-      <h2 id="shops-places" tabindex="-1">Shops &amp; places</h2>
-      <ShopsPlaces />
-    </section>
+    {#if showing('shops-places')}
+      <section class="section" aria-labelledby="shops-places">
+        <h2 class="title" id="shops-places" tabindex="-1">Shops &amp; places</h2>
+        <ShopsPlaces />
+      </section>
+    {/if}
 
-    <section class="section" aria-labelledby="recent-changes">
-      <h2 id="recent-changes" tabindex="-1">Recent changes</h2>
-      <RecentSection />
-    </section>
+    {#if showing('recent-changes')}
+      <section class="section" aria-labelledby="recent-changes">
+        <h2 class="title" id="recent-changes" tabindex="-1">Recent changes</h2>
+        <RecentSection />
+      </section>
+    {/if}
 
-    <section class="section" aria-labelledby="privacy">
-      <h2 id="privacy" tabindex="-1">Privacy</h2>
-      <div class="card">
-        <a class="row to" href={resolve('/(app)/settings/privacy')}>
-          <span class="who">
-            <span class="label">Outside connections</span>
-            <span class="detail">Recipe import, recipe photos and your own network</span>
-          </span>
-          <Icon name="back" size={18} stroke={2.4} />
-        </a>
-      </div>
-    </section>
+    {#if showing('privacy')}
+      <section class="section" aria-labelledby="privacy">
+        <h2 class="title" id="privacy" tabindex="-1">Privacy</h2>
+        <div class="card">
+          <a class="row to" href={resolve('/(app)/settings/privacy')}>
+            <span class="who">
+              <span class="label">Outside connections</span>
+              <span class="detail">Recipe import, recipe photos and your own network</span>
+            </span>
+            <Icon name="back" size={18} stroke={2.4} />
+          </a>
+        </div>
+      </section>
+    {/if}
 
-    <section class="section" aria-labelledby="sign-in">
-      <h2 id="sign-in" tabindex="-1">Sign-in</h2>
-      <div class="card">
-        <div class="row">
-          <span class="who">
-            <span class="label">{who?.name}</span>
-            <span class="detail">Signed in as {who?.username}</span>
-          </span>
-          <button
-            type="button"
-            class="sign-out"
-            disabled={busy || left > 0 || cantCheck}
-            onclick={leave}>Sign out</button
-          >
+    {#if showing('sign-in')}
+      <section class="section" aria-labelledby="sign-in">
+        <h2 class="title" id="sign-in" tabindex="-1">Sign-in</h2>
+        <div class="card">
+          <div class="row">
+            <span class="who">
+              <span class="label">{who?.name}</span>
+              <span class="detail">Signed in as {who?.username}</span>
+            </span>
+            <button
+              type="button"
+              class="sign-out"
+              disabled={busy || left > 0 || cantCheck}
+              onclick={leave}>Sign out</button
+            >
+          </div>
         </div>
-      </div>
-      {#if cantCheck}
-        <div class="warning">
-          <p role="alert">{cantCheckText(device)}</p>
-          <Button disabled={busy} onclick={() => void tryAgain()}>
-            {trying ? 'Trying…' : 'Try again'}
-          </Button>
-          <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
-          <button
-            type="button"
-            class="lose"
-            disabled={busy}
-            onclick={() => void signOutNow('anyway')}
-            >Sign out anyway. Anything waiting on this {device} may be lost</button
-          >
-        </div>
-      {:else if left > 0}
-        <div class="warning">
-          <p role="alert">
-            {loseOnSignOutText(left)}{#if stillCant}<br />{STILL_CANT_REACH}{/if}
-          </p>
-          <Button disabled={busy} onclick={() => void sendNow()}
-            >{busy ? 'Sending…' : 'Try sending now'}</Button
-          >
-          <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
-          <button type="button" class="lose" disabled={busy} onclick={() => void signOutNow()}
-            >Sign out and lose {left === 1 ? 'it' : 'them'}</button
-          >
-        </div>
-      {/if}
-    </section>
+        {#if cantCheck}
+          <div class="warning">
+            <p role="alert">{cantCheckText(device)}</p>
+            <Button disabled={busy} onclick={() => void tryAgain()}>
+              {trying ? 'Trying…' : 'Try again'}
+            </Button>
+            <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
+            <button
+              type="button"
+              class="lose"
+              disabled={busy}
+              onclick={() => void signOutNow('anyway')}
+              >Sign out anyway. Anything waiting on this {device} may be lost</button
+            >
+          </div>
+        {:else if left > 0}
+          <div class="warning">
+            <p role="alert">
+              {loseOnSignOutText(left)}{#if stillCant}<br />{STILL_CANT_REACH}{/if}
+            </p>
+            <Button disabled={busy} onclick={() => void sendNow()}
+              >{busy ? 'Sending…' : 'Try sending now'}</Button
+            >
+            <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
+            <button type="button" class="lose" disabled={busy} onclick={() => void signOutNow()}
+              >Sign out and lose {left === 1 ? 'it' : 'them'}</button
+            >
+          </div>
+        {/if}
+      </section>
+    {/if}
     <!-- The sidebar shows the version on a computer; this is the phone's place for it (N1). -->
     <p class="version">{VERSION_WORDS}</p>
   </div>
@@ -451,6 +602,13 @@
     gap: var(--space-3);
     max-width: 760px;
     scroll-margin-top: var(--space-7);
+  }
+
+  /* On the phone the page's own title says which section this is. */
+  @media (max-width: 767px) {
+    h2.title {
+      display: none;
+    }
   }
 
   h2 {

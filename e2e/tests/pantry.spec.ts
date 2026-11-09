@@ -869,3 +869,31 @@ test("Use soon buttons are big enough to touch, and the + sits in the middle of 
   expect(heights.length).toBeGreaterThanOrEqual(3);
   for (const height of heights) expect(height).toBeGreaterThanOrEqual(43.5);
 });
+
+test("F194: on the phone Pantry's count line has its own line, with Stocktake at its right, dropping under it when too narrow", async ({
+  page,
+}) => {
+  test.skip(!isPhone(page), "the phone's header");
+  await stocked(page, "Header yoghurt");
+  await page.goto("/pantry");
+  const header = page.locator("header.page-header");
+  const title = header.getByRole("heading", { level: 1, name: "Pantry" });
+  const add = header.getByRole("button", { name: "Add to pantry" });
+  const count = header.getByText(/\d+ ingredients?/);
+  const stocktake = header.getByRole("link", { name: "Stocktake", exact: true });
+  await expect(count).toBeVisible();
+  const box = async (locator: typeof title) => (await locator.boundingBox())!;
+  // The title row holds the title and its round buttons only: Stocktake and the count are below.
+  const row = await box(title);
+  expect((await box(add)).y).toBeLessThan(row.y + row.height);
+  expect((await box(count)).y).toBeGreaterThanOrEqual(row.y + row.height - 1);
+  expect((await box(stocktake)).y).toBeGreaterThanOrEqual(row.y + row.height - 1);
+  // Stocktake is on the right of the count, on the same line.
+  const c = await box(count);
+  const s = await box(stocktake);
+  expect(s.x).toBeGreaterThan(c.x + c.width - 1);
+  expect(Math.abs(s.y + s.height / 2 - (c.y + c.height / 2))).toBeLessThan(20);
+  // Too narrow for both on one line: Stocktake drops under the count.
+  await page.setViewportSize({ width: 250, height: 800 });
+  await expect.poll(async () => (await box(stocktake)).y).toBeGreaterThan((await box(count)).y + 10);
+});
