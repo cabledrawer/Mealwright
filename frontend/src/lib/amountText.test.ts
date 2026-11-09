@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_AMOUNT_TEXT, parseAmount } from './amountText';
+import { MAX_AMOUNT_TEXT, manyOf, parseAmount } from './amountText';
 import type { Size } from './client/types';
 
 const packet: Size = {
@@ -85,5 +85,16 @@ describe('reading a typed amount', () => {
     expect(parseAmount('1 ' + 'a'.repeat(200_000), dal)).toBeNull();
     expect(parseAmount('1' + ' '.repeat(100_000) + 'g', dal)).toBeNull();
     expect(performance.now() - started).toBeLessThan(100);
+  });
+});
+
+describe('manyOf (F197)', () => {
+  it('makes a counted ingredient plural, lower case, like the server', () => {
+    expect(manyOf('Lemon')).toBe('lemons');
+    expect(manyOf('Mango')).toBe('mangos');
+    expect(manyOf('Cherry')).toBe('cherries');
+    expect(manyOf('Red onion')).toBe('red onions');
+    expect(manyOf('Eggs')).toBe('eggs');
+    expect(manyOf('Peach')).toBe('peaches');
   });
 });

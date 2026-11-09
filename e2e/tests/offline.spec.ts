@@ -227,7 +227,7 @@ test('F130: offline, a new item name asks Pantry keeps it by, adds at once, and 
   await dialog.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(dialog).toBeHidden();
   // One by one with no pack size asks "How many?" first (F134), also offline.
-  await page.getByRole('group', { name: `How many ${name}?` }).getByRole('button', { name: '1', exact: true }).click();
+  await page.getByRole('group', { name: `How many ${name}` }).getByRole('button', { name: '1', exact: true }).click();
   await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
   await expect(bar(page)).toContainText(waitingText(page, 1), { timeout: 10_000 });
 
@@ -725,7 +725,7 @@ test('F130: the same new name added offline on two phones ends up as one ingredi
       await dialog.getByRole('radio', { name: /One by one/ }).click();
       await dialog.getByRole('button', { name: 'Add', exact: true }).click();
       await expect(dialog).toBeHidden();
-      await p.getByRole('group', { name: `How many ${name}?` }).getByRole('button', { name: '2', exact: true }).click();
+      await p.getByRole('group', { name: `How many ${name}` }).getByRole('button', { name: '2', exact: true }).click();
       await expect(bar(p)).toContainText(waitingText(p, 1), { timeout: 10_000 });
     }
     await context.setOffline(false);

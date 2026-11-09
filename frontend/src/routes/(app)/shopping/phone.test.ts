@@ -155,7 +155,7 @@ describe('Shopping on the phone', () => {
       });
       await page.getByRole('textbox', { name: 'Add an item' }).fill('mango');
       await page.getByRole('button', { name: 'Mango', exact: true }).click();
-      const ask = page.getByRole('group', { name: 'How many Mango?' });
+      const ask = page.getByRole('group', { name: 'How many mangos?' });
       await expect.element(ask).toBeVisible();
       for (const n of ['1', '2', '6', '12']) {
         await expect.element(ask.getByRole('button', { name: n, exact: true })).toBeVisible();
@@ -174,7 +174,7 @@ describe('Shopping on the phone', () => {
       await page.getByRole('textbox', { name: 'Add an item' }).fill('mango');
       await page.getByRole('button', { name: 'Add as bought' }).click();
       await page
-        .getByRole('group', { name: 'How many Mango?' })
+        .getByRole('group', { name: 'How many mangos?' })
         .getByRole('button', { name: '2', exact: true })
         .click();
       await vi.waitFor(() => expect(kinds()).toEqual(['add', 'tick']));

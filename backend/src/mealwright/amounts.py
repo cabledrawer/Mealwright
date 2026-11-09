@@ -132,6 +132,16 @@ def plural(word: str) -> str:
     return f"{head} {result}" if head else result
 
 
+def counted_name(name: str, milli: int) -> str:
+    """An ingredient counted one by one, as it reads after its number: "onion" for 1 or less
+    ("1 onion", "½ onion"), "onions" for more; "lemons" for 2 (F197, cabledrawer 8 Nov). Lower case,
+    as in a sentence. A name that already ends in "s" ("Eggs", "Chickpeas") is left as it is."""
+    word = name.strip().lower()
+    if milli <= 1000 or word.endswith("s") and not word.endswith("ss"):
+        return word
+    return plural(word)
+
+
 def article(word: str) -> str:
     return "an" if word[:1].lower() in "aeiou" else "a"
 

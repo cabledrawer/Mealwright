@@ -13,6 +13,7 @@ from mealwright.amounts import (
     about_text,
     as_sold,
     count_text,
+    counted_name,
     exact_text,
     from_milli,
     plural,
@@ -256,3 +257,14 @@ def test_no_break_space_examples() -> None:
     assert as_sold(750_000, "weight", PACKET).display == "about 750\u00a0g · 1½\u00a0packets"
     assert as_sold(9_000, "count", DOZEN).display == "9\u00a0left · bought as a dozen"
     assert exact_text(1_250_000, "volume") == "1.25\u00a0L"
+
+
+def test_counted_name_is_plural_for_more_than_one() -> None:
+    """F197 (cabledrawer 8 Nov): "Bought 2 lemons", "Used ½ onion"; a name already plural stays."""
+    assert counted_name("Lemon", 2_000) == "lemons"
+    assert counted_name("Lemon", 1_000) == "lemon"
+    assert counted_name("Onion", 500) == "onion"
+    assert counted_name("Onion", 1_500) == "onions"
+    assert counted_name("Eggs", 6_000) == "eggs"
+    assert counted_name("Chilli", 3_000) == "chillis"
+    assert counted_name("Mango", 3_000) == "mangos"

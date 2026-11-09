@@ -14,7 +14,7 @@ from datetime import date, datetime
 
 from sqlalchemy import select
 
-from mealwright.amounts import NBSP
+from mealwright.amounts import NBSP, counted_name
 from mealwright.api.v1.context import Kitchen
 from mealwright.foods import amount_out
 from mealwright.history import as_utc, record
@@ -187,9 +187,13 @@ def what_text(food: Food, milli: int, size: FoodSize | None) -> str:
     """The amount and the ingredient, for summaries: "2 packets Toor dal", "200 g
     Spinach", "5 Onion", "5 slices of Bread"."""
     joiner = " "
+    name = food.name
+    text = short_text(food, milli, size)
     if food.counted_as == "count":
-        joiner = " of " if food.count_word else NBSP  # "5 slices of Bread", "5 Onion"
-    return f"{short_text(food, milli, size)}{joiner}{food.name}"
+        joiner = " of " if food.count_word else NBSP  # "5 slices of Bread", "5 onions"
+        if not food.count_word and not any(c.isalpha() for c in text.removeprefix("about ")):
+            name = counted_name(name, milli)  # just a number: "2 lemons", "1 lemon" (F197)
+    return f"{text}{joiner}{name}"
 
 
 # --- Writing ----------------------------------------------------------------------------------

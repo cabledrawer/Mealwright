@@ -700,19 +700,19 @@ def test_recent_changes_totals_a_partial_undo(kitchen: TestClient, toor: dict[st
 
 
 def test_summaries_for_counted_ingredients(kitchen: TestClient) -> None:
-    """ "5 left" belongs in the pantry list; a summary says "Added 5 Onion"."""
+    """ "5 left" belongs in the pantry list; a summary says "Added 5 onions"."""
     onion = food(kitchen, "Onion")
     added = add(kitchen, onion["id"], 5, "count")
-    assert added["change"]["summary"] == "Added 5\u00a0Onion → Cupboard"
+    assert added["change"]["summary"] == "Added 5\u00a0onions → Cupboard"
     lot = added["groups"][0]["lots"][0]["id"]
     used = kitchen.post(
         f"{API}/stock/{lot}/used", json={"amount": {"amount": 2, "unit": "count"}}
     ).json()
-    assert used["change"]["summary"] == "Used 2\u00a0Onion"
+    assert used["change"]["summary"] == "Used 2\u00a0onions"
     binned = kitchen.post(
         f"{API}/stock/{lot}/binned", json={"amount": {"amount": 1, "unit": "count"}}
     ).json()
-    assert binned["change"]["summary"] == "Binned 1\u00a0Onion"
+    assert binned["change"]["summary"] == "Binned 1\u00a0onion"
     left = kitchen.post(
         f"{API}/foods/{onion['id']}/left", json={"amount": {"amount": 1, "unit": "count"}}
     ).json()
@@ -720,7 +720,7 @@ def test_summaries_for_counted_ingredients(kitchen: TestClient) -> None:
     by_food = kitchen.post(
         f"{API}/foods/{onion['id']}/used", json={"amount": {"amount": 0.5, "unit": "count"}}
     ).json()
-    assert by_food["change"]["summary"] == "Used ½\u00a0Onion"
+    assert by_food["change"]["summary"] == "Used ½\u00a0onion"
 
     bread = food(kitchen, "Bread", counted_as="count")
     kitchen.patch(f"{API}/foods/{bread['id']}", json={"count_word": "slice"})

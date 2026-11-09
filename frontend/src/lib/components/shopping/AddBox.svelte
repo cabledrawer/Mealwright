@@ -14,6 +14,7 @@
     splitAmount,
     ZERO_AMOUNT
   } from '#lib/shopping/addAmount.js';
+  import { manyOf } from '#lib/amountText.js';
   import { toBaseAmount } from '#lib/shopping/amountEdit.js';
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -323,8 +324,8 @@
     {/if}
   </form>
   {#if howMany}
-    <div class="howmany" role="group" aria-label="How many {howMany.name}?">
-      <span class="lead">How many {howMany.name}?</span>
+    <div class="howmany" role="group" aria-label="How many {manyOf(howMany.name)}?">
+      <span class="lead">How many {manyOf(howMany.name)}?</span>
       <div class="picks">
         {#each HOW_MANY as n (n)}
           <button type="button" onclick={() => answerCount(n)}>{n}</button>

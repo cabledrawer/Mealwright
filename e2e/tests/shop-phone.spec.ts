@@ -212,7 +212,7 @@ test('How many? (F134): a new counted ingredient asks 1 · 2 · 6 · 12 and adds
   await open(page);
   await page.getByRole('textbox', { name: 'Add an item' }).fill(name);
   await page.getByRole('list', { name: 'Matching ingredients' }).getByRole('button', { name, exact: true }).click();
-  const ask = page.getByRole('group', { name: `How many ${name}?` });
+  const ask = page.getByRole('group', { name: `How many ${name}` });
   for (const n of ['1', '2', '6', '12']) await expect(ask.getByRole('button', { name: n, exact: true })).toBeVisible();
   await ask.getByRole('button', { name: '6', exact: true }).click();
   await expect(page.getByRole('button', { name: new RegExp(`^Change amount: ${name}, 6`) })).toBeVisible();

@@ -49,3 +49,33 @@ export function parseAmount(
   const size = food.sizes.find((s) => s.name === unit || s.plural === unit);
   return { amount, unit: size ? size.name : unit };
 }
+
+const IRREGULAR: Record<string, string> = {
+  loaf: 'loaves',
+  leaf: 'leaves',
+  half: 'halves',
+  knife: 'knives',
+  dozen: 'dozen',
+  fish: 'fish',
+  sheep: 'sheep',
+  potato: 'potatoes',
+  tomato: 'tomatoes'
+};
+
+/**
+ * An ingredient counted one by one, as it reads in a sentence: "lemons" ("How many lemons?"),
+ * lower case. The same rule as the server's `counted_name` (F197, cabledrawer 8 Nov): a name that
+ * already ends in "s" ("Eggs", "Chickpeas") is left as it is.
+ */
+export function manyOf(name: string): string {
+  const word = name.trim().toLocaleLowerCase();
+  if (!word || (word.endsWith('s') && !word.endsWith('ss'))) return word;
+  const at = word.lastIndexOf(' ') + 1;
+  const head = word.slice(0, at);
+  const last = word.slice(at);
+  const irregular = IRREGULAR[last];
+  if (irregular) return head + irregular;
+  if (/(s|x|z|ch|sh)$/.test(last)) return `${head}${last}es`;
+  if (/[^aeiou]y$/.test(last)) return `${head}${last.slice(0, -1)}ies`;
+  return `${head}${last}s`;
+}
