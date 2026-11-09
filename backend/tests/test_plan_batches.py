@@ -646,6 +646,33 @@ def test_a_tub_is_never_copied_as_leftovers(
     assert only_tubs.json()["code"] == "nothing_to_copy"
 
 
+def test_dropping_a_meal_holding_only_a_tub_with_copy_leaves_an_empty_meal(
+    kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
+) -> None:
+    """F207: a tub is never copied, so copying a meal that holds only a tub is answered 200
+    ("Copied Veg biryani tub to Lunch on ...", with Undo) but the new meal is EMPTY. The tub
+    stays in its own meal and no second tub appears. (Leftovers mode refuses instead:
+    "nothing_to_copy"; this test records the behaviour, it does not choose it.)"""
+    make(kitchen, cook["item_id"], tub_count=1)
+    before = view(kitchen)
+    meal = next(m for m in before["meals"] if m["date"] == day(1))
+    assert [i["kind"] for i in meal["items"]] == ["tub"]
+    r = kitchen.post(
+        f"{API}/plan/meals/{meal['id']}/move",
+        json={"date": day(5), "slot_id": slots["Lunch"], "mode": "copy"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["item_id"] is None
+    after = view(kitchen)
+    copied = next(m for m in after["meals"] if m["date"] == day(5))
+    assert copied["items"] == []
+    kept = next(m for m in after["meals"] if m["date"] == day(1))
+    assert [i["kind"] for i in kept["items"]] == ["tub"]
+    assert len(after["tubs"]) == len(before["tubs"]) == 1
+    assert undo(kitchen, r.json())["result"] == "done"
+    assert not any(m["date"] == day(5) for m in view(kitchen)["meals"])
+
+
 def test_a_batch_holds_at_most_the_most_tubs_and_a_day_the_most_batches(
     kitchen: TestClient, cook: dict[str, Any], stuff: dict[str, int], slots: dict[str, int]
 ) -> None:
