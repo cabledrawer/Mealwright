@@ -431,10 +431,54 @@ export class ShoppingModel {
             () => undefined
           );
         }
+        // One row for several lines (F198): the same Undo takes back every line's change.
+        const others = this.#alsoUndo[actionId];
+        if (others) {
+          delete this.#alsoUndo[actionId];
+          for (const other of others) {
+            void sendAction(makeAction({ kind: 'undo', undoes: other })).then(
+              () => void this.load(),
+              () => undefined
+            );
+          }
+        }
         return result;
       }
     };
     return entry;
+  }
+
+  /** One row for several lines (F198): the first change's action ID → the others', so the one
+   * toast's Undo takes every line's change back. */
+  #alsoUndo: Record<string, string[]> = {};
+
+  /**
+   * The same change for every line a trolley row stands for: one toast (the first line's), one
+   * Undo for all of them, queued like any change so it works offline too.
+   */
+  async #together(
+    items: ListItem[],
+    make: (item: ListItem) => ActionFields,
+    label: string
+  ): Promise<Outcome<ActionResult> | null> {
+    const [head, ...rest] = items;
+    if (!head) return null;
+    const ids: Promise<string>[] = [];
+    const watch = (): ((id: string) => void) => {
+      let resolve!: (id: string) => void;
+      ids.push(new Promise<string>((r) => (resolve = r)));
+      return resolve;
+    };
+    for (const line of rest) {
+      const queued = watch();
+      void this.#act(make(line), { quiet: true, queued: (id) => void queued(id) });
+    }
+    const headQueued = watch();
+    const outcome = this.#act(make(head), { label, queued: (id) => void headQueued(id) });
+    const all = await Promise.all(ids);
+    const headId = all[all.length - 1]!;
+    if (rest.length) this.#alsoUndo[headId] = all.slice(0, -1);
+    return outcome;
   }
 
   /** "Add as bought": the tick's action ID → the add's, so one Undo takes both back. */
@@ -786,26 +830,42 @@ export class ShoppingModel {
   placing = $state<string | null>(null);
 
   untick(item: ListItem) {
-    if (this.askingHowMuch === item.id) this.askingHowMuch = null;
-    const ids = standingTicks(item).map((t) => t.id);
-    if (!ids.length) return Promise.resolve(null);
-    return this.#act(
-      { kind: 'untick', item_id: item.id, tick_ids: ids },
-      {
-        label: `${this.food(item.food_id)?.name ?? 'Ingredient'} unticked`
-      }
+    return this.untickAll([item]);
+  }
+
+  /** Untick every line of a trolley row: one toast, one Undo (F198). */
+  untickAll(items: ListItem[]) {
+    for (const item of items) if (this.askingHowMuch === item.id) this.askingHowMuch = null;
+    const lines = items.filter((i) => standingTicks(i).length);
+    if (!lines.length) return Promise.resolve(null);
+    return this.#together(
+      lines,
+      (item) => ({
+        kind: 'untick',
+        item_id: item.id,
+        tick_ids: standingTicks(item).map((t) => t.id)
+      }),
+      `${this.food(lines[0]!.food_id)?.name ?? 'Ingredient'} unticked`
     );
   }
 
   putAway(item: ListItem, placeId: number) {
-    const ids = standingTicks(item).map((t) => t.id);
+    return this.putAwayAll([item], placeId);
+  }
+
+  /** Change the place of every line of a trolley row: one toast, one Undo (F198). */
+  putAwayAll(items: ListItem[], placeId: number) {
     const place = this.placeName(placeId) ?? '';
     this.placing = null;
-    return this.#act(
-      { kind: 'put_away', item_id: item.id, place_id: placeId, tick_ids: ids },
-      {
-        label: `${this.food(item.food_id)?.name ?? 'Ingredient'} → ${place}`
-      }
+    return this.#together(
+      items,
+      (item) => ({
+        kind: 'put_away',
+        item_id: item.id,
+        place_id: placeId,
+        tick_ids: standingTicks(item).map((t) => t.id)
+      }),
+      `${this.food(items[0]?.food_id ?? 0)?.name ?? 'Ingredient'} → ${place}`
     );
   }
 

@@ -317,7 +317,7 @@
             aria-label="{trolley ? 'Untick' : 'Tick'} {food.name}"
             onchange={(event) => {
               const back = keepFocus(event.currentTarget);
-              if (trolley) for (const line of lines) void model.untick(line.item);
+              if (trolley) void model.untickAll(lines.map((l) => l.item));
               else void model.tick(item);
               back();
             }}
@@ -449,7 +449,11 @@
           type="button"
           role="radio"
           aria-checked={p.name === place}
-          onclick={() => lines.forEach((l) => void model.putAway(l.item, p.id))}>{p.name}</button
+          onclick={() =>
+            void model.putAwayAll(
+              lines.map((l) => l.item),
+              p.id
+            )}>{p.name}</button
         >
       {/each}
     </div>
@@ -458,7 +462,10 @@
         <NewPlace
           onadded={(added) => {
             addingPlace = false;
-            lines.forEach((l) => void model.putAway(l.item, added.id));
+            void model.putAwayAll(
+              lines.map((l) => l.item),
+              added.id
+            );
           }}
           oncancel={() => {
             // The "+ Place" that opened the box was gone while it was open: focus the new one.

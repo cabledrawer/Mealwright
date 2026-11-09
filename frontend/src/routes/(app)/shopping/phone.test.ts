@@ -330,6 +330,79 @@ describe('Shopping on the phone', () => {
       );
     });
 
+    describe('a row for two lines of one ingredient (F198), offline', () => {
+      const second = () =>
+        item('i-paneer2', 4, {
+          amount: 200,
+          size_id: 5,
+          display: '1 pack',
+          ticks: [
+            tick('t-pan2', {
+              at: '2026-11-07T10:04:00Z',
+              bought: { amount: 200, display: '1 pack' }
+            })
+          ]
+        });
+
+      async function openJoined() {
+        copy.items.push(second());
+        await saveCopy(null, applyChanges(null, { ...copy, people: [], reset: true }));
+        vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+        mountShopping();
+        await expect
+          .element(page.getByRole('button', { name: 'This week main list' }))
+          .toBeVisible();
+        await page.getByRole('button', { name: /^In the trolley · 3/ }).click();
+        expect(page.getByRole('checkbox', { name: 'Untick Paneer' }).elements()).toHaveLength(1);
+      }
+
+      it('unticking it is one toast and one Undo that ticks both lines again', async () => {
+        await openJoined();
+        await page.getByRole('checkbox', { name: 'Untick Paneer' }).click();
+        const toast = page.getByRole('status').filter({ hasText: 'Paneer unticked' });
+        await expect.element(toast).toBeVisible();
+        expect(page.getByRole('status').elements()).toHaveLength(1);
+        await vi.waitFor(async () =>
+          expect((await readQueue()).map((e) => e.action.kind)).toEqual(['untick', 'untick'])
+        );
+        expect(page.getByRole('checkbox', { name: 'Tick Paneer' }).elements()).toHaveLength(2);
+        await toast.getByRole('button', { name: 'Undo' }).click();
+        await vi.waitFor(async () =>
+          expect((await readQueue()).map((e) => e.action.kind)).toEqual([
+            'untick',
+            'untick',
+            'undo',
+            'undo'
+          ])
+        );
+        await vi.waitFor(() =>
+          expect(page.getByRole('checkbox', { name: 'Untick Paneer' }).elements()).toHaveLength(1)
+        );
+        expect(page.getByRole('checkbox', { name: 'Tick Paneer' }).elements()).toHaveLength(0);
+      });
+
+      it('changing the place is one toast and one Undo for both lines', async () => {
+        await openJoined();
+        await page.getByRole('button', { name: 'Change where Paneer went' }).click();
+        await page.getByRole('radio', { name: 'Freezer' }).click();
+        const toast = page.getByRole('status').filter({ hasText: 'Paneer → Freezer' });
+        await expect.element(toast).toBeVisible();
+        expect(page.getByRole('status').elements()).toHaveLength(1);
+        await vi.waitFor(async () =>
+          expect((await readQueue()).map((e) => e.action.kind)).toEqual(['put_away', 'put_away'])
+        );
+        await toast.getByRole('button', { name: 'Undo' }).click();
+        await vi.waitFor(async () =>
+          expect((await readQueue()).map((e) => e.action.kind)).toEqual([
+            'put_away',
+            'put_away',
+            'undo',
+            'undo'
+          ])
+        );
+      });
+    });
+
     it('a line can be cleared with its own button, by keyboard (not only by swipe)', async () => {
       await render();
       await page.getByRole('button', { name: /^In the trolley · 3/ }).click();
