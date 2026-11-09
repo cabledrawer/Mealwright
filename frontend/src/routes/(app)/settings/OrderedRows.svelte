@@ -215,7 +215,7 @@
 
   .name {
     flex: 1 1 auto;
-    min-width: min-content;
+    min-width: min(min-content, 100%);
     overflow-wrap: break-word;
     font-size: var(--text-md);
     font-weight: var(--weight-bold);

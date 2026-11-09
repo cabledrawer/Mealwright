@@ -557,3 +557,28 @@ test('F177: Meal slots and Places keep each name whole, down to a narrow column'
     expect(boxes, `${name} on one line`).toBe(1);
   }
 });
+
+test('F177 (review): a 60-character unbroken name does not push the card sideways', async ({ page }) => {
+  await page.setViewportSize({ width: isPhone(page) ? 360 : 912, height: 800 });
+  const name = 'W'.repeat(60);
+  const made = await page.request.post('/api/v1/shops', { data: { name }, headers: key() });
+  expect(made.ok(), await made.text()).toBe(true);
+  const id = ((await made.json()) as Json).id;
+  try {
+    await page.goto('/settings?section=shops-places');
+    const row = rowOf(page, 'Shops', name);
+    await expect(row).toBeVisible();
+    const card = section(page, 'Shops');
+    const [r, c] = [await row.boundingBox(), await card.boundingBox()];
+    expect(r!.x + r!.width).toBeLessThanOrEqual(c!.x + c!.width + 1);
+    // The name itself stays inside the card, wherever it breaks.
+    const words = (await row.getByText(name).boundingBox())!;
+    expect(words.x + words.width).toBeLessThanOrEqual(c!.x + c!.width + 1);
+    expect(await row.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      page.viewportSize()!.width,
+    );
+  } finally {
+    await page.request.delete(`/api/v1/shops/${id}`, { headers: key() });
+  }
+});
