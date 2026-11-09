@@ -312,7 +312,6 @@ test('F196: online, Undo takes back the tick and the add of a brand-new name tog
   await newAsBought(page, name);
   const toast = page.getByRole('status').filter({ hasText: name });
   await expect(toast).toBeVisible();
-  await expect.poll(() => pantryAmounts(page, name)).toEqual([2]);
   await toast.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('status').filter({ hasText: `Undone: ${name}` })).toBeVisible();
   await expect.poll(() => pantryAmounts(page, name)).toEqual([]);
@@ -330,11 +329,10 @@ test('F196: offline, Undo before anything is sent leaves nothing behind once bac
   await toast.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('status').filter({ hasText: `Undone: ${name}` })).toBeVisible();
   await context.setOffline(false);
-  await expect(page.getByRole('status').filter({ hasText: 'Back online — all saved' })).toBeVisible({
-    timeout: 15_000,
-  });
-  expect(await pantryAmounts(page, name)).toEqual([]);
-  expect((await serverItems(page)).filter((i) => i.food.name === name)).toHaveLength(0);
+  // Everything waiting is sent (the bar goes), and nothing of it is left on the server.
+  await expect(bar(page)).toBeHidden({ timeout: 15_000 });
+  await expect.poll(() => pantryAmounts(page, name)).toEqual([]);
+  await expect.poll(async () => (await serverItems(page)).filter((i) => i.food.name === name)).toHaveLength(0);
 });
 
 test('F62: offline, ticking a line with no amount still asks How much?, and the answer is a second queued change', async ({

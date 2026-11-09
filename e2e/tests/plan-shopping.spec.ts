@@ -309,11 +309,13 @@ for (const percent of [125, 200]) {
         const column = el.getBoundingClientRect();
         const over = [...el.children].filter((c) => {
           const r = c.getBoundingClientRect();
-          return r.width > 0 && (r.right > column.right + 0.5 || r.left < column.left - 0.5);
+          // Right edges only: the tick's 44 px target reaches left on purpose (negative margin).
+          return r.width > 0 && r.right > column.right + 0.5;
         });
-        return { over: over.length, scroll: el.scrollWidth - el.clientWidth };
+        const describe = (c: Element) => `${c.tagName.toLowerCase()}.${c.className} ${Math.round(c.getBoundingClientRect().left)}-${Math.round(c.getBoundingClientRect().right)} of ${Math.round(column.left)}-${Math.round(column.right)}`;
+        return { over: over.map(describe), scroll: el.scrollWidth - el.clientWidth };
       });
-      expect(fits).toEqual({ over: 0, scroll: 0 });
+      expect(fits).toEqual({ over: [], scroll: 0 });
     } finally {
       await k.cleanUp();
     }

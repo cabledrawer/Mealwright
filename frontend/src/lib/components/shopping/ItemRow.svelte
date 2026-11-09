@@ -574,10 +574,11 @@
   .plan:not(.trolley) .line {
     display: grid;
     /* As wide as before, but the name keeps at least 10rem (about 20 letters) and the amount
-       7.5rem, never more than 35% and 25% of the row, so large text can't push it wider; the why-text gives way first (it shows whole on hover). A name is cut only when
-       the row really has no room (F184). */
+       7.5rem, never more than 45% and 25% of the row, so large text can't push it wider. The
+       why-text gives way first (it shows whole on hover); a name is cut only when the row really
+       has no room (F184). */
     grid-template-columns:
-      24px minmax(min(10rem, 35%), 1.3fr) minmax(min(7.5rem, 25%), 1fr) minmax(0, 1.2fr)
+      24px minmax(min(10rem, 45%), 1.3fr) minmax(min(7.5rem, 25%), 1fr) minmax(0, 1.2fr)
       40px;
     align-items: center;
     gap: 0 var(--space-6);
