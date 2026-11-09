@@ -443,6 +443,13 @@ for (const width of [800, 1024]) {
         // cards under a pressed Month button). Both widths are under 1100 px ("compact"), where the
         // Plan shows the phone's month grid (its "Days" group), not the wide month and its side panel.
         await expect(page.getByRole('group', { name: 'Days', exact: true })).toBeVisible();
+        // Measure this test's own day, with its meals, in the month's day panel (Fable 9 Nov): the
+        // month opens on the 1st, which is empty unless another test planned it, so the panel's
+        // meal words were measured only by chance.
+        const inMonth = page.getByRole('group', { name: 'Days', exact: true }).getByRole('button', { name: dayName(day), exact: true });
+        await inMonth.click();
+        await expect(inMonth).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.getByText(w.pongal).first()).toBeVisible();
         await expectWhole(page, `Month, ${at}`);
         await page.getByRole('button', { name: 'Week', exact: true }).click();
         await expect(show(page, 'Eat')).toBeVisible();
