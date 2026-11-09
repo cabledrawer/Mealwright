@@ -361,7 +361,8 @@ def pantry(
 ) -> PantryOut:
     """The whole Pantry screen in one call: places (tabs on phone, columns on desktop), each
     food's packets grouped with their dates, and the staples. `q` searches by any name the
-    way Ingredients does (other names too); each place's `items` then counts what is shown."""
+    way Ingredients does (other names too). Each place's `items` counts what is shown, under the
+    search and the filter, so it never disagrees with the card's "Nothing in the…" line."""
     view = Pantry(kitchen)
     needle = fold(q.strip())
     names = names_by_food(kitchen) if needle else {}
@@ -370,7 +371,6 @@ def pantry(
         by_group[(lot.food_id, lot.place_id)].append(lot)
     groups: dict[int, list[GroupOut]] = defaultdict(list)
     all_groups = []
-    found: list[GroupOut] = []  # the ones a search finds (all of them without a search)
     for (food_id, place_id), lots in by_group.items():
         food = view.food(food_id)
         if food.staple or food.removed_at is not None or food.merged_into_id is not None:
@@ -379,7 +379,6 @@ def pantry(
         all_groups.append(group)
         if needle and search_match(food.name, names.get(food.id, []), needle) is None:
             continue
-        found.append(group)
         if filter == "use_soon" and not any(lot.use_soon for lot in group.lots):
             continue
         if filter in ("running_low", "staples") and not (
@@ -423,7 +422,7 @@ def pantry(
                 id=place.id,
                 name=place.name,
                 kind=place.kind,  # type: ignore[arg-type]
-                items=sum(1 for g in found if g.place.id == place.id) + len(tubs.get(place.id, [])),
+                items=len(groups.get(place.id, [])) + len(tubs.get(place.id, [])),
                 groups=sorted(groups.get(place.id, []), key=_sort_key),
                 tubs=tubs.get(place.id, []),
             )

@@ -276,6 +276,23 @@ def test_running_low(kitchen: TestClient, toor: dict[str, Any]) -> None:
     assert low["places"][2]["groups"][0]["food"]["name"] == "Toor dal"
 
 
+def test_a_filtered_place_counts_only_what_it_shows(kitchen: TestClient) -> None:
+    """F202: with Use soon on, a place with nothing soon says 0 ingredients, so its count
+    never disagrees with its "Nothing in the Freezer." line."""
+    day = today(kitchen)
+    spinach = food(kitchen, "Spinach", place_id=place(kitchen, "Fridge"))
+    add(kitchen, spinach["id"], 200, "g", use_by=str(day + timedelta(days=1)))
+    peas = food(kitchen, "Peas", place_id=place(kitchen, "Freezer"))
+    add(kitchen, peas["id"], 500, "g")
+
+    everything = pantry(kitchen)
+    assert [p["items"] for p in everything["places"]] == [1, 1, 0, 0]
+    soon = pantry(kitchen, filter="use_soon")
+    assert [p["items"] for p in soon["places"]] == [1, 0, 0, 0]
+    assert [len(p["groups"]) + len(p["tubs"]) for p in soon["places"]] == [1, 0, 0, 0]
+    assert soon["counts"]["items"] == 2  # the pantry itself still holds both
+
+
 def test_use_soon_is_two_days_in_the_households_time_zone(kitchen: TestClient) -> None:
     kitchen.post(f"{API}/household/from-browser", json={"time_zone": "Pacific/Kiritimati"})
     day = today(kitchen)  # UTC+14: often already tomorrow in UTC terms
