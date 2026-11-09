@@ -333,7 +333,13 @@ test.describe('theme', () => {
           await page.reload();
         } else {
           // Opened offline: Try now finds the server, and the pick goes with "back online".
-          await page.getByRole('button', { name: /Try now/ }).first().click();
+          // The app also checks again by itself, so the bar may go before Try now is clicked
+          // (the same wait as live.spec.ts's connection bar).
+          const tryNow = page.getByRole('button', { name: /Try now/ }).filter({ visible: true });
+          await expect(async () => {
+            if (await tryNow.count()) await tryNow.first().click({ timeout: 2_000 });
+            expect(await account()).toBe('dark');
+          }).toPass({ timeout: 10_000 });
         }
         await expect.poll(account).toBe('dark');
         await page.reload();
