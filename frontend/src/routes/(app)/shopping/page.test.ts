@@ -174,13 +174,14 @@ describe('the Shopping page', () => {
   it('offline: a tick shows its toast with Change and Undo at once, and Undo is queued after it', async () => {
     await openOffline(390);
     await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
-    // Onions has no usual place, so where it goes isn't known until the server says.
-    const toast = page.getByRole('status').filter({ hasText: 'Onions ticked' });
+    // Onions has no usual place: the phone says where the server will put it, the first
+    // Cupboard (F199).
+    const toast = page.getByRole('status').filter({ hasText: 'Onions → Cupboard' });
     await expect.element(toast).toBeVisible();
     await expect.element(toast.getByRole('button', { name: 'Change' })).toBeVisible();
     await toast.getByRole('button', { name: 'Undo' }).click();
     await expect
-      .element(page.getByRole('status').filter({ hasText: 'Undone: Onions ticked' }))
+      .element(page.getByRole('status').filter({ hasText: 'Undone: Onions → Cupboard' }))
       .toBeVisible();
     const queue = (await readQueue()).map((e) => e.action);
     expect(queue.map((a) => a.kind)).toEqual(['tick', 'undo']);
