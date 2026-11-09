@@ -304,8 +304,6 @@ test.describe('theme', () => {
       test(`a pick stays over a reload, and reaches the account when it can (${name})`, async ({
         page,
       }) => {
-        // The app notices the server is back on its own timer (every few seconds), so this takes a while.
-        test.setTimeout(90_000);
         await page.goto('/');
         let group = await themeControls(page);
         await group.getByRole('button', { name: 'Light' }).click();
@@ -329,9 +327,11 @@ test.describe('theme', () => {
           ((await (await page.request.get('/api/v1/me')).json()) as { theme: string }).theme;
         expect(await account()).toBe('light');
 
-        // Back: the pick is sent (the app notices by itself within a few seconds), then it stays.
+        // Back: the app sends the pick as it opens (the "back online" signal does the same; the
+        // unit tests cover that path), and the account then holds it over another reload.
         await page.unroute(glob, stop);
-        await expect.poll(account, { timeout: 30_000 }).toBe('dark');
+        await page.reload();
+        await expect.poll(account).toBe('dark');
         await page.reload();
         group = await themeControls(page);
         await expect(group.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
