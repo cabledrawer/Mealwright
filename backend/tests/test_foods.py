@@ -734,5 +734,16 @@ def test_guess_goes_by_the_last_words_not_the_first(kitchen: TestClient) -> None
     assert juice["counted_as"] == "volume"
 
 
+def test_guess_skips_names_of_several_things(kitchen: TestClient) -> None:
+    # Review: "and", "of" and "with" mean the last word is not the whole ingredient.
+    for name in ("Cheese and onion", "Bag of onions", "Eggs with bacon", "Lemon and herb"):
+        answer = kitchen.get(f"{API}/foods/guess", params={"name": name}).json()
+        assert answer["counted_as"] != "count" or answer["from_table"] is False, name
+    # Still matched: a name that only ends in a counted ingredient.
+    for name in ("Unwaxed lemons", "Free range eggs", "Red onions"):
+        answer = kitchen.get(f"{API}/foods/guess", params={"name": name}).json()
+        assert answer == {"counted_as": "count", "from_table": True}, name
+
+
 def test_guess_needs_sign_in(client: TestClient) -> None:
     assert client.get(f"{API}/foods/guess", params={"name": "Onion"}).status_code == 401

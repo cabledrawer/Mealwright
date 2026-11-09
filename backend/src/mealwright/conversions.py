@@ -68,6 +68,10 @@ class Table:
         "free range eggs" → eggs): the thing named is what the last words say. Not "mango
         chutney", which is not a mango. The longest such name wins. Used only for guesses."""
         words = f" {normalise(name)}"
+        # "cheese and onion", "bag of onions", "eggs with bacon": a name of several things is not
+        # the last one.
+        if any(joiner in f"{words} " for joiner in (" and ", " of ", " with ")):
+            return None
         best: tuple[int, str] | None = None
         for table_name, key in self.by_name.items():
             if words.endswith(f" {table_name}") and (best is None or len(table_name) > best[0]):
