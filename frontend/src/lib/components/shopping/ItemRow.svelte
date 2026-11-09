@@ -550,7 +550,10 @@
   /* Plan shopping: one line, tick · name · amount · why · ⋯ (mockup Dark-ShopPlan08-Desktop). */
   .plan:not(.trolley) .line {
     display: grid;
-    grid-template-columns: 24px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.2fr) 40px;
+    /* As wide as before, but the name keeps at least 10rem (about 20 letters) and the amount
+       7.5rem; the why-text gives way first (it shows whole on hover). A name is cut only when
+       the row really has no room (F184). */
+    grid-template-columns: 24px minmax(10rem, 1.3fr) minmax(7.5rem, 1fr) minmax(0, 1.2fr) 40px;
     align-items: center;
     gap: 0 var(--space-6);
     min-height: 48px;

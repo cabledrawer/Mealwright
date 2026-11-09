@@ -270,3 +270,22 @@ for (const width of [1100, 1300]) {
     }
   });
 }
+
+// F184 (cabledrawer 8 Nov): "names cut short in one-line rows though there's room". A name that
+// fits in the room its row has is shown whole; only a name with no room left is cut.
+test('a long name is shown whole in a one-line row at 1101 px when the row has room', async ({ page }) => {
+  await page.setViewportSize({ width: 1101, height: 900 });
+  const k = await kitchen(page);
+  const tag = stamp().slice(-6);
+  try {
+    const name = `Thigh fillets ${tag}`;
+    await k.typed(await k.food(name), 600);
+    await page.goto('/shopping');
+    const button = row(page, name).getByRole('button', { name, exact: true });
+    await expect(button).toBeVisible();
+    const cut = await button.evaluate((el) => ({ shown: el.clientWidth, whole: el.scrollWidth }));
+    expect(cut.whole, `shown ${cut.shown}px of ${cut.whole}px`).toBeLessThanOrEqual(cut.shown);
+  } finally {
+    await k.cleanUp();
+  }
+});
