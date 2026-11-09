@@ -47,7 +47,7 @@ export function withoutLot(pantry: Pantry, lotId: number): void {
     const groups = place.groups.filter((group) => group.lots_count > 0);
     if (groups.length !== place.groups.length) {
       place.groups = groups;
-      place.items = groups.length;
+      place.items = groups.length + place.tubs.length;
     }
   }
 }
@@ -69,7 +69,7 @@ export function withGroups(pantry: Pantry, groups: Group[]): void {
       if (at === -1) place.groups = [...others, group];
       else place.groups = place.groups.map((g) => (g.food.id === group.food.id ? group : g));
     }
-    place.items = place.groups.length;
+    place.items = place.groups.length + place.tubs.length;
   }
 }
 

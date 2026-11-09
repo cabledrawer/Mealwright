@@ -35,4 +35,32 @@ describe('putting the server’s answer on screen', () => {
     withoutLot(pantry, spinach.id);
     expect(pantry.places[0]!.groups.map((g) => g.food.name)).toEqual(['Paneer', 'Yoghurt']);
   });
+
+  it('a place’s count stays the rows shown, tubs included (F202)', () => {
+    const { pantry } = samplePantry();
+    const freezer = pantry.places[1]!;
+    freezer.tubs = [
+      {
+        batch_id: 4,
+        tub_id: 9,
+        recipe_name: 'Lemon rice',
+        colour: null,
+        tubs: 1,
+        words: '1 tub',
+        use_by: '2026-10-18',
+        days_left: 1,
+        use_soon: true
+      }
+    ];
+    freezer.items = 2;
+    // The packet is used up: the tub is still shown, so the card says 1, never 0 above it.
+    withoutLot(pantry, freezer.groups[0]!.lots[0]!.id);
+    expect(freezer.groups).toHaveLength(0);
+    expect(freezer.items).toBe(1);
+    // An answer that puts a packet back counts both rows.
+    withGroups(pantry, [
+      { ...group(30, 'Frozen peas', '450 g', [lot('450 g', '2027-01-15', 90)]), place: freezer }
+    ]);
+    expect(freezer.items).toBe(2);
+  });
 });
