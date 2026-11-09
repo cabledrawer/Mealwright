@@ -332,3 +332,22 @@ test('Different pack? can go back to the planned amount after a different one wa
   await again.getByRole('button', { name: 'Done' }).click();
   await expect.poll(async () => (await stock(page, food.id)).map(([n]) => n)).toEqual([6]);
 });
+
+test('F198: Add as bought twice for one ingredient is one trolley row, and unticking it takes both back', async ({ page }) => {
+  const name = `Mango ${tag()}`;
+  await onList(page, name, { counted: true, listed: false });
+  await open(page);
+  const add = page.getByRole('textbox', { name: 'Add an item' });
+  for (let n = 1; n <= 2; n++) {
+    await add.fill(name);
+    await page.getByRole('button', { name: 'Add as bought' }).click();
+    await page.getByRole('group', { name: `How many ${name}` }).getByRole('button', { name: '1', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: name }).first()).toBeVisible();
+  }
+  await openTrolleyOf(page);
+  const row = page.getByRole('checkbox', { name: `Untick ${name}` });
+  await expect(row).toHaveCount(1);
+  await expect(row.locator('xpath=ancestor::li[1]')).toContainText('2');
+  await row.click();
+  await expect(page.getByRole('checkbox', { name: new RegExp(`${name}$`) })).not.toHaveCount(0);
+});

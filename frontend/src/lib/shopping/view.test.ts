@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   groupByShop,
   inTrolleyOrder,
+  joinAmounts,
+  joinTrolley,
   listCounts,
   planWords,
   subtitle,
@@ -224,5 +226,48 @@ describe('inTrolleyOrder (F173)', () => {
     expect(tickTime('2026-11-07T10:00:00')).toBe(Date.UTC(2026, 10, 7, 10, 0, 0));
     expect(tickTime('2026-11-07T10:00:00.250')).toBe(Date.UTC(2026, 10, 7, 10, 0, 0, 250));
     expect(tickTime('2026-11-07T11:00:00+01:00')).toBe(Date.UTC(2026, 10, 7, 10, 0, 0));
+  });
+});
+
+describe('one trolley row per ingredient (F198, cabledrawer 8 Nov)', () => {
+  const ticked = (id: string, at: string, display: string) =>
+    item(id, 6, { display, ticks: [{ ...tick, id: `t${id}`, at }] });
+
+  it('folds two lines of one ingredient into one row, counting only the lines to buy', () => {
+    const two: ShoppingCopy = {
+      ...copy,
+      items: [
+        ticked('m1', '2026-11-08T10:00:00Z', '1'),
+        ticked('m2', '2026-11-08T10:05:00Z', '1'),
+        item('x', 3, { ticks: [{ ...tick, at: '2026-11-08T10:01:00Z' }] }),
+        item('y', 4)
+      ]
+    };
+    const group = groupByShop(two, 'L').find((g) => g.shopId === 1)!;
+    expect(group.trolley.map((v) => v.item.id)).toEqual(['m2', 'x']);
+    expect(group.trolley[0]!.more!.map((v) => v.item.id)).toEqual(['m1']);
+    expect(group.trolley[1]!.more).toBeUndefined();
+    expect(group.toBuy).toBe(1);
+  });
+
+  it('joins the amounts: plain numbers add up, anything else is listed', () => {
+    expect(joinAmounts(['1', '1'])).toBe('2');
+    expect(joinAmounts(['200 g', '1 packet'])).toBe('200 g + 1 packet');
+  });
+
+  it('joins rows of one ingredient from different shops', () => {
+    const a = groupByShop(
+      {
+        ...copy,
+        items: [
+          ticked('m1', '2026-11-08T10:00:00Z', '1'),
+          { ...ticked('m2', '2026-11-08T10:05:00Z', '1'), shop_id: 2 }
+        ]
+      },
+      'L'
+    ).flatMap((g) => g.trolley);
+    expect(a).toHaveLength(2);
+    expect(joinTrolley(a)).toHaveLength(1);
+    expect(joinTrolley(a)[0]!.more).toHaveLength(1);
   });
 });

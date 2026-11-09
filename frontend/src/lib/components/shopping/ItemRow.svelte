@@ -13,7 +13,7 @@
   import type { Side } from '#lib/swipe.js';
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import type { Note } from '#lib/shopping/types.js';
-  import type { ViewItem } from '#lib/shopping/view.js';
+  import { joinAmounts, linesOf, type ViewItem } from '#lib/shopping/view.js';
   import Icon from '../Icon.svelte';
   import SwipeRow from '../SwipeRow.svelte';
   import AmountBox from './AmountBox.svelte';
@@ -55,6 +55,8 @@
   } = $props();
 
   const item = $derived(view.item);
+  /** In the trolley, every line of this ingredient the row stands for (F198). */
+  const lines = $derived(linesOf(view));
   const food = $derived(view.food);
   const tick = $derived(view.ticks[0]);
   /** "1 jar (500 g) · 120 g needed" under the name, when the Usual size is known (F120). */
@@ -105,7 +107,7 @@
   let rowEl = $state<HTMLElement>();
 
   const place = $derived(model.placeName(tick?.place_id ?? item.put_away_place_id));
-  const placing = $derived(model.placing === item.id);
+  const placing = $derived(lines.some((l) => l.item.id === model.placing));
   const planned = $derived(
     trolley && tick?.bought && tick.bought.display !== item.display && item.display
       ? `Planned ${item.display}`
@@ -118,7 +120,14 @@
     const parts: string[] = [];
     if (putAway.kind === 'staple') parts.push('Restocked · staples aren’t counted');
     else if (putAway.kind === 'none') parts.push('Not in the pantry yet. No amount.');
-    else parts.push(putAway.amount);
+    else if (lines.length > 1) {
+      const amounts = lines.map((l) => model.putAwayFor(l.item));
+      parts.push(
+        amounts.every((a) => a.kind === 'amount')
+          ? joinAmounts(amounts.map((a) => (a.kind === 'amount' ? a.amount : '')))
+          : putAway.amount
+      );
+    } else parts.push(putAway.amount);
     if (tick?.found) parts.push('found at home');
     if (planned && !tick?.found) parts.push(planned);
     return parts.join(' · ');
@@ -172,7 +181,7 @@
   /** In the trolley, swipe left clears just this line (F72, cabledrawer 6 Nov). */
   function clearNow() {
     const back = keepFocus(nameButton ?? rowEl ?? document.body);
-    void model.clearTicked([item]);
+    void model.clearTicked(lines.map((l) => l.item));
     back();
   }
 
@@ -308,7 +317,8 @@
             aria-label="{trolley ? 'Untick' : 'Tick'} {food.name}"
             onchange={(event) => {
               const back = keepFocus(event.currentTarget);
-              void (trolley ? model.untick(item) : model.tick(item));
+              if (trolley) for (const line of lines) void model.untick(line.item);
+              else void model.tick(item);
               back();
             }}
           />
@@ -362,7 +372,7 @@
               aria-label="Clear {food.name}"
               onclick={(event) => {
                 const back = keepFocus(event.currentTarget);
-                void model.clearTicked([item]);
+                void model.clearTicked(lines.map((l) => l.item));
                 back();
               }}><Icon name="close" size={16} stroke={2.4} /></button
             >
@@ -439,7 +449,7 @@
           type="button"
           role="radio"
           aria-checked={p.name === place}
-          onclick={() => void model.putAway(item, p.id)}>{p.name}</button
+          onclick={() => lines.forEach((l) => void model.putAway(l.item, p.id))}>{p.name}</button
         >
       {/each}
     </div>
@@ -448,7 +458,7 @@
         <NewPlace
           onadded={(added) => {
             addingPlace = false;
-            void model.putAway(item, added.id);
+            lines.forEach((l) => void model.putAway(l.item, added.id));
           }}
           oncancel={() => {
             // The "+ Place" that opened the box was gone while it was open: focus the new one.

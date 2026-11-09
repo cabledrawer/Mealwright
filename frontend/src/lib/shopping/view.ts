@@ -10,6 +10,36 @@ export interface ViewItem {
   food: ShopFood;
   /** Ticks that still count (not taken back). */
   ticks: Tick[];
+  /**
+   * In the trolley, the other lines of the same ingredient folded into this one row (F198,
+   * cabledrawer 8 Nov: "one trolley row per ingredient"); this view is the most recently ticked.
+   */
+  more?: ViewItem[];
+}
+
+/** The row's lines: itself, then the ones folded into it. */
+export function linesOf(view: ViewItem): ViewItem[] {
+  return [view, ...(view.more ?? [])];
+}
+
+/** One trolley row per ingredient: the lines of the same ingredient fold into the first of them
+ * (the list is already most recently ticked first). */
+export function joinTrolley(views: ViewItem[]): ViewItem[] {
+  const rows = new Map<number, ViewItem>();
+  for (const view of views) {
+    const first = rows.get(view.food.id);
+    if (first) first.more = [...(first.more ?? []), ...linesOf(view)];
+    else rows.set(view.food.id, { ...view, more: [...(view.more ?? [])] });
+  }
+  return [...rows.values()].map((v) => (v.more?.length ? v : { ...v, more: undefined }));
+}
+
+/** "1" and "1" are "2"; anything with units is joined: "200 g + 1 packet". */
+export function joinAmounts(displays: string[]): string {
+  if (displays.every((d) => /^\d+$/.test(d))) {
+    return String(displays.reduce((sum, d) => sum + Number(d), 0));
+  }
+  return displays.join(' + ');
 }
 
 export interface AisleGroup {
@@ -110,14 +140,15 @@ export function groupByShop(copy: ShoppingCopy, listId: string): ShopGroup[] {
       );
       if (items.length) aisles.push({ key, name: AISLE_NAMES[key]!, items });
     }
-    const trolley = inTrolleyOrder(sorted.filter((v) => v.ticks.length > 0));
+    const ticked = sorted.filter((v) => v.ticks.length > 0);
+    const trolley = joinTrolley(inTrolleyOrder(ticked));
     groups.push({
       shopId: id,
       name: shop?.name ?? ANY_SHOP,
       aisles,
       trolley,
       ghosts: ghosts.filter((g) => g.shopId === id).map((g) => g.ghost),
-      toBuy: sorted.length - trolley.length
+      toBuy: sorted.length - ticked.length
     });
   }
   return groups;

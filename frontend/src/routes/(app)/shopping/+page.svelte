@@ -24,7 +24,7 @@
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
-  import { inTrolleyOrder } from '#lib/shopping/view.js';
+  import { inTrolleyOrder, joinTrolley, linesOf } from '#lib/shopping/view.js';
 
   const model = new ShoppingModel();
   const uid = $props.id();
@@ -95,7 +95,9 @@
   $effect(() => {
     const id = model.placing ?? model.askingHowMuch;
     if (!id) return;
-    const group = model.groups.find((g) => g.trolley.some((v) => v.item.id === id));
+    const group = model.groups.find((g) =>
+      g.trolley.some((v) => linesOf(v).some((l) => l.item.id === id))
+    );
     if (group) {
       const folded = `${uid}-${key(group.shopId)}`;
       untrack(() => (open = { ...open, [folded]: true }));
@@ -142,7 +144,9 @@
       : [])
   ]);
   const total = $derived(model.groups.reduce((n, g) => n + g.toBuy, 0));
-  const trolleyRows = $derived(inTrolleyOrder(model.groups.flatMap((g) => g.trolley)));
+  const trolleyRows = $derived(
+    joinTrolley(inTrolleyOrder(model.groups.flatMap((g) => g.trolley.flatMap(linesOf))))
+  );
   // A dot for each shop, in the order of the shops (shops have no colour of their own).
   const DOTS = ['#2e9e6b', '#d99a1e', '#4a8fd6', '#c45fa0', '#8a6fd1', '#d9694a'];
   const dotOf = (shopId: number | null) => {
@@ -334,14 +338,20 @@
               class="chip"
               onclick={(event) => {
                 const back = keepFocus(event.currentTarget);
-                void model.clearTicked(trolleyRows.map((v) => v.item));
+                void model.clearTicked(trolleyRows.flatMap(linesOf).map((v) => v.item));
                 back();
               }}>Clear ticked</button
             >
           </div>
           <ul class="rowlist trolley">
             {#each trolleyRows as view (view.item.id)}
-              <ItemRow {model} {view} trolley clear notes={notesFor(view.item.id)} />
+              <ItemRow
+                {model}
+                {view}
+                trolley
+                clear
+                notes={linesOf(view).flatMap((l) => notesFor(l.item.id))}
+              />
             {/each}
           </ul>
         </section>
@@ -456,7 +466,7 @@
                     class="clear"
                     onclick={(event) => {
                       const back = keepFocus(event.currentTarget);
-                      void model.clearTicked(group.trolley.map((v) => v.item));
+                      void model.clearTicked(group.trolley.flatMap(linesOf).map((v) => v.item));
                       back();
                     }}>Clear ticked</button
                   >
@@ -465,7 +475,13 @@
               {#if fold}
                 <ul class="card" id="{id}-trolley">
                   {#each group.trolley as view (view.item.id)}
-                    <ItemRow {model} {view} trolley clear notes={notesFor(view.item.id)} />
+                    <ItemRow
+                      {model}
+                      {view}
+                      trolley
+                      clear
+                      notes={linesOf(view).flatMap((l) => notesFor(l.item.id))}
+                    />
                   {/each}
                 </ul>
               {/if}
