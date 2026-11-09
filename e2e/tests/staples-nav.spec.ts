@@ -203,6 +203,9 @@ test('How much? for a new ingredient offers 100 g · 250 g · 500 g · 1 kg, the
 
 test('New recipe opens a small choice: Add by hand · Import recipe, with keys and focus', async ({ page }) => {
   await page.goto('/recipes');
+  // An empty household's Recipes swaps its "New recipe" button for a new one when the list
+  // answers (the empty state), so wait for that answer before using the button.
+  await expect(page.getByText(/^\d+ recipes?$/)).toBeVisible();
   const button = page.getByRole('button', { name: 'New recipe', exact: true });
   await button.focus();
   await page.keyboard.press('Enter');
@@ -354,6 +357,9 @@ test('on a 320 px phone, dark, at 200% text: header cog and avatar, the switch, 
 
   await page.goto('/recipes');
   await big();
+  // An empty household's Recipes swaps its "New recipe" button for a new one when the list
+  // answers (the empty state), so wait for that answer before using the button.
+  await expect(page.getByText(/^\d+ recipes?$/)).toBeVisible();
   const button = page.getByRole('button', { name: 'New recipe', exact: true });
   await tall(button);
   await button.click();
