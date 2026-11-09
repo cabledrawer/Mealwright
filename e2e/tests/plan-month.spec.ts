@@ -724,7 +724,12 @@ test.describe('on a computer', () => {
       });
     });
     await openMonthOf(page, today, day);
+    // The summary comes with the answer, so wait for the answer first: a slow run then says which
+    // stage it stopped at (plan-month.spec.ts:697 in a WebKit full check, 9 Nov). The toast's first
+    // words aren't waited for: a quick answer replaces them before they can be seen.
+    const answered = page.waitForResponse('**/api/v1/plan/fill-from-freezer');
     await page.getByRole('button', { name: 'Fill from freezer first' }).click();
+    await answered;
     const toast = page.getByRole('status').filter({ hasText: summary });
     await expect(toast).toBeVisible();
     await expect(toast.getByRole('button', { name: 'Undo all', exact: true })).toHaveCount(1);
