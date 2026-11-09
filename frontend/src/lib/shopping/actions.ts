@@ -35,6 +35,8 @@ export type ActionFields =
       amount?: number | null;
       size_id?: number | null;
       shop_id?: number | null;
+      /** "Add as bought": its own line, never joined into one still to buy (sync-protocol 4.2). */
+      as_bought?: boolean;
     }
   | { kind: 'set_amount'; item_id: string; amount: number; size_id?: number | null }
   | { kind: 'delete'; item_id: string }

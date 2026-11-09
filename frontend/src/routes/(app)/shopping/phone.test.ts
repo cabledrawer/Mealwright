@@ -79,6 +79,8 @@ describe('Shopping on the phone', () => {
       await page.getByRole('button', { name: 'Add as bought' }).click();
       await vi.waitFor(() => expect(kinds()).toEqual(['add', 'tick']));
       expect(server.actions[1]!.item_id).toBe(server.actions[0]!.item_id);
+      // The add says it is "as bought", so the server never joins it into a line still to buy.
+      expect(server.actions[0]).toMatchObject({ kind: 'add', as_bought: true });
       // One toast, with where it went and Undo.
       await expect.element(page.getByRole('status').filter({ hasText: 'Tahini' })).toBeVisible();
     });
@@ -140,6 +142,7 @@ describe('Shopping on the phone', () => {
       await vi.waitFor(async () => {
         const queue = (await readQueue()).map((e) => e.action);
         expect(queue.map((a) => a.kind)).toEqual(['add', 'tick']);
+        expect(queue[0]).toMatchObject({ as_bought: true });
         expect((queue[1] as { item_id: string }).item_id).toBe(
           (queue[0] as { item_id: string }).item_id
         );

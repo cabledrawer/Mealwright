@@ -535,7 +535,9 @@ export class ShoppingModel {
     /** A typed amount ("1 l milk"): the add carries it, so it joins a line there already. */
     amount?: { amount: number; sizeId: number | null },
     /** The new line's ID, when the caller needs it (Add as bought ticks that line). */
-    itemId: string = newChangeId()
+    itemId: string = newChangeId(),
+    /** "Add as bought": the line is its own, never joined into one still to buy. */
+    asBought = false
   ): Promise<Outcome<ActionResult> | null> {
     const list = this.list;
     if (!list) return Promise.resolve(null);
@@ -562,7 +564,8 @@ export class ShoppingModel {
         list_id: list.id,
         item_id: itemId,
         food_id: food.id,
-        ...(amount ? { amount: amount.amount, size_id: amount.sizeId } : {})
+        ...(amount ? { amount: amount.amount, size_id: amount.sizeId } : {}),
+        ...(asBought ? { as_bought: true } : {})
       },
       group ? { label, quiet: true, queued: (id) => group.queued(id) } : { label }
     );
@@ -591,6 +594,7 @@ export class ShoppingModel {
         list_id: list.id,
         item_id: itemId,
         ...(amount ? { amount: amount.amount, size_id: amount.sizeId } : {}),
+        ...(bought ? { as_bought: true } : {}),
         new_food: {
           name: chosen.name,
           counted_as: chosen.counted_as,
@@ -630,7 +634,7 @@ export class ShoppingModel {
   ): Promise<void> {
     const itemId = newChangeId();
     const addQueued = new Promise<string>((resolve) => {
-      void this.add(food, `${food.name} added`, { queued: resolve }, amount, itemId);
+      void this.add(food, `${food.name} added`, { queued: resolve }, amount, itemId, true);
     });
     const addId = await addQueued;
     const line = this.item(itemId);

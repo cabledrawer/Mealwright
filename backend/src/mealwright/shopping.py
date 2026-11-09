@@ -960,7 +960,12 @@ def add_item(act: Act) -> None:
         size = kitchen.db.get(FoodSize, size_id) if size_id else None
     in_removed_list(act, shopping_list)
     extra = {"foods": foods} if foods else {}
-    line = matching_line(kitchen, shopping_list.id, food.id, shop_id)
+    # An add "as bought" is its own line: only what it ticks goes into the pantry.
+    line = (
+        None
+        if payload.get("as_bought")
+        else matching_line(kitchen, shopping_list.id, food.id, shop_id)
+    )
     if line is not None:
         _join(act, shopping_list, line, food, amount_milli, size, item_id, extra)
         if typed:

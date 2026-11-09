@@ -133,6 +133,9 @@ class Add(ActionBase):
     amount: Amount | None = None
     size_id: RowNumber | None = None
     shop_id: RowNumber | None = None
+    # "Add as bought" (cabledrawer 9 Nov): the line is its own, never joined into a line that is
+    # still to buy; it is ticked straight after. Old clients leave it out.
+    as_bought: bool = False
 
     @model_validator(mode="after")
     def _one_food(self) -> Add:

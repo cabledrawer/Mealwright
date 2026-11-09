@@ -241,15 +241,17 @@ export function applyLocal(
     const shop = action.shop_id !== undefined ? action.shop_id : food.shop_id;
     const amount = action.amount ?? null;
     const sizeId = action.size_id ?? null;
-    const line = out.items.find(
-      (i) =>
-        i.list_id === action.list_id &&
-        i.food_id === food.id &&
-        i.shop_id === shop &&
-        !i.deleted &&
-        !i.merged_into_id &&
-        !i.ticks.some((t) => t.standing)
-    );
+    const line = action.as_bought
+      ? undefined
+      : out.items.find(
+          (i) =>
+            i.list_id === action.list_id &&
+            i.food_id === food.id &&
+            i.shop_id === shop &&
+            !i.deleted &&
+            !i.merged_into_id &&
+            !i.ticks.some((t) => t.standing)
+        );
     if (line) {
       alias[action.item_id] = line.id;
       if (amount === null) return;
