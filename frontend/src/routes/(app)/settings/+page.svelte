@@ -238,8 +238,26 @@
   }
 
   // A computer opened with "?section=…" goes to that section.
+  // The sections above it fill in as they load and push it down, so it stays put until the person
+  // scrolls or presses something, or a few seconds have passed.
+  let sectionsBox = $state<HTMLElement>();
   onMount(() => {
-    if (!phone && asked) void goTo(asked);
+    if (phone || !asked) return;
+    const id = asked;
+    void goTo(id);
+    if (!sectionsBox) return;
+    const again = () => document.getElementById(id)?.scrollIntoView({ block: 'start' });
+    const watcher = new ResizeObserver(again);
+    watcher.observe(sectionsBox);
+    const events = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
+    const stop = () => {
+      watcher.disconnect();
+      for (const name of events) window.removeEventListener(name, stop);
+      clearTimeout(timer);
+    };
+    const timer = setTimeout(stop, 4000);
+    for (const name of events) window.addEventListener(name, stop, { passive: true });
+    return stop;
   });
 
   let busy = $state(false);
@@ -361,7 +379,7 @@
       <p class="later">Household, Your data and About come in 0.9.</p>
     </nav>
   {/if}
-  <div class="sections">
+  <div class="sections" bind:this={sectionsBox}>
     <!-- Settings needs the server (spec section 6, "Opening the app offline"). Two parts still
        work offline, so they stay: the theme switch, which is saved on this device (cabledrawer
        18 Oct: "Keep it visible"), and signing out (docs/dev/sync-protocol.md section 12).
