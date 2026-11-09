@@ -3,7 +3,7 @@
 
 import { api } from '#lib/api.js';
 import type { MealSlot, Person, Plan, PlanWrite, TubLeft } from './plan';
-import type { UseSoonLot } from './types';
+import type { UseSoonLot, UseSoonTub } from './types';
 
 /** A planned meal whose day has come, waiting for Cooked it, Didn't or Move it. */
 export interface WaitingMeal {
@@ -37,7 +37,8 @@ export interface TodayData {
   tubs_left: TubLeft[];
   tubs_left_more: boolean;
   use_soon_lots: UseSoonLot[];
-  use_soon_tubs: TubLeft[];
+  /** One row per batch and place, the same rows as the Pantry's Use soon (F203). */
+  use_soon_tubs: UseSoonTub[];
   next_cook: NextCook | null;
 }
 

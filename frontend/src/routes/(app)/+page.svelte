@@ -156,7 +156,6 @@
     data ? `${data.tubs_left.length}${data.tubs_left_more ? '+' : ''}` : '0'
   );
 
-  const daysLeft = (iso: string) => Math.round((Date.parse(iso) - Date.parse(today)) / 86_400_000);
 
   /** F150: the seven days from today, one row each. */
   const week = $derived(data ? weekRows(data.plan, data.slots, today) : []);
@@ -302,14 +301,14 @@
         </div>
       {:else}
         <ul class="card list">
-          {#each data.use_soon_tubs as tub (`tub-${tub.id}`)}
+          {#each data.use_soon_tubs as tub (`tub-${tub.batch_id}-${tub.place.id}`)}
             <li>
               <span class="what"
-                ><span class="n">{tub.recipe_name} · tub {tub.number} of {tub.tub_count}</span><span
-                  class="muted">{tub.place_kind === 'freezer' ? 'Freezer' : 'Fridge'} · tub</span
+                ><span class="n">{tub.recipe_name}</span><span class="muted"
+                  >{tub.place.name} · {tub.words}</span
                 ></span
               >
-              <span class="when">{dateWords(tub.use_by, daysLeft(tub.use_by))}</span>
+              <span class="when">{dateWords(tub.use_by, tub.days_left)}</span>
             </li>
           {/each}
           {#each data.use_soon_lots as lot (`lot-${lot.id}`)}

@@ -517,6 +517,42 @@ def test_a_meal_in_a_switched_off_slot_is_not_asked_about(
     ]
 
 
+def test_today_and_the_pantry_count_use_soon_the_same_way(kitchen: TestClient, sambar: int) -> None:
+    """F203: two tubs of one batch that are both Use soon are one thing on Today, as on the
+    Pantry, so the two screens give the same number."""
+    with db_of(kitchen) as db:
+        batch = BatchCook(
+            household_id=1,
+            recipe_id=sambar,
+            recipe_name="Sambar",
+            cooked_on=ago(kitchen, 2),
+            tub_count=3,
+            pattern="pick",
+        )
+        db.add(batch)
+        db.flush()
+        for days in (0, 1, 1):
+            db.add(Tub(household_id=1, batch_id=batch.id, use_by=ahead(kitchen, days)))
+        db.commit()
+    paneer = new_food(kitchen, "Count paneer", place_id=fridge_id(kitchen))
+    ok(
+        kitchen.post(
+            f"{API}/stock",
+            json={
+                "food_id": paneer["id"],
+                "amount": {"amount": 200, "unit": "g"},
+                "use_by": str(ahead(kitchen, 1)),
+            },
+        ),
+        201,
+    )
+    out = get_today(kitchen)
+    on_today = len(out["use_soon_lots"]) + len(out["use_soon_tubs"])
+    assert len(out["use_soon_tubs"]) == 1 and out["use_soon_tubs"][0]["tubs"] == 3
+    assert on_today == 2
+    assert kitchen.get(f"{API}/pantry").json()["counts"]["use_soon"] == on_today
+
+
 def test_today_reads_tubs_use_soon_and_the_next_cook(
     kitchen: TestClient, sambar: int, slots: dict[str, int]
 ) -> None:
@@ -557,7 +593,10 @@ def test_today_reads_tubs_use_soon_and_the_next_cook(
     out = get_today(kitchen)
     # The two made by hand, and the four of the cook-once (the pattern puts none in a meal).
     assert len(out["tubs_left"]) == 6 and not out["tubs_left_more"]
-    assert [t["use_by"] for t in out["use_soon_tubs"]] == [str(ahead(kitchen, 1))]
+    # One row for the batch, soonest date first, counting both of its tubs (F203).
+    assert [(t["use_by"], t["tubs"], t["words"]) for t in out["use_soon_tubs"]] == [
+        (str(ahead(kitchen, 1)), 2, "2 tubs")
+    ]
     assert [lot["food"]["name"] for lot in out["use_soon_lots"]] == ["Today paneer"]
     assert out["next_cook"]["recipe_name"] == "Biryani" and out["next_cook"]["tub_count"] == 4
     assert out["next_cook"]["date"] == str(ahead(kitchen, 3))

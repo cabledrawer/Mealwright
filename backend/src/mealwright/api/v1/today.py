@@ -13,7 +13,7 @@ from mealwright import plan
 from mealwright import today as answers
 from mealwright.api.v1.batches import PersonOut, TubLeftOut, get_tubs_left, list_people
 from mealwright.api.v1.context import Here
-from mealwright.api.v1.pantry import UseSoonLot, use_soon
+from mealwright.api.v1.pantry import UseSoonLot, UseSoonTub, use_soon
 from mealwright.api.v1.plan import MealSlotOut, PlanOut, PlanWrite, _run, get_plan
 from mealwright.auth import SameOrigin
 from mealwright.batches import tub_use_by
@@ -64,7 +64,9 @@ class TodayOut(BaseModel):
     tubs_left: list[TubLeftOut]
     tubs_left_more: bool
     use_soon_lots: list[UseSoonLot]  # packets, soonest first
-    use_soon_tubs: list[TubLeftOut]  # tubs left whose use-by is within the Use soon days
+    # One row per batch and place, the way the Pantry counts them (F203): the batch's tubs in
+    # that place when its soonest is within the Use soon days (or passed).
+    use_soon_tubs: list[UseSoonTub]
     next_cook: NextCookOut | None
 
 
@@ -73,7 +75,6 @@ def get_today(kitchen: Here) -> TodayOut:
     """Everything Today shows, in the household's own day."""
     db, hid, household = kitchen.db, kitchen.household_id, kitchen.household
     first = household_today(household)
-    soon = first + timedelta(days=household.use_soon_days)
     slots = [s for s in meal_slots(db, hid) if s.enabled]
     plan_out = get_plan(
         kitchen,
@@ -151,7 +152,7 @@ def get_today(kitchen: Here) -> TodayOut:
         tubs_left=left.tubs,
         tubs_left_more=left.more,
         use_soon_lots=lots.lots,
-        use_soon_tubs=[t for t in left.tubs if t.use_by <= soon],
+        use_soon_tubs=lots.tubs,
         next_cook=next_cook,
     )
 
