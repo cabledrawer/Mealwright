@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { network } from '#lib/network.svelte.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+import { privacy } from '#lib/privacy.svelte.js';
 import { session } from '#lib/session.svelte.js';
 import { changeOf, fakeApi, PLACES, type FakeRequest } from '#lib/testing/fakeApi.js';
 import { ME } from '#lib/testing/fakeShopping.js';
@@ -15,6 +16,11 @@ import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(async () => {}) }));
+
+// The page's address: on the phone each section is its own page ("?section=…", F193).
+const route = vi.hoisted(() => ({ url: new URL('http://localhost/settings') }));
+vi.mock('$app/state', () => ({ page: route }));
+const at = (query: string) => (route.url = new URL(`http://localhost/settings${query}`));
 
 const SLOTS = [
   { id: 1, name: 'Breakfast', position: 0, enabled: true },
@@ -50,9 +56,11 @@ function open(routes: Record<string, Parameters<typeof fakeApi>[0][string]> = {}
 const sections = () => page.getByRole('navigation', { name: 'Settings sections' });
 
 beforeEach(async () => {
+  at('');
   session.me = { ...ME };
   network.reset();
   placesAndShops.forget();
+  privacy.forget();
   undoHistory.clear();
   await page.viewport(1300, 900);
 });
@@ -97,15 +105,95 @@ describe('the section list', () => {
     await expect.element(page.getByRole('heading', { name: 'Shops & places' })).toHaveFocus();
   });
 
-  it('phone: the same list, at the top', async () => {
+  it('phone: a grouped list, You · Kitchen · Household, with icons and current values (F193)', async () => {
     await page.viewport(390, 800);
+    open({
+      'GET /privacy/switches': [
+        200,
+        {
+          switches: [
+            { connection: 'recipe_import', on: false },
+            { connection: 'recipe_photos', on: false }
+          ],
+          can_change: true
+        }
+      ],
+      'GET /privacy/own-network': [200, { entries: [], limit: 100, can_change: true }]
+    });
+    const group = (name: string) => page.getByRole('navigation', { name });
+    await expect.element(group('Your settings')).toBeVisible();
+    for (const [name, rows] of [
+      ['Your settings', ['Appearance', 'Amounts']],
+      ['Kitchen settings', ['Meal slots', 'Shops & places', 'Recent changes']],
+      ['Household settings', ['Privacy', 'Sign-in']]
+    ] as const) {
+      const links = group(name).getByRole('link');
+      await vi.waitFor(() => expect(links.elements().length).toBe(rows.length));
+      for (const [i, row] of rows.entries()) {
+        const box = links.nth(i).element().getBoundingClientRect();
+        expect(links.nth(i).element().textContent).toContain(row);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+      }
+    }
+    // Values: the theme, the pint, meals on, shops and places.
+    expect(page.getByRole('link', { name: /^Appearance/ }).element().textContent).toMatch(
+      /Auto|Light|Dark/
+    );
+    await expect
+      .element(page.getByRole('link', { name: /^Amounts/ }))
+      .toHaveTextContent('Amounts UK pints');
+    await expect
+      .element(page.getByRole('link', { name: /^Meal slots/ }))
+      .toHaveTextContent('Meal slots 3 on');
+    await expect
+      .element(page.getByRole('link', { name: /^Shops & places/ }))
+      .toHaveTextContent('Shops & places 2 shops · 4 places');
+    await expect
+      .element(page.getByRole('link', { name: /^Privacy/ }))
+      .toHaveTextContent('Privacy All off');
+    // No section's own controls on the list, and no list of sections beside it.
+    expect(page.getByRole('switch').elements()).toEqual([]);
+    expect(sections().elements()).toEqual([]);
+    // Each row names its section; Privacy has its own page.
+    await expect
+      .element(page.getByRole('link', { name: /^Meal slots/ }))
+      .toHaveAttribute('href', '/settings?section=meal-slots');
+    await expect
+      .element(page.getByRole('link', { name: /^Privacy/ }))
+      .toHaveAttribute('href', '/settings/privacy');
+    await expect
+      .element(page.getByText('Household, Your data and About come in 0.9.'))
+      .toBeVisible();
+  });
+
+  it('phone: a section opens alone, under its own title, with ‹ Settings to come back (F193)', async () => {
+    await page.viewport(390, 800);
+    at('?section=meal-slots');
     open();
-    await expect.element(sections().getByRole('button', { name: 'Recent changes' })).toBeVisible();
-    const box = sections()
-      .getByRole('button', { name: 'Privacy' })
-      .element()
-      .getBoundingClientRect();
-    expect(box.height).toBeGreaterThanOrEqual(44);
+    await expect.element(page.getByRole('heading', { level: 1, name: 'Meal slots' })).toBeVisible();
+    await expect.element(page.getByRole('link', { name: 'Settings', exact: true })).toBeVisible();
+    await expect.element(page.getByRole('region', { name: 'Meal slots' })).toBeVisible();
+    expect(page.getByRole('region', { name: 'Recent changes' }).elements()).toEqual([]);
+    expect(page.getByRole('region', { name: 'Shops' }).elements()).toEqual([]);
+  });
+
+  it('phone: an older link ending in a section (#shops-places) opens that section (F193)', async () => {
+    await page.viewport(390, 800);
+    route.url = new URL('http://localhost/settings#shops-places');
+    open();
+    await expect
+      .element(page.getByRole('heading', { level: 1, name: 'Shops & places' }))
+      .toBeVisible();
+  });
+
+  it('a computer shows every section, and a section link scrolls to it (F193)', async () => {
+    at('?section=recent-changes');
+    open();
+    await expect.element(page.getByRole('region', { name: 'Meal slots' })).toBeVisible();
+    await expect.element(page.getByRole('region', { name: 'Recent changes' })).toBeVisible();
+    await expect
+      .element(page.getByRole('heading', { level: 2, name: 'Recent changes' }))
+      .toHaveFocus();
   });
 
   it('hides Meal slots from a member', async () => {

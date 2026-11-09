@@ -6,18 +6,17 @@
   // until they are known; Privacy opens its own page.
   import { resolve } from '$app/paths';
   import Icon from '#lib/components/Icon.svelte';
-  import { SECTION_ICONS, type Group, type Row } from './sectionIcons.js';
+  import { SECTION_ICONS, type Group } from './sectionIcons.js';
 
   let { groups }: { groups: Group[] } = $props();
-
-  const hrefOf = (row: Row) => row.href ?? `${resolve('/(app)/settings')}?section=${row.id}`;
 </script>
 
 {#each groups as group (group.name)}
   <h2 class="group-name">{group.name}</h2>
   <nav class="card" aria-label={group.label}>
     {#each group.rows as row (row.id)}
-      <a class="row" href={hrefOf(row)}>
+      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve()'s answer, plus this page's own ?section= -->
+      <a class="row" href={row.href ?? `${resolve('/(app)/settings')}?section=${row.id}`}>
         <span class="ico {SECTION_ICONS[row.icon].tone}">
           <svg
             aria-hidden="true"

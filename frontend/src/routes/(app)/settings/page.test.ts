@@ -23,6 +23,12 @@ import '#lib/styles/base.css';
 const navigation = vi.hoisted(() => ({ goto: vi.fn(async () => {}) }));
 vi.mock('$app/navigation', () => navigation);
 
+// The page's address: on the phone each section is its own page ("?section=…", F193), and these
+// tests are phone-wide, so each describe says which section it is on.
+const route = vi.hoisted(() => ({ url: new URL('http://localhost/settings') }));
+vi.mock('$app/state', () => ({ page: route }));
+const onSection = (id: string) => (route.url = new URL(`http://localhost/settings?section=${id}`));
+
 const WARNING = '3 changes haven’t been sent yet. If you sign out now, they’re lost.';
 const CANT_CHECK =
   'This phone couldn’t check for changes waiting to be sent. Nothing has been deleted.';
@@ -86,6 +92,7 @@ describe('signing out', () => {
   const button = (name: string) => page.getByRole('button', { name, exact: true });
 
   beforeEach(() => {
+    onSection('sign-in');
     freshPhone();
     session.me = { ...ME };
     network.reset();
@@ -358,6 +365,8 @@ describe('the pint switch (Amounts)', () => {
   const mounted: ReturnType<typeof mount>[] = [];
   const household = (pints: 'uk' | 'us') => ({ name: 'Home', pints });
 
+  beforeEach(() => onSection('amounts'));
+
   function open() {
     const target = document.body.appendChild(document.createElement('div'));
     mounted.push(mount(Settings, { target }));
@@ -438,13 +447,17 @@ describe('the pint switch (Amounts)', () => {
   });
 
   it('is not shown when the household can’t be read', async () => {
+    // On a computer, where Appearance and Amounts are on one page (the phone has a page each).
+    await page.viewport(1300, 900);
     fakeApi({});
     open();
     await expect.element(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
     expect(document.body.textContent).not.toContain('Amounts');
+    await page.viewport(390, 800);
   });
 
   it('shows once the connection comes back, when Settings was opened offline', async () => {
+    await page.viewport(1300, 900);
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
     open();
     await expect.element(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
@@ -454,6 +467,7 @@ describe('the pint switch (Amounts)', () => {
     network.backAgain++;
     flushSync();
     await expect.element(page.getByRole('heading', { name: 'Amounts' })).toBeVisible();
+    await page.viewport(390, 800);
   });
 });
 
@@ -461,6 +475,7 @@ describe('Checking a recipe on the phone (Appearance, F141)', () => {
   const mounted: ReturnType<typeof mount>[] = [];
 
   beforeEach(() => {
+    onSection('appearance');
     session.me = { ...ME };
     network.reset();
     localStorage.removeItem(CHECK_MODE_STORAGE_KEY);

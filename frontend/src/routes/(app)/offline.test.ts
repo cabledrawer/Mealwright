@@ -15,6 +15,11 @@ import Settings from './settings/+page.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
+// The page's address, for the screens that read it (the phone's Settings opens the section it
+// names, F193). A test sets `route.url` before it shows the screen.
+const route = vi.hoisted(() => ({ url: new URL('http://localhost/') }));
+vi.mock('$app/state', () => ({ page: route }));
+
 // Pantry, Ingredients and Settings need the server in 0.3 (spec section 6, "Opening the app
 // offline", cabledrawer 18 Oct): offline they say so and point to Shopping.
 
@@ -68,8 +73,14 @@ describe('the online-only screens, offline', () => {
 
   it('Settings still lets you sign out and change the theme (phone)', async () => {
     await page.viewport(390, 800);
+    // The phone's Settings is a list: Sign-in has the button, Appearance the theme (F193).
+    route.url = new URL('http://localhost/settings?section=sign-in');
     show(Settings);
     await expect.element(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    for (const component of mounted.splice(0)) unmount(component);
+    document.body.innerHTML = '';
+    route.url = new URL('http://localhost/settings?section=appearance');
+    show(Settings);
     // cabledrawer 18 Oct, "Keep it visible": the theme is saved on this device.
     await expect.element(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
     const switcher = page.getByRole('group', { name: 'Theme' });

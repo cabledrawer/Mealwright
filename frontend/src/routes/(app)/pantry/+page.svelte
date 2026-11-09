@@ -248,7 +248,8 @@
   <div class="count-line">
     {#if pantry}
       <span class="summary"
-        >{itemsText}{#if soonText}{' · '}<span class="soon">{soonText}</span>{/if}</span
+        >{itemsText}{soonText ? ' · ' : ''}{#if soonText}<span class="soon">{soonText}</span
+          >{/if}</span
       >
     {/if}
     <a class="stocktake-pill" href={resolve('/(app)/pantry/stocktake')}>Stocktake</a>
