@@ -1010,7 +1010,7 @@ test.describe('the Month’s day panel at 800 and 1024 px (the computer’s comp
       const { today, slot } = await setup(page);
       const day = dayFor(today, 'M');
       await clearDay(page, day);
-      const name = `Pongal ${Date.now().toString(36).slice(-6)}`;
+      const name = `Shakshuka ${Date.now().toString(36).slice(-6)}`;
       await planned(page, await makeRecipe(page, name), day, slot.Breakfast);
       await openMonthOf(page, today, day);
       await showSwitch(page).getByRole('button', { name: 'Eat', exact: true }).click();
@@ -1043,8 +1043,9 @@ test.describe('the Month’s day panel at 800 and 1024 px (the computer’s comp
         });
       // Normal text: as drawn, the day's meals beside the month (F47).
       await expect.poll(where).toBe('beside');
-      // At 800 px that panel is about 240 px wide even at normal text: the dishes go under the meal's
-      // name when they don't fit beside it, instead of being squeezed until a word breaks.
+      // At 800 px that panel is about 228 px wide even at normal text: the dishes go under the meal's
+      // name when they don't fit beside it, instead of being squeezed until a word breaks (a 9-letter
+      // word such as Shakshuka broke there; Opus review 9 Nov).
       await expect.poll(broken).toEqual([]);
       // 200% text: the panel beside the grid was about 240 px wide, and the dishes were squeezed until
       // every word broke (WebKit, full checks 1 and 4). Now the day goes under the grid, as on the phone.
