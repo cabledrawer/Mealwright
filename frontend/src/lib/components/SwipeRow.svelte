@@ -86,7 +86,7 @@
 
 <svelte:window bind:innerWidth={screen} />
 
-<div class="swipe" style:margin={bleed ? `0 -${bleed}px` : undefined}>
+<div class="swipe" class:live style:margin={bleed ? `0 -${bleed}px` : undefined}>
   {#if live && offset > 0 && right}
     <button
       type="button"
@@ -158,6 +158,11 @@
 <style>
   .swipe {
     position: relative;
+  }
+
+  /* Only a row that can slide clips what slides out of it. A computer's row is not clipped, so
+     its ⋯ menu can open over the rows below it (F182, cabledrawer 8 Nov). */
+  .swipe.live {
     overflow: hidden;
   }
 

@@ -226,3 +226,47 @@ test('+ New shop adds a shop chip', async ({ page }) => {
   await page.getByRole('button', { name: 'Add shop' }).click();
   await expect(page.getByRole('button', { name: new RegExp(`^Corner ${tag} · 0$`) })).toBeVisible();
 });
+
+// F182 (cabledrawer 8 Nov): the ⋯ menu was drawn under the rows below it, so Move to… and
+// Remove from list… could not be clicked. Playwright's click refuses a covered target, so a
+// menu under the next row fails here.
+for (const width of [1100, 1300]) {
+  test(`the ⋯ menu of a row with rows below it is above them and every choice clicks (${width} px)`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const k = await kitchen(page);
+    const tag = stamp();
+    try {
+      const names = [`Aaa ${tag}`, `Bbb ${tag}`, `Ccc ${tag}`];
+      for (const name of names) await k.typed(await k.food(name), 300);
+      await page.goto('/shopping');
+      const first = row(page, names[0]!);
+      await expect(first).toBeVisible();
+      await expect(row(page, names[2]!)).toBeVisible();
+
+      const more = first.getByRole('button', { name: `More for ${names[0]}` });
+      await more.click();
+      const menu = page.getByRole('menu', { name: names[0]! });
+      const [m, b] = [await menu.boundingBox(), await more.boundingBox()];
+      // The menu opens below its own ⋯ button, never over it.
+      expect(m!.y).toBeGreaterThanOrEqual(b!.y + b!.height);
+      // Every choice is what the pointer would reach at its middle: not hidden under a later row.
+      for (const label of ['Change amount', 'Move to…', 'Remove from list…']) {
+        const reached = await menu.getByRole('menuitem', { name: label }).evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+        });
+        expect(reached, `${label} is reachable`).toBe(true);
+      }
+
+      await menu.getByRole('menuitem', { name: 'Move to…' }).click();
+      await expect(page.getByRole('menu', { name: names[0]! })).toHaveCount(0);
+      await page.keyboard.press('Escape');
+
+      await more.click();
+      await page.getByRole('menu', { name: names[0]! }).getByRole('menuitem', { name: 'Remove from list…' }).click();
+      await expect(page.getByRole('alertdialog', { name: `Remove ${names[0]} from the shopping list?` })).toBeVisible();
+    } finally {
+      await k.cleanUp();
+    }
+  });
+}

@@ -535,12 +535,14 @@
   }
 
   /* The card's rounded corners, given to the swipe area inside the first and last row. */
-  .item:first-child :global(.swipe) {
+  .item:first-child :global(.swipe),
+  .item:first-child :global(.slide) {
     border-top-left-radius: var(--radius-xl);
     border-top-right-radius: var(--radius-xl);
   }
 
-  .item:last-child :global(.swipe) {
+  .item:last-child :global(.swipe),
+  .item:last-child :global(.slide) {
     border-bottom-left-radius: var(--radius-xl);
     border-bottom-right-radius: var(--radius-xl);
   }
