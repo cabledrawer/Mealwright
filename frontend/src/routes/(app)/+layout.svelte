@@ -1,9 +1,9 @@
 <script lang="ts">
   // The app itself, for someone signed in. +layout.ts sends everyone else to sign in.
-  import type { Snippet } from 'svelte';
+  import { untrack, type Snippet } from 'svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { ApiError, saveTheme, setUnauthorizedHandler } from '#lib/api.js';
+  import { ApiError, cantReach, saveTheme, setUnauthorizedHandler } from '#lib/api.js';
   import Sidebar from '#lib/components/Sidebar.svelte';
   import TabBar from '#lib/components/TabBar.svelte';
   import ConnectionStatus from '#lib/components/ConnectionStatus.svelte';
@@ -47,10 +47,12 @@
     // start): it's asked again once it can be reached (askAgain, opening.ts).
     const stopNetwork = network.start(() => {
       live.reconnect();
+      void theme.flush();
       void shoppingSync.tryAgain();
       void askAgain();
     });
     const stopLive = live.start(() => {
+      void theme.flush();
       void shoppingSync.send();
       void askAgain();
     });
@@ -111,11 +113,23 @@
     });
     // Theme changes follow the person to their other devices. Optimistic: the theme
     // changes straight away, and an ended session is handled above.
-    theme.saveChangesWith((choice) => {
-      saveTheme(choice).catch((error: unknown) => {
-        if (!(error instanceof ApiError)) throw error;
-      });
-    });
+    // A pick the server hasn't confirmed stays on this device and is sent again when the
+    // connection is back (theme.flush: now, and from the network and live callbacks above).
+    theme.saveChangesWith(
+      async (choice) => {
+        try {
+          await saveTheme(choice);
+          return true;
+        } catch (error) {
+          if (!(error instanceof ApiError)) throw error;
+          // No answer, or the session has ended: keep it, and send it later. Any other refusal
+          // won't change by asking again.
+          return !(cantReach(error) || error.status === 401);
+        }
+      },
+      untrack(() => session.me?.id ?? null)
+    );
+    void theme.flush();
     // Ctrl+Z after a reload: your latest change, from the server.
     undoHistory.fallback = lastOwnChange;
     // First run: tell the server the household's time zone and cup size (admins, once).

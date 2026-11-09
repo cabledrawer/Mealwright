@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './clock.ts';
+import type { Route } from '@playwright/test';
 import { checkPage, expectTouchTargets } from './a11y.ts';
 
 // The app shell (0.1): the five pages and Settings, the bottom tabs on phones and the
@@ -223,9 +224,9 @@ test.describe('theme', () => {
   }
 
   /**
-   * The choice is saved to the account in the background. A reload or a new page before that
-   * save has landed brings the account's old choice back over the new one ("the account's
-   * theme wins"), so a test that reloads waits for the save first, as a person who waits does.
+   * The choice is saved to the account in the background. Tests that look at the account's side
+   * (or end by leaving it as the next test expects) wait for that save. A reload before it
+   * lands keeps the pick (cabledrawer 9 Nov: the most recent choice wins), so those don't need it.
    */
   async function savedToAccount(page: Page, choice: 'auto' | 'dark' | 'light') {
     await expect
@@ -270,9 +271,8 @@ test.describe('theme', () => {
     // After a click the colour changes when the page has applied the choice: wait for it, as the
     // device checks above do (a busy machine read it before the change: full check, 8 Nov).
     await expect.poll(() => ground(page)).toBe(GROUND.dark);
-    await savedToAccount(page, 'dark');
 
-    // Still dark after a reload, and already dark before the app has started.
+    // Still dark after a reload (straight away: the save to the account needn't have landed), and already dark before the app has started.
     await page.goto('/plan', { waitUntil: 'commit' });
     await page.waitForFunction(() => document.readyState !== 'loading');
     expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
@@ -282,13 +282,55 @@ test.describe('theme', () => {
     const group2 = await themeControls(page);
     await group2.getByRole('button', { name: 'Light' }).click();
     await expect.poll(() => ground(page)).toBe(GROUND.light);
-    await savedToAccount(page, 'light');
     await page.reload();
     expect(await ground(page)).toBe(GROUND.light);
 
     await (await themeControls(page)).getByRole('button', { name: 'Auto' }).click();
     await expect.poll(() => ground(page)).toBe(GROUND.dark);
+    await savedToAccount(page, 'auto');
   });
+
+  // cabledrawer 9 Nov (PR 153 review): the most recent pick wins, online or offline, including
+  // straight after a reload. These two stop the save on its way (the server can't be reached, or
+  // only the save fails) so the account still holds the older choice when the page reloads.
+  for (const [name, glob, method] of [
+    ['the server can’t be reached', '**/api/v1/**', null],
+    ['the save hasn’t landed yet', '**/api/v1/me/preferences', 'PUT'],
+  ] as const) {
+    test(`a pick stays over a reload, and reaches the account when it can (${name})`, async ({
+      page,
+    }) => {
+      await page.goto('/');
+      let group = await themeControls(page);
+      await group.getByRole('button', { name: 'Light' }).click();
+      await savedToAccount(page, 'light');
+
+      const stop = (route: Route) =>
+        !method || route.request().method() === method ? route.abort('connectionrefused') : route.continue();
+      await page.route(glob, stop);
+      await group.getByRole('button', { name: 'Dark' }).click();
+      await expect.poll(() => ground(page)).toBe(GROUND.dark);
+
+      // The account still says Light; the page is reloaded and asks it.
+      await page.reload();
+      group = await themeControls(page);
+      await expect(group.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
+      expect(await ground(page)).toBe(GROUND.dark);
+      const account = async () =>
+        ((await (await page.request.get('/api/v1/me')).json()) as { theme: string }).theme;
+      expect(await account()).toBe('light');
+
+      // Back: the pick is sent (the app notices by itself within a few seconds), then it stays.
+      await page.unroute(glob, stop);
+      await expect.poll(account, { timeout: 30_000 }).toBe('dark');
+      await page.reload();
+      group = await themeControls(page);
+      await expect(group.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
+
+      await group.getByRole('button', { name: 'Auto' }).click();
+      await savedToAccount(page, 'auto');
+    });
+  }
 
   test('a slower server answer at start-up never undoes a theme picked after the app opened', async ({
     page,

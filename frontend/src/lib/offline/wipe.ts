@@ -37,6 +37,8 @@ import { markWipePending, WIPE_PENDING_KEY, wipeFinished, wipePending } from './
  */
 export const KEPT_ON_WIPE: readonly string[] = [
   'mealwright.theme',
+  // A theme pick the server hasn't confirmed yet, under the person's id (theme.svelte.ts).
+  'mealwright.theme.pending',
   'mealwright.sidebar',
   SIGN_OUT_PENDING_KEY,
   WIPE_PENDING_KEY

@@ -287,7 +287,7 @@
       // Signed in afresh: any session that couldn't be ended isn't this browser's any more.
       signOutState.unfinished = false;
       session.me = me;
-      theme.adopt(me.theme);
+      theme.adopt(me.theme, undefined, me.id);
       const next = safeNext(page.url.searchParams.get('next'));
       try {
         // eslint-disable-next-line svelte/no-navigation-without-resolve -- safeNext only returns pages of this app

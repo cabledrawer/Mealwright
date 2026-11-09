@@ -131,7 +131,7 @@ async function decideNow(
   await startDevice(me);
   // The account's theme wins over this device's copy, but not over a theme picked since the
   // app started (a slow server's answer is older than that choice).
-  theme.adopt(me.theme, picks);
+  theme.adopt(me.theme, picks, me.id);
 }
 
 /**

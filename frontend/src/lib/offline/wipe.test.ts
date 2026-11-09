@@ -43,6 +43,7 @@ describe('wiping this browser (sync-protocol section 12)', () => {
     await (await caches.open(SHELL_CACHE)).put('/index.html', new Response('app'));
     await (await caches.open(OTHER_CACHE)).put('/photo.jpg', new Response('photo'));
     localStorage.setItem('mealwright.theme', 'dark');
+    localStorage.setItem('mealwright.theme.pending', '{"user":2,"choice":"dark"}');
     localStorage.setItem('mealwright.sidebar', 'collapsed');
     localStorage.setItem(SIGN_OUT_PENDING_KEY, '1');
     localStorage.setItem('mealwright.household-from-browser', 'sent');
@@ -66,6 +67,7 @@ describe('wiping this browser (sync-protocol section 12)', () => {
       'mealwright.sidebar',
       'mealwright.sign-out-pending',
       'mealwright.theme',
+      'mealwright.theme.pending',
       'mealwright.wipe-pending'
     ]);
     // The old place of the device ID is empty too (cabledrawer 18 Oct), and whose it was.

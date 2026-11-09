@@ -3,8 +3,15 @@
 // static/theme.js applies the saved choice before the page is drawn; this module
 // keeps it up to date while the app runs. Both use the same storage key and rules.
 // The choice is saved per person (spec: "Choice saved per user"): once signed in,
-// the account's choice wins, and changes go back to the account. This device keeps a
+// the account's choice shows, and changes go back to the account. This device keeps a
 // copy, so the right theme shows before the app has started.
+//
+// The person's most recent pick always wins, online or offline (cabledrawer 9 Nov): a pick is
+// kept on this device, under the person's id, as "pending" until the server has it, and is
+// sent again when the connection is back. While it is pending no older answer from the server
+// (on loading, after a reload) replaces it. Once the server has it, the server's value counts
+// again. Kept in localStorage beside the choice itself, not in the offline queue: the theme
+// isn't part of the sync protocol (it goes to PUT /me/preferences) and one value needs no queue.
 
 import type { ThemeChoice } from './api';
 
@@ -25,6 +32,15 @@ export const THEME_HINTS: Record<ThemeChoice, string> = {
 };
 
 export const THEME_STORAGE_KEY = 'mealwright.theme';
+
+/** A pick the server hasn't confirmed yet: `{"user": 2, "choice": "dark"}`. */
+export const THEME_PENDING_KEY = 'mealwright.theme.pending';
+
+type Pending = { user: number; choice: ThemeChoice };
+
+/** Sends a pick to the account. True: done with (the server has it, or refused it for good).
+ * False, or an error: keep it pending and send it again later. */
+export type ThemeSaver = (choice: ThemeChoice) => Promise<boolean>;
 
 /** The page's ground colour (--color-ground), for the browser's bar. Same as static/theme.js. */
 export const THEME_COLOR = { light: '#f5f6f4', dark: '#111614' } as const;
@@ -59,6 +75,28 @@ function save(choice: ThemeChoice): void {
   }
 }
 
+function readPending(): Pending | null {
+  try {
+    const raw = localStorage.getItem(THEME_PENDING_KEY);
+    if (!raw) return null;
+    const value: unknown = JSON.parse(raw);
+    if (typeof value !== 'object' || value === null) return null;
+    const { user, choice } = value as Record<string, unknown>;
+    return typeof user === 'number' && isThemeChoice(choice) ? { user, choice } : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePending(pending: Pending | null): void {
+  try {
+    if (pending) localStorage.setItem(THEME_PENDING_KEY, JSON.stringify(pending));
+    else localStorage.removeItem(THEME_PENDING_KEY);
+  } catch {
+    // Storage blocked: the pick is sent now or not at all.
+  }
+}
+
 class Theme {
   choice = $state<ThemeChoice>(readSaved());
   deviceDark = $state(false);
@@ -68,7 +106,9 @@ class Theme {
   );
 
   #media: MediaQueryList | null = null;
-  #saveToAccount: ((choice: ThemeChoice) => void) | null = null;
+  #saveToAccount: ThemeSaver | null = null;
+  #userId: number | null = null;
+  #sending: Promise<void> | null = null;
   #picks = 0;
 
   /** How many times the person has picked a theme since the page loaded. */
@@ -96,7 +136,40 @@ class Theme {
     this.choice = choice;
     save(choice);
     this.#apply();
-    this.#saveToAccount?.(choice);
+    if (this.#userId !== null) writePending({ user: this.#userId, choice });
+    void this.flush();
+  }
+
+  /**
+   * Send the pending pick, if it is this signed-in person's. At most one send at a time; a
+   * newer pick made meanwhile is sent after it. Once the server has it, the pending mark is
+   * cleared (only if no newer pick has replaced it), so the server's value counts again.
+   */
+  flush(): Promise<void> {
+    // One already under way carries on with whatever is pending when it finishes a send.
+    this.#sending ??= this.#send().finally(() => (this.#sending = null));
+    return this.#sending;
+  }
+
+  async #send(): Promise<void> {
+    for (;;) {
+      const saver = this.#saveToAccount;
+      const pending = readPending();
+      if (!saver || this.#userId === null || !pending || pending.user !== this.#userId) return;
+      let done: boolean;
+      try {
+        done = await saver(pending.choice);
+      } catch {
+        return;
+      }
+      if (!done) return;
+      const now = readPending();
+      if (now && now.user === pending.user && now.choice === pending.choice) {
+        writePending(null);
+        return;
+      }
+      if (!now || now.user !== this.#userId) return;
+    }
   }
 
   /**
@@ -104,16 +177,21 @@ class Theme {
    * recent choice always wins: given `picksAtStart` (picks when the start asked the server), an
    * answer that comes after the person has picked a theme since then changes nothing (cabledrawer 8 Nov).
    */
-  adopt(choice: ThemeChoice, picksAtStart?: number): void {
+  adopt(choice: ThemeChoice, picksAtStart?: number, userId?: number): void {
     if (picksAtStart !== undefined && picksAtStart !== this.#picks) return;
+    // This person's own pick, which the server hasn't confirmed, is newer than its answer. (A
+    // pending pick of someone else on this device never applies.)
+    const pending = readPending();
+    if (userId !== undefined && pending && pending.user === userId) choice = pending.choice;
     this.choice = choice;
     save(choice);
     this.#apply();
   }
 
   /** While someone is signed in, changes are also saved to their account. */
-  saveChangesWith(saver: ((choice: ThemeChoice) => void) | null): void {
+  saveChangesWith(saver: ThemeSaver | null, userId: number | null = null): void {
     this.#saveToAccount = saver;
+    this.#userId = saver ? userId : null;
   }
 
   cycle(): void {

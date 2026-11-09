@@ -2,7 +2,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
 import ThemeSwitch from './components/ThemeSwitch.svelte';
-import { THEME_STORAGE_KEY, nextTheme, theme } from './theme.svelte';
+import { THEME_PENDING_KEY, THEME_STORAGE_KEY, nextTheme, theme } from './theme.svelte';
 
 const root = document.documentElement;
 
@@ -148,5 +148,94 @@ describe('ThemeSwitch', () => {
     await button.click();
     await expect.element(button).toHaveAccessibleName('Theme: Light. Switch to Dark');
     expect(root.dataset.theme).toBe('light');
+  });
+});
+
+describe('a pick is the most recent choice until the server has it (cabledrawer 9 Nov)', () => {
+  const pending = () => localStorage.getItem(THEME_PENDING_KEY);
+  /** A saver that can't reach the server until `online` is set. */
+  function server() {
+    const sent: string[] = [];
+    const state = { online: false };
+    const saver = async (choice: string) => {
+      if (!state.online) return false;
+      sent.push(choice);
+      return true;
+    };
+    return { sent, state, saver };
+  }
+
+  afterEach(() => {
+    theme.saveChangesWith(null);
+    theme.adopt('auto');
+  });
+
+  it('an offline pick stays pending, and after a reload is still the pick, over an older server answer', async () => {
+    const s = server();
+    theme.saveChangesWith(s.saver, 2);
+    theme.set('dark');
+    await theme.flush();
+    expect(pending()).toBe('{"user":2,"choice":"dark"}');
+    // A reload: the app starts again from this device's copy, and the server still says Light.
+    theme.saveChangesWith(null);
+    theme.start();
+    expect(theme.choice).toBe('dark');
+    theme.adopt('light', undefined, 2);
+    expect(theme.choice).toBe('dark');
+    expect(root.dataset.theme).toBe('dark');
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+  });
+
+  it('back online it is sent once, then the pending mark is cleared', async () => {
+    const s = server();
+    theme.saveChangesWith(s.saver, 2);
+    theme.set('dark');
+    await theme.flush();
+    expect(s.sent).toEqual([]);
+    s.state.online = true;
+    await Promise.all([theme.flush(), theme.flush()]);
+    await theme.flush();
+    expect(s.sent).toEqual(['dark']);
+    expect(pending()).toBeNull();
+  });
+
+  it('once confirmed, the server’s value counts again (a pick from another device arrives)', async () => {
+    const s = server();
+    s.state.online = true;
+    theme.saveChangesWith(s.saver, 2);
+    theme.set('dark');
+    await theme.flush();
+    expect(pending()).toBeNull();
+    theme.adopt('light', undefined, 2);
+    expect(theme.choice).toBe('light');
+  });
+
+  it('a newer pick made while one is being sent is sent after it, and is what stays', async () => {
+    const sent: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((done) => (release = done));
+    theme.saveChangesWith(async (choice) => {
+      if (sent.length === 0) await gate;
+      sent.push(choice);
+      return true;
+    }, 2);
+    theme.set('dark');
+    theme.set('light');
+    release();
+    await expect.poll(() => sent).toEqual(['dark', 'light']);
+    await expect.poll(pending).toBeNull();
+    expect(theme.choice).toBe('light');
+  });
+
+  it('someone else’s pending pick never applies, and is not sent as this person', async () => {
+    const s = server();
+    s.state.online = true;
+    localStorage.setItem(THEME_PENDING_KEY, '{"user":9,"choice":"dark"}');
+    theme.saveChangesWith(s.saver, 2);
+    theme.adopt('light', undefined, 2);
+    expect(theme.choice).toBe('light');
+    await theme.flush();
+    expect(s.sent).toEqual([]);
+    expect(pending()).toBe('{"user":9,"choice":"dark"}');
   });
 });
