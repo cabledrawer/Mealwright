@@ -225,6 +225,8 @@ All are **queueable offline**. Payload fields are required unless marked optiona
 | `dismiss_note` | `note_id` | Hides a note (×). |
 | `undo` | `undoes` (an action ID) | Reverses that action (section 9). |
 
+**Known limit of `as_bought` (proposed, for cabledrawer):** between the as-bought add and its `tick` the new line is briefly unticked. If the two travel in different batches (11.3), another phone's ordinary `add` could join it, and the tick would then take both amounts into the pantry. They normally travel in one batch, which is one locked transaction (5.2).
+
 Refusals and "ignored" outcomes are per action (5.4); nothing in this table ever causes a pop-up. If something an action names was merged, removed or tidied away while the phone was offline, 5.9 says what happens; that's never a refusal.
 
 ### 4.3 Amounts in actions need no conversions
