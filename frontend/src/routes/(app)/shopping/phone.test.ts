@@ -146,6 +146,19 @@ describe('Shopping on the phone', () => {
       });
       await expect.element(page.getByRole('button', { name: /^In the trolley · 3/ })).toBeVisible();
     });
+
+    it('offline, a just-added line shows the place it will go, not "→ Pantry" (F199)', async () => {
+      await saveCopy(null, applyChanges(null, { ...sampleCopy(), people: [], reset: true }));
+      vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+      mountShopping();
+      await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
+      await page.getByRole('textbox', { name: 'Add an item' }).fill('200 g tahini');
+      await page.getByRole('button', { name: 'Add as bought' }).click();
+      await page.getByRole('button', { name: /^In the trolley · 3/ }).click();
+      const place = page.getByRole('button', { name: 'Change where Tahini went' });
+      await expect.element(place).toBeVisible();
+      await expect.element(place).toHaveTextContent('→ Cupboard');
+    });
   });
 
   describe('How many? (F134)', () => {

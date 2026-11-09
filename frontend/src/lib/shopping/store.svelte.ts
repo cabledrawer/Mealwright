@@ -668,7 +668,22 @@ export class ShoppingModel {
   /** Where a ticked item goes: its tick's place, the place chosen for it, or its usual one. */
   placeOf(item: ListItem, tickId?: string): number | null {
     const tick = item.ticks.find((t) => t.id === tickId) ?? item.ticks.find((t) => t.standing);
-    return tick?.place_id ?? item.put_away_place_id ?? this.food(item.food_id)?.place_id ?? null;
+    return (
+      tick?.place_id ??
+      item.put_away_place_id ??
+      this.food(item.food_id)?.place_id ??
+      this.#firstCupboard()
+    );
+  }
+
+  /**
+   * Where an ingredient with no usual place goes: the household's first cupboard place, as the
+   * server puts it (F199: offline, "→ Cupboard" and not "→ Pantry" until the phone has synced).
+   */
+  #firstCupboard(): number | null {
+    const cupboards = this.copy.places.filter((p) => p.kind === 'cupboard');
+    cupboards.sort((a, b) => a.position - b.position || a.id - b.id);
+    return cupboards[0]?.id ?? null;
   }
 
   /**
