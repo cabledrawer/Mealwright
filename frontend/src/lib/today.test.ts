@@ -52,13 +52,36 @@ describe('the saved copy of Today', () => {
     read.today.mockResolvedValue(data());
     await new TodayModel().load();
     const saved = JSON.parse(localStorage.getItem(COPY_KEY)!) as { v: number; login_id: number };
-    expect(saved.v).toBe(2);
+    expect(saved.v).toBe(3);
     expect(saved.login_id).toBe(1);
     expect(readCopy()?.today).toBe('2026-10-17');
   });
 
+  it('saved before the Use soon tub rows changed (v 2) is refused and removed (F203)', () => {
+    const old = data();
+    // The old tub row: one tub, no place, "place_kind" and "number" instead.
+    old.use_soon_tubs = [
+      {
+        id: 5,
+        batch_id: 1,
+        number: 1,
+        tub_count: 3,
+        recipe_name: 'Lemon rice',
+        place_kind: 'fridge'
+      }
+    ] as unknown as TodayData['use_soon_tubs'];
+    localStorage.setItem(COPY_KEY, JSON.stringify({ v: 2, login_id: 1, data: old }));
+    expect(readCopy()).toBeNull();
+    expect(localStorage.getItem(COPY_KEY)).toBeNull();
+  });
+
+  it('saved with the rolled-up tub rows (v 3) is used', () => {
+    localStorage.setItem(COPY_KEY, JSON.stringify({ v: 3, login_id: 1, data: data() }));
+    expect(readCopy()?.today).toBe('2026-10-17');
+  });
+
   it('is refused, and removed, for another login', () => {
-    localStorage.setItem(COPY_KEY, JSON.stringify({ v: 2, login_id: 1, data: data() }));
+    localStorage.setItem(COPY_KEY, JSON.stringify({ v: 3, login_id: 1, data: data() }));
     session.me = me(2);
     expect(readCopy()).toBeNull();
     expect(localStorage.getItem(COPY_KEY)).toBeNull();
@@ -71,7 +94,7 @@ describe('the saved copy of Today', () => {
   });
 
   it('is shown to nobody when the owner of the browser is not known', () => {
-    localStorage.setItem(COPY_KEY, JSON.stringify({ v: 2, login_id: 1, data: data() }));
+    localStorage.setItem(COPY_KEY, JSON.stringify({ v: 3, login_id: 1, data: data() }));
     session.me = null;
     expect(readCopy()).toBeNull();
   });

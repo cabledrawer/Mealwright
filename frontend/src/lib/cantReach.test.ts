@@ -98,7 +98,7 @@ describe('Today with the server down behind the proxy (F67)', () => {
 
   beforeEach(() => {
     session.me = { id: 1, name: 'K', username: 'k', role: 'admin', theme: 'auto' };
-    localStorage.setItem(COPY_KEY, JSON.stringify({ v: 2, login_id: 1, data: data() }));
+    localStorage.setItem(COPY_KEY, JSON.stringify({ v: 3, login_id: 1, data: data() }));
   });
 
   afterEach(() => {

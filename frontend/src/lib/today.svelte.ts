@@ -37,7 +37,7 @@ function owner(): number | null {
 
 /**
  * What was saved last time Today was read, but only the signed-in login's own (the copy is
- * saved with its owner). Another login's copy, or one in the old format, is refused and removed.
+ * saved with its owner). Another login's copy, or one in the old format (v 3 since the Use soon tubs became one row per batch and place, F203), is refused and removed.
  * Null when there is none.
  */
 export function readCopy(): TodayData | null {
@@ -47,7 +47,7 @@ export function readCopy(): TodayData | null {
     const me = owner();
     if (me === null) return null; // can't tell whose it is: shown to nobody
     const copy = JSON.parse(text) as { v?: number; login_id?: number; data?: TodayData };
-    if (copy.v === 2 && copy.login_id === me && copy.data && Array.isArray(copy.data.waiting)) {
+    if (copy.v === 3 && copy.login_id === me && copy.data && Array.isArray(copy.data.waiting)) {
       return copy.data;
     }
     localStorage.removeItem(COPY_KEY);
@@ -64,7 +64,7 @@ export function readCopy(): TodayData | null {
 function writeCopy(data: TodayData, login: number, began: number): void {
   if (began !== wipes || session.me?.id !== login || wipePending()) return;
   try {
-    localStorage.setItem(COPY_KEY, JSON.stringify({ v: 2, login_id: login, data }));
+    localStorage.setItem(COPY_KEY, JSON.stringify({ v: 3, login_id: login, data }));
   } catch {
     // Storage blocked or full: Today just won't open offline.
   }
