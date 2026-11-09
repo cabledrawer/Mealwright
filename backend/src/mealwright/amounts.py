@@ -137,7 +137,7 @@ def counted_name(name: str, milli: int) -> str:
     ("1 onion", "½ onion"), "onions" for more; "lemons" for 2 (F197, cabledrawer 8 Nov). Lower case,
     as in a sentence. A name that already ends in "s" ("Eggs", "Chickpeas") is left as it is."""
     word = name.strip().lower()
-    if milli <= 1000 or word.endswith("s") and not word.endswith("ss"):
+    if milli <= 1000 or (word.endswith("s") and not word.endswith("ss")):
         return word
     return plural(word)
 
