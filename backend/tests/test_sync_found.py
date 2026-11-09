@@ -62,7 +62,7 @@ def _how_added(client: TestClient) -> dict[str, list[str]]:
 
 
 def test_a_lot_found_at_home_says_found_and_a_bought_one_says_bought(kitchen: TestClient) -> None:
-    """F201: the Pantry tells a lot found at home from a bought one, from the change that made it."""
+    """F201: the Pantry tells a lot found at home from a bought one, by the change that made it."""
     s = s0(kitchen)
     _found(kitchen, s, "Toor dal", 500, "Cupboard", size_id=s.sizes["Toor dal"])
     tick(kitchen, s, "Milk")

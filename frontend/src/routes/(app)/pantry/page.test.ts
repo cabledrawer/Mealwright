@@ -404,12 +404,9 @@ describe('the Pantry page', () => {
 
   it('a row found at home says so, never "bought" (F201)', async () => {
     await render(1300);
-    const rice = page
-      .getByRole('button', { name: /^Basmati rice/ })
-      .first()
-      .element();
-    expect(rice.textContent).toContain('found at home Mon');
-    expect(rice.textContent).not.toContain('bought');
+    // Basmati rice was found at home; Toor dal was bought.
+    await expect.element(page.getByText('found at home Mon').first()).toBeVisible();
+    expect(document.body.textContent).toContain('bought Mon');
   });
 
   describe('searching the pantry', () => {

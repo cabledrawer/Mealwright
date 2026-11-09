@@ -156,7 +156,6 @@
     data ? `${data.tubs_left.length}${data.tubs_left_more ? '+' : ''}` : '0'
   );
 
-
   /** F150: the seven days from today, one row each. */
   const week = $derived(data ? weekRows(data.plan, data.slots, today) : []);
 
