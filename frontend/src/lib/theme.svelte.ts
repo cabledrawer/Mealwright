@@ -108,7 +108,11 @@ class Theme {
   #media: MediaQueryList | null = null;
   #saveToAccount: ThemeSaver | null = null;
   #userId: number | null = null;
+  /** The person the server has said is signed in (adopt with an id). A stored pick is sent
+   * only for them: until then the browser's session may be someone else's (FR1 review 1). */
+  #confirmed: number | null = null;
   #sending: Promise<void> | null = null;
+  #again = false;
   #picks = 0;
 
   /** How many times the person has picked a theme since the page loaded. */
@@ -146,16 +150,31 @@ class Theme {
    * cleared (only if no newer pick has replaced it), so the server's value counts again.
    */
   flush(): Promise<void> {
-    // One already under way carries on with whatever is pending when it finishes a send.
-    this.#sending ??= this.#send().finally(() => (this.#sending = null));
+    // One already under way looks again once it has finished, so a pick made at any moment
+    // is never left behind by a send that had already looked (FR1 review).
+    this.#again = true;
+    this.#sending ??= this.#run();
     return this.#sending;
+  }
+
+  async #run(): Promise<void> {
+    try {
+      while (this.#again) {
+        this.#again = false;
+        await this.#send();
+      }
+    } finally {
+      // Cleared in the same step as the last look, so no flush can join a finished run.
+      this.#sending = null;
+    }
   }
 
   async #send(): Promise<void> {
     for (;;) {
       const saver = this.#saveToAccount;
       const pending = readPending();
-      if (!saver || this.#userId === null || !pending || pending.user !== this.#userId) return;
+      if (!saver || this.#userId === null || this.#confirmed !== this.#userId) return;
+      if (!pending || pending.user !== this.#userId) return;
       let done: boolean;
       try {
         done = await saver(pending.choice);
@@ -178,6 +197,11 @@ class Theme {
    * answer that comes after the person has picked a theme since then changes nothing (cabledrawer 8 Nov).
    */
   adopt(choice: ThemeChoice, picksAtStart?: number, userId?: number): void {
+    // The server has named who is signed in: a pick of theirs waiting on this device can go.
+    if (userId !== undefined) {
+      this.#confirmed = userId;
+      void this.flush();
+    }
     if (picksAtStart !== undefined && picksAtStart !== this.#picks) return;
     // This person's own pick, which the server hasn't confirmed, is newer than its answer. (A
     // pending pick of someone else on this device never applies.)
@@ -192,6 +216,7 @@ class Theme {
   saveChangesWith(saver: ThemeSaver | null, userId: number | null = null): void {
     this.#saveToAccount = saver;
     this.#userId = saver ? userId : null;
+    if (!saver) this.#confirmed = null;
   }
 
   cycle(): void {

@@ -122,9 +122,9 @@
           return true;
         } catch (error) {
           if (!(error instanceof ApiError)) throw error;
-          // No answer, or the session has ended: keep it, and send it later. Any other refusal
-          // won't change by asking again.
-          return !(cantReach(error) || error.status === 401);
+          // No answer, a server fault or the session has ended: keep it, and send it later.
+          // Any other refusal won't change by asking again.
+          return !(cantReach(error) || error.status === 401 || error.status >= 500);
         }
       },
       untrack(() => session.me?.id ?? null)

@@ -189,6 +189,7 @@ describe('a pick is the most recent choice until the server has it (cabledrawer 
   it('back online it is sent once, then the pending mark is cleared', async () => {
     const s = server();
     theme.saveChangesWith(s.saver, 2);
+    theme.adopt('auto', undefined, 2); // the server has said who is signed in
     theme.set('dark');
     await theme.flush();
     expect(s.sent).toEqual([]);
@@ -203,6 +204,7 @@ describe('a pick is the most recent choice until the server has it (cabledrawer 
     const s = server();
     s.state.online = true;
     theme.saveChangesWith(s.saver, 2);
+    theme.adopt('auto', undefined, 2);
     theme.set('dark');
     await theme.flush();
     expect(pending()).toBeNull();
@@ -214,17 +216,39 @@ describe('a pick is the most recent choice until the server has it (cabledrawer 
     const sent: string[] = [];
     let release!: () => void;
     const gate = new Promise<void>((done) => (release = done));
+    let asked = 0;
     theme.saveChangesWith(async (choice) => {
+      asked += 1;
       if (sent.length === 0) await gate;
       sent.push(choice);
       return true;
     }, 2);
+    theme.adopt('auto', undefined, 2);
     theme.set('dark');
+    await expect.poll(() => asked).toBe(1); // Dark is on its way
     theme.set('light');
     release();
     await expect.poll(() => sent).toEqual(['dark', 'light']);
     await expect.poll(pending).toBeNull();
     expect(theme.choice).toBe('light');
+  });
+
+  it('a stored pick waits until the server has said this person is signed in (FR1 review 1)', async () => {
+    const s = server();
+    s.state.online = true;
+    // Opened from this device as person 2; the browser's session may already be someone else's.
+    localStorage.setItem(THEME_PENDING_KEY, '{"user":2,"choice":"dark"}');
+    theme.saveChangesWith(s.saver, 2);
+    await theme.flush();
+    expect(s.sent).toEqual([]);
+    // The server names someone else: still not sent.
+    theme.adopt('light', undefined, 9);
+    await theme.flush();
+    expect(s.sent).toEqual([]);
+    // The server names person 2: sent now.
+    theme.adopt('light', undefined, 2);
+    await expect.poll(() => s.sent).toEqual(['dark']);
+    await expect.poll(pending).toBeNull();
   });
 
   it('someone else’s pending pick never applies, and is not sent as this person', async () => {

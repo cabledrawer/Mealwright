@@ -60,6 +60,8 @@ describe('wiping this browser (sync-protocol section 12)', () => {
     expect(await caches.has(SHELL_CACHE)).toBe(true);
     expect(await caches.has(OTHER_CACHE)).toBe(false);
     expect(sessionStorage.length).toBe(0);
+    // A theme pick the server hasn't confirmed names a person: it goes with the wipe (FR1 review 2).
+    expect(localStorage.getItem('mealwright.theme.pending')).toBeNull();
     const kept = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i));
     // All kept, but "wipe pending": set as the wipe started, and cleared once it finished.
     expect(kept.sort()).toEqual(KEPT_ON_WIPE.filter((k) => k !== WIPE_PENDING_KEY).sort());
@@ -67,7 +69,6 @@ describe('wiping this browser (sync-protocol section 12)', () => {
       'mealwright.sidebar',
       'mealwright.sign-out-pending',
       'mealwright.theme',
-      'mealwright.theme.pending',
       'mealwright.wipe-pending'
     ]);
     // The old place of the device ID is empty too (cabledrawer 18 Oct), and whose it was.
