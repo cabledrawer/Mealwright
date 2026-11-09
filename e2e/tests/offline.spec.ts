@@ -364,14 +364,17 @@ test('F196 (cabledrawer 9 Nov): offline "as bought" never joins another phone\'s
     await expect(bar(page)).toBeHidden({ timeout: 15_000 });
 
     // B's line is still 3, still to buy; phone A's 2 is its own line, in the trolley.
-    const lines = (await serverItems(page)).filter((i) => i.food.name === name) as unknown as {
-      amount: { amount: number };
-      ticked_at: string | null;
-    }[];
-    expect(lines.map((l) => [l.amount.amount, l.ticked_at !== null]).sort()).toEqual([
-      [2, true],
-      [3, false],
-    ]);
+    type Line = { amount: { amount: number }; ticked_at: string | null };
+    await expect
+      .poll(async () =>
+        ((await serverItems(page)).filter((i) => i.food.name === name) as unknown as Line[])
+          .map((l) => [l.amount.amount, l.ticked_at !== null])
+          .sort(),
+      )
+      .toEqual([
+        [2, true],
+        [3, false],
+      ]);
     await expect.poll(() => pantryAmounts(page, name)).toEqual([2]);
     const fold = page.getByRole('button', { name: /^In the trolley/ });
     if (await fold.count()) {
