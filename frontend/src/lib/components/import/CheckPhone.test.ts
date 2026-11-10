@@ -1127,3 +1127,115 @@ describe('One at a time', () => {
     });
   });
 });
+
+// --- Steps that wait (M1, mockup CheckWait08) ----------------------------------------------------
+
+const MARINATE = { kind: 'marinate', min_minutes: 240, max_minutes: 720, overnight: true };
+const NB = ' ';
+
+function waitReview(): Partial<ImportReview> {
+  return {
+    lines: [],
+    steps: [
+      {
+        kind: 'step',
+        text: 'Rub the chicken. Leave to marinate for 4 hours, or overnight.',
+        wait: { ...MARINATE }
+      },
+      { kind: 'step', text: 'Fry the onions until golden, about 12 minutes.' }
+    ],
+    counts: { matched: 0, to_confirm: 0, needs_you: 0, staple: 0 },
+    left_out: [],
+    time_minutes: 45
+  };
+}
+
+describe('Steps that wait on Check', () => {
+  const yes = () => page.getByRole('button', { name: 'Yes, it waits' });
+  const change = () => page.getByRole('button', { name: 'Change', exact: true });
+  const noWait = () => page.getByRole('button', { name: 'No wait' });
+
+  beforeEach(() => {
+    undoHistory.clear();
+    toasts.dismiss();
+  });
+
+  for (const mode of ['one', 'focus'] as const) {
+    describe(mode === 'one' ? 'One at a time' : 'Focus', () => {
+      beforeEach(() => checkMode.set(mode));
+
+      async function opened() {
+        const flow = reviewFlow(waitReview());
+        show(flow, true);
+        await expect.element(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await expect
+          .element(page.getByText(`Marinate · 4${NB}h – overnight`).first())
+          .toBeVisible();
+        return flow;
+      }
+
+      it('shows the wait the reader found, "To confirm", and the three answers', async () => {
+        const flow = await opened();
+        await expect.element(page.getByText('To confirm')).toBeVisible();
+        await expect.element(yes()).toBeVisible();
+        await expect.element(change()).toBeVisible();
+        await expect.element(noWait()).toBeVisible();
+        // Nothing is saved or changed by looking.
+        expect(flow.review!.steps[0]!.wait).toEqual(MARINATE);
+        expect(flow.review!.steps[0]!.wait_confirmed).toBeUndefined();
+      });
+
+      it('Yes, it waits keeps it and clears "To confirm"; Save sends the wait, not the answer', async () => {
+        const flow = await opened();
+        await yes().click();
+        await expect.element(page.getByText('To confirm')).not.toBeInTheDocument();
+        expect(flow.review!.steps[0]!.wait_confirmed).toBe(true);
+        const sent = flow.body()!.steps;
+        expect(sent[0]).toEqual({
+          kind: 'step',
+          text: 'Rub the chicken. Leave to marinate for 4 hours, or overnight.',
+          optional: undefined,
+          wait: MARINATE
+        });
+        expect('wait_confirmed' in sent[0]!).toBe(false);
+      });
+
+      it('No wait takes it off, Save sends none, and Undo puts it back', async () => {
+        const flow = await opened();
+        await noWait().click();
+        await expect.element(page.getByText(/^Marinate ·/)).not.toBeInTheDocument();
+        expect(flow.body()!.steps[0]!.wait).toBeNull();
+        expect(flow.waitTotal).toBeNull();
+        expect(toasts.current?.message).toBe('Took off the wait');
+        expect(await undoHistory.undoLast()).toBe(true);
+        flushSync();
+        expect(flow.review!.steps[0]!.wait).toEqual(MARINATE);
+        await expect.element(page.getByText('To confirm')).toBeVisible();
+      });
+
+      it('Change opens the boxes; Done keeps the new wait as confirmed', async () => {
+        const flow = await opened();
+        await change().click();
+        await page.getByLabelText('Shortest wait for step 1').fill('6');
+        await page.getByLabelText('Longest wait for step 1').fill('10');
+        await page.getByRole('switch', { name: 'Ends overnight' }).click(); // off
+        await page.getByRole('button', { name: 'Done' }).click();
+        expect(flow.review!.steps[0]!.wait).toEqual({
+          kind: 'marinate',
+          min_minutes: 360,
+          max_minutes: 600,
+          overnight: false
+        });
+        expect(flow.review!.steps[0]!.wait_confirmed).toBe(true);
+        await expect.element(page.getByText(`Marinate · 6${NB}h – 10${NB}h`)).toBeVisible();
+      });
+
+      it('shows the time split under the Minutes box', async () => {
+        await opened();
+        await expect
+          .element(page.getByText(`45${NB}min active · plus 4${NB}h – overnight marinating`))
+          .toBeVisible();
+      });
+    });
+  }
+});

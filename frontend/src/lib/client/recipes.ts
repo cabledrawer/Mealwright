@@ -3,6 +3,7 @@
 
 import { api } from '#lib/api.js';
 import type { Change, Ref, Who } from './types';
+import type { StepWait } from '#lib/timeWords.js';
 
 /** What the pantry says about a recipe's ingredients. */
 export interface StockHint {
@@ -32,6 +33,8 @@ export interface RecipeBrief {
 
 export interface RecipeRow extends RecipeBrief {
   time_minutes: number | null;
+  /** All the steps' waits added up; null when no step waits. */
+  wait?: StepWait | null;
   serves: number | null;
   tags: string[];
   ingredient_count: number;
@@ -119,6 +122,8 @@ export interface RecipeStep {
   text: string;
   /** An Optional step. */
   optional?: boolean;
+  /** The step waits (marinate, soak, ferment...): a range, or one that ends overnight. */
+  wait?: StepWait | null;
   /** The ingredient lines the step uses (Cook mode's per-step ingredients); none for a heading. */
   lines?: { line_id: number; line: number; kind: 'guessed' | 'by_hand' }[];
 }
@@ -161,7 +166,10 @@ export interface Recipe {
   id: number;
   name: string;
   description: string | null;
+  /** The active time when `wait` is set (a recipe made before waits keeps its single time). */
   time_minutes: number | null;
+  /** All the steps' waits added up; null when no step waits. */
+  wait?: StepWait | null;
   serves: number | null;
   makes: { amount: number; amount_text: string; unit: string } | null;
   made_ahead: boolean;
@@ -245,7 +253,7 @@ export interface RecipeIn {
   /** The person looked at the figures and kept them: clears "Nutrition possibly out of date". */
   nutrition_checked?: boolean;
   lines: LineIn[];
-  steps: { kind: 'step' | 'heading'; text: string; optional?: boolean }[];
+  steps: { kind: 'step' | 'heading'; text: string; optional?: boolean; wait?: StepWait | null }[];
   source_note: string | null;
   /** Left out: the photo stays. null: no photo. A number: that upload. */
   photo_id?: number | null;

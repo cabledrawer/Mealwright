@@ -1001,6 +1001,23 @@ describe('importer consistency on Check (0.7)', () => {
       expect(draft.steps.map((st) => !!st.optional)).toEqual([true, true]);
     });
 
+    it('a split step keeps its wait on the piece that talks about it; the time line adds waits up (M1)', () => {
+      const wait = { kind: 'marinate', min_minutes: 240, max_minutes: 720, overnight: true };
+      const text =
+        'Chop the onions. Slice the chicken. Mix the spices. Marinate the chicken for 4 hours, or overnight. Heat the pan.';
+      const flow = flowOf({ steps: [{ kind: 'step', text, wait, wait_confirmed: true }] });
+      expect(flow.waitTotal).toEqual(wait);
+      flow.previewStep = 0;
+      flow.keepSplit(0);
+      expect(flow.review!.steps.length).toBeGreaterThan(1);
+      const waits = flow.review!.steps.map((s) => s.wait ?? null);
+      expect(waits.filter(Boolean)).toEqual([wait]);
+      const at = waits.findIndex(Boolean);
+      expect(flow.review!.steps[at]!.text).toMatch(/Marinate/);
+      expect(flow.review!.steps[at]!.wait_confirmed).toBe(true);
+      expect(flow.waitTotal).toEqual(wait);
+    });
+
     it('does nothing to a heading', () => {
       const flow = flowOf({});
       flow.editLine(3, { amount: 5 });

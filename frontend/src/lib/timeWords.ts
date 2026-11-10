@@ -10,3 +10,70 @@ export function timeWords(minutes: number): string {
   const rest = total % 60;
   return rest === 0 ? `${hours}${NBSP}h` : `${hours}${NBSP}h${NBSP}${rest}${NBSP}min`;
 }
+
+// --- Steps that wait (M1; cabledrawer 31 Oct and 9 Nov) -------------------------------------------
+
+/** A wait on a step, or all of a recipe's waits added up (`kind` is then "wait" if they differ). */
+export interface StepWait {
+  kind: string;
+  min_minutes: number;
+  max_minutes: number;
+  /** The range ends at "overnight" (counted as 12 h). */
+  overnight: boolean;
+}
+
+/** The kinds a step can wait for, in the order the Waits field offers them: the name of the kind,
+ *  and the word the time line uses ("plus 4 h – overnight marinating"). Words in docs/dev/words.md. */
+export const WAIT_KINDS = [
+  { kind: 'marinate', name: 'Marinate', doing: 'marinating' },
+  { kind: 'soak', name: 'Soak', doing: 'soaking' },
+  { kind: 'ferment', name: 'Ferment', doing: 'fermenting' },
+  { kind: 'rest', name: 'Rest', doing: 'resting' },
+  { kind: 'chill', name: 'Chill', doing: 'chilling' },
+  { kind: 'prove', name: 'Prove', doing: 'proving' }
+] as const;
+
+/** "Marinate", "Soak"... ("Wait" for the waits of a recipe added up). */
+export function waitName(kind: string): string {
+  return WAIT_KINDS.find((k) => k.kind === kind)?.name ?? 'Wait';
+}
+
+/** "marinating", "soaking"... ("waiting" when the kinds differ). */
+export function waitDoing(kind: string): string {
+  return WAIT_KINDS.find((k) => k.kind === kind)?.doing ?? 'waiting';
+}
+
+/** The length of a wait: "90 min", "8 h – 12 h", "4 h – overnight", "overnight". */
+export function waitLength(wait: StepWait): string {
+  const low = timeWords(wait.min_minutes);
+  if (wait.overnight)
+    return wait.min_minutes >= wait.max_minutes ? 'overnight' : `${low} – overnight`;
+  return wait.max_minutes > wait.min_minutes ? `${low} – ${timeWords(wait.max_minutes)}` : low;
+}
+
+/** A recipe's time with its waits: "45 min active · plus 4 h – overnight marinating", or just
+ *  "45 min" when nothing waits, or "4 h – overnight marinating" when there is no active time. */
+export function timeWithWait(minutes: number | null, wait: StepWait | null | undefined): string {
+  if (!wait) return minutes === null ? '' : timeWords(minutes);
+  const waiting = `${waitLength(wait)} ${waitDoing(wait.kind)}`;
+  return minutes === null ? waiting : `${timeWords(minutes)} active · plus ${waiting}`;
+}
+
+/** The short form for a card or a list line: "45 min + 4 h – overnight". */
+export function timePlusWait(minutes: number | null, wait: StepWait | null | undefined): string {
+  if (!wait) return minutes === null ? '' : timeWords(minutes);
+  return minutes === null ? waitLength(wait) : `${timeWords(minutes)} + ${waitLength(wait)}`;
+}
+
+/** All the waits of some steps added up (the same sum the server makes); null when none wait. */
+export function sumWaits(steps: { kind: string; wait?: StepWait | null }[]): StepWait | null {
+  const waits = steps.filter((s) => s.kind === 'step' && s.wait).map((s) => s.wait!);
+  if (waits.length === 0) return null;
+  const kinds = new Set(waits.map((w) => w.kind));
+  return {
+    kind: kinds.size === 1 ? waits[0]!.kind : 'wait',
+    min_minutes: waits.reduce((n, w) => n + w.min_minutes, 0),
+    max_minutes: waits.reduce((n, w) => n + w.max_minutes, 0),
+    overnight: waits.some((w) => w.overnight)
+  };
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { timeWords } from './timeWords';
+import { sumWaits, timePlusWait, timeWithWait, timeWords, waitLength } from './timeWords';
 
 describe('timeWords', () => {
   it('keeps minutes up to the hour', () => {
@@ -14,5 +14,45 @@ describe('timeWords', () => {
     expect(timeWords(125)).toBe('2 h 5 min');
     expect(timeWords(745)).toBe('12 h 25 min');
     expect(timeWords(1440)).toBe('24 h');
+  });
+});
+
+const N = '\u00a0';
+const marinate = { kind: 'marinate', min_minutes: 240, max_minutes: 720, overnight: true };
+
+describe('steps that wait', () => {
+  it('says the length of a wait', () => {
+    expect(waitLength(marinate)).toBe(`4${N}h – overnight`);
+    expect(waitLength({ ...marinate, min_minutes: 720 })).toBe('overnight');
+    expect(
+      waitLength({ kind: 'ferment', min_minutes: 480, max_minutes: 720, overnight: false })
+    ).toBe(`8${N}h – 12${N}h`);
+    expect(waitLength({ kind: 'soak', min_minutes: 90, max_minutes: 90, overnight: false })).toBe(
+      `1${N}h${N}30${N}min`
+    );
+  });
+  it('splits a time into active time and the wait', () => {
+    expect(timeWithWait(45, marinate)).toBe(
+      `45${N}min active · plus 4${N}h – overnight marinating`
+    );
+    expect(timeWithWait(null, marinate)).toBe(`4${N}h – overnight marinating`);
+    expect(timeWithWait(45, null)).toBe(`45${N}min`);
+    expect(timeWithWait(null, undefined)).toBe('');
+    expect(timeWithWait(45, { ...marinate, kind: 'wait' })).toContain('waiting');
+  });
+  it('has a short form for cards', () => {
+    expect(timePlusWait(45, marinate)).toBe(`45${N}min + 4${N}h – overnight`);
+    expect(timePlusWait(45, null)).toBe(`45${N}min`);
+  });
+  it('adds the steps waits up, as the server does', () => {
+    expect(sumWaits([{ kind: 'step' }, { kind: 'heading' }])).toBeNull();
+    const sum = sumWaits([
+      { kind: 'step', wait: { kind: 'soak', min_minutes: 30, max_minutes: 30, overnight: false } },
+      {
+        kind: 'step',
+        wait: { kind: 'marinate', min_minutes: 60, max_minutes: 120, overnight: false }
+      }
+    ]);
+    expect(sum).toEqual({ kind: 'wait', min_minutes: 90, max_minutes: 150, overnight: false });
   });
 });

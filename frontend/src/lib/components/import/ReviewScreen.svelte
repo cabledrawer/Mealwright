@@ -22,6 +22,7 @@
   import { toasts } from '#lib/toast.svelte.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import Icon from '#lib/components/Icon.svelte';
+  import { timeWithWait } from '#lib/timeWords.js';
   import Switch from '#lib/components/Switch.svelte';
   import ZoomPhoto from '#lib/components/ZoomPhoto.svelte';
   import CheckFrame from './CheckFrame.svelte';
@@ -275,6 +276,11 @@
             />
           </label>
         </div>
+        {#if flow.waitTotal}
+          <p class="time-split">
+            {timeWithWait(flow.minutes.trim() === '' ? null : Number(flow.minutes), flow.waitTotal)}
+          </p>
+        {/if}
         {#if review.nutrition.kcal !== null}
           <p class="found">Nutrition found · {review.nutrition.kcal} kcal per serving</p>
         {/if}
@@ -450,6 +456,11 @@
                       onclick={() => void removeStep(step.at)}>Remove</button
                     >
                   </div>
+                {/if}
+                {#if review.steps[step.at]?.wait}
+                  {#await import('./StepWait.svelte') then { default: StepWait }}
+                    <StepWait {flow} step={review.steps[step.at]!} name="step {number}" />
+                  {/await}
                 {/if}
                 {#if pieces && flow.previewStep !== step.at}
                   <span class="long">
@@ -1203,5 +1214,11 @@
   .leave:disabled {
     opacity: 0.6;
     cursor: default;
+  }
+  .time-split {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
   }
 </style>

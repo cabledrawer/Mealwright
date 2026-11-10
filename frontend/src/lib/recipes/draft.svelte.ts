@@ -16,6 +16,7 @@ import {
 import type { Ref } from '#lib/client/types.js';
 import { linkedWords } from './linkedWords';
 import { toasts } from '#lib/toast.svelte.js';
+import type { StepWait } from '#lib/timeWords.js';
 
 export const MAX_LINES = 200;
 export const MAX_STEPS = 100;
@@ -66,6 +67,8 @@ export interface DraftStep {
   text: string;
   /** An Optional step. */
   optional: boolean;
+  /** The step waits (marinate, soak, ferment...); null when it doesn't. */
+  wait: StepWait | null;
 }
 
 /** The editor's boxes as the tab keeps them (see `toCarried`). */
@@ -123,8 +126,27 @@ export function blankLine(kind: DraftLine['kind'] = 'ingredient'): DraftLine {
   };
 }
 
+/** A wait read back from what the tab kept (anything odd is no wait). */
+function waitFrom(value: unknown): StepWait | null {
+  const w = value as Partial<StepWait> | null | undefined;
+  if (
+    !w ||
+    typeof w.kind !== 'string' ||
+    !Number.isInteger(w.min_minutes) ||
+    !Number.isInteger(w.max_minutes)
+  ) {
+    return null;
+  }
+  return {
+    kind: w.kind,
+    min_minutes: w.min_minutes!,
+    max_minutes: w.max_minutes!,
+    overnight: !!w.overnight
+  };
+}
+
 export function blankStep(kind: DraftStep['kind'] = 'step'): DraftStep {
-  return { key: nextKey('s'), kind, text: '', optional: false };
+  return { key: nextKey('s'), kind, text: '', optional: false, wait: null };
 }
 
 function lineFrom(line: LineOut): DraftLine {
@@ -234,7 +256,8 @@ export class RecipeDraft {
       key: nextKey('s'),
       kind: s.kind,
       text: s.text,
-      optional: !!s.optional
+      optional: !!s.optional,
+      wait: s.wait ? { ...s.wait } : null
     }));
     this.source = recipe.source_note ?? '';
     this.photo = { shown: recipe.photo, change: 'none', uploading: null, file: null, error: null };
@@ -274,7 +297,7 @@ export class RecipeDraft {
         l.note,
         l.optional
       ]),
-      this.steps.map((s) => [s.kind, s.text, s.optional]),
+      this.steps.map((s) => [s.kind, s.text, s.optional, s.wait]),
       this.source,
       this.photo.change,
       this.photo.shown?.id
@@ -301,7 +324,7 @@ export class RecipeDraft {
     this.tags = [...from.tags];
     this.nutrition = { ...from.nutrition };
     this.lines = from.lines.map((l) => ({ ...l }));
-    this.steps = from.steps.map((s) => ({ ...s }));
+    this.steps = from.steps.map((s) => ({ ...s, wait: s.wait ? { ...s.wait } : null }));
     this.source = from.source;
     this.sizes = { ...from.sizes };
     this.photo = { ...from.photo, uploading: null };
@@ -327,7 +350,7 @@ export class RecipeDraft {
       tags: [...this.tags],
       nutrition: { ...this.nutrition },
       lines: this.lines.map((l) => ({ ...l })),
-      steps: this.steps.map((s) => ({ ...s })),
+      steps: this.steps.map((s) => ({ ...s, wait: s.wait ? { ...s.wait } : null })),
       source: this.source,
       sizes: { ...this.sizes },
       photoRemoved: this.photo.change === 'removed'
@@ -370,7 +393,8 @@ export class RecipeDraft {
     const step = (s: Partial<DraftStep>): DraftStep => ({
       ...blankStep(s.kind === 'heading' ? 'heading' : 'step'),
       text: str(s.text) ? s.text! : '',
-      optional: !!s.optional
+      optional: !!s.optional,
+      wait: waitFrom(s.wait)
     });
     const keep = (v: unknown, fallback: string) => (str(v) ? (v as string) : fallback);
     this.name = c.name!;
@@ -550,7 +574,8 @@ export class RecipeDraft {
       steps.push({
         kind: step.kind,
         text: step.kind === 'heading' ? clean(step.text) : step.text.trim(),
-        optional: step.kind === 'step' && step.optional
+        optional: step.kind === 'step' && step.optional,
+        wait: step.kind === 'step' && step.wait ? { ...step.wait } : null
       });
       stepKeys.push(step.key);
     }

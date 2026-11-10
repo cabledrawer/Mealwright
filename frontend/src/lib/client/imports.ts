@@ -5,6 +5,7 @@
 import { api } from '#lib/api.js';
 import type { Change, CountedAs, Pints, Ref } from './types';
 import type { Nutrition, PhotoOut, SizeRef } from './recipes';
+import type { StepWait } from '#lib/timeWords.js';
 
 export type Label = 'matched' | 'to_confirm' | 'needs_you' | 'staple';
 
@@ -39,6 +40,24 @@ export interface ReviewLine {
   optional?: boolean;
 }
 
+/** A step on the review: "wait" is the reader's suggestion, kept once the person says Yes, it
+ *  waits (`wait_confirmed`; only the review and a draft hold that, Save never sends it). */
+export interface ReviewStep {
+  kind: 'step' | 'heading';
+  text: string;
+  optional?: boolean;
+  wait?: StepWait | null;
+  wait_confirmed?: boolean;
+}
+
+/** A step as Save sends it. */
+export interface SaveStep {
+  kind: 'step' | 'heading';
+  text: string;
+  optional?: boolean;
+  wait?: StepWait | null;
+}
+
 /** Pints on a review: the household's own, whether the page looks American, and the pint the
  *  lines were read with (a US page is read with US pints while the household's are UK). */
 export interface ReviewPints {
@@ -65,7 +84,7 @@ export interface ImportReview {
   nutrition: Nutrition;
   photo: ReviewPhoto;
   lines: ReviewLine[];
-  steps: { kind: 'step' | 'heading'; text: string; optional?: boolean }[];
+  steps: ReviewStep[];
   counts: { matched: number; to_confirm: number; needs_you: number; staple: number };
   lines_cut: boolean;
   steps_cut: boolean;
@@ -102,7 +121,7 @@ export interface SaveBody {
   tags: string[];
   nutrition: Nutrition;
   lines: SaveLine[];
-  steps: { kind: 'step' | 'heading'; text: string; optional?: boolean }[];
+  steps: SaveStep[];
   source_url: string | null;
   source_author: string | null;
   photo_id: number | null;

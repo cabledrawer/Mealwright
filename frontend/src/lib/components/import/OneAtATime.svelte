@@ -19,6 +19,7 @@
   import { network } from '#lib/network.svelte.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import Icon from '#lib/components/Icon.svelte';
+  import { timeWithWait } from '#lib/timeWords.js';
   import Switch from '#lib/components/Switch.svelte';
   import CheckFrame from './CheckFrame.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
@@ -273,6 +274,11 @@
             />
           </label>
         </div>
+        {#if flow.waitTotal}
+          <p class="time-split">
+            {timeWithWait(flow.minutes.trim() === '' ? null : Number(flow.minutes), flow.waitTotal)}
+          </p>
+        {/if}
         {#if review.photo.state === 'off' || review.photo.state === 'failed'}
           <p class="photo-note">
             {#if review.photo.state === 'off'}
@@ -349,6 +355,11 @@
             />
             <span id="optional-step-{nth}">Optional step</span>
           </p>
+          {#if step.wait}
+            {#await import('./StepWait.svelte') then { default: StepWait }}
+              <StepWait {flow} {step} name="step {nth}" />
+            {/await}
+          {/if}
         </div>
       {/if}
 
@@ -804,5 +815,11 @@
   .next:disabled {
     opacity: 0.6;
     cursor: default;
+  }
+  .time-split {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
   }
 </style>

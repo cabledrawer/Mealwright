@@ -3,6 +3,7 @@
 
 import { api } from '#lib/api.js';
 import type { Change, Ref } from './types';
+import type { StepWait } from '#lib/timeWords.js';
 
 export interface MealSlot {
   id: number;
@@ -17,6 +18,8 @@ export interface PlanRecipe extends Ref {
   /** The small photo's address, or null. */
   photo_url: string | null;
   time_minutes: number | null;
+  /** All the recipe's waits added up (marinate, soak...); null when none. */
+  wait?: StepWait | null;
   /** Per serving; null is unknown. */
   kcal: number | null;
   /** The recipe's own default servings, or null. */

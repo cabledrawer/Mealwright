@@ -3,6 +3,7 @@
 // (and Save as a draft) send them. Kept apart from the flow and loaded only when first asked for,
 // so the page's size does not grow for it.
 import type { ImportFlow } from './import.svelte';
+import type { ReviewStep } from './client/imports';
 import { stepNumberAt } from './importSteps';
 import { undoHistory, type UndoEntry } from './undo.svelte';
 
@@ -71,3 +72,27 @@ export function removeStep(flow: ImportFlow, at: number): void {
 
 /** Said when an Undo finds neither of the step's neighbours (proposed, for cabledrawer). */
 export const CANT_PUT_BACK = 'Couldn’t put it back: the steps have changed.';
+
+/** "Yes, it waits": the suggested wait on `step` is kept as it is (M1). */
+export function confirmWait(step: ReviewStep): void {
+  step.wait_confirmed = true;
+}
+
+/** "No wait": take the wait off `step`, with an Undo (toast and Ctrl+Z) that puts it back as it
+ *  was, confirmed or not (M1; the words are proposed, for cabledrawer). */
+export function takeOffWait(flow: ImportFlow, step: ReviewStep): void {
+  const was = step.wait;
+  const confirmed = step.wait_confirmed;
+  if (!was) return;
+  step.wait = null;
+  step.wait_confirmed = false;
+  const entry: UndoEntry = {
+    label: 'Took off the wait',
+    undo: () => {
+      if (!flow.review?.steps.includes(step)) return CANT_PUT_BACK;
+      step.wait = was;
+      step.wait_confirmed = confirmed;
+    }
+  };
+  undoHistory.record(entry);
+}

@@ -26,6 +26,7 @@ import { toasts } from './toast.svelte';
 import { undoHistory, type UndoEntry } from './undo.svelte';
 import { MOST_STEPS, splitStep } from './importSteps';
 import { unitFor } from './recipeAmounts';
+import { sumWaits, type StepWait } from './timeWords';
 
 /** What a line was set to on the review (a line that is matched needs no choice). */
 export type Choice =
@@ -688,12 +689,23 @@ export class ImportFlow {
       tags: review.tags,
       nutrition: review.nutrition,
       lines: review.lines.map((line, i) => saveLine(this.withPints(line), this.linkOf(i))),
-      steps: review.steps,
+      // What Save sends: not whether the person has confirmed the wait.
+      steps: review.steps.map((s) => ({
+        kind: s.kind,
+        text: s.text,
+        optional: s.optional,
+        wait: s.wait
+      })),
       source_url: review.source.url,
       source_author: review.author,
       photo_id: review.photo.photo?.id ?? null,
       draft_id: this.draftId
     };
+  }
+
+  /** All the steps' waits added up, for the time line under the Minutes box (M1). */
+  get waitTotal(): StepWait | null {
+    return sumWaits(this.review?.steps ?? []);
   }
 
   /** The box for Serves or Time holds something that isn't a whole number in range. */
@@ -769,7 +781,14 @@ export class ImportFlow {
     if (!this.stepsBefore) this.stepsBefore = review.steps.map((s) => ({ ...s }));
     review.steps = [
       ...review.steps.slice(0, i),
-      ...pieces.map((text) => ({ kind: 'step' as const, text })),
+      ...pieces.map((text, n) => ({
+        kind: 'step' as const,
+        text,
+        // The wait goes to the piece that talks about it (the first one, if none does).
+        ...(waitPiece(pieces, review.steps[i]?.wait) === n
+          ? { wait: review.steps[i]!.wait, wait_confirmed: review.steps[i]!.wait_confirmed }
+          : {})
+      })),
       ...review.steps.slice(i + 1)
     ];
     this.previewStep = null;
@@ -849,6 +868,15 @@ export function amountWords(value: number): string {
 /** A volume in ml in plain words: 946 → "946 ml", 1136 → "1.14 L". */
 export function volumeWords(ml: number): string {
   return ml >= 1000 ? `${Math.round(ml / 10) / 100} L` : `${amountWords(ml)} ml`;
+}
+
+/** Which piece of a split step carries its wait: the first that has a waiting word in it. */
+function waitPiece(pieces: string[], wait: unknown): number {
+  if (!wait) return -1;
+  const found = pieces.findIndex((p) =>
+    /\b(marinat|soak|ferment|rest|chill|refrigerat|prov(e|ing)|proof)/i.test(p)
+  );
+  return found < 0 ? 0 : found;
 }
 
 function saveLine(line: ReviewLine, link: Choice | null): SaveLine {

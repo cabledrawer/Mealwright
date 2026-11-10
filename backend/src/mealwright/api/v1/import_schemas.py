@@ -151,6 +151,8 @@ class ReviewStep(BaseModel):
     # only a suggestion: Check asks "Yes, it waits", "Change" or "No wait", and Save sends back
     # what was kept (`ImportSave.steps[].wait`).
     wait: StepWaitIn | None = None
+    # The person said "Yes, it waits" to the suggestion (kept with a draft; Save never sends it).
+    wait_confirmed: bool = False
 
 
 class ImportReview(BaseModel):

@@ -243,6 +243,27 @@ describe('opening a saved recipe', () => {
     expect(again.steps.map((s) => s.optional)).toEqual([true]);
   });
 
+  it("keeps a step's wait, sends it, notices a change and keeps it across the tab (M1)", () => {
+    const wait = { kind: 'ferment', min_minutes: 480, max_minutes: 720, overnight: false };
+    const draft = RecipeDraft.from(
+      recipe({
+        steps: [
+          { id: 1, kind: 'step', text: 'Ferment the batter.', wait },
+          { id: 2, kind: 'step', text: 'Cook.' }
+        ]
+      })
+    );
+    expect(draft.steps.map((s) => s.wait)).toEqual([wait, null]);
+    expect(draft.build().body.steps.map((s) => s.wait)).toEqual([wait, null]);
+    expect(draft.dirty).toBe(false);
+    draft.steps[0]!.wait = { ...wait, max_minutes: 900 };
+    expect(draft.dirty).toBe(true);
+    const again = RecipeDraft.from(recipe());
+    expect(again.applyCarried(JSON.parse(JSON.stringify(draft.toCarried())))).toBe(true);
+    expect(again.steps[0]!.wait).toEqual({ ...wait, max_minutes: 900 });
+    expect(again.steps[1]!.wait).toBeNull();
+  });
+
   it('opened from "Work it out again", Save says the figures were looked at (R3)', () => {
     const draft = RecipeDraft.from(recipe());
     expect(draft.build().body.nutrition_checked).toBeUndefined();

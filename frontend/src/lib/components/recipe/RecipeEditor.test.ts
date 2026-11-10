@@ -394,8 +394,43 @@ describe('the boxes', () => {
     await vi.waitFor(() => expect(bodyOf(requests, 'POST')).toBeDefined());
     const sent = bodyOf(requests, 'POST') as { lines: { optional: boolean }[]; steps: unknown[] };
     expect(sent.lines.map((l) => l.optional)).toEqual([true]);
-    expect(sent.steps).toEqual([{ kind: 'step', text: 'Top it.', optional: true }]);
+    expect(sent.steps).toEqual([{ kind: 'step', text: 'Top it.', optional: true, wait: null }]);
     expect('nutrition_checked' in sent).toBe(false);
+  });
+
+  it('has a Waits field on each step: add one, change it, Save sends it, take it off (M1)', async () => {
+    const requests = fakeApi({ 'POST /recipes': [201, saved()] });
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Tandoori');
+    await page.getByRole('textbox', { name: 'Step 1' }).fill('Rub it and leave to marinate.');
+    await userEvent.click(page.getByRole('button', { name: 'Add a wait to step 1' }));
+    await page.getByLabelText('Shortest wait for step 1').fill('4');
+    await page.getByLabelText('Longest wait for step 1').fill('12');
+    await page.getByRole('combobox', { name: 'In' }).selectOptions('h');
+    await page.getByRole('switch', { name: 'Ends overnight' }).click();
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await vi.waitFor(() => expect(bodyOf(requests, 'POST')).toBeDefined());
+    const sent = bodyOf(requests, 'POST') as { steps: { wait: unknown }[] };
+    expect(sent.steps[0]!.wait).toEqual({
+      kind: 'marinate',
+      min_minutes: 240,
+      max_minutes: 720,
+      overnight: true
+    });
+  });
+
+  it('a step with no wait sends none, and Take off the wait clears it (M1)', async () => {
+    const requests = fakeApi({ 'POST /recipes': [201, saved()] });
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Tandoori');
+    await page.getByRole('textbox', { name: 'Step 1' }).fill('Rub it.');
+    await userEvent.click(page.getByRole('button', { name: 'Add a wait to step 1' }));
+    await userEvent.click(page.getByRole('button', { name: 'Take off the wait' }));
+    await expect.element(page.getByRole('button', { name: 'Add a wait to step 1' })).toBeVisible();
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await vi.waitFor(() => expect(bodyOf(requests, 'POST')).toBeDefined());
+    const sent = bodyOf(requests, 'POST') as { steps: { wait: unknown }[] };
+    expect(sent.steps[0]!.wait).toBeNull();
   });
 
   it('keeps Serves between 1 and 99, and can clear it', async () => {

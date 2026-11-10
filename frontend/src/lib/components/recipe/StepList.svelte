@@ -130,6 +130,31 @@
             <Switch bind:checked={step.optional} label="Optional: step {numberOf(i)}" />
             <span aria-hidden="true">Optional step</span>
           </div>
+          <!-- Waits (M1): marinate, soak, ferment... The boxes load when a step first has one. -->
+          <div class="waits" data-waits>
+            <span class="waits-title">Waits</span>
+            {#if step.wait}
+              {#await import('./WaitFields.svelte') then { default: WaitFields }}
+                <WaitFields bind:wait={step.wait} name="step {numberOf(i)}" />
+              {/await}
+              <button type="button" class="mw-add" onclick={() => (step.wait = null)}
+                >Take off the wait</button
+              >
+            {:else}
+              <button
+                type="button"
+                class="mw-add"
+                aria-label="Add a wait to step {numberOf(i)}"
+                onclick={() =>
+                  (step.wait = {
+                    kind: 'marinate',
+                    min_minutes: 60,
+                    max_minutes: 60,
+                    overnight: false
+                  })}>+ Add a wait</button
+              >
+            {/if}
+          </div>
         {/if}
         {#if problem}<p class="mw-error msg" role="alert">{problem}</p>{/if}
       </li>
@@ -265,6 +290,21 @@
     gap: var(--space-3);
     min-height: var(--touch-target);
     padding-left: calc(28px + var(--space-3));
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .waits {
+    display: flex;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3) var(--space-4);
+    padding-left: calc(28px + var(--space-3));
+  }
+
+  .waits-title {
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
