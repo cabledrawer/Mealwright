@@ -272,3 +272,26 @@ describe('from the meal', () => {
     expect(requests[0]!.body).toEqual({ started: true });
   });
 });
+
+describe('the plan on screen', () => {
+  it('is read three days past the last day shown, so a start on the last day for a meal just after it shows', async () => {
+    const requests = fakeApi({
+      'GET /household': [
+        200,
+        { today: '2026-10-17', week_starts_on: 1, tub_fridge_days: 3, tub_freezer_months: 3 }
+      ],
+      'GET /meal-slots': [200, []],
+      'GET /plan': [
+        200,
+        { start: '2026-10-12', end: '2026-10-21', meals: [], batch_cooks: [], tubs: [] }
+      ],
+      'GET /plan/tubs-left': [200, { tubs: [], more: false }],
+      'GET /people': [200, []]
+    });
+    const model = new PlanModel();
+    await model.load();
+    const asked = requests.find((r) => r.path === '/plan')!;
+    // The week of Sat 17 Oct is Mon 12 to Sun 18; the read goes to Wed 21.
+    expect(asked.url).toBe('/plan?from=2026-10-12&to=2026-10-21');
+  });
+});

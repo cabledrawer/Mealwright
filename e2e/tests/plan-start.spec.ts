@@ -84,14 +84,17 @@ test.afterEach(() => {
   expect(scriptErrors, 'the page raised no script errors').toEqual([]);
 });
 
-/** Open the Plan on the week that holds `day`. */
+/** Weeks start on Monday: the number of the week a day is in. */
+const weekOf = (iso: string) => Math.floor((new Date(`${iso}T12:00:00Z`).getTime() / 86_400_000 + 3) / 7);
+
+/** Open the Plan on the week that holds `day`, with the Next week button, as a person would. */
 async function openWeekOf(page: Page, today: string, day: string) {
   await page.goto('/plan');
-  const ahead = Math.round((new Date(`${day}T12:00:00Z`).getTime() - new Date(`${today}T12:00:00Z`).getTime()) / 86_400_000 / 7);
-  for (let i = 0; i < ahead; i++) await page.getByRole('button', { name: 'Next week' }).click();
+  for (let i = 0; i < weekOf(day) - weekOf(today); i++) await page.getByRole('button', { name: 'Next week' }).click();
 }
 
 test('Plan it on a recipe with a long wait asks when it will be started, and the meal can change the time, with Undo', async ({ page }) => {
+  test.setTimeout(90_000); // two accessibility scans (both themes) and three screens to open
   const { today, breakfast } = await setup(page);
   const recipe = await dosa(page);
   const day = addDays(today, 1 + projectIndex()); // a Breakfast at 08:00, so Sat 21:00 and 19:00 are still to come
@@ -203,7 +206,7 @@ test('the Plan\'s Cook view says Start tonight on the day to start, with Done al
   const eve = addDays(day, -1);
   const planned = await call(page, 'POST', '/plan/items', { date: day, slot_id: breakfast, recipe_id: recipe.id, start: { day: eve, time: '21:00' } });
   try {
-    await page.goto('/plan');
+    await openWeekOf(page, today, eve); // the start is on a day of next week
     await page.getByRole('group', { name: 'Show', exact: true }).getByRole('button', { name: 'Cook', exact: true }).click();
     const line = page.getByTestId('cook-start').filter({ hasText: `(for ${dayShort(day)} breakfast)` });
     await expect(line.first()).toContainText(`Start tonight at 21:00: grind to a batter and leave it to ferment (for ${dayShort(day)} breakfast)`);
