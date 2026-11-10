@@ -103,6 +103,7 @@
     renaming = null;
     problem = null;
     merging = tag.id;
+    dialog.scrollTop = 0; // the picker replaces the list, so it is the first thing in view
     into = (lookalike(tag) ?? tags.find((t) => t.id !== tag.id))?.id ?? null;
   }
 
@@ -154,7 +155,7 @@
       <p class="muted">No tags yet. Add one to a recipe and it shows here.</p>
     {/if}
 
-    {#if tags.length}
+    {#if tags.length && !mergingTag}
       <ul class="card">
         {#each tags as tag (tag.id)}
           {@const like = lookalike(tag)}
@@ -221,7 +222,7 @@
         </select>
         {#if intoTag}
           <p class="note">
-            Merge “{mergingTag.name}” into “{intoTag.name}”? Its {count(mergingTag.recipes)} get “{intoTag.name}”,
+            Merge “{mergingTag.name}” into “{intoTag.name}”? Its {count(mergingTag.recipes)} {mergingTag.recipes === 1 ? 'gets' : 'get'} “{intoTag.name}”,
             and “{mergingTag.name}” goes. You can Undo.
           </p>
         {/if}

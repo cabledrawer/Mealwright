@@ -582,6 +582,8 @@ test('Manage tags: a look-alike tag merges with a toast Undo that puts it back, 
   const plain = `${word} Quick`;
   const a = await makeRecipe(page, { name: `${word} sambar`, tags: [proper, plain] });
   const b = await makeRecipe(page, { name: `${word} rasam`, tags: [dashed] });
+  // A long list of tags, so the merge picker would be far below the tapped row (F221).
+  await makeRecipe(page, { name: `${word} many`, tags: Array.from({ length: 26 }, (_, i) => `${word} tag ${String(i).padStart(2, '0')}`) });
   const tagsOf = async (id: number) => ((await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as { tags: string[] }).tags;
 
   await page.goto('/recipes');
@@ -607,8 +609,11 @@ test('Manage tags: a look-alike tag merges with a toast Undo that puts it back, 
 
   // Merge: asked once in words, then a toast with Undo.
   await sheet.getByRole('button', { name: `Merge ${dashed} into…` }).click();
+  // The picker and its Merge button open in view, not at the foot of the long list (F221).
+  await expect(sheet.getByLabel(`Merge “${dashed}” into`)).toBeInViewport();
+  await expect(sheet.getByRole('button', { name: 'Merge', exact: true })).toBeInViewport();
   await sheet.getByLabel(`Merge “${dashed}” into`).selectOption({ label: proper });
-  await expect(sheet.getByText(`Merge “${dashed}” into “${proper}”? Its 1 recipe get “${proper}”, and “${dashed}” goes. You can Undo.`)).toBeVisible();
+  await expect(sheet.getByText(`Merge “${dashed}” into “${proper}”? Its 1 recipe gets “${proper}”, and “${dashed}” goes. You can Undo.`)).toBeVisible();
   await checkPage(page);
   await sheet.getByRole('button', { name: 'Merge', exact: true }).click();
   await expect(page.getByText(`Merged tag ${dashed} into ${proper}`)).toBeVisible();
