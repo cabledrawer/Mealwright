@@ -262,7 +262,12 @@ describe('making it, changing it and keeping it in', () => {
 });
 
 describe('a stand-in line that already had a choice', () => {
-  const newBatter = { kind: 'new', name: 'Dosa batter', counted_as: 'volume', place_id: 1 } as const;
+  const newBatter = {
+    kind: 'new',
+    name: 'Dosa batter',
+    counted_as: 'volume',
+    place_id: 1
+  } as const;
 
   it('shows and sends the own recipe, not the old choice, and Keep or Undo gives the choice back', async () => {
     const flow = dosa();
@@ -302,6 +307,6 @@ describe('a stand-in line inside another section made its own recipe', () => {
     expect(body.own_recipes).toHaveLength(2);
     // Every line that links to a section recipe is a line the server can match to its save.
     const links = body.lines.filter((l) => l.link?.kind === 'own_recipe');
-    expect(links.map((l) => l.link!.own_recipe).sort()).toEqual([0, 1]);
+    expect(links.map((l) => (l.link as { own_recipe: number }).own_recipe).sort()).toEqual([0, 1]);
   });
 });
