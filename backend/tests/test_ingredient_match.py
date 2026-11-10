@@ -644,3 +644,56 @@ def test_an_amount_that_converts_past_the_most_an_amount_can_be_does_not_count(
         assert not result.counts, text
     result = match(db, "900 kg milk")
     assert result.counts
+
+
+# --- F186: one word in common is not the same ingredient --------------------------------------
+
+
+@pytest.mark.parametrize("line", ["1 cup poha (flattened rice)", "1 cup flattened rice (poha)"])
+@pytest.mark.parametrize("kept_as", ["Rice", "Basmati rice"])
+def test_f186_poha_is_not_suggested_as_rice(db: Session, line: str, kept_as: str) -> None:
+    add_food(db, kept_as, others=("rice",))
+    result = match(db, line)
+    assert (result.label, result.food_id) == ("needs_you", None)
+
+
+@pytest.mark.parametrize(
+    ("line", "food"),
+    [
+        ("2 spring onions", "Onions"),
+        ("1 can coconut milk", "Milk"),
+        ("2 tbsp rice vinegar", "Rice"),
+        ("1 cup rice flour", "Rice"),
+        ("2 tbsp lemon juice", "Lemon"),
+        ("2 tbsp peanut butter", "Butter"),
+        ("1 tsp garlic powder", "Garlic"),
+        ("250 g cherry tomatoes", "Tomatoes"),
+        ("2 chicken drumsticks", "Drumsticks"),
+    ],
+)
+def test_f186_a_line_with_a_word_of_its_own_is_not_the_plain_ingredient(
+    db: Session, line: str, food: str
+) -> None:
+    add_food(db, food)
+    assert match(db, line).label == "needs_you"
+
+
+@pytest.mark.parametrize(
+    ("line", "food"),
+    [
+        ("1 cup rice", "Basmati rice"),  # the line is the plain word: the more specific food stays
+        ("2 red onions", "Onions"),  # a colour is not a word of its own
+        ("2 dried red chillies", "Chillies"),
+        ("1 can tinned chickpeas", "Chickpeas"),
+        ("10 baby aubergine", "Aubergine"),
+        ("1 bunch fresh coriander leaves", "Coriander"),
+        ("1 cup brown basmati rice", "Basmati rice"),
+        ("100 g flaked almonds", "Almonds"),
+    ],
+)
+def test_f186_colour_size_state_and_part_words_still_match(
+    db: Session, line: str, food: str
+) -> None:
+    add_food(db, food)
+    result = match(db, line)
+    assert (result.label, result.food_name) == ("to_confirm", food)

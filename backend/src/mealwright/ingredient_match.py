@@ -25,7 +25,13 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright.amounts import DEFAULT_CUP_ML, MAX_AMOUNT, MILLI, CountedAs, unit_size
 from mealwright.household import cup_ml
 from mealwright.household import places as household_places
-from mealwright.ingredient_reader import COUNTED_AS, WEAK_WORDS, ReadLine, working_text
+from mealwright.ingredient_reader import (
+    COUNTED_AS,
+    MODIFIER_WORDS,
+    WEAK_WORDS,
+    ReadLine,
+    working_text,
+)
 from mealwright.models import Food, FoodName, FoodSize, Household
 from mealwright.names import normalise, singular
 
@@ -301,6 +307,25 @@ def _words(key: str) -> frozenset[str]:
     return frozenset(key.split())
 
 
+# Words that only say what state or part of the thing it is, so a line that adds them is still
+# that thing ("coriander leaves" for Coriander, "tinned chickpeas" for Chickpeas).
+PART_WORDS = frozenset(
+    {"leaf", "sprig", "stalk", "stem", "bulb", "tinned", "canned", "flaked", "loose", "baby"}
+    # kinds of salt, which is still salt ("sea salt" for Salt)
+    | {"sea", "table", "kosher", "flaky", "rock"}
+)
+# As they stand in a key (`_key` turns "baby" into "babi").
+_DESCRIBING = frozenset(_key(word) for word in MODIFIER_WORDS | PART_WORDS)
+
+
+def _is_another_thing(theirs: frozenset[str], line: frozenset[str]) -> bool:
+    """F186 (cabledrawer 8 Nov): a food with one word in its name ("Rice", "Onions", "Milk") is not
+    the same as a line that adds a word of its own ("flattened rice", "spring onions", "coconut
+    milk"): they only share the one word. A colour, size, state or part of the thing ("red",
+    "dried", "leaves") is not a word of its own."""
+    return len(theirs) == 1 and theirs < line and bool(line - theirs - _DESCRIBING)
+
+
 def _candidates(read: ReadLine) -> list[tuple[str, str]]:
     """(key, name as shown) for each way the line names the ingredient, best first."""
     found: dict[str, str] = {}
@@ -339,6 +364,8 @@ def _closest(
                 continue
             if theirs & line <= WEAK_WORDS:
                 continue  # only a colour or size word in common
+            if _is_another_thing(theirs, line):
+                continue  # only one word in common, and the line is another thing (F186)
             share = len(theirs & line) / len(theirs | line)
             score = (share, 1 if theirs <= line else 0, -food.id)
             if best is None or score > best[0]:
