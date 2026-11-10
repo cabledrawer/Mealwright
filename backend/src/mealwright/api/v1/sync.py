@@ -300,8 +300,8 @@ def _item(kitchen: Kitchen, item: ListItem, foods: dict[int, Food | None]) -> It
         foods[item.food_id] = kitchen.db.get(Food, item.food_id)
     food = foods[item.food_id]
     display = None
+    size = kitchen.db.get(FoodSize, item.size_id) if item.size_id else None
     if item.amount_milli is not None and food is not None:
-        size = kitchen.db.get(FoodSize, item.size_id) if item.size_id else None
         display = list_text(food, item.amount_milli, size)
     return ItemRow(
         id=item.id,
@@ -311,7 +311,7 @@ def _item(kitchen: Kitchen, item: ListItem, foods: dict[int, Food | None]) -> It
         amount=_number(item.amount_milli) if item.amount_milli is not None else None,
         size_id=item.size_id,
         display=display,
-        pack=pack_line_out(kitchen, food, item.amount_milli) if food is not None else None,
+        pack=pack_line_out(kitchen, food, item.amount_milli, size) if food is not None else None,
         source=item.source,
         hand_edited=item.hand_edited,
         put_away_place_id=item.put_away_place_id,

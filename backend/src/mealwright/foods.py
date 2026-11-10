@@ -26,14 +26,24 @@ from mealwright.api.v1.schemas import (
     Ask,
     AsSoldOut,
     ChangeOut,
+    PackChoiceOut,
     PackLineOut,
+    PackSizesOut,
     PackSuggestion,
     SizeBrief,
     SizeOut,
     Undone,
     Who,
 )
-from mealwright.buying import pack_line
+from mealwright.buying import (
+    Choice,
+    better_choice,
+    choice_for,
+    need_words,
+    over_words,
+    pack_line,
+    size_words,
+)
 from mealwright.conversions import (
     AskOnce,
     ConversionKind,
@@ -569,13 +579,83 @@ def pack_suggestions(
     return out
 
 
-def pack_line_out(kitchen: Kitchen, food: Food, need_milli: int | None) -> PackLineOut | None:
+def _choices(kitchen: Kitchen, food: Food, need: int) -> list[Choice]:
+    """Every size the need could be bought in: the ingredient's own, then the bundled table's
+    common sizes it has not got (made when picked), without repeats."""
+    out = [
+        choice_for(size.id, size.name, size.plural, size.amount_milli, need)
+        for size in sizes(kitchen, food.id)
+        if size.amount_milli > 0
+    ]
+    taken = {c.size_milli for c in out}
+    names = [food.name, *(n.name for n in other_names(kitchen, food.id))]
+    for pick in suggest_sizes(names, cast(CountedAs, food.counted_as), food.table_key):
+        if pick.amount_milli > 0 and pick.amount_milli not in taken and pick.pack:
+            taken.add(pick.amount_milli)
+            out.append(
+                choice_for(None, pick.pack, amounts.plural(pick.pack), pick.amount_milli, need)
+            )
+    return out
+
+
+def _choice_out(
+    food: Food, choice: Choice, usual_milli: int | None, chosen_milli: int | None, least: bool
+) -> PackChoiceOut:
+    return PackChoiceOut(
+        size_id=choice.size_id,
+        name=choice.name,
+        plural=choice.plural,
+        amount=from_milli(choice.size_milli),
+        packs=choice.packs,
+        buy=size_words(food, choice),
+        over=over_words(food, choice),
+        usual=choice.size_milli == usual_milli,
+        chosen=choice.size_milli == chosen_milli,
+        least=least,
+        text=f"Or {size_words(food, choice)}: {over_words(food, choice)}",
+    )
+
+
+def pack_sizes_out(
+    kitchen: Kitchen, food: Food, need: int, chosen: FoodSize | None
+) -> PackSizesOut:
+    """Every size with what it leaves over, the least over marked (the sheet)."""
+    usual = pack_bought(kitchen, food.id)
+    here = _choices(kitchen, food, need)
+    least = min((c.over_milli, c.packs) for c in here) if len(here) > 1 else None
+    pick = chosen or usual
+    return PackSizesOut(
+        need=need_words(food, need),
+        choices=[
+            _choice_out(
+                food,
+                c,
+                usual.amount_milli if usual else None,
+                pick.amount_milli if pick else None,
+                least is not None and (c.over_milli, c.packs) == least,
+            )
+            for c in here
+        ],
+    )
+
+
+def pack_line_out(
+    kitchen: Kitchen, food: Food, need_milli: int | None, chosen: FoodSize | None = None
+) -> PackLineOut | None:
     """The whole-packs wording for a list line (F120), with the common sizes to pick from when
-    no size is known. Used by Shopping and by the phone's sync pull."""
-    usual = pack_bought(kitchen, food.id)  # F122: Usual, else the only size
+    no size is known, and another size when it leaves much less over (cabledrawer 9 Nov). Used by
+    Shopping and by the phone's sync pull. `chosen`: the size the line itself is in (set with
+    "Use this"), which then takes the Usual size's place for this line."""
+    usual = chosen or pack_bought(kitchen, food.id)  # F122: Usual, else the only size
     line = pack_line(food, need_milli, usual)
     if line is None:
         return None
+    alternative = None
+    if chosen is None and usual is not None and need_milli and usual.amount_milli > 0:
+        mine = choice_for(usual.id, usual.name, usual.plural, usual.amount_milli, need_milli)
+        other = better_choice(mine, _choices(kitchen, food, need_milli))
+        if other is not None:
+            alternative = _choice_out(food, other, usual.amount_milli, None, False)
     return PackLineOut(
         packs=line.packs,
         size_id=line.size_id,
@@ -583,6 +663,7 @@ def pack_line_out(kitchen: Kitchen, food: Food, need_milli: int | None) -> PackL
         need=line.need,
         line=line.line,
         suggestions=pack_suggestions(kitchen, food, []) if usual is None else [],
+        alternative=alternative,
     )
 
 

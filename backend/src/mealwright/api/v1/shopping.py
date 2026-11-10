@@ -23,10 +23,18 @@ from mealwright import shopping, sync
 from mealwright.aisles import AISLE_KEYS, AISLE_LABELS, DEFAULT_AISLE
 from mealwright.amounts import MAX_MILLI, MILLI
 from mealwright.api.v1.context import Here, Kitchen
-from mealwright.api.v1.schemas import AmountIn, AmountOut, ChangeOut, PackLineOut, Ref, Who
+from mealwright.api.v1.schemas import (
+    AmountIn,
+    AmountOut,
+    ChangeOut,
+    PackLineOut,
+    PackSizesOut,
+    Ref,
+    Who,
+)
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt
-from mealwright.foods import amount_out, change_out, find, pack_line_out, resolve
+from mealwright.foods import amount_out, change_out, find, pack_line_out, pack_sizes_out, resolve
 from mealwright.history import commit, replayed
 from mealwright.models import Change, Food, FoodSize, ListItem, Place, Shop, ShoppingList
 from mealwright.names import clean_name, fold
@@ -165,7 +173,7 @@ def _item_out(
     place = item.put_away_place_id
     aisle = food.aisle if food.aisle in AISLE_KEYS else DEFAULT_AISLE
     place_row = kitchen.db.get(Place, place) if place else None
-    pack = pack_line_out(kitchen, food, item.amount_milli)
+    pack = pack_line_out(kitchen, food, item.amount_milli, size)
     if uses is None:
         uses = work_out(kitchen).uses if item.source == "plan" else {}
     return ItemOut(
@@ -463,6 +471,21 @@ def add_item(list_id: str, body: NewItem, kitchen: Here, response: Response) -> 
         return ItemWrite(item=None, merged=False, change=change_out(kitchen, replay))
 
     return _write(kitchen, response, apply, build)
+
+
+@router.get("/shopping/items/{item_id}/pack-sizes")
+def pack_sizes(item_id: str, kitchen: Here) -> PackSizesOut:
+    """Every size this line could be bought in, with how much each leaves over (cabledrawer 9 Nov:
+    "every size can be seen and picked"). Read-only; the pick is the usual `set_amount`, after
+    the size is made (POST /foods/{id}/sizes) when it is one of the table's common sizes."""
+    item = shopping.find_item(kitchen, item_id)
+    if item.deleted_at is not None:
+        raise shopping.deleted(item)
+    food = find(kitchen, item.food_id)
+    if food.staple or not item.amount_milli or item.amount_milli <= 0:
+        return PackSizesOut(need="", choices=[])
+    size = kitchen.db.get(FoodSize, item.size_id) if item.size_id else None
+    return pack_sizes_out(kitchen, food, item.amount_milli, size)
 
 
 @router.patch("/shopping/items/{item_id}")

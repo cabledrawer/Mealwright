@@ -85,6 +85,22 @@ class PackSuggestion(BaseModel):
     amount_text: str  # "500 g": the quick pick's label on a Shopping line
 
 
+class PackChoiceOut(BaseModel):
+    """One way to buy a line's need: this many of one size, and what is left over."""
+
+    size_id: int | None  # null: a common size that has to be made first
+    name: str  # "tin": what the size is called (when made, too)
+    plural: str
+    amount: float  # the size, in base units (g, ml or items)
+    packs: int
+    buy: str  # "3 tins · 200 ml"
+    over: str  # "nothing left over", "200 ml left over"
+    usual: bool  # the ingredient's Usual size
+    chosen: bool  # what the line is bought in now
+    least: bool  # leaves the least over (and there is more than one way)
+    text: str  # "Or 3 tins · 200 ml: nothing left over" (only on the suggestion)
+
+
 class PackLineOut(BaseModel):
     """What to buy in whole packs for one list line (F120; mealwright.buying)."""
 
@@ -94,6 +110,15 @@ class PackLineOut(BaseModel):
     need: str  # "120 g needed"
     line: str  # "1 jar (500 g) · 120 g needed" or "60 g needed · no pack size yet"
     suggestions: list[PackSuggestion]  # "Usual pack?": only when no size is known
+    # Another size that leaves much less over, suggested under the row (cabledrawer 9 Nov).
+    alternative: PackChoiceOut | None = None
+
+
+class PackSizesOut(BaseModel):
+    """Every size a line could be bought in, with what each leaves over (the sheet)."""
+
+    need: str  # "600 ml needed"
+    choices: list[PackChoiceOut]
 
 
 class SizeBrief(BaseModel):
