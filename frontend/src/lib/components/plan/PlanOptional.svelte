@@ -59,6 +59,7 @@
                   checked={ticked.includes(row.id)}
                   onchange={(e) => toggle(row.id, e.currentTarget.checked)}
                 />
+                <span class="box" aria-hidden="true"></span>
                 <span class="name">
                   <b>{row.words}</b>
                   {#if row.detail}<span>{row.detail}</span>{/if}
@@ -153,7 +154,9 @@
     border-top: 1px solid var(--color-divider);
   }
 
+  /* The real checkbox covers the whole row (a 56 px target); a drawn box shows its state. */
   label {
+    position: relative;
     display: flex;
     align-items: center;
     gap: var(--space-5);
@@ -162,10 +165,41 @@
   }
 
   input[type='checkbox'] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .box {
+    display: grid;
     flex: none;
+    place-items: center;
     width: 22px;
     height: 22px;
-    accent-color: var(--color-accent);
+    border: 2px solid var(--color-field-border);
+    border-radius: 6px;
+    background: var(--color-field);
+    color: var(--color-inverse-text);
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  input:checked + .box {
+    border-color: var(--color-accent-hover);
+    background: var(--color-accent-hover);
+  }
+
+  input:checked + .box::after {
+    content: '✓';
+  }
+
+  input:focus-visible + .box {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
   }
 
   .name {

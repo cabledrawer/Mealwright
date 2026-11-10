@@ -125,6 +125,12 @@
       }
     }
     if (!kept && !fresh && draft && applyKept(draft)) carrying = true;
+    // "Work it out again" on the recipe page (R3): the nutrition boxes first, and Save counts
+    // as having looked at the figures.
+    if (editing && draft && new URLSearchParams(location.search).get('nutrition') === '1') {
+      draft.nutritionChecked = true;
+      void tick().then(() => document.getElementById(`${uid}-kcal`)?.focus());
+    }
     if (recipeId !== null) {
       cannotUse(recipeId)
         .then((list) => (blocked = list))
@@ -594,6 +600,7 @@
               <label class="mw-field mw-label">
                 {nutrient === 'kcal' ? 'kcal' : `${nutrient} g`}
                 <input
+                  id={nutrient === 'kcal' ? `${uid}-kcal` : undefined}
                   class="mw-input"
                   type="text"
                   inputmode="decimal"
@@ -611,6 +618,13 @@
             {/if}
           {/each}
           <p class="mw-hint">Leave a box empty if you don’t know: it shows as unknown, never 0.</p>
+          {#if draft.nutritionChecked}
+            <!-- Proposed, for cabledrawer. -->
+            <p class="mw-hint">
+              The ingredients changed after these were worked out. Check them, change what is wrong,
+              then Save: that clears the note.
+            </p>
+          {/if}
         </fieldset>
       </div>
 

@@ -626,6 +626,27 @@ describe('an existing recipe', () => {
     expect('photo_id' in bodyOf(requests, 'PUT')).toBe(false);
   });
 
+  it('opened from "Work it out again" it starts in the nutrition boxes, and Save says they were looked at (R3)', async () => {
+    const requests = fakeApi({
+      'GET /recipes/2': [200, sambar],
+      'GET /recipes/2/cannot-use': [200, { recipes: [] }],
+      'PUT /recipes/2': [200, { ...sambar, version: 4 }]
+    });
+    history.replaceState(null, '', `${location.pathname}?nutrition=1`);
+    try {
+      open({ recipeId: 2 });
+      await expect.element(page.getByRole('textbox', { name: 'kcal' })).toHaveFocus();
+      await expect
+        .element(page.getByText(/The ingredients changed after these were worked out/))
+        .toBeVisible();
+      await page.getByRole('button', { name: /^Save/ }).click();
+      await vi.waitFor(() => expect(navigation.go).toHaveBeenCalledWith('/recipes/2'));
+      expect(bodyOf(requests, 'PUT')).toMatchObject({ nutrition_checked: true });
+    } finally {
+      history.replaceState(null, '', location.pathname);
+    }
+  });
+
   it('stops a second Save with the server’s sentence, and "Save mine anyway" sends the newer version', async () => {
     let tries = 0;
     const requests = fakeApi({

@@ -183,7 +183,7 @@ export class RecipeDraft {
     fibre: ''
   });
   /** The editor was opened from "Work it out again": Save says the figures were looked at. */
-  nutritionChecked = false;
+  nutritionChecked = $state(false);
   lines = $state<DraftLine[]>([blankLine()]);
   steps = $state<DraftStep[]>([blankStep()]);
   source = $state('');
