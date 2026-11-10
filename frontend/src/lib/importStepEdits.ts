@@ -5,6 +5,7 @@
 import type { ImportFlow } from './import.svelte';
 import type { ReviewStep } from './client/imports';
 import { stepNumberAt } from './importSteps';
+export { activeTime } from './timeWords';
 import { undoHistory, type UndoEntry } from './undo.svelte';
 
 /** A heading as it reads in a toast: cut at 40 characters, at a word where it can. */
@@ -47,6 +48,7 @@ export function removeStep(flow: ImportFlow, at: number): void {
   const after = review.steps[at + 1];
   review.steps.splice(at, 1);
   flow.previewStep = null; // its number was an index into the steps that were
+  reworkMinutes(flow); // a wait on it no longer comes off the page's total
   const entry: UndoEntry = {
     label,
     undo: () => {
@@ -64,6 +66,7 @@ export function removeStep(flow: ImportFlow, at: number): void {
       else return CANT_PUT_BACK;
       now.splice(place, 0, gone);
       flow.previewStep = null;
+      reworkMinutes(flow);
     }
   };
   flow.keepStepUndo(entry);
@@ -73,32 +76,11 @@ export function removeStep(flow: ImportFlow, at: number): void {
 /** Said when an Undo finds neither of the step's neighbours (proposed, for cabledrawer). */
 export const CANT_PUT_BACK = 'Couldn’t put it back: the steps have changed.';
 
-/** The page's total time without the waits now on the steps (the same rule as the server's
- *  `active_time`: the longest waits come off if the total held them, else the shortest; if it
- *  held neither, or would be left with nothing, the total stays). */
-export function activeTime(
-  total: number | null,
-  waits: { min_minutes: number; max_minutes: number }[]
-): number | null {
-  if (total === null) return null;
-  const longest = waits.reduce((n, w) => n + (w.max_minutes || w.min_minutes), 0);
-  const shortest = waits.reduce((n, w) => n + w.min_minutes, 0);
-  for (const take of [longest, shortest]) if (take && total - take >= 1) return total - take;
-  return total;
-}
-
 /** Work the Minutes box out again from the page's own total and the waits the steps have now
  *  (M1 fix: "No wait" gives the minutes back). Leaves it alone once it was typed in, or when the
  *  page gave no total. */
 export function reworkMinutes(flow: ImportFlow): void {
-  const review = flow.review;
-  if (!review || flow.minutesTyped || review.page_time_minutes == null) return;
-  const waits = review.steps.flatMap((s) => (s.kind === 'step' && s.wait ? [s.wait] : []));
-  const time = activeTime(
-    review.page_time_minutes,
-    waits.map((w) => ({ min_minutes: w.min_minutes, max_minutes: w.max_minutes }))
-  );
-  flow.setMinutesWorkedOut(time === null ? '' : String(time));
+  flow.reworkMinutes();
 }
 
 /** "Yes, it waits": the suggested wait on `step` is kept as it is (M1). */

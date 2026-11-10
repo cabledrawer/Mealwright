@@ -406,7 +406,7 @@ describe('the import flow', () => {
       expect(sent.choices).toMatchObject({
         name: 'My sambar',
         serves: '4',
-        minutes: '50',
+        minutes: null, // left as read: worked out again when opened (M1 r2)
         lines: { '1': { kind: 'ingredient', food: { id: 2 }, learn: true } }
       });
       // A change after that is not kept yet, and saves over the draft (a PUT), not a new one.
@@ -444,6 +444,35 @@ describe('the import flow', () => {
         { kind: 'step', text: 'Fry until golden.' }
       ]);
       expect(again.unkept).toBe(false);
+    });
+
+    it('a draft keeps Minutes as worked out, so No wait still gives the minutes back (M1 r2)', async () => {
+      const flow = await reviewing();
+      const MARINATE = { kind: 'marinate', min_minutes: 240, max_minutes: 720, overnight: true };
+      flow.review!.page_time_minutes = 745;
+      flow.review!.steps = [
+        { kind: 'step', text: 'Marinate overnight.', wait: { ...MARINATE }, wait_confirmed: false },
+        { kind: 'step', text: 'Fry.', wait: null }
+      ];
+      flow.reworkMinutes();
+      expect(flow.minutes).toBe('25');
+      const requests = fakeApi({
+        'POST /recipes/drafts': [201, DRAFT],
+        'GET /recipes/drafts': [200, { drafts: [], count: 0 }]
+      });
+      expect(await flow.keepAsDraft()).toBe(true);
+      const sent = requests[0]!.body as {
+        review: DraftOut['review'];
+        choices: DraftOut['choices'];
+      };
+      expect(sent.choices.minutes).toBeNull(); // not typed: worked out again when opened
+      const again = new ImportFlow();
+      again.load({ ...DRAFT, review: sent.review, choices: sent.choices });
+      expect(again.minutes).toBe('25');
+      expect(again.minutesTyped).toBe(false);
+      again.review!.steps[0]!.wait = null; // as No wait does
+      again.reworkMinutes();
+      expect(again.minutes).toBe('745');
     });
 
     it('opens a draft with every choice made so far, and nothing changed', () => {

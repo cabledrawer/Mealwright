@@ -93,3 +93,17 @@ export function sumWaits(steps: { kind: string; wait?: StepWait | null }[]): Ste
     overnight: waits.some((w) => w.overnight)
   };
 }
+
+/** The page's total time without the waits now on the steps (the same rule as the server's
+ *  `active_time`: the longest waits come off if the total held them, else the shortest; if it
+ *  held neither, or would be left with nothing, the total stays). */
+export function activeTime(
+  total: number | null,
+  waits: { min_minutes: number; max_minutes: number }[]
+): number | null {
+  if (total === null) return null;
+  const longest = waits.reduce((n, w) => n + (w.max_minutes || w.min_minutes), 0);
+  const shortest = waits.reduce((n, w) => n + w.min_minutes, 0);
+  for (const take of [longest, shortest]) if (take && total - take >= 1) return total - take;
+  return total;
+}

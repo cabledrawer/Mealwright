@@ -26,7 +26,7 @@ import { toasts } from './toast.svelte';
 import { undoHistory, type UndoEntry } from './undo.svelte';
 import { MOST_STEPS, splitStep } from './importSteps';
 import { unitFor } from './recipeAmounts';
-import { sumWaits, type StepWait } from './timeWords';
+import { activeTime, sumWaits, type StepWait } from './timeWords';
 
 /** What a line was set to on the review (a line that is matched needs no choice). */
 export type Choice =
@@ -94,7 +94,7 @@ export class ImportFlow {
   name = $state('');
   serves = $state('');
   #minutes = $state('');
-  /** The person typed in the Minutes box (or it came back from a draft): Check leaves it alone. */
+  /** The person typed in the Minutes box (kept as typed in a draft): Check leaves it alone. */
   minutesTyped = false;
   get minutes(): string {
     return this.#minutes;
@@ -106,6 +106,19 @@ export class ImportFlow {
   /** Minutes worked out from the waits (M1): not typed, so a later wait answer may change it. */
   setMinutesWorkedOut(text: string): void {
     this.#minutes = text;
+  }
+  /** Work the Minutes box out again from the page's own total and the waits the steps have now
+   *  (M1 fix: "No wait" gives the minutes back). Leaves it alone once it was typed in, or when
+   *  the page gave no total. */
+  reworkMinutes(): void {
+    const review = this.review;
+    if (!review || this.minutesTyped || review.page_time_minutes == null) return;
+    const waits = review.steps.flatMap((s) => (s.kind === 'step' && s.wait ? [s.wait] : []));
+    const time = activeTime(
+      review.page_time_minutes,
+      waits.map((w) => ({ min_minutes: w.min_minutes, max_minutes: w.max_minutes }))
+    );
+    this.setMinutesWorkedOut(time === null ? '' : String(time));
   }
   saving = $state(false);
   saveProblem = $state<{ message: string; line: number | null } | null>(null);
@@ -232,6 +245,7 @@ export class ImportFlow {
     if (kept.name !== null) this.name = kept.name;
     if (kept.serves !== null) this.serves = kept.serves;
     if (kept.minutes !== null) this.minutes = kept.minutes;
+    else this.reworkMinutes(); // not typed: worked out from the waits the draft's steps have
     if (kept.pints) this.pints = kept.pints;
     const choices: Record<number, Choice> = {};
     for (const [index, choice] of Object.entries(kept.lines)) choices[Number(index)] = choice;
@@ -275,7 +289,7 @@ export class ImportFlow {
       choices: {
         name: this.name,
         serves: this.serves,
-        minutes: this.minutes,
+        minutes: this.minutesTyped ? this.minutes : null, // worked out again when it is opened
         pints: this.pints === (review.pints?.reading ?? 'uk') ? null : this.pints,
         lines
       }

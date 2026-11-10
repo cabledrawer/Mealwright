@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { ImportFlow } from './import.svelte';
+import { ImportFlow } from './import.svelte';
 import type { ReviewStep } from './client/imports';
-import { activeTime, confirmWait, reworkMinutes, takeOffWait } from './importStepEdits';
+import { activeTime, confirmWait, removeStep, reworkMinutes, takeOffWait } from './importStepEdits';
 import { undoHistory } from './undo.svelte';
 
 const MARINATE = { kind: 'marinate', min_minutes: 240, max_minutes: 720, overnight: true };
@@ -18,7 +18,11 @@ function flowWith(minutes: string, total: number | null, typed = false) {
     previewStep: null,
     setMinutesWorkedOut(text: string) {
       this.minutes = text;
-    }
+    },
+    reworkMinutes() {
+      ImportFlow.prototype.reworkMinutes.call(this as never);
+    },
+    keepStepUndo() {}
   };
   return { flow: flow as unknown as ImportFlow & typeof flow, steps };
 }
@@ -58,5 +62,17 @@ describe('the time and the waits on Check (M1 fix 1)', () => {
     const none = flowWith('25', null);
     takeOffWait(none.flow, none.steps[0]!);
     expect(none.flow.minutes).toBe('25');
+  });
+});
+
+describe('taking out a step that waits (M1 review round 2, L3)', () => {
+  it('gives its minutes back, and Undo takes them again', async () => {
+    const { flow, steps } = flowWith('25', 745);
+    removeStep(flow, 0);
+    expect(steps).toHaveLength(1);
+    expect(flow.minutes).toBe('745');
+    await undoHistory.undoLast();
+    expect(steps).toHaveLength(2);
+    expect(flow.minutes).toBe('25');
   });
 });
