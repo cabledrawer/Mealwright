@@ -56,6 +56,13 @@ describe('cooking by day', () => {
     expect(cookDays(odd, SLOTS, DAYS)[1]!.entries[0]!.scale).toBeNull();
   });
 
+  it('carries the way of cooking it the meal uses, so its stock is read for that way (M2)', () => {
+    const two = samplePlan();
+    two.meals[0]!.items[0]!.method_id = 11;
+    expect(cookDays(two, SLOTS, DAYS)[0]!.entries[0]!.methodId).toBe(11);
+    expect(days[0]!.entries[0]!.methodId).toBeNull();
+  });
+
   it('leaves a deleted recipe nothing to start', () => {
     const gone = samplePlan();
     gone.meals[0]!.items[0] = recipeItem(1, 5, 'Pongal', { recipe: null, kept_name: 'Pongal' });

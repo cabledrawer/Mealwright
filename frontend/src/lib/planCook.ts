@@ -16,6 +16,8 @@ export interface CookEntry {
   name: string;
   /** The recipe to cook; null when it was deleted for good (nothing to start). */
   recipeId: number | null;
+  /** The way of cooking it the meal uses (M2); null when the recipe has one way. */
+  methodId: number | null;
   batch: PlanBatch | null;
   /** Fresh: how many people it is for; null when unknown. */
   serves: number | null;
@@ -88,6 +90,7 @@ export function cookDays(
           slotName: slot.name,
           name: itemName(item, plan),
           recipeId: recipe && !recipe.removed ? recipe.id : null,
+          methodId: item.method_id ?? null,
           batch,
           serves: batch ? null : item.eating,
           minutes: recipe?.time_minutes ?? null,

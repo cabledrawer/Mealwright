@@ -38,7 +38,8 @@
 
   let toBuy = $state<Record<string, string[]>>({});
   const asked = new SvelteSet<string>();
-  const stockKey = (entry: CookEntry) => `${entry.recipeId}:${servingsOf(entry) ?? ''}`;
+  const stockKey = (entry: CookEntry) =>
+    `${entry.recipeId}:${servingsOf(entry) ?? ''}:${entry.methodId ?? ''}`;
   /** How many the stock is asked for: a batch's portions, else who it is for. */
   const servingsOf = (entry: CookEntry) => entry.makes ?? entry.serves;
 
@@ -58,7 +59,7 @@
         const key = stockKey(entry);
         if (asked.has(key)) continue;
         asked.add(key);
-        getRecipeStock(entry.recipeId!, servingsOf(entry))
+        getRecipeStock(entry.recipeId!, servingsOf(entry), entry.methodId)
           .then((stock) => (toBuy[key] = stillToBuy(stock)))
           .catch(() => asked.delete(key)); // a failed ask leaves the line out; asked again later
       }
