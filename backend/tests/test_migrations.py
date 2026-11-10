@@ -1624,9 +1624,12 @@ def test_methods_migration_gives_every_recipe_one_method_and_goes_back_and_forwa
         slot = connection.exec_driver_sql(
             "SELECT id FROM meal_slot WHERE household_id = 1 LIMIT 1"
         ).scalar_one()
-        for sql in (
+        connection.exec_driver_sql(
             "INSERT INTO meal (id, household_id, day, slot_id, status, created_at)"
-            f" VALUES (1, 1, '2026-10-30', {slot}, 'cooked', '2026-10-30')",
+            " VALUES (1, 1, '2026-10-30', ?, 'cooked', '2026-10-30')",
+            (slot,),
+        )
+        for sql in (
             "INSERT INTO meal_item (id, household_id, meal_id, position, kind, recipe_id)"
             " VALUES (1, 1, 1, 0, 'recipe', 1)",
             "INSERT INTO cooked_record (household_id, meal_item_id, batch_id, recipe_id, portions,"
