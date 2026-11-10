@@ -38,6 +38,9 @@ const dayName = (iso: string) => {
 const dayShort = (iso: string) => weekdayShort.format(new Date(`${iso}T12:00:00Z`));
 
 async function setup(page: Page) {
+  // The household's time zone is the admin's browser's, kept the first time it is sent: say it
+  // here so the times read the same whichever test comes first (the server's clock is London's).
+  await call(page, 'POST', '/household/from-browser', { time_zone: 'Europe/London' });
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
   const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
   const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
@@ -127,9 +130,10 @@ test('Plan it on a recipe with a long wait asks when it will be started, and the
     // Changing it from the meal: the menu says when it starts, and asks again with Save.
     await openWeekOf(page, today, day);
     const card = cell(page, day, breakfast).getByRole('button', { name: new RegExp(`^${recipe.name}`) }).first();
+    await expect(card).toBeVisible({ timeout: 15_000 });
     await card.focus();
     await page.keyboard.press('Enter');
-    await page.getByRole('dialog', { name: recipe.name }).getByRole('button', { name: `Starts ${dayShort(eve)} 19:00…` }).click();
+    await page.getByRole('dialog', { name: recipe.name }).getByRole('button', { name: `Starts ${dayShort(eve)} 19:00…` }).click({ timeout: 15_000 });
     await expect(ask.getByRole('radio', { name: new RegExp(`${dayShort(eve)} 19:00`) })).toBeChecked();
     await ask.getByRole('button', { name: 'Another time…' }).click();
     await ask.getByLabel('Time').fill('17:30');

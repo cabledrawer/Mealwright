@@ -28,7 +28,6 @@ import {
   setPlanOptional,
   setPlanServings,
   setPlanStart,
-  setPlanStarted,
   switchMealSlot,
   tubToFreezer,
   type BatchBody,
@@ -67,6 +66,7 @@ import { cookBatchOfItem, itemName, leftName, mealName } from './planMeals';
 import { optionalAsk } from './optionalAsk.svelte';
 import type { StepWait } from './timeWords';
 import { startAsk } from './startAsk.svelte';
+import { markStarted } from './startNow';
 import { save, type Outcome } from './save';
 
 export type PlanView = 'week' | 'month';
@@ -376,10 +376,7 @@ export class PlanModel {
 
   /** "Done already": the long wait of a planned recipe is begun (M3). */
   markStarted(item: PlanItem) {
-    return this.#send({
-      label: `Marked ${itemName(item, this.plan)} as started`,
-      send: (key) => setPlanStarted(item.id, true, key)
-    });
+    return markStarted(item.id, itemName(item, this.plan));
   }
 
   /** Change which Optional ingredients a planned recipe will use, from its meal (R3). */
