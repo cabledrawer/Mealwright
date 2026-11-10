@@ -178,6 +178,128 @@ describe('every way a recipe is added to the plan asks, through PlanModel.add', 
   });
 });
 
+describe('round 1 fixes', () => {
+  const PASSED: StartOptions = { wait: FERMENT, eats_at: '08:00', options: [] };
+
+  it('a meal whose time has gone by asks nothing and is planned with no start', async () => {
+    const requests = fakeApi({
+      'GET /plan/start-options': [200, PASSED],
+      'POST /plan/items': WRITE
+    });
+    const outcome = await new PlanModel().add(
+      { recipe: { id: 5, name: 'Masala dosa' } },
+      '2026-11-14',
+      1
+    );
+    expect(outcome.ok).toBe(true);
+    expect(startAsk.current).toBeNull();
+    expect(body(requests)).toEqual({ date: '2026-11-14', slot_id: 1, recipe_id: 5 });
+  });
+
+  it('No time yet plans the meal with no start; Cancel still plans nothing', async () => {
+    const requests = fakeApi({
+      'GET /plan/start-options': [200, OPTIONS],
+      'POST /plan/items': WRITE
+    });
+    const added = new PlanModel().add({ recipe: { id: 5, name: 'Masala dosa' } }, '2026-11-14', 1);
+    await vi.waitFor(() => expect(startAsk.current).not.toBeNull());
+    expect(startAsk.current!.question.adding).toBe(true);
+    startAsk.skip();
+    expect((await added).ok).toBe(true);
+    expect(body(requests)).toEqual({ date: '2026-11-14', slot_id: 1, recipe_id: 5 });
+  });
+
+  it('Cook once (askStart: false) never loads or shows the question', async () => {
+    const requests = fakeApi({
+      'GET /plan/start-options': [200, OPTIONS],
+      'POST /plan/items': WRITE
+    });
+    await new PlanModel().add({ recipe: { id: 5, name: 'Masala dosa' } }, '2026-11-14', 1, {
+      askStart: false
+    });
+    expect(startAsk.current).toBeNull();
+    expect(requests.some((r) => r.path === '/plan/start-options')).toBe(false);
+    expect(body(requests)).toEqual({ date: '2026-11-14', slot_id: 1, recipe_id: 5 });
+  });
+
+  const AHEAD = {
+    step_id: 3,
+    step_text: 'Soak.',
+    wait: FERMENT,
+    active_minutes: 30,
+    eats_at: '08:00',
+    start_day: '2026-11-13',
+    start_time: '20:00',
+    started_day: null,
+    started_time: null,
+    waited_minutes: null
+  };
+  const planWith = (kind: 'recipe' | 'ingredient') => {
+    const model = new PlanModel();
+    model.plan = {
+      start: '2026-11-14',
+      end: '2026-11-14',
+      meals: [
+        {
+          id: 1,
+          date: '2026-11-14',
+          slot_id: 1,
+          status: 'planned',
+          items: [
+            {
+              id: 77,
+              kind,
+              recipe: kind === 'recipe' ? { id: 5, name: 'Masala dosa', removed: false } : null,
+              method_id: null,
+              ahead: kind === 'recipe' ? AHEAD : null
+            } as unknown as PlanItem
+          ],
+          kcal: null,
+          eater_login_ids: []
+        }
+      ],
+      batch_cooks: [],
+      tubs: []
+    };
+    model.slots = [{ id: 1, name: 'Breakfast', position: 1, enabled: true }];
+    return model;
+  };
+
+  it('Copy to… of a planned recipe with a long wait asks, and sends the start with the copy', async () => {
+    const requests = fakeApi({
+      'GET /plan/start-options': [200, OPTIONS],
+      'POST /plan/items/77/move': WRITE
+    });
+    const copied = planWith('recipe').drop({ item: 77 }, '2026-11-15', 1, 'copy');
+    await vi.waitFor(() => expect(startAsk.current).not.toBeNull());
+    startAsk.answer({ day: '2026-11-14', time: '21:00' });
+    await copied;
+    expect(requests.find((r) => r.path === '/plan/items/77/move')?.body).toEqual({
+      date: '2026-11-15',
+      slot_id: 1,
+      mode: 'copy',
+      start: { day: '2026-11-14', time: '21:00' }
+    });
+  });
+
+  it('cancelling the Copy question copies nothing; a move and an ingredient ask nothing', async () => {
+    const requests = fakeApi({
+      'GET /plan/start-options': [200, OPTIONS],
+      'POST /plan/items/77/move': WRITE
+    });
+    const copied = planWith('recipe').drop({ item: 77 }, '2026-11-15', 1, 'copy');
+    await vi.waitFor(() => expect(startAsk.current).not.toBeNull());
+    startAsk.dismiss();
+    const outcome = await copied;
+    expect(outcome.ok === false && outcome.cancelled).toBe(true);
+    expect(requests.some((r) => r.path === '/plan/items/77/move')).toBe(false);
+    await planWith('recipe').drop({ item: 77 }, '2026-11-15', 1, 'move');
+    await planWith('ingredient').drop({ item: 77 }, '2026-11-15', 1, 'copy');
+    expect(startAsk.current).toBeNull();
+    expect(requests.filter((r) => r.path === '/plan/items/77/move')).toHaveLength(2);
+  });
+});
+
 describe('from the meal', () => {
   const item = (ahead: unknown) =>
     ({

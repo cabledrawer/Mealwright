@@ -6,7 +6,6 @@ import type { PlanAhead, PlanItem } from './client/plan';
 import {
   doneWords,
   hasToWords,
-  needsStartTime,
   neededWords,
   startOptionWords,
   startsByNow,
@@ -124,12 +123,5 @@ describe('what is to be started', () => {
       recipeItem(52, 7, 'Vada', { ahead: { ...AHEAD, start_time: '20:30' } })
     );
     expect(startsOn(plan, '2026-10-16').map((s) => s.item.id)).toEqual([51, 52, 50]);
-  });
-
-  it('says which recipes have a long wait and no time yet', () => {
-    const none = { ...AHEAD, start_day: null, start_time: null };
-    expect(needsStartTime(recipeItem(1, 1, 'A', { ahead: none }))).toBe(true);
-    expect(needsStartTime(recipeItem(1, 1, 'A', { ahead: AHEAD }))).toBe(false);
-    expect(needsStartTime(recipeItem(1, 1, 'A'))).toBe(false);
   });
 });

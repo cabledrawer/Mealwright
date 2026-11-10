@@ -290,8 +290,15 @@ export class PlanModel {
    * asks which of them the meal will use (R3); cancelling the question plans nothing. Every
    * way of adding a recipe comes through here: dragging from the tray, picking in the Add sheet,
    * Plan it on the recipe page, Copy to… on a recipe in the tray's menu, and Cook once here.
+   * All but Cook once ask when a long wait will be started (`askStart: false` skips it: Cook once
+   * is cooking now, as Cook now is, so there is nothing to start ahead).
    */
-  async add(what: Planned, day: string, slotId: number): Promise<Outcome<PlanWrite>> {
+  async add(
+    what: Planned,
+    day: string,
+    slotId: number,
+    options: { askStart?: boolean } = {}
+  ): Promise<Outcome<PlanWrite>> {
     const name = 'recipe' in what ? what.recipe.name : what.ingredient.name;
     const body: {
       recipe_id?: number;
@@ -323,15 +330,19 @@ export class PlanModel {
       // not to have one (the server's rule: a wait of 4 hours or more), it is not even loaded.
       const wait = what.recipe.wait;
       const start =
-        wait === undefined || (what.recipe.method_count ?? 1) > 1 || (wait?.max_minutes ?? 0) >= 240
-          ? await (
-              await import('./startAsk.svelte')
-            ).startAsk.ask(
-              what.recipe,
-              { day, slotId, slotName: this.slotName(slotId) },
-              { method }
-            )
-          : undefined;
+        options.askStart === false
+          ? undefined
+          : wait === undefined ||
+              (what.recipe.method_count ?? 1) > 1 ||
+              (wait?.max_minutes ?? 0) >= 240
+            ? await (
+                await import('./startAsk.svelte')
+              ).startAsk.ask(
+                what.recipe,
+                { day, slotId, slotName: this.slotName(slotId) },
+                { method, adding: true }
+              )
+            : undefined;
       if (start === null) return { ok: false, error: null, cancelled: true };
       if (start !== undefined) body.start = start;
     }
@@ -475,6 +486,38 @@ export class PlanModel {
     slotId: number,
     mode: DropMode,
     ifNoneLeft: Exclude<WhenNoneLeft, 'ask'> | 'ask' = 'ask'
+  ): Promise<Outcome<PlanWrite>> {
+    // A copy of a recipe with a long wait asks when to start the copy, as every other way of
+    // adding it does (M3; proposed, for cabledrawer). Moves keep their time (or lose it) as before.
+    const itemId = 'item' in what ? what.item : null;
+    const from =
+      itemId === null
+        ? undefined
+        : this.plan?.meals.find((m) => m.items.some((i) => i.id === itemId));
+    const item = from?.items.find((i) => i.id === itemId);
+    if (mode !== 'copy' || !item || item.kind !== 'recipe' || !item.recipe || !item.ahead) {
+      return this.#drop(what, day, slotId, mode, ifNoneLeft);
+    }
+    const recipe = item.recipe;
+    return (async () => {
+      const { startAsk } = await import('./startAsk.svelte');
+      const start = await startAsk.ask(
+        { id: recipe.id, name: recipe.name },
+        { day, slotId, slotName: this.slotName(slotId) },
+        { method: item.method_id ?? null, adding: true }
+      );
+      if (start === null) return { ok: false, error: null, cancelled: true } as const;
+      return this.#drop(what, day, slotId, mode, ifNoneLeft, start);
+    })();
+  }
+
+  #drop(
+    what: Mover,
+    day: string,
+    slotId: number,
+    mode: DropMode,
+    ifNoneLeft: Exclude<WhenNoneLeft, 'ask'> | 'ask',
+    start?: StartAt
   ) {
     const verb = { move: 'Moved', copy: 'Copied', leftovers: 'Leftovers of' }[mode];
     // The cooking moves with its whole meal (proposed, for cabledrawer; the server does the same).
@@ -500,7 +543,8 @@ export class PlanModel {
       date: day,
       slot_id: slotId,
       mode,
-      ...(mode === 'leftovers' ? { if_none_left: ifNoneLeft } : {})
+      ...(mode === 'leftovers' ? { if_none_left: ifNoneLeft } : {}),
+      ...(start ? { start } : {})
     };
     return this.#send({
       label: `${verb} ${name} ${mode === 'leftovers' ? 'on' : 'to'} ${this.slotName(slotId)}`,

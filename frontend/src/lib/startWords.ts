@@ -131,8 +131,3 @@ function startsWhere(
   }
   return found.sort((a, b) => a.day.localeCompare(b.day) || a.time.localeCompare(b.time));
 }
-
-/** The recipes of a plan that have a long wait with no time set yet (for a quiet line on the
- *  meal: "No start time yet"). */
-export const needsStartTime = (item: PlanItem): boolean =>
-  !!item.ahead && !item.cooked && !item.ahead.start_time && item.ahead.started_time === null;

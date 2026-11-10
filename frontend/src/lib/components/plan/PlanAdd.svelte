@@ -145,7 +145,7 @@
     const [day, slot] = [target.day, slotId];
     planning = true;
     try {
-      const outcome = await model.add({ recipe }, day, slot);
+      const outcome = await model.add({ recipe }, day, slot, { askStart: false });
       if (!outcome.ok) return; // the failure has said why (a toast), and this sheet stays open
       // A late answer: the sheet was closed or opened on another day or meal meanwhile, so it acts on
       // nothing (the recipe stays planned; Undo is in the toast).

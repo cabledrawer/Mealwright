@@ -24,11 +24,13 @@ export interface StartQuestion {
   current: StartAt | null;
   /** The main button: "Add to plan", or "Save" when the meal's time is being changed. */
   button: string;
+  /** Adding the meal: "No time yet" is a choice (it is added with no start). */
+  adding: boolean;
 }
 
 interface Pending {
   question: StartQuestion;
-  resolve: (start: StartAt | null) => void;
+  resolve: (start: StartAt | null | undefined) => void;
 }
 
 /** The shortest wait that is started ahead (the server's rule, kept in step with it). */
@@ -39,15 +41,23 @@ class StartAsk {
 
   /**
    * Ask when the recipe's long wait will be started. Resolves with the day and time, null when
-   * the person cancels, and undefined when there is nothing to ask: the recipe has no long wait
-   * (or the server can't be reached, and adding it goes on as it always did, with no time).
+   * the person cancels, and undefined when there is nothing to ask (or the person chose "No time
+   * yet"): the recipe has no long wait, the meal's time has gone by so no wait can be started
+   * ahead of it, or the server can't be reached, and adding it goes on with no time.
+   * `adding` (adding the meal, not changing its time) is what makes the last two mean "nothing
+   * to ask" and offers "No time yet".
    * `known` is what the caller already knows of the recipe's waits: `null` or a short one with
    * one way of cooking it means nothing is fetched; left out, the server is asked.
    */
   async ask(
     recipe: { id: number; name: string; wait?: StepWait | null; method_count?: number },
     meal: { day: string; slotId: number; slotName: string },
-    options: { method?: number | null; current?: StartAt | null; button?: string } = {}
+    options: {
+      method?: number | null;
+      current?: StartAt | null;
+      button?: string;
+      adding?: boolean;
+    } = {}
   ): Promise<StartAt | null | undefined> {
     if (
       recipe.wait !== undefined &&
@@ -64,6 +74,7 @@ class StartAsk {
       return undefined;
     }
     if (!found.wait) return undefined;
+    if (options.adding && found.options.length === 0) return undefined; // the meal's time has gone by
     this.current?.resolve(null);
     const { forMeal } = await import('./startWords');
     optionalAsk.startOpen = true;
@@ -78,7 +89,8 @@ class StartAsk {
           wait: found.wait!,
           options: found.options,
           current: options.current ?? null,
-          button: options.button ?? 'Add to plan'
+          button: options.button ?? 'Add to plan',
+          adding: options.adding ?? false
         },
         resolve
       };
@@ -90,6 +102,14 @@ class StartAsk {
     this.current = null;
     optionalAsk.startOpen = false;
     pending?.resolve(start);
+  }
+
+  /** "No time yet": the meal is added with no start. */
+  skip(): void {
+    const pending = this.current;
+    this.current = null;
+    optionalAsk.startOpen = false;
+    pending?.resolve(undefined);
   }
 
   dismiss(): void {

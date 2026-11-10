@@ -119,8 +119,8 @@
   /* A step that waits (M1; mockup CheckWait08 is purple in the dark theme). The light purple is
      proposed, for cabledrawer. */
   --color-wait-chip: #ece6fb;
-  --color-wait-card: #f5f1fd; /* Today's "Start tonight" card (M3) */
-  --color-wait-border: #d6cbf3;
+  --color-wait-card: #f5f1fd; /* Today's "Start tonight" card (M3); light colour proposed, for cabledrawer */
+  --color-wait-border: #d6cbf3; /* its border; light colour proposed, for cabledrawer */
   --color-wait-text: #5b3fa8;
   --color-wait-yes: #2a7353; /* "Yes, it waits" */
   --color-wait-yes-text: #ffffff;

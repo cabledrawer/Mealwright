@@ -6,7 +6,7 @@
   // a computer. Words are in docs/dev/words.md section 58: the mockup's are agreed, the rest is
   // proposed, for cabledrawer.
   import { startAsk } from '#lib/startAsk.svelte.js';
-  import { hasToWords, startOptionWords, waitRange } from '#lib/startWords.js';
+  import { hasToWords, startOptionWords, startWords, waitRange } from '#lib/startWords.js';
 
   const uid = $props.id();
   let dialog: HTMLDialogElement;
@@ -48,6 +48,13 @@
     } else if (dialog.open) {
       dialog.close();
     }
+  });
+
+  /** What Today says for the time on screen: "Start tonight at 21:00", or "Start at 07:00" in the
+   *  morning (the "day before" only fits the evening). */
+  const startHint = $derived.by(() => {
+    const time = (picked === 'other' ? otherTime : picked.split(' ')[1]) || '21:00';
+    return { words: startWords(time), evening: Number(time.slice(0, 2)) >= 17 };
   });
 
   function submit(event: SubmitEvent) {
@@ -139,12 +146,15 @@
           >
         {/if}
         <p class="hint">
-          The day before, Today and the Cook view say “Start tonight at {picked === 'other'
-            ? otherTime || '21:00'
-            : (picked.split(' ')[1] ?? '21:00')}”. You can change the time from the meal.
+          {startHint.evening ? 'The day before, ' : ''}Today and the Cook view say “{startHint.words}”.
+          You can change the time from the meal.
         </p>
       </fieldset>
       <button type="submit" class="main">{question.button}</button>
+      {#if question.adding}
+        <!-- proposed, for cabledrawer -->
+        <button type="button" class="quiet" onclick={() => startAsk.skip()}>No time yet</button>
+      {/if}
       <button type="button" class="quiet" onclick={() => startAsk.dismiss()}>Cancel</button>
     </form>
   {/if}

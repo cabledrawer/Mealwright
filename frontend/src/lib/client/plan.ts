@@ -240,7 +240,14 @@ export const removePlanMeal = (id: number, key: string) =>
 
 export const movePlanItem = (
   id: number,
-  to: { date: string; slot_id: number; mode: DropMode; if_none_left?: WhenNoneLeft },
+  to: {
+    date: string;
+    slot_id: number;
+    mode: DropMode;
+    if_none_left?: WhenNoneLeft;
+    /** A copy of a recipe with a long wait: when the copy's wait will be started (M3). */
+    start?: StartAt;
+  },
   key: string
 ) => api<PlanWrite>('POST', `/plan/items/${id}/move`, to, { idempotencyKey: key });
 
