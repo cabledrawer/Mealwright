@@ -20,6 +20,7 @@ from fastapi import status
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session as DbSession
 
+from mealwright import step_waits
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.recipe_schemas import (
     Blocked,
@@ -35,6 +36,8 @@ from mealwright.api.v1.recipe_schemas import (
     SizeRef,
     SourceOut,
     StepLineOut,
+    StepWaitIn,
+    StepWaitOut,
     amount_text,
 )
 from mealwright.api.v1.schemas import Ref, Who
@@ -487,6 +490,10 @@ def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
             kind=step.kind,
             text=step.text,
             optional=step.optional,
+            wait_kind=step.wait_kind,
+            wait_min_minutes=step.wait_min_minutes,
+            wait_max_minutes=step.wait_max_minutes,
+            wait_overnight=step.wait_overnight,
         )
         db.add(new_step)
         db.flush()
@@ -657,6 +664,7 @@ def _save_steps(kitchen: Kitchen, recipe: Recipe, body: RecipeIn, lines: list[Re
             kind=step.kind,
             text=step.text,
             optional=step.optional,
+            **wait_columns(step.wait),
         )
         db.add(row)
         db.flush()
@@ -1083,6 +1091,34 @@ def source_out(recipe: Recipe) -> SourceOut | None:
     )
 
 
+def wait_columns(wait: StepWaitIn | None) -> dict[str, object]:
+    """The step's wait columns for a save: all empty when it doesn't wait."""
+    if wait is None:
+        return {
+            "wait_kind": None,
+            "wait_min_minutes": None,
+            "wait_max_minutes": None,
+            "wait_overnight": False,
+        }
+    return {
+        "wait_kind": wait.kind,
+        "wait_min_minutes": wait.min_minutes,
+        "wait_max_minutes": wait.max_minutes,
+        "wait_overnight": wait.overnight,
+    }
+
+
+def wait_out(wait: step_waits.Wait | None) -> StepWaitOut | None:
+    if wait is None:
+        return None
+    return StepWaitOut(
+        kind=wait.kind,
+        min_minutes=wait.min_minutes,
+        max_minutes=wait.max_minutes,
+        overnight=wait.overnight,
+    )
+
+
 def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
     db = kitchen.db
     rows = list(
@@ -1184,6 +1220,7 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
             kind=cast(Literal["step", "heading"], s.kind),
             text=s.text,
             optional=s.optional,
+            wait=wait_out(step_waits.of_step(s)),
             lines=sorted(step_lines.get(s.id, []), key=lambda uses: uses.line),
         )
         for s in step_rows
@@ -1204,6 +1241,7 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
         name=recipe.name,
         description=recipe.description,
         time_minutes=recipe.time_minutes,
+        wait=wait_out(step_waits.total(step_rows)),
         serves=recipe.serves,
         makes=makes_out(recipe),
         made_ahead=recipe.made_ahead,
@@ -1228,6 +1266,25 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
         updated_at=as_utc(recipe.updated_at),
         updated_by=Who(login_id=recipe.updated_by_login_id, name=recipe.updated_by_name),
     )
+
+
+def waits_of(db: DbSession, recipe_ids: list[int]) -> dict[int, StepWaitOut]:
+    """All the steps' waits added up, for each of these recipes that has one (M1)."""
+    if not recipe_ids:
+        return {}
+    steps: dict[int, list[RecipeStep]] = {}
+    for step in db.scalars(
+        select(RecipeStep).where(
+            RecipeStep.recipe_id.in_(recipe_ids), RecipeStep.wait_kind.is_not(None)
+        )
+    ):
+        steps.setdefault(step.recipe_id, []).append(step)
+    found: dict[int, StepWaitOut] = {}
+    for recipe_id, rows in steps.items():
+        out = wait_out(step_waits.total(rows))
+        if out is not None:
+            found[recipe_id] = out
+    return found
 
 
 def brief_list(kitchen: Kitchen, recipes: list[Recipe]) -> list[RecipeBrief]:
@@ -1257,12 +1314,14 @@ def brief_list(kitchen: Kitchen, recipes: list[Recipe]) -> list[RecipeBrief]:
         p.recipe_id: photo_view(p)
         for p in kitchen.db.scalars(select(RecipePhoto).where(RecipePhoto.recipe_id.in_(ids)))
     }
+    waits = waits_of(kitchen.db, ids)
     return [
         RecipeBrief(
             id=r.id,
             name=r.name,
             description=r.description,
             time_minutes=r.time_minutes,
+            wait=waits.get(r.id),
             serves=r.serves,
             makes=makes_out(r),
             made_ahead=r.made_ahead,

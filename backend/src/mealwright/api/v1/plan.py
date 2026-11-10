@@ -14,6 +14,7 @@ from mealwright import batches as batch_service
 from mealwright import cooking, plan
 from mealwright import recipes as recipe_service
 from mealwright.api.v1.context import Here, Kitchen
+from mealwright.api.v1.recipe_schemas import StepWaitOut
 from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
@@ -70,6 +71,7 @@ class PlanRecipeRef(Ref):
     # What a meal card shows (PR 3): the small photo, the time, and kcal per serving.
     photo_url: str | None = None
     time_minutes: int | None = None
+    wait: StepWaitOut | None = None  # the recipe's steps' waits added up (M1)
     kcal: int | None = None
     # The recipe's own default servings (F116); null when it has none.
     serves: int | None = None
@@ -299,6 +301,7 @@ def get_plan(
         )
     ):
         optional_ids.setdefault(line_recipe_id, set()).add(line_id)
+    waits = recipe_service.waits_of(db, list(recipes))
     # A batch cook's recipe, for the kcal of its tubs.
     batch_recipes = {
         r.id: r
@@ -421,6 +424,7 @@ def get_plan(
                 if recipe.id in photos
                 else None,
                 time_minutes=recipe.time_minutes,
+                wait=waits.get(recipe.id),
                 kcal=kcal_of(recipe),
                 serves=recipe.serves,
                 optional_count=len(optional_ids.get(recipe.id, ())),

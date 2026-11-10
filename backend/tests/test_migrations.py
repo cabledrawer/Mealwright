@@ -1496,3 +1496,64 @@ def test_optional_migration_adds_empty_columns_and_goes_back_and_forward(tmp_pat
         assert set(
             connection.exec_driver_sql("SELECT optional_skipped FROM meal_item").scalars()
         ) == {None}
+
+
+OPTIONAL_MIGRATION = "b6d1f3a8c254"  # the one just before step waits
+
+
+def test_step_wait_migration_adds_empty_columns_and_goes_back_and_forward(tmp_path: Path) -> None:
+    """0.8 wave 5, M1 (cabledrawer 31 Oct and 9 Nov): every step starts with no wait; going back drops
+    only the four wait columns and keeps every row and "never reuse an id"; going forward adds
+    them empty again. The columns are on a table that already has `household_id`, and a recipe's
+    single time is left as it was (nothing is guessed from old words)."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    skip = {*STOCKTAKE_TABLES, "alembic_version"}
+    names = {"wait_kind", "wait_min_minutes", "wait_max_minutes", "wait_overnight"}
+
+    def columns() -> set[str]:
+        return {c["name"] for c in inspect(engine).get_columns("recipe_step")}
+
+    def kept() -> list[tuple[object, ...]]:
+        with engine.connect() as connection:
+            return [
+                tuple(r)
+                for r in connection.exec_driver_sql(
+                    "SELECT s.id, s.household_id, s.recipe_id, s.position, s.kind, s.text,"
+                    " s.optional, r.time_minutes FROM recipe_step s JOIN recipe r"
+                    " ON r.id = s.recipe_id ORDER BY s.id"
+                )
+            ]
+
+    assert names <= columns()
+    assert "household_id" in columns()
+    with engine.connect() as connection:
+        assert set(connection.exec_driver_sql("SELECT wait_kind FROM recipe_step").scalars()) == {
+            None
+        }
+        assert set(
+            connection.exec_driver_sql("SELECT wait_overnight FROM recipe_step").scalars()
+        ) == {0}
+    with engine.begin() as connection:  # a step that waits
+        connection.exec_driver_sql(
+            "UPDATE recipe_step SET wait_kind = 'marinate', wait_min_minutes = 240,"
+            " wait_max_minutes = 720, wait_overnight = 1 WHERE id = 1"
+        )
+    before = _row_counts(engine, skip)
+    held = kept()
+    migrate.downgrade(engine, OPTIONAL_MIGRATION)
+    assert migrate_head(engine) == OPTIONAL_MIGRATION
+    assert not names & columns()
+    assert "AUTOINCREMENT" in _table_sql(engine, "recipe_step")
+    assert _row_counts(engine, skip) == before
+    assert kept() == held
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    assert names <= columns()
+    assert "AUTOINCREMENT" in _table_sql(engine, "recipe_step")
+    assert _row_counts(engine, skip) == before
+    assert kept() == held
+    with engine.connect() as connection:
+        assert set(connection.exec_driver_sql("SELECT wait_kind FROM recipe_step").scalars()) == {
+            None
+        }

@@ -19,6 +19,7 @@ from mealwright.amounts import MAX_AMOUNT_TEXT
 from mealwright.api.v1.schemas import Ref, ShortAmount, Who
 from mealwright.errors import StoredInt
 from mealwright.names import clean_name, one_line, text_block
+from mealwright.step_waits import MAX_WAIT_MINUTES, OVERNIGHT_MINUTES
 
 # --- What people may type -------------------------------------------------------------------
 
@@ -271,11 +272,43 @@ class RecipeLineIn(BaseModel):
         return self
 
 
+WaitKind = Literal["marinate", "soak", "ferment", "rest", "chill", "prove"]
+
+
+class StepWaitIn(BaseModel):
+    """A step that waits (M1): marinate, soak, ferment... for a range of minutes, or a range that
+    ends at "overnight" (which counts as 12 hours). `max_minutes` left out: one length."""
+
+    kind: WaitKind
+    min_minutes: Annotated[int, Field(ge=1, le=MAX_WAIT_MINUTES)]
+    max_minutes: Annotated[int, Field(ge=1, le=MAX_WAIT_MINUTES)] | None = None
+    overnight: bool = False
+
+    @model_validator(mode="after")
+    def _range(self) -> StepWaitIn:
+        longest = self.max_minutes or self.min_minutes
+        if self.overnight:
+            longest = max(longest, OVERNIGHT_MINUTES)
+        if longest < self.min_minutes:
+            raise ValueError("The longest wait can't be shorter than the shortest.")
+        self.max_minutes = longest
+        return self
+
+
+class StepWaitOut(BaseModel):
+    kind: str  # one of the kinds, or "wait" for a recipe whose waits are of different kinds
+    min_minutes: int
+    max_minutes: int
+    overnight: bool
+
+
 class RecipeStepIn(BaseModel):
     kind: Literal["step", "heading"] = "step"
     text: Annotated[str, Field(min_length=1, max_length=MAX_STEP_CHARS)]
     # An Optional step (R3): shown with "Optional step"; a heading is never optional.
     optional: bool = False
+    # The step waits (M1): null for none. A heading never waits.
+    wait: StepWaitIn | None = None
     # Which ingredient lines this step uses, set by hand (0.7, for Cook mode's per-step
     # ingredients): positions in this save's `lines`, counting from 0, so a new line can be
     # linked in the same save. Left out (null): the step keeps the links it had, if it is
@@ -297,7 +330,7 @@ class RecipeStepIn(BaseModel):
             self.text = " ".join(one_line(self.text).split())
             if len(self.text) > 200:
                 raise ValueError("A heading is at most 200 characters.")
-            if self.optional:
+            if self.optional or self.wait is not None:
                 raise ValueError("A heading has only words.")
         else:
             self.text = text_block(self.text).strip()
@@ -472,6 +505,7 @@ class RecipeStepOut(BaseModel):
     kind: Literal["step", "heading"]
     text: str
     optional: bool = False
+    wait: StepWaitOut | None = None  # M1: marinate, soak, ferment...
     lines: list[StepLineOut] = Field(default_factory=list)
 
 
@@ -520,7 +554,11 @@ class RecipeOut(BaseModel):
     id: int
     name: str
     description: str | None
+    # The time in whole minutes: the active time when `wait` is not null (a recipe made before
+    # waits keeps its single time and has no wait).
     time_minutes: int | None
+    # All the steps' waits added up (M1), null when no step waits.
+    wait: StepWaitOut | None = None
     serves: int | None
     makes: MakesOut | None
     made_ahead: bool
@@ -544,6 +582,7 @@ class RecipeBrief(BaseModel):
     name: str
     description: str | None
     time_minutes: int | None
+    wait: StepWaitOut | None = None  # all the steps' waits added up (M1)
     serves: int | None
     makes: MakesOut | None
     made_ahead: bool

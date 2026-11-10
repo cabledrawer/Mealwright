@@ -57,7 +57,12 @@ def save(client: TestClient, recipe: dict[str, Any], **changes: Any) -> Any:
             for line in recipe["lines"]
         ],
         "steps": [
-            {"kind": s["kind"], "text": s["text"], "optional": s["optional"]}
+            {
+                "kind": s["kind"],
+                "text": s["text"],
+                "optional": s["optional"],
+                "wait": s["wait"],
+            }
             for s in recipe["steps"]
         ],
         "source_note": recipe["source_note"],

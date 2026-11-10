@@ -854,6 +854,13 @@ class RecipeStep(Base):
     kind: Mapped[str] = mapped_column(String(10), default="step")
     text: Mapped[str] = mapped_column(String(5000))
     optional: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    # A wait on the step (M1): marinate, ferment, soak... The range in whole minutes (the longest
+    # is the same when it is one length); `wait_overnight` says the range ends at "overnight"
+    # (stored as 12 h so the plan can later work backwards from it). All empty: no wait.
+    wait_kind: Mapped[str | None] = mapped_column(String(10))
+    wait_min_minutes: Mapped[int | None] = mapped_column(Integer)
+    wait_max_minutes: Mapped[int | None] = mapped_column(Integer)
+    wait_overnight: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
 
 class RecipeStepLine(Base):
