@@ -24,6 +24,7 @@ import {
   removePlanItem,
   removePlanMeal,
   setPlanEaters,
+  setPlanOptional,
   setPlanServings,
   switchMealSlot,
   tubToFreezer,
@@ -42,6 +43,7 @@ import {
 import { kitchen } from './freshness.svelte';
 import {
   addDays,
+  dayShort,
   monthGrid,
   monthStart,
   nextMonth,
@@ -58,7 +60,8 @@ import {
   withServings
 } from './planEdits';
 import { cookBatchOfItem, itemName, leftName, mealName } from './planMeals';
-import { save } from './save';
+import { optionalAsk } from './optionalAsk.svelte';
+import { save, type Outcome } from './save';
 
 export type PlanView = 'week' | 'month';
 
@@ -67,7 +70,11 @@ export type Mover = { meal: number } | { item: number };
 
 /** What is being planned: a recipe or a plain ingredient. */
 export type Planned =
-  { recipe: { id: number; name: string } } | { ingredient: { id: number; name: string } };
+  | {
+      /** `optional_count`: how many of its lines are Optional, when it is known (0: no question). */
+      recipe: { id: number; name: string; optional_count?: number };
+    }
+  | { ingredient: { id: number; name: string } };
 
 export class PlanModel {
   view = $state<PlanView>('week');
@@ -266,14 +273,44 @@ export class PlanModel {
     );
   }
 
-  /** Plan a recipe or an ingredient on a day and meal. */
-  add(what: Planned, day: string, slotId: number) {
+  /**
+   * Plan a recipe or an ingredient on a day and meal. A recipe with Optional ingredients first
+   * asks which of them the meal will use (R3); cancelling the question plans nothing. Every
+   * way of adding a recipe comes through here: dragging from the tray, picking in the Add sheet,
+   * Plan it on the recipe page, Copy to… on a recipe in the tray's menu, and Cook once here.
+   */
+  async add(what: Planned, day: string, slotId: number): Promise<Outcome<PlanWrite>> {
     const name = 'recipe' in what ? what.recipe.name : what.ingredient.name;
-    const body =
+    const body: { recipe_id?: number; ingredient_id?: number; optional_use?: number[] } =
       'recipe' in what ? { recipe_id: what.recipe.id } : { ingredient_id: what.ingredient.id };
+    if ('recipe' in what) {
+      const use = await optionalAsk.ask(
+        { id: what.recipe.id, optionalCount: what.recipe.optional_count },
+        `${dayShort(day)} ${this.slotName(slotId).toLocaleLowerCase()}`
+      );
+      if (use === null) return { ok: false, error: null, cancelled: true };
+      if (use !== undefined) body.optional_use = use;
+    }
     return this.#send({
       label: `Planned ${name} for ${this.slotName(slotId)}`,
       send: (key) => planItem({ date: day, slot_id: slotId, ...body }, key)
+    });
+  }
+
+  /** Change which Optional ingredients a planned recipe will use, from its meal (R3). */
+  async changeOptional(item: PlanItem, day: string): Promise<void> {
+    if (item.kind !== 'recipe' || !item.recipe) return;
+    const meal = this.plan?.meals.find((m) => m.items.some((i) => i.id === item.id));
+    const skipped = item.optional_skipped ?? [];
+    const use = await optionalAsk.ask(
+      { id: item.recipe.id },
+      `${dayShort(day)} ${meal ? this.slotName(meal.slot_id).toLocaleLowerCase() : 'meal'}`,
+      { button: 'Save', skipped }
+    );
+    if (use === null || use === undefined) return;
+    await this.#send({
+      label: `Changed the optional ingredients of ${itemName(item, this.plan)}`,
+      send: (key) => setPlanOptional(item.id, use, key)
     });
   }
 

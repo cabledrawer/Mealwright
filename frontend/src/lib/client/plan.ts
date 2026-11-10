@@ -21,6 +21,8 @@ export interface PlanRecipe extends Ref {
   kcal: number | null;
   /** The recipe's own default servings, or null. */
   serves?: number | null;
+  /** How many of its ingredient lines are Optional (R3): the meal can be asked which it uses. */
+  optional_count?: number;
 }
 
 export interface PlanItem {
@@ -46,6 +48,8 @@ export interface PlanItem {
    * marked cooked before 0.7.0 (a meal with several recipes is cooked one at a time).
    */
   cooked: boolean;
+  /** The ids of the recipe's Optional lines this meal will not use (R3). Empty: all count. */
+  optional_skipped?: number[];
 }
 
 export interface PlanMeal {
@@ -120,9 +124,15 @@ export const planItem = (
     recipe_id?: number;
     ingredient_id?: number;
     note?: string;
+    /** The recipe's Optional lines the person will use (R3). Left out: every line counts. */
+    optional_use?: number[];
   },
   key: string
 ) => api<PlanWrite>('POST', '/plan/items', body, { idempotencyKey: key });
+
+/** Which Optional ingredients a planned recipe will use (R3). */
+export const setPlanOptional = (id: number, use: number[], key: string) =>
+  api<PlanWrite>('PUT', `/plan/items/${id}/optional`, { use }, { idempotencyKey: key });
 
 /** Serves − N +: how many people a planned recipe is for. */
 export const setPlanServings = (id: number, servings: number, key: string) =>

@@ -116,6 +116,19 @@
   });
 
   /**
+   * The recipes here with Optional ingredients, that can still change which ones the meal uses
+   * (R3): a recipe not cooked yet, in a planned meal.
+   */
+  const optionalItems = $derived(servesItems.filter((i) => (i.recipe?.optional_count ?? 0) > 0));
+
+  function changeOptional(item: PlanItem) {
+    if (!target || (target.kind !== 'meal' && target.kind !== 'item')) return;
+    const day = target.meal.date;
+    onclose();
+    void model.changeOptional(item, day);
+  }
+
+  /**
    * Something in this menu was cooked (F157): the meal is still planned, but a cooked recipe
    * can't be moved or taken off while its record stands. Cooked it's Undo frees it.
    */
@@ -490,6 +503,17 @@
               >Cook once, eat for…</button
             >
           {/if}
+          {#each optionalItems as optional (optional.id)}
+            <button
+              type="button"
+              disabled={actions.readonly}
+              data-testid="plan-sheet-optional"
+              onclick={() => changeOptional(optional)}
+              >{optionalItems.length > 1
+                ? `Optional ingredients: ${itemName(optional, model.plan)}…`
+                : 'Optional ingredients…'}</button
+            >
+          {/each}
           {#if !holdsCooked}
             <button type="button" disabled={actions.readonly} onclick={() => (mode = 'move')}
               >Move to…</button

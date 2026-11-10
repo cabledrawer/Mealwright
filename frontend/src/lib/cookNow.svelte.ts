@@ -31,6 +31,7 @@ import {
 } from './client/plan';
 import { kitchen } from './freshness.svelte';
 import { network } from './network.svelte';
+import { optionalAsk } from './optionalAsk.svelte';
 import { slotsOn } from './planMeals';
 import { undoHistory, type UndoEntry } from './undo.svelte';
 
@@ -100,7 +101,16 @@ export class CookNow {
             ?.id ?? null;
         return;
       }
-      const body = { date: today, slot_id: spot.slotId, recipe_id: recipeId };
+      const slotName = slots.find((s) => s.id === spot.slotId)?.name ?? 'meal';
+      // Optional ingredients (R3): asked here too, before the recipe is planned for today.
+      const use = await optionalAsk.ask({ id: recipeId }, `today ${slotName.toLocaleLowerCase()}`);
+      if (use === null) throw new Error('cancelled'); // not planned; Cook mode still opens
+      const body: { date: string; slot_id: number; recipe_id: number; optional_use?: number[] } = {
+        date: today,
+        slot_id: spot.slotId,
+        recipe_id: recipeId,
+        ...(use === undefined ? {} : { optional_use: use })
+      };
       const key = newChangeId();
       let write: PlanWrite;
       try {
@@ -113,7 +123,6 @@ export class CookNow {
       }
       kitchen.changed();
       if (write.meal_id === null) throw new Error('no meal');
-      const slotName = slots.find((s) => s.id === spot.slotId)?.name ?? 'meal';
       this.mealId = write.meal_id;
       this.itemId = write.item_id ?? null;
       this.text = `Planned for today’s ${slotName}`;

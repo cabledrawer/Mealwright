@@ -74,7 +74,7 @@
         "frontend/src/lib/tubUseBy*", "frontend/src/lib/tooLateToFreeze*", "frontend/src/lib/placeTubFromLeft*"
       ],
       "backend": [
-        "test_plan*.py", "test_batch_counter.py", "test_cook_ahead.py", "test_tub_eating.py",
+        "test_plan*.py", "test_optional.py", "test_batch_counter.py", "test_cook_ahead.py", "test_tub_eating.py",
         "test_release_ids_and_slot_undo.py"
       ],
       "browser": ["plan.spec.ts", "plan-cards.spec.ts", "plan-cook-once.spec.ts", "plan-month.spec.ts", "plan-portions.spec.ts", "plan-views.spec.ts"]

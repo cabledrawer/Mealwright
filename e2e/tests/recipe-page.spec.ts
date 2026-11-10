@@ -365,3 +365,35 @@ test('reduced motion: nothing on the page animates', async ({ page }) => {
   );
   expect(running).toBe(0);
 });
+
+// --- Optional ingredients and steps, and the nutrition note (0.8 R3, F151) ----------------------
+
+test('an optional line and step are marked, and the nutrition note leads to the figures and goes when they are saved', async ({ page }) => {
+  const name = unique('Biryani');
+  const created = await makeRecipe(page, {
+    name,
+    nutrition: { kcal: 610 },
+    lines: [
+      { words: 'mutton', amount: 1, unit: 'kg' },
+      { words: 'raw papaya paste', amount: 2, unit: 'tbsp', optional: true },
+    ],
+    steps: [{ text: 'Rub the mutton.' }, { text: 'Fry onions for the top.', optional: true }],
+  });
+  // An ingredient line changes after the figures were set: the recipe says so.
+  const lines = created.lines.map((l: any) => ({ id: l.id, words: l.words, amount: l.id === created.lines[0].id ? 2 : l.amount, unit: l.unit, optional: l.optional }));
+  await call(page, 'PUT', `/recipes/${created.id}`, { name, version: created.version, nutrition: created.nutrition, lines, steps: created.steps.map((s: any) => ({ text: s.text, optional: s.optional })) }, 200);
+  await page.goto(`/recipes/${created.id}`);
+  const recipe = reader(page);
+  await expect(recipe.getByRole('heading', { name, level: 1 })).toBeVisible();
+  await expect(recipe.getByText('Optional', { exact: true })).toHaveCount(1);
+  await expect(recipe.getByText('Optional step', { exact: true })).toHaveCount(1);
+  await expect(recipe.getByRole('note')).toContainText('Nutrition possibly out of date: the ingredients changed since it was worked out.');
+  await checkPage(page);
+  await recipe.getByRole('link', { name: 'Work it out again' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+\/edit\?nutrition=1$/);
+  await expect(page.getByRole('textbox', { name: 'kcal' })).toBeFocused();
+  await page.getByRole('button', { name: /^Save/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/recipes/${created.id}$`));
+  await expect(page.getByRole('note')).toHaveCount(0);
+  await expect(page.getByText('Nutrition possibly out of date')).toHaveCount(0);
+});

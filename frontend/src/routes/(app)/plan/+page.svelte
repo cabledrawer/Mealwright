@@ -340,7 +340,18 @@
       zones: false,
       drop: (day, slot) => {
         const to = slot ?? model.slotForDay(day);
-        if (to !== null) void model.add({ recipe: { id: recipe.id, name: recipe.name } }, day, to);
+        if (to !== null)
+          void model.add(
+            {
+              recipe: {
+                id: recipe.id,
+                name: recipe.name,
+                optional_count: recipe.optional_count
+              }
+            },
+            day,
+            to
+          );
       }
     };
   }

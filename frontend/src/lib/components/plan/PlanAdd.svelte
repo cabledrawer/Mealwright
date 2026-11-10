@@ -133,7 +133,7 @@
   let planning = $state(false);
 
   /** Plan the recipe in this meal, then open Cook once for it from what the add answered. */
-  async function cookHere(recipe: { id: number; name: string }) {
+  async function cookHere(recipe: { id: number; name: string; optional_count?: number }) {
     if (!target || slotId === null || actions.readonly || planning) return;
     const [day, slot] = [target.day, slotId];
     planning = true;
@@ -300,8 +300,18 @@
                 disabled={slotId === null || actions.readonly || planning}
                 onclick={() =>
                   cooking
-                    ? void cookHere({ id: recipe.id, name: recipe.name })
-                    : pick({ recipe: { id: recipe.id, name: recipe.name } })}
+                    ? void cookHere({
+                        id: recipe.id,
+                        name: recipe.name,
+                        optional_count: recipe.optional_count
+                      })
+                    : pick({
+                        recipe: {
+                          id: recipe.id,
+                          name: recipe.name,
+                          optional_count: recipe.optional_count
+                        }
+                      })}
               >
                 <span class="name">{recipe.name}</span>
                 <span class="meta"

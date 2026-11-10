@@ -20,6 +20,7 @@
   import { onWipedElsewhere } from '#lib/offline/otherTabs.js';
   import { askToKeepDataHere } from '#lib/offline/persist.js';
   import { live } from '#lib/live.svelte.js';
+  import { optionalAsk } from '#lib/optionalAsk.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { privacy } from '#lib/privacy.svelte.js';
@@ -164,6 +165,12 @@
   <!-- The one ingredient editor, opened from anywhere with ingredientEditor.open(). -->
   <IngredientSheet />
   <AskOnce />
+  <!-- Which optional ingredients a meal will use (R3); fetched when first asked (size limit). -->
+  {#if optionalAsk.current}
+    {#await import('#lib/components/plan/PlanOptional.svelte') then { default: PlanOptional }}
+      <PlanOptional />
+    {/await}
+  {/if}
   <NewIngredient />
   <StarterPacks />
   <Toast />

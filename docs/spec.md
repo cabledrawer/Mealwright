@@ -780,6 +780,8 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **No "Same as" on one shared word (F186, cabledrawer 8 Nov):** import makes no match on a shared word such as "rice" ("poha (flattened rice)" is not "Same as Basmati rice"). How it is told apart (proposed, for cabledrawer): a line that adds a word of its own to a one-word ingredient's name ("spring onions", "coconut milk", "lemon juice") is not offered that ingredient; a colour, size, state, part or cut word ("red", "dried", "tinned", "leaves") is not a word of its own.
 - **Tags (cabledrawer 9 Nov):** tag chips sit in one row on Recipes; Manage tags renames and merges tags, and a merge can be undone.
 
+- **Optional ingredients and steps (cabledrawer 6 and 9 Nov):** a line or step can be Optional. When a recipe with optional ingredients is added to the plan, you're asked which you'll use: those go on the shopping list if needed and come out of the pantry when cooked; the others don't.
+
 ### Batch cook (Experimental) (cabledrawer 28 Oct; in 0.8.0, built last, cabledrawer 6 Nov)
 
 - **What it's for:** pick recipes for the week that can be cooked together in one session, with shared prep and shared cooking "so there is minimal waiting around". Shopping isn't a goal: the list from the plan already adds shared ingredients together. Two parts: **suggestions** (recipes picked for a batch session) and **batch cook mode** (one session across those recipes).
