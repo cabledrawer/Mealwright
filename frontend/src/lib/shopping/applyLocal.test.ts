@@ -258,6 +258,22 @@ describe('applyLocal: the copy with the waiting changes on top', () => {
     });
   });
 
+  it('set amount drops the other size worked out for the old amount (W4c review M2)', () => {
+    const copy = sampleCopy();
+    const yoghurt = copy.items.find((i) => i.id === 'i-yoghurt')!;
+    yoghurt.pack = {
+      packs: 1,
+      suggestions: [],
+      alternative: { size_id: 7, packs: 3, text: 'Or 3 tins · 200 ml: nothing left over' } as never
+    };
+    const shown = applyLocal(
+      copy,
+      [act({ kind: 'set_amount', item_id: 'i-yoghurt', amount: 1500 })],
+      me
+    );
+    expect(row(shown, 'i-yoghurt')!.pack?.alternative ?? null).toBeNull();
+  });
+
   it('an undo of a change still waiting shows neither; of a sent tick, takes the tick back', () => {
     const t = act({ kind: 'tick', item_id: 'i-onions' });
     const both = applyLocal(sampleCopy(), [t, act({ kind: 'undo', undoes: t.id })], me);

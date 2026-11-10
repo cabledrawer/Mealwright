@@ -83,6 +83,9 @@ export function applyLocal(
         item.size_id = action.size_id ?? null;
         item.hand_edited = true;
         item.display = localDisplay(item.amount, item.size_id, foodOf(item.food_id));
+        // The other size was worked out for the old amount: a stale one could put it back
+        // (W4c review M2). The server's answer brings a fresh one.
+        if (item.pack) item.pack = { ...item.pack, alternative: null };
         break;
       }
       case 'delete': {
