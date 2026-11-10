@@ -358,6 +358,31 @@ def test_another_recipes_method_is_refused_too(
     assert (r.status_code, r.json()["code"]) == (422, "not_a_method"), r.text
 
 
+def test_another_households_method_is_refused_too(
+    kitchen: TestClient, neighbour: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    """A method id from another household's recipe is refused, in a plan item and from a meal,
+    as one that is not the recipe's (it never says the other household has it)."""
+    mine = curry(kitchen, pantry)
+    theirs = make(neighbour, "Meth next door", method_name="A", second_method=second())
+    stray = theirs["methods"][1]["id"]
+    item = plan_with(kitchen, mine, 1)["item_id"]
+    r = kitchen.put(f"{API}/plan/items/{item}/method", json={"method_id": stray})
+    assert (r.status_code, r.json()["code"]) == (422, "not_a_method"), r.text
+    r = kitchen.post(
+        f"{API}/plan/items",
+        json={
+            "date": day(kitchen, 2).isoformat(),
+            "slot_id": slot_ids(kitchen)["Dinner"],
+            "recipe_id": mine["id"],
+            "method_id": stray,
+        },
+    )
+    assert (r.status_code, r.json()["code"]) == (422, "not_a_method"), r.text
+    # Nothing of theirs changed.
+    assert ok(neighbour.get(f"{API}/recipes/{theirs['id']}"))["second_method"]["id"] == stray
+
+
 def test_a_recipe_with_one_method_has_no_pick(kitchen: TestClient) -> None:
     plain = make(kitchen, "Meth solo")
     item = meal_item(kitchen, plan_with(kitchen, plain)["item_id"])

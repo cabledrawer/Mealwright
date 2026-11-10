@@ -1617,12 +1617,62 @@ def test_methods_migration_gives_every_recipe_one_method_and_goes_back_and_forwa
     migrate.downgrade(engine, STEP_WAIT_MIGRATION)
     assert "recipe_method" not in inspect(engine).get_table_names()
     assert "method_id" not in {c["name"] for c in inspect(engine).get_columns("recipe_line")}
+    # The tables that point at the ones rebuilt (meal items, lines, steps) hold rows too: a meal
+    # with a cooked record, a step linked to a line, a batch cook, and a recipe that
+    # uses another as a line (the database's ON DELETE CASCADE must not take them with the rebuild).
+    with engine.begin() as connection:
+        slot = connection.exec_driver_sql(
+            "SELECT id FROM meal_slot WHERE household_id = 1 LIMIT 1"
+        ).scalar_one()
+        for sql in (
+            "INSERT INTO meal (id, household_id, day, slot_id, status, created_at)"
+            f" VALUES (1, 1, '2026-10-30', {slot}, 'cooked', '2026-10-30')",
+            "INSERT INTO meal_item (id, household_id, meal_id, position, kind, recipe_id)"
+            " VALUES (1, 1, 1, 0, 'recipe', 1)",
+            "INSERT INTO cooked_record (household_id, meal_item_id, batch_id, recipe_id, portions,"
+            " snapshot, cooked_at, cooked_by_name) VALUES (1, 1, NULL, 1, 2,"
+            " '{\"name\": \"Sambar\"}', '2026-10-30', 'User')",
+            "INSERT INTO recipe_step_line (household_id, step_id, line_id, kind)"
+            " VALUES (1, 1, 1, 'by_hand')",
+            "INSERT INTO batch_cook (id, household_id, recipe_id, recipe_name, cook_meal_id,"
+            " cooked_on, tub_count, pattern, created_at)"
+            " VALUES (1, 1, 1, 'Sambar', 1, '2026-10-30', 2, 'pick', '2026-10-30')",
+            "INSERT INTO recipe (id, household_id, name, serves, version, created_at,"
+            " updated_at, updated_by_name, made_ahead) VALUES (3, 1, 'Nested', 2, 1,"
+            " '2026-10-19', '2026-10-19', 'User', 0)",
+            "INSERT INTO recipe_line (id, household_id, recipe_id, position, kind, words,"
+            " sub_recipe_id) VALUES (3, 1, 3, 0, 'ingredient', 'sambar', 1)",
+        ):
+            connection.exec_driver_sql(sql)
     before = _row_counts(engine, skip)
+    assert before["cooked_record"] == before["recipe_step_line"] == before["batch_cook"] == 1
+    assert before["meal_item"] == 1 and before["recipe"] == 3
     held = kept()
     migrate.upgrade(engine)
     assert migrate_head(engine) == newest_migration()
     assert _row_counts(engine, skip) == before
     assert kept() == held
+    with engine.connect() as connection:
+        # The rows that point at the rebuilt ones still point at them.
+        assert (
+            connection.exec_driver_sql(
+                "SELECT count(*) FROM cooked_record c JOIN meal_item i ON i.id = c.meal_item_id"
+            ).scalar_one()
+            == 1
+        )
+        assert (
+            connection.exec_driver_sql(
+                "SELECT count(*) FROM recipe_step_line l JOIN recipe_step s ON s.id = l.step_id"
+                " JOIN recipe_line r ON r.id = l.line_id"
+            ).scalar_one()
+            == 1
+        )
+        assert (
+            connection.exec_driver_sql(
+                "SELECT sub_recipe_id FROM recipe_line WHERE id = 3"
+            ).scalar_one()
+            == 1
+        )
     with engine.connect() as connection:
         methods = connection.exec_driver_sql(
             "SELECT m.recipe_id, m.household_id, m.position, m.name, m.time_minutes,"
