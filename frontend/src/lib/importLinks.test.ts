@@ -238,7 +238,8 @@ describe('several links at once (F110)', () => {
 
   it('says so when Drafts has no room and nothing was read', async () => {
     const reader = new ImportLinks();
-    const requests = fakeApi({ 'GET /recipes/drafts': [200, { drafts: [], count: 50 }] });
+    const full = Array.from({ length: 50 }, (_, i) => ({ id: i }));
+    const requests = fakeApi({ 'GET /recipes/drafts': [200, { drafts: full, count: 50 }] });
     await reader.run(many(3));
     expect(reader.rows).toEqual([]);
     expect(reader.leftOut).toBe(3);

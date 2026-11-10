@@ -49,11 +49,17 @@
 {#if flow.phase === 'review' && flow.review}
   {#key tries}
     {#await loadReviewPage()}
-      <PageHeader title="Check before saving" parent={{ href: '/(app)/recipes', label: 'Recipes' }} />
+      <PageHeader
+        title="Check before saving"
+        parent={{ href: '/(app)/recipes', label: 'Recipes' }}
+      />
     {:then { default: ReviewPage }}
       <ReviewPage {flow} {phone} />
     {:catch}
-      <PageHeader title="Check before saving" parent={{ href: '/(app)/recipes', label: 'Recipes' }} />
+      <PageHeader
+        title="Check before saving"
+        parent={{ href: '/(app)/recipes', label: 'Recipes' }}
+      />
       <div class="failed" role="alert">
         <p>{REVIEW_LOAD_FAILED}</p>
         <button type="button" onclick={() => (tries += 1)}>Try again</button>
