@@ -287,6 +287,15 @@ export interface RecipeIn {
   source_note: string | null;
   /** Left out: the photo stays. null: no photo. A number: that upload. */
   photo_id?: number | null;
+  /** Two ways of cooking it (M2): the first one's name, and the second one. */
+  method_name?: string | null;
+  /** Left out: the second method stays; null: it is taken out. */
+  second_method?: {
+    name: string;
+    time_minutes: number | null;
+    lines: LineIn[];
+    steps: RecipeIn['steps'];
+  } | null;
 }
 
 export interface Blocked {

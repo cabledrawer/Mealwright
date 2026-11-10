@@ -279,6 +279,77 @@ describe('opening a saved recipe', () => {
     expect(draft.build().errors).toEqual({});
   });
 
+  it('holds two ways of cooking it: switch, name, send both, remove one (M2)', () => {
+    const draft = RecipeDraft.from(
+      recipe({
+        lines: [line({ id: 1, words: 'water' })],
+        steps: [{ id: 1, kind: 'step', text: 'Simmer.' }],
+        time_minutes: 45
+      })
+    );
+    expect(draft.hidden).toBeNull();
+    expect(draft.build().body.second_method).toBeUndefined(); // one way: nothing said of methods
+    draft.addSecondMethod();
+    expect(draft.at).toBe(1);
+    draft.lines = [{ ...blankLine(), words: 'stock' }];
+    draft.steps = [{ ...blankStep(), text: 'Pressure cook.' }];
+    draft.time = '30';
+    expect(Object.keys(draft.build().errors).sort()).toEqual(['method0', 'method1']);
+    draft.names = ['Stovetop', 'Instant Pot'];
+    const { body, errors } = draft.build();
+    expect(errors).toEqual({});
+    expect(body.method_name).toBe('Stovetop');
+    expect(body.time_minutes).toBe(45);
+    expect(body.lines.map((l) => l.words)).toEqual(['water']);
+    expect(body.second_method).toMatchObject({ name: 'Instant Pot', time_minutes: 30 });
+    expect(body.second_method?.lines.map((l) => l.words)).toEqual(['stock']);
+    expect(draft.at).toBe(1); // building doesn't move the person
+    draft.showMethod(0);
+    expect(draft.lines.map((l) => l.words)).toEqual(['water']);
+    expect(draft.time).toBe('45');
+    draft.names = ['Same', 'same'];
+    expect(draft.build().errors.method1).toMatch(/different names/);
+  });
+
+  it('opened with two ways, the second can be taken out, and the first too (M2)', () => {
+    const two = recipe({
+      lines: [line({ id: 1, words: 'water' })],
+      steps: [{ id: 1, kind: 'step', text: 'Simmer.' }],
+      methods: [
+        { id: 10, name: 'Stovetop', time_minutes: 45, used_last: false },
+        { id: 11, name: 'Instant Pot', time_minutes: 30, used_last: true }
+      ],
+      second_method: {
+        id: 11,
+        name: 'Instant Pot',
+        time_minutes: 30,
+        used_last: true,
+        lines: [line({ id: 2, words: 'stock' })],
+        steps: [{ id: 2, kind: 'step', text: 'Pressure cook.' }]
+      }
+    } as Partial<RecipeOut>);
+    const draft = RecipeDraft.from(two);
+    expect(draft.names).toEqual(['Stovetop', 'Instant Pot']);
+    expect(draft.dirty).toBe(false);
+    draft.showMethod(1);
+    expect(draft.dirty).toBe(true);
+    draft.showMethod(0);
+    expect(draft.dirty).toBe(false);
+    expect(draft.build().body.second_method?.lines[0]?.id).toBe(2);
+    draft.showMethod(1);
+    draft.removeShownMethod(); // the second goes
+    const gone = draft.build().body;
+    expect(gone.second_method).toBeNull();
+    expect(gone.lines.map((l) => l.words)).toEqual(['water']);
+    const again = RecipeDraft.from(two);
+    again.removeShownMethod(); // the first goes: the second's lines are new ones
+    const kept = again.build().body;
+    expect(kept.second_method).toBeNull();
+    expect(kept.lines.map((l) => [l.words, l.id])).toEqual([['stock', undefined]]);
+    expect(again.toCarried().twoMethods).toBe(false);
+    expect(RecipeDraft.from(two).toCarried().twoMethods).toBe(true);
+  });
+
   it('opened from "Update nutrition", Save says the figures were looked at (R3)', () => {
     const draft = RecipeDraft.from(recipe());
     expect(draft.build().body.nutrition_checked).toBeUndefined();

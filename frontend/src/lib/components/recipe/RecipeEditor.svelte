@@ -12,6 +12,7 @@
   import ConflictSheet from './ConflictSheet.svelte';
   import EditorNote from './EditorNote.svelte';
   import LineList from './LineList.svelte';
+  import MethodBar from './MethodBar.svelte';
   import PhotoField from './PhotoField.svelte';
   import ServesField from './ServesField.svelte';
   import StepList from './StepList.svelte';
@@ -629,6 +630,7 @@
       </div>
 
       <div class="body">
+        <MethodBar {draft} {errors} />
         <LineList {draft} {phone} {errors} {blocked} {search} announce={(m) => (live = m)} />
         <StepList {draft} {errors} announce={(m) => (live = m)} />
       </div>

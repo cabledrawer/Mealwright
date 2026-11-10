@@ -61,6 +61,13 @@ export interface DraftLine {
   optional: boolean;
 }
 
+/** The boxes of the way of cooking it that isn't on show (M2). */
+export interface HiddenMethod {
+  time: string;
+  lines: DraftLine[];
+  steps: DraftStep[];
+}
+
 export interface DraftStep {
   key: string;
   kind: 'step' | 'heading';
@@ -76,6 +83,8 @@ export interface DraftStep {
 
 /** The editor's boxes as the tab keeps them (see `toCarried`). */
 export interface Carried {
+  /** The recipe has two ways of cooking it (M2): nothing is put back from this. */
+  twoMethods?: boolean;
   /** The saved recipe's version this was typed on; null for a new recipe. */
   version: number | null;
   name: string;
@@ -148,6 +157,17 @@ function waitFrom(value: unknown): StepWait | null {
   };
 }
 
+/** A step as the editor holds it, from the recipe's own. */
+function stepFrom(s: RecipeOut['steps'][number]): DraftStep {
+  return {
+    key: nextKey('s'),
+    kind: s.kind,
+    text: s.text,
+    optional: !!s.optional,
+    wait: s.wait ? { ...s.wait } : null
+  };
+}
+
 export function blankStep(kind: DraftStep['kind'] = 'step'): DraftStep {
   return { key: nextKey('s'), kind, text: '', optional: false, wait: null };
 }
@@ -211,6 +231,17 @@ export class RecipeDraft {
   nutritionChecked = $state(false);
   lines = $state<DraftLine[]>([blankLine()]);
   steps = $state<DraftStep[]>([blankStep()]);
+  /**
+   * Two ways of cooking it (M2). `lines`, `steps` and `time` above are always the way being
+   * edited (`at`: 0 the first, 1 the second); the other way's boxes wait in `hidden` and swap
+   * in when the person switches. `hidden` is null for a recipe with one way. `names` are the two
+   * methods' names (needed once there are two).
+   */
+  at = $state<0 | 1>(0);
+  names = $state<[string, string]>(['', '']);
+  hidden = $state<HiddenMethod | null>(null);
+  /** The recipe had a second method and it was taken out: Save says so (`second_method: null`). */
+  removedSecond = $state(false);
   source = $state('');
   photo = $state<DraftPhoto>({
     shown: null,
@@ -255,16 +286,20 @@ export class RecipeDraft {
     this.tags = [...recipe.tags];
     for (const n of NUTRIENTS) this.nutrition[n] = text(recipe.nutrition[n]);
     this.lines = recipe.lines.map(lineFrom);
-    this.steps = recipe.steps.map((s) => ({
-      key: nextKey('s'),
-      kind: s.kind,
-      text: s.text,
-      optional: !!s.optional,
-      wait: s.wait ? { ...s.wait } : null
-    }));
+    this.at = 0;
+    this.removedSecond = false;
+    this.names = [recipe.methods?.[0]?.name ?? '', recipe.second_method?.name ?? ''];
+    this.hidden = recipe.second_method
+      ? {
+          time: text(recipe.second_method.time_minutes),
+          lines: recipe.second_method.lines.map(lineFrom),
+          steps: recipe.second_method.steps.map(stepFrom)
+        }
+      : null;
+    this.steps = recipe.steps.map(stepFrom);
     this.source = recipe.source_note ?? '';
     this.photo = { shown: recipe.photo, change: 'none', uploading: null, file: null, error: null };
-    for (const line of recipe.lines) {
+    for (const line of [...recipe.lines, ...(recipe.second_method?.lines ?? [])]) {
       if (line.food && line.size) this.sizes[line.food.id] = [line.size];
     }
     this.markSaved();
@@ -301,6 +336,24 @@ export class RecipeDraft {
         l.optional
       ]),
       this.steps.map((s) => [s.kind, s.text, s.optional, s.wait]),
+      this.at,
+      this.names,
+      this.removedSecond,
+      this.hidden && [
+        this.hidden.time,
+        this.hidden.lines.map((l) => [
+          l.id,
+          l.kind,
+          l.words,
+          l.amount,
+          l.unit,
+          l.food?.id,
+          l.recipe?.id,
+          l.note,
+          l.optional
+        ]),
+        this.hidden.steps.map((s) => [s.kind, s.text, s.optional, s.wait])
+      ],
       this.source,
       this.photo.change,
       this.photo.shown?.id
@@ -328,6 +381,14 @@ export class RecipeDraft {
     this.nutrition = { ...from.nutrition };
     this.lines = from.lines.map((l) => ({ ...l }));
     this.steps = from.steps.map((s) => ({ ...s, wait: s.wait ? { ...s.wait } : null }));
+    this.at = from.at;
+    this.names = [...from.names];
+    this.removedSecond = from.removedSecond;
+    this.hidden = from.hidden && {
+      time: from.hidden.time,
+      lines: from.hidden.lines.map((l) => ({ ...l })),
+      steps: from.hidden.steps.map((s) => ({ ...s, wait: s.wait ? { ...s.wait } : null }))
+    };
     this.source = from.source;
     this.sizes = { ...from.sizes };
     this.photo = { ...from.photo, uploading: null };
@@ -340,6 +401,9 @@ export class RecipeDraft {
    */
   toCarried(): Carried {
     return {
+      // A recipe with two ways of cooking it is not carried across a reload: the boxes shown
+      // belong to one of them, and putting them back on the wrong one would be worse (M2).
+      twoMethods: this.hidden !== null,
       version: this.opened?.version ?? null,
       name: this.name,
       description: this.description,
@@ -370,6 +434,8 @@ export class RecipeDraft {
     const c = raw as Partial<Carried> | null;
     const str = (v: unknown) => typeof v === 'string';
     if (
+      this.hidden !== null ||
+      c?.twoMethods ||
       !c ||
       typeof c !== 'object' ||
       !str(c.name) ||
@@ -506,6 +572,86 @@ export class RecipeDraft {
 
   /** The body for POST or PUT, and what is wrong with the boxes if anything is. */
   build(): Built {
+    if (this.hidden === null) {
+      const one = this.#buildShown();
+      if (this.removedSecond) {
+        one.body.second_method = null;
+        one.body.method_name = null;
+      }
+      return one;
+    }
+    const shown = this.#buildShown();
+    this.swapMethods();
+    const other = this.#buildShown();
+    this.swapMethods();
+    const [first, second] = this.at === 0 ? [shown, other] : [other, shown];
+    const errors: Errors = { ...shown.errors, ...other.errors };
+    // A mistake in the way that isn't on show: bring it up so the person sees it.
+    if (Object.keys(other.errors).length && !Object.keys(shown.errors).length) this.swapMethods();
+    const name = (i: 0 | 1) => this.names[i].trim();
+    if (!name(0)) errors.method0 = 'Name this way of cooking it, like Stovetop.';
+    if (!name(1)) errors.method1 = 'Name this way of cooking it, like Instant Pot.';
+    else if (name(0).toLowerCase() === name(1).toLowerCase()) {
+      errors.method1 = 'The two ways of cooking it need different names.';
+    }
+    const body = first.body;
+    body.method_name = name(0);
+    body.second_method = {
+      name: name(1),
+      time_minutes: second.body.time_minutes,
+      lines: second.body.lines,
+      steps: second.body.steps
+    };
+    return { body, lineKeys: first.lineKeys, stepKeys: first.stepKeys, errors };
+  }
+
+  /** Swap the boxes on show with the other way's (M2). Switching flips `at` too. */
+  swapMethods(): void {
+    const other = this.hidden;
+    if (!other) return;
+    const mine: HiddenMethod = { time: this.time, lines: this.lines, steps: this.steps };
+    this.time = other.time;
+    this.lines = other.lines;
+    this.steps = other.steps;
+    this.hidden = mine;
+    this.at = this.at === 0 ? 1 : 0;
+    this.names = [this.names[0], this.names[1]];
+  }
+
+  /** Show the way of cooking it at `position` (M2). */
+  showMethod(position: 0 | 1): void {
+    if (this.hidden && position !== this.at) this.swapMethods();
+  }
+
+  /** Add a second way of cooking it: empty boxes, on show (M2). */
+  addSecondMethod(): void {
+    if (this.hidden) return;
+    this.hidden = { time: this.time, lines: this.lines, steps: this.steps };
+    this.time = '';
+    this.lines = [blankLine()];
+    this.steps = [blankStep()];
+    this.at = 1;
+    this.removedSecond = false;
+  }
+
+  /** Take out the way on show; the other becomes the recipe's only way (M2). */
+  removeShownMethod(): void {
+    const other = this.hidden;
+    if (!other) return;
+    // The first way went: the second's lines become the recipe's own, so they are new lines to
+    // the server (their ids belonged to the second way).
+    const survivors = this.at === 0 ? other.lines.map((l) => ({ ...l, id: null })) : other.lines;
+    this.time = other.time;
+    this.lines = survivors;
+    this.steps = other.steps;
+    this.hidden = null;
+    // The second way was the one that went, or the first (the second takes its place).
+    this.removedSecond = this.opened?.second_method != null;
+    this.names = ['', ''];
+    this.at = 0;
+  }
+
+  #buildShown(): Built {
     const errors: Errors = {};
     const lineKeys: string[] = [];
     const stepKeys: string[] = [];
