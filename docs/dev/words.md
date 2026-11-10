@@ -920,3 +920,13 @@ Words from the mockup `Dark-RecipesTags08-Phone` are agreed; the rest are propos
 - **The recipe editor (proposed, for cabledrawer):** under each step a line **Waits** with **+ Add a wait** (accessible name **Add a wait to step 2**); once there is one, the boxes above and **Take off the wait**. The boxes' accessible names are **Shortest wait for step 2** and **Longest wait for step 2**.
 - **What the reader suggests (proposed, for cabledrawer):** from the step's own words: marinate, soak, ferment, rest, chill/refrigerate, prove, with a length after the word of 30 minutes or more or "overnight" ("marinate for 4 hours or overnight", "ferment 8–12 hours", "soak overnight"). Shorter ones are part of the step ("rest 5 minutes").
 - **Heading:** a heading never waits (`422`: A heading has only words.).
+
+## 54. Whole packs and another size (0.8 W4c, F183 + F204; cabledrawer 8 and 9 Nov; the mockups Dark-ShopPacks08-Phone and Dark-ShopPackAlt08-Phone are agreed, everything else is proposed, for cabledrawer)
+
+- **Row, usual size known (mockup):** **1 packet · 1 kg · Sambar needs 2 tsp**; on the list itself the pack line is as since 0.8: **1 pack (750 g) · 12 g needed** (number and word with a no-break space).
+- **Row, no usual size (as before, marked):** **12 g needed · no pack size yet** with **Usual pack for Salt?** and the common sizes.
+- **Another size under the row (mockup):** **Or 3 tins · 200 ml: nothing left over** with **Use this**; with some left over, **Or 2 cartons · 1 L: 500 ml left over**. Read aloud as the group **Another size for Coconut milk**. Suggested only when it leaves at most half as much over as the usual size, saves at least a tenth of the need and is no more than 6 packs.
+- **The sizes sheet (mockup):** heading **Coconut milk · 600 ml needed**, **Sizes sold in UK shops**, a choice per size with its name line **2 tins · 400 ml** and under it **Your usual · 200 ml over** / **400 ml over** / **Nothing over**, tags **On the list** and **Least left over**, the switch **Make the one I pick my usual size**, **Use this**, **Cancel**. Opened by tapping the pack line (phone) or **Which size?…** in the ⋯ menu (computer, proposed).
+- **Problems:** **Couldn’t load the sizes. Try again.** · **Couldn’t change the size. Try again.** · offline with a size to be made: **A new size needs your Mealwright server. Try again when it answers.**
+- **A quarter or half of an amount in Already have it:** two figures with "about" when that changed it: **about 63 g** (never 62.5 g), as the "How much is left" rule.
+
