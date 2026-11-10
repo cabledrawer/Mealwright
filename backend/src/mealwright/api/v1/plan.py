@@ -912,6 +912,7 @@ def get_start_options(
     `wait: null` and no options for a recipe with no wait of four hours or more."""
     recipe = recipe_service.find(kitchen, recipe_id)
     slot = plan.find_slot(kitchen, slot_id)
+    plan.check_day(kitchen, on)  # a day in year 9999 is refused, not a 500 (security pass L2)
     found = methods.methods_of(kitchen.db, recipe.id)
     if method_id is not None and all(m.id != method_id for m in found):
         raise Problem(

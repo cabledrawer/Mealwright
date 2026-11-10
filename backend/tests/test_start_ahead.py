@@ -731,3 +731,35 @@ def test_a_time_with_another_zone_is_kept_as_utc_text_in_an_undo_step() -> None:
     assert plan._moment(plus_two) == "2026-11-14T08:00:00"
     assert plan._moment(datetime(2026, 11, 14, 8, 0)) == "2026-11-14T08:00:00"  # SQLite: UTC
     assert plan._unmoment(plan._moment(plus_two)) == plus_two
+
+
+@pytest.mark.parametrize("zone", ["Asia/Kolkata", "America/New_York"])
+def test_a_start_in_year_one_or_9999_is_refused_not_a_crash(kitchen: TestClient, zone: str) -> None:
+    """Release 0.8.0-beta.1 security pass L2: a day at the calendar's ends overflowed when it was
+    turned into an instant (500). Every way a start comes in, and the question's own day."""
+    kitchen.post(f"{API}/household/from-browser", json={"time_zone": zone})
+    with db_of(kitchen) as db:
+        db.query(models.Household).update({"time_zone": zone})
+        db.commit()
+    recipe = dosa(kitchen)
+    breakfast = slot_ids(kitchen)["Breakfast"]
+    for far in ("0001-01-01", "9999-12-31"):
+        start = {"day": far, "time": "00:00" if far.startswith("0") else "23:59"}
+        added = kitchen.post(
+            f"{API}/plan/items",
+            json={
+                "date": SAT.isoformat(),
+                "slot_id": breakfast,
+                "recipe_id": recipe["id"],
+                "start": start,
+            },
+        )
+        assert (added.status_code, added.json()["code"]) == (422, "bad_start"), far
+        item = plan_dosa(kitchen, recipe)["item_id"]
+        changed = put(kitchen, item, "start", {"start": start})
+        assert (changed.status_code, changed.json()["code"]) == (422, "bad_start"), far
+        asked = kitchen.get(
+            f"{API}/plan/start-options",
+            params={"recipe_id": recipe["id"], "date": far, "slot_id": breakfast},
+        )
+        assert asked.status_code == 422, (far, asked.text)

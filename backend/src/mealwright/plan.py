@@ -480,8 +480,12 @@ def _start_instant(
             "This recipe has no long wait to start ahead.",  # proposed, for cabledrawer
         )
     household = kitchen.household
-    at = start_ahead.to_instant(household, *start)
-    if not start_ahead.check_start(household, at, start_ahead.eat_instant(household, day, slot)):
+    try:
+        at = start_ahead.to_instant(household, *start)
+        fine = start_ahead.check_start(household, at, start_ahead.eat_instant(household, day, slot))
+    except OverflowError:  # a day in year 1 or 9999 (release 0.8.0-beta.1 security pass L2)
+        fine = False
+    if not fine:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "bad_start",
