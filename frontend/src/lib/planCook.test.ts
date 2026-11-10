@@ -154,3 +154,40 @@ describe('the day header counts only what is not cooked (F164)', () => {
     expect(cookDayTotal(first!, words)).toBe('All cooked');
   });
 });
+
+describe('long waits to start (M3)', () => {
+  const ahead = {
+    step_id: 3,
+    step_text: 'Soak and grind the batter.',
+    wait: { kind: 'ferment', min_minutes: 480, max_minutes: 720, overnight: false },
+    active_minutes: 30,
+    eats_at: '08:00',
+    start_day: '2026-10-16',
+    start_time: '21:00',
+    started_day: null,
+    started_time: null,
+    waited_minutes: null
+  };
+
+  it('shows the start on its day, even when nothing else is cooked then, with no cooking total', () => {
+    const plan = samplePlan();
+    plan.meals[0]!.items = [recipeItem(9, 5, 'Masala dosa', { ahead })];
+    const days = cookDays(plan, SLOTS, ['2026-10-16', '2026-10-17']);
+    const eve = days.find((d) => d.day === '2026-10-16')!;
+    expect(eve.entries).toEqual([]);
+    expect(eve.starts.map((s) => [s.item.id, s.time])).toEqual([[9, '21:00']]);
+    expect(cookDayTotal(eve, (m) => `${m} min`)).toBe('');
+    // The meal's own day is cooked as before, and has no start.
+    expect(days.find((d) => d.day === '2026-10-17')!.starts).toEqual([]);
+  });
+
+  it('shows nothing for a start that is begun', () => {
+    const plan = samplePlan();
+    plan.meals[0]!.items = [
+      recipeItem(9, 5, 'Masala dosa', {
+        ahead: { ...ahead, started_day: '2026-10-16', started_time: '21:05' }
+      })
+    ];
+    expect(cookDays(plan, SLOTS, ['2026-10-16'])).toEqual([]);
+  });
+});

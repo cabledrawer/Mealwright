@@ -60,8 +60,7 @@ export function stepTitle(text: string, most = 90): string {
 
 /** "Done yesterday 21:40", "Done today 08:10", "Done Thu 21:40". */
 export function doneWords(day: string, time: string, today: string): string {
-  const word =
-    day === today ? 'today' : day === addDays(today, -1) ? 'yesterday' : dayShort(day);
+  const word = day === today ? 'today' : day === addDays(today, -1) ? 'yesterday' : dayShort(day);
   return `Done ${word} ${time}`;
 }
 

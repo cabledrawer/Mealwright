@@ -259,6 +259,8 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("PATCH", "/api/v1/plan/items/{plan_item_id}"): {"servings": 2},
     ("PUT", "/api/v1/plan/items/{plan_item_id}/optional"): {"use": []},
     ("PUT", "/api/v1/plan/items/{plan_item_id}/method"): {"method_id": 1},
+    ("PUT", "/api/v1/plan/items/{plan_item_id}/start"): {"start": None},
+    ("PUT", "/api/v1/plan/items/{plan_item_id}/started"): {"started": True},
     ("PUT", "/api/v1/plan/meals/{plan_meal_id}/eaters"): {"login_ids": []},
     ("DELETE", "/api/v1/plan/batches/{plan_batch_id}"): None,
     ("POST", "/api/v1/plan/tubs/{plan_tub_id}/place"): {"date": "2030-01-01", "slot_id": 1},

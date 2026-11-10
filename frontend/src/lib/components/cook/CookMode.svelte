@@ -409,8 +409,8 @@
         <p class="text" data-testid="step-text">{step.text}</p>
         {#if ahead && !ahead.begun && index === ahead.index}
           <p class="ahead-note" data-testid="ahead-note">
-            Then it waits ({ahead.needed.replace('needed ', '')}). Cook mode picks up after this step
-            when you come back.
+            Then it waits ({ahead.needed.replace('needed ', '')}). Cook mode picks up after this
+            step when you come back.
           </p>
         {/if}
 

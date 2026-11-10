@@ -33,15 +33,15 @@ export function markStarted(
       options.withUndo === false
         ? undefined
         : {
-          label: startedWords(name),
-          labelFrom: () => startedWords(name),
-          skip: (value) => value.change === null,
-          run: (value) => {
-            const change = value.change;
-            if (!change?.can_undo) return false;
-            undoer ??= serverUndo(change.id);
-            return undoer();
+            label: startedWords(name),
+            labelFrom: () => startedWords(name),
+            skip: (value) => value.change === null,
+            run: (value) => {
+              const change = value.change;
+              if (!change?.can_undo) return false;
+              undoer ??= serverUndo(change.id);
+              return undoer();
+            }
           }
-        }
   });
 }

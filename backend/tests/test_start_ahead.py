@@ -348,6 +348,20 @@ def test_another_household_cannot_change_a_start(
     assert item_of(kitchen, item)["ahead"]["start_time"] == "21:00"
 
 
+def test_another_households_recipe_or_slot_cannot_be_asked_about(
+    kitchen: TestClient, neighbour: TestClient
+) -> None:
+    recipe = dosa(kitchen)
+    params = {
+        "recipe_id": recipe["id"],
+        "date": SAT.isoformat(),
+        "slot_id": slot_ids(neighbour, 2)["Breakfast"],
+    }
+    assert neighbour.get(f"{API}/plan/start-options", params=params).status_code == 404
+    mixed = {**params, "slot_id": slot_ids(kitchen)["Breakfast"]}
+    assert neighbour.get(f"{API}/plan/start-options", params=mixed).status_code == 404
+
+
 def test_a_cooked_meal_has_no_ahead_and_cannot_be_started(kitchen: TestClient) -> None:
     item = plan_dosa(kitchen, dosa(kitchen), start=start_of(FRI, "21:00"))["item_id"]
     with db_of(kitchen) as db:

@@ -140,7 +140,7 @@
         {/if}
         <p class="hint">
           The day before, Today and the Cook view say “Start tonight at {picked === 'other'
-            ? (otherTime || '21:00')
+            ? otherTime || '21:00'
             : (picked.split(' ')[1] ?? '21:00')}”. You can change the time from the meal.
         </p>
       </fieldset>

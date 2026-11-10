@@ -4,6 +4,15 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### The plan works backwards (0.8 wave 5, M3, F124; cabledrawer 31 Oct and 9 Nov)
+
+- **Database change 4 of 4** (`a7c4e9d2b813`): a planned meal item can carry the time its long wait will be started and the time it was; both start empty, nothing else changes. Going back drops the two columns.
+- **Asking:** adding a recipe whose way of cooking it has a step that waits 4 hours or more (a shortest wait of 4 h, so marinate 4–24 h, soak overnight, ferment 8–12 h; an hour's rest asks nothing) asks "When will you start it?" with times worked out from the meal's usual time and the wait (**Fri 21:00 · ready by 08:00**), and **Another time…**. It is changeable from the meal's menu (**Starts Fri 21:00…**) with Undo. Every way of adding a recipe asks: the tray (drag), the Add sheet, Plan it on the recipe page, Copy to… on a tray recipe, and Cook once from the Add sheet. Moving a meal or recipe takes its start time away (Undo puts it back); a copy has none; changing the meal's way of cooking it takes both marks away.
+- **The day before:** Today shows **Start tonight at 21:00** (a card with what to start, for which meal, and **Start it in Cook mode** · **Done already**), and the Plan's Cook view shows the same line on the day to start. **Done already** records that the wait has begun, at the moment you press it, and nothing else (no pantry, shopping or meal change); Undo is in the toast. A start that has gone by without being marked says **Start now**.
+- **Day two:** Cook mode opens at the step after the one that waited, with the steps up to it folded (**Done yesterday 21:40**) and how long it has waited against how long it needs (**Fermented 10 h 20 min · needed 8–12 h**); the header says **Day 2 · Step 4 of 6**. Going past the step that waits for the first time (on day one) marks the wait as begun, with no toast.
+- **In the app only.** No notification is sent and nothing is scheduled. Times are the household's own wall clock, kept as instants, so a night with a clock change is counted in real hours. The meal's usual time comes from the slot's name until there is a setting for it (Breakfast 08:00, Lunch 12:30, Dinner 19:00…).
+- API (additive): `ahead` on plan items, `GET /plan/start-options`, `start` on `POST /plan/items`, `PUT /plan/items/{id}/start`, `PUT /plan/items/{id}/started`. The plan's page range reaches three days past the last day shown, so a start on the last day for a meal just after it shows too.
+
 ### Two cooking methods (0.8 wave 5, M2, F107; cabledrawer 31 Oct and 9 Nov)
 
 - A recipe can have two methods, each with its own ingredients, steps and time. Database change 3 of 4 (`f1a6d3c8e502`): every existing recipe gets one method holding its time, lines and steps; planned meals store their method. Two at most.

@@ -787,6 +787,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Method when planning (cabledrawer 9 Nov):** adding a recipe with two methods to the plan asks which one (the one used last is pre-picked); the shopping list, Can cook now and Cooked it follow it.
 - **Next step in Cook mode (cabledrawer 9 Nov):** Cook mode shows the next step as a quiet line under the current one.
 - **Steps that wait (cabledrawer 31 Oct and 9 Nov):** a step can carry a wait (marinate, ferment, soak), suggested by the importer, confirmed on Check and editable in the recipe editor; a recipe's time shows active time plus the wait.
+- **The plan works backwards (cabledrawer 31 Oct and 9 Nov):** adding a meal with a wait asks when you'll start it; the day before, Today and the Cook view say "Start tonight" with that time; on day two Cook mode starts at the right step. In the app only, no notifications.
 
 ### Batch cook (Experimental) (cabledrawer 28 Oct; in 0.8.0, built last, cabledrawer 6 Nov)
 

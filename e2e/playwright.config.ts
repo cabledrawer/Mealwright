@@ -118,6 +118,10 @@ export default defineConfig({
     { name: 'phone 0.8 whole packs', testMatch: 'whole-packs.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'webkit 0.8 whole packs', testMatch: 'whole-packs.spec.ts', use: { ...webkitPhone, storageState: AUTH_FILE } },
     { name: 'desktop 0.8 whole packs', testMatch: 'whole-packs.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    // The plan works backwards (0.8 M3): the start question, Start tonight, Cook mode on day two.
+    { name: 'phone 0.8 plan start', testMatch: 'plan-start.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.8 plan start', testMatch: 'plan-start.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.8 plan start', testMatch: 'plan-start.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Plan shopping (0.8, S3): 1280 and 1100 px, set in the tests.
     { name: 'desktop 0.8 plan shopping', testMatch: 'plan-shopping.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // The All recipes page and its states (0.4).

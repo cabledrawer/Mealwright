@@ -72,13 +72,14 @@
         "backend/src/mealwright/api/v1/plan.py", "backend/src/mealwright/api/v1/batches.py",
         "frontend/src/routes/(app)/plan/**", "frontend/src/lib/components/plan/**",
         "frontend/src/lib/plan*", "frontend/src/lib/portions*", "frontend/src/lib/client/plan.ts",
-        "frontend/src/lib/tubUseBy*", "frontend/src/lib/tooLateToFreeze*", "frontend/src/lib/placeTubFromLeft*"
+        "frontend/src/lib/tubUseBy*", "frontend/src/lib/tooLateToFreeze*", "frontend/src/lib/placeTubFromLeft*",
+        "frontend/src/lib/start*"
       ],
       "backend": [
         "test_plan*.py", "test_start_ahead.py", "test_optional.py", "test_batch_counter.py", "test_cook_ahead.py", "test_tub_eating.py",
         "test_release_ids_and_slot_undo.py"
       ],
-      "browser": ["plan.spec.ts", "plan-cards.spec.ts", "plan-cook-once.spec.ts", "plan-month.spec.ts", "plan-portions.spec.ts", "plan-views.spec.ts"]
+      "browser": ["plan.spec.ts", "plan-start.spec.ts", "plan-cards.spec.ts", "plan-cook-once.spec.ts", "plan-month.spec.ts", "plan-portions.spec.ts", "plan-views.spec.ts"]
     },
     {
       "name": "Today and cooking",
@@ -92,7 +93,7 @@
         "frontend/src/routes/(app)/+page.svelte", "frontend/src/routes/(app)/recipes/[id]/cook/**"
       ],
       "backend": ["test_today.py", "test_cook*.py", "test_date_kinds.py", "test_deduction.py", "test_undo_keeps_used.py"],
-      "browser": ["today.spec.ts", "cooked.spec.ts", "cook-mode.spec.ts"]
+      "browser": ["today.spec.ts", "cooked.spec.ts", "cook-mode.spec.ts", "plan-start.spec.ts"]
     },
     {
       "name": "Shopping",

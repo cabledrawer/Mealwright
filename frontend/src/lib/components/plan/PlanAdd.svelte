@@ -320,7 +320,7 @@
                           name: recipe.name,
                           optional_count: recipe.optional_count,
                           method_count: recipe.method_count,
-                        wait: recipe.wait
+                          wait: recipe.wait
                         }
                       })}
               >
