@@ -792,3 +792,113 @@ def test_a_start_in_year_one_or_9999_is_refused_on_every_move_and_copy(
     )
     assert (whole.status_code, whole.json()["code"]) == (422, "bad_start"), far
     assert item_of(kitchen, item, FRI)["ahead"]["start_time"] == "21:00"  # nothing changed
+
+
+# --- Cook once and a start time (FX5, lead follow-up a) --------------------------------------
+
+
+def _cook_once(kitchen: TestClient, item_id: int) -> dict[str, Any]:
+    r = kitchen.post(
+        f"{API}/plan/items/{item_id}/batch",
+        json={"tub_count": 2, "pattern": "pick"},
+    )
+    assert r.status_code == 201, r.text
+    return dict(r.json())
+
+
+def test_cooking_once_keeps_the_recipes_start_time_and_undo_of_it_too(
+    kitchen: TestClient,
+) -> None:
+    item = plan_dosa(kitchen, dosa(kitchen), start=start_of(FRI, "21:00"))["item_id"]
+    made = _cook_once(kitchen, item)
+    ahead = item_of(kitchen, item, FRI, 12)["ahead"]
+    assert (ahead["start_day"], ahead["start_time"]) == ("2026-11-13", "21:00")
+    undo(kitchen, made)
+    ahead = item_of(kitchen, item, FRI, 12)["ahead"]
+    assert (ahead["start_day"], ahead["start_time"]) == ("2026-11-13", "21:00")
+
+
+def test_moving_a_cooking_with_a_start_takes_the_new_start_and_undo_puts_the_old_back(
+    kitchen: TestClient,
+) -> None:
+    item = plan_dosa(kitchen, dosa(kitchen), start=start_of(FRI, "21:00"))["item_id"]
+    _cook_once(kitchen, item)
+    body = {"date": "2026-11-16", "slot_id": slot_ids(kitchen)["Breakfast"], "mode": "move"}
+    moved = kitchen.post(
+        f"{API}/plan/items/{item}/move", json={**body, "start": start_of(SUN, "20:00")}
+    )
+    assert moved.status_code == 200, moved.text
+    ahead = item_of(kitchen, item, FRI, 12)["ahead"]
+    assert (ahead["start_day"], ahead["start_time"]) == ("2026-11-15", "20:00")
+    undo(kitchen, moved.json())
+    ahead = item_of(kitchen, item, FRI, 12)["ahead"]
+    assert (ahead["start_day"], ahead["start_time"]) == ("2026-11-13", "21:00")
+
+
+# --- Gaps left by the M3 review (FX5, lead follow-up e) ---------------------------------------
+
+
+def test_a_start_sent_with_a_note_that_moves_or_is_copied_is_refused(kitchen: TestClient) -> None:
+    breakfast = slot_ids(kitchen)["Breakfast"]
+    note = kitchen.post(
+        f"{API}/plan/items", json={"date": SAT.isoformat(), "slot_id": breakfast, "note": "Out"}
+    )
+    assert note.status_code == 201, note.text
+    item = note.json()["item_id"]
+    for mode in ("move", "copy"):
+        refused = kitchen.post(
+            f"{API}/plan/items/{item}/move",
+            json={
+                "date": "2026-11-16",
+                "slot_id": breakfast,
+                "mode": mode,
+                "start": start_of(FRI, "21:00"),
+            },
+        )
+        assert (refused.status_code, refused.json()["code"]) == (422, "not_a_recipe"), mode
+    (meal,) = view(kitchen, FRI, 5)["meals"]  # nothing moved or copied
+    assert [i["id"] for i in meal["items"]] == [item]
+
+
+def test_a_start_sent_with_leftovers_of_a_meal_or_an_item_is_refused_or_ignored(
+    kitchen: TestClient,
+) -> None:
+    item = plan_dosa(kitchen, dosa(kitchen), start=start_of(FRI, "21:00"))["item_id"]
+    breakfast = slot_ids(kitchen)["Breakfast"]
+    refused = kitchen.post(
+        f"{API}/plan/items/{item}/move",
+        json={
+            "date": "2026-11-16",
+            "slot_id": breakfast,
+            "mode": "leftovers",
+            "start": start_of(SUN, "20:00"),
+        },
+    )
+    assert (refused.status_code, refused.json()["code"]) == (422, "start_not_for_leftovers")
+    assert item_of(kitchen, item, FRI)["ahead"]["start_time"] == "21:00"
+
+
+def test_a_start_with_a_move_or_copy_of_an_item_that_is_not_there_is_a_404(
+    kitchen: TestClient,
+) -> None:
+    breakfast = slot_ids(kitchen)["Breakfast"]
+    for mode in ("move", "copy"):
+        gone = kitchen.post(
+            f"{API}/plan/items/99999/move",
+            json={
+                "date": "2026-11-16",
+                "slot_id": breakfast,
+                "mode": mode,
+                "start": start_of(SUN, "20:00"),
+            },
+        )
+        assert gone.status_code == 404, mode
+    gone_meal = kitchen.post(
+        f"{API}/plan/meals/99999/move",
+        json={
+            "date": "2026-11-16",
+            "slot_id": breakfast,
+            "starts": [{"item_id": 1, **start_of(SUN, "20:00")}],
+        },
+    )
+    assert gone_meal.status_code == 404
