@@ -243,3 +243,36 @@ def test_a_clash_with_a_tag_a_shown_recipe_has_is_still_refused(kitchen: TestCli
     refused = kitchen.patch(f"{API}/recipes/tags/{ids['Quick']}", json={"name": "fast"})
     assert refused.status_code == 409 and refused.json()["code"] == "tag_exists"
     assert refused.json()["detail"].endswith("Use Merge into… to join them.")
+
+
+def test_undo_after_a_hidden_tag_with_the_old_name_folds_in_adds_each_link_once(
+    kitchen: TestClient,
+) -> None:
+    """A recipe from the merge got the old name back by hand and was then deleted: Undo folds
+    that hidden tag in and must not add the same link a second time (it was a server error)."""
+    b = ok(kitchen.post(f"{API}/recipes", json={"name": "Rasam", "tags": ["south-indian"]}), 201)
+    ok(kitchen.post(f"{API}/recipes", json={"name": "Sambar", "tags": ["South Indian"]}), 201)
+    ids = {t["name"]: t["id"] for t in ok(kitchen.get(f"{API}/recipes/tags"))["tags"]}
+    merged = ok(
+        kitchen.post(
+            f"{API}/recipes/tags/{ids['south-indian']}/merge", json={"into": ids["South Indian"]}
+        )
+    )
+    now = ok(kitchen.get(f"{API}/recipes/{b['id']}"))
+    ok(
+        kitchen.put(
+            f"{API}/recipes/{b['id']}",
+            json={
+                "name": "Rasam",
+                "tags": ["South Indian", "south-indian"],
+                "version": now["version"],
+            },
+        )
+    )
+    ok(kitchen.delete(f"{API}/recipes/{b['id']}"))
+    ok(kitchen.post(f"{API}/changes/{merged['change']['id']}/undo"))
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        links = [
+            r.tag_id for r in db.scalars(select(RecipeTag).where(RecipeTag.recipe_id == b["id"]))
+        ]
+    assert links == [ids["south-indian"]]  # the deleted recipe waits with the old tag, once

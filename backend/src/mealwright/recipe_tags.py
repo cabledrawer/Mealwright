@@ -142,8 +142,9 @@ def undo_merge(kitchen: Kitchen, change: Change) -> Change:
             )
         )
     )
+    linked = set(recipes_with(kitchen, source["id"]))  # links a folded-in tag brought over
     for recipe_id in data["had"]:
-        if recipe_id in alive:
+        if recipe_id in alive and recipe_id not in linked:
             db.add(
                 RecipeTag(
                     household_id=kitchen.household_id, recipe_id=recipe_id, tag_id=source["id"]
