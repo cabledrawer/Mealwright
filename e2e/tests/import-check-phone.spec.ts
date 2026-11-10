@@ -390,7 +390,7 @@ test('One at a time: "Make this its own recipe" is above a line of the section, 
   await page.goto('/recipes/import');
   await page
     .getByLabel('Paste a link or the recipe’s text')
-    .fill(`${title}\nIngredients\nFor the batter\n1 cup ${dal}\n2 cups ${unique('Idli rice')}\nFor the dosa\n1 tbsp ${unique('Ghee')}\nMethod\nFor the batter:\n1. Soak it.\nFor the dosa:\n1. Fry it.\n`);
+    .fill(`${title}\nIngredients\nFor the batter\n1 cup ${dal}\n2 cups ${unique('Idli rice')}\nFor the dosa\n1 tbsp ${unique('Ghee')}\nMethod\nFor the batter:\n1. Soak it.\n\nFor the dosa:\n1. Fry it.\n`);
   await page.getByRole('button', { name: 'Read the recipe' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients · 1 of 3 to check');
   // The first line is in the batter: its section is named above it, with the button.
@@ -401,7 +401,7 @@ test('One at a time: "Make this its own recipe" is above a line of the section, 
   await sheet.getByLabel('How much it makes').fill('3');
   await checkPage(page);
   await sheet.getByRole('button', { name: 'Make it its own recipe' }).click();
-  await expect(page.getByText('Its own recipe:')).toContainText('3 cups');
+  await expect(page.locator('.said')).toContainText('3 cups');
   // The section's lines are still checked here, one at a time.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients · 1 of 3 to check');
   await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
@@ -412,6 +412,6 @@ test('One at a time: "Make this its own recipe" is above a line of the section, 
   expect(batter.own).toMatchObject({ name: 'Batter', amount: 3, unit: 'cup' });
   // Carrying on from the draft: it is still its own recipe.
   await page.getByRole('link', { name: `Carry on ${title}` }).click();
-  await expect(page.getByText('Its own recipe:')).toContainText('Batter · 3 cups');
+  await expect(page.locator('.said')).toContainText('Batter · 3 cups');
   await deleteDrafts(page, title);
 });

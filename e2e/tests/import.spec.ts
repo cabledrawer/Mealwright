@@ -1155,6 +1155,7 @@ function dosaText(n: { dosa: string; batter: string; dal: string; rice: string; 
     'For the batter:',
     '1. Soak the dal and rice for 4 hours.',
     '2. Grind and ferment overnight.',
+    '',
     'For the dosa:',
     '1. Spread the batter thin and fry.',
   ].join('\n');
@@ -1170,7 +1171,7 @@ test('A section as its own recipe: asked on Check, both recipes saved together, 
   // One button under each section's heading, never done on its own.
   const make = page.getByRole('button', { name: 'Make this its own recipe' });
   await expect(make).toHaveCount(2);
-  await expect(page.getByText('Its own recipe:')).toHaveCount(0);
+  await expect(page.locator('.said')).toHaveCount(0);
   await make.first().click();
   const sheet = page.getByRole('dialog', { name: /its own recipe\?$/ });
   await expect(sheet.getByRole('heading', { name: 'Make “For the batter” its own recipe?' })).toBeVisible();
@@ -1184,12 +1185,12 @@ test('A section as its own recipe: asked on Check, both recipes saved together, 
   // Nothing is made until the button.
   await sheet.getByRole('button', { name: 'Cancel' }).click();
   await expect(sheet).toHaveCount(0);
-  await expect(page.getByText('Its own recipe:')).toHaveCount(0);
+  await expect(page.locator('.said')).toHaveCount(0);
   await make.first().click();
   await sheet.getByRole('button', { name: 'Make it its own recipe' }).click();
   await expect(sheet).toHaveCount(0);
   await expect(page.getByText('Made “For the batter” its own recipe')).toBeVisible();
-  await expect(page.getByText('Its own recipe:')).toContainText(`${n.batter} · 4 cups`);
+  await expect(page.locator('.said')).toContainText(`${n.batter} · 4 cups`);
   await expect(page.getByText(`Made in its own recipe: ${n.batter}`)).toBeVisible();
   await expect(make).toHaveCount(1);
   await inTheme(page, 'dark');
@@ -1238,7 +1239,7 @@ test('A section made its own recipe can be changed and kept in the recipe again,
   await sheet.getByLabel('How much it makes').fill('1.5');
   await sheet.getByLabel('Unit').selectOption('l');
   await sheet.getByRole('button', { name: 'Make it its own recipe' }).click();
-  const said = page.getByText('Its own recipe:');
+  const said = page.locator('.said');
   await expect(said).toContainText('Batter · 1.5 litres');
   // Change opens the same sheet with what was typed.
   await said.locator('..').getByRole('button', { name: 'Change', exact: true }).click();
@@ -1268,7 +1269,7 @@ test('Offline, Save waits as it always does, and the section stays its own recip
   await page.route('**/api/v1/**', (route) => route.abort('internetdisconnected'));
   await page.evaluate(() => window.dispatchEvent(new Event('offline')));
   await expect(page.getByRole('button', { name: 'Save recipe' })).toBeDisabled();
-  await expect(page.getByText('Its own recipe:')).toBeVisible();
+  await expect(page.locator('.said')).toBeVisible();
   await page.unroute('**/api/v1/**');
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
   await expect(page.getByRole('button', { name: 'Save recipe' })).toBeEnabled();
