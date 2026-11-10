@@ -1725,3 +1725,70 @@ def test_methods_migration_gives_every_recipe_one_method_and_goes_back_and_forwa
         assert connection.exec_driver_sql("SELECT count(*) FROM recipe_method").scalar_one() == len(
             recipe_ids()
         )
+
+
+METHODS_MIGRATION = "f1a6d3c8e502"  # the one just before the start times
+
+
+def test_start_times_migration_adds_two_empty_columns_keeps_every_row_and_goes_back_and_forward(
+    tmp_path: Path,
+) -> None:
+    """0.8 wave 5, M3 (cabledrawer 31 Oct and 9 Nov), database change 4 of 4: a planned meal can
+    carry the time its wait will be started and the time it was. Both start empty, so a meal
+    made before reads as it always did; nothing is lost; going back drops the two columns and
+    keeps the meals, their cooked records and their "never reuse an id" numbering."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "alembic_version"}
+    migrate.downgrade(engine, METHODS_MIGRATION)
+    assert migrate_head(engine) == METHODS_MIGRATION
+    assert "start_at" not in {c["name"] for c in inspect(engine).get_columns("meal_item")}
+    with engine.begin() as connection:
+        slot = connection.exec_driver_sql(
+            "SELECT id FROM meal_slot WHERE household_id = 1 LIMIT 1"
+        ).scalar_one()
+        connection.exec_driver_sql(
+            "INSERT INTO meal (id, household_id, day, slot_id, status, created_at)"
+            " VALUES (1, 1, '2026-10-30', ?, 'cooked', '2026-10-30')",
+            (slot,),
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO meal_item (id, household_id, meal_id, position, kind, recipe_id, servings)"
+            " VALUES (1, 1, 1, 0, 'recipe', 1, 3)"
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO cooked_record (household_id, meal_item_id, batch_id, recipe_id, portions,"
+            " snapshot, cooked_at, cooked_by_name) VALUES (1, 1, NULL, 1, 2,"
+            " '{\"name\": \"Sambar\"}', '2026-10-30', 'User')"
+        )
+    before = _row_counts(engine, skip)
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    assert _row_counts(engine, skip) == before
+    columns = {c["name"]: c for c in inspect(engine).get_columns("meal_item")}
+    assert columns["start_at"]["nullable"] and columns["started_at"]["nullable"]
+    with engine.begin() as connection:
+        row = connection.exec_driver_sql(
+            "SELECT servings, start_at, started_at FROM meal_item WHERE id = 1"
+        ).one()
+        assert tuple(row) == (3, None, None)
+        connection.exec_driver_sql(
+            "UPDATE meal_item SET start_at = '2026-10-29 21:00:00',"
+            " started_at = '2026-10-29 21:40:00' WHERE id = 1"
+        )
+    migrate.downgrade(engine, METHODS_MIGRATION)
+    assert migrate_head(engine) == METHODS_MIGRATION
+    assert {"start_at", "started_at"}.isdisjoint(
+        c["name"] for c in inspect(engine).get_columns("meal_item")
+    )
+    assert _row_counts(engine, skip) == before
+    assert "AUTOINCREMENT" in _table_sql(engine, "meal_item")
+    with engine.connect() as connection:  # the cooked record still points at its meal item
+        assert (
+            connection.exec_driver_sql(
+                "SELECT count(*) FROM cooked_record c JOIN meal_item i ON i.id = c.meal_item_id"
+            ).scalar_one()
+            == 1
+        )
+    migrate.upgrade(engine)
+    assert _row_counts(engine, skip) == before

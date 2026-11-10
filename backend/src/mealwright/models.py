@@ -1255,6 +1255,13 @@ class MealItem(Base):
     method_id: Mapped[int | None] = mapped_column(
         ForeignKey("recipe_method.id", ondelete="SET NULL"), index=True
     )
+    # The plan works backwards (M3, F124; cabledrawer 31 Oct and 9 Nov): a recipe with a long wait
+    # (a step that waits four hours or more) is asked when the wait will be started. `start_at`
+    # is that moment, `started_at` is when the person said the wait was begun ("Start it in Cook
+    # mode" past that step, or "Done already"). Both are instants (UTC); the screens show them
+    # in the household's own time. Null: not asked, or not started.
+    start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class MealEater(Base):
