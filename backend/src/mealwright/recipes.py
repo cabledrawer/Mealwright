@@ -1021,6 +1021,12 @@ def undo_import(kitchen: Kitchen, data: dict[str, Any], tally: Tally) -> str | N
         return None
     recipe.removed_at = utcnow()
     bump_recipes_by(kitchen, _users_of(kitchen, recipe.id))
+    # The sections the same save made their own recipes (F190) go with it: one Undo.
+    for section_id in data.get("section_recipe_ids", []):
+        section = _import_to_undo(kitchen, {"recipe_id": section_id})
+        if section is not None:
+            section.removed_at = utcnow()
+            bump_recipes_by(kitchen, _users_of(kitchen, section.id))
     tally.done += 1
     saved = data.get("draft")
     return drafts.bring_back(kitchen, recipe.id, saved) if saved else None

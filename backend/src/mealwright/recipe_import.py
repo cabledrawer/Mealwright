@@ -19,6 +19,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 from fastapi import status
 from pydantic import ValidationError
@@ -29,6 +30,8 @@ from mealwright.amounts import MAX_AMOUNT
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.import_schemas import (
     AlreadyImported,
+    ImportLineIn,
+    ImportOwnRecipe,
     ImportReview,
     ImportSave,
     LeftOutOut,
@@ -818,11 +821,25 @@ class Saved:
     change: Change
     new_foods: list[Food]
     learned: int
+    sections: list[Recipe] = field(default_factory=list)  # the sections made their own recipes
 
 
-def _at(index: int, problem: Problem) -> Problem:
+def _at(index: int, problem: Problem, own: int | None = None) -> Problem:
     problem.extra["line"] = index
+    if own is not None:
+        problem.extra["own_recipe"] = own  # a line of that section recipe, not the main one
     return problem
+
+
+def _every_line(body: ImportSave) -> list[tuple[int | None, int, ImportLineIn]]:
+    """Every line of the save: the main recipe's (`None`), then each section recipe's (F190),
+    with the line's place in its own recipe."""
+    found: list[tuple[int | None, int, ImportLineIn]] = [
+        (None, index, line) for index, line in enumerate(body.lines)
+    ]
+    for k, own in enumerate(body.own_recipes):
+        found.extend((k, index, line) for index, line in enumerate(own.lines))
+    return found
 
 
 def _place(kitchen: Kitchen, place_id: int | None) -> int | None:
@@ -846,21 +863,22 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
     # anything is made).
     draft = drafts.find(kitchen, body.draft_id) if body.draft_id is not None else None
 
+    every = _every_line(body)
     # What the lines link to, checked before anything is made.
     existing: dict[int, Food] = {}
-    for index, line in enumerate(body.lines):
+    for where, index, line in every:
         link = line.link
         if line.kind == "heading" or link is None or link.kind != "ingredient":
             continue
         try:
             existing[link.food_id or 0] = find_food(kitchen, link.food_id or 0)
         except Problem as problem:
-            raise _at(index, problem) from None
+            raise _at(index, problem, where) from None
 
     # The recipes lines use (F188): the household's own, not removed. The place the pantry keeps
     # a made-ahead one in goes on its own ingredient when that has no usual place yet.
     keeps: dict[int, int] = {}  # a recipe's made-ahead ingredient → the place to give it
-    for index, line in enumerate(body.lines):
+    for where, index, line in every:
         link = line.link
         if line.kind == "heading" or link is None or link.kind != "recipe":
             continue
@@ -870,7 +888,7 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
                 raise not_found("That recipe")
             place_id = _place(kitchen, link.place_id)
         except Problem as problem:
-            raise _at(index, problem) from None
+            raise _at(index, problem, where) from None
         if place_id is not None and recipe.made_ahead and recipe.homemade_food_id is not None:
             keeps.setdefault(recipe.homemade_food_id, place_id)
 
@@ -880,7 +898,7 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
             if homemade is not None and homemade.place_id is None:
                 homemade.place_id = keep_in
         made: dict[str, Food] = {}  # folded name → the ingredient made for it
-        for index, line in enumerate(body.lines):
+        for where, index, line in every:
             link = line.link
             if line.kind == "heading" or link is None or link.kind not in ("new", "staple"):
                 continue
@@ -889,11 +907,11 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
                 continue
             owner = name_owner(kitchen, link.name or "")
             if owner is not None:
-                raise _at(index, name_taken(link.name or "", owner))
+                raise _at(index, name_taken(link.name or "", owner), where)
             try:
                 place_id = _place(kitchen, link.place_id)
             except Problem as problem:
-                raise _at(index, problem) from None
+                raise _at(index, problem, where) from None
             row = table().match(link.name or "")
             food = Food(
                 household_id=kitchen.household_id,
@@ -910,34 +928,74 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
             edit.also(food.id)
             made[key] = food
 
-        learned = _learn(kitchen, body, existing)
-        recipe_lines = []
-        for line in body.lines:
-            link = line.link
-            food_id: int | None = None
-            recipe_id: int | None = None
-            if line.kind != "heading" and link is not None:
-                if link.kind == "recipe":
-                    recipe_id = link.recipe_id
-                else:
-                    food_id = (
-                        link.food_id
-                        if link.kind == "ingredient"
-                        else made[fold(link.name or "")].id
-                    )
-            recipe_lines.append(
-                {
-                    "kind": line.kind,
-                    "words": line.words,
-                    "amount": None if line.amount is None else Decimal(line.amount) / 1000,
-                    "unit": line.unit,
-                    "size_id": line.size_id if food_id is not None else None,
-                    "food_id": food_id,
-                    "recipe_id": recipe_id,
-                    "note": line.note,
-                    "optional": line.optional and line.kind != "heading",
-                }
-            )
+        learned = _learn(kitchen, [line for _own, _index, line in every], existing)
+
+        def lines_of(lines: list[ImportLineIn], sections: dict[int, int]) -> list[dict[str, Any]]:
+            """The recipe's lines as the editor's save takes them. `sections`: the recipe each
+            section recipe's number became."""
+            rows = []
+            for line in lines:
+                link = line.link
+                food_id: int | None = None
+                recipe_id: int | None = None
+                if line.kind != "heading" and link is not None:
+                    if link.kind == "recipe":
+                        recipe_id = link.recipe_id
+                    elif link.kind == "own_recipe":
+                        recipe_id = sections[link.own_recipe or 0]
+                    else:
+                        food_id = (
+                            link.food_id
+                            if link.kind == "ingredient"
+                            else made[fold(link.name or "")].id
+                        )
+                rows.append(
+                    {
+                        "kind": line.kind,
+                        "words": line.words,
+                        "amount": None if line.amount is None else Decimal(line.amount) / 1000,
+                        "unit": line.unit,
+                        "size_id": line.size_id if food_id is not None else None,
+                        "food_id": food_id,
+                        "recipe_id": recipe_id,
+                        "note": line.note,
+                        "optional": line.optional and line.kind != "heading",
+                    }
+                )
+            return rows
+
+        # The sections made their own recipes (F190) come first: the main recipe's lines use
+        # them. Each is Made ahead, with its own pantry ingredient made here, in this same
+        # change, so one Undo takes it with the rest.
+        sections: dict[int, int] = {}
+        section_recipes: list[Recipe] = []
+        for k, own in enumerate(body.own_recipes):
+            try:
+                _make_homemade(kitchen, edit, own)
+                own_in = RecipeIn.model_validate(
+                    {
+                        "name": own.name,
+                        "serves": None,
+                        "makes": {
+                            "amount": Decimal(own.makes.amount or 0) / 1000,
+                            "unit": own.makes.unit,
+                        },
+                        "made_ahead": True,
+                        "lines": lines_of(own.lines, sections),
+                        "steps": [step.model_dump() for step in own.steps],
+                    }
+                )
+                section = recipes.save(kitchen, None, own_in, remember_key=False)
+            except ValidationError as invalid:
+                bad = _invalid(invalid)
+                bad.extra["own_recipe"] = k
+                raise bad from None
+            except Problem as problem:
+                problem.extra["own_recipe"] = k
+                raise
+            sections[k] = section.id
+            section_recipes.append(section)
+        recipe_lines = lines_of(body.lines, sections)
         try:
             recipe_in = RecipeIn.model_validate(
                 {
@@ -995,18 +1053,51 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
             edit.extra["draft"] = drafts.snapshot(draft, taken)
             drafts.delete_for_good(db, [draft.id])  # it is a recipe now
         edit.extra["recipe_id"] = recipe.id
+        if section_recipes:
+            edit.extra["section_recipe_ids"] = [section.id for section in section_recipes]
         new_foods = list(made.values())
-        change = edit.record("recipe_imported", _summary(recipe, new_foods, learned), None)
-    return Saved(recipe=recipe, change=change, new_foods=new_foods, learned=learned)
+        change = edit.record(
+            "recipe_imported", _summary(recipe, new_foods, learned, section_recipes), None
+        )
+    return Saved(
+        recipe=recipe, change=change, new_foods=new_foods, learned=learned, sections=section_recipes
+    )
 
 
-def _summary(recipe: Recipe, new_foods: list[Food], learned: int) -> str:
+def _make_homemade(kitchen: Kitchen, edit: FoodEdit, own: ImportOwnRecipe) -> None:
+    """The pantry ingredient of a section's own Made ahead recipe, made inside the save's own
+    change (the recipe's own code would record a second change). A name the household's
+    ingredients already have is left to the recipe's save: it links it back, or refuses."""
+    from mealwright.recipes import MADE_AHEAD_COUNTED
+
+    name = own.name[:100].strip()
+    if name_owner(kitchen, name) is not None:
+        return
+    unit = own.makes.unit
+    row = table().match(name)
+    food = Food(
+        household_id=kitchen.household_id,
+        name=tidy_ingredient_name(name),
+        counted_as=MADE_AHEAD_COUNTED.get(unit or "") or ("count" if unit else "weight"),
+        shop_id=suggested_shop(kitchen, name),
+        aisle=guess_aisle(name, row),
+        table_key=row.key if row else None,
+    )
+    kitchen.db.add(food)
+    kitchen.db.flush()
+    edit.also(food.id)
+
+
+def _summary(
+    recipe: Recipe, new_foods: list[Food], learned: int, sections: list[Recipe] | None = None
+) -> str:
     parts = []
     if new_foods:
         parts.append(f"{len(new_foods)} new ingredient{'' if len(new_foods) == 1 else 's'}")
     if learned:
         parts.append(f"{learned} other name{'' if learned == 1 else 's'}")
-    return f"Imported {recipe.name}" + (f", with {' and '.join(parts)}" if parts else "")
+    names = [recipe.name, *(section.name for section in sections or [])]
+    return f"Imported {' and '.join(names)}" + (f", with {' and '.join(parts)}" if parts else "")
 
 
 def _source(url: str | None) -> str | None:
@@ -1045,7 +1136,7 @@ def _invalid(error: ValidationError) -> Problem:
 
 def _learn(
     kitchen: Kitchen,
-    body: ImportSave,
+    lines: list[ImportLineIn],
     existing: dict[int, Food],
 ) -> int:
     """Add the names "Same as …" taught as other names of the ingredients they were chosen
@@ -1063,7 +1154,7 @@ def _learn(
     for row in db.scalars(select(FoodName).where(FoodName.household_id == kitchen.household_id)):
         taken.add(fold(row.name))
     learned = 0
-    for line in body.lines:
+    for line in lines:
         link = line.link
         if line.kind == "heading" or link is None or link.kind != "ingredient" or not link.learn:
             continue

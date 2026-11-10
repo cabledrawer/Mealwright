@@ -23,6 +23,9 @@ from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.errors import StoredInt
 from mealwright.names import clean_name
 
+# Sections of one recipe that may be made their own recipes in one save (F190).
+MAX_OWN_RECIPES = 5
+
 Label = Literal["matched", "to_confirm", "needs_you", "staple"]
 CountedAs = Literal["weight", "volume", "count"]
 
@@ -215,14 +218,17 @@ class ImportLinkIn(BaseModel):
       name of the ingredient ("Same as Onions" for "red onion").
     - `new`: a new ingredient (`name`, `counted_as`, `place_id`), made on Save.
     - `staple`: a new staple ingredient: the line never counts.
+    - `own_recipe` (0.8, F190): the line uses the recipe this same save makes from a section
+      (`own_recipes[own_recipe]` of the save).
     - `recipe` (0.8, F188): the line uses another recipe of the household (`recipe_id`), the same
       link as a recipe line made in the editor. `place_id` is where the pantry keeps it: it is
       set on that recipe's own made-ahead ingredient when that has no usual place yet.
     A line with no link is saved with its words only ("not linked")."""
 
-    kind: Literal["ingredient", "new", "staple", "recipe"]
+    kind: Literal["ingredient", "new", "staple", "recipe", "own_recipe"]
     food_id: StoredInt | None = None
     recipe_id: StoredInt | None = None
+    own_recipe: StoredInt | None = None
     learn: Annotated[str, Field(max_length=100)] | None = None
     name: Annotated[str, Field(max_length=100)] | None = None
     counted_as: CountedAs = "weight"
@@ -243,6 +249,8 @@ class ImportLinkIn(BaseModel):
             raise ValueError("Type a name for the new ingredient.")
         if self.kind == "recipe" and self.recipe_id is None:
             raise ValueError("Pick the recipe that makes it.")
+        if self.kind == "own_recipe" and self.own_recipe is None:
+            raise ValueError("Pick the recipe that makes it.")
         return self
 
 
@@ -259,6 +267,19 @@ class ImportLineIn(BaseModel):
 
 class ImportSecondMethod(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=60)]
+    steps: list[RecipeStepIn] = Field(default_factory=list, max_length=MAX_STEPS)
+
+
+class ImportOwnRecipe(BaseModel):
+    """A section made its own recipe (0.8, F190, cabledrawer 8 Nov): a new Made ahead recipe saved
+    in the same save as the main one, which uses it as one line (a line whose link is
+    `own_recipe` with this recipe's place in `own_recipes`). Its lines are checked like the main
+    recipe's (a link may be an ingredient, a new ingredient or another recipe, never another
+    section recipe); the two are saved together or not at all."""
+
+    name: Annotated[str, Field(min_length=1, max_length=200)]
+    makes: MakesIn
+    lines: list[ImportLineIn] = Field(default_factory=list, max_length=MAX_LINES)
     steps: list[RecipeStepIn] = Field(default_factory=list, max_length=MAX_STEPS)
 
 
@@ -280,6 +301,9 @@ class ImportSave(BaseModel):
     # ingredient lines above; the time is the page's single time for both.
     method_name: Annotated[str, Field(max_length=60)] | None = None
     second_method: ImportSecondMethod | None = None
+    # Sections made their own recipes (F190): saved with this one, all or nothing. Each is used
+    # by a line of `lines` whose link is `own_recipe`. One Undo takes them all back.
+    own_recipes: list[ImportOwnRecipe] = Field(default_factory=list, max_length=MAX_OWN_RECIPES)
     # Where it came from: the web address (a link import only) and the page's author.
     source_url: Annotated[str, Field(max_length=2000)] | None = None
     source_author: Annotated[str, Field(max_length=200)] | None = None
@@ -288,6 +312,24 @@ class ImportSave(BaseModel):
     # Saving from a draft: its id. The draft is deleted in the same transaction, and its photo
     # (`photo_id`) becomes the recipe's.
     draft_id: StoredInt | None = None
+
+    @model_validator(mode="after")
+    def _own_recipes_fit(self) -> ImportSave:
+        used: set[int] = set()
+        for line in self.lines:
+            link = line.link
+            if line.kind == "heading" or link is None or link.kind != "own_recipe":
+                continue
+            if link.own_recipe is None or link.own_recipe >= len(self.own_recipes):
+                raise ValueError("That section’s recipe isn’t in this save.")
+            used.add(link.own_recipe)
+        for own in self.own_recipes:
+            for line in own.lines:
+                if line.link is not None and line.link.kind == "own_recipe":
+                    raise ValueError("A section’s own recipe can’t use another one.")
+        if used != set(range(len(self.own_recipes))):
+            raise ValueError("A section made its own recipe needs the line that uses it.")
+        return self
 
 
 class ImportSaved(BaseModel):
