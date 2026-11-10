@@ -292,6 +292,7 @@ def test_a_link_gives_the_review_with_the_pages_recipe(
         "text": "Tadka",
         "optional": False,
         "wait": None,
+        "wait_confirmed": False,
     }
     # Matched to what the household has; the rest need a choice.
     labels = {line["written"][:12]: line["label"] for line in shown["lines"] if line["label"]}

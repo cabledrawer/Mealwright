@@ -54,6 +54,8 @@ def test_headings_junk_and_two_lines(kitchen: TestClient, web: Web) -> None:
         "kind": "heading",
         "text": "FULL RECIPE",
         "optional": False,
+        "wait": None,
+        "wait_confirmed": False,
     }
 
 

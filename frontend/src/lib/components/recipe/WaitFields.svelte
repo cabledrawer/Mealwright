@@ -31,21 +31,15 @@
   }
 
   // The boxes start with the wait as it is now, and are typed in from there.
-  // svelte-ignore state_referenced_locally
   const start = wait;
-  // svelte-ignore state_referenced_locally
   let unit = $state<Unit>(unitOf(start.min_minutes, start.overnight ? 1440 : start.max_minutes));
-  // svelte-ignore state_referenced_locally
   let from = $state(String(start.min_minutes / PER[unit]));
-  // svelte-ignore state_referenced_locally
   let to = $state(
     !start.overnight && start.max_minutes > start.min_minutes
       ? String(start.max_minutes / PER[unit])
       : ''
   );
-  // svelte-ignore state_referenced_locally
   let overnight = $state(start.overnight);
-  // svelte-ignore state_referenced_locally
   let kind = $state(start.kind);
   let problem = $state('');
 

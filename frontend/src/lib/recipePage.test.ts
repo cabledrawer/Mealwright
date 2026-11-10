@@ -15,9 +15,10 @@ describe('the method in runs', () => {
         heading: null,
         start: 1,
         steps: ['Rub the mutton.', 'Fry onions.'],
-        optional: [false, true]
+        optional: [false, true],
+        waits: [null, null]
       },
-      { heading: 'To serve', start: 3, steps: ['Top it.'], optional: [false] }
+      { heading: 'To serve', start: 3, steps: ['Top it.'], optional: [false], waits: [null] }
     ]);
   });
 });

@@ -301,7 +301,7 @@ def get_plan(
         )
     ):
         optional_ids.setdefault(line_recipe_id, set()).add(line_id)
-    waits = recipe_service.waits_of(db, list(recipes))
+    waits = recipe_service.waits_of(db, recipe_ids)
     # A batch cook's recipe, for the kcal of its tubs.
     batch_recipes = {
         r.id: r

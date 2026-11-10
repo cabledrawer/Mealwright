@@ -17,7 +17,7 @@ from typing import Any, Literal, cast
 from urllib.parse import urlsplit
 
 from fastapi import status
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import Select, delete, func, select, update
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright import step_waits
@@ -1268,9 +1268,9 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
     )
 
 
-def waits_of(db: DbSession, recipe_ids: list[int]) -> dict[int, StepWaitOut]:
+def waits_of(db: DbSession, recipe_ids: list[int] | Select[Any]) -> dict[int, StepWaitOut]:
     """All the steps' waits added up, for each of these recipes that has one (M1)."""
-    if not recipe_ids:
+    if isinstance(recipe_ids, list) and not recipe_ids:
         return {}
     steps: dict[int, list[RecipeStep]] = {}
     for step in db.scalars(
