@@ -165,19 +165,36 @@ class Suggestion:
     amount_milli: int
 
 
+def shop_size(amount_milli: int) -> int:
+    """A converted size, rounded to one a shop would sell (F183, cabledrawer 8 Nov: no "592 ml" of
+    sugar). Grams or millilitres: to the nearest 5 under 100, 25 under 250, 50 under 1000, 100
+    under 2000, else 250 (382 g → 400 g, 246 ml → 250 ml, 1183 ml → 1.2 L), never below 5."""
+    value = amount_milli / 1000
+    if value < 100:
+        step = 5
+    elif value < 250:
+        step = 25
+    elif value < 1000:
+        step = 50
+    elif value < 2000:
+        step = 100
+    else:
+        step = 250
+    return max(5, round(value / step) * step) * 1000
+
+
 def _convert(size: Size, counted_as: CountedAs, density: TableRow | None) -> int | None:
+    """A table size in the ingredient's own kind. Weight and volume go through the density (and
+    are rounded to a size a shop sells); anything to or from a count is left out, because a
+    count stays a count (a banana's weight is not a pack size)."""
     if size.counted_as == counted_as:
         return size.amount_milli
-    if density is None:
+    if density is None or not density.mg_per_ml:
         return None
-    if size.counted_as == "weight" and counted_as == "volume" and density.mg_per_ml:
-        return round(size.amount_milli * 1000 / density.mg_per_ml)
-    if size.counted_as == "volume" and counted_as == "weight" and density.mg_per_ml:
-        return round(size.amount_milli * density.mg_per_ml / 1000)
-    if size.counted_as == "weight" and counted_as == "count" and density.item_weight_mg:
-        return round(size.amount_milli * 1000 / density.item_weight_mg)
-    if size.counted_as == "count" and counted_as == "weight" and density.item_weight_mg:
-        return round(size.amount_milli * density.item_weight_mg / 1000)
+    if size.counted_as == "weight" and counted_as == "volume":
+        return shop_size(round(size.amount_milli * 1000 / density.mg_per_ml))
+    if size.counted_as == "volume" and counted_as == "weight":
+        return shop_size(round(size.amount_milli * density.mg_per_ml / 1000))
     return None
 
 
@@ -185,10 +202,12 @@ def suggest_sizes(
     names: Sequence[str], counted_as: CountedAs, table_key: str | None = None
 ) -> list[Suggestion]:
     """Common sizes for an ingredient (its name first, then its other names), most common
-    first, without repeats. No table row → the generic sizes for its kind."""
+    first, without repeats. No table row, or none of its sizes fit the way the ingredient is
+    counted → the generic sizes for its kind."""
     row = table().match(*names)
+    generic = [Suggestion(None, base * 1000) for base in GENERIC[counted_as]]
     if row is None:
-        return [Suggestion(None, base * 1000) for base in GENERIC[counted_as]]
+        return generic
     conversions = conversion_table()
     density = (conversions.rows.get(table_key) if table_key else None) or conversions.rows.get(
         row.key
@@ -203,7 +222,7 @@ def suggest_sizes(
             continue
         seen.add(amount)
         out.append(Suggestion(row.pack or None, amount))
-    return out
+    return out or generic
 
 
 def where_to_buy(names: Sequence[str]) -> Where | None:

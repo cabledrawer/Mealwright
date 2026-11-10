@@ -82,7 +82,7 @@ def test_sizes_in_another_kind_are_converted_with_a_known_density() -> None:
     assert by_volume[0].amount_milli > by_weight[0].amount_milli
 
 
-def test_sizes_in_another_kind_are_skipped_without_a_density() -> None:
+def test_a_row_with_no_size_that_fits_gives_the_generic_sizes() -> None:
     row = next(
         r
         for r in pack_sizes.table().rows.values()
@@ -90,7 +90,12 @@ def test_sizes_in_another_kind_are_skipped_without_a_density() -> None:
         and pack_sizes.conversion_table().rows.get(r.key) is None
         and pack_sizes.conversion_table().match(*r.names) is None
     )
-    assert suggest_sizes([row.names[0]], "volume") == []
+    # Counts are not turned into millilitres: the generic sizes for the kind instead.
+    assert [s.amount_milli for s in suggest_sizes([row.names[0]], "volume")] == [
+        250_000,
+        500_000,
+        1_000_000,
+    ]
 
 
 def test_where_to_buy() -> None:
@@ -190,3 +195,39 @@ def test_matching_is_quick() -> None:
     for _ in range(1000):
         suggest_sizes(["Basmati rice", "rice"], "weight")
     assert time.perf_counter() - start < 1.0
+
+
+def grams(found: list[pack_sizes.Suggestion]) -> list[int]:
+    return [s.amount_milli // 1000 for s in found]
+
+
+def test_f183_nothing_odd_for_sugar_cumin_and_coconut_milk() -> None:
+    # cabledrawer's hand test: Sugar 592 ml / 1.183 L / 2.367 L, Ground cumin 246 ml / 985 ml,
+    # Coconut milk 382 g / 158 g. Each is now a size a shop sells.
+    assert grams(suggest_sizes(["Sugar"], "volume")) == [1200, 600, 2250]
+    assert grams(suggest_sizes(["Ground cumin"], "volume", "cumin_seeds")) == [250, 1000]
+    assert grams(suggest_sizes(["Coconut milk"], "weight")) == [400, 150]
+
+
+def test_f183_counts_stay_counts_and_are_never_turned_into_grams() -> None:
+    # Garlic 3 g / 12 g and Bananas 118 g / 590 g / 708 g are gone: the generic weights.
+    assert grams(suggest_sizes(["Garlic"], "weight")) == [100, 250, 500, 1000]
+    assert grams(suggest_sizes(["Bananas"], "weight")) == [100, 250, 500, 1000]
+    # Counted as a count, they keep the table's own counts.
+    assert grams(suggest_sizes(["Bananas"], "count")) == [1, 5, 6]
+
+
+@pytest.mark.parametrize(
+    ("milli", "shop"),
+    [
+        (592_000, 600_000),
+        (1_183_000, 1_200_000),
+        (246_000, 250_000),
+        (382_000, 400_000),
+        (62_500, 60_000),
+        (3_000, 5_000),
+        (12_300, 10_000),
+    ],
+)
+def test_shop_size_rounds_to_a_size_a_shop_sells(milli: int, shop: int) -> None:
+    assert pack_sizes.shop_size(milli) == shop

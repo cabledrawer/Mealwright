@@ -371,6 +371,13 @@ def cupboard_id(db: Session, household: int = 1) -> int:
         ("1 x 400g tin jackfruit", "Jackfruit", "weight"),
         ("2 tbsp நல்லெண்ணெய்", "நல்லெண்ணெய்", "volume"),
         ("100 g MDH sambar masala", "MDH sambar masala", "weight"),
+        # F183: a spoon or cup of something the table counts by weight is a weight.
+        ("3 tbsp sugar", "Sugar", "weight"),
+        ("2 tsp salt", "Salt", "weight"),
+        ("1 cup caster sugar", "Caster sugar", "weight"),
+        ("1 cup plain flour", "Plain flour", "weight"),
+        ("1 cup soy sauce", "Soy sauce", "volume"),
+        ("2 tbsp olive oil", "Olive oil", "volume"),
     ],
 )
 def test_new_ingredient_first_guess(db: Session, text: str, name: str, counted_as: str) -> None:

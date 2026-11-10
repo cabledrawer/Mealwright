@@ -8,7 +8,7 @@
   import { radioKeys } from '#lib/radioKeys.js';
   import { readDraft, unitChoices } from '#lib/shopping/amountBox.js';
   import { localDisplay } from '#lib/shopping/applyLocal.js';
-  import { baseText } from '#lib/shopping/format.js';
+  import { baseText, partText } from '#lib/shopping/format.js';
   import { packParts, usualSize, wholePacks } from '#lib/shopping/packLine.js';
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import type { FoodSize, ListItem, ShopFood } from '#lib/shopping/types.js';
@@ -40,6 +40,10 @@
   const words = (amount: number, sizeId: number | null) =>
     localDisplay(amount, sizeId, withSizes) ?? baseText(amount, food.counted_as);
 
+  /** A half or quarter of the list's amount: a size's own words, else two figures (F183). */
+  const partWords = (amount: number, sizeId: number | null) =>
+    localDisplay(amount, sizeId, withSizes) ?? partText(amount, food.counted_as);
+
   interface Choice {
     key: string;
     label: string;
@@ -69,8 +73,8 @@
         add(words(usual.amount / 4, usual.id), usual.amount / 4, usual.id);
       } else {
         add(item.display ?? words(need, item.size_id), need, item.size_id);
-        add(words(need / 2, item.size_id), need / 2, item.size_id);
-        add(words(need / 4, item.size_id), need / 4, item.size_id);
+        add(partWords(need / 2, item.size_id), need / 2, item.size_id);
+        add(partWords(need / 4, item.size_id), need / 4, item.size_id);
       }
     } else if (usual) {
       add(words(usual.amount, usual.id), usual.amount, usual.id);

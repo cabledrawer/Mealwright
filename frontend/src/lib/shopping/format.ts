@@ -13,6 +13,15 @@ export function baseText(amount: number, countedAs: ShopFood['counted_as']): str
   return trim(amount);
 }
 
+/** A part of an amount in words, to two significant figures with "about" when that changed it
+ * (F183: a quarter of 250 g is "about 63 g", never "62.5 g"). Counts keep their own wording. */
+export function partText(amount: number, countedAs: ShopFood['counted_as']): string {
+  if (countedAs === 'count') return baseText(amount, countedAs);
+  const rounded = Number(amount.toPrecision(2));
+  const text = baseText(rounded, countedAs);
+  return rounded === amount ? text : `about${NBSP}${text}`;
+}
+
 /** "2 × 200 g". */
 export function packText(count: number, pack: number, countedAs: ShopFood['counted_as']): string {
   return `${count}${NBSP}×${NBSP}${baseText(pack, countedAs)}`;

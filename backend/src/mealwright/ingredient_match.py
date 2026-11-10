@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.amounts import DEFAULT_CUP_ML, MAX_AMOUNT, MILLI, CountedAs, unit_size
+from mealwright.conversions import table as conversion_table
 from mealwright.household import cup_ml
 from mealwright.household import places as household_places
 from mealwright.ingredient_reader import (
@@ -251,6 +252,17 @@ def _short(text: str) -> str:
     return (text[:MAX_NAME_CHARS].rsplit(" ", 1)[0] or text[:MAX_NAME_CHARS]).rstrip()
 
 
+def _kind_by_table(name: str, counted_as: CountedAs) -> CountedAs:
+    """A spoon or cup of something the bundled table counts by weight and knows the weight of
+    (sugar, salt, flour, cumin) is counted by weight, so a pack's weight and the need are in the
+    same unit (F183, cabledrawer 8 Nov: "spoon and cup amounts become a weight first"). Milk, oil and
+    anything the table counts by volume, or does not know, stay as read."""
+    row = conversion_table().match(name) or conversion_table().close(name)
+    if row is not None and row.counted_as == "weight" and row.mg_per_ml:
+        return "weight"
+    return counted_as
+
+
 def first_guess(kitchen: KnownIngredients, read: ReadLine, staple: bool = False) -> NewIngredient:
     """Name: the line without amount, unit and prep words, with a capital ("finely chopped
     red onions" → "Red onions"). Counted as: weight for g and kg, volume for ml, l, tsp,
@@ -264,6 +276,8 @@ def first_guess(kitchen: KnownIngredients, read: ReadLine, staple: bool = False)
         counted_as = "count"
     else:
         counted_as = "weight"
+    if counted_as == "volume":
+        counted_as = _kind_by_table(name, counted_as)
     short = _short(
         _capital(name)
     )  # never the whole of a hostile line (names.normalise is slow on it)
