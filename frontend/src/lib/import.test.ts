@@ -119,6 +119,33 @@ describe('the import flow', () => {
     expect(flow.minutes).toBe('50');
   });
 
+  it('sends both ways of cooking it when the page had two (M2)', async () => {
+    const two: ImportReview = {
+      ...REVIEW,
+      steps: [{ kind: 'step', text: 'Fry the onion.' }],
+      method_name: 'Stovetop',
+      second_method: {
+        name: 'Instant Pot',
+        steps: [{ kind: 'step', text: 'Pressure cook.', wait: null }]
+      }
+    };
+    fakeApi({ 'POST /recipes/import': [200, two] });
+    const flow = new ImportFlow();
+    flow.text = 'https://kitchen.example/dal';
+    await flow.read();
+    const body = flow.body()!;
+    expect(body.method_name).toBe('Stovetop');
+    expect(body.second_method?.name).toBe('Instant Pot');
+    expect(body.second_method?.steps.map((s) => s.text)).toEqual(['Pressure cook.']);
+    expect(body.steps.map((s) => s.text)).toEqual(['Fry the onion.']);
+    // A page with one way sends nothing of methods.
+    fakeApi({ 'POST /recipes/import': [200, REVIEW] });
+    const one = new ImportFlow();
+    one.text = 'https://kitchen.example/dal';
+    await one.read();
+    expect(one.body()).not.toHaveProperty('second_method');
+  });
+
   it('does nothing for an empty box', async () => {
     const requests = fakeApi({});
     const flow = new ImportFlow();

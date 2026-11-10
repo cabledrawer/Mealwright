@@ -527,3 +527,60 @@ def test_an_optional_line_belongs_to_its_method_and_removing_a_meal_and_undo_kee
         if i["recipe"] and i["recipe"]["id"] == recipe["id"]
     )
     assert (back["method_id"], back["optional_skipped"]) == (other, [stock_line])
+
+
+# --- The importer ---------------------------------------------------------------------------------
+
+from test_recipe_import import review as import_review  # noqa: E402
+from test_recipe_import import save as save_import  # noqa: E402
+from test_recipe_import import to_save  # noqa: E402
+
+TWO_WAYS = (
+    "Meth import curry\nIngredients\n500 g chicken\n1 onion\nMethod\nStovetop:\n"
+    "1. Fry the onion until golden.\n2. Add the chicken and simmer for 25 minutes.\n\n"
+    "Instant Pot:\n1. Brown the chicken on Sauté.\n2. Pressure cook for 10 minutes.\n"
+)
+
+
+def test_a_page_with_stovetop_and_instant_pot_sections_keeps_both_as_methods(
+    kitchen: TestClient,
+) -> None:
+    shown = import_review(kitchen, TWO_WAYS)
+    assert shown["method_name"] == "Stovetop"
+    assert [s["text"] for s in shown["steps"]] == [
+        "Fry the onion until golden.",
+        "Add the chicken and simmer for 25 minutes.",
+    ]
+    assert shown["second_method"]["name"] == "Instant Pot"
+    assert [s["text"] for s in shown["second_method"]["steps"]] == [
+        "Brown the chicken on Sauté.",
+        "Pressure cook for 10 minutes.",
+    ]
+    body = to_save(shown)
+    body["method_name"] = shown["method_name"]
+    body["second_method"] = shown["second_method"]
+    saved = ok(save_import(kitchen, body), 201)
+    recipe = ok(kitchen.get(f"{API}/recipes/{saved['recipe']['id']}"))
+    assert [(m["name"]) for m in recipe["methods"]] == ["Stovetop", "Instant Pot"]
+    # Both start with the page's ingredients and its one time.
+    assert [ln["words"] for ln in recipe["lines"]] == [
+        ln["words"] for ln in recipe["second_method"]["lines"]
+    ]
+    assert len(recipe["lines"]) == 2
+    assert recipe["methods"][0]["time_minutes"] == recipe["methods"][1]["time_minutes"]
+    assert [s["text"] for s in recipe["second_method"]["steps"]] == [
+        "Brown the chicken on Sauté.",
+        "Pressure cook for 10 minutes.",
+    ]
+
+
+def test_a_method_that_has_other_headings_or_non_method_names_stays_one_method(
+    kitchen: TestClient,
+) -> None:
+    for method in (
+        "Method\nFor the sauce:\n1. Mix.\nTo serve:\n1. Eat.\n",  # headings that are not ways
+        "Method\nStovetop:\n1. Fry.\nInstant Pot:\n1. Press.\nTo serve:\n1. Eat.\n",  # three headings
+        "Method\n1. Fry.\nStovetop:\n1. Fry.\nOven:\n1. Bake.\n",  # steps before the first heading
+    ):
+        shown = import_review(kitchen, f"Meth one way\nIngredients\n1 onion\n{method}")
+        assert shown["second_method"] is None and shown["method_name"] is None

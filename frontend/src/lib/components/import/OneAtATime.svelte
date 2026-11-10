@@ -363,6 +363,12 @@
         </div>
       {/if}
 
+      {#if nth === 1 && flow.review?.second_method}
+        {#await import('./ImportMethods.svelte') then { default: ImportMethods }}
+          <ImportMethods review={flow.review} />
+        {/await}
+      {/if}
+
       {#if previewing && pieces}
         <div class="preview" role="group" aria-label="Preview of the split">
           <span class="preview-title">Preview: this step as {pieces.length} steps</span>

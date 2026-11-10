@@ -89,6 +89,9 @@ export interface ImportReview {
   photo: ReviewPhoto;
   lines: ReviewLine[];
   steps: ReviewStep[];
+  /** Two ways of cooking it found in the method (M2): the first's name and the second. */
+  method_name?: string | null;
+  second_method?: { name: string; steps: ReviewStep[] } | null;
   counts: { matched: number; to_confirm: number; needs_you: number; staple: number };
   lines_cut: boolean;
   steps_cut: boolean;
@@ -126,6 +129,8 @@ export interface SaveBody {
   nutrition: Nutrition;
   lines: SaveLine[];
   steps: SaveStep[];
+  method_name?: string | null;
+  second_method?: { name: string; steps: SaveStep[] } | null;
   source_url: string | null;
   source_author: string | null;
   photo_id: number | null;

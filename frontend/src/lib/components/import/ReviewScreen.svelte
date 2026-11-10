@@ -508,6 +508,11 @@
           >
         </p>
       {/if}
+      {#if review.second_method}
+        {#await import('./ImportMethods.svelte') then { default: ImportMethods }}
+          <ImportMethods {review} />
+        {/await}
+      {/if}
       {#if review.steps_cut}
         <p class="note">The page had more than 100 steps. The first 100 are here.</p>
       {/if}

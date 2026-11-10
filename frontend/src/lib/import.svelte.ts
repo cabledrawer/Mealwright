@@ -724,6 +724,21 @@ export class ImportFlow {
         optional: s.optional,
         wait: s.wait
       })),
+      // Two ways of cooking it found on the page (M2): both start with these ingredients.
+      ...(review.second_method
+        ? {
+            method_name: review.method_name ?? null,
+            second_method: {
+              name: review.second_method.name,
+              steps: review.second_method.steps.map((s) => ({
+                kind: s.kind,
+                text: s.text,
+                optional: s.optional,
+                wait: s.wait
+              }))
+            }
+          }
+        : {}),
       source_url: review.source.url,
       source_author: review.author,
       photo_id: review.photo.photo?.id ?? null,

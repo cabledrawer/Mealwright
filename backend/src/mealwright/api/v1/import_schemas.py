@@ -155,6 +155,15 @@ class ReviewStep(BaseModel):
     wait_confirmed: bool = False
 
 
+class ReviewSecondMethod(BaseModel):
+    """The page's second way of cooking it (M2): "Stovetop" and "Instant Pot" sections of the
+    method. The review's own `steps` are the first way's; the ingredients are shared (both ways
+    start with a copy of them, and the person can change them in the editor)."""
+
+    name: str
+    steps: list[ReviewStep]
+
+
 class ImportReview(BaseModel):
     """Everything the review screen shows. Nothing is saved yet (except a waiting photo)."""
 
@@ -173,6 +182,9 @@ class ImportReview(BaseModel):
     photo: ReviewPhoto
     lines: list[ReviewLine]
     steps: list[ReviewStep]
+    # Two ways of cooking it found in the method (M2): the first's name, and the second.
+    method_name: str | None = None
+    second_method: ReviewSecondMethod | None = None
     counts: ReviewCounts
     lines_cut: bool  # the page had more than 200 ingredient lines: the first 200 are here
     steps_cut: bool  # the page had more than 100 steps: the first 100 are here
@@ -239,6 +251,11 @@ class ImportLineIn(BaseModel):
     optional: bool = False  # R3: the review's Optional switch
 
 
+class ImportSecondMethod(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=60)]
+    steps: list[RecipeStepIn] = Field(default_factory=list, max_length=MAX_STEPS)
+
+
 class ImportSave(BaseModel):
     """The reviewed recipe, saved whole. The server checks all of it again, as for any recipe."""
 
@@ -253,6 +270,10 @@ class ImportSave(BaseModel):
     nutrition: NutritionIn = Field(default_factory=NutritionIn)
     lines: list[ImportLineIn] = Field(default_factory=list, max_length=MAX_LINES)
     steps: list[RecipeStepIn] = Field(default_factory=list, max_length=MAX_STEPS)
+    # Two ways of cooking it (M2): the first one's name, and the second. Both start with the
+    # ingredient lines above; the time is the page's single time for both.
+    method_name: Annotated[str, Field(max_length=60)] | None = None
+    second_method: ImportSecondMethod | None = None
     # Where it came from: the web address (a link import only) and the page's author.
     source_url: Annotated[str, Field(max_length=2000)] | None = None
     source_author: Annotated[str, Field(max_length=200)] | None = None

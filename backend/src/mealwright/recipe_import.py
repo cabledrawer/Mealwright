@@ -14,6 +14,7 @@ share them. Log lines name only the connection and the kind of problem, never an
 """
 
 import logging
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -38,6 +39,7 @@ from mealwright.api.v1.import_schemas import (
     ReviewMakes,
     ReviewPhoto,
     ReviewPints,
+    ReviewSecondMethod,
     ReviewSource,
     ReviewStep,
 )
@@ -478,6 +480,11 @@ def _review(
                 counts[line.label] += 1
             lines.append(line)
     steps, shortened = _steps_of(found.steps)
+    method_name: str | None = None
+    second_method: ReviewSecondMethod | None = None
+    if (two := split_methods(steps)) is not None:
+        method_name, second_name, steps, second_steps = two
+        second_method = ReviewSecondMethod(name=second_name, steps=second_steps)
     # Pints: the banner only shows when a line says pints (F15).
     if us_site and not any_pints:
         us_site = False
@@ -503,6 +510,8 @@ def _review(
         photo=photo,
         lines=lines,
         steps=steps,
+        method_name=method_name,
+        second_method=second_method,
         counts=ReviewCounts(**counts),
         lines_cut=found.lines_cut,
         steps_cut=found.steps_cut,
@@ -510,6 +519,46 @@ def _review(
         left_out=found.left_out,
         pints=ReviewPints(household=household, us_site=us_site, reading=reading),
     )
+
+
+_METHOD_WORDS = re.compile(
+    r"\b(?:stove ?top|stove|hob|instant pot|pressure cooker|slow cooker|crock ?pot|oven|air fryer|"
+    r"microwave|rice cooker|skillet|grill|barbecue|bbq|method \d|option \d|version \d)\b",
+    re.IGNORECASE,
+)
+_METHOD_FLUFF = re.compile(
+    r"^(?:method\s*:?\s*|(?:cooked\s+)?(?:on|in|using|with)\s+(?:the|an?)\s+)|"
+    r"\s*(?:method|version|instructions|directions|recipe)\s*$",
+    re.IGNORECASE,
+)
+
+
+def _method_name(heading: str) -> str:
+    name = _METHOD_FLUFF.sub("", heading.strip().rstrip(":").strip()).strip()
+    name = _METHOD_FLUFF.sub("", name).strip() or heading.strip()
+    return name[:1].upper() + name[1:]
+
+
+def split_methods(
+    steps: list[ReviewStep],
+) -> tuple[str, str, list[ReviewStep], list[ReviewStep]] | None:
+    """Two ways of cooking it in the method (M2): exactly two headings, the first at the very
+    start, both named like a way of cooking ("Stovetop", "Instant Pot", "Method 1"), each with
+    steps under it. Returns both names and the steps of each (headings taken out); anything else
+    stays as it always was, one method with its headings."""
+    heads = [i for i, step in enumerate(steps) if step.kind == "heading"]
+    if len(heads) != 2 or heads[0] != 0:
+        return None
+    first, second = steps[heads[0]], steps[heads[1]]
+    if not all(len(h.text) <= 40 and _METHOD_WORDS.search(h.text) for h in (first, second)):
+        return None
+    one, two = steps[1 : heads[1]], steps[heads[1] + 1 :]
+    if not one or not two:
+        return None
+    a, b = _method_name(first.text), _method_name(second.text)
+    if not a or not b or a.casefold() == b.casefold():
+        return None
+    return a, b, one, two
 
 
 def _steps_of(found: list[tuple[str, bool]]) -> tuple[list[ReviewStep], int]:
@@ -880,6 +929,20 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
                     "nutrition": body.nutrition.model_dump(),
                     "lines": recipe_lines,
                     "steps": [step.model_dump() for step in body.steps],
+                    **(
+                        {
+                            "method_name": body.method_name,
+                            "second_method": {
+                                "name": body.second_method.name,
+                                "time_minutes": body.time_minutes,
+                                # Both ways start with the same ingredients (M2).
+                                "lines": recipe_lines,
+                                "steps": [s.model_dump() for s in body.second_method.steps],
+                            },
+                        }
+                        if body.second_method is not None
+                        else {}
+                    ),
                     **({"photo_id": body.photo_id} if body.photo_id is not None else {}),
                 }
             )
