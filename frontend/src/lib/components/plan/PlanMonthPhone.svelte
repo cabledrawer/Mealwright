@@ -8,6 +8,7 @@
   import PlanDays from './PlanDays.svelte';
   import type { PlanShow } from '#lib/planShow.js';
   import type { CookEntry } from '#lib/planCook.js';
+  import type { StartEntry } from '#lib/startWords.js';
 
   let {
     actions,
@@ -15,6 +16,7 @@
     selected,
     onselect,
     onstart,
+    onstartahead,
     oncook
   }: {
     actions: PlanActions;
@@ -23,6 +25,7 @@
     onselect: (day: string) => void;
     /** Start cooking: Cook mode for this recipe in this meal. */
     onstart: (entry: CookEntry) => void;
+    onstartahead: (entry: StartEntry) => void;
     /** "You cook today →": show Cook. */
     oncook: () => void;
   } = $props();
@@ -82,7 +85,7 @@
       <!-- Loaded when first asked for, so the Plan's first load stays small (size limit). -->
       {#if show === 'cook' || (show === 'both' && cooksOnSelected)}
         {#await import('./PlanCook.svelte') then { default: Cook }}
-          <Cook {actions} days={[selected]} {onstart} summary={false} />
+          <Cook {actions} days={[selected]} {onstart} {onstartahead} summary={false} />
         {/await}
       {/if}
       {#if show === 'eat'}

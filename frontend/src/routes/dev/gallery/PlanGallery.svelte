@@ -146,6 +146,7 @@
       selected={picked}
       onselect={(day) => (picked = day)}
       onstart={() => {}}
+      onstartahead={() => {}}
       oncook={() => {}}
     />
   </div>

@@ -31,6 +31,7 @@
   import { network } from '#lib/network.svelte.js';
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
   import type { CookEntry } from '#lib/planCook.js';
+  import type { StartEntry } from '#lib/startWords.js';
   import { dayFull, dayWords, monthWords, weekWords } from '#lib/planDates.js';
   import { drag, type Carried } from '#lib/planDrag.svelte.js';
   import { afterCook, itemName, mealName, nextFreeMeals } from '#lib/planMeals.js';
@@ -114,6 +115,18 @@
     if (left) return; // the Plan was left while the code was fetched: don't pull the person to Cook
     cookNow.open(entry.recipeId, entry.meal.id, entry.item.id);
     const to = resolve('/(app)/recipes/[id]/cook', { id: String(entry.recipeId) });
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
+    await goto(`${to}?meal=${entry.meal.id}&day=${entry.meal.date}`);
+  }
+
+  /** Start it in Cook mode, for a long wait to start ahead (M3): Cook mode for that meal's recipe. */
+  async function startAhead(entry: StartEntry) {
+    const recipe = entry.item.recipe;
+    if (!recipe) return;
+    const { cookNow } = await import('#lib/cookNow.svelte.js');
+    if (left) return;
+    cookNow.open(recipe.id, entry.meal.id, entry.item.id);
+    const to = resolve('/(app)/recipes/[id]/cook', { id: String(recipe.id) });
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
     await goto(`${to}?meal=${entry.meal.id}&day=${entry.meal.date}`);
   }
@@ -506,7 +519,7 @@
         {#if show === 'cook'}
           <!-- Loaded when first asked for, so the Plan's first load stays small (size limit). -->
           {#await import('#lib/components/plan/PlanCook.svelte') then { default: Cook }}
-            <Cook {actions} days={dayList} onstart={startCooking} />
+            <Cook {actions} days={dayList} onstart={startCooking} onstartahead={startAhead} />
           {/await}
         {:else if show === 'eat'}
           {#await import('#lib/components/plan/PlanEat.svelte') then { default: Eat }}
@@ -524,6 +537,7 @@
           selected={picked}
           onselect={(day) => (picked = day)}
           onstart={startCooking}
+          onstartahead={startAhead}
           oncook={() => setShow('cook')}
         />
       {:else}

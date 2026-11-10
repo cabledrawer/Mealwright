@@ -7,6 +7,7 @@ import type { RecipeStock } from './client/recipes';
 import type { MealSlot, Plan, PlanBatch, PlanItem, PlanMeal } from './client/plan';
 import { dayShort } from './planDates';
 import { cookBatchOfItem, itemName } from './planMeals';
+import { startsOn, type StartEntry } from './startWords';
 
 export interface CookEntry {
   key: string;
@@ -40,6 +41,8 @@ export interface CookEntry {
 export interface CookDay {
   day: string;
   entries: CookEntry[];
+  /** Long waits to start on this day for a meal still to come (M3): "Start tonight at 21:00". */
+  starts: StartEntry[];
   /** Time at the stove for what is known; null when no recipe has a time. */
   minutes: number | null;
 }
@@ -104,12 +107,14 @@ export function cookDays(
         });
       }
     }
-    if (!entries.length) continue;
+    const starts = startsOn(plan, day);
+    if (!entries.length && !starts.length) continue;
     // Time at the stove is for what is still to cook (F164).
     const times = entries.flatMap((e) => (e.minutes === null || e.cooked ? [] : [e.minutes]));
     out.push({
       day,
       entries,
+      starts,
       minutes: times.length ? times.reduce((a, b) => a + b, 0) : null
     });
   }
@@ -129,6 +134,7 @@ export function stillToBuy(stock: RecipeStock): string[] {
 /** The day's header: "2 things to cook · 45 min", or "All cooked" when none is left (F164). */
 export function cookDayTotal(day: CookDay, timeWords: (minutes: number) => string): string {
   const left = day.entries.filter((e) => !e.cooked).length;
+  if (day.entries.length === 0) return ''; // only something to start (M3)
   if (left === 0) return 'All cooked';
   const things = left === 1 ? '1 thing to cook' : `${left} things to cook`;
   return day.minutes === null ? things : `${things} · ${timeWords(day.minutes)}`;

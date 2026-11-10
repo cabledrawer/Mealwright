@@ -12,6 +12,7 @@
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayWords } from '#lib/planDates.js';
   import { timeWords } from '#lib/timeWords.js';
+  import { forMeal, startWords, stepTitle, type StartEntry } from '#lib/startWords.js';
   import { untrack } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
 
@@ -19,6 +20,7 @@
     actions,
     days,
     onstart,
+    onstartahead,
     summary = true
   }: {
     actions: PlanActions;
@@ -27,6 +29,8 @@
     summary?: boolean;
     /** Start cooking: Cook mode for this recipe in this meal. */
     onstart: (entry: CookEntry) => void;
+    /** Start it in Cook mode, for a long wait that is to be started on this day (M3). */
+    onstartahead: (entry: StartEntry) => void;
   } = $props();
 
   const model = $derived(actions.model);
@@ -66,6 +70,9 @@
     });
   });
 
+  /** "Soak the rice" → "soak the rice", to follow "Start tonight at 21:00:". */
+  const lowerFirst = (text: string) => text.charAt(0).toLocaleLowerCase() + text.slice(1);
+
   const buyLine = (entry: CookEntry) => {
     const names = toBuy[stockKey(entry)];
     return names?.length ? `Still to buy: ${names.join(', ')}` : null;
@@ -96,6 +103,31 @@
           <h3>{today ? `Today · ${dayWords(cook.day)}` : dayWords(cook.day)}</h3>
           <span class="total">{cookDayTotal(cook, timeWords)}</span>
         </div>
+        {#each cook.starts as start (start.key)}
+          <div class="entry begin" data-testid="cook-start">
+            <p class="line">
+              <b>{startWords(start.time)}:</b>
+              {lowerFirst(stepTitle(start.ahead.step_text))} (for {forMeal(
+                start.meal.date,
+                model.slotName(start.meal.slot_id)
+              )})
+            </p>
+            <div class="chips">
+              <button
+                type="button"
+                class="chip spare"
+                disabled={actions.readonly || !start.item.recipe}
+                onclick={() => onstartahead(start)}>Start it in Cook mode</button
+              >
+              <button
+                type="button"
+                class="chip spare"
+                disabled={actions.readonly}
+                onclick={() => void model.markStarted(start.item)}>Done already</button
+              >
+            </div>
+          </div>
+        {/each}
         {#each cook.entries as entry (entry.key)}
           <div class="entry" class:batch={entry.batch !== null}>
             <div class="top">

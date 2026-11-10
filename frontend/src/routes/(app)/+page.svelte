@@ -20,6 +20,7 @@
   import MealRecipes from '#lib/components/today/MealRecipes.svelte';
   import { cookTarget, isCookable } from '#lib/cookTargets.js';
   import { dateWords, whenWords as packetWhen } from '#lib/dates.js';
+  import { startsByNow } from '#lib/startWords.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
@@ -156,6 +157,9 @@
     data ? `${data.tubs_left.length}${data.tubs_left_more ? '+' : ''}` : '0'
   );
 
+  /** M3: recipes whose long wait is to be started today (or should have been), not begun yet. */
+  const starts = $derived(data ? startsByNow(data.plan, today) : []);
+
   /** F150: the seven days from today, one row each. */
   const week = $derived(data ? weekRows(data.plan, data.slots, today) : []);
 
@@ -223,6 +227,20 @@
         onmove={() => (moving = model.asking)}
       />
     {/if}
+
+    <!-- Start tonight (M3): a recipe with a long wait whose start is today; loaded when there is one. -->
+    {#each starts as entry (entry.key)}
+      {#await import('#lib/components/today/StartTonight.svelte') then { default: StartTonight }}
+        <StartTonight
+          {entry}
+          plan={data.plan}
+          {today}
+          slotName={model.slotName(entry.meal.slot_id)}
+          disabled={model.readonly}
+          onchanged={() => void model.load()}
+        />
+      {/await}
+    {/each}
 
     {#each shop.cards as question (question.id)}
       <DoubleTickCard model={shop} {question} />
