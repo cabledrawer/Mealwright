@@ -67,7 +67,7 @@ describe('the time and the waits on Check (M1 fix 1)', () => {
 
 describe('the second way of cooking it (M2)', () => {
   it('No wait on its step has an Undo that puts the wait back', async () => {
-    const { flow, steps } = flowWith('25', 745);
+    const { flow } = flowWith('25', 745);
     const second: ReviewStep = {
       kind: 'step',
       text: 'Soak.',
