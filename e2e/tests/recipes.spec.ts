@@ -555,12 +555,15 @@ test('the tag chips are one row that scrolls sideways, never wraps, and the page
     // The row that is on screen: in the three panes the list is the middle pane.
     const shown = group.first();
     await expect(shown, where).toBeVisible();
+    await expect(shown.getByRole('button').nth(16), where).toBeVisible(); // the list has come back
     const tops = await shown
       .getByRole('button')
       .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
     expect(new Set(tops).size, `one row at ${where}`).toBe(1);
-    const sizes = await shown.evaluate((el) => ({ scroll: el.scrollWidth, shown: el.clientWidth }));
-    expect(sizes.scroll, `it scrolls inside itself at ${where}`).toBeGreaterThan(sizes.shown);
+    // It scrolls inside itself (the layout has settled once it has a width).
+    await expect
+      .poll(() => shown.evaluate((el) => el.clientWidth > 0 && el.scrollWidth > el.clientWidth), { message: `it scrolls inside itself at ${where}` })
+      .toBe(true);
     await expectNoSidewaysScroll(page);
     // The keyboard reaches the last chip and the row scrolls it into view.
     const last = shown.getByRole('button').last();
