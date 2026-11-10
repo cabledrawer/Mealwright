@@ -165,6 +165,10 @@ def test_a_wait_is_checked(kitchen: TestClient) -> None:
         ("Prove for 1 day.", "prove", 1440, 1440, False),
         ("Cook it for 20 minutes, then rest for 1 hour.", "rest", 60, 60, False),
         ("Marinate from 1 hour to overnight.", "marinate", 60, 720, True),
+        # M1 fix 2: overnight anywhere in the clause is the long end; 1 hour 30 minutes is 90.
+        ("Marinate overnight, or for at least 4 hours.", "marinate", 240, 720, True),
+        ("Soak the lentils for 1 hour 30 minutes.", "soak", 90, 90, False),
+        ("Soak for 1 h and 30 min.", "soak", 90, 90, False),
     ],
 )
 def test_the_reader_suggests_a_wait_from_the_words(
@@ -183,6 +187,12 @@ def test_the_reader_suggests_a_wait_from_the_words(
         "Fry 2 onions and soak the rice.",  # no length
         "Bring 2 litres of water to the boil, then soak the noodles for 10 minutes.",
         "Serve overnight oats cold.",  # overnight with no wait word before it
+        # M1 fix 2: the length must be in the wait word's own clause.
+        "Add the rest of the stock and simmer for 2 hours.",
+        "Soak the beans, then drain and cook for 2 hours.",
+        "Chill the dough, then bake at 180C for 45 minutes.",
+        "Soak the beans and simmer for 2 hours.",
+        "Chill the dough, bake for 1 hour.",
     ],
 )
 def test_the_reader_leaves_other_steps_alone(text: str) -> None:

@@ -264,6 +264,21 @@ describe('opening a saved recipe', () => {
     expect(again.steps[1]!.wait).toBeNull();
   });
 
+  it("won't build while a step's Waits boxes are not right, so the old wait is never saved (M1)", () => {
+    const wait = { kind: 'ferment', min_minutes: 480, max_minutes: 720, overnight: false };
+    const draft = RecipeDraft.from(
+      recipe({ steps: [{ id: 1, kind: 'step', text: 'Ferment the batter.', wait }] })
+    );
+    draft.steps[0]!.waitInvalid = true;
+    const step = draft.steps[0]!;
+    expect(Object.keys(draft.build().errors)).toEqual([`wait:${step.key}`]);
+    step.waitInvalid = false;
+    expect(draft.build().errors).toEqual({});
+    step.waitInvalid = true;
+    step.wait = null; // "Take off the wait" puts it right
+    expect(draft.build().errors).toEqual({});
+  });
+
   it('opened from "Work it out again", Save says the figures were looked at (R3)', () => {
     const draft = RecipeDraft.from(recipe());
     expect(draft.build().body.nutrition_checked).toBeUndefined();

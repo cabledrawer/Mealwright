@@ -72,6 +72,22 @@ _KIND_WORDS = (
 _KIND = re.compile(
     "|".join(f"(?P<{kind}>\\b(?:{words})\\b)" for kind, words in _KIND_WORDS), re.IGNORECASE
 )
+# "the rest of the stock", "add the rest": not resting.
+_NOT_A_WAIT = re.compile(r"\bthe\s+rest\b|\brest\s+of\b", re.IGNORECASE)
+# Where a wait word's own clause ends: ", then", "and then", or a new instruction after a comma or
+# "and" ("Soak the beans, then drain and cook for 2 hours": the 2 hours belong to the cooking).
+_DOING = (
+    "add|bake|blend|boil|bring|brush|combine|cook|cover|cut|drain|fold|fry|garnish|grill|heat|"
+    "knead|mix|place|pour|preheat|press|put|reduce|remove|rinse|roast|roll|season|serve|shape|"
+    "simmer|slice|stir|transfer|turn|whisk"
+)
+_CLAUSE_END = re.compile(
+    rf"(?:,\s*|\s+)(?:and\s+)?then\b|(?:,|\s+and)\s+(?:{_DOING})\b", re.IGNORECASE
+)
+# "1 hour 30 minutes", "1 h and 30 min": one length.
+_HOURS_MINUTES = re.compile(
+    r"(\d{1,3})\s*(?:h(?:ou)?rs?|h)\s*(?:and\s*)?(\d{1,2})\s*(?:mins?|minutes?)\b", re.IGNORECASE
+)
 _NUMBER = r"\d{1,4}(?:\.\d{1,2})?"
 _UNIT = r"(?:h(?:ou)?rs?|hours?|h|mins?|minutes?|days?)\b"
 _DURATION = re.compile(
@@ -97,19 +113,24 @@ def read_wait(text: str) -> Wait | None:
     for sentence in _SENTENCE.split(text):
         for found in _KIND.finditer(sentence):
             kind = found.lastgroup or "rest"
-            wait = _length(kind, sentence[found.end() :])
+            if kind == "rest" and _NOT_A_WAIT.search(sentence, max(found.start() - 4, 0)):
+                continue
+            after = sentence[found.end() :]
+            end = _CLAUSE_END.search(after)
+            wait = _length(kind, after[: end.start()] if end else after)
             if wait is not None:
                 return wait
     return None
 
 
 def _length(kind: str, after: str) -> Wait | None:
+    after = _HOURS_MINUTES.sub(lambda m: f"{int(m[1]) * 60 + int(m[2])} minutes", after)
     for found in _DURATION.finditer(after):
         first_unit = found.group("au") or found.group("bu")
         if first_unit is None:
             continue  # "2 onions": a number with no time
         low = _minutes(found.group("a"), first_unit)
-        if found.group("on"):
+        if found.group("on") or _OVERNIGHT.search(after):
             return _make(kind, low, OVERNIGHT_MINUTES, True)
         high = _minutes(found.group("b"), found.group("bu")) if found.group("b") else low
         # "1 hour or 2": the second number has no unit of its own and is not matched; fine.
