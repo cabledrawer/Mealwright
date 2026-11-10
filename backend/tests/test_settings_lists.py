@@ -502,7 +502,7 @@ def test_recent_changes_lists_every_kind_newest_first_and_pages(kitchen: TestCli
     ok(kitchen.delete(f"{API}/shops/{aldi['id']}"))
     everything = ok(kitchen.get(f"{API}/changes"))["changes"]
     kinds = [c["kind"] for c in everything]
-    assert kinds[0] == "shop_removed" and kinds[1] == "plan_slot"
+    assert kinds[:3] == ["shop_removed", "shop_added", "plan_slot"]
     assert "added" in kinds and any(k.startswith("plan_") for k in kinds)
     assert [c["id"] for c in everything] == sorted((c["id"] for c in everything), reverse=True)
     # Paging: the next page starts below the first page's last change.
@@ -513,3 +513,58 @@ def test_recent_changes_lists_every_kind_newest_first_and_pages(kitchen: TestCli
     # The old filters still work.
     pantry = ok(kitchen.get(f"{API}/changes", params={"area": "pantry"}))["changes"]
     assert [c["kind"] for c in pantry] == ["added"]
+
+
+def test_adding_a_shop_is_in_recent_changes_and_undo_takes_it_away(kitchen: TestClient) -> None:
+    # Fails without F225: adding a shop recorded nothing, so there was no change to undo.
+    aldi = ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
+    listed = ok(kitchen.get(f"{API}/changes"))["changes"]
+    assert listed[0]["summary"] == "Added the shop Aldi" and listed[0]["can_undo"] is True
+    assert listed[0]["kind"] == "shop_added"
+    undone = ok(kitchen.post(f"{API}/changes/{listed[0]['id']}/undo"))
+    assert undone["result"] == "done"
+    assert names(shops(kitchen)) == []
+    assert aldi["id"]
+
+
+def test_adding_a_shop_that_is_already_there_records_nothing(kitchen: TestClient) -> None:
+    ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
+    ok(kitchen.post(f"{API}/shops", json={"name": "aldi"}), 200)
+    summaries = [c["summary"] for c in ok(kitchen.get(f"{API}/changes"))["changes"]]
+    assert summaries == ["Added the shop Aldi"]
+
+
+def test_a_shop_in_use_cannot_have_its_adding_undone(kitchen: TestClient) -> None:
+    aldi = ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
+    change = ok(kitchen.get(f"{API}/changes"))["changes"][0]
+    food(kitchen, "Milk", shop_id=aldi["id"])
+    refused = kitchen.post(f"{API}/changes/{change['id']}/undo")
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert names(shops(kitchen)) == ["Aldi"]
+
+
+def test_renaming_a_shop_is_in_recent_changes_and_undo_puts_the_old_name_back(
+    kitchen: TestClient,
+) -> None:
+    # Fails without F225: a rename recorded nothing.
+    aldi = ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
+    ok(kitchen.patch(f"{API}/shops/{aldi['id']}", json={"name": "Lidl"}))
+    top = ok(kitchen.get(f"{API}/changes"))["changes"][0]
+    assert top["summary"] == "Renamed the shop Aldi to Lidl" and top["can_undo"] is True
+    assert ok(kitchen.post(f"{API}/changes/{top['id']}/undo"))["result"] == "done"
+    assert names(shops(kitchen)) == ["Aldi"]
+
+
+def test_a_rename_to_the_same_name_records_nothing_and_a_stale_rename_cannot_be_undone(
+    kitchen: TestClient,
+) -> None:
+    aldi = ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
+    ok(kitchen.patch(f"{API}/shops/{aldi['id']}", json={"name": "Aldi"}))
+    ok(kitchen.patch(f"{API}/shops/{aldi['id']}", json={"name": "Lidl"}))
+    first = ok(kitchen.get(f"{API}/changes"))["changes"][0]
+    ok(kitchen.patch(f"{API}/shops/{aldi['id']}", json={"name": "Spar"}))
+    refused = kitchen.post(f"{API}/changes/{first['id']}/undo")
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert names(shops(kitchen)) == ["Spar"]
+    summaries = [c["summary"] for c in ok(kitchen.get(f"{API}/changes"))["changes"]]
+    assert summaries.count("Renamed the shop Aldi to Lidl") == 1

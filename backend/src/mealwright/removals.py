@@ -28,8 +28,9 @@ from mealwright.models import (
     StockLot,
     Tub,
 )
+from mealwright.names import fold
 
-KINDS = ("shop_removed", "place_removed")
+KINDS = ("shop_removed", "place_removed", "shop_added", "shop_renamed")
 # Ids per statement, well under SQLite's limit of 32,766 values.
 CHUNK = 500
 
@@ -210,9 +211,51 @@ def _point(db: DbSession, model: Any, column: str, ids: list[Any], to: int | Non
 # --- Undo -------------------------------------------------------------------------------------
 
 
+def _cannot_undo(detail: str) -> Problem:
+    return Problem(status.HTTP_409_CONFLICT, "cannot_undo", detail)
+
+
+def _undo_shop_edit(kitchen: Kitchen, change: Change) -> None:
+    """Undo of "Added the shop X" (takes it away again, while nothing uses it) or of "Renamed
+    the shop X to Y" (puts the old name back, while it is still called Y and no other shop
+    has the old name). Anything else is refused and nothing is changed (F225)."""
+    db = kitchen.db
+    data = (change.undo_data or {}).get("shop") or {}
+    shop = db.get(Shop, data.get("id"))
+    if shop is None or shop.household_id != kitchen.household_id:
+        raise _cannot_undo("That can’t be undone: the shop is gone.")  # proposed, for cabledrawer
+    if change.kind == "shop_added":
+        in_use = db.scalar(
+            select(Food.id).where(
+                Food.household_id == kitchen.household_id, Food.shop_id == shop.id
+            )
+        ) or db.scalar(
+            select(ListItem.id).where(
+                ListItem.household_id == kitchen.household_id,
+                ListItem.shop_id == shop.id,
+                ListItem.deleted_at.is_(None),
+            )
+        )
+        if in_use is not None:
+            raise _cannot_undo("That can’t be undone: the shop is in use now.")  # proposed
+        db.delete(shop)
+        db.flush()
+        return
+    if fold(shop.name) != fold(data["new"]):
+        raise _cannot_undo("That can’t be undone: the shop has been renamed again.")  # proposed
+    for other in db.scalars(select(Shop).where(Shop.household_id == kitchen.household_id)):
+        if other.id != shop.id and fold(other.name) == fold(data["old"]):
+            raise _cannot_undo(f"That can’t be undone: there’s already a shop called {other.name}.")
+    shop.name = data["old"]
+    db.flush()
+
+
 def restore(kitchen: Kitchen, change: Change, batch: shopping.Batch) -> None:
     """Make the removed shop or place again, with its old id, before the rest of the Undo
     (ingredients, shopping lines) is put back. Refused when a newer one has taken its id."""
+    if change.kind in ("shop_added", "shop_renamed"):
+        _undo_shop_edit(kitchen, change)
+        return
     data = (change.undo_data or {}).get("removed")
     if data is None:
         return

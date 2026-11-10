@@ -13,7 +13,7 @@ from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import change_out, find
-from mealwright.history import FoodEdit, commit, replayed
+from mealwright.history import FoodEdit, commit, record, replayed
 from mealwright.household import cup_ml, places, today, valid_time_zone
 from mealwright.models import Food, FoodConversion, Place, Shop
 from mealwright.names import clean_name, fold
@@ -218,6 +218,11 @@ class NewShop(BaseModel):
 def add_shop(body: NewShop, kitchen: Here, response: Response) -> Ref:
     """ "+ Shop": add a shop by name. A name that's already there gives that shop (200).
     Under the household's lock, so two phones at once can't add one name twice."""
+    earlier = replayed(kitchen)
+    if earlier is not None:
+        added = (earlier.undo_data or {}).get("shop") or {}
+        response.headers["Idempotent-Replayed"] = "true"
+        return Ref(id=added.get("id", 0), name=added.get("new", ""))
     lock_db(kitchen.db, kitchen.household)
     existing = list(
         kitchen.db.scalars(select(Shop).where(Shop.household_id == kitchen.household_id))
@@ -232,7 +237,20 @@ def add_shop(body: NewShop, kitchen: Here, response: Response) -> Ref:
         position=max((s.position for s in existing), default=-1) + 1,
     )
     kitchen.db.add(shop)
-    kitchen.db.commit()
+    kitchen.db.flush()
+    # In Recent changes, with an Undo (F225, cabledrawer 10 Nov).
+    record(
+        kitchen,
+        "shop_added",
+        f"Added the shop {shop.name}",
+        None,
+        {"shop": {"id": shop.id, "new": shop.name}},
+    )
+    earlier = commit(kitchen)
+    if earlier is not None:
+        added = (earlier.undo_data or {}).get("shop") or {}
+        response.headers["Idempotent-Replayed"] = "true"
+        return Ref(id=added.get("id", 0), name=added.get("new", ""))
     return Ref(id=shop.id, name=shop.name)
 
 
@@ -256,9 +274,14 @@ def _find_shop(kitchen: Kitchen, shop_id: int) -> Shop:
 
 
 @router.patch("/shops/{shop_id}")
-def rename_shop(shop_id: StoredInt, body: RenameShop, kitchen: Here) -> Ref:
+def rename_shop(shop_id: StoredInt, body: RenameShop, kitchen: Here, response: Response) -> Ref:
     """Rename a shop. A name another shop has (ignoring case) is a 409 `shop_exists` that
     carries that shop. Anyone in the household can."""
+    earlier = replayed(kitchen)
+    if earlier is not None:
+        renamed = (earlier.undo_data or {}).get("shop") or {}
+        response.headers["Idempotent-Replayed"] = "true"
+        return Ref(id=renamed.get("id", shop_id), name=renamed.get("new", body.name))
     lock_db(kitchen.db, kitchen.household)
     shop = _find_shop(kitchen, shop_id)
     for other in kitchen.db.scalars(select(Shop).where(Shop.household_id == kitchen.household_id)):
@@ -269,8 +292,20 @@ def rename_shop(shop_id: StoredInt, body: RenameShop, kitchen: Here) -> Ref:
                 f"There’s already a shop called {other.name}.",
                 shop={"id": other.id, "name": other.name},
             )
+    old = shop.name
+    if old == body.name:
+        return Ref(id=shop.id, name=shop.name)  # nothing changed: nothing to list
     shop.name = body.name
-    kitchen.db.commit()
+    record(
+        kitchen,
+        "shop_renamed",
+        f"Renamed the shop {old} to {shop.name}",
+        None,
+        {"shop": {"id": shop.id, "old": old, "new": shop.name}},
+    )
+    earlier = commit(kitchen)
+    if earlier is not None:
+        response.headers["Idempotent-Replayed"] = "true"
     return Ref(id=shop.id, name=shop.name)
 
 

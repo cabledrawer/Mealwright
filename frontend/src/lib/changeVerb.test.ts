@@ -12,6 +12,8 @@ describe('the kinds in Settings → Recent changes (F172)', () => {
       'plan_add',
       'plan_slot',
       'shop_removed',
+      'shop_added',
+      'shop_renamed',
       'place_removed'
     ]) {
       expect(startsWithVerb({ kind, summary: 'Cooked Sambar' })).toBe(true);

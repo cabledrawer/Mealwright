@@ -29,6 +29,8 @@ const VERB_KINDS = new Set([
   'recipe_removed',
   'draft_removed',
   'shop_removed',
+  'shop_added',
+  'shop_renamed',
   'place_removed'
 ]);
 
