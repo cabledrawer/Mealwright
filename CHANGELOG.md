@@ -4,11 +4,15 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
-### Two cooking methods, backend (0.8 wave 5, M2; unfinished: screens still to build)
+### Two cooking methods (0.8 wave 5, M2, F107; cabledrawer 31 Oct and 9 Nov)
 
-- Database change 3 of 4 (`f1a6d3c8e502`): a recipe has one method or two (`recipe_method`: name, time, last used). Every existing recipe gets one method holding its lines, steps and time. Planned meals store their method (`meal_item.method_id`).
-- API (additive): `second_method` and `method_name` on save (left out: the second method stays), `methods` and `second_method` on read, `method_count` on the list, `method_id` on `POST /plan/items`, `PUT /plan/items/{id}/method`, `method` on the recipe stock read. Two methods at most.
-- The shopping list, Can cook now, Cooked it (and its record and Undo) follow the meal's method; a recipe inside another uses its first method.
+- A recipe can have two methods, each with its own ingredients, steps and time. Database change 3 of 4 (`f1a6d3c8e502`): every existing recipe gets one method holding its time, lines and steps; planned meals store their method. Two at most.
+- **Recipe page:** a switch changes the ingredients, steps, time and the pantry marks together. **Editor:** + Add a second way of cooking it, a switch between the two, a name for each, Remove. A tab reload doesn't bring back the boxes of a two-method recipe (it would not know which way they were for).
+- **Planning:** adding a recipe with two ways asks which (the one used last is pre-picked); it can be changed from the meal's menu with Undo. The shopping list, Can cook now and Cooked it (with its record and Undo) follow the meal's way. The recipe list's Can cook now follows the way used last, else the first.
+- **Cook mode** asks "How are you cooking it today?", follows the pick (steps, timers, time) and sets the meal to it, and can be switched on the first step. A quiet **NEXT** line shows the next step, with its wait.
+- **Importer:** a page whose method has exactly two sections named like ways of cooking ("Stovetop", "Instant Pot", "Method 1") keeps both as methods; both start with the page's ingredients and its one time. Check says so and shows the second way's steps (read only).
+- API (additive): `second_method` and `method_name` on save (left out: the second method stays; null takes it out), `methods` and `second_method` on read, `method_count` on the list, `method_id` on `POST /plan/items`, `PUT /plan/items/{id}/method`, `method` on the recipe stock read; a recipe inside another uses its first method.
+- **How to see it:** add a second way in the editor of any recipe; plan the recipe and pick a way; open Cook mode and watch the question, the steps and NEXT.
 
 
 ### Added
