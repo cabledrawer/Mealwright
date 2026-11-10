@@ -491,3 +491,66 @@ def test_each_part_left_out_is_counted_on_its_own() -> None:
         ("Notes", 2),
         ("Storage", 1),
     ]
+
+
+# --- F171: "Serves 4" and "Takes 30 minutes" ---------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("line", "serves", "minutes"),
+    [
+        ("Serves 4", 4, None),
+        ("Serves: 4", 4, None),
+        ("Serves 4-6", 6, None),
+        ("Servings: 4", 4, None),
+        ("Serves 4 people", 4, None),
+        ("Takes 30 minutes", None, 30),
+        ("Takes 30 mins", None, 30),
+        ("Takes 1 hour 15 minutes", None, 75),
+        ("Takes 1½ hours", None, 90),
+        ("Total time: 45 minutes", None, 45),
+        ("Time: 20 min", None, 20),
+        ("Ready in 1h 10m", None, 70),
+    ],
+)
+def test_f171_serves_and_time_lines_are_read_and_are_not_ingredients_or_steps(
+    line: str, serves: int | None, minutes: int | None
+) -> None:
+    for text in (
+        f"Dal\n{line}\nIngredients\n1 cup toor dal\n2 onions\nMethod\nCook the dal.\n",
+        f"Dal\nIngredients\n1 cup toor dal\n{line}\n2 onions\nMethod\nCook the dal.\n",
+        f"Dal\n{line}\n1 cup toor dal\n2 onions\nCook the dal.\n",
+    ):
+        recipe = read_pasted(text)
+        assert (recipe.serves, recipe.time_minutes) == (serves, minutes), text
+        assert recipe.name == "Dal"
+        assert recipe.ingredients == ("1 cup toor dal", "2 onions"), text
+        assert recipe.steps == ("Cook the dal.",), text
+
+
+def test_f171_both_lines_together_and_prep_plus_cook_when_there_is_no_total() -> None:
+    both = read_pasted(
+        "Dal\nServes 4\nTakes 30 minutes\nIngredients\n1 cup toor dal\nMethod\nCook."
+    )
+    assert (both.serves, both.time_minutes) == (4, 30)
+    parts = read_pasted("Dal\nPrep time: 10 minutes\nCook time: 25 minutes\n1 cup toor dal\nCook.")
+    assert parts.time_minutes == 35
+    total = read_pasted("Dal\nPrep time: 10 minutes\nTotal time: 40 minutes\n1 cup toor dal\nCook.")
+    assert total.time_minutes == 40
+
+
+def test_f171_sentences_in_the_method_are_not_read_as_facts() -> None:
+    recipe = read_pasted(
+        "Dal\nIngredients\n1 cup toor dal\nMethod\nServes 4 with rice.\nCook for 30 minutes.\n"
+        "This takes 30 minutes to cook.\n"
+    )
+    assert (recipe.serves, recipe.time_minutes) == (None, None)
+    assert len(recipe.steps) == 3
+
+
+def test_f171_one_line_with_serves_and_a_lone_prep_time() -> None:
+    # DAL's "Serves 4. Prep 10 min.": serves is read; a prep time alone is no total time.
+    recipe = read_pasted(DAL)
+    assert (recipe.serves, recipe.time_minutes) == (4, None)
+    assert recipe.name == "Easy Toor Dal" and len(recipe.ingredients) == 5
+    assert read_pasted("Dal\n1 cup toor dal\nCook.").serves is None

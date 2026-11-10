@@ -211,6 +211,18 @@ def test_f110_several_links_one_after_another_each_into_a_draft_and_a_failure_in
     assert ok(links_on.get(f"{API}/recipes/drafts"))["count"] == 2
 
 
+def test_f171_pasted_serves_and_takes_fill_serves_and_minutes(
+    kitchen: TestClient, web: Web
+) -> None:
+    shown = review(
+        kitchen, "Dal\nServes 4\nTakes 30 minutes\nIngredients\n1 cup toor dal\n2 onions"
+    )
+    assert (shown["serves"], shown["time_minutes"]) == (4, 30)
+    assert [line["written"] for line in shown["lines"]] == ["1 cup toor dal", "2 onions"]
+    plain = review(kitchen, "Dal\nIngredients\n1 cup toor dal\n2 onions")
+    assert (plain["serves"], plain["time_minutes"]) == (None, None)
+
+
 def test_f15_f85_the_banner_is_only_for_a_recipe_with_pints(links_on: TestClient, web: Web) -> None:
     """F15 and F85: an Indian recipe in cups, with no pints, on a site that looks American
     shows no banner; the same site with pints does."""

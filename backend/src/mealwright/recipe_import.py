@@ -430,6 +430,8 @@ def _from_text(kitchen: Kitchen, text: str) -> ImportReview:
         raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "no_recipe", NO_RECIPE_IN_TEXT)
     found = _Found(
         name=pasted.name,
+        serves=pasted.serves,
+        time_minutes=pasted.time_minutes,
         lines=[(line, False) for line in pasted.ingredients],
         steps=[(step, False) for step in pasted.steps],
         lines_cut=pasted.lines_cut > 0,

@@ -62,6 +62,70 @@ class PastedRecipe:
     lines_cut: int
     steps_cut: int
     left_out: tuple[LeftOut, ...] = ()
+    serves: int | None = None
+    time_minutes: int | None = None
+
+
+# --- Serves and time (F171) --------------------------------------------------------------------
+
+_NUM = r"(?:\d+\s*[½¼¾]|\d+(?:\.\d+)?|[½¼¾])"
+_SERVES_FACT = re.compile(
+    r"(?:serves|servings?|serving size)\s*:?\s*(?P<a>\d{1,3})"
+    r"(?:\s*(?:-|\u2013|to)\s*(?P<b>\d{1,3}))?"
+    r"(?:\s*(?:people|persons?|portions?|servings?))?",
+    re.IGNORECASE,
+)
+_TIME_FACT = re.compile(
+    r"(?P<kind>takes|total time|total|time|ready in|prep(?:aration)?(?: time)?|"
+    r"cook(?:ing)?(?: time)?)\s*:?\s*(?:about\s+|around\s+|approx\.?\s+)?"
+    rf"(?:(?P<h>{_NUM})\s*(?:h|hr|hrs|hours?))?\s*(?:(?P<m>\d+)\s*(?:m|min|mins|minutes?))?",
+    re.IGNORECASE,
+)
+_FACT_SEPARATORS = re.compile(r"\s*(?:[.·|;•,]|\s-\s)\s*")
+
+
+def _hours(text: str) -> float:
+    total = 0.0
+    for part in re.findall(r"\d+(?:\.\d+)?|[½¼¾]", text):
+        total += {"½": 0.5, "¼": 0.25, "¾": 0.75}.get(part) or float(part)
+    return total
+
+
+def _fact_line(line: str) -> tuple[int | None, dict[str, int]] | None:
+    """A line made only of "Serves 4" / "Takes 30 minutes" facts (several may share a line,
+    "Serves 4. Prep 10 min."): (serves, minutes by kind), else None. A sentence that merely
+    mentions them ("Serves 4 with rice.", "Cook for 30 minutes.") is not a fact line."""
+    text = line.strip().lstrip(BULLETS).strip(_DECORATION)
+    if not text or len(text) > 80:
+        return None
+    serves: int | None = None
+    minutes: dict[str, int] = {}
+    for part in (p.strip() for p in _FACT_SEPARATORS.split(text)):
+        if not part:
+            continue
+        found = _SERVES_FACT.fullmatch(part)
+        if found:
+            serves = int(found["b"] or found["a"])
+            continue
+        found = _TIME_FACT.fullmatch(part)
+        if not found or not (found["h"] or found["m"]):
+            return None
+        word = found["kind"].lower()
+        kind = "prep" if word.startswith("prep") else "cook" if word.startswith("cook") else "total"
+        minutes[kind] = round(_hours(found["h"] or "") * 60) + int(found["m"] or 0)
+    if serves is None and not minutes:
+        return None
+    return serves, minutes
+
+
+def _total_minutes(minutes: dict[str, int]) -> int | None:
+    """A total beats the parts; prep and cook together add up; a lone cook time stands in for
+    the total; a lone prep time is not one."""
+    if "total" in minutes:
+        return minutes["total"] or None
+    if "prep" in minutes and "cook" in minutes:
+        return minutes["prep"] + minutes["cook"]
+    return minutes.get("cook") or None
 
 
 # --- Headings ---------------------------------------------------------------------------------
@@ -235,6 +299,19 @@ def read_pasted(text: str) -> PastedRecipe:
     if len(text) > MAX_PASTED_CHARS:
         raise PastedTooLong
     lines = [line.strip() for line in without_hidden(text).split("\n")]
+    # "Serves 4" and "Takes 30 minutes" lines are read, then left out of the lines (F171).
+    serves: int | None = None
+    minutes: dict[str, int] = {}
+    kept: list[str] = []
+    for line in lines:
+        fact = _fact_line(line)
+        if fact is None:
+            kept.append(line)
+            continue
+        serves = fact[0] if serves is None else serves
+        for which, amount in fact[1].items():
+            minutes.setdefault(which, amount)
+    lines = kept
 
     sections: dict[str, list[str]] = {"start": [], "ingredients": [], "method": []}
     left_headings: list[str] = []  # each part left out, and how many lines it had
@@ -294,6 +371,8 @@ def read_pasted(text: str) -> PastedRecipe:
         steps=tuple(step_lines[:MAX_STEPS]),
         lines_cut=max(0, len(ingredient_lines) - MAX_LINES),
         steps_cut=max(0, len(step_lines) - MAX_STEPS),
+        serves=serves,
+        time_minutes=_total_minutes(minutes),
         left_out=tuple(
             LeftOut(heading, count)
             for heading, count in zip(left_headings, left_lines, strict=True)
