@@ -783,3 +783,24 @@ test('F185: the pick-list opens from the box and stays clear of the sidebar, at 
   expect(popup.x).toBeGreaterThanOrEqual(input.x - 1);
   expect(popup.x + popup.width).toBeLessThanOrEqual(page.viewportSize()!.width);
 });
+
+test('a Waits box that is not a length stops Save and says so; the old wait is never saved quietly (M1)', async ({ page }) => {
+  await page.goto('/recipes');
+  const name = unique('Waity');
+  const made = await post(page, '/recipes', {
+    name,
+    steps: [{ text: 'Marinate the paneer.', wait: { kind: 'marinate', min_minutes: 120 } }],
+  });
+  await page.goto(`/recipes/${made.id}/edit`);
+  const length = page.getByLabel('Length', { exact: false }).first();
+  await expect(length).toHaveValue('2');
+  await length.fill('lots');
+  await save(page).click();
+  await expect(page.getByText('Type how long it waits, such as 4 hours.')).toBeVisible();
+  await expect(page).toHaveURL(/\/edit$/);
+  expect((await getRecipe(page, made.id)).version).toBe(1); // nothing was saved
+  await length.fill('3');
+  await save(page).click();
+  await expect(page).toHaveURL(new RegExp(`/recipes/${made.id}$`));
+  expect((await getRecipe(page, made.id)).steps[0].wait.min_minutes).toBe(180);
+});
