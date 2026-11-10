@@ -415,10 +415,10 @@ def add_item(
         optional_skipped=skipped,
         method_id=method.id if method else None,
     )
-    methods.touch(method, utcnow())
+    used = methods.touch_with_undo(method, utcnow())
     kitchen.db.add(item)
     kitchen.db.flush()
-    steps.append({"op": "add_item", "item": item.id})
+    steps.append({"op": "add_item", "item": item.id, **used})
     name = recipe.name if recipe else food.name if food else note or "an ingredient"
     return _finish(
         kitchen,
@@ -578,16 +578,22 @@ def set_method(kitchen: Kitchen, item: MealItem, method_id: int) -> Change | Non
     if item.method_id == method.id:
         return None
     before = {"method": item.method_id, "skipped": item.optional_skipped}
+    reset = bool(item.optional_skipped)
     item.method_id = method.id
     item.optional_skipped = None
-    methods.touch(method, utcnow())
+    used = methods.touch_with_undo(method, utcnow())
     kitchen.db.flush()
     where = _where(kitchen, meal.day, meal.slot_id)
+    # The Optional picks belonged to the other way: the toast says they start again (proposed,
+    # for cabledrawer).
+    summary = f"Changed how {_item_name(kitchen, item)} on {where} is cooked to {method.name}"
+    if reset:
+        summary += ". Its optional ingredients start again"
     return _finish(
         kitchen,
         "plan_method",
-        f"Changed how {_item_name(kitchen, item)} on {where} is cooked to {method.name}",
-        [{"op": "method", "item": item.id, "from": before, "to": method.id}],
+        summary,
+        [{"op": "method", "item": item.id, "from": before, "to": method.id, **used}],
         meal_id=meal.id,
         item_id=item.id,
     )
@@ -1071,6 +1077,8 @@ def _undo_step(
         touched.add(item.meal_id)
         db.delete(item)
         db.flush()
+        if "method_used" in step:
+            methods.put_back(db, step)  # the way is "used last" as it was before (M2)
         return True
     if op == "new_meal":
         meal = _open(kitchen, remap.get(step["meal"], step["meal"]))
@@ -1213,6 +1221,8 @@ def _undo_step(
         item.method_id = was["method"] if db.get(RecipeMethod, was["method"] or 0) else None
         item.optional_skipped = was["skipped"]
         db.flush()
+        if "method_used" in step:
+            methods.put_back(db, step)
         return True
     if op == "eaters":
         meal = _open(kitchen, remap.get(step["meal"], step["meal"]))

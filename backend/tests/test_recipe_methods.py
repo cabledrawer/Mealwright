@@ -406,6 +406,58 @@ def test_the_method_can_be_changed_from_the_meal_and_undone(
     assert r.status_code == 422, r.text
 
 
+def used_last(kitchen: TestClient, recipe: dict[str, Any]) -> str:
+    ways = ok(kitchen.get(f"{API}/recipes/{recipe['id']}"))["methods"]
+    return str(next(m["name"] for m in ways if m["used_last"]))
+
+
+def test_undo_of_a_planned_meal_puts_the_way_used_last_back(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    recipe = curry(kitchen, pantry)
+    first, other = recipe["methods"][0]["id"], recipe["methods"][1]["id"]
+    plan_with(kitchen, recipe, 1, method_id=first)
+    assert used_last(kitchen, recipe) == "Stovetop"
+    added = plan_with(kitchen, recipe, 2, method_id=other)
+    assert used_last(kitchen, recipe) == "Instant Pot"
+    assert undo(kitchen, added)
+    assert used_last(kitchen, recipe) == "Stovetop"  # as it was before the Instant Pot meal
+    # Planned again, and a later use stays: the Undo of the first leaves the Instant Pot alone.
+    again = plan_with(kitchen, recipe, 3, method_id=first)
+    plan_with(kitchen, recipe, 4, method_id=other)
+    assert undo(kitchen, again)
+    assert used_last(kitchen, recipe) == "Instant Pot"
+
+
+def test_undo_of_a_changed_way_puts_the_way_used_last_back_and_the_toast_says_the_picks_start_again(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    recipe = curry(
+        kitchen,
+        pantry,
+        lines=[
+            {**line(pantry["Meth chicken"]["id"], 500, "g"), "words": "chicken"},
+            {**line(pantry["Meth water"]["id"], 200, "g"), "words": "water", "optional": True},
+        ],
+    )
+    water_line = recipe["lines"][1]["id"]
+    first, other = recipe["methods"][0]["id"], recipe["methods"][1]["id"]
+    item_id = plan_with(kitchen, recipe, 1, method_id=first, optional_use=[])["item_id"]
+    assert meal_item(kitchen, item_id)["optional_skipped"] == [water_line]
+    changed = ok(kitchen.put(f"{API}/plan/items/{item_id}/method", json={"method_id": other}))
+    assert changed["change"]["summary"].endswith(
+        "cooked to Instant Pot. Its optional ingredients start again"
+    )
+    assert used_last(kitchen, recipe) == "Instant Pot"
+    assert undo(kitchen, changed)
+    assert used_last(kitchen, recipe) == "Stovetop"
+    assert meal_item(kitchen, item_id)["optional_skipped"] == [water_line]
+    # With nothing skipped there was nothing to start again: the words stay as they were.
+    plain_id = plan_with(kitchen, recipe, 2, method_id=first)["item_id"]
+    plain = ok(kitchen.put(f"{API}/plan/items/{plain_id}/method", json={"method_id": other}))
+    assert plain["change"]["summary"].endswith("cooked to Instant Pot")
+
+
 def test_can_cook_now_follows_the_method_used_last_and_the_page_can_ask_for_either(
     kitchen: TestClient, pantry: dict[str, dict[str, Any]]
 ) -> None:

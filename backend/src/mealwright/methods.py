@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from sqlalchemy import Select, select
@@ -87,6 +87,32 @@ def touch(method: RecipeMethod | None, now: datetime) -> None:
     """Remember the method was planned or cooked: it is pre-picked next time."""
     if method is not None:
         method.last_used_at = now
+
+
+def touch_with_undo(method: RecipeMethod | None, now: datetime) -> dict[str, Any]:
+    """`touch`, and what an undo needs to put it back: the step's fields (empty when there is no
+    method). The old value is kept as text, in the change's own record (M2 round 1)."""
+    if method is None:
+        return {}
+    was = method.last_used_at
+    touch(method, now)
+    return {
+        "method_used": method.id,
+        "used_was": was.replace(tzinfo=None).isoformat() if was else None,
+        "used_set": now.replace(tzinfo=None).isoformat(),
+    }
+
+
+def put_back(db: DbSession, step: dict[str, Any]) -> None:
+    """Undo of `touch_with_undo`: the method was last used when it was before, unless it has been
+    planned or cooked since (then that later use stays). Steps made before this have no fields."""
+    method = db.get(RecipeMethod, step.get("method_used") or 0)
+    if method is None or method.last_used_at is None:
+        return
+    if method.last_used_at.replace(tzinfo=None).isoformat() != step["used_set"]:
+        return
+    was = step["used_was"]
+    method.last_used_at = datetime.fromisoformat(was).replace(tzinfo=UTC) if was else None
 
 
 @dataclass
