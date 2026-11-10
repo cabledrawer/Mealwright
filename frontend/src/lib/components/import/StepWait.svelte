@@ -89,8 +89,8 @@
     gap: 5px;
     padding: 3px var(--space-5);
     border-radius: var(--radius-full);
-    background: var(--color-chip);
-    color: var(--color-text);
+    background: var(--color-wait-chip);
+    color: var(--color-wait-text);
     font-size: var(--text-sm);
     font-weight: var(--weight-extrabold);
     white-space: nowrap;
@@ -118,8 +118,8 @@
 
   .yes {
     border: none;
-    background: var(--color-accent-soft);
-    color: var(--color-accent-on-soft);
+    background: var(--color-wait-yes);
+    color: var(--color-wait-yes-text);
     font-weight: var(--weight-bold);
   }
 

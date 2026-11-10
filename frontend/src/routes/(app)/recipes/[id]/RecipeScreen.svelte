@@ -768,6 +768,10 @@
     white-space: normal;
   }
 
+  .waits {
+    color: var(--color-wait-text);
+  }
+
   /* A step that waits (M1): "Marinate · 4 h – overnight", under the step's words. */
   .wait-chip {
     display: flex;
@@ -777,8 +781,8 @@
     margin-top: var(--space-3);
     padding: 3px var(--space-5);
     border-radius: var(--radius-full);
-    background: var(--color-chip);
-    color: var(--color-text);
+    background: var(--color-wait-chip);
+    color: var(--color-wait-text);
     font: var(--weight-extrabold) var(--text-sm) var(--font-ui);
     white-space: normal;
   }
