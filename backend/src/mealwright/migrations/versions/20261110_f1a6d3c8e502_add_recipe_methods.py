@@ -92,11 +92,15 @@ def upgrade() -> None:
         "INSERT INTO recipe_method (household_id, recipe_id, position, name, time_minutes)"
         " SELECT household_id, id, 0, '', time_minutes FROM recipe ORDER BY id"
     )
-    for table in ("recipe_line", "recipe_step"):
-        op.execute(
-            f"UPDATE {table} SET method_id = (SELECT m.id FROM recipe_method m"  # noqa: S608
-            f" WHERE m.recipe_id = {table}.recipe_id AND m.position = 0)"
-        )
+    # Written out for each table: no SQL is built from strings (Bandit B608).
+    op.execute(
+        "UPDATE recipe_line SET method_id = (SELECT m.id FROM recipe_method m"
+        " WHERE m.recipe_id = recipe_line.recipe_id AND m.position = 0)"
+    )
+    op.execute(
+        "UPDATE recipe_step SET method_id = (SELECT m.id FROM recipe_method m"
+        " WHERE m.recipe_id = recipe_step.recipe_id AND m.position = 0)"
+    )
 
 
 def downgrade() -> None:
@@ -107,11 +111,14 @@ def downgrade() -> None:
         " OR line_id IN (SELECT l.id FROM recipe_line l"
         " JOIN recipe_method m ON m.id = l.method_id WHERE m.position = 1)"
     )
-    for table in ("recipe_step", "recipe_line"):
-        op.execute(
-            f"DELETE FROM {table} WHERE method_id IN"  # noqa: S608
-            " (SELECT id FROM recipe_method WHERE position = 1)"
-        )
+    op.execute(
+        "DELETE FROM recipe_step WHERE method_id IN"
+        " (SELECT id FROM recipe_method WHERE position = 1)"
+    )
+    op.execute(
+        "DELETE FROM recipe_line WHERE method_id IN"
+        " (SELECT id FROM recipe_method WHERE position = 1)"
+    )
     with op.batch_alter_table("meal_item", schema=None, table_kwargs=_KEEP) as batch_op:
         batch_op.drop_index(batch_op.f("ix_meal_item_method_id"))
         batch_op.drop_constraint(batch_op.f("fk_meal_item_method_id_recipe_method"), "foreignkey")
