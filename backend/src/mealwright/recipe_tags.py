@@ -44,16 +44,17 @@ def recipes_with(kitchen: Kitchen, tag_id: int) -> list[int]:
     )
 
 
-def _exists(name: str, other: Tag) -> Problem:
+def _exists(name: str, other: Tag, undoing: bool = False) -> Problem:
+    then = "Rename or merge it first." if undoing else "Use Merge into… to join them."
     return Problem(
         status.HTTP_409_CONFLICT,
         "tag_exists",
-        f"There’s already a tag called {other.name}. Use Merge into… to join them.",
+        f"There’s already a tag called {other.name}. {then}",
         tag={"id": other.id, "name": other.name},
     )
 
 
-def absorb_orphans(kitchen: Kitchen, keep: Tag, name: str) -> None:
+def absorb_orphans(kitchen: Kitchen, keep: Tag, name: str, undoing: bool = False) -> None:
     """Another tag with this name (ignoring case and accents). If a recipe shown has it, it is a
     409 `tag_exists` that carries that tag: refused. If none has (the list and the sheet hide
     it, so the person can't see or pick it), it is folded into `keep` without a word: its links
@@ -63,7 +64,7 @@ def absorb_orphans(kitchen: Kitchen, keep: Tag, name: str) -> None:
         if other.id == keep.id or fold(other.name) != fold(name):
             continue
         if count_of(kitchen, other.id) > 0:
-            raise _exists(name, other)
+            raise _exists(name, other, undoing)
         have = set(recipes_with(kitchen, keep.id))
         for recipe_id in recipes_with(kitchen, other.id):
             if recipe_id not in have:
@@ -131,7 +132,9 @@ def undo_merge(kitchen: Kitchen, change: Change) -> Change:
     restored = Tag(id=source["id"], household_id=kitchen.household_id, name=source["name"])
     db.add(restored)
     db.flush()
-    absorb_orphans(kitchen, restored, source["name"])  # a hidden tag with the old name folds in
+    absorb_orphans(
+        kitchen, restored, source["name"], undoing=True
+    )  # a hidden tag with the old name folds in
     alive = set(
         db.scalars(
             select(Recipe.id).where(

@@ -131,6 +131,10 @@ def test_undo_is_refused_while_a_tag_with_the_old_name_exists(
     make(kitchen, "New", ["South-Indian"])
     refused = kitchen.post(f"{API}/changes/{merged['change']['id']}/undo")
     assert refused.status_code == 409 and refused.json()["code"] == "tag_exists"
+    # The Undo's own words (words.md), not the rename's "Use Merge into…".
+    assert refused.json()["detail"] == (
+        "There’s already a tag called South-Indian. Rename or merge it first."
+    )
 
 
 def test_merge_into_itself_or_an_unknown_tag_is_refused(
@@ -238,3 +242,4 @@ def test_a_clash_with_a_tag_a_shown_recipe_has_is_still_refused(kitchen: TestCli
     ids = tag_ids(kitchen)
     refused = kitchen.patch(f"{API}/recipes/tags/{ids['Quick']}", json={"name": "fast"})
     assert refused.status_code == 409 and refused.json()["code"] == "tag_exists"
+    assert refused.json()["detail"].endswith("Use Merge into… to join them.")
