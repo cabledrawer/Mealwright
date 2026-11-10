@@ -3,7 +3,7 @@
   // (Fri 21:00 · ready by 08:00), Another time…, and "Add to plan" (or "Save", when the meal's
   // time is being changed). Shown over everything by the app layout, fetched when first asked
   // (size limit); startAsk.svelte.ts holds the question. A bottom sheet on a phone, a dialog on
-  // a computer. Words are in docs/dev/words.md section 56: the mockup's are agreed, the rest is
+  // a computer. Words are in docs/dev/words.md section 58: the mockup's are agreed, the rest is
   // proposed, for cabledrawer.
   import { startAsk } from '#lib/startAsk.svelte.js';
   import { hasToWords, startOptionWords, waitRange } from '#lib/startWords.js';

@@ -4,7 +4,7 @@
   // begun) shows here with what to start, for which meal, and two buttons: Start it in Cook mode,
   // and Done already (the wait is marked begun at this moment; Undo is in the toast). In the app
   // only: nothing is sent and nothing sounds. Loaded when there is one to show (size limit).
-  // Words: docs/dev/words.md section 56 (the mockup's are agreed, the rest proposed, for cabledrawer).
+  // Words: docs/dev/words.md section 58 (the mockup's are agreed, the rest proposed, for cabledrawer).
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { markStarted } from '#lib/startNow.js';

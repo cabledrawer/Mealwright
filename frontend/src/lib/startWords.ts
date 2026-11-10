@@ -1,7 +1,7 @@
 // The plan works backwards (0.8 wave 5, M3, F124; cabledrawer 31 Oct and 9 Nov): the words of "When
 // will you start it?", "Start tonight at 21:00", "Done yesterday 21:40" and "Fermented 10 h 20 min
 // · needed 8–12 h", and which meals of a plan need starting when. Pure, so it is tested on its own
-// (startWords.test.ts). The words are in docs/dev/words.md section 56; the mockups'
+// (startWords.test.ts). The words are in docs/dev/words.md section 58; the mockups'
 // (Dark-PlanStart08, Dark-TodayTonight08, Dark-CookDay2-08) are agreed, the rest is proposed, for
 // cabledrawer. Every time here is the household's own wall clock, as the server says it.
 

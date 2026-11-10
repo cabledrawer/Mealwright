@@ -2,7 +2,7 @@
 // long wait was begun, Cook mode starts at the step after it, with the steps up to it folded
 // ("1–3 · Soak, grind and leave the batter · Done yesterday 21:40") and how long it has waited
 // against how long it needs ("Fermented 10 h 20 min · needed 8–12 h"). Pure, so it is tested on
-// its own (cookAhead.test.ts). Words: docs/dev/words.md section 56.
+// its own (cookAhead.test.ts). Words: docs/dev/words.md section 58.
 
 import type { PlanAhead } from './client/plan';
 import type { CookStep } from './cookSteps';
