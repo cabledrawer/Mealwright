@@ -23,7 +23,7 @@ from fastapi import status
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from mealwright import drafts, page_budget, page_fetch, photos, pints
+from mealwright import drafts, page_budget, page_fetch, photos, pints, step_waits
 from mealwright.amounts import MAX_AMOUNT
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.import_schemas import (
@@ -49,6 +49,7 @@ from mealwright.api.v1.recipe_schemas import (
     NutritionIn,
     RecipeIn,
     SizeRef,
+    StepWaitIn,
     amount_text,
 )
 from mealwright.api.v1.schemas import Ref
@@ -485,7 +486,15 @@ def _review(
         name=cut_text(clean_recipe_name(found.name), 200).rstrip(),
         description=found.description,
         author=cut_text(found.author, 200).rstrip() if found.author else None,
-        time_minutes=found.time_minutes,
+        # The page's time without the waits it counts (M1: "745 min" is 25 min and a night).
+        time_minutes=step_waits.active_time(
+            found.time_minutes,
+            (
+                step_waits.Wait(w.kind, w.min_minutes, w.max_minutes or w.min_minutes, w.overnight)
+                for w in (step.wait for step in steps)
+                if w is not None
+            ),
+        ),
         serves=found.serves,
         makes=_makes(found.makes),
         tags=tidy_tags(list(found.tags)),
@@ -536,8 +545,21 @@ def _steps_of(found: list[tuple[str, bool]]) -> tuple[list[ReviewStep], int]:
         else:
             text, optional = optional_step(text)
         if text:
+            wait = None if heading else step_waits.read_wait(text)
             steps.append(
-                ReviewStep(kind="step" if not heading else "heading", text=text, optional=optional)
+                ReviewStep(
+                    kind="step" if not heading else "heading",
+                    text=text,
+                    optional=optional,
+                    wait=None
+                    if wait is None
+                    else StepWaitIn(
+                        kind=wait.kind,  # type: ignore[arg-type]
+                        min_minutes=wait.min_minutes,
+                        max_minutes=wait.max_minutes,
+                        overnight=wait.overnight,
+                    ),
+                )
             )
     return steps, shortened
 

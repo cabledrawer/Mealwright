@@ -17,6 +17,7 @@ from mealwright.api.v1.recipe_schemas import (
     PhotoOut,
     RecipeStepIn,
     SizeRef,
+    StepWaitIn,
 )
 from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.errors import StoredInt
@@ -146,6 +147,10 @@ class ReviewStep(BaseModel):
     # The step says it is optional ("(optional)", "Optional: …"): the word is taken out of the
     # text and the step is Optional instead (R3). The person can switch it on or off.
     optional: bool = False
+    # A wait the reader suggests from the words ("marinate for 4 hours or overnight"), M1. It is
+    # only a suggestion: Check asks "Yes, it waits", "Change" or "No wait", and Save sends back
+    # what was kept (`ImportSave.steps[].wait`).
+    wait: StepWaitIn | None = None
 
 
 class ImportReview(BaseModel):
