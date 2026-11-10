@@ -1,6 +1,8 @@
 <script lang="ts" generics="T extends string">
-  // A row of round filter buttons, one chosen at a time (mockup Recipes-Phone: All · Can cook
-  // now · the household's tags). They wrap onto more lines rather than scroll sideways.
+  // A row of round filter buttons, one chosen at a time (mockup Dark-RecipesTags08-Phone: All ·
+  // Can cook now · the household's tags). One row that scrolls sideways inside itself and never
+  // wraps (cabledrawer 9 Nov); every chip is a button, so the keyboard reaches them all and the
+  // browser scrolls a focused one into view. The page itself never scrolls sideways.
   let {
     options,
     selected,
@@ -29,22 +31,34 @@
 <style>
   .chips {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: var(--space-3);
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    /* Room for the focus ring, which the scrolling box would otherwise cut off. */
+    padding: var(--space-2);
+    margin: calc(var(--space-2) * -1);
+  }
+
+  .chips::-webkit-scrollbar {
+    display: none;
   }
 
   .chip {
     min-width: var(--touch-target);
     min-height: var(--touch-target);
-    max-width: 100%;
+    flex: none;
     padding: 0 var(--space-6);
+    white-space: nowrap;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-full);
     background: var(--color-surface);
     color: var(--color-text);
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
-    overflow-wrap: anywhere;
     cursor: pointer;
   }
 

@@ -49,6 +49,9 @@
   } = $props();
 
   let root = $state<HTMLElement>();
+  /** "Manage tags" is open. Its code loads when it is first opened, so it isn't in every
+   *  Recipes page (the page size limit). */
+  let managing = $state(false);
 
   const filters = $derived<{ value: RecipeFilter; label: string }[]>([
     { value: 'all', label: 'All' },
@@ -145,6 +148,17 @@
 
 <svelte:document onvisibilitychange={onVisible} />
 
+{#if managing}
+  {#await import('./ManageTags.svelte') then { default: ManageTags }}
+    <ManageTags
+      onclose={() => {
+        managing = false;
+        void list.load();
+      }}
+    />
+  {/await}
+{/if}
+
 {#snippet newRecipe()}
   <!-- Loaded when the list opens, so its code isn't in every Recipes page (the page size limit);
        the slot keeps the button's room meanwhile. -->
@@ -175,6 +189,10 @@
 
       {#if list.loaded && !list.problem}
         <FilterChips options={filters} selected={list.filter} label="Show" onselect={choose} />
+        {#if list.tags.length}
+          <button type="button" class="manage" onclick={() => (managing = true)}>Manage tags</button
+          >
+        {/if}
       {/if}
 
       <div class="card" aria-busy={!list.loaded}>
@@ -245,6 +263,18 @@
 {/if}
 
 <style>
+  .manage {
+    align-self: flex-start;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-3);
+    border: none;
+    background: transparent;
+    color: var(--color-accent);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
   .new-slot {
     min-height: 52px;
   }

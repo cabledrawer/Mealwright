@@ -888,3 +888,15 @@ The words marked agreed are from the mockup `Dark-ImportLinks08-Phone` (cabledra
 - **Several links, round 1 (proposed, for cabledrawer):** a paste reads up to **20** links and no more than Drafts has room for (50 in all). Under the list, **3 more links were left out. A paste reads up to 20 links, and Drafts has room for 2 more.** (the last part only when Drafts' room is under 20). When Drafts fills up part-way the rest say **Not read: Drafts is full. Finish or delete a draft first.**; when importing from links is switched off they say **Not read: importing from links is switched off.** The same page typed two ways (capitals in the address, a trailing slash, a "#" part) is read once.
 - **Round 2 (proposed, for cabledrawer):** when Drafts has no room at all, nothing is read and the box says **Drafts is full: none of the 3 links were read. Finish or delete a draft first.** (one link: **Drafts is full: the link was not read. Finish or delete a draft first.**). When the Check screen's code can't be fetched (a dropped connection), the page keeps its heading and says **Couldn’t open the Check screen. Try again.** with **Try again**.
 
+## 51. Tags: one row and Manage tags (0.8 W4b; cabledrawer 9 Nov)
+
+Words from the mockup `Dark-RecipesTags08-Phone` are agreed; the rest are proposed, for cabledrawer.
+
+- **Sheet title and count (agreed):** **Manage tags** · **9 tags** (**1 tag**).
+- **Each row (agreed):** the tag, then **14 recipes** (**1 recipe**); a tag that is spelt like another also says **· looks like South Indian**. Buttons **Rename** and **Merge into…** (Merge into… is the main button on a look-alike row).
+- **Asking before a merge (agreed):** **Merge “south-indian” into “South Indian”? Its 3 recipes get “South Indian”, and “south-indian” goes. You can Undo.** · **Cancel** · **Merge**.
+- **The button on Recipes (proposed, for cabledrawer):** **Manage tags**. In the sheet: **Save** and **Cancel** when renaming, **Close**, **Merge “x” into** over the choice of tag, **No tags yet. Add one to a recipe and it shows here.**
+- **Refused rename (proposed, for cabledrawer):** **There’s already a tag called South Indian. Use Merge into… to join them.** The rename is refused, not turned into a merge.
+- **After a merge (agreed in the mockup's note; the toast is the app's usual one):** **Merged tag south-indian into South Indian** with **Undo**; the same line is in Settings → Recent changes. After Undo: **Undone: Merged tag south-indian into South Indian** (the server's own message: **south-indian is back, on the recipes that had it.**). Undo refused when a tag with the old name exists again: **There’s already a tag called south-indian. Rename or merge it first.**
+- **A rename is not in Recent changes (proposed, for cabledrawer),** as a shop's or a place's rename isn't.
+

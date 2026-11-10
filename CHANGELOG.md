@@ -4,6 +4,10 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added
+
+- **Manage tags (cabledrawer 9 Nov).** Recipes has a "Manage tags" button: each tag with its recipe count, Rename, and Merge into… another tag (a recipe with both keeps one). A tag spelt like another ("south-indian", "South Indian") says "looks like …". Renaming to a name another tag has is refused with a sentence that says so. A merge shows a toast with Undo and is in Settings → Recent changes; Undo brings the tag back on exactly the recipes that had it. A rename isn't in Recent changes, as a shop's rename isn't. The API gains `PATCH /recipes/tags/{id}`, `POST /recipes/tags/{id}/merge`, and an `id` on each tag of `GET /recipes/tags` (all additive); the database layout doesn't change.
+
 ### Fixed
 
 - **Pasted "Serves 4" and "Takes 30 minutes" are read on import (F171, cabledrawer 7 Nov).** Check's Serves and Minutes came out empty. A line of its own such as "Serves 4", "Serves: 4-6" (the higher number), "Takes 1 hour 15 minutes", "Total time: 45 min" or "Serves 4. Prep 10 min." now fills them and no longer turns up as an ingredient or a step. Only the lines above the Ingredients or Method heading may say it loosely ("Cook 20 minutes." in the method stays a step). Prep time and cook time together add up; a total beats them; a lone prep time is dropped (it isn't the whole time). A sentence in the method ("Cook for 30 minutes.") is never read as the time.
@@ -14,6 +18,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Changed
 
+- **The tag chips on Recipes are one row that scrolls sideways (cabledrawer 9 Nov).** They used to wrap onto more lines; now the row never wraps, on the phone and the computer, the keyboard reaches every chip, and the page itself doesn't scroll sideways.
 - **Several links pasted together are read one after another, each into its own draft (F110, cabledrawer 31 Oct).** The box used to say "one link at a time: only the first is read". Now "Read the recipes" reads each link on its own, never two at once, and keeps each as a draft in Recipes → Drafts to check and save later. A link that fails shows its own sentence (with "Paste text" where that helps) and the rest carry on. The same "Recipe import from links" switch, the outbound gate and server-only fetching as one link; nothing new goes out and the API doesn't change (each link is an ordinary single-link import). A link you already have a recipe from is said, not read again. Reading carries on if you leave the screen inside the app, and stops if you sign out. A paste reads up to 20 links and no more than Drafts has room for; it stops, and the links left say why, when Drafts is full or importing from links is switched off.
 
 ## [0.8.0-alpha.3] - 2026-11-10

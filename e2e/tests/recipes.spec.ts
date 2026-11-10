@@ -534,3 +534,74 @@ test('reduced motion: nothing on the page animates', async ({ page }) => {
   );
   expect(running).toBe(0);
 });
+
+test('the tag chips are one row that scrolls sideways, never wraps, and the page never scrolls sideways (cabledrawer 9 Nov)', async ({ page }) => {
+  const word = unique(page, 'Row').replace(/\s+/g, '');
+  const tags = Array.from({ length: 16 }, (_, i) => `${word} a rather long tag ${i}`.slice(0, 40));
+  await makeRecipe(page, { name: `${word} soup`, tags: tags.slice(0, 10) });
+  await makeRecipe(page, { name: `${word} stew`, tags: tags.slice(10) });
+  await page.goto('/recipes');
+  const group = page.getByRole('group', { name: 'Show' });
+  const chips = group.getByRole('button');
+  await expect(chips.first()).toBeVisible();
+  expect(await chips.count()).toBeGreaterThan(16);
+  // One row: every chip sits at the same height.
+  const tops = await chips.evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
+  // It scrolls inside itself (more chips than fit), and the page does not.
+  const sizes = await group.evaluate((el) => ({ scroll: el.scrollWidth, shown: el.clientWidth }));
+  expect(sizes.scroll).toBeGreaterThan(sizes.shown);
+  await expectNoSidewaysScroll(page);
+  // The keyboard reaches the last chip and the row scrolls it into view.
+  await chips.last().focus();
+  await expect(chips.last()).toBeInViewport();
+  await expectNoSidewaysScroll(page);
+  await checkPage(page);
+});
+
+test('Manage tags: a look-alike tag merges with a toast Undo that puts it back, and a rename to an existing name is refused (cabledrawer 9 Nov)', async ({ page }) => {
+  const word = unique(page, 'Mt').replace(/\s+/g, '');
+  const proper = `${word} South Indian`;
+  const dashed = `${word}-south-indian`.toLowerCase();
+  const plain = `${word} Quick`;
+  const a = await makeRecipe(page, { name: `${word} sambar`, tags: [proper, plain] });
+  const b = await makeRecipe(page, { name: `${word} rasam`, tags: [dashed] });
+  const tagsOf = async (id: number) => ((await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as { tags: string[] }).tags;
+
+  await page.goto('/recipes');
+  await page.getByRole('button', { name: 'Manage tags' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Manage tags' });
+  await expect(sheet).toBeVisible();
+  const row = (name: string) => sheet.getByRole('listitem').filter({ has: page.getByText(name, { exact: true }) });
+  await expect(row(dashed)).toContainText('1 recipe · looks like');
+  await checkPage(page);
+
+  // A rename to a name another tag has is refused, and says so.
+  await sheet.getByRole('button', { name: `Rename ${plain}` }).click();
+  await sheet.getByRole('textbox', { name: `New name for ${plain}` }).fill(proper.toLowerCase());
+  await sheet.getByRole('button', { name: 'Save' }).click();
+  await expect(sheet.getByRole('alert')).toContainText('There’s already a tag called');
+  await sheet.getByRole('button', { name: 'Cancel' }).click();
+  // A rename to a free name changes the tag on its recipes.
+  await sheet.getByRole('button', { name: `Rename ${plain}` }).click();
+  await sheet.getByRole('textbox', { name: `New name for ${plain}` }).fill(`${plain} dinner`);
+  await sheet.getByRole('button', { name: 'Save' }).click();
+  await expect(row(`${plain} dinner`)).toBeVisible();
+  expect(await tagsOf(a.id)).toContain(`${plain} dinner`);
+
+  // Merge: asked once in words, then a toast with Undo.
+  await sheet.getByRole('button', { name: `Merge ${dashed} into…` }).click();
+  await sheet.getByLabel(`Merge “${dashed}” into`).selectOption({ label: proper });
+  await expect(sheet.getByText(`Merge “${dashed}” into “${proper}”? Its 1 recipe get “${proper}”, and “${dashed}” goes. You can Undo.`)).toBeVisible();
+  await checkPage(page);
+  await sheet.getByRole('button', { name: 'Merge', exact: true }).click();
+  await expect(page.getByText(`Merged tag ${dashed} into ${proper}`)).toBeVisible();
+  await expect(row(dashed)).toHaveCount(0);
+  expect(await tagsOf(b.id)).toEqual([proper]);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(row(dashed)).toBeVisible();
+  expect(await tagsOf(b.id)).toEqual([dashed]);
+  expect(await tagsOf(a.id)).toContain(proper);
+  await sheet.getByRole('button', { name: 'Close' }).click();
+  await expect(sheet).toBeHidden();
+});

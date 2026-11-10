@@ -53,6 +53,7 @@ export interface RecipePage {
 }
 
 export interface TagCount {
+  id: number;
   name: string;
   recipes: number;
 }
@@ -261,6 +262,20 @@ export const saveRecipe = (
 
 export const deleteRecipe = (id: number, idempotencyKey: string) =>
   api<{ change: Change }>('DELETE', `/recipes/${id}`, undefined, key(idempotencyKey));
+
+/** Rename a tag on every recipe that has it (Manage tags). A name another tag has is a 409
+ *  `tag_exists`, which carries that tag. */
+export const renameTag = (id: number, name: string) =>
+  api<TagCount>('PATCH', `/recipes/tags/${id}`, { name });
+
+/** Merge a tag into another (Manage tags). The answer's `change` carries the Undo. */
+export const mergeTag = (id: number, into: number, idempotencyKey: string) =>
+  api<{ change: Change; into: TagCount }>(
+    'POST',
+    `/recipes/tags/${id}/merge`,
+    { into },
+    key(idempotencyKey)
+  );
 
 /** The recipes this one can't use as an ingredient, and why (the loop guard). */
 export const cannotUse = (id: number) =>
