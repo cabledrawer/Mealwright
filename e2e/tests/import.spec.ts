@@ -896,6 +896,7 @@ async function api(page: Page, method: 'post' | 'delete', path: string, data?: J
 
 test('Add a line at the end of each section: named, given the usual choices, and saved where it was added (F187)', async ({ page }) => {
   const n = { urad: unique('Urad dal'), ghee: unique('Ghee'), extra: unique('Fenugreek seeds') };
+  if (!onPhone()) await page.setViewportSize({ width: 1280, height: 2600 });
   await checking(page, {
     name: unique('Masala dosa'),
     lines: [headingLine('For the batter'), needsLine(`1 cup ${n.urad}`, n.urad), headingLine('For the dosa'), needsLine(`ghee, for the pan`, n.ghee)],
@@ -913,8 +914,7 @@ test('Add a line at the end of each section: named, given the usual choices, and
   await expect(name).toBeFocused();
   // A line with no name yet is not counted, and asks for a name.
   await expect(count).toContainText('2');
-  // Scrolled to the middle, as a person would, so the page's own bar is not over the boxes.
-  await page.getByLabel('Note', { exact: true }).evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  // The scan starts at the top of the page, so the box is shown whole, not under the page's own bar.
   await checkPage(page);
   await page.getByRole('button', { name: 'Add line', exact: true }).click();
   await expect(page.getByText('Type a name.')).toBeVisible();
