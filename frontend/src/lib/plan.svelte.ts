@@ -27,6 +27,8 @@ import {
   setPlanMethod,
   setPlanOptional,
   setPlanServings,
+  setPlanStart,
+  setPlanStarted,
   switchMealSlot,
   tubToFreezer,
   type BatchBody,
@@ -38,6 +40,7 @@ import {
   type PlanMeal,
   type PlanWrite,
   type Spot,
+  type StartAt,
   type TubLeft,
   type WhenNoneLeft
 } from './client/plan';
@@ -62,6 +65,8 @@ import {
 } from './planEdits';
 import { cookBatchOfItem, itemName, leftName, mealName } from './planMeals';
 import { optionalAsk } from './optionalAsk.svelte';
+import type { StepWait } from './timeWords';
+import { startAsk } from './startAsk.svelte';
 import { save, type Outcome } from './save';
 
 export type PlanView = 'week' | 'month';
@@ -73,7 +78,14 @@ export type Mover = { meal: number } | { item: number };
 export type Planned =
   | {
       /** `optional_count`: how many of its lines are Optional, when it is known (0: no question). */
-      recipe: { id: number; name: string; optional_count?: number; method_count?: number };
+      recipe: {
+        id: number;
+        name: string;
+        optional_count?: number;
+        method_count?: number;
+        /** All the recipe's waits added up, when known: none that is long means nothing to ask. */
+        wait?: StepWait | null;
+      };
     }
   | { ingredient: { id: number; name: string } };
 
@@ -126,7 +138,8 @@ export class PlanModel {
       const first = this.days[0];
       const last = this.days.at(-1);
       if (!first || !last) return;
-      const [slots, plan] = await Promise.all([getMealSlots(), getPlan(first, last)]);
+      // Three days past the last: a recipe started the day before a meal at the edge shows too.
+      const [slots, plan] = await Promise.all([getMealSlots(), getPlan(first, addDays(last, 3))]);
       if (asked !== this.#asked) return; // something newer is on its way
       this.slots = slots;
       this.plan = plan;
@@ -287,6 +300,7 @@ export class PlanModel {
       ingredient_id?: number;
       optional_use?: number[];
       method_id?: number;
+      start?: StartAt;
     } = 'recipe' in what ? { recipe_id: what.recipe.id } : { ingredient_id: what.ingredient.id };
     if ('recipe' in what) {
       const where = `${dayShort(day)} ${this.slotName(slotId).toLocaleLowerCase()}`;
@@ -307,6 +321,14 @@ export class PlanModel {
       );
       if (use === null) return { ok: false, error: null, cancelled: true };
       if (use !== undefined) body.optional_use = use;
+      // A recipe with a long wait asks when it will be started (M3), for the way chosen.
+      const start = await startAsk.ask(
+        what.recipe,
+        { day, slotId, slotName: this.slotName(slotId) },
+        { method }
+      );
+      if (start === null) return { ok: false, error: null, cancelled: true };
+      if (start !== undefined) body.start = start;
     }
     return this.#send({
       label: `Planned ${name} for ${this.slotName(slotId)}`,
@@ -328,6 +350,35 @@ export class PlanModel {
     await this.#send({
       label: `Changed how ${itemName(item, this.plan)} is cooked`,
       send: (key) => setPlanMethod(item.id, picked, key)
+    });
+  }
+
+  /** Change when a planned recipe's long wait will be started, from its meal (M3). */
+  async changeStart(item: PlanItem, day: string): Promise<void> {
+    if (item.kind !== 'recipe' || !item.recipe || !item.ahead) return;
+    const meal = this.plan?.meals.find((m) => m.items.some((i) => i.id === item.id));
+    if (!meal) return;
+    const current = item.ahead.start_day
+      ? { day: item.ahead.start_day, time: item.ahead.start_time! }
+      : null;
+    const picked = await startAsk.ask(
+      { id: item.recipe.id, name: item.recipe.name },
+      { day, slotId: meal.slot_id, slotName: this.slotName(meal.slot_id) },
+      { method: item.method_id ?? null, current, button: 'Save' }
+    );
+    if (picked === null || picked === undefined) return;
+    if (current && picked.day === current.day && picked.time === current.time) return;
+    await this.#send({
+      label: `Changed when to start ${itemName(item, this.plan)}`,
+      send: (key) => setPlanStart(item.id, picked, key)
+    });
+  }
+
+  /** "Done already": the long wait of a planned recipe is begun (M3). */
+  markStarted(item: PlanItem) {
+    return this.#send({
+      label: `Marked ${itemName(item, this.plan)} as started`,
+      send: (key) => setPlanStarted(item.id, true, key)
     });
   }
 

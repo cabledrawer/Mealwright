@@ -7,6 +7,7 @@
   import { untrack } from 'svelte';
   import { listFoods } from '#lib/client/foods.js';
   import type { TubLeft } from '#lib/client/plan.js';
+  import type { StepWait } from '#lib/timeWords.js';
   import { useByWords } from '#lib/planMeals.js';
   import { cookTargetOf } from '#lib/cookHere.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -138,6 +139,7 @@
     name: string;
     optional_count?: number;
     method_count?: number;
+    wait?: StepWait | null;
   }) {
     if (!target || slotId === null || actions.readonly || planning) return;
     const [day, slot] = [target.day, slotId];
@@ -309,14 +311,16 @@
                         id: recipe.id,
                         name: recipe.name,
                         optional_count: recipe.optional_count,
-                        method_count: recipe.method_count
+                        method_count: recipe.method_count,
+                        wait: recipe.wait
                       })
                     : pick({
                         recipe: {
                           id: recipe.id,
                           name: recipe.name,
                           optional_count: recipe.optional_count,
-                          method_count: recipe.method_count
+                          method_count: recipe.method_count,
+                        wait: recipe.wait
                         }
                       })}
               >

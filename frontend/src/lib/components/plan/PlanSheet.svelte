@@ -11,6 +11,7 @@
   import { downLine } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
   import { TOO_LATE_TO_FREEZE, tubTooLateToFreeze } from '#lib/tooLateToFreeze.js';
+  import { startOptionWords } from '#lib/startWords.js';
   import type { DropMode } from '#lib/client/plan.js';
   import type { PlanActions, PlanTarget as Target } from '#lib/planActions.js';
   import {
@@ -123,6 +124,26 @@
 
   /** The recipes here with two ways of cooking them, that can still change it (M2). */
   const methodItems = $derived(servesItems.filter((i) => (i.recipe?.methods?.length ?? 0) > 1));
+
+  /** The recipes here with a long wait to start ahead, that can still be started (M3). */
+  const startItems = $derived(servesItems.filter((i) => !!i.ahead));
+
+  /** "Starts Fri 21:00…", or "Set when to start…" when it has no time (names it when several). */
+  function startLabel(item: PlanItem, named: boolean): string {
+    const ahead = item.ahead;
+    const base =
+      ahead?.start_day && ahead.start_time
+        ? `Starts ${startOptionWords(ahead.start_day, ahead.start_time)}`
+        : 'Set when to start';
+    return `${base}${named ? `: ${itemName(item, model.plan)}` : ''}…`;
+  }
+
+  function changeStart(item: PlanItem) {
+    if (!target || (target.kind !== 'meal' && target.kind !== 'item')) return;
+    const day = target.meal.date;
+    onclose();
+    void model.changeStart(item, day);
+  }
 
   function changeMethod(item: PlanItem) {
     if (!target || (target.kind !== 'meal' && target.kind !== 'item')) return;
@@ -522,6 +543,15 @@
               >{methodItems.length > 1
                 ? `How it’s cooked: ${itemName(way, model.plan)}…`
                 : 'How it’s cooked…'}</button
+            >
+          {/each}
+          {#each startItems as waiting (waiting.id)}
+            <button
+              type="button"
+              disabled={actions.readonly}
+              data-testid="plan-sheet-start"
+              onclick={() => changeStart(waiting)}
+              >{startLabel(waiting, startItems.length > 1)}</button
             >
           {/each}
           {#each optionalItems as optional (optional.id)}

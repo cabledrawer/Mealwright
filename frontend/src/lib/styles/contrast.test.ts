@@ -38,6 +38,9 @@ const PAIRS: Pair[] = [
   ['--color-wait-text', '--color-surface', 4.5], // "plus 4 h marinating"
   ['--color-wait-text', '--color-ground', 4.5],
   ['--color-wait-yes-text', '--color-wait-yes', 4.5], // Yes, it waits
+  ['--color-wait-text', '--color-wait-card', 4.5], // Today's Start tonight card (M3)
+  ['--color-text', '--color-wait-card', 4.5],
+  ['--color-text-muted', '--color-wait-card', 4.5],
   ['--color-cook-text', '--color-cook', 4.5], // Start cooking
   ['--color-cook-on-soft', '--color-cook-soft', 4.5], // the COOK tag
   ['--color-cook-on-soft', '--color-surface', 4.5], // "You cook today →"

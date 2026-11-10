@@ -58,6 +58,28 @@ export interface PlanItem {
   /** The way of cooking it this meal uses, for a recipe with two (M2). */
   method_id?: number | null;
   method?: string | null;
+  /** The long wait to start ahead (M3): null when there is none, or the recipe is cooked. */
+  ahead?: PlanAhead | null;
+}
+
+/** A recipe's long wait in a planned meal (M3, F124): times are the household's own wall clock. */
+export interface PlanAhead {
+  step_id: number;
+  /** The step that waits, in its own words. */
+  step_text: string;
+  wait: StepWait;
+  /** The recipe's own working time in this way of cooking it; null when unknown. */
+  active_minutes: number | null;
+  /** When the meal is eaten ("08:00"). */
+  eats_at: string;
+  /** When the wait will be started; null: not set. */
+  start_day: string | null;
+  start_time: string | null;
+  /** When it was begun; null: not yet. */
+  started_day: string | null;
+  started_time: string | null;
+  /** How long it has waited, in minutes, as of this answer; null: not begun. */
+  waited_minutes: number | null;
 }
 
 export interface PlanMeal {
@@ -136,9 +158,53 @@ export const planItem = (
     optional_use?: number[];
     /** The way of cooking a recipe with two the meal uses (M2). Left out: the one used last. */
     method_id?: number;
+    /** When the recipe's long wait will be started (M3): a day and a clock time. */
+    start?: StartAt;
   },
   key: string
 ) => api<PlanWrite>('POST', '/plan/items', body, { idempotencyKey: key });
+
+/** A day and a clock time on the household's wall clock. */
+export interface StartAt {
+  day: string;
+  /** "21:00". */
+  time: string;
+}
+
+/** When a planned recipe's long wait will be started (M3); null takes the time away. */
+export const setPlanStart = (id: number, start: StartAt | null, key: string) =>
+  api<PlanWrite>('PUT', `/plan/items/${id}/start`, { start }, { idempotencyKey: key });
+
+/** The long wait is begun (M3): "Done already", or Cook mode past its step. */
+export const setPlanStarted = (id: number, started: boolean, key: string) =>
+  api<PlanWrite>('PUT', `/plan/items/${id}/started`, { started }, { idempotencyKey: key });
+
+export interface StartOption extends StartAt {
+  /** The time the dish is ready by if it is started then ("08:00"). */
+  ready_by: string;
+  ready_by_day: string;
+}
+
+export interface StartOptions {
+  /** The wait that is started ahead; null when the recipe has none (nothing to ask). */
+  wait: StepWait | null;
+  /** The meal's usual time. */
+  eats_at: string;
+  options: StartOption[];
+}
+
+export const getStartOptions = (
+  recipeId: number,
+  day: string,
+  slotId: number,
+  methodId?: number | null
+) =>
+  api<StartOptions>(
+    'GET',
+    `/plan/start-options?recipe_id=${recipeId}&date=${day}&slot_id=${slotId}${
+      methodId ? `&method_id=${methodId}` : ''
+    }`
+  );
 
 /** Which Optional ingredients a planned recipe will use (R3). */
 export const setPlanOptional = (id: number, use: number[], key: string) =>

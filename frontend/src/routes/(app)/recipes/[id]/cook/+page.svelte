@@ -13,9 +13,11 @@
   import CookMode from '#lib/components/cook/CookMode.svelte';
   import type { LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
+  import type { AheadView } from '#lib/cookAhead.js';
   import { cookNow } from '#lib/cookNow.svelte.js';
   import { cookPrefs } from '#lib/cookPrefs.svelte.js';
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
+  import { cookSteps } from '#lib/cookSteps.js';
   import { cookTarget } from '#lib/cookTargets.js';
   import { CookTimers } from '#lib/cookTimers.svelte.js';
   import { network } from '#lib/network.svelte.js';
@@ -70,6 +72,36 @@
   /** This recipe's item in the meal (the one Cooked it would review). */
   const mealItem = () =>
     meal?.items.find((i) => i.kind === 'recipe' && !i.cooked && i.recipe?.id === id) ?? null;
+
+  // The recipe's long wait in this meal (M3): when it was begun, Cook mode opens after its step,
+  // with the steps up to it folded. Worked out when there is one (it loads on first use).
+  const waiting = $derived(mealItem()?.ahead ?? null);
+  const sameWay = $derived(!twoWays || pick === null || mealItem()?.method_id === pick);
+  let ahead = $state<AheadView | null>(null);
+  let aheadAsked = 0;
+  $effect(() => {
+    const found = waiting;
+    const shown = shownRecipe;
+    const today = model.today;
+    const mine = ++aheadAsked;
+    if (!found || !shown || !sameWay || !today) {
+      ahead = null;
+      return;
+    }
+    void import('#lib/cookAhead.js').then(({ aheadView }) => {
+      if (mine === aheadAsked) ahead = aheadView(found, cookSteps(shown.steps), today);
+    });
+  });
+
+  /** Past the step that waits for the first time: the wait is begun, and tomorrow Cook mode opens
+   *  after it. No Undo is offered (the person only moved to the next step). */
+  async function begun() {
+    const item = mealItem();
+    if (!item?.ahead || network.offline) return;
+    const { markStarted } = await import('#lib/startNow.js');
+    await markStarted(item.id, item.recipe?.name ?? 'it', { withUndo: false });
+    await model.load();
+  }
 
   $effect(() => {
     if (twoWays && !settling && !asked) {
@@ -198,6 +230,8 @@
     {notice}
     oncooked={meal ? () => void openCooked() : null}
     {settling}
+    {ahead}
+    onbegun={waiting && ahead ? () => void begun() : null}
     problem={cookPrefs.problem}
     onperstep={(on) => void cookPrefs.setPerStep(on)}
     onexit={exit}

@@ -21,6 +21,8 @@ export interface StepIn {
 }
 
 export interface CookStep {
+  /** The step's id on the server (M3: the step that waits is found by it); null for a draft. */
+  id?: number;
   /** From 1, steps only. */
   number: number;
   /** How many steps the recipe has. */
@@ -46,6 +48,7 @@ export function cookSteps(steps: StepIn[]): CookStep[] {
     }
     if (text === '') continue;
     found.push({
+      ...(step.id === undefined ? {} : { id: step.id }),
       section,
       text,
       linked: (step.lines ?? []).map((l) => l.line_id),

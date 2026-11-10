@@ -8,6 +8,7 @@
   // for cabledrawer, unless the spec gives them.
   import { tick, untrack } from 'svelte';
   import type { Recipe } from '#lib/client/recipes.js';
+  import type { AheadView } from '#lib/cookAhead.js';
   import { clock, cookSteps, findTimers, stepLines } from '#lib/cookSteps.js';
   import type { CookTimers } from '#lib/cookTimers.svelte.js';
   import { lineAmount } from '#lib/recipeAmounts.js';
@@ -29,7 +30,9 @@
     settling = false,
     notice = null,
     problem = null,
-    way = null
+    way = null,
+    ahead = null,
+    onbegun = null
   }: {
     recipe: Recipe;
     timers: CookTimers;
@@ -51,11 +54,26 @@
     /** The way of cooking it picked, for a recipe with two (M2): shown on the first step, where it
      *  can be switched. */
     way?: { name: string; onswitch: () => void } | null;
+    /** The recipe's long wait in the planned meal (M3): where it is, and how it went. When it was
+     *  begun, Cook mode opens after it. */
+    ahead?: AheadView | null;
+    /** Cook mode moved past the step that waits for the first time: the wait is begun (M3). */
+    onbegun?: (() => void) | null;
   } = $props();
 
   const uid = $props.id();
   const steps = $derived(cookSteps(recipe.steps));
   let at = $state(0);
+  /** The person moved on their own: the step that Cook mode opened at is not forced again. */
+  let moved = false;
+  let reported = false;
+  // Opened on day two: the steps up to the one that waited are done (M3). The plan may arrive
+  // after Cook mode opens, so this runs when it does, until the person has moved themselves.
+  $effect(() => {
+    if (ahead?.begun && !moved && steps.length) {
+      at = Math.min(ahead.index + 1, steps.length - 1);
+    }
+  });
   const index = $derived(Math.min(at, Math.max(steps.length - 1, 0)));
   const step = $derived(steps[index] ?? null);
   /** The step after this one, for the quiet NEXT line (M2, cabledrawer 9 Nov). */
@@ -82,7 +100,14 @@
    *  slide ends on the step it was heading for, and the press would only be overridden. */
   function go(to: number, fromSlide = false) {
     if (steps.length === 0 || (busy && !fromSlide)) return;
+    moved = true;
+    const was = at;
     at = Math.min(Math.max(to, 0), steps.length - 1);
+    // Past the step that waits, for the first time: the wait is begun (M3).
+    if (ahead && !ahead.begun && !reported && onbegun && was <= ahead.index && at > ahead.index) {
+      reported = true;
+      onbegun();
+    }
     void tick().then(() => body?.scrollTo({ top: 0 }));
   }
 
@@ -276,7 +301,13 @@
 
   const amountFor = (line: Recipe['lines'][number]) => lineAmount(line, 1);
   const wordsFor = (line: Recipe['lines'][number]) => linkedWords(line.words, line.food);
-  const progress = $derived(steps.length ? `Step ${index + 1} of ${steps.length}` : 'No steps');
+  const progress = $derived(
+    steps.length
+      ? `${ahead?.begun && ahead.day ? `Day ${ahead.day} · Step` : 'Step'} ${index + 1} of ${steps.length}`
+      : 'No steps'
+  );
+  /** The folded steps and how long it waited, on the step after the one that waited (M3). */
+  const folded = $derived(ahead?.begun && index === ahead.index + 1 ? ahead : null);
   /** Between the bold amount and the words. */
   const SPACE = ' ';
   const timerNote = 'No alarm if the phone is locked or Mealwright is in the background.';
@@ -361,9 +392,27 @@
       data-moving={busy}
     >
       {#if step}
+        {#if folded}
+          <div class="folded" data-testid="folded-steps">
+            <span class="folded-title">{folded.range} · {folded.title}</span>
+            {#if folded.done}<span class="folded-done">{folded.done}</span>{/if}
+          </div>
+          {#if folded.waited}
+            <div class="waited" data-testid="waited">
+              <span class="waited-chip" class:short={!folded.enough}>{folded.waited}</span>
+              <span class="waited-needed">{folded.needed}</span>
+            </div>
+          {/if}
+        {/if}
         {#if step.section}<h2 class="section">{step.section}</h2>{/if}
         <span class="big" aria-hidden="true">{step.number}</span>
         <p class="text" data-testid="step-text">{step.text}</p>
+        {#if ahead && !ahead.begun && index === ahead.index}
+          <p class="ahead-note" data-testid="ahead-note">
+            Then it waits ({ahead.needed.replace('needed ', '')}). Cook mode picks up after this step
+            when you come back.
+          </p>
+        {/if}
 
         {#each found as t, i (i)}
           {@const timer = timers.get(keyOf(step.number, i))}
@@ -1076,6 +1125,63 @@
     .body {
       padding-top: var(--space-9);
     }
+  }
+
+  .folded {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    min-height: 44px;
+    margin-bottom: var(--space-4);
+    padding: var(--space-3) var(--space-6);
+    border-radius: var(--radius-lg);
+    background: var(--color-fill);
+  }
+
+  .folded-title {
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+  }
+
+  .folded-done {
+    color: var(--color-accent-on-soft, var(--color-text));
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+    white-space: nowrap;
+  }
+
+  .waited {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+
+  .waited-chip {
+    padding: 3px var(--space-5);
+    border-radius: var(--radius-full);
+    background: var(--color-wait-chip);
+    color: var(--color-wait-text);
+    font-size: var(--text-md);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .waited-chip.short {
+    outline: 2px solid var(--color-warning-text);
+  }
+
+  .waited-needed {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .ahead-note {
+    margin: var(--space-6) 0 0;
+    color: var(--color-wait-text);
+    font-size: var(--text-md);
+    line-height: 1.4;
   }
 
   .next {
