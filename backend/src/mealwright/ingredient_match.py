@@ -347,12 +347,33 @@ PART_WORDS = frozenset(
 _DESCRIBING = frozenset(_key(word) for word in MODIFIER_WORDS | PART_WORDS)
 
 
-def _is_another_thing(theirs: frozenset[str], line: frozenset[str]) -> bool:
-    """F186 (cabledrawer 8 Nov): a food with one word in its name ("Rice", "Onions", "Milk") is not
-    the same as a line that adds a word of its own ("flattened rice", "spring onions", "coconut
-    milk"): they only share the one word. A colour, size, state or part of the thing ("red",
-    "dried", "leaves") is not a word of its own."""
-    return len(theirs) == 1 and theirs < line and bool(line - theirs - _DESCRIBING)
+def _is_another_thing(kitchen: KnownIngredients, theirs: frozenset[str], key: str) -> bool:
+    """F186 (cabledrawer 8 Nov; middle way, cabledrawer 10 Nov): a food with one word in its name
+    ("Rice", "Onions", "Sugar") against a line that adds a word of its own to it.
+
+    - The food's word is the line's main word, the last word that isn't a colour, size, state
+      or part ("caster sugar", "red onion", "cheddar cheese", "olive oil"): it is still that
+      thing, so it is offered.
+    - The food's word is only a side word ("rice flour", "lemon juice", "tomato puree",
+      "poha (flattened rice)" against Basmati rice): another thing, so it is not offered.
+    - Proposed, for cabledrawer: when a side word is itself a one-word ingredient of the household
+      ("coconut milk" with Coconut, "peanut butter" with Peanuts), nothing is offered either:
+      the line could be either, and a wrong "Same as" costs more than none.
+
+    A colour, size, state or part of the thing ("red", "dried", "leaves") is not a word of its
+    own. The words are keys (`_key`)."""
+    line = _words(key)
+    if len(theirs) != 1 or not theirs < line:
+        return False
+    extras = line - theirs - _DESCRIBING
+    if not extras:
+        return False
+    main = next((w for w in reversed(key.split()) if w not in _DESCRIBING), None)
+    if main not in theirs:
+        return True
+    return any(
+        extra in kitchen.by_name or extra in kitchen.by_other_name for extra in extras
+    )  # a side word that is an ingredient of its own
 
 
 def _candidates(read: ReadLine) -> list[tuple[str, str]]:
@@ -393,7 +414,7 @@ def _closest(
                 continue
             if theirs & line <= WEAK_WORDS:
                 continue  # only a colour or size word in common
-            if _is_another_thing(theirs, line):
+            if _is_another_thing(kitchen, theirs, key):
                 continue  # only one word in common, and the line is another thing (F186)
             share = len(theirs & line) / len(theirs | line)
             score = (share, 1 if theirs <= line else 0, -food.id)

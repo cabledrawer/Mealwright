@@ -646,36 +646,79 @@ def test_an_amount_that_converts_past_the_most_an_amount_can_be_does_not_count(
     assert result.counts
 
 
-# --- F186: one word in common is not the same ingredient --------------------------------------
+# --- F186: the main word, not a side word (cabledrawer 8 and 10 Nov) ------------------------------
 
 
 @pytest.mark.parametrize("line", ["1 cup poha (flattened rice)", "1 cup flattened rice (poha)"])
-@pytest.mark.parametrize("kept_as", ["Rice", "Basmati rice"])
-def test_f186_poha_is_not_suggested_as_rice(db: Session, line: str, kept_as: str) -> None:
-    add_food(db, kept_as, others=("rice",))
+def test_f186_poha_is_not_suggested_as_basmati_rice(db: Session, line: str) -> None:
+    add_food(db, "Basmati rice")
     result = match(db, line)
     assert (result.label, result.food_id) == ("needs_you", None)
+
+
+@pytest.mark.parametrize("line", ["1 cup poha (flattened rice)", "1 cup flattened rice (poha)"])
+def test_f186_poha_may_be_offered_plain_rice_to_confirm(db: Session, line: str) -> None:
+    # Proposed, for cabledrawer: "flattened rice" is a rice, so plain Rice is offered, never matched.
+    add_food(db, "Rice")
+    result = match(db, line)
+    assert (result.label, result.food_name) == ("to_confirm", "Rice")
 
 
 @pytest.mark.parametrize(
     ("line", "food"),
     [
-        ("2 spring onions", "Onions"),
-        ("1 can coconut milk", "Milk"),
         ("2 tbsp rice vinegar", "Rice"),
         ("1 cup rice flour", "Rice"),
         ("2 tbsp lemon juice", "Lemon"),
-        ("2 tbsp peanut butter", "Butter"),
         ("1 tsp garlic powder", "Garlic"),
-        ("250 g cherry tomatoes", "Tomatoes"),
-        ("2 chicken drumsticks", "Drumsticks"),
+        ("2 tbsp tomato puree", "Tomatoes"),
+        ("1 tsp cumin seeds", "Cumin"),
+        ("2 egg noodles", "Eggs"),
+        ("2 chicken drumsticks", "Drumsticks"),  # a cut is not the main word when it is the food
     ],
 )
-def test_f186_a_line_with_a_word_of_its_own_is_not_the_plain_ingredient(
+def test_f186_a_side_word_alone_is_not_the_plain_ingredient(
     db: Session, line: str, food: str
 ) -> None:
     add_food(db, food)
     assert match(db, line).label == "needs_you"
+
+
+@pytest.mark.parametrize(
+    ("line", "food"),
+    [
+        ("1 tbsp caster sugar", "Sugar"),
+        ("2 red onions", "Onions"),
+        ("2 spring onions", "Onions"),
+        ("100 g cheddar cheese", "Cheese"),
+        ("2 tbsp olive oil", "Oil"),
+        ("500 ml chicken stock", "Stock"),
+        ("250 g cherry tomatoes", "Tomatoes"),
+    ],
+)
+def test_f186_the_main_word_matches_the_plain_ingredient(
+    db: Session, line: str, food: str
+) -> None:
+    add_food(db, food)
+    result = match(db, line)
+    assert (result.label, result.food_name) == ("to_confirm", food)
+
+
+@pytest.mark.parametrize(
+    ("line", "foods", "wrong"),
+    [
+        ("1 can coconut milk", ("Milk", "Coconut"), "Milk"),
+        ("2 tbsp peanut butter", ("Butter", "Peanuts"), "Butter"),
+        ("500 ml chicken stock", ("Stock", "Chicken"), "Stock"),
+    ],
+)
+def test_f186_a_side_word_that_is_an_ingredient_too_gives_no_suggestion(
+    db: Session, line: str, foods: tuple[str, ...], wrong: str
+) -> None:
+    # Proposed, for cabledrawer: the line could be either, so nothing is offered.
+    for food in foods:
+        add_food(db, food)
+    assert match(db, line).food_name != wrong
 
 
 @pytest.mark.parametrize(

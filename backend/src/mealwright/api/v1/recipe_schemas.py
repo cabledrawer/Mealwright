@@ -388,7 +388,7 @@ class RecipeIn(BaseModel):
         default_factory=list, max_length=MAX_TAGS
     )
     nutrition: NutritionIn = Field(default_factory=NutritionIn)
-    # The person looked at the figures (the editor opened from "Work it out again") and kept
+    # The person looked at the figures (the editor opened from "Update nutrition") and kept
     # them: they count as set now, which clears "Nutrition possibly out of date".
     nutrition_checked: bool = False
     lines: list[RecipeLineIn] = Field(default_factory=list, max_length=MAX_LINES)

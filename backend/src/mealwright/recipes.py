@@ -314,7 +314,7 @@ def save(
         _milli(body.nutrition.fibre),
     )
     # The figures count as set now when the recipe is new, when one was typed over, or when
-    # the person looked at them and kept them ("Work it out again", then Save).
+    # the person looked at them and kept them ("Update nutrition", then Save).
     if creating or figures != _figures(recipe) or body.nutrition_checked:
         recipe.nutrition_set_at = now
     (
