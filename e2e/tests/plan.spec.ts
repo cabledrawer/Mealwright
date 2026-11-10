@@ -444,28 +444,46 @@ test.describe('on a computer', () => {
     await expect(target).toContainText(name);
   });
 
-  test('the bottom row\'s drop zones move up when the week gets shorter while they are open', async ({ page }) => {
-    // The flaky short-window test's cause (10 Nov): the zones chose their side once, when they
-    // opened; the week's box getting shorter after that (Tubs left arriving) left them out of reach.
-    await page.setViewportSize({ width: 1280, height: 1000 });
+  test('the bottom row\'s drop zones open upwards when the page is taller than the window', async ({ page }) => {
+    // The flaky short-window test's cause (10 Nov): the page can be taller than the window (a long
+    // tray), so the week's box reaches below the window; the zones measured only against the box
+    // and opened downwards, off the screen. Here the page is made tall on purpose.
+    await page.setViewportSize({ width: 1280, height: 640 });
     const { today, slot } = await setup(page);
-    const name = `Shorter ${stamp()}`;
+    const name = `Tall ${stamp()}`;
     const recipe = await makeRecipe(page, name);
-    const day = inWeek(today, 2);
+    // One of this project's own weeks, not a shared one: a test planning in the same week on
+    // another worker made the rows taller while this one measured them (the plan updates live).
+    // This file's tests run one at a time, and week 9's other tests use only its Saturday: this
+    // one takes the Thursday and Friday before it (the plan's week runs Monday to Sunday).
+    const day = addDays(inWeek(today, 9), -2);
     await planned(page, recipe, day, slot.Lunch);
     await openWeekOf(page, today, day);
+    // From script, as the strict CSP refuses a style tag.
+    await page.locator('.plan.fill').evaluate((plan: HTMLElement) => (plan.style.minHeight = '1600px'));
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThan(1500);
     const next = addDays(day, 1);
     const target = cell(page, next, slot.Dinner);
-    const a = await centre(cell(page, day, slot.Lunch).getByRole('button', { name: new RegExp(`^${name}`) }).first());
-    const b = await centre(target, 0.2);
+    // Both places measured with the page at its top: no scrolling between them.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    const at = async (locator: Locator, down: number) => {
+      const box = (await locator.boundingBox())!;
+      return { x: box.x + box.width / 2, y: box.y + box.height * down };
+    };
+    // How tall the rows are depends on what other tests planned in this week, so the window is
+    // made to end 40 px under the target cell: the zones can't fit below it in the window.
+    const bottom = (await target.boundingBox())!;
+    await page.setViewportSize({ width: 1280, height: Math.ceil(bottom.y + bottom.height + 40) });
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    const a = await at(cell(page, day, slot.Lunch).getByRole('button', { name: new RegExp(`^${name}`) }).first(), 0.5);
+    const b = await at(target, 0.2);
     await page.mouse.move(a.x, a.y);
     await page.mouse.down();
     await page.mouse.move(a.x + 12, a.y + 12, { steps: 3 });
     await page.mouse.move(b.x, b.y, { steps: 10 });
     const zones = target.locator('.zones');
     await expect(zones).toBeVisible();
-    await expect(zones).not.toHaveClass(/\bup\b/);
-    await page.setViewportSize({ width: 1280, height: 600 });
     await expect(zones).toHaveClass(/\bup\b/);
     const zone = target.locator('[data-drop-zone="leftovers"]');
     const box = (await zone.boundingBox())!;

@@ -41,7 +41,12 @@
       box = box.parentElement;
     const place = () => {
       node.classList.remove('up');
-      const edge = box ? box.getBoundingClientRect().bottom : window.innerHeight;
+      // The week's box can itself reach below the window when the page is taller than it
+      // (10 Nov: the cause of the short-window flake), so the lower of the two edges counts.
+      const edge = Math.min(
+        box ? box.getBoundingClientRect().bottom : Infinity,
+        window.innerHeight
+      );
       if (node.getBoundingClientRect().bottom > edge) node.classList.add('up');
     };
     place();
@@ -51,11 +56,13 @@
       box.addEventListener('scroll', place, { passive: true });
     }
     window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, { passive: true });
     return {
       destroy() {
         watch.disconnect();
         box?.removeEventListener('scroll', place);
         window.removeEventListener('resize', place);
+        window.removeEventListener('scroll', place);
       }
     };
   }
