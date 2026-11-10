@@ -76,8 +76,8 @@ _SERVES_FACT = re.compile(
     re.IGNORECASE,
 )
 _TIME_FACT = re.compile(
-    r"(?P<kind>takes|total time|total|time|ready in|prep(?:aration)?(?: time)?|"
-    r"cook(?:ing)?(?: time)?)\s*:?\s*(?:about\s+|around\s+|approx\.?\s+)?"
+    r"(?P<kind>takes|total time|total|time|ready in|prep(?:aration)?(?P<prep_time> time)?|"
+    r"cook(?:ing)?(?P<cook_time> time)?)(?P<colon>\s*:)?\s*(?:about\s+|around\s+|approx\.?\s+)?"
     rf"(?:(?P<h>{_NUM})\s*(?:h|hr|hrs|hours?))?\s*(?:(?P<m>\d+)\s*(?:m|min|mins|minutes?))?",
     re.IGNORECASE,
 )
@@ -91,10 +91,15 @@ def _hours(text: str) -> float:
     return total
 
 
-def _fact_line(line: str) -> tuple[int | None, dict[str, int]] | None:
+def _fact_line(line: str, strict: bool = True) -> tuple[int | None, dict[str, int]] | None:
     """A line made only of "Serves 4" / "Takes 30 minutes" facts (several may share a line,
     "Serves 4. Prep 10 min."): (serves, minutes by kind), else None. A sentence that merely
-    mentions them ("Serves 4 with rice.", "Cook for 30 minutes.") is not a fact line."""
+    mentions them ("Serves 4 with rice.", "Cook for 30 minutes.") is not a fact line.
+
+    `strict`: below the Ingredients or Method heading, and with no headings at all, a line
+    that could be a method step ("Cook 20 minutes.", "Prep 5 min") is a step: only the clear
+    forms count ("Takes …", "Total time …", "Prep time: …", "Cook time: …", "Ready in …",
+    "Serves …"). Above the headings every form does."""
     text = line.strip().lstrip(BULLETS).strip(_DECORATION)
     if not text or len(text) > 80:
         return None
@@ -111,6 +116,13 @@ def _fact_line(line: str) -> tuple[int | None, dict[str, int]] | None:
         if not found or not (found["h"] or found["m"]):
             return None
         word = found["kind"].lower()
+        if strict and not (
+            word in {"takes", "total time", "time", "ready in"}
+            or found["colon"]
+            or found["prep_time"]
+            or found["cook_time"]
+        ):
+            return None  # "Cook 20 minutes.", "Total 30 min": maybe a step
         kind = "prep" if word.startswith("prep") else "cook" if word.startswith("cook") else "total"
         minutes[kind] = round(_hours(found["h"] or "") * 60) + int(found["m"] or 0)
     if serves is None and not minutes:
@@ -303,8 +315,12 @@ def read_pasted(text: str) -> PastedRecipe:
     serves: int | None = None
     minutes: dict[str, int] = {}
     kept: list[str] = []
-    for line in lines:
-        fact = _fact_line(line)
+    first_heading = next(
+        (i for i, line in enumerate(lines) if _heading(line) in {"ingredients", "method"}),
+        0,
+    )
+    for at, line in enumerate(lines):
+        fact = _fact_line(line, strict=at >= first_heading)
         if fact is None:
             kept.append(line)
             continue

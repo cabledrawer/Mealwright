@@ -554,3 +554,29 @@ def test_f171_one_line_with_serves_and_a_lone_prep_time() -> None:
     assert (recipe.serves, recipe.time_minutes) == (4, None)
     assert recipe.name == "Easy Toor Dal" and len(recipe.ingredients) == 5
     assert read_pasted("Dal\n1 cup toor dal\nCook.").serves is None
+
+
+# --- F171 review fix: a method step is never read as the time -----------------------------------
+
+
+@pytest.mark.parametrize(
+    "step", ["Cook 20 minutes.", "Cook 12 min", "Prep 5 min", "Total 30 min", "Simmer 20 minutes"]
+)
+@pytest.mark.parametrize("headings", [True, False])
+def test_f171_a_short_method_step_with_a_time_stays_a_step(step: str, headings: bool) -> None:
+    text = (
+        f"Dal\nIngredients\n1 cup toor dal\nMethod\nRinse the lentils.\n{step}\nServe.\n"
+        if headings
+        else f"Dal\n1 cup toor dal\n2 onions\nRinse the lentils.\n{step}\nServe.\n"
+    )
+    recipe = read_pasted(text)
+    assert recipe.time_minutes is None
+    assert recipe.steps == ("Rinse the lentils.", step, "Serve.")
+
+
+def test_f171_loose_forms_count_only_above_the_headings() -> None:
+    recipe = read_pasted(
+        "Dal\nPrep 10 min\nCook 25 min\nIngredients\n1 cup toor dal\nMethod\nCook 5 min\nServe."
+    )
+    assert recipe.time_minutes == 35
+    assert recipe.steps == ("Cook 5 min", "Serve.")
