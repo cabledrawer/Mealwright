@@ -203,3 +203,25 @@ describe('a line added on Check', () => {
     expect(flow.review!.lines).toHaveLength(200);
   });
 });
+
+describe('a save refused on a line, with an added line never named before it', () => {
+  beforeEach(() => network.reset());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('points at the refused line on the screen, not one before it', async () => {
+    const flow = flowOf([
+      heading('For the batter'),
+      line({}),
+      heading('For the dosa'),
+      line({ words: 'dosa batter' })
+    ]);
+    flow.name = 'Masala dosa';
+    flow.addLine(flow.sectionEnds[0]!.at); // an empty line at 2; the dosa batter moves to 4
+    fakeApi({
+      // The server numbers the lines it was sent (headings too): the dosa batter is its line 3.
+      'POST /recipes/import/save': [404, { detail: 'That recipe has gone.', line: 3 }]
+    });
+    expect(await flow.save()).toBeNull();
+    expect(flow.saveProblem).toEqual({ message: 'That recipe has gone.', line: 4 });
+  });
+});

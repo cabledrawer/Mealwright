@@ -966,6 +966,17 @@ export class ImportFlow {
     this.#stepUndos = [];
   }
 
+  /** The server numbers lines as Save sent them; lines never named are not sent (F187), so
+   *  this finds the same line on the screen. Null when there is no such line. */
+  #screenLine(sent: number): number | null {
+    const lines = this.review?.lines ?? [];
+    let n = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (!isBlank(lines[i]!) && ++n === sent) return i;
+    }
+    return null;
+  }
+
   async save(): Promise<Saved | null> {
     const body = this.body();
     if (!body || this.saving) return null;
@@ -998,7 +1009,7 @@ export class ImportFlow {
         const line = (error.body as { line?: unknown } | null)?.line;
         this.saveProblem = {
           message: cantReach(error) ? offlineNote() : error.detail,
-          line: typeof line === 'number' ? line : null
+          line: typeof line === 'number' ? this.#screenLine(line) : null
         };
       } else {
         this.saveProblem = { message: 'Couldn’t save. Try again.', line: null };
