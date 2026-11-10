@@ -487,28 +487,57 @@ export class PlanModel {
     mode: DropMode,
     ifNoneLeft: Exclude<WhenNoneLeft, 'ask'> | 'ask' = 'ask'
   ): Promise<Outcome<PlanWrite>> {
-    // A copy of a recipe with a long wait asks when to start the copy, as every other way of
-    // adding it does (M3; proposed, for cabledrawer). Moves keep their time (or lose it) as before.
-    const itemId = 'item' in what ? what.item : null;
-    const from =
-      itemId === null
-        ? undefined
-        : this.plan?.meals.find((m) => m.items.some((i) => i.id === itemId));
-    const item = from?.items.find((i) => i.id === itemId);
-    if (mode !== 'copy' || !item || item.kind !== 'recipe' || !item.recipe || !item.ahead) {
-      return this.#drop(what, day, slotId, mode, ifNoneLeft);
-    }
-    const recipe = item.recipe;
+    // When a long wait will be started is asked again for the new day: for a copy of a recipe
+    // with a long wait, as every other way of adding it does (M3), and for each recipe moved
+    // that had a start time (cabledrawer 10 Nov).
+    what = this.#mover(what, mode);
+    const asking = this.#startsToAsk(what, mode);
+    if (asking.length === 0) return this.#drop(what, day, slotId, mode, ifNoneLeft);
     return (async () => {
       const { startAsk } = await import('./startAsk.svelte');
-      const start = await startAsk.ask(
-        { id: recipe.id, name: recipe.name },
-        { day, slotId, slotName: this.slotName(slotId) },
-        { method: item.method_id ?? null, adding: true }
-      );
-      if (start === null) return { ok: false, error: null, cancelled: true } as const;
-      return this.#drop(what, day, slotId, mode, ifNoneLeft, start);
+      const starts: { item_id: number; day: string; time: string }[] = [];
+      for (const item of asking) {
+        const start = await startAsk.ask(
+          { id: item.recipe!.id, name: item.recipe!.name },
+          { day, slotId, slotName: this.slotName(slotId) },
+          {
+            method: item.method_id ?? null,
+            adding: true,
+            ...(mode === 'move' ? { button: 'Move' } : {}) // proposed, for cabledrawer
+          }
+        );
+        if (start === null) return { ok: false, error: null, cancelled: true } as const;
+        if (start) starts.push({ item_id: item.id, ...start });
+      }
+      return this.#drop(what, day, slotId, mode, ifNoneLeft, starts);
     })();
+  }
+
+  /** The cooking moves with its whole meal (cabledrawer 10 Nov; the server does the same). */
+  #mover(what: Mover, mode: DropMode): Mover {
+    if (mode !== 'move' || !('item' in what)) return what;
+    const itemId = what.item;
+    const from = this.plan?.meals.find((m) => m.items.some((i) => i.id === itemId));
+    const item = from?.items.find((i) => i.id === itemId);
+    return from && item && cookBatchOfItem(this.plan, from, item) ? { meal: from.id } : what;
+  }
+
+  /** The recipes a move or copy asks the start time of, in the meal's order. */
+  #startsToAsk(what: Mover, mode: DropMode): PlanItem[] {
+    if (mode === 'leftovers') return [];
+    const items =
+      'meal' in what
+        ? mode === 'move'
+          ? (this.plan?.meals.find((m) => m.id === what.meal)?.items ?? [])
+          : [] // a whole meal copied has no times yet
+        : (this.plan?.meals.flatMap((m) => m.items).filter((i) => i.id === what.item) ?? []);
+    return items.filter(
+      (i) =>
+        i.kind === 'recipe' &&
+        i.recipe &&
+        i.ahead &&
+        (mode === 'copy' || (i.ahead.start_day !== null && i.ahead.start_day !== undefined))
+    );
   }
 
   #drop(
@@ -517,16 +546,9 @@ export class PlanModel {
     slotId: number,
     mode: DropMode,
     ifNoneLeft: Exclude<WhenNoneLeft, 'ask'> | 'ask',
-    start?: StartAt
+    starts: { item_id: number; day: string; time: string }[] = []
   ) {
     const verb = { move: 'Moved', copy: 'Copied', leftovers: 'Leftovers of' }[mode];
-    // The cooking moves with its whole meal (proposed, for cabledrawer; the server does the same).
-    const itemId = 'item' in what ? what.item : null;
-    if (mode === 'move' && itemId !== null) {
-      const from = this.plan?.meals.find((m) => m.items.some((i) => i.id === itemId));
-      const item = from?.items.find((i) => i.id === itemId);
-      if (from && item && cookBatchOfItem(this.plan, from, item)) what = { meal: from.id };
-    }
     const meal =
       'meal' in what
         ? this.plan?.meals.find((m) => m.id === what.meal)
@@ -539,12 +561,19 @@ export class PlanModel {
             meal.items.find((i) => i.id === what.item)!,
             this.plan
           );
+    const first = starts[0];
     const to = {
       date: day,
       slot_id: slotId,
       mode,
       ...(mode === 'leftovers' ? { if_none_left: ifNoneLeft } : {}),
-      ...(start ? { start } : {})
+      ...('meal' in what
+        ? starts.length
+          ? { starts }
+          : {}
+        : first
+          ? { start: { day: first.day, time: first.time } }
+          : {})
     };
     return this.#send({
       label: `${verb} ${name} ${mode === 'leftovers' ? 'on' : 'to'} ${this.slotName(slotId)}`,

@@ -282,7 +282,7 @@ describe('round 1 fixes', () => {
     });
   });
 
-  it('cancelling the Copy question copies nothing; a move and an ingredient ask nothing', async () => {
+  it('cancelling the Copy question copies nothing; an ingredient asks nothing', async () => {
     const requests = fakeApi({
       'GET /plan/start-options': [200, OPTIONS],
       'POST /plan/items/77/move': WRITE
@@ -293,10 +293,33 @@ describe('round 1 fixes', () => {
     const outcome = await copied;
     expect(outcome.ok === false && outcome.cancelled).toBe(true);
     expect(requests.some((r) => r.path === '/plan/items/77/move')).toBe(false);
-    await planWith('recipe').drop({ item: 77 }, '2026-11-15', 1, 'move');
     await planWith('ingredient').drop({ item: 77 }, '2026-11-15', 1, 'copy');
     expect(startAsk.current).toBeNull();
-    expect(requests.filter((r) => r.path === '/plan/items/77/move')).toHaveLength(2);
+    expect(requests.filter((r) => r.path === '/plan/items/77/move')).toHaveLength(1);
+  });
+
+  it('moving a meal that has a start time asks again with Move; cancelling moves nothing', async () => {
+    const requests = fakeApi({
+      'GET /plan/start-options': [200, OPTIONS],
+      'POST /plan/items/77/move': WRITE
+    });
+    const cancelled = planWith('recipe').drop({ item: 77 }, '2026-11-15', 1, 'move');
+    await vi.waitFor(() => expect(startAsk.current).not.toBeNull());
+    expect(startAsk.current!.question.button).toBe('Move');
+    startAsk.dismiss();
+    const outcome = await cancelled;
+    expect(outcome.ok === false && outcome.cancelled).toBe(true);
+    expect(requests.some((r) => r.path === '/plan/items/77/move')).toBe(false);
+    const moved = planWith('recipe').drop({ item: 77 }, '2026-11-15', 1, 'move');
+    await vi.waitFor(() => expect(startAsk.current).not.toBeNull());
+    startAsk.answer({ day: '2026-11-14', time: '20:00' });
+    await moved;
+    expect(requests.find((r) => r.path === '/plan/items/77/move')?.body).toEqual({
+      date: '2026-11-15',
+      slot_id: 1,
+      mode: 'move',
+      start: { day: '2026-11-14', time: '20:00' }
+    });
   });
 });
 

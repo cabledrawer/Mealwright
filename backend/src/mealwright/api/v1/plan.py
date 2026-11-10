@@ -702,6 +702,8 @@ class PlanItemIn(BaseModel):
         " from the recipe's `methods`). Left out: the one used last. `422 not_a_method` for"
         " an id that is not one of the recipe's.",
     )
+    # A move asks the start time again (M3, cabledrawer 10 Nov). No names in descriptions: they
+    # are in the signed-out openapi.json.
     start: StartIn | None = Field(
         default=None,
         description="Recipes with a long wait (M3): when it will be started, a day and a clock"
@@ -987,6 +989,10 @@ def remove_plan_meal(plan_meal_id: StoredInt, kitchen: Here, response: Response)
     )
 
 
+class ItemStartIn(StartIn):
+    item_id: StoredInt
+
+
 class PlanMoveIn(BaseModel):
     date: date
     slot_id: StoredInt
@@ -1003,10 +1009,19 @@ class PlanMoveIn(BaseModel):
     )
     start: StartIn | None = Field(
         default=None,
-        description="copy of one recipe with a long wait (M3): when the copy's wait will be"
-        " started, a day and a clock time in the household's time zone, as when planning it."
-        " Left out: no time yet. Same refusals as planning (`422 bad_start`, `no_wait`);"
-        " `422 start_on_copy_only` with move or leftovers. Ignored when a whole meal is copied.",
+        description="one recipe with a long wait, moved or copied: when"
+        " its wait will be started on the new day, a day and a clock time in the household's"
+        " time zone, as when planning it. Left out: no time yet. Same refusals as planning"
+        " (`422 bad_start`, `no_wait`); `422 start_not_for_leftovers` with leftovers. Not used"
+        " when a whole meal moves (see `starts`).",
+    )
+    starts: list[ItemStartIn] = Field(
+        default_factory=list,
+        max_length=50,
+        description="a whole meal moved: the new start time of each recipe in"
+        " it with a long wait, by `item_id`. A recipe left out has no time yet. Same refusals"
+        " as `start`; `422 start_not_moved` for an item not in the meal. Not used by a copy or"
+        " leftovers.",
     )
 
 
@@ -1047,6 +1062,7 @@ def move_plan_meal(
             body.slot_id,
             body.mode,
             body.if_none_left,
+            {s.item_id: s.at() for s in body.starts} or None,
         ),
     )
 

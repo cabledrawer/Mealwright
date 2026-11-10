@@ -405,6 +405,9 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("PlanItemIn", "recipe_id"): "test_plan_writes",
     ("PlanItemIn", "ingredient_id"): "test_plan_writes",
     ("PlanMoveIn", "slot_id"): "test_plan_writes",
+    # A meal move's start times (FX2, M3): test_start_ahead.py,
+    # test_another_households_recipe_cannot_be_given_a_start_by_a_meal_move.
+    ("ItemStartIn", "item_id"): "test_start_ahead",
     # Two cooking methods (M2): a method id that is not one of the recipe's own is refused,
     # whoever's it is (test_recipe_methods, test_a_method_that_is_not_the_recipes_is_refused).
     ("PlanItemIn", "method_id"): "test_recipe_methods",

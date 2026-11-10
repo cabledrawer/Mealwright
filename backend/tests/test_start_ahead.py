@@ -25,6 +25,7 @@ FERMENT = {"kind": "ferment", "min_minutes": 480, "max_minutes": 720}
 NOW = datetime(2026, 11, 12, 12, 0, tzinfo=UTC)  # a Thursday
 SAT = date(2026, 11, 14)
 FRI = date(2026, 11, 13)
+SUN = date(2026, 11, 15)
 
 
 @pytest.fixture
@@ -362,6 +363,25 @@ def test_another_households_recipe_or_slot_cannot_be_asked_about(
     assert neighbour.get(f"{API}/plan/start-options", params=mixed).status_code == 404
 
 
+def test_another_households_recipe_cannot_be_given_a_start_by_a_meal_move(
+    kitchen: TestClient, neighbour: TestClient
+) -> None:
+    item = plan_dosa(kitchen, dosa(kitchen), start=start_of(FRI, "21:00"))["item_id"]
+    theirs = plan_recipe(neighbour, dosa(neighbour)["id"], SAT, slot_ids(neighbour, 2)["Breakfast"])
+    with db_of(neighbour) as db:
+        meal_id = db.get(MealItem, theirs["item_id"]).meal_id  # type: ignore[union-attr]
+    moved = neighbour.post(
+        f"{API}/plan/meals/{meal_id}/move",
+        json={
+            "date": "2026-11-16",
+            "slot_id": slot_ids(neighbour, 2)["Breakfast"],
+            "starts": [{"item_id": item, **start_of(SUN, "20:00")}],
+        },
+    )
+    assert moved.status_code == 422 and moved.json()["code"] == "start_not_moved"
+    assert item_of(kitchen, item)["ahead"]["start_time"] == "21:00"
+
+
 def test_a_cooked_meal_has_no_ahead_and_cannot_be_started(kitchen: TestClient) -> None:
     item = plan_dosa(kitchen, dosa(kitchen), start=start_of(FRI, "21:00"))["item_id"]
     with db_of(kitchen) as db:
@@ -594,11 +614,75 @@ def test_copying_a_recipe_with_a_long_wait_can_say_when_to_start_it(kitchen: Tes
         (m["date"], i["ahead"]["start_time"]) for m in meals for i in m["items"] if i["ahead"]
     )
     assert starts == [("2026-11-14", "21:00"), ("2026-11-15", "21:00")]
+    leftovers = kitchen.post(
+        f"{API}/plan/items/{item}/move",
+        json={**body, "date": "2026-11-16", "mode": "leftovers", "start": start_of(SAT, "21:00")},
+    )
+    assert leftovers.status_code == 422
+    assert leftovers.json()["code"] == "start_not_for_leftovers"
+
+
+# --- A move asks the start time again (cabledrawer 10 Nov) -------------------------------------------
+
+
+def test_moving_one_recipe_can_say_when_to_start_it_on_its_new_day(kitchen: TestClient) -> None:
+    item = plan_dosa(kitchen, dosa(kitchen), start=start_of(FRI, "21:00"))["item_id"]
+    body = {"date": "2026-11-16", "slot_id": slot_ids(kitchen)["Breakfast"]}
+    late = kitchen.post(
+        f"{API}/plan/items/{item}/move",
+        json={**body, "start": start_of(date(2026, 11, 16), "21:00")},
+    )
+    assert late.status_code == 422 and late.json()["code"] == "bad_start"
+    assert item_of(kitchen, item, FRI)["ahead"]["start_time"] == "21:00"  # nothing changed
+    moved = kitchen.post(
+        f"{API}/plan/items/{item}/move", json={**body, "start": start_of(SUN, "20:00")}
+    )
+    assert moved.status_code == 200, moved.text
+    ahead = item_of(kitchen, item, FRI, 12)["ahead"]
+    assert (ahead["start_day"], ahead["start_time"]) == ("2026-11-15", "20:00")
+    undo(kitchen, moved.json())
+    ahead = item_of(kitchen, item, FRI, 12)["ahead"]
+    assert (ahead["start_day"], ahead["start_time"]) == ("2026-11-13", "21:00")
+
+
+def test_moving_one_recipe_into_a_filled_meal_can_say_when_to_start_it(
+    kitchen: TestClient,
+) -> None:
+    item = plan_dosa(kitchen, dosa(kitchen), start=start_of(FRI, "21:00"))["item_id"]
+    other = plan_dosa(kitchen, dosa(kitchen, "Idli"), day=date(2026, 11, 16))["item_id"]
+    assert other
     moved = kitchen.post(
         f"{API}/plan/items/{item}/move",
-        json={**body, "date": "2026-11-16", "mode": "move", "start": start_of(SAT, "21:00")},
+        json={
+            "date": "2026-11-16",
+            "slot_id": slot_ids(kitchen)["Breakfast"],
+            "start": start_of(SUN, "20:00"),
+        },
     )
-    assert moved.status_code == 422 and moved.json()["code"] == "start_on_copy_only"
+    assert moved.status_code == 200, moved.text
+    assert item_of(kitchen, item, FRI, 12)["ahead"]["start_time"] == "20:00"
+
+
+def test_moving_a_whole_meal_takes_each_recipes_new_start_time(kitchen: TestClient) -> None:
+    item = plan_dosa(kitchen, dosa(kitchen), start=start_of(FRI, "21:00"))["item_id"]
+    with db_of(kitchen) as db:
+        meal_id = db.get(MealItem, item).meal_id  # type: ignore[union-attr]
+    body = {"date": "2026-11-16", "slot_id": slot_ids(kitchen)["Breakfast"]}
+    stray = kitchen.post(
+        f"{API}/plan/meals/{meal_id}/move",
+        json={**body, "starts": [{"item_id": item + 999, **start_of(SUN, "20:00")}]},
+    )
+    assert stray.status_code == 422 and stray.json()["code"] == "start_not_moved"
+    moved = kitchen.post(
+        f"{API}/plan/meals/{meal_id}/move",
+        json={**body, "starts": [{"item_id": item, **start_of(SUN, "20:00")}]},
+    )
+    assert moved.status_code == 200, moved.text
+    ahead = item_of(kitchen, item, FRI, 12)["ahead"]
+    assert (ahead["start_day"], ahead["start_time"]) == ("2026-11-15", "20:00")
+    undo(kitchen, moved.json())
+    ahead = item_of(kitchen, item, FRI, 12)["ahead"]
+    assert (ahead["start_day"], ahead["start_time"]) == ("2026-11-13", "21:00")
 
 
 def test_a_time_with_another_zone_is_kept_as_utc_text_in_an_undo_step() -> None:

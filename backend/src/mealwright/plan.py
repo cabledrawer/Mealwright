@@ -757,6 +757,47 @@ def _forget_start(item: MealItem, steps: list[dict[str, Any]]) -> None:
     item.start_at = None
 
 
+def _give_start(item: MealItem, at: datetime | None, steps: list[dict[str, Any]]) -> None:
+    """A moved recipe's new start time, asked again for its new day (cabledrawer 10 Nov). After
+    `_forget_start`, so Undo (newest first) takes the new time away, then puts the old one back."""
+    if at is None:
+        return
+    steps.append(
+        {"op": "start", "item": item.id, "from": _moment(item.start_at), "to": _moment(at)}
+    )
+    item.start_at = at
+
+
+def _moved_starts(
+    kitchen: Kitchen,
+    items: list[MealItem],
+    day: date,
+    slot_id: int,
+    starts: dict[int, tuple[date, time]],
+) -> dict[int, datetime]:
+    """The start times sent with a move, one per moved recipe, each checked as when planning it,
+    before anything changes."""
+    if not starts:
+        return {}
+    by_id = {item.id: item for item in items}
+    slot = find_slot(kitchen, slot_id)
+    found: dict[int, datetime] = {}
+    for item_id, start in starts.items():
+        item = by_id.get(item_id)
+        if item is None:
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "start_not_moved",
+                "That isn’t in what is being moved.",  # proposed, for cabledrawer
+            )
+        recipe = kitchen.db.get(Recipe, item.recipe_id) if item.recipe_id else None
+        method = kitchen.db.get(RecipeMethod, item.method_id) if item.method_id else None
+        at = _start_instant(kitchen, recipe, method, day, slot, start)
+        if at is not None:
+            found[item_id] = at
+    return found
+
+
 def remove_item(kitchen: Kitchen, item: MealItem) -> Change:
     meal = kitchen.db.get(Meal, item.meal_id)
     if meal is None:  # pragma: no cover (the database keeps every item in a meal)
@@ -866,8 +907,11 @@ def move_meal(
     slot_id: int,
     mode: Mode,
     if_none_left: str = "ask",
+    starts: dict[int, tuple[date, time]] | None = None,
 ) -> Change:
-    """Move a whole meal, or copy it. "Leftovers" makes a tub of each recipe in it (from the
+    """Move a whole meal, or copy it. `starts` (a move only; cabledrawer 10 Nov): the new start
+    time of each moved recipe with a long wait, by item id, asked again for the new day; a
+    recipe left out has no time yet. "Leftovers" makes a tub of each recipe in it (from the
     batch cook cooked for this meal, made if there is none) and copies its ingredients.
     Onto a filled meal, the items go in alongside."""
     check_day(kitchen, day)
@@ -914,6 +958,7 @@ def move_meal(
                 "nothing_to_copy",
                 "Nothing in that meal can be copied.",  # proposed, for cabledrawer
             )
+    new_starts = _moved_starts(kitchen, items, day, slot_id, starts or {}) if mode == "move" else {}
     if target is not None and cooking:
         # Folding the cooking into a meal that is already planned would leave the batch with no
         # cook meal (proposed, for cabledrawer).
@@ -942,6 +987,7 @@ def move_meal(
         meal.day, meal.slot_id = day, slot_id
         for moved_item in items:
             _forget_start(moved_item, steps)
+            _give_start(moved_item, new_starts.get(moved_item.id), steps)
         kitchen.db.flush()
         return _finish(
             kitchen,
@@ -955,6 +1001,7 @@ def move_meal(
     for item in items:
         if mode == "move":
             _bring(kitchen, item, target, steps)
+            _give_start(item, new_starts.get(item.id), steps)
         elif mode == "leftovers":
             _leftovers_of(kitchen, item, source, target, steps, if_none_left)
         else:
@@ -981,9 +1028,9 @@ def move_item(
     if_none_left: str = "ask",
     start: tuple[date, time] | None = None,
 ) -> Change:
-    """Move one thing from a meal to another date and slot, or copy it. `start` (a copy of a
-    recipe with a long wait; M3, proposed, for cabledrawer): when the copy's wait will be started,
-    asked like any other way of adding it; left out, the copy has no time yet."""
+    """Move one thing from a meal to another date and slot, or copy it. `start` (a recipe with
+    a long wait, moved or copied; M3, cabledrawer 10 Nov): when its wait will be started on the new
+    day, asked like any other way of adding it; left out, it has no time yet."""
     check_day(kitchen, day)
     find_slot(kitchen, slot_id)
     source = kitchen.db.get(Meal, item.meal_id)
@@ -997,8 +1044,10 @@ def move_item(
     from mealwright import batches
 
     if mode == "move" and batches.is_cook_item(kitchen, item, source):
-        # The cooking and its meal move as one (proposed, for cabledrawer): the cook day follows.
-        return move_meal(kitchen, source, day, slot_id, mode, if_none_left)
+        # The cooking and its meal move as one (cabledrawer 10 Nov): the cook day follows.
+        return move_meal(
+            kitchen, source, day, slot_id, mode, if_none_left, {item.id: start} if start else None
+        )
     if mode != "move" and item.tub_id is not None:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -1021,11 +1070,11 @@ def move_item(
         )
     if mode == "leftovers":
         check_after_cook(kitchen, source, day, slot_id)
-    if start is not None and mode != "copy":
+    if start is not None and mode == "leftovers":
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "start_on_copy_only",
-            "A start time is only for a copy.",  # proposed, for cabledrawer
+            "start_not_for_leftovers",
+            "Leftovers have no start time.",  # proposed, for cabledrawer
         )
     start_at = None
     if start is not None:
@@ -1044,6 +1093,7 @@ def move_item(
         _room(kitchen, target)
     if mode == "move":
         _bring(kitchen, item, target, steps)
+        _give_start(item, start_at, steps)
         if not items_of(kitchen, source):
             _drop_meal(kitchen, source, steps)
     elif mode == "leftovers":

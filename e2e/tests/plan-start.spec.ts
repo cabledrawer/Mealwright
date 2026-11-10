@@ -144,6 +144,62 @@ test('Plan it on a recipe with a long wait asks when it will be started, and the
   }
 });
 
+// cabledrawer 10 Nov: moving a meal that has a start time asks "When will you start it?" again for
+// its new day (it used to drop the time). Cancel moves nothing; Undo puts the old time back.
+// Dinner, not Breakfast, so the other tests' meals are never in the same card.
+test('moving a meal that has a start time asks when to start it on its new day, with Undo', async ({ page }) => {
+  test.setTimeout(90_000);
+  const { today } = await setup(page);
+  const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const dinner = list.find((s) => s.name === 'Dinner')!.id;
+  const recipe = await dosa(page);
+  // Mon to Wed, moved two days on (Wed to Fri): the same week however the week starts.
+  const day = addDays(today, 2 + projectIndex());
+  const to = addDays(day, 2);
+  await call(page, 'POST', '/plan/items', { date: day, slot_id: dinner, recipe_id: recipe.id, start: { day, time: '08:00' } });
+  try {
+    await openWeekOf(page, day);
+    const card = page.getByRole('button', { name: new RegExp(`^(?:Dinner: )?${recipe.name}(?!\\. Choose)`) }).first();
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    const moveTo = async () => {
+      await card.focus();
+      await page.keyboard.press('Enter');
+      const sheet = page.getByRole('dialog', { name: recipe.name });
+      await sheet.getByRole('button', { name: 'Move to…' }).click();
+      await sheet.getByRole('button', { name: dayName(to) }).click();
+      await sheet.getByRole('button', { name: 'Dinner', exact: true }).click();
+      await sheet.getByRole('button', { name: 'Move here' }).click();
+    };
+
+    // Cancel: nothing moves, and the time stays.
+    await moveTo();
+    const ask = page.getByTestId('plan-start');
+    await expect(ask.getByRole('heading', { name: `${recipe.name} · ${dayShort(to)} dinner` })).toBeVisible();
+    await ask.getByRole('button', { name: 'Cancel' }).click();
+    await expect(ask).toBeHidden();
+    expect((await itemOn(page, day, recipe.id))?.ahead?.start_time).toBe('08:00');
+
+    // Asked again for the new day: the time picked goes with the move.
+    await moveTo();
+    await ask.getByRole('button', { name: 'Another time…' }).click();
+    await ask.getByLabel('Day').fill(to);
+    await ask.getByLabel('Time').fill('07:30');
+    await ask.getByRole('button', { name: 'Move', exact: true }).click();
+    await expect.poll(async () => (await itemOn(page, to, recipe.id))?.ahead?.start_time).toBe('07:30');
+    expect((await itemOn(page, to, recipe.id))?.ahead?.start_day).toBe(to);
+    expect(await itemOn(page, day, recipe.id)).toBeNull();
+
+    // Undo: back on its old day, with its old time.
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect.poll(async () => (await itemOn(page, day, recipe.id))?.ahead?.start_time).toBe('08:00');
+  } finally {
+    for (const d of [day, to]) {
+      const item = await itemOn(page, d, recipe.id);
+      if (item) await page.request.fetch(`/api/v1/plan/items/${item.id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
+    }
+  }
+});
+
 test('a time that is not before the meal is refused in the question, and Cancel plans nothing', async ({ page }) => {
   const { today } = await setup(page);
   const recipe = await dosa(page);

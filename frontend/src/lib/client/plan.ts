@@ -245,7 +245,7 @@ export const movePlanItem = (
     slot_id: number;
     mode: DropMode;
     if_none_left?: WhenNoneLeft;
-    /** A copy of a recipe with a long wait: when the copy's wait will be started (M3). */
+    /** A recipe with a long wait, moved or copied: when its wait will be started (M3). */
     start?: StartAt;
   },
   key: string
@@ -253,7 +253,14 @@ export const movePlanItem = (
 
 export const movePlanMeal = (
   id: number,
-  to: { date: string; slot_id: number; mode: DropMode; if_none_left?: WhenNoneLeft },
+  to: {
+    date: string;
+    slot_id: number;
+    mode: DropMode;
+    if_none_left?: WhenNoneLeft;
+    /** A meal moved: the new start time of each recipe in it with a long wait (cabledrawer 10 Nov). */
+    starts?: (StartAt & { item_id: number })[];
+  },
   key: string
 ) => api<PlanWrite>('POST', `/plan/meals/${id}/move`, to, { idempotencyKey: key });
 
