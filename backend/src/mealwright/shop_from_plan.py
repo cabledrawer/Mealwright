@@ -63,6 +63,7 @@ from typing import Any
 
 from sqlalchemy import and_, or_, select
 
+from mealwright import methods
 from mealwright.amounts import MAX_MILLI, MILLI
 from mealwright.api.v1.context import Kitchen
 from mealwright.history import as_utc
@@ -294,6 +295,10 @@ def work_out(kitchen: Kitchen) -> Worked:
             if line.sub_recipe_id in recipes and line.sub_recipe_id not in lines
         }
 
+    # A recipe inside another is cooked with its first method; a planned recipe, with the one its
+    # meal says (M2). Both are checked together below.
+    inner_picks = methods.picks_for(db, set(lines) | planned, default="first")
+
     needs: dict[int, Need] = defaultdict(Need)
     staple_names: dict[int, set[str]] = defaultdict(set)
     staple_items: dict[int, set[int]] = defaultdict(set)
@@ -321,13 +326,17 @@ def work_out(kitchen: Kitchen) -> Worked:
         uses_staples: set[int],
         seen: frozenset[int],
         skip: frozenset[int] = frozenset(),
+        picks: methods.Picks | None = None,
     ) -> bool:
         """One batch of a recipe's ingredients, and of every recipe it uses that has to be made
         (S3, item 7: not one that is made ahead and in the pantry). Adds to `per_food` and
         `uses_staples`; True when the loop guard fired somewhere inside."""
         guarded = False
+        picks = picks or inner_picks
         for line in lines.get(recipe_id, ()):
             if line.id in skip:  # an Optional line this meal will not use (R3)
+                continue
+            if not picks.keeps(recipe_id, line.method_id):  # the other way of cooking it (M2)
                 continue
             if line.food_id is None:
                 inner = recipes.get(line.sub_recipe_id or 0)
@@ -364,7 +373,7 @@ def work_out(kitchen: Kitchen) -> Worked:
         return guarded
 
     # Each recipe is worked out once (its own amounts), then scaled for each meal that uses it.
-    once: dict[tuple[int, frozenset[int]], tuple[dict[int, Need], set[int]]] = {}
+    once: dict[tuple[int, frozenset[int], int | None], tuple[dict[int, Need], set[int]]] = {}
     for item, meal_id, day in rows:
         recipe: Recipe | None = recipes.get(item.recipe_id or 0)
         if recipe is None:  # removed, or its Undo window is over
@@ -372,12 +381,13 @@ def work_out(kitchen: Kitchen) -> Worked:
         # The Optional lines of this recipe the person will not use in this meal (R3). Only the
         # planned recipe's own lines are asked about, not those of a recipe inside it.
         skip = skipped_lines(item, lines.get(recipe.id, ()))
-        if (recipe.id, skip) not in once:
+        if (recipe.id, skip, item.method_id) not in once:
             per_food: dict[int, Need] = defaultdict(Need)
             uses_staples: set[int] = set()
-            add_lines(recipe.id, per_food, uses_staples, frozenset({recipe.id}), skip)
-            once[recipe.id, skip] = (per_food, uses_staples)
-        per_food, uses_staples = once[recipe.id, skip]
+            mine = methods.Picks(inner_picks.methods, {recipe.id: item.method_id})
+            add_lines(recipe.id, per_food, uses_staples, frozenset({recipe.id}), skip, mine)
+            once[recipe.id, skip, item.method_id] = (per_food, uses_staples)
+        per_food, uses_staples = once[recipe.id, skip, item.method_id]
         for food_id in uses_staples:
             staple_names[food_id].add(recipe.name)
             staple_items[food_id].add(item.id)

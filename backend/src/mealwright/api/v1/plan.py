@@ -4,14 +4,14 @@ Online only, like the Pantry."""
 
 from collections.abc import Callable
 from datetime import date, timedelta
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field, StrictBool, field_validator
 from sqlalchemy import and_, or_, select
 
 from mealwright import batches as batch_service
-from mealwright import cooking, plan
+from mealwright import cooking, methods, plan
 from mealwright import recipes as recipe_service
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.recipe_schemas import StepWaitOut
@@ -77,11 +77,19 @@ class PlanRecipeRef(Ref):
     serves: int | None = None
     # How many of its ingredient lines are Optional (R3): the meal can be asked which it will use.
     optional_count: int = 0
+    # The ways of cooking it (M2): empty for a recipe with one; else both, first first.
+    methods: list[Ref] = Field(default_factory=list)
 
 
 class PlanIngredientRef(Ref):
     # Removed, but still inside the undo window.
     removed: bool
+
+
+def _item_method(item: MealItem, ways: dict[int, list[Any]]) -> Any:
+    """The way of cooking it a recipe item uses, when its recipe has two (M2)."""
+    found = ways.get(item.recipe_id or 0, [])
+    return methods.named(found, item.method_id) if len(found) > 1 else None
 
 
 class PlanItemOut(BaseModel):
@@ -108,6 +116,9 @@ class PlanItemOut(BaseModel):
     cooked: bool = False
     # R3: the ids of the recipe's Optional lines this meal will not use. Empty: every line counts.
     optional_skipped: list[int] = Field(default_factory=list)
+    # M2: the way of cooking it this meal uses, for a recipe with two. Null: a recipe with one.
+    method_id: int | None = None
+    method: str | None = None
 
 
 class PlanMealOut(BaseModel):
@@ -292,8 +303,9 @@ def get_plan(
     }
     # The Optional ingredient lines of those recipes (R3).
     optional_ids: dict[int, set[int]] = {}
-    for line_recipe_id, line_id in db.execute(
-        select(RecipeLine.recipe_id, RecipeLine.id).where(
+    optional_in: dict[int, dict[int, int | None]] = {}  # recipe -> line -> its method (M2)
+    for line_recipe_id, line_id, line_method in db.execute(
+        select(RecipeLine.recipe_id, RecipeLine.id, RecipeLine.method_id).where(
             RecipeLine.household_id == household_id,
             RecipeLine.recipe_id.in_(recipe_ids),
             RecipeLine.kind == "ingredient",
@@ -301,6 +313,21 @@ def get_plan(
         )
     ):
         optional_ids.setdefault(line_recipe_id, set()).add(line_id)
+        optional_in.setdefault(line_recipe_id, {})[line_id] = line_method
+    ways = methods.of_recipes(db, recipe_ids)
+
+    def item_optional(i: MealItem) -> set[int]:
+        """The Optional lines of the way of cooking it this item uses."""
+        found = ways.get(i.recipe_id or 0, [])
+        method = methods.named(found, i.method_id)
+        return {
+            line_id
+            for line_id, line_method in optional_in.get(i.recipe_id or 0, {}).items()
+            if method is None
+            or (line_method == method.id)
+            or (line_method is None and method.id == found[0].id)
+        }
+
     waits = recipe_service.waits_of(db, recipe_ids)
     # A batch cook's recipe, for the kcal of its tubs.
     batch_recipes = {
@@ -428,6 +455,9 @@ def get_plan(
                 kcal=kcal_of(recipe),
                 serves=recipe.serves,
                 optional_count=len(optional_ids.get(recipe.id, ())),
+                methods=[Ref(id=m.id, name=m.name) for m in ways.get(recipe.id, [])]
+                if len(ways.get(recipe.id, [])) > 1
+                else [],
             )
             if recipe
             else None,
@@ -444,9 +474,9 @@ def get_plan(
             note=i.name if i.kind == "note" else None,
             eating=eating_of(i, recipe),
             cooked=cooked_of(i),
-            optional_skipped=sorted(
-                set(i.optional_skipped or ()) & optional_ids.get(i.recipe_id or 0, set())
-            ),
+            optional_skipped=sorted(set(i.optional_skipped or ()) & item_optional(i)),
+            method_id=(m := _item_method(i, ways)) and m.id,
+            method=m.name if m else None,
         )
 
     by_meal: dict[int, list[PlanItemOut]] = {}
@@ -571,6 +601,12 @@ class PlanItemIn(BaseModel):
     servings: Annotated[int, Field(ge=1, le=99)] | None = Field(
         default=None, description="Recipes only. Left out: the recipe's own Serves."
     )
+    method_id: StoredInt | None = Field(
+        default=None,
+        description="Recipes with two ways of cooking them (M2): which one this meal uses (an id"
+        " from the recipe's `methods`). Left out: the one used last. `422 not_a_method` for"
+        " an id that is not one of the recipe's.",
+    )
     optional_use: Annotated[list[StoredInt], Field(max_length=200)] | None = Field(
         default=None,
         description="Recipes only: the ids of the recipe's Optional ingredient lines the person"
@@ -623,6 +659,7 @@ def add_plan_item(body: PlanItemIn, kitchen: Here, response: Response) -> PlanWr
             body.servings,
             body.note,
             body.optional_use,
+            body.method_id,
         )
 
     out = _run(kitchen, response, make)
@@ -668,6 +705,27 @@ def set_plan_item_optional(
         kitchen,
         response,
         lambda: plan.set_optional(kitchen, plan.find_item(kitchen, plan_item_id), body.use),
+    )
+
+
+class MethodIn(BaseModel):
+    method_id: StoredInt = Field(
+        description="The id of the way of cooking it, from the recipe's `methods`."
+    )
+
+
+@router.put("/plan/items/{plan_item_id}/method")
+def set_plan_item_method(
+    plan_item_id: StoredInt, body: MethodIn, kitchen: Here, response: Response
+) -> PlanWrite:
+    """Which way of cooking a planned recipe uses (M2): the shopping list, Can cook now and
+    Cooked it follow. The Optional picks start again. Already that way → `change: null`. Only
+    a recipe (`422 not_a_recipe`) with two ways (`422 one_method`) in a planned meal
+    (`409 meal_done`); an id that is not one of its ways is `422 not_a_method`."""
+    return _run(
+        kitchen,
+        response,
+        lambda: plan.set_method(kitchen, plan.find_item(kitchen, plan_item_id), body.method_id),
     )
 
 

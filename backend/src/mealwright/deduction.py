@@ -35,6 +35,7 @@ from fastapi import status
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from mealwright import methods
 from mealwright.amounts import MILLI, TooBig, checked, plural, round_half_up, unit_family, unit_size
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.recipe_schemas import amount_text
@@ -215,10 +216,14 @@ def _rows(
     portions: int,
     answers: list[Answer],
     skip: frozenset[int] = frozenset(),
+    method_id: int | None = None,
 ) -> list[Row]:
     """Rule 1 and 2 and 3: one row per ingredient, in the order the recipe first uses it.
-    `skip`: Optional lines the person will not use (R3), left out as if they weren't there."""
+    `skip`: Optional lines the person will not use (R3), left out as if they weren't there.
+    `method_id`: the way of cooking it the meal was planned with (M2); empty, the first."""
     db, hid = kitchen.db, kitchen.household_id
+    all_methods = methods.methods_of(db, recipe.id)
+    method = methods.named(all_methods, method_id)
     lines = [
         line
         for line in db.scalars(
@@ -230,7 +235,7 @@ def _rows(
             )
             .order_by(RecipeLine.position, RecipeLine.id)
         )
-        if line.id not in skip
+        if line.id not in skip and methods.in_method(line, all_methods, method)
     ]
     foods = {
         food.id: food
@@ -430,6 +435,7 @@ def work_out(
     choices: dict[str, Choice] | None = None,
     pool: Pool | None = None,
     skip: frozenset[int] = frozenset(),
+    method_id: int | None = None,
 ) -> Worked:
     """What cooking `portions` of the recipe takes from the pantry. Read-only. `skip`: the
     Optional lines the meal will not use (R3). With `choices`
@@ -438,7 +444,7 @@ def work_out(
     answers = answers or []
     for answer in answers:
         find(kitchen, answer.food_id)  # a food from another household is a 404
-    rows = _rows(kitchen, recipe, portions, answers, skip)
+    rows = _rows(kitchen, recipe, portions, answers, skip, method_id)
     confirming = choices is not None
     choices = choices or {}
     by_key = {row.key: row for row in rows}
@@ -603,7 +609,7 @@ def off_rows(worked: list[Worked], choices: list[dict[str, Choice]]) -> list[Row
 
 def offer_as_previewed(
     kitchen: Kitchen,
-    entries: list[tuple[Recipe, int, dict[str, Choice], frozenset[int]]],
+    entries: list[tuple[Recipe, int, dict[str, Choice], frozenset[int], int | None]],
     worked: list[Worked],
     answers: list[Answer] | None = None,
 ) -> None:
@@ -611,15 +617,15 @@ def offer_as_previewed(
     as the preview does (one fresh pool, no choices: the preview endpoints take none) and settled
     as a meal. Nothing is taken. Only the offer's fields are copied onto the off rows, with the
     person's own tick on the offer."""
-    choices = [picked for _, _, picked, _ in entries]
+    choices = [picked for _, _, picked, _, _ in entries]
     off = off_rows(worked, choices)
     if not off:
         return
     off_ids = {id(row) for row in off}
     pool = Pool(kitchen)
     shown = [
-        work_out(kitchen, recipe, portions, answers, None, pool, skip)
-        for recipe, portions, _, skip in entries
+        work_out(kitchen, recipe, portions, answers, None, pool, skip, method_id)
+        for recipe, portions, _, skip, method_id in entries
     ]
     settle_meal(shown)
     by_key = {(i, row.key): row for i, each in enumerate(shown) for row in each.rows}

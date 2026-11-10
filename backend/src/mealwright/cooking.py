@@ -29,7 +29,7 @@ from typing import Any
 from fastapi import status
 from sqlalchemy import or_, select
 
-from mealwright import cooked, events, plan
+from mealwright import cooked, events, methods, plan
 from mealwright.amounts import checked, to_milli
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Answer
@@ -159,6 +159,8 @@ class Entry:
     link: dict[str, int]
     # The Optional lines the meal will not use (R3): not worked out, not taken, not recorded.
     skip: frozenset[int] = frozenset()
+    # The way of cooking it the meal was planned with (M2); None: the recipe's first.
+    method_id: int | None = None
 
 
 def item_entry(
@@ -171,6 +173,7 @@ def item_entry(
         choices,
         {"meal_item_id": item.id, "meal_id": item.meal_id, "item_id": item.id},
         plan.skipped_optional(kitchen, item),
+        item.method_id,
     )
 
 
@@ -185,6 +188,7 @@ def batch_entry(
         choices,
         {"batch_id": batch.id},
         plan.skipped_optional(kitchen, cook) if cook is not None else frozenset(),
+        cook.method_id if cook is not None else None,
     )
 
 
@@ -224,7 +228,10 @@ def preview(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> li
     """One proposal for each recipe, from one pool of packets: two recipes of a meal never
     both propose the same grams."""
     pool = Pool(kitchen)
-    found = [work_out(kitchen, e.recipe, e.portions, answers, None, pool, e.skip) for e in entries]
+    found = [
+        work_out(kitchen, e.recipe, e.portions, answers, None, pool, e.skip, e.method_id)
+        for e in entries
+    ]
     settle_meal(found)
     return found
 
@@ -315,12 +322,16 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
     nothing: a refusal comes before anything is written), and write a record for each."""
     pool = Pool(kitchen)
     worked = [
-        work_out(kitchen, e.recipe, e.portions, answers, e.choices, pool, e.skip) for e in entries
+        work_out(kitchen, e.recipe, e.portions, answers, e.choices, pool, e.skip, e.method_id)
+        for e in entries
     ]
     # The Use-off rows take the preview's offers first, so settling the meal sees the shortfalls
     # the preview showed for them, not their own unworked ones.
     offer_as_previewed(
-        kitchen, [(e.recipe, e.portions, e.choices, e.skip) for e in entries], worked, answers
+        kitchen,
+        [(e.recipe, e.portions, e.choices, e.skip, e.method_id) for e in entries],
+        worked,
+        answers,
     )
     settle_meal(worked)
     replaced = _remember(kitchen, worked, answers)
@@ -334,7 +345,7 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
     listed, action_id = _add_to_list(kitchen, [row for each in worked for row in each.rows], change)
     ids: list[int] = []
     for entry, each in zip(entries, worked, strict=True):
-        snapshot = cooked.snapshot(kitchen.db, entry.recipe)
+        snapshot = cooked.snapshot(kitchen.db, entry.recipe, entry.method_id)
         snapshot.choices = choices_of(each)
         record = CookedRecord(
             household_id=kitchen.household_id,
@@ -350,6 +361,9 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
         kitchen.db.add(record)
         kitchen.db.flush()
         ids.append(record.id)
+        ways = methods.methods_of(kitchen.db, entry.recipe.id)
+        if len(ways) > 1:  # the way it was cooked is pre-picked next time (M2)
+            methods.touch(methods.named(ways, entry.method_id), utcnow())
     data: dict[str, Any] = {"cooked_record_id": ids[0], "cooked_record_ids": ids, "listed": listed}
     if replaced:
         data["sizes"] = replaced  # Undo puts the old amounts back

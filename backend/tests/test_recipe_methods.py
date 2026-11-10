@@ -11,7 +11,7 @@ from sync_kit import ok
 from test_recipe_list import line, listing, row
 from test_recipes import food, make, save
 
-from mealwright.models import RecipeLine, RecipeMethod, RecipeStep
+from mealwright.models import MealItem, RecipeLine, RecipeMethod, RecipeStep
 
 API = "/api/v1"
 
@@ -38,7 +38,7 @@ def curry(kitchen: TestClient, pantry: dict[str, dict[str, Any]], **fields: Any)
         "method_name": "Stovetop",
         "lines": [
             {**line(pantry["Meth chicken"]["id"], 500, "g"), "words": "chicken"},
-            {**line(pantry["Meth water"]["id"], 200, "ml"), "words": "water"},
+            {**line(pantry["Meth water"]["id"], 200, "g"), "words": "water"},
         ],
         "steps": [
             {"text": "Rub the chicken."},
@@ -48,7 +48,7 @@ def curry(kitchen: TestClient, pantry: dict[str, dict[str, Any]], **fields: Any)
         "second_method": second(
             lines=[
                 {**line(pantry["Meth chicken"]["id"], 400, "g"), "words": "chicken"},
-                {**line(pantry["Meth stock"]["id"], 100, "ml"), "words": "stock"},
+                {**line(pantry["Meth stock"]["id"], 100, "g"), "words": "stock"},
             ],
             steps=[{"text": "Brown the chicken."}, {"text": "Pressure cook for 10 minutes."}],
         ),
@@ -222,7 +222,7 @@ def test_a_step_links_lines_of_its_own_method(
         kitchen,
         pantry,
         second_method=second(
-            lines=[{**line(pantry["Meth stock"]["id"], 100, "ml"), "words": "stock"}],
+            lines=[{**line(pantry["Meth stock"]["id"], 100, "g"), "words": "stock"}],
             steps=[{"text": "Add the stock.", "lines": [0]}],
         ),
     )
@@ -272,3 +272,258 @@ def test_a_copy_has_both_methods(kitchen: TestClient, pantry: dict[str, dict[str
     ]
     assert [ln["words"] for ln in copy["lines"]] == ["chicken", "water"]
     assert ok(save(kitchen, copy))["second_method"] is not None
+
+
+# --- Planning, shopping, Can cook now and Cooked it ---------------------------------------------
+
+from test_cooking import amounts as stock_amounts  # noqa: E402
+from test_cooking import cook  # noqa: E402
+from test_deduction import propose  # noqa: E402
+from test_plan import slot_ids  # noqa: E402
+from test_plan_writes import plan_recipe, undo, view  # noqa: E402
+from test_recipe_list import stock  # noqa: E402
+from test_shop_from_plan import amounts, day, from_plan  # noqa: E402
+
+
+def meal_item(kitchen: TestClient, item_id: int) -> dict[str, Any]:
+    for meal in view(kitchen, day(kitchen, 0), 10)["meals"]:
+        for item in meal["items"]:
+            if item["id"] == item_id:
+                return dict(item)
+    raise AssertionError("not on the plan")
+
+
+def plan_with(
+    kitchen: TestClient, recipe: dict[str, Any], n: int = 1, **extra: Any
+) -> dict[str, Any]:
+    return plan_recipe(kitchen, recipe["id"], day(kitchen, n), slot_ids(kitchen)["Dinner"], **extra)
+
+
+def test_adding_a_recipe_with_two_methods_stores_the_pick_and_pre_picks_the_one_used_last(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    recipe = curry(kitchen, pantry)
+    first, other = recipe["methods"][0]["id"], recipe["methods"][1]["id"]
+    # Nothing used yet: the first. The plan says which, and offers both.
+    one = plan_with(kitchen, recipe, 1)
+    item = meal_item(kitchen, one["item_id"])
+    assert (item["method_id"], item["method"]) == (first, "Stovetop")
+    assert [m["name"] for m in item["recipe"]["methods"]] == ["Stovetop", "Instant Pot"]
+    two = plan_with(kitchen, recipe, 2, method_id=other)
+    assert meal_item(kitchen, two["item_id"])["method"] == "Instant Pot"
+    # The one used last (the Instant Pot, planned just now) is pre-picked when none is sent.
+    three = plan_with(kitchen, recipe, 3)
+    assert meal_item(kitchen, three["item_id"])["method_id"] == other
+    assert ok(kitchen.get(f"{API}/recipes/{recipe['id']}"))["methods"][1]["used_last"] is True
+
+
+def test_a_method_that_is_not_the_recipes_is_refused(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    recipe = curry(kitchen, pantry)
+    plain = make(kitchen, "Meth plain two")
+    other = recipe["methods"][1]["id"]
+    for target, method in ((plain, other), (recipe, other + 999)):
+        r = kitchen.post(
+            f"{API}/plan/items",
+            json={
+                "date": day(kitchen, 1).isoformat(),
+                "slot_id": slot_ids(kitchen)["Dinner"],
+                "recipe_id": target["id"],
+                "method_id": method,
+            },
+        )
+        assert (r.status_code, r.json()["code"]) == (422, "not_a_method"), r.text
+
+
+def test_a_recipe_with_one_method_has_no_pick(kitchen: TestClient) -> None:
+    plain = make(kitchen, "Meth solo")
+    item = meal_item(kitchen, plan_with(kitchen, plain)["item_id"])
+    assert (item["method_id"], item["method"], item["recipe"]["methods"]) == (None, None, [])
+
+
+def test_the_shopping_list_follows_the_meals_method(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    recipe = curry(kitchen, pantry)
+    chicken, water, stock_ = (pantry[n]["id"] for n in ("Meth chicken", "Meth water", "Meth stock"))
+    plan_with(kitchen, recipe, 1, method_id=recipe["methods"][0]["id"])
+    from_plan(kitchen)
+    assert set(amounts(kitchen)) == {chicken, water}
+    assert amounts(kitchen)[chicken] == 500
+    # A second meal with the other method adds its own lines, not the first method's.
+    plan_with(kitchen, recipe, 2, method_id=recipe["methods"][1]["id"])
+    from_plan(kitchen)
+    assert set(amounts(kitchen)) == {chicken, water, stock_}
+    assert amounts(kitchen)[chicken] == 900  # 500 g and 400 g
+    assert amounts(kitchen)[stock_] == 100 and amounts(kitchen)[water] == 200
+
+
+def test_the_method_can_be_changed_from_the_meal_and_undone(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    recipe = curry(kitchen, pantry)
+    chicken, water, stock_ = (pantry[n]["id"] for n in ("Meth chicken", "Meth water", "Meth stock"))
+    first, other = recipe["methods"][0]["id"], recipe["methods"][1]["id"]
+    item_id = plan_with(kitchen, recipe, 1, method_id=first)["item_id"]
+    from_plan(kitchen)
+    assert set(amounts(kitchen)) == {chicken, water}
+    changed = ok(kitchen.put(f"{API}/plan/items/{item_id}/method", json={"method_id": other}))
+    assert meal_item(kitchen, item_id)["method"] == "Instant Pot"
+    assert set(amounts(kitchen)) == {chicken, stock_}  # the list followed, with no extra press
+    assert (
+        ok(kitchen.put(f"{API}/plan/items/{item_id}/method", json={"method_id": other}))["change"]
+        is None
+    )  # already that way
+    undone = undo(kitchen, changed)
+    assert undone
+    assert meal_item(kitchen, item_id)["method_id"] == first
+    assert set(amounts(kitchen)) == {chicken, water}
+    # Only a recipe's own methods, and only on a meal not yet cooked.
+    r = kitchen.put(f"{API}/plan/items/{item_id}/method", json={"method_id": other + 999})
+    assert r.status_code == 422, r.text
+
+
+def test_can_cook_now_follows_the_method_used_last_and_the_page_can_ask_for_either(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    recipe = curry(kitchen, pantry)
+    first, other = recipe["methods"][0]["id"], recipe["methods"][1]["id"]
+    stock(kitchen, pantry["Meth chicken"]["id"], 1000, "g")
+    stock(kitchen, pantry["Meth stock"]["id"], 1000, "g")  # only the Instant Pot's ingredients
+    # Never used: the first method counts, and its water is missing.
+    row = next(r for r in listing(kitchen)["recipes"] if r["name"] == "Meth curry")
+    assert row["stock"]["missing"] == 1 and row["stock"]["can_cook_now"] is False
+    page = ok(kitchen.get(f"{API}/recipes/{recipe['id']}/stock", params={"method": other}))
+    assert (page["counted"], page["missing"]) == (2, 0)
+    assert [ln["line_id"] for ln in page["lines"]] == [
+        ln["id"] for ln in recipe["second_method"]["lines"]
+    ]
+    page = ok(kitchen.get(f"{API}/recipes/{recipe['id']}/stock", params={"method": first}))
+    assert (page["counted"], page["missing"]) == (2, 1)
+    # No method asked for: the first, which is what an older page shows.
+    assert ok(kitchen.get(f"{API}/recipes/{recipe['id']}/stock"))["missing"] == 1
+    plan_with(kitchen, recipe, 1, method_id=other)  # the Instant Pot is now the one used last
+    row = next(r for r in listing(kitchen)["recipes"] if r["name"] == "Meth curry")
+    assert row["stock"]["missing"] == 0 and row["stock"]["can_cook_now"] is True
+
+
+def test_cooked_it_proposes_and_takes_only_the_meals_method_and_undo_puts_it_back(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    recipe = curry(kitchen, pantry)
+    for name, amount, unit in (
+        ("Meth chicken", 1000, "g"),
+        ("Meth water", 1000, "g"),
+        ("Meth stock", 1000, "g"),
+    ):
+        stock(kitchen, pantry[name]["id"], amount, unit)
+    item = plan_with(kitchen, recipe, 1, method_id=recipe["methods"][1]["id"], servings=4)[
+        "item_id"
+    ]
+    proposal = propose(kitchen, item)
+    assert sorted(r["food"]["name"] for r in proposal["rows"]) == ["Meth chicken", "Meth stock"]
+    done = ok(cook(kitchen, item), 201)
+    assert stock_amounts(kitchen, pantry["Meth chicken"]["id"]) == [600_000]  # 400 g, not 500 g
+    assert stock_amounts(kitchen, pantry["Meth stock"]["id"]) == [900_000]
+    assert stock_amounts(kitchen, pantry["Meth water"]["id"]) == [1_000_000]
+    snapshot = done["cooked"]["snapshot"]
+    assert snapshot["method"] == "Instant Pot"
+    assert [ln["words"] for ln in snapshot["lines"]] == ["chicken", "stock"]
+    assert [s["text"] for s in snapshot["steps"]] == [
+        "Brown the chicken.",
+        "Pressure cook for 10 minutes.",
+    ]
+    ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
+    assert stock_amounts(kitchen, pantry["Meth chicken"]["id"]) == [1_000_000]
+    assert stock_amounts(kitchen, pantry["Meth stock"]["id"]) == [1_000_000]
+
+
+def test_a_meal_cooked_with_a_method_makes_it_the_one_used_last(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    recipe = curry(kitchen, pantry)
+    for name in ("Meth chicken", "Meth water", "Meth stock"):
+        stock(kitchen, pantry[name]["id"], 1000, "g")
+    first, other = recipe["methods"][0]["id"], recipe["methods"][1]["id"]
+    planned = plan_with(kitchen, recipe, 1, method_id=other)["item_id"]
+    kitchen.delete(f"{API}/plan/items/{planned}")
+    item = plan_with(kitchen, recipe, 1, method_id=first)["item_id"]  # the first is now last used
+    assert plan_with(kitchen, recipe, 2)["item_id"]
+    cooked_it = plan_with(kitchen, recipe, 0, method_id=other)["item_id"]
+    ok(cook(kitchen, cooked_it), 201)
+    fresh = plan_with(kitchen, recipe, 4)["item_id"]
+    assert meal_item(kitchen, fresh)["method_id"] == other
+    assert item
+
+
+def test_a_copy_of_a_meal_keeps_its_method_and_removing_a_method_sends_its_meals_to_the_first(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    recipe = curry(kitchen, pantry)
+    other = recipe["methods"][1]["id"]
+    item_id = plan_with(kitchen, recipe, 1, method_id=other)["item_id"]
+    copied = ok(
+        kitchen.post(
+            f"{API}/plan/items/{item_id}/move",
+            json={
+                "date": day(kitchen, 3).isoformat(),
+                "slot_id": slot_ids(kitchen)["Lunch"],
+                "mode": "copy",
+            },
+        )
+    )
+    assert copied["change"]["kind"] == "plan_copied"
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        copy_id = max(db.scalars(select(MealItem.id)))
+    assert meal_item(kitchen, copy_id)["method_id"] == other
+    gone = ok(
+        kitchen.put(
+            f"{API}/recipes/{recipe['id']}", json=_body(recipe, second_method=None, method_name="")
+        )
+    )
+    assert gone["second_method"] is None
+    # The recipe has one way of cooking it now: its meals follow it, and say nothing of methods.
+    for planned in (item_id, copy_id):
+        assert meal_item(kitchen, planned)["method_id"] is None
+        assert meal_item(kitchen, planned)["method"] is None
+
+
+def test_an_optional_line_belongs_to_its_method_and_removing_a_meal_and_undo_keep_the_pick(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    recipe = curry(
+        kitchen,
+        pantry,
+        second_method=second(
+            lines=[
+                {**line(pantry["Meth chicken"]["id"], 400, "g"), "words": "chicken"},
+                {**line(pantry["Meth stock"]["id"], 100, "g"), "words": "stock", "optional": True},
+            ],
+        ),
+    )
+    stock_line = recipe["second_method"]["lines"][1]["id"]
+    other = recipe["methods"][1]["id"]
+    bad = kitchen.post(
+        f"{API}/plan/items",
+        json={
+            "date": day(kitchen, 1).isoformat(),
+            "slot_id": slot_ids(kitchen)["Dinner"],
+            "recipe_id": recipe["id"],
+            "method_id": recipe["methods"][0]["id"],
+            "optional_use": [stock_line],  # the Instant Pot's line, asked of the Stovetop
+        },
+    )
+    assert bad.status_code == 422 and bad.json()["code"] == "not_optional", bad.text
+    made = plan_with(kitchen, recipe, 1, method_id=other, optional_use=[])
+    item = meal_item(kitchen, made["item_id"])
+    assert item["optional_skipped"] == [stock_line] and item["method_id"] == other
+    gone = ok(kitchen.delete(f"{API}/plan/items/{made['item_id']}"))
+    undo(kitchen, gone)
+    back = next(
+        i
+        for m in view(kitchen, day(kitchen, 0), 10)["meals"]
+        for i in m["items"]
+        if i["recipe"] and i["recipe"]["id"] == recipe["id"]
+    )
+    assert (back["method_id"], back["optional_skipped"]) == (other, [stock_line])

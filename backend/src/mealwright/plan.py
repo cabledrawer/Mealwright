@@ -7,7 +7,7 @@ from fastapi import status
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import cooked
+from mealwright import cooked, methods
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
 from mealwright.history import Tally, as_utc, record, undo_message
@@ -24,7 +24,9 @@ from mealwright.models import (
     MealSlot,
     Recipe,
     RecipeLine,
+    RecipeMethod,
     Tub,
+    utcnow,
 )
 from mealwright.names import fold
 
@@ -268,6 +270,7 @@ def _snapshot_item(item: MealItem) -> dict[str, Any]:
         "food_id": item.food_id,
         "servings": item.servings,
         "optional_skipped": item.optional_skipped,
+        "method_id": item.method_id,
     }
 
 
@@ -322,7 +325,7 @@ def _thing_of(kitchen: Kitchen, steps: list[dict[str, Any]]) -> str | None:
                 if more:
                     name = f"{name} and {more} more"
                 return f"{name} ({_short_where(kitchen, *was)})"
-        if step["op"] in ("add_item", "move_item", "servings", "optional"):
+        if step["op"] in ("add_item", "move_item", "servings", "optional", "method"):
             item = kitchen.db.get(MealItem, step["item"])
         elif step["op"] == "del_item":
             item = MealItem(**{key: step["item"][key] for key in _SNAPSHOT_KEYS})
@@ -382,14 +385,17 @@ def add_item(
     servings: int | None,
     note: str | None = None,
     optional_use: list[int] | None = None,
+    method_id: int | None = None,
 ) -> Change:
     """Plan a recipe, a plain ingredient or a note ("Eating out"). A filled meal gets it
     alongside. `optional_use` (R3, cabledrawer 9 Nov): the recipe's Optional lines the person will
     use; the others are left out of the shopping list and of "Cooked it". Left out: every line
-    counts, as it did before."""
+    counts, as it did before. `method_id` (M2, cabledrawer 9 Nov): which way of cooking a recipe
+    with two the meal uses; left out, the one used last. A recipe with one method has none."""
     check_day(kitchen, day)
     find_slot(kitchen, slot_id)
-    skipped = _skipped_for(kitchen, recipe, optional_use)
+    method = _method_for(kitchen, recipe, method_id)
+    skipped = _skipped_for(kitchen, recipe, optional_use, method)
     steps: list[dict[str, Any]] = []
     meal = meal_at(kitchen, day, slot_id)
     if meal is None:
@@ -407,7 +413,9 @@ def add_item(
         food_id=food.id if food else None,
         servings=servings if recipe else None,
         optional_skipped=skipped,
+        method_id=method.id if method else None,
     )
+    methods.touch(method, utcnow())
     kitchen.db.add(item)
     kitchen.db.flush()
     steps.append({"op": "add_item", "item": item.id})
@@ -422,10 +430,40 @@ def add_item(
     )
 
 
-def optional_lines(db: DbSession, recipe_id: int | None) -> dict[int, str]:
-    """A recipe's Optional ingredient lines: id → the words, in the recipe's order."""
+def _method_for(
+    kitchen: Kitchen, recipe: Recipe | None, method_id: int | None
+) -> RecipeMethod | None:
+    """The way of cooking it a meal uses: the one asked for (a recipe with two), else the one
+    used last. A recipe with one method has none (the meal follows the recipe)."""
+    if recipe is None:
+        if method_id is not None:
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "not_a_recipe",
+                "Only a recipe has a way of cooking it.",  # proposed, for cabledrawer
+            )
+        return None
+    found = methods.methods_of(kitchen.db, recipe.id)
+    if method_id is not None and all(m.id != method_id for m in found):
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_a_method",
+            "That isn’t one of this recipe’s ways of cooking it.",  # proposed, for cabledrawer
+        )
+    if len(found) < 2:
+        return None
+    return methods.named(found, method_id) if method_id is not None else methods.used_last(found)
+
+
+def optional_lines(
+    db: DbSession, recipe_id: int | None, method_id: int | None = None
+) -> dict[int, str]:
+    """A recipe's Optional ingredient lines: id → the words, in the recipe's order. Only those of
+    the way of cooking it the meal uses (M2); with none given, the first."""
     if recipe_id is None:
         return {}
+    all_methods = methods.methods_of(db, recipe_id)
+    method = methods.named(all_methods, method_id)
     return {
         line.id: line.words
         for line in db.scalars(
@@ -437,14 +475,19 @@ def optional_lines(db: DbSession, recipe_id: int | None) -> dict[int, str]:
             )
             .order_by(RecipeLine.position, RecipeLine.id)
         )
+        if methods.in_method(line, all_methods, method)
     }
 
 
 def _skipped_for(
-    kitchen: Kitchen, recipe: Recipe | None, use: list[int] | None
+    kitchen: Kitchen,
+    recipe: Recipe | None,
+    use: list[int] | None,
+    method: RecipeMethod | None = None,
 ) -> list[int] | None:
     """The Optional lines left out when the person will use `use`; None when every one is used
-    (or the person was not asked). A line that isn't an Optional line of this recipe is refused."""
+    (or the person was not asked). A line that isn't an Optional line of this recipe's way of
+    cooking it (M2) is refused."""
     if use is None:
         return None
     if recipe is None:
@@ -453,7 +496,7 @@ def _skipped_for(
             "not_a_recipe",
             "Only a recipe has optional ingredients.",  # proposed, for cabledrawer
         )
-    optional = optional_lines(kitchen.db, recipe.id)
+    optional = optional_lines(kitchen.db, recipe.id, method.id if method else None)
     if any(line_id not in optional for line_id in use):
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -466,10 +509,11 @@ def _skipped_for(
 
 def skipped_optional(kitchen: Kitchen, item: MealItem) -> frozenset[int]:
     """The Optional lines this planned recipe will not use: what was unticked, and only lines
-    that are still Optional (a line made ordinary again counts)."""
+    that are still Optional (a line made ordinary again counts) and in the way of cooking it
+    the meal uses."""
     if not item.optional_skipped or item.recipe_id is None:
         return frozenset()
-    now = optional_lines(kitchen.db, item.recipe_id)
+    now = optional_lines(kitchen.db, item.recipe_id, item.method_id)
     return frozenset(line_id for line_id in item.optional_skipped if line_id in now)
 
 
@@ -488,7 +532,10 @@ def set_optional(kitchen: Kitchen, item: MealItem, use: list[int]) -> Change | N
             "Only a recipe has optional ingredients.",  # proposed, for cabledrawer
         )
     recipe = kitchen.db.get(Recipe, item.recipe_id) if item.recipe_id else None
-    now = _skipped_for(kitchen, recipe, use)
+    method = (
+        methods.named(methods.methods_of(kitchen.db, recipe.id), item.method_id) if recipe else None
+    )
+    now = _skipped_for(kitchen, recipe, use, method)
     before = sorted(skipped_optional(kitchen, item)) or None
     if before == now:
         return None
@@ -500,6 +547,47 @@ def set_optional(kitchen: Kitchen, item: MealItem, use: list[int]) -> Change | N
         "plan_optional",
         f"Changed the optional ingredients of {_item_name(kitchen, item)} on {where}",
         [{"op": "optional", "item": item.id, "from": before, "to": now}],
+        meal_id=meal.id,
+        item_id=item.id,
+    )
+
+
+def set_method(kitchen: Kitchen, item: MealItem, method_id: int) -> Change | None:
+    """Which way of cooking a planned recipe uses, changed from the meal (M2, cabledrawer 9 Nov). The
+    shopping list, Can cook now and Cooked it follow it. The Optional picks belonged to the other
+    way, so they start again (every line counts). Already that way → None."""
+    meal = kitchen.db.get(Meal, item.meal_id)
+    if meal is None:  # pragma: no cover (the database keeps every item in a meal)
+        raise not_found("That meal")
+    _planned(meal)
+    refuse_cooked_items(kitchen, [item], meal)
+    if item.kind != "recipe":
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_a_recipe",
+            "Only a recipe has a way of cooking it.",  # proposed, for cabledrawer
+        )
+    recipe = kitchen.db.get(Recipe, item.recipe_id) if item.recipe_id else None
+    method = _method_for(kitchen, recipe, method_id)
+    if method is None:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "one_method",
+            "This recipe has only one way of cooking it.",  # proposed, for cabledrawer
+        )
+    if item.method_id == method.id:
+        return None
+    before = {"method": item.method_id, "skipped": item.optional_skipped}
+    item.method_id = method.id
+    item.optional_skipped = None
+    methods.touch(method, utcnow())
+    kitchen.db.flush()
+    where = _where(kitchen, meal.day, meal.slot_id)
+    return _finish(
+        kitchen,
+        "plan_method",
+        f"Changed how {_item_name(kitchen, item)} on {where} is cooked to {method.name}",
+        [{"op": "method", "item": item.id, "from": before, "to": method.id}],
         meal_id=meal.id,
         item_id=item.id,
     )
@@ -559,6 +647,7 @@ def _copy_of(kitchen: Kitchen, item: MealItem, meal: Meal, steps: list[dict[str,
         food_id=item.food_id,
         servings=item.servings,
         optional_skipped=item.optional_skipped,
+        method_id=item.method_id,
     )
     kitchen.db.add(clone)
     kitchen.db.flush()
@@ -1048,6 +1137,12 @@ def _undo_step(
                 food_id=old["food_id"],
                 servings=old["servings"],
                 optional_skipped=old.get("optional_skipped"),
+                # A way of cooking it that has since been removed from the recipe is let go.
+                method_id=(
+                    old.get("method_id")
+                    if old.get("method_id") and db.get(RecipeMethod, old["method_id"])
+                    else None
+                ),
             )
         )
         db.flush()
@@ -1104,6 +1199,19 @@ def _undo_step(
         if (sorted(skipped_optional(kitchen, item)) or None) != step["to"]:
             return False  # changed again since (F165)
         item.optional_skipped = step["from"]
+        db.flush()
+        return True
+    if op == "method":
+        item = _own(kitchen, MealItem, step["item"])
+        if item is None or _open(kitchen, item.meal_id) is None:
+            return False
+        if _cooked_now(kitchen, item):
+            return False
+        if item.method_id != step["to"]:
+            return False  # changed again since (F165)
+        was = step["from"]
+        item.method_id = was["method"] if db.get(RecipeMethod, was["method"] or 0) else None
+        item.optional_skipped = was["skipped"]
         db.flush()
         return True
     if op == "eaters":

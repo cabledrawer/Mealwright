@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.models import RecipeMethod
@@ -40,10 +40,12 @@ def methods_of(db: DbSession, recipe_id: int) -> list[RecipeMethod]:
     )
 
 
-def of_recipes(db: DbSession, recipe_ids: Iterable[int]) -> dict[int, list[RecipeMethod]]:
+def of_recipes(
+    db: DbSession, recipe_ids: Iterable[int] | Select[Any]
+) -> dict[int, list[RecipeMethod]]:
     found: dict[int, list[RecipeMethod]] = {}
-    ids = list(recipe_ids)
-    if not ids:
+    ids = recipe_ids if isinstance(recipe_ids, Select) else list(recipe_ids)
+    if isinstance(ids, list) and not ids:
         return found
     for method in db.scalars(
         select(RecipeMethod)

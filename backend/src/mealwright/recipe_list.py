@@ -44,6 +44,7 @@ from typing import Literal
 
 from sqlalchemy import select
 
+from mealwright import methods
 from mealwright.amounts import MILLI, TooBig, unit_family
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.recipe_list_schemas import (
@@ -88,6 +89,14 @@ class Line:
     # An Optional line (R3): the recipe on its own never needs it (it can be cooked without);
     # a planned meal counts it only when the person said they will use it.
     optional: bool = False
+    # The method the line is in (M2); None: the recipe's first.
+    method_id: int | None = None
+
+
+def keep_method(lines: list[Line], picks: methods.Picks) -> list[Line]:
+    """The lines of the method that counts for each recipe (M2): the one a meal asked for, the one
+    used last, or the first. Lines of a recipe with no methods all count."""
+    return [line for line in lines if picks.keeps(line.recipe_id, line.method_id)]
 
 
 def _lines(kitchen: Kitchen, live: set[int], only: int | set[int] | None = None) -> list[Line]:
@@ -102,12 +111,13 @@ def _lines(kitchen: Kitchen, live: set[int], only: int | set[int] | None = None)
         RecipeLine.unit,
         RecipeLine.size_id,
         RecipeLine.optional,
+        RecipeLine.method_id,
     ).where(RecipeLine.household_id == kitchen.household_id, RecipeLine.kind == "ingredient")
     if isinstance(only, int):
         query = query.where(RecipeLine.recipe_id == only)
     elif only is not None:
         query = query.where(RecipeLine.recipe_id.in_(only))
-    return [Line(*row) for row in kitchen.db.execute(query) if row[1] in live]
+    return [Line(*tuple(row)) for row in kitchen.db.execute(query) if row[1] in live]
 
 
 def _foods(kitchen: Kitchen) -> dict[int, Food]:
@@ -349,7 +359,10 @@ def page(
     ordered = sorted(recipes.values(), key=lambda r: (fold(r.name), r.id))
     lines = _lines(kitchen, set(recipes))
     foods = _foods(kitchen)
-    found = hints(lines, recipes, Stock(kitchen, foods))
+    # Can cook now follows the way of cooking it the recipe would be planned with: the one used
+    # last, else the first (M2). The search below looks in every method.
+    counted = keep_method(lines, methods.picks_for(kitchen.db, recipes))
+    found = hints(counted, recipes, Stock(kitchen, foods))
     kept = ordered
     if can_cook_now:
         kept = [r for r in kept if (found[r.id][0] and found[r.id][0].can_cook_now)]  # type: ignore[union-attr]
@@ -385,7 +398,9 @@ def page(
     )
 
 
-def stock_of(kitchen: Kitchen, recipe: Recipe, servings: int | None = None) -> RecipeStock:
+def stock_of(
+    kitchen: Kitchen, recipe: Recipe, servings: int | None = None, method_id: int | None = None
+) -> RecipeStock:
     """Where each ingredient of one recipe is, for the recipe page: the same rules as the
     list's hints (this file's docstring), line by line. Only lines that count are answered
     (a heading, an unlinked line, or a recipe that isn't checked has no state). Several lines
@@ -395,9 +410,13 @@ def stock_of(kitchen: Kitchen, recipe: Recipe, servings: int | None = None) -> R
     can't be compared (Q22); otherwise it is left out, never "missing". Read-only, a fixed number of
     queries, limited to the signed-in household. The amounts needed are those for `servings`
     (cabledrawer, 19 Oct, Q22: enough for the recipe at the chosen servings); left out, the
-    recipe's own Serves, and with no Serves set `servings` is ignored."""
+    recipe's own Serves, and with no Serves set `servings` is ignored. `method_id`: the way of
+    cooking it the page shows (M2); left out, the first (what an older page shows)."""
     recipes = live_recipes(kitchen)
-    lines = _lines(kitchen, set(recipes), only=recipe.id)
+    lines = keep_method(
+        _lines(kitchen, set(recipes), only=recipe.id),
+        methods.picks_for(kitchen.db, [recipe.id], {recipe.id: method_id}),
+    )
     foods = _foods(kitchen)
     stock = Stock(kitchen, foods)
     hint, _soon, unchecked = hints(lines, recipes, stock, servings)[recipe.id]

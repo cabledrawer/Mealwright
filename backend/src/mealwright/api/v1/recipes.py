@@ -191,12 +191,14 @@ def recipe_stock(
     recipe_id: StoredInt,
     kitchen: Here,
     servings: Annotated[int, Query(ge=1, le=99)] | None = None,
+    method: Annotated[StoredInt, Query()] | None = None,
 ) -> RecipeStock:
     """Where each ingredient of this recipe is in the pantry, with the same rules as the
     list's stock hints (api-0.4-recipes.md, section 4). Read-only. Lines that don't count are
     left out. `servings` (1 to 99) is what the page's minus and plus buttons chose: the
-    amounts needed are scaled to it. Left out, the recipe's own Serves is used."""
-    return recipe_list.stock_of(kitchen, recipes.find(kitchen, recipe_id), servings)
+    amounts needed are scaled to it. Left out, the recipe's own Serves is used. `method` (M2):
+    the id of the way of cooking it the page shows; left out, the first."""
+    return recipe_list.stock_of(kitchen, recipes.find(kitchen, recipe_id), servings, method)
 
 
 @router.put("/recipes/{recipe_id}")

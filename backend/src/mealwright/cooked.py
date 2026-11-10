@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
+from mealwright import methods
 from mealwright.models import CookedRecord, Food, FoodSize, Recipe, RecipeLine, RecipeStep
 
 _SIZE_UNIT: dict[str, Literal["g", "ml"]] = {"weight": "g", "volume": "ml"}
@@ -87,20 +88,27 @@ class Snapshot(BaseModel):
     name: str
     version: int
     servings: int | None
+    # The way of cooking it that was used (M2): its name, empty for a recipe with one method.
+    method: str = ""
     lines: list[SnapshotLine]
     steps: list[SnapshotStep]
     choices: list[SnapshotChoice] = []
 
 
-def snapshot(db: DbSession, recipe: Recipe) -> Snapshot:
-    """A copy of the recipe as it is now, with the names of what its lines link to."""
-    rows = list(
-        db.scalars(
+def snapshot(db: DbSession, recipe: Recipe, method_id: int | None = None) -> Snapshot:
+    """A copy of the recipe as it is now, with the names of what its lines link to. `method_id`:
+    the way of cooking it that was used (M2): only its lines and steps are copied, and its name."""
+    all_methods = methods.methods_of(db, recipe.id)
+    method = methods.named(all_methods, method_id)
+    rows = [
+        row
+        for row in db.scalars(
             select(RecipeLine)
             .where(RecipeLine.recipe_id == recipe.id)
             .order_by(RecipeLine.position, RecipeLine.id)
         )
-    )
+        if methods.in_method(row, all_methods, method)
+    ]
     food_ids = {row.food_id for row in rows if row.food_id}
     foods = {food.id: food for food in db.scalars(select(Food).where(Food.id.in_(food_ids)))}
     size_ids = {row.size_id for row in rows if row.size_id}
@@ -109,15 +117,20 @@ def snapshot(db: DbSession, recipe: Recipe) -> Snapshot:
     used = {
         other.id: other.name for other in db.scalars(select(Recipe).where(Recipe.id.in_(used_ids)))
     }
-    steps = db.scalars(
-        select(RecipeStep)
-        .where(RecipeStep.recipe_id == recipe.id)
-        .order_by(RecipeStep.position, RecipeStep.id)
-    )
+    steps = [
+        step
+        for step in db.scalars(
+            select(RecipeStep)
+            .where(RecipeStep.recipe_id == recipe.id)
+            .order_by(RecipeStep.position, RecipeStep.id)
+        )
+        if methods.in_method(step, all_methods, method)
+    ]
     return Snapshot(
         name=recipe.name,
         version=recipe.version,
         servings=recipe.serves,
+        method=method.name if method is not None and len(all_methods) > 1 else "",
         lines=[
             SnapshotLine(
                 kind="heading" if row.kind == "heading" else "ingredient",
