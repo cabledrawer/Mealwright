@@ -76,11 +76,11 @@ test('a step that waits: Check suggests it, Yes keeps it, Save shows the split t
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
   await expect(page.getByText('Method · 3 steps found')).toBeVisible();
   // The reader's two suggestions, each with its answers; the third step has none.
-  await expect(page.getByText('To confirm')).toHaveCount(2);
+  await expect(page.getByText('To confirm', { exact: true })).toHaveCount(2);
   await expect(page.getByText('Soak · overnight')).toBeVisible();
   await expect(page.getByText(/Ferment · 8\s*h – 12\s*h/)).toBeVisible();
   await page.getByRole('button', { name: 'Yes, it waits' }).first().click();
-  await expect(page.getByText('To confirm')).toHaveCount(1);
+  await expect(page.getByText('To confirm', { exact: true })).toHaveCount(1);
   await page.getByRole('button', { name: 'No wait' }).click(); // the ferment
   await expect(page.getByText(/Ferment ·/)).toHaveCount(0);
   await page.getByRole('button', { name: 'New ingredient' }).first().click();
