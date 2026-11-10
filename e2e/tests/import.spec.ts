@@ -914,7 +914,7 @@ test('Add a line at the end of each section: named, given the usual choices, and
   // A line with no name yet is not counted, and asks for a name.
   await expect(count).toContainText('2');
   // Scrolled to the middle, as a person would, so the page's own bar is not over the boxes.
-  await name.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await page.getByLabel('Note', { exact: true }).evaluate((el) => el.scrollIntoView({ block: 'center' }));
   await checkPage(page);
   await page.getByRole('button', { name: 'Add line', exact: true }).click();
   await expect(page.getByText('Type a name.')).toBeVisible();
@@ -1100,6 +1100,8 @@ test('the Check header: the title sits in from the edge, and the step note drops
   await read(page).click();
   const title = page.getByRole('heading', { level: 1 });
   await expect(title).toHaveText('Check before saving');
+  // The page's own header takes over from the one shown while it loads: measure that one.
+  await expect(onPhone() ? page.getByText('Step 2 of 3 · nothing saved yet', { exact: true }) : page.getByRole('list', { name: 'Import steps' })).toBeVisible();
   if (onPhone()) {
     const note = page.getByText('Step 2 of 3 · nothing saved yet', { exact: true });
     const counts = page.getByLabel('What was found');
