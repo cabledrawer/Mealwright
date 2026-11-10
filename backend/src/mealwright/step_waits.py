@@ -7,6 +7,7 @@ in minutes (overnight counts as `OVERNIGHT_MINUTES`) so the plan can later work 
 
 from __future__ import annotations
 
+import itertools
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -96,8 +97,14 @@ _DURATION = re.compile(
     re.IGNORECASE,
 )
 _OVERNIGHT = re.compile(r"\bovernight\b", re.IGNORECASE)
+_SPACES = re.compile(r"[^\S\n]+")
 _SENTENCE = re.compile(r"(?<=[.;!?])\s+|\n+")
 SUGGEST_FROM_MINUTES = 30  # a shorter rest or soak is part of the step, not a wait
+# How far past a wait word its length is looked for (release 0.8.0-beta.1 security pass M1):
+# reading the whole rest of the sentence for every wait word took seconds on a hostile page.
+AFTER_CHARS = 300
+NEAR_CHARS = 12  # "rest  of"
+WORDS_PER_SENTENCE = 5  # a sentence with more wait words than this is not a recipe's
 
 
 def _minutes(number: str, unit: str) -> int:
@@ -110,12 +117,14 @@ def read_wait(text: str) -> Wait | None:
     """A wait suggested from a step's words, or None: "marinate for 4 hours or overnight",
     "ferment 8-12 hours", "soak overnight". The first sentence with a wait word and a length
     after it of 30 minutes or more (or "overnight") gives it; one step gets one wait."""
+    text = _SPACES.sub(" ", text)  # a paste keeps its runs of spaces (security pass r2, M1)
     for sentence in _SENTENCE.split(text):
-        for found in _KIND.finditer(sentence):
+        for found in itertools.islice(_KIND.finditer(sentence), WORDS_PER_SENTENCE):
             kind = found.lastgroup or "rest"
-            if kind == "rest" and _NOT_A_WAIT.search(sentence, max(found.start() - 4, 0)):
+            near = sentence[max(found.start() - 4, 0) : found.end() + NEAR_CHARS]
+            if kind == "rest" and _NOT_A_WAIT.search(near):
                 continue
-            after = sentence[found.end() :]
+            after = sentence[found.end() : found.end() + AFTER_CHARS]
             end = _CLAUSE_END.search(after)
             wait = _length(kind, after[: end.start()] if end else after)
             if wait is not None:

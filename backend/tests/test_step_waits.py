@@ -270,3 +270,33 @@ def test_a_pasted_recipe_gets_suggested_waits_too(kitchen: TestClient, web: Web)
         "2. Grind and ferment 8-12 hours.\n3. Cook on a hot pan.\n",
     )
     assert [s["wait"] and s["wait"]["kind"] for s in shown["steps"]] == ["soak", "ferment", None]
+
+
+def test_a_hostile_page_of_wait_words_is_read_quickly() -> None:
+    """Release 0.8.0-beta.1 security pass M1: every wait word read the whole rest of its sentence,
+    so 100 steps of ~5,000 characters of "soak 1 " took 24 s of processor time on import."""
+    import gc
+    import time
+
+    steps = [
+        "soak 1 " * 700 + "x",
+        "soak 1. " * 600,
+        "rest of " * 600 + "rest for 2 hours",
+        ("soak soak soak soak soak" + " " * 290 + ". ") * 16,  # a paste's runs of spaces (r2)
+        ("soak soak soak soak soak" + "\t\u00a0" * 145 + ". ") * 16,
+    ]
+    gc.disable()
+    try:
+        started = time.process_time()
+        for _ in range(100):
+            for step in steps:
+                read_wait(step)
+        spent = time.process_time() - started
+    finally:
+        gc.enable()
+    assert spent < 2.0, f"{spent:.2f} s"
+
+
+def test_a_length_far_after_its_wait_word_is_not_its_length() -> None:
+    assert read_wait("Marinate " + "the chicken well " * 30 + "for 4 hours.") is None
+    assert read_wait("Marinate the chicken for 4 hours.") == Wait("marinate", 240, 240, False)
