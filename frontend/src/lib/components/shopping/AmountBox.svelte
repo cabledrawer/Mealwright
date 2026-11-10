@@ -31,7 +31,8 @@
     onclose,
     onremove,
     onmove,
-    onhave
+    onhave,
+    onsizes
   }: {
     model: ShoppingModel;
     view: ViewItem;
@@ -43,6 +44,8 @@
     onmove: () => void;
     /** "Already have it": how much is at home (saves the box first, as Done does). */
     onhave: () => void;
+    /** "Which size?": every size and what it leaves over (offered when the line has a pack). */
+    onsizes?: () => void;
   } = $props();
 
   const uid = $props.id();
@@ -228,6 +231,18 @@
     <button type="button" class="move" onclick={onmove}>
       <Icon name="arrow-right" size={20} stroke={2.2} />Move to…
     </button>
+    {#if onsizes && !food.staple}
+      <button
+        type="button"
+        class="move"
+        onclick={() => {
+          if (save()) onsizes();
+          else input?.focus();
+        }}
+      >
+        Which size?
+      </button>
+    {/if}
     {#if !food.staple}
       <button
         type="button"

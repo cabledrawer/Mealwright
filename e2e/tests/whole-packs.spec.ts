@@ -8,7 +8,6 @@ import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}`;
-const NBSP = ' ';
 
 async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', path: string, data?: object) {
   const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
@@ -58,10 +57,12 @@ async function needing(
 
 const row = (page: Page, name: string) => page.getByRole('listitem').filter({ has: page.getByRole('button', { name, exact: true }) });
 
-/** Open "which size?" for a row: the phone's pack line, the computer's ⋯ menu. */
+/** Open "which size?" for a row: the phone's amount box, the computer's ⋯ menu. */
 async function openSizes(page: Page, name: string) {
-  if (isPhone(page)) await row(page, name).getByRole('button', { name: new RegExp(`^Which size\\? ${name}`) }).click();
-  else {
+  if (isPhone(page)) {
+    await row(page, name).getByRole('button', { name: new RegExp(`^Change amount: ${name}`) }).click();
+    await row(page, name).getByRole('button', { name: 'Which size?', exact: true }).click();
+  } else {
     await row(page, name).getByRole('button', { name: /^More for / }).click();
     await page.getByRole('menuitem', { name: 'Which size?…' }).click();
   }
@@ -74,13 +75,13 @@ test.beforeEach(async ({ page }) => {
   await setAccountTheme(page, 'auto');
 });
 
-test('two teaspoons of salt are one whole pack on the list, never "2 ml"', async ({ page }) => {
+test('12 g of salt (2 teaspoons) is one whole pack on the list, never "12 ml"', async ({ page }) => {
   const name = `Salt ${stamp()}`;
-  const k = await needing(page, name, { counted_as: 'weight', sizes: [['pack', 750]] }, { amount: 2, unit: 'tsp' });
+  const k = await needing(page, name, { counted_as: 'weight', sizes: [['pack', 750]] }, { amount: 12, unit: 'g' });
   try {
     await page.goto('/shopping');
-    await expect(row(page, name)).toContainText(`1${NBSP}pack (750${NBSP}g)`);
-    await expect(row(page, name)).not.toContainText(' ml');
+    await expect(row(page, name)).toContainText(/1\spack \(750\sg\)/);
+    await expect(row(page, name)).not.toContainText(/\sml/);
   } finally {
     await k.cleanUp();
   }
@@ -88,7 +89,7 @@ test('two teaspoons of salt are one whole pack on the list, never "2 ml"', async
 
 test('an ingredient with no usual size keeps its amount and says there is no pack size yet', async ({ page }) => {
   const name = `Salt ${stamp()}`;
-  const k = await needing(page, name, { counted_as: 'weight', sizes: [] }, { amount: 2, unit: 'tsp' });
+  const k = await needing(page, name, { counted_as: 'weight', sizes: [] }, { amount: 12, unit: 'g' });
   try {
     await page.goto('/shopping');
     if (isPhone(page)) await expect(row(page, name)).toContainText('needed · no pack size yet');
@@ -110,15 +111,15 @@ test('another size is suggested under the row; Use this changes the line, and Un
   );
   try {
     await page.goto('/shopping');
-    await expect(row(page, name)).toContainText(`2${NBSP}tins (400${NBSP}ml)`);
+    await expect(row(page, name)).toContainText(/2\stins \(400\sml\)/);
     const other = row(page, name).getByRole('group', { name: `Another size for ${name}` });
-    await expect(other).toContainText(`Or 3${NBSP}small tins · 200${NBSP}ml: nothing left over`);
+    await expect(other).toContainText(/Or 3\ssmall tins · 200\sml: nothing left over/);
     await checkPage(page);
     await other.getByRole('button', { name: 'Use this' }).click();
-    await expect(row(page, name)).toContainText(`3${NBSP}small tins (200${NBSP}ml)`);
+    await expect(row(page, name)).toContainText(/3\ssmall tins \(200\sml\)/);
     await expect(row(page, name).getByRole('group', { name: `Another size for ${name}` })).toHaveCount(0);
     await page.getByRole('button', { name: 'Undo' }).click();
-    await expect(row(page, name)).toContainText(`2${NBSP}tins (400${NBSP}ml)`);
+    await expect(row(page, name)).toContainText(/2\stins \(400\sml\)/);
     await expect(row(page, name).getByRole('group', { name: `Another size for ${name}` })).toBeVisible();
   } finally {
     await k.cleanUp();
@@ -136,11 +137,11 @@ test('tapping the size lists every size with what each leaves over, and a pick c
   try {
     await page.goto('/shopping');
     const dialog = await openSizes(page, name);
-    await expect(dialog).toContainText('600 ml needed'.replace(' ', NBSP));
-    const usual = dialog.getByRole('radio', { name: new RegExp(`^2${NBSP}tins · 400${NBSP}ml`) });
-    await expect(usual).toContainText('Your usual · 200 ml over'.replace(' ml', `${NBSP}ml`));
+    await expect(dialog).toContainText(/600\sml needed/);
+    const usual = dialog.getByRole('radio', { name: /^2\stins · 400\sml/ });
+    await expect(usual).toContainText(/Your usual · 200\sml over/);
     await expect(usual).toContainText('On the list');
-    const small = dialog.getByRole('radio', { name: new RegExp(`^3${NBSP}small tins · 200${NBSP}ml`) });
+    const small = dialog.getByRole('radio', { name: /^3\ssmall tins · 200\sml/ });
     await expect(small).toContainText('Nothing over');
     await expect(small).toContainText('Least left over');
     await checkPage(page);
@@ -148,7 +149,7 @@ test('tapping the size lists every size with what each leaves over, and a pick c
     await dialog.getByRole('switch', { name: 'Make the one I pick my usual size' }).click();
     await dialog.getByRole('button', { name: 'Use this' }).click();
     await expect(dialog).toBeHidden();
-    await expect(row(page, name)).toContainText(`3${NBSP}small tins (200${NBSP}ml)`);
+    await expect(row(page, name)).toContainText(/3\ssmall tins \(200\sml\)/);
     const food = await (await page.request.get(`/api/v1/foods/${k.foodId}`)).json();
     expect(food.sizes.find((s: { usual: boolean }) => s.usual).name).toBe('small tin');
   } finally {

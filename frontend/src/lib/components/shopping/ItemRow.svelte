@@ -315,6 +315,12 @@
         editing = false;
         haveOpen = true;
       }}
+      onsizes={sizeKnown
+        ? () => {
+            editing = false;
+            void openSizes();
+          }
+        : undefined}
     />
   {:else}
     <SwipeRow
@@ -458,13 +464,6 @@
             {/if}
             <!-- After the why, so the keyboard meets them in the order they are seen. -->
             {#if model.device === 'computer'}{@render menu()}{/if}
-          {:else if packs && sizeKnown}
-            <button
-              type="button"
-              class="packs sizes-button"
-              aria-label="Which size? {food.name}: {packs}"
-              onclick={() => void openSizes()}>{packs}</button
-            >
           {:else if packs}
             <span class="packs">{packs}</span>
           {/if}
@@ -772,13 +771,6 @@
   .alt .chip:disabled {
     opacity: 0.5;
     cursor: default;
-  }
-
-  button.sizes-button {
-    border: none;
-    background: transparent;
-    text-align: left;
-    cursor: pointer;
   }
 
   .x {
