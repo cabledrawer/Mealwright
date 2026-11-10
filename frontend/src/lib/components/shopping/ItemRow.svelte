@@ -632,13 +632,14 @@
   /* Plan shopping: one line, tick · name · amount · why · ⋯ (mockup Dark-ShopPlan08-Desktop). */
   .plan:not(.trolley) .line {
     display: grid;
-    /* As wide as before, but the name keeps at least 10rem (about 20 letters) and the amount
-       7.5rem, never more than 45% and 25% of the row, so large text can't push it wider. The
-       why-text gives way first (it shows whole on hover); a name is cut only when the row really
-       has no room (F184). */
-    grid-template-columns:
-      24px minmax(min(10rem, 45%), 1.3fr) minmax(min(7.5rem, 25%), 1fr) minmax(0, 1.2fr)
-      40px;
+    /* Tick · name with the why under it · amount · ⋯. A long name wraps to a second line and
+       is never cut, and the why-text wraps under the name at the name's full width, so it
+       never shrinks to a few letters (F223, cabledrawer 10 Nov; F184). The amount keeps at least
+       7.5rem (never more than 25% of the row, so large text can't push the row wider). */
+    grid-template-columns: 24px minmax(0, 1fr) minmax(min(7.5rem, 25%), max-content) 40px;
+    grid-template-areas:
+      'tick name amount menu'
+      'tick why amount menu';
     align-items: center;
     gap: 0 var(--space-6);
     min-height: 48px;
@@ -646,16 +647,17 @@
   }
 
   .plan:not(.trolley) .line .tick {
-    order: 1;
+    grid-area: tick;
     margin: 0 -10px;
   }
 
   .plan:not(.trolley) .line .name {
-    order: 2;
+    grid-area: name;
     flex: none;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-height: 0;
+    padding: var(--space-3) 0;
+    overflow-wrap: break-word;
+    white-space: normal;
   }
 
   .plan:not(.trolley) .end {
@@ -663,7 +665,7 @@
   }
 
   .plan:not(.trolley) .amount {
-    order: 3;
+    grid-area: amount;
     justify-self: start;
     max-width: 100%;
     min-height: var(--touch-target);
@@ -676,11 +678,16 @@
   }
 
   .plan:not(.trolley) .why {
-    order: 4;
+    grid-area: why;
+    padding-bottom: var(--space-3);
+  }
+
+  .plan:not(.trolley) .why:empty {
+    display: none;
   }
 
   .plan:not(.trolley) .line > :global(.row-menu) {
-    order: 5;
+    grid-area: menu;
   }
 
   .why {
@@ -692,8 +699,7 @@
     color: var(--color-text-muted);
     font: var(--weight-regular, 400) var(--text-md) var(--font-ui);
     text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: break-word;
   }
 
   /* The whole text on hover, on focus and after a tap. */

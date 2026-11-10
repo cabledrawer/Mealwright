@@ -70,10 +70,12 @@
   );
   const date = $derived(when.text || bought);
   /** "about 250 g · ½ tub · open · running low". */
-  const amountWords = $derived(
-    [group.stock.display, single?.open ? 'open' : '', group.running_low ? 'running low' : '']
-      .filter(Boolean)
-      .join(' · ')
+  const amountParts = $derived(
+    [
+      group.stock.display,
+      single?.open ? 'open' : '',
+      group.running_low ? 'running low' : ''
+    ].filter(Boolean)
   );
   const listed = $derived(shopping.onList(group.food.id));
   const baseUnit = $derived(
@@ -163,7 +165,8 @@
           <span class="name">{showPlace ? `${name} · ${place.name}` : name}</span>
           {#if also}<span class="also">{also}</span>{/if}
           <span class="amount" class:low={group.running_low}>
-            {amountWords}
+            {#each amountParts as part, i (i)}{i ? ' · ' : ''}<span class="part">{part}</span
+              >{/each}
             {#if group.lots_count > 1 && group.dates_count > 1}
               <span class="tap">· tap for dates</span><span class="click">· click for dates</span>
             {/if}
@@ -413,6 +416,12 @@
     color: var(--color-text-muted);
     font-size: var(--text-md);
     font-style: italic;
+  }
+
+  /* Each part of the amount stays whole ("about 50 g"), so a narrow column stacks the parts and
+     never one word to a line (F223). */
+  .part {
+    white-space: nowrap;
   }
 
   .amount {

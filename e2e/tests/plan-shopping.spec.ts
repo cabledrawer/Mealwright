@@ -109,7 +109,9 @@ for (const width of [1280, 1100]) {
         // that sit under a row with no size are not part of the line.
         const box = await row(page, onion).boundingBox();
         const menu = await row(page, onion).getByRole('button', { name: /^More for / }).boundingBox();
-        expect(menu!.y + menu!.height - box!.y).toBeLessThanOrEqual(64);
+        // (F223, cabledrawer 10 Nov: the why-text sits under the name, so the row is a name line and a
+        // why line, not one line.)
+        expect(menu!.y + menu!.height - box!.y).toBeLessThanOrEqual(96);
 
         // The right-hand column.
         await expect(page.getByRole('region', { name: 'Shops' })).toBeVisible();
@@ -316,6 +318,43 @@ for (const percent of [125, 200]) {
         return { over: over.map(describe), scroll: el.scrollWidth - el.clientWidth };
       });
       expect(fits).toEqual({ over: [], scroll: 0 });
+    } finally {
+      await k.cleanUp();
+    }
+  });
+}
+
+// F223 (cabledrawer 10 Nov): a long name is shown whole (wrapped to two lines, never cut), and the
+// why-text wraps under the name at a readable width, at every width from 1100 px.
+for (const width of [1100, 1300]) {
+  test(`a long name wraps whole and the why-text stays readable at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const k = await kitchen(page);
+    const tag = stamp().slice(-6);
+    try {
+      const name = `Chilli powder or cayenne pepper powder ${tag}`;
+      const food = await k.food(name);
+      const recipe = `Butter Chicken ${tag}`;
+      const day = await k.plan(await k.recipe(recipe, [[food, 5]]), 2);
+      await page.goto('/shopping');
+      const line = row(page, name);
+      const nameButton = line.getByRole('button', { name, exact: true });
+      await expect(nameButton).toBeVisible();
+      const why = line.getByText(`${recipe} (${weekday(day)})`);
+      await expect(why).toBeVisible();
+      const m = await nameButton.evaluate((el) => ({
+        shown: el.clientWidth,
+        whole: el.scrollWidth,
+        lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight || '24')),
+      }));
+      expect(m.whole, `name shown ${m.shown}px of ${m.whole}px`).toBeLessThanOrEqual(m.shown);
+      const w = await why.evaluate((el) => ({ shown: el.clientWidth, whole: el.scrollWidth }));
+      expect(w.whole, `why shown ${w.shown}px of ${w.whole}px`).toBeLessThanOrEqual(w.shown);
+      expect(w.shown, 'the why-text keeps a readable width').toBeGreaterThanOrEqual(150);
+      // The why sits under the name.
+      const [nb, wb] = [await nameButton.boundingBox(), await why.boundingBox()];
+      expect(wb!.y).toBeGreaterThanOrEqual(nb!.y + nb!.height - 1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     } finally {
       await k.cleanUp();
     }

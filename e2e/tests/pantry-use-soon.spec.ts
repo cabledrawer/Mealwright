@@ -391,4 +391,10 @@ test("on the computer a long amount never cuts the name, and the row stays insid
     }),
   );
   expect(cut).toEqual([]);
+  // The long amount is not squeezed to one word a line beside "+ List" (F223, alpha.3 note).
+  const amount = await row.locator(".amount").evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { width: r.width, lines: Math.round(r.height / (parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.3)) };
+  });
+  expect(amount.lines, "the amount takes at most three lines").toBeLessThanOrEqual(3);
 });
