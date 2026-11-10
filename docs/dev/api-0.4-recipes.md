@@ -26,7 +26,7 @@ All under `/api/v1`, signed in, same-origin for writes. An id from another house
 |---|---|
 | `GET /recipes?limit=&after=&q=&tag=&can_cook_now=&use_soon=` | every recipe, A to Z, each with its stock hints (section 4). `{total, all_recipes, recipes: [row], next}`. A deleted recipe isn't listed. |
 | `GET /recipes/tags?q=` | tag suggestions: `{tags: [{id, name, recipes}]}` (`id` added 0.8). A tag no recipe has any more isn't listed. |
-| `PATCH /recipes/tags/{id}` | rename a tag (`{name}`, the tag limits). A name another tag has (ignoring case and accents) is 409 `tag_exists`, carrying that tag: it is refused, not merged. Not in Recent changes. (0.8, cabledrawer 9 Nov) |
+| `PATCH /recipes/tags/{id}` | rename a tag (`{name}`, the tag limits). A name another tag has (ignoring case and accents) is 409 `tag_exists`, carrying that tag: it is refused, not merged (a tag that no shown recipe has is folded in instead). Not in Recent changes. (0.8, cabledrawer 9 Nov) |
 | `POST /recipes/tags/{id}/merge` | `{into}`: the recipes with this tag get `into` (one if both), the tag goes. Answers `{change, into}`; the change (kind `tags_merged`) is in Recent changes and its Undo (`POST /changes/{id}/undo`) brings the tag back on exactly the recipes that had it, refused with 409 `tag_exists` while a tag with the old name exists. (0.8) |
 | `POST /recipes` (201) | make a recipe. Only `name` is needed; `serves` defaults to 4 (send `null` for none). |
 | `GET /recipes/{id}` | the whole recipe (below). |

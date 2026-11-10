@@ -175,3 +175,66 @@ def test_a_deleted_recipe_keeps_its_link_through_a_merge_and_undo(
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         linked = {(r.recipe_id, r.tag_id) for r in db.scalars(select(RecipeTag))}
     assert (setup["b"]["id"], ids["south-indian"]) in linked
+
+
+# --- A tag no shown recipe has (an orphan) never blocks a rename or an Undo --------------------
+
+
+def test_rename_onto_the_name_of_a_hidden_tag_folds_it_in(kitchen: TestClient) -> None:
+    quick = make(kitchen, "Sambar", ["Quick"])
+    gone = make(kitchen, "Rasam", ["Fast"])
+    ok(kitchen.delete(f"{API}/recipes/{gone['id']}"))  # its tag is now hidden from the list
+    assert set(tag_ids(kitchen)) == {"Quick"}
+    ids = tag_ids(kitchen)
+    done = ok(kitchen.patch(f"{API}/recipes/tags/{ids['Quick']}", json={"name": "fast"}))
+    assert done["name"] == "fast" and done["recipes"] == 1
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        assert [t.name for t in db.scalars(select(Tag))] == ["fast"]  # one row, not two
+    # The deleted recipe keeps the tag for when it comes back.
+    change = ok(kitchen.get(f"{API}/changes", params={"limit": 5}))["changes"]
+    deleted = next(c for c in change if c["summary"] == "Deleted Rasam")
+    ok(kitchen.post(f"{API}/changes/{deleted['id']}/undo"))
+    assert tags_of(kitchen, gone) == ["fast"]
+    assert tags_of(kitchen, quick) == ["fast"]
+    assert (
+        tag_ids(kitchen)["fast"]
+        and ok(kitchen.get(f"{API}/recipes/tags"))["tags"][0]["recipes"] == 2
+    )
+
+
+def test_undo_when_the_old_name_came_back_only_on_a_deleted_recipe(
+    kitchen: TestClient, setup: dict[str, Any]
+) -> None:
+    ids = tag_ids(kitchen)
+    merged = ok(
+        kitchen.post(
+            f"{API}/recipes/tags/{ids['south-indian']}/merge", json={"into": ids["South Indian"]}
+        )
+    )
+    again = make(kitchen, "New", ["south-indian"])
+    ok(kitchen.delete(f"{API}/recipes/{again['id']}"))
+    undone = ok(kitchen.post(f"{API}/changes/{merged['change']['id']}/undo"))
+    assert undone["result"] == "done"
+    assert tags_of(kitchen, setup["b"]) == ["south-indian"]
+    assert set(tag_ids(kitchen)) == {"South Indian", "south-indian", "Quick"}
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        assert sorted(t.name for t in db.scalars(select(Tag))) == [
+            "Quick",
+            "South Indian",
+            "south-indian",
+        ]
+    deleted = next(
+        c
+        for c in ok(kitchen.get(f"{API}/changes", params={"limit": 10}))["changes"]
+        if c["summary"] == "Deleted New"
+    )
+    ok(kitchen.post(f"{API}/changes/{deleted['id']}/undo"))
+    assert tags_of(kitchen, again) == ["south-indian"]  # the deleted recipe kept it
+
+
+def test_a_clash_with_a_tag_a_shown_recipe_has_is_still_refused(kitchen: TestClient) -> None:
+    make(kitchen, "A", ["Quick"])
+    make(kitchen, "B", ["Fast"])
+    ids = tag_ids(kitchen)
+    refused = kitchen.patch(f"{API}/recipes/tags/{ids['Quick']}", json={"name": "fast"})
+    assert refused.status_code == 409 and refused.json()["code"] == "tag_exists"
