@@ -9,11 +9,17 @@
 
   let {
     wait = $bindable(),
-    name
+    name,
+    invalid = $bindable(false),
+    onchange
   }: {
     wait: StepWait;
     /** "step 2": what the boxes are for, read aloud. */
     name: string;
+    /** True while the boxes don't make a wait that can be kept: the caller blocks Save/Done. */
+    invalid?: boolean;
+    /** Called after the boxes made a wait that can be kept. */
+    onchange?: () => void;
   } = $props();
 
   const uid = $props.id();
@@ -55,59 +61,69 @@
     const high = to.trim() === '' ? low : number(to);
     if (low === null || low < 1 || high === null || low > MOST || high > MOST) {
       problem = 'Type how long it waits, such as 4 hours.';
+      invalid = true;
       return;
     }
     if (high < low) {
       problem = 'The longest can’t be shorter than the shortest.';
+      invalid = true;
       return;
     }
     problem = '';
+    invalid = false;
     wait = {
       kind,
       min_minutes: low,
       max_minutes: overnight ? Math.max(high, OVERNIGHT) : high,
       overnight
     };
+    onchange?.();
   }
 </script>
 
 <div class="wait">
   <label class="field" for="{uid}-kind">
-    <span class="mw-label">Waiting for</span>
+    <span class="mw-label">Waiting for<span class="visually-hidden">, {name}</span></span>
     <select id="{uid}-kind" class="mw-input" bind:value={kind} onchange={commit}>
       {#each WAIT_KINDS as k (k.kind)}<option value={k.kind}>{k.name}</option>{/each}
     </select>
   </label>
   <label class="field" for="{uid}-from">
-    <span class="mw-label">{to.trim() === '' && !overnight ? 'Length' : 'Shortest'}</span>
+    <span class="mw-label"
+      >{to.trim() === '' && !overnight ? 'Length' : 'Shortest'}<span class="visually-hidden"
+        >, {name}</span
+      ></span
+    >
     <input
       id="{uid}-from"
       class="mw-input num"
       type="text"
       inputmode="decimal"
       maxlength="6"
-      aria-label="Shortest wait for {name}"
       aria-invalid={problem ? true : undefined}
       bind:value={from}
       oninput={commit}
     />
   </label>
   <label class="field" for="{uid}-to">
-    <span class="mw-label">Longest <span class="mw-optional">(if it varies)</span></span>
+    <span class="mw-label"
+      >Longest <span class="mw-optional">(if it varies)</span><span class="visually-hidden"
+        >, {name}</span
+      ></span
+    >
     <input
       id="{uid}-to"
       class="mw-input num"
       type="text"
       inputmode="decimal"
       maxlength="6"
-      aria-label="Longest wait for {name}"
       aria-invalid={problem ? true : undefined}
       bind:value={to}
       oninput={commit}
     />
   </label>
   <label class="field" for="{uid}-unit">
-    <span class="mw-label">In</span>
+    <span class="mw-label">In<span class="visually-hidden">, {name}</span></span>
     <select id="{uid}-unit" class="mw-input" bind:value={unit} onchange={commit}>
       <option value="min">minutes</option>
       <option value="h">hours</option>
@@ -116,7 +132,7 @@
   </label>
   <p class="over">
     <Switch bind:checked={overnight} labelledby="{uid}-over" onchange={commit} />
-    <span id="{uid}-over">Ends overnight</span>
+    <span id="{uid}-over">Ends overnight<span class="visually-hidden">, {name}</span></span>
   </p>
   {#if problem}<p class="mw-error problem" role="alert">{problem}</p>{/if}
 </div>

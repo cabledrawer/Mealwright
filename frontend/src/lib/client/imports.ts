@@ -48,6 +48,8 @@ export interface ReviewStep {
   optional?: boolean;
   wait?: StepWait | null;
   wait_confirmed?: boolean;
+  /** Check only: the Waits boxes on this step aren't right yet, so Save waits (never sent). */
+  wait_invalid?: boolean;
 }
 
 /** A step as Save sends it. */
@@ -78,6 +80,8 @@ export interface ImportReview {
   description: string | null;
   author: string | null;
   time_minutes: number | null;
+  /** The page's own total time, before suggested waits came off `time_minutes` (M1). */
+  page_time_minutes?: number | null;
   serves: number | null;
   makes: { amount: number; unit: string } | null;
   tags: string[];

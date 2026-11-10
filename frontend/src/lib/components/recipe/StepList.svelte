@@ -135,10 +135,19 @@
             <span class="waits-title">Waits</span>
             {#if step.wait}
               {#await import('./WaitFields.svelte') then { default: WaitFields }}
-                <WaitFields bind:wait={step.wait} name="step {numberOf(i)}" />
+                <WaitFields
+                  bind:wait={step.wait}
+                  bind:invalid={step.waitInvalid}
+                  name="step {numberOf(i)}"
+                />
               {/await}
-              <button type="button" class="mw-add" onclick={() => (step.wait = null)}
-                >Take off the wait</button
+              <button
+                type="button"
+                class="mw-add"
+                onclick={() => {
+                  step.wait = null;
+                  step.waitInvalid = false;
+                }}>Take off the wait</button
               >
             {:else}
               <button

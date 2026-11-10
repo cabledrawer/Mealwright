@@ -6,14 +6,19 @@
   // proposed, for cabledrawer (docs/dev/words.md, steps that wait).
   import type { ImportFlow } from '#lib/import.svelte.js';
   import type { ReviewStep } from '#lib/client/imports.js';
-  import { confirmWait, takeOffWait } from '#lib/importStepEdits.js';
+  import { confirmWait, reworkMinutes, takeOffWait } from '#lib/importStepEdits.js';
   import { waitLength, waitName } from '#lib/timeWords.js';
   import WaitFields from '../recipe/WaitFields.svelte';
 
   let { flow, step, name }: { flow: ImportFlow; step: ReviewStep; name: string } = $props();
 
   let changing = $state(false);
+  let invalid = $state(false);
   const wait = $derived(step.wait);
+  // Save on the review is blocked while these boxes aren't right (the flow reads this).
+  $effect(() => {
+    step.wait_invalid = changing && invalid;
+  });
 </script>
 
 {#if wait}
@@ -38,13 +43,14 @@
       {#if !step.wait_confirmed}<span class="confirm">To confirm</span>{/if}
     </span>
     {#if changing}
-      <WaitFields bind:wait={step.wait!} {name} />
+      <WaitFields bind:wait={step.wait!} bind:invalid {name} onchange={() => reworkMinutes(flow)} />
       <span class="buttons">
         <button
           type="button"
           class="yes"
+          disabled={invalid}
           onclick={() => {
-            confirmWait(step);
+            confirmWait(flow, step);
             changing = false;
           }}>Done</button
         >
@@ -52,7 +58,9 @@
     {:else}
       <span class="buttons">
         {#if !step.wait_confirmed}
-          <button type="button" class="yes" onclick={() => confirmWait(step)}>Yes, it waits</button>
+          <button type="button" class="yes" onclick={() => confirmWait(flow, step)}
+            >Yes, it waits</button
+          >
         {/if}
         <button type="button" class="no" onclick={() => (changing = true)}>Change</button>
         <button type="button" class="no" onclick={() => takeOffWait(flow, step)}>No wait</button>

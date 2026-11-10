@@ -73,9 +73,38 @@ export function removeStep(flow: ImportFlow, at: number): void {
 /** Said when an Undo finds neither of the step's neighbours (proposed, for cabledrawer). */
 export const CANT_PUT_BACK = 'Couldn’t put it back: the steps have changed.';
 
+/** The page's total time without the waits now on the steps (the same rule as the server's
+ *  `active_time`: the longest waits come off if the total held them, else the shortest; if it
+ *  held neither, or would be left with nothing, the total stays). */
+export function activeTime(
+  total: number | null,
+  waits: { min_minutes: number; max_minutes: number }[]
+): number | null {
+  if (total === null) return null;
+  const longest = waits.reduce((n, w) => n + (w.max_minutes || w.min_minutes), 0);
+  const shortest = waits.reduce((n, w) => n + w.min_minutes, 0);
+  for (const take of [longest, shortest]) if (take && total - take >= 1) return total - take;
+  return total;
+}
+
+/** Work the Minutes box out again from the page's own total and the waits the steps have now
+ *  (M1 fix: "No wait" gives the minutes back). Leaves it alone once it was typed in, or when the
+ *  page gave no total. */
+export function reworkMinutes(flow: ImportFlow): void {
+  const review = flow.review;
+  if (!review || flow.minutesTyped || review.page_time_minutes == null) return;
+  const waits = review.steps.flatMap((s) => (s.kind === 'step' && s.wait ? [s.wait] : []));
+  const time = activeTime(
+    review.page_time_minutes,
+    waits.map((w) => ({ min_minutes: w.min_minutes, max_minutes: w.max_minutes }))
+  );
+  flow.setMinutesWorkedOut(time === null ? '' : String(time));
+}
+
 /** "Yes, it waits": the suggested wait on `step` is kept as it is (M1). */
-export function confirmWait(step: ReviewStep): void {
+export function confirmWait(flow: ImportFlow, step: ReviewStep): void {
   step.wait_confirmed = true;
+  reworkMinutes(flow);
 }
 
 /** "No wait": take the wait off `step`, with an Undo (toast and Ctrl+Z) that puts it back as it
@@ -86,12 +115,14 @@ export function takeOffWait(flow: ImportFlow, step: ReviewStep): void {
   if (!was) return;
   step.wait = null;
   step.wait_confirmed = false;
+  reworkMinutes(flow);
   const entry: UndoEntry = {
     label: 'Took off the wait',
     undo: () => {
       if (!flow.review?.steps.includes(step)) return CANT_PUT_BACK;
       step.wait = was;
       step.wait_confirmed = confirmed;
+      reworkMinutes(flow); // the minutes it gave back are taken again
     }
   };
   undoHistory.record(entry);

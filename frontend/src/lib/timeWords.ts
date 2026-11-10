@@ -43,12 +43,16 @@ export function waitDoing(kind: string): string {
   return WAIT_KINDS.find((k) => k.kind === kind)?.doing ?? 'waiting';
 }
 
-/** The length of a wait: "90 min", "8 h – 12 h", "4 h – overnight", "overnight". */
+/** The length of a wait: "90 min", "8 h – 12 h", "4 h – overnight", "overnight". "Overnight" is
+ *  stored as 12 h, so it is said only while the longest end is exactly that: a range that goes
+ *  past 12 h (Ends overnight with a longer Longest, or two overnight waits added up) is shown as
+ *  the numbers it is, and a shortest above 12 h is never "overnight". */
 export function waitLength(wait: StepWait): string {
   const low = timeWords(wait.min_minutes);
-  if (wait.overnight)
-    return wait.min_minutes >= wait.max_minutes ? 'overnight' : `${low} – overnight`;
-  return wait.max_minutes > wait.min_minutes ? `${low} – ${timeWords(wait.max_minutes)}` : low;
+  const plain =
+    wait.max_minutes > wait.min_minutes ? `${low} – ${timeWords(wait.max_minutes)}` : low;
+  if (!wait.overnight || wait.max_minutes > 720) return plain;
+  return wait.min_minutes >= wait.max_minutes ? 'overnight' : `${low} – overnight`;
 }
 
 /** A recipe's time as two parts: the active time ("45 min active" once it has a wait, "45 min"

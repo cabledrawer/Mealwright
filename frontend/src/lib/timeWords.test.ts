@@ -56,3 +56,28 @@ describe('steps that wait', () => {
     expect(sum).toEqual({ kind: 'wait', min_minutes: 90, max_minutes: 150, overnight: false });
   });
 });
+
+describe('waitLength past the overnight mark (M1 fix 7)', () => {
+  const wait = (min: number, max: number, overnight: boolean) => ({
+    kind: 'marinate',
+    min_minutes: min,
+    max_minutes: max,
+    overnight
+  });
+  const said = (w: ReturnType<typeof wait>) => waitLength(w).replace(/ /g, ' ');
+  it('says what is stored when the range goes past 12 h', () => {
+    expect(said(wait(720, 1440, true))).toBe('12 h – 24 h');
+    expect(said(wait(900, 900, true))).toBe('15 h');
+  });
+  it('still says overnight at exactly 12 h', () => {
+    expect(said(wait(720, 720, true))).toBe('overnight');
+    expect(said(wait(240, 720, true))).toBe('4 h – overnight');
+  });
+  it('adds two overnight waits up as 24 h, not "overnight"', () => {
+    const steps = [wait(720, 720, true), wait(720, 720, true)].map((w) => ({
+      kind: 'step',
+      wait: w
+    }));
+    expect(said(sumWaits(steps)!)).toBe('24 h');
+  });
+});

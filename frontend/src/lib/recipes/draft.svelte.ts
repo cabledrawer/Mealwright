@@ -69,6 +69,9 @@ export interface DraftStep {
   optional: boolean;
   /** The step waits (marinate, soak, ferment...); null when it doesn't. */
   wait: StepWait | null;
+  /** The Waits boxes don't make a wait that can be kept (not saved with the draft): Save is
+   *  blocked until they are put right or the wait is taken off. */
+  waitInvalid?: boolean;
 }
 
 /** The editor's boxes as the tab keeps them (see `toCarried`). */
@@ -571,6 +574,9 @@ export class RecipeDraft {
     const steps: RecipeIn['steps'] = [];
     for (const step of this.steps) {
       if (!clean(step.text)) continue;
+      if (step.kind === 'step' && step.wait && step.waitInvalid) {
+        errors[`wait:${step.key}`] = 'Type how long it waits, such as 4 hours.';
+      }
       steps.push({
         kind: step.kind,
         text: step.kind === 'heading' ? clean(step.text) : step.text.trim(),

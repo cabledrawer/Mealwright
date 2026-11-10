@@ -93,7 +93,20 @@ export class ImportFlow {
   pints = $state<Pints>('uk');
   name = $state('');
   serves = $state('');
-  minutes = $state('');
+  #minutes = $state('');
+  /** The person typed in the Minutes box (or it came back from a draft): Check leaves it alone. */
+  minutesTyped = false;
+  get minutes(): string {
+    return this.#minutes;
+  }
+  set minutes(text: string) {
+    this.#minutes = text;
+    this.minutesTyped = true;
+  }
+  /** Minutes worked out from the waits (M1): not typed, so a later wait answer may change it. */
+  setMinutesWorkedOut(text: string): void {
+    this.#minutes = text;
+  }
   saving = $state(false);
   saveProblem = $state<{ message: string; line: number | null } | null>(null);
   /** Chosen on purpose: the Save went through once. */
@@ -199,7 +212,8 @@ export class ImportFlow {
     this.pints = review.pints?.reading ?? 'uk';
     this.name = review.name;
     this.serves = review.serves === null ? '' : String(review.serves);
-    this.minutes = review.time_minutes === null ? '' : String(review.time_minutes);
+    this.#minutes = review.time_minutes === null ? '' : String(review.time_minutes);
+    this.minutesTyped = false;
     this.saveProblem = null;
     this.draftId = null;
     this.draftProblem = null;
@@ -820,6 +834,10 @@ export class ImportFlow {
         message: 'Serves is 1 to 99, and the time is whole minutes, up to 14,400.',
         line: null
       };
+      return null;
+    }
+    if (this.review?.steps.some((s) => s.wait_invalid)) {
+      this.saveProblem = { message: 'Type how long it waits, such as 4 hours.', line: null };
       return null;
     }
     this.saving = true;
