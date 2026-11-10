@@ -791,6 +791,15 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Next step in Cook mode (cabledrawer 9 Nov):** Cook mode shows the next step as a quiet line under the current one.
 - **Steps that wait (cabledrawer 31 Oct and 9 Nov):** a step can carry a wait (marinate, ferment, soak), suggested by the importer, confirmed on Check and editable in the recipe editor; a recipe's time shows active time plus the wait.
 - **The plan works backwards (cabledrawer 31 Oct and 9 Nov):** adding a meal with a wait asks when you'll start it (and moving a planned meal that has a start time asks "When will you start it?" again for the new day, cabledrawer 10 Nov); the day before, Today and the Cook view say "Start tonight" with that time; on day two Cook mode starts at the right step. In the app only, no notifications.
+- **Leaving Check (F211, cabledrawer 10 Nov):** the Check screen has **Back to drafts** (leaves; the draft stays, with the "Save your changes?" question if anything changed) and **Discard draft** (asks once, deletes the draft and its waiting photo; Undo in Recent changes, as on the Drafts list).
+- **After Save recipe (F212, cabledrawer 10 Nov):** Save recipe on Check opens the new recipe's page; when more drafts are waiting, the page shows **Next draft**, which opens the next one.
+- **Change on every Check row (F214, cabledrawer 10 Nov):** each ingredient row, matched or not, has **Change**: one sheet to pick an existing ingredient, edit the name read, or make a new one.
+- **Quick import (F216, cabledrawer 10 Nov):** after several links are pasted, one button saves every draft whose ingredients all matched; the rest stay in Drafts for checking.
+- **Drafts from one batch (F213, F215, cabledrawer 10 Nov):** an ingredient made, or a "Same as" answer given, while checking one draft is used by the other waiting drafts; Save is never refused because another draft made the same ingredient.
+- **"Or" lines (F217, cabledrawer 10 Nov):** the first food is the ingredient; Check shows the "or …" part with **Use this instead**; the saved line keeps the other choice as its note.
+- **Reading amounts (F210, F218, F219, cabledrawer 10 Nov):** "1 tsp each salt, cumin" becomes one line per food with that amount; "pinch" is an amount; a word in brackets after a food ("clove (ground)") stays with the food.
+- **Add as bought for a food on the list (F224, cabledrawer 10 Nov):** "Add as bought" is offered for a food already on the list too; it adds a separate bought line and the unticked one stays to buy.
+- **Shops in Recent changes (F225, cabledrawer 10 Nov):** adding, renaming and removing a shop are all in Recent changes, with Undo.
 
 ### Batch cook (Experimental) (cabledrawer 28 Oct; in 0.8.0, built last, cabledrawer 6 Nov)
 

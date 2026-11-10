@@ -296,11 +296,11 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
    - Recipes: tag chips in one row with "more", and a screen to manage and merge tags.
 5. **Two cooking methods and multi-day cooking**. Screens wait for cabledrawer's mockups.
    - F107 + F124 together: recipes with two cooking methods (Cook mode asks "How are you cooking it today?"; steps, timers and the time follow the pick) and multi-day cooking: "(1) A step can carry a wait ("Marinate · 4–24 h", "Ferment · 8–12 h", "Soak · overnight"), suggested by the importer and confirmed on the Check screen. (2) The time splits ("30 min active · plus 12 h fermenting"). (3) The plan works backwards: the Cook view and Today show it the day before ("Start tonight: soak and grind the dosa batter (for Sat breakfast)"). (4) Cook mode starts at the right step on day two. In-app only, no notifications." Screens wait for cabledrawer's mockups.
-6. **Batch cook (Experimental), last** (cabledrawer 6 Nov), built on wave 5's waiting steps and timings: spec section 6, "Batch cook (Experimental)". If 0.8 runs long, Batch cook moves to 0.8.5 rather than hold up the release (cabledrawer 6 Nov).
+6. **Batch cook (Experimental), last** (cabledrawer 6 Nov), built on wave 5's waiting steps and timings: spec section 6, "Batch cook (Experimental)". If 0.8 runs long, Batch cook moves to 0.8.5 rather than hold up the release (cabledrawer 6 Nov). **cabledrawer 10 Nov:** moved to 0.8.5, then back into 0.8.0 the same day: after beta.1, one build (the beta.1 fixes, import extras, Batch cook, the whole-0.8 Fable review), tagged `v0.8.0` directly, then one hand test.
 
 **Each wave's screens** get the 768–1100 px pass (from the review of v0.6.0) as they are built.
 
-**Release:** at most two betas (cabledrawer 6 Nov), then `v0.8.0`. Every 0.x tag is a pre-release.
+**Release:** at most two betas (cabledrawer 6 Nov), then `v0.8.0`. After beta.1, straight to `v0.8.0` (cabledrawer 10 Nov); a fault found in its hand test means 0.8.1. Every 0.x tag is a pre-release.
 
 **Done when (cabledrawer 6 Nov):** each finding in wave 2 has a test; Shopping works on the phone in the shop (offline as before) and on the computer for planning; Stocktake can stop and carry on; a recipe with two methods and an overnight step cooks right on both days; Batch cook never schedules two hands-on tasks at once or more hob rings than the kitchen has.
 
