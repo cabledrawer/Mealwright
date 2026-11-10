@@ -21,6 +21,7 @@
   import Icon from '#lib/components/Icon.svelte';
   import { timeWithWait } from '#lib/timeWords.js';
   import Switch from '#lib/components/Switch.svelte';
+  import AddLine from './AddLine.svelte';
   import CheckFrame from './CheckFrame.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
   import StepEdit from './StepEdit.svelte';
@@ -70,6 +71,18 @@
   const last = $derived(at >= items.length - 1);
 
   const name = $derived(flow.name.trim() || 'This recipe');
+
+  /** "Add a line" for the section the line at `from` is in (F187): the new line is named on its
+   *  own screen, which the walk goes to and keeps (a line the person just named stays, even when
+   *  it matches an ingredient). */
+  async function addHere(end: { at: number }) {
+    const place = flow.addLine(end.at);
+    if (place < 0) return;
+    refused = review.lines[place] ?? null;
+    await tick();
+    const to = items.findIndex((i) => i.kind === 'line' && i.at === place);
+    if (to >= 0) await go(to);
+  }
   const title = $derived(
     !item
       ? 'Nothing to check'
@@ -205,6 +218,13 @@
   }
 </script>
 
+{#snippet addLine(from: number)}
+  {@const end = flow.sectionEnds.find((e) => e.at > from)}
+  {#if end && flow.canAddLine}
+    <AddLine label={end.label} onclick={() => void addHere(end)} />
+  {/if}
+{/snippet}
+
 <CheckFrame>
   {#snippet header()}
     <div class="head">
@@ -317,6 +337,7 @@
           />
         </ul>
       {/key}
+      {@render addLine(item.at)}
     {:else if step && item}
       {#if editing === step}
         <StepEdit
@@ -426,6 +447,12 @@
       <p class="empty">
         Nothing to check here. Press Save recipe, or See all to look at the whole recipe.
       </p>
+    {/if}
+
+    <!-- No line needs the person, so no line screen has the button: the first screen has it, for
+         the last section (the other sections are on See all). -->
+    {#if item?.kind !== 'line' && at === 0 && lineTotal === 0}
+      {@render addLine(review.lines.length - 1)}
     {/if}
 
     <!-- The notes the whole list shows, on the screen they are about. -->

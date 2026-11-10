@@ -1034,6 +1034,15 @@ def test_another_households_ingredients_places_and_photos_are_not_reachable(
     )
     response = save(neighbour, {**to_save(mine), "photo_id": upload["id"]})
     assert response.status_code == 404
+    # Nor can a line use a recipe of Tess's (W4d, F188), or give it a place of his.
+    theirs = ok(
+        kitchen.post(f"{API}/recipes", json={"name": "Dosa batter", "made_ahead": True}), 201
+    )
+    foreign_recipe = {1: {"kind": "recipe", "recipe_id": theirs["id"]}}
+    response = save(neighbour, to_save(mine, foreign_recipe))
+    assert response.status_code == 404 and response.json()["line"] == 1
+    foreign_home = {1: {"kind": "recipe", "recipe_id": theirs["id"], "place_id": cupboard(kitchen)}}
+    assert save(neighbour, to_save(mine, foreign_home)).status_code == 404
 
 
 def test_the_neighbours_link_import_does_not_see_my_recipes_as_duplicates(

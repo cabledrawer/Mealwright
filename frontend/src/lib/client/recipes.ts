@@ -26,6 +26,8 @@ export interface RecipeBrief {
   name: string;
   description: string | null;
   makes: { amount: number; amount_text: string; unit: string } | null;
+  /** Made ahead (keeps in the pantry): it has its own ingredient. Always sent by the server. */
+  made_ahead?: boolean;
   /** The cover photo; null when there is none. */
   photo: PhotoOut | null;
   version: number;

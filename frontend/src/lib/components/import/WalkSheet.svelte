@@ -8,8 +8,7 @@
   import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
   import { holdUndo } from '#lib/undo.svelte.js';
-  import FoodPicker from '#lib/components/FoodPicker.svelte';
-  import type { Ref } from '#lib/client/types.js';
+  import type { LinePick } from './PickLine.svelte';
   import type { ImportFlow } from '#lib/import.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { amountWords } from '#lib/import.svelte.js';
@@ -20,6 +19,8 @@
   const uid = $props.id();
   let dialog: HTMLDialogElement;
   let picking = $state(false);
+  /** The pick-list starts with recipes only ("Made in another recipe"). */
+  let pickingRecipes = $state(false);
 
   onMount(() => {
     const letGo = holdUndo(); // Ctrl+Z must not move the lines behind this sheet
@@ -75,9 +76,16 @@
     flow.walkNext();
   }
 
-  function pick(food: Ref) {
-    flow.sameAs(index, food);
+  /** An ingredient ("Same as"), or a recipe that makes it (F188). */
+  function pick(picked: LinePick) {
+    if (picked.kind === 'ingredient') flow.sameAs(index, picked.food);
+    else flow.useRecipe(index, picked.recipe);
     flow.walkNext();
+  }
+
+  function openPick(recipesOnly: boolean) {
+    pickingRecipes = recipesOnly;
+    picking = true;
   }
 </script>
 
@@ -130,11 +138,19 @@
       </div>
 
       {#if picking}
-        <FoodPicker
-          label="Pick an ingredient for {line.written}"
-          onpick={pick}
-          oncancel={() => (picking = false)}
-        />
+        {#await import('./PickLine.svelte') then { default: PickLine }}
+          <PickLine
+            written={line.written}
+            words={line.words}
+            recipesOnly={pickingRecipes}
+            onpick={pick}
+            onnew={() => {
+              picking = false;
+              newIngredient(false);
+            }}
+            oncancel={() => (picking = false)}
+          />
+        {/await}
       {:else}
         <div class="choices">
           {#if flow.offersMadeHere(index)}
@@ -142,7 +158,10 @@
             <button type="button" class="main" onclick={madeHere}>Made in this recipe</button>
           {/if}
           {#if line.label === 'to_confirm' && line.food}
-            <button type="button" class="main" onclick={() => pick(line.food!)}
+            <button
+              type="button"
+              class="main"
+              onclick={() => pick({ kind: 'ingredient', food: line.food! })}
               >Same as “{line.food.name}”</button
             >
           {:else}
@@ -155,8 +174,11 @@
             {#if !flow.offersMadeHere(index)}
               <button type="button" class="outline" onclick={madeHere}>Made in this recipe</button>
             {/if}
-            <button type="button" class="outline" onclick={() => (picking = true)}
+            <button type="button" class="outline" onclick={() => openPick(false)}
               >Pick another</button
+            >
+            <button type="button" class="outline" onclick={() => openPick(true)}
+              >Made in another recipe</button
             >
             {#if line.label === 'to_confirm' && line.food}
               <button type="button" class="outline" onclick={() => newIngredient(false)}

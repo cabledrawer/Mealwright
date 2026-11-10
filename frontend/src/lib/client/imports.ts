@@ -106,7 +106,9 @@ export interface ImportReview {
 /** How a line is tied to an ingredient when it is saved. */
 export type LineLink =
   | { kind: 'ingredient'; food_id: number; learn?: string | null }
-  | { kind: 'new' | 'staple'; name: string; counted_as: CountedAs; place_id: number | null };
+  | { kind: 'new' | 'staple'; name: string; counted_as: CountedAs; place_id: number | null }
+  /** Another recipe of the household makes it (F188); `place_id`: where the pantry keeps it. */
+  | { kind: 'recipe'; recipe_id: number; place_id: number | null };
 
 export interface SaveLine {
   kind: 'ingredient' | 'heading';

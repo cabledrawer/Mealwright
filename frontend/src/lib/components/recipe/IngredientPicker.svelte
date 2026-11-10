@@ -10,6 +10,8 @@
   // typed words find, shown while the person types. Ingredients first, each with "also called …"
   // and "in N recipes" (by any of their other names too: "thuvaram" finds Toor dal), then recipes,
   // and last "+ New ingredient “dru”", which opens the same "Pantry keeps it by" as Shopping.
+  // A recipe and an ingredient with the very same name sit together, the recipe first, each
+  // labelled Recipe or Ingredient (F189, cabledrawer 8 Nov).
   // A recipe that would make a loop is greyed out with the reason.
   //
   // The box is a combobox and keeps the focus; its owner (LineList) hands the arrow keys and Enter
@@ -19,6 +21,7 @@
   import Icon from '../Icon.svelte';
   import type { Blocked, RecipeBrief } from '#lib/client/recipes.js';
   import type { FoodRow } from '#lib/client/types.js';
+  import { arrange } from '#lib/recipes/search.js';
 
   let {
     id,
@@ -43,8 +46,8 @@
   } = $props();
 
   type Option =
-    | { key: string; kind: 'ingredient'; food: FoodRow }
-    | { key: string; kind: 'recipe'; recipe: RecipeBrief; why: string | undefined }
+    | { key: string; kind: 'ingredient'; food: FoodRow; paired: boolean }
+    | { key: string; kind: 'recipe'; recipe: RecipeBrief; why: string | undefined; paired: boolean }
     | { key: string; kind: 'new' };
 
   let foods = $state<FoodRow[]>([]);
@@ -64,14 +67,22 @@
   const current = $derived(answered === typed);
 
   const options = $derived.by((): Option[] => {
-    const out: Option[] = foods.map((food) => ({ key: `f${food.id}`, kind: 'ingredient', food }));
-    for (const recipe of recipes) {
-      out.push({ key: `r${recipe.id}`, kind: 'recipe', recipe, why: reasons.get(recipe.id) });
-    }
+    const out: Option[] = arrange(foods, recipes).map((row) =>
+      row.kind === 'ingredient'
+        ? { key: `f${row.food.id}`, kind: 'ingredient', food: row.food, paired: row.paired }
+        : {
+            key: `r${row.recipe.id}`,
+            kind: 'recipe',
+            recipe: row.recipe,
+            why: reasons.get(row.recipe.id),
+            paired: row.paired
+          }
+    );
     if (typed && current && !exact) out.push({ key: 'new', kind: 'new' });
     return out;
   });
-  const firstRecipe = $derived(options.findIndex((o) => o.kind === 'recipe'));
+  /** The "Recipes" heading goes before the first recipe that isn't beside its same-named ingredient. */
+  const firstRecipe = $derived(options.findIndex((o) => o.kind === 'recipe' && !o.paired));
   const newAt = $derived(options.findIndex((o) => o.kind === 'new'));
 
   const optionId = (key: string) => `${id}-${key}`;
@@ -185,7 +196,9 @@
           onmousedown={(e) => e.preventDefault()}
           onclick={() => choose(option)}
         >
-          <span class="name">{option.food.name}</span>
+          <span class="name"
+            >{option.food.name}{#if option.paired}<span class="kind">Ingredient</span>{/if}</span
+          >
           {#if foodSub(option.food)}<span class="sub">{foodSub(option.food)}</span>{/if}
         </div>
       {:else if option.kind === 'recipe'}
@@ -200,7 +213,11 @@
           onmousedown={(e) => e.preventDefault()}
           onclick={() => choose(option)}
         >
-          <span class="name"><Icon name="recipes" size={16} />{option.recipe.name}</span>
+          <span class="name"
+            ><Icon name="recipes" size={16} />{option.recipe.name}{#if option.paired}<span
+                class="kind recipe-kind">Recipe</span
+              >{/if}</span
+          >
           <span class="sub" class:why={!!option.why}>{option.why ?? makes(option.recipe)}</span>
         </div>
       {:else}
@@ -289,6 +306,22 @@
   }
 
   .recipe .name {
+    color: var(--color-accent-on-soft);
+  }
+
+  /* "Recipe" and "Ingredient" beside two rows with the same name (F189). */
+  .kind {
+    padding: 2px var(--space-3);
+    border-radius: var(--radius-full);
+    background: var(--color-chip);
+    color: var(--color-text);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-extrabold);
+    white-space: nowrap;
+  }
+
+  .recipe-kind {
+    background: var(--color-accent-soft);
     color: var(--color-accent-on-soft);
   }
 

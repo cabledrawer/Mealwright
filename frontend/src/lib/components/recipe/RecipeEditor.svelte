@@ -43,7 +43,7 @@
   import { clearCarried, readCarried, writeCarried } from '#lib/recipes/carry.js';
   import { go, NEW_RECIPE, RECIPES, editPage, recipePage } from '#lib/recipes/paths.js';
   import { removeRecipe } from '#lib/recipes/remove.js';
-  import { fold, recipeSearch } from '#lib/recipes/search.js';
+  import { fold, lineSearch } from '#lib/recipes/search.js';
   import { takeKept, editorKey, keep, reopen } from '#lib/recipes/stash.js';
   import { toasts } from '#lib/toast.svelte.js';
   import { undoHistory } from '#lib/undo.svelte.js';
@@ -184,14 +184,7 @@
 
   // --- The picker's searches -------------------------------------------------------------------
 
-  const findRecipes = recipeSearch();
-  const search = async (q: string) => {
-    const [foods, recipes] = await Promise.all([
-      listFoods({ q, limit: 8 }).then((list) => list.foods),
-      findRecipes(q).catch(() => [])
-    ]);
-    return { foods, recipes };
-  };
+  const search = lineSearch();
 
   // --- Leaving -----------------------------------------------------------------------------------
 

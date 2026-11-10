@@ -34,7 +34,11 @@ export type Choice =
   | { kind: 'new' | 'staple'; name: string; counted_as: CountedAs; place_id: number | null }
   /** "Made in this recipe" (F108): saved as words only, never linked, never taken from the
    *  pantry, and not counted as unlinked. */
-  | { kind: 'here' };
+  | { kind: 'here' }
+  /** "Made in another recipe" (F188, cabledrawer 8 Nov): the line uses that recipe, the same link a
+   *  recipe line made in the editor has. `place_id`: where the pantry keeps it (Fridge,
+   *  Freezer, Cupboard), given to the recipe's made-ahead ingredient when it has no place yet. */
+  | { kind: 'recipe'; recipe: Ref; place_id: number | null };
 
 /** Why the box didn't give a review: the server's sentence, and what the screen offers. */
 export interface ImportProblem {
@@ -503,6 +507,99 @@ export class ImportFlow {
     this.sharedFrom = from;
   }
 
+  // --- Adding a line (F187) ---------------------------------------------------------------------
+
+  /** Where a new line goes at the end of each section, and what its button says: the section is
+   *  the lines under one heading (the lines before the first heading are a section of their own).
+   *  `at` is the place in the review the new line takes (the next heading's, or the end). */
+  get sectionEnds(): { at: number; label: string }[] {
+    const lines = this.review?.lines ?? [];
+    const ends: { at: number; label: string }[] = [];
+    let label = 'Add a line';
+    let started = false; // a section before the first heading only counts when it has lines
+    lines.forEach((line, i) => {
+      if (line.kind === 'heading') {
+        if (started || i > 0) ends.push({ at: i, label });
+        label = addLineWords(line.words);
+        started = true;
+      }
+    });
+    ends.push({ at: lines.length, label });
+    return ends;
+  }
+
+  /** How many lines the recipe may hold (the server's limit). */
+  get canAddLine(): boolean {
+    return (this.review?.lines.length ?? 0) < MOST_LINES;
+  }
+
+  /** A new, empty ingredient line at `at`: the person names it, and it gets the same choices as
+   *  any line. Returns its place. It is not saved while it has no name. */
+  addLine(at: number): number {
+    const review = this.review;
+    if (!review || !this.canAddLine) return -1;
+    const place = Math.max(0, Math.min(at, review.lines.length));
+    review.lines.splice(place, 0, {
+      kind: 'ingredient',
+      written: '',
+      words: '',
+      amount: null,
+      amount_text: null,
+      unit: null,
+      size: null,
+      note: null,
+      readable: true,
+      label: 'needs_you',
+      food: null,
+      place: null,
+      matched_by: null,
+      counts: true,
+      new_ingredient: null,
+      learn_name: null,
+      pint_ml: null
+    });
+    this.#remap((i) => (i >= place ? i + 1 : i));
+    return place;
+  }
+
+  /** Give an added line its name. An ingredient with exactly that name (or another name of it)
+   *  is the line's ingredient, as the reader does for a line it reads; otherwise the line needs
+   *  a choice. False when the name is empty. */
+  async nameLine(index: number, typed: string): Promise<boolean> {
+    const review = this.review;
+    const line = review?.lines[index];
+    const name = typed.replace(/\s+/g, ' ').trim();
+    if (!review || !line || line.kind !== 'ingredient' || !name) return false;
+    const found = await exactIngredient(name);
+    // A slow answer for a screen that has moved on: nothing to change.
+    if (this.review !== review || review.lines[index] !== line) return false;
+    Object.assign(line, {
+      words: name,
+      readable: true,
+      label: found ? (found.staple ? 'staple' : 'matched') : 'needs_you',
+      food: found ? { id: found.id, name: found.name } : null,
+      place: found?.place?.name ?? null,
+      matched_by: found ? name : null,
+      counts: !found?.staple,
+      new_ingredient: {
+        name: name[0]!.toUpperCase() + name.slice(1),
+        counted_as: 'weight',
+        place: null
+      }
+    } satisfies Partial<ReviewLine>);
+    this.saveProblem = null;
+    return true;
+  }
+
+  /** An added line the person gives up on before naming it: it goes, with no Undo (nothing was
+   *  in it). */
+  dropBlank(index: number): void {
+    const lines = this.review?.lines;
+    if (!lines || !lines[index] || !isBlank(lines[index]!)) return;
+    lines.splice(index, 1);
+    this.#remap((i) => (i === index ? null : i > index ? i - 1 : i));
+  }
+
   // --- Taking a line out, or making it two (F105, F109) ---------------------------------------
 
   /** The Undo entries for lines taken out or split, so leaving the screen can forget them. */
@@ -668,6 +765,16 @@ export class ImportFlow {
     });
   }
 
+  /** F188: the line uses another recipe. */
+  useRecipe(index: number, recipe: Ref, placeId: number | null = null): void {
+    const choice: Choice = { kind: 'recipe', recipe, place_id: placeId };
+    // Lines that took this line's New ingredient follow it to the recipe.
+    const followers = this.followers(index);
+    this.choose(index, choice);
+    for (const at of followers) this.choose(at, { ...choice });
+    this.#share(index, choice);
+  }
+
   /** The ingredient a line will be tied to, or null: a choice, else a match. */
   linkOf(index: number): Choice | null {
     const chosen = this.choices[index];
@@ -686,7 +793,7 @@ export class ImportFlow {
   get counts(): ImportReview['counts'] {
     const counts = { matched: 0, to_confirm: 0, needs_you: 0, staple: 0 };
     this.review?.lines.forEach((line, i) => {
-      if (line.kind !== 'ingredient') return;
+      if (line.kind !== 'ingredient' || isBlank(line)) return;
       const choice = this.choices[i];
       if (choice) counts[choice.kind === 'staple' ? 'staple' : 'matched']++;
       else if (line.label && line.label in counts) counts[line.label]++;
@@ -698,7 +805,9 @@ export class ImportFlow {
   get unlinked(): number {
     const review = this.review;
     if (!review) return 0;
-    return review.lines.filter((line, i) => line.kind === 'ingredient' && !this.linkOf(i)).length;
+    return review.lines.filter(
+      (line, i) => line.kind === 'ingredient' && !isBlank(line) && !this.linkOf(i)
+    ).length;
   }
 
   // --- Save ---------------------------------------------------------------------------------
@@ -717,7 +826,10 @@ export class ImportFlow {
       makes: review.makes,
       tags: review.tags,
       nutrition: review.nutrition,
-      lines: review.lines.map((line, i) => saveLine(this.withPints(line), this.linkOf(i))),
+      // A line added on Check and never named is not saved (F187).
+      lines: review.lines.flatMap((line, i) =>
+        isBlank(line) ? [] : [saveLine(this.withPints(line), this.linkOf(i))]
+      ),
       // What Save sends: not whether the person has confirmed the wait.
       steps: review.steps.map((s) => ({
         kind: s.kind,
@@ -773,7 +885,9 @@ export class ImportFlow {
   /** The places of the ingredient lines with no ingredient behind them. */
   unlinkedLines(): number[] {
     const lines = this.review?.lines ?? [];
-    return lines.flatMap((line, i) => (line.kind === 'ingredient' && !this.linkOf(i) ? [i] : []));
+    return lines.flatMap((line, i) =>
+      line.kind === 'ingredient' && !isBlank(line) && !this.linkOf(i) ? [i] : []
+    );
   }
 
   /** The line the sheet is on, or null when it isn't open. */
@@ -936,12 +1050,14 @@ function saveLine(line: ReviewLine, link: Choice | null): SaveLine {
     sent =
       link.kind === 'ingredient'
         ? { kind: 'ingredient', food_id: link.food.id, learn: link.learn ? line.learn_name : null }
-        : {
-            kind: link.kind,
-            name: link.name,
-            counted_as: link.counted_as,
-            place_id: link.place_id
-          };
+        : link.kind === 'recipe'
+          ? { kind: 'recipe', recipe_id: link.recipe.id, place_id: link.place_id }
+          : {
+              kind: link.kind,
+              name: link.name,
+              counted_as: link.counted_as,
+              place_id: link.place_id
+            };
   }
   return {
     kind: line.kind,
@@ -1002,4 +1118,21 @@ function shorter(text: string): string {
 /** "4 lines after “Tips” were left out": the sentence for the review (spec Q17). */
 export function leftOutWords(heading: string, lines: number): string {
   return `${lines} ${lines === 1 ? 'line' : 'lines'} after “${heading}” ${lines === 1 ? 'was' : 'were'} left out`;
+}
+
+/** The ingredient lines and headings a recipe may hold: the server's limit. */
+export const MOST_LINES = 200;
+
+/** A line added on Check that has no name yet: not counted, not saved (F187). */
+export function isBlank(line: ReviewLine): boolean {
+  return line.kind === 'ingredient' && line.written === '' && line.words.trim() === '';
+}
+
+/** The button at the end of a section (F187; mockup Dark-CheckSections08-Phone): "For the batter"
+ *  is "Add a line to the batter"; any other heading is named in quotes; no heading, no name. */
+export function addLineWords(heading: string): string {
+  const text = heading.replace(/\s+/g, ' ').trim();
+  const named = /^(?:for|to make|make)\s+(the\s+.+)$/i.exec(text);
+  if (named) return `Add a line to ${named[1]!.toLowerCase()}`;
+  return text ? `Add a line to “${text}”` : 'Add a line';
 }

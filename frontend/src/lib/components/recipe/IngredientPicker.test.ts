@@ -56,6 +56,24 @@ describe('IngredientPicker', () => {
     await expect.element(page.getByRole('status')).toHaveTextContent('3 matches');
   });
 
+  it('puts a recipe before the ingredient with its name, each labelled (F189)', async () => {
+    const same = async () => ({
+      foods: [food(7, 'Dosa batter'), food(8, 'Dosa mix')],
+      recipes: [brief(5, 'Dosa batter'), brief(6, 'Dosa stuffing')]
+    });
+    render({ query: 'dosa', search: same, onpick: () => {}, oncreate: () => {} });
+    const options = page.getByRole('option');
+    await expect.element(options.nth(3)).toBeVisible();
+    const text = (n: number) => options.nth(n).element().textContent ?? '';
+    expect(text(0)).toMatch(/^Dosa batter\s*Recipe/);
+    expect(text(1)).toMatch(/^Dosa batter\s*Ingredient/);
+    expect(text(2)).toMatch(/^Dosa mix/);
+    expect(text(3)).toMatch(/^Dosa stuffing/);
+    // Only the pair is labelled, and the "Recipes" heading is above the recipe that isn't paired.
+    await expect.element(page.getByText('Ingredient', { exact: true })).toBeVisible();
+    await expect.element(page.getByText('Recipes', { exact: true })).toBeInTheDocument();
+  });
+
   it('says "in 1 recipe", "in no recipes", and shows the first other name when the name itself matched', async () => {
     render({
       query: 'dru',

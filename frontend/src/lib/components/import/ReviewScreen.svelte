@@ -14,7 +14,7 @@
   import { beforeNavigate, goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { changesToast } from '#lib/import.save.js';
-  import { CLOSE_OFFLINE, leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
+  import { CLOSE_OFFLINE, isBlank, leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
   import { sentenceCount, stepRuns } from '#lib/importSteps.js';
   import { network } from '#lib/network.svelte.js';
   import { PhotoFallback } from '#lib/photoFallback.svelte.js';
@@ -25,6 +25,7 @@
   import { timeWithWait } from '#lib/timeWords.js';
   import Switch from '#lib/components/Switch.svelte';
   import ZoomPhoto from '#lib/components/ZoomPhoto.svelte';
+  import AddLine from './AddLine.svelte';
   import CheckFrame from './CheckFrame.svelte';
   import LeaveSheet from './LeaveSheet.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
@@ -54,6 +55,8 @@
   );
   const shown = $derived(copy.shown);
   const counts = $derived(flow.counts);
+  /** Where "Add a line" goes: the end of each section (F187). */
+  const ends = $derived(flow.sectionEnds);
   const uid = $props.id();
   // Fetched again as Check opens: a place made on another phone has no live event.
   $effect(() => {
@@ -61,7 +64,9 @@
   });
   const usPints = $derived(flow.pints === 'us');
   const other = $derived(flow.otherPints);
-  const ingredientCount = $derived(review.lines.filter((l) => l.kind === 'ingredient').length);
+  const ingredientCount = $derived(
+    review.lines.filter((l) => l.kind === 'ingredient' && !isBlank(l)).length
+  );
 
   async function finish(saved: Awaited<ReturnType<typeof flow.save>>) {
     if (!saved) return;
@@ -326,6 +331,12 @@
   </div>
 {/snippet}
 
+{#snippet addButton(end: { at: number; label: string })}
+  {#if flow.canAddLine}
+    <li class="add-line"><AddLine label={end.label} onclick={() => flow.addLine(end.at)} /></li>
+  {/if}
+{/snippet}
+
 {#snippet middle()}
   <div class="col middle">
     <section class="lines" aria-labelledby="{uid}-ingredients">
@@ -351,12 +362,18 @@
       {/if}
       <ul>
         {#each review.lines as line, index (line)}
+          {#each ends.filter((end) => end.at === index) as end (end.at)}
+            {@render addButton(end)}
+          {/each}
           <ReviewLineRow
             {flow}
             {index}
             line={flow.withPints(line)}
             problem={flow.saveProblem?.line === index ? flow.saveProblem.message : null}
           />
+        {/each}
+        {#each ends.filter((end) => end.at === review.lines.length) as end (end.at)}
+          {@render addButton(end)}
         {/each}
       </ul>
       {#if flow.offersPints && other}
@@ -930,6 +947,10 @@
     padding: 0;
   }
 
+  .add-line {
+    list-style: none;
+  }
+
   .lines ul {
     display: flex;
     flex-direction: column;
@@ -1080,21 +1101,23 @@
     max-width: none;
   }
 
+  /* The title sits a little in from the edge, and the step note drops under it when the two don't
+     fit on one line (cabledrawer 9 Nov; mockup Dark-CheckSections08-Phone). With "space-between" the
+     note is at the right when it fits and at the left, under the title, when it wraps. */
   .fhead {
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
     justify-content: space-between;
-    gap: var(--space-4);
+    gap: var(--space-1) var(--space-4);
     margin-bottom: var(--space-4);
+    padding-left: var(--space-4);
   }
 
   .fhead h1 {
     font-size: var(--text-xl);
     font-weight: var(--weight-extrabold);
-  }
-
-  .fhead .muted {
-    text-align: right;
+    overflow-wrap: anywhere;
   }
 
   .fbar {

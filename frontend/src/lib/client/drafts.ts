@@ -10,7 +10,9 @@ export type DraftChoice =
   | { kind: 'ingredient'; food: Ref; learn: boolean }
   | { kind: 'new' | 'staple'; name: string; counted_as: CountedAs; place_id: number | null }
   /** "Made in this recipe" (F108): saved as words only. */
-  | { kind: 'here' };
+  | { kind: 'here' }
+  /** "Made in another recipe" (F188): the recipe's link, and where the pantry keeps it. */
+  | { kind: 'recipe'; recipe: Ref; place_id: number | null };
 
 /** Every choice so far: the boxes on top (null: as read) and a choice per settled line. */
 export interface DraftChoices {

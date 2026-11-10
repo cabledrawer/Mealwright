@@ -390,6 +390,7 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     # Recipe import: test_recipe_import.py, test_another_households_ingredients_places_and_photos...
     ("ImportLinkIn", "food_id"): "test_recipe_import",
     ("ImportLinkIn", "place_id"): "test_recipe_import",
+    ("ImportLinkIn", "recipe_id"): "test_recipe_import",
     ("ImportLineIn", "size_id"): "test_recipe_import",
     ("ImportSave", "photo_id"): "test_recipe_import",
     # Drafts: test_drafts.py, test_another_household_can_not_..._a_draft and

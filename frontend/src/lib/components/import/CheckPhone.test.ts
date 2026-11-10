@@ -475,8 +475,14 @@ describe('One at a time', () => {
     it('Pick another opens the picker for this line', async () => {
       await opened();
       await page.getByRole('button', { name: 'Pick another' }).click();
+      // The pick-list for a line (F189, W4d): what is it, as written, a search box, the two buttons.
+      await expect.element(page.getByLabelText('Search')).toBeVisible();
+      await expect.element(page.getByText('As written: 1 red onion, sliced')).toBeVisible();
       await expect
-        .element(page.getByLabelText('Pick an ingredient for 1 red onion, sliced'))
+        .element(page.getByRole('button', { name: 'New ingredient', exact: true }).last())
+        .toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: 'Made in another recipe…' }))
         .toBeVisible();
     });
 

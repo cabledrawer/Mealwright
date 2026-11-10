@@ -1013,6 +1013,7 @@ describe('Import a recipe', () => {
         'New ingredient “Asafoetida”',
         'Pick an ingredient',
         'Made in this recipe',
+        'Made in another recipe',
         'Treat as staple'
       ]);
       await first.click();

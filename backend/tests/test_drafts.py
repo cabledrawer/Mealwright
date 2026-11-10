@@ -1190,12 +1190,15 @@ def test_ids_inside_a_drafts_review_and_choices_give_nothing_of_another_househol
     the place and the ingredient as not found."""
     ghee = ok(neighbour.post(f"{API}/foods", json={"name": "Ghee"}), 201)["food"]
     their_place = next(p["id"] for p in ok(neighbour.get(f"{API}/places")))
+    their_batter = ok(neighbour.post(f"{API}/recipes", json={"name": "Dosa batter"}), 201)
     shown = review(kitchen, PASTED)
     lines = list(shown["lines"])
     lines[0] = {**lines[0], "food": {"id": ghee["id"], "name": "Ghee"}}
     chosen = {
         "lines": {
             "2": {"kind": "ingredient", "food": {"id": ghee["id"], "name": "Ghee"}},
+            # A recipe of the other household (W4d, F188) is not followed either.
+            "4": {"kind": "recipe", "recipe": {"id": their_batter["id"], "name": "Dosa batter"}},
             "3": {
                 "kind": "new",
                 "name": "Asafoetida",
@@ -1206,7 +1209,7 @@ def test_ids_inside_a_drafts_review_and_choices_give_nothing_of_another_househol
     }
     draft = kept(kitchen, {**shown, "lines": lines}, choices=chosen)
     got = ok(kitchen.get(f"{API}/recipes/drafts/{draft['id']}"))
-    assert "Ghee" not in str(got)
+    assert "Ghee" not in str(got) and "Dosa batter" not in str(got)
     assert got["review"]["lines"][0]["food"] is None
     assert got["review"]["lines"][0]["label"] == "needs_you"
     assert list(got["choices"]["lines"]) == ["3"]

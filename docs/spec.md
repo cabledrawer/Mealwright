@@ -781,6 +781,8 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **"Update nutrition" (R3, cabledrawer 10 Nov):** the recipe page's "Nutrition possibly out of date" note links **Update nutrition** (was "Work it out again"). It opens the nutrition boxes to edit by hand; working nutrition out from the ingredients stays out of v1 (§2).
 - **Tags (cabledrawer 9 Nov):** tag chips sit in one row on Recipes; Manage tags renames and merges tags, and a merge can be undone.
 - **Whole packs (cabledrawer 8 and 9 Nov):** the list from the plan adds whole packs of the ingredient's usual size, as many as cover the need; spoon and cup amounts become a weight first. When another size would leave much less over it is suggested under the row; every size can be seen and picked, and the one picked can become the usual size.
+- **Lines on Check (cabledrawer 8 Nov):** a line can be added at the end of any section; the new-ingredient box can say an ingredient is made in another recipe; a recipe is offered before a plain ingredient of the same name.
+- **Check header (cabledrawer 9 Nov):** on every Check screen the title sits slightly in from the edge and the step note drops under it when there isn't room.
 
 - **Optional ingredients and steps (cabledrawer 6 and 9 Nov):** a line or step can be Optional. When a recipe with optional ingredients is added to the plan, you're asked which you'll use: those go on the shopping list if needed and come out of the pantry when cooked; the others don't.
 - **Two cooking methods (cabledrawer 31 Oct and 9 Nov):** a recipe can have two methods, each with its own ingredients, steps and time; Cook mode asks "How are you cooking it today?" and follows the pick.
