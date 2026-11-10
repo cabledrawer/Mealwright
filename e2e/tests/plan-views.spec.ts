@@ -303,6 +303,58 @@ test('Plan it shows what is already planned at each meal, and marks a day that h
   await expect(sheet.getByRole('button', { name: meal, exact: true })).not.toContainText(olan);
 });
 
+test('Plan it on a recipe with optional ingredients asks which you will use, and plans only those', async ({ page }) => {
+  const k = await setup(page);
+  const name = `Biryani ${stamp()}`;
+  const made = await (
+    await page.request.post('/api/v1/recipes', {
+      data: {
+        name,
+        lines: [
+          { words: 'mutton', amount: 1, unit: 'kg' },
+          { words: 'raw papaya paste', amount: 2, unit: 'tbsp', optional: true },
+          { words: 'kewra water', amount: 0.5, unit: 'tsp', optional: true },
+        ],
+      },
+      headers: { 'idempotency-key': crypto.randomUUID() },
+    })
+  ).json();
+  const day = addDays(k.today, 4 + projectIndex()); // each project its own day: they share one server
+  const meal = ['Dinner', 'Lunch', 'Breakfast'][projectIndex()]!;
+  await page.goto(`/recipes/${made.id}`);
+  await page.getByRole('button', { name: 'Plan it', exact: true }).click();
+  const sheet = page.getByRole('dialog', { name });
+  await sheet.getByRole('button', { name: dayName(day), exact: true }).click();
+  await sheet.getByRole('button', { name: meal, exact: true }).click();
+  await sheet.getByRole('button', { name: 'Plan it here' }).click();
+  const ask = page.getByTestId('plan-optional');
+  await expect(ask.getByText('This recipe has 2 optional ingredients. Will you use them?')).toBeVisible();
+  await expect(ask.getByRole('checkbox')).toHaveCount(2);
+  await expect(ask.getByRole('checkbox', { name: /raw papaya paste/ })).toBeChecked();
+  await checkPage(page);
+  // Cancel plans nothing.
+  await ask.getByRole('button', { name: 'Cancel' }).click();
+  await expect(ask).toHaveCount(0);
+  const where = async () => {
+    const plan = await planRange(page, day, day);
+    return plan.meals.filter((m: any) => m.slot_id === k.slot[meal] && m.items.some((i: any) => i.recipe?.id === made.id));
+  };
+  expect(await where()).toHaveLength(0);
+  // Untick the kewra water and plan it: only the papaya paste is used.
+  await page.getByRole('button', { name: 'Plan it', exact: true }).click();
+  await sheet.getByRole('button', { name: dayName(day), exact: true }).click();
+  await sheet.getByRole('button', { name: meal, exact: true }).click();
+  await sheet.getByRole('button', { name: 'Plan it here' }).click();
+  await ask.getByRole('checkbox', { name: /kewra water/ }).uncheck();
+  await ask.getByRole('button', { name: 'Add to plan' }).click();
+  await expect(page.getByText(`Planned ${name} for ${meal}`)).toBeVisible();
+  await expect.poll(async () => (await where()).length).toBe(1);
+  const item = (await where())[0].items.find((i: any) => i.recipe?.id === made.id);
+  const kewra = made.lines.find((l: any) => l.words === 'kewra water').id;
+  expect(item.optional_skipped).toEqual([kewra]);
+  expect(item.recipe.optional_count).toBe(2);
+});
+
 test('Plan it at 200% text shows a long meal name whole, wrapped, with nothing cut off', async ({ page }) => {
   const k = await setup(page);
   const s = short();
