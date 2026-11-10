@@ -260,3 +260,48 @@ describe('making it, changing it and keeping it in', () => {
     expect(keepInMain(flow, 0)).toBe(false);
   });
 });
+
+describe('a stand-in line that already had a choice', () => {
+  const newBatter = { kind: 'new', name: 'Dosa batter', counted_as: 'volume', place_id: 1 } as const;
+
+  it('shows and sends the own recipe, not the old choice, and Keep or Undo gives the choice back', async () => {
+    const flow = dosa();
+    flow.choose(4, { ...newBatter });
+    makeOwn(flow, 0, { name: 'Dosa batter', amount: 4, unit: 'cup' });
+    // Screen, counts and Save agree: the line is the new recipe, its old choice set aside.
+    expect(flow.choices[4]).toBeUndefined();
+    expect(flow.linkOf(4)).toMatchObject({ kind: 'recipe' });
+    expect(flow.body()!.lines[1]).toMatchObject({ link: { kind: 'own_recipe', own_recipe: 0 } });
+    expect(flow.counts).toMatchObject({ matched: 4, needs_you: 0 });
+    // Keep in this recipe: the choice is back, exactly.
+    expect(keepInMain(flow, 0)).toBe(true);
+    expect(flow.choices[4]).toEqual(newBatter);
+    // Undo of Keep: set aside again; Undo of that: back to the start.
+    await undoHistory.undoLast();
+    expect(flow.choices[4]).toBeUndefined();
+    await undoHistory.undoLast();
+    expect(flow.review!.lines[0]!.own).toBeNull();
+    expect(flow.choices[4]).toEqual(newBatter);
+  });
+});
+
+describe('a stand-in line inside another section made its own recipe', () => {
+  it('is never picked: the heading’s place gets a line instead', () => {
+    const flow = dosa();
+    // "Dosa batter" listed under the batter's own heading too (a second candidate), and the
+    // dosa section made its own recipe first.
+    const lines = flow.review!.lines;
+    lines.splice(3, 0, line({ words: 'dosa batter', written: 'dosa batter', amount: 1 }));
+    makeOwn(flow, 4, { name: 'Dosa', amount: 1, unit: 'cup' });
+    // The batter section (heading 0) is made own: its only "dosa batter" candidate (line 3)... is in
+    // the batter section itself (inside), and the one at 6 is inside the dosa section (own).
+    makeOwn(flow, 0, { name: 'Dosa batter', amount: 4, unit: 'cup' });
+    expect(sectionOf(flow.review!, 0, 'Dosa batter').use).toBeNull();
+    expect(flow.ownUseOf(6)).toBeNull();
+    const body = flow.body()!;
+    expect(body.own_recipes).toHaveLength(2);
+    // Every line that links to a section recipe is a line the server can match to its save.
+    const links = body.lines.filter((l) => l.link?.kind === 'own_recipe');
+    expect(links.map((l) => l.link!.own_recipe).sort()).toEqual([0, 1]);
+  });
+});

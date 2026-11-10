@@ -59,6 +59,12 @@ export interface Section {
 /** A line that points back at an earlier section: "Dosa batter, as above". */
 const AS_ABOVE = /\b(as above|from above|see above|from the)\b/i;
 
+/** Whether line `at` is in (or is the heading of) a section other than `heading`'s that was made its own recipe. */
+function inOtherOwn(lines: Lines, heading: number, at: number): boolean {
+  const h = headingOf(lines, at);
+  return h !== null && h !== heading && !!lines[h]!.own;
+}
+
 const named = (line: ReviewLine) => line.kind === 'ingredient' && line.words.trim() !== '';
 
 /** The section under the heading at `heading`. */
@@ -88,6 +94,9 @@ export function sectionOf(
     (line, i) =>
       line.kind === 'ingredient' &&
       !inside.includes(i) &&
+      // Never a line inside another section made its own recipe: it goes to that recipe, so it
+      // can't stand for this one (the heading's place gets a line instead).
+      !inOtherOwn(lines, heading, i) &&
       named(line) &&
       (names(line).some((w) => wanted.includes(w)) ||
         // "Dosa batter, as above" is the batter: its name ends with the heading's own words.
