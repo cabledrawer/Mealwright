@@ -661,7 +661,7 @@ describe('an existing recipe', () => {
     expect('photo_id' in bodyOf(requests, 'PUT')).toBe(false);
   });
 
-  it('opened from "Work it out again" it starts in the nutrition boxes, and Save says they were looked at (R3)', async () => {
+  it('opened from "Update nutrition" it starts in the nutrition boxes, and Save says they were looked at (R3)', async () => {
     const stale = { ...sambar, nutrition: { ...sambar.nutrition, possibly_out_of_date: true } };
     const requests = fakeApi({
       'GET /recipes/2': [200, stale],

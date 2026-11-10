@@ -389,7 +389,7 @@ test('an optional line and step are marked, and the nutrition note leads to the 
   await expect(recipe.getByText('Optional step', { exact: true })).toHaveCount(1);
   await expect(recipe.getByRole('note')).toContainText('Nutrition possibly out of date: the ingredients changed since it was worked out.');
   await checkPage(page);
-  await recipe.getByRole('link', { name: 'Work it out again' }).click();
+  await recipe.getByRole('link', { name: 'Update nutrition' }).click();
   await expect(page).toHaveURL(/\/recipes\/\d+\/edit\?nutrition=1$/);
   await expect(page.getByRole('textbox', { name: 'kcal' })).toBeFocused();
   await page.getByRole('button', { name: /^Save/ }).click();

@@ -369,10 +369,10 @@ describe('the recipe page', () => {
     });
     await expect.element(page.getByRole('note')).toBeVisible();
     expect(document.querySelector('[role="note"]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'Nutrition possibly out of date: the ingredients changed since it was worked out. Work it out again'
+      'Nutrition possibly out of date: the ingredients changed since it was worked out. Update nutrition'
     );
     await expect
-      .element(page.getByRole('link', { name: 'Work it out again' }))
+      .element(page.getByRole('link', { name: 'Update nutrition' }))
       .toHaveAttribute('href', '/recipes/1/edit?nutrition=1');
   });
 

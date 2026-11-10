@@ -306,14 +306,14 @@
       {/if}
 
       {#if recipe.nutrition.possibly_out_of_date}
-        <!-- R3 (mockup RecipeOptional08). "Work it out again" opens the nutrition boxes in the
+        <!-- R3 (mockup RecipeOptional08). "Update nutrition" opens the nutrition boxes in the
              editor: Mealwright doesn't work nutrition out from ingredients (not in v1), so the
              person looks at the figures there. Words proposed, for cabledrawer. -->
         <p class="info" role="note">
           Nutrition possibly out of date: the ingredients changed since it was worked out.
           <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved; only the query is added -->
           <a href={`${resolve('/(app)/recipes/[id]/edit', { id: String(recipe.id) })}?nutrition=1`}
-            >Work it out again</a
+            >Update nutrition</a
           >
         </p>
       {/if}

@@ -279,7 +279,7 @@ describe('opening a saved recipe', () => {
     expect(draft.build().errors).toEqual({});
   });
 
-  it('opened from "Work it out again", Save says the figures were looked at (R3)', () => {
+  it('opened from "Update nutrition", Save says the figures were looked at (R3)', () => {
     const draft = RecipeDraft.from(recipe());
     expect(draft.build().body.nutrition_checked).toBeUndefined();
     draft.nutritionChecked = true;

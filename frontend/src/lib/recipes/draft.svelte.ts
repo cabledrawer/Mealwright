@@ -207,7 +207,7 @@ export class RecipeDraft {
     fat: '',
     fibre: ''
   });
-  /** The editor was opened from "Work it out again": Save says the figures were looked at. */
+  /** The editor was opened from "Update nutrition": Save says the figures were looked at. */
   nutritionChecked = $state(false);
   lines = $state<DraftLine[]>([blankLine()]);
   steps = $state<DraftStep[]>([blankStep()]);
@@ -600,7 +600,7 @@ export class RecipeDraft {
       steps,
       source_note: clean(this.source) || null
     };
-    // Opened from "Work it out again": saving counts as looking at the figures (R3).
+    // Opened from "Update nutrition": saving counts as looking at the figures (R3).
     if (this.nutritionChecked) body.nutrition_checked = true;
     // "Remove photo" says so with null; a photo left alone leaves the field out (cabledrawer 20 Oct).
     if (this.photo.change === 'removed') body.photo_id = null;

@@ -125,7 +125,7 @@
       }
     }
     if (!kept && !fresh && draft && applyKept(draft)) carrying = true;
-    // "Work it out again" on the recipe page (R3): the nutrition boxes first, and Save counts
+    // "Update nutrition" on the recipe page (R3): the nutrition boxes first, and Save counts
     // as having looked at the figures.
     if (editing && draft && new URLSearchParams(location.search).get('nutrition') === '1') {
       draft.nutritionChecked = true;
