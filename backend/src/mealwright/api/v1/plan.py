@@ -1020,9 +1020,16 @@ class PlanMoveIn(BaseModel):
         max_length=50,
         description="a whole meal moved: the new start time of each recipe in"
         " it with a long wait, by `item_id`. A recipe left out has no time yet. Same refusals"
-        " as `start`; `422 start_not_moved` for an item not in the meal. Not used by a copy or"
-        " leftovers.",
+        " as `start`; `422 start_not_moved` for an item not in the meal; an item named twice is"
+        " refused (422). Not used by a copy or leftovers.",
     )
+
+    @field_validator("starts")
+    @classmethod
+    def _one_start_each(cls, starts: list[ItemStartIn]) -> list[ItemStartIn]:
+        if len({s.item_id for s in starts}) != len(starts):
+            raise ValueError("One start time for each recipe.")  # proposed, for cabledrawer
+        return starts
 
 
 @router.post("/plan/items/{plan_item_id}/move")

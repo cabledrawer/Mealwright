@@ -673,6 +673,18 @@ def test_moving_a_whole_meal_takes_each_recipes_new_start_time(kitchen: TestClie
         json={**body, "starts": [{"item_id": item + 999, **start_of(SUN, "20:00")}]},
     )
     assert stray.status_code == 422 and stray.json()["code"] == "start_not_moved"
+    twice = kitchen.post(
+        f"{API}/plan/meals/{meal_id}/move",
+        json={
+            **body,
+            "starts": [
+                {"item_id": item, **start_of(SUN, "20:00")},
+                {"item_id": item, **start_of(SUN, "21:00")},
+            ],
+        },
+    )
+    assert twice.status_code == 422  # one start time for each recipe (FX2 review r1)
+    assert item_of(kitchen, item, FRI)["ahead"]["start_time"] == "21:00"  # nothing changed
     moved = kitchen.post(
         f"{API}/plan/meals/{meal_id}/move",
         json={**body, "starts": [{"item_id": item, **start_of(SUN, "20:00")}]},
@@ -680,6 +692,30 @@ def test_moving_a_whole_meal_takes_each_recipes_new_start_time(kitchen: TestClie
     assert moved.status_code == 200, moved.text
     ahead = item_of(kitchen, item, FRI, 12)["ahead"]
     assert (ahead["start_day"], ahead["start_time"]) == ("2026-11-15", "20:00")
+    undo(kitchen, moved.json())
+    ahead = item_of(kitchen, item, FRI, 12)["ahead"]
+    assert (ahead["start_day"], ahead["start_time"]) == ("2026-11-13", "21:00")
+
+
+def test_moving_a_whole_meal_into_a_filled_meal_takes_its_start_time_and_undoes(
+    kitchen: TestClient,
+) -> None:
+    item = plan_dosa(kitchen, dosa(kitchen), start=start_of(FRI, "21:00"))["item_id"]
+    other = plan_dosa(kitchen, dosa(kitchen, "Idli"), day=date(2026, 11, 16))["item_id"]
+    with db_of(kitchen) as db:
+        meal_id = db.get(MealItem, item).meal_id  # type: ignore[union-attr]
+    moved = kitchen.post(
+        f"{API}/plan/meals/{meal_id}/move",
+        json={
+            "date": "2026-11-16",
+            "slot_id": slot_ids(kitchen)["Breakfast"],
+            "starts": [{"item_id": item, **start_of(SUN, "20:00")}],
+        },
+    )
+    assert moved.status_code == 200, moved.text
+    ahead = item_of(kitchen, item, FRI, 12)["ahead"]
+    assert (ahead["start_day"], ahead["start_time"]) == ("2026-11-15", "20:00")
+    assert item_of(kitchen, other, FRI, 12)["ahead"]["start_time"] is None  # the other is left
     undo(kitchen, moved.json())
     ahead = item_of(kitchen, item, FRI, 12)["ahead"]
     assert (ahead["start_day"], ahead["start_time"]) == ("2026-11-13", "21:00")
