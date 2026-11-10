@@ -378,6 +378,13 @@ def cupboard_id(db: Session, household: int = 1) -> int:
         ("1 cup plain flour", "Plain flour", "weight"),
         ("1 cup soy sauce", "Soy sauce", "volume"),
         ("2 tbsp olive oil", "Olive oil", "volume"),
+        # W4c review H1: ml and litres stay volume, and a word inside the name is not the food.
+        ("400 ml coconut cream", "Coconut cream", "volume"),
+        ("250 ml almond milk", "Almond milk", "volume"),
+        ("300 ml coconut water", "Coconut water", "volume"),
+        ("500 ml rice milk", "Rice milk", "volume"),
+        ("2 tbsp rice wine", "Rice wine", "volume"),
+        ("1 tbsp ground cumin", "Ground cumin", "weight"),
     ],
 )
 def test_new_ingredient_first_guess(db: Session, text: str, name: str, counted_as: str) -> None:

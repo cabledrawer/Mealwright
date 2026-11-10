@@ -252,12 +252,17 @@ def _short(text: str) -> str:
     return (text[:MAX_NAME_CHARS].rsplit(" ", 1)[0] or text[:MAX_NAME_CHARS]).rstrip()
 
 
+_SPOON_OR_CUP = frozenset({"tsp", "tbsp", "cup"})
+
+
 def _kind_by_table(name: str, counted_as: CountedAs) -> CountedAs:
     """A spoon or cup of something the bundled table counts by weight and knows the weight of
     (sugar, salt, flour, cumin) is counted by weight, so a pack's weight and the need are in the
     same unit (F183, cabledrawer 8 Nov: "spoon and cup amounts become a weight first"). Milk, oil and
-    anything the table counts by volume, or does not know, stay as read."""
-    row = conversion_table().match(name) or conversion_table().close(name)
+    anything the table counts by volume, or does not know, stay as read. Only the name itself or
+    its last words count ("ground cumin" → cumin), never a word inside it ("rice milk" is not
+    rice), and ml and litres stay volume: they were measured as a liquid."""
+    row = conversion_table().match(name) or conversion_table().ending(name)
     if row is not None and row.counted_as == "weight" and row.mg_per_ml:
         return "weight"
     return counted_as
@@ -276,7 +281,7 @@ def first_guess(kitchen: KnownIngredients, read: ReadLine, staple: bool = False)
         counted_as = "count"
     else:
         counted_as = "weight"
-    if counted_as == "volume":
+    if read.unit in _SPOON_OR_CUP:
         counted_as = _kind_by_table(name, counted_as)
     short = _short(
         _capital(name)
