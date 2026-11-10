@@ -65,8 +65,6 @@ import {
 import { cookBatchOfItem, itemName, leftName, mealName } from './planMeals';
 import { optionalAsk } from './optionalAsk.svelte';
 import type { StepWait } from './timeWords';
-import { startAsk } from './startAsk.svelte';
-import { markStarted } from './startNow';
 import { save, type Outcome } from './save';
 
 export type PlanView = 'week' | 'month';
@@ -321,12 +319,19 @@ export class PlanModel {
       );
       if (use === null) return { ok: false, error: null, cancelled: true };
       if (use !== undefined) body.optional_use = use;
-      // A recipe with a long wait asks when it will be started (M3), for the way chosen.
-      const start = await startAsk.ask(
-        what.recipe,
-        { day, slotId, slotName: this.slotName(slotId) },
-        { method }
-      );
+      // A recipe with a long wait asks when it will be started (M3), for the way chosen. Known
+      // not to have one (the server's rule: a wait of 4 hours or more), it is not even loaded.
+      const wait = what.recipe.wait;
+      const start =
+        wait === undefined || (what.recipe.method_count ?? 1) > 1 || (wait?.max_minutes ?? 0) >= 240
+          ? await (
+              await import('./startAsk.svelte')
+            ).startAsk.ask(
+              what.recipe,
+              { day, slotId, slotName: this.slotName(slotId) },
+              { method }
+            )
+          : undefined;
       if (start === null) return { ok: false, error: null, cancelled: true };
       if (start !== undefined) body.start = start;
     }
@@ -361,6 +366,7 @@ export class PlanModel {
     const current = item.ahead.start_day
       ? { day: item.ahead.start_day, time: item.ahead.start_time! }
       : null;
+    const { startAsk } = await import('./startAsk.svelte');
     const picked = await startAsk.ask(
       { id: item.recipe.id, name: item.recipe.name },
       { day, slotId: meal.slot_id, slotName: this.slotName(meal.slot_id) },
@@ -375,7 +381,8 @@ export class PlanModel {
   }
 
   /** "Done already": the long wait of a planned recipe is begun (M3). */
-  markStarted(item: PlanItem) {
+  async markStarted(item: PlanItem) {
+    const { markStarted } = await import('./startNow'); // loaded when first used (size limit)
     return markStarted(item.id, itemName(item, this.plan));
   }
 

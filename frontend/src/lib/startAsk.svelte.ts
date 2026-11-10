@@ -6,6 +6,7 @@
 // Online only, like the rest of the Plan.
 
 import type { StartAt, StartOption } from './client/plan';
+import { optionalAsk } from './optionalAsk.svelte';
 import type { StepWait } from './timeWords';
 
 export interface StartQuestion {
@@ -65,6 +66,7 @@ class StartAsk {
     if (!found.wait) return undefined;
     this.current?.resolve(null);
     const { forMeal } = await import('./startWords');
+    optionalAsk.startOpen = true;
     return new Promise((resolve) => {
       this.current = {
         question: {
@@ -86,12 +88,14 @@ class StartAsk {
   answer(start: StartAt): void {
     const pending = this.current;
     this.current = null;
+    optionalAsk.startOpen = false;
     pending?.resolve(start);
   }
 
   dismiss(): void {
     const pending = this.current;
     this.current = null;
+    optionalAsk.startOpen = false;
     pending?.resolve(null);
   }
 }

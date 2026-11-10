@@ -21,7 +21,6 @@
   import { askToKeepDataHere } from '#lib/offline/persist.js';
   import { live } from '#lib/live.svelte.js';
   import { optionalAsk } from '#lib/optionalAsk.svelte.js';
-  import { startAsk } from '#lib/startAsk.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { privacy } from '#lib/privacy.svelte.js';
@@ -179,7 +178,7 @@
     {/await}
   {/if}
   <!-- When a recipe's long wait will be started (M3); fetched when first asked too. -->
-  {#if startAsk.current}
+  {#if optionalAsk.startOpen}
     {#await import('#lib/components/plan/PlanStart.svelte') then { default: PlanStart }}
       <PlanStart />
     {/await}

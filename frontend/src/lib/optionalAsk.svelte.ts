@@ -30,6 +30,8 @@ class OptionalAsk {
   current = $state<Pending | null>(null);
   /** The "which way of cooking it?" sheet is open (M2): the layout loads it when first asked. */
   methodOpen = $state(false);
+  /** The "when will you start it?" sheet is open (M3): the layout loads it when first asked. */
+  startOpen = $state(false);
 
   /**
    * Ask which Optional ingredients of the recipe the meal will use. Resolves with the ids of the
