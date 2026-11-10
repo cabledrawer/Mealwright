@@ -87,13 +87,9 @@ test.afterEach(() => {
   expect(scriptErrors, 'the page raised no script errors').toEqual([]);
 });
 
-/** Weeks start on Monday: the number of the week a day is in. */
-const weekOf = (iso: string) => Math.floor((new Date(`${iso}T12:00:00Z`).getTime() / 86_400_000 + 3) / 7);
-
-/** Open the Plan on the week that holds `day`, with the Next week button, as a person would. */
-async function openWeekOf(page: Page, today: string, day: string) {
-  await page.goto('/plan');
-  for (let i = 0; i < weekOf(day) - weekOf(today); i++) await page.getByRole('button', { name: 'Next week' }).click();
+/** Open the Plan on the week that holds `day`, scrolled to it on the phone (Today's "+ Plan" link). */
+async function openWeekOf(page: Page, day: string) {
+  await page.goto(`/plan?day=${day}`);
 }
 
 test('Plan it on a recipe with a long wait asks when it will be started, and the meal can change the time, with Undo', async ({ page }) => {
@@ -128,7 +124,7 @@ test('Plan it on a recipe with a long wait asks when it will be started, and the
     expect((await itemOn(page, day, recipe.id))?.ahead?.start_day).toBe(eve);
 
     // Changing it from the meal: the menu says when it starts, and asks again with Save.
-    await openWeekOf(page, today, day);
+    await openWeekOf(page, day);
     const card = cell(page, day, breakfast).getByRole('button', { name: new RegExp(`^${recipe.name}`) }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.focus();
@@ -210,7 +206,7 @@ test('the Plan\'s Cook view says Start tonight on the day to start, with Done al
   const eve = addDays(day, -1);
   const planned = await call(page, 'POST', '/plan/items', { date: day, slot_id: breakfast, recipe_id: recipe.id, start: { day: eve, time: '21:00' } });
   try {
-    await openWeekOf(page, today, eve); // the start is on a day of next week
+    await openWeekOf(page, eve); // the start is on a day of next week
     await page.getByRole('group', { name: 'Show', exact: true }).getByRole('button', { name: 'Cook', exact: true }).click();
     const line = page.getByTestId('cook-start').filter({ hasText: `(for ${dayShort(day)} breakfast)` });
     await expect(line.first()).toContainText(`Start tonight at 21:00: grind to a batter and leave it to ferment (for ${dayShort(day)} breakfast)`);
