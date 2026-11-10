@@ -347,7 +347,7 @@ PART_WORDS = frozenset(
 _DESCRIBING = frozenset(_key(word) for word in MODIFIER_WORDS | PART_WORDS)
 
 
-def _is_another_thing(kitchen: KnownIngredients, theirs: frozenset[str], key: str) -> bool:
+def _is_another_thing(theirs: frozenset[str], key: str) -> bool:
     """F186 (cabledrawer 8 Nov; middle way, cabledrawer 10 Nov): a food with one word in its name
     ("Rice", "Onions", "Sugar") against a line that adds a word of its own to it.
 
@@ -356,9 +356,8 @@ def _is_another_thing(kitchen: KnownIngredients, theirs: frozenset[str], key: st
       thing, so it is offered.
     - The food's word is only a side word ("rice flour", "lemon juice", "tomato puree",
       "poha (flattened rice)" against Basmati rice): another thing, so it is not offered.
-    - Proposed, for cabledrawer: when a side word is itself a one-word ingredient of the household
-      ("coconut milk" with Coconut, "peanut butter" with Peanuts), nothing is offered either:
-      the line could be either, and a wrong "Same as" costs more than none.
+    - A side word that is an ingredient of its own changes nothing: "chicken stock" is offered
+      Stock even when the household has Chicken, as cabledrawer's rule says (the main word decides).
 
     A colour, size, state or part of the thing ("red", "dried", "leaves") is not a word of its
     own. The words are keys (`_key`)."""
@@ -369,11 +368,7 @@ def _is_another_thing(kitchen: KnownIngredients, theirs: frozenset[str], key: st
     if not extras:
         return False
     main = next((w for w in reversed(key.split()) if w not in _DESCRIBING), None)
-    if main not in theirs:
-        return True
-    return any(
-        extra in kitchen.by_name or extra in kitchen.by_other_name for extra in extras
-    )  # a side word that is an ingredient of its own
+    return main not in theirs
 
 
 def _candidates(read: ReadLine) -> list[tuple[str, str]]:
@@ -414,7 +409,7 @@ def _closest(
                 continue
             if theirs & line <= WEAK_WORDS:
                 continue  # only a colour or size word in common
-            if _is_another_thing(kitchen, theirs, key):
+            if _is_another_thing(theirs, key):
                 continue  # only one word in common, and the line is another thing (F186)
             share = len(theirs & line) / len(theirs | line)
             score = (share, 1 if theirs <= line else 0, -food.id)

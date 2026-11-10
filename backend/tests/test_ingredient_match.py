@@ -703,20 +703,21 @@ def test_f186_the_main_word_matches_the_plain_ingredient(db: Session, line: str,
 
 
 @pytest.mark.parametrize(
-    ("line", "foods", "wrong"),
+    ("line", "foods", "offered"),
     [
         ("1 can coconut milk", ("Milk", "Coconut"), "Milk"),
         ("2 tbsp peanut butter", ("Butter", "Peanuts"), "Butter"),
         ("500 ml chicken stock", ("Stock", "Chicken"), "Stock"),
     ],
 )
-def test_f186_a_side_word_that_is_an_ingredient_too_gives_no_suggestion(
-    db: Session, line: str, foods: tuple[str, ...], wrong: str
+def test_f186_the_main_word_decides_even_when_a_side_word_is_an_ingredient_too(
+    db: Session, line: str, foods: tuple[str, ...], offered: str
 ) -> None:
-    # Proposed, for cabledrawer: the line could be either, so nothing is offered.
+    # cabledrawer 10 Nov: the main word decides; the side word's ingredient is never offered.
     for food in foods:
         add_food(db, food)
-    assert match(db, line).food_name != wrong
+    result = match(db, line)
+    assert (result.label, result.food_name) == ("to_confirm", offered)
 
 
 @pytest.mark.parametrize(
