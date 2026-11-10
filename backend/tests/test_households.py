@@ -119,7 +119,8 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
         ),
         201,
     )
-    recipe = ok(kitchen.post(f"{API}/recipes", json={"name": "Sambar"}), 201)
+    recipe = ok(kitchen.post(f"{API}/recipes", json={"name": "Sambar", "tags": ["Quick"]}), 201)
+    tag_id = ok(kitchen.get(f"{API}/recipes/tags"))["tags"][0]["id"]
     slots = {s["name"]: s["id"] for s in ok(kitchen.get(f"{API}/meal-slots"))}
     planned = ok(
         kitchen.post(
@@ -138,6 +139,7 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
     return {
         "draft_id": draft["id"],
         "recipe_id": recipe["id"],
+        "tag_id": tag_id,
         "plan_item_id": planned["item_id"],
         "plan_meal_id": planned["meal_id"],
         "plan_slot_id": slots["Dinner"],
@@ -223,6 +225,8 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("GET", "/api/v1/recipes/{recipe_id}"): None,
     ("PUT", "/api/v1/recipes/{recipe_id}"): {"name": "Mine now", "version": 1},
     ("DELETE", "/api/v1/recipes/{recipe_id}"): None,
+    ("PATCH", "/api/v1/recipes/tags/{tag_id}"): {"name": "Mine now"},
+    ("POST", "/api/v1/recipes/tags/{tag_id}/merge"): {"into": 0},
     ("POST", "/api/v1/recipes/{recipe_id}/duplicate"): None,
     ("GET", "/api/v1/recipes/{recipe_id}/cannot-use"): None,
     ("GET", "/api/v1/recipes/{recipe_id}/stock"): None,

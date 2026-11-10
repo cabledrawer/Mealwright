@@ -4,10 +4,10 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 
-from mealwright import recipe_list, recipes
+from mealwright import recipe_list, recipe_tags, recipes
 from mealwright.api.v1.context import Here
 from mealwright.api.v1.recipe_list_schemas import RecipePage, RecipeStock
 from mealwright.api.v1.recipe_schemas import (
@@ -24,7 +24,7 @@ from mealwright.errors import StoredInt
 from mealwright.foods import change_out
 from mealwright.history import commit, replayed
 from mealwright.models import Recipe, RecipeTag, Tag
-from mealwright.names import fold
+from mealwright.names import clean_name, fold
 from mealwright.shopping import lock_household
 
 router = APIRouter(tags=["recipes"], dependencies=[SameOrigin])
@@ -66,7 +66,7 @@ def suggest_tags(kitchen: Here, q: Annotated[str, Query(max_length=40)] = "") ->
     """Tags the household uses, for suggestions while typing a tag. A tag that no recipe has
     any more is not listed. Names starting with `q` come first."""
     rows = kitchen.db.execute(
-        select(Tag.name, func.count(func.distinct(RecipeTag.recipe_id)))
+        select(Tag.id, Tag.name, func.count(func.distinct(RecipeTag.recipe_id)))
         .join(RecipeTag, RecipeTag.tag_id == Tag.id)
         .join(Recipe, Recipe.id == RecipeTag.recipe_id)
         .where(Tag.household_id == kitchen.household_id, Recipe.removed_at.is_(None))
@@ -74,12 +74,72 @@ def suggest_tags(kitchen: Here, q: Annotated[str, Query(max_length=40)] = "") ->
     )
     needle = fold(q.strip())
     found = [
-        (0 if fold(name).startswith(needle) else 1, fold(name), TagOut(name=name, recipes=count))
-        for name, count in rows
+        (
+            0 if fold(name).startswith(needle) else 1,
+            fold(name),
+            TagOut(id=tag_id, name=name, recipes=count),
+        )
+        for tag_id, name, count in rows
         if needle in fold(name)
     ]
     found.sort(key=lambda item: (item[0], item[1]))
     return TagList(tags=[item[2] for item in found])
+
+
+class RenameTag(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=40)]
+
+    @field_validator("name")
+    @classmethod
+    def _clean(cls, value: str) -> str:
+        value = clean_name(value)
+        if not value:
+            raise ValueError("A tag needs a word.")
+        return value
+
+
+class MergeTag(BaseModel):
+    into: StoredInt
+
+
+class TagMerged(BaseModel):
+    change: ChangeOut  # carries the Undo (7 days)
+    into: TagOut
+
+
+@router.patch("/recipes/tags/{tag_id}")
+def rename_tag(tag_id: StoredInt, body: RenameTag, kitchen: Here) -> TagOut:
+    """Rename a tag, on every recipe that has it. A name another tag has (ignoring case and
+    accents) is a 409 `tag_exists` that carries that tag: use the merge instead. Not in Recent
+    changes (as a shop's rename isn't). Anyone in the household can."""
+    lock_household(kitchen)
+    tag = recipe_tags.rename(kitchen, recipe_tags.find(kitchen, tag_id), body.name)
+    count = recipe_tags.count_of(kitchen, tag.id)
+    kitchen.db.commit()
+    return TagOut(id=tag.id, name=tag.name, recipes=count)
+
+
+@router.post("/recipes/tags/{tag_id}/merge")
+def merge_tag(tag_id: StoredInt, body: MergeTag, kitchen: Here, response: Response) -> TagMerged:
+    """Merge this tag into another: its recipes get the other tag (a recipe with both keeps
+    one) and this tag goes. Undo (the answer's `change`) brings it back on exactly the recipes
+    that had it. Anyone in the household can."""
+    earlier = replayed(kitchen)
+    if earlier is None:
+        lock_household(kitchen)
+        target = recipe_tags.find(kitchen, body.into)
+        change = recipe_tags.merge(kitchen, recipe_tags.find(kitchen, tag_id), target)
+        into = TagOut(
+            id=target.id, name=target.name, recipes=recipe_tags.count_of(kitchen, target.id)
+        )
+        earlier = commit(kitchen)
+        if earlier is None:
+            return TagMerged(change=change_out(kitchen, change), into=into)
+    response.headers["Idempotent-Replayed"] = "true"
+    target_id = ((earlier.undo_data or {}).get("target") or {}).get("id", 0)
+    target = recipe_tags.find(kitchen, target_id)
+    into = TagOut(id=target.id, name=target.name, recipes=recipe_tags.count_of(kitchen, target.id))
+    return TagMerged(change=change_out(kitchen, earlier), into=into)
 
 
 @router.post("/recipes", status_code=status.HTTP_201_CREATED)

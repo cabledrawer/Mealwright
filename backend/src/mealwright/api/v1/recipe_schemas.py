@@ -544,6 +544,7 @@ class RecipeList(BaseModel):
 
 
 class TagOut(BaseModel):
+    id: int
     name: str
     recipes: int  # how many recipes use it
 

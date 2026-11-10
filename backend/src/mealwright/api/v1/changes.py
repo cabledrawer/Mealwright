@@ -9,7 +9,17 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
-from mealwright import cooking, drafts, plan, recipes, removals, restock, shopping, together
+from mealwright import (
+    cooking,
+    drafts,
+    plan,
+    recipe_tags,
+    recipes,
+    removals,
+    restock,
+    shopping,
+    together,
+)
 from mealwright.amounts import NBSP, count_text, exact_text
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import FoodOut, food_out
@@ -749,6 +759,8 @@ def _undo_one(kitchen: Kitchen, change: Change, stock: Callable[[], Change]) -> 
         return recipes.undo_removal(kitchen, change)
     if change.kind == "draft_removed":
         return drafts.undo_removal(kitchen, change)
+    if change.kind == recipe_tags.KIND:
+        return recipe_tags.undo_merge(kitchen, change)
     if change.kind.startswith("plan_"):
         return plan.undo(kitchen, change)
     undone = stock()

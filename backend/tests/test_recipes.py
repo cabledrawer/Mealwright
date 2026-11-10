@@ -704,7 +704,10 @@ def test_a_deleted_recipe_cannot_be_saved(kitchen: TestClient) -> None:
 def test_tag_suggestions_are_the_tags_the_household_uses(kitchen: TestClient) -> None:
     a = make(kitchen, "A", tags=["Quick", "Kids"])
     make(kitchen, "B", tags=["quick", "Batch-friendly"])
-    tags = ok(kitchen.get(f"{API}/recipes/tags"))["tags"]
+    tags = [
+        {k: v for k, v in t.items() if k != "id"}
+        for t in ok(kitchen.get(f"{API}/recipes/tags"))["tags"]
+    ]
     assert tags == [
         {"name": "Batch-friendly", "recipes": 1},
         {"name": "Kids", "recipes": 1},

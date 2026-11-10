@@ -137,6 +137,11 @@ def test_household_1_recipe_ids_are_404_for_household_2(
     not_found(neighbour.get(f"{API}/recipes/{recipe_id}/stock"))
     not_found(neighbour.get(f"{API}/recipes/{recipe_id}/stock", params={"servings": 2}))
     not_found(neighbour.delete(f"{API}/recipes/{recipe_id}"))
+    # Another household's tags can't be renamed or merged either.
+    mine_tags = ok(kitchen.get(f"{API}/recipes/tags"))["tags"]
+    first, second = mine_tags[0]["id"], mine_tags[1]["id"]
+    not_found(neighbour.patch(f"{API}/recipes/tags/{first}", json={"name": "Mine now"}))
+    not_found(neighbour.post(f"{API}/recipes/tags/{first}/merge", json={"into": second}))
     not_found(neighbour.put(f"{API}/recipes/{recipe_id}", json={"name": "Mine now", "version": 1}))
     # A deleted recipe is no more reachable, and household 2 can't undo household 1's delete.
     not_found(neighbour.get(f"{API}/recipes/{gone_id}"))
