@@ -200,6 +200,9 @@ export interface Built {
   /** The key of the line (or step) at each place in the body, for putting a refusal on the right box. */
   lineKeys: string[];
   stepKeys: string[];
+  /** With two ways of cooking it (M2): the keys of the second way's lines and steps. */
+  secondLineKeys?: string[];
+  secondStepKeys?: string[];
   errors: Errors;
 }
 
@@ -602,7 +605,14 @@ export class RecipeDraft {
       lines: second.body.lines,
       steps: second.body.steps
     };
-    return { body, lineKeys: first.lineKeys, stepKeys: first.stepKeys, errors };
+    return {
+      body,
+      lineKeys: first.lineKeys,
+      stepKeys: first.stepKeys,
+      secondLineKeys: second.lineKeys,
+      secondStepKeys: second.stepKeys,
+      errors
+    };
   }
 
   /** Swap the boxes on show with the other way's (M2). Switching flips `at` too. */
@@ -758,7 +768,11 @@ export class RecipeDraft {
   explain(error: ApiError, built: Built): Errors {
     const errors: Errors = {};
     const data = (error.body ?? {}) as Record<string, unknown>;
-    const line = typeof data.line === 'number' ? built.lineKeys[data.line] : undefined;
+    // A refusal about the second way of cooking it (M2): its own lines and steps, and the way is
+    // brought up so the box is seen.
+    const lineKeys = data.method === 1 ? (built.secondLineKeys ?? []) : built.lineKeys;
+    const line = typeof data.line === 'number' ? lineKeys[data.line] : undefined;
+    if (data.method === 1 && this.hidden) this.showMethod(1);
     if (line && (error.code === 'recipe_loop' || error.status === 404)) {
       errors[`line:${line}`] = error.detail;
     } else if (error.code === 'name_taken') {
@@ -771,12 +785,17 @@ export class RecipeDraft {
       errors.photo = error.detail;
     } else if (error.status === 422 && Array.isArray(data.detail)) {
       for (const item of data.detail as { loc?: (string | number)[]; msg?: string }[]) {
-        const [, field, index, sub] = item.loc ?? [];
+        const loc = item.loc ?? [];
+        const second = loc[1] === 'second_method' && loc.length > 2;
+        const [, field, index, sub] = second ? loc.slice(1) : loc;
+        const lineAt = second ? (built.secondLineKeys ?? []) : built.lineKeys;
+        const stepAt = second ? (built.secondStepKeys ?? []) : built.stepKeys;
+        if (second && this.hidden) this.showMethod(1);
         const msg = (item.msg ?? error.detail).replace(/^Value error, /, '');
-        if (field === 'lines' && typeof index === 'number' && built.lineKeys[index]) {
-          errors[`line:${built.lineKeys[index]}${sub === 'amount' ? '.amount' : ''}`] = msg;
-        } else if (field === 'steps' && typeof index === 'number' && built.stepKeys[index]) {
-          errors[`step:${built.stepKeys[index]}`] = msg;
+        if (field === 'lines' && typeof index === 'number' && lineAt[index]) {
+          errors[`line:${lineAt[index]}${sub === 'amount' ? '.amount' : ''}`] = msg;
+        } else if (field === 'steps' && typeof index === 'number' && stepAt[index]) {
+          errors[`step:${stepAt[index]}`] = msg;
         } else if (field === 'nutrition' && typeof index === 'string') {
           errors[`nutrition.${index}`] = msg;
         } else if (field === 'time_minutes') errors.time = msg;

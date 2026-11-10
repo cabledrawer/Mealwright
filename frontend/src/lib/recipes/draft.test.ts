@@ -686,6 +686,38 @@ describe('what is wrong with the boxes', () => {
     });
   });
 
+  it('puts a refusal about the second way on the second way’s own box, and shows that way (M2)', () => {
+    const draft = new RecipeDraft();
+    draft.name = 'x';
+    draft.lines = [{ ...blankLine(), words: 'water' }];
+    draft.addSecondMethod();
+    draft.lines = [
+      { ...blankLine(), words: 'stock' },
+      { ...blankLine(), words: 'powder' }
+    ];
+    draft.steps = [{ ...blankStep(), text: 'Pressure cook.' }];
+    draft.names = ['Stovetop', 'Instant Pot'];
+    draft.showMethod(0); // the first is on show; the loop is in the second
+    const built = draft.build();
+    const second = built.secondLineKeys!;
+    expect(second).toHaveLength(2);
+    const loop = new ApiError(409, 'Powder uses x.', 'recipe_loop', { line: 1, method: 1 });
+    expect(draft.explain(loop, built)).toEqual({ [`line:${second[1]}`]: 'Powder uses x.' });
+    expect(draft.at).toBe(1);
+    draft.showMethod(0);
+    const amount = new ApiError(422, 'Type an amount', null, {
+      detail: [
+        { loc: ['body', 'second_method', 'lines', 0, 'amount'], msg: 'Type an amount like 200.' },
+        { loc: ['body', 'second_method', 'steps', 0, 'text'], msg: 'Type the step.' }
+      ]
+    });
+    expect(draft.explain(amount, built)).toEqual({
+      [`line:${second[0]}.amount`]: 'Type an amount like 200.',
+      [`step:${built.secondStepKeys![0]}`]: 'Type the step.'
+    });
+    expect(draft.at).toBe(1);
+  });
+
   it('puts a loop on its line, the made-ahead name clash under Made ahead, and a photo under the photo', () => {
     const draft = new RecipeDraft();
     draft.name = 'x';
