@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from mealwright.api.v1.recipe_schemas import GLYPHS, MAX_LINES, MAX_STEP_CHARS, MAX_STEPS
 from mealwright.ingredient_reader import BULLETS, read_line
+from mealwright.line_prep import is_step_heading
 from mealwright.names import cut_text, without_hidden
 
 MAX_PASTED_CHARS = 100_000
@@ -226,8 +227,9 @@ def _short_text(line: str) -> bool:
 
 def _step_texts(lines: list[str]) -> list[str]:
     """Method lines → steps. If any line is numbered, an unnumbered line straight after a
-    numbered one carries on that step (a wrapped line); a blank line ends a step. If none are
-    numbered, every line is a step."""
+    numbered one carries on that step (a wrapped line), unless it is a heading ("For the dosa:",
+    `is_step_heading`, starting with a capital); a blank line ends a step. If none are numbered,
+    every line is a step."""
     numbered = any(_is_numbered_step(line) for line in lines)
     steps: list[str] = []
     carrying = False
@@ -239,6 +241,11 @@ def _step_texts(lines: list[str]) -> list[str]:
         if _is_numbered_step(text):
             steps.append(_STEP_NUMBER.sub("", text.lstrip(BULLETS), count=1).strip())
             carrying = True
+        elif text[:1].isupper() and is_step_heading(text):
+            # A heading ("For the dosa:") straight after a step is never part of it (cabledrawer
+            # 10 Nov). A wrapped line starts small ("following:"), so it still carries on.
+            steps.append(text.lstrip(BULLETS))
+            carrying = False
         elif numbered and carrying and steps:
             if len(steps[-1]) < MAX_STEP_CHARS:  # (and no quadratic copying of a huge step)
                 steps[-1] = f"{steps[-1]} {text}"

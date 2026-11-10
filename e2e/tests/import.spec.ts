@@ -1155,8 +1155,7 @@ function dosaText(n: { dosa: string; batter: string; dal: string; rice: string; 
     'For the batter:',
     '1. Soak the dal and rice for 4 hours.',
     '2. Grind and ferment overnight.',
-    '',
-    'For the dosa:',
+    'For the dosa:', // no blank line before it: it stays a heading (cabledrawer 10 Nov)
     '1. Spread the batter thin and fry.',
   ].join('\n');
 }

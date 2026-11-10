@@ -147,6 +147,28 @@ def test_a_wrapped_numbered_step_carries_on_but_a_blank_line_ends_it() -> None:
     assert recipe.steps == ("Chop the onion very finely.", "Leave it.", "Fry.")
 
 
+@pytest.mark.parametrize("blank", ["", "\n"])
+def test_a_heading_ending_in_a_colon_stays_a_heading_after_a_numbered_step(blank: str) -> None:
+    # cabledrawer 10 Nov: "For the dosa:" straight after a step was joined onto that step.
+    recipe = read_pasted(
+        "Dosa\nIngredients\nFor the batter\n1 cup urad dal\nFor the dosa\n1 tbsp ghee\n"
+        "Method\nFor the batter:\n1. Soak the dal.\n2. Grind and ferment overnight.\n"
+        f"{blank}For the dosa:\n1. Spread the batter thin and fry."
+    )
+    assert recipe.steps == (
+        "For the batter:",
+        "Soak the dal.",
+        "Grind and ferment overnight.",
+        "For the dosa:",
+        "Spread the batter thin and fry.",
+    )
+
+
+def test_a_wrapped_line_ending_in_a_colon_still_carries_on_its_step() -> None:
+    recipe = read_pasted("Ingredients\n1 onion\nMethod\n1. Mix in the\nfollowing:\n2. Fry.")
+    assert recipe.steps == ("Mix in the following:", "Fry.")
+
+
 def test_notes_and_other_sections_after_the_method_are_left_out() -> None:
     recipe = read_pasted(
         "Dal\nIngredients\n1 cup dal\nMethod\nCook it.\nNotes\nKeeps well.\nTips\nSoak first."
