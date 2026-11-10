@@ -791,6 +791,34 @@ class Recipe(Base):
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class RecipeMethod(Base):
+    """One way of cooking a recipe (0.8 wave 5, M2; cabledrawer 31 Oct and 9 Nov): a recipe has one
+    method, or two ("Stovetop" and "Instant Pot"), each with its own ingredient lines, steps and
+    time. The first (`position` 0) is the recipe as it always was: the recipe's own `time_minutes`
+    is kept equal to its time, and a line or step with no `method_id` belongs to it. A one-method
+    recipe has no method name. `last_used_at` is when the method was last planned or cooked: the
+    one used last is pre-picked when the recipe is added to the plan."""
+
+    __tablename__ = "recipe_method"
+    __table_args__ = (
+        CheckConstraint("position IN (0, 1)", name="position_known"),
+        UniqueConstraint("recipe_id", "position", name="uq_recipe_method_recipe_id_position"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipe.id", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    # "Stovetop". Empty for the only method of a recipe.
+    name: Mapped[str] = mapped_column(String(60), default="", server_default="")
+    # Whole minutes: the active time, as the recipe's own `time_minutes`. Null: not given.
+    time_minutes: Mapped[int | None] = mapped_column(Integer)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class RecipeLine(Base):
     """One ingredient line of a recipe, or a heading ("For the tempering") between them."""
 
@@ -832,6 +860,10 @@ class RecipeLine(Base):
     # Optional (R3, cabledrawer 6 and 9 Nov): adding the recipe to the plan asks whether it will be
     # used; the shopping list and "Cooked it" count it only when it will.
     optional: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
+    # The method the line is in (M2). Null: the recipe's first method.
+    method_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recipe_method.id", ondelete="CASCADE"), index=True
+    )
 
 
 class RecipeStep(Base):
@@ -861,6 +893,10 @@ class RecipeStep(Base):
     wait_min_minutes: Mapped[int | None] = mapped_column(Integer)
     wait_max_minutes: Mapped[int | None] = mapped_column(Integer)
     wait_overnight: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    # The method the step is in (M2). Null: the recipe's first method.
+    method_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recipe_method.id", ondelete="CASCADE"), index=True
+    )
 
 
 class RecipeStepLine(Base):
@@ -1214,6 +1250,11 @@ class MealItem(Base):
     # The ids of the recipe's Optional lines the person will not use (R3, cabledrawer 9 Nov). Null
     # or empty: every line counts, as in a meal made before this.
     optional_skipped: Mapped[list[int] | None] = mapped_column(JSON)
+    # Which of the recipe's methods the meal will be cooked with (M2, cabledrawer 9 Nov). Null: the
+    # recipe's first method (a meal made before this, or a recipe with one method).
+    method_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recipe_method.id", ondelete="SET NULL"), index=True
+    )
 
 
 class MealEater(Base):

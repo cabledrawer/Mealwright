@@ -20,19 +20,23 @@ from fastapi import status
 from sqlalchemy import Select, delete, func, select, update
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import step_waits
+from mealwright import methods, step_waits
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.recipe_schemas import (
     Blocked,
     LineFoodRef,
     MakesOut,
+    MethodRef,
     NutritionOut,
     PhotoOut,
     RecipeBrief,
     RecipeIn,
+    RecipeLineIn,
     RecipeLineOut,
     RecipeOut,
+    RecipeStepIn,
     RecipeStepOut,
+    SecondMethodOut,
     SizeRef,
     SourceOut,
     StepLineOut,
@@ -55,6 +59,7 @@ from mealwright.models import (
     MealItem,
     Recipe,
     RecipeLine,
+    RecipeMethod,
     RecipePhoto,
     RecipeStep,
     RecipeStepLine,
@@ -237,18 +242,15 @@ def _at_line(index: int, problem: Problem) -> Problem:
     return problem
 
 
-def _resolve(kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn) -> list[_Resolved]:
+def _resolve(
+    kitchen: Kitchen, existing: dict[int, RecipeLine], lines_in: list[RecipeLineIn]
+) -> list[_Resolved]:
+    """Check each line's links. `existing`: the lines the method has now, by id."""
     from mealwright.foods import find as find_food
 
     db = kitchen.db
-    existing = {}
-    if recipe is not None:
-        existing = {
-            line.id: line
-            for line in db.scalars(select(RecipeLine).where(RecipeLine.recipe_id == recipe.id))
-        }
     resolved: list[_Resolved] = []
-    for index, line in enumerate(body.lines):
+    for index, line in enumerate(lines_in):
         old = existing.get(line.id) if line.id is not None else None
         if line.id is not None and old is None:
             raise _at_line(index, not_found("That line"))
@@ -272,6 +274,25 @@ def _resolve(kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn) -> list[_R
     return resolved
 
 
+def _rows_of(
+    db: DbSession,
+    model: Any,
+    recipe: Recipe | None,
+    all_methods: list[RecipeMethod],
+    position: int,
+) -> list[Any]:
+    """The lines (or steps) the recipe's method at `position` has now, in order."""
+    if recipe is None:
+        return []
+    if position >= max(len(all_methods), 1):
+        return []
+    method = all_methods[position] if all_methods else None
+    rows = db.scalars(
+        select(model).where(model.recipe_id == recipe.id).order_by(model.position, model.id)
+    )
+    return [row for row in rows if methods.in_method(row, all_methods, method)]
+
+
 def save(
     kitchen: Kitchen, recipe: Recipe | None, body: RecipeIn, *, remember_key: bool = True
 ) -> Recipe:
@@ -279,12 +300,29 @@ def save(
     lock, and has checked the version). Adds 1 to the version. `remember_key`: record the
     request's Idempotency-Key here (an import records its own change, which takes it)."""
     db = kitchen.db
-    resolved = _resolve(kitchen, recipe, body)
+    all_methods = methods.methods_of(db, recipe.id) if recipe is not None else []
+    first_rows = {row.id: row for row in _rows_of(db, RecipeLine, recipe, all_methods, 0)}
+    second_rows = {row.id: row for row in _rows_of(db, RecipeLine, recipe, all_methods, 1)}
+    resolved = _resolve(kitchen, first_rows, body.lines)
     check_loops(
         kitchen,
         recipe,
         [(i, r.used) for i, r in enumerate(resolved) if r.used is not None],
     )
+    second_sent = "second_method" in body.model_fields_set
+    second_in = body.second_method if second_sent else None
+    resolved_second: list[_Resolved] = []
+    if second_in is not None:
+        try:
+            resolved_second = _resolve(kitchen, second_rows, second_in.lines)
+            check_loops(
+                kitchen,
+                recipe,
+                [(i, r.used) for i, r in enumerate(resolved_second) if r.used is not None],
+            )
+        except Problem as problem:
+            problem.extra["method"] = 1
+            raise
     now = utcnow()
     name = kitchen.login.name  # read first: loading it may flush
     creating = recipe is None
@@ -343,10 +381,19 @@ def save(
         )
 
     before = None if creating else _line_signature(db, recipe.id)
-    lines = _save_lines(kitchen, recipe, body, resolved)
-    if before != [_line_key(row) for row in lines]:
+    first = _first_method(kitchen, recipe, all_methods, body)
+    lines = _save_lines(kitchen, recipe, first, body.lines, resolved, first_rows)
+    _save_steps(
+        kitchen, recipe, first, body.steps, lines, _rows_of(db, RecipeStep, recipe, all_methods, 0)
+    )
+    if second_sent:
+        _save_second(
+            kitchen, recipe, all_methods, second_in, resolved_second, second_rows, first, body
+        )
+    elif len(all_methods) > 1:
+        first.name = body.method_name or first.name
+    if before != _line_signature(db, recipe.id):
         recipe.lines_changed_at = now
-    _save_steps(kitchen, recipe, body, lines)
     _save_tags(kitchen, recipe, body.tags)
     _save_made_ahead(kitchen, recipe, body)
     if "photo_id" in body.model_fields_set:  # left out: the photo stays as it is
@@ -385,7 +432,7 @@ def _line_signature(db: DbSession, recipe_id: int) -> list[tuple[Any, ...]]:
         for row in db.scalars(
             select(RecipeLine)
             .where(RecipeLine.recipe_id == recipe_id)
-            .order_by(RecipeLine.position, RecipeLine.id)
+            .order_by(RecipeLine.method_id, RecipeLine.position, RecipeLine.id)
         )
     ]
 
@@ -459,6 +506,23 @@ def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
         kitchen.key_once = True
         record(kitchen, "recipe_created", f"Saved {copy.name}", None, {"recipe_id": copy.id})
 
+    # Both methods are copied, each with its lines and steps (a line or step with no method is
+    # in the first).
+    new_method: dict[int | None, int] = {}
+    source_methods = methods.methods_of(db, source.id)
+    for method in cast("list[RecipeMethod | None]", source_methods or [None]):
+        made = RecipeMethod(
+            household_id=kitchen.household_id,
+            recipe_id=copy.id,
+            position=method.position if method else 0,
+            name=method.name if method else "",
+            time_minutes=method.time_minutes if method else source.time_minutes,
+        )
+        db.add(made)
+        db.flush()
+        new_method[method.id if method else None] = made.id
+        if method is not None and method.position == 0:
+            new_method[None] = made.id
     new_line: dict[int, int] = {}
     for line in db.scalars(
         select(RecipeLine).where(RecipeLine.recipe_id == source.id).order_by(RecipeLine.position)
@@ -466,6 +530,7 @@ def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
         row = RecipeLine(
             household_id=kitchen.household_id,
             recipe_id=copy.id,
+            method_id=new_method.get(line.method_id),
             position=line.position,
             kind=line.kind,
             words=line.words,
@@ -486,6 +551,7 @@ def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
         new_step = RecipeStep(
             household_id=kitchen.household_id,
             recipe_id=copy.id,
+            method_id=new_method.get(step.method_id),
             position=step.position,
             kind=step.kind,
             text=step.text,
@@ -585,18 +651,80 @@ def delete_photo(db: DbSession, photo: RecipePhoto) -> None:
     db.delete(photo)
 
 
-def _save_lines(
-    kitchen: Kitchen, recipe: Recipe, body: RecipeIn, resolved: list[_Resolved]
-) -> list[RecipeLine]:
-    """Write the lines; returns them in order."""
+def _first_method(
+    kitchen: Kitchen, recipe: Recipe, all_methods: list[RecipeMethod], body: RecipeIn
+) -> RecipeMethod:
+    """The recipe's first method, made when it has none, with the time and name of this save."""
     db = kitchen.db
-    old = {
-        line.id: line
-        for line in db.scalars(select(RecipeLine).where(RecipeLine.recipe_id == recipe.id))
-    }
+    first = all_methods[0] if all_methods else None
+    if first is None:
+        first = RecipeMethod(household_id=kitchen.household_id, recipe_id=recipe.id, position=0)
+        db.add(first)
+    first.time_minutes = body.time_minutes
+    # A recipe with one way of cooking it has no method name.
+    first.name = body.method_name or "" if body.second_method is not None else first.name
+    if "second_method" in body.model_fields_set and body.second_method is None:
+        first.name = ""
+    db.flush()
+    return first
+
+
+def _save_second(
+    kitchen: Kitchen,
+    recipe: Recipe,
+    all_methods: list[RecipeMethod],
+    second_in: Any,
+    resolved: list[_Resolved],
+    old_rows: dict[int, RecipeLine],
+    first: RecipeMethod,
+    body: RecipeIn,
+) -> None:
+    """Save, change or remove the recipe's second method (M2)."""
+    db = kitchen.db
+    second = all_methods[1] if len(all_methods) > 1 else None
+    if second_in is None:
+        if second is not None:
+            remove_method(kitchen, second)
+        return
+    if second is None:
+        second = RecipeMethod(household_id=kitchen.household_id, recipe_id=recipe.id, position=1)
+        db.add(second)
+    second.name = second_in.name
+    second.time_minutes = second_in.time_minutes
+    db.flush()
+    lines = _save_lines(kitchen, recipe, second, second_in.lines, resolved, old_rows)
+    old_steps = _rows_of(db, RecipeStep, recipe, all_methods, 1) if all_methods[1:] else []
+    _save_steps(kitchen, recipe, second, second_in.steps, lines, old_steps)
+
+
+def remove_method(kitchen: Kitchen, method: RecipeMethod) -> None:
+    """Take a method out with its lines and steps; a meal that was set to cook with it goes back
+    to the recipe's first method."""
+    db = kitchen.db
+    step_ids = select(RecipeStep.id).where(RecipeStep.method_id == method.id)
+    db.execute(delete(RecipeStepLine).where(RecipeStepLine.step_id.in_(step_ids)))
+    line_ids = select(RecipeLine.id).where(RecipeLine.method_id == method.id)
+    db.execute(delete(RecipeStepLine).where(RecipeStepLine.line_id.in_(line_ids)))
+    db.execute(delete(RecipeStep).where(RecipeStep.method_id == method.id))
+    db.execute(delete(RecipeLine).where(RecipeLine.method_id == method.id))
+    db.execute(update(MealItem).where(MealItem.method_id == method.id).values(method_id=None))
+    db.delete(method)
+    db.flush()
+
+
+def _save_lines(
+    kitchen: Kitchen,
+    recipe: Recipe,
+    method: RecipeMethod,
+    lines_in: list[RecipeLineIn],
+    resolved: list[_Resolved],
+    old: dict[int, RecipeLine],
+) -> list[RecipeLine]:
+    """Write one method's lines; returns them in order."""
+    db = kitchen.db
     kept: set[int] = set()
     rows: list[RecipeLine] = []
-    for position, (line, links) in enumerate(zip(body.lines, resolved, strict=True)):
+    for position, (line, links) in enumerate(zip(lines_in, resolved, strict=True)):
         row = old.get(line.id) if line.id is not None else None
         if row is None:
             row = RecipeLine(household_id=kitchen.household_id, recipe_id=recipe.id)
@@ -604,6 +732,7 @@ def _save_lines(
         else:
             kept.add(row.id)
         rows.append(row)
+        row.method_id = method.id
         row.position = position
         row.kind = line.kind
         row.words = line.words or (
@@ -623,19 +752,19 @@ def _save_lines(
     return rows
 
 
-def _save_steps(kitchen: Kitchen, recipe: Recipe, body: RecipeIn, lines: list[RecipeLine]) -> None:
-    """Replace the steps, and their ingredient links. A step sent with `lines` gets exactly
-    those, set by hand. A step sent without keeps the links it had (guessed or by hand) when
-    the recipe had a step with the same words before and the line is still there; any other
-    link goes with its old step."""
+def _save_steps(
+    kitchen: Kitchen,
+    recipe: Recipe,
+    method: RecipeMethod,
+    steps_in: list[RecipeStepIn],
+    lines: list[RecipeLine],
+    old_steps: list[RecipeStep],
+) -> None:
+    """Replace one method's steps, and their ingredient links. A step sent with `lines` gets
+    exactly those, set by hand. A step sent without keeps the links it had (guessed or by hand)
+    when the method had a step with the same words before and the line is still there; any
+    other link goes with its old step."""
     db = kitchen.db
-    old_steps = list(
-        db.scalars(
-            select(RecipeStep)
-            .where(RecipeStep.recipe_id == recipe.id)
-            .order_by(RecipeStep.position, RecipeStep.id)
-        )
-    )
     old_links: dict[int, list[RecipeStepLine]] = {}
     if old_steps:
         for link in db.scalars(
@@ -656,20 +785,24 @@ def _save_steps(kitchen: Kitchen, recipe: Recipe, body: RecipeIn, lines: list[Re
         old_step.id: wait_columns_of(old_step) for old_step in old_steps
     }
     kept_waits: list[dict[str, object] | None] = []
-    for step in body.steps:
+    for step in steps_in:
         same = by_words.get((step.kind, step.text))
         old_id = same.pop(0) if same else None
         before = old_links.get(old_id, []) if old_id is not None else []
         carried.append([(link.line_id, link.kind) for link in before])
         kept_waits.append(old_waits[old_id] if old_id is not None else None)
-    db.execute(delete(RecipeStep).where(RecipeStep.recipe_id == recipe.id))
+    if old_steps:
+        db.execute(delete(RecipeStep).where(RecipeStep.id.in_([s.id for s in old_steps])))
+        for old_step in old_steps:
+            db.expunge(old_step)
     db.flush()
     for position, (step, kept, old_wait) in enumerate(
-        zip(body.steps, carried, kept_waits, strict=True)
+        zip(steps_in, carried, kept_waits, strict=True)
     ):
         row = RecipeStep(
             household_id=kitchen.household_id,
             recipe_id=recipe.id,
+            method_id=method.id,
             position=position,
             kind=step.kind,
             text=step.text,
@@ -1143,15 +1276,11 @@ def wait_out(wait: step_waits.Wait | None) -> StepWaitOut | None:
     )
 
 
-def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
+def _method_out(
+    kitchen: Kitchen, rows: list[RecipeLine], step_rows: list[RecipeStep]
+) -> tuple[list[RecipeLineOut], list[RecipeStepOut]]:
+    """One method's lines and steps, as the recipe page reads them."""
     db = kitchen.db
-    rows = list(
-        db.scalars(
-            select(RecipeLine)
-            .where(RecipeLine.recipe_id == recipe.id)
-            .order_by(RecipeLine.position, RecipeLine.id)
-        )
-    )
     foods = {
         food.id: food
         for food in db.scalars(
@@ -1215,13 +1344,6 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
                 optional=row.optional,
             )
         )
-    step_rows = list(
-        db.scalars(
-            select(RecipeStep)
-            .where(RecipeStep.recipe_id == recipe.id)
-            .order_by(RecipeStep.position, RecipeStep.id)
-        )
-    )
     position_of = {line.id: index for index, line in enumerate(lines)}
     step_lines: dict[int, list[StepLineOut]] = {}
     if step_rows:
@@ -1249,6 +1371,36 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
         )
         for s in step_rows
     ]
+    return lines, steps
+
+
+def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
+    db = kitchen.db
+    all_methods = methods.methods_of(db, recipe.id)
+    rows = _rows_of(db, RecipeLine, recipe, all_methods, 0)
+    step_rows = _rows_of(db, RecipeStep, recipe, all_methods, 0)
+    lines, steps = _method_out(kitchen, rows, step_rows)
+    first_wait = step_waits.total(step_rows)
+    method_refs: list[MethodRef] = []
+    second: SecondMethodOut | None = None
+    last = methods.used_last(all_methods)
+    for position, method in enumerate(all_methods):
+        method_rows = rows if position == 0 else _rows_of(db, RecipeLine, recipe, all_methods, 1)
+        method_steps = (
+            step_rows if position == 0 else _rows_of(db, RecipeStep, recipe, all_methods, 1)
+        )
+        wait = first_wait if position == 0 else step_waits.total(method_steps)
+        ref = MethodRef(
+            id=method.id,
+            name=method.name,
+            time_minutes=recipe.time_minutes if position == 0 else method.time_minutes,
+            wait=wait_out(wait),
+            used_last=len(all_methods) > 1 and method is last,
+        )
+        method_refs.append(ref)
+        if position == 1:
+            second_lines, second_steps = _method_out(kitchen, method_rows, method_steps)
+            second = SecondMethodOut(**ref.model_dump(), lines=second_lines, steps=second_steps)
     homemade = homemade_food(kitchen, recipe)
     used_by = db.execute(
         select(Recipe.id, Recipe.name)
@@ -1265,7 +1417,7 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
         name=recipe.name,
         description=recipe.description,
         time_minutes=recipe.time_minutes,
-        wait=wait_out(step_waits.total(step_rows)),
+        wait=wait_out(first_wait),
         serves=recipe.serves,
         makes=makes_out(recipe),
         made_ahead=recipe.made_ahead,
@@ -1281,6 +1433,8 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
         ),
         lines=lines,
         steps=steps,
+        methods=method_refs,
+        second_method=second,
         source_note=recipe.source_note,
         source=source_out(recipe),
         photo=photo_out(db, recipe.id),
@@ -1293,16 +1447,26 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
 
 
 def waits_of(db: DbSession, recipe_ids: list[int] | Select[Any]) -> dict[int, StepWaitOut]:
-    """All the steps' waits added up, for each of these recipes that has one (M1)."""
+    """All the steps' waits added up, for each of these recipes that has one (M1). A recipe with
+    two methods answers for its first (M2): the list shows the recipe's own time."""
     if isinstance(recipe_ids, list) and not recipe_ids:
         return {}
+    first = {
+        recipe_id: method_id
+        for recipe_id, method_id in db.execute(
+            select(RecipeMethod.recipe_id, RecipeMethod.id).where(
+                RecipeMethod.recipe_id.in_(recipe_ids), RecipeMethod.position == 0
+            )
+        )
+    }
     steps: dict[int, list[RecipeStep]] = {}
     for step in db.scalars(
         select(RecipeStep).where(
             RecipeStep.recipe_id.in_(recipe_ids), RecipeStep.wait_kind.is_not(None)
         )
     ):
-        steps.setdefault(step.recipe_id, []).append(step)
+        if step.method_id is None or step.method_id == first.get(step.recipe_id):
+            steps.setdefault(step.recipe_id, []).append(step)
     found: dict[int, StepWaitOut] = {}
     for recipe_id, rows in steps.items():
         out = wait_out(step_waits.total(rows))
@@ -1314,26 +1478,22 @@ def waits_of(db: DbSession, recipe_ids: list[int] | Select[Any]) -> dict[int, St
 def brief_list(kitchen: Kitchen, recipes: list[Recipe]) -> list[RecipeBrief]:
     ids = [r.id for r in recipes]
     tags = tags_of(kitchen, ids)
-    counts = {
-        recipe_id: count
-        for recipe_id, count in kitchen.db.execute(
-            select(RecipeLine.recipe_id, func.count())
-            .where(RecipeLine.recipe_id.in_(ids), RecipeLine.kind == "ingredient")
-            .group_by(RecipeLine.recipe_id)
+    found = methods.of_recipes(kitchen.db, ids)
+    # The first method's lines are the recipe's own count (a recipe with two methods has a
+    # second set of lines, which the list doesn't count twice).
+    counts: dict[int, int] = {}
+    optional: dict[int, int] = {}
+    for recipe_id, method_id, is_optional in kitchen.db.execute(
+        select(RecipeLine.recipe_id, RecipeLine.method_id, RecipeLine.optional).where(
+            RecipeLine.recipe_id.in_(ids), RecipeLine.kind == "ingredient"
         )
-    }
-    optional = {
-        recipe_id: count
-        for recipe_id, count in kitchen.db.execute(
-            select(RecipeLine.recipe_id, func.count())
-            .where(
-                RecipeLine.recipe_id.in_(ids),
-                RecipeLine.kind == "ingredient",
-                RecipeLine.optional.is_(True),
-            )
-            .group_by(RecipeLine.recipe_id)
-        )
-    }
+    ):
+        # How many are Optional counts every method: the plan's question asks after the pick.
+        if is_optional:
+            optional[recipe_id] = optional.get(recipe_id, 0) + 1
+        if method_id is not None and found.get(recipe_id) and method_id != found[recipe_id][0].id:
+            continue
+        counts[recipe_id] = counts.get(recipe_id, 0) + 1
     photos = {
         p.recipe_id: photo_view(p)
         for p in kitchen.db.scalars(select(RecipePhoto).where(RecipePhoto.recipe_id.in_(ids)))
@@ -1352,6 +1512,7 @@ def brief_list(kitchen: Kitchen, recipes: list[Recipe]) -> list[RecipeBrief]:
             tags=tags[r.id],
             ingredient_count=counts.get(r.id, 0),
             optional_count=optional.get(r.id, 0),
+            method_count=max(len(found.get(r.id, [])), 1),
             photo=photos.get(r.id),
             version=r.version,
             updated_at=as_utc(r.updated_at),

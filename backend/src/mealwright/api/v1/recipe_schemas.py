@@ -374,6 +374,47 @@ class NutritionIn(BaseModel):
     fibre: Nutrient = None
 
 
+MAX_METHOD_NAME = 60
+
+
+def _ids_once(lines: list[RecipeLineIn]) -> None:
+    ids = [line.id for line in lines if line.id is not None]
+    if len(ids) != len(set(ids)):
+        raise ValueError("The same line is in the recipe twice.")
+
+
+def _step_lines_in_range(lines: list[RecipeLineIn], steps: list[RecipeStepIn]) -> None:
+    for step in steps:
+        for index in step.lines or []:
+            if not 0 <= index < len(lines) or lines[index].kind != "ingredient":
+                raise ValueError("A step can only use the recipe's own ingredient lines.")
+
+
+class MethodIn(BaseModel):
+    """The recipe's second way of cooking it (M2, cabledrawer 9 Nov): its own name, time, ingredient
+    lines and steps. A recipe has at most two methods. The first is the recipe's own `lines`,
+    `steps` and `time_minutes`."""
+
+    name: Annotated[str, Field(min_length=1, max_length=MAX_METHOD_NAME)]
+    time_minutes: Annotated[int, Field(ge=1, le=14_400)] | None = None
+    lines: list[RecipeLineIn] = Field(default_factory=list, max_length=MAX_LINES)
+    steps: list[RecipeStepIn] = Field(default_factory=list, max_length=MAX_STEPS)
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, value: str) -> str:
+        cleaned = clean_name(value)
+        if not cleaned:
+            raise ValueError("Type a name for this way of cooking it.")  # proposed, for cabledrawer
+        return cleaned
+
+    @model_validator(mode="after")
+    def _check(self) -> MethodIn:
+        _ids_once(self.lines)
+        _step_lines_in_range(self.lines, self.steps)
+        return self
+
+
 class RecipeIn(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=200)]
     description: Annotated[str, Field(max_length=200)] | None = None
@@ -393,6 +434,12 @@ class RecipeIn(BaseModel):
     nutrition_checked: bool = False
     lines: list[RecipeLineIn] = Field(default_factory=list, max_length=MAX_LINES)
     steps: list[RecipeStepIn] = Field(default_factory=list, max_length=MAX_STEPS)
+    # Two cooking methods (M2): `lines`, `steps` and `time_minutes` above are the first method.
+    # `method_name` names it (needed once there is a second one); `second_method` is the other.
+    # Left out: the second method stays as it is (an old client that knows nothing of methods
+    # never loses it). null: remove it.
+    method_name: Annotated[str, Field(max_length=MAX_METHOD_NAME)] | None = None
+    second_method: MethodIn | None = None
     source_note: Annotated[str, Field(max_length=500)] | None = None
     # The recipe's photo: the id from `POST /recipes/photos`, or the one it has already.
     # Left out: the photo stays as it is. null: no photo (the one it had is deleted on
@@ -437,15 +484,22 @@ class RecipeIn(BaseModel):
             seen.setdefault(cleaned.casefold(), cleaned)
         return list(seen.values())
 
+    @field_validator("method_name")
+    @classmethod
+    def _method_name(cls, value: str | None) -> str | None:
+        return clean_name(value) or None if value is not None else None
+
     @model_validator(mode="after")
     def _ids_once(self) -> RecipeIn:
-        ids = [line.id for line in self.lines if line.id is not None]
-        if len(ids) != len(set(ids)):
-            raise ValueError("The same line is in the recipe twice.")
-        for step in self.steps:
-            for index in step.lines or []:
-                if not 0 <= index < len(self.lines) or self.lines[index].kind != "ingredient":
-                    raise ValueError("A step can only use the recipe's own ingredient lines.")
+        _ids_once(self.lines)
+        _step_lines_in_range(self.lines, self.steps)
+        if self.second_method is not None:
+            if not self.method_name:
+                raise ValueError(
+                    "Name the first way of cooking it too, so Cook mode can ask which."
+                )  # proposed, for cabledrawer
+            if self.method_name.casefold() == self.second_method.name.casefold():
+                raise ValueError("The two ways of cooking it need different names.")
         return self
 
 
@@ -509,6 +563,22 @@ class RecipeStepOut(BaseModel):
     lines: list[StepLineOut] = Field(default_factory=list)
 
 
+class MethodRef(BaseModel):
+    """A cooking method, for the switch (M2): its name, its time and whether it was used last.
+    The first method's lines and steps are the recipe's own; the second's are `second_method`."""
+
+    id: int
+    name: str  # empty for the only method of a recipe
+    time_minutes: int | None
+    wait: StepWaitOut | None = None
+    used_last: bool = False
+
+
+class SecondMethodOut(MethodRef):
+    lines: list[RecipeLineOut]
+    steps: list[RecipeStepOut]
+
+
 class MakesOut(BaseModel):
     amount: float
     amount_text: str
@@ -565,8 +635,12 @@ class RecipeOut(BaseModel):
     homemade: Ref | None  # its own pantry ingredient, once saved with Made ahead on
     tags: list[str]
     nutrition: NutritionOut
+    # The first method's lines and steps (the recipe as it always was).
     lines: list[RecipeLineOut]
     steps: list[RecipeStepOut]
+    # The ways of cooking it (M2): one, or two. A recipe with two has `second_method` too.
+    methods: list[MethodRef] = Field(default_factory=list)
+    second_method: SecondMethodOut | None = None
     source_note: str | None
     source: SourceOut | None  # null for a recipe that wasn't imported from a link
     photo: PhotoOut | None
@@ -590,6 +664,8 @@ class RecipeBrief(BaseModel):
     ingredient_count: int
     # How many of its ingredient lines are Optional (R3): adding it to the plan asks about them.
     optional_count: int = 0
+    # How many ways of cooking it (M2): 1, or 2.
+    method_count: int = 1
     photo: PhotoOut | None
     version: int
     updated_at: datetime
