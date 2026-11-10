@@ -65,6 +65,26 @@ describe('the time and the waits on Check (M1 fix 1)', () => {
   });
 });
 
+describe('the second way of cooking it (M2)', () => {
+  it('No wait on its step has an Undo that puts the wait back', async () => {
+    const { flow, steps } = flowWith('25', 745);
+    const second: ReviewStep = {
+      kind: 'step',
+      text: 'Soak.',
+      wait: { ...MARINATE },
+      wait_confirmed: false
+    };
+    (flow.review as unknown as { second_method: unknown }).second_method = {
+      name: 'Instant Pot',
+      steps: [second]
+    };
+    takeOffWait(flow, second);
+    expect(second.wait).toBeNull();
+    await undoHistory.undoLast();
+    expect(second.wait).toEqual(MARINATE);
+  });
+});
+
 describe('taking out a step that waits (M1 review round 2, L3)', () => {
   it('gives its minutes back, and Undo takes them again', async () => {
     const { flow, steps } = flowWith('25', 745);

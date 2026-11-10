@@ -146,6 +146,31 @@ describe('the import flow', () => {
     expect(one.body()).not.toHaveProperty('second_method');
   });
 
+  it('sends the second way’s waits as answered, without the Check marks, and holds Save for a wait being changed (M2)', async () => {
+    const wait = { kind: 'soak', min_minutes: 240, max_minutes: 480, overnight: false };
+    const two: ImportReview = {
+      ...REVIEW,
+      steps: [{ kind: 'step', text: 'Fry the onion.' }],
+      method_name: 'Stovetop',
+      second_method: {
+        name: 'Instant Pot',
+        steps: [
+          { kind: 'step', text: 'Soak the lentils.', wait: { ...wait }, wait_confirmed: true }
+        ]
+      }
+    };
+    fakeApi({ 'POST /recipes/import': [200, two] });
+    const flow = new ImportFlow();
+    flow.text = 'https://kitchen.example/dal';
+    await flow.read();
+    const sent = flow.body()!.second_method!.steps[0]!;
+    expect(sent.wait).toEqual(wait);
+    expect(sent).not.toHaveProperty('wait_confirmed');
+    flow.review!.second_method!.steps[0]!.wait_invalid = true;
+    expect(await flow.save()).toBeNull();
+    expect(flow.saveProblem?.message).toBe('Type how long it waits, such as 4 hours.');
+  });
+
   it('does nothing for an empty box', async () => {
     const requests = fakeApi({});
     const flow = new ImportFlow();

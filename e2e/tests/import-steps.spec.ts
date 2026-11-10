@@ -90,3 +90,55 @@ test('a step that waits: Check suggests it, Yes keeps it, Save shows the split t
   await expect(page.getByText('Soak · overnight')).toBeVisible();
   await expect(page.getByText(/Ferment ·/)).toHaveCount(0);
 });
+
+test('the second way of cooking it has its waits confirmed like the first: Yes keeps one, No wait takes one off, Save keeps what was answered (M2)', async ({ page }) => {
+  const title = unique('Twoway dal');
+  const rice = unique('Lentils');
+  const line = {
+    kind: 'ingredient', written: `1 cup ${rice}`, words: rice.toLowerCase(), amount: 1, amount_text: '1', unit: 'cup', size: null, note: null,
+    readable: true, label: 'needs_you', food: null, place: null, matched_by: null, counts: true,
+    new_ingredient: { name: rice, counted_as: 'volume', place: null }, learn_name: rice.toLowerCase(), pint_ml: null,
+  };
+  const soak = { kind: 'soak', min_minutes: 240, max_minutes: 480, overnight: false };
+  const rest = { kind: 'rest', min_minutes: 30, max_minutes: 30, overnight: false };
+  await page.route('**/api/v1/recipes/import', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        source: { kind: 'paste', url: null, site: null }, name: title, description: null, author: null, time_minutes: null, serves: null, makes: null,
+        tags: [], nutrition: { kcal: null, protein: null, carbs: null, fat: null, fibre: null },
+        photo: { state: 'off', photo: null, message: 'Photo not downloaded' },
+        lines: [line],
+        steps: [{ kind: 'step', text: 'Simmer the lentils.', wait: null }],
+        method_name: 'Stovetop',
+        second_method: {
+          name: 'Instant Pot',
+          steps: [
+            { kind: 'step', text: 'Soak the lentils.', wait: soak },
+            { kind: 'step', text: 'Pressure cook, then rest.', wait: rest },
+          ],
+        },
+        counts: { matched: 0, to_confirm: 0, needs_you: 1, staple: 0 }, lines_cut: false, steps_cut: false, steps_shortened: 0, left_out: [],
+        pints: { household: 'uk', us_site: false, reading: 'uk' },
+      }),
+    }),
+  );
+  await page.goto('/recipes/import');
+  await page.getByLabel('Paste a link or the recipe’s text').fill(title);
+  await page.getByRole('button', { name: 'Read the recipe' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  const way = page.getByTestId('two-methods');
+  await expect(way.getByText('To confirm', { exact: true })).toHaveCount(2);
+  await way.getByRole('button', { name: 'Yes, it waits' }).first().click();
+  await expect(way.getByText('To confirm', { exact: true })).toHaveCount(1);
+  await way.getByRole('button', { name: 'No wait' }).last().click(); // the rest
+  await expect(way.getByText(/Rest ·/)).toHaveCount(0);
+  await expect(way.getByText(/Soak ·/)).toBeVisible();
+  await page.getByRole('button', { name: 'New ingredient' }).first().click();
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(page).toHaveURL(/\/recipes\/(\d+)$/);
+  const id = page.url().match(/\/recipes\/(\d+)$/)![1];
+  const saved = (await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as { second_method: { steps: { text: string; wait: { kind: string } | null }[] } };
+  expect(saved.second_method.steps.map((s) => s.wait?.kind ?? null)).toEqual(['soak', null]);
+});

@@ -510,7 +510,7 @@
       {/if}
       {#if review.second_method}
         {#await import('./ImportMethods.svelte') then { default: ImportMethods }}
-          <ImportMethods {review} />
+          <ImportMethods {flow} {review} />
         {/await}
       {/if}
       {#if review.steps_cut}

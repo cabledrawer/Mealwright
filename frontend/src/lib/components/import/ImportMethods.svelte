@@ -4,10 +4,16 @@
   // day." and the second way's steps, so both are looked at before Save. Both ways start with the
   // page's ingredients and its one time; change them in the editor. Loaded only when the page had
   // two ways (it stays out of the import page's size). Words are proposed, for cabledrawer.
+  // The second way's waits are confirmed the same way as the first's (StepWait: Yes, it waits ·
+  // Change · No wait), so nothing the reader suggested is saved without being looked at.
   import type { ImportReview } from '#lib/client/imports.js';
-  import { waitLength, waitName } from '#lib/timeWords.js';
+  import type { ImportFlow } from '#lib/import.svelte.js';
 
-  let { review, showSteps = true }: { review: ImportReview; showSteps?: boolean } = $props();
+  let {
+    flow,
+    review,
+    showSteps = true
+  }: { flow: ImportFlow; review: ImportReview; showSteps?: boolean } = $props();
   const second = $derived(review.second_method);
 </script>
 
@@ -24,7 +30,9 @@
           <li>
             {step.text}
             {#if step.wait}
-              <span class="chip">{waitName(step.wait.kind)} · {waitLength(step.wait)}</span>
+              {#await import('./StepWait.svelte') then { default: StepWait }}
+                <StepWait {flow} {step} name="{second.name} step {n + 1}" />
+              {/await}
             {/if}
           </li>
         {/each}
@@ -70,15 +78,5 @@
   li {
     font-size: var(--text-md);
     line-height: 1.45;
-  }
-
-  .chip {
-    display: inline-flex;
-    padding: 3px var(--space-5);
-    border-radius: var(--radius-full);
-    background: var(--color-wait-chip);
-    color: var(--color-wait-text);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-extrabold);
   }
 </style>

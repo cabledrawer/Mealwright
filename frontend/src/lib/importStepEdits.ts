@@ -83,6 +83,12 @@ export function reworkMinutes(flow: ImportFlow): void {
   flow.reworkMinutes();
 }
 
+/** The step is still on the screen, in either way of cooking it (M2). */
+function hasStep(flow: ImportFlow, step: ReviewStep): boolean {
+  const review = flow.review;
+  return !!review && (review.steps.includes(step) || !!review.second_method?.steps.includes(step));
+}
+
 /** "Yes, it waits": the suggested wait on `step` is kept as it is (M1). */
 export function confirmWait(flow: ImportFlow, step: ReviewStep): void {
   step.wait_confirmed = true;
@@ -101,7 +107,7 @@ export function takeOffWait(flow: ImportFlow, step: ReviewStep): void {
   const entry: UndoEntry = {
     label: 'Took off the wait',
     undo: () => {
-      if (!flow.review?.steps.includes(step)) return CANT_PUT_BACK;
+      if (!hasStep(flow, step)) return CANT_PUT_BACK;
       step.wait = was;
       step.wait_confirmed = confirmed;
       reworkMinutes(flow); // the minutes it gave back are taken again

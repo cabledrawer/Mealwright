@@ -267,7 +267,8 @@ export class ImportFlow {
       this.pints,
       lines,
       this.review?.lines,
-      this.review?.steps
+      this.review?.steps,
+      this.review?.second_method?.steps
     ]);
   }
 
@@ -726,7 +727,18 @@ export class ImportFlow {
       })),
       // Two ways of cooking it found on the page (M2): both start with these ingredients.
       ...(review.second_method
-        ? { method_name: review.method_name ?? null, second_method: review.second_method }
+        ? {
+            method_name: review.method_name ?? null,
+            second_method: {
+              name: review.second_method.name,
+              steps: review.second_method.steps.map((s) => ({
+                kind: s.kind,
+                text: s.text,
+                optional: s.optional,
+                wait: s.wait
+              }))
+            }
+          }
         : {}),
       source_url: review.source.url,
       source_author: review.author,
@@ -854,7 +866,10 @@ export class ImportFlow {
       };
       return null;
     }
-    if (this.review?.steps.some((s) => s.wait_invalid)) {
+    if (
+      this.review?.steps.some((s) => s.wait_invalid) ||
+      this.review?.second_method?.steps.some((s) => s.wait_invalid)
+    ) {
       this.saveProblem = { message: 'Type how long it waits, such as 4 hours.', line: null };
       return null;
     }

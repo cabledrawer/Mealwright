@@ -365,7 +365,7 @@
 
       {#if nth === 1 && flow.review?.second_method}
         {#await import('./ImportMethods.svelte') then { default: ImportMethods }}
-          <ImportMethods review={flow.review} />
+          <ImportMethods {flow} review={flow.review} />
         {/await}
       {/if}
 
