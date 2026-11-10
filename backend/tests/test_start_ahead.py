@@ -763,3 +763,32 @@ def test_a_start_in_year_one_or_9999_is_refused_not_a_crash(kitchen: TestClient,
             params={"recipe_id": recipe["id"], "date": far, "slot_id": breakfast},
         )
         assert asked.status_code == 422, (far, asked.text)
+
+
+@pytest.mark.parametrize("far", ["0001-01-01", "9999-12-31"])
+def test_a_start_in_year_one_or_9999_is_refused_on_every_move_and_copy(
+    kitchen: TestClient, far: str
+) -> None:
+    """The other ways a start comes in (FX5, lead follow-up c): moving one recipe, copying one,
+    moving a whole meal. Each is a 422 and changes nothing."""
+    item = plan_dosa(kitchen, dosa(kitchen), start=start_of(FRI, "21:00"))["item_id"]
+    with db_of(kitchen) as db:
+        meal_id = db.get(MealItem, item).meal_id  # type: ignore[union-attr]
+    breakfast = slot_ids(kitchen)["Breakfast"]
+    start = {"day": far, "time": "00:00" if far.startswith("0") else "23:59"}
+    for mode in ("move", "copy"):
+        refused = kitchen.post(
+            f"{API}/plan/items/{item}/move",
+            json={"date": "2026-11-16", "slot_id": breakfast, "mode": mode, "start": start},
+        )
+        assert (refused.status_code, refused.json()["code"]) == (422, "bad_start"), (far, mode)
+    whole = kitchen.post(
+        f"{API}/plan/meals/{meal_id}/move",
+        json={
+            "date": "2026-11-16",
+            "slot_id": breakfast,
+            "starts": [{"item_id": item, **start}],
+        },
+    )
+    assert (whole.status_code, whole.json()["code"]) == (422, "bad_start"), far
+    assert item_of(kitchen, item, FRI)["ahead"]["start_time"] == "21:00"  # nothing changed
