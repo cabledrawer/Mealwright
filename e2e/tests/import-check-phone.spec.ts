@@ -282,7 +282,7 @@ test('F174, One at a time: Close works offline, says so and leaves; nothing was 
   expect(await draftsNamed(page, title)).toHaveLength(0);
 });
 
-test('F174, See all: Close works offline and the draft stays as it was last kept', async ({ page }) => {
+test('F174, a draft opened again: Close works offline and the draft stays as it was last kept', async ({ page }) => {
   test.skip(!isPhone(page), 'the phone’s layout');
   await chooseMode(page, 'one');
   const title = unique('Kootu offline');
@@ -306,4 +306,32 @@ test('F174, See all: Close works offline and the draft stays as it was last kept
   const kept = (await (await page.request.get(`/api/v1/recipes/drafts/${after!.id}`)).json()) as Json;
   expect(Object.keys(kept.choices.lines as Json)).toHaveLength(0); // as last kept: no choice yet
   await deleteDrafts(page, title);
+});
+
+test('F174, a keep still on its way when the connection goes: Close works at once, says so and leaves', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await chooseMode(page, 'one');
+  const title = unique('Rasam hung');
+  await checking(page, title, unique('Hing'), unique('Masala'));
+  await page.getByRole('button', { name: 'Treat as staple' }).click();
+  // The server never answers the draft: the keep is on its way for good.
+  let release: () => void = () => {};
+  const stuck = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/api/v1/recipes/drafts', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    await stuck;
+    await route.abort('internetdisconnected');
+  });
+  const close = page.getByRole('button', { name: 'Close (kept in Drafts)' });
+  await close.click();
+  await expect(close).toBeDisabled(); // keeping, with the connection still up
+  await goOffline(page);
+  await expect(close).toBeEnabled();
+  await close.click();
+  await expect(page.getByText('You’re offline: changes since then won’t be kept')).toBeVisible();
+  await expect(page).toHaveURL(/\/recipes$/);
+  release();
+  await page.unroute('**/api/v1/recipes/drafts');
+  await backOnline(page);
+  expect(await draftsNamed(page, title)).toHaveLength(0);
 });

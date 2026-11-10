@@ -15,6 +15,7 @@
     importLinks,
     LINKS_HELP,
     LINKS_SERVER_NOTE,
+    leftOutWords,
     linksHeading,
     READING,
     READY_TO_CHECK,
@@ -136,7 +137,7 @@
   {#if importLinks.rows.length > 0}
     <section class="results" aria-label="Links being read">
       <h2 class="overline">{linksHeading(importLinks.rows.length)}</h2>
-      <ul class="rows">
+      <ul class="rows" aria-live="polite">
         {#each importLinks.rows as row (row.link)}
           <li class="row" data-state={row.state}>
             <span class="what">
@@ -158,6 +159,9 @@
           </li>
         {/each}
       </ul>
+      {#if importLinks.leftOut > 0}
+        <p class="help" role="status">{leftOutWords(importLinks.leftOut, importLinks.room)}</p>
+      {/if}
       <p class="help">{LINKS_HELP}</p>
       <p class="server">{LINKS_SERVER_NOTE}</p>
       <p class="actions">

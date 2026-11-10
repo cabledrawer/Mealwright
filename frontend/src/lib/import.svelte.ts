@@ -104,6 +104,8 @@ export class ImportFlow {
   keeping = $state(false);
   /** Keeping the draft didn't work: the server's sentence ("You have 50 drafts. …"). */
   draftProblem = $state<string | null>(null);
+  /** The server's code for it ("too_many_drafts"), when it answered. */
+  draftProblemCode = $state<string | null>(null);
 
   /** F6: a line that took the choice made on another line, and which line that was. Not kept
    *  in a draft; it only explains "Also used for 1 more line". */
@@ -272,6 +274,7 @@ export class ImportFlow {
     if (!body || this.keeping) return false;
     this.keeping = true;
     this.draftProblem = null;
+    this.draftProblemCode = null;
     try {
       const kept =
         this.draftId === null
@@ -282,6 +285,7 @@ export class ImportFlow {
       void drafts.load();
       return true;
     } catch (error) {
+      this.draftProblemCode = error instanceof ApiError ? (error.code ?? null) : null;
       this.draftProblem =
         error instanceof ApiError
           ? cantReach(error)
