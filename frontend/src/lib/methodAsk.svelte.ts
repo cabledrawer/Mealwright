@@ -4,6 +4,7 @@
 // PlanMethod.svelte shows the question; this holds it. Online only, like the rest of the Plan.
 
 import { getRecipe, type RecipeMethodRef } from './client/recipes';
+import { optionalAsk } from './optionalAsk.svelte';
 
 export interface MethodQuestion {
   recipeName: string;
@@ -47,6 +48,7 @@ class MethodAsk {
     }
     if (methods.length < 2) return undefined;
     this.current?.resolve(null);
+    optionalAsk.methodOpen = true;
     const picked =
       methods.find((m) => m.id === options.current)?.id ??
       methods.find((m) => m.used_last)?.id ??
@@ -68,12 +70,14 @@ class MethodAsk {
   answer(id: number): void {
     const pending = this.current;
     this.current = null;
+    optionalAsk.methodOpen = false;
     pending?.resolve(id);
   }
 
   dismiss(): void {
     const pending = this.current;
     this.current = null;
+    optionalAsk.methodOpen = false;
     pending?.resolve(null);
   }
 }

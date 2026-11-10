@@ -1,28 +1,72 @@
 <script lang="ts">
   // "How are you cooking it today?" (M2, mockup CookMethod08, cabledrawer 9 Nov): each way of cooking
   // the recipe with its time, step count and "last time", one picked, and "Start · Stovetop". Steps,
-  // timers and the time follow the pick. Loaded when Cook mode first has a recipe with two ways
-  // (size limit). Words are proposed, for cabledrawer, except the question (docs/dev/words.md).
-  export interface Way {
-    id: number;
-    name: string;
-    /** "45 min active · 3 steps · last time". */
-    detail: string;
-  }
+  // timers and the time follow the pick, and the meal is set to it so Cooked it follows. Loaded
+  // when Cook mode first has a recipe with two ways (size limit). Words are proposed, for cabledrawer,
+  // except the question (docs/dev/words.md).
+  import { newChangeId } from '#lib/changeId.js';
+  import { setPlanMethod } from '#lib/client/plan.js';
+  import type { Recipe } from '#lib/client/recipes.js';
+  import { network } from '#lib/network.svelte.js';
+  import { timeWithWait } from '#lib/timeWords.js';
+  import { toasts } from '#lib/toast.svelte.js';
 
   let {
-    ways,
-    picked,
+    recipe,
+    item,
+    current,
     onstart,
-    onclose
+    onchanged
   }: {
-    ways: Way[];
-    /** The way ticked to begin with. */
-    picked: number;
+    recipe: Recipe;
+    /** This recipe's item in the meal Cooked it would review, if there is one. */
+    item: { id: number; method_id?: number | null } | null;
+    /** The way on now (switching on the first step); null the first time. */
+    current: number | null;
     onstart: (id: number) => void;
-    /** Escape: keeps the way that was on (the first time, the pre-picked one). */
-    onclose: () => void;
+    /** The meal was set to another way. */
+    onchanged: () => void;
   } = $props();
+
+  const ways = $derived(
+    (recipe.methods ?? []).map((m, i) => {
+      const steps = (i === 0 ? recipe.steps : recipe.second_method?.steps) ?? [];
+      const count = steps.filter((s) => s.kind === 'step').length;
+      return {
+        id: m.id,
+        name: m.name,
+        detail: [
+          timeWithWait(m.time_minutes, m.wait),
+          `${count} ${count === 1 ? 'step' : 'steps'}`,
+          m.used_last ? 'last time' : ''
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      };
+    })
+  );
+  /** Pre-picked: the way on now, else the meal's, else the one used last, else the first. */
+  const picked = $derived(
+    current ??
+      item?.method_id ??
+      recipe.methods?.find((m) => m.used_last)?.id ??
+      recipe.methods?.[0]?.id ??
+      0
+  );
+
+  /** The meal cooks the way that was picked: the list, Can cook now and Cooked it follow it. */
+  async function start(id: number) {
+    onstart(id);
+    if (!item || item.method_id === id || network.offline) return;
+    try {
+      await setPlanMethod(item.id, id, newChangeId());
+      onchanged();
+    } catch {
+      toasts.show('Couldn’t change how the meal is cooked. Try again from the Plan.', {
+        tone: 'problem'
+      }); // proposed, for cabledrawer
+    }
+  }
 
   const uid = $props.id();
   let dialog: HTMLDialogElement;
@@ -41,14 +85,14 @@
   aria-labelledby="{uid}-title"
   oncancel={(event) => {
     event.preventDefault();
-    onclose();
+    void start(now); // closed: the way that was on (or pre-picked) stays
   }}
   data-testid="cook-method"
 >
   <form
     onsubmit={(event) => {
       event.preventDefault();
-      onstart(now);
+      void start(now);
     }}
   >
     <span class="handle" aria-hidden="true"></span>

@@ -61,7 +61,6 @@ import {
   withServings
 } from './planEdits';
 import { cookBatchOfItem, itemName, leftName, mealName } from './planMeals';
-import { methodAsk } from './methodAsk.svelte';
 import { optionalAsk } from './optionalAsk.svelte';
 import { save, type Outcome } from './save';
 
@@ -293,10 +292,12 @@ export class PlanModel {
       const where = `${dayShort(day)} ${this.slotName(slotId).toLocaleLowerCase()}`;
       // A recipe with two ways of cooking it asks which first (M2), then which optional
       // ingredients of that way.
-      const method = await methodAsk.ask(
-        { id: what.recipe.id, methodCount: what.recipe.method_count },
-        where
-      );
+      const method =
+        what.recipe.method_count === 1
+          ? undefined
+          : await (
+              await import('./methodAsk.svelte')
+            ).methodAsk.ask({ id: what.recipe.id, methodCount: what.recipe.method_count }, where);
       if (method === null) return { ok: false, error: null, cancelled: true };
       if (method !== undefined) body.method_id = method;
       const use = await optionalAsk.ask(
@@ -317,6 +318,7 @@ export class PlanModel {
   async changeMethod(item: PlanItem, day: string): Promise<void> {
     if (item.kind !== 'recipe' || !item.recipe) return;
     const meal = this.plan?.meals.find((m) => m.items.some((i) => i.id === item.id));
+    const { methodAsk } = await import('./methodAsk.svelte');
     const picked = await methodAsk.ask(
       { id: item.recipe.id },
       `${dayShort(day)} ${meal ? this.slotName(meal.slot_id).toLocaleLowerCase() : 'meal'}`,

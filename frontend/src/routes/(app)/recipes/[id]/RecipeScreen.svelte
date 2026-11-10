@@ -796,7 +796,7 @@
   }
 
   .method-switch button {
-    min-height: 40px;
+    min-height: var(--touch-target);
     border: none;
     border-radius: var(--radius-full);
     background: transparent;
