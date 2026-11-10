@@ -899,4 +899,5 @@ Words from the mockup `Dark-RecipesTags08-Phone` are agreed; the rest are propos
 - **Refused rename (proposed, for cabledrawer):** **There’s already a tag called South Indian. Use Merge into… to join them.** The rename is refused, not turned into a merge.
 - **After a merge (agreed in the mockup's note; the toast is the app's usual one):** **Merged tag south-indian into South Indian** with **Undo**; the same line is in Settings → Recent changes. After Undo: **Undone: Merged tag south-indian into South Indian** (the server's own message: **south-indian is back, on the recipes that had it.**). Undo refused when a tag with the old name exists again: **There’s already a tag called south-indian. Rename or merge it first.**
 - **A rename is not in Recent changes (proposed, for cabledrawer),** as a shop's or a place's rename isn't.
+- **Undo of a merge (proposed, for cabledrawer):** it takes the other tag off exactly the recipes that only got it from the merge, even if someone has since added it to them by hand. A tag that no shown recipe has never blocks a rename or this Undo; it is folded in without a message.
 

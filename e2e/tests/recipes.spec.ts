@@ -545,17 +545,30 @@ test('the tag chips are one row that scrolls sideways, never wraps, and the page
   const chips = group.getByRole('button');
   await expect(chips.first()).toBeVisible();
   expect(await chips.count()).toBeGreaterThan(16);
-  // One row: every chip sits at the same height.
-  const tops = await chips.evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
-  expect(new Set(tops).size).toBe(1);
-  // It scrolls inside itself (more chips than fit), and the page does not.
-  const sizes = await group.evaluate((el) => ({ scroll: el.scrollWidth, shown: el.clientWidth }));
-  expect(sizes.scroll).toBeGreaterThan(sizes.shown);
-  await expectNoSidewaysScroll(page);
-  // The keyboard reaches the last chip and the row scrolls it into view.
-  await chips.last().focus();
-  await expect(chips.last()).toBeInViewport();
-  await expectNoSidewaysScroll(page);
+  const height = page.viewportSize()!.height;
+  // At every width the page can have (a phone, a tablet, the two-pane and three-pane computer),
+  // and at 200% text: one row, scrolling inside itself, and the page never scrolls sideways.
+  for (const [width, big] of [[428, false], [768, false], [1100, false], [1300, false], [428, true]] as const) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate((zoom) => (document.documentElement.style.fontSize = zoom ? '200%' : ''), big);
+    const where = `${width} px${big ? ' at 200% text' : ''}`;
+    // The row that is on screen: in the three panes the list is the middle pane.
+    const shown = group.first();
+    await expect(shown, where).toBeVisible();
+    const tops = await shown
+      .getByRole('button')
+      .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+    expect(new Set(tops).size, `one row at ${where}`).toBe(1);
+    const sizes = await shown.evaluate((el) => ({ scroll: el.scrollWidth, shown: el.clientWidth }));
+    expect(sizes.scroll, `it scrolls inside itself at ${where}`).toBeGreaterThan(sizes.shown);
+    await expectNoSidewaysScroll(page);
+    // The keyboard reaches the last chip and the row scrolls it into view.
+    const last = shown.getByRole('button').last();
+    await last.focus();
+    await expect(last, where).toBeInViewport();
+    await expectNoSidewaysScroll(page);
+  }
+  await page.evaluate(() => (document.documentElement.style.fontSize = ''));
   await checkPage(page);
 });
 
