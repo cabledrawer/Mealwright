@@ -100,7 +100,10 @@ SNAPSHOT: dict[str, Any] = {
             "note": "heaped",
         },
     ],
-    "steps": [{"kind": "heading", "text": "The dal"}, {"kind": "step", "text": "Boil the dal."}],
+    "steps": [
+        {"kind": "heading", "text": "The dal", "optional": False},
+        {"kind": "step", "text": "Boil the dal.", "optional": False},
+    ],
 }
 
 

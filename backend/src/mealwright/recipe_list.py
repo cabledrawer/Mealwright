@@ -31,6 +31,9 @@ Everything else below is the spec's or cabledrawer's, as marked:
   is missing, and no stock words otherwise (cabledrawer 20 Oct).
 - "Can cook now" is: something counts, nothing is missing, and no line is left unchecked
   (cabledrawer 20 Oct).
+- An Optional line is ignored like a line with no amount (R3): a recipe is "Can cook now" and
+  "all in stock" without it. (A planned meal counts the optional lines it will use; that is
+  `shop_from_plan` and `deduction`.)
 """
 
 from collections import defaultdict
@@ -82,6 +85,9 @@ class Line:
     amount_milli: int | None
     unit: str | None
     size_id: int | None
+    # An Optional line (R3): the recipe on its own never needs it (it can be cooked without);
+    # a planned meal counts it only when the person said they will use it.
+    optional: bool = False
 
 
 def _lines(kitchen: Kitchen, live: set[int], only: int | set[int] | None = None) -> list[Line]:
@@ -95,6 +101,7 @@ def _lines(kitchen: Kitchen, live: set[int], only: int | set[int] | None = None)
         RecipeLine.amount_milli,
         RecipeLine.unit,
         RecipeLine.size_id,
+        RecipeLine.optional,
     ).where(RecipeLine.household_id == kitchen.household_id, RecipeLine.kind == "ingredient")
     if isinstance(only, int):
         query = query.where(RecipeLine.recipe_id == only)
@@ -235,8 +242,9 @@ def hints(
     by_recipe: dict[int, list[Line]] = defaultdict(list)
     unchecked: set[int] = set()
     for line in lines:
-        # A line with no amount is ignored, whatever it points at (cabledrawer 20 Oct).
-        if line.amount_milli is None:
+        # A line with no amount is ignored, whatever it points at (cabledrawer 20 Oct). So is an
+        # Optional one: a recipe is "Can cook now" without it (R3).
+        if line.amount_milli is None or line.optional:
             continue
         by_recipe[line.recipe_id].append(line)
         if line.sub_recipe_id is not None and _ingredient_of(line, stock.foods, recipes) is None:

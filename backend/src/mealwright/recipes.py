@@ -303,11 +303,24 @@ def save(
     recipe.makes_milli = body.makes.amount if body.makes else None
     recipe.makes_unit = body.makes.unit if body.makes else None
     recipe.source_note = body.source_note
-    recipe.kcal_milli = _milli(body.nutrition.kcal)
-    recipe.protein_milli = _milli(body.nutrition.protein)
-    recipe.carbs_milli = _milli(body.nutrition.carbs)
-    recipe.fat_milli = _milli(body.nutrition.fat)
-    recipe.fibre_milli = _milli(body.nutrition.fibre)
+    figures = (
+        _milli(body.nutrition.kcal),
+        _milli(body.nutrition.protein),
+        _milli(body.nutrition.carbs),
+        _milli(body.nutrition.fat),
+        _milli(body.nutrition.fibre),
+    )
+    # The figures count as set now when the recipe is new, when one was typed over, or when
+    # the person looked at them and kept them ("Work it out again", then Save).
+    if creating or figures != _figures(recipe) or body.nutrition_checked:
+        recipe.nutrition_set_at = now
+    (
+        recipe.kcal_milli,
+        recipe.protein_milli,
+        recipe.carbs_milli,
+        recipe.fat_milli,
+        recipe.fibre_milli,
+    ) = figures
     recipe.version += 1
     recipe.updated_at = now
     recipe.updated_by_login_id = kitchen.login.id
@@ -326,7 +339,10 @@ def save(
             {"recipe_id": recipe.id},
         )
 
+    before = None if creating else _line_signature(db, recipe.id)
     lines = _save_lines(kitchen, recipe, body, resolved)
+    if before != [_line_key(row) for row in lines]:
+        recipe.lines_changed_at = now
     _save_steps(kitchen, recipe, body, lines)
     _save_tags(kitchen, recipe, body.tags)
     _save_made_ahead(kitchen, recipe, body)
@@ -334,6 +350,51 @@ def save(
         _save_photo(kitchen, recipe, body.photo_id)
     db.flush()
     return recipe
+
+
+def _figures(recipe: Recipe) -> tuple[int | None, ...]:
+    return (
+        recipe.kcal_milli,
+        recipe.protein_milli,
+        recipe.carbs_milli,
+        recipe.fat_milli,
+        recipe.fibre_milli,
+    )
+
+
+def _line_key(row: RecipeLine) -> tuple[Any, ...]:
+    """What makes an ingredient line a different one for the nutrition note: not its note and
+    not whether it is Optional."""
+    return (
+        row.kind,
+        row.words,
+        row.amount_milli,
+        row.unit,
+        row.size_id,
+        row.food_id,
+        row.sub_recipe_id,
+    )
+
+
+def _line_signature(db: DbSession, recipe_id: int) -> list[tuple[Any, ...]]:
+    return [
+        _line_key(row)
+        for row in db.scalars(
+            select(RecipeLine)
+            .where(RecipeLine.recipe_id == recipe_id)
+            .order_by(RecipeLine.position, RecipeLine.id)
+        )
+    ]
+
+
+def nutrition_out_of_date(recipe: Recipe) -> bool:
+    """Some ingredient line changed after the nutrition figures were set (R3). A recipe with no
+    figures, or from before this was recorded, never says it."""
+    if all(value is None for value in _figures(recipe)):
+        return False
+    if recipe.nutrition_set_at is None or recipe.lines_changed_at is None:
+        return False
+    return as_utc(recipe.lines_changed_at) > as_utc(recipe.nutrition_set_at)
 
 
 def _copy_name(kitchen: Kitchen, source: Recipe) -> str:
@@ -380,6 +441,9 @@ def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
         source_url=source.source_url,
         imported_at=source.imported_at,
         source_author=source.source_author,
+        # The copy's figures and lines are the same as the original's, so the note is too.
+        nutrition_set_at=source.nutrition_set_at,
+        lines_changed_at=source.lines_changed_at,
         version=1,
         created_at=now,
         updated_at=now,
@@ -408,6 +472,7 @@ def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
             food_id=line.food_id,
             sub_recipe_id=line.sub_recipe_id,
             note=line.note,
+            optional=line.optional,
         )
         db.add(row)
         db.flush()
@@ -421,6 +486,7 @@ def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
             position=step.position,
             kind=step.kind,
             text=step.text,
+            optional=step.optional,
         )
         db.add(new_step)
         db.flush()
@@ -542,6 +608,7 @@ def _save_lines(
         row.food_id = links.food.id if links.food else None
         row.sub_recipe_id = links.used.id if links.used else None
         row.note = line.note
+        row.optional = line.optional and line.kind == "ingredient"
     for line_id, row in old.items():
         if line_id not in kept:
             db.delete(row)
@@ -589,6 +656,7 @@ def _save_steps(kitchen: Kitchen, recipe: Recipe, body: RecipeIn, lines: list[Re
             position=position,
             kind=step.kind,
             text=step.text,
+            optional=step.optional,
         )
         db.add(row)
         db.flush()
@@ -1084,6 +1152,7 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
                 recipe=Ref(id=sub.id, name=sub.name) if sub else None,
                 link=link,
                 note=row.note,
+                optional=row.optional,
             )
         )
     step_rows = list(
@@ -1114,6 +1183,7 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
             id=s.id,
             kind=cast(Literal["step", "heading"], s.kind),
             text=s.text,
+            optional=s.optional,
             lines=sorted(step_lines.get(s.id, []), key=lambda uses: uses.line),
         )
         for s in step_rows
@@ -1145,6 +1215,7 @@ def recipe_out(kitchen: Kitchen, recipe: Recipe) -> RecipeOut:
             carbs=_float(recipe.carbs_milli),
             fat=_float(recipe.fat_milli),
             fibre=_float(recipe.fibre_milli),
+            possibly_out_of_date=nutrition_out_of_date(recipe),
         ),
         lines=lines,
         steps=steps,
@@ -1170,6 +1241,18 @@ def brief_list(kitchen: Kitchen, recipes: list[Recipe]) -> list[RecipeBrief]:
             .group_by(RecipeLine.recipe_id)
         )
     }
+    optional = {
+        recipe_id: count
+        for recipe_id, count in kitchen.db.execute(
+            select(RecipeLine.recipe_id, func.count())
+            .where(
+                RecipeLine.recipe_id.in_(ids),
+                RecipeLine.kind == "ingredient",
+                RecipeLine.optional.is_(True),
+            )
+            .group_by(RecipeLine.recipe_id)
+        )
+    }
     photos = {
         p.recipe_id: photo_view(p)
         for p in kitchen.db.scalars(select(RecipePhoto).where(RecipePhoto.recipe_id.in_(ids)))
@@ -1185,6 +1268,7 @@ def brief_list(kitchen: Kitchen, recipes: list[Recipe]) -> list[RecipeBrief]:
             made_ahead=r.made_ahead,
             tags=tags[r.id],
             ingredient_count=counts.get(r.id, 0),
+            optional_count=optional.get(r.id, 0),
             photo=photos.get(r.id),
             version=r.version,
             updated_at=as_utc(r.updated_at),

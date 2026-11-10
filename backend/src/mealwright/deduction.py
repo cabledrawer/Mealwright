@@ -209,11 +209,19 @@ def _count_note(row: Row, recipe: Recipe, portions: int) -> tuple[int, str] | No
     return (to_halves(scaled(count, recipe, portions)), word) if count > 0 else None
 
 
-def _rows(kitchen: Kitchen, recipe: Recipe, portions: int, answers: list[Answer]) -> list[Row]:
-    """Rule 1 and 2 and 3: one row per ingredient, in the order the recipe first uses it."""
+def _rows(
+    kitchen: Kitchen,
+    recipe: Recipe,
+    portions: int,
+    answers: list[Answer],
+    skip: frozenset[int] = frozenset(),
+) -> list[Row]:
+    """Rule 1 and 2 and 3: one row per ingredient, in the order the recipe first uses it.
+    `skip`: Optional lines the person will not use (R3), left out as if they weren't there."""
     db, hid = kitchen.db, kitchen.household_id
-    lines = list(
-        db.scalars(
+    lines = [
+        line
+        for line in db.scalars(
             select(RecipeLine)
             .where(
                 RecipeLine.recipe_id == recipe.id,
@@ -222,7 +230,8 @@ def _rows(kitchen: Kitchen, recipe: Recipe, portions: int, answers: list[Answer]
             )
             .order_by(RecipeLine.position, RecipeLine.id)
         )
-    )
+        if line.id not in skip
+    ]
     foods = {
         food.id: food
         for food in db.scalars(select(Food).where(Food.household_id == hid))
@@ -420,14 +429,16 @@ def work_out(
     answers: list[Answer] | None = None,
     choices: dict[str, Choice] | None = None,
     pool: Pool | None = None,
+    skip: frozenset[int] = frozenset(),
 ) -> Worked:
-    """What cooking `portions` of the recipe takes from the pantry. Read-only. With `choices`
+    """What cooking `portions` of the recipe takes from the pantry. Read-only. `skip`: the
+    Optional lines the meal will not use (R3). With `choices`
     (a confirm) the rows follow them, and a row that still needs its question answered is
     refused with the "ask once" 409; without, every row is as it would start on the review."""
     answers = answers or []
     for answer in answers:
         find(kitchen, answer.food_id)  # a food from another household is a 404
-    rows = _rows(kitchen, recipe, portions, answers)
+    rows = _rows(kitchen, recipe, portions, answers, skip)
     confirming = choices is not None
     choices = choices or {}
     by_key = {row.key: row for row in rows}

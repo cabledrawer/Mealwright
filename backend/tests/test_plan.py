@@ -136,7 +136,10 @@ def test_the_plan_lists_meals_items_batches_and_tubs(kitchen: TestClient) -> Non
         "kcal": None,
         # The recipe's own servings (F116): a meal planned without Serves shows these.
         "serves": 4,
+        # R3: none of its lines is Optional.
+        "optional_count": 0,
     }
+    assert meal["items"][0]["optional_skipped"] == []
     assert meal["items"][2]["ingredient"] == {
         "id": ids["food"],
         "name": "Banana",

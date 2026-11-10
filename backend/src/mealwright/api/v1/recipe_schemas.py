@@ -223,6 +223,8 @@ class RecipeLineIn(BaseModel):
     food_id: StoredInt | None = None
     recipe_id: StoredInt | None = None  # another recipe used as an ingredient
     note: Annotated[str, Field(max_length=200)] | None = None
+    # Optional (R3): adding the recipe to the plan asks whether it will be used.
+    optional: bool = False
 
     @field_validator("words")
     @classmethod
@@ -239,16 +241,19 @@ class RecipeLineIn(BaseModel):
         if self.kind == "heading":
             if not self.words:
                 raise ValueError("Type the heading.")
-            if any(
-                part is not None
-                for part in (
-                    self.amount,
-                    self.unit,
-                    self.size_id,
-                    self.food_id,
-                    self.recipe_id,
-                    self.note,
+            if (
+                any(
+                    part is not None
+                    for part in (
+                        self.amount,
+                        self.unit,
+                        self.size_id,
+                        self.food_id,
+                        self.recipe_id,
+                        self.note,
+                    )
                 )
+                or self.optional
             ):
                 raise ValueError("A heading has only words.")
             return self
@@ -269,6 +274,8 @@ class RecipeLineIn(BaseModel):
 class RecipeStepIn(BaseModel):
     kind: Literal["step", "heading"] = "step"
     text: Annotated[str, Field(min_length=1, max_length=MAX_STEP_CHARS)]
+    # An Optional step (R3): shown with "Optional step"; a heading is never optional.
+    optional: bool = False
     # Which ingredient lines this step uses, set by hand (0.7, for Cook mode's per-step
     # ingredients): positions in this save's `lines`, counting from 0, so a new line can be
     # linked in the same save. Left out (null): the step keeps the links it had, if it is
@@ -290,6 +297,8 @@ class RecipeStepIn(BaseModel):
             self.text = " ".join(one_line(self.text).split())
             if len(self.text) > 200:
                 raise ValueError("A heading is at most 200 characters.")
+            if self.optional:
+                raise ValueError("A heading has only words.")
         else:
             self.text = text_block(self.text).strip()
         if not self.text:
@@ -346,6 +355,9 @@ class RecipeIn(BaseModel):
         default_factory=list, max_length=MAX_TAGS
     )
     nutrition: NutritionIn = Field(default_factory=NutritionIn)
+    # The person looked at the figures (the editor opened from "Work it out again") and kept
+    # them: they count as set now, which clears "Nutrition possibly out of date".
+    nutrition_checked: bool = False
     lines: list[RecipeLineIn] = Field(default_factory=list, max_length=MAX_LINES)
     steps: list[RecipeStepIn] = Field(default_factory=list, max_length=MAX_STEPS)
     source_note: Annotated[str, Field(max_length=500)] | None = None
@@ -444,6 +456,7 @@ class RecipeLineOut(BaseModel):
     # · none (not linked: pick an ingredient). Null for a heading.
     link: Literal["ingredient", "recipe", "recipe_removed", "none"] | None
     note: str | None
+    optional: bool = False
 
 
 class StepLineOut(BaseModel):
@@ -458,6 +471,7 @@ class RecipeStepOut(BaseModel):
     id: int
     kind: Literal["step", "heading"]
     text: str
+    optional: bool = False
     lines: list[StepLineOut] = Field(default_factory=list)
 
 
@@ -473,6 +487,9 @@ class NutritionOut(BaseModel):
     carbs: float | None
     fat: float | None
     fibre: float | None
+    # R3: some ingredient line changed after these figures were typed or read from a page, so
+    # they may be out of date ("Nutrition possibly out of date"). False when none are set.
+    possibly_out_of_date: bool = False
 
 
 class PhotoOut(BaseModel):
@@ -532,6 +549,8 @@ class RecipeBrief(BaseModel):
     made_ahead: bool
     tags: list[str]
     ingredient_count: int
+    # How many of its ingredient lines are Optional (R3): adding it to the plan asks about them.
+    optional_count: int = 0
     photo: PhotoOut | None
     version: int
     updated_at: datetime

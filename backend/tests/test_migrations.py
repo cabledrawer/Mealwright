@@ -1417,3 +1417,82 @@ def test_place_and_shop_ids_migration_keeps_rows_and_never_reuses_an_id(tmp_path
     migrate.downgrade(engine, STOCKTAKE_MIGRATION)
     for table in ("place", "shop"):
         assert "AUTOINCREMENT" not in _table_sql(engine, table)
+
+
+PLACE_SHOP_IDS_MIGRATION = "d4f8b2c1a695"  # the one just before optional ingredients and steps
+
+
+def test_optional_migration_adds_empty_columns_and_goes_back_and_forward(tmp_path: Path) -> None:
+    """0.8 wave 4, R3 (cabledrawer 6 and 9 Nov): lines and steps start as not Optional, a planned
+    recipe has no pick (every line counts) and no recipe has nutrition dates; going back drops
+    only those columns and keeps every row and "never reuse an id"; going forward again adds
+    them empty. The new columns are on tables that already have `household_id`."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    skip = {*STOCKTAKE_TABLES, "alembic_version"}
+
+    def columns(table: str) -> set[str]:
+        return {c["name"] for c in inspect(engine).get_columns(table)}
+
+    new = {
+        "recipe_line": {"optional"},
+        "recipe_step": {"optional"},
+        "meal_item": {"optional_skipped"},
+        "recipe": {"nutrition_set_at", "lines_changed_at"},
+    }
+    for table, names in new.items():
+        assert names <= columns(table)
+    with engine.connect() as connection:
+        for sql in (
+            "SELECT optional FROM recipe_line",
+            "SELECT optional FROM recipe_step",
+            "SELECT nutrition_set_at FROM recipe",
+            "SELECT lines_changed_at FROM recipe",
+        ):
+            found = set(connection.exec_driver_sql(sql).scalars().all())
+            assert found in ({0}, {None}), sql
+    with engine.begin() as connection:  # something marked Optional, and a pick
+        connection.exec_driver_sql("UPDATE recipe_line SET optional = 1 WHERE id = 1")
+        connection.exec_driver_sql("UPDATE recipe_step SET optional = 1 WHERE id = 1")
+        connection.exec_driver_sql(
+            "INSERT INTO meal (id, household_id, day, slot_id, status, created_at)"
+            " SELECT 1, 1, '2026-11-12', min(id), 'planned', '2026-11-10' FROM meal_slot"
+            " WHERE household_id = 1"
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO meal_item (id, household_id, meal_id, position, kind, recipe_id,"
+            " optional_skipped) VALUES (1, 1, 1, 0, 'recipe', 1, '[1]')"
+        )
+    before = _row_counts(engine, skip)
+
+    def kept() -> list[tuple[object, ...]]:
+        with engine.connect() as connection:
+            return [
+                tuple(r)
+                for r in connection.exec_driver_sql(
+                    "SELECT id, household_id, recipe_id, position, kind, words, amount_milli,"
+                    " unit, food_id FROM recipe_line ORDER BY id"
+                )
+            ]
+
+    held = kept()
+    migrate.downgrade(engine, PLACE_SHOP_IDS_MIGRATION)
+    assert migrate_head(engine) == PLACE_SHOP_IDS_MIGRATION
+    for table, names in new.items():
+        assert not names & columns(table)
+        assert "AUTOINCREMENT" in _table_sql(engine, table)
+    assert _row_counts(engine, skip) == before
+    assert kept() == held
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    for table, names in new.items():
+        assert names <= columns(table)
+        assert "AUTOINCREMENT" in _table_sql(engine, table)
+    assert _row_counts(engine, skip) == before
+    assert kept() == held
+    with engine.connect() as connection:
+        assert set(connection.exec_driver_sql("SELECT optional FROM recipe_line").scalars()) == {0}
+        assert set(connection.exec_driver_sql("SELECT optional FROM recipe_step").scalars()) == {0}
+        assert set(
+            connection.exec_driver_sql("SELECT optional_skipped FROM meal_item").scalars()
+        ) == {None}

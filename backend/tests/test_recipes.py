@@ -52,10 +52,14 @@ def save(client: TestClient, recipe: dict[str, Any], **changes: Any) -> Any:
                 "food_id": line["food"]["id"] if line["food"] else None,
                 "recipe_id": line["recipe"]["id"] if line["recipe"] else None,
                 "note": line["note"],
+                "optional": line["optional"],
             }
             for line in recipe["lines"]
         ],
-        "steps": [{"kind": s["kind"], "text": s["text"]} for s in recipe["steps"]],
+        "steps": [
+            {"kind": s["kind"], "text": s["text"], "optional": s["optional"]}
+            for s in recipe["steps"]
+        ],
         "source_note": recipe["source_note"],
         "photo_id": recipe["photo"]["id"] if recipe["photo"] else None,
         "version": recipe["version"],
@@ -87,6 +91,7 @@ def test_a_recipe_needs_only_a_name_and_starts_at_serves_4(kitchen: TestClient) 
         "carbs": None,
         "fat": None,
         "fibre": None,
+        "possibly_out_of_date": False,
     }
     assert ok(kitchen.get(f"{API}/recipes/{recipe['id']}")) == recipe
 
@@ -144,6 +149,7 @@ def test_a_whole_recipe_round_trips(kitchen: TestClient) -> None:
         "carbs": 41.0,
         "fat": 9.0,
         "fibre": 11.0,
+        "possibly_out_of_date": False,
     }
     assert recipe["source_note"] == "Amma's"
     heading, dal, spare, salt = recipe["lines"]
@@ -408,6 +414,7 @@ def test_nutrition_that_is_left_empty_stays_unknown_never_zero(kitchen: TestClie
         "carbs": None,
         "fat": None,
         "fibre": None,
+        "possibly_out_of_date": False,
     }
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         row = db.get(Recipe, recipe["id"])
@@ -415,7 +422,9 @@ def test_nutrition_that_is_left_empty_stays_unknown_never_zero(kitchen: TestClie
         assert (row.carbs_milli, row.fat_milli, row.fibre_milli) == (None, None, None)  # type: ignore[union-attr]
     # Saving again with the boxes emptied makes them unknown again, not 0.
     saved = ok(save(kitchen, recipe, nutrition={}))
-    assert saved["nutrition"] == {k: None for k in ("kcal", "protein", "carbs", "fat", "fibre")}
+    assert {k: v for k, v in saved["nutrition"].items() if k != "possibly_out_of_date"} == {
+        k: None for k in ("kcal", "protein", "carbs", "fat", "fibre")
+    }
 
 
 def test_a_recipe_with_no_nutrition_stores_no_zeros(kitchen: TestClient) -> None:

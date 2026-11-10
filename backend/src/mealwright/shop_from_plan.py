@@ -56,6 +56,7 @@ ingredient, shop = the ingredient's usual shop or Any shop).
 import math
 import uuid
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
@@ -224,6 +225,15 @@ def share_out(
     return out
 
 
+def skipped_lines(item: MealItem, lines: Iterable[Line]) -> frozenset[int]:
+    """The Optional lines of a planned recipe that its meal will not use: the ones the person
+    unticked. None when nothing was unticked (a meal made before R3 counts every line)."""
+    skipped = set(item.optional_skipped or ())
+    if not skipped:
+        return frozenset()
+    return frozenset(line.id for line in lines if line.optional and line.id in skipped)
+
+
 def work_out(kitchen: Kitchen) -> Worked:
     """The sums, read-only: what to buy, and the staples the counted meals use."""
     db, hid, household = kitchen.db, kitchen.household_id, kitchen.household
@@ -310,12 +320,15 @@ def work_out(kitchen: Kitchen) -> Worked:
         per_food: dict[int, Need],
         uses_staples: set[int],
         seen: frozenset[int],
+        skip: frozenset[int] = frozenset(),
     ) -> bool:
         """One batch of a recipe's ingredients, and of every recipe it uses that has to be made
         (S3, item 7: not one that is made ahead and in the pantry). Adds to `per_food` and
         `uses_staples`; True when the loop guard fired somewhere inside."""
         guarded = False
         for line in lines.get(recipe_id, ()):
+            if line.id in skip:  # an Optional line this meal will not use (R3)
+                continue
             if line.food_id is None:
                 inner = recipes.get(line.sub_recipe_id or 0)
                 if inner is None:
@@ -351,17 +364,20 @@ def work_out(kitchen: Kitchen) -> Worked:
         return guarded
 
     # Each recipe is worked out once (its own amounts), then scaled for each meal that uses it.
-    once: dict[int, tuple[dict[int, Need], set[int]]] = {}
+    once: dict[tuple[int, frozenset[int]], tuple[dict[int, Need], set[int]]] = {}
     for item, meal_id, day in rows:
         recipe: Recipe | None = recipes.get(item.recipe_id or 0)
         if recipe is None:  # removed, or its Undo window is over
             continue
-        if recipe.id not in once:
+        # The Optional lines of this recipe the person will not use in this meal (R3). Only the
+        # planned recipe's own lines are asked about, not those of a recipe inside it.
+        skip = skipped_lines(item, lines.get(recipe.id, ()))
+        if (recipe.id, skip) not in once:
             per_food: dict[int, Need] = defaultdict(Need)
             uses_staples: set[int] = set()
-            add_lines(recipe.id, per_food, uses_staples, frozenset({recipe.id}))
-            once[recipe.id] = (per_food, uses_staples)
-        per_food, uses_staples = once[recipe.id]
+            add_lines(recipe.id, per_food, uses_staples, frozenset({recipe.id}), skip)
+            once[recipe.id, skip] = (per_food, uses_staples)
+        per_food, uses_staples = once[recipe.id, skip]
         for food_id in uses_staples:
             staple_names[food_id].add(recipe.name)
             staple_items[food_id].add(item.id)

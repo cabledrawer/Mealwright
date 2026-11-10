@@ -36,11 +36,13 @@ class SnapshotLine(BaseModel):
     recipe_id: int | None  # another recipe used as an ingredient
     recipe_name: str | None
     note: str | None
+    optional: bool = False  # the line was Optional when cooked (R3)
 
 
 class SnapshotStep(BaseModel):
     kind: Literal["step", "heading"]
     text: str
+    optional: bool = False
 
 
 class SnapshotTake(BaseModel):
@@ -127,12 +129,17 @@ def snapshot(db: DbSession, recipe: Recipe) -> Snapshot:
                 recipe_id=row.sub_recipe_id,
                 recipe_name=used.get(row.sub_recipe_id) if row.sub_recipe_id else None,
                 note=row.note,
+                optional=row.optional,
                 **_size(sizes.get(row.size_id) if row.size_id else None, foods),
             )
             for row in rows
         ],
         steps=[
-            SnapshotStep(kind="heading" if step.kind == "heading" else "step", text=step.text)
+            SnapshotStep(
+                kind="heading" if step.kind == "heading" else "step",
+                text=step.text,
+                optional=step.optional,
+            )
             for step in steps
         ],
     )

@@ -157,6 +157,8 @@ class Entry:
     portions: int
     choices: dict[str, Choice]
     link: dict[str, int]
+    # The Optional lines the meal will not use (R3): not worked out, not taken, not recorded.
+    skip: frozenset[int] = frozenset()
 
 
 def item_entry(
@@ -168,6 +170,7 @@ def item_entry(
         portions or item_portions(item, recipe),
         choices,
         {"meal_item_id": item.id, "meal_id": item.meal_id, "item_id": item.id},
+        plan.skipped_optional(kitchen, item),
     )
 
 
@@ -175,8 +178,13 @@ def batch_entry(
     kitchen: Kitchen, batch: BatchCook, portions: int | None, choices: dict[str, Choice]
 ) -> Entry:
     recipe = _batch_checked(kitchen, batch)
+    cook = cook_item_of(kitchen, batch)  # the batch is cooked with its cook day's picks
     return Entry(
-        recipe, portions or batch_portions(kitchen, batch, recipe), choices, {"batch_id": batch.id}
+        recipe,
+        portions or batch_portions(kitchen, batch, recipe),
+        choices,
+        {"batch_id": batch.id},
+        plan.skipped_optional(kitchen, cook) if cook is not None else frozenset(),
     )
 
 
@@ -216,7 +224,7 @@ def preview(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> li
     """One proposal for each recipe, from one pool of packets: two recipes of a meal never
     both propose the same grams."""
     pool = Pool(kitchen)
-    found = [work_out(kitchen, e.recipe, e.portions, answers, None, pool) for e in entries]
+    found = [work_out(kitchen, e.recipe, e.portions, answers, None, pool, e.skip) for e in entries]
     settle_meal(found)
     return found
 
@@ -306,7 +314,9 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
     """Take what the choices say from the packets, in one change for every recipe given (all or
     nothing: a refusal comes before anything is written), and write a record for each."""
     pool = Pool(kitchen)
-    worked = [work_out(kitchen, e.recipe, e.portions, answers, e.choices, pool) for e in entries]
+    worked = [
+        work_out(kitchen, e.recipe, e.portions, answers, e.choices, pool, e.skip) for e in entries
+    ]
     # The Use-off rows take the preview's offers first, so settling the meal sees the shortfalls
     # the preview showed for them, not their own unworked ones.
     offer_as_previewed(

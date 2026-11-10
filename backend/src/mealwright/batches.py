@@ -1095,6 +1095,7 @@ def leftover_one(
             recipe_id=item.recipe_id,
             name=None if item.recipe_id else item.name,
             servings=1,
+            optional_skipped=item.optional_skipped,
         )
         kitchen.db.add(anyway)
         kitchen.db.flush()

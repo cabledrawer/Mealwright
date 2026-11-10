@@ -766,6 +766,11 @@ class Recipe(Base):
     carbs_milli: Mapped[int | None] = mapped_column(BigInteger)
     fat_milli: Mapped[int | None] = mapped_column(BigInteger)
     fibre_milli: Mapped[int | None] = mapped_column(BigInteger)
+    # When the nutrition figures were last typed or read from a page, and when the ingredient
+    # lines last changed (R3): the lines newer than the figures make "Nutrition possibly out
+    # of date". Null on a recipe from before: no note.
+    nutrition_set_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lines_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Plain text ("Amma's", a book title). The server never visits it.
     source_note: Mapped[str | None] = mapped_column(String(500))
     # An imported recipe keeps where it came from (cabledrawer 22 Oct, question 1): the web address
@@ -824,6 +829,9 @@ class RecipeLine(Base):
         ForeignKey("recipe.id", ondelete="SET NULL"), index=True
     )
     note: Mapped[str | None] = mapped_column(String(200))
+    # Optional (R3, cabledrawer 6 and 9 Nov): adding the recipe to the plan asks whether it will be
+    # used; the shopping list and "Cooked it" count it only when it will.
+    optional: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
 
 
 class RecipeStep(Base):
@@ -845,6 +853,7 @@ class RecipeStep(Base):
     position: Mapped[int] = mapped_column(Integer)
     kind: Mapped[str] = mapped_column(String(10), default="step")
     text: Mapped[str] = mapped_column(String(5000))
+    optional: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
 
 class RecipeStepLine(Base):
@@ -1195,6 +1204,9 @@ class MealItem(Base):
     name: Mapped[str | None] = mapped_column(String(200))
     # How many people the recipe is for. Null: its own "serves".
     servings: Mapped[int | None] = mapped_column(Integer)
+    # The ids of the recipe's Optional lines the person will not use (R3, cabledrawer 9 Nov). Null
+    # or empty: every line counts, as in a meal made before this.
+    optional_skipped: Mapped[list[int] | None] = mapped_column(JSON)
 
 
 class MealEater(Base):

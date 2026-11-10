@@ -32,6 +32,7 @@ from mealwright.models import (
     MealSlot,
     Place,
     Recipe,
+    RecipeLine,
     RecipePhoto,
     Tub,
 )
@@ -72,6 +73,8 @@ class PlanRecipeRef(Ref):
     kcal: int | None = None
     # The recipe's own default servings (F116); null when it has none.
     serves: int | None = None
+    # How many of its ingredient lines are Optional (R3): the meal can be asked which it will use.
+    optional_count: int = 0
 
 
 class PlanIngredientRef(Ref):
@@ -101,6 +104,8 @@ class PlanItemOut(BaseModel):
     # (a meal from before 0.7 has no records). A meal with several recipes is cooked one at a
     # time; the meal's `status` is "cooked" only when every recipe in it is.
     cooked: bool = False
+    # R3: the ids of the recipe's Optional lines this meal will not use. Empty: every line counts.
+    optional_skipped: list[int] = Field(default_factory=list)
 
 
 class PlanMealOut(BaseModel):
@@ -283,6 +288,17 @@ def get_plan(
         p.recipe_id: p
         for p in db.scalars(select(RecipePhoto).where(RecipePhoto.recipe_id.in_(recipe_ids)))
     }
+    # The Optional ingredient lines of those recipes (R3).
+    optional_ids: dict[int, set[int]] = {}
+    for line_recipe_id, line_id in db.execute(
+        select(RecipeLine.recipe_id, RecipeLine.id).where(
+            RecipeLine.household_id == household_id,
+            RecipeLine.recipe_id.in_(recipe_ids),
+            RecipeLine.kind == "ingredient",
+            RecipeLine.optional.is_(True),
+        )
+    ):
+        optional_ids.setdefault(line_recipe_id, set()).add(line_id)
     # A batch cook's recipe, for the kcal of its tubs.
     batch_recipes = {
         r.id: r
@@ -407,6 +423,7 @@ def get_plan(
                 time_minutes=recipe.time_minutes,
                 kcal=kcal_of(recipe),
                 serves=recipe.serves,
+                optional_count=len(optional_ids.get(recipe.id, ())),
             )
             if recipe
             else None,
@@ -423,6 +440,9 @@ def get_plan(
             note=i.name if i.kind == "note" else None,
             eating=eating_of(i, recipe),
             cooked=cooked_of(i),
+            optional_skipped=sorted(
+                set(i.optional_skipped or ()) & optional_ids.get(i.recipe_id or 0, set())
+            ),
         )
 
     by_meal: dict[int, list[PlanItemOut]] = {}
@@ -547,6 +567,13 @@ class PlanItemIn(BaseModel):
     servings: Annotated[int, Field(ge=1, le=99)] | None = Field(
         default=None, description="Recipes only. Left out: the recipe's own Serves."
     )
+    optional_use: Annotated[list[StoredInt], Field(max_length=200)] | None = Field(
+        default=None,
+        description="Recipes only: the ids of the recipe's Optional ingredient lines the person"
+        " will use. The others stay off the shopping list and out of Cooked it. Left out: every"
+        " line counts (as for a meal made before this). An id that is not an Optional line of"
+        " the recipe is refused: `422 not_optional`.",
+    )
 
     @field_validator("note")
     @classmethod
@@ -584,7 +611,14 @@ def add_plan_item(body: PlanItemIn, kitchen: Here, response: Response) -> PlanWr
             ):
                 raise not_found("That ingredient")
         return plan.add_item(
-            kitchen, body.date, body.slot_id, recipe, food, body.servings, body.note
+            kitchen,
+            body.date,
+            body.slot_id,
+            recipe,
+            food,
+            body.servings,
+            body.note,
+            body.optional_use,
         )
 
     out = _run(kitchen, response, make)
@@ -608,6 +642,28 @@ def set_plan_item_servings(
         kitchen,
         response,
         lambda: plan.set_servings(kitchen, plan.find_item(kitchen, plan_item_id), body.servings),
+    )
+
+
+class OptionalIn(BaseModel):
+    use: Annotated[list[StoredInt], Field(max_length=200)] = Field(
+        description="The ids of the recipe's Optional ingredient lines the meal will use. The"
+        " Optional lines not listed are left out. Replaces the whole choice."
+    )
+
+
+@router.put("/plan/items/{plan_item_id}/optional")
+def set_plan_item_optional(
+    plan_item_id: StoredInt, body: OptionalIn, kitchen: Here, response: Response
+) -> PlanWrite:
+    """Which Optional ingredients a planned recipe will use (R3): the shopping list and Cooked
+    it follow. Already that way → `change: null`. Only a recipe (`422 not_a_recipe`) in a
+    planned meal (`409 meal_done`); an id that is not one of its Optional lines is
+    `422 not_optional`."""
+    return _run(
+        kitchen,
+        response,
+        lambda: plan.set_optional(kitchen, plan.find_item(kitchen, plan_item_id), body.use),
     )
 
 
