@@ -944,3 +944,44 @@ test('F159: Plan, Cook, a later day\'s meal, Start cooking, Confirm: it is cooke
     await page.request.fetch(`/api/v1/plan/items/${planned.item_id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
   }
 });
+
+test('a recipe with two ways asks "How are you cooking it today?", follows the pick, and shows NEXT (M2)', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const name = `Curry ${stamp()}`;
+  const recipe = await call(page, '/recipes', {
+    name,
+    serves: 4,
+    method_name: 'Stovetop',
+    time_minutes: 45,
+    lines: [{ words: 'chicken' }],
+    steps: [{ text: 'Fry the onions.' }, { text: 'Simmer for 25 minutes.' }],
+    second_method: {
+      name: 'Instant Pot',
+      time_minutes: 30,
+      lines: [{ words: 'stock' }],
+      steps: [{ text: 'Brown the chicken.' }, { text: 'Pressure cook for 10 minutes.' }, { text: 'Release the pressure.' }],
+    },
+  });
+  await refusePlanning(page);
+  await page.goto(`/recipes/${recipe.id}`);
+  await page.getByRole('link', { name: 'Cook now' }).click();
+  await expect(page).toHaveURL(`/recipes/${recipe.id}/cook`);
+  const ask = page.getByRole('dialog', { name: 'How are you cooking it today?' });
+  await expect(ask).toBeVisible();
+  await expect(ask).toContainText('Stovetop');
+  await expect(ask).toContainText('45 min · 2 steps');
+  await expect(ask).toContainText('30 min · 3 steps');
+  await ask.getByText('Instant Pot').click();
+  await ask.getByRole('button', { name: 'Start · Instant Pot' }).click();
+  // The steps follow the pick, with the next one quietly under.
+  await expect(count(page)).toContainText('Step 1 of 3');
+  await expect(text(page)).toContainText('Brown the chicken.');
+  await expect(page.getByTestId('next-step')).toContainText('NEXT');
+  await expect(page.getByTestId('next-step')).toContainText('Pressure cook for 10 minutes.');
+  // It can be switched on the first step.
+  await page.getByRole('button', { name: 'Instant Pot · switch' }).click();
+  await ask.getByText('Stovetop').click();
+  await ask.getByRole('button', { name: 'Start · Stovetop' }).click();
+  await expect(count(page)).toContainText('Step 1 of 2');
+  await expect(text(page)).toContainText('Fry the onions.');
+});

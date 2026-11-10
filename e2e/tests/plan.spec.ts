@@ -307,6 +307,46 @@ test.describe('on a computer', () => {
     await expect.poll(() => skippedOn(page, day, recipe.id)).toEqual([recipe.kewra]);
   });
 
+  test('drag a recipe with two ways of cooking it: it asks which, and the meal can change it, with Undo (M2)', async ({ page }) => {
+    const { today, slot } = await setup(page);
+    const name = `Twoway ${stamp()}`;
+    const made = await call(page, 'POST', '/recipes', {
+      name,
+      method_name: 'Stovetop',
+      time_minutes: 45,
+      lines: [{ words: 'mutton', amount: 1, unit: 'kg' }],
+      second_method: { name: 'Instant Pot', time_minutes: 30, lines: [{ words: 'stock', amount: 1, unit: 'l' }] },
+    });
+    const day = inWeek(today, 3);
+    await openWeekOf(page, today, day);
+    await page.getByRole('searchbox', { name: 'Find a recipe to plan' }).fill(name);
+    await expect(page.getByRole('list', { name: 'Recipes to plan' }).getByRole('button').filter({ hasNotText: name })).toHaveCount(0);
+    const item = page.getByRole('button', { name: `${name}. Choose a day to plan it` });
+    await item.scrollIntoViewIfNeeded();
+    await mouseDrag(page, item, cell(page, day, slot.Lunch));
+    const ask = page.getByTestId('plan-method');
+    await expect(ask.getByText('Which way will you cook it?')).toBeVisible();
+    await ask.getByText('Instant Pot').click();
+    await ask.getByRole('button', { name: 'Add to plan' }).click();
+    await expect(cell(page, day, slot.Lunch)).toContainText(name);
+    const method = async () => {
+      const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as { meals: any[] };
+      return plan.meals.flatMap((m) => m.items).find((i: any) => i.recipe?.id === made.id)?.method ?? null;
+    };
+    await expect.poll(method).toBe('Instant Pot');
+    // From the meal: How it's cooked… asks again, with the meal's own way picked.
+    const card = cell(page, day, slot.Lunch).getByRole('button', { name: new RegExp(`^${name}`) }).first();
+    await card.focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('dialog', { name }).getByRole('button', { name: 'How it\u2019s cooked\u2026' }).click();
+    await expect(ask.getByRole('radio', { name: /Instant Pot/ })).toBeChecked();
+    await ask.getByText('Stovetop').click();
+    await ask.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(method).toBe('Stovetop');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect.poll(method).toBe('Instant Pot');
+  });
+
   test('dragging a meal moves it; Alt copies; the Leftovers zone plans leftovers; each has its Undo', async ({ page }) => {
     const { today, slot } = await setup(page);
     const name = `Drag ${stamp()}`;

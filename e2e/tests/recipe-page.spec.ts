@@ -397,3 +397,35 @@ test('an optional line and step are marked, and the nutrition note leads to the 
   await expect(page.getByRole('note')).toHaveCount(0);
   await expect(page.getByText('Nutrition possibly out of date')).toHaveCount(0);
 });
+
+test('two ways of cooking it: the switch changes the ingredients, the steps and the time together (M2)', async ({ page }) => {
+  const name = unique('Curry');
+  const created = await makeRecipe(page, {
+    name,
+    time_minutes: 45,
+    method_name: 'Stovetop',
+    lines: [{ words: 'plain water', amount: 200, unit: 'ml' }],
+    steps: [{ text: 'Simmer it for ages.' }],
+    second_method: {
+      name: 'Instant Pot',
+      time_minutes: 30,
+      lines: [{ words: 'beef stock', amount: 100, unit: 'ml' }],
+      steps: [{ text: 'Pressure cook it.' }],
+    },
+  });
+  await page.goto(`/recipes/${created.id}`);
+  const recipe = reader(page);
+  await expect(recipe.getByRole('heading', { name, level: 1 })).toBeVisible();
+  const way = recipe.getByRole('group', { name: 'Method' });
+  await expect(way.getByRole('button', { name: /Stovetop/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(recipe.getByText('plain water')).toBeVisible();
+  await expect(recipe.getByText('Simmer it for ages.')).toBeVisible();
+  await expect(recipe.getByText('beef stock')).toHaveCount(0);
+  await way.getByRole('button', { name: /Instant Pot/ }).click();
+  await expect(way.getByRole('button', { name: /Instant Pot/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(recipe.getByText('beef stock')).toBeVisible();
+  await expect(recipe.getByText('Pressure cook it.')).toBeVisible();
+  await expect(recipe.getByText('plain water')).toHaveCount(0);
+  await expect(recipe.getByText(/30\s*min/).first()).toBeVisible();
+  await checkPage(page);
+});
