@@ -696,9 +696,7 @@ def test_f186_a_side_word_alone_is_not_the_plain_ingredient(
         ("250 g cherry tomatoes", "Tomatoes"),
     ],
 )
-def test_f186_the_main_word_matches_the_plain_ingredient(
-    db: Session, line: str, food: str
-) -> None:
+def test_f186_the_main_word_matches_the_plain_ingredient(db: Session, line: str, food: str) -> None:
     add_food(db, food)
     result = match(db, line)
     assert (result.label, result.food_name) == ("to_confirm", food)
