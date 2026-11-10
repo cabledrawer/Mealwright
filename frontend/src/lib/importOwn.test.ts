@@ -99,6 +99,13 @@ function dosa(): ImportFlow {
 }
 
 describe('the section under a heading', () => {
+  it('finds the method’s heading when it ends in a colon, as a page writes it', () => {
+    const flow = dosa();
+    flow.review!.steps[0]!.text = 'For the batter:';
+    flow.review!.steps[3]!.text = 'FOR THE DOSA:';
+    expect(sectionOf(flow.review!, 0).steps).toEqual([1, 2]);
+  });
+
   it('is its lines, its steps under the same heading in the method, and the line that names it', () => {
     const flow = dosa();
     expect(sectionOf(flow.review!, 0)).toEqual({

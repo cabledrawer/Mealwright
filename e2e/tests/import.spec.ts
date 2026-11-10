@@ -1152,16 +1152,16 @@ function dosaText(n: { dosa: string; batter: string; dal: string; rice: string; 
     `4 cups ${n.batter}, as above`,
     `1 tbsp ${n.ghee}`,
     'Method',
-    'For the batter',
+    'For the batter:',
     '1. Soak the dal and rice for 4 hours.',
     '2. Grind and ferment overnight.',
-    'For the dosa',
+    'For the dosa:',
     '1. Spread the batter thin and fry.',
   ].join('\n');
 }
 
 test('A section as its own recipe: asked on Check, both recipes saved together, one Undo takes both (F190)', async ({ page }) => {
-  const n = { dosa: unique('Masala dosa'), batter: unique('Dosa batter'), dal: unique('Urad dal'), rice: unique('Idli rice'), ghee: unique('Ghee') };
+  const n = { dosa: unique('Masala dosa'), batter: `Dosa ${unique('x')} batter`, dal: unique('Urad dal'), rice: unique('Idli rice'), ghee: unique('Ghee') };
   if (!onPhone()) await page.setViewportSize({ width: 1280, height: 2000 });
   await page.goto('/recipes/import');
   await box(page).fill(dosaText(n));
@@ -1219,7 +1219,7 @@ test('A section as its own recipe: asked on Check, both recipes saved together, 
 });
 
 test('A section made its own recipe can be changed and kept in the recipe again, each with Undo (F190)', async ({ page }) => {
-  const n = { dosa: unique('Masala dosa'), batter: unique('Dosa batter'), dal: unique('Urad dal'), rice: unique('Idli rice'), ghee: unique('Ghee') };
+  const n = { dosa: unique('Masala dosa'), batter: `Dosa ${unique('x')} batter`, dal: unique('Urad dal'), rice: unique('Idli rice'), ghee: unique('Ghee') };
   if (!onPhone()) await page.setViewportSize({ width: 1280, height: 2000 });
   await page.goto('/recipes/import');
   await box(page).fill(dosaText(n));
@@ -1241,7 +1241,7 @@ test('A section made its own recipe can be changed and kept in the recipe again,
   const said = page.getByText('Its own recipe:');
   await expect(said).toContainText('Batter · 1.5 litres');
   // Change opens the same sheet with what was typed.
-  await page.getByRole('button', { name: 'Change', exact: true }).click();
+  await said.locator('..').getByRole('button', { name: 'Change', exact: true }).click();
   await expect(sheet.getByLabel('Name of the new recipe')).toHaveValue('Batter');
   await sheet.getByLabel('Name of the new recipe').fill(`${n.batter} two`);
   await sheet.getByRole('button', { name: 'Done' }).click();
@@ -1256,7 +1256,7 @@ test('A section made its own recipe can be changed and kept in the recipe again,
 });
 
 test('Offline, Save waits as it always does, and the section stays its own recipe until Save (F190)', async ({ page }) => {
-  const n = { dosa: unique('Masala dosa'), batter: unique('Dosa batter'), dal: unique('Urad dal'), rice: unique('Idli rice'), ghee: unique('Ghee') };
+  const n = { dosa: unique('Masala dosa'), batter: `Dosa ${unique('x')} batter`, dal: unique('Urad dal'), rice: unique('Idli rice'), ghee: unique('Ghee') };
   await page.goto('/recipes/import');
   await box(page).fill(dosaText(n));
   await read(page).click();

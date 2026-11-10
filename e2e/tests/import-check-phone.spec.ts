@@ -390,7 +390,7 @@ test('One at a time: "Make this its own recipe" is above a line of the section, 
   await page.goto('/recipes/import');
   await page
     .getByLabel('Paste a link or the recipe’s text')
-    .fill(`${title}\nIngredients\nFor the batter\n1 cup ${dal}\n2 cups ${unique('Idli rice')}\nFor the dosa\n1 tbsp ${unique('Ghee')}\nMethod\nFor the batter\n1. Soak it.\nFor the dosa\n1. Fry it.\n`);
+    .fill(`${title}\nIngredients\nFor the batter\n1 cup ${dal}\n2 cups ${unique('Idli rice')}\nFor the dosa\n1 tbsp ${unique('Ghee')}\nMethod\nFor the batter:\n1. Soak it.\nFor the dosa:\n1. Fry it.\n`);
   await page.getByRole('button', { name: 'Read the recipe' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients · 1 of 3 to check');
   // The first line is in the batter: its section is named above it, with the button.

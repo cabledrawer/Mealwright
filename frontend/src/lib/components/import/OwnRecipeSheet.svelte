@@ -48,6 +48,13 @@
       (section.steps.length > 0 ? ` and ${count(section.steps.length, 'step', 'steps')}` : '')
   );
 
+  /** The one line the main recipe gets, as far as it is typed. */
+  const preview = $derived(
+    made === null
+      ? name.trim() || 'the new recipe'
+      : ownLineWords({ name: name.trim() || 'the new recipe', amount: made, unit })
+  );
+
   function done() {
     const typed = name.replace(/\s+/g, ' ').trim();
     if (!typed) {
@@ -86,13 +93,7 @@
     <h2 id="{uid}-title">Make “{line.words}” its own recipe?</h2>
     <p id="{uid}-text">
       It becomes a new recipe, <b>{name.trim() || 'the new recipe'}</b>, with its {words}, kept as
-      <b>Made ahead</b>. {flow.name.trim() || 'This recipe'} then uses it as one line: “{ownLineWords(
-        {
-          name: name.trim() || 'the new recipe',
-          amount: made ?? 0,
-          unit
-        }
-      )}”.
+      <b>Made ahead</b>. {flow.name.trim() || 'This recipe'} then uses it as one line: “{preview}”.
     </p>
     <label class="field" for="{uid}-name">
       <span>Name of the new recipe</span>

@@ -11,7 +11,12 @@ const flat = (text: string) => text.toLowerCase().replace(/\s+/g, ' ').trim();
 
 /** What a heading is about: "For the batter" is "batter". */
 export function headingCore(heading: string): string {
-  return flat(heading.replace(/^(for|to make|make)\s+(the\s+)?/i, '').replace(/^the\s+/i, ''));
+  return flat(
+    heading
+      .replace(/[:\s]+$/, '')
+      .replace(/^(for|to make|make)\s+(the\s+)?/i, '')
+      .replace(/^the\s+/i, '')
+  );
 }
 
 /** The most sections of one recipe that can be made their own recipes in one save (the server's). */
