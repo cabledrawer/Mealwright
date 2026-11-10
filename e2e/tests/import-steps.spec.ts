@@ -81,7 +81,7 @@ test('a step that waits: Check suggests it, Yes keeps it, Save shows the split t
   await expect(page.getByText(/Ferment · 8\s*h – 12\s*h/)).toBeVisible();
   await page.getByRole('button', { name: 'Yes, it waits' }).first().click();
   await expect(page.getByText('To confirm', { exact: true })).toHaveCount(1);
-  await page.getByRole('button', { name: 'No wait' }).click(); // the ferment
+  await page.getByRole('button', { name: 'No wait' }).last().click(); // the ferment
   await expect(page.getByText(/Ferment ·/)).toHaveCount(0);
   await page.getByRole('button', { name: 'New ingredient' }).first().click();
   await page.getByRole('button', { name: 'Save recipe' }).click();
