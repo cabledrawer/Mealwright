@@ -81,7 +81,7 @@
   }
 </script>
 
-<div class="wait">
+<div class="wait" data-invalid={invalid ? '' : undefined}>
   <label class="field" for="{uid}-kind">
     <span class="mw-label">Waiting for<span class="visually-hidden">, {name}</span></span>
     <select id="{uid}-kind" class="mw-input" bind:value={kind} onchange={commit}>

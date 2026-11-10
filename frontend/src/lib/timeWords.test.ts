@@ -64,7 +64,8 @@ describe('waitLength past the overnight mark (M1 fix 7)', () => {
     max_minutes: max,
     overnight
   });
-  const said = (w: ReturnType<typeof wait>) => waitLength(w).replace(/ /g, ' ');
+  const said = (w: ReturnType<typeof wait>) =>
+    waitLength(w).replaceAll(String.fromCharCode(160), ' ');
   it('says what is stored when the range goes past 12 h', () => {
     expect(said(wait(720, 1440, true))).toBe('12 h – 24 h');
     expect(said(wait(900, 900, true))).toBe('15 h');
