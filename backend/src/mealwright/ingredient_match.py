@@ -347,7 +347,7 @@ PART_WORDS = frozenset(
 _DESCRIBING = frozenset(_key(word) for word in MODIFIER_WORDS | PART_WORDS)
 
 
-def _is_another_thing(theirs: frozenset[str], key: str) -> bool:
+def _is_another_thing(theirs: frozenset[str], key: str, food: KitchenFood) -> bool:
     """F186 (cabledrawer 8 Nov; middle way, cabledrawer 10 Nov): a food with one word in its name
     ("Rice", "Onions", "Sugar") against a line that adds a word of its own to it.
 
@@ -359,6 +359,11 @@ def _is_another_thing(theirs: frozenset[str], key: str) -> bool:
     - A side word that is an ingredient of its own changes nothing: "chicken stock" is offered
       Stock even when the household has Chicken, as cabledrawer's rule says (the main word decides).
 
+    - The one word is only another name of a food whose own name says more ("rice" for
+      Basmati rice): the food is a kind of that thing, and a line naming another kind is not
+      it, so any word of the line's own blocks it, as in the first rule ("poha (flattened
+      rice)" and "brown rice" are not Basmati rice; FX1 review H1, proposed, for cabledrawer).
+
     A colour, size, state or part of the thing ("red", "dried", "leaves") is not a word of its
     own. The words are keys (`_key`)."""
     line = _words(key)
@@ -367,6 +372,8 @@ def _is_another_thing(theirs: frozenset[str], key: str) -> bool:
     extras = line - theirs - _DESCRIBING
     if not extras:
         return False
+    if len(_words(_key(food.name)) - _DESCRIBING) > 1:
+        return True
     main = next((w for w in reversed(key.split()) if w not in _DESCRIBING), None)
     return main not in theirs
 
@@ -409,7 +416,7 @@ def _closest(
                 continue
             if theirs & line <= WEAK_WORDS:
                 continue  # only a colour or size word in common
-            if _is_another_thing(theirs, key):
+            if _is_another_thing(theirs, key, food):
                 continue  # only one word in common, and the line is another thing (F186)
             share = len(theirs & line) / len(theirs | line)
             score = (share, 1 if theirs <= line else 0, -food.id)

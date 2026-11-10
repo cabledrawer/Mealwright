@@ -650,10 +650,23 @@ def test_an_amount_that_converts_past_the_most_an_amount_can_be_does_not_count(
 
 
 @pytest.mark.parametrize("line", ["1 cup poha (flattened rice)", "1 cup flattened rice (poha)"])
-def test_f186_poha_is_not_suggested_as_basmati_rice(db: Session, line: str) -> None:
-    add_food(db, "Basmati rice")
+@pytest.mark.parametrize("others", [(), ("rice",)])
+def test_f186_poha_is_not_suggested_as_basmati_rice(
+    db: Session, line: str, others: tuple[str, ...]
+) -> None:
+    # With "rice" as another name too (FX1 review H1): that one word is only another name.
+    add_food(db, "Basmati rice", others=others)
     result = match(db, line)
     assert (result.label, result.food_id) == ("needs_you", None)
+
+
+def test_f186_another_kind_of_rice_is_not_offered_basmati_rice_by_its_other_name(
+    db: Session,
+) -> None:
+    add_food(db, "Basmati rice", others=("rice",))
+    assert match(db, "200 g jasmine rice").label == "needs_you"
+    assert match(db, "200 g basmati rice").label == "matched"
+    assert match(db, "200 g rice").label == "matched"
 
 
 @pytest.mark.parametrize("line", ["1 cup poha (flattened rice)", "1 cup flattened rice (poha)"])

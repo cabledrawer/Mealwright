@@ -308,7 +308,7 @@
       {#if recipe.nutrition.possibly_out_of_date}
         <!-- R3 (mockup RecipeOptional08). "Update nutrition" opens the nutrition boxes in the
              editor: Mealwright doesn't work nutrition out from ingredients (not in v1), so the
-             person looks at the figures there. Words proposed, for cabledrawer. -->
+             person looks at the figures there. The link's words are cabledrawer's (10 Nov). -->
         <p class="info" role="note">
           Nutrition possibly out of date: the ingredients changed since it was worked out.
           <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved; only the query is added -->
