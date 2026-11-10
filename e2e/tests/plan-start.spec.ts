@@ -125,7 +125,7 @@ test('Plan it on a recipe with a long wait asks when it will be started, and the
 
     // Changing it from the meal: the menu says when it starts, and asks again with Save.
     await openWeekOf(page, day);
-    const card = cell(page, day, breakfast).getByRole('button', { name: new RegExp(`^${recipe.name}`) }).first();
+    const card = cell(page, day, breakfast).getByRole('button', { name: new RegExp(recipe.name) }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.focus();
     await page.keyboard.press('Enter');
