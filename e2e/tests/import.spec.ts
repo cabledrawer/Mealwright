@@ -377,7 +377,11 @@ test('the Check screen that cannot be fetched says so, keeps its header, and Try
   await expect(page.getByRole('alert').getByText('Couldn’t open the Check screen. Try again.')).toBeVisible();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
   blocking = false;
+  // The browser keeps a script that failed to load, so Try again reloads the page.
   await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(box(page)).toHaveValue('');
+  await box(page).fill(`${title}\nIngredients\n1 cup lentils\nMethod\n1. Boil the lentils.\n`);
+  await read(page).click();
   await expect(page.getByLabel('Name', { exact: true }).first()).toHaveValue(title);
   await expect(page.getByRole('alert').getByText('Couldn’t open the Check screen. Try again.')).toHaveCount(0);
 });

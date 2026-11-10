@@ -15,7 +15,6 @@
   import { onMount } from 'svelte';
 
   const flow = new ImportFlow();
-  let tries = $state(0);
   let phone = $state(matchMedia('(max-width: 767px)').matches);
   /** Loading, ready, or why it can't be shown. */
   let phase = $state<'loading' | 'ready' | 'gone' | 'problem'>('loading');
@@ -62,19 +61,17 @@
 </script>
 
 {#if phase === 'ready' && flow.review}
-  {#key tries}
-    {#await loadReviewPage()}
-      <PageHeader title="Draft" parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
-    {:then { default: ReviewPage }}
-      <ReviewPage {flow} {phone} parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
-    {:catch}
-      <PageHeader title="Draft" parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
-      <div class="failed" role="alert">
-        <p>{REVIEW_LOAD_FAILED}</p>
-        <button type="button" onclick={() => (tries += 1)}>Try again</button>
-      </div>
-    {/await}
-  {/key}
+  {#await loadReviewPage()}
+    <PageHeader title="Draft" parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
+  {:then { default: ReviewPage }}
+    <ReviewPage {flow} {phone} parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
+  {:catch}
+    <PageHeader title="Draft" parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
+    <div class="failed" role="alert">
+      <p>{REVIEW_LOAD_FAILED}</p>
+      <button type="button" onclick={() => location.reload()}>Try again</button>
+    </div>
+  {/await}
 {:else}
   <PageHeader title="Draft" parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
   {#if phase === 'loading'}

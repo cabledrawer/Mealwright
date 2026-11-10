@@ -13,7 +13,6 @@
   import { onMount } from 'svelte';
 
   const flow = new ImportFlow();
-  let tries = $state(0);
 
   // The Check screen loads when the reading starts, so it has usually come by the time the answer
   // does (loadReviewPage.ts).
@@ -47,25 +46,17 @@
 <!-- A phone says "Step 1 of 3" under the title; a computer has the three steps beside it
      (mockups Import05-Phone, Import05-Desktop and their review screens). -->
 {#if flow.phase === 'review' && flow.review}
-  {#key tries}
-    {#await loadReviewPage()}
-      <PageHeader
-        title="Check before saving"
-        parent={{ href: '/(app)/recipes', label: 'Recipes' }}
-      />
-    {:then { default: ReviewPage }}
-      <ReviewPage {flow} {phone} />
-    {:catch}
-      <PageHeader
-        title="Check before saving"
-        parent={{ href: '/(app)/recipes', label: 'Recipes' }}
-      />
-      <div class="failed" role="alert">
-        <p>{REVIEW_LOAD_FAILED}</p>
-        <button type="button" onclick={() => (tries += 1)}>Try again</button>
-      </div>
-    {/await}
-  {/key}
+  {#await loadReviewPage()}
+    <PageHeader title="Check before saving" parent={{ href: '/(app)/recipes', label: 'Recipes' }} />
+  {:then { default: ReviewPage }}
+    <ReviewPage {flow} {phone} />
+  {:catch}
+    <PageHeader title="Check before saving" parent={{ href: '/(app)/recipes', label: 'Recipes' }} />
+    <div class="failed" role="alert">
+      <p>{REVIEW_LOAD_FAILED}</p>
+      <button type="button" onclick={() => location.reload()}>Try again</button>
+    </div>
+  {/await}
 {:else}
   {#if phone}
     <PageHeader

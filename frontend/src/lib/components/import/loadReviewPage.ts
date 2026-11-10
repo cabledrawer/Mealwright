@@ -1,6 +1,7 @@
 // The Check screen is most of the import page's code, and only needed once a recipe has been read
 // (or a draft opened), so both pages load it then (the page size limit). One loader, so the code
-// is fetched once. A failed load is forgotten, so Try again fetches it afresh.
+// is fetched once. A failed load is forgotten; the browser itself keeps a failed script, though, so the pages' Try
+// again reloads the page (a browser test blocks the chunk once to show it).
 
 type Page = typeof import('./ReviewPage.svelte');
 
