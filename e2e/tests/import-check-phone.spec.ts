@@ -1,5 +1,5 @@
 import { test, expect, type Page } from './clock.ts';
-import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
+import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 
 // Check on the phone (0.7, F141, cabledrawer 3 Nov): Focus (the default) and One at a time, chosen in
 // Settings → Appearance, and the computer's Check screen that stays as it was. Runs on Chromium
@@ -115,6 +115,52 @@ test('One at a time: each line that needs you, then every step; Close keeps the 
   const kept = (await (await page.request.get(`/api/v1/recipes/drafts/${draft!.id}`)).json()) as Json;
   expect(Object.values(kept.choices.lines as Json).map((c) => (c as Json).kind)).toEqual(['staple']);
   await deleteDrafts(page, title);
+});
+
+test('One at a time: Add a line goes to the new line, which is named and has the usual choices (F187)', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await chooseMode(page, 'one');
+  const title = unique('Rasam');
+  await checking(page, title, unique('Hing'), unique('Masala'));
+  const header = page.getByRole('heading', { level: 1 });
+  await expect(header).toHaveText('Ingredients · 1 of 2 to check');
+  await page.getByRole('button', { name: 'Add a line', exact: true }).click();
+  // The new line is at the end of its section: a third stop, with its name box ready.
+  await expect(header).toHaveText('Ingredients · 3 of 3 to check');
+  const name = page.getByLabel('What is it?');
+  await expect(name).toBeFocused();
+  await checkPage(page);
+  const curry = unique('Curry leaves');
+  await name.fill(curry);
+  await name.press('Enter');
+  await expect(header).toHaveText('Ingredients · 3 of 3 to check');
+  for (const choice of ['Pick an ingredient', 'Made in this recipe', 'Made in another recipe', 'Treat as staple']) {
+    await expect(page.getByRole('button', { name: choice, exact: true })).toBeVisible();
+  }
+  await page.getByRole('button', { name: 'Treat as staple', exact: true }).click();
+  await expect(page.getByText('New staple:')).toBeVisible();
+  // Close keeps the draft with the new line and its choice.
+  await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+  await expect(page).toHaveURL(/\/recipes\/drafts$/);
+  const [draft] = await draftsNamed(page, title);
+  const kept = (await (await page.request.get(`/api/v1/recipes/drafts/${draft!.id}`)).json()) as Json;
+  expect(kept.review.lines).toHaveLength(3);
+  expect(kept.review.lines[2]).toMatchObject({ written: '', words: curry });
+  expect(kept.choices.lines['2']).toMatchObject({ kind: 'staple', name: curry });
+  await deleteDrafts(page, title);
+});
+
+test('One at a time and Focus: the title is in from the edge, and the step note is under it (cabledrawer 9 Nov)', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await chooseMode(page, 'one');
+  await checking(page, unique('Rasam'), unique('Hing'), unique('Masala'));
+  const title = page.getByRole('heading', { level: 1 });
+  const close = (await page.getByRole('button', { name: 'Close (kept in Drafts)' }).boundingBox())!;
+  const t = (await title.boundingBox())!;
+  expect(t.x).toBeGreaterThanOrEqual(close.x + close.width);
+  const note = (await page.getByText(/· nothing saved yet$/).boundingBox())!;
+  expect(note.y).toBeGreaterThanOrEqual(t.y + t.height - 2);
+  await expectNoSidewaysScroll(page);
 });
 
 test('One at a time: See all shows the whole list, and a reopened draft starts One at a time again', async ({ page }) => {

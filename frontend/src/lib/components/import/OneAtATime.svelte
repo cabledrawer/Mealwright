@@ -82,6 +82,9 @@
     await tick();
     const to = items.findIndex((i) => i.kind === 'line' && i.at === place);
     if (to >= 0) await go(to);
+    // Going to the new screen puts the focus on the screen; the name box is where typing starts.
+    await tick();
+    region?.querySelector<HTMLInputElement>('input[id$="-add-name"]')?.focus();
   }
   const title = $derived(
     !item

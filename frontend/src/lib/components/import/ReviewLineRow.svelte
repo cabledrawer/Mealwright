@@ -45,7 +45,8 @@
   /** The New ingredient form: where it comes from (F188), the recipe picked and where kept. */
   let source = $state<'bought' | 'recipe'>('bought');
   let madeBy = $state<{ recipe: Ref; madeAhead: boolean } | null>(null);
-  let keepPlace = $state<number | null>(null);
+  /** Where the pantry keeps it: undefined until the person picks, then the Fridge shows picked. */
+  let keepPlace = $state<number | undefined>(undefined);
   let choosingRecipe = $state(false);
   let recipeError = $state(false);
   let addingPlace = $state(false);
@@ -194,13 +195,13 @@
     madeBy = null;
     choosingRecipe = false;
     recipeError = false;
-    keepPlace = fridgeId();
+    keepPlace = undefined;
   }
 
   /** Where a made-ahead dish usually goes: the Fridge, as the mockup starts it. */
-  function fridgeId(): number | null {
-    return placesAndShops.places.find((p) => p.kind === 'fridge')?.id ?? null;
-  }
+  const keepId = $derived(
+    keepPlace ?? placesAndShops.places.find((p) => p.kind === 'fridge')?.id ?? null
+  );
 
   function edit(change: Partial<Extract<Choice, { kind: 'new' | 'staple' }>>) {
     if (made) {
@@ -219,7 +220,7 @@
         recipeError = true;
         return;
       }
-      flow.useRecipe(index, madeBy.recipe, madeBy.madeAhead ? keepPlace : null);
+      flow.useRecipe(index, madeBy.recipe, madeBy.madeAhead ? keepId : null);
       formOpen = false;
       return;
     }
@@ -560,7 +561,7 @@
                         type="button"
                         role="radio"
                         class="radio small"
-                        aria-checked={keepPlace === place.id}
+                        aria-checked={keepId === place.id}
                         onclick={() => (keepPlace = place.id)}>{place.name}</button
                       >
                     {/each}

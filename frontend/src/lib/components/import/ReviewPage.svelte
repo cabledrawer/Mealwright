@@ -33,7 +33,7 @@
 {:else if phone}
   <PageHeader title="Check before saving" {parent} subtitle="Step 2 of 3" />
 {:else}
-  <PageHeader title="Check before saving" {parent}>
+  <PageHeader title="Check before saving" {parent} dropActions>
     {#snippet actions()}<ImportSteps step={2} pasted={flow.review?.source.kind} />{/snippet}
   </PageHeader>
 {/if}

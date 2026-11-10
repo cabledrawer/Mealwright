@@ -804,3 +804,27 @@ test('a Waits box that is not a length stops Save and says so; the old wait is n
   await expect(page).toHaveURL(new RegExp(`/recipes/${made.id}$`));
   expect((await getRecipe(page, made.id)).steps[0].wait.min_minutes).toBe(180);
 });
+
+test('a recipe and an ingredient with the same name sit together, the recipe first, each labelled (F189)', async ({ page }) => {
+  const name = unique('Dosa batter');
+  const batter = await makeRecipe(page, { name });
+  await makeFood(page, name);
+  const recipe = await makeRecipe(page, { name: unique('Masala dosa') });
+  await page.goto(`/recipes/${recipe.id}/edit`);
+  await page.getByRole('button', { name: '+ Add line' }).first().click();
+  const box = page.getByLabel('Ingredient 1', { exact: true });
+  await box.fill(name);
+  const list = page.getByRole('listbox', { name: 'Matching ingredients' });
+  const options = list.getByRole('option');
+  await expect(options.nth(0)).toContainText('Recipe');
+  await expect(options.nth(0)).toContainText(name);
+  await expect(options.nth(1)).toContainText('Ingredient');
+  await expect(list.getByText('Recipes', { exact: true })).toHaveCount(0); // no group heading: no other recipe
+  await checkPage(page);
+  // The recipe is the first pick: Down, Enter.
+  await box.press('ArrowDown');
+  await box.press('Enter');
+  await page.getByRole('button', { name: 'Save' }).first().click();
+  await expect.poll(async () => (await getRecipe(page, recipe.id)).lines[0]?.link).toBe('recipe');
+  expect((await getRecipe(page, recipe.id)).lines[0].recipe.id).toBe(batter.id);
+});

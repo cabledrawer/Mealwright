@@ -65,7 +65,11 @@
       subtitle="Step 1 of 3"
     />
   {:else}
-    <PageHeader title="Import a recipe" parent={{ href: '/(app)/recipes', label: 'Recipes' }}>
+    <PageHeader
+      title="Import a recipe"
+      parent={{ href: '/(app)/recipes', label: 'Recipes' }}
+      dropActions
+    >
       {#snippet actions()}<ImportSteps step={1} />{/snippet}
     </PageHeader>
   {/if}

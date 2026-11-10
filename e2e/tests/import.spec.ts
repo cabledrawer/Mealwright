@@ -861,3 +861,274 @@ test('several links are read one after another, each into its own draft, and a f
   await results.getByRole('link', { name: 'Go to Drafts' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
 });
+
+// --- Lines on Check (0.8 W4d: F187, F188, F189, and the header rule) ----------------------------
+
+/** An ingredient line as the server reads it, with no ingredient behind it yet. */
+const lineOf = (more: Json): Json => ({
+  kind: 'ingredient',
+  written: '',
+  words: '',
+  amount: null,
+  amount_text: null,
+  unit: null,
+  size: null,
+  note: null,
+  readable: true,
+  label: 'needs_you',
+  food: null,
+  place: null,
+  matched_by: null,
+  counts: true,
+  new_ingredient: null,
+  learn_name: null,
+  ...more,
+});
+const needsLine = (written: string, words: string): Json =>
+  lineOf({ written, words, new_ingredient: { name: words, counted_as: 'weight', place: null }, learn_name: words });
+const headingLine = (words: string): Json => lineOf({ kind: 'heading', label: null, written: words, words });
+
+async function api(page: Page, method: 'post' | 'delete', path: string, data?: Json): Promise<Json> {
+  const response = await page.request[method](`/api/v1${path}`, { data, headers: { 'idempotency-key': crypto.randomUUID() } });
+  expect(response.status(), await response.text()).toBeLessThan(300);
+  return response.status() === 204 ? {} : ((await response.json()) as Json);
+}
+
+test('Add a line at the end of each section: named, given the usual choices, and saved where it was added (F187)', async ({ page }) => {
+  const n = { urad: unique('Urad dal'), ghee: unique('Ghee'), extra: unique('Fenugreek seeds') };
+  await checking(page, {
+    name: unique('Masala dosa'),
+    lines: [headingLine('For the batter'), needsLine(`1 cup ${n.urad}`, n.urad), headingLine('For the dosa'), needsLine(`ghee, for the pan`, n.ghee)],
+    steps: [{ kind: 'step', text: 'Fry it.' }],
+    counts: { matched: 0, to_confirm: 0, needs_you: 2, staple: 0 },
+    left_out: [],
+  });
+  // One button at the end of each section, named for it.
+  const adds = page.getByRole('button', { name: /^Add a line/ });
+  await expect(adds).toHaveText(['Add a line to the batter', 'Add a line to the dosa']);
+  const count = page.getByRole('heading', { name: /^Ingredients/ });
+  await expect(count).toContainText('2');
+  await adds.first().click();
+  const name = page.getByLabel('What is it?');
+  await expect(name).toBeFocused();
+  // A line with no name yet is not counted, and asks for a name.
+  await expect(count).toContainText('2');
+  // Scrolled to the middle, as a person would, so the page's own bar is not over the boxes.
+  await name.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await checkPage(page);
+  await page.getByRole('button', { name: 'Add line', exact: true }).click();
+  await expect(page.getByText('Type a name.')).toBeVisible();
+  await name.fill(n.extra);
+  await name.press('Enter');
+  const added = page.locator('li.line[data-added]');
+  await expect(added).toContainText('Added by you');
+  await expect(count).toContainText('3');
+  // The same choices as any line.
+  await expect(added.getByRole('button', { name: `New ingredient “${n.extra}”` })).toBeVisible();
+  for (const choice of ['Pick an ingredient', 'Made in this recipe', 'Made in another recipe', 'Treat as staple']) {
+    await expect(added.getByRole('button', { name: choice, exact: true })).toBeVisible();
+  }
+  // Cancel on a new box takes the line away again.
+  await adds.nth(1).click();
+  await expect(name).toBeVisible();
+  await page.locator('li.line').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(name).toHaveCount(0);
+  await expect(count).toContainText('3');
+  await inTheme(page, 'dark');
+  await checkPage(page, { themes: ['dark'] });
+  // Everything is a staple (the simplest choice), and Save puts the new line in the batter, last.
+  const staple = page.getByRole('button', { name: 'Treat as staple', exact: true });
+  while (await staple.count()) await staple.first().click();
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  const id = Number(page.url().split('/').pop());
+  const saved = (await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as Json;
+  expect(saved.lines.map((l: Json) => l.words)).toEqual(['For the batter', n.urad, n.extra, 'For the dosa', n.ghee]);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByText(/^Undone/)).toBeVisible();
+});
+
+test('Add a line is on the recipe with no headings too, and a line left with no name is not saved (F187)', async ({ page }) => {
+  const dal = unique('Red lentils');
+  await checking(page, {
+    name: unique('Plain dal'),
+    lines: [needsLine(`1 cup ${dal}`, dal)],
+    steps: [{ kind: 'step', text: 'Boil.' }],
+    counts: { matched: 0, to_confirm: 0, needs_you: 1, staple: 0 },
+    left_out: [],
+  });
+  await page.getByRole('button', { name: 'Add a line', exact: true }).click();
+  await expect(page.getByLabel('What is it?')).toBeFocused();
+  await page.getByRole('button', { name: 'Treat as staple', exact: true }).click();
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  const id = Number(page.url().split('/').pop());
+  const saved = (await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as Json;
+  expect(saved.lines.map((l: Json) => l.words)).toEqual([dal]);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByText(/^Undone/)).toBeVisible();
+});
+
+test('New ingredient says where it comes from: made in another recipe, kept where you choose (F188)', async ({ page }) => {
+  const batter = unique('Dosa batter');
+  const made = await api(page, 'post', '/recipes', { name: batter, made_ahead: true, makes: { amount: 1.5, unit: 'l' } });
+  await checking(page, {
+    name: unique('Masala dosa'),
+    lines: [needsLine(`${batter}, as above`, batter)],
+    steps: [{ kind: 'step', text: 'Fry it.' }],
+    counts: { matched: 0, to_confirm: 0, needs_you: 1, staple: 0 },
+    left_out: [],
+  });
+  await page.getByRole('button', { name: `New ingredient “${batter}”` }).click();
+  await expect(page.getByText('Where does it come from?')).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'Bought' })).toBeChecked();
+  await page.getByRole('radio', { name: 'Made in another recipe' }).click();
+  await expect(page.getByText('Which recipe makes it?')).toBeVisible();
+  await expect(page.getByText('No recipe for it yet?')).toBeVisible();
+  // Done with no recipe picked says so.
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByText('Pick the recipe that makes it.')).toBeVisible();
+  await page.getByRole('button', { name: new RegExp(`^${batter}`) }).click();
+  await expect(page.getByText('Made ahead · that recipe says how long it keeps')).toBeVisible();
+  const fridge = page.getByRole('radio', { name: 'Fridge' });
+  await expect(fridge).toBeChecked();
+  await checkPage(page);
+  await page.getByRole('radio', { name: 'Freezer' }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByText('Made in another recipe:', { exact: true })).toBeVisible();
+  await expect(page.getByText(`Uses the recipe “${batter}” when you save, kept in Freezer.`)).toBeVisible();
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  const id = Number(page.url().split('/').pop());
+  const saved = (await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as Json;
+  expect(saved.lines[0]).toMatchObject({ link: 'recipe', recipe: { id: made.id, name: batter }, food: null });
+  const food = (await (await page.request.get(`/api/v1/foods/${made.homemade.id}`)).json()) as Json;
+  expect(food.place.name).toBe('Freezer');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByText(/^Undone/)).toBeVisible();
+  const after = (await (await page.request.get(`/api/v1/foods/${made.homemade.id}`)).json()) as Json;
+  expect(after.place).toBeNull();
+});
+
+test('a line can be made in another recipe from its choices, and Bought goes back to the usual box (F188)', async ({ page }) => {
+  const chutney = unique('Coconut chutney');
+  const recipe = await api(page, 'post', '/recipes', { name: chutney });
+  await checking(page, {
+    name: unique('Masala dosa'),
+    lines: [needsLine(`${chutney}, to serve`, chutney)],
+    steps: [{ kind: 'step', text: 'Fry it.' }],
+    counts: { matched: 0, to_confirm: 0, needs_you: 1, staple: 0 },
+    left_out: [],
+  });
+  // The box can go back to Bought.
+  await page.getByRole('button', { name: `New ingredient “${chutney}”` }).click();
+  await page.getByRole('radio', { name: 'Made in another recipe' }).click();
+  await page.getByRole('radio', { name: 'Bought' }).click();
+  await expect(page.getByLabel('Usually kept in')).toBeVisible();
+  await page.locator('li.line').getByRole('button', { name: 'Cancel', exact: true }).click();
+  // The line's own choice: only recipes are listed.
+  await page.getByRole('button', { name: 'Made in another recipe', exact: true }).click();
+  await expect(page.getByRole('list', { name: 'Matching recipes' })).toBeVisible();
+  await page.getByRole('button', { name: new RegExp(`^${chutney}`) }).click();
+  await expect(page.getByText('Made in another recipe:', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  const id = Number(page.url().split('/').pop());
+  const saved = (await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as Json;
+  expect(saved.lines[0]).toMatchObject({ link: 'recipe', recipe: { id: recipe.id } });
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+});
+
+test('when a recipe and an ingredient share a name, Check offers the recipe first, each labelled (F189)', async ({ page }) => {
+  const batter = unique('Dosa batter');
+  const recipe = await api(page, 'post', '/recipes', { name: batter });
+  await api(page, 'post', '/foods', { name: batter, counted_as: 'volume' });
+  await checking(page, {
+    name: unique('Masala dosa'),
+    lines: [needsLine(`${batter}, as above · 4 cups`, batter)],
+    steps: [{ kind: 'step', text: 'Fry it.' }],
+    counts: { matched: 0, to_confirm: 0, needs_you: 1, staple: 0 },
+    left_out: [],
+  });
+  await page.getByRole('button', { name: 'Pick an ingredient', exact: true }).click();
+  await expect(page.getByRole('heading', { name: `What is “${batter}”?` })).toBeVisible();
+  const rows = page.getByRole('list', { name: 'Matching ingredients and recipes' }).getByRole('listitem');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText('Recipe');
+  await expect(rows.nth(1)).toContainText('Ingredient');
+  await expect(page.getByText('When a recipe and an ingredient share a name, the recipe comes first.')).toBeVisible();
+  await checkPage(page);
+  await rows.nth(0).getByRole('button').click();
+  await expect(page.getByText('Made in another recipe:', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  const id = Number(page.url().split('/').pop());
+  const saved = (await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as Json;
+  expect(saved.lines[0]).toMatchObject({ link: 'recipe', recipe: { id: recipe.id } });
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+});
+
+test('Save with unlinked lines can pick a recipe too (F189: every picker that links a line)', async ({ page }) => {
+  const batter = unique('Idli batter');
+  const recipe = await api(page, 'post', '/recipes', { name: batter });
+  await checking(page, {
+    name: unique('Idli'),
+    lines: [needsLine(`${batter}, as above`, batter)],
+    steps: [{ kind: 'step', text: 'Steam it.' }],
+    counts: { matched: 0, to_confirm: 0, needs_you: 1, staple: 0 },
+    left_out: [],
+  });
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  const sheet = page.getByRole('dialog', { name: '1 line isn’t linked yet' });
+  await sheet.getByRole('button', { name: 'Made in another recipe', exact: true }).click();
+  await sheet.getByRole('button', { name: new RegExp(`^${batter}`) }).click();
+  // The last card is not shown when nothing is left unlinked: the sheet closes, and Save again works.
+  await expect(sheet).toBeHidden();
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  const id = Number(page.url().split('/').pop());
+  const saved = (await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as Json;
+  expect(saved.lines[0]).toMatchObject({ link: 'recipe', recipe: { id: recipe.id } });
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+});
+
+test('the Check header: the title sits in from the edge, and the step note drops under it when there is no room (cabledrawer 9 Nov)', async ({ page }) => {
+  await answer(page, 200, review({ name: unique('Sambar') }));
+  await page.setViewportSize(onPhone() ? { width: 320, height: 700 } : { width: 1280, height: 900 });
+  await page.goto('/recipes/import');
+  await box(page).fill('https://bananaleaf.example/sambar/');
+  await read(page).click();
+  const title = page.getByRole('heading', { level: 1 });
+  await expect(title).toHaveText('Check before saving');
+  if (onPhone()) {
+    const note = page.getByText('Step 2 of 3 · nothing saved yet', { exact: true });
+    const counts = page.getByLabel('What was found');
+    // In from the edge: further right than the counts under it, which start at the header's own padding.
+    const t = (await title.boundingBox())!;
+    expect(t.x - (await counts.boundingBox())!.x).toBeGreaterThanOrEqual(6);
+    // 320 px: no room for both on a line, so the note is under the title, at its left.
+    const dropped = (await note.boundingBox())!;
+    expect(dropped.y).toBeGreaterThanOrEqual(t.y + t.height - 2);
+    expect(Math.abs(dropped.x - t.x)).toBeLessThan(4);
+    await expectNoSidewaysScroll(page);
+    // 600 px: room, so it stays on the title's line, at the right.
+    await page.setViewportSize({ width: 600, height: 700 });
+    const wide = (await note.boundingBox())!;
+    const t2 = (await title.boundingBox())!;
+    expect(wide.y).toBeLessThan(t2.y + t2.height);
+    expect(wide.x).toBeGreaterThan(t2.x + t2.width);
+  } else {
+    // The computer's header: the title is in from the edge, and the steps are beside it or under it, never over it.
+    const t = (await title.boundingBox())!;
+    expect(t.x).toBeGreaterThan(8);
+    const steps = (await page.getByRole('list', { name: 'Import steps' }).boundingBox())!;
+    const overlaps = steps.x < t.x + t.width && steps.x + steps.width > t.x && steps.y < t.y + t.height && steps.y + steps.height > t.y;
+    expect(overlaps).toBe(false);
+    await page.setViewportSize({ width: 800, height: 900 });
+    const narrow = (await title.boundingBox())!;
+    const steps2 = (await page.getByRole('list', { name: 'Import steps' }).boundingBox())!;
+    const overlaps2 = steps2.x < narrow.x + narrow.width && steps2.x + steps2.width > narrow.x && steps2.y < narrow.y + narrow.height && steps2.y + steps2.height > narrow.y;
+    expect(overlaps2).toBe(false);
+    await expectNoSidewaysScroll(page);
+  }
+});

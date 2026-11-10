@@ -15,7 +15,8 @@
     subtitle,
     count,
     parent,
-    actions
+    actions,
+    dropActions = false
   }: {
     title: string;
     overline?: string;
@@ -35,6 +36,11 @@
     };
     /** The page's main button(s), beside the title ("+ Add to pantry"). */
     actions?: Snippet;
+    /**
+     * Let the actions drop under the title, at its left, when the two don't fit on one line,
+     * instead of squeezing the title (cabledrawer 9 Nov, the Check header: the three import steps).
+     */
+    dropActions?: boolean;
   } = $props();
 </script>
 
@@ -42,7 +48,7 @@
   <title>{title} · Mealwright</title>
 </svelte:head>
 
-<header class="page-header" class:has-count={!!count}>
+<header class="page-header" class:has-count={!!count} class:drop={dropActions}>
   <div class="titles">
     {#if parent}
       <a class="back" href={resolve(parent.href)}>
@@ -98,6 +104,17 @@
   .count {
     grid-column: 1 / -1;
     min-width: 0;
+  }
+
+  /* The actions go under the title, at its left, when there isn't room beside it. */
+  .page-header.drop {
+    flex-wrap: wrap;
+    row-gap: var(--space-4);
+  }
+
+  .drop .actions {
+    margin-left: 0;
+    justify-content: flex-start;
   }
 
   .titles {
