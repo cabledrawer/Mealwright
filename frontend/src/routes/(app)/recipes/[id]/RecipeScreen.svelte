@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { timeParts, waitLength, waitName } from '#lib/timeWords.js';
+  import { timeParts, timeWords, waitLength, waitName } from '#lib/timeWords.js';
   // The recipe page on the phone (mockups Recipe and Dark-Phone-Recipe, spec section 6 "Recipes"
   // and "Stock", cabledrawer's answers of 19 and 20 Oct): the name, the time, Cook now, nutrition per serving, the ingredients with where each one
   // is and a − / + for servings (on screen only), "N missing · Add to the list", the method, tags and where it
@@ -278,6 +278,21 @@
           </p>
         {/if}
       </header>
+
+      {#if recipe.methods && recipe.methods.length > 1}
+        <!-- Two ways of cooking it (M2, mockup RecipeMethods08): the switch changes the
+             ingredients, the steps and the time together. -->
+        <div class="method-switch" role="group" aria-label="Method">
+          {#each recipe.methods as way (way.id)}
+            <button
+              type="button"
+              aria-pressed={(view.methodId ?? recipe.methods[0]?.id) === way.id}
+              onclick={() => view.setMethod(way.id)}
+              >{way.name}{way.time_minutes ? ` · ${timeWords(way.time_minutes)}` : ''}</button
+            >
+          {/each}
+        </div>
+      {/if}
 
       {#if !network.offline}
         <!-- Cook now: the main button above the ingredients (spec "Cook mode (K4)"; Plan it
@@ -770,6 +785,29 @@
 
   .waits {
     color: var(--color-wait-text);
+  }
+
+  .method-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 3px;
+    border-radius: var(--radius-full);
+    background: var(--color-fill);
+  }
+
+  .method-switch button {
+    min-height: 40px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-text);
+    font: var(--weight-bold) var(--text-md) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .method-switch button[aria-pressed='true'] {
+    background: var(--color-segment-active);
+    font-weight: var(--weight-extrabold);
   }
 
   /* A step that waits (M1): "Marinate · 4 h – overnight", under the step's words. */

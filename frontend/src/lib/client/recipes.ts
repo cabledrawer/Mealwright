@@ -40,6 +40,8 @@ export interface RecipeRow extends RecipeBrief {
   ingredient_count: number;
   /** How many of its ingredient lines are Optional: adding it to the plan asks about them. */
   optional_count?: number;
+  /** How many ways of cooking it: 1, or 2 (M2). */
+  method_count?: number;
   /** Per serving; null is unknown, never 0. */
   kcal: number | null;
   stock: StockHint | null;
@@ -162,6 +164,22 @@ export interface RecipeSource {
   author: string | null;
 }
 
+/** A way of cooking a recipe (M2): its name, time and whether it was used last. */
+export interface RecipeMethodRef {
+  id: number;
+  /** Empty for the only method of a recipe. */
+  name: string;
+  time_minutes: number | null;
+  wait?: StepWait | null;
+  used_last: boolean;
+}
+
+/** The second method with its own lines and steps (the first is the recipe's own). */
+export interface SecondMethod extends RecipeMethodRef {
+  lines: RecipeLine[];
+  steps: RecipeStep[];
+}
+
 export interface Recipe {
   id: number;
   name: string;
@@ -178,6 +196,9 @@ export interface Recipe {
   nutrition: RecipeNutrition;
   lines: RecipeLine[];
   steps: RecipeStep[];
+  /** The ways of cooking it (M2): one, or two. Older answers may leave them out. */
+  methods?: RecipeMethodRef[];
+  second_method?: SecondMethod | null;
   source_note: string | null;
   /** Set for a recipe imported from a link. Older answers may leave it out. */
   source?: RecipeSource | null;
@@ -217,11 +238,20 @@ export type StepOut = RecipeStep;
 
 export const getRecipe = (id: number | string) => api<RecipeOut>('GET', `/recipes/${id}`);
 /** `servings` is what − / + chose (1 to 99); left out, the recipe's own Serves is used. */
-export const getRecipeStock = (id: number | string, servings?: number | null) =>
-  api<RecipeStock>(
+export const getRecipeStock = (
+  id: number | string,
+  servings?: number | null,
+  method?: number | null
+) => {
+  const query = [
+    servings === undefined || servings === null ? '' : `servings=${servings}`,
+    method === undefined || method === null ? '' : `method=${method}`
+  ].filter(Boolean);
+  return api<RecipeStock>(
     'GET',
-    `/recipes/${id}/stock${servings === undefined || servings === null ? '' : `?servings=${servings}`}`
+    `/recipes/${id}/stock${query.length ? `?${query.join('&')}` : ''}`
   );
+};
 
 // --- The editor ---------------------------------------------------------------------------
 

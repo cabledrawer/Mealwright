@@ -14,7 +14,23 @@ import type { StepWait } from './timeWords';
 export const STOCK_WAIT_MS = 300;
 
 export class RecipeView {
-  recipe = $state<Recipe | null>(null);
+  /** The recipe as the server sent it: the first method's lines and steps, and the second's. */
+  full = $state<Recipe | null>(null);
+  /** The way of cooking it the page shows (M2); null: the first. */
+  methodId = $state<number | null>(null);
+  /** What the page shows: the recipe with the lines, steps and time of the chosen method. */
+  readonly recipe = $derived.by<Recipe | null>(() => {
+    const full = this.full;
+    const second = full?.second_method;
+    if (!full || !second || this.methodId !== second.id) return full;
+    return {
+      ...full,
+      lines: second.lines,
+      steps: second.steps,
+      time_minutes: second.time_minutes,
+      wait: second.wait ?? null
+    };
+  });
   stock = $state<RecipeStock | null>(null);
   /** False until the first answer, so the page can say "Loading…". */
   loaded = $state(false);
@@ -66,6 +82,12 @@ export class RecipeView {
     }, STOCK_WAIT_MS);
   }
 
+  /** Show another way of cooking it (M2): its lines, steps and time, and the stock marks for it. */
+  setMethod(id: number | null): void {
+    this.methodId = id;
+    void this.#refreshStock();
+  }
+
   /** Leaving the page: nothing more is asked. */
   stop(): void {
     if (this.#timer !== null) clearTimeout(this.#timer);
@@ -78,7 +100,7 @@ export class RecipeView {
   async #refreshStock(): Promise<void> {
     const asked = ++this.#stockAsked;
     try {
-      const stock = await getRecipeStock(this.id, this.chosen);
+      const stock = await getRecipeStock(this.id, this.chosen, this.methodId);
       if (asked === this.#stockAsked) this.stock = stock;
     } catch (error) {
       if (asked !== this.#stockAsked) return;
@@ -95,7 +117,7 @@ export class RecipeView {
     try {
       const [recipe, stock] = await Promise.all([
         getRecipe(this.id),
-        getRecipeStock(this.id, this.chosen).catch((error: unknown) => {
+        getRecipeStock(this.id, this.chosen, this.methodId).catch((error: unknown) => {
           // The recipe itself missing is the recipe's answer to give; anything else just
           // means no marks this time.
           if (error instanceof ApiError && error.status === 404) throw error;
@@ -103,7 +125,9 @@ export class RecipeView {
         })
       ]);
       if (asked !== this.#asked) return;
-      this.recipe = recipe;
+      this.full = recipe;
+      if (this.methodId !== null && !recipe.methods?.some((m) => m.id === this.methodId))
+        this.methodId = null; // that way of cooking it is gone
       // A newer stock answer (after − / +) is the one to keep.
       if (stockAsked === this.#stockAsked) this.stock = stock;
       this.gone = false;
@@ -112,7 +136,7 @@ export class RecipeView {
       if (asked !== this.#asked) return;
       if (error instanceof ApiError && error.status === 404) {
         this.gone = true;
-        this.recipe = null;
+        this.full = null;
         this.stock = null;
       } else {
         this.problem = cantReach(error)
