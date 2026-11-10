@@ -6,7 +6,7 @@
   // the mockup has them.
   import { keptBySaid } from '#lib/keptByWords.js';
   import { network } from '#lib/network.svelte.js';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { holdUndo } from '#lib/undo.svelte.js';
   import type { LinePick } from './PickLine.svelte';
   import type { ImportFlow } from '#lib/import.svelte.js';
@@ -83,9 +83,24 @@
     flow.walkNext();
   }
 
+  /** The words of the button that opened the pick-list: Cancel puts the cursor back on that
+   *  button (drawn again when the list closes, so found by its words). */
+  let opener: string | null = null;
+
   function openPick(recipesOnly: boolean) {
+    opener = document.activeElement?.textContent?.trim() || null;
     pickingRecipes = recipesOnly;
     picking = true;
+  }
+
+  async function closePick() {
+    picking = false;
+    await tick();
+    const back = [...(dialog?.querySelectorAll<HTMLElement>('button') ?? [])].find(
+      (b) => b.textContent?.trim() === opener
+    );
+    back?.focus();
+    opener = null;
   }
 </script>
 
@@ -148,7 +163,7 @@
               picking = false;
               newIngredient(false);
             }}
-            oncancel={() => (picking = false)}
+            oncancel={closePick}
           />
         {/await}
       {:else}

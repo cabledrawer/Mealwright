@@ -400,6 +400,26 @@ describe('Import a recipe', () => {
       expect(flow.choices[2]).toMatchObject({ name: 'Hing' });
     });
 
+    it('puts the cursor back on Pick an ingredient when the pick-list is cancelled (W4d review L4)', async () => {
+      await reviewing();
+      const chip = page.getByRole('button', { name: 'Pick an ingredient' });
+      await chip.click();
+      const search = page.getByRole('searchbox', { name: 'Search' });
+      await expect.element(search).toHaveFocus();
+      await userEvent.keyboard('{Escape}');
+      await expect.element(chip).toHaveFocus();
+    });
+
+    it('puts the cursor on Add a line when an added line is cancelled before it has a name (W4d review L4)', async () => {
+      await reviewing();
+      const add = page.getByRole('button', { name: /^Add a line/ }).last();
+      await add.click();
+      // The added line's own Cancel (the page has a Cancel too).
+      await expect.element(page.getByRole('textbox', { name: 'Name' }).last()).toBeVisible();
+      document.querySelector<HTMLElement>('li[data-added] button.quiet')!.click();
+      await expect.element(page.getByRole('button', { name: /^Add a line/ }).last()).toHaveFocus();
+    });
+
     it('asks “Pantry keeps it by” with its hint on a new ingredient (F119)', async () => {
       await reviewing();
       await page.getByRole('button', { name: 'New ingredient' }).first().click();
@@ -491,6 +511,17 @@ describe('Import a recipe', () => {
       handleUndoKey(again);
       expect(again.defaultPrevented).toBe(true);
       await vi.waitFor(() => expect(flow.review!.lines).toHaveLength(3));
+    });
+
+    it('the Save sheet puts the cursor back on Pick another when its pick-list is cancelled (W4d review L4)', async () => {
+      await reviewing();
+      await page.getByRole('button', { name: 'Save recipe' }).click();
+      const sheet = page.getByRole('dialog', { name: '2 lines aren’t linked yet' });
+      await expect.element(sheet).toBeVisible();
+      await sheet.getByRole('button', { name: 'Pick another' }).click();
+      await expect.element(sheet.getByRole('searchbox', { name: 'Search' })).toHaveFocus();
+      await userEvent.keyboard('{Escape}');
+      await expect.element(sheet.getByRole('button', { name: 'Pick another' })).toHaveFocus();
     });
 
     it('the Save sheet offers Made in this recipe, first for a "from the …" line (F108)', async () => {

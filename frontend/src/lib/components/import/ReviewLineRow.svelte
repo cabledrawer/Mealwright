@@ -170,9 +170,17 @@
     rowEl?.querySelector<HTMLElement>('.buttons button')?.focus();
   }
 
-  /** Cancel on a line not named yet: it goes, with nothing to undo. */
-  function giveUp() {
+  /** Cancel on a line not named yet: it goes, with nothing to undo, and the cursor goes to the
+   *  "Add a line" of its section, which follows it in See all. */
+  async function giveUp() {
+    const list = rowEl?.closest('ul');
+    const ends = list ? [...list.querySelectorAll<HTMLElement>('li.add-line button')] : [];
+    const mine = ends.findIndex(
+      (b) => !!rowEl && !!(rowEl.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    );
     flow.dropBlank(index);
+    await tick();
+    if (mine >= 0) list?.querySelectorAll<HTMLElement>('li.add-line button')[mine]?.focus();
   }
 
   /** Something picked from the list: an ingredient ("Same as"), or a recipe that makes it. */
@@ -182,9 +190,24 @@
     else flow.useRecipe(index, picked.recipe);
   }
 
+  /** The words of the button that opened the pick-list: Cancel puts the cursor back on that
+   *  button (drawn again when the list closes, so found by its words). */
+  let opener: string | null = null;
+
   function openPick(recipesOnly: boolean) {
+    opener = document.activeElement?.textContent?.trim() || null;
     pickingRecipes = recipesOnly;
     picking = true;
+  }
+
+  async function closePick() {
+    picking = false;
+    await tick();
+    const back = [...(rowEl?.querySelectorAll<HTMLElement>('button') ?? [])].find(
+      (b) => b.textContent?.trim() === opener
+    );
+    back?.focus();
+    opener = null;
   }
 
   function makeNew(staple: boolean) {
@@ -703,7 +726,7 @@
                   picking = false;
                   makeNew(false);
                 }}
-                oncancel={() => (picking = false)}
+                oncancel={closePick}
               />
             {/await}
           {:else}

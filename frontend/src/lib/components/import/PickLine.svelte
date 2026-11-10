@@ -110,7 +110,10 @@
       .join(' · ');
   }
 
+  /** Enter: the first row, only once the list answers what is typed now (a slow answer for
+   *  fewer letters could link the wrong thing). */
   function pickFirst() {
+    if (!current) return;
     const first = rows[0];
     if (!first) return;
     if (first.kind === 'ingredient') {
