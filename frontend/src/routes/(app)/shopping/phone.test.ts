@@ -3,6 +3,7 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
+import NewIngredient from '#lib/components/NewIngredient.svelte';
 import Toast from '#lib/components/Toast.svelte';
 import { ME, fakeShopping, item, sampleCopy, tick } from '#lib/testing/fakeShopping.js';
 import { dropPhone, freshPhone } from '#lib/testing/phone.js';
@@ -40,7 +41,7 @@ describe('Shopping on the phone', () => {
   let server: ReturnType<typeof fakeShopping>;
 
   function mountShopping() {
-    for (const component of [Shopping, Toast]) {
+    for (const component of [Shopping, Toast, NewIngredient]) {
       const target = document.body.appendChild(document.createElement('div'));
       mounted.push(mount(component, { target }));
     }
@@ -83,6 +84,21 @@ describe('Shopping on the phone', () => {
       expect(server.actions[0]).toMatchObject({ kind: 'add', as_bought: true });
       // One toast, with where it went and Undo.
       await expect.element(page.getByRole('status').filter({ hasText: 'Tahini' })).toBeVisible();
+    });
+
+    it('a new ingredient bought on the spot is named in the toast, not "Ingredient" (F226)', async () => {
+      await render({
+        'GET /foods?q=paprika&limit=8': [200, { foods: [], total: 0, counts: {}, next: null }],
+        'GET /foods/guess?name=paprika': [200, { counted_as: 'weight', from_table: true }]
+      });
+      await page.getByRole('textbox', { name: 'Add an item' }).fill('paprika');
+      await page.getByRole('button', { name: '+ New ingredient, as bought: “paprika”' }).click();
+      await expect.element(page.getByRole('heading', { name: 'Pantry keeps it by' })).toBeVisible();
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
+      // The toast is worded again when the server's answer comes, with the real ingredient.
+      await vi.waitFor(() => expect(kinds()).toEqual(['add', 'tick']));
+      await vi.waitFor(() => expect(toasts.current?.message).toMatch(/^paprika /));
+      expect(toasts.current?.message).not.toMatch(/Ingredient/);
     });
 
     it('says where it will go, under the button', async () => {

@@ -755,7 +755,9 @@ export class ShoppingModel {
    */
   #tickState(item: ListItem, actionId: string): { label: string; state: PutAway } {
     const row = this.item(item.id) ?? item;
-    const food = this.food(item.food_id);
+    // The line as it is now: a new ingredient's line gets its real ingredient when the server
+    // answers, so the ID the caller holds may be the phone's temporary one (F226).
+    const food = this.food(row.food_id) ?? this.food(item.food_id);
     const name = food?.name ?? 'Ingredient';
     const place = this.placeName(this.placeOf(row, actionId));
     const state = putAwayState(
