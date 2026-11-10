@@ -8,6 +8,7 @@
 import { ApiError, cantReachWords, cantReach } from './api';
 import { getRecipe, getRecipeStock, type Recipe, type RecipeStock } from './client/recipes';
 import { MAX_SERVES, MIN_SERVES, factorOf } from './recipeAmounts';
+import type { StepWait } from './timeWords';
 
 /** How long to wait after the last − / + before asking for the stock again. */
 export const STOCK_WAIT_MS = 300;
@@ -131,25 +132,28 @@ export type StepGroup = {
   steps: string[];
   /** Which of `steps` are Optional steps, one for one. */
   optional: boolean[];
+  /** The wait on each of `steps` (marinate, soak...), one for one; null for none. */
+  waits: (StepWait | null)[];
 };
 
 export function stepGroups(
-  steps: { kind: 'step' | 'heading'; text: string; optional?: boolean }[]
+  steps: { kind: 'step' | 'heading'; text: string; optional?: boolean; wait?: StepWait | null }[]
 ): StepGroup[] {
   const groups: StepGroup[] = [];
   let number = 0;
   for (const step of steps) {
     if (step.kind === 'heading') {
-      groups.push({ heading: step.text, start: number + 1, steps: [], optional: [] });
+      groups.push({ heading: step.text, start: number + 1, steps: [], optional: [], waits: [] });
       continue;
     }
     let group = groups.at(-1);
     if (!group) {
-      group = { heading: null, start: number + 1, steps: [], optional: [] };
+      group = { heading: null, start: number + 1, steps: [], optional: [], waits: [] };
       groups.push(group);
     }
     group.steps.push(step.text);
     group.optional.push(!!step.optional);
+    group.waits.push(step.wait ?? null);
     number++;
   }
   return groups;

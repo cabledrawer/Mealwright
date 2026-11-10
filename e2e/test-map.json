@@ -141,16 +141,17 @@
       "name": "Recipes",
       "paths": [
         "backend/src/mealwright/recipes.py", "backend/src/mealwright/recipe_list.py", "backend/src/mealwright/photos.py",
-        "backend/src/mealwright/pints.py", "backend/src/mealwright/api/v1/recipe*.py", "backend/src/mealwright/api/v1/photos.py",
+        "backend/src/mealwright/pints.py", "backend/src/mealwright/step_waits.py", "backend/src/mealwright/api/v1/recipe*.py", "backend/src/mealwright/api/v1/photos.py",
         "frontend/src/routes/(app)/recipes/+*", "frontend/src/routes/(app)/recipes/[id]/**", "frontend/src/routes/(app)/recipes/new/**",
         "frontend/src/routes/(app)/recipes/page.test.ts",
         "frontend/src/lib/components/recipe/**", "frontend/src/lib/components/Recipe*", "frontend/src/lib/components/NewRecipeChoice*",
         "frontend/src/lib/components/ServingsStepper.svelte", "frontend/src/lib/components/NutritionStrip.svelte", "frontend/src/lib/components/ZoomPhoto.svelte",
         "frontend/src/lib/components/ChooseRecipe.svelte", "frontend/src/lib/components/FilterChips.svelte",
-        "frontend/src/lib/recipe*", "frontend/src/lib/recipes/**", "frontend/src/lib/client/recipes.ts", "frontend/src/lib/photoFallback*"
+        "frontend/src/lib/recipe*", "frontend/src/lib/recipes/**", "frontend/src/lib/client/recipes.ts", "frontend/src/lib/photoFallback*",
+        "frontend/src/lib/timeWords*"
       ],
       "backend": [
-        "test_recipe*.py", "test_photos.py", "test_pints.py", "test_step_links.py", "test_recipes_isolation.py"
+        "test_recipe*.py", "test_photos.py", "test_pints.py", "test_step_links.py", "test_step_waits.py", "test_recipes_isolation.py"
       ],
       "browser": [
         "recipes.spec.ts", "recipe-page.spec.ts", "recipe-photos.spec.ts", "recipes-panes.spec.ts", "recipe-editor.spec.ts",

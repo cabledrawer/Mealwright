@@ -316,6 +316,31 @@ describe('the recipe page', () => {
     await expect.element(page.getByText('Nutrition unknown')).toBeVisible();
   });
 
+  it('splits the time into active time and the wait, and marks the step that waits (M1)', async () => {
+    const wait = { kind: 'marinate', min_minutes: 240, max_minutes: 720, overnight: true };
+    await open({
+      time_minutes: 45,
+      wait,
+      steps: SAMBAR.steps.map((st) => (st.id === 4 ? { ...st, wait } : st))
+    });
+    await expect.element(page.getByText('Stir it in.')).toBeVisible();
+    const meta = document.querySelector('.meta')?.textContent ?? '';
+    expect(meta).toContain('45\u00a0min active');
+    expect(meta).toContain('plus 4\u00a0h – overnight marinating');
+    expect(document.querySelector('.method li:last-child [data-step-wait]')?.textContent).toContain(
+      'Marinate · 4\u00a0h – overnight'
+    );
+    expect(document.querySelectorAll('[data-step-wait]').length).toBe(1);
+  });
+
+  it('a recipe with no wait shows its single time and no chip (M1)', async () => {
+    await open({ time_minutes: 745, wait: null });
+    await expect.element(page.getByText('Stir it in.')).toBeVisible();
+    expect(document.querySelector('.meta')?.textContent).toContain('12\u00a0h\u00a025\u00a0min');
+    expect(document.body.textContent).not.toContain('active');
+    expect(document.querySelectorAll('[data-step-wait]').length).toBe(0);
+  });
+
   it('marks an optional line "Optional" and an optional step "Optional step" (R3)', async () => {
     await open({
       lines: lines.map((l) => (l.id === 3 ? { ...l, optional: true } : l)),

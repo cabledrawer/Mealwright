@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { timeWords } from '#lib/timeWords.js';
+  import { timePlusWait } from '#lib/timeWords.js';
   // The recipe tray (mockup Desktop-Plan): a slim strip under the plan, collapsible. Drag a recipe
   // up onto a day to plan it; or click it (or press Enter) to choose the day and meal from a
   // menu. Filters are the ones All recipes has: Can cook now, Use soon.
@@ -168,9 +168,7 @@
                 <span class="meta"
                   >{recipe.use_soon
                     ? 'Uses ' + (recipe.use_soon.foods[0]?.name ?? 'something to use soon')
-                    : recipe.time_minutes
-                      ? timeWords(recipe.time_minutes)
-                      : ''}</span
+                    : timePlusWait(recipe.time_minutes, recipe.wait)}</span
                 >
               </span>
             </button>

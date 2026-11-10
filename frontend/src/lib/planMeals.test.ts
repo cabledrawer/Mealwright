@@ -88,6 +88,13 @@ describe('a meal card’s words', () => {
     expect(recipeMeta(dosa)).toBe('serves 4 · 15\u00a0min · 123 kcal each');
     dosa.recipe = { ...dosa.recipe!, time_minutes: 745 };
     expect(recipeMeta(dosa)).toBe('serves 4 · 12\u00a0h\u00a025\u00a0min · 123 kcal each');
+    // A recipe that waits (M1): the active time and the wait, short.
+    dosa.recipe = {
+      ...dosa.recipe!,
+      time_minutes: 25,
+      wait: { kind: 'ferment', min_minutes: 480, max_minutes: 720, overnight: false }
+    };
+    expect(recipeMeta(dosa)).toBe('serves 4 · 25\u00a0min + 8\u00a0h – 12\u00a0h · 123 kcal each');
     // A meal with no Serves of its own shows the recipe's; a recipe without any, none.
     const older = recipe(3, 'Rasam');
     older.recipe = { ...older.recipe!, serves: 6, kcal: 80 };

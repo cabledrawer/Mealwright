@@ -51,12 +51,24 @@ export function waitLength(wait: StepWait): string {
   return wait.max_minutes > wait.min_minutes ? `${low} – ${timeWords(wait.max_minutes)}` : low;
 }
 
+/** A recipe's time as two parts: the active time ("45 min active" once it has a wait, "45 min"
+ *  without) and the wait ("plus 4 h – overnight marinating"; no "plus" without active time). */
+export function timeParts(
+  minutes: number | null,
+  wait: StepWait | null | undefined
+): { active: string | null; wait: string | null } {
+  if (!wait) return { active: minutes === null ? null : timeWords(minutes), wait: null };
+  const waiting = `${waitLength(wait)} ${waitDoing(wait.kind)}`;
+  return minutes === null
+    ? { active: null, wait: waiting }
+    : { active: `${timeWords(minutes)} active`, wait: `plus ${waiting}` };
+}
+
 /** A recipe's time with its waits: "45 min active · plus 4 h – overnight marinating", or just
  *  "45 min" when nothing waits, or "4 h – overnight marinating" when there is no active time. */
 export function timeWithWait(minutes: number | null, wait: StepWait | null | undefined): string {
-  if (!wait) return minutes === null ? '' : timeWords(minutes);
-  const waiting = `${waitLength(wait)} ${waitDoing(wait.kind)}`;
-  return minutes === null ? waiting : `${timeWords(minutes)} active · plus ${waiting}`;
+  const { active, wait: waiting } = timeParts(minutes, wait);
+  return [active, waiting].filter(Boolean).join(' · ');
 }
 
 /** The short form for a card or a list line: "45 min + 4 h – overnight". */

@@ -2,7 +2,7 @@
 // on its own (planMeals.test.ts).
 
 import type { MealSlot, Person, Plan, PlanBatch, PlanItem, PlanMeal, PlanTub } from './client/plan';
-import { timeWords } from './timeWords';
+import { timePlusWait } from './timeWords';
 
 /** A thing in a meal, in words: the recipe's name, the ingredient's name, or the tub's. */
 export function itemName(item: PlanItem, plan: Plan | null = null): string {
@@ -30,7 +30,8 @@ export function recipeMeta(item: PlanItem): string {
   const parts: string[] = [];
   const serves = item.servings ?? item.recipe?.serves;
   if (serves) parts.push(`serves ${serves}`);
-  if (item.recipe?.time_minutes) parts.push(timeWords(item.recipe.time_minutes));
+  const time = timePlusWait(item.recipe?.time_minutes ?? null, item.recipe?.wait);
+  if (time) parts.push(time);
   if (item.recipe?.kcal != null) parts.push(`${item.recipe.kcal} kcal each`);
   return parts.join(' · ');
 }

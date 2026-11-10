@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { timeWords } from '#lib/timeWords.js';
+  import { timeParts, waitLength, waitName } from '#lib/timeWords.js';
   // The recipe page on the phone (mockups Recipe and Dark-Phone-Recipe, spec section 6 "Recipes"
   // and "Stock", cabledrawer's answers of 19 and 20 Oct): the name, the time, Cook now, nutrition per serving, the ingredients with where each one
   // is and a − / + for servings (on screen only), "N missing · Add to the list", the method, tags and where it
@@ -185,9 +185,12 @@
     if (!recipe) return [];
     const parts: string[] = [];
     if (recipe.description) parts.push(recipe.description);
-    if (recipe.time_minutes !== null) parts.push(timeWords(recipe.time_minutes));
+    const { active } = timeParts(recipe.time_minutes, recipe.wait);
+    if (active) parts.push(active);
     return parts;
   });
+  /** "plus 4 h – overnight marinating": the recipe's waits, after its active time (M1). */
+  const waitText = $derived(timeParts(recipe?.time_minutes ?? null, recipe?.wait).wait);
   const makesNow = $derived(recipe?.makes ? makesAmount(recipe.makes, factor) : null);
   /** Without Serves, "Makes …" sits between − and + instead of in the quiet line. */
   const makesStepper = $derived(
@@ -267,8 +270,12 @@
       {#if !panes}<RecipePhoto photo={recipe.photo} name={recipe.name} />{/if}
       <header>
         <h1>{recipe.name}</h1>
-        {#if meta.length || makes}
-          <p class="meta">{[...meta, ...(makes ? [makes] : [])].join(' · ')}</p>
+        {#if meta.length || makes || waitText}
+          <p class="meta">
+            {[...meta, ...(makes ? [makes] : [])].join(' · ')}{#if waitText}{meta.length || makes
+                ? ' · '
+                : ''}<span class="waits">{waitText}</span>{/if}
+          </p>
         {/if}
       </header>
 
@@ -370,6 +377,21 @@
                         {#if group.optional[j]}<span class="opt">Optional step</span>{/if}<span
                           >{text}</span
                         >
+                        {#if group.waits[j]}
+                          <span class="wait-chip" data-step-wait
+                            ><svg
+                              aria-hidden="true"
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2.4"
+                              stroke-linecap="round"
+                              ><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg
+                            >{waitName(group.waits[j]!.kind)} · {waitLength(group.waits[j]!)}</span
+                          >
+                        {/if}
                       </li>
                     {/each}
                   </ol>
@@ -743,6 +765,21 @@
     background: var(--color-chip);
     color: var(--color-text-muted);
     font: var(--weight-bold) var(--text-sm) var(--font-ui);
+    white-space: normal;
+  }
+
+  /* A step that waits (M1): "Marinate · 4 h – overnight", under the step's words. */
+  .wait-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: fit-content;
+    margin-top: var(--space-3);
+    padding: 3px var(--space-5);
+    border-radius: var(--radius-full);
+    background: var(--color-chip);
+    color: var(--color-text);
+    font: var(--weight-extrabold) var(--text-sm) var(--font-ui);
     white-space: normal;
   }
 

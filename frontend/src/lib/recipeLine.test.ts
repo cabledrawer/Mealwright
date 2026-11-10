@@ -34,6 +34,20 @@ describe('the line under a recipe', () => {
     expect(recipeLine(recipe({ time_minutes: 60 }))).toBe('1 h · 320 kcal · all in stock but 1');
   });
 
+  it('splits the time into active time and the wait when a step waits (M1)', () => {
+    const wait = { kind: 'marinate', min_minutes: 240, max_minutes: 720, overnight: true };
+    expect(recipeLine(recipe({ time_minutes: 45, wait }))).toBe(
+      '45\u00a0min active · plus 4\u00a0h – overnight marinating · 320\u00a0kcal · all in stock but 1'
+    );
+    expect(recipeLine(recipe({ time_minutes: null, wait }))).toBe(
+      '4\u00a0h – overnight marinating · 320\u00a0kcal · all in stock but 1'
+    );
+    // A recipe made before waits keeps its single time.
+    expect(recipeLine(recipe({ time_minutes: 745, wait: null }))).toBe(
+      '12\u00a0h\u00a025\u00a0min · 320\u00a0kcal · all in stock but 1'
+    );
+  });
+
   it('leaves out the time when it is not known', () => {
     expect(recipeLine(recipe({ time_minutes: null }))).toBe('320 kcal · all in stock but 1');
   });
