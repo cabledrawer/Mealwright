@@ -390,8 +390,8 @@ def _step_lines_in_range(lines: list[RecipeLineIn], steps: list[RecipeStepIn]) -
                 raise ValueError("A step can only use the recipe's own ingredient lines.")
 
 
-class MethodIn(BaseModel):
-    """The recipe's second way of cooking it (M2, cabledrawer 9 Nov): its own name, time, ingredient
+class SecondMethodIn(BaseModel):
+    """The recipe's second way of cooking it (M2): its own name, time, ingredient
     lines and steps. A recipe has at most two methods. The first is the recipe's own `lines`,
     `steps` and `time_minutes`."""
 
@@ -409,7 +409,7 @@ class MethodIn(BaseModel):
         return cleaned
 
     @model_validator(mode="after")
-    def _check(self) -> MethodIn:
+    def _check(self) -> SecondMethodIn:
         _ids_once(self.lines)
         _step_lines_in_range(self.lines, self.steps)
         return self
@@ -439,7 +439,7 @@ class RecipeIn(BaseModel):
     # Left out: the second method stays as it is (an old client that knows nothing of methods
     # never loses it). null: remove it.
     method_name: Annotated[str, Field(max_length=MAX_METHOD_NAME)] | None = None
-    second_method: MethodIn | None = None
+    second_method: SecondMethodIn | None = None
     source_note: Annotated[str, Field(max_length=500)] | None = None
     # The recipe's photo: the id from `POST /recipes/photos`, or the one it has already.
     # Left out: the photo stays as it is. null: no photo (the one it had is deleted on

@@ -708,7 +708,7 @@ def set_plan_item_optional(
     )
 
 
-class MethodIn(BaseModel):
+class PlanMethodIn(BaseModel):
     method_id: StoredInt = Field(
         description="The id of the way of cooking it, from the recipe's `methods`."
     )
@@ -716,7 +716,7 @@ class MethodIn(BaseModel):
 
 @router.put("/plan/items/{plan_item_id}/method")
 def set_plan_item_method(
-    plan_item_id: StoredInt, body: MethodIn, kitchen: Here, response: Response
+    plan_item_id: StoredInt, body: PlanMethodIn, kitchen: Here, response: Response
 ) -> PlanWrite:
     """Which way of cooking a planned recipe uses (M2): the shopping list, Can cook now and
     Cooked it follow. The Optional picks start again. Already that way → `change: null`. Only

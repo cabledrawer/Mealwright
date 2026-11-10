@@ -336,6 +336,28 @@ def test_a_method_that_is_not_the_recipes_is_refused(
         assert (r.status_code, r.json()["code"]) == (422, "not_a_method"), r.text
 
 
+def test_another_recipes_method_is_refused_too(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    """A method id belongs to one recipe: another recipe's (or another household's) is refused."""
+    mine = curry(kitchen, pantry)
+    theirs = make(kitchen, "Meth theirs", method_name="A", second_method=second(), time_minutes=10)
+    item = plan_with(kitchen, mine, 1)["item_id"]
+    stray = theirs["methods"][1]["id"]
+    r = kitchen.put(f"{API}/plan/items/{item}/method", json={"method_id": stray})
+    assert (r.status_code, r.json()["code"]) == (422, "not_a_method"), r.text
+    r = kitchen.post(
+        f"{API}/plan/items",
+        json={
+            "date": day(kitchen, 2).isoformat(),
+            "slot_id": slot_ids(kitchen)["Dinner"],
+            "recipe_id": mine["id"],
+            "method_id": stray,
+        },
+    )
+    assert (r.status_code, r.json()["code"]) == (422, "not_a_method"), r.text
+
+
 def test_a_recipe_with_one_method_has_no_pick(kitchen: TestClient) -> None:
     plain = make(kitchen, "Meth solo")
     item = meal_item(kitchen, plan_with(kitchen, plain)["item_id"])
@@ -579,8 +601,10 @@ def test_a_method_that_has_other_headings_or_non_method_names_stays_one_method(
 ) -> None:
     for method in (
         "Method\nFor the sauce:\n1. Mix.\nTo serve:\n1. Eat.\n",  # headings that are not ways
-        "Method\nStovetop:\n1. Fry.\nInstant Pot:\n1. Press.\nTo serve:\n1. Eat.\n",  # three headings
-        "Method\n1. Fry.\nStovetop:\n1. Fry.\nOven:\n1. Bake.\n",  # steps before the first heading
+        # three headings
+        "Method\nStovetop:\n1. Fry.\nInstant Pot:\n1. Press.\nTo serve:\n1. Eat.\n",
+        # steps before the first heading
+        "Method\n1. Fry.\nStovetop:\n1. Fry.\nOven:\n1. Bake.\n",
     ):
         shown = import_review(kitchen, f"Meth one way\nIngredients\n1 onion\n{method}")
         assert shown["second_method"] is None and shown["method_name"] is None

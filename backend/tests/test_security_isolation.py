@@ -404,6 +404,10 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("PlanItemIn", "recipe_id"): "test_plan_writes",
     ("PlanItemIn", "ingredient_id"): "test_plan_writes",
     ("PlanMoveIn", "slot_id"): "test_plan_writes",
+    # Two cooking methods (M2): a method id that is not one of the recipe's own is refused,
+    # whoever's it is (test_recipe_methods, test_a_method_that_is_not_the_recipes_is_refused).
+    ("PlanItemIn", "method_id"): "test_recipe_methods",
+    ("PlanMethodIn", "method_id"): "test_recipe_methods",
     # Cook once (0.6 PR 4): test_plan_batches.py,
     # test_another_households_ids_get_404_on_every_new_route.
     ("BatchIn", "member_login_ids"): "test_plan_batches",

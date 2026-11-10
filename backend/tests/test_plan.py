@@ -138,6 +138,7 @@ def test_the_plan_lists_meals_items_batches_and_tubs(kitchen: TestClient) -> Non
         "serves": 4,
         # R3: none of its lines is Optional.
         "optional_count": 0,
+        "methods": [],
         "wait": None,
     }
     assert meal["items"][0]["optional_skipped"] == []
