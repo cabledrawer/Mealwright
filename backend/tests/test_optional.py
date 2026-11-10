@@ -498,3 +498,76 @@ def test_a_batch_is_cooked_with_the_picks_of_its_cook_day(
     batch_id = made["batch_id"]
     proposal = ok(kitchen.post(f"{API}/plan/batches/{batch_id}/cook/preview", json={}))
     assert sorted(r["food"]["name"] for r in proposal["rows"]) == ["Opt kewra", "Opt rice"]
+
+
+# --- Fix round 1 ---------------------------------------------------------------------------------
+
+
+def test_cooked_it_with_use_off_offers_what_the_meal_needs_without_the_skipped_line(
+    kitchen: TestClient,
+) -> None:
+    from test_cooking import FAR, _listed
+
+    onion = food(kitchen, "Opt use-off onion")
+    stock(kitchen, onion["id"], 150, "g")
+    recipe = make(
+        kitchen,
+        "Opt onion curry",
+        serves=4,
+        lines=[
+            {**line(onion["id"], 200, "g"), "words": "onion"},
+            {**line(onion["id"], 100, "g"), "words": "more onion", "optional": True},
+        ],
+    )
+    planned = plan_recipe(
+        kitchen,
+        recipe["id"],
+        FAR,
+        slot_ids(kitchen)["Dinner"],
+        servings=4,
+        optional_use=[],
+    )
+    done = ok(
+        cook(kitchen, planned["item_id"], [{"key": f"food:{onion['id']}", "use": False}]), 201
+    )
+    assert stock_amounts(kitchen, onion["id"]) == [150_000]  # Use off: nothing taken
+    choice = done["cooked"]["snapshot"]["choices"][0]
+    assert choice["short_milli"] == 50_000  # 200 g needed, not 300 g
+    assert _listed(kitchen, onion["id"]) == [50_000]
+
+
+def test_the_skip_list_is_sorted_whatever_order_the_lines_are_in(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    recipe = biryani(kitchen, pantry)
+    ids = lines_of(recipe)
+    flipped = [recipe["lines"][0], recipe["lines"][2], recipe["lines"][1]]
+    saved = ok(
+        save(
+            kitchen,
+            recipe,
+            lines=[
+                {
+                    "id": ln["id"],
+                    "words": ln["words"],
+                    "amount": ln["amount"],
+                    "unit": ln["unit"],
+                    "food_id": ln["food"]["id"] if ln["food"] else None,
+                    "optional": ln["optional"],
+                }
+                for ln in flipped
+            ],
+        )
+    )
+    assert lines_of(saved) == ids
+    planned = plan_recipe(kitchen, recipe["id"], D1, slot_ids(kitchen)["Dinner"], optional_use=[])
+    with db_of(kitchen) as db:
+        stored = db.get(MealItem, planned["item_id"]).optional_skipped  # type: ignore[union-attr]
+    assert stored == sorted([ids["papaya"], ids["kewra"]])
+    # The same answer again is no change, and Undo of a real change puts the sorted list back.
+    url = f"{API}/plan/items/{planned['item_id']}/optional"
+    assert ok(kitchen.put(url, json={"use": []}))["change"] is None
+    changed = ok(kitchen.put(url, json={"use": [ids["kewra"]]}))
+    assert undo(kitchen, changed)["result"] == "done"
+    with db_of(kitchen) as db:
+        assert db.get(MealItem, planned["item_id"]).optional_skipped == stored  # type: ignore[union-attr]

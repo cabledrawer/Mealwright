@@ -320,7 +320,7 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
     # The Use-off rows take the preview's offers first, so settling the meal sees the shortfalls
     # the preview showed for them, not their own unworked ones.
     offer_as_previewed(
-        kitchen, [(e.recipe, e.portions, e.choices) for e in entries], worked, answers
+        kitchen, [(e.recipe, e.portions, e.choices, e.skip) for e in entries], worked, answers
     )
     settle_meal(worked)
     replaced = _remember(kitchen, worked, answers)

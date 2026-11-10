@@ -460,7 +460,7 @@ def _skipped_for(
             "not_optional",
             "That ingredient isn’t optional in this recipe.",  # proposed, for cabledrawer
         )
-    skipped = [line_id for line_id in optional if line_id not in use]
+    skipped = sorted(line_id for line_id in optional if line_id not in use)
     return skipped or None
 
 

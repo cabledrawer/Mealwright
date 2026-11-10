@@ -94,6 +94,27 @@ async function openWeekOf(page: Page, today: string, day: string) {
   for (let i = 0; i < back; i++) await page.getByRole('button', { name: 'Next week' }).click();
 }
 
+/** A recipe with two optional lines (R3); returns its id and the ids of those lines. */
+async function optionalRecipe(page: Page, name: string) {
+  const made = await call(page, 'POST', '/recipes', {
+    name,
+    lines: [
+      { words: 'mutton', amount: 1, unit: 'kg' },
+      { words: 'raw papaya paste', amount: 2, unit: 'tbsp', optional: true },
+      { words: 'kewra water', amount: 0.5, unit: 'tsp', optional: true },
+    ],
+  });
+  const lines = made.lines as { id: number; words: string }[];
+  return { id: made.id as number, papaya: lines[1]!.id, kewra: lines[2]!.id };
+}
+
+/** The ids of the optional lines the recipe's meal on `day` leaves out. */
+async function skippedOn(page: Page, day: string, recipeId: number) {
+  const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as { meals: any[] };
+  const item = plan.meals.flatMap((m) => m.items).find((i: any) => i.recipe?.id === recipeId);
+  return item ? (item.optional_skipped as number[]) : null;
+}
+
 const cell = (page: Page, day: string, slotId: number) => page.getByTestId(`cell-${day}-${slotId}`);
 
 /** The middle of a thing, or a point part-way down it (0.25 is the upper part of a place, clear of the drop zones). */
@@ -253,6 +274,37 @@ test.describe('on a computer', () => {
     await expect(page.getByRole('status').filter({ hasText: `Planned ${name}` })).toBeVisible();
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(cell(page, day, slot.Dinner)).not.toContainText(name);
+  });
+
+  test('drag a recipe with optional ingredients from the tray: it asks, and the meal can change the answer, with Undo (R3)', async ({ page }) => {
+    const { today, slot } = await setup(page);
+    const name = `Optray ${stamp()}`;
+    const recipe = await optionalRecipe(page, name);
+    const day = inWeek(today, 3);
+    await openWeekOf(page, today, day);
+    await page.getByRole('searchbox', { name: 'Find a recipe to plan' }).fill(name);
+    await expect(page.getByRole('list', { name: 'Recipes to plan' }).getByRole('button').filter({ hasNotText: name })).toHaveCount(0);
+    const item = page.getByRole('button', { name: `${name}. Choose a day to plan it` });
+    await item.scrollIntoViewIfNeeded();
+    await mouseDrag(page, item, cell(page, day, slot.Lunch));
+    const ask = page.getByTestId('plan-optional');
+    await expect(ask.getByText('This recipe has 2 optional ingredients. Will you use them?')).toBeVisible();
+    await ask.getByRole('checkbox', { name: /kewra water/ }).uncheck();
+    await ask.getByRole('button', { name: 'Add to plan' }).click();
+    await expect(cell(page, day, slot.Lunch)).toContainText(name);
+    await expect.poll(() => skippedOn(page, day, recipe.id)).toEqual([recipe.kewra]);
+    // From the meal: Enter on its card opens the menu; Optional ingredients… asks again.
+    const card = cell(page, day, slot.Lunch).getByRole('button', { name: new RegExp(`^${name}`) }).first();
+    await card.focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('dialog', { name }).getByRole('button', { name: 'Optional ingredients…' }).click();
+    await expect(ask.getByRole('checkbox', { name: /kewra water/ })).not.toBeChecked();
+    await ask.getByRole('checkbox', { name: /kewra water/ }).check();
+    await ask.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(() => skippedOn(page, day, recipe.id)).toEqual([]);
+    await expect(page.getByRole('status').filter({ hasText: 'Changed the optional ingredients' })).toBeVisible();
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect.poll(() => skippedOn(page, day, recipe.id)).toEqual([recipe.kewra]);
   });
 
   test('dragging a meal moves it; Alt copies; the Leftovers zone plans leftovers; each has its Undo', async ({ page }) => {
@@ -648,6 +700,31 @@ test.describe('on a phone', () => {
     await expect(page.getByRole('region', { name: dayName(day) })).toContainText(name);
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(page.getByRole('region', { name: dayName(to) })).not.toContainText(name);
+  });
+
+  test('+ Add dinner asks which optional ingredients you will use; the long-press sheet changes the answer, with Undo (R3)', async ({ page }) => {
+    const { today, slot } = await setup(page);
+    const name = `Opphone ${stamp()}`;
+    const recipe = await optionalRecipe(page, name);
+    const day = inWeek(today, 4);
+    await openWeekOf(page, today, day);
+    await page.getByRole('region', { name: dayName(day) }).getByRole('button', { name: '+ Add dinner' }).click();
+    const add = page.getByRole('dialog', { name: 'Add to the plan' });
+    await add.getByRole('searchbox', { name: 'Find a recipe or an ingredient' }).fill(name);
+    await add.getByRole('button', { name: new RegExp(name) }).click();
+    const ask = page.getByTestId('plan-optional');
+    await ask.getByRole('checkbox', { name: /kewra water/ }).uncheck();
+    await ask.getByRole('button', { name: 'Add to plan' }).click();
+    await expect.poll(() => skippedOn(page, day, recipe.id)).toEqual([recipe.kewra]);
+    const meal = page.getByRole('region', { name: dayName(day) }).getByRole('button', { name: new RegExp(`^Dinner: ${name}`) });
+    await fingerHold(meal);
+    await page.getByRole('dialog', { name }).getByRole('button', { name: 'Optional ingredients…' }).click();
+    await ask.getByRole('checkbox', { name: /kewra water/ }).check();
+    await ask.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(() => skippedOn(page, day, recipe.id)).toEqual([]);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect.poll(() => skippedOn(page, day, recipe.id)).toEqual([recipe.kewra]);
+    expect(slot.Dinner).toBeTruthy();
   });
 
   test('+ Add dinner plans a recipe; Month is a dot grid and tapping a day shows its meals', async ({ page }) => {

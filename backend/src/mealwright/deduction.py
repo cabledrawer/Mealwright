@@ -603,7 +603,7 @@ def off_rows(worked: list[Worked], choices: list[dict[str, Choice]]) -> list[Row
 
 def offer_as_previewed(
     kitchen: Kitchen,
-    entries: list[tuple[Recipe, int, dict[str, Choice]]],
+    entries: list[tuple[Recipe, int, dict[str, Choice], frozenset[int]]],
     worked: list[Worked],
     answers: list[Answer] | None = None,
 ) -> None:
@@ -611,14 +611,15 @@ def offer_as_previewed(
     as the preview does (one fresh pool, no choices: the preview endpoints take none) and settled
     as a meal. Nothing is taken. Only the offer's fields are copied onto the off rows, with the
     person's own tick on the offer."""
-    choices = [picked for _, _, picked in entries]
+    choices = [picked for _, _, picked, _ in entries]
     off = off_rows(worked, choices)
     if not off:
         return
     off_ids = {id(row) for row in off}
     pool = Pool(kitchen)
     shown = [
-        work_out(kitchen, recipe, portions, answers, None, pool) for recipe, portions, _ in entries
+        work_out(kitchen, recipe, portions, answers, None, pool, skip)
+        for recipe, portions, _, skip in entries
     ]
     settle_meal(shown)
     by_key = {(i, row.key): row for i, each in enumerate(shown) for row in each.rows}

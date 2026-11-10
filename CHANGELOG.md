@@ -28,6 +28,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Changed
 
+- **Recipes imported before this keep "optional" in a "For serving" line's note and are not marked Optional** (proposed, for cabledrawer: no data is changed; switch Optional on in the editor if you want it).
 - **An import no longer puts the word "optional" in a line's note;** the line is marked Optional instead. A "For serving" line used to get "optional" as its note.
 
 ## [0.8.0-alpha.3] - 2026-11-10

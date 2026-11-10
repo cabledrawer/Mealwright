@@ -108,19 +108,22 @@ def serving_heading(heading: str) -> bool:
 
 
 _OPT_LABEL = re.compile(r"^\s*optional(?:\s+step)?\s*[:\u2013\u2014-]\s*", re.IGNORECASE)
-_OPT_BRACKET = re.compile(r"\s*[(\[]\s*optional\s*[)\]]\s*", re.IGNORECASE)
+# "(optional)" counts only at the end of the step (before a final full stop): in the middle it
+# is part of the sentence ("Add salt (optional) and stir.").
+_OPT_BRACKET = re.compile(r"\s*[(\[]\s*optional\s*[)\]]\s*([.!]?)\s*$", re.IGNORECASE)
 
 
 def optional_step(text: str) -> tuple[str, bool]:
     """A step that says it is optional ("Optional: fry the onions", "Fry the onions (optional)"):
     the step without that word, and True. The word is taken out only as a label at the start or
-    a bracket anywhere; "optional" inside a sentence stays. A step that would be left with
+    a bracket at the end; "(optional)" or "optional" inside a sentence stays, and the step is
+    not Optional. A step that would be left with
     nothing is returned as it was (R3, F151)."""
     label = _OPT_LABEL.match(text)
     rest = text[label.end() :] if label else text
     bracketed = _OPT_BRACKET.search(rest) is not None
     if bracketed:
-        rest = _OPT_BRACKET.sub(" ", rest)
+        rest = _OPT_BRACKET.sub(lambda m: m.group(1), rest)
     rest = re.sub(r"[ \t]{2,}", " ", rest).strip()
     rest = re.sub(r"[ \t]+([.,;!?])", r"\1", rest)
     if not (label or bracketed) or not rest:

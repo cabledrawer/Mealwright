@@ -53,8 +53,8 @@ export function optionalQuestionWords(count: number): string {
     : `This recipe has ${count} optional ingredients. Will you use them?`;
 }
 
-export function rowOf(line: RecipeLine, stock: LineStock | undefined): OptionalRow {
-  const detail = [lineAmount(line, 1), stateWords(stock)].filter(Boolean).join(' · ');
+export function rowOf(line: RecipeLine, stock: LineStock | undefined, factor = 1): OptionalRow {
+  const detail = [lineAmount(line, factor), stateWords(stock)].filter(Boolean).join(' · ');
   return { id: line.id, words: line.food?.name ?? line.words, detail };
 }
 
@@ -73,7 +73,7 @@ class OptionalAsk {
   async ask(
     recipe: { id: number; optionalCount?: number },
     where: string,
-    options: { skipped?: number[]; button?: string } = {}
+    options: { skipped?: number[]; button?: string; servings?: number | null } = {}
   ): Promise<number[] | null | undefined> {
     if (recipe.optionalCount === 0) return undefined;
     let rows: OptionalRow[];
@@ -84,10 +84,12 @@ class OptionalAsk {
         getRecipe(recipe.id),
         getRecipeStock(recipe.id).catch(() => null)
       ]);
+      // Amounts for the meal's own servings, not the recipe's (a meal for 3 of a recipe for 6).
+      const factor = found.serves && options.servings ? options.servings / found.serves : 1;
       const by = new Map((stock?.lines ?? []).map((s) => [s.line_id, s]));
       rows = found.lines
         .filter((l) => l.kind === 'ingredient' && l.optional)
-        .map((l) => rowOf(l, by.get(l.id)));
+        .map((l) => rowOf(l, by.get(l.id), factor));
       name = found.name;
       serves = found.serves;
     } catch {

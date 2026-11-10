@@ -112,6 +112,18 @@ describe('asking', () => {
     expect(await answer).toBeNull();
   });
 
+  it('shows the amounts for the meal’s own servings (a meal for 3 of a recipe for 6)', async () => {
+    fakeApi({ 'GET /recipes/5': [200, BIRYANI], 'GET /recipes/5/stock': [200, STOCK] });
+    const answer = optionalAsk.ask({ id: 5 }, 'Sat dinner', { servings: 3 });
+    await vi.waitFor(() => expect(optionalAsk.current).not.toBeNull());
+    expect(optionalAsk.current!.question.rows.map((r) => r.detail)).toEqual([
+      `1${NB}tbsp · not in the pantry`,
+      expect.stringMatching(/^(¼|0\.25)/)
+    ]);
+    optionalAsk.dismiss();
+    await answer;
+  });
+
   it('asks nothing of a recipe with no optional line, or that is known to have none', async () => {
     const requests = fakeApi({ 'GET /recipes/6': [200, PLAIN] });
     expect(await optionalAsk.ask({ id: 6 }, 'Sat dinner')).toBeUndefined();

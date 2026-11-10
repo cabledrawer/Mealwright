@@ -618,7 +618,7 @@
             {/if}
           {/each}
           <p class="mw-hint">Leave a box empty if you don’t know: it shows as unknown, never 0.</p>
-          {#if draft.nutritionChecked}
+          {#if draft.nutritionChecked && draft.opened?.nutrition.possibly_out_of_date}
             <!-- Proposed, for cabledrawer. -->
             <p class="mw-hint">
               The ingredients changed after these were worked out. Check them, change what is wrong,

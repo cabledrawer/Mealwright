@@ -627,8 +627,9 @@ describe('an existing recipe', () => {
   });
 
   it('opened from "Work it out again" it starts in the nutrition boxes, and Save says they were looked at (R3)', async () => {
+    const stale = { ...sambar, nutrition: { ...sambar.nutrition, possibly_out_of_date: true } };
     const requests = fakeApi({
-      'GET /recipes/2': [200, sambar],
+      'GET /recipes/2': [200, stale],
       'GET /recipes/2/cannot-use': [200, { recipes: [] }],
       'PUT /recipes/2': [200, { ...sambar, version: 4 }]
     });
@@ -642,6 +643,21 @@ describe('an existing recipe', () => {
       await page.getByRole('button', { name: /^Save/ }).click();
       await vi.waitFor(() => expect(navigation.go).toHaveBeenCalledWith('/recipes/2'));
       expect(bodyOf(requests, 'PUT')).toMatchObject({ nutrition_checked: true });
+    } finally {
+      history.replaceState(null, '', location.pathname);
+    }
+  });
+
+  it('a ?nutrition=1 link on a recipe whose figures are fine says nothing about them (R3)', async () => {
+    fakeApi({
+      'GET /recipes/2': [200, sambar],
+      'GET /recipes/2/cannot-use': [200, { recipes: [] }]
+    });
+    history.replaceState(null, '', `${location.pathname}?nutrition=1`);
+    try {
+      open({ recipeId: 2 });
+      await expect.element(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Sambar');
+      expect(document.body.textContent).not.toContain('The ingredients changed after these');
     } finally {
       history.replaceState(null, '', location.pathname);
     }
