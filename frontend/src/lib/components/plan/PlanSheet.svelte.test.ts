@@ -148,3 +148,35 @@ describe('To freezer on a leftover tub (cabledrawer 8 Nov)', () => {
     expect(page.getByTestId('tub-too-late').elements()).toHaveLength(0);
   });
 });
+
+describe('Set when to start in the menu of a meal (FX5, review m3)', () => {
+  const dosa: PlanItem = {
+    ...item(9, 'Masala dosa', false),
+    ahead: {
+      step_id: 1,
+      step_text: 'Soak and grind the batter',
+      wait: { kind: 'ferment', min_minutes: 480, max_minutes: 720 },
+      active_minutes: 30,
+      eats_at: '08:00',
+      start_day: null,
+      start_time: null,
+      started_day: null,
+      started_time: null
+    } as unknown as PlanItem['ahead']
+  };
+
+  it('is offered for a meal today or later', async () => {
+    open({ kind: 'meal', meal: { ...meal, id: 8, date: '2026-11-02', items: [dosa] } });
+    await expect
+      .element(page.getByTestId('plan-sheet-start'))
+      .toHaveTextContent('Set when to start…');
+  });
+
+  it('is not offered for a meal on a day that has gone by: the sheet would have nothing to pick', async () => {
+    open({ kind: 'meal', meal: { ...meal, id: 8, date: '2026-11-01', items: [dosa] } });
+    await expect
+      .element(page.getByRole('button', { name: /Cooked it|Move to/ }).first())
+      .toBeVisible();
+    expect(page.getByTestId('plan-sheet-start').elements()).toHaveLength(0);
+  });
+});

@@ -126,8 +126,19 @@
   /** The recipes here with two ways of cooking them, that can still change it (M2). */
   const methodItems = $derived(servesItems.filter((i) => (i.recipe?.methods?.length ?? 0) > 1));
 
-  /** The recipes here with a long wait to start ahead, that can still be started (M3). */
-  const startItems = $derived(servesItems.filter((i) => !!i.ahead));
+  /**
+   * The recipes here with a long wait to start ahead, that can still be started (M3). A meal on
+   * a day that has gone by has nothing to pick (no time can be started ahead of it), so its menu
+   * doesn't offer the change (FX5, review m3).
+   */
+  const startItems = $derived(
+    servesItems.filter(
+      (i) =>
+        !!i.ahead &&
+        (target?.kind === 'meal' || target?.kind === 'item') &&
+        target.meal.date >= model.today
+    )
+  );
 
   /** "Starts Fri 21:00…", or "Set when to start…" when it has no time (names it when several). */
   function startLabel(item: PlanItem, named: boolean): string {
