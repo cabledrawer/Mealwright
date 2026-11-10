@@ -1134,3 +1134,146 @@ test('the Check header: the title sits in from the edge, and the step note drops
     await expectNoSidewaysScroll(page);
   }
 });
+
+// A section as its own recipe (0.8 W4e, F190, cabledrawer 8 Nov): "Make this its own recipe" under a
+// section heading on Check. The recipe is pasted (the path that never goes online); the Save is the
+// real one.
+
+/** A dosa with its batter as a section, in the pasted words a recipe page gives. */
+function dosaText(n: { dosa: string; batter: string; dal: string; rice: string; ghee: string }) {
+  return [
+    n.dosa,
+    'Serves 4',
+    'Ingredients',
+    'For the batter',
+    `1 cup ${n.dal}`,
+    `3 cups ${n.rice}`,
+    'For the dosa',
+    `4 cups ${n.batter}, as above`,
+    `1 tbsp ${n.ghee}`,
+    'Method',
+    'For the batter',
+    '1. Soak the dal and rice for 4 hours.',
+    '2. Grind and ferment overnight.',
+    'For the dosa',
+    '1. Spread the batter thin and fry.',
+  ].join('\n');
+}
+
+test('A section as its own recipe: asked on Check, both recipes saved together, one Undo takes both (F190)', async ({ page }) => {
+  const n = { dosa: unique('Masala dosa'), batter: unique('Dosa batter'), dal: unique('Urad dal'), rice: unique('Idli rice'), ghee: unique('Ghee') };
+  if (!onPhone()) await page.setViewportSize({ width: 1280, height: 2000 });
+  await page.goto('/recipes/import');
+  await box(page).fill(dosaText(n));
+  await read(page).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  // One button under each section's heading, never done on its own.
+  const make = page.getByRole('button', { name: 'Make this its own recipe' });
+  await expect(make).toHaveCount(2);
+  await expect(page.getByText('Its own recipe:')).toHaveCount(0);
+  await make.first().click();
+  const sheet = page.getByRole('dialog', { name: /its own recipe\?$/ });
+  await expect(sheet.getByRole('heading', { name: 'Make “For the batter” its own recipe?' })).toBeVisible();
+  // Prefilled from the line that names it: "4 cups dosa batter, as above".
+  await expect(sheet.getByLabel('Name of the new recipe')).toHaveValue(n.batter);
+  await expect(sheet.getByLabel('How much it makes')).toHaveValue('4');
+  await expect(sheet).toContainText('with its 2 lines and 2 steps, kept as Made ahead');
+  await expect(sheet).toContainText(`${n.dosa} then uses it as one line: “${n.batter} · 4 cups”.`);
+  await expect(sheet).toContainText('Both recipes are checked here and saved together.');
+  await checkPage(page);
+  // Nothing is made until the button.
+  await sheet.getByRole('button', { name: 'Cancel' }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(page.getByText('Its own recipe:')).toHaveCount(0);
+  await make.first().click();
+  await sheet.getByRole('button', { name: 'Make it its own recipe' }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(page.getByText('Made “For the batter” its own recipe')).toBeVisible();
+  await expect(page.getByText('Its own recipe:')).toContainText(`${n.batter} · 4 cups`);
+  await expect(page.getByText(`Made in its own recipe: ${n.batter}`)).toBeVisible();
+  await expect(make).toHaveCount(1);
+  await inTheme(page, 'dark');
+  await checkPage(page, { themes: ['dark'] });
+  // Both are checked on this screen: the batter's lines still need choices before Save.
+  const staple = page.getByRole('button', { name: 'Treat as staple', exact: true });
+  while (await staple.count()) await staple.first().click();
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  const id = Number(page.url().split('/').pop());
+  const dosa = (await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as Json;
+  expect(dosa.lines.map((l: Json) => l.words)).toEqual(['For the dosa', n.batter, n.ghee]);
+  expect(dosa.steps.map((s: Json) => s.text)).toEqual(['For the dosa', 'Spread the batter thin and fry.']);
+  const use = dosa.lines[1];
+  expect(use.link).toBe('recipe');
+  expect(use.amount).toBe(4);
+  expect(use.unit).toBe('cup');
+  const batter = (await (await page.request.get(`/api/v1/recipes/${use.recipe.id}`)).json()) as Json;
+  expect(batter).toMatchObject({ name: n.batter, made_ahead: true });
+  expect(batter.lines.map((l: Json) => l.words)).toEqual([n.dal, n.rice]);
+  expect(batter.steps.map((s: Json) => s.text)).toEqual(['Soak the dal and rice for 4 hours.', 'Grind and ferment overnight.']);
+  // One entry in Recent changes with one Undo; it takes both recipes back.
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByText(/^Undone/)).toBeVisible();
+  expect((await page.request.get(`/api/v1/recipes/${id}`)).status()).toBe(404);
+  expect((await page.request.get(`/api/v1/recipes/${use.recipe.id}`)).status()).toBe(404);
+});
+
+test('A section made its own recipe can be changed and kept in the recipe again, each with Undo (F190)', async ({ page }) => {
+  const n = { dosa: unique('Masala dosa'), batter: unique('Dosa batter'), dal: unique('Urad dal'), rice: unique('Idli rice'), ghee: unique('Ghee') };
+  if (!onPhone()) await page.setViewportSize({ width: 1280, height: 2000 });
+  await page.goto('/recipes/import');
+  await box(page).fill(dosaText(n));
+  await read(page).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await page.getByRole('button', { name: 'Make this its own recipe' }).first().click();
+  const sheet = page.getByRole('dialog', { name: /its own recipe\?$/ });
+  // A name and an amount are needed.
+  await sheet.getByLabel('Name of the new recipe').fill('');
+  await sheet.getByRole('button', { name: 'Make it its own recipe' }).click();
+  await expect(sheet.getByText('Type a name.')).toBeVisible();
+  await sheet.getByLabel('Name of the new recipe').fill('Batter');
+  await sheet.getByLabel('How much it makes').fill('');
+  await sheet.getByRole('button', { name: 'Make it its own recipe' }).click();
+  await expect(sheet.getByText('Type how much it makes.')).toBeVisible();
+  await sheet.getByLabel('How much it makes').fill('1.5');
+  await sheet.getByLabel('Unit').selectOption('l');
+  await sheet.getByRole('button', { name: 'Make it its own recipe' }).click();
+  const said = page.getByText('Its own recipe:');
+  await expect(said).toContainText('Batter · 1.5 litres');
+  // Change opens the same sheet with what was typed.
+  await page.getByRole('button', { name: 'Change', exact: true }).click();
+  await expect(sheet.getByLabel('Name of the new recipe')).toHaveValue('Batter');
+  await sheet.getByLabel('Name of the new recipe').fill(`${n.batter} two`);
+  await sheet.getByRole('button', { name: 'Done' }).click();
+  await expect(said).toContainText(`${n.batter} two`);
+  // Keep in this recipe puts it back, and Undo brings the own recipe back.
+  await page.getByRole('button', { name: 'Keep in this recipe' }).click();
+  await expect(page.getByText('Kept “For the batter” in this recipe')).toBeVisible();
+  await expect(said).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Make this its own recipe' })).toHaveCount(2);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(said).toContainText(`${n.batter} two`);
+});
+
+test('Offline, Save waits as it always does, and the section stays its own recipe until Save (F190)', async ({ page }) => {
+  const n = { dosa: unique('Masala dosa'), batter: unique('Dosa batter'), dal: unique('Urad dal'), rice: unique('Idli rice'), ghee: unique('Ghee') };
+  await page.goto('/recipes/import');
+  await box(page).fill(dosaText(n));
+  await read(page).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await page.getByRole('button', { name: 'Make this its own recipe' }).first().click();
+  await page.getByRole('dialog', { name: /its own recipe\?$/ }).getByRole('button', { name: 'Make it its own recipe' }).click();
+  const staple = page.getByRole('button', { name: 'Treat as staple', exact: true });
+  while (await staple.count()) await staple.first().click();
+  await page.route('**/api/v1/**', (route) => route.abort('internetdisconnected'));
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  await expect(page.getByRole('button', { name: 'Save recipe' })).toBeDisabled();
+  await expect(page.getByText('Its own recipe:')).toBeVisible();
+  await page.unroute('**/api/v1/**');
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(page.getByRole('button', { name: 'Save recipe' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByText(/^Undone/)).toBeVisible();
+});

@@ -15,6 +15,14 @@ export interface NewIngredient {
   place: Ref | null;
 }
 
+/** A heading made its own recipe on Check (F190, cabledrawer 8 Nov): the new Made ahead recipe's name and
+ *  what it makes. Kept in the review, so a draft keeps it; the server never sets it. */
+export interface OwnRecipe {
+  name: string;
+  amount: number;
+  unit: string;
+}
+
 /** One line of the review: as written, as read, and what it is in the kitchen. */
 export interface ReviewLine {
   kind: 'ingredient' | 'heading';
@@ -38,6 +46,8 @@ export interface ReviewLine {
   pint_ml?: { uk_ml: number; us_ml: number } | null;
   /** Optional: "(optional)" was in the line, or it is under "For serving". The person can switch it. */
   optional?: boolean;
+  /** A heading only: the section is made its own recipe (F190). */
+  own?: OwnRecipe | null;
 }
 
 /** A step on the review: "wait" is the reader's suggestion, kept once the person says Yes, it
@@ -108,7 +118,9 @@ export type LineLink =
   | { kind: 'ingredient'; food_id: number; learn?: string | null }
   | { kind: 'new' | 'staple'; name: string; counted_as: CountedAs; place_id: number | null }
   /** Another recipe of the household makes it (F188); `place_id`: where the pantry keeps it. */
-  | { kind: 'recipe'; recipe_id: number; place_id: number | null };
+  | { kind: 'recipe'; recipe_id: number; place_id: number | null }
+  /** The recipe this same save makes from a section (F190): its place in `own_recipes`. */
+  | { kind: 'own_recipe'; own_recipe: number };
 
 export interface SaveLine {
   kind: 'ingredient' | 'heading';
@@ -121,6 +133,14 @@ export interface SaveLine {
   optional?: boolean;
 }
 
+/** A section made its own recipe, saved with the main one (F190): a Made ahead recipe. */
+export interface SaveOwnRecipe {
+  name: string;
+  makes: { amount: number; unit: string };
+  lines: SaveLine[];
+  steps: SaveStep[];
+}
+
 export interface SaveBody {
   name: string;
   description: string | null;
@@ -131,6 +151,8 @@ export interface SaveBody {
   nutrition: Nutrition;
   lines: SaveLine[];
   steps: SaveStep[];
+  /** Sections made their own recipes: both are saved together or not at all, with one Undo. */
+  own_recipes?: SaveOwnRecipe[];
   method_name?: string | null;
   second_method?: { name: string; steps: SaveStep[] } | null;
   source_url: string | null;

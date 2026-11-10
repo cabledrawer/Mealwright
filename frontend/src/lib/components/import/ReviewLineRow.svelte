@@ -19,6 +19,7 @@
   import NewPlace, { NEW_PLACE } from '#lib/components/NewPlace.svelte';
   import Switch from '#lib/components/Switch.svelte';
   import type { LinePick } from './PickLine.svelte';
+  import OwnRecipeHead from './OwnRecipeHead.svelte';
   import type { ReviewLine } from '#lib/client/imports.js';
   import type { CountedAs, Ref } from '#lib/client/types.js';
   import { readAmount } from '#lib/importAmount.js';
@@ -68,6 +69,8 @@
     choice && (choice.kind === 'new' || choice.kind === 'staple') ? choice : null
   );
   const here = $derived(choice?.kind === 'here');
+  /** The section this line stands for, when it was made its own recipe (F190). */
+  const ownUse = $derived(line.kind === 'ingredient' && !choice ? flow.ownUseOf(index) : null);
   /** "Made in another recipe" (F188). */
   const recipeChoice = $derived(choice?.kind === 'recipe' ? choice : null);
   /** "Made in this recipe" is offered first (F108). */
@@ -313,7 +316,22 @@
 </script>
 
 {#if line.kind === 'heading'}
-  <li class="heading"><h3>{line.words}</h3></li>
+  <li class="heading">
+    <h3>{line.words}</h3>
+    <OwnRecipeHead {flow} heading={index} />
+  </li>
+{:else if ownUse}
+  <!-- The line that stands for a section made its own recipe (F190): saved as the link to it. -->
+  <li class="line ready">
+    <span class="dot ready" role="img" aria-label="Ready"></span>
+    <div class="main">
+      <p class="written"><span class="visually-hidden">As written: </span>{line.written}</p>
+      <p class="read">
+        <span class="made">Made in its own recipe:</span>
+        {ownUse.own.name}
+      </p>
+    </div>
+  </li>
 {:else}
   <li
     class="line {status}"

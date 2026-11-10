@@ -22,6 +22,8 @@
   import { timeWithWait } from '#lib/timeWords.js';
   import Switch from '#lib/components/Switch.svelte';
   import AddLine from './AddLine.svelte';
+  import OwnRecipeHead from './OwnRecipeHead.svelte';
+  import { headingOf } from '#lib/importOwn.js';
   import CheckFrame from './CheckFrame.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
   import StepEdit from './StepEdit.svelte';
@@ -330,6 +332,14 @@
     {/if}
 
     {#if item?.kind === 'line'}
+      {@const above = headingOf(review.lines, item.at)}
+      {#if above !== null && review.lines[above]}
+        <!-- The section this line is in, with "Make this its own recipe" (F190). -->
+        <div class="section-own">
+          <span class="section">{review.lines[above].words}</span>
+          <OwnRecipeHead {flow} heading={above} />
+        </div>
+      {/if}
       {#key review.lines[item.at]}
         <ul class="line">
           <ReviewLineRow
@@ -676,6 +686,12 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-2xl);
     background: var(--color-surface);
+  }
+
+  .section-own {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
   }
 
   .section {

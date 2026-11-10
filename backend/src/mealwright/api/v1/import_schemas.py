@@ -283,7 +283,7 @@ class ImportSecondMethod(BaseModel):
 
 
 class ImportOwnRecipe(BaseModel):
-    """A section made its own recipe (0.8, F190, cabledrawer 8 Nov): a new Made ahead recipe saved
+    """A section made its own recipe (0.8, F190): a new Made ahead recipe saved
     in the same save as the main one, which uses it as one line (a line whose link is
     `own_recipe` with this recipe's place in `own_recipes`). Its lines are checked like the main
     recipe's (a link may be an ingredient, a new ingredient or another recipe, never another

@@ -381,3 +381,37 @@ test('F174, a keep still on its way when the connection goes: Close works at onc
   await backOnline(page);
   expect(await draftsNamed(page, title)).toHaveLength(0);
 });
+
+test('One at a time: "Make this its own recipe" is above a line of the section, and a draft keeps it (F190)', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await chooseMode(page, 'one');
+  const title = unique('Masala dosa');
+  const dal = unique('Urad dal');
+  await page.goto('/recipes/import');
+  await page
+    .getByLabel('Paste a link or the recipe’s text')
+    .fill(`${title}\nIngredients\nFor the batter\n1 cup ${dal}\n2 cups ${unique('Idli rice')}\nFor the dosa\n1 tbsp ${unique('Ghee')}\nMethod\nFor the batter\n1. Soak it.\nFor the dosa\n1. Fry it.\n`);
+  await page.getByRole('button', { name: 'Read the recipe' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients · 1 of 3 to check');
+  // The first line is in the batter: its section is named above it, with the button.
+  await expect(page.getByText('For the batter', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Make this its own recipe' }).click();
+  const sheet = page.getByRole('dialog', { name: /its own recipe\?$/ });
+  await expect(sheet).toContainText('with its 2 lines and 1 step, kept as Made ahead');
+  await sheet.getByLabel('How much it makes').fill('3');
+  await checkPage(page);
+  await sheet.getByRole('button', { name: 'Make it its own recipe' }).click();
+  await expect(page.getByText('Its own recipe:')).toContainText('3 cups');
+  // The section's lines are still checked here, one at a time.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients · 1 of 3 to check');
+  await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+  await expect(page).toHaveURL(/\/recipes\/drafts$/);
+  const [draft] = await draftsNamed(page, title);
+  const kept = (await (await page.request.get(`/api/v1/recipes/drafts/${draft!.id}`)).json()) as Json;
+  const batter = kept.review.lines.find((l: Json) => l.kind === 'heading' && l.words === 'For the batter');
+  expect(batter.own).toMatchObject({ name: 'Batter', amount: 3, unit: 'cup' });
+  // Carrying on from the draft: it is still its own recipe.
+  await page.getByRole('link', { name: `Carry on ${title}` }).click();
+  await expect(page.getByText('Its own recipe:')).toContainText('Batter · 3 cups');
+  await deleteDrafts(page, title);
+});

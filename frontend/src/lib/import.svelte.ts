@@ -19,7 +19,8 @@ import {
   type ReviewLine,
   type Saved,
   type SaveBody,
-  type SaveLine
+  type SaveLine,
+  type SaveOwnRecipe
 } from './client/imports';
 import type { CountedAs, FoodRow, Pints, Ref } from './client/types';
 import { newChangeId } from './changeId';
@@ -28,6 +29,7 @@ import { undoHistory, type UndoEntry } from './undo.svelte';
 import { MOST_STEPS, splitStep } from './importSteps';
 import { unitFor } from './recipeAmounts';
 import { activeTime, sumWaits, type StepWait } from './timeWords';
+import { leftOut, ownIndexOf, ownParts, ownSteps, type OwnPart } from './importOwn';
 
 /** What a line was set to on the review (a line that is matched needs no choice). */
 export type Choice =
@@ -83,6 +85,12 @@ export const CLOSE_OFFLINE = 'You’re offline: changes since then won’t be ke
 /** The same for keeping a draft. */
 export const draftOfflineNote = (): string => needsServer(network.deviceOffline, DRAFT_OFFLINE);
 const COULDNT = 'Couldn’t read that. Try again.';
+
+/** Where each line Save sent came from in the review (F190). */
+interface SentLines {
+  main: (number | null)[];
+  own: number[][];
+}
 
 export class ImportFlow {
   text = $state('');
@@ -723,6 +731,12 @@ export class ImportFlow {
     return true;
   }
 
+  /** An Undo for a section made its own recipe (F190) joins the lines', so leaving the screen
+   *  forgets it too. */
+  keepLineUndo(entry: UndoEntry): void {
+    this.#takenOut.push(entry);
+  }
+
   /** An Undo for a step taken out (F111) joins the lines', so leaving the screen forgets it too. */
   keepStepUndo(entry: UndoEntry): void {
     this.#takenOut.push(entry);
@@ -780,6 +794,10 @@ export class ImportFlow {
   linkOf(index: number): Choice | null {
     const chosen = this.choices[index];
     if (chosen) return chosen;
+    // The line that stands for a section made its own recipe is that recipe, once it is saved.
+    const section = this.ownUseOf(index);
+    if (section)
+      return { kind: 'recipe', recipe: { id: 0, name: section.own.name }, place_id: null };
     const line = this.review?.lines[index];
     if (line && (line.label === 'matched' || line.label === 'staple') && line.food) {
       return { kind: 'ingredient', food: line.food, learn: false };
@@ -796,7 +814,8 @@ export class ImportFlow {
     this.review?.lines.forEach((line, i) => {
       if (line.kind !== 'ingredient' || isBlank(line)) return;
       const choice = this.choices[i];
-      if (choice) counts[choice.kind === 'staple' ? 'staple' : 'matched']++;
+      if (!choice && this.ownUseOf(i)) counts.matched++;
+      else if (choice) counts[choice.kind === 'staple' ? 'staple' : 'matched']++;
       else if (line.label && line.label in counts) counts[line.label]++;
     });
     return counts;
@@ -813,12 +832,65 @@ export class ImportFlow {
 
   // --- Save ---------------------------------------------------------------------------------
 
+  /** Where each line Save sent came from in the review (F190): the line numbers the server's
+   *  refusal names are the sent ones, and a section made its own recipe moves lines about.
+   *  `null`: a line the review doesn't hold as such (the one that stands for a section). */
+  #sent: SentLines = { main: [], own: [] };
+
+  /** The sections made their own recipes, as the review stands. */
+  get ownParts(): OwnPart[] {
+    return this.review ? ownParts(this.review) : [];
+  }
+
+  /** The place of the line that stands for a section in the main recipe ("Dosa batter, as
+   *  above"): it is saved as the link to the new recipe, so it needs no ingredient. */
+  ownUseOf(index: number): OwnPart | null {
+    const parts = this.ownParts;
+    const at = ownIndexOf(parts, index, true);
+    return at >= 0 ? parts[at]! : null;
+  }
+
   /** The body Save sends: the review's recipe with the changes made on this screen. */
   body(): SaveBody | null {
     const review = this.review;
     if (!review) return null;
     const serves = this.serves.trim() === '' ? null : Number(this.serves);
     const time = this.minutes.trim() === '' ? null : Number(this.minutes);
+    const parts = ownParts(review);
+    const out = leftOut(parts);
+    const sent: SentLines = { main: [], own: parts.map(() => []) };
+    const lines: SaveLine[] = [];
+    const own: SaveOwnRecipe[] = parts.map((part) => ({
+      name: part.own.name,
+      makes: { amount: part.own.amount, unit: part.own.unit },
+      lines: [],
+      steps: ownSteps(review.steps, part)
+    }));
+    review.lines.forEach((line, i) => {
+      // A line added on Check and never named is not saved (F187).
+      if (isBlank(line)) return;
+      const k = parts.findIndex((part) => part.heading === i || part.section.lines.includes(i));
+      if (k >= 0) {
+        // A section made its own recipe: its lines go to that recipe, with their own choices; the
+        // main recipe gets one line in the heading's place (unless a line already says it).
+        if (line.kind === 'ingredient') {
+          own[k]!.lines.push(saveLine(this.withPints(line), this.linkOf(i)));
+          sent.own[k]!.push(i);
+        } else if (parts[k]!.section.use === null) {
+          lines.push(ownLine(parts[k]!, k));
+          sent.main.push(null);
+        }
+        return;
+      }
+      const at = parts.findIndex((part) => part.section.use === i);
+      lines.push(
+        at >= 0
+          ? { ...ownLine(parts[at]!, at, line), note: line.note, optional: !!line.optional }
+          : saveLine(this.withPints(line), this.linkOf(i))
+      );
+      sent.main.push(i);
+    });
+    this.#sent = sent;
     return {
       name: this.name.trim(),
       description: review.description,
@@ -827,17 +899,12 @@ export class ImportFlow {
       makes: review.makes,
       tags: review.tags,
       nutrition: review.nutrition,
-      // A line added on Check and never named is not saved (F187).
-      lines: review.lines.flatMap((line, i) =>
-        isBlank(line) ? [] : [saveLine(this.withPints(line), this.linkOf(i))]
-      ),
+      lines,
       // What Save sends: not whether the person has confirmed the wait.
-      steps: review.steps.map((s) => ({
-        kind: s.kind,
-        text: s.text,
-        optional: s.optional,
-        wait: s.wait
-      })),
+      steps: review.steps.flatMap((s, i) =>
+        out.steps.has(i) ? [] : [{ kind: s.kind, text: s.text, optional: s.optional, wait: s.wait }]
+      ),
+      ...(own.length > 0 ? { own_recipes: own } : {}),
       // Two ways of cooking it found on the page (M2): both start with these ingredients.
       ...(review.second_method
         ? {
@@ -967,17 +1034,6 @@ export class ImportFlow {
     this.#stepUndos = [];
   }
 
-  /** The server numbers lines as Save sent them; lines never named are not sent (F187), so
-   *  this finds the same line on the screen. Null when there is no such line. */
-  #screenLine(sent: number): number | null {
-    const lines = this.review?.lines ?? [];
-    let n = -1;
-    for (let i = 0; i < lines.length; i++) {
-      if (!isBlank(lines[i]!) && ++n === sent) return i;
-    }
-    return null;
-  }
-
   async save(): Promise<Saved | null> {
     const body = this.body();
     if (!body || this.saving) return null;
@@ -1007,10 +1063,19 @@ export class ImportFlow {
       return this.saved;
     } catch (error) {
       if (error instanceof ApiError) {
-        const line = (error.body as { line?: unknown } | null)?.line;
+        const found = error.body as { line?: unknown; own_recipe?: unknown } | null;
+        const sentAt = typeof found?.line === 'number' ? found.line : null;
+        const section = typeof found?.own_recipe === 'number' ? found.own_recipe : null;
+        // The server counts the lines it was sent: back to the review's own places (F190).
+        const line =
+          sentAt === null
+            ? null
+            : section === null
+              ? (this.#sent.main[sentAt] ?? null)
+              : (this.#sent.own[section]?.[sentAt] ?? null);
         this.saveProblem = {
           message: cantReach(error) ? offlineNote() : error.detail,
-          line: typeof line === 'number' ? this.#screenLine(line) : null
+          line
         };
       } else {
         this.saveProblem = { message: 'Couldn’t save. Try again.', line: null };
@@ -1080,6 +1145,22 @@ function saveLine(line: ReviewLine, link: Choice | null): SaveLine {
     note: line.note,
     link: sent,
     optional: line.kind === 'ingredient' && !!line.optional
+  };
+}
+
+/** The one line the main recipe gets for a section made its own recipe: "Dosa batter · 4 cups",
+ *  or the amount the line that stands for it already says (F190). */
+function ownLine(part: OwnPart, place: number, stands?: ReviewLine): SaveLine {
+  const said = stands && stands.amount !== null && stands.amount !== undefined;
+  return {
+    kind: 'ingredient',
+    words: part.own.name,
+    amount: said ? stands.amount : part.own.amount,
+    unit: said ? stands.unit : part.own.unit,
+    size_id: null,
+    note: null,
+    link: { kind: 'own_recipe', own_recipe: place },
+    optional: false
   };
 }
 
