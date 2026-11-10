@@ -777,7 +777,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Several links at once (cabledrawer 31 Oct):** links pasted together are read one after another, each into its own draft to check later; one that fails doesn't stop the rest. Same switch and server-only fetching as one link.
 - **Serves and time from pasted text (cabledrawer 7 Nov):** "Serves 4" and "Takes 30 minutes" in pasted text are read on import.
 - **Close offline in Check (cabledrawer 7 Nov):** Close works offline: it says "You're offline: changes since then won't be kept" and leaves; the draft stays as last saved.
-- **No "Same as" on one shared word (F186, cabledrawer 8 Nov):** import doesn't suggest "Same as Rice" for a line that only shares one word with an ingredient named by that one word, when the line adds a word of its own ("poha (flattened rice)", "spring onions", "coconut milk", "lemon juice"). A colour, size, state or part word ("red", "dried", "tinned", "leaves") is not a word of its own.
+- **No "Same as" on one shared word (F186, cabledrawer 8 Nov):** import makes no match on a shared word such as "rice" ("poha (flattened rice)" is not "Same as Basmati rice"). How it is told apart (proposed, for cabledrawer): a line that adds a word of its own to a one-word ingredient's name ("spring onions", "coconut milk", "lemon juice") is not offered that ingredient; a colour, size, state, part or cut word ("red", "dried", "tinned", "leaves") is not a word of its own.
 
 ### Batch cook (Experimental) (cabledrawer 28 Oct; in 0.8.0, built last, cabledrawer 6 Nov)
 
