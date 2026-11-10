@@ -25,6 +25,14 @@ from mealwright.models import RecipeMethod
 MAX_METHODS = 2
 
 
+def utc_text(moment: datetime) -> str:
+    """A moment as text in UTC with no zone (for an Undo step). A time with another zone is
+    converted first (Postgres gives times back with their zone); one with none is already UTC."""
+    if moment.tzinfo is not None:
+        moment = moment.astimezone(UTC).replace(tzinfo=None)
+    return moment.isoformat()
+
+
 class InMethod(Protocol):
     method_id: Any
 
@@ -98,8 +106,8 @@ def touch_with_undo(method: RecipeMethod | None, now: datetime) -> dict[str, Any
     touch(method, now)
     return {
         "method_used": method.id,
-        "used_was": was.replace(tzinfo=None).isoformat() if was else None,
-        "used_set": now.replace(tzinfo=None).isoformat(),
+        "used_was": utc_text(was) if was else None,
+        "used_set": utc_text(now),
     }
 
 
@@ -109,7 +117,7 @@ def put_back(db: DbSession, step: dict[str, Any]) -> None:
     method = db.get(RecipeMethod, step.get("method_used") or 0)
     if method is None or method.last_used_at is None:
         return
-    if method.last_used_at.replace(tzinfo=None).isoformat() != step["used_set"]:
+    if utc_text(method.last_used_at) != step["used_set"]:
         return
     was = step["used_was"]
     method.last_used_at = datetime.fromisoformat(was).replace(tzinfo=UTC) if was else None

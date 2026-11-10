@@ -548,3 +548,66 @@ def test_nothing_is_sent_or_scheduled() -> None:
     imports = [line for line in source.splitlines() if line.startswith(("import ", "from "))]
     for word in ("jobs", "outbound", "apprise", "httpx", "smtplib", "socket"):
         assert not [line for line in imports if word in line], word
+
+
+# --- Round 1 fixes (M3) ----------------------------------------------------------------------
+
+
+def test_a_meal_whose_time_has_gone_by_has_nothing_to_start_but_the_add_goes_ahead(
+    kitchen: TestClient, clock: Callable[[datetime], None]
+) -> None:
+    recipe = dosa(kitchen)
+    clock(datetime(2026, 11, 14, 10, 0, tzinfo=UTC))  # Saturday 10:00; breakfast was at 08:00
+    found = options(kitchen, recipe, SAT)
+    assert found["wait"] is not None and found["options"] == []
+    assert found["eats_at"] == "08:00"
+    added = plan_dosa(kitchen, recipe)  # no start, so nothing is refused
+    assert item_of(kitchen, added["item_id"], SAT)["ahead"]["start_time"] is None
+
+
+def test_start_now_is_still_offered_when_it_is_ready_after_the_meal(
+    kitchen: TestClient, clock: Callable[[datetime], None]
+) -> None:
+    recipe = dosa(kitchen)
+    clock(datetime(2026, 11, 14, 5, 0, tzinfo=UTC))  # three hours before breakfast; wait is 8 h+
+    (now,) = options(kitchen, recipe, SAT)["options"]
+    assert now["time"] in ("05:00", "05:05") and now["ready_by"] in ("13:30", "13:35")
+    started = plan_dosa(kitchen, recipe, start=start_of(SAT, "05:05"))
+    assert item_of(kitchen, started["item_id"], SAT)["ahead"]["start_time"] == "05:05"
+
+
+def test_copying_a_recipe_with_a_long_wait_can_say_when_to_start_it(kitchen: TestClient) -> None:
+    item = plan_dosa(kitchen, dosa(kitchen), start=start_of(FRI, "21:00"))["item_id"]
+    slot = slot_ids(kitchen)["Breakfast"]
+    body = {"date": "2026-11-15", "slot_id": slot, "mode": "copy"}
+    late = kitchen.post(
+        f"{API}/plan/items/{item}/move",
+        json={**body, "start": start_of(date(2026, 11, 16), "21:00")},
+    )
+    assert late.status_code == 422 and late.json()["code"] == "bad_start"
+    asked = kitchen.post(
+        f"{API}/plan/items/{item}/move", json={**body, "start": start_of(SAT, "21:00")}
+    )
+    assert asked.status_code == 200, asked.text
+    meals = view(kitchen, FRI, 5)["meals"]
+    starts = sorted(
+        (m["date"], i["ahead"]["start_time"]) for m in meals for i in m["items"] if i["ahead"]
+    )
+    assert starts == [("2026-11-14", "21:00"), ("2026-11-15", "21:00")]
+    moved = kitchen.post(
+        f"{API}/plan/items/{item}/move",
+        json={**body, "date": "2026-11-16", "mode": "move", "start": start_of(SAT, "21:00")},
+    )
+    assert moved.status_code == 422 and moved.json()["code"] == "start_on_copy_only"
+
+
+def test_a_time_with_another_zone_is_kept_as_utc_text_in_an_undo_step() -> None:
+    from datetime import timedelta, timezone
+
+    from mealwright import methods, plan
+
+    plus_two = datetime(2026, 11, 14, 10, 0, tzinfo=timezone(timedelta(hours=2)))
+    assert methods.utc_text(plus_two) == "2026-11-14T08:00:00"
+    assert plan._moment(plus_two) == "2026-11-14T08:00:00"
+    assert plan._moment(datetime(2026, 11, 14, 8, 0)) == "2026-11-14T08:00:00"  # SQLite: UTC
+    assert plan._unmoment(plan._moment(plus_two)) == plus_two

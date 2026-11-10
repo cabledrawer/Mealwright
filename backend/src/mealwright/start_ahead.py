@@ -139,8 +139,12 @@ def options(
     Whole hours on the household's clock, counted back in real hours (a wait is as long as the
     clocks say it is, so a night with a clock change is an hour longer or shorter), and none that
     has already gone by. When both have gone by there is one more,
-    starting at once. The same meal on the same day always gets the same options."""
+    starting at once (still offered when it is ready after the meal's time: that is the person's
+    choice). A meal whose time has gone by has none: nothing can be started ahead of it. The same
+    meal on the same day always gets the same options."""
     eat = eat_instant(household, day, slot)
+    if eat <= now:
+        return []
     active = timedelta(minutes=ahead.active_minutes or 0)
     low, high = ahead.wait.min_minutes, ahead.wait.max_minutes
     middle = timedelta(minutes=(low + high) // 2)

@@ -1001,6 +1001,13 @@ class PlanMoveIn(BaseModel):
         " meal. ask: change nothing and answer 409 `no_portions_left`. cook_more: a bigger"
         " batch. add_anyway: plan the recipe there for one serving; the batch stays the same.",
     )
+    start: StartIn | None = Field(
+        default=None,
+        description="copy of one recipe with a long wait (M3): when the copy's wait will be"
+        " started, a day and a clock time in the household's time zone, as when planning it."
+        " Left out: no time yet. Same refusals as planning (`422 bad_start`, `no_wait`);"
+        " `422 start_on_copy_only` with move or leftovers. Ignored when a whole meal is copied.",
+    )
 
 
 @router.post("/plan/items/{plan_item_id}/move")
@@ -1019,6 +1026,7 @@ def move_plan_item(
             body.slot_id,
             body.mode,
             body.if_none_left,
+            body.start.at() if body.start else None,
         ),
     )
 

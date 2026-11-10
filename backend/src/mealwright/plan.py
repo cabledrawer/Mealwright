@@ -278,7 +278,7 @@ def _snapshot_item(item: MealItem) -> dict[str, Any]:
 
 def _moment(at: datetime | None) -> str | None:
     """A start time as text for an Undo step (always UTC)."""
-    return at.replace(tzinfo=None).isoformat() if at else None
+    return methods.utc_text(at) if at else None
 
 
 def _unmoment(text: str | None) -> datetime | None:
@@ -799,7 +799,13 @@ def remove_meal(kitchen: Kitchen, meal: Meal) -> Change:
 _KINDS = {"move": "plan_moved", "copy": "plan_copied", "leftovers": "plan_leftovers"}
 
 
-def _copy_of(kitchen: Kitchen, item: MealItem, meal: Meal, steps: list[dict[str, Any]]) -> None:
+def _copy_of(
+    kitchen: Kitchen,
+    item: MealItem,
+    meal: Meal,
+    steps: list[dict[str, Any]],
+    start_at: datetime | None = None,
+) -> None:
     clone = MealItem(
         household_id=kitchen.household_id,
         meal_id=meal.id,
@@ -812,6 +818,7 @@ def _copy_of(kitchen: Kitchen, item: MealItem, meal: Meal, steps: list[dict[str,
         servings=item.servings,
         optional_skipped=item.optional_skipped,
         method_id=item.method_id,
+        start_at=start_at,
     )
     kitchen.db.add(clone)
     kitchen.db.flush()
@@ -972,8 +979,11 @@ def move_item(
     slot_id: int,
     mode: Mode,
     if_none_left: str = "ask",
+    start: tuple[date, time] | None = None,
 ) -> Change:
-    """Move one thing from a meal to another date and slot, or copy it."""
+    """Move one thing from a meal to another date and slot, or copy it. `start` (a copy of a
+    recipe with a long wait; M3, proposed, for cabledrawer): when the copy's wait will be started,
+    asked like any other way of adding it; left out, the copy has no time yet."""
     check_day(kitchen, day)
     find_slot(kitchen, slot_id)
     source = kitchen.db.get(Meal, item.meal_id)
@@ -1011,6 +1021,18 @@ def move_item(
         )
     if mode == "leftovers":
         check_after_cook(kitchen, source, day, slot_id)
+    if start is not None and mode != "copy":
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "start_on_copy_only",
+            "A start time is only for a copy.",  # proposed, for cabledrawer
+        )
+    start_at = None
+    if start is not None:
+        slot = find_slot(kitchen, slot_id)
+        recipe = kitchen.db.get(Recipe, item.recipe_id) if item.recipe_id else None
+        method = kitchen.db.get(RecipeMethod, item.method_id) if item.method_id else None
+        start_at = _start_instant(kitchen, recipe, method, day, slot, start)
     steps: list[dict[str, Any]] = []
     name = _item_name(kitchen, item)
     where_from = _where(kitchen, source.day, source.slot_id)
@@ -1027,7 +1049,7 @@ def move_item(
     elif mode == "leftovers":
         _leftovers_of(kitchen, item, source, target, steps, if_none_left)
     else:
-        _copy_of(kitchen, item, target, steps)
+        _copy_of(kitchen, item, target, steps, start_at)
     where_to = _where(kitchen, day, slot_id)
     summary = {
         "move": f"Moved {name} from {where_from} to {where_to}",
