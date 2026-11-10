@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import ok
 from test_drafts import kept
-from test_recipe_import import API, Web, counts, review, web  # noqa: F401
+from test_recipe_import import API, Web, counts, cupboard, neighbour, review, web  # noqa: F401
 from test_recipe_import import save as save_import
 from test_recipes import make
 
@@ -191,3 +191,65 @@ def test_a_draft_keeps_a_section_made_its_own_recipe(kitchen: TestClient, web: W
     }
     # The server's own reading never sets it.
     assert all(ln.get("own") is None for ln in review(kitchen, text)["lines"])
+
+
+def test_another_households_ids_inside_a_section_recipe_are_refused_and_nothing_is_saved(
+    kitchen: TestClient, neighbour: TestClient, web: Web
+) -> None:
+    from sync_kit import food
+
+    onions = food(kitchen, "Onions")
+    batter = ok(kitchen.post(f"{API}/recipes", json={"name": "Batter", "made_ahead": True}), 201)
+    home = cupboard(kitchen)
+    foreign = [
+        {"kind": "ingredient", "food_id": onions["id"]},
+        {"kind": "recipe", "recipe_id": batter["id"]},
+        {"kind": "new", "name": "Rice", "place_id": home},
+        {"kind": "recipe", "recipe_id": batter["id"], "place_id": home},
+    ]
+    before = counts(neighbour)
+    for link in foreign:
+        attempt = body()
+        attempt["own_recipes"][0]["lines"][0]["link"] = link
+        response = save_import(neighbour, attempt)
+        assert response.status_code == 404, link
+        assert ok(neighbour.get(f"{API}/recipes"))["recipes"] == []
+        assert counts(neighbour) == before
+
+
+def test_undo_after_the_main_recipe_was_deleted_still_takes_the_section_recipe_back(
+    kitchen: TestClient, web: Web
+) -> None:
+    saved = ok(save_import(kitchen, body()), 201)
+    assert kitchen.delete(f"{API}/recipes/{saved['recipe']['id']}").status_code == 200
+    ok(kitchen.post(f"{API}/changes/{saved['change']['id']}/undo"))
+    assert recipes_named(kitchen) == {}
+
+
+@pytest.mark.parametrize(
+    "amount", [float("nan"), float("inf"), -1, 0, 1_000_001], ids=lambda v: str(v)
+)
+def test_a_draft_refuses_a_section_amount_that_makes_no_sense(
+    kitchen: TestClient, web: Web, amount: float
+) -> None:
+    from mealwright.api.v1.import_schemas import OwnRecipeNote
+
+    with pytest.raises(ValueError):
+        OwnRecipeNote(name="Batter", amount=amount, unit="cup")
+    with pytest.raises(ValueError):
+        OwnRecipeNote(name="\u200b \u200d", amount=1, unit="cup")
+
+
+def test_a_section_recipes_name_with_a_hidden_character_is_refused(
+    kitchen: TestClient, web: Web
+) -> None:
+    from mealwright.api.v1.import_schemas import OwnRecipeNote
+
+    with pytest.raises(ValueError):
+        OwnRecipeNote(name="Dosa\u200b batter", amount=4, unit="cup")
+    assert OwnRecipeNote(name="  Dosa   batter ", amount=4, unit="cup").name == "Dosa batter"
+    attempt = body()
+    attempt["own_recipes"][0]["name"] = "Dosa\u200b batter"
+    before = counts(kitchen)
+    assert save_import(kitchen, attempt).status_code == 422
+    assert counts(kitchen) == before

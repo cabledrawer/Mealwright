@@ -78,8 +78,16 @@ class OwnRecipeNote(BaseModel):
     draft); the server never sends it. Save takes the section back as `own_recipes`."""
 
     name: Annotated[str, Field(min_length=1, max_length=200)]
-    amount: float
+    amount: Annotated[float, Field(gt=0, le=MAX_AMOUNT, allow_inf_nan=False)]
     unit: Annotated[str, Field(min_length=1, max_length=30)]
+
+    @field_validator("name", "unit")
+    @classmethod
+    def _tidy(cls, value: str) -> str:
+        value = clean_name(value)
+        if not value:
+            raise ValueError("Give the recipe a name.")
+        return value
 
 
 class ReviewLine(BaseModel):
@@ -293,6 +301,14 @@ class ImportOwnRecipe(BaseModel):
     makes: MakesIn
     lines: list[ImportLineIn] = Field(default_factory=list, max_length=MAX_LINES)
     steps: list[RecipeStepIn] = Field(default_factory=list, max_length=MAX_STEPS)
+
+    @field_validator("name")
+    @classmethod
+    def _tidy(cls, value: str) -> str:
+        value = clean_name(value)
+        if not value:
+            raise ValueError("Give the recipe a name.")
+        return value
 
 
 class ImportSave(BaseModel):
