@@ -114,6 +114,10 @@ export default defineConfig({
     // Shopping on the phone, "in the shop" (0.8, S4): 390 px on Chromium and on WebKit.
     { name: 'phone 0.8 shop phone', testMatch: 'shop-phone.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'webkit 0.8 shop phone', testMatch: 'shop-phone.spec.ts', use: { ...webkitPhone, storageState: AUTH_FILE } },
+    // Whole packs on the list and another size suggested (0.8 W4c): phone, WebKit phone and computer.
+    { name: 'phone 0.8 whole packs', testMatch: 'whole-packs.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'webkit 0.8 whole packs', testMatch: 'whole-packs.spec.ts', use: { ...webkitPhone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.8 whole packs', testMatch: 'whole-packs.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Plan shopping (0.8, S3): 1280 and 1100 px, set in the tests.
     { name: 'desktop 0.8 plan shopping', testMatch: 'plan-shopping.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // The All recipes page and its states (0.4).

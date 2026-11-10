@@ -111,7 +111,7 @@
       ],
       "browser": [
         "shopping.spec.ts", "shop-phone.spec.ts", "pack-sizes.spec.ts", "starter-packs.spec.ts",
-        "plan-shopping.spec.ts", "plan-list.spec.ts", "staples-nav.spec.ts"
+        "plan-shopping.spec.ts", "whole-packs.spec.ts", "plan-list.spec.ts", "staples-nav.spec.ts"
       ]
     },
     {
