@@ -339,7 +339,7 @@ export class PlanModel {
     const use = await optionalAsk.ask(
       { id: item.recipe.id },
       `${dayShort(day)} ${meal ? this.slotName(meal.slot_id).toLocaleLowerCase() : 'meal'}`,
-      { button: 'Save', skipped, servings: item.eating }
+      { button: 'Save', skipped, servings: item.eating, method: item.method_id }
     );
     if (use === null || use === undefined) return;
     await this.#send({

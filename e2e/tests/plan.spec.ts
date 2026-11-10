@@ -347,6 +347,38 @@ test.describe('on a computer', () => {
     await expect.poll(method).toBe('Instant Pot');
   });
 
+  test('the optional question of a meal asks about the meal\u2019s own way, not the one used last (M2)', async ({ page }) => {
+    const { today, slot } = await setup(page);
+    const name = `Twoopt ${stamp()}`;
+    const made = await call(page, 'POST', '/recipes', {
+      name,
+      method_name: 'Stovetop',
+      time_minutes: 45,
+      lines: [{ words: 'mutton', amount: 1, unit: 'kg' }, { words: 'garam masala', amount: 1, unit: 'tsp', optional: true }],
+      second_method: {
+        name: 'Instant Pot',
+        time_minutes: 30,
+        lines: [{ words: 'stock', amount: 1, unit: 'l' }, { words: 'saffron', amount: 1, unit: 'pinch', optional: true }],
+      },
+    });
+    const ways = (made.methods as { id: number; name: string }[]);
+    const pot = ways.find((w) => w.name === 'Instant Pot')!.id;
+    const stove = ways.find((w) => w.name === 'Stovetop')!.id;
+    const monday = inWeek(today, 1);
+    const tuesday = inWeek(today, 2);
+    // Monday on the Instant Pot, then Tuesday on the Stovetop, which is now the one used last.
+    await call(page, 'POST', '/plan/items', { date: monday, slot_id: slot.Dinner, recipe_id: made.id, method_id: pot, optional_use: [] });
+    await call(page, 'POST', '/plan/items', { date: tuesday, slot_id: slot.Dinner, recipe_id: made.id, method_id: stove, optional_use: [] });
+    await openWeekOf(page, today, monday);
+    const card = cell(page, monday, slot.Dinner).getByRole('button', { name: new RegExp(`^${name}`) }).first();
+    await card.focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('dialog', { name }).getByRole('button', { name: 'Optional ingredients\u2026' }).click();
+    const ask = page.getByTestId('plan-optional');
+    await expect(ask.getByRole('checkbox', { name: /saffron/ })).toBeVisible();
+    await expect(ask.getByRole('checkbox', { name: /garam masala/ })).toHaveCount(0);
+  });
+
   test('dragging a meal moves it; Alt copies; the Leftovers zone plans leftovers; each has its Undo', async ({ page }) => {
     const { today, slot } = await setup(page);
     const name = `Drag ${stamp()}`;

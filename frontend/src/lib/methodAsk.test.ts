@@ -174,4 +174,31 @@ describe('every way a recipe is added to the plan asks, through PlanModel.add', 
     await again;
     expect(requests.filter((r) => r.method === 'PUT')).toHaveLength(1);
   });
+
+  it('changing the optional lines from a meal asks about the meal’s own way, not the one used last', async () => {
+    const stove = { ...CURRY, lines: [line(1, 'Chicken'), line(4, 'Garam masala', true)] };
+    const requests = fakeApi({
+      'GET /recipes/5': [200, stove],
+      'GET /recipes/5/stock?method=10': [
+        200,
+        { lines: [], counted: 0, missing: 0, stock_unchecked: false }
+      ],
+      'PUT /plan/items/77/optional': [200, { change: null, meal_id: 1, item_id: 77 }]
+    });
+    const model = new PlanModel();
+    const item = {
+      id: 77,
+      kind: 'recipe',
+      recipe: { id: 5, name: 'Chicken curry', removed: false, optional_count: 1 },
+      method_id: 10, // Stovetop; the Instant Pot is the one used last
+      optional_skipped: []
+    } as unknown as PlanItem;
+    const changed = model.changeOptional(item, '2026-11-14');
+    await vi.waitFor(() => expect(optionalAsk.current).not.toBeNull());
+    expect(optionalAsk.current!.question.rows.map((r) => r.words)).toEqual(['Garam masala']);
+    expect(requests.some((r) => r.url.includes('/stock?method=10'))).toBe(true);
+    optionalAsk.answer([4]);
+    await changed;
+    expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ use: [4] });
+  });
 });
