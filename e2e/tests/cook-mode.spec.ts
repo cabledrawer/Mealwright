@@ -985,3 +985,51 @@ test('a recipe with two ways asks "How are you cooking it today?", follows the p
   await expect(count(page)).toContainText('Step 1 of 2');
   await expect(text(page)).toContainText('Fry the onions.');
 });
+
+test('Cooked it follows the way picked in Cook mode, even when the pick could not be saved when it was made (M2)', async ({ page }) => {
+  await fakeBrowserThings(page);
+  const index = ['desktop 0.7 cook mode', 'phone 0.7 cook mode', 'webkit 0.7 cook mode'].indexOf(test.info().project.name);
+  const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
+  const ahead = new Date(`${household.today}T12:00:00Z`);
+  ahead.setUTCDate(ahead.getUTCDate() + 2);
+  const day = ahead.toISOString().slice(0, 10);
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slot = slots.find((s) => s.name === ['Breakfast', 'Lunch', 'Dinner'][Math.max(index, 0)])!.id;
+  const name = `Curry ${stamp()}`;
+  const recipe = await call(page, '/recipes', {
+    name,
+    serves: 4,
+    method_name: 'Stovetop',
+    time_minutes: 45,
+    lines: [{ words: 'chicken' }],
+    steps: [{ text: 'Fry the onions.' }],
+    second_method: { name: 'Instant Pot', time_minutes: 30, lines: [{ words: 'stock' }], steps: [{ text: 'Pressure cook.' }] },
+  });
+  const stove = (recipe.methods as { id: number; name: string }[]).find((m) => m.name === 'Stovetop')!.id;
+  const planned = await call(page, '/plan/items', { date: day, slot_id: slot, recipe_id: recipe.id, method_id: stove, servings: 2 });
+  const methodNow = async () => {
+    const plan = (await (await page.request.get(`/api/v1/plan?from=${day}&to=${day}`)).json()) as { meals: { items: { id: number; method: string | null }[] }[] };
+    return plan.meals.flatMap((m) => m.items).find((i) => i.id === planned.item_id)?.method ?? null;
+  };
+  try {
+    // The pick is made while the save fails: the meal still says Stovetop.
+    await page.route('**/api/v1/plan/items/*/method', (route) => route.abort('connectionfailed'));
+    await page.goto('/plan');
+    await page.getByRole('button', { name: 'Next week' }).click();
+    await page.getByRole('group', { name: 'Show', exact: true }).getByRole('button', { name: 'Cook', exact: true }).click();
+    await page.getByRole('region', { name: planDayName(day) }).getByRole('button', { name: `Start cooking ${name}` }).click();
+    const ask = page.getByRole('dialog', { name: 'How are you cooking it today?' });
+    await ask.getByText('Instant Pot').click();
+    await ask.getByRole('button', { name: 'Start · Instant Pot' }).click();
+    await expect(text(page)).toContainText('Pressure cook.');
+    expect(await methodNow()).toBe('Stovetop');
+    // Cooked it sets it again before it opens.
+    await page.unroute('**/api/v1/plan/items/*/method');
+    await lastStep(page);
+    await page.getByRole('button', { name: 'Cooked it' }).click();
+    await expect(page.getByRole('dialog', { name: `Cooked ${name}`, exact: true })).toBeVisible();
+    expect(await methodNow()).toBe('Instant Pot');
+  } finally {
+    await page.request.fetch(`/api/v1/plan/items/${planned.item_id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
+  }
+});

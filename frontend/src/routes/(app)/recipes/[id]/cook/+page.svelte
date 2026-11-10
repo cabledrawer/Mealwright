@@ -8,9 +8,10 @@
   import { onDestroy, onMount } from 'svelte';
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
   import { getRecipe, type Recipe } from '#lib/client/recipes.js';
+  import { toasts } from '#lib/toast.svelte.js';
   import { withMethod } from '#lib/recipeMethods.js';
   import CookMode from '#lib/components/cook/CookMode.svelte';
-  import CookedReview, { type LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
+  import type { LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
   import { cookNow } from '#lib/cookNow.svelte.js';
   import { cookPrefs } from '#lib/cookPrefs.svelte.js';
@@ -67,10 +68,8 @@
   const twoWays = $derived((recipe?.methods?.length ?? 0) > 1);
   const shownRecipe = $derived(recipe ? withMethod(recipe, pick) : null);
   /** This recipe's item in the meal (the one Cooked it would review). */
-  const mealItem = $derived(
-    meal?.items.find((i) => i.kind === 'recipe' && !i.cooked && i.recipe?.id === id) ?? null
-  );
-  const pickedName = $derived(recipe?.methods?.find((m) => m.id === pick)?.name ?? '');
+  const mealItem = () =>
+    meal?.items.find((i) => i.kind === 'recipe' && !i.cooked && i.recipe?.id === id) ?? null;
 
   $effect(() => {
     if (twoWays && !settling && !asked) {
@@ -89,8 +88,26 @@
   let leftover = $state<LeftoverOptions | null>(null);
   let confirmed = false;
 
-  function openCooked() {
+  async function openCooked() {
     if (!meal) return;
+    // The way cooked today is the meal's own way: set again here when the pick was not saved
+    // (offline, or it failed), so Cooked it never records the other way (M2).
+    const item = mealItem();
+    if (pick !== null && item && item.method_id !== pick) {
+      const { setMealWay } = await import('#lib/cookWays.js');
+      if (!(await setMealWay(item, pick))) {
+        // proposed, for cabledrawer
+        toasts.show(
+          'Couldn’t tell the Plan which way you cooked it. Check the connection and try again.',
+          {
+            tone: 'problem'
+          }
+        );
+        return;
+      }
+      await model.load();
+      if (!meal) return;
+    }
     // Cook now added this recipe to the meal: Cooked it reviews only it, not the others there.
     // Reloaded, or opened from the address: this recipe's first item not cooked yet in that
     // meal (cabledrawer 1 Nov; 6 Nov), never the whole meal.
@@ -169,12 +186,17 @@
   <CookMode
     bind:this={cook}
     recipe={shownRecipe}
-    way={twoWays && pick !== null ? { name: pickedName, onswitch: () => (asking = true) } : null}
+    way={twoWays && pick !== null
+      ? {
+          name: recipe.methods?.find((m) => m.id === pick)?.name ?? '',
+          onswitch: () => (asking = true)
+        }
+      : null}
     {timers}
     {awake}
     perStep={cookPrefs.perStep}
     {notice}
-    oncooked={meal ? openCooked : null}
+    oncooked={meal ? () => void openCooked() : null}
     {settling}
     problem={cookPrefs.problem}
     onperstep={(on) => void cookPrefs.setPerStep(on)}
@@ -197,7 +219,7 @@
   {#await import('#lib/components/cook/CookMethodAsk.svelte') then { default: CookMethodAsk }}
     <CookMethodAsk
       {recipe}
-      item={mealItem}
+      item={mealItem()}
       current={pick}
       onstart={start}
       onchanged={() => void model.load()}
@@ -205,21 +227,26 @@
   {/await}
 {/if}
 
-<CookedReview
-  {review}
-  {leftover}
-  readonly={network.offline}
-  onclose={closeCooked}
-  onconfirmed={async (leftovers, undoCooked) => {
-    const planned = meal;
-    if (!planned) return true;
-    const result = answered(
-      await model.cooked(planned, leftovers, undoCooked, undefined, review.target?.title)
-    );
-    if (result === true) confirmed = true;
-    return result;
-  }}
-/>
+<!-- Cooked it is only needed at the last step: it loads when it is first opened (size limit). -->
+{#if review.target}
+  {#await import('#lib/components/cooked/CookedReview.svelte') then { default: CookedReview }}
+    <CookedReview
+      {review}
+      {leftover}
+      readonly={network.offline}
+      onclose={closeCooked}
+      onconfirmed={async (leftovers, undoCooked) => {
+        const planned = meal;
+        if (!planned) return true;
+        const result = answered(
+          await model.cooked(planned, leftovers, undoCooked, undefined, review.target?.title)
+        );
+        if (result === true) confirmed = true;
+        return result;
+      }}
+    />
+  {/await}
+{/if}
 
 <style>
   .loading,

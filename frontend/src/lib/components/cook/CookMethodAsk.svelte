@@ -4,9 +4,8 @@
   // timers and the time follow the pick, and the meal is set to it so Cooked it follows. Loaded
   // when Cook mode first has a recipe with two ways (size limit). Words are proposed, for cabledrawer,
   // except the question (docs/dev/words.md).
-  import { newChangeId } from '#lib/changeId.js';
-  import { setPlanMethod } from '#lib/client/plan.js';
   import type { Recipe } from '#lib/client/recipes.js';
+  import { setMealWay } from '#lib/cookWays.js';
   import { network } from '#lib/network.svelte.js';
   import { timeWithWait } from '#lib/timeWords.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -57,11 +56,10 @@
   /** The meal cooks the way that was picked: the list, Can cook now and Cooked it follow it. */
   async function start(id: number) {
     onstart(id);
+    // Offline, nothing is said here: Cooked it sets the way again before it opens.
     if (!item || item.method_id === id || network.offline) return;
-    try {
-      await setPlanMethod(item.id, id, newChangeId());
-      onchanged();
-    } catch {
+    if (await setMealWay(item, id)) onchanged();
+    else {
       toasts.show('Couldn’t change how the meal is cooked. Try again from the Plan.', {
         tone: 'problem'
       }); // proposed, for cabledrawer
