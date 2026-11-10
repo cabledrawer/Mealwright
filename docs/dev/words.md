@@ -6,6 +6,7 @@
 
 **Where it comes from:** `spec` = `docs/spec.md` (section or heading named); `api` = `docs/dev/api-0.2.md`; `sync` = `docs/dev/sync-protocol.md`; `review` = `e2e/REVIEW.md`; a path like `frontend/src/lib/network.svelte.ts` is the built wording.
 
+
 ## The list on one page (read this, then grep)
 
 Added 25 Oct at cabledrawer's request, so checkers and builders don't read the whole list: read this page, then find the PR's own words with `grep -n -i '<word>' docs/dev/words.md`, and the section you need with `grep -n '^## ' docs/dev/words.md`. This page only repeats the rules below; where they differ, the section wins.
@@ -509,6 +510,8 @@ Written by Claude Code on 27 Oct. The card's words are from the mockups `ImportP
 - Settings, a new section **Amounts**, the row **Read pints as US pints** with **A pint is 568 ml (UK). Switch on for 473 ml (US).** (off) or **A pint is 473 ml (US).** (on); for a member, **Only an admin can change this.** added; when it can't be saved, **Only the household’s admin can change this.** or **Couldn’t reach your Mealwright server. Nothing was changed.**
 - A site that said no to the page (401, 403 or 429): **That site wouldn’t let Mealwright read the page. Paste the recipe’s text instead.**
 
+
+
 ## 24. Recipe wishes, paper cuts and follow-ups (0.6 PR 8; OK'd by cabledrawer 28 Oct, see spec section 6, "Recipe paper cuts, decided")
 
 Written by Claude Code on 27 Oct from the mockups `RecipeDelete-*` and `RecipeLines-*` (cabledrawer 24 Oct: "looks good") and the 0.6 friction sort, items 15 to 22.
@@ -927,6 +930,7 @@ Words from the mockup `Dark-RecipesTags08-Phone` are agreed; the rest are propos
 - **Problems:** **Couldn’t load the sizes. Try again.** · **Couldn’t change the size. Try again.** · offline with a size to be made: **A new size needs your Mealwright server. Try again when it answers.**
 - **A quarter or half of an amount in Already have it:** two figures with "about" when that changed it: **about 63 g** (never 62.5 g), as the "How much is left" rule.
 
+
 ## 55. Two cooking methods (0.8 M2, F107; cabledrawer 31 Oct and 9 Nov; the mockup words `Dark-CheckWait08-Phone`, `Dark-RecipeMethods08-Phone`, `Dark-CookMethod08-Phone` and `Dark-CookNextA08-Phone` are agreed, the rest is proposed, for cabledrawer)
 
 - **Cook mode's question (mockup, cabledrawer's):** **How are you cooking it today?**, each way with its name and **45 min active · 3 steps · last time** (the way used last says "last time"), the note **Steps, timers and the time follow your pick. You can switch on the first step.**, and the main button **Start · Stovetop**.
@@ -936,4 +940,9 @@ Words from the mockup `Dark-RecipesTags08-Phone` are agreed; the rest are propos
 - **The recipe editor (proposed, for cabledrawer):** **+ Add a second way of cooking it**; then a switch between the two, **Name of this way of cooking it**, the note **The time, ingredients and steps below are for this way of cooking it.** and **Remove this way of cooking it**. Refusals: **Name this way of cooking it, like Stovetop.** / **…like Instant Pot.**, **The two ways of cooking it need different names.**
 - **When a recipe is added to the plan (proposed, for cabledrawer):** the sheet **Chicken curry · Sat dinner** asks **Which way will you cook it?** with each way and its time (**· last time** on the one used last, pre-picked), the note **The shopping list and Cooked it follow it. You can change it from the meal later.** and **Add to plan** (**Save** when the meal's way is changed). The meal's menu has **How it’s cooked…** (**How it’s cooked: Chicken curry…** when several).
 - **Refusals from the server (proposed, for cabledrawer):** **That isn’t one of this recipe’s ways of cooking it.**, **Only a recipe has a way of cooking it.**, **This recipe has only one way of cooking it.**, and when Cook mode can't change the meal: **Couldn’t change how the meal is cooked. Try again from the Plan.**
+- **The editor's switch before a way has a name (proposed, for cabledrawer):** **First way** and **Second way**, in place of the name, until the name is typed.
+- **Saving a second way when the first has no name (proposed, for cabledrawer; the server's refusal):** **Name the first way of cooking it too, so Cook mode can ask which.**
+- **The recipe page with one way and no name for it (proposed, for cabledrawer):** no switch and no name: it reads as any recipe always did. The switch shows only when there are two ways, and then both have names.
+- **Changing the way from a meal that had optional ingredients left out (proposed, for cabledrawer):** the toast says so after the change: **Changed how Dal on Sat dinner is cooked to Instant Pot. Its optional ingredients start again** (with **Undo**, which puts them back). A meal with none left out says only the first part.
+- **Cooked it when the way picked in Cook mode could not be saved before (proposed, for cabledrawer):** Cooked it sets the meal to the way cooked first, and if it still can't, it doesn't open and says **Couldn’t tell the Plan which way you cooked it. Check the connection and try again.**
 - **Check (mockup, proposed for the rest):** **Two ways to cook this: Stovetop and Instant Pot. They’re kept as two methods, and Cook mode asks which one on the day.**, then **Steps · Instant Pot** with the second way's steps (read only; the ingredients and the time are the page's, shared by both ways, and can be changed in the editor).
