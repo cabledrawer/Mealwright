@@ -72,8 +72,6 @@ async function itemOn(page: Page, day: string, recipeId: number) {
   return item ? { id: item.id as number, ahead: item.ahead as Ahead | null } : null;
 }
 
-const cell = (page: Page, day: string, slotId: number) => page.getByTestId(`cell-${day}-${slotId}`);
-
 // A script error anywhere on the page fails the test that caused it. The phone opens the Plan on
 // Eat; the meal's card is on Both.
 const scriptErrors: string[] = [];
@@ -94,7 +92,7 @@ async function openWeekOf(page: Page, day: string) {
 
 test('Plan it on a recipe with a long wait asks when it will be started, and the meal can change the time, with Undo', async ({ page }) => {
   test.setTimeout(90_000); // two accessibility scans (both themes) and three screens to open
-  const { today, breakfast } = await setup(page);
+  const { today } = await setup(page);
   const recipe = await dosa(page);
   const day = addDays(today, 1 + projectIndex()); // a Breakfast at 08:00, so Sat 21:00 and 19:00 are still to come
   const eve = addDays(day, -1);
@@ -125,7 +123,9 @@ test('Plan it on a recipe with a long wait asks when it will be started, and the
 
     // Changing it from the meal: the menu says when it starts, and asks again with Save.
     await openWeekOf(page, day);
-    const card = cell(page, day, breakfast).getByRole('button', { name: new RegExp(recipe.name) }).first();
+    // The computer's card is named by the recipe, the phone's "Breakfast: Recipe. Open menu"; the
+    // tray's button of the same recipe ("Recipe. Choose a day to plan it") is not the meal.
+    const card = page.getByRole('button', { name: new RegExp(`^(?:Breakfast: )?${recipe.name}(?!\\. Choose)`) }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
     await card.focus();
     await page.keyboard.press('Enter');
