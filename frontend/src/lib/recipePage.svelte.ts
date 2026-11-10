@@ -7,6 +7,7 @@
 
 import { ApiError, cantReachWords, cantReach } from './api';
 import { getRecipe, getRecipeStock, type Recipe, type RecipeStock } from './client/recipes';
+import { withMethod } from './recipeMethods';
 import { MAX_SERVES, MIN_SERVES, factorOf } from './recipeAmounts';
 import type { StepWait } from './timeWords';
 
@@ -19,18 +20,7 @@ export class RecipeView {
   /** The way of cooking it the page shows (M2); null: the first. */
   methodId = $state<number | null>(null);
   /** What the page shows: the recipe with the lines, steps and time of the chosen method. */
-  readonly recipe = $derived.by<Recipe | null>(() => {
-    const full = this.full;
-    const second = full?.second_method;
-    if (!full || !second || this.methodId !== second.id) return full;
-    return {
-      ...full,
-      lines: second.lines,
-      steps: second.steps,
-      time_minutes: second.time_minutes,
-      wait: second.wait ?? null
-    };
-  });
+  readonly recipe = $derived(this.full ? withMethod(this.full, this.methodId) : null);
   stock = $state<RecipeStock | null>(null);
   /** False until the first answer, so the page can say "Loading…". */
   loaded = $state(false);

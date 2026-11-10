@@ -218,3 +218,15 @@ describe('the ingredients a step seems to use', () => {
     expect(nameForms('')).toEqual([]);
   });
 });
+
+describe('the wait on a step, for the NEXT line (M2)', () => {
+  it('carries a step’s wait and leaves the others without one', () => {
+    const wait = { kind: 'marinate', min_minutes: 240, max_minutes: 720, overnight: true };
+    const found = cookSteps([
+      { kind: 'step', text: 'Rub the chicken.', wait },
+      { kind: 'step', text: 'Fry the onions.' }
+    ]);
+    expect(found[0]?.wait).toEqual(wait);
+    expect(found[1]?.wait).toBeUndefined();
+  });
+});

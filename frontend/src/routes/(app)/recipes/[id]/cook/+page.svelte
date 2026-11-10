@@ -8,6 +8,11 @@
   import { onDestroy, onMount } from 'svelte';
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
   import { getRecipe, type Recipe } from '#lib/client/recipes.js';
+  import { setPlanMethod } from '#lib/client/plan.js';
+  import { newChangeId } from '#lib/changeId.js';
+  import { withMethod } from '#lib/recipeMethods.js';
+  import { timeWithWait } from '#lib/timeWords.js';
+  import { toasts } from '#lib/toast.svelte.js';
   import CookMode from '#lib/components/cook/CookMode.svelte';
   import CookedReview, { type LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
@@ -56,6 +61,68 @@
       ? { text: shown.text, ...(shown.canUndo ? { undo: () => void cookNow.undo() } : {}) }
       : null
   );
+
+  // Two ways of cooking it (M2, mockup CookMethod08): Cook mode asks "How are you cooking it
+  // today?" once the recipe and the plan are known, and follows the pick; the meal is set to it so
+  // Cooked it follows too. The way can be switched again on the first step.
+  let pick = $state<number | null>(null);
+  let asking = $state(false);
+  let asked = false;
+  const twoWays = $derived((recipe?.methods?.length ?? 0) > 1);
+  const shownRecipe = $derived(recipe ? withMethod(recipe, pick) : null);
+  /** This recipe's item in the meal (the one Cooked it would review). */
+  const mealItem = $derived(
+    meal?.items.find((i) => i.kind === 'recipe' && !i.cooked && i.recipe?.id === id) ?? null
+  );
+  const ways = $derived(
+    (recipe?.methods ?? []).map((m, i) => {
+      const steps = (i === 0 ? recipe?.steps : recipe?.second_method?.steps) ?? [];
+      const count = steps.filter((s) => s.kind === 'step').length;
+      return {
+        id: m.id,
+        name: m.name,
+        detail: [
+          timeWithWait(m.time_minutes, m.wait),
+          `${count} ${count === 1 ? 'step' : 'steps'}`,
+          m.used_last ? 'last time' : ''
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      };
+    })
+  );
+  const firstPick = $derived(
+    mealItem?.method_id ??
+      recipe?.methods?.find((m) => m.used_last)?.id ??
+      recipe?.methods?.[0]?.id ??
+      0
+  );
+  const pickedName = $derived(
+    recipe?.methods?.find((m) => m.id === (pick ?? firstPick))?.name ?? ''
+  );
+
+  $effect(() => {
+    if (twoWays && !settling && !asked) {
+      asked = true;
+      asking = true;
+    }
+  });
+
+  async function start(chosen: number) {
+    pick = chosen;
+    asking = false;
+    // The meal cooks the way that was picked: the list, Can cook now and Cooked it follow it.
+    if (mealItem && mealItem.method_id !== chosen && !network.offline) {
+      try {
+        await setPlanMethod(mealItem.id, chosen, newChangeId());
+        void model.load();
+      } catch {
+        toasts.show('Couldn’t change how the meal is cooked. Try again from the Plan.', {
+          tone: 'problem'
+        }); // proposed, for cabledrawer
+      }
+    }
+  }
 
   const review = new CookReview();
   let leftover = $state<LeftoverOptions | null>(null);
@@ -137,10 +204,11 @@
   });
 </script>
 
-{#if recipe}
+{#if recipe && shownRecipe}
   <CookMode
     bind:this={cook}
-    {recipe}
+    recipe={shownRecipe}
+    way={twoWays && pick !== null ? { name: pickedName, onswitch: () => (asking = true) } : null}
     {timers}
     {awake}
     perStep={cookPrefs.perStep}
@@ -162,6 +230,17 @@
   </div>
 {:else}
   <p class="loading" aria-busy="true">Loading…</p>
+{/if}
+
+{#if asking && twoWays}
+  {#await import('#lib/components/cook/CookMethodAsk.svelte') then { default: CookMethodAsk }}
+    <CookMethodAsk
+      {ways}
+      picked={pick ?? firstPick}
+      onstart={(chosen) => void start(chosen)}
+      onclose={() => void start(pick ?? firstPick)}
+    />
+  {/await}
 {/if}
 
 <CookedReview

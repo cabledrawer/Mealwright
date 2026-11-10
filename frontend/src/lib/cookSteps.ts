@@ -8,6 +8,7 @@
 // shows nothing.
 
 import type { RecipeLine } from './client/recipes';
+import type { StepWait } from './timeWords';
 
 /** The steps of a recipe as the server sends them (`lines` are the links to ingredient lines). */
 export interface StepIn {
@@ -15,6 +16,8 @@ export interface StepIn {
   kind: 'step' | 'heading';
   text: string;
   lines?: { line_id: number; line: number; kind: 'guessed' | 'by_hand' }[];
+  /** A wait on the step (marinate, soak...), M1. */
+  wait?: StepWait | null;
 }
 
 export interface CookStep {
@@ -27,6 +30,8 @@ export interface CookStep {
   text: string;
   /** The ingredient lines the server linked to it (set by hand or guessed), as line ids. */
   linked: number[];
+  /** The wait on the step, for the NEXT line (M2). */
+  wait?: StepWait | null;
 }
 
 /** The steps in order, each with its section, skipping headings and empty steps. */
@@ -40,7 +45,12 @@ export function cookSteps(steps: StepIn[]): CookStep[] {
       continue;
     }
     if (text === '') continue;
-    found.push({ section, text, linked: (step.lines ?? []).map((l) => l.line_id) });
+    found.push({
+      section,
+      text,
+      linked: (step.lines ?? []).map((l) => l.line_id),
+      ...(step.wait ? { wait: step.wait } : {})
+    });
   }
   return found.map((step, i) => ({ ...step, number: i + 1, total: found.length }));
 }

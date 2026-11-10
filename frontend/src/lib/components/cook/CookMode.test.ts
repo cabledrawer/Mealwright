@@ -80,7 +80,12 @@ describe('Cook mode', () => {
 
   function open(
     r: Recipe,
-    extra: { perStep?: boolean; cooked?: boolean; settling?: boolean } = {}
+    extra: {
+      perStep?: boolean;
+      cooked?: boolean;
+      settling?: boolean;
+      way?: { name: string; onswitch: () => void };
+    } = {}
   ): { leaveOr: (go: () => void) => void } {
     const target = document.body.appendChild(document.createElement('div'));
     const component = mount(CookMode, {
@@ -93,7 +98,8 @@ describe('Cook mode', () => {
         onperstep,
         onexit,
         oncooked: extra.cooked === false ? null : oncooked,
-        settling: extra.settling ?? false
+        settling: extra.settling ?? false,
+        way: extra.way ?? null
       }
     });
     mounted.push(component);
@@ -121,6 +127,45 @@ describe('Cook mode', () => {
     timers.stopAll();
     vi.useRealTimers();
     delete (navigator as unknown as Record<string, unknown>).wakeLock;
+  });
+
+  describe('the next step and the way of cooking it (M2)', () => {
+    it('shows the next step as a quiet NEXT line, with its wait, and none on the last step', async () => {
+      const wait = { kind: 'marinate', min_minutes: 240, max_minutes: 720, overnight: true };
+      open(
+        recipe([
+          step(1, 'Boil the dal.'),
+          { ...step(2, 'Rub the chicken.'), wait },
+          step(3, 'Serve.')
+        ])
+      );
+      const nextStep = page.getByTestId('next-step');
+      await shows(nextStep, has('NEXT'));
+      await shows(nextStep, has('Rub the chicken.'));
+      await userEvent.click(next());
+      await shows(count(), has('Step 2 of 3'));
+      await shows(nextStep, has('Serve.'));
+      await userEvent.click(back());
+      await userEvent.click(next());
+      await userEvent.click(next());
+      await shows(count(), has('Step 3 of 3'));
+      expect(page.getByTestId('next-step').elements()).toHaveLength(0);
+    });
+
+    it('shows a step’s wait in the NEXT line', async () => {
+      const wait = { kind: 'marinate', min_minutes: 240, max_minutes: 720, overnight: true };
+      open(recipe([step(1, 'Boil the dal.'), { ...step(2, 'Rub the chicken.'), wait }]));
+      await shows(page.getByTestId('next-step'), /Marinate · 4\s*h – overnight/);
+    });
+
+    it('says the way picked on the first step, where it can be switched', async () => {
+      const onswitch = vi.fn();
+      open(recipe(FOUR), { way: { name: 'Instant Pot', onswitch } });
+      await userEvent.click(page.getByRole('button', { name: 'Instant Pot · switch' }));
+      expect(onswitch).toHaveBeenCalledOnce();
+      await userEvent.click(next());
+      await shows(page.getByTestId('way-name'), has('Instant Pot'));
+    });
   });
 
   describe('the steps', () => {

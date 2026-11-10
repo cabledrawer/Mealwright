@@ -11,6 +11,7 @@
   import { clock, cookSteps, findTimers, stepLines } from '#lib/cookSteps.js';
   import type { CookTimers } from '#lib/cookTimers.svelte.js';
   import { lineAmount } from '#lib/recipeAmounts.js';
+  import { waitLength, waitName } from '#lib/timeWords.js';
   import { linkedWords } from '#lib/recipes/linkedWords.js';
   import type { ScreenAwake } from '#lib/screenAwake.svelte.js';
   import Icon from '../Icon.svelte';
@@ -27,7 +28,8 @@
     oncooked = null,
     settling = false,
     notice = null,
-    problem = null
+    problem = null,
+    way = null
   }: {
     recipe: Recipe;
     timers: CookTimers;
@@ -46,6 +48,9 @@
     notice?: { text: string; undo?: () => void } | null;
     /** One short line, e.g. when the per-step switch went back. */
     problem?: string | null;
+    /** The way of cooking it picked, for a recipe with two (M2): shown on the first step, where it
+     *  can be switched. */
+    way?: { name: string; onswitch: () => void } | null;
   } = $props();
 
   const uid = $props.id();
@@ -53,6 +58,8 @@
   let at = $state(0);
   const index = $derived(Math.min(at, Math.max(steps.length - 1, 0)));
   const step = $derived(steps[index] ?? null);
+  /** The step after this one, for the quiet NEXT line (M2, cabledrawer 9 Nov). */
+  const next = $derived(steps[index + 1] ?? null);
   const last = $derived(steps.length === 0 || index === steps.length - 1);
   const found = $derived(step ? findTimers(step.text) : []);
   const mine = $derived(step ? stepLines(step, recipe.lines) : []);
@@ -288,6 +295,11 @@
       <div class="who">
         <h1>{recipe.name}</h1>
         <p class="count" data-testid="step-count">{progress}</p>
+        {#if way && index === 0}
+          <button type="button" class="way" onclick={way.onswitch}>{way.name} · switch</button>
+        {:else if way}
+          <p class="count" data-testid="way-name">{way.name}</p>
+        {/if}
       </div>
       {#if awake.on}
         <span class="awake"><Icon name="light" size={14} stroke={2.4} />Awake</span>
@@ -385,6 +397,15 @@
         {#if found.length || elsewhere.length}<p class="quiet">{timerNote}</p>{/if}
       {:else}
         <p class="text" data-testid="step-text">This recipe has no steps yet.</p>
+      {/if}
+      {#if next}
+        <div class="next" data-testid="next-step">
+          <span class="next-label">NEXT</span>
+          <span class="next-text">{next.text}</span>
+          {#if next.wait}
+            <span class="next-wait">{waitName(next.wait.kind)} · {waitLength(next.wait)}</span>
+          {/if}
+        </div>
       {/if}
     </div>
 
@@ -1055,5 +1076,48 @@
     .body {
       padding-top: var(--space-9);
     }
+  }
+
+  .next {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-8);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .next-label {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-extrabold);
+    letter-spacing: 0.05em;
+  }
+
+  .next-text {
+    color: var(--color-text-soft);
+    font-size: var(--text-lg);
+    line-height: 1.45;
+  }
+
+  .next-wait {
+    width: fit-content;
+    padding: 3px var(--space-5);
+    border-radius: var(--radius-full);
+    background: var(--color-wait-chip);
+    color: var(--color-wait-text);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .way {
+    width: fit-content;
+    min-height: var(--touch-target);
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-accent);
+    font: var(--weight-bold) var(--text-sm) var(--font-ui);
+    cursor: pointer;
   }
 </style>
