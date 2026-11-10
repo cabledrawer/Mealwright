@@ -86,7 +86,7 @@ test('a step that waits: Check suggests it, Yes keeps it, Save shows the split t
   await page.getByRole('button', { name: 'New ingredient' }).first().click();
   await page.getByRole('button', { name: 'Save recipe' }).click();
   await expect(page).toHaveURL(/\/recipes\/\d+$/);
-  await expect(page.getByText('overnight soaking')).toBeVisible();
+  await expect(page.locator('.waits')).toHaveText('overnight soaking');
   await expect(page.getByText('Soak · overnight')).toBeVisible();
   await expect(page.getByText(/Ferment ·/)).toHaveCount(0);
 });
