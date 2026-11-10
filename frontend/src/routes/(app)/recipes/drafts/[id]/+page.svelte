@@ -7,7 +7,7 @@
   import { resolve } from '$app/paths';
   import { ApiError, cantReach } from '#lib/api.js';
   import { getDraft } from '#lib/client/drafts.js';
-  import { loadReviewPage } from '#lib/components/import/loadReviewPage.js';
+  import { loadReviewPage, REVIEW_LOAD_FAILED } from '#lib/components/import/loadReviewPage.js';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import { ImportFlow } from '#lib/import.svelte.js';
@@ -15,6 +15,7 @@
   import { onMount } from 'svelte';
 
   const flow = new ImportFlow();
+  let tries = $state(0);
   let phone = $state(matchMedia('(max-width: 767px)').matches);
   /** Loading, ready, or why it can't be shown. */
   let phase = $state<'loading' | 'ready' | 'gone' | 'problem'>('loading');
@@ -61,9 +62,19 @@
 </script>
 
 {#if phase === 'ready' && flow.review}
-  {#await loadReviewPage() then { default: ReviewPage }}
-    <ReviewPage {flow} {phone} parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
-  {/await}
+  {#key tries}
+    {#await loadReviewPage()}
+      <PageHeader title="Draft" parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
+    {:then { default: ReviewPage }}
+      <ReviewPage {flow} {phone} parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
+    {:catch}
+      <PageHeader title="Draft" parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
+      <div class="failed" role="alert">
+        <p>{REVIEW_LOAD_FAILED}</p>
+        <button type="button" onclick={() => (tries += 1)}>Try again</button>
+      </div>
+    {/await}
+  {/key}
 {:else}
   <PageHeader title="Draft" parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
   {#if phase === 'loading'}

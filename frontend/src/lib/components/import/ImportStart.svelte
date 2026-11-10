@@ -16,6 +16,7 @@
     LINKS_HELP,
     LINKS_SERVER_NOTE,
     leftOutWords,
+    noneReadWords,
     linksHeading,
     READING,
     READY_TO_CHECK,
@@ -169,6 +170,10 @@
         <a class="button" href="/recipes/drafts">Go to Drafts</a>
       </p>
     </section>
+  {/if}
+
+  {#if importLinks.rows.length === 0 && importLinks.leftOut > 0}
+    <p class="help" role="status">{noneReadWords(importLinks.leftOut)}</p>
   {/if}
 
   <aside class="how" aria-label="How it works">

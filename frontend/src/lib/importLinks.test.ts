@@ -9,6 +9,7 @@ import {
   STOPPED_DRAFTS_FULL,
   STOPPED_SWITCHED_OFF,
   canPaste,
+  noneReadWords,
   importLinks,
   sameLink
 } from './importLinks.svelte';
@@ -218,6 +219,48 @@ describe('several links at once (F110)', () => {
     await reader.run(many(4));
     expect(requests.filter((r) => r.path === '/recipes/import')).toHaveLength(1);
     expect(reader.rows).toEqual([]);
+    expect(reader.running).toBe(false);
+  });
+
+  it('keeps nothing from a read that was still going when the session ended', async () => {
+    const reader = new ImportLinks();
+    const requests = fakeApi({
+      'POST /recipes/import': () => {
+        reader.forget();
+        return [200, review('Dal')];
+      },
+      'POST /recipes/drafts': keepsDrafts,
+      'GET /recipes/drafts': noDrafts
+    });
+    await reader.run(many(2));
+    expect(requests.filter((r) => r.path === '/recipes/drafts' && r.method === 'POST')).toEqual([]);
+  });
+
+  it('says so when Drafts has no room and nothing was read', async () => {
+    const reader = new ImportLinks();
+    const requests = fakeApi({ 'GET /recipes/drafts': [200, { drafts: [], count: 50 }] });
+    await reader.run(many(3));
+    expect(reader.rows).toEqual([]);
+    expect(reader.leftOut).toBe(3);
+    expect(requests.filter((r) => r.path === '/recipes/import')).toEqual([]);
+    expect(noneReadWords(3)).toBe(
+      'Drafts is full: none of the 3 links were read. Finish or delete a draft first.'
+    );
+  });
+
+  it('two quick pastes start one run, at most 20 reads', async () => {
+    const reader = new ImportLinks();
+    const requests = fakeApi({
+      'POST /recipes/import': [200, review('Dal')],
+      'POST /recipes/drafts': keepsDrafts,
+      'GET /recipes/drafts': noDrafts
+    });
+    const first = reader.run(many(30));
+    const second = reader.run(many(30)); // not awaited first
+    await Promise.all([first, second]);
+    expect(requests.filter((r) => r.path === '/recipes/import').length).toBeLessThanOrEqual(
+      MOST_LINKS
+    );
     expect(reader.running).toBe(false);
   });
 

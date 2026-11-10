@@ -367,6 +367,21 @@ test('pasted text, end to end: the review, Save, the recipe, and one Undo that t
   expect(after.foods).toHaveLength(0);
 });
 
+test('the Check screen that cannot be fetched says so, keeps its header, and Try again opens it', async ({ page }) => {
+  const title = unique('Dal tadka');
+  await page.goto('/recipes/import');
+  await box(page).fill(`${title}\nIngredients\n1 cup lentils\nMethod\n1. Boil the lentils.\n`);
+  let blocking = true;
+  await page.route('**/_app/immutable/**', (route: Route) => (blocking ? route.abort() : route.continue()));
+  await read(page).click();
+  await expect(page.getByRole('alert').getByText('Couldn’t open the Check screen. Try again.')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  blocking = false;
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByLabel('Name', { exact: true }).first()).toHaveValue(title);
+  await expect(page.getByRole('alert').getByText('Couldn’t open the Check screen. Try again.')).toHaveCount(0);
+});
+
 test('F144: an import is undone from Settings → Recent changes once its toast has gone, on a phone too', async ({ page }) => {
   const title = unique('Dal tadka');
   const spice = unique('Hing');

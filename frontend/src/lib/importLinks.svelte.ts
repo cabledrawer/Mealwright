@@ -35,6 +35,12 @@ export const leftOutWords = (left: number, room: number | null): string =>
     room !== null && room < MOST_LINKS ? `, and Drafts has room for ${room} more` : ''
   }.`;
 
+/** Said when Drafts had no room at all, so no link was read (proposed, for cabledrawer). */
+export const noneReadWords = (count: number): string =>
+  count === 1
+    ? 'Drafts is full: the link was not read. Finish or delete a draft first.'
+    : `Drafts is full: none of the ${count} links were read. Finish or delete a draft first.`;
+
 /** Why the rest were not read when Drafts is full or links are switched off (proposed). */
 export const STOPPED_DRAFTS_FULL = 'Not read: Drafts is full. Finish or delete a draft first.';
 export const STOPPED_SWITCHED_OFF = 'Not read: importing from links is switched off.';
@@ -96,28 +102,30 @@ export class ImportLinks {
   /** Read the links one after another, each into its own draft. Never throws. */
   async run(links: string[]): Promise<void> {
     if (this.running) return;
-    const generation = this.#generation;
-    const seen: string[] = [];
-    const unique = links.filter((link) => {
-      const key = sameLink(link);
-      if (seen.includes(key)) return false;
-      seen.push(key);
-      return true;
-    });
-    if (!drafts.loaded) await drafts.load();
-    const room = drafts.count === null ? null : Math.max(0, DRAFT_LIMIT - drafts.count);
-    const allowed = Math.min(MOST_LINKS, room ?? MOST_LINKS);
-    this.leftOut = Math.max(0, unique.length - allowed);
-    this.room = room;
-    this.rows = unique.slice(0, allowed).map((link) => ({
-      link,
-      ...parts(link),
-      state: 'waiting' as const,
-      message: null,
-      code: null
-    }));
+    // Set before the first await: two quick pastes must not start two runs.
     this.running = true;
+    const generation = this.#generation;
     try {
+      const seen: string[] = [];
+      const unique = links.filter((link) => {
+        const key = sameLink(link);
+        if (seen.includes(key)) return false;
+        seen.push(key);
+        return true;
+      });
+      if (!drafts.loaded) await drafts.load();
+      if (generation !== this.#generation) return;
+      const room = drafts.count === null ? null : Math.max(0, DRAFT_LIMIT - drafts.count);
+      const allowed = Math.min(MOST_LINKS, room ?? MOST_LINKS);
+      this.leftOut = Math.max(0, unique.length - allowed);
+      this.room = room;
+      this.rows = unique.slice(0, allowed).map((link) => ({
+        link,
+        ...parts(link),
+        state: 'waiting' as const,
+        message: null,
+        code: null
+      }));
       let stopped: string | null = null;
       for (const row of this.rows) {
         if (generation !== this.#generation) return;
@@ -127,7 +135,7 @@ export class ImportLinks {
           row.code = 'stopped';
           continue;
         }
-        await this.#one(row);
+        await this.#one(row, generation);
         if (generation !== this.#generation) return;
         if (row.code === 'too_many_drafts') stopped = STOPPED_DRAFTS_FULL;
         else if (row.code === 'import_switched_off') stopped = STOPPED_SWITCHED_OFF;
@@ -137,12 +145,14 @@ export class ImportLinks {
     }
   }
 
-  async #one(row: LinkRow): Promise<void> {
+  async #one(row: LinkRow, generation: number): Promise<void> {
     row.state = 'reading';
     const flow = new ImportFlow();
     flow.text = row.link;
     try {
       await flow.read();
+      // Signed out while the page was being read: nothing is kept.
+      if (generation !== this.#generation) return;
       if (flow.already) {
         row.state = 'failed';
         row.message = ALREADY_HAVE;
