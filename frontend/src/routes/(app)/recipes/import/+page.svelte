@@ -5,14 +5,20 @@
   import AlreadySheet from '#lib/components/import/AlreadySheet.svelte';
   import ImportStart from '#lib/components/import/ImportStart.svelte';
   import ImportSteps from '#lib/components/import/ImportSteps.svelte';
-  import ReviewPage from '#lib/components/import/ReviewPage.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
+  import { loadReviewPage } from '#lib/components/import/loadReviewPage.js';
   import { ImportFlow } from '#lib/import.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { privacy } from '#lib/privacy.svelte.js';
   import { onMount } from 'svelte';
 
   const flow = new ImportFlow();
+
+  // The Check screen loads when the reading starts, so it has usually come by the time the answer
+  // does (loadReviewPage.ts).
+  $effect(() => {
+    if (flow.phase !== 'start') void loadReviewPage();
+  });
 
   // The box's note about photos needs to know whether that switch is on. It reads it through
   // Settings → Privacy's own client; if that can't be had, the box shows no note.
@@ -40,7 +46,9 @@
 <!-- A phone says "Step 1 of 3" under the title; a computer has the three steps beside it
      (mockups Import05-Phone, Import05-Desktop and their review screens). -->
 {#if flow.phase === 'review' && flow.review}
-  <ReviewPage {flow} {phone} />
+  {#await loadReviewPage() then { default: ReviewPage }}
+    <ReviewPage {flow} {phone} />
+  {/await}
 {:else}
   {#if phone}
     <PageHeader

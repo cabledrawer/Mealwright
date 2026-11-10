@@ -7,7 +7,7 @@
   import { resolve } from '$app/paths';
   import { ApiError, cantReach } from '#lib/api.js';
   import { getDraft } from '#lib/client/drafts.js';
-  import ReviewPage from '#lib/components/import/ReviewPage.svelte';
+  import { loadReviewPage } from '#lib/components/import/loadReviewPage.js';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import { ImportFlow } from '#lib/import.svelte.js';
@@ -22,6 +22,7 @@
 
   async function load() {
     phase = 'loading';
+    void loadReviewPage(); // while the draft comes
     try {
       flow.load(await getDraft(page.params.id ?? ''));
       phase = 'ready';
@@ -60,7 +61,9 @@
 </script>
 
 {#if phase === 'ready' && flow.review}
-  <ReviewPage {flow} {phone} parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
+  {#await loadReviewPage() then { default: ReviewPage }}
+    <ReviewPage {flow} {phone} parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
+  {/await}
 {:else}
   <PageHeader title="Draft" parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
   {#if phase === 'loading'}
