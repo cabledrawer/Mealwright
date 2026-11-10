@@ -35,6 +35,8 @@ export interface ReviewLine {
   learn_name: string | null;
   /** Set when the line says pints: what it comes to in each kind of pint, in ml. */
   pint_ml?: { uk_ml: number; us_ml: number } | null;
+  /** Optional: "(optional)" was in the line, or it is under "For serving". The person can switch it. */
+  optional?: boolean;
 }
 
 /** Pints on a review: the household's own, whether the page looks American, and the pint the
@@ -63,7 +65,7 @@ export interface ImportReview {
   nutrition: Nutrition;
   photo: ReviewPhoto;
   lines: ReviewLine[];
-  steps: { kind: 'step' | 'heading'; text: string }[];
+  steps: { kind: 'step' | 'heading'; text: string; optional?: boolean }[];
   counts: { matched: number; to_confirm: number; needs_you: number; staple: number };
   lines_cut: boolean;
   steps_cut: boolean;
@@ -88,6 +90,7 @@ export interface SaveLine {
   size_id: number | null;
   note: string | null;
   link: LineLink | null;
+  optional?: boolean;
 }
 
 export interface SaveBody {
@@ -99,7 +102,7 @@ export interface SaveBody {
   tags: string[];
   nutrition: Nutrition;
   lines: SaveLine[];
-  steps: { kind: 'step' | 'heading'; text: string }[];
+  steps: { kind: 'step' | 'heading'; text: string; optional?: boolean }[];
   source_url: string | null;
   source_author: string | null;
   photo_id: number | null;

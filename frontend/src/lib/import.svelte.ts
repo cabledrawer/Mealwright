@@ -383,6 +383,7 @@ export class ImportFlow {
       amount_text?: string | null;
       unit?: string | null;
       note?: string | null;
+      optional?: boolean;
     }
   ): void {
     const line = this.review?.lines[index];
@@ -870,7 +871,8 @@ function saveLine(line: ReviewLine, link: Choice | null): SaveLine {
     unit: line.unit,
     size_id: sent?.kind === 'ingredient' ? (line.size?.id ?? null) : null,
     note: line.note,
-    link: sent
+    link: sent,
+    optional: line.kind === 'ingredient' && !!line.optional
   };
 }
 

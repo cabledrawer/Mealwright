@@ -168,8 +168,17 @@
   const recipe = $derived(view.recipe);
   const factor = $derived(view.factor);
   const stockOf = $derived(new Map((view.stockNow?.lines ?? []).map((s) => [s.line_id, s])));
+  // "Add to the list" is for what the recipe needs: an Optional line is left out (R3; the plan's
+  // question puts the ones a meal will use on the list).
   const adding = $derived(
-    view.stockNow ? toAdd(view.stockNow.lines, (f) => shopping.onList(f)) : []
+    view.stockNow
+      ? toAdd(
+          view.stockNow.lines.filter(
+            (l) => !recipe?.lines.some((line) => line.id === l.line_id && line.optional)
+          ),
+          (f) => shopping.onList(f)
+        )
+      : []
   );
   const steps = $derived(stepGroups(recipe?.steps ?? []));
   const meta = $derived.by(() => {
@@ -289,6 +298,19 @@
         <NutritionStrip nutrition={recipe.nutrition} />
       {/if}
 
+      {#if recipe.nutrition.possibly_out_of_date}
+        <!-- R3 (mockup RecipeOptional08). "Work it out again" opens the nutrition boxes in the
+             editor: Mealwright doesn't work nutrition out from ingredients (not in v1), so the
+             person looks at the figures there. Words proposed, for cabledrawer. -->
+        <p class="info" role="note">
+          Nutrition possibly out of date: the ingredients changed since it was worked out.
+          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved; only the query is added -->
+          <a href={`${resolve('/(app)/recipes/[id]/edit', { id: String(recipe.id) })}?nutrition=1`}
+            >Work it out again</a
+          >
+        </p>
+      {/if}
+
       {#if empty}
         <p class="quiet">Nothing written down yet.</p>
       {/if}
@@ -343,7 +365,13 @@
                 {#if group.heading}<h3>{group.heading}</h3>{/if}
                 {#if group.steps.length}
                   <ol start={group.start}>
-                    {#each group.steps as text, j (j)}<li>{text}</li>{/each}
+                    {#each group.steps as text, j (j)}
+                      <li>
+                        {#if group.optional[j]}<span class="opt">Optional step</span>{/if}<span
+                          >{text}</span
+                        >
+                      </li>
+                    {/each}
                   </ol>
                 {/if}
               {/each}
@@ -688,6 +716,34 @@
     font-size: 1.125rem;
     line-height: 1.45;
     word-spacing: normal;
+  }
+
+  .info {
+    margin: 0;
+    padding: var(--space-4) var(--space-5);
+    border-radius: var(--radius-lg);
+    background: var(--color-info);
+    color: var(--color-info-text);
+    font-size: var(--text-md);
+    line-height: 1.45;
+  }
+
+  .info a {
+    color: inherit;
+    font-weight: var(--weight-bold);
+  }
+
+  /* "Optional step" (R3), on its own line above the step's words. */
+  .opt {
+    display: block;
+    width: fit-content;
+    margin-bottom: var(--space-2);
+    padding: 2px var(--space-4);
+    border-radius: var(--radius-full);
+    background: var(--color-chip);
+    color: var(--color-text-muted);
+    font: var(--weight-bold) var(--text-sm) var(--font-ui);
+    white-space: normal;
   }
 
   .method li {

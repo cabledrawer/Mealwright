@@ -50,6 +50,7 @@
     >
     {#if small}<span class="small">{small}</span>{/if}
   </span>
+  {#if line.optional}<span class="opt">Optional</span>{/if}
   {#if mark}
     <span class="label {mark.kind}"
       >{#if mark.label}{mark.label}{:else}<span class="visually-hidden">Missing</span>{/if}</span
@@ -143,6 +144,17 @@
     color: var(--color-text-muted);
     font-size: var(--text-md);
     overflow-wrap: anywhere;
+  }
+
+  /* The "Optional" pill (R3, mockup RecipeOptional08). */
+  .opt {
+    flex: none;
+    padding: 2px var(--space-4);
+    border-radius: var(--radius-full);
+    background: var(--color-chip);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
   }
 
   .label {

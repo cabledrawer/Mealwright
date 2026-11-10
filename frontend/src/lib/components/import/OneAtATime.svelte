@@ -19,6 +19,7 @@
   import { network } from '#lib/network.svelte.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import Icon from '#lib/components/Icon.svelte';
+  import Switch from '#lib/components/Switch.svelte';
   import CheckFrame from './CheckFrame.svelte';
   import ReviewLineRow from './ReviewLineRow.svelte';
   import StepEdit from './StepEdit.svelte';
@@ -339,6 +340,15 @@
           {#if pieces}
             <span class="long">A long step ({sentenceCount(step.text)} sentences)</span>
           {/if}
+          <!-- Optional (R3, F151): shown with "Optional step" on the recipe. -->
+          <p class="optional-row">
+            <Switch
+              checked={!!step.optional}
+              labelledby="optional-step-{nth}"
+              onchange={(on) => (step.optional = on)}
+            />
+            <span id="optional-step-{nth}">Optional step</span>
+          </p>
         </div>
       {/if}
 
@@ -637,6 +647,17 @@
     text-align: left;
     overflow-wrap: anywhere;
     cursor: pointer;
+  }
+
+  .optional-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--touch-target);
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
   }
 
   .long {

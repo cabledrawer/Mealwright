@@ -378,6 +378,26 @@ describe('the boxes', () => {
     }
   });
 
+  it('has an Optional switch on each line and each step, and Save sends them (R3)', async () => {
+    const requests = fakeApi({ 'POST /recipes': [201, saved()] });
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Rasam');
+    await userEvent.click(page.getByRole('button', { name: '+ Add line' }));
+    await page.getByRole('combobox', { name: 'Ingredient 1' }).fill('kewra water');
+    await userEvent.click(page.getByRole('switch', { name: 'Optional: ingredient 1' }));
+    await expect
+      .element(page.getByRole('switch', { name: 'Optional: ingredient 1' }))
+      .toBeChecked();
+    await page.getByRole('textbox', { name: 'Step 1' }).fill('Top it.');
+    await userEvent.click(page.getByRole('switch', { name: 'Optional: step 1' }));
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await vi.waitFor(() => expect(bodyOf(requests, 'POST')).toBeDefined());
+    const sent = bodyOf(requests, 'POST') as { lines: { optional: boolean }[]; steps: unknown[] };
+    expect(sent.lines.map((l) => l.optional)).toEqual([true]);
+    expect(sent.steps).toEqual([{ kind: 'step', text: 'Top it.', optional: true }]);
+    expect('nutrition_checked' in sent).toBe(false);
+  });
+
   it('keeps Serves between 1 and 99, and can clear it', async () => {
     fakeApi({});
     open();

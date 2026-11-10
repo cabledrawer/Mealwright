@@ -125,22 +125,31 @@ export class RecipeView {
 }
 
 /** The steps in runs: a heading, then the steps under it, numbered from 1 through the recipe. */
-export type StepGroup = { heading: string | null; start: number; steps: string[] };
+export type StepGroup = {
+  heading: string | null;
+  start: number;
+  steps: string[];
+  /** Which of `steps` are Optional steps, one for one. */
+  optional: boolean[];
+};
 
-export function stepGroups(steps: { kind: 'step' | 'heading'; text: string }[]): StepGroup[] {
+export function stepGroups(
+  steps: { kind: 'step' | 'heading'; text: string; optional?: boolean }[]
+): StepGroup[] {
   const groups: StepGroup[] = [];
   let number = 0;
   for (const step of steps) {
     if (step.kind === 'heading') {
-      groups.push({ heading: step.text, start: number + 1, steps: [] });
+      groups.push({ heading: step.text, start: number + 1, steps: [], optional: [] });
       continue;
     }
     let group = groups.at(-1);
     if (!group) {
-      group = { heading: null, start: number + 1, steps: [] };
+      group = { heading: null, start: number + 1, steps: [], optional: [] };
       groups.push(group);
     }
     group.steps.push(step.text);
+    group.optional.push(!!step.optional);
     number++;
   }
   return groups;

@@ -13,15 +13,21 @@ function shorter(text: string): string {
   return `${(one.slice(0, 40).replace(/\s+\S*$/, '') || one.slice(0, 40)).trimEnd()}…`;
 }
 
-type Step = { kind: 'step' | 'heading'; text: string };
+type Step = { kind: 'step' | 'heading'; text: string; optional?: boolean };
 
 /** Change the text of `step` (the step itself, not its place: the list may have moved while the
  *  box was open). False when the text is empty (an empty step can't be kept: the caller says so
  *  and offers Remove) or the step is no longer in the list. The words are tidied at the ends only. */
-export function changeStep(flow: ImportFlow, step: Step, text: string): boolean {
+export function changeStep(
+  flow: ImportFlow,
+  step: Step,
+  text: string,
+  optional?: boolean
+): boolean {
   const words = text.trim();
   if (!words || !flow.review?.steps.includes(step)) return false;
   step.text = words;
+  if (optional !== undefined && step.kind === 'step') step.optional = optional;
   flow.previewStep = null; // the split preview was of the old words
   return true;
 }

@@ -35,6 +35,8 @@ export interface RecipeRow extends RecipeBrief {
   serves: number | null;
   tags: string[];
   ingredient_count: number;
+  /** How many of its ingredient lines are Optional: adding it to the plan asks about them. */
+  optional_count?: number;
   /** Per serving; null is unknown, never 0. */
   kcal: number | null;
   stock: StockHint | null;
@@ -107,12 +109,16 @@ export interface RecipeLine {
   /** recipe_removed: the recipe it used was deleted; none: not linked. Null for a heading. */
   link: 'ingredient' | 'recipe' | 'recipe_removed' | 'none' | null;
   note: string | null;
+  /** Optional: adding the recipe to the plan asks whether it will be used. */
+  optional?: boolean;
 }
 
 export interface RecipeStep {
   id: number;
   kind: 'step' | 'heading';
   text: string;
+  /** An Optional step. */
+  optional?: boolean;
   /** The ingredient lines the step uses (Cook mode's per-step ingredients); none for a heading. */
   lines?: { line_id: number; line: number; kind: 'guessed' | 'by_hand' }[];
 }
@@ -123,6 +129,12 @@ export interface Nutrition {
   carbs: number | null;
   fat: number | null;
   fibre: number | null;
+}
+
+/** A recipe's own nutrition: the five figures, and whether some ingredient line changed after
+ * they were set ("Nutrition possibly out of date"). */
+export interface RecipeNutrition extends Nutrition {
+  possibly_out_of_date?: boolean;
 }
 
 export interface PhotoOut {
@@ -155,7 +167,7 @@ export interface Recipe {
   made_ahead: boolean;
   tags: string[];
   /** Per serving; null is unknown, never 0. */
-  nutrition: Nutrition;
+  nutrition: RecipeNutrition;
   lines: RecipeLine[];
   steps: RecipeStep[];
   source_note: string | null;
@@ -216,6 +228,7 @@ export interface LineIn {
   food_id?: number | null;
   recipe_id?: number | null;
   note?: string | null;
+  optional?: boolean;
 }
 
 /** What `POST /recipes` takes; `PUT` adds `version` and `overwrite`. */
@@ -229,8 +242,10 @@ export interface RecipeIn {
   homemade_name: string | null;
   tags: string[];
   nutrition: Record<keyof Nutrition, string | null>;
+  /** The person looked at the figures and kept them: clears "Nutrition possibly out of date". */
+  nutrition_checked?: boolean;
   lines: LineIn[];
-  steps: { kind: 'step' | 'heading'; text: string }[];
+  steps: { kind: 'step' | 'heading'; text: string; optional?: boolean }[];
   source_note: string | null;
   /** Left out: the photo stays. null: no photo. A number: that upload. */
   photo_id?: number | null;

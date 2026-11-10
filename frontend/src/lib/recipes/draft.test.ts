@@ -175,7 +175,8 @@ describe('opening a saved recipe', () => {
         size_id: null,
         food_id: 7,
         recipe_id: null,
-        note: 'rinsed'
+        note: 'rinsed',
+        optional: false
       },
       {
         id: 43,
@@ -186,7 +187,8 @@ describe('opening a saved recipe', () => {
         size_id: 12,
         food_id: 7,
         recipe_id: null,
-        note: null
+        note: null,
+        optional: false
       },
       {
         id: 44,
@@ -197,9 +199,55 @@ describe('opening a saved recipe', () => {
         size_id: null,
         food_id: null,
         recipe_id: 9, // the link to a removed recipe is kept for Undo
-        note: null
+        note: null,
+        optional: false
       }
     ]);
+  });
+
+  it('keeps what is Optional, on a line and on a step, and notices the switch (R3)', () => {
+    const draft = RecipeDraft.from(
+      recipe({
+        lines: [line({ id: 1, words: 'kewra water', optional: true }), line({ id: 2 })],
+        steps: [
+          { id: 1, kind: 'step', text: 'Boil.' },
+          { id: 2, kind: 'step', text: 'Top it.', optional: true },
+          { id: 3, kind: 'heading', text: 'To serve' }
+        ]
+      })
+    );
+    expect(draft.lines.map((l) => l.optional)).toEqual([true, false]);
+    expect(draft.steps.map((s) => s.optional)).toEqual([false, true, false]);
+    const { body } = draft.build();
+    expect(body.lines.map((l) => l.optional)).toEqual([true, false]);
+    // A heading is never sent as optional.
+    expect(body.steps.map((s) => s.optional)).toEqual([false, true, false]);
+    expect(draft.dirty).toBe(false);
+    draft.lines[1]!.optional = true;
+    expect(draft.dirty).toBe(true);
+    draft.lines[1]!.optional = false;
+    draft.steps[0]!.optional = true;
+    expect(draft.dirty).toBe(true);
+  });
+
+  it('an Optional switch survives the tab keeping the boxes (R3)', () => {
+    const draft = RecipeDraft.from(
+      recipe({
+        lines: [line({ id: 1, optional: true })],
+        steps: [{ id: 1, kind: 'step', text: 'Top it.', optional: true }]
+      })
+    );
+    const again = RecipeDraft.from(recipe());
+    expect(again.applyCarried(JSON.parse(JSON.stringify(draft.toCarried())))).toBe(true);
+    expect(again.lines.map((l) => l.optional)).toEqual([true]);
+    expect(again.steps.map((s) => s.optional)).toEqual([true]);
+  });
+
+  it('opened from "Work it out again", Save says the figures were looked at (R3)', () => {
+    const draft = RecipeDraft.from(recipe());
+    expect(draft.build().body.nutrition_checked).toBeUndefined();
+    draft.nutritionChecked = true;
+    expect(draft.build().body.nutrition_checked).toBe(true);
   });
 
   it('shows a makes unit that is a word as "count"', () => {

@@ -433,6 +433,8 @@
                   {/await}
                 {:else}
                   <div class="step-row">
+                    {#if review.steps[step.at]?.optional}<span class="step-opt">Optional step</span
+                      >{/if}
                     <button
                       type="button"
                       class="step-text"
@@ -1009,6 +1011,16 @@
     display: flex;
     gap: var(--space-3);
     align-items: flex-start;
+  }
+
+  .step-opt {
+    flex: none;
+    padding: 2px var(--space-4);
+    border-radius: var(--radius-full);
+    background: var(--color-chip);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
   }
 
   .step-text {

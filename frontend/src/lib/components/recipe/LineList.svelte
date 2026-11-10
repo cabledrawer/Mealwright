@@ -9,6 +9,7 @@
   import { tick, untrack } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
   import Icon from '../Icon.svelte';
+  import Switch from '../Switch.svelte';
   import IngredientPicker, { type Pick } from './IngredientPicker.svelte';
   import { getFood } from '#lib/client/foods.js';
   import type { Blocked, RecipeBrief } from '#lib/client/recipes.js';
@@ -357,6 +358,14 @@
               bind:value={line.note}
               onkeydown={(e) => noteKey(e, i)}
             />
+            <div class="opt">
+              <Switch
+                bind:checked={line.optional}
+                label="Optional: ingredient {i + 1}"
+                labelledby={undefined}
+              />
+              <span aria-hidden="true">Optional</span>
+            </div>
             {#if amountError}<p class="mw-error msg" id="{uid}-{line.key}-amount">
                 {amountError}
               </p>{/if}
@@ -533,7 +542,20 @@
 
   .msg {
     flex: 1 1 100%;
+    order: 7;
+  }
+
+  /* The Optional switch (R3): under the note. */
+  .opt {
+    display: flex;
+    flex: 1 1 100%;
     order: 6;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--touch-target);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
   }
 
   .linked {
@@ -688,6 +710,12 @@
 
     .note {
       grid-column: 4;
+    }
+
+    .opt {
+      grid-column: 4;
+      grid-row: 2;
+      min-width: 0;
     }
 
     .msg {

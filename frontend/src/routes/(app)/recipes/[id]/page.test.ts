@@ -316,6 +316,41 @@ describe('the recipe page', () => {
     await expect.element(page.getByText('Nutrition unknown')).toBeVisible();
   });
 
+  it('marks an optional line "Optional" and an optional step "Optional step" (R3)', async () => {
+    await open({
+      lines: lines.map((l) => (l.id === 3 ? { ...l, optional: true } : l)),
+      steps: SAMBAR.steps.map((st) => (st.id === 4 ? { ...st, optional: true } : st))
+    });
+    await expect.element(page.getByText('Stir it in.')).toBeVisible();
+    const pills = [...document.querySelectorAll('.opt')].map((el) => el.textContent);
+    expect(pills).toEqual(['Optional', 'Optional step']);
+    // The step's pill sits with the step it is for.
+    expect(
+      document.querySelector('.method li:last-child .opt')?.parentElement?.textContent
+    ).toContain('Stir it in.');
+    // Nothing else is marked, and no note comes without the server saying so.
+    expect(document.body.textContent).not.toContain('Nutrition possibly out of date');
+  });
+
+  it('"Add to the list" leaves out an optional ingredient that is missing (R3)', async () => {
+    // Tahini (3) is missing and Coriander (4) is short; Tahini is the optional one.
+    await open({ lines: lines.map((l) => (l.id === 3 ? { ...l, optional: true } : l)) });
+    await expect.element(page.getByText('1 missing')).toBeVisible();
+  });
+
+  it('says "Nutrition possibly out of date" with a way to the nutrition boxes (R3)', async () => {
+    await open({
+      nutrition: { ...SAMBAR.nutrition, possibly_out_of_date: true }
+    });
+    await expect.element(page.getByRole('note')).toBeVisible();
+    expect(document.querySelector('[role="note"]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Nutrition possibly out of date: the ingredients changed since it was worked out. Work it out again'
+    );
+    await expect
+      .element(page.getByRole('link', { name: 'Work it out again' }))
+      .toHaveAttribute('href', '/recipes/1/edit?nutrition=1');
+  });
+
   it('shows each line’s own words, and the ingredient’s name only when it differs', async () => {
     await open();
     await expect.element(page.getByText(/thuvaram paruppu/)).toBeVisible();

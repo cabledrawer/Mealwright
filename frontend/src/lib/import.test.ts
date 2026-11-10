@@ -978,6 +978,29 @@ describe('importer consistency on Check (0.7)', () => {
       expect(flow.body()!.lines[0]).toMatchObject({ amount: 1136, note: 'cold' });
     });
 
+    it('Optional (R3, F151): a line and a step can be switched, Save sends them and a draft keeps them', () => {
+      const flow = flowOf({
+        lines: [
+          line({}),
+          line({ optional: true }),
+          line({ kind: 'heading', words: 'For serving' })
+        ],
+        steps: [
+          { kind: 'step', text: 'Boil.' },
+          { kind: 'step', text: 'Top it.', optional: true }
+        ]
+      });
+      flow.editLine(0, { optional: true });
+      flow.editLine(1, { optional: false });
+      flow.review!.steps[0]!.optional = true;
+      const sent = flow.body()!;
+      expect(sent.lines.map((l) => l.optional)).toEqual([true, false, false]);
+      expect(sent.steps.map((st) => st.optional)).toEqual([true, true]);
+      const draft = flow.draftBody()!.review;
+      expect(draft.lines.map((l) => !!l.optional)).toEqual([true, false, false]);
+      expect(draft.steps.map((st) => !!st.optional)).toEqual([true, true]);
+    });
+
     it('does nothing to a heading', () => {
       const flow = flowOf({});
       flow.editLine(3, { amount: 5 });

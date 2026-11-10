@@ -549,6 +549,16 @@
           <button type="button" class="chip" onclick={() => flow.unchoose(index)}>Change</button>
         </p>
       {/if}
+      <!-- Optional (R3, F151): "(optional)" in the line, or under "For serving", switches it on;
+           the person can switch it either way. Saved with the recipe's line. -->
+      <p class="optional-row">
+        <Switch
+          checked={!!line.optional}
+          labelledby="{uid}-optional"
+          onchange={(on) => flow.editLine(index, { optional: on })}
+        />
+        <span id="{uid}-optional">Optional</span>
+      </p>
       {#if problem}<p class="error" role="alert">{problem}</p>{/if}
     </div>
     <div class="side">
@@ -721,6 +731,17 @@
 
   b.bad {
     font-size: var(--text-base);
+  }
+
+  .optional-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--touch-target);
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
   }
 
   .side {

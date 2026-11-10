@@ -56,12 +56,16 @@ export interface DraftLine {
   /** The recipe this line used was deleted; the link is kept for Undo. */
   recipeRemoved: boolean;
   note: string;
+  /** Optional: adding the recipe to the plan asks whether it will be used. */
+  optional: boolean;
 }
 
 export interface DraftStep {
   key: string;
   kind: 'step' | 'heading';
   text: string;
+  /** An Optional step. */
+  optional: boolean;
 }
 
 /** The editor's boxes as the tab keeps them (see `toCarried`). */
@@ -114,12 +118,13 @@ export function blankLine(kind: DraftLine['kind'] = 'ingredient'): DraftLine {
     food: null,
     recipe: null,
     recipeRemoved: false,
-    note: ''
+    note: '',
+    optional: false
   };
 }
 
 export function blankStep(kind: DraftStep['kind'] = 'step'): DraftStep {
-  return { key: nextKey('s'), kind, text: '' };
+  return { key: nextKey('s'), kind, text: '', optional: false };
 }
 
 function lineFrom(line: LineOut): DraftLine {
@@ -135,7 +140,8 @@ function lineFrom(line: LineOut): DraftLine {
     food: line.food,
     recipe: line.recipe,
     recipeRemoved: line.link === 'recipe_removed',
-    note: line.note ?? ''
+    note: line.note ?? '',
+    optional: !!line.optional
   };
 }
 
@@ -176,6 +182,8 @@ export class RecipeDraft {
     fat: '',
     fibre: ''
   });
+  /** The editor was opened from "Work it out again": Save says the figures were looked at. */
+  nutritionChecked = false;
   lines = $state<DraftLine[]>([blankLine()]);
   steps = $state<DraftStep[]>([blankStep()]);
   source = $state('');
@@ -222,7 +230,12 @@ export class RecipeDraft {
     this.tags = [...recipe.tags];
     for (const n of NUTRIENTS) this.nutrition[n] = text(recipe.nutrition[n]);
     this.lines = recipe.lines.map(lineFrom);
-    this.steps = recipe.steps.map((s) => ({ key: nextKey('s'), kind: s.kind, text: s.text }));
+    this.steps = recipe.steps.map((s) => ({
+      key: nextKey('s'),
+      kind: s.kind,
+      text: s.text,
+      optional: !!s.optional
+    }));
     this.source = recipe.source_note ?? '';
     this.photo = { shown: recipe.photo, change: 'none', uploading: null, file: null, error: null };
     for (const line of recipe.lines) {
@@ -258,9 +271,10 @@ export class RecipeDraft {
         l.unit,
         l.food?.id,
         l.recipe?.id,
-        l.note
+        l.note,
+        l.optional
       ]),
-      this.steps.map((s) => [s.kind, s.text]),
+      this.steps.map((s) => [s.kind, s.text, s.optional]),
       this.source,
       this.photo.change,
       this.photo.shown?.id
@@ -350,11 +364,13 @@ export class RecipeDraft {
       food: l.food ?? null,
       recipe: l.recipe ?? null,
       recipeRemoved: !!l.recipeRemoved,
-      note: str(l.note) ? l.note! : ''
+      note: str(l.note) ? l.note! : '',
+      optional: !!l.optional
     });
     const step = (s: Partial<DraftStep>): DraftStep => ({
       ...blankStep(s.kind === 'heading' ? 'heading' : 'step'),
-      text: str(s.text) ? s.text! : ''
+      text: str(s.text) ? s.text! : '',
+      optional: !!s.optional
     });
     const keep = (v: unknown, fallback: string) => (str(v) ? (v as string) : fallback);
     this.name = c.name!;
@@ -521,7 +537,8 @@ export class RecipeDraft {
           size_id: size,
           food_id: line.food?.id ?? null,
           recipe_id: line.recipe?.id ?? null,
-          note: clean(line.note) || null
+          note: clean(line.note) || null,
+          optional: line.optional
         });
       }
       lineKeys.push(line.key);
@@ -532,7 +549,8 @@ export class RecipeDraft {
       if (!clean(step.text)) continue;
       steps.push({
         kind: step.kind,
-        text: step.kind === 'heading' ? clean(step.text) : step.text.trim()
+        text: step.kind === 'heading' ? clean(step.text) : step.text.trim(),
+        optional: step.kind === 'step' && step.optional
       });
       stepKeys.push(step.key);
     }
@@ -551,6 +569,8 @@ export class RecipeDraft {
       steps,
       source_note: clean(this.source) || null
     };
+    // Opened from "Work it out again": saving counts as looking at the figures (R3).
+    if (this.nutritionChecked) body.nutrition_checked = true;
     // "Remove photo" says so with null; a photo left alone leaves the field out (cabledrawer 20 Oct).
     if (this.photo.change === 'removed') body.photo_id = null;
     else if (this.photo.change === 'new' && this.photo.shown) body.photo_id = this.photo.shown.id;

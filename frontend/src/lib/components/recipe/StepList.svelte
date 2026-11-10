@@ -4,6 +4,7 @@
   import '#lib/styles/fields.css';
   import { tick } from 'svelte';
   import Icon from '../Icon.svelte';
+  import Switch from '../Switch.svelte';
   import {
     blankStep,
     MAX_STEPS,
@@ -124,6 +125,12 @@
         >
           <Icon name="close" size={18} />
         </button>
+        {#if step.kind === 'step'}
+          <div class="opt">
+            <Switch bind:checked={step.optional} label="Optional: step {numberOf(i)}" />
+            <span aria-hidden="true">Optional step</span>
+          </div>
+        {/if}
         {#if problem}<p class="mw-error msg" role="alert">{problem}</p>{/if}
       </li>
     {/each}
@@ -248,6 +255,19 @@
 
   .msg {
     flex: 1 1 100%;
+  }
+
+  /* The Optional switch (R3): under the step, in line with its box. */
+  .opt {
+    display: flex;
+    flex: 1 1 100%;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--touch-target);
+    padding-left: calc(28px + var(--space-3));
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
   }
 
   .adds {
