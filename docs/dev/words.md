@@ -6,7 +6,6 @@
 
 **Where it comes from:** `spec` = `docs/spec.md` (section or heading named); `api` = `docs/dev/api-0.2.md`; `sync` = `docs/dev/sync-protocol.md`; `review` = `e2e/REVIEW.md`; a path like `frontend/src/lib/network.svelte.ts` is the built wording.
 
-
 ## The list on one page (read this, then grep)
 
 Added 25 Oct at cabledrawer's request, so checkers and builders don't read the whole list: read this page, then find the PR's own words with `grep -n -i '<word>' docs/dev/words.md`, and the section you need with `grep -n '^## ' docs/dev/words.md`. This page only repeats the rules below; where they differ, the section wins.
@@ -510,8 +509,6 @@ Written by Claude Code on 27 Oct. The card's words are from the mockups `ImportP
 - Settings, a new section **Amounts**, the row **Read pints as US pints** with **A pint is 568 ml (UK). Switch on for 473 ml (US).** (off) or **A pint is 473 ml (US).** (on); for a member, **Only an admin can change this.** added; when it can't be saved, **Only the household’s admin can change this.** or **Couldn’t reach your Mealwright server. Nothing was changed.**
 - A site that said no to the page (401, 403 or 429): **That site wouldn’t let Mealwright read the page. Paste the recipe’s text instead.**
 
-
-
 ## 24. Recipe wishes, paper cuts and follow-ups (0.6 PR 8; OK'd by cabledrawer 28 Oct, see spec section 6, "Recipe paper cuts, decided")
 
 Written by Claude Code on 27 Oct from the mockups `RecipeDelete-*` and `RecipeLines-*` (cabledrawer 24 Oct: "looks good") and the 0.6 friction sort, items 15 to 22.
@@ -929,7 +926,6 @@ Words from the mockup `Dark-RecipesTags08-Phone` are agreed; the rest are propos
 - **The sizes sheet (mockup):** heading **Coconut milk · 600 ml needed**, **Sizes sold in UK shops**, a choice per size with its name line **2 tins · 400 ml** and under it **Your usual · 200 ml over** / **400 ml over** / **Nothing over**, tags **On the list** and **Least left over**, the switch **Make the one I pick my usual size**, **Use this**, **Cancel**. Opened by **Which size?** in the amount box (opened by tapping the amount, phone and computer) or **Which size?…** in the row's ⋯ menu (*proposed, for cabledrawer*: the mockup taps the row, but the row's name already opens the ingredient, and a separate button keeps the touch target).
 - **Problems:** **Couldn’t load the sizes. Try again.** · **Couldn’t change the size. Try again.** · offline with a size to be made: **A new size needs your Mealwright server. Try again when it answers.**
 - **A quarter or half of an amount in Already have it:** two figures with "about" when that changed it: **about 63 g** (never 62.5 g), as the "How much is left" rule.
-
 
 ## 55. Two cooking methods (0.8 M2, F107; cabledrawer 31 Oct and 9 Nov; the mockup words `Dark-CheckWait08-Phone`, `Dark-RecipeMethods08-Phone`, `Dark-CookMethod08-Phone` and `Dark-CookNextA08-Phone` are agreed, the rest is proposed, for cabledrawer)
 
