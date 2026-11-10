@@ -163,6 +163,9 @@ class ImportReview(BaseModel):
     description: str | None
     author: str | None
     time_minutes: int | None
+    # The page's own total time, before any suggested wait was taken off `time_minutes` (M1): when
+    # the person says "No wait" or changes a wait, Check works the time out again from this.
+    page_time_minutes: int | None = None
     serves: int | None
     makes: ReviewMakes | None
     tags: list[str]

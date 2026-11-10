@@ -495,6 +495,7 @@ def _review(
                 if w is not None
             ),
         ),
+        page_time_minutes=found.time_minutes,
         serves=found.serves,
         makes=_makes(found.makes),
         tags=tidy_tags(list(found.tags)),

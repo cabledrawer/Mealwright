@@ -77,7 +77,11 @@ export function compareSteps(opened: RecipeOut['steps'], theirs: RecipeOut['step
     n: step.kind === 'heading' ? null : ++n,
     text: step.text,
     heading: step.kind === 'heading',
-    changed: opened[i]?.text !== step.text || opened[i]?.kind !== step.kind
+    changed:
+      opened[i]?.text !== step.text ||
+      opened[i]?.kind !== step.kind ||
+      // A wait added, taken off or changed counts (M1).
+      JSON.stringify(opened[i]?.wait ?? null) !== JSON.stringify(step.wait ?? null)
   }));
 }
 
@@ -87,7 +91,8 @@ export function otherChanges(opened: RecipeOut, theirs: RecipeOut): string[] {
   const changed: string[] = [];
   if (opened.name !== theirs.name) changed.push('name');
   if (!same(opened.description, theirs.description)) changed.push('description');
-  if (opened.time_minutes !== theirs.time_minutes) changed.push('time');
+  if (opened.time_minutes !== theirs.time_minutes || !same(opened.wait ?? null, theirs.wait ?? null))
+    changed.push('time');
   if (opened.serves !== theirs.serves) changed.push('serves');
   if (!same(opened.makes, theirs.makes)) changed.push('makes');
   if (opened.made_ahead !== theirs.made_ahead) changed.push('made ahead');

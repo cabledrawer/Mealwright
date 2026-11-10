@@ -650,13 +650,23 @@ def _save_steps(kitchen: Kitchen, recipe: Recipe, body: RecipeIn, lines: list[Re
         by_words.setdefault((old_step.kind, old_step.text), []).append(old_step.id)
     still_there = {line.id for line in lines if line.kind == "ingredient"}
     carried: list[list[tuple[int, str]]] = []
+    # A step sent without `wait` keeps the wait its old self had (a client that knows nothing of
+    # waits must not take them off); `"wait": null` takes it off.
+    old_waits: dict[int, dict[str, object]] = {
+        old_step.id: wait_columns_of(old_step) for old_step in old_steps
+    }
+    kept_waits: list[dict[str, object] | None] = []
     for step in body.steps:
         same = by_words.get((step.kind, step.text))
-        before = old_links.get(same.pop(0), []) if same else []
+        old_id = same.pop(0) if same else None
+        before = old_links.get(old_id, []) if old_id is not None else []
         carried.append([(link.line_id, link.kind) for link in before])
+        kept_waits.append(old_waits[old_id] if old_id is not None else None)
     db.execute(delete(RecipeStep).where(RecipeStep.recipe_id == recipe.id))
     db.flush()
-    for position, (step, kept) in enumerate(zip(body.steps, carried, strict=True)):
+    for position, (step, kept, old_wait) in enumerate(
+        zip(body.steps, carried, kept_waits, strict=True)
+    ):
         row = RecipeStep(
             household_id=kitchen.household_id,
             recipe_id=recipe.id,
@@ -664,7 +674,11 @@ def _save_steps(kitchen: Kitchen, recipe: Recipe, body: RecipeIn, lines: list[Re
             kind=step.kind,
             text=step.text,
             optional=step.optional,
-            **wait_columns(step.wait),
+            **(
+                old_wait
+                if old_wait is not None and "wait" not in step.model_fields_set
+                else wait_columns(step.wait)
+            ),
         )
         db.add(row)
         db.flush()
@@ -1105,6 +1119,16 @@ def wait_columns(wait: StepWaitIn | None) -> dict[str, object]:
         "wait_min_minutes": wait.min_minutes,
         "wait_max_minutes": wait.max_minutes,
         "wait_overnight": wait.overnight,
+    }
+
+
+def wait_columns_of(step: RecipeStep) -> dict[str, object]:
+    """The wait columns a step has now, to carry over to its replacement."""
+    return {
+        "wait_kind": step.wait_kind,
+        "wait_min_minutes": step.wait_min_minutes,
+        "wait_max_minutes": step.wait_max_minutes,
+        "wait_overnight": step.wait_overnight,
     }
 
 

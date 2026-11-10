@@ -77,6 +77,18 @@ describe('compareSteps and otherChanges', () => {
     ]);
   });
 
+  it('marks a step whose wait changed, and the time when the waits added up changed', () => {
+    const wait = { kind: 'marinate', min_minutes: 240, max_minutes: 240, overnight: false };
+    const shown = compareSteps(
+      [step(1, 'a'), step(2, 'b')],
+      [{ ...step(1, 'a'), wait }, step(2, 'b')]
+    );
+    expect(shown.map((s) => s.changed)).toEqual([true, false]);
+    const base = { name: 'a', time_minutes: 10, serves: 4 } as unknown as RecipeOut;
+    expect(otherChanges(base, { ...base, wait } as RecipeOut)).toEqual(['time']);
+    expect(otherChanges(base, base)).toEqual([]);
+  });
+
   it('lists the other boxes that changed', () => {
     const base = {
       name: 'a',

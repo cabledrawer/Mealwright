@@ -107,11 +107,23 @@ def test_a_copy_keeps_the_waits(kitchen: TestClient) -> None:
     assert copy["wait"] == recipe["wait"]
 
 
-def test_a_save_that_leaves_the_wait_out_takes_it_off(kitchen: TestClient) -> None:
+def test_a_save_that_leaves_the_wait_out_keeps_it_and_null_takes_it_off(
+    kitchen: TestClient,
+) -> None:
+    """A client that knows nothing of waits sends steps without `wait`: they stay (M1 fix 8a).
+    Only an explicit null takes one off; a step whose words changed has nothing to keep."""
     recipe = tandoori(kitchen)
-    saved = ok(save(kitchen, recipe, steps=[{"text": "Rub the chicken."}]))
-    assert saved["steps"][0]["wait"] is None
-    assert saved["wait"] is None
+    words = recipe["steps"][0]["text"]
+    kept = ok(save(kitchen, recipe, steps=[{"text": words}]))
+    assert kept["steps"][0]["wait"] == recipe["steps"][0]["wait"]
+    assert kept["wait"] == recipe["wait"]
+    off = ok(save(kitchen, kept, steps=[{"text": words, "wait": None}]))
+    assert off["steps"][0]["wait"] is None and off["wait"] is None
+    again = ok(save(kitchen, off, steps=[{"text": words}]))  # nothing there to keep
+    assert again["steps"][0]["wait"] is None
+    back = ok(save(kitchen, again, steps=[{"text": words, "wait": MARINATE}]))
+    reworded = ok(save(kitchen, back, steps=[{"text": words + " Then rest it."}]))
+    assert reworded["steps"][0]["wait"] is None
 
 
 def test_a_wait_is_checked(kitchen: TestClient) -> None:
@@ -203,6 +215,7 @@ def test_the_review_suggests_the_wait_and_the_pages_time_loses_it(
     web.pages[LINK] = PAGE
     shown = review(kitchen, LINK)
     assert shown["time_minutes"] == 25  # not 745
+    assert shown["page_time_minutes"] == 745  # the page's own total stays, for "No wait"
     assert shown["steps"][0]["wait"] == {
         "kind": "marinate",
         "min_minutes": 240,
