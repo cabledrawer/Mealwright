@@ -697,3 +697,29 @@ def test_f186_colour_size_state_and_part_words_still_match(
     add_food(db, food)
     result = match(db, line)
     assert (result.label, result.food_name) == ("to_confirm", food)
+
+
+@pytest.mark.parametrize(
+    ("line", "food"),
+    [
+        ("4 chicken thighs", "Chicken"),
+        ("2 chicken breasts", "Chicken"),
+        ("6 chicken wings", "Chicken"),
+        ("500 g beef mince", "Beef"),
+        ("500 g lamb shoulder", "Lamb"),
+        ("2 pork chops", "Pork"),
+        ("400 g pork belly", "Pork"),
+        ("2 salmon fillets", "Salmon"),
+        ("3 egg yolks", "Eggs"),
+        ("2 egg whites", "Eggs"),
+        ("2 lamb shanks", "Lamb"),
+        ("2 beef ribs", "Beef"),
+        ("1 beef brisket", "Beef"),
+    ],
+)
+def test_f186_cuts_and_parts_of_an_animal_or_egg_still_match(
+    db: Session, line: str, food: str
+) -> None:
+    add_food(db, food)
+    result = match(db, line)
+    assert (result.label, result.food_name) == ("to_confirm", food)

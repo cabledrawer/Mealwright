@@ -313,6 +313,35 @@ PART_WORDS = frozenset(
     {"leaf", "sprig", "stalk", "stem", "bulb", "tinned", "canned", "flaked", "loose", "baby"}
     # kinds of salt, which is still salt ("sea salt" for Salt)
     | {"sea", "table", "kosher", "flaky", "rock"}
+    # a cut or part of an animal or an egg, which is still that meat or egg ("chicken thighs"
+    # for Chicken, "beef mince" for Beef, "egg yolks" for Eggs)
+    | {
+        "thigh",
+        "breast",
+        "mince",
+        "fillet",
+        "shoulder",
+        "leg",
+        "wing",
+        "drumstick",
+        "yolk",
+        "white",
+        "belly",
+        "loin",
+        "chop",
+        "rib",
+        "steak",
+        "cutlet",
+        "shank",
+        "neck",
+        "tail",
+        "rump",
+        "brisket",
+        "flank",
+        "cheek",
+        "liver",
+        "kidney",
+    }
 )
 # As they stand in a key (`_key` turns "baby" into "babi").
 _DESCRIBING = frozenset(_key(word) for word in MODIFIER_WORDS | PART_WORDS)
