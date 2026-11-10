@@ -783,6 +783,9 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Whole packs (cabledrawer 8 and 9 Nov):** the list from the plan adds whole packs of the ingredient's usual size, as many as cover the need; spoon and cup amounts become a weight first. When another size would leave much less over it is suggested under the row; every size can be seen and picked, and the one picked can become the usual size.
 
 - **Optional ingredients and steps (cabledrawer 6 and 9 Nov):** a line or step can be Optional. When a recipe with optional ingredients is added to the plan, you're asked which you'll use: those go on the shopping list if needed and come out of the pantry when cooked; the others don't.
+- **Two cooking methods (cabledrawer 31 Oct and 9 Nov):** a recipe can have two methods, each with its own ingredients, steps and time; Cook mode asks "How are you cooking it today?" and follows the pick.
+- **Method when planning (cabledrawer 9 Nov):** adding a recipe with two methods to the plan asks which one (the one used last is pre-picked); the shopping list, Can cook now and Cooked it follow it.
+- **Next step in Cook mode (cabledrawer 9 Nov):** Cook mode shows the next step as a quiet line under the current one.
 - **Steps that wait (cabledrawer 31 Oct and 9 Nov):** a step can carry a wait (marinate, ferment, soak), suggested by the importer, confirmed on Check and editable in the recipe editor; a recipe's time shows active time plus the wait.
 
 ### Batch cook (Experimental) (cabledrawer 28 Oct; in 0.8.0, built last, cabledrawer 6 Nov)

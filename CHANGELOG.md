@@ -4,6 +4,13 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Two cooking methods, backend (0.8 wave 5, M2; unfinished: screens still to build)
+
+- Database change 3 of 4 (`f1a6d3c8e502`): a recipe has one method or two (`recipe_method`: name, time, last used). Every existing recipe gets one method holding its lines, steps and time. Planned meals store their method (`meal_item.method_id`).
+- API (additive): `second_method` and `method_name` on save (left out: the second method stays), `methods` and `second_method` on read, `method_count` on the list, `method_id` on `POST /plan/items`, `PUT /plan/items/{id}/method`, `method` on the recipe stock read. Two methods at most.
+- The shopping list, Can cook now, Cooked it (and its record and Undo) follow the meal's method; a recipe inside another uses its first method.
+
+
 ### Added
 
 - **Whole packs on the list, and another size when it leaves much less over (F204, cabledrawer 8 and 9 Nov).** A Shopping row says how many whole packs of the ingredient's usual size cover the need ("1 pack (750 g)", never "2 ml of salt"). With no usual size known nothing is invented: the row keeps the amount and says "no pack size yet", with the common sizes to pick from (as before). When another size would leave much less over, it is suggested under the row ("Or 3 small tins · 200 ml: nothing left over" with **Use this**); "much less" is proposed, for cabledrawer: at most half as much left over, saving at least a tenth of the need, and no more than 6 packs. "Which size?" in the amount box, or "Which size?…" in the row's ⋯ menu, lists every size (the ingredient's own, then the bundled table's) with what each leaves over, the least marked, and a switch "Make the one I pick my usual size". Use this changes the line to that many of that size (a hand change, with Undo; the plan leaves it alone); a common size from the table is made first. A line from the plan still stores the need, and whole packs are worked out when the list is read and when a line is ticked (F122); after Use this the line stores that many of that size (packs × size), as any hand change. The offline copy and Undo work as for any hand change. The API gains `alternative` on a line's `pack` and `GET /shopping/items/{id}/pack-sizes` (both additive); the database doesn't change. The sizes sheet loads the first time it is asked for.
