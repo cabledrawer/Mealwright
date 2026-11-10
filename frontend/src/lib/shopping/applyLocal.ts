@@ -211,6 +211,8 @@ export function applyLocal(
       line.amount = (line.amount ?? 0) + item.amount;
       line.hand_edited = true;
       line.display = localDisplay(line.amount, line.size_id, foodOf(line.food_id));
+      // Its other size was worked out for the old amount (W4c review r2 M1).
+      if (line.pack) line.pack = { ...line.pack, alternative: null };
     }
     item.deleted = true;
   }
@@ -265,6 +267,8 @@ export function applyLocal(
         line.amount += amount;
       }
       line.display = localDisplay(line.amount, line.size_id, food);
+      // Its other size was worked out for the old amount (W4c review r2 M1).
+      if (line.pack) line.pack = { ...line.pack, alternative: null };
       return;
     }
     out.items.push({

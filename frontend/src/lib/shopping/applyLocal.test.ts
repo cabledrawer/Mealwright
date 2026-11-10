@@ -274,6 +274,22 @@ describe('applyLocal: the copy with the waiting changes on top', () => {
     expect(row(shown, 'i-yoghurt')!.pack?.alternative ?? null).toBeNull();
   });
 
+  it('an add that joins a line drops the other size worked out for the old amount (W4c review r2 M1)', () => {
+    const copy = sampleCopy();
+    copy.items.find((i) => i.id === 'i-yoghurt')!.pack = {
+      packs: 1,
+      suggestions: [],
+      alternative: { size_id: 7, packs: 3, text: 'Or 3 tins · 200 ml: nothing left over' } as never
+    };
+    const shown = applyLocal(
+      copy,
+      [act({ kind: 'add', list_id: 'main', item_id: 'i-new', food_id: 3, amount: 200 })],
+      me
+    );
+    expect(row(shown, 'i-yoghurt')).toMatchObject({ amount: 700 });
+    expect(row(shown, 'i-yoghurt')!.pack?.alternative ?? null).toBeNull();
+  });
+
   it('an undo of a change still waiting shows neither; of a sent tick, takes the tick back', () => {
     const t = act({ kind: 'tick', item_id: 'i-onions' });
     const both = applyLocal(sampleCopy(), [t, act({ kind: 'undo', undoes: t.id })], me);
@@ -390,6 +406,25 @@ describe('applyLocal: a move (sync protocol 6.1)', () => {
     const shown = applyLocal(copy, [move('i-onions', 'main', 2)], me);
     expect(row(shown, 'i-onions')!.deleted).toBe(true);
     expect(row(shown, 'i-onions-2')).toMatchObject({ amount: 8, display: '8', hand_edited: true });
+  });
+
+  it('a move that joins a line drops the other size worked out for the old amount (W4c review r2 M1)', () => {
+    const copy = sampleCopy();
+    copy.items.push(
+      item('i-onions-2', 1, {
+        shop_id: 2,
+        amount: 3,
+        display: '3',
+        pack: {
+          packs: 1,
+          suggestions: [],
+          alternative: { size_id: 7, packs: 3, text: 'Or 3 nets: nothing left over' } as never
+        }
+      })
+    );
+    const shown = applyLocal(copy, [move('i-onions', 'main', 2)], me);
+    expect(row(shown, 'i-onions-2')).toMatchObject({ amount: 8 });
+    expect(row(shown, 'i-onions-2')!.pack?.alternative ?? null).toBeNull();
   });
 
   it('a ticked line there is not joined', () => {
