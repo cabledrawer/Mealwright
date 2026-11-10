@@ -2,7 +2,7 @@
   // "Make “For the batter” its own recipe?" (mockup Dark-CheckOwnRecipe08-Phone; F190, cabledrawer
   // 8 Nov): the new recipe's name and what it makes, asked and prefilled from the heading and the
   // lines. A sheet on a phone, a dialog on a computer. Loaded when first opened.
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import type { ImportFlow } from '#lib/import.svelte.js';
   import { OWN_UNITS, ownDefaults, ownLineWords, sectionOf } from '#lib/importOwn.js';
   import { makeOwn } from '#lib/importOwnEdits.js';
@@ -12,12 +12,16 @@
   let { flow, heading, onclose }: { flow: ImportFlow; heading: number; onclose: () => void } =
     $props();
 
-  const review = flow.review!;
-  const line = review.lines[heading]!;
-  const kept = line.own ?? null;
-  const start = kept
-    ? { name: kept.name, amount: String(kept.amount), unit: kept.unit }
-    : ownDefaults(review, heading);
+  // Read once, when the sheet opens: the sheet is made for one heading and is closed with it.
+  const { review, line, kept, start } = untrack(() => {
+    const review = flow.review!;
+    const line = review.lines[heading]!;
+    const kept = line.own ?? null;
+    const start = kept
+      ? { name: kept.name, amount: String(kept.amount), unit: kept.unit }
+      : ownDefaults(review, heading);
+    return { review, line, kept, start };
+  });
   let name = $state(start.name);
   let amount = $state(start.amount);
   let unit = $state(start.unit);
