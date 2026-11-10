@@ -683,12 +683,55 @@ def test_f186_another_kind_of_rice_is_not_offered_basmati_rice_by_its_other_name
     assert match(db, "200 g rice").label == "matched"
 
 
-@pytest.mark.parametrize("line", ["1 cup poha (flattened rice)", "1 cup flattened rice (poha)"])
-def test_f186_poha_may_be_offered_plain_rice_to_confirm(db: Session, line: str) -> None:
-    # Proposed, for cabledrawer: "flattened rice" is a rice, so plain Rice is offered, never matched.
+@pytest.mark.parametrize(
+    "line",
+    [
+        "1 cup poha (flattened rice)",
+        "1 cup flattened rice (poha)",
+        "1 cup puffed rice",
+        "1 cup poha",
+    ],
+)
+def test_f186_poha_is_not_offered_plain_rice(db: Session, line: str) -> None:
+    # cabledrawer 10 Nov: poha (flattened rice) is another food, not Rice.
     add_food(db, "Rice")
     result = match(db, line)
-    assert (result.label, result.food_name) == ("to_confirm", "Rice")
+    assert (result.label, result.food_id) == ("needs_you", None)
+
+
+@pytest.mark.parametrize(
+    ("line", "foods"),
+    [
+        ("1 can coconut milk", ("Milk",)),
+        ("1 can coconut milk", ("Milk", "Coconut")),
+        ("1 can light coconut milk", ("Milk",)),
+        ("200 ml coconut cream", ("Cream",)),
+        ("250 ml oat milk", ("Milk",)),
+        ("250 ml almond milk", ("Milk",)),
+        ("250 ml soya milk", ("Milk",)),
+        ("2 tbsp peanut butter", ("Butter",)),
+        ("2 tbsp peanut butter", ("Butter", "Peanuts")),
+        ("2 tbsp almond butter", ("Butter",)),
+        ("2 scoops ice cream", ("Cream",)),
+    ],
+)
+def test_f186_a_food_of_its_own_is_not_offered_the_plain_ingredient(
+    db: Session, line: str, foods: tuple[str, ...]
+) -> None:
+    # cabledrawer 10 Nov: "coconut milk" does not suggest Milk; the same for the other plant milks,
+    # creams and butters (OWN_FOODS).
+    for food in foods:
+        add_food(db, food)
+    result = match(db, line)
+    assert (result.label, result.food_id) == ("needs_you", None)
+
+
+def test_f186_a_food_of_its_own_still_matches_itself(db: Session) -> None:
+    add_food(db, "Coconut milk")
+    add_food(db, "Milk")
+    result = match(db, "1 can coconut milk")
+    assert (result.label, result.food_name) == ("matched", "Coconut milk")
+    assert match(db, "250 ml whole milk").food_name == "Milk"
 
 
 @pytest.mark.parametrize(
@@ -732,9 +775,8 @@ def test_f186_the_main_word_matches_the_plain_ingredient(db: Session, line: str,
 @pytest.mark.parametrize(
     ("line", "foods", "offered"),
     [
-        ("1 can coconut milk", ("Milk", "Coconut"), "Milk"),
-        ("2 tbsp peanut butter", ("Butter", "Peanuts"), "Butter"),
         ("500 ml chicken stock", ("Stock", "Chicken"), "Stock"),
+        ("2 tbsp salted butter", ("Butter", "Salt"), "Butter"),
     ],
 )
 def test_f186_the_main_word_decides_even_when_a_side_word_is_an_ingredient_too(

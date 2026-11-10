@@ -376,6 +376,22 @@ PART_WORDS = frozenset(
 # As they stand in a key (`_key` turns "baby" into "babi").
 _DESCRIBING = frozenset(_key(word) for word in MODIFIER_WORDS | PART_WORDS)
 
+# Foods of their own whose name ends in another food's word (cabledrawer 10 Nov: "coconut milk"
+# is not Milk, "poha" is not Rice). A milk, cream, butter or water made from a nut, seed,
+# grain, bean or coconut, and rice that is flattened or puffed: a one-word food inside one
+# of these names is never offered for it, however the line reads.
+OWN_FOODS = frozenset(
+    {
+        f"{source} {thing}"
+        for source in ("coconut", "almond", "oat", "soy", "soya", "rice", "cashew", "hazelnut")
+        for thing in ("milk", "cream")
+    }
+    | {"coconut water", "coconut butter", "peanut butter", "almond butter", "cashew butter"}
+    | {"cocoa butter", "ice cream"}
+    | {"flattened rice", "beaten rice", "puffed rice", "pressed rice"}
+)
+_OWN_FOODS = tuple(_words(_key(name)) for name in OWN_FOODS)
+
 
 def _is_another_thing(theirs: frozenset[str], key: str, food: KitchenFood) -> bool:
     """F186 (cabledrawer 8 Nov; middle way, cabledrawer 10 Nov): a food with one word in its name
@@ -388,17 +404,21 @@ def _is_another_thing(theirs: frozenset[str], key: str, food: KitchenFood) -> bo
       "poha (flattened rice)" against Basmati rice): another thing, so it is not offered.
     - A side word that is an ingredient of its own changes nothing: "chicken stock" is offered
       Stock even when the household has Chicken, as cabledrawer's rule says (the main word decides).
+    - Except a food of its own (`OWN_FOODS`, cabledrawer 10 Nov): "coconut milk" is not Milk,
+      "peanut butter" is not Butter, "poha (flattened rice)" is not Rice.
 
     - The one word is only another name of a food whose own name says more ("rice" for
       Basmati rice): the food is a kind of that thing, and a line naming another kind is not
       it, so any word of the line's own blocks it, as in the first rule ("poha (flattened
-      rice)" and "jasmine rice" are not Basmati rice; FX1 review H1, proposed, for cabledrawer).
+      rice)" and "jasmine rice" are not Basmati rice; FX1 review H1, cabledrawer 10 Nov).
 
     A colour, size, state or part of the thing ("red", "dried", "leaves") is not a word of its
     own. The words are keys (`_key`)."""
     line = _words(key)
     if len(theirs) != 1 or not theirs < line:
         return False
+    if any(theirs < own <= line for own in _OWN_FOODS):
+        return True  # "coconut milk" is not Milk, "flattened rice" is not Rice (cabledrawer 10 Nov)
     extras = line - theirs - _DESCRIBING
     if not extras:
         return False
