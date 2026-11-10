@@ -48,7 +48,16 @@ from mealwright.api.v1.schemas import Ref
 from mealwright.errors import Problem, not_found
 from mealwright.history import as_utc, record
 from mealwright.household import undo_window
-from mealwright.models import Change, Food, Household, ImportDraft, Login, RecipePhoto, utcnow
+from mealwright.models import (
+    Change,
+    Food,
+    Household,
+    ImportDraft,
+    Login,
+    Recipe,
+    RecipePhoto,
+    utcnow,
+)
 from mealwright.photos import delete_after_commit
 
 DRAFT_DAYS = 15
@@ -189,8 +198,18 @@ def freshen(
     them anyway, line by line.) Only the household's own ingredients are looked at."""
     ids = {line.food.id for line in review.lines if line.food}
     ids |= {c.food.id for c in choices.lines.values() if c.food}
-    if not ids:
+    recipe_ids = {c.recipe.id for c in choices.lines.values() if c.recipe}
+    if not ids and not recipe_ids:
         return review, choices
+    # A recipe a line was set to use (F188): its new name, or no choice when it is gone.
+    recipes = {
+        recipe.id: recipe
+        for recipe in kitchen.db.scalars(
+            select(Recipe).where(
+                Recipe.household_id == kitchen.household_id, Recipe.id.in_(recipe_ids)
+            )
+        )
+    }
     foods: dict[int, Food | None] = {}
     wanted = set(ids)
     while wanted:  # the ids asked for, and the ones they were merged into
@@ -233,6 +252,13 @@ def freshen(
             if now_food is None:
                 continue
             choice = choice.model_copy(update={"food": Ref(id=now_food.id, name=now_food.name)})
+        if choice.recipe is not None:
+            now_recipe = recipes.get(choice.recipe.id)
+            if now_recipe is None or now_recipe.removed_at is not None:
+                continue
+            choice = choice.model_copy(
+                update={"recipe": Ref(id=now_recipe.id, name=now_recipe.name)}
+            )
         kept[index] = choice
     return (
         review.model_copy(update={"lines": lines, "counts": ReviewCounts(**counts)}),
@@ -248,7 +274,8 @@ def _progress(review: ImportReview, choices: DraftChoices) -> tuple[int, int]:
     and so is any line with a choice. The same count the review screen makes."""
     total = checked = 0
     for index, line in enumerate(review.lines):
-        if line.kind != "ingredient":
+        # A line added on Check and never named is not saved, so it doesn't count (F187).
+        if line.kind != "ingredient" or (not line.written and not line.words.strip()):
             continue
         total += 1
         if index in choices.lines or (line.label in ("matched", "staple") and line.food):

@@ -215,10 +215,14 @@ class ImportLinkIn(BaseModel):
       name of the ingredient ("Same as Onions" for "red onion").
     - `new`: a new ingredient (`name`, `counted_as`, `place_id`), made on Save.
     - `staple`: a new staple ingredient: the line never counts.
+    - `recipe` (0.8, F188): the line uses another recipe of the household (`recipe_id`), the same
+      link as a recipe line made in the editor. `place_id` is where the pantry keeps it: it is
+      set on that recipe's own made-ahead ingredient when that has no usual place yet.
     A line with no link is saved with its words only ("not linked")."""
 
-    kind: Literal["ingredient", "new", "staple"]
+    kind: Literal["ingredient", "new", "staple", "recipe"]
     food_id: StoredInt | None = None
+    recipe_id: StoredInt | None = None
     learn: Annotated[str, Field(max_length=100)] | None = None
     name: Annotated[str, Field(max_length=100)] | None = None
     counted_as: CountedAs = "weight"
@@ -237,6 +241,8 @@ class ImportLinkIn(BaseModel):
             raise ValueError("Pick an ingredient.")
         if self.kind in ("new", "staple") and not self.name:
             raise ValueError("Type a name for the new ingredient.")
+        if self.kind == "recipe" and self.recipe_id is None:
+            raise ValueError("Pick the recipe that makes it.")
         return self
 
 

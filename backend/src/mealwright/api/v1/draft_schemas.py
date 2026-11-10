@@ -57,10 +57,13 @@ class DraftChoice(BaseModel):
     - `new` and `staple`: a new ingredient or staple, made only on Save (`name`, `counted_as`,
       `place_id`).
     - `here`: "Made in this recipe" (F108): the line is made earlier in the same recipe, so it is
-      saved as words only, never tied to an ingredient and never taken from the pantry."""
+      saved as words only, never tied to an ingredient and never taken from the pantry.
+    - `recipe` (0.8, F188): the line uses another recipe (`recipe`); `place_id` is where the
+      pantry keeps it, set on that recipe's made-ahead ingredient on Save when it has none."""
 
-    kind: Literal["ingredient", "new", "staple", "here"]
+    kind: Literal["ingredient", "new", "staple", "here", "recipe"]
     food: Ref | None = None
+    recipe: Ref | None = None
     learn: bool = False
     name: Annotated[str, Field(max_length=100)] | None = None
     counted_as: CountedAs = "weight"
@@ -77,6 +80,8 @@ class DraftChoice(BaseModel):
             raise ValueError("Pick an ingredient.")
         if self.kind == "here" and (self.food is not None or self.name or self.learn):
             raise ValueError("Made in this recipe has no ingredient, name or learned name.")
+        if self.kind == "recipe" and (self.recipe is None or self.food is not None or self.learn):
+            raise ValueError("Pick the recipe that makes it.")
         if self.kind in ("new", "staple") and not self.name:
             raise ValueError("Type a name for the new ingredient.")
         return self

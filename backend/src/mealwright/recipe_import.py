@@ -857,11 +857,32 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
         except Problem as problem:
             raise _at(index, problem) from None
 
-    with FoodEdit(kitchen, [food.id for food in existing.values()]) as edit:
+    # The recipes lines use (F188): the household's own, not removed. The place the pantry keeps
+    # a made-ahead one in goes on its own ingredient when that has no usual place yet.
+    keeps: dict[int, int] = {}  # a recipe's made-ahead ingredient → the place to give it
+    for index, line in enumerate(body.lines):
+        link = line.link
+        if line.kind == "heading" or link is None or link.kind != "recipe":
+            continue
+        try:
+            recipe = kitchen.db.get(Recipe, link.recipe_id or 0)
+            if recipe is None or recipe.household_id != kitchen.household_id or recipe.removed_at:
+                raise not_found("That recipe")
+            place_id = _place(kitchen, link.place_id)
+        except Problem as problem:
+            raise _at(index, problem) from None
+        if place_id is not None and recipe.made_ahead and recipe.homemade_food_id is not None:
+            keeps.setdefault(recipe.homemade_food_id, place_id)
+
+    with FoodEdit(kitchen, [*(food.id for food in existing.values()), *keeps]) as edit:
+        for homemade_id, keep_in in keeps.items():
+            homemade = kitchen.db.get(Food, homemade_id)
+            if homemade is not None and homemade.place_id is None:
+                homemade.place_id = keep_in
         made: dict[str, Food] = {}  # folded name → the ingredient made for it
         for index, line in enumerate(body.lines):
             link = line.link
-            if line.kind == "heading" or link is None or link.kind == "ingredient":
+            if line.kind == "heading" or link is None or link.kind not in ("new", "staple"):
                 continue
             key = fold(link.name or "")
             if key in made:
@@ -894,10 +915,16 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
         for line in body.lines:
             link = line.link
             food_id: int | None = None
+            recipe_id: int | None = None
             if line.kind != "heading" and link is not None:
-                food_id = (
-                    link.food_id if link.kind == "ingredient" else made[fold(link.name or "")].id
-                )
+                if link.kind == "recipe":
+                    recipe_id = link.recipe_id
+                else:
+                    food_id = (
+                        link.food_id
+                        if link.kind == "ingredient"
+                        else made[fold(link.name or "")].id
+                    )
             recipe_lines.append(
                 {
                     "kind": line.kind,
@@ -906,6 +933,7 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
                     "unit": line.unit,
                     "size_id": line.size_id if food_id is not None else None,
                     "food_id": food_id,
+                    "recipe_id": recipe_id,
                     "note": line.note,
                     "optional": line.optional and line.kind != "heading",
                 }
