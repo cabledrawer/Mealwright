@@ -4,6 +4,7 @@ Online only, like the Pantry."""
 
 from collections.abc import Callable
 from datetime import date, timedelta
+from datetime import time as clock
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query, Response, status
@@ -11,7 +12,7 @@ from pydantic import BaseModel, Field, StrictBool, field_validator
 from sqlalchemy import and_, or_, select
 
 from mealwright import batches as batch_service
-from mealwright import cooking, methods, plan
+from mealwright import cooking, methods, plan, start_ahead
 from mealwright import recipes as recipe_service
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.recipe_schemas import StepWaitOut
@@ -35,7 +36,9 @@ from mealwright.models import (
     Recipe,
     RecipeLine,
     RecipePhoto,
+    RecipeStep,
     Tub,
+    utcnow,
 )
 from mealwright.names import clean, clean_name, fold, one_line
 from mealwright.shopping import lock_household
@@ -92,6 +95,28 @@ def _item_method(item: MealItem, ways: dict[int, list[Any]]) -> Any:
     return methods.named(found, item.method_id) if len(found) > 1 else None
 
 
+class AheadOut(BaseModel):
+    """A recipe's long wait in a planned meal (M3, F124): what to start ahead, when, and how it
+    went. Times are the household's own wall clock."""
+
+    step_id: int
+    # The step that waits, in its own words.
+    step_text: str
+    wait: StepWaitOut
+    # The recipe's own working time in this way of cooking it (not the wait); null when unknown.
+    active_minutes: int | None
+    # When the meal is eaten ("08:00"): the slot's usual time (there is no setting for it yet).
+    eats_at: str
+    # When the wait will be started; null: not set.
+    start_day: date | None = None
+    start_time: str | None = None
+    # When it was begun ("Done already", or Cook mode past its step); null: not yet.
+    started_day: date | None = None
+    started_time: str | None = None
+    # How long it has waited, in whole minutes, at the moment of this answer; null: not begun.
+    waited_minutes: int | None = None
+
+
 class PlanItemOut(BaseModel):
     id: int
     position: int
@@ -119,6 +144,10 @@ class PlanItemOut(BaseModel):
     # M2: the way of cooking it this meal uses, for a recipe with two. Null: a recipe with one.
     method_id: int | None = None
     method: str | None = None
+    # M3: the long wait to start ahead (soak, ferment, marinate: four hours or more at the
+    # shortest) in the way of cooking it the meal uses, and when it will be, or was, started.
+    # Null: no such wait, or the recipe is cooked already.
+    ahead: AheadOut | None = None
 
 
 class PlanMealOut(BaseModel):
@@ -329,6 +358,23 @@ def get_plan(
         }
 
     waits = recipe_service.waits_of(db, recipe_ids)
+    # The long waits to start ahead (M3): the steps that wait four hours or more, by recipe.
+    long_steps: dict[int, list[RecipeStep]] = {}
+    for step in db.scalars(
+        select(RecipeStep)
+        .where(
+            RecipeStep.household_id == household_id,
+            RecipeStep.recipe_id.in_(recipe_ids),
+            RecipeStep.kind == "step",
+            RecipeStep.wait_min_minutes >= start_ahead.MIN_AHEAD_MINUTES,
+        )
+        .order_by(RecipeStep.position, RecipeStep.id)
+    ):
+        long_steps.setdefault(step.recipe_id, []).append(step)
+    slot_of = {
+        s.id: s for s in db.scalars(select(MealSlot).where(MealSlot.household_id == household_id))
+    }
+    now = utcnow()
     # A batch cook's recipe, for the kcal of its tubs.
     batch_recipes = {
         r.id: r
@@ -436,6 +482,44 @@ def get_plan(
             return 1
         return recipe.serves if recipe else None
 
+    meal_of = {m.id: m for m in meals}
+
+    def ahead_out(i: MealItem, recipe: Recipe | None) -> AheadOut | None:
+        """The long wait of a planned recipe, in the way of cooking it the meal uses."""
+        if recipe is None or i.kind != "recipe" or cooked_of(i) or recipe.id not in long_steps:
+            return None
+        found = ways.get(recipe.id, [])
+        way = methods.named(found, i.method_id)
+        minutes = way.time_minutes if way is not None else recipe.time_minutes
+        ahead = start_ahead.of_steps(
+            [s for s in long_steps[recipe.id] if methods.in_method(s, found, way)], minutes
+        )
+        if ahead is None:
+            return None
+        meal = meal_of[i.meal_id]
+        shown = start_ahead.shown(
+            kitchen.household, ahead, slot_of.get(meal.slot_id), i.start_at, i.started_at, now
+        )
+        return AheadOut(
+            step_id=ahead.step_id,
+            step_text=ahead.step_text,
+            wait=StepWaitOut(
+                kind=ahead.wait.kind,
+                min_minutes=ahead.wait.min_minutes,
+                max_minutes=ahead.wait.max_minutes,
+                overnight=ahead.wait.overnight,
+            ),
+            active_minutes=ahead.active_minutes,
+            eats_at=start_ahead.clock_words(shown.eats_at),
+            start_day=shown.start_day,
+            start_time=start_ahead.clock_words(shown.start_time) if shown.start_time else None,
+            started_day=shown.started_day,
+            started_time=(
+                start_ahead.clock_words(shown.started_time) if shown.started_time else None
+            ),
+            waited_minutes=shown.waited_minutes,
+        )
+
     def item_out(i: MealItem) -> PlanItemOut:
         recipe = recipes.get(i.recipe_id) if i.recipe_id else None
         food = foods.get(i.food_id) if i.food_id else None
@@ -477,6 +561,7 @@ def get_plan(
             optional_skipped=sorted(set(i.optional_skipped or ()) & item_optional(i)),
             method_id=(m := _item_method(i, ways)) and m.id,
             method=m.name if m else None,
+            ahead=ahead_out(i, recipe),
         )
 
     by_meal: dict[int, list[PlanItemOut]] = {}
@@ -586,6 +671,16 @@ def _run(kitchen: Kitchen, response: Response, make: Callable[[], Change | None]
     return _written(kitchen, earlier)
 
 
+class StartIn(BaseModel):
+    """A day and a clock time on the household's own wall clock."""
+
+    day: date
+    time: Annotated[str, Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$", examples=["21:00"])]
+
+    def at(self) -> tuple[date, clock]:
+        return self.day, clock.fromisoformat(self.time)
+
+
 class PlanItemIn(BaseModel):
     date: date
     slot_id: StoredInt
@@ -606,6 +701,13 @@ class PlanItemIn(BaseModel):
         description="Recipes with two ways of cooking them (M2): which one this meal uses (an id"
         " from the recipe's `methods`). Left out: the one used last. `422 not_a_method` for"
         " an id that is not one of the recipe's.",
+    )
+    start: StartIn | None = Field(
+        default=None,
+        description="Recipes with a long wait (M3): when it will be started, a day and a clock"
+        " time in the household's time. Left out: none is set. `422 no_wait` for a recipe with"
+        " no wait of four hours or more in the way of cooking it the meal uses; `422 bad_start`"
+        " for a time that is not before the meal.",
     )
     optional_use: Annotated[list[StoredInt], Field(max_length=200)] | None = Field(
         default=None,
@@ -660,6 +762,7 @@ def add_plan_item(body: PlanItemIn, kitchen: Here, response: Response) -> PlanWr
             body.note,
             body.optional_use,
             body.method_id,
+            body.start.at() if body.start else None,
         )
 
     out = _run(kitchen, response, make)
@@ -726,6 +829,125 @@ def set_plan_item_method(
         kitchen,
         response,
         lambda: plan.set_method(kitchen, plan.find_item(kitchen, plan_item_id), body.method_id),
+    )
+
+
+class PlanStartIn(BaseModel):
+    start: StartIn | None = Field(
+        description="When the wait will be started, a day and a clock time in the household's"
+        " time; null takes the time away."
+    )
+
+
+@router.put("/plan/items/{plan_item_id}/start")
+def set_plan_item_start(
+    plan_item_id: StoredInt, body: PlanStartIn, kitchen: Here, response: Response
+) -> PlanWrite:
+    """When a planned recipe's long wait will be started (M3), changed from the meal. Already
+    that time → `change: null`. Only a recipe with a wait of four hours or more
+    (`422 no_wait`, `422 not_a_recipe`) in a planned meal (`409 meal_done`), before the meal
+    (`422 bad_start`). Changing the meal's way of cooking it takes the time away."""
+    return _run(
+        kitchen,
+        response,
+        lambda: plan.set_start(
+            kitchen, plan.find_item(kitchen, plan_item_id), body.start.at() if body.start else None
+        ),
+    )
+
+
+class PlanStartedIn(BaseModel):
+    started: StrictBool = Field(
+        description="true: the wait is begun now (Cook mode past its step, or Done already). false:"
+        " it is not."
+    )
+
+
+@router.put("/plan/items/{plan_item_id}/started")
+def set_plan_item_started(
+    plan_item_id: StoredInt, body: PlanStartedIn, kitchen: Here, response: Response
+) -> PlanWrite:
+    """The long wait of a planned recipe is begun (M3): the moment is kept, so Cook mode the next
+    day starts after its step and says how long it has waited. Already that way →
+    `change: null`. Same refusals as `/start`."""
+    return _run(
+        kitchen,
+        response,
+        lambda: plan.set_started(kitchen, plan.find_item(kitchen, plan_item_id), body.started),
+    )
+
+
+class StartOptionOut(BaseModel):
+    day: date
+    time: str  # "21:00"
+    # The time the dish is ready by, if it is started then ("08:00"; the next day when it is).
+    ready_by: str
+    ready_by_day: date
+
+
+class StartOptionsOut(BaseModel):
+    """The question asked when a recipe with a long wait is planned (M3)."""
+
+    # The wait that is started ahead; null when the recipe has none (nothing to ask).
+    wait: StepWaitOut | None
+    eats_at: str  # the meal's usual time, "08:00"
+    options: list[StartOptionOut]
+
+
+@router.get("/plan/start-options")
+def get_start_options(
+    kitchen: Here,
+    recipe_id: Annotated[StoredInt, Query(description="The recipe to plan.")],
+    on: Annotated[date, Query(alias="date", description="The day of the meal.")],
+    slot_id: Annotated[StoredInt, Query(description="The meal's slot.")],
+    method_id: Annotated[
+        StoredInt | None, Query(description="The way of cooking it; left out: the one used last.")
+    ] = None,
+) -> StartOptionsOut:
+    """When could the long wait be started, for a meal on this day and slot (M3)? Up to two times
+    in whole hours: one that puts the wait in the middle of its range, and an earlier one that is
+    ready even if the wait is the longest; none that has gone by (then one starting at once).
+    `wait: null` and no options for a recipe with no wait of four hours or more."""
+    recipe = recipe_service.find(kitchen, recipe_id)
+    slot = plan.find_slot(kitchen, slot_id)
+    found = methods.methods_of(kitchen.db, recipe.id)
+    if method_id is not None and all(m.id != method_id for m in found):
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_a_method",
+            "That isn’t one of this recipe’s ways of cooking it.",  # proposed, for cabledrawer
+        )
+    way = (
+        methods.named(found, method_id)
+        if method_id is not None
+        else (methods.used_last(found) if len(found) > 1 else None)
+    )
+    eats = start_ahead.slot_time(slot)
+    ahead = start_ahead.ahead_of(kitchen.db, recipe, way.id if way else None, found)
+    if ahead is None:
+        return StartOptionsOut(wait=None, eats_at=start_ahead.clock_words(eats), options=[])
+    household = kitchen.household
+    out = []
+    for option in start_ahead.options(household, ahead, on, slot, utcnow()):
+        start = start_ahead.local_of(household, option.start)
+        ready = start_ahead.local_of(household, option.ready_by)
+        out.append(
+            StartOptionOut(
+                day=start.date(),
+                time=start_ahead.clock_words(start.time()),
+                ready_by=start_ahead.clock_words(ready.time()),
+                ready_by_day=ready.date(),
+            )
+        )
+    return StartOptionsOut(
+        wait=StepWaitOut(
+            kind=ahead.wait.kind,
+            min_minutes=ahead.wait.min_minutes,
+            max_minutes=ahead.wait.max_minutes,
+            overnight=ahead.wait.overnight,
+        ),
+        eats_at=start_ahead.clock_words(eats),
+        options=out,
     )
 
 

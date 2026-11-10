@@ -1,13 +1,13 @@
 """Plan helpers the screens' writes will share (0.6)."""
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any, Literal
 
 from fastapi import status
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import cooked, methods
+from mealwright import cooked, methods, start_ahead
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
 from mealwright.history import Tally, as_utc, record, undo_message
@@ -271,7 +271,18 @@ def _snapshot_item(item: MealItem) -> dict[str, Any]:
         "servings": item.servings,
         "optional_skipped": item.optional_skipped,
         "method_id": item.method_id,
+        "start_at": _moment(item.start_at),
+        "started_at": _moment(item.started_at),
     }
+
+
+def _moment(at: datetime | None) -> str | None:
+    """A start time as text for an Undo step (always UTC)."""
+    return at.replace(tzinfo=None).isoformat() if at else None
+
+
+def _unmoment(text: str | None) -> datetime | None:
+    return datetime.fromisoformat(text).replace(tzinfo=UTC) if text else None
 
 
 def _drop_meal(kitchen: Kitchen, meal: Meal, steps: list[dict[str, Any]]) -> None:
@@ -325,7 +336,15 @@ def _thing_of(kitchen: Kitchen, steps: list[dict[str, Any]]) -> str | None:
                 if more:
                     name = f"{name} and {more} more"
                 return f"{name} ({_short_where(kitchen, *was)})"
-        if step["op"] in ("add_item", "move_item", "servings", "optional", "method"):
+        if step["op"] in (
+            "add_item",
+            "move_item",
+            "servings",
+            "optional",
+            "method",
+            "start",
+            "started",
+        ):
             item = kitchen.db.get(MealItem, step["item"])
         elif step["op"] == "del_item":
             item = MealItem(**{key: step["item"][key] for key in _SNAPSHOT_KEYS})
@@ -386,16 +405,20 @@ def add_item(
     note: str | None = None,
     optional_use: list[int] | None = None,
     method_id: int | None = None,
+    start: tuple[date, time] | None = None,
 ) -> Change:
     """Plan a recipe, a plain ingredient or a note ("Eating out"). A filled meal gets it
     alongside. `optional_use` (R3, cabledrawer 9 Nov): the recipe's Optional lines the person will
     use; the others are left out of the shopping list and of "Cooked it". Left out: every line
     counts, as it did before. `method_id` (M2, cabledrawer 9 Nov): which way of cooking a recipe
-    with two the meal uses; left out, the one used last. A recipe with one method has none."""
+    with two the meal uses; left out, the one used last. A recipe with one method has none.
+    `start` (M3, cabledrawer 9 Nov): the day and clock time the recipe's long wait will be started,
+    for a recipe that has one; left out, none is set."""
     check_day(kitchen, day)
-    find_slot(kitchen, slot_id)
+    slot = find_slot(kitchen, slot_id)
     method = _method_for(kitchen, recipe, method_id)
     skipped = _skipped_for(kitchen, recipe, optional_use, method)
+    start_at = _start_instant(kitchen, recipe, method, day, slot, start)
     steps: list[dict[str, Any]] = []
     meal = meal_at(kitchen, day, slot_id)
     if meal is None:
@@ -414,6 +437,7 @@ def add_item(
         servings=servings if recipe else None,
         optional_skipped=skipped,
         method_id=method.id if method else None,
+        start_at=start_at,
     )
     used = methods.touch_with_undo(method, utcnow())
     kitchen.db.add(item)
@@ -428,6 +452,42 @@ def add_item(
         meal_id=meal.id,
         item_id=item.id,
     )
+
+
+def _start_instant(
+    kitchen: Kitchen,
+    recipe: Recipe | None,
+    method: RecipeMethod | None,
+    day: date,
+    slot: MealSlot,
+    start: tuple[date, time] | None,
+) -> datetime | None:
+    """The moment a wait is started, from a day and a clock time on the household's wall clock.
+    None when none is given. Only a recipe that has a long wait (the way of cooking it the meal
+    uses) can have one, and it has to be before the meal."""
+    if start is None:
+        return None
+    if recipe is None:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_a_recipe",
+            "Only a recipe has a start time.",  # proposed, for cabledrawer
+        )
+    if start_ahead.ahead_of(kitchen.db, recipe, method.id if method else None) is None:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "no_wait",
+            "This recipe has no long wait to start ahead.",  # proposed, for cabledrawer
+        )
+    household = kitchen.household
+    at = start_ahead.to_instant(household, *start)
+    if not start_ahead.check_start(household, at, start_ahead.eat_instant(household, day, slot)):
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "bad_start",
+            "Pick a time before the meal.",  # proposed, for cabledrawer
+        )
+    return at
 
 
 def _method_for(
@@ -577,10 +637,17 @@ def set_method(kitchen: Kitchen, item: MealItem, method_id: int) -> Change | Non
         )
     if item.method_id == method.id:
         return None
-    before = {"method": item.method_id, "skipped": item.optional_skipped}
+    before = {
+        "method": item.method_id,
+        "skipped": item.optional_skipped,
+        "start_at": _moment(item.start_at),
+        "started_at": _moment(item.started_at),
+    }
     reset = bool(item.optional_skipped)
     item.method_id = method.id
     item.optional_skipped = None
+    # The wait to start ahead belongs to the way it was in: the new way asks again (M3).
+    item.start_at = item.started_at = None
     used = methods.touch_with_undo(method, utcnow())
     kitchen.db.flush()
     where = _where(kitchen, meal.day, meal.slot_id)
@@ -597,6 +664,97 @@ def set_method(kitchen: Kitchen, item: MealItem, method_id: int) -> Change | Non
         meal_id=meal.id,
         item_id=item.id,
     )
+
+
+def _wait_item(kitchen: Kitchen, item: MealItem) -> tuple[Meal, MealSlot | None]:
+    """The meal of a recipe item whose wait is being started or changed: checks it is a planned
+    recipe with a long wait (in the way of cooking it the meal uses)."""
+    meal = kitchen.db.get(Meal, item.meal_id)
+    if meal is None:  # pragma: no cover (the database keeps every item in a meal)
+        raise not_found("That meal")
+    _planned(meal)
+    refuse_cooked_items(kitchen, [item], meal)
+    recipe = (
+        kitchen.db.get(Recipe, item.recipe_id) if item.kind == "recipe" and item.recipe_id else None
+    )
+    if recipe is None:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_a_recipe",
+            "Only a recipe has a start time.",  # proposed, for cabledrawer
+        )
+    if start_ahead.ahead_of(kitchen.db, recipe, item.method_id) is None:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "no_wait",
+            "This recipe has no long wait to start ahead.",  # proposed, for cabledrawer
+        )
+    return meal, kitchen.db.get(MealSlot, meal.slot_id)
+
+
+def set_start(kitchen: Kitchen, item: MealItem, start: tuple[date, time] | None) -> Change | None:
+    """When a planned recipe's long wait will be started, changed from the meal (M3, Tess
+    9 Nov); None takes the time away. Already that time → None."""
+    meal, slot = _wait_item(kitchen, item)
+    recipe = kitchen.db.get(Recipe, item.recipe_id or 0)
+    method = (
+        methods.named(methods.methods_of(kitchen.db, recipe.id), item.method_id) if recipe else None
+    )
+    now = _start_instant(kitchen, recipe, method, meal.day, slot, start) if slot else None
+    if _moment(item.start_at) == _moment(now):
+        return None
+    before = _moment(item.start_at)
+    item.start_at = now
+    kitchen.db.flush()
+    where = _where(kitchen, meal.day, meal.slot_id)
+    name = _item_name(kitchen, item)
+    summary = (
+        f"Changed when to start {name} for {where}"
+        if now
+        else f"Took away the start time of {name} for {where}"
+    )
+    return _finish(
+        kitchen,
+        "plan_start",
+        summary,
+        [{"op": "start", "item": item.id, "from": before, "to": _moment(now)}],
+        meal_id=meal.id,
+        item_id=item.id,
+    )
+
+
+def set_started(kitchen: Kitchen, item: MealItem, started: bool) -> Change | None:
+    """The long wait is begun ("Start it in Cook mode" past its step, or "Done already"): this
+    moment is kept, so Cook mode on the next day starts after that step and says how long it has
+    waited. `started: false` takes the mark away. Already that way → None."""
+    meal, _ = _wait_item(kitchen, item)
+    if bool(item.started_at) == started:
+        return None
+    before = _moment(item.started_at)
+    item.started_at = utcnow() if started else None
+    kitchen.db.flush()
+    where = _where(kitchen, meal.day, meal.slot_id)
+    name = _item_name(kitchen, item)
+    return _finish(
+        kitchen,
+        "plan_started",
+        f"Started the wait for {name} for {where}"
+        if started
+        else f"Took away the started mark of {name} for {where}",
+        [{"op": "started", "item": item.id, "from": before, "to": _moment(item.started_at)}],
+        meal_id=meal.id,
+        item_id=item.id,
+    )
+
+
+def _forget_start(item: MealItem, steps: list[dict[str, Any]]) -> None:
+    """A recipe moved to another day or meal: the time it was to be started no longer fits, so it
+    is taken away (the meal can be given one again). A wait already begun stays begun. The steps
+    keep it, so Undo of the move puts it back."""
+    if item.start_at is None:
+        return
+    steps.append({"op": "start", "item": item.id, "from": _moment(item.start_at), "to": None})
+    item.start_at = None
 
 
 def remove_item(kitchen: Kitchen, item: MealItem) -> Change:
@@ -690,6 +848,7 @@ def _bring(kitchen: Kitchen, item: MealItem, meal: Meal, steps: list[dict[str, A
     )
     item.meal_id = meal.id
     item.position = _end(kitchen, meal)
+    _forget_start(item, steps)
     kitchen.db.flush()
 
 
@@ -774,6 +933,8 @@ def move_meal(
         verb = "Moved"
         where_from = _where(kitchen, meal.day, meal.slot_id)
         meal.day, meal.slot_id = day, slot_id
+        for moved_item in items:
+            _forget_start(moved_item, steps)
         kitchen.db.flush()
         return _finish(
             kitchen,
@@ -1145,6 +1306,8 @@ def _undo_step(
                 food_id=old["food_id"],
                 servings=old["servings"],
                 optional_skipped=old.get("optional_skipped"),
+                start_at=_unmoment(old.get("start_at")),
+                started_at=_unmoment(old.get("started_at")),
                 # A way of cooking it that has since been removed from the recipe is let go.
                 method_id=(
                     old.get("method_id")
@@ -1220,9 +1383,23 @@ def _undo_step(
         was = step["from"]
         item.method_id = was["method"] if db.get(RecipeMethod, was["method"] or 0) else None
         item.optional_skipped = was["skipped"]
+        item.start_at = _unmoment(was.get("start_at"))
+        item.started_at = _unmoment(was.get("started_at"))
         db.flush()
         if "method_used" in step:
             methods.put_back(db, step)
+        return True
+    if op in ("start", "started"):
+        item = _own(kitchen, MealItem, step["item"])
+        if item is None or _open(kitchen, item.meal_id) is None:
+            return False
+        if _cooked_now(kitchen, item):
+            return False
+        field = "start_at" if op == "start" else "started_at"
+        if _moment(getattr(item, field)) != step["to"]:
+            return False  # changed again since (F165)
+        setattr(item, field, _unmoment(step["from"]))
+        db.flush()
         return True
     if op == "eaters":
         meal = _open(kitchen, remap.get(step["meal"], step["meal"]))
