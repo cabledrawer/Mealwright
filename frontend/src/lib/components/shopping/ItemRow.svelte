@@ -26,6 +26,7 @@
   import { network } from '#lib/network.svelte.js';
   import { save } from '#lib/save.js';
   import { needLine, packLine, packParts, usualSize } from '#lib/shopping/packLine.js';
+  import { useSize } from '#lib/shopping/useSize.js';
   import FoundSheet from './FoundSheet.svelte';
   import PackSheet from './PackSheet.svelte';
   import RemoveConfirm from './RemoveConfirm.svelte';
@@ -62,19 +63,50 @@
   /** "1 jar (500 g) · 120 g needed" under the name, when the Usual size is known (F120). */
 
   /** Plan shopping: the pack words are the amount ("1 jar (500 g)"); the need goes in the why. */
-  const buy = $derived(plan && !trolley ? packParts(food, item.amount)?.buy : undefined);
+  const buy = $derived(plan && !trolley ? packParts(food, item.amount, item.size_id)?.buy : undefined);
   const why = $derived(plan && !trolley ? model.whyOf(item) : '');
   /** "Usual pack?": the common sizes, under a line with an amount and no size known. */
   const picks = $derived(
-    !trolley && item.amount && !food.staple && !usualSize(food)
+    !trolley && item.amount && !food.staple && !usualSize(food, item.size_id)
       ? (item.pack?.suggestions ?? [])
       : []
   );
   const packs = $derived(
     trolley
       ? null
-      : (packLine(food, item.amount) ?? (picks.length ? needLine(food, item.amount) : null))
+      : (packLine(food, item.amount, item.size_id) ?? (picks.length ? needLine(food, item.amount) : null))
   );
+  /** Another size that leaves much less over, suggested under the row (cabledrawer 9 Nov). */
+  const alternative = $derived(
+    !trolley && item.amount && !food.staple ? (item.pack?.alternative ?? null) : null
+  );
+  /** A size is known, so "Which size?" has something to compare against. */
+  const sizeKnown = $derived(!trolley && !food.staple && item.pack?.packs != null);
+  let sizesOpen = $state(false);
+  let SizesSheet = $state<(typeof import('./PackSizes.svelte'))['default'] | null>(null);
+  let usingAlternative = $state(false);
+
+  /** The sizes sheet loads the first time it is asked for (the page size limit). */
+  async function openSizes() {
+    try {
+      SizesSheet ??= (await import('./PackSizes.svelte')).default;
+      sizesOpen = true;
+    } catch {
+      /* the sheet's code could not be fetched: the row stays as it is */
+    }
+  }
+
+  async function useAlternative() {
+    if (!alternative || usingAlternative) return;
+    usingAlternative = true;
+    try {
+      await useSize(model, item, food.id, alternative, false);
+    } catch {
+      /* the size could not be made: the row stays as it is */
+    } finally {
+      usingAlternative = false;
+    }
+  }
   let whyOpen = $state(false);
   const offerStaple = $derived(!trolley && model.stapleOffered(item));
 
@@ -261,6 +293,7 @@
     name={food.name}
     items={[
       { label: 'Change amount', run: () => openBox() },
+      ...(sizeKnown ? [{ label: 'Which size?…', run: () => void openSizes() }] : []),
       { label: 'Move to…', run: (from) => openMove(from) },
       { label: 'Remove from list…', danger: true, run: (from) => ask(from) }
     ]}
@@ -422,6 +455,13 @@
             {/if}
             <!-- After the why, so the keyboard meets them in the order they are seen. -->
             {#if model.device === 'computer'}{@render menu()}{/if}
+          {:else if packs && sizeKnown}
+            <button
+              type="button"
+              class="packs sizes-button"
+              aria-label="Which size? {food.name}: {packs}"
+              onclick={() => void openSizes()}>{packs}</button
+            >
           {:else if packs}
             <span class="packs">{packs}</span>
           {/if}
@@ -438,6 +478,18 @@
           >{choice.amount_text}</button
         >
       {/each}
+    </div>
+  {/if}
+
+  {#if alternative}
+    <div class="alt" role="group" aria-label="Another size for {food.name}">
+      <span class="alt-text">{alternative.text}</span>
+      <button
+        type="button"
+        class="chip"
+        disabled={usingAlternative || (alternative.size_id === null && network.offline)}
+        onclick={() => void useAlternative()}>Use this</button
+      >
     </div>
   {/if}
 
@@ -536,6 +588,10 @@
       onpick={moveTo}
       onclose={() => (moving = false)}
     />
+  {/if}
+
+  {#if sizesOpen && SizesSheet}
+    <SizesSheet {model} {item} {food} onclose={() => (sizesOpen = false)} />
   {/if}
 
   {#if haveOpen}
@@ -678,6 +734,47 @@
     background: var(--color-surface);
     color: var(--color-text);
     font: var(--weight-bold) var(--text-md) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .alt {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3) var(--space-5);
+    margin: 0 0 var(--space-4) 34px;
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-md);
+    background: var(--color-fill);
+  }
+
+  .alt-text {
+    flex: 1 1 10rem;
+    color: var(--color-text-soft, var(--color-text));
+    font-size: var(--text-md);
+  }
+
+  .alt .chip {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    padding: 0 12px;
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-md);
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+    font: var(--weight-bold) var(--text-md) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .alt .chip:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  button.sizes-button {
+    border: none;
+    background: transparent;
+    text-align: left;
     cursor: pointer;
   }
 

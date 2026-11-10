@@ -51,19 +51,25 @@ export function wholePacks(need: number, size: number): number {
 
 /** The size a line is bought in (F122, as the server's `pack_bought`): the Usual size, else
  * the only size; null with none, or with several and none Usual. */
-export function usualSize(food: Pick<ShopFood, 'sizes'> | undefined): FoodSize | null {
+export function usualSize(
+  food: Pick<ShopFood, 'sizes'> | undefined,
+  lineSizeId: number | null = null
+): FoodSize | null {
   const sizes = food?.sizes ?? [];
-  return sizes.find((s) => s.usual) ?? (sizes.length === 1 ? (sizes[0] ?? null) : null);
+  // A line in a size of its own ("Use this", F204) is bought in that size.
+  const own = lineSizeId === null ? undefined : sizes.find((s) => s.id === lineSizeId);
+  return own ?? sizes.find((s) => s.usual) ?? (sizes.length === 1 ? (sizes[0] ?? null) : null);
 }
 
 /** The pack words alone, "1 jar (500 g)", with the need's words ("120 g needed"); null with no
  * amount, no Usual size or a staple. */
 export function packParts(
   food: ShopFood | undefined,
-  need: number | null
+  need: number | null,
+  lineSizeId: number | null = null
 ): { buy: string; need: string } | null {
   if (!food || food.staple || need === null || need <= 0) return null;
-  const size = usualSize(food);
+  const size = usualSize(food, lineSizeId);
   if (!size || size.amount <= 0) return null;
   const packs = wholePacks(need, size.amount);
   const word = packs === 1 ? size.name : size.plural;
@@ -74,8 +80,12 @@ export function packParts(
 }
 
 /** "1 jar (500 g) · 120 g needed", or null with no amount, no Usual size or a staple. */
-export function packLine(food: ShopFood | undefined, need: number | null): string | null {
-  const parts = packParts(food, need);
+export function packLine(
+  food: ShopFood | undefined,
+  need: number | null,
+  lineSizeId: number | null = null
+): string | null {
+  const parts = packParts(food, need, lineSizeId);
   return parts ? `${parts.buy} · ${parts.need}` : null;
 }
 

@@ -103,3 +103,18 @@ describe('how much is left, in words (cabledrawer 8 Nov)', () => {
     expect(exactText(3, 'volume')).toBe(`3${NBSP}ml`);
   });
 });
+
+describe('a line bought in a size of its own (F204, "Use this")', () => {
+  it('shows that size, not the usual one', () => {
+    const milk = food('volume', [
+      { id: 1, name: 'tin', plural: 'tins', amount: 400, usual: true },
+      { id: 2, name: 'small tin', plural: 'small tins', amount: 200, usual: false }
+    ]);
+    expect(packLine(milk, 600)).toBe(`2${NBSP}tins (400${NBSP}ml) · 600${NBSP}ml needed`);
+    expect(packLine(milk, 600, 2)).toBe(
+      `3${NBSP}small tins (200${NBSP}ml) · 600${NBSP}ml needed`
+    );
+    // A size id the ingredient doesn't have falls back to the usual size.
+    expect(packLine(milk, 600, 99)).toBe(packLine(milk, 600));
+  });
+});

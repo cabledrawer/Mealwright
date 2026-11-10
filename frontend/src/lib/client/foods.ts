@@ -140,3 +140,45 @@ export const addShop = (name: string) => api<Shop>('POST', '/shops', { name });
  *  carrying that place, so "+ Place" picks it instead of making a double. */
 export const addPlace = (name: string, kind: PlaceKind) =>
   api<Place>('POST', '/places', { name, kind });
+
+/** One way to buy a Shopping line's need (GET /shopping/items/{id}/pack-sizes, F183 + F204). */
+export interface PackChoice {
+  /** null: a common size that has to be made first. */
+  size_id: number | null;
+  name: string;
+  plural: string;
+  /** The size, in g, ml or items. */
+  amount: number;
+  packs: number;
+  /** "3 tins · 200 ml". */
+  buy: string;
+  /** "nothing left over", "200 ml left over". */
+  over: string;
+  usual: boolean;
+  chosen: boolean;
+  least: boolean;
+  /** "Or 3 tins · 200 ml: nothing left over" (the suggestion under a row). */
+  text: string;
+}
+
+export interface PackSizes {
+  need: string;
+  choices: PackChoice[];
+}
+
+export const getPackSizes = (itemId: string) =>
+  api<PackSizes>('GET', `/shopping/items/${itemId}/pack-sizes`);
+
+/** Make a common size from the table (not the Usual one unless asked). */
+export const addCommonSize = (
+  id: number,
+  pick: { name: string; amount: number },
+  usual: boolean,
+  idempotencyKey: string
+) =>
+  api<FoodWrite>(
+    'POST',
+    `/foods/${id}/sizes`,
+    usual ? { name: pick.name, amount: pick.amount, usual: true } : pick,
+    key(idempotencyKey)
+  );
