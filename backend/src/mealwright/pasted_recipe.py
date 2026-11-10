@@ -225,6 +225,13 @@ def _short_text(line: str) -> bool:
 # --- Steps ------------------------------------------------------------------------------------
 
 
+def _colon_heading(text: str) -> bool:
+    """A short title ending in a colon that starts with a capital ("For the dosa:", "• For the
+    dosa:"): `is_step_heading`'s colon form only."""
+    words = text.lstrip(BULLETS).strip()
+    return words[:1].isupper() and words.endswith(":") and is_step_heading(words)
+
+
 def _step_texts(lines: list[str]) -> list[str]:
     """Method lines → steps. If any line is numbered, an unnumbered line straight after a
     numbered one carries on that step (a wrapped line), unless it is a heading ("For the dosa:",
@@ -241,10 +248,11 @@ def _step_texts(lines: list[str]) -> list[str]:
         if _is_numbered_step(text):
             steps.append(_STEP_NUMBER.sub("", text.lstrip(BULLETS), count=1).strip())
             carrying = True
-        elif text[:1].isupper() and is_step_heading(text):
+        elif _colon_heading(text):
             # A heading ("For the dosa:") straight after a step is never part of it (cabledrawer
-            # 10 Nov). A wrapped line starts small ("following:"), so it still carries on.
-            steps.append(text.lstrip(BULLETS))
+            # 10 Nov). A wrapped line starts small ("following:"), so it still carries on, and
+            # so does a wrapped line in capitals ("GAS MARK 4"): only the colon makes a heading.
+            steps.append(text.lstrip(BULLETS).strip())
             carrying = False
         elif numbered and carrying and steps:
             if len(steps[-1]) < MAX_STEP_CHARS:  # (and no quadratic copying of a huge step)

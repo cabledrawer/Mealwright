@@ -169,6 +169,21 @@ def test_a_wrapped_line_ending_in_a_colon_still_carries_on_its_step() -> None:
     assert recipe.steps == ("Mix in the following:", "Fry.")
 
 
+def test_a_wrapped_line_in_capitals_still_carries_on_its_step() -> None:
+    # FX2 review r1: only the colon form is a heading after a numbered step.
+    recipe = read_pasted(
+        "Ingredients\n1 onion\nMethod\n1. Bake at 180C / 350F\nGAS MARK 4\n2. Cool."
+    )
+    assert recipe.steps == ("Bake at 180C / 350F GAS MARK 4", "Cool.")
+
+
+def test_a_bulleted_colon_heading_after_a_numbered_step_stays_a_heading() -> None:
+    recipe = read_pasted(
+        "Ingredients\n1 onion\nMethod\n1. Soak the dal.\n• For the dosa:\n2. Fry it thin."
+    )
+    assert recipe.steps == ("Soak the dal.", "For the dosa:", "Fry it thin.")
+
+
 def test_notes_and_other_sections_after_the_method_are_left_out() -> None:
     recipe = read_pasted(
         "Dal\nIngredients\n1 cup dal\nMethod\nCook it.\nNotes\nKeeps well.\nTips\nSoak first."
