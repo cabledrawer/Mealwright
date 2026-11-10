@@ -20,6 +20,7 @@
   import { onWipedElsewhere } from '#lib/offline/otherTabs.js';
   import { askToKeepDataHere } from '#lib/offline/persist.js';
   import { live } from '#lib/live.svelte.js';
+  import { methodAsk } from '#lib/methodAsk.svelte.js';
   import { optionalAsk } from '#lib/optionalAsk.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
@@ -166,6 +167,12 @@
   <IngredientSheet />
   <AskOnce />
   <!-- Which optional ingredients a meal will use (R3); fetched when first asked (size limit). -->
+  <!-- Which way of cooking a recipe the meal uses (M2); fetched when first asked too. -->
+  {#if methodAsk.current}
+    {#await import('#lib/components/plan/PlanMethod.svelte') then { default: PlanMethod }}
+      <PlanMethod />
+    {/await}
+  {/if}
   {#if optionalAsk.current}
     {#await import('#lib/components/plan/PlanOptional.svelte') then { default: PlanOptional }}
       <PlanOptional />

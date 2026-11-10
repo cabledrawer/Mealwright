@@ -24,6 +24,7 @@ import {
   removePlanItem,
   removePlanMeal,
   setPlanEaters,
+  setPlanMethod,
   setPlanOptional,
   setPlanServings,
   switchMealSlot,
@@ -60,6 +61,7 @@ import {
   withServings
 } from './planEdits';
 import { cookBatchOfItem, itemName, leftName, mealName } from './planMeals';
+import { methodAsk } from './methodAsk.svelte';
 import { optionalAsk } from './optionalAsk.svelte';
 import { save, type Outcome } from './save';
 
@@ -72,7 +74,7 @@ export type Mover = { meal: number } | { item: number };
 export type Planned =
   | {
       /** `optional_count`: how many of its lines are Optional, when it is known (0: no question). */
-      recipe: { id: number; name: string; optional_count?: number };
+      recipe: { id: number; name: string; optional_count?: number; method_count?: number };
     }
   | { ingredient: { id: number; name: string } };
 
@@ -281,12 +283,26 @@ export class PlanModel {
    */
   async add(what: Planned, day: string, slotId: number): Promise<Outcome<PlanWrite>> {
     const name = 'recipe' in what ? what.recipe.name : what.ingredient.name;
-    const body: { recipe_id?: number; ingredient_id?: number; optional_use?: number[] } =
-      'recipe' in what ? { recipe_id: what.recipe.id } : { ingredient_id: what.ingredient.id };
+    const body: {
+      recipe_id?: number;
+      ingredient_id?: number;
+      optional_use?: number[];
+      method_id?: number;
+    } = 'recipe' in what ? { recipe_id: what.recipe.id } : { ingredient_id: what.ingredient.id };
     if ('recipe' in what) {
+      const where = `${dayShort(day)} ${this.slotName(slotId).toLocaleLowerCase()}`;
+      // A recipe with two ways of cooking it asks which first (M2), then which optional
+      // ingredients of that way.
+      const method = await methodAsk.ask(
+        { id: what.recipe.id, methodCount: what.recipe.method_count },
+        where
+      );
+      if (method === null) return { ok: false, error: null, cancelled: true };
+      if (method !== undefined) body.method_id = method;
       const use = await optionalAsk.ask(
         { id: what.recipe.id, optionalCount: what.recipe.optional_count },
-        `${dayShort(day)} ${this.slotName(slotId).toLocaleLowerCase()}`
+        where,
+        { method }
       );
       if (use === null) return { ok: false, error: null, cancelled: true };
       if (use !== undefined) body.optional_use = use;
@@ -294,6 +310,22 @@ export class PlanModel {
     return this.#send({
       label: `Planned ${name} for ${this.slotName(slotId)}`,
       send: (key) => planItem({ date: day, slot_id: slotId, ...body }, key)
+    });
+  }
+
+  /** Change which way of cooking a planned recipe uses, from its meal (M2). */
+  async changeMethod(item: PlanItem, day: string): Promise<void> {
+    if (item.kind !== 'recipe' || !item.recipe) return;
+    const meal = this.plan?.meals.find((m) => m.items.some((i) => i.id === item.id));
+    const picked = await methodAsk.ask(
+      { id: item.recipe.id },
+      `${dayShort(day)} ${meal ? this.slotName(meal.slot_id).toLocaleLowerCase() : 'meal'}`,
+      { current: item.method_id ?? null, button: 'Save' }
+    );
+    if (picked === null || picked === undefined || picked === item.method_id) return;
+    await this.#send({
+      label: `Changed how ${itemName(item, this.plan)} is cooked`,
+      send: (key) => setPlanMethod(item.id, picked, key)
     });
   }
 

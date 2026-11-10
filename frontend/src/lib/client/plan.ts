@@ -26,6 +26,8 @@ export interface PlanRecipe extends Ref {
   serves?: number | null;
   /** How many of its ingredient lines are Optional (R3): the meal can be asked which it uses. */
   optional_count?: number;
+  /** The ways of cooking it (M2): empty for a recipe with one. */
+  methods?: { id: number; name: string }[];
 }
 
 export interface PlanItem {
@@ -53,6 +55,9 @@ export interface PlanItem {
   cooked: boolean;
   /** The ids of the recipe's Optional lines this meal will not use (R3). Empty: all count. */
   optional_skipped?: number[];
+  /** The way of cooking it this meal uses, for a recipe with two (M2). */
+  method_id?: number | null;
+  method?: string | null;
 }
 
 export interface PlanMeal {
@@ -129,6 +134,8 @@ export const planItem = (
     note?: string;
     /** The recipe's Optional lines the person will use (R3). Left out: every line counts. */
     optional_use?: number[];
+    /** The way of cooking a recipe with two the meal uses (M2). Left out: the one used last. */
+    method_id?: number;
   },
   key: string
 ) => api<PlanWrite>('POST', '/plan/items', body, { idempotencyKey: key });
@@ -136,6 +143,15 @@ export const planItem = (
 /** Which Optional ingredients a planned recipe will use (R3). */
 export const setPlanOptional = (id: number, use: number[], key: string) =>
   api<PlanWrite>('PUT', `/plan/items/${id}/optional`, { use }, { idempotencyKey: key });
+
+/** Which way of cooking a planned recipe uses (M2). */
+export const setPlanMethod = (id: number, methodId: number, key: string) =>
+  api<PlanWrite>(
+    'PUT',
+    `/plan/items/${id}/method`,
+    { method_id: methodId },
+    { idempotencyKey: key }
+  );
 
 /** Serves − N +: how many people a planned recipe is for. */
 export const setPlanServings = (id: number, servings: number, key: string) =>

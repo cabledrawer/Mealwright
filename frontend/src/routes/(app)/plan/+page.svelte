@@ -346,7 +346,8 @@
               recipe: {
                 id: recipe.id,
                 name: recipe.name,
-                optional_count: recipe.optional_count
+                optional_count: recipe.optional_count,
+                method_count: recipe.method_count
               }
             },
             day,

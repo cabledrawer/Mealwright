@@ -133,7 +133,12 @@
   let planning = $state(false);
 
   /** Plan the recipe in this meal, then open Cook once for it from what the add answered. */
-  async function cookHere(recipe: { id: number; name: string; optional_count?: number }) {
+  async function cookHere(recipe: {
+    id: number;
+    name: string;
+    optional_count?: number;
+    method_count?: number;
+  }) {
     if (!target || slotId === null || actions.readonly || planning) return;
     const [day, slot] = [target.day, slotId];
     planning = true;
@@ -303,13 +308,15 @@
                     ? void cookHere({
                         id: recipe.id,
                         name: recipe.name,
-                        optional_count: recipe.optional_count
+                        optional_count: recipe.optional_count,
+                        method_count: recipe.method_count
                       })
                     : pick({
                         recipe: {
                           id: recipe.id,
                           name: recipe.name,
-                          optional_count: recipe.optional_count
+                          optional_count: recipe.optional_count,
+                          method_count: recipe.method_count
                         }
                       })}
               >

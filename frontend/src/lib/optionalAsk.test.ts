@@ -182,7 +182,11 @@ describe('every way a recipe is added to the plan asks, through PlanModel.add', 
       'POST /plan/items': [200, { change: null, meal_id: 1, item_id: 2 }]
     });
     const model = new PlanModel();
-    await model.add({ recipe: { id: 6, name: 'Plain rice', optional_count: 0 } }, '2026-11-14', 3);
+    await model.add(
+      { recipe: { id: 6, name: 'Plain rice', optional_count: 0, method_count: 1 } },
+      '2026-11-14',
+      3
+    );
     expect(optionalAsk.current).toBeNull();
     expect(body(requests)).toEqual({ date: '2026-11-14', slot_id: 3, recipe_id: 6 });
     expect(requests.some((r) => r.path.startsWith('/recipes'))).toBe(false);

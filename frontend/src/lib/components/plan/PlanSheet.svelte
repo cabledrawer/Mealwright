@@ -121,6 +121,16 @@
    */
   const optionalItems = $derived(servesItems.filter((i) => (i.recipe?.optional_count ?? 0) > 0));
 
+  /** The recipes here with two ways of cooking them, that can still change it (M2). */
+  const methodItems = $derived(servesItems.filter((i) => (i.recipe?.methods?.length ?? 0) > 1));
+
+  function changeMethod(item: PlanItem) {
+    if (!target || (target.kind !== 'meal' && target.kind !== 'item')) return;
+    const day = target.meal.date;
+    onclose();
+    void model.changeMethod(item, day);
+  }
+
   function changeOptional(item: PlanItem) {
     if (!target || (target.kind !== 'meal' && target.kind !== 'item')) return;
     const day = target.meal.date;
@@ -503,6 +513,17 @@
               >Cook once, eat for…</button
             >
           {/if}
+          {#each methodItems as way (way.id)}
+            <button
+              type="button"
+              disabled={actions.readonly}
+              data-testid="plan-sheet-method"
+              onclick={() => changeMethod(way)}
+              >{methodItems.length > 1
+                ? `How it’s cooked: ${itemName(way, model.plan)}…`
+                : 'How it’s cooked…'}</button
+            >
+          {/each}
           {#each optionalItems as optional (optional.id)}
             <button
               type="button"

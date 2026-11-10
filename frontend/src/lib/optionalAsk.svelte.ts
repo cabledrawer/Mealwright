@@ -73,17 +73,25 @@ class OptionalAsk {
   async ask(
     recipe: { id: number; optionalCount?: number },
     where: string,
-    options: { skipped?: number[]; button?: string; servings?: number | null } = {}
+    options: {
+      skipped?: number[];
+      button?: string;
+      servings?: number | null;
+      /** The way of cooking it the meal uses (M2); left out: the one used last, else the first. */
+      method?: number | null;
+    } = {}
   ): Promise<number[] | null | undefined> {
     if (recipe.optionalCount === 0) return undefined;
     let rows: OptionalRow[];
     let name: string;
     let serves: number | null;
     try {
-      const [found, stock] = await Promise.all([
-        getRecipe(recipe.id),
-        getRecipeStock(recipe.id).catch(() => null)
-      ]);
+      const found0 = await getRecipe(recipe.id);
+      const second = found0.second_method;
+      const wanted = options.method ?? found0.methods?.find((m) => m.used_last)?.id ?? null;
+      const useSecond = !!second && wanted === second.id;
+      const found = useSecond && second ? { ...found0, lines: second.lines } : found0;
+      const stock = await getRecipeStock(recipe.id, undefined, wanted).catch(() => null);
       // Amounts for the meal's own servings, not the recipe's (a meal for 3 of a recipe for 6).
       const factor = found.serves && options.servings ? options.servings / found.serves : 1;
       const by = new Map((stock?.lines ?? []).map((s) => [s.line_id, s]));
