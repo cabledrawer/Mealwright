@@ -32,11 +32,12 @@
 
   // The boxes start with the wait as it is now, and are typed in from there.
   const start = wait;
-  let unit = $state<Unit>(unitOf(start.min_minutes, start.overnight ? 1440 : start.max_minutes));
-  let from = $state(String(start.min_minutes / PER[unit]));
+  const startUnit = unitOf(start.min_minutes, start.overnight ? 1440 : start.max_minutes);
+  let unit = $state<Unit>(startUnit);
+  let from = $state(String(start.min_minutes / PER[startUnit]));
   let to = $state(
     !start.overnight && start.max_minutes > start.min_minutes
-      ? String(start.max_minutes / PER[unit])
+      ? String(start.max_minutes / PER[startUnit])
       : ''
   );
   let overnight = $state(start.overnight);
