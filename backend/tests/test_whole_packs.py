@@ -37,8 +37,10 @@ def need(kitchen: TestClient, food: dict[str, Any], amount: float, unit: str) ->
 
 
 def test_two_teaspoons_of_salt_is_one_whole_pack_never_2_ml(kitchen: TestClient) -> None:
-    # F204 (cabledrawer's own example). Salt is counted by weight (the table knows it), so the need
-    # is in grams and the 750 g pack applies.
+    # F204 (cabledrawer's own example). Salt made from "2 tsp salt" is counted by weight (W4c's
+    # first_guess, tested in test_ingredient_match), so the need is in grams and the 750 g pack
+    # applies. Whole packs of a usual size were already worked out before W4c; an ingredient made
+    # before W4c and counted by volume keeps doing so (W4c review L3).
     salt = new_food(kitchen, "Salt", counted_as="weight")
     size(kitchen, salt["id"], "pack", 750, usual=True)
     pack = need(kitchen, salt, 2, "tsp")["pack"]
