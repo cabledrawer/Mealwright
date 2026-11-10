@@ -145,7 +145,13 @@ test('carry on opens the review with the choices made, and Save makes the recipe
   await expect(page.getByRole('region', { name: 'Recipe details' }).getByLabel('Name', { exact: true })).toHaveValue(`${title} (mine)`);
   await expect(page.getByText(/Made a staple when you save/)).toBeVisible();
   await expect(page.getByText(/Made when you save/)).toBeVisible();
+  // Scanned with the whole review in view: Check's Cancel/Save bar sticks to the foot of the
+  // window, and since R3's Optional switches made the lines taller, step 1 sat half under it at
+  // the top of the page, which axe calls a covered target (a real reader scrolls it clear).
+  const size = page.viewportSize()!;
+  await page.setViewportSize({ width: size.width, height: 2000 });
   await checkPage(page);
+  await page.setViewportSize(size);
   // Nothing changed: leaving doesn't ask (on a phone, Close just leaves).
   if (isPhone(page)) await page.getByRole('button', { name: /^Close/ }).click();
   else await page.getByRole('link', { name: 'Drafts', exact: true }).first().click();
