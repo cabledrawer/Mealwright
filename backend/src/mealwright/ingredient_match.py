@@ -362,7 +362,7 @@ def _is_another_thing(theirs: frozenset[str], key: str, food: KitchenFood) -> bo
     - The one word is only another name of a food whose own name says more ("rice" for
       Basmati rice): the food is a kind of that thing, and a line naming another kind is not
       it, so any word of the line's own blocks it, as in the first rule ("poha (flattened
-      rice)" and "brown rice" are not Basmati rice; FX1 review H1, proposed, for cabledrawer).
+      rice)" and "jasmine rice" are not Basmati rice; FX1 review H1, proposed, for cabledrawer).
 
     A colour, size, state or part of the thing ("red", "dried", "leaves") is not a word of its
     own. The words are keys (`_key`)."""
