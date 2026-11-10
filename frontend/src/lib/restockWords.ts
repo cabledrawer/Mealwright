@@ -2,7 +2,7 @@
 // says the household's own day ("2026-10-12") and how many days ago that was, so nothing here
 // depends on this device's clock or time zone.
 
-import { dayMonthWords } from './dates.js';
+import { dayMonthWords, isSaneDay } from './dates.js';
 
 const full = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
@@ -37,5 +37,6 @@ export function columnWords(daysAgo: number): string {
 
 /** The whole date, for hover and tap: "12 Oct 2026". */
 export function fullDateWords(on: string): string {
+  if (!isSaneDay(on)) return '';
   return full.format(new Date(`${on}T12:00:00Z`));
 }

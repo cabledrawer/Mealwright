@@ -6,7 +6,7 @@
   // goes back to the packet's row.
   import { tick } from 'svelte';
   import type { Lot, Place } from '#lib/client/types.js';
-  import { useByWords } from '#lib/dates.js';
+  import { BAD_DATE, isSaneDay, useByWords } from '#lib/dates.js';
   import { TOO_LATE_TO_FREEZE, tooLateToFreeze } from '#lib/tooLateToFreeze.js';
   import type { PantryModel } from '#lib/pantry.svelte.js';
   import { pickFor } from '#lib/picks.js';
@@ -43,6 +43,7 @@
   let dialog: HTMLDialogElement;
   let step = $state<'actions' | 'move' | 'date' | 'grams'>('actions');
   let date = $state('');
+  let dateProblem = $state('');
 
   const baseUnit = $derived(countedAs === 'weight' ? 'g' : countedAs === 'volume' ? 'ml' : 'count');
   let addingPlace = $state(false);
@@ -58,6 +59,7 @@
       step = startAt;
       addingPlace = false;
       date = lot.use_by ?? '';
+      dateProblem = '';
       dialog.showModal();
       placeBy(anchor);
       void tick().then(() => dialog.querySelector<HTMLElement>('[data-first]')?.focus());
@@ -110,6 +112,11 @@
     event.preventDefault();
     if (!lot) return;
     const id = lot.id;
+    if (date && !isSaneDay(date)) {
+      dateProblem = BAD_DATE;
+      return;
+    }
+    dateProblem = '';
     const value = date || null;
     act(() => value !== lot?.use_by && model.setUseBy(id, name, value));
   }
@@ -226,6 +233,7 @@
             Use by
             <input type="date" bind:value={date} />
           </label>
+          {#if dateProblem}<p class="problem" role="alert">{dateProblem}</p>{/if}
           <span class="buttons">
             <button type="submit" class="main">Save</button>
             <button
@@ -349,6 +357,12 @@
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
     cursor: pointer;
+  }
+
+  .problem {
+    margin: 0;
+    color: var(--color-warning-text);
+    font-weight: var(--weight-bold);
   }
 
   .form {

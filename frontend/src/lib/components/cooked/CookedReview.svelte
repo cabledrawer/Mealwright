@@ -7,7 +7,7 @@
   import type { Leftovers } from '#lib/client/today.js';
   import { TOO_MANY_ANSWERS, changeCount } from '#lib/cookRows.js';
   import { undoAll, type CookReview } from '#lib/cookReview.svelte.js';
-  import { pickedDateWords } from '#lib/dates.js';
+  import { BAD_DATE, isSaneDay, pickedDateWords } from '#lib/dates.js';
   import { downLine } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
   import { useByWords } from '#lib/planMeals.js';
@@ -51,6 +51,7 @@
   let place = $state<'fridge' | 'freezer'>('fridge');
   let chosen = $state<string | null>(null);
   let changing = $state(false);
+  let dateProblem = $state('');
   /** "Eat it on…": a day and a meal as "2026-10-19|2", or nothing yet. */
   let eatAt = $state('');
 
@@ -65,6 +66,7 @@
       place = 'fridge';
       chosen = null;
       changing = false;
+      dateProblem = '';
       eatAt = '';
     }
   });
@@ -343,9 +345,19 @@
                   <input
                     type="date"
                     value={useBy}
-                    onchange={(event) => (chosen = event.currentTarget.value || null)}
+                    onchange={(event) => {
+                      const value = event.currentTarget.value;
+                      if (value && !isSaneDay(value)) {
+                        dateProblem = BAD_DATE;
+                        event.currentTarget.value = useBy;
+                        return;
+                      }
+                      dateProblem = '';
+                      chosen = value || null;
+                    }}
                   />
                 </label>
+                {#if dateProblem}<p class="problem" role="alert">{dateProblem}</p>{/if}
               {/if}
             {/if}
           </section>

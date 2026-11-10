@@ -5,7 +5,7 @@
   // (The editor itself is fetched when one is first opened, see IngredientSheet.)
   import { getHousehold } from '#lib/client/household.js';
   import type { Food } from '#lib/client/types.js';
-  import { addDays, dayMonthWords } from '#lib/dates.js';
+  import { BAD_DATE, addDays, dayMonthWords } from '#lib/dates.js';
   import type { FoodModel } from '#lib/foodEditor.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { columnWords, fullDateWords } from '#lib/restockWords.js';
@@ -34,6 +34,7 @@
   // Chrome fires "change" with every key typed in a date field, so a typed date is saved when
   // the field is left or Enter is pressed; a day picked from the calendar saves at once.
   let typing = false;
+  let dateProblem = $state('');
 
   function commit(input: HTMLInputElement) {
     typing = false;
@@ -41,8 +42,10 @@
     if (day === (food.restocked_on ?? '')) return;
     if (!plausible(day)) {
       input.value = food.restocked_on ?? '';
+      dateProblem = day ? BAD_DATE : '';
       return;
     }
+    dateProblem = '';
     void model.setField(
       { restocked_on: day },
       (f) => {
@@ -103,7 +106,9 @@
     >
   </div>
   <p class="hint" aria-live="polite">
-    {#if food.restocked_on && daysAgo !== null}
+    {#if dateProblem}
+      {dateProblem}
+    {:else if food.restocked_on && daysAgo !== null}
       {columnWords(daysAgo)} · {fullDateWords(food.restocked_on)}
     {:else}
       Not restocked yet. Ticking it off the shopping list or tapping Restocked sets the date.

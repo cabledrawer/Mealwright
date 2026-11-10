@@ -5,6 +5,7 @@
   // (size limit); startAsk.svelte.ts holds the question. A bottom sheet on a phone, a dialog on
   // a computer. Words are in docs/dev/words.md section 58: the mockup's are agreed, the rest is
   // proposed, for cabledrawer.
+  import { BAD_DATE, isSaneDay } from '#lib/dates.js';
   import { startAsk } from '#lib/startAsk.svelte.js';
   import { hasToWords, startOptionWords, startWords, waitRange } from '#lib/startWords.js';
 
@@ -67,6 +68,10 @@
       time = otherTime;
       if (!day || !time) {
         problem = 'Pick a day and a time.'; // proposed, for cabledrawer
+        return;
+      }
+      if (!isSaneDay(day)) {
+        problem = BAD_DATE;
         return;
       }
       // Before the meal (the server says the same).

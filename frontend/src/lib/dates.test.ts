@@ -5,6 +5,8 @@ import {
   boughtWords,
   compactDateWords,
   dateWords,
+  isSaneDay,
+  dayMonthWords,
   pickedDateWords,
   useByWords,
   whenWords
@@ -99,5 +101,25 @@ describe('Use by and Best before words (0.8, cabledrawer 7 Nov)', () => {
     expect(whenWords('best_before', '2026-11-12', 26).text).toBe('best before 12 Nov');
     expect(whenWords('use_by', '2026-10-19', 2, { soon: true }).tone).toBe('soon');
     expect(whenWords('use_by', null, null).text).toBe('');
+  });
+});
+
+// F220: a date box can hand back a stray six-digit year or a year 6; formatting it threw
+// "RangeError: Invalid time value" and took the page down.
+describe('odd dates from a date box (F220)', () => {
+  it('knows a real day from an odd one', () => {
+    expect(isSaneDay('2026-11-12')).toBe(true);
+    expect(isSaneDay('2026-02-31')).toBe(false);
+    expect(isSaneDay('012112-12-11')).toBe(false);
+    expect(isSaneDay('275760-09-13')).toBe(false);
+    expect(isSaneDay('0006-12-11')).toBe(false);
+    expect(isSaneDay('')).toBe(false);
+    expect(isSaneDay(null)).toBe(false);
+  });
+
+  it('never throws when it words an odd date', () => {
+    expect(pickedDateWords('012112-12-11')).toBe('');
+    expect(dayMonthWords('275760-09-13')).toBe('');
+    expect(dateWords('012112-12-11', 5)).toBe('');
   });
 });

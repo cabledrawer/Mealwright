@@ -11,7 +11,7 @@
   import { addToPantry } from '#lib/addToPantry.svelte.js';
   import { getFood } from '#lib/client/foods.js';
   import type { Food, Place, Ref } from '#lib/client/types.js';
-  import { addDays, pickedDateWords } from '#lib/dates.js';
+  import { BAD_DATE, addDays, isSaneDay, pickedDateWords } from '#lib/dates.js';
   import type { PantryModel } from '#lib/pantry.svelte.js';
   import { amountExample } from '#lib/amountExample.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
@@ -143,7 +143,11 @@
   function picker() {
     if (!dateInput) return;
     const value = dateInput.value;
-    if (value && value >= today) {
+    if (value && !isSaneDay(value)) {
+      problem = BAD_DATE;
+      dateInput.value = picked;
+    } else if (value && value >= today) {
+      problem = null;
       picked = value;
       when = 'pick';
     } else {

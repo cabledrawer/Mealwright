@@ -32,6 +32,7 @@
     tubOf,
     useByWords
   } from '#lib/planMeals.js';
+  import { BAD_DATE, isSaneDay } from '#lib/dates.js';
   import type { PlanItem, PlanMeal } from '#lib/client/plan.js';
   import { cookedStaysNote } from '#lib/cookTargets.js';
   import LeftoversOn from './LeftoversOn.svelte';
@@ -267,10 +268,11 @@
   }
 
   /** Not before the cook day (cabledrawer 29 Oct); dates compare as yyyy-mm-dd text. */
+  const badDay = $derived(!!useBy && !isSaneDay(useBy));
   const tooEarly = $derived(!!tub && !!useBy && useBy < tub.batch.cooked_on);
 
   function saveUseBy() {
-    if (!tubItem || !tub || !useBy || tooEarly || actions.readonly) return;
+    if (!tubItem || !tub || !useBy || badDay || tooEarly || actions.readonly) return;
     if (useBy !== tub.tub.use_by)
       void model.setUseBy(tub.tub.id, itemName(tubItem, model.plan), useBy);
     onclose();
@@ -652,7 +654,9 @@
           aria-describedby={tooEarly ? 'tub-use-by-early' : undefined}
           data-testid="tub-use-by"
         />
-        {#if tooEarly}
+        {#if badDay}
+          <p class="early" role="alert">{BAD_DATE}</p>
+        {:else if tooEarly}
           <p id="tub-use-by-early" class="early">Pick the cook day or later.</p>
         {/if}
         <div class="buttons">
@@ -660,7 +664,7 @@
           <button
             type="button"
             class="go"
-            disabled={!useBy || tooEarly || actions.readonly}
+            disabled={!useBy || badDay || tooEarly || actions.readonly}
             onclick={saveUseBy}>Save</button
           >
         </div>
