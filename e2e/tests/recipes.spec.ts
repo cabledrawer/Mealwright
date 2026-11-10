@@ -583,7 +583,9 @@ test('Manage tags: a look-alike tag merges with a toast Undo that puts it back, 
   const a = await makeRecipe(page, { name: `${word} sambar`, tags: [proper, plain] });
   const b = await makeRecipe(page, { name: `${word} rasam`, tags: [dashed] });
   // A long list of tags, so the merge picker would be far below the tapped row (F221).
-  await makeRecipe(page, { name: `${word} many`, tags: Array.from({ length: 26 }, (_, i) => `${word} tag ${String(i).padStart(2, '0')}`) });
+  const many = Array.from({ length: 26 }, (_, i) => `${word} tag ${String(i).padStart(2, '0')}`);
+  await makeRecipe(page, { name: `${word} many`, tags: many.slice(0, 13) });
+  await makeRecipe(page, { name: `${word} lots`, tags: many.slice(13) });
   const tagsOf = async (id: number) => ((await (await page.request.get(`/api/v1/recipes/${id}`)).json()) as { tags: string[] }).tags;
 
   await page.goto('/recipes');
