@@ -150,14 +150,12 @@ describe('Import a recipe', () => {
       await expect.element(page.getByText('Pasted text · nothing goes online')).toBeVisible();
     });
 
-    it('says several links are read one at a time (F25)', async () => {
+    it('says several links are read one after another (F110)', async () => {
       const flow = new ImportFlow();
       show(flow);
       flow.text = 'https://kitchen.example/dal\nhttps://kitchen.example/rice';
       flushSync();
-      await expect
-        .element(page.getByText('Several links · one link at a time: only the first is read'))
-        .toBeVisible();
+      await expect.element(page.getByText('2 links · one after another')).toBeVisible();
     });
 
     it('can’t read an empty box', async () => {

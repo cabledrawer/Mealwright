@@ -164,7 +164,11 @@ def test_new_ingredient_milk_is_kept_in_the_fridge_and_flour_in_the_cupboard(
     assert rice["new_ingredient"]["place"]["name"] == "Cupboard"
 
 
-def test_several_links_are_read_one_at_a_time(links_on: TestClient, web: Web) -> None:
+def test_a_box_sent_to_the_api_with_several_links_reads_the_first(
+    links_on: TestClient, web: Web
+) -> None:
+    """The screen sends the links one by one (see the next test); a box with several links sent
+    straight to the API still reads only the first and says how many are left."""
     from test_recipe_import import LINK
 
     second = "https://bananaleaf.example/other/"
@@ -174,6 +178,37 @@ def test_several_links_are_read_one_at_a_time(links_on: TestClient, web: Web) ->
     assert shown["source"]["kind"] == "link" and shown["lines"]
     one = review(links_on, LINK, again=True)
     assert one["more_links"] == 0
+
+
+def test_f110_several_links_one_after_another_each_into_a_draft_and_a_failure_in_the_middle(
+    links_on: TestClient, web: Web
+) -> None:
+    """F110: the screen sends each pasted link as its own request, one after another. A link the
+    site refuses in the middle gives its own refusal and no draft; the links either side of it are
+    read and kept as two drafts, through the same switch and the same fetch as one link."""
+    from test_recipe_import import LINK, page_text
+
+    from mealwright.page_fetch import FetchRefused, Problem
+
+    middle = "https://refuses.example/dal/"
+    last = "https://bananaleaf.example/other/"
+    web.pages[middle] = FetchRefused(Problem.SITE_REFUSED)
+    web.pages[last] = page_text()
+    kept: list[int] = []
+    for link in (LINK, middle, last):
+        answer = links_on.post(f"{API}/recipes/import", json={"text": link})
+        if link == middle:
+            assert answer.status_code == 422 and answer.json()["code"] == "site_refused"
+            continue
+        shown = ok(answer)
+        assert shown["more_links"] == 0 and shown["lines"]
+        draft = links_on.post(
+            f"{API}/recipes/drafts", json={"text": link, "review": shown, "choices": {}}
+        )
+        kept.append(ok(draft, 201)["id"])
+    assert web.asked == [LINK, middle, last]  # in order, each visited once
+    assert len(set(kept)) == 2
+    assert ok(links_on.get(f"{API}/recipes/drafts"))["count"] == 2
 
 
 def test_f15_f85_the_banner_is_only_for_a_recipe_with_pints(links_on: TestClient, web: Web) -> None:

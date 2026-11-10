@@ -209,7 +209,10 @@ def start(kitchen: Kitchen, gate: OutboundGate, text: str, again: bool = False) 
         return MAX_IMPORT_SECONDS - (_now() - began)
 
     links = several_links(text)
-    if links:  # "one link at a time" (F25): the first is read, the count left over is said
+    # Several links (F110): the screen sends each link as its own request, one after another, and
+    # keeps each as a draft. A box with several links sent straight here reads the first and
+    # says how many are left over.
+    if links:
         first = links[0] if "://" in links[0] else f"https://{links[0]}"
         review = _from_link(kitchen, gate, first, again, left)
         return (

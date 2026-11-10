@@ -772,3 +772,73 @@ test('Split into two turns one line into two, and Undo puts it back (F109)', asy
   await expect(page.getByText('1 needs you')).toBeVisible();
   await expect(page.getByRole('button', { name: /^Split into two: 4 1\/2 cups water and broth/ })).toBeVisible();
 });
+
+test('several links are read one after another, each into its own draft, and a failing one in the middle stops nothing (F110)', async ({ page }) => {
+  const asked: string[] = [];
+  let open = 0;
+  let most = 0;
+  const kept: string[] = [];
+  await page.route('**/api/v1/recipes/import', async (route: Route) => {
+    const text: string = route.request().postDataJSON().text;
+    asked.push(text);
+    open += 1;
+    most = Math.max(most, open);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    open -= 1;
+    if (text.includes('refuses')) {
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          detail: 'That site wouldn’t let Mealwright read the page. Paste the recipe’s text instead.',
+          code: 'site_refused',
+        }),
+      });
+      return;
+    }
+    const name = text.includes('dosa') ? 'Masala dosa' : 'Rasam';
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(review({ name })) });
+  });
+  await page.route('**/api/v1/recipes/drafts', async (route: Route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    const body = route.request().postDataJSON();
+    kept.push(body.review.name);
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({ id: kept.length, ...body }),
+    });
+  });
+  await page.goto('/recipes/import');
+  await box(page).fill(
+    'https://example-recipes.org/masala-dosa\nhttps://refuses.example/chicken-65\nhttps://example-kitchen.net/rasam',
+  );
+  await expect(page.getByText('3 links · one after another').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Read the recipes' }).click();
+  const results = page.getByRole('region', { name: 'Links being read' });
+  const rows = results.getByRole('listitem');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('Masala dosa');
+  await expect(rows.nth(0)).toContainText('example-recipes.org · in Drafts');
+  await expect(rows.nth(0)).toContainText('✓ Ready to check');
+  await expect(rows.nth(1)).toContainText('That site wouldn’t let Mealwright read the page. Paste the recipe’s text instead.');
+  await expect(rows.nth(1).getByRole('button', { name: 'Paste text' })).toBeVisible();
+  await expect(rows.nth(2)).toContainText('Rasam');
+  await expect(rows.nth(2)).toContainText('✓ Ready to check');
+  // In order, never two at once, and one draft for each link that could be read.
+  expect(asked).toEqual([
+    'https://example-recipes.org/masala-dosa',
+    'https://refuses.example/chicken-65',
+    'https://example-kitchen.net/rasam',
+  ]);
+  expect(most).toBe(1);
+  expect(kept).toEqual(['Masala dosa', 'Rasam']);
+  await expect(results).toContainText('If one link can’t be read, the rest carry on. You can leave this screen.');
+  await expectNoSidewaysScroll(page);
+  await checkPage(page);
+  await rows.nth(1).getByRole('button', { name: 'Paste text' }).click();
+  await expect(box(page)).toHaveValue('');
+  await expect(box(page)).toBeFocused();
+  await results.getByRole('link', { name: 'Go to Drafts' }).click();
+  await expect(page).toHaveURL(/\/recipes\/drafts$/);
+});

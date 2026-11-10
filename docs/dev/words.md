@@ -536,7 +536,7 @@ Written by Claude Code on 27 Oct from the mockups `RecipeDelete-*` and `RecipeLi
 cabledrawer OK'd the C1 readings on 31 Oct ("C1 readings: OK"). The UK/US quart, gallon and fl oz sizes below are the lead's numbers (proposed, for cabledrawer).
 
 - **Notes the import writes into a line's note:** **or so** (from "3-or-so cups"), **optional** (for a line under "For serving", "To garnish" or "Optional", and for an "optional:" line), **made with …** and **and cut into …** (the words stay as written), **variety** words ("less spicy variety") and the other choice after "or" ("or butter").
-- **Several links pasted (Import start):** **Several links · one link at a time: only the first is read**.
+- **Several links pasted (Import start):** was **Several links · one link at a time: only the first is read**; since 0.8 W4a (cabledrawer 31 Oct) see section 50.
 - **Quarts, gallons and fluid ounces** are read like pints, with the household's pint (and "Read its pints as US pints" for one recipe); nothing new on screen. Sizes: UK quart 1136 ml, US 946; UK gallon 4546, US 3785; UK fl oz 28.41, US 29.57.
 
 ## 19. Check before saving, 0.7.0 (C2; proposed, for cabledrawer unless the mockup has the words)
@@ -873,3 +873,14 @@ All cabledrawer's (6 Nov); no longer proposed.
 - **The count line (F194):** unchanged words, on their own line under the title on the phone: **121 ingredients · shared by recipes, pantry and shopping** (Ingredients), **23 ingredients · 8 use soon** with "8 use soon" in the use-soon colour and the **Stocktake** button at its right (Pantry).
 - **Pack toast (F179):** keeps the pack cell's own words for the whole time it shows: **Butter: added block · 250 g**, after Undo **Undone: Butter: added block · 250 g**. Recent changes keeps the server's own sentence ("added Block = 250 g").
 - **Spaces (F181, F192):** **134 ingredients · 31 already here**; **…offers “Move them to…”. Mealwright needs at least one Fridge and one Freezer.**
+
+## 50. Import, several links (0.8 W4a, F110; cabledrawer 31 Oct)
+
+The words marked agreed are from the mockup `Dark-ImportLinks08-Phone` (cabledrawer); the rest are proposed, for cabledrawer.
+
+- **Over the box and the list (agreed):** **N links · one after another** (N is the number of links; on the box's chip and as the list's heading).
+- **Each row (agreed):** the recipe's name (the last word of the link until it is read), the site, then **· in Drafts** once kept; **✓ Ready to check** · **Reading…**; a failed link shows the server's own sentence and **Paste text**.
+- **Waiting row (proposed, for cabledrawer):** **Waiting** for a link not yet reached.
+- **Under the list (agreed):** **Each recipe goes to Drafts to check and save later. If one link can’t be read, the rest carry on. You can leave this screen.** and **Only Mealwright’s server fetches these pages, and only because Recipe import is switched on in Settings.** (curly apostrophes on screen) · button **Go to Drafts**.
+- **The box's button (proposed, for cabledrawer):** **Read the recipes** for several links (**Read the recipe** for one); **Reading…** while it works.
+- **A link already imported (proposed, for cabledrawer):** **You already have this recipe. It was not read again.**

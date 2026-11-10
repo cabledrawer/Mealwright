@@ -2,6 +2,12 @@
 
 All notable changes to Mealwright are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the plan in `docs/spec.md` section 8: 0.N.0 per build milestone (not published), then MAJOR.MINOR.PATCH from 1.0.0.
 
+## [Unreleased]
+
+### Changed
+
+- **Several links pasted together are read one after another, each into its own draft (F110, cabledrawer 31 Oct).** The box used to say "one link at a time: only the first is read". Now "Read the recipes" reads each link on its own, never two at once, and keeps each as a draft in Recipes → Drafts to check and save later. A link that fails shows its own sentence (with "Paste text" where that helps) and the rest carry on. The same "Recipe import from links" switch, the outbound gate and server-only fetching as one link; nothing new goes out and the API doesn't change (each link is an ordinary single-link import). A link you already have a recipe from is said, not read again. Reading carries on if you leave the screen inside the app.
+
 ## [0.8.0-alpha.3] - 2026-11-10
 
 The third 0.8.0 test version: fixes from cabledrawer's hand test of alpha.2, for the theme, Shopping, Settings and Ingredients, the Pantry and Today. The database layout doesn't change. The API gains two optional fields (`as_bought` on an offline Add, `how_added` on a pantry packet) and Today's `use_soon_tubs` rows change shape, so a tab left open across the upgrade needs a reload.

@@ -10,18 +10,25 @@
   import { network } from '#lib/network.svelte.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import {
-    LINKS_ONE_AT_A_TIME,
-    offlineNote,
-    PASTE_INSTEAD_STEPS,
-    type ImportFlow
-  } from '#lib/import.svelte.js';
+    canPaste,
+    IN_DRAFTS,
+    importLinks,
+    LINKS_HELP,
+    LINKS_SERVER_NOTE,
+    linksHeading,
+    READING,
+    READY_TO_CHECK,
+    WAITING
+  } from '#lib/importLinks.svelte.js';
+  import { offlineNote, PASTE_INSTEAD_STEPS, type ImportFlow } from '#lib/import.svelte.js';
 
   import '#lib/styles/fields.css';
   let { flow, photosOff = false }: { flow: ImportFlow; photosOff?: boolean } = $props();
 
   const uid = $props.id();
   let box = $state<HTMLTextAreaElement>();
-  const reading = $derived(flow.phase === 'reading');
+  const several = $derived(flow.linkCount > 1);
+  const reading = $derived(flow.phase === 'reading' || importLinks.running);
   const typed = $derived(flow.text.trim() !== '');
   const kind = $derived(!typed ? null : flow.isLink ? 'link' : 'text');
 
@@ -44,7 +51,8 @@
   class="start"
   onsubmit={(e) => {
     e.preventDefault();
-    void flow.read();
+    if (several) void importLinks.run(flow.links);
+    else void flow.read();
   }}
 >
   <div class="card">
@@ -63,12 +71,9 @@
     <p class="kind" id="{uid}-kind" aria-live="polite">
       {#if kind === 'link'}
         <span class="chip good"
-          ><Icon
-            name="link"
-            size={18}
-            stroke={2.2}
-          />{#if flow.linkCount > 1}{LINKS_ONE_AT_A_TIME}{:else}A link · your server visits this
-            page once{/if}</span
+          ><Icon name="link" size={18} stroke={2.2} />{#if several}{linksHeading(
+              flow.linkCount
+            )}{:else}A link · your server visits this page once{/if}</span
         >
       {:else if kind === 'text'}
         <span class="chip"
@@ -123,10 +128,44 @@
     {/if}
 
     <button class="read" type="submit" disabled={reading || !typed || network.offline}>
-      {reading ? 'Reading…' : 'Read the recipe'}
+      {reading ? 'Reading…' : several ? 'Read the recipes' : 'Read the recipe'}
     </button>
     <p class="visually-hidden" role="status">{reading ? 'Reading the recipe' : ''}</p>
   </div>
+
+  {#if importLinks.rows.length > 0}
+    <section class="results" aria-label="Links being read">
+      <h2 class="overline">{linksHeading(importLinks.rows.length)}</h2>
+      <ul class="rows">
+        {#each importLinks.rows as row (row.link)}
+          <li class="row" data-state={row.state}>
+            <span class="what">
+              <b>{row.title}</b>
+              <span class="site">{row.site}{row.state === 'ready' ? ` · ${IN_DRAFTS}` : ''}</span>
+              {#if row.message}<span class="why">{row.message}</span>{/if}
+            </span>
+            {#if row.state === 'ready'}
+              <span class="status ok">{READY_TO_CHECK}</span>
+            {:else if row.state === 'reading'}
+              <span class="status busy">{READING}</span>
+            {:else if row.state === 'waiting'}
+              <span class="status">{WAITING}</span>
+            {:else if canPaste(row)}
+              <button type="button" class="ghost small" onclick={() => void pasteInstead()}
+                >Paste text</button
+              >
+            {/if}
+          </li>
+        {/each}
+      </ul>
+      <p class="help">{LINKS_HELP}</p>
+      <p class="server">{LINKS_SERVER_NOTE}</p>
+      <p class="actions">
+        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Drafts is built beside this page -->
+        <a class="button" href="/recipes/drafts">Go to Drafts</a>
+      </p>
+    </section>
+  {/if}
 
   <aside class="how" aria-label="How it works">
     <p class="overline">How it works</p>
@@ -299,6 +338,74 @@
     background: var(--color-surface);
     font-size: var(--text-md);
     line-height: 1.45;
+  }
+
+  .results {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .rows {
+    margin: 0;
+    padding: 0 var(--space-6);
+    list-style: none;
+    border-radius: var(--radius-2xl);
+    background: var(--color-surface);
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    min-height: 56px;
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .row:last-child {
+    border-bottom: none;
+  }
+
+  .what {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .site,
+  .help,
+  .server {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+  }
+
+  .why {
+    color: var(--color-warning-text);
+    font-size: var(--text-sm);
+  }
+
+  .status {
+    flex: none;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-bold);
+  }
+
+  .status.ok {
+    color: var(--color-accent);
+  }
+
+  .status.busy {
+    color: var(--color-warning-text);
+  }
+
+  .small {
+    flex: none;
   }
 
   .photos {
