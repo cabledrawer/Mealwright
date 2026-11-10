@@ -39,7 +39,11 @@ export interface ListItem {
   /** The server's as-sold wording ("1 bunch"). */
   display: string | null;
   /** Whole packs to buy and, with no Usual size, the common sizes to pick (F120). */
-  pack?: { suggestions: PackSuggestion[]; alternative?: PackChoice | null } | null;
+  pack?: {
+    packs?: number | null;
+    suggestions: PackSuggestion[];
+    alternative?: PackChoice | null;
+  } | null;
   source: string;
   hand_edited: boolean;
   put_away_place_id: number | null;

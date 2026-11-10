@@ -20,7 +20,6 @@
     onclose
   }: { model: ShoppingModel; item: ListItem; food: ShopFood; onclose: () => void } = $props();
 
-  const uid = $props.id();
   let dialog: HTMLDialogElement;
   let sheet = $state<PackSizes | null>(null);
   let failed = $state(false);
@@ -43,12 +42,16 @@
     sheet && picked !== null ? (sheet.choices[picked] ?? null) : null
   );
   /** Making a size, or the usual size, needs the server; a size the ingredient has doesn't. */
-  const needsServer = $derived(!!choice && (choice.size_id === null || (makeUsual && !choice.usual)));
+  const needsServer = $derived(
+    !!choice && (choice.size_id === null || (makeUsual && !choice.usual))
+  );
 
   function over(c: PackChoice): string {
     const parts = [];
     if (c.usual) parts.push('Your usual');
-    parts.push(c.over === 'nothing left over' ? 'Nothing over' : c.over.replace(' left over', ' over'));
+    parts.push(
+      c.over === 'nothing left over' ? 'Nothing over' : c.over.replace(' left over', ' over')
+    );
     return parts.join(' · ');
   }
 
@@ -108,8 +111,8 @@
               <b>{c.buy}</b>
               <span>{over(c)}</span>
             </span>
-            {#if c.chosen}<span class="tag">On the list</span>{:else if c.least}<span class="tag good"
-                >Least left over</span
+            {#if c.chosen}<span class="tag">On the list</span>{:else if c.least}<span
+                class="tag good">Least left over</span
               >{/if}
           </button>
         {/each}

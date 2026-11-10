@@ -63,7 +63,9 @@
   /** "1 jar (500 g) · 120 g needed" under the name, when the Usual size is known (F120). */
 
   /** Plan shopping: the pack words are the amount ("1 jar (500 g)"); the need goes in the why. */
-  const buy = $derived(plan && !trolley ? packParts(food, item.amount, item.size_id)?.buy : undefined);
+  const buy = $derived(
+    plan && !trolley ? packParts(food, item.amount, item.size_id)?.buy : undefined
+  );
   const why = $derived(plan && !trolley ? model.whyOf(item) : '');
   /** "Usual pack?": the common sizes, under a line with an amount and no size known. */
   const picks = $derived(
@@ -74,7 +76,8 @@
   const packs = $derived(
     trolley
       ? null
-      : (packLine(food, item.amount, item.size_id) ?? (picks.length ? needLine(food, item.amount) : null))
+      : (packLine(food, item.amount, item.size_id) ??
+          (picks.length ? needLine(food, item.amount) : null))
   );
   /** Another size that leaves much less over, suggested under the row (cabledrawer 9 Nov). */
   const alternative = $derived(

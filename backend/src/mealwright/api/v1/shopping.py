@@ -475,8 +475,7 @@ def add_item(list_id: str, body: NewItem, kitchen: Here, response: Response) -> 
 
 @router.get("/shopping/items/{item_id}/pack-sizes")
 def pack_sizes(item_id: str, kitchen: Here) -> PackSizesOut:
-    """Every size this line could be bought in, with how much each leaves over (cabledrawer 9 Nov:
-    "every size can be seen and picked"). Read-only; the pick is the usual `set_amount`, after
+    """Every size this line could be bought in, with how much each leaves over. Read-only; the pick is the usual `set_amount`, after
     the size is made (POST /foods/{id}/sizes) when it is one of the table's common sizes."""
     item = shopping.find_item(kitchen, item_id)
     if item.deleted_at is not None:
