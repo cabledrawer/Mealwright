@@ -1216,9 +1216,9 @@ describe('Steps that wait on Check', () => {
       it('Change opens the boxes; Done keeps the new wait as confirmed', async () => {
         const flow = await opened();
         await change().click();
-        await page.getByLabelText('Shortest wait for step 1').fill('6');
-        await page.getByLabelText('Longest wait for step 1').fill('10');
-        await page.getByRole('switch', { name: 'Ends overnight' }).click(); // off
+        await page.getByLabelText('Shortest, step 1', { exact: false }).fill('6');
+        await page.getByLabelText('Longest (if it varies), step 1', { exact: false }).fill('10');
+        await page.getByRole('switch', { name: /^Ends overnight/ }).click(); // off
         await page.getByRole('button', { name: 'Done' }).click();
         expect(flow.review!.steps[0]!.wait).toEqual({
           kind: 'marinate',

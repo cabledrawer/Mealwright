@@ -10,14 +10,14 @@
   let {
     wait = $bindable(),
     name,
-    invalid = $bindable(false),
+    invalid = $bindable(),
     onchange
   }: {
     wait: StepWait;
     /** "step 2": what the boxes are for, read aloud. */
     name: string;
     /** True while the boxes don't make a wait that can be kept: the caller blocks Save/Done. */
-    invalid?: boolean;
+    invalid?: boolean | undefined;
     /** Called after the boxes made a wait that can be kept. */
     onchange?: () => void;
   } = $props();

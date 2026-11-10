@@ -404,10 +404,10 @@ describe('the boxes', () => {
     await page.getByRole('textbox', { name: 'Name' }).fill('Tandoori');
     await page.getByRole('textbox', { name: 'Step 1' }).fill('Rub it and leave to marinate.');
     await userEvent.click(page.getByRole('button', { name: 'Add a wait to step 1' }));
-    await page.getByLabelText('Shortest wait for step 1').fill('4');
-    await page.getByLabelText('Longest wait for step 1').fill('12');
-    await page.getByRole('combobox', { name: 'In' }).selectOptions('h');
-    await page.getByRole('switch', { name: 'Ends overnight' }).click();
+    await page.getByLabelText('Length, step 1', { exact: false }).fill('4');
+    await page.getByLabelText('Longest (if it varies), step 1', { exact: false }).fill('12');
+    await page.getByRole('combobox', { name: /^In\b.*step 1/ }).selectOptions('h');
+    await page.getByRole('switch', { name: /^Ends overnight/ }).click();
     await page.getByRole('button', { name: /^Save/ }).click();
     await vi.waitFor(() => expect(bodyOf(requests, 'POST')).toBeDefined());
     const sent = bodyOf(requests, 'POST') as { steps: { wait: unknown }[] };

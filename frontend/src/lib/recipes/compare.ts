@@ -91,7 +91,10 @@ export function otherChanges(opened: RecipeOut, theirs: RecipeOut): string[] {
   const changed: string[] = [];
   if (opened.name !== theirs.name) changed.push('name');
   if (!same(opened.description, theirs.description)) changed.push('description');
-  if (opened.time_minutes !== theirs.time_minutes || !same(opened.wait ?? null, theirs.wait ?? null))
+  if (
+    opened.time_minutes !== theirs.time_minutes ||
+    !same(opened.wait ?? null, theirs.wait ?? null)
+  )
     changed.push('time');
   if (opened.serves !== theirs.serves) changed.push('serves');
   if (!same(opened.makes, theirs.makes)) changed.push('makes');
