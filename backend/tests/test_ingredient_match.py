@@ -20,7 +20,7 @@ from mealwright.ingredient_match import (
     match_line,
 )
 from mealwright.ingredient_reader import read_line
-from mealwright.models import Food, FoodName, FoodSize, Household, Place, utcnow
+from mealwright.models import Food, FoodName, FoodSize, Household, Place, Recipe, utcnow
 
 D = Decimal
 
@@ -792,3 +792,41 @@ def test_f186_cuts_and_parts_of_an_animal_or_egg_still_match(
     add_food(db, food)
     result = match(db, line)
     assert (result.label, result.food_name) == ("to_confirm", food)
+
+
+# --- F189: a recipe is offered before a same-named plain ingredient (cabledrawer 8 Nov) -------------
+
+
+def add_recipe(db: Session, name: str, *, household: int = 1, removed: bool = False) -> None:
+    db.add(
+        Recipe(
+            household_id=household,
+            name=name,
+            version=1,
+            removed_at=utcnow() if removed else None,
+        )
+    )
+    db.commit()
+
+
+def test_a_line_named_exactly_like_a_recipe_is_not_linked_to_the_ingredient(db: Session) -> None:
+    # cabledrawer's case: a stray plain ingredient and a recipe, both "Dosa batter".
+    add_food(db, "Dosa batter")
+    add_recipe(db, "Dosa batter")
+    found = match(db, "2 cups dosa batter")
+    assert found.label == "needs_you"
+    assert found.food_id is None
+
+
+def test_an_other_name_that_is_a_recipe_name_needs_the_person_too(db: Session) -> None:
+    add_food(db, "Idli batter", others=("dosa batter",))
+    add_recipe(db, "Dosa batter")
+    assert match(db, "dosa batter").label == "needs_you"
+
+
+def test_the_ingredient_is_matched_when_no_recipe_has_its_name(db: Session) -> None:
+    add_food(db, "Dosa batter")
+    add_recipe(db, "Masala dosa")
+    add_recipe(db, "Dosa batter", removed=True)  # in the trash: not offered
+    add_recipe(db, "Dosa batter", household=2)  # next door's: never seen
+    assert match(db, "dosa batter").label == "matched"

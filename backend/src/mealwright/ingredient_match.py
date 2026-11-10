@@ -33,7 +33,7 @@ from mealwright.ingredient_reader import (
     ReadLine,
     working_text,
 )
-from mealwright.models import Food, FoodName, FoodSize, Household
+from mealwright.models import Food, FoodName, FoodSize, Household, Recipe
 from mealwright.names import normalise, singular
 
 Label = Literal["matched", "to_confirm", "needs_you", "staple"]
@@ -108,6 +108,9 @@ class KnownIngredients:
     cup_ml: int
     foods: tuple[KitchenFood, ...]
     places: tuple[KitchenPlace, ...] = ()
+    # The keys of the household's recipe names: a line with exactly a recipe's name is never
+    # linked to a plain ingredient of that name on its own (F189, cabledrawer 8 Nov).
+    recipe_names: frozenset[str] = frozenset()
 
     @cached_property
     def by_name(self) -> dict[str, KitchenFood]:
@@ -225,6 +228,14 @@ def kitchen_of(db: DbSession, household_id: int) -> KnownIngredients:
             for food in foods
         ),
         places=tuple(KitchenPlace(p.id, p.name) for p in household_places(db, household_id)),
+        recipe_names=frozenset(
+            _key(name)
+            for name in db.scalars(
+                select(Recipe.name).where(
+                    Recipe.household_id == household_id, Recipe.removed_at.is_(None)
+                )
+            )
+        ),
     )
 
 
@@ -417,6 +428,16 @@ def _find_exact(
     return None
 
 
+def _also_a_recipe(
+    kitchen: KnownIngredients, food: KitchenFood, candidates: list[tuple[str, str]]
+) -> bool:
+    if not kitchen.recipe_names:
+        return False
+    return _key(food.name) in kitchen.recipe_names or any(
+        key in kitchen.recipe_names for key, _ in candidates
+    )
+
+
 def _closest(
     kitchen: KnownIngredients, candidates: list[tuple[str, str]]
 ) -> tuple[KitchenFood, str] | None:
@@ -491,6 +512,10 @@ def match_line(kitchen: KnownIngredients, read: ReadLine) -> Match:
 
     candidates = _candidates(read)
     exact = _find_exact(kitchen, candidates)
+    if exact and _also_a_recipe(kitchen, exact[0], candidates):
+        # A recipe has this very name: the person chooses, and the recipe is offered first
+        # (F189, cabledrawer 8 Nov: "a recipe is offered before a same-named plain ingredient").
+        return _unmatched(kitchen, read, "needs_you", None, None, guess)
     food, by = exact if exact else (None, None)
     label: Label
     if food is not None:

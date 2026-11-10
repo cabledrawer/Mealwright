@@ -5,7 +5,8 @@
 import { ApiError, cantReach } from './api';
 import { changeDraft, keepDraft, type DraftBody, type DraftOut } from './client/drafts';
 import { listFoods } from './client/foods';
-import { deletePhoto } from './client/recipes';
+import { deletePhoto, listRecipes } from './client/recipes';
+import { fold } from './recipes/search';
 import { drafts } from './drafts.svelte';
 import { needsServer } from './downWords';
 import { network } from './network.svelte';
@@ -1083,16 +1084,20 @@ function saveLine(line: ReviewLine, link: Choice | null): SaveLine {
 }
 
 /** The ingredient with exactly this name (or another name of it), or null: the household's own,
- *  from the server's search. A search that fails is no match: the line asks the person. */
+ *  from the server's search. A search that fails is no match: the line asks the person. Null too
+ *  when a recipe has exactly this name, so the person chooses and the recipe is offered first
+ *  (F189, cabledrawer 8 Nov), as the reader does for the lines it reads. */
 async function exactIngredient(name: string): Promise<FoodRow | null> {
   try {
-    const key = name.toLocaleLowerCase();
-    const { foods } = await listFoods({ q: name, limit: 8 });
+    const key = fold(name);
+    const [{ foods }, { recipes }] = await Promise.all([
+      listFoods({ q: name, limit: 8 }),
+      listRecipes({ q: name, limit: 100 })
+    ]);
+    if (recipes.some((recipe) => fold(recipe.name) === key)) return null;
     return (
       foods.find(
-        (food) =>
-          food.name.toLocaleLowerCase() === key ||
-          food.other_names.some((other) => other.toLocaleLowerCase() === key)
+        (food) => fold(food.name) === key || food.other_names.some((other) => fold(other) === key)
       ) ?? null
     );
   } catch {

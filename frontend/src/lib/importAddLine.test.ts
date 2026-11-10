@@ -146,7 +146,8 @@ describe('a line added on Check', () => {
             }
           ]
         }
-      ]
+      ],
+      'GET /recipes': [200, { recipes: [{ id: 4, name: 'Ghee rice' }] }]
     });
     const flow = flowOf([line({})]);
     flow.addLine(1);
@@ -161,6 +162,21 @@ describe('a line added on Check', () => {
     expect(flow.counts.matched).toBe(2);
     const sent = flow.body()!.lines[1]!;
     expect(sent).toMatchObject({ words: 'Ghee', link: { kind: 'ingredient', food_id: 9 } });
+  });
+
+  it('asks the person when a recipe has exactly that name too, so the recipe is offered first (F189)', async () => {
+    // cabledrawer's case: a stray plain ingredient and a recipe, both "Dosa batter".
+    fakeApi({
+      'GET /foods': [
+        200,
+        { foods: [{ id: 9, name: 'Dosa batter', other_names: [], place: null, staple: false }] }
+      ],
+      'GET /recipes': [200, { recipes: [{ id: 4, name: 'Dosa Batter' }] }]
+    });
+    const flow = flowOf([line({})]);
+    flow.addLine(1);
+    await flow.nameLine(1, 'dosa batter');
+    expect(flow.review!.lines[1]).toMatchObject({ label: 'needs_you', food: null });
   });
 
   it('asks like any other line when no ingredient has that name, and then has the same choices', async () => {

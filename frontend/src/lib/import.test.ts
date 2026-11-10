@@ -878,7 +878,9 @@ describe('importer consistency on Check (0.7)', () => {
     const foods = (rows: object[]) =>
       fakeApi({
         'GET /foods?q=water&limit=8': [200, { foods: rows }],
-        'GET /foods?q=broth&limit=8': [200, { foods: [] }]
+        'GET /foods?q=broth&limit=8': [200, { foods: [] }],
+        'GET /recipes?q=water&limit=100': [200, { recipes: [] }],
+        'GET /recipes?q=Broth&limit=100': [200, { recipes: [] }]
       });
     beforeEach(() => {
       undoHistory.clear();
