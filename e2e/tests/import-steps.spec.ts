@@ -65,3 +65,28 @@ test('Remove step has Undo, putting it back in place; Save keeps the edited meth
   await expect(page.getByText('Add the cumin.')).toBeVisible();
   await expect(page.getByText('Fry the onion.')).toHaveCount(0);
 });
+
+test('a step that waits: Check suggests it, Yes keeps it, Save shows the split time and the chip (M1)', async ({ page }) => {
+  const title = unique('Dosa');
+  await page.goto('/recipes/import');
+  await page
+    .getByLabel('Paste a link or the recipe’s text')
+    .fill(`${title}\nIngredients\n1 cup ${unique('Rice')}\nMethod\n1. Soak the rice overnight.\n2. Grind it and ferment 8-12 hours.\n3. Cook on a hot pan.\n`);
+  await page.getByRole('button', { name: 'Read the recipe' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await expect(page.getByText('Method · 3 steps found')).toBeVisible();
+  // The reader's two suggestions, each with its answers; the third step has none.
+  await expect(page.getByText('To confirm')).toHaveCount(2);
+  await expect(page.getByText('Soak · overnight')).toBeVisible();
+  await expect(page.getByText(/Ferment · 8\s*h – 12\s*h/)).toBeVisible();
+  await page.getByRole('button', { name: 'Yes, it waits' }).first().click();
+  await expect(page.getByText('To confirm')).toHaveCount(1);
+  await page.getByRole('button', { name: 'No wait' }).click(); // the ferment
+  await expect(page.getByText(/Ferment ·/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'New ingredient' }).first().click();
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  await expect(page.getByText('overnight soaking')).toBeVisible();
+  await expect(page.getByText('Soak · overnight')).toBeVisible();
+  await expect(page.getByText(/Ferment ·/)).toHaveCount(0);
+});
