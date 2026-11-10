@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from mealwright.api.v1.recipe_schemas import GLYPHS, MAX_LINES, MAX_STEP_CHARS, MAX_STEPS
 from mealwright.ingredient_reader import BULLETS, read_line
-from mealwright.line_prep import is_step_heading
+from mealwright.line_prep import is_ingredient_heading, is_step_heading
 from mealwright.names import cut_text, without_hidden
 
 MAX_PASTED_CHARS = 100_000
@@ -283,6 +283,13 @@ def _split_by_look(lines: list[str]) -> tuple[list[str], list[str]]:
     if not amounts:
         return [], [line for line in lines if line.strip()]
     first, last = amounts[0], amounts[-1]
+    # A group heading right above the first amount ("For the batter") is kept, not dropped as
+    # a description (F222).
+    above = first - 1
+    while above >= 0 and not lines[above].strip():
+        above -= 1
+    if above >= 0 and is_ingredient_heading(lines[above].strip().lstrip(BULLETS).strip()):
+        first = above
     # A bare line straight after the last amount ("Salt") is still an ingredient.
     while (
         last + 1 < len(lines)

@@ -617,3 +617,30 @@ def test_f171_loose_forms_count_only_above_the_headings() -> None:
     )
     assert recipe.time_minutes == 35
     assert recipe.steps == ("Cook 5 min", "Serve.")
+
+
+def test_a_group_heading_right_under_the_title_is_kept_f222() -> None:
+    # Beta 1 hand test: "For the batter" right under the title was dropped as a description, so
+    # "Make this its own recipe" was offered on the wrong group.
+    text = (
+        "Beta1 Poha Test Dosa\nFor the batter\n1 cup urad dal\n2 cups rice\n"
+        "For the dosa\n1 tbsp ghee\nMethod\n1. Soak the dal.\n2. Fry it thin."
+    )
+    recipe = read_pasted(text)
+    assert recipe.ingredients == (
+        "For the batter",
+        "1 cup urad dal",
+        "2 cups rice",
+        "For the dosa",
+        "1 tbsp ghee",
+    )
+
+
+def test_a_group_heading_with_a_colon_under_the_title_is_kept_without_any_headings_f222() -> None:
+    recipe = read_pasted("Dosa\n\nFor the batter:\n1 cup urad dal\n2 cups rice\n\nSoak the dal.\n")
+    assert recipe.ingredients == ("For the batter:", "1 cup urad dal", "2 cups rice")
+
+
+def test_a_description_above_the_amounts_is_still_dropped_f222() -> None:
+    recipe = read_pasted("Dosa\nA crisp crepe from the south.\n1 cup urad dal\n2 cups rice\nFry.")
+    assert "A crisp crepe from the south." not in recipe.ingredients
