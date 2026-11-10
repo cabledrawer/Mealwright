@@ -781,6 +781,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Tags (cabledrawer 9 Nov):** tag chips sit in one row on Recipes; Manage tags renames and merges tags, and a merge can be undone.
 
 - **Optional ingredients and steps (cabledrawer 6 and 9 Nov):** a line or step can be Optional. When a recipe with optional ingredients is added to the plan, you're asked which you'll use: those go on the shopping list if needed and come out of the pantry when cooked; the others don't.
+- **Steps that wait (cabledrawer 31 Oct and 9 Nov):** a step can carry a wait (marinate, ferment, soak), suggested by the importer, confirmed on Check and editable in the recipe editor; a recipe's time shows active time plus the wait.
 
 ### Batch cook (Experimental) (cabledrawer 28 Oct; in 0.8.0, built last, cabledrawer 6 Nov)
 
