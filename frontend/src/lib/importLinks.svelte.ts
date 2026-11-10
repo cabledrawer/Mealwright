@@ -29,6 +29,11 @@ export const MOST_LINKS = 20;
 /** The household's most drafts (the server's `MAX_DRAFTS`). */
 export const DRAFT_LIMIT = 50;
 
+/** Said under the box before anything is pasted (F208, cabledrawer 10 Nov; the words are proposed,
+ *  for cabledrawer). The number is `MOST_LINKS`, the one the paste is cut at. */
+export const pasteLimitWords = (): string =>
+  `You can paste up to ${MOST_LINKS} links at once. Mealwright reads them one after another.`;
+
 /** Said under the list when a paste had more links than were read (proposed, for cabledrawer). */
 export const leftOutWords = (left: number, room: number | null): string =>
   `${left} more ${left === 1 ? 'link was' : 'links were'} left out. A paste reads up to ${MOST_LINKS} links${

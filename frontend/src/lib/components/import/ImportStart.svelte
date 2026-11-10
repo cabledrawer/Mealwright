@@ -17,6 +17,7 @@
     LINKS_SERVER_NOTE,
     leftOutWords,
     noneReadWords,
+    pasteLimitWords,
     linksHeading,
     READING,
     READY_TO_CHECK,
@@ -65,10 +66,12 @@
       class="mw-input box"
       rows="6"
       placeholder="https://… or the title, ingredients and method"
-      aria-describedby="{uid}-kind"
+      aria-describedby="{uid}-limit {uid}-kind"
       aria-invalid={flow.problem && !flow.problem.switchedOff && !refused ? true : undefined}
       readonly={reading}
       bind:value={flow.text}></textarea>
+
+    <p class="limit" id="{uid}-limit">{pasteLimitWords()}</p>
 
     <p class="kind" id="{uid}-kind" aria-live="polite">
       {#if kind === 'link'}
@@ -231,6 +234,12 @@
 
   .kind {
     min-height: 0;
+  }
+
+  .limit {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
   }
 
   .chip {

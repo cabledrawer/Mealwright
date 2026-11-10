@@ -9,6 +9,7 @@ import type { PrivacySwitches } from '#lib/client/privacy.js';
 import { network } from '#lib/network.svelte.js';
 import { privacy } from '#lib/privacy.svelte.js';
 import { fakeApi } from '#lib/testing/fakeApi.js';
+import { MOST_LINKS } from '#lib/importLinks.svelte.js';
 import ImportPage from './+page.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
@@ -97,5 +98,32 @@ describe('Import a recipe: the note about photos', () => {
     flushSync();
     expect(privacy.photosOff).toBe(false);
     expect(document.body.textContent).not.toContain('Recipe photos');
+  });
+});
+
+describe('Import a recipe: how many links can be pasted (F208)', () => {
+  let component: ReturnType<typeof mount> | null = null;
+
+  afterEach(() => {
+    if (component) unmount(component);
+    component = null;
+    privacy.forget();
+    vi.unstubAllGlobals();
+  });
+
+  it('says the most links before anything is pasted, with the number the paste is cut at', async () => {
+    await page.viewport(390, 844);
+    network.reset();
+    privacy.forget();
+    fakeApi({ 'GET /privacy/switches': switches(true), 'GET /privacy/own-network': OWN });
+    component = mount(ImportPage, { target: document.body });
+    flushSync();
+    const hint = page.getByText(/You can paste up to \d+ links at once/);
+    await expect.element(hint).toBeVisible();
+    expect(hint.element().textContent).toContain(`up to ${MOST_LINKS} links`);
+    // The box points at it, so a screen reader hears it with the box.
+    await expect
+      .element(page.getByRole('textbox', { name: /Paste a link/ }))
+      .toHaveAccessibleDescription(/You can paste up to/);
   });
 });
