@@ -70,6 +70,10 @@ export const DRAFT_OFFLINE =
   'Saving a draft needs your Mealwright server. Try again when you’re back online.';
 /** What importing says when the server can't be reached, chosen by the cause. */
 export const offlineNote = (): string => needsServer(network.deviceOffline, OFFLINE_NOTE);
+/** Close in Check with no connection (F174, cabledrawer 7 Nov): it leaves, and the draft stays as it was
+ *  last kept. */
+export const CLOSE_OFFLINE = 'You’re offline: changes since then won’t be kept';
+
 /** The same for keeping a draft. */
 export const draftOfflineNote = (): string => needsServer(network.deviceOffline, DRAFT_OFFLINE);
 const COULDNT = 'Couldn’t read that. Try again.';

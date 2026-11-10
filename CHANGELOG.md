@@ -8,6 +8,8 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 - **Pasted "Serves 4" and "Takes 30 minutes" are read on import (F171, cabledrawer 7 Nov).** Check's Serves and Minutes came out empty. A line of its own such as "Serves 4", "Serves: 4-6" (the higher number), "Takes 1 hour 15 minutes", "Total time: 45 min" or "Serves 4. Prep 10 min." now fills them and no longer turns up as an ingredient or a step. Prep time and cook time together add up; a total beats them; a lone prep time is dropped (it isn't the whole time). A sentence in the method ("Cook for 30 minutes.") is never read as the time.
 
+- **Close works offline in Check (F174, cabledrawer 7 Nov).** With no connection Close was stuck greyed while it tried to keep the draft. Now it says "You’re offline: changes since then won’t be kept" and leaves for Recipes (the Drafts list needs the server); the draft stays as it was last kept, and a Check never kept leaves no draft. One at a time and See all (Focus) both.
+
 ### Changed
 
 - **Several links pasted together are read one after another, each into its own draft (F110, cabledrawer 31 Oct).** The box used to say "one link at a time: only the first is read". Now "Read the recipes" reads each link on its own, never two at once, and keeps each as a draft in Recipes → Drafts to check and save later. A link that fails shows its own sentence (with "Paste text" where that helps) and the rest carry on. The same "Recipe import from links" switch, the outbound gate and server-only fetching as one link; nothing new goes out and the API doesn't change (each link is an ordinary single-link import). A link you already have a recipe from is said, not read again. Reading carries on if you leave the screen inside the app.

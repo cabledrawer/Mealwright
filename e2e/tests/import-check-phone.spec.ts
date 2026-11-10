@@ -250,3 +250,60 @@ test('One at a time: a swipe left is Next, right is Back, and it waits while a s
   await swipe(-250);
   await expect(header).toHaveText('Method · step 2 of 2');
 });
+
+/** No connection: every call to the server fails and the device says it is offline. (The page's
+ *  own files still load, as they do from the service worker's copy on a phone, so the toast
+ *  that Close shows is not lost with the page.) */
+async function goOffline(page: Page) {
+  await page.route('**/api/v1/**', (route) => route.abort('internetdisconnected'));
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  // The page's own note comes after a short while; Close works before it, and after.
+  await expect(page.getByText('You’re offline. Save when you’re back online.')).toBeVisible();
+}
+
+async function backOnline(page: Page) {
+  await page.unroute('**/api/v1/**');
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+}
+
+test('F174, One at a time: Close works offline, says so and leaves; nothing was kept', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await chooseMode(page, 'one');
+  const title = unique('Sambar offline');
+  await checking(page, title, unique('Hing'), unique('Masala'));
+  await page.getByRole('button', { name: 'Treat as staple' }).click();
+  await goOffline(page);
+  const close = page.getByRole('button', { name: 'Close (kept in Drafts)' });
+  await expect(close).toBeEnabled();
+  await close.click();
+  await expect(page.getByText('You’re offline: changes since then won’t be kept')).toBeVisible();
+  await expect(page).toHaveURL(/\/recipes$/);
+  await backOnline(page);
+  expect(await draftsNamed(page, title)).toHaveLength(0);
+});
+
+test('F174, See all: Close works offline and the draft stays as it was last kept', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await chooseMode(page, 'one');
+  const title = unique('Kootu offline');
+  await checking(page, title, unique('Hing'), unique('Masala'));
+  await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+  await expect(page).toHaveURL(/\/recipes\/drafts$/);
+  const [before] = await draftsNamed(page, title);
+  await page.getByRole('link', { name: `Carry on ${title}` }).click();
+  await page.getByRole('button', { name: 'See all' }).click();
+  // A change since the draft was last kept (the name), then the connection goes.
+  await page.getByRole('button', { name: 'Treat as staple' }).first().click();
+  await goOffline(page);
+  const close = page.getByRole('button', { name: /^Close/ });
+  await expect(close).toBeEnabled();
+  await close.click();
+  await expect(page.getByText('You’re offline: changes since then won’t be kept')).toBeVisible();
+  await expect(page).toHaveURL(/\/recipes$/);
+  await backOnline(page);
+  const [after] = await draftsNamed(page, title);
+  expect(after!.id).toBe(before!.id);
+  const kept = (await (await page.request.get(`/api/v1/recipes/drafts/${after!.id}`)).json()) as Json;
+  expect(Object.keys(kept.choices.lines as Json)).toHaveLength(0); // as last kept: no choice yet
+  await deleteDrafts(page, title);
+});

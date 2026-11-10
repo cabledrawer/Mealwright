@@ -14,11 +14,12 @@
   import { beforeNavigate, goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { changesToast } from '#lib/import.save.js';
-  import { leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
+  import { CLOSE_OFFLINE, leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
   import { sentenceCount, stepRuns } from '#lib/importSteps.js';
   import { network } from '#lib/network.svelte.js';
   import { PhotoFallback } from '#lib/photoFallback.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+  import { toasts } from '#lib/toast.svelte.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import Icon from '#lib/components/Icon.svelte';
   import Switch from '#lib/components/Switch.svelte';
@@ -81,9 +82,24 @@
    *  opened and not changed just leaves. When the draft can't be kept (offline, or 50 drafts) the
    *  reason shows and nothing is left behind. */
   async function close() {
-    if (flow.keeping) return;
-    if (flow.unkept && !(await flow.keepAsDraft())) return;
+    if (flow.keeping && !offline()) return;
+    if (offline()) return closeOffline();
+    if (flow.unkept && !(await flow.keepAsDraft())) {
+      // The connection went while the draft was on its way: leave the way an offline Close does.
+      if (offline()) closeOffline();
+      return;
+    }
     await goto(resolve('/(app)/recipes/drafts'));
+  }
+
+  /** No connection: the page's note says so after a short while, the device's own word at once. */
+  const offline = () => network.offline || network.deviceOffline;
+
+  /** Close with no connection (F174, cabledrawer 7 Nov): nothing can be kept, so say so and leave;
+   *  the draft stays as it was last kept. The Drafts list needs the server, so Recipes opens. */
+  function closeOffline() {
+    toasts.show(CLOSE_OFFLINE);
+    discardAndLeave();
   }
 
   // --- Leaving without saving -------------------------------------------------------------
@@ -518,7 +534,7 @@
     <OneAtATime
       {flow}
       bind:boxOpen={oneBox}
-      closing={flow.keeping}
+      closing={flow.keeping && !(network.offline || network.deviceOffline)}
       onclose={() => void close()}
       onsave={() => void save()}
       onseeall={() => (seeAll = true)}
@@ -567,7 +583,9 @@
           <button
             type="button"
             class="close"
-            disabled={flow.keeping || flow.saving || editing !== null}
+            disabled={(flow.keeping && !(network.offline || network.deviceOffline)) ||
+              flow.saving ||
+              editing !== null}
             onclick={() => void close()}
           >
             Close <span class="sub">Kept in Drafts</span>

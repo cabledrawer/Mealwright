@@ -884,3 +884,4 @@ The words marked agreed are from the mockup `Dark-ImportLinks08-Phone` (cabledra
 - **Under the list (agreed):** **Each recipe goes to Drafts to check and save later. If one link can’t be read, the rest carry on. You can leave this screen.** and **Only Mealwright’s server fetches these pages, and only because Recipe import is switched on in Settings.** (curly apostrophes on screen) · button **Go to Drafts**.
 - **The box's button (proposed, for cabledrawer):** **Read the recipes** for several links (**Read the recipe** for one); **Reading…** while it works.
 - **A link already imported (proposed, for cabledrawer):** **You already have this recipe. It was not read again.**
+- **Close with no connection, in Check (F174; cabledrawer 7 Nov, spec "Decided for 0.8.0"):** a toast, **You’re offline: changes since then won’t be kept** (curly apostrophes on screen), then Close leaves for Recipes.
