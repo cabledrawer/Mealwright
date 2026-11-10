@@ -964,6 +964,8 @@ Words from the mockup `Dark-RecipesTags08-Phone` are agreed; the rest are propos
 - **Toasts, each with Undo (proposed, for cabledrawer):** **Made “For the batter” its own recipe**; **Changed the recipe made from “For the batter”**; **Kept “For the batter” in this recipe**. An Undo that finds its heading gone says **Couldn’t put it back: the section has changed.**
 - **Errors (proposed, for cabledrawer):** **Type a name.** and **Type how much it makes.** in the sheet. A refusal on Save is the server's own sentence (two short sentences) and shows where it belongs.
 - **Save:** one **Recent changes** line, **Imported Masala dosa and Dosa batter**, with one Undo that takes both back.
+- **Server sentences on Save (proposed, for cabledrawer):** **That section’s recipe isn’t in this save.** (a line uses a section recipe the save doesn't hold); **A section’s own recipe can’t use another one.**; **A section made its own recipe needs the line that uses it.** The name box also refuses a name with a hidden character, with the app's usual sentence for names.
+- **The sheet's stand-ins while the names are still empty (proposed, for cabledrawer):** **the new recipe** (in the sentence and the preview line, until a name is typed) and **This recipe** (for the main recipe's name, until it has one).
 
 ## 58. The plan works backwards (0.8 M3, F124; cabledrawer 31 Oct and 9 Nov; the mockup words `Dark-PlanStart08-Phone`, `Dark-TodayTonight08-Phone` and `Dark-CookDay2-08-Phone` are agreed, the rest is proposed, for cabledrawer)
 
