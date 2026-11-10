@@ -321,6 +321,49 @@ describe('round 1 fixes', () => {
       start: { day: '2026-11-14', time: '20:00' }
     });
   });
+
+  it('moving a whole meal with two timed recipes asks once for each; Cancel on the second sends nothing', async () => {
+    // FX2 review r1: one question for each recipe, and the meal's move carries both answers.
+    const requests = fakeApi({
+      'GET /plan/start-options': [200, OPTIONS],
+      'POST /plan/meals/1/move': WRITE
+    });
+    const twoTimed = () => {
+      const model = planWith('recipe');
+      const meal = model.plan!.meals[0]!;
+      const second = {
+        ...meal.items[0]!,
+        id: 78,
+        recipe: { id: 6, name: 'Idli', removed: false }
+      } as PlanItem;
+      meal.items.push(second);
+      return model;
+    };
+    const asked = () => startAsk.current?.question.recipeName;
+    const cancelled = twoTimed().drop({ meal: 1 }, '2026-11-15', 1, 'move');
+    await vi.waitFor(() => expect(asked()).toBe('Masala dosa'));
+    startAsk.answer({ day: '2026-11-14', time: '20:00' });
+    await vi.waitFor(() => expect(asked()).toBe('Idli'));
+    startAsk.dismiss();
+    const outcome = await cancelled;
+    expect(outcome.ok === false && outcome.cancelled).toBe(true);
+    expect(requests.some((r) => r.path === '/plan/meals/1/move')).toBe(false);
+    const moved = twoTimed().drop({ meal: 1 }, '2026-11-15', 1, 'move');
+    await vi.waitFor(() => expect(asked()).toBe('Masala dosa'));
+    startAsk.answer({ day: '2026-11-14', time: '20:00' });
+    await vi.waitFor(() => expect(asked()).toBe('Idli'));
+    startAsk.answer({ day: '2026-11-14', time: '21:00' });
+    await moved;
+    expect(requests.find((r) => r.path === '/plan/meals/1/move')?.body).toEqual({
+      date: '2026-11-15',
+      slot_id: 1,
+      mode: 'move',
+      starts: [
+        { item_id: 77, day: '2026-11-14', time: '20:00' },
+        { item_id: 78, day: '2026-11-14', time: '21:00' }
+      ]
+    });
+  });
 });
 
 describe('from the meal', () => {
