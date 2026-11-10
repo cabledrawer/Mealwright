@@ -92,6 +92,9 @@ class ReviewLine(BaseModel):
     learn_name: str | None  # what "Same as …" adds as another name of the ingredient
     # null unless the line says pints: its amount in each kind of pint.
     pint_ml: PintReading | None = None
+    # The line is Optional (R3): "(optional)" was in it, or it is under a "For serving" heading.
+    # The person can switch it on or off on the review; Save sends it to the recipe's line.
+    optional: bool = False
 
 
 class ReviewMakes(BaseModel):
@@ -140,6 +143,9 @@ class ReviewSource(BaseModel):
 class ReviewStep(BaseModel):
     kind: Literal["step", "heading"]
     text: str
+    # The step says it is optional ("(optional)", "Optional: …"): the word is taken out of the
+    # text and the step is Optional instead (R3). The person can switch it on or off.
+    optional: bool = False
 
 
 class ImportReview(BaseModel):
@@ -220,6 +226,7 @@ class ImportLineIn(BaseModel):
     size_id: StoredInt | None = None
     note: Annotated[str, Field(max_length=200)] | None = None
     link: ImportLinkIn | None = None
+    optional: bool = False  # R3: the review's Optional switch
 
 
 class ImportSave(BaseModel):

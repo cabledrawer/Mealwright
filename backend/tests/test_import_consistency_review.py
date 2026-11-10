@@ -50,15 +50,20 @@ def test_headings_junk_and_two_lines(kitchen: TestClient, web: Web) -> None:
     assert not any("Cook Mode" in line["written"] or "½x1" in line["written"] for line in lines)
     names = [line["words"] for line in lines if line["kind"] == "ingredient"]
     assert names[:4] == ["lamb", "olive oil", "salt", "milk"]  # "+" gave two lines
-    assert shown["steps"][0] == {"kind": "heading", "text": "FULL RECIPE"}
+    assert shown["steps"][0] == {
+        "kind": "heading",
+        "text": "FULL RECIPE",
+        "optional": False,
+    }
 
 
 def test_serving_lines_are_optional(kitchen: TestClient, web: Web) -> None:
     lines = lines_of(review(kitchen, LAMB))
     rice = next(line for line in lines if line["words"] == "basmati rice")
-    assert (rice["note"] or "").startswith("optional")
+    assert rice["optional"] is True  # the same flag as "(optional)" (R3), not a word in the note
+    assert "optional" not in (rice["note"] or "")
     lamb = next(line for line in lines if line["words"] == "lamb")
-    assert "optional" not in (lamb["note"] or "")
+    assert lamb["optional"] is False
 
 
 def test_a_dozen_counts_as_the_number_itself(kitchen: TestClient, web: Web) -> None:

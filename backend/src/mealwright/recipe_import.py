@@ -73,6 +73,7 @@ from mealwright.line_prep import (
     is_page_junk,
     is_step_heading,
     kitchen_round,
+    optional_step,
     serving_heading,
     tidy_ingredient_name,
     tidy_tags,
@@ -529,10 +530,15 @@ def _steps_of(found: list[tuple[str, bool]]) -> tuple[list[ReviewStep], int]:
         if len(text) > limit:
             text = cut_text(text, limit).rstrip()
             shortened += 0 if heading else 1
+        optional = False
         if heading:
             text = text.rstrip(":").strip()
+        else:
+            text, optional = optional_step(text)
         if text:
-            steps.append(ReviewStep(kind="step" if not heading else "heading", text=text))
+            steps.append(
+                ReviewStep(kind="step" if not heading else "heading", text=text, optional=optional)
+            )
     return steps, shortened
 
 
@@ -618,9 +624,8 @@ def _lines(
         line = _review_line(
             ingredients, places, cut_text(read.text, MAX_WRITTEN).rstrip(), read, match
         )
-        if optional and line.readable and not (line.note or "").startswith("optional"):
-            note = ", ".join(part for part in ("optional", line.note) if part)
-            line = line.model_copy(update={"note": cut_text(note, MAX_NOTE).rstrip()})
+        if optional and line.readable:  # under "For serving": Optional, the same as "(optional)"
+            line = line.model_copy(update={"optional": True})
         found.append((line, read.pints is not None))
     return found
 
@@ -698,6 +703,7 @@ def _review_line(
         new_ingredient=NewIngredientOut(name=guess.name, counted_as=guess.counted_as, place=place),
         learn_name=cut_text(learn, 100).rstrip() if learn else None,
         pint_ml=_pint_ml(read) if amount_milli is not None else None,
+        optional=read.optional,
     )
 
 
@@ -829,6 +835,7 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
                     "size_id": line.size_id if food_id is not None else None,
                     "food_id": food_id,
                     "note": line.note,
+                    "optional": line.optional and line.kind != "heading",
                 }
             )
         try:

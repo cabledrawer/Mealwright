@@ -287,7 +287,7 @@ def test_a_link_gives_the_review_with_the_pages_recipe(
     assert shown["tags"] == ["Side", "South Indian", "Tamil Nadu"]  # "Side dish" is "Side"
     headings = [line["words"] for line in shown["lines"] if line["kind"] == "heading"]
     assert headings == ["For the poriyal", "For the tadka", "To finish"]
-    assert shown["steps"][0] == {"kind": "heading", "text": "Tadka"}
+    assert shown["steps"][0] == {"kind": "heading", "text": "Tadka", "optional": False}
     # Matched to what the household has; the rest need a choice.
     labels = {line["written"][:12]: line["label"] for line in shown["lines"] if line["label"]}
     assert labels["1 small onio"] == "matched"  # "small" is a prep word: Onions

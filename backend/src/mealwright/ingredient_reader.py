@@ -324,6 +324,9 @@ class ReadLine:
     pints: Fraction | None = None
     # Which measure those are: "pint", "quart", "gallon" or "fl oz" (None when `pints` is None).
     pint_unit: str | None = None
+    # The line says it is optional ("(optional)", ", optional", "optional: 50g pecans"): the word
+    # is taken out of the note and the line is marked Optional instead (R3, F151).
+    optional: bool = False
 
 
 def _unreadable(text: str) -> ReadLine:
@@ -1117,6 +1120,7 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
         "or so" if approximately else "",
         *notes,
     ]
+    note_parts, optional = _without_optional(note_parts)
     note = _cap(", ".join(dict.fromkeys(_tidy(p) for p in note_parts if _tidy(p))), MAX_NOTE_CHARS)
 
     readable = any(c.isalpha() for c in name)
@@ -1137,7 +1141,23 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
         chosen=chosen or second_used,
         pints=pints if number is not None else None,
         pint_unit=pint_unit if number is not None else None,
+        optional=optional,
     )
+
+
+def _without_optional(parts: list[str]) -> tuple[list[str], bool]:
+    """The note's parts without the word "optional" (R3): each part is split at its commas, the
+    pieces that are only "optional" go, and the line is Optional instead."""
+    optional = False
+    kept: list[str] = []
+    for part in parts:
+        pieces = [piece for piece in part.split(",")]
+        left = [p for p in pieces if p.strip(" .;").lower() != "optional"]
+        if len(left) != len(pieces):
+            optional = True
+            part = ",".join(left)
+        kept.append(part)
+    return kept, optional
 
 
 def _rounded(value: Fraction) -> Fraction:

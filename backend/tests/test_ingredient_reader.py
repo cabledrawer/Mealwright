@@ -443,7 +443,6 @@ def test_the_households_own_size_words() -> None:
         ("coriander leaves for garnish", "coriander leaves", "for garnish"),
         ("oil for frying", "oil", "for frying"),
         ("lemon wedges, to serve", "lemon wedges", "to serve"),
-        ("chilli flakes (optional)", "chilli flakes", "optional"),
     ],
 )
 def test_no_real_amount(text: str, name: str, note: str) -> None:
@@ -520,7 +519,6 @@ def test_other_names_from_brackets_and_slashes() -> None:
 
 def test_brackets_that_are_notes_are_not_names() -> None:
     for text, note in (
-        ("1 onion (optional)", "optional"),
         ("1 onion (see note)", "see note"),
         ("1 onion (finely chopped)", "finely chopped"),
         ("1 onion (about 2 cups)", "about 2 cups"),
@@ -835,14 +833,6 @@ def test_a_bracket_after_a_name_is_still_a_note() -> None:
 @pytest.mark.parametrize(
     ("text", "amount", "unit", "name", "note"),
     [
-        ("optional: 50g pecans", D(50), "g", "pecans", "optional"),
-        (
-            "Optional: 1 handful of Jerusalem artichokes",
-            D(1),
-            None,
-            "Jerusalem artichokes",
-            "optional",
-        ),
         ("To serve: limes", None, None, "limes", "to serve"),
         (
             "For serving: limes, unsweetened coconut yogurt",
@@ -918,12 +908,42 @@ def test_f139_a_range_or_fraction_in_brackets_is_kept_in_its_brackets_too(inside
     ],
 )
 def test_a_note_that_already_has_brackets_gets_no_more(text: str) -> None:
-    """The importer's doubled "((optional))" reads exactly as "(optional)": one note, no other
-    name, no extra brackets (the same thing written two ways gives the same result)."""
+    """The importer's doubled "((optional))" reads exactly as "(optional)": Optional, no note, no
+    other name, no extra brackets (the same thing written two ways gives the same result)."""
     line = read_line(text)
     assert (line.amount, line.unit, line.name) == (D(2), "tbsp", "raw papaya paste")
-    assert line.note == "optional"
+    assert (line.optional, line.note) == (True, None)
     assert line.other_names == ()
+
+
+@pytest.mark.parametrize(
+    ("text", "amount", "unit", "name", "note"),
+    [
+        ("chilli flakes (optional)", None, None, "chilli flakes", None),
+        ("1 onion (optional)", D(1), None, "onion", None),
+        ("optional: 50g pecans", D(50), "g", "pecans", None),
+        ("Optional: 1 handful of Jerusalem artichokes", D(1), None, "Jerusalem artichokes", None),
+        ("50 g pecans, to garnish (optional)", D(50), "g", "pecans", "to garnish"),
+        ("1 onion, finely chopped, optional", D(1), None, "onion", "finely chopped"),
+        ("salt (Optional), to taste", None, None, "salt", "to taste"),
+        # F151, as the importer showed it: the same thing, written with doubled brackets.
+        ("2 tbsps raw papaya paste ((optional))", D(2), "tbsp", "raw papaya paste", None),
+    ],
+)
+def test_optional_marks_the_line_and_leaves_the_note(
+    text: str, amount: Decimal | None, unit: str | None, name: str, note: str | None
+) -> None:
+    """(R3, F151) "optional" is taken out of the note and the line is Optional instead."""
+    line = read_line(text)
+    assert (line.amount, line.unit, line.name, line.note) == (amount, unit, name, note)
+    assert line.optional is True and line.readable
+
+
+@pytest.mark.parametrize(
+    "text", ["1 onion", "1 onion, chopped", "2 tbsp optional spice mix", "optionally 1 onion"]
+)
+def test_a_line_that_doesnt_say_optional_is_not(text: str) -> None:
+    assert read_line(text).optional is False
 
 
 def test_deeply_nested_brackets_read_fast() -> None:

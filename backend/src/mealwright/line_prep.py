@@ -107,6 +107,27 @@ def serving_heading(heading: str) -> bool:
     return bool(_SERVING.fullmatch(line))
 
 
+_OPT_LABEL = re.compile(r"^\s*optional(?:\s+step)?\s*[:\u2013\u2014-]\s*", re.IGNORECASE)
+_OPT_BRACKET = re.compile(r"\s*[(\[]\s*optional\s*[)\]]\s*", re.IGNORECASE)
+
+
+def optional_step(text: str) -> tuple[str, bool]:
+    """A step that says it is optional ("Optional: fry the onions", "Fry the onions (optional)"):
+    the step without that word, and True. The word is taken out only as a label at the start or
+    a bracket anywhere; "optional" inside a sentence stays. A step that would be left with
+    nothing is returned as it was (R3, F151)."""
+    label = _OPT_LABEL.match(text)
+    rest = text[label.end() :] if label else text
+    bracketed = _OPT_BRACKET.search(rest) is not None
+    if bracketed:
+        rest = _OPT_BRACKET.sub(" ", rest)
+    rest = re.sub(r"[ \t]{2,}", " ", rest).strip()
+    rest = re.sub(r"[ \t]+([.,;!?])", r"\1", rest)
+    if not (label or bracketed) or not rest:
+        return text, False
+    return (rest[0].upper() + rest[1:]) if label else rest, True
+
+
 def is_step_heading(text: str) -> bool:
     """A step that is only a section title: SHOUTED WORDS ("FULL RECIPE") or a short phrase
     ending in a colon with no full stop. It takes no step number (F23)."""
