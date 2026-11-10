@@ -32,13 +32,32 @@
   }
 
   /** Open the drop zones above the place when the scrolling week would cut them off below it
-   *  (a short window, or a tall tray): a pointer can only drop where it can reach. */
+   *  (a short window, or a tall tray): a pointer can only drop where it can reach. Checked again
+   *  while they are open, when the week's box changes size or scrolls (the tray's Tubs left
+   *  arriving late made it shorter after they opened, and the zones hung out of reach). */
   function fit(node: HTMLElement) {
     let box: HTMLElement | null = node.parentElement;
     while (box && !/(auto|scroll|hidden)/.test(getComputedStyle(box).overflowY))
       box = box.parentElement;
-    const edge = box ? box.getBoundingClientRect().bottom : window.innerHeight;
-    if (node.getBoundingClientRect().bottom > edge) node.classList.add('up');
+    const place = () => {
+      node.classList.remove('up');
+      const edge = box ? box.getBoundingClientRect().bottom : window.innerHeight;
+      if (node.getBoundingClientRect().bottom > edge) node.classList.add('up');
+    };
+    place();
+    const watch = new ResizeObserver(place);
+    if (box) {
+      watch.observe(box);
+      box.addEventListener('scroll', place, { passive: true });
+    }
+    window.addEventListener('resize', place);
+    return {
+      destroy() {
+        watch.disconnect();
+        box?.removeEventListener('scroll', place);
+        window.removeEventListener('resize', place);
+      }
+    };
   }
 
   const cards = $derived(meal ? weekCards(model.plan!, meal, model.people, model.slotsOn) : []);

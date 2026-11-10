@@ -444,6 +444,40 @@ test.describe('on a computer', () => {
     await expect(target).toContainText(name);
   });
 
+  test('the bottom row\'s drop zones move up when the week gets shorter while they are open', async ({ page }) => {
+    // The flaky short-window test's cause (10 Nov): the zones chose their side once, when they
+    // opened; the week's box getting shorter after that (Tubs left arriving) left them out of reach.
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    const { today, slot } = await setup(page);
+    const name = `Shorter ${stamp()}`;
+    const recipe = await makeRecipe(page, name);
+    const day = inWeek(today, 2);
+    await planned(page, recipe, day, slot.Lunch);
+    await openWeekOf(page, today, day);
+    const next = addDays(day, 1);
+    const target = cell(page, next, slot.Dinner);
+    const a = await centre(cell(page, day, slot.Lunch).getByRole('button', { name: new RegExp(`^${name}`) }).first());
+    const b = await centre(target, 0.2);
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(a.x + 12, a.y + 12, { steps: 3 });
+    await page.mouse.move(b.x, b.y, { steps: 10 });
+    const zones = target.locator('.zones');
+    await expect(zones).toBeVisible();
+    await expect(zones).not.toHaveClass(/\bup\b/);
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await expect(zones).toHaveClass(/\bup\b/);
+    const zone = target.locator('[data-drop-zone="leftovers"]');
+    const box = (await zone.boundingBox())!;
+    const z = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-drop-zone]')?.getAttribute('data-drop-zone') ?? null, z)).toBe('leftovers');
+    await page.mouse.move(z.x, z.y, { steps: 4 });
+    await expect(zone).toHaveClass(/\bon\b/);
+    await page.mouse.up();
+    await expect(page.getByRole('status').filter({ hasText: 'Leftovers' })).toBeVisible();
+    await expect(target).toContainText(name);
+  });
+
   // No service worker here: on WebKit, once it controls the page, page.route stops seeing its
   // requests (see import-pints.spec.ts).
   test.describe('a slow household answer', () => {
