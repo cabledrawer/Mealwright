@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright dark – Recipe page: two methods, split time, waits on steps (0.8 wave 5, M1, M2)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden;background:#111614}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.scr{width:390px;height:844px;background:#111614;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#E9EEEB;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.bar{padding:14px 16px 10px;border-bottom:1px solid #2A332E;display:flex;flex-direction:column;gap:8px}
+.body{flex:1;min-height:0;overflow:hidden;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.h2{margin:0;font-size:12px;font-weight:800;color:#A3AFA8;letter-spacing:0.05em;text-transform:uppercase}
+.sec{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ln{background:#1B221F;border:1px solid #2A332E;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.raw{font-size:12px;color:#A3AFA8;line-height:1.4}
+.nm{font-size:16px;font-weight:800}
+.nm small{font-size:14px;font-weight:600;color:#C5CEC8}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ok{font-size:12px;font-weight:700;color:#8FE0B5;white-space:nowrap}
+.need{font-size:12px;font-weight:700;color:#FF9B76;white-space:nowrap}
+.btn{border:1px solid #39433D;background:transparent;color:#C5CEC8;border-radius:10px;min-height:44px;padding:0 10px;font:600 13px 'Plus Jakarta Sans',sans-serif}
+.btnp{border:none;background:#2A7353;color:#FFFFFF;border-radius:12px;min-height:44px;padding:0 12px;font:700 14px 'Plus Jakarta Sans',sans-serif}
+.btnw{border:none;background:#E9EEEB;color:#111614;border-radius:999px;min-height:52px;font:800 15px 'Plus Jakarta Sans',sans-serif}
+.btno{border:1px solid #39433D;background:transparent;color:#E9EEEB;border-radius:999px;min-height:52px;font:700 15px 'Plus Jakarta Sans',sans-serif}
+.tog{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#C5CEC8;min-height:44px}
+.sw{width:40px;height:24px;border-radius:12px;background:#39433D;position:relative;flex:none;border:none;padding:0}
+.sw span{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:9px;background:#C5CEC8}
+.sw.on{background:#2A7353}
+.sw.on span{left:19px;background:#FFFFFF}
+.opt{background:#252E29;color:#C5CEC8;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700}
+.add{border:1px dashed #39433D;background:transparent;color:#6FCF9E;border-radius:14px;min-height:48px;font:700 14px 'Plus Jakarta Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px}
+.foot{border-top:1px solid #2A332E;background:#151B18;padding:10px 16px 26px;display:flex;gap:10px}
+.card{background:#1B221F;border-radius:18px;padding:2px 14px}
+.r{display:flex;align-items:center;gap:10px;min-height:56px;border-bottom:1px solid #26302B}
+.r:last-child{border-bottom:none}
+.rn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rn b{font-size:15px;font-weight:700}
+.rn span{font-size:12px;color:#A3AFA8}
+.chip{border:1px solid #39433D;background:#1B221F;color:#E9EEEB;border-radius:999px;padding:0 12px;min-height:36px;font:600 13px 'Plus Jakarta Sans',sans-serif;white-space:nowrap;flex:none}
+.chip.on{border:none;background:#E9EEEB;color:#111614;font-weight:700}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,0.55);display:flex;flex-direction:column;justify-content:flex-end}
+.sheet{background:#161C19;border-radius:24px 24px 0 0;padding:10px 20px 32px;display:flex;flex-direction:column;gap:12px}
+.grab{width:40px;height:5px;border-radius:3px;background:#39433D;align-self:center}
+.note{background:#1E2A33;border:1px solid #2E4352;color:#BFD9EA;border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.45}
+.kind{font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.k-rec{background:#2E2640;color:#CDBBFF}
+.k-ing{background:#252E29;color:#C5CEC8}
+.x{width:44px;height:44px;border-radius:22px;background:#252E29;color:#E9EEEB;display:flex;align-items:center;justify-content:center;flex:none;border:none}
+.wt{display:inline-flex;align-items:center;gap:5px;background:#2A2440;color:#CDBBFF;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:800;white-space:nowrap}
+</style>
+</helmet>
+<div class="scr">
+
+<div style="padding: 12px 16px"><a href="Dark-Recipes-Phone.dc.html" style="font-size: 15px; font-weight: 700; min-height: 44px; display: flex; align-items: center; text-decoration: none">‹ Recipes</a></div>
+<div style="flex: 1; min-height: 0; overflow: hidden; padding: 0 20px 16px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 4px"><h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em">Chicken curry</h1><span style="font-size: 14px; color: #A3AFA8">Serves 4 · 45 min active · <span style="color: #CDBBFF">plus 4 h – overnight marinating</span></span></div>
+<div role="group" aria-label="Method" style="display: grid; grid-template-columns: 1fr 1fr; background: #252E29; border-radius: 999px; padding: 3px">
+<button aria-pressed="true" style="border: none; background: #E9EEEB; color: #111614; border-radius: 999px; min-height: 40px; font: 800 14px 'Plus Jakarta Sans', sans-serif">Stovetop · 45 min</button>
+<button aria-pressed="false" style="border: none; background: transparent; color: #E9EEEB; border-radius: 999px; min-height: 40px; font: 700 14px 'Plus Jakarta Sans', sans-serif">Instant Pot · 30 min</button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px"><h2 class="h2">Steps · Stovetop</h2>
+<div class="card">
+<div class="r" style="align-items: flex-start; padding: 12px 0"><span style="font-size: 14px; font-weight: 800; color: #A3AFA8; width: 20px">1</span><span class="rn" style="gap: 6px"><span style="font-size: 14px; color: #E9EEEB; line-height: 1.45">Rub the chicken with yoghurt and spices.</span><span class="wt"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Marinate · 4 h – overnight</span></span></div>
+<div class="r" style="align-items: flex-start; padding: 12px 0"><span style="font-size: 14px; font-weight: 800; color: #A3AFA8; width: 20px">2</span><span class="rn"><span style="font-size: 14px; color: #E9EEEB; line-height: 1.45">Fry the onions until golden, about 12 minutes.</span></span></div>
+<div class="r" style="align-items: flex-start; padding: 12px 0"><span style="font-size: 14px; font-weight: 800; color: #A3AFA8; width: 20px">3</span><span class="rn"><span style="font-size: 14px; color: #E9EEEB; line-height: 1.45">Add the chicken and simmer, covered, for 25 minutes.</span></span></div>
+</div></div>
+<span style="font-size: 12px; color: #A3AFA8; line-height: 1.4">Each method has its own ingredients, steps and time (cabledrawer 9 Nov). The switch changes all three.</span>
+</div>
+<div class="foot"><button class="btnw" style="flex: 1">Cook it</button></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
