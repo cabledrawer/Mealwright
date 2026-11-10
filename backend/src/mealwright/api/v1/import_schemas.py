@@ -72,6 +72,16 @@ class ReviewPints(BaseModel):
     reading: Literal["uk", "us"] = "uk"
 
 
+class OwnRecipeNote(BaseModel):
+    """A section heading the person made its own recipe on Check (0.8, F190): what the new Made
+    ahead recipe is called and how much it makes. Only the screen sets it (it is kept in a
+    draft); the server never sends it. Save takes the section back as `own_recipes`."""
+
+    name: Annotated[str, Field(min_length=1, max_length=200)]
+    amount: float
+    unit: Annotated[str, Field(min_length=1, max_length=30)]
+
+
 class ReviewLine(BaseModel):
     """One ingredient line (or a heading) as written, as read, and what it is in the kitchen.
     `words`, `amount`, `unit`, `note` and `size` are what the saved line will hold; send them
@@ -99,6 +109,8 @@ class ReviewLine(BaseModel):
     # The line is Optional (R3): "(optional)" was in it, or it is under a "For serving" heading.
     # The person can switch it on or off on the review; Save sends it to the recipe's line.
     optional: bool = False
+    # A heading made its own recipe on Check (F190): kept in a draft, never sent by the server.
+    own: OwnRecipeNote | None = None
 
 
 class ReviewMakes(BaseModel):

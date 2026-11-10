@@ -9,7 +9,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import ok
-from test_recipe_import import API, Web, counts, web  # noqa: F401
+from test_drafts import kept
+from test_recipe_import import API, Web, counts, review, web  # noqa: F401
 from test_recipe_import import save as save_import
 from test_recipes import make
 
@@ -170,3 +171,23 @@ def test_the_openapi_describes_the_section_recipes(kitchen: TestClient) -> None:
     schemas = ok(kitchen.get("/api/v1/openapi.json"))["components"]["schemas"]
     assert "own_recipes" in schemas["ImportSave"]["properties"]
     assert "own_recipe" in schemas["ImportLinkIn"]["properties"]
+
+
+def test_a_draft_keeps_a_section_made_its_own_recipe(kitchen: TestClient, web: Web) -> None:
+    text = (
+        "Masala dosa\nIngredients\nFor the batter\n1 cup urad dal\nFor the dosa\n1 tsp ghee\n"
+        "Method\n1. Fry.\n"
+    )
+    shown = review(kitchen, text)
+    heading = next(i for i, ln in enumerate(shown["lines"]) if ln["kind"] == "heading")
+    assert "own" not in shown["lines"][heading] or shown["lines"][heading]["own"] is None
+    shown["lines"][heading]["own"] = {"name": "Dosa batter", "amount": 4, "unit": "cup"}
+    made = kept(kitchen, shown, text_=text)
+    back = ok(kitchen.get(f"{API}/recipes/drafts/{made['id']}"))
+    assert back["review"]["lines"][heading]["own"] == {
+        "name": "Dosa batter",
+        "amount": 4,
+        "unit": "cup",
+    }
+    # The server's own reading never sets it.
+    assert all(ln.get("own") is None for ln in review(kitchen, text)["lines"])
