@@ -61,7 +61,7 @@ const row = (page: Page, name: string) => page.getByRole('listitem').filter({ ha
 async function openSizes(page: Page, name: string) {
   if (isPhone(page)) {
     await row(page, name).getByRole('button', { name: new RegExp(`^Change amount: ${name}`) }).click();
-    await row(page, name).getByRole('button', { name: 'Which size?', exact: true }).click();
+    await page.getByRole('form', { name: `Change ${name}` }).getByRole('button', { name: 'Which size?', exact: true }).click();
   } else {
     await row(page, name).getByRole('button', { name: /^More for / }).click();
     await page.getByRole('menuitem', { name: 'Which size?…' }).click();
