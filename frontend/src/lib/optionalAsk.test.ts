@@ -4,7 +4,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlanItem } from './client/plan';
 import { network } from './network.svelte';
-import { optionalAsk, optionalQuestionWords, stateWords } from './optionalAsk.svelte';
+import { optionalAsk } from './optionalAsk.svelte';
+import { optionalQuestionWords, stateWords } from './optionalQuestion';
 import { PlanModel } from './plan.svelte';
 import { fakeApi } from './testing/fakeApi';
 import { toasts } from './toast.svelte';

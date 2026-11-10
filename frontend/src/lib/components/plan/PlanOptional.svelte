@@ -4,7 +4,8 @@
   // to plan" (or "Save", when the meal's answer is being changed). Shown over everything by the
   // app layout; optionalAsk.svelte.ts holds the question. A bottom sheet on a phone, a dialog
   // on a computer. Escape or Cancel plans nothing.
-  import { optionalAsk, optionalQuestionWords } from '#lib/optionalAsk.svelte.js';
+  import { optionalAsk } from '#lib/optionalAsk.svelte.js';
+  import { optionalQuestionWords } from '#lib/optionalQuestion.js';
 
   const uid = $props.id();
   let dialog: HTMLDialogElement;

@@ -4,15 +4,10 @@
 // ticked ones go on the shopping list if they are needed and come out of the pantry at Cooked
 // it, the others don't. Online only, like the rest of the Plan.
 
-import { getRecipe, getRecipeStock, type LineStock, type RecipeLine } from './client/recipes';
-import { lineAmount } from './recipeAmounts';
-
-export interface OptionalRow {
-  id: number;
-  words: string;
-  /** "2 tbsp · not in the pantry". */
-  detail: string;
-}
+import type { OptionalRow } from './optionalQuestion';
+// What reads the recipe for the rows (optionalQuestion.ts) loads when the question is first
+// asked, so every page doesn't carry it (the size limit).
+export type { OptionalRow };
 
 export interface OptionalQuestion {
   recipeName: string;
@@ -29,33 +24,6 @@ export interface OptionalQuestion {
 interface Pending {
   question: OptionalQuestion;
   resolve: (use: number[] | null) => void;
-}
-
-/** Where a line is in the pantry, in words (proposed, for cabledrawer; the mockup's two are exact). */
-export function stateWords(stock: LineStock | undefined): string {
-  if (!stock) return '';
-  switch (stock.state) {
-    case 'in_stock':
-      return stock.place ? `in the ${stock.place.toLocaleLowerCase()}` : 'in the pantry';
-    case 'staple':
-      return 'a staple';
-    case 'short':
-      return 'not enough in the pantry';
-    default:
-      return 'not in the pantry';
-  }
-}
-
-/** The sheet's own line about how many there are (the singular is proposed, for cabledrawer). */
-export function optionalQuestionWords(count: number): string {
-  return count === 1
-    ? 'This recipe has 1 optional ingredient. Will you use it?'
-    : `This recipe has ${count} optional ingredients. Will you use them?`;
-}
-
-export function rowOf(line: RecipeLine, stock: LineStock | undefined, factor = 1): OptionalRow {
-  const detail = [lineAmount(line, factor), stateWords(stock)].filter(Boolean).join(' · ');
-  return { id: line.id, words: line.food?.name ?? line.words, detail };
 }
 
 class OptionalAsk {
@@ -84,28 +52,10 @@ class OptionalAsk {
     } = {}
   ): Promise<number[] | null | undefined> {
     if (recipe.optionalCount === 0) return undefined;
-    let rows: OptionalRow[];
-    let name: string;
-    let serves: number | null;
-    try {
-      const found0 = await getRecipe(recipe.id);
-      const second = found0.second_method;
-      const wanted = options.method ?? found0.methods?.find((m) => m.used_last)?.id ?? null;
-      const useSecond = !!second && wanted === second.id;
-      const found = useSecond && second ? { ...found0, lines: second.lines } : found0;
-      const stock = await getRecipeStock(recipe.id, undefined, wanted).catch(() => null);
-      // Amounts for the meal's own servings, not the recipe's (a meal for 3 of a recipe for 6).
-      const factor = found.serves && options.servings ? options.servings / found.serves : 1;
-      const by = new Map((stock?.lines ?? []).map((s) => [s.line_id, s]));
-      rows = found.lines
-        .filter((l) => l.kind === 'ingredient' && l.optional)
-        .map((l) => rowOf(l, by.get(l.id), factor));
-      name = found.name;
-      serves = found.serves;
-    } catch {
-      return undefined;
-    }
-    if (!rows.length) return undefined;
+    const { optionalRows } = await import('./optionalQuestion');
+    const found = await optionalRows(recipe.id, options);
+    if (!found) return undefined;
+    const { name, serves, rows } = found;
     this.current?.resolve(null);
     const ids = rows.map((r) => r.id);
     return new Promise((resolve) => {
