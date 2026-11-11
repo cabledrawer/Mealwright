@@ -105,6 +105,7 @@ SUGGEST_FROM_MINUTES = 30  # a shorter rest or soak is part of the step, not a w
 AFTER_CHARS = 300
 NEAR_CHARS = 12  # "rest  of"
 WORDS_PER_SENTENCE = 5  # a sentence with more wait words than this is not a recipe's
+WORDS_PER_STEP = 10  # nor a step with more than this in all (release 0.8.0-beta.1 security r3, L1)
 
 
 def _minutes(number: str, unit: str) -> int:
@@ -118,8 +119,12 @@ def read_wait(text: str) -> Wait | None:
     "ferment 8-12 hours", "soak overnight". The first sentence with a wait word and a length
     after it of 30 minutes or more (or "overnight") gives it; one step gets one wait."""
     text = _SPACES.sub(" ", text)  # a paste keeps its runs of spaces (security pass r2, M1)
+    left = WORDS_PER_STEP
     for sentence in _SENTENCE.split(text):
-        for found in itertools.islice(_KIND.finditer(sentence), WORDS_PER_SENTENCE):
+        if left <= 0:
+            break  # the rest of a step with this many wait words is not read
+        for found in itertools.islice(_KIND.finditer(sentence), min(WORDS_PER_SENTENCE, left)):
+            left -= 1
             kind = found.lastgroup or "rest"
             near = sentence[max(found.start() - 4, 0) : found.end() + NEAR_CHARS]
             if kind == "rest" and _NOT_A_WAIT.search(near):

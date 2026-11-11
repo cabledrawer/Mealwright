@@ -300,3 +300,21 @@ def test_a_hostile_page_of_wait_words_is_read_quickly() -> None:
 def test_a_length_far_after_its_wait_word_is_not_its_length() -> None:
     assert read_wait("Marinate " + "the chicken well " * 30 + "for 4 hours.") is None
     assert read_wait("Marinate the chicken for 4 hours.") == Wait("marinate", 240, 240, False)
+
+
+def test_only_the_first_ten_wait_words_of_a_step_are_read() -> None:
+    """Release 0.8.0-beta.1 security r3 L1: a step of many sentences, each with a wait word,
+    read every one of them. Ten are read for a step: the first ones still count, and a
+    page of thousands of them is read quickly."""
+    import time
+
+    assert read_wait("Soak the beans for 8 hours. " + "Rest 1. " * 500) == Wait(
+        "soak", 480, 480, False
+    )
+    ten = "Rest 1. " * 9  # nine wait words with no length, then the tenth is read
+    assert read_wait(ten + "Marinate for 4 hours.") == Wait("marinate", 240, 240, False)
+    assert read_wait(ten + "Rest 1. " + "Marinate for 4 hours.") is None  # the eleventh is not
+    started = time.process_time()
+    for _ in range(200):
+        read_wait("Rest 1. " * 5000 + "Marinate for 4 hours.")
+    assert time.process_time() - started < 2.0
