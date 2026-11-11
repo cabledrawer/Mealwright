@@ -26,6 +26,7 @@ import type { CountedAs, FoodRow, Pints, Ref } from './client/types';
 import { newChangeId } from './changeId';
 import { toasts } from './toast.svelte';
 import { undoHistory, type UndoEntry } from './undo.svelte';
+import { renamedLine } from './importRename';
 import { MOST_STEPS, splitStep } from './importSteps';
 import { unitFor } from './recipeAmounts';
 import { activeTime, sumWaits, type StepWait } from './timeWords';
@@ -441,6 +442,24 @@ export class ImportFlow {
   }
 
   /** "Same as Onions" on a line that is to confirm (its best guess) or one picked from the list. */
+  /** Edit the name read (F214): the line takes the corrected name, any choice on it goes, and it
+   *  is matched again by that name (`importRename.ts`). False when the name is empty. */
+  async renameLine(
+    index: number,
+    name: string,
+    find: (query: string) => Promise<FoodRow[]>
+  ): Promise<boolean> {
+    const line = this.review?.lines[index];
+    if (!line || line.kind !== 'ingredient' || !name.trim()) return false;
+    const patch = await renamedLine(line, name, find);
+    // The review moved on while the lookup was out (a line removed or added): the same line only.
+    if (this.review?.lines[index] !== line) return true;
+    this.unchoose(index);
+    Object.assign(line, patch);
+    this.saveProblem = null;
+    return true;
+  }
+
   sameAs(index: number, food: Ref): void {
     const choice: Choice = { kind: 'ingredient', food, learn: true };
     this.choose(index, choice);

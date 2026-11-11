@@ -480,7 +480,8 @@ describe('One at a time', () => {
       expect(flow.choices[1]).toMatchObject({ kind: 'ingredient', food: { id: 2 } });
       // The line stays in the walk: Next still goes on to the second.
       await expect.element(page.getByText('Same as', { exact: true })).toBeVisible();
-      await page.getByRole('button', { name: 'Change', exact: true }).click();
+      await page.getByRole('button', { name: /^Change: / }).click();
+      await page.getByRole('button', { name: 'Back to how it was read' }).click();
       expect(flow.choices[1]).toBeUndefined();
     });
 

@@ -19,7 +19,9 @@
   import NewPlace, { NEW_PLACE } from '#lib/components/NewPlace.svelte';
   import Switch from '#lib/components/Switch.svelte';
   import type { LinePick } from './PickLine.svelte';
+  import ChangeLine from './ChangeLine.svelte';
   import OwnRecipeHead from './OwnRecipeHead.svelte';
+  import { listFoods } from '#lib/client/foods.js';
   import type { ReviewLine } from '#lib/client/imports.js';
   import type { CountedAs, Ref } from '#lib/client/types.js';
   import { readAmount } from '#lib/importAmount.js';
@@ -41,6 +43,9 @@
   /** " · US pints" after a line that says pints: which pint it is read with. */
   const pintWords = $derived(line.pint_ml ? ` · ${flow.pints === 'us' ? 'US' : 'UK'} pints` : '');
   let picking = $state(false);
+  /** Change (F214): the sheet under the row is open, and its Pick an ingredient list. */
+  let changing = $state(false);
+  let changePicking = $state(false);
   /** The pick-list starts with recipes only ("Made in another recipe"). */
   let pickingRecipes = $state(false);
   /** The New ingredient form: where it comes from (F188), the recipe picked and where kept. */
@@ -222,6 +227,30 @@
     );
     back?.focus();
     opener = null;
+  }
+
+  function openChange() {
+    picking = false;
+    splitting = false;
+    changePicking = false;
+    changing = !changing;
+  }
+
+  /** Change's Pick an ingredient: the same pick-list, for any row. A pick replaces what the row
+   *  had; Cancel leaves the row as it was. */
+  function changePick(picked: LinePick) {
+    changePicking = false;
+    changing = false;
+    pick(picked);
+  }
+
+  /** Change's Edit the name read: the corrected name is matched again (F214). */
+  async function changeName(typed: string): Promise<boolean> {
+    const ok = await flow.renameLine(index, typed, (q) =>
+      listFoods({ q, limit: 8 }).then((list) => list.foods)
+    );
+    if (ok) changing = false;
+    return ok;
   }
 
   function makeNew(staple: boolean) {
@@ -756,6 +785,40 @@
           </p>
         {/if}
 
+        {#if changing}
+          {#if changePicking}
+            {#await import('./PickLine.svelte') then { default: PickLine }}
+              <PickLine
+                written={line.written}
+                words={line.words}
+                onpick={changePick}
+                onnew={() => {
+                  changePicking = false;
+                  changing = false;
+                  makeNew(false);
+                }}
+                oncancel={() => (changePicking = false)}
+              />
+            {/await}
+          {:else}
+            <ChangeLine
+              {name}
+              words={line.words}
+              chosen={!!choice}
+              onpick={() => (changePicking = true)}
+              onnew={() => {
+                changing = false;
+                makeNew(false);
+              }}
+              onname={changeName}
+              onback={() => {
+                changing = false;
+                flow.unchoose(index);
+              }}
+              oncancel={() => (changing = false)}
+            />
+          {/if}
+        {/if}
         {#if open && !choice}
           {#if picking}
             {#await import('./PickLine.svelte') then { default: PickLine }}
@@ -822,12 +885,9 @@
             {/if}
           {/if}
         {/if}
-        {#if choice && !formOpen}
+        {#if made && !formOpen}
           <p class="buttons">
-            {#if made}
-              <button type="button" class="chip" onclick={() => (formOpen = true)}>Edit</button>
-            {/if}
-            <button type="button" class="chip" onclick={() => flow.unchoose(index)}>Change</button>
+            <button type="button" class="chip" onclick={() => (formOpen = true)}>Edit</button>
           </p>
         {/if}
         <!-- Optional (R3, F151): "(optional)" in the line, or under "For serving", switches it on;
@@ -862,6 +922,13 @@
             <Icon name="check" size={14} stroke={2.6} />{line.place ?? 'In your ingredients'}
           {/if}
         </span>
+        <button
+          type="button"
+          class="remove"
+          aria-expanded={changing}
+          aria-label="Change: {line.written}"
+          onclick={openChange}>Change</button
+        >
         <button
           type="button"
           class="remove"

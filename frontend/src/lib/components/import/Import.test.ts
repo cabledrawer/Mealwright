@@ -384,7 +384,8 @@ describe('Import a recipe', () => {
       await expect
         .element(page.getByText('Adds “red onion” as another name for Onions when you save.'))
         .toBeVisible();
-      await page.getByRole('button', { name: 'Change' }).click();
+      await page.getByRole('button', { name: 'Change: 1 red onion, sliced' }).click();
+      await page.getByRole('button', { name: 'Back to how it was read' }).click();
       expect(flow.choices[1]).toBeUndefined();
     });
 
