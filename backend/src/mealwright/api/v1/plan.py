@@ -1194,10 +1194,16 @@ def change_meal_slot(
     def make() -> Change | None:
         slot = plan.find_slot(kitchen, plan_slot_id, on=False)
         change = None
-        if body.name is not None:
-            change = plan.rename_slot(kitchen, slot, body.name)
-        if body.enabled is not None:
-            change = plan.set_slot(kitchen, slot, body.enabled) or change
+        key = kitchen.idempotency_key
+        kitchen.key_once = True  # the first change recorded takes the key, the other carries none
+        try:
+            if body.name is not None:
+                change = plan.rename_slot(kitchen, slot, body.name)
+            if body.enabled is not None:
+                change = plan.set_slot(kitchen, slot, body.enabled) or change
+        finally:
+            kitchen.key_once = False
+            kitchen.idempotency_key = key  # for commit(), if it loses a race
         return change
 
     return _run(kitchen, response, make, keep_key=True)

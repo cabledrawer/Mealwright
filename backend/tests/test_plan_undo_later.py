@@ -173,3 +173,19 @@ def test_a_tub_edit_of_two_fields_puts_back_the_one_not_changed_since(
     assert result["result"] == "partly"
     now = view(kitchen)["tubs"][0]
     assert (now["use_by"], now["member_login_id"]) == (tub["use_by"], 1)
+
+
+def test_renaming_and_hiding_a_meal_slot_in_one_call_with_a_key_applies_both_and_replays(
+    kitchen: TestClient, slots: dict[str, int]
+) -> None:
+    url = f"{API}/meal-slots/{slots['Dinner']}"
+    headers = {"Idempotency-Key": "slot-both-1"}
+    body = {"name": "Supper", "enabled": False}
+    first = kitchen.patch(url, json=body, headers=headers)
+    assert first.status_code == 200, first.text
+    again = kitchen.patch(url, json=body, headers=headers)
+    assert again.status_code == 200, again.text
+    assert again.headers.get("Idempotent-Replayed") == "true"
+    now = next(s for s in kitchen.get(f"{API}/meal-slots").json() if s["id"] == slots["Dinner"])
+    assert now["name"] == "Supper"
+    assert now["enabled"] is False

@@ -5,6 +5,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { CHECK_MODE_STORAGE_KEY, checkMode } from '#lib/checkMode.svelte.js';
+import { kitchen } from '#lib/freshness.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { phoneDatabaseName, setMeta } from '#lib/offline/phone.js';
 import { SIGN_OUT_PENDING_KEY, signOutPending } from '#lib/offline/signOutPending.js';
@@ -404,6 +405,20 @@ describe('the pint switch (Amounts)', () => {
     expect(requests.filter((r) => r.method === 'PATCH').map((r) => r.body)).toEqual([
       { pints: 'us' }
     ]);
+  });
+
+  it('shows UK again after an Undo of the change to US pints', async () => {
+    fakeApi({
+      'GET /household': [200, household('uk')],
+      'PATCH /household': [200, household('us')]
+    });
+    open();
+    await pints().click();
+    await expect.element(pints()).toBeChecked();
+    // Recent changes undoes it: the server says UK again, and the page is told.
+    fakeApi({ 'GET /household': [200, household('uk')] });
+    kitchen.changed({ elsewhere: true });
+    await expect.element(pints()).not.toBeChecked();
   });
 
   it('shows US pints as on', async () => {

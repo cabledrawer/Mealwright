@@ -98,13 +98,16 @@
     }
   }
 
-  function readPints() {
-    readKitchen();
-    void batchCook.load();
+  function readPint() {
     getHousehold().then(
       (household) => (pints = household.pints),
       () => {} // offline or unreachable: the row stays hidden, the rest of Settings still works
     );
+  }
+  function readPints() {
+    readKitchen();
+    void batchCook.load();
+    readPint();
   }
   onMount(readPints);
   // An Undo from Recent changes (or the toast) may have put the Batch cook switch or the kitchen's
@@ -115,6 +118,7 @@
     undoneSeen = kitchen.elsewhere;
     readKitchen();
     void batchCook.load();
+    readPint();
   });
   // Opened offline: the row shows once the connection comes back.
   let seen = network.backAgain;
