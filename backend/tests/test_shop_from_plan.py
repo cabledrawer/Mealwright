@@ -488,7 +488,9 @@ def plan_meals(kitchen: TestClient) -> list[int]:
         return list(session.scalars(select(Meal.id)))
 
 
-def test_a_ticked_item_is_never_changed(kitchen: TestClient, rice: dict[str, Any]) -> None:
+def test_a_ticked_item_is_never_changed_and_what_is_still_lacking_is_one_new_line(
+    kitchen: TestClient, rice: dict[str, Any]
+) -> None:
     sambar = recipe(kitchen, "Sambar", line(rice["id"], 200, "g"))
     plan(kitchen, sambar)
     item = plan_lines(kitchen)[0]["id"]
@@ -496,10 +498,14 @@ def test_a_ticked_item_is_never_changed(kitchen: TestClient, rice: dict[str, Any
     plan(kitchen, sambar, 2)
     plan(kitchen, sambar, 3)
     rows = plan_lines(kitchen)
-    # The 200 g bought is now in the pantry, so the plan needs 600 - 200 more, but the ticked
-    # line stays as it was and no second line is made for the same key.
-    assert [(r["id"], r["amount"]) for r in rows] == [(item, 200)]
+    # The 200 g bought is now in the pantry, so the plan needs 600 - 200 more. The ticked line
+    # stays as it was; the 400 g still lacking is one line to buy (RF2 Sh3, cabledrawer 11 Nov:
+    # this used to leave it off the list, and said "no second line" for the same key).
+    assert [(r["id"], r["amount"]) for r in rows if r["id"] == item] == [(item, 200)]
     assert rows[0]["ticks"][0]["standing"] is True
+    assert sorted(r["amount"] for r in rows) == [200, 400]
+    plan(kitchen, sambar, 4)  # 800 needed: the line to buy follows, still just one
+    assert sorted(r["amount"] for r in plan_lines(kitchen)) == [200, 600]
 
 
 def test_a_typed_item_is_never_touched_and_covers_the_need(

@@ -432,6 +432,10 @@ def removed_by_hand(kitchen: Kitchen, gone: ListItem, wanted: int | None) -> boo
     it stays removed (rule L-5). The plan's own removals don't count."""
     if gone.deleted_at is None:  # pragma: no cover (callers pass tombstones)
         return False
+    if gone.ticked_at is not None:
+        # Cleared after it was bought or found: the pantry has what it put in, so a need that is
+        # left over is a new line, not something a person turned down (RF2 Sh3).
+        return False
     days = kitchen.household.plan_ahead_days
     if as_utc(gone.deleted_at) < utcnow() - timedelta(days=days):
         return False
@@ -514,9 +518,21 @@ def plan_edits(kitchen: Kitchen, main: ShoppingList, worked: Worked) -> Edits:
         # one line still to buy beside it (what the pantry lacked when it was ticked, Sh1).
         bought = plan_live.get(key, [])
         mine = [i for i in bought if i.ticked_at is None]
+        if bought and not mine:
+            # Only bought (ticked) lines for this need. What they put in the pantry is already
+            # taken off the plan's sums, so whatever is still lacking is a line to buy again
+            # (RF2 Sh3: "Already have it" for part of it, and a plan that grew since).
+            if (
+                buy.amount_milli
+                and key not in covered
+                and not any(
+                    removed_by_hand(kitchen, gone, buy.amount_milli)
+                    for gone in plan_gone.get(key, ())
+                )
+            ):
+                edits.create.append(buy)
+            continue
         if bought:
-            if not mine:
-                continue
             first, *extras = mine
             for extra in extras:
                 if not extra.hand_edited and extra.ticked_at is None:
