@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from mealwright.auth import COOKIE, peek_session
+from mealwright.auth import peek_session, session_token
 from mealwright.events import Broadcaster, Event, Subscription
 from mealwright.models import Household
 
@@ -110,7 +110,7 @@ async def get_events(request: Request) -> StreamingResponse:
     """Live updates for open screens (Server-Sent Events, same server only)."""
     app: Any = request.app
     factory: sessionmaker[Session] = app.state.sessionmaker
-    token = request.cookies.get(COOKIE)
+    token = session_token(request)
 
     broadcaster: Broadcaster = app.state.events
 

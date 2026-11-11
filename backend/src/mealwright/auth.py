@@ -29,6 +29,7 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from pydantic import AfterValidator, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from mealwright.config import Settings
 from mealwright.errors import Problem
@@ -36,7 +37,14 @@ from mealwright.models import Login, Session, utcnow
 
 log = logging.getLogger(__name__)
 
-COOKIE = "mealwright_session"
+# The sign-in cookie's name (spec section 7, cabledrawer 19 Oct and 11 Nov). In https mode (the
+# default) it carries the `__Host-` prefix: browsers then accept it only over https, from this
+# exact host, with Path=/ and no Domain, so a site on another sub-domain can't set or replace
+# it. That can't work over plain http://, so plain-http mode (MEALWRIGHT_ALLOW_PLAIN_HTTP)
+# keeps the old name. In https mode the old name is ignored and cleared: everyone signs in
+# again once.
+COOKIE = "__Host-mealwright_session"
+PLAIN_COOKIE = "mealwright_session"
 REMEMBER_FOR = timedelta(days=30)
 IDLE_TIMEOUT = timedelta(hours=12)
 # The longest any sign-in lasts, however often it's used: the same as "Remember this
@@ -169,6 +177,15 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def cookie_name(settings: Settings) -> str:
+    return PLAIN_COOKIE if settings.allow_plain_http else COOKIE
+
+
+def session_token(request: Request) -> str | None:
+    """The sign-in token this request carries, under this mode's cookie name only."""
+    return request.cookies.get(cookie_name(request.app.state.settings))
+
+
 def start_session(
     db: DbSession, response: Response, settings: Settings, login: Login, remember: bool
 ) -> None:
@@ -189,7 +206,7 @@ def start_session(
     )
     login.last_sign_in_at = started
     response.set_cookie(
-        COOKIE,
+        cookie_name(settings),
         token,
         max_age=int(REMEMBER_FOR.total_seconds()) if remember else None,
         httponly=True,
@@ -200,11 +217,15 @@ def start_session(
 
 
 def end_session(db: DbSession, request: Request, response: Response, settings: Settings) -> None:
-    token = request.cookies.get(COOKIE)
+    token = session_token(request)
     if token:
         db.execute(delete(Session).where(Session.token_hash == _token_hash(token)))
     response.delete_cookie(
-        COOKIE, httponly=True, secure=not settings.allow_plain_http, samesite="lax", path="/"
+        cookie_name(settings),
+        httponly=True,
+        secure=not settings.allow_plain_http,
+        samesite="lax",
+        path="/",
     )
 
 
@@ -275,7 +296,7 @@ def same_origin(request: Request) -> None:
 
 
 def current(request: Request, db: Db) -> SignedIn:
-    found = find_session(db, request.cookies.get(COOKIE))
+    found = find_session(db, session_token(request))
     if found is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Please sign in.")
     return found
@@ -311,3 +332,38 @@ def needs_https(request: Request, settings: Settings) -> None:
 def client_address(request: Request) -> str:
     # ProxyHeadersMiddleware has already applied X-Forwarded-For, from trusted proxies only.
     return request.client.host if request.client else "unknown"
+
+
+class OldCookieMiddleware:
+    """In https mode, clear a sign-in cookie still under the old name (`mealwright_session`).
+
+    It's ignored everywhere (only `__Host-mealwright_session` signs in), so this only tidies the
+    browser. Added only in https mode: in plain-http mode the old name is the cookie in use.
+    """
+
+    _OLD = PLAIN_COOKIE.encode()
+    # The same attributes it was set with, so the browser matches and drops it.
+    _CLEAR = f"{PLAIN_COOKIE}=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=lax".encode()
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not self._has_old(scope):
+            await self.app(scope, receive, send)
+            return
+
+        async def send_clearing(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                message["headers"] = [*message.get("headers", []), (b"set-cookie", self._CLEAR)]
+            await send(message)
+
+        await self.app(scope, receive, send_clearing)
+
+    def _has_old(self, scope: Scope) -> bool:
+        for name, value in scope.get("headers", []):
+            if name == b"cookie":
+                for part in value.split(b";"):
+                    if part.strip().split(b"=", 1)[0] == self._OLD:
+                        return True
+        return False

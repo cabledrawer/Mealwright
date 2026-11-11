@@ -4,7 +4,8 @@
   // http:// address:
   //   - if the admin hasn't allowed it, say so before anyone types a password
   //     (the page hides its form);
-  //   - if the admin has allowed it for testing, show a clear warning.
+  //   - if the admin has allowed it for testing (plain-http mode), show a clear warning. The
+  //     note shows only in that mode: in https mode the page is refused instead.
   import type { Connection } from '#lib/session.svelte.js';
 
   let { kind }: { kind: Connection } = $props();
@@ -19,10 +20,12 @@
     </p>
   </div>
 {:else if kind === 'plain-allowed'}
+  <!-- Words from the 0.9 mockup Dark-SignIn09-Phone (cabledrawer 11 Nov: plain-http mode keeps the
+       old cookie name and shows a "not secure, this device only" note). -->
   <div class="notice allowed" role="status">
     <p>
-      This connection isn’t secure. Passwords travel unencrypted. Use only for testing on a network
-      you trust.
+      <strong>Not secure (plain http).</strong> Fine on this device on your own network. Other phones,
+      the installable app and offline shopping need https.
     </p>
   </div>
 {/if}
@@ -39,6 +42,10 @@
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
     line-height: 1.45;
+  }
+
+  strong {
+    font-weight: var(--weight-extrabold);
   }
 
   .title {

@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from mealwright.auth import COOKIE, HTTPS_NEEDED
+from mealwright.auth import COOKIE, HTTPS_NEEDED, PLAIN_COOKIE
 from mealwright.config import Settings
 from mealwright.main import create_app
 
@@ -78,8 +78,15 @@ def test_plain_http_allowed_for_testing(tmp_path: Path, caplog: pytest.LogCaptur
         assert lan.get("/api/v1/setup").json()["plain_http_allowed"] is True
         response = lan.post("/api/v1/setup", json=ADMIN)
         assert response.status_code == 201
-        assert "secure" not in response.headers["set-cookie"].lower()
+        set_cookie = response.headers["set-cookie"]
+        assert "secure" not in set_cookie.lower()
+        # Browsers refuse a `__Host-` cookie over plain http://, so this mode keeps the old
+        # name (cabledrawer 11 Nov).
+        assert set_cookie.startswith(f"{PLAIN_COOKIE}=")
+        assert COOKIE not in set_cookie
         assert lan.get("/api/v1/me").status_code == 200  # stays signed in
+        # The old name is the cookie in use here, so it's never cleared.
+        assert "set-cookie" not in lan.get("/api/v1/me").headers
 
 
 def test_plain_http_not_allowed_by_default(app: object) -> None:

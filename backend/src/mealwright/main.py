@@ -14,7 +14,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from mealwright import __version__, errors, events, jobs, migrate
 from mealwright.api.v1 import router as api_v1
-from mealwright.auth import SlowDown
+from mealwright.auth import OldCookieMiddleware, SlowDown
 from mealwright.config import Settings, get_settings
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.events import Broadcaster
@@ -116,6 +116,10 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
         script_hashes=inline_script_hashes(settings.frontend_dir),
         https=not settings.allow_plain_http,
     )
+    # In https mode a sign-in cookie under the old name is cleared (spec section 7: the
+    # `__Host-` name signs everyone out once).
+    if not settings.allow_plain_http:
+        app.add_middleware(OldCookieMiddleware)
     # Outermost: the visitor's real address and scheme from the reverse proxy's
     # X-Forwarded-For/-Proto headers, believed only from MEALWRIGHT_TRUSTED_PROXIES (off
     # by default). The sign-in slow-down counts per address, so it needs the real one.

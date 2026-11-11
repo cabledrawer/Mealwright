@@ -11,7 +11,7 @@ from sqlalchemy import select, update
 
 from mealwright import auth
 from mealwright.api.v1.account import how_long
-from mealwright.auth import COOKIE, IDLE_TIMEOUT, LONGEST_SIGN_IN, SlowDown, now
+from mealwright.auth import COOKIE, IDLE_TIMEOUT, LONGEST_SIGN_IN, PLAIN_COOKIE, SlowDown, now
 from mealwright.models import Login, Session
 
 ADMIN = {"name": "Tess", "username": "tess", "password": "kitchen-secret-2026"}
@@ -147,6 +147,28 @@ def test_the_other_tests_hash_cheaply(client: TestClient) -> None:
     assert stored.startswith("$argon2id$v=19$m=8,t=1,p=1$")
 
 
+def test_the_old_cookie_name_no_longer_signs_in_and_is_cleared(client: TestClient) -> None:
+    # The `__Host-` name signs everyone out once (spec section 7): a token under the old name is
+    # ignored, even a real one, and the browser is told to drop it.
+    set_up(client)
+    token = client.cookies[COOKIE]
+    client.cookies.clear()
+    response = client.get("/api/v1/me", headers={"Cookie": f"{PLAIN_COOKIE}={token}"})
+    assert response.status_code == 401
+    cleared = response.headers["set-cookie"]
+    assert cleared.startswith(f"{PLAIN_COOKIE}=;")
+    assert "max-age=0" in cleared.lower()
+    # With the new cookie as well, it still signs in, and the old one is still cleared.
+    both = client.get("/api/v1/me", headers={"Cookie": f"{PLAIN_COOKIE}=x; {COOKIE}={token}"})
+    assert both.status_code == 200
+    assert both.headers["set-cookie"].startswith(f"{PLAIN_COOKIE}=;")
+    # Nothing is cleared for a browser that doesn't have it.
+    assert (
+        "set-cookie"
+        not in client.get("/api/v1/me", headers={"Cookie": f"{COOKIE}={token}"}).headers
+    )
+
+
 # --- Signing in and out ----------------------------------------------------------------------
 
 
@@ -176,10 +198,15 @@ def test_wrong_password_and_unknown_user_look_the_same(client: TestClient) -> No
 
 def test_session_cookie_is_locked_down(client: TestClient) -> None:
     set_up(client)
-    header = cookie_header(client).lower()
+    header = cookie_header(client)
+    # `__Host-`: browsers accept it only over https, from this exact host, with Path=/ and no
+    # Domain, so another sub-domain can't set it (spec section 7).
+    assert header.startswith("__Host-mealwright_session=")
     assert header.startswith(f"{COOKIE}=")
+    header = header.lower()
     for part in ("httponly", "secure", "samesite=lax", "path=/"):
         assert part in header
+    assert "domain=" not in header
     assert "max-age" not in header  # forgotten when the browser closes
 
 

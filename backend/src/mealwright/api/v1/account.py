@@ -10,7 +10,6 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from mealwright.auth import (
-    COOKIE,
     MAX_PASSWORD,
     CurrentLogin,
     Db,
@@ -23,6 +22,7 @@ from mealwright.auth import (
     hash_password,
     needs_https,
     peek_session,
+    session_token,
     start_session,
 )
 from mealwright.household import add_default_places, add_default_slots
@@ -203,7 +203,7 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
 
 @router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)
 def sign_out(request: Request, response: Response, db: Db) -> None:
-    signed_in = peek_session(db, request.cookies.get(COOKIE))
+    signed_in = peek_session(db, session_token(request))
     end_session(db, request, response, request.app.state.settings)
     db.commit()
     if signed_in is not None:  # its open live-update streams end now

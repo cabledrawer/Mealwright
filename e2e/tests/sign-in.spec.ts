@@ -8,7 +8,7 @@ import { ADMIN, PORTS, insecure, local } from './servers.ts';
 const SECURE_NEEDED =
   'Signing in needs a secure connection. Open Mealwright at its https:// address, through your reverse proxy.';
 const PLAIN_WARNING =
-  "This connection isn’t secure. Passwords travel unencrypted. Use only for testing on a network you trust.";
+  'Not secure (plain http). Fine on this device on your own network. Other phones, the installable app and offline shopping need https.';
 
 const heading = (page: Page) => page.getByRole('heading', { level: 1 });
 
