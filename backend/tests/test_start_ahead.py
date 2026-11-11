@@ -982,3 +982,9 @@ def test_in_the_minutes_before_the_meal_there_is_no_start_time_to_offer_and_the_
 def test_a_meals_time_is_read_from_whole_words_of_its_slots_name(name: str, at: str) -> None:
     slot = models.MealSlot(name=name)
     assert start_ahead.clock_words(start_ahead.slot_time(slot)) == at
+
+
+def test_the_days_the_plan_is_read_past_its_edge_match_the_screens() -> None:
+    """H6: the longest start is ten days of wait and a day more: 11 (the Plan screen's
+    START_DAYS_AHEAD in plan.svelte.ts is the same number)."""
+    assert start_ahead.MOST_DAYS_AHEAD == 11

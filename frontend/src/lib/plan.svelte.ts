@@ -88,6 +88,10 @@ export type Planned =
     }
   | { ingredient: { id: number; name: string } };
 
+/** How many days past a screen's last day the plan is read, to find the starts that fall on it:
+ * the longest wait (ten days) and a day more. Same as the server's `MOST_DAYS_AHEAD`. */
+export const START_DAYS_AHEAD = 11;
+
 export class PlanModel {
   view = $state<PlanView>('week');
   /** Any day in the week or month on show. */
@@ -137,8 +141,13 @@ export class PlanModel {
       const first = this.days[0];
       const last = this.days.at(-1);
       if (!first || !last) return;
-      // Three days past the last: a recipe started the day before a meal at the edge shows too.
-      const [slots, plan] = await Promise.all([getMealSlots(), getPlan(first, addDays(last, 3))]);
+      // Past the last day as far as a start can reach (the server's `start_ahead.MOST_DAYS_AHEAD`,
+      // the same number Today reads): a recipe started on the last day for a meal up to ten
+      // days later shows too.
+      const [slots, plan] = await Promise.all([
+        getMealSlots(),
+        getPlan(first, addDays(last, START_DAYS_AHEAD))
+      ]);
       if (asked !== this.#asked) return; // something newer is on its way
       this.slots = slots;
       this.plan = plan;

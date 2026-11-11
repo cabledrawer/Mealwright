@@ -9,7 +9,7 @@ from fastapi import APIRouter, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import and_, exists, select
 
-from mealwright import plan
+from mealwright import plan, start_ahead
 from mealwright import today as answers
 from mealwright.api.v1.batches import PersonOut, TubLeftOut, get_tubs_left, list_people
 from mealwright.api.v1.context import Here
@@ -79,7 +79,9 @@ def get_today(kitchen: Here) -> TodayOut:
     plan_out = get_plan(
         kitchen,
         start=first - timedelta(days=answers.WAITING_DAYS),
-        end=first + timedelta(days=answers.DAYS_SHOWN_AHEAD - 1),
+        # As far on as a start can reach, so a long wait (up to ten days) is found on the day
+        # it is to be started (RF3, H6; the Plan reads the same number of days past its edge).
+        end=first + timedelta(days=max(answers.DAYS_SHOWN_AHEAD - 1, start_ahead.MOST_DAYS_AHEAD)),
     )
     left = get_tubs_left(kitchen, limit=200)
     lots = use_soon(kitchen)

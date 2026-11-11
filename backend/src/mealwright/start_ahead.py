@@ -30,6 +30,10 @@ from mealwright.models import Household, MealSlot, Recipe, RecipeMethod, RecipeS
 MIN_AHEAD_MINUTES = 4 * 60
 # The furthest back a start can be from its meal (the longest wait the recipe can hold).
 MOST_BEFORE = timedelta(minutes=step_waits.MAX_WAIT_MINUTES + 24 * 60)
+# How many days past a screen's last day the plan is read so that every start that falls on it is
+# found (a meal that far on can have its start on the screen's last day): the same for Today
+# and the Plan (RF3, H6). The frontend's `START_DAYS_AHEAD` (plan.svelte.ts) is this number.
+MOST_DAYS_AHEAD = MOST_BEFORE.days + (1 if MOST_BEFORE.seconds else 0)
 
 # The time a meal slot is eaten when nothing says (there is no setting for it yet: proposed, for
 # cabledrawer). Found by the slot's own name, by whole words ("Steak night" has no "tea" in it); a

@@ -888,3 +888,28 @@ def test_move_it_keeps_a_long_wait_that_was_already_started(
     )
     (copy,) = next(m for m in plan["meals"] if m["id"] == done["meal_id"])["items"]
     assert copy["ahead"]["started_time"] is not None
+
+
+def test_a_wait_of_more_than_a_week_still_gets_its_start_card_on_today(
+    kitchen: TestClient, slots: dict[str, int]
+) -> None:
+    """H6: Today read meals up to 6 days ahead, so a recipe that waits 8 or 9 days (a cure) and
+    is started today for a meal 9 days on had no Start card. The rule for Today and the Plan
+    alike: read as far past the edge as the longest start can reach (start_ahead.MOST_DAYS_AHEAD,
+    11 days)."""
+    cure = make(
+        kitchen,
+        "Cure lemons",
+        steps=[
+            {
+                "text": "Pack the lemons in salt and leave them.",
+                "wait": {"kind": "rest", "min_minutes": 8 * 1440, "max_minutes": 9 * 1440},
+            },
+            {"text": "Rinse and serve."},
+        ],
+    )
+    meal_day = ahead(kitchen, 9)
+    start = {"day": str(ahead(kitchen, 0)), "time": "23:00"}
+    added = plan_recipe(kitchen, cure["id"], meal_day, slots["Dinner"], start=start)
+    found = [m for m in get_today(kitchen)["plan"]["meals"] if m["id"] == added["meal_id"]]
+    assert found and found[0]["items"][0]["ahead"]["start_day"] == str(ahead(kitchen, 0))
