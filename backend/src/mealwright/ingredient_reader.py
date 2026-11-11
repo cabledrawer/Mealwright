@@ -262,7 +262,7 @@ _LEAD = re.compile(
 )
 BULLETS = "•*-▢☐□◦▪·✓✔○●■►▪ \t"
 _NO_AMOUNT = re.compile(
-    r"\b(?:(?:or|and|adjust)\s+)?(?:to\s+taste|as\s+(?:needed|required|desired|per\s+taste)"
+    r"\b(?:(?:or|and|adjust)\s+)?(?:(?:as\s+much|according)\s+)?(?:to\s+taste|as\s+(?:needed|required|desired|per\s+taste)"
     r"|if\s+(?:needed|desired|you\s+like)"
     r"|for\s+(?:the\s+)?(?:garnish|garnishing|serving|frying|deep\s+frying|dusting|decorating"
     r"|decoration|greasing|brushing|topping|drizzling|sprinkling|tempering|pan|tadka)"
@@ -541,6 +541,9 @@ def _second_measure(text: str, start: int) -> _Measure | None:
     return None
 
 
+_OR_MORE = re.compile(
+    r"\s*,?\s*or\s+(?:(?:a\s+(?:little|bit)\s+)?(?:more|less)|fewer)\b", re.IGNORECASE
+)
 _ABOUT = re.compile(r"(?:about|approx\.?|approximately|~)\s*", re.IGNORECASE)
 
 
@@ -817,6 +820,18 @@ _FRESHLY_GROUND = re.compile(
     r"\bfreshly\s+ground\b(?=\s+(?:black\s+|white\s+)?pepper)", re.IGNORECASE
 )
 _OR = re.compile(r"\s+or\s+", re.IGNORECASE)
+# What follows "or" when it only talks about the amount or how it is judged, never another food
+# (RF4 I4): "or more to taste", "or less", "or so", "or as much as needed", "or enough to cover",
+# "or according to taste", "or a little more", "or to your liking", "or whatever you like"...
+_AMOUNT_TALK = re.compile(
+    r"(?:more|less|fewer|so|about|approx(?:imately)?\.?|thereabouts|roughly|extra|enough"
+    r"|just\s+enough|as\s+(?:much|many|little|few|needed|required|desired|necessary|you\s+like"
+    r"|you\s+(?:wish|prefer|want)|per\s+taste|preferred)|according\s+to|to\s+your\s+\w+"
+    r"|to\s+taste|whatever|whichever|if\s+(?:needed|desired|you\s+like|preferred)"
+    r"|(?:a|an)\s+(?:little|bit|touch|tad|splash|pinch|dash|drop)\s+(?:more|less|extra)"
+    r"|(?:a|an)\s+(?:little|bit)\b)\b",
+    re.IGNORECASE,
+)
 
 
 def _with_shared_noun(first: str, last: str) -> str:
@@ -880,6 +895,7 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
     unit: str | None = None
     other: str | None = None
     second_used = False
+    or_more: str | None = None
     size_word: str | None = None
     quantity: str | None = None
     position = start
@@ -902,6 +918,11 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
             if second.metric and not measure.metric:
                 amount, unit, other = second.value, second.unit, None
             position = second.end
+        # "100 g or more cheese": the "or more" is a note, not the start of the name (RF4 I4).
+        or_more_at = _OR_MORE.match(work, position)
+        if or_more_at is not None:
+            or_more = _tidy(or_more_at.group())
+            position = or_more_at.end()
     else:
         article = _ARTICLE.match(work, start)
         word = _WORD.match(work, article.end() if article else start)
@@ -946,6 +967,8 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
     rest = work[position:] if (amount is not None or quantity is not None) else work[start:]
     notes: list[str] = []
 
+    if or_more is not None:
+        notes.append(or_more)
     rest, inside = _brackets(rest)
     # "((optional))": a bracket that holds only another bracket is that bracket (one pair only).
     inside = [_unwrapped(part) for part in inside]
@@ -1398,6 +1421,8 @@ def _with_alternative(
     if sides is None:
         return whole
     left_text, right_text = (side.strip(" ,;") for side in sides)
+    if _AMOUNT_TALK.match(right_text):
+        return whole  # "or more to taste", "or so": a note, not another food (RF4 I4)
     left = read_line(left_text, extra, pint_ml)
     right = read_line(right_text, extra, pint_ml)
     if not (left.readable and right.readable) or left.name == "" or _NO_AMOUNT.match(right_text):

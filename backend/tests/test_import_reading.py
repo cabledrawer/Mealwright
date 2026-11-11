@@ -8,6 +8,7 @@ import json
 from decimal import Decimal
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sync_kit import ok
 from test_recipe_import import API, Web, links_on, review, save, to_save, web  # noqa: F401
@@ -283,3 +284,78 @@ def test_fx6_a_matched_ghee_line_is_saved_linked_to_ghee(kitchen: TestClient) ->
     recipe = ok(kitchen.get(f"{API}/recipes/{saved['recipe']['id']}"))
     ghee = next(line for line in recipe["lines"] if "ghee" in line["words"].lower())
     assert ghee["link"] != "none", ghee
+
+
+# --- Whole-0.8 review fixes: the reader (RF4 I4 to I6, I9, the slash rule) -----------------------
+# Every line here is a reading the reviewer found wrong; each was read wrongly before the fix.
+
+# Endings that talk about the amount are a note, never another food (I4). Each: (line, the note).
+AMOUNT_ENDINGS = [
+    ("1 tsp chilli powder, or more to taste", "or more to taste"),
+    ("1 tsp chilli powder, or more if needed", "or more if needed"),
+    ("1 tsp chilli powder or more", "or more"),
+    ("2 cloves garlic, or less", "or less"),
+    ("1 cup yogurt or so", "or so"),
+    ("a dozen eggs or so", "or so"),
+    ("1 tsp salt or as much as needed", "or as much as needed"),
+    ("1 cup stock or enough to cover", "or enough to cover"),
+    ("1 tsp salt or according to taste", "or according to taste"),
+    # the same kind of phrase, found by sweeping the reader for "or ..." endings
+    ("1 tbsp oil or a little more", "or a little more"),
+    ("1 tbsp oil or a bit less", "or a bit less"),
+    ("2 tbsp water or as needed", "or as needed"),
+    ("1 cup stock or as required", "or as required"),
+    ("1 tsp sugar or to your liking", "or to your liking"),
+    ("1 tsp sugar or to your taste", "or to your taste"),
+    ("2 tbsp oil or thereabouts", "or thereabouts"),
+    ("1 cup milk or about", "or about"),
+    ("1 cup milk or fewer", "or fewer"),
+    ("1 tsp salt or whatever you like", "or whatever you like"),
+    ("1 tsp salt or as desired", "or as desired"),
+    ("1 tsp salt or as you like", "or as you like"),
+    ("1 cup milk or just enough to cover", "or just enough to cover"),
+]
+
+
+@pytest.mark.parametrize(("text", "note"), AMOUNT_ENDINGS)
+def test_i4_an_ending_about_the_amount_is_a_note_and_not_another_ingredient(
+    text: str, note: str
+) -> None:
+    (line,) = read_lines(text)
+    assert line.alternative is None, text
+    assert line.note is not None and note in line.note, (text, line.note)
+    assert line.name.split()[0] not in ("more", "less", "so", "as", "enough", "according")
+
+
+def test_i4_a_real_other_choice_after_or_is_still_an_alternative() -> None:
+    for text, other in (
+        ("1 tsp salt or pepper", "pepper"),
+        ("1 cup stock or water", "water"),
+        ("1 tbsp ghee or butter", "butter"),
+    ):
+        (line,) = read_lines(text)
+        assert line.alternative is not None and line.alternative.name == other, text
+
+
+def test_i4_or_more_straight_after_an_amount_is_a_note_not_part_of_the_name() -> None:
+    for text, name in (("100 g or more cheese", "cheese"), ("2 cups or more spinach", "spinach")):
+        (line,) = read_lines(text)
+        assert (line.name, line.alternative) == (name, None), text
+        assert line.note is not None and "or more" in line.note, text
+
+
+def test_slash_without_amounts_stays_other_names() -> None:
+    for text, name, other in (
+        ("hing / asafoetida", "hing", "asafoetida"),
+        ("1 tsp cumin/jeera", "cumin", "jeera"),
+        ("2 tbsp ghee / oil", "ghee", "oil"),
+    ):
+        (line,) = read_lines(text)
+        assert line.alternative is None and line.name == name, text
+        assert other in line.other_names, text
+
+
+def test_slash_that_is_a_second_measure_or_a_fraction_is_not_an_or() -> None:
+    for text in ("1 cup / 240 ml milk", "1/2 tsp salt", "1 1/2 cups rice", "500g/1lb beef mince"):
+        (line,) = read_lines(text)
+        assert line.alternative is None, text
