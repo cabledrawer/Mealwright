@@ -999,7 +999,7 @@ Words from the mockup `Dark-RecipesTags08-Phone` are agreed; the rest are propos
 - **Its toast, with Undo (proposed, for cabledrawer):** **Used “flat bread” instead of “shrak”**. Using the other choice again swaps back.
 - The saved line keeps the other choice as its note (**or 2 medium size flat bread or tortillas**): no new word, no database change.
 
-## 61. Check and Import screens (0.8 IM2, F211, F212, F214, F209, F216; cabledrawer 10 Nov; only the five button names Back to drafts, Discard draft, Change, Next draft and the quick-import button's job are cabledrawer's; every other word here is proposed, for cabledrawer)
+## 61. Check and Import screens (0.8 IM2, F211, F212, F214, F209, F216; cabledrawer 10 Nov; only the button names Back to drafts, Discard draft, Change and Next draft are cabledrawer's; every other word here is proposed, for cabledrawer)
 
 - **Leaving Check (F211):** **Back to drafts** (computer: replaces Cancel; phone Focus: replaces Close, with the small line **Kept in Drafts**; One at a time: the X's spoken label **Back to drafts (kept in Drafts)**, was **Close (kept in Drafts)**) and **Discard draft**.
 - **Discard draft asks once:** **Discard this draft?** · **Sambar will be deleted from Drafts, with its waiting photo. You can undo it from Recent changes.** (a review not kept yet: **Sambar isn’t kept in Drafts yet, so nothing of it is kept. Its waiting photo is deleted.**) · **Discard draft** (**Discarding…**) · **Keep checking**. The toast is the Drafts list's own: **Deleted the Sambar draft** with Undo. A delete that fails says the server's sentence under the buttons.
