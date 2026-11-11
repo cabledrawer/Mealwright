@@ -151,6 +151,28 @@ def brief(draft: ImportDraft, now: datetime | None = None) -> DraftBrief:
     )
 
 
+LIST_READS = 200
+"""How many waiting lines one Drafts list may read again, across all drafts (release security
+pass, part 3): opening the app asks for the list, so it must stay quick however many drafts
+and lines are waiting. Opening a draft still reads every line."""
+LIST_READ_CHARS = 200
+"""A waiting line longer than this is not read again for the list (an ingredient line is
+far shorter); opening the draft reads it."""
+
+
+class ReadBudget:
+    """The lines the Drafts list may still read again."""
+
+    def __init__(self, lines: int = LIST_READS) -> None:
+        self.left = lines
+
+    def take(self, written: str) -> bool:
+        if self.left <= 0 or len(written) > LIST_READ_CHARS:
+            return False
+        self.left -= 1
+        return True
+
+
 def listing(kitchen: Kitchen) -> list[DraftBrief]:
     """The household's drafts, the one changed last first. A draft with ingredients still
     waiting is counted as opening it would find it (RF4 I7): one that another draft has made
@@ -165,6 +187,7 @@ def listing(kitchen: Kitchen) -> list[DraftBrief]:
         )
     )
     given: list[tuple[int, str, Ref]] | None = None
+    budget = ReadBudget()
     briefs = []
     for draft in rows:
         out = brief(draft, now)
@@ -177,7 +200,7 @@ def listing(kitchen: Kitchen) -> list[DraftBrief]:
             except ValueError:
                 briefs.append(out)
                 continue
-            review, choices = rematch(kitchen, review, choices, draft.id, given)
+            review, choices = rematch(kitchen, review, choices, draft.id, given, budget)
             review, choices = freshen(kitchen, review, choices)
             total, checked = _progress(review, choices)
             out = out.model_copy(update={"lines_total": total, "lines_checked": checked})
@@ -249,6 +272,7 @@ def rematch(
     choices: DraftChoices,
     draft_id: int,
     given: list[tuple[int, str, Ref]] | None = None,
+    budget: ReadBudget | None = None,
 ) -> tuple[ImportReview, DraftChoices]:
     """Bring a draft's matches up to date with the ingredients as they are now, without changing
     anything stored (F213, F215; cabledrawer 10 Nov).
@@ -259,9 +283,10 @@ def rematch(
     the ingredients as they are today; a line the person set to a *new* ingredient whose name now
     exists is set to that ingredient instead; and a line that another waiting draft was told
     "Same as X" takes the same answer. `given`: those answers, when the caller has them already
-    (the Drafts list asks for every draft at once)."""
+    (the Drafts list asks for every draft at once). `budget`: the Drafts list reads only so
+    many waiting lines again (see `LIST_READS`); a line past it keeps its stored match."""
     from mealwright import recipe_import
-    from mealwright.ingredient_match import kitchen_of
+    from mealwright.ingredient_match import KitchenFood, kitchen_of
     from mealwright.pints import PINT_ML
 
     waiting = [
@@ -279,10 +304,11 @@ def rematch(
     ingredients = kitchen_of(kitchen.db, kitchen.household_id)
     lines = list(review.lines)
     kept = dict(choices.lines)
+    by_name: dict[str, KitchenFood] = {}
+    for food in ingredients.foods:
+        by_name.setdefault(fold(food.name), food)
     for index in new_choices:
-        owner = next(
-            (f for f in ingredients.foods if fold(f.name) == fold(kept[index].name or "")), None
-        )
+        owner = by_name.get(fold(kept[index].name or ""))
         if owner is not None:
             kept[index] = DraftChoice(kind="ingredient", food=Ref(id=owner.id, name=owner.name))
     places = recipe_import._food_places(kitchen)
@@ -292,8 +318,10 @@ def rematch(
         if index in kept:
             continue
         line = lines[index]
-        found = recipe_import._lines(ingredients, places, line.written, False, pint_ml)
-        fresh = _same_reading(line, [read for read, _pints in found])
+        fresh = None
+        if budget is None or budget.take(line.written):
+            found = recipe_import._lines(ingredients, places, line.written, False, pint_ml)
+            fresh = _same_reading(line, [read for read, _pints in found])
         if fresh is not None:
             moved = fresh.label in ("matched", "staple") or (
                 fresh.label == "to_confirm" and line.label == "needs_you"

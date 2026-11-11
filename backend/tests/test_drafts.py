@@ -1562,3 +1562,44 @@ def test_the_list_counts_a_draft_as_opening_it_would_find_it(
         sum(1 for line in opened["lines"] if line["label"] in ("matched", "staple")),
     )
     assert (after["lines_total"], after["lines_checked"]) == (total, checked)
+
+
+def test_the_list_reads_a_limited_number_of_short_waiting_lines_again(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Release security pass part 3, M: the Drafts list read every waiting line of every draft
+    again (50 drafts of 200 long lines took seconds). It now reads at most LIST_READS short
+    lines per request; opening a draft still reads every line."""
+    from mealwright import recipe_import
+
+    shown = review(kitchen, PASTED)
+    template = next(line for line in shown["lines"] if line["kind"] == "ingredient")
+    lines = []
+    for index in range(120):
+        line = dict(template)
+        written = f"1 cup nomatch{index} thing"
+        if index == 0:
+            written = "1 cup " + "very long words " * 20
+        line.update(
+            written=written,
+            words=f"nomatch{index}",
+            label="needs_you",
+            readable=True,
+            food=None,
+            alternative=None,
+        )
+        lines.append(line)
+    shown["lines"] = lines
+    for _ in range(3):
+        kept(kitchen, shown)
+    read: list[str] = []
+    real = recipe_import._lines
+
+    def counted(*args: Any, **more: Any) -> Any:
+        read.append(args[2])
+        return real(*args, **more)
+
+    monkeypatch.setattr(recipe_import, "_lines", counted)
+    assert len(listed(kitchen)) == 3
+    assert 0 < len(read) <= 200
+    assert all(len(written) <= 200 for written in read)
