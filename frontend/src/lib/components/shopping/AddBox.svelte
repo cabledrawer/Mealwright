@@ -5,6 +5,7 @@
   import type { FoodRow } from '#lib/client/types.js';
   import type { FoodSize, ShopFood } from '#lib/shopping/types.js';
   import { packParts, usualSize } from '#lib/shopping/packLine.js';
+  import { rankMatches } from '#lib/shopping/search.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
   import {
     countedAsFor,
@@ -46,6 +47,8 @@
   let namedWhole = $state('');
   const split = $derived(raw && namedWhole !== whole ? raw : null);
   const typed = $derived(split ? split.name : whole);
+  /** The matches, with the name typed exactly (or its plural) first (F224). */
+  const ranked = $derived(rankMatches(found, typed));
   const exact = $derived(
     found.some((f) => f.name.toLocaleLowerCase() === typed.toLocaleLowerCase())
   );
@@ -152,10 +155,9 @@
   }
 
   // --- Add as bought (F117) ------------------------------------------------------------------
-  /** The best match gets "Add as bought" too: exactly the name typed, else the first. */
-  const top = $derived(
-    found.find((f) => f.name.toLocaleLowerCase() === typed.toLocaleLowerCase()) ?? found[0]
-  );
+  /** The best match gets "Add as bought" too (F224: also when it is on the list already, where
+   * it adds its own bought line and the unticked one stays to buy). */
+  const top = $derived(ranked[0]);
   /** "Straight into the pantry · 1 jar (500 g) → Cupboard" */
   let boughtHint = $state('');
   $effect(() => {
@@ -298,8 +300,7 @@
   function submit(event: SubmitEvent) {
     event.preventDefault();
     if (!typed || answeredFor !== whole) return; // the matches are still on their way
-    const first =
-      found.find((f) => f.name.toLocaleLowerCase() === typed.toLocaleLowerCase()) ?? found[0];
+    const first = ranked[0];
     if (first) void pick(first);
     else if (typed) void create();
   }
@@ -360,7 +361,7 @@
     </div>
   {/if}
   <ul id="{uid}-list" aria-label="Matching ingredients">
-    {#each found as food (food.id)}
+    {#each ranked as food (food.id)}
       <li>
         <button type="button" onclick={() => void pick(food)}>
           {food.name}{#if readAsFor(food)}<span class="also">&nbsp;· {readAsFor(food)}</span>{/if}
@@ -370,7 +371,7 @@
         </button>
       </li>
     {/each}
-    {#if top && answeredFor === whole && !model.lineFor(top.id)}
+    {#if top && answeredFor === whole}
       <li class="bought-row">
         <button
           type="button"

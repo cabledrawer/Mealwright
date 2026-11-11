@@ -356,3 +356,21 @@ test('F198: Add as bought twice for one ingredient is one trolley row, and untic
   await expect(page.getByRole('checkbox', { name: `Untick ${name}`, exact: true })).toHaveCount(0);
   await expect(page.getByRole('checkbox', { name: `Tick ${name}`, exact: true }).first()).toBeVisible();
 });
+
+test('F224: Add as bought is offered for an ingredient already on the list: a separate bought line, the unticked one stays', async ({ page }) => {
+  const name = `Onions ${tag()}`;
+  const power = `Onion powder ${tag()}`;
+  await onList(page, name, { grams: 800 });
+  await onList(page, power, { listed: false });
+  await open(page);
+  // The name on the list is offered, with Add as bought (not an ingredient that only starts the same).
+  await page.getByRole('textbox', { name: 'Add an item' }).fill(name);
+  const bought = page.getByRole('button', { name: 'Add as bought' });
+  await expect(bought).toContainText('Straight into the pantry');
+  await bought.click();
+  await expect(page.getByRole('status').filter({ hasText: name })).toBeVisible();
+  // The line still to buy stays on the list; the bought one is its own row in the trolley.
+  await expect(page.getByRole('checkbox', { name: `Tick ${name}`, exact: true })).toBeVisible();
+  await openTrolleyOf(page);
+  await expect(page.getByRole('checkbox', { name: `Untick ${name}`, exact: true })).toHaveCount(1);
+});

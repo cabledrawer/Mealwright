@@ -56,3 +56,24 @@ export function searchCopy(copy: ShoppingCopy, text: string, limit = 8): FoodRow
       }))
   );
 }
+
+/**
+ * The matches the add box offers, best first (F224): the name typed exactly, then its plural or
+ * singular ("Onion" finds "Onions"), then the rest in the order they came ("Onion powder"). The
+ * server and the offline copy both list "Onion powder" before "Onions" (by name), which made
+ * "Onion" offer "Add as bought" for the powder. Stable: matches of one kind keep their order.
+ */
+export function rankMatches<T extends { name: string }>(found: T[], typed: string): T[] {
+  const needle = fold(typed);
+  if (!needle) return found;
+  const kind = (name: string): number => {
+    const folded = fold(name);
+    if (folded === needle) return 0;
+    const plural = (a: string, b: string) => a === `${b}s` || a === `${b}es`;
+    return plural(folded, needle) || plural(needle, folded) ? 1 : 2;
+  };
+  return found
+    .map((food, index) => ({ food, index, rank: kind(food.name) }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map(({ food }) => food);
+}

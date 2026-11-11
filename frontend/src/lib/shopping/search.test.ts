@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { food, sampleCopy } from '#lib/testing/fakeShopping.js';
-import { fold, searchCopy } from './search';
+import { fold, rankMatches, searchCopy } from './search';
 
 const copy = () => {
   const c = sampleCopy();
@@ -62,5 +62,37 @@ describe('searching the copy (the add box offline)', () => {
     const c = sampleCopy();
     for (let i = 0; i < 12; i++) c.foods.push(food(100 + i, `Rice ${i}`, 'dry_goods'));
     expect(searchCopy(c, 'rice')).toHaveLength(8);
+  });
+});
+
+describe('ranking the matches the add box offers (F224)', () => {
+  const names = (rows: { name: string }[]) => rows.map((r) => r.name);
+
+  it('puts the name typed first, then its plural, then the rest in their order', () => {
+    const rows = [
+      { name: 'Onion powder' },
+      { name: 'Onion rings' },
+      { name: 'Onions' },
+      { name: 'Onion' }
+    ];
+    expect(names(rankMatches(rows, 'onion'))).toEqual([
+      'Onion',
+      'Onions',
+      'Onion powder',
+      'Onion rings'
+    ]);
+  });
+
+  it('finds the singular when the plural is typed, and ignores capitals and accents', () => {
+    const rows = [{ name: 'Onion powder' }, { name: 'Onion' }];
+    expect(names(rankMatches(rows, 'Onions'))).toEqual(['Onion', 'Onion powder']);
+    expect(
+      names(rankMatches([{ name: 'Jalapeño chilli' }, { name: 'Jalapeno' }], 'JALAPENO'))
+    ).toEqual(['Jalapeno', 'Jalapeño chilli']);
+  });
+
+  it('leaves the order alone when nothing is an exact or plural match', () => {
+    const rows = [{ name: 'Tahini paste' }, { name: 'Tahini dressing' }];
+    expect(rankMatches(rows, 'tahini')).toEqual(rows);
   });
 });

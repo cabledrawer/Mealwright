@@ -123,13 +123,52 @@ describe('Shopping on the phone', () => {
       expect(server.actions[3]!.undoes).toBe(server.actions[0]!.id);
     });
 
-    it('is not offered for an ingredient already on the list (its own line has a tick)', async () => {
+    it('is offered for an ingredient already on the list: its own bought line, the unticked one stays (F224)', async () => {
       await render({ 'GET /foods?q=yoghurt&limit=8': found([{ id: 3, name: 'Yoghurt' }]) });
       await page.getByRole('textbox', { name: 'Add an item' }).fill('yoghurt');
-      await expect
-        .element(page.getByRole('button', { name: 'Yoghurt', exact: true }))
-        .toBeVisible();
-      expect(page.getByRole('button', { name: 'Add as bought' }).elements()).toEqual([]);
+      await page.getByRole('button', { name: 'Add as bought' }).click();
+      await vi.waitFor(() => expect(kinds()).toEqual(['add', 'tick']));
+      expect(server.actions[0]).toMatchObject({ kind: 'add', food_id: 3, as_bought: true });
+      expect(server.actions[0]!.item_id).not.toBe(
+        sampleCopy().items.find((i) => i.food_id === 3)!.id
+      );
+      // The line still to buy stays on the list.
+      await expect.element(page.getByRole('button', { name: /Yoghurt/ }).first()).toBeVisible();
+    });
+
+    it('offers the name typed before a longer name that starts with it ("Onion" before "Onion powder")', async () => {
+      await render({
+        'GET /foods?q=onion&limit=8': found([
+          { id: 41, name: 'Onion powder' },
+          { id: 40, name: 'Onions' }
+        ])
+      });
+      await page.getByRole('textbox', { name: 'Add an item' }).fill('onion');
+      const list = page.getByRole('list', { name: 'Matching ingredients' });
+      await expect.element(list.getByRole('button', { name: 'Onions' })).toBeVisible();
+      const names = list
+        .getByRole('listitem')
+        .elements()
+        .map((li) => li.textContent ?? '');
+      expect(names[0]).toMatch(/^Onions/);
+      await page.getByRole('button', { name: 'Add as bought' }).click();
+      await vi.waitFor(() => expect(kinds()).toEqual(['add', 'tick']));
+      expect(server.actions[0]).toMatchObject({ food_id: 40, as_bought: true });
+    });
+
+    it('works offline for an ingredient already on the list: an add as bought and a tick wait in the queue (F224)', async () => {
+      await saveCopy(null, applyChanges(null, { ...sampleCopy(), people: [], reset: true }));
+      vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+      mountShopping();
+      await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
+      await page.getByRole('textbox', { name: 'Add an item' }).fill('yoghurt');
+      await page.getByRole('button', { name: 'Add as bought' }).click();
+      await vi.waitFor(async () => {
+        const queue = (await readQueue()).map((e) => e.action);
+        expect(queue.map((a) => a.kind)).toEqual(['add', 'tick']);
+        expect(queue[0]).toMatchObject({ food_id: 3, as_bought: true });
+      });
+      await expect.element(page.getByRole('button', { name: /^In the trolley · 3/ })).toBeVisible();
     });
 
     it('works offline: an add and a tick wait in the queue, and the line is in the trolley', async () => {
