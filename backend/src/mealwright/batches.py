@@ -105,6 +105,31 @@ def really_cooked_on(kitchen: Kitchen, batch: BatchCook) -> date:
     return min(batch.cooked_on, today(kitchen.household, as_utc(record.cooked_at)))
 
 
+def tubs_early(
+    kitchen: Kitchen, batch_ids: set[int], meal_day: date, cooked_on: date
+) -> list[list[Any]]:
+    """Tubs of batches cooked before their meal's day: those still on the household's tub life
+    from the planned day count from the day cooked instead (a tub the person gave another date
+    is left). Returns [tub, was, now] for each, as a `tub_early` step has them."""
+    if cooked_on == meal_day or not batch_ids:
+        return []
+    changed: list[list[Any]] = []
+    for tub in kitchen.db.scalars(
+        select(Tub).where(Tub.household_id == kitchen.household_id, Tub.batch_id.in_(batch_ids))
+    ):
+        place = kitchen.db.get(Place, tub.place_id) if tub.place_id else None
+        if place is not None and place.household_id != kitchen.household_id:
+            place = None
+        kind = place.kind if place is not None and place.kind == "freezer" else "fridge"
+        if tub.use_by == tub_use_by(kitchen, kind, meal_day):
+            new_use_by = tub_use_by(kitchen, kind, cooked_on)
+            changed.append([tub.id, tub.use_by.isoformat(), new_use_by.isoformat()])
+            tub.use_by = new_use_by
+    if changed:
+        kitchen.db.flush()
+    return changed
+
+
 def next_colour(kitchen: Kitchen, day: date) -> str:
     """The first palette name no batch cooked within two weeks of this day is using."""
     used = set(

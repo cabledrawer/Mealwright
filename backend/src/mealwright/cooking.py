@@ -33,6 +33,7 @@ from mealwright import cooked, events, methods, plan
 from mealwright.amounts import checked, to_milli
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Answer
+from mealwright import batches as batch_tubs
 from mealwright.batches import batches_cooked_at, cook_batches_of, cook_item_of
 from mealwright.deduction import (
     Choice,
@@ -642,6 +643,19 @@ def _answered(kitchen: Kitchen, meal: Meal) -> bool:
     return False
 
 
+def count_tubs_early(kitchen: Kitchen, batch: BatchCook, change: Change) -> None:
+    """A batch cooked on its own before its meal's day: its tubs count from the day cooked, as
+    the session's Cooked it does (RF3 fix round 2). Undo puts them back."""
+    meal = kitchen.db.get(Meal, batch.cook_meal_id) if batch.cook_meal_id is not None else None
+    if meal is None or meal.household_id != kitchen.household_id:
+        return
+    cooked_on = min(meal.day, today(kitchen.household))
+    changed = batch_tubs.tubs_early(kitchen, {batch.id}, meal.day, cooked_on)
+    if changed:
+        change.undo_data = {**(change.undo_data or {}), "tub_early": changed}
+        kitchen.db.flush()
+
+
 def forget_record(kitchen: Kitchen, change: Change) -> None:
     """Undo of "Cooked it": the records go, so the items or batch can be cooked again (even
     when the Undo was only partly done). A meal that was Cooked is no longer, as a recipe of it
@@ -649,6 +663,9 @@ def forget_record(kitchen: Kitchen, change: Change) -> None:
     db, hid = kitchen.db, kitchen.household_id
     for step in reversed((change.undo_data or {}).get("methods", [])):
         methods.put_back(db, step)  # the way is "used last" as it was before (RF3, C10)
+    early = (change.undo_data or {}).get("tub_early")
+    if early:
+        batch_tubs.undo_step(kitchen, {"op": "tub_early", "tubs": early}, {})
     meal_ids: set[int] = set()
     for record in db.scalars(
         select(CookedRecord).where(

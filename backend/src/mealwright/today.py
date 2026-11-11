@@ -121,23 +121,8 @@ def _early_tubs(
 ) -> None:
     """A Cook once batch cooked before its day: its tubs, still on the household's tub life from
     the planned day, count from today instead (a tub the person gave another date is left)."""
-    cooked_on = cooking_day(kitchen, meal)
-    if cooked_on == meal.day or not batch_ids:
-        return
-    changed: list[list[Any]] = []
-    for tub in kitchen.db.scalars(
-        select(Tub).where(Tub.household_id == kitchen.household_id, Tub.batch_id.in_(batch_ids))
-    ):
-        place = kitchen.db.get(Place, tub.place_id) if tub.place_id else None
-        if place is not None and place.household_id != kitchen.household_id:
-            place = None
-        kind = place.kind if place is not None and place.kind == "freezer" else "fridge"
-        if tub.use_by == tub_use_by(kitchen, kind, meal.day):
-            new_use_by = tub_use_by(kitchen, kind, cooked_on)
-            changed.append([tub.id, tub.use_by.isoformat(), new_use_by.isoformat()])
-            tub.use_by = new_use_by
+    changed = batches.tubs_early(kitchen, batch_ids, meal.day, cooking_day(kitchen, meal))
     if changed:
-        kitchen.db.flush()
         steps.append({"op": "tub_early", "tubs": changed})
 
 

@@ -378,22 +378,25 @@ def cook_batch(
 ) -> CookedWrite:
     """Cooked it, for a batch cook: the ingredients are taken once, for the cook-day eaters
     and the tubs together. The tubs are the ones Cook once made. A second confirm is refused."""
-    return _confirm(
-        kitchen,
-        response,
-        lambda: cooking.confirm(
+
+    def make() -> Change:
+        batch = batches.find_batch(kitchen, plan_batch_id)
+        change = cooking.confirm(
             kitchen,
             [
                 cooking.batch_entry(
                     kitchen,
-                    batches.find_batch(kitchen, plan_batch_id),
+                    batch,
                     body.portions,
                     _choices(kitchen, body.choices, body.answers),
                 )
             ],
             body.answers,
-        ),
-    )
+        )
+        cooking.count_tubs_early(kitchen, batch, change)
+        return change
+
+    return _confirm(kitchen, response, make)
 
 
 @router.post("/plan/meals/{plan_meal_id}/cook", status_code=status.HTTP_201_CREATED)

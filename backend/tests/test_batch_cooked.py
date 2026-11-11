@@ -429,3 +429,31 @@ def test_a_task_says_when_its_step_is_optional(kitchen: TestClient) -> None:
     assert by_title["Fry the cashews for the top."] is True
     assert by_title["Garnish with coriander."] is True
     assert by_title["Simmer the rice for 15 minutes."] is False
+
+
+def test_one_recipe_cooked_on_its_own_ahead_counts_its_tubs_from_that_day(
+    kitchen: TestClient,
+) -> None:
+    """RF3 fix round 2: a recipe of a session cooked alone before the meal's day, then the
+    session's Cooked it: its tubs count from the day cooked, and its own Undo puts them back."""
+    from datetime import date, timedelta
+
+    from mealwright.models import Tub
+
+    session, batches = session_of(kitchen)
+    fridge = timedelta(days=3)
+
+    def use_bys(batch: int) -> set[date]:
+        with db_of(kitchen) as db:
+            return {t.use_by for t in db.scalars(select(Tub).where(Tub.batch_id == batch))}
+
+    solo, other = batches[0], batches[1]
+    assert use_bys(solo) == {D1 + fridge}
+    cooked = ok(kitchen.post(f"{API}/plan/batches/{solo}/cook", json={}), 201)["change"]
+    assert use_bys(solo) == {date.today() + fridge}
+    assert use_bys(other) == {D1 + fridge}
+    ok(kitchen.post(f"{API}/batch-cook/sessions/{session}/cook", json={}), 201)
+    assert use_bys(solo) == {date.today() + fridge}
+    assert use_bys(other) == {date.today() + fridge}
+    ok(kitchen.post(f"{API}/changes/{cooked['id']}/undo"))
+    assert use_bys(solo) == {D1 + fridge}
