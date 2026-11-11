@@ -992,3 +992,9 @@ Words from the mockup `Dark-RecipesTags08-Phone` are agreed; the rest are propos
 |---|---|---|
 | A date box (Cook review "Any left over? → Change", Change use-by date, Add to pantry's date, Another time, a tub's use by, Restocked) given a date that can't be a day (a stray six-digit year, year 6, 31 February) | **That date doesn’t look right. Pick another.** (two short sentences, error style) | proposed, for cabledrawer; `BAD_DATE` in `frontend/src/lib/dates.ts`; F220 |
 | Manage tags, the merge question for a tag with one recipe | Its 1 recipe **gets** “middle eastern” (plural: “Its 3 recipes get …”) | F221 (cabledrawer 10 Nov) |
+
+## 60. Reading "or" lines (0.8 IM1, F217; cabledrawer 10 Nov; the wording of the button is cabledrawer's own, "Use this instead"; the rest is proposed, for cabledrawer)
+
+- **On a Check row whose line says "or" (cabledrawer 10 Nov):** under the ingredient the row shows the other choice, **or 2 flat bread**, with the button **Use this instead**. (The button's words are cabledrawer's; "or" and the amount and name after it are proposed, for cabledrawer.)
+- **Its toast, with Undo (proposed, for cabledrawer):** **Used “flat bread” instead of “shrak”**. Using the other choice again swaps back.
+- The saved line keeps the other choice as its note (**or 2 medium size flat bread or tortillas**): no new word, no database change.
