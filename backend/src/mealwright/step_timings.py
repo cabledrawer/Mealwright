@@ -109,7 +109,9 @@ def times_in(text: str) -> int | None:
     """The minutes a step's own words give, added together ("fry 2 minutes, then simmer 10
     minutes" is 12; "10-15 minutes" is 15, the longer end so nothing is planned too early), or
     None when it names no time."""
-    text = _HOURS_MINUTES.sub(lambda m: f"{int(m[1]) * 60 + int(m[2])} minutes", text)
+    text = _HOURS_MINUTES.sub(
+        lambda m: f"{int(m[1]) * 60 + int(m[2])} minutes", step_waits.with_fractions(text)
+    )
     total = 0.0
     for found in _TIME.finditer(text):
         unit = found.group("bu") or found.group("au")

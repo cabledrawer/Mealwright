@@ -108,6 +108,31 @@ WORDS_PER_SENTENCE = 5  # a sentence with more wait words than this is not a rec
 WORDS_PER_STEP = 10  # nor a step with more than this in all (release 0.8.0-beta.1 security r3, L1)
 
 
+_FRACTION = re.compile(r"(?<![\d/])(?:(\d{1,3})\s+)?(\d{1,3})\s*/\s*(\d{1,3})(?![\d/])")
+_VULGAR = {"½": 0.5, "¼": 0.25, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3}
+_VULGAR_FRACTION = re.compile(r"(?:(\d{1,3})\s*)?([½¼¾⅓⅔])")
+
+
+def _number_text(value: float) -> str:
+    return f"{value:.2f}".rstrip("0").rstrip(".")
+
+
+def with_fractions(text: str) -> str:
+    """ "1/2 hour" is 0.5 hours and "1 1/2 hours" is 1.5 (also ½ and 1½), so the digits after
+    the slash are not read as the time (RF3, C11)."""
+
+    def slash(m: re.Match[str]) -> str:
+        top, bottom = int(m[2]), int(m[3])
+        if bottom == 0:
+            return m[0]
+        return _number_text(int(m[1] or 0) + top / bottom)
+
+    def vulgar(m: re.Match[str]) -> str:
+        return _number_text(int(m[1] or 0) + _VULGAR[m[2]])
+
+    return _VULGAR_FRACTION.sub(vulgar, _FRACTION.sub(slash, text))
+
+
 def _minutes(number: str, unit: str) -> int:
     unit = unit.lower()
     per = 1 if unit.startswith("m") else 1440 if unit.startswith("d") else 60
@@ -118,7 +143,7 @@ def read_wait(text: str) -> Wait | None:
     """A wait suggested from a step's words, or None: "marinate for 4 hours or overnight",
     "ferment 8-12 hours", "soak overnight". The first sentence with a wait word and a length
     after it of 30 minutes or more (or "overnight") gives it; one step gets one wait."""
-    text = _SPACES.sub(" ", text)  # a paste keeps its runs of spaces (security pass r2, M1)
+    text = with_fractions(_SPACES.sub(" ", text))  # a paste keeps its runs of spaces (M1)
     left = WORDS_PER_STEP
     for sentence in _SENTENCE.split(text):
         if left <= 0:

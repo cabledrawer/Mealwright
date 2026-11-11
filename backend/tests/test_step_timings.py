@@ -1,5 +1,7 @@
 """Batch cook's step timings guessed from a step's words (0.8 wave 6, B1; cabledrawer 28 Oct)."""
 
+import pytest
+
 from mealwright import step_timings, step_waits
 from mealwright.models import RecipeStep
 
@@ -156,3 +158,27 @@ def test_a_pan_alone_is_not_a_hob_ring() -> None:
     assert g("Let the cake cool in the pan for 10 minutes")[2] == "none"
     assert g("Pour the batter into the prepared pan.")[2] == "none"
     assert g("Heat oil in a pan and add the onions.")[2] == "hob"
+
+
+# --- Whole-0.8 review fixes (RF3): C11 -----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "minutes"),
+    [
+        ("Cook for 1/2 hour", 30),
+        ("Simmer for 1 1/2 hours.", 90),
+        ("Cook for ½ hour", 30),
+        ("Simmer for 1½ hours", 90),
+        ("Rest for 3/4 hour", 45),
+        ("Bake for 1/4 hour, then 10 minutes", 25),
+        ("Stir in 1/2 cup of milk and simmer for 10 minutes", 10),
+    ],
+)
+def test_a_fraction_before_the_unit_is_read_as_a_fraction(text: str, minutes: int) -> None:
+    assert step_timings.times_in(text) == minutes
+
+
+def test_a_wait_suggested_from_words_reads_a_fraction_too() -> None:
+    found = step_waits.read_wait("Soak the beans for 1 1/2 hours.")
+    assert found is not None and found.min_minutes == 90
