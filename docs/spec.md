@@ -805,6 +805,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Plan this batch asks (C6, cabledrawer 11 Nov):** each recipe's optional ingredients and, for two methods, the method are asked as when adding to the plan; batch cook mode and Cooked it follow them.
 - **Whole tins (C12, cabledrawer 11 Nov):** Stocktake counts packs called tin, tins, can or cans in whole units.
 - **More in Recent changes (H8, cabledrawer 11 Nov):** adding or renaming a place, reordering shops or places, kitchen equipment and the Batch cook switch, each with Undo.
+- **Pints and "cook one step at a time" in Recent changes (cabledrawer 11 Nov, evening):** both settings go into Recent changes, with Undo, so a resent old save can't bring an old value back. In his words: "fix tonight, don't leave it on the follow-up list".
 - **A slash between two amounts (cabledrawer 11 Nov):** "2 tbsp ghee / 2 tbsp oil" is an "or" line; a slash between names alone ("hing / asafoetida") gives other names.
 - **No real names in the public API description (cabledrawer 11 Nov).**
 - **Undo of a removed place and the stocktake (cabledrawer 11 Nov):** Undo puts the place's stocktake answers back only into the stocktake they came from, never into one started after the removal.
