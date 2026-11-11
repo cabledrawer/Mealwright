@@ -12,6 +12,7 @@ from sqlalchemy.orm import aliased
 from mealwright import (
     cooking,
     drafts,
+    kitchen_changes,
     plan,
     recipe_tags,
     recipes,
@@ -656,6 +657,8 @@ def undo_change(
         removals.restore(
             kitchen, change, batch, tally
         )  # the shop or place first: the rest points at it
+    if change.kind in kitchen_changes.KINDS:
+        kitchen_changes.undo(kitchen, change)
     if data.get("shopping"):
         shopping.undo_shopping(kitchen, change, tally, batch, action)
     # Each lot as it was before the Undo, so the Undo gets its own lines.

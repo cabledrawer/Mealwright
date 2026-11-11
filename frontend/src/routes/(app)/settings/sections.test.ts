@@ -3,6 +3,7 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
+import { kitchen as freshness } from '#lib/freshness.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { privacy } from '#lib/privacy.svelte.js';
@@ -678,6 +679,34 @@ describe('Your kitchen (Batch cook, B1; mockup Dark-BatchKit08)', () => {
     await vi.waitFor(() => expect(kitchen().element().textContent).toMatch(/Pressure cookers\s*1/));
     await vi.waitFor(() => expect(kitchen().element().textContent).toMatch(/Oven\s*Yes/));
     await vi.waitFor(() => expect(kitchen().element().textContent).toContain('Not asked yet'));
+  });
+
+  it('puts a space between "has." and "Not asked yet" (RF5, prerelease 3)', async () => {
+    open();
+    await vi.waitFor(() =>
+      expect(kitchen().element().textContent).toContain('has. Not asked yet: Batch cook asks')
+    );
+  });
+
+  it('Recent changes read again after a save here, and the kitchen after an Undo (RF5, H8)', async () => {
+    const requests = open({
+      'PATCH /household/kitchen': [
+        200,
+        { hob_rings: 3, pressure_cookers: 1, oven: true, asked: true }
+      ]
+    });
+    const reads = (path: string) => requests.filter((r) => r.path === path).length;
+    await vi.waitFor(() => expect(reads('/changes')).toBeGreaterThan(0));
+    const changesBefore = reads('/changes');
+    await page.getByRole('button', { name: 'Change' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Your kitchen' });
+    await sheet.getByRole('button', { name: 'Fewer hob rings' }).click();
+    await sheet.getByRole('button', { name: 'Save' }).click();
+    await vi.waitFor(() => expect(reads('/changes')).toBeGreaterThan(changesBefore));
+    // An Undo from Recent changes (or the toast) puts the old numbers back: Your kitchen reads them.
+    const kitchenBefore = reads('/household/kitchen');
+    freshness.changed({ elsewhere: true });
+    await vi.waitFor(() => expect(reads('/household/kitchen')).toBeGreaterThan(kitchenBefore));
   });
 
   it('phone: it has its own page under Kitchen', async () => {

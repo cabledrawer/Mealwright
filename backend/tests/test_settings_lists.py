@@ -568,3 +568,188 @@ def test_a_rename_to_the_same_name_records_nothing_and_a_stale_rename_cannot_be_
     assert names(shops(kitchen)) == ["Spar"]
     summaries = [c["summary"] for c in ok(kitchen.get(f"{API}/changes"))["changes"]]
     assert summaries.count("Renamed the shop Aldi to Lidl") == 1
+
+
+# --- The rest of Settings, in Recent changes with an Undo (RF5, H8; cabledrawer 11 Nov) -----------
+# Each of these failed on the base: nothing was recorded, so there was no change to undo.
+
+
+def latest(kitchen: TestClient) -> dict[str, Any]:
+    found: dict[str, Any] = ok(kitchen.get(f"{API}/changes"))["changes"][0]
+    return found
+
+
+def undo(kitchen: TestClient, change: dict[str, Any]) -> Any:
+    return kitchen.post(f"{API}/changes/{change['id']}/undo")
+
+
+def test_adding_a_place_is_in_recent_changes_and_undo_takes_it_away(kitchen: TestClient) -> None:
+    made = ok(kitchen.post(f"{API}/places", json={"name": "Garage", "kind": "cupboard"}), 201)
+    top = latest(kitchen)
+    assert top["kind"] == "place_added" and top["summary"] == "Added the place Garage"
+    assert top["can_undo"] is True
+    assert ok(undo(kitchen, top))["result"] == "done"
+    assert made["id"] not in [p["id"] for p in ok(kitchen.get(f"{API}/places"))]
+
+
+def test_a_place_in_use_cannot_have_its_adding_undone(kitchen: TestClient) -> None:
+    made = ok(kitchen.post(f"{API}/places", json={"name": "Garage", "kind": "cupboard"}), 201)
+    top = latest(kitchen)
+    rice = food(kitchen, "Rice")
+    stock(kitchen, rice["id"], made["id"])
+    refused = undo(kitchen, top)
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert "Garage" in names(ok(kitchen.get(f"{API}/places")))
+
+
+def test_adding_a_place_twice_with_one_key_is_one_place(kitchen: TestClient) -> None:
+    headers = {"Idempotency-Key": "place-once"}
+    body = {"name": "Garage", "kind": "cupboard"}
+    first = ok(kitchen.post(f"{API}/places", json=body, headers=headers), 201)
+    again = kitchen.post(f"{API}/places", json=body, headers=headers)
+    assert again.status_code == 200 and again.json() == first
+    kinds = [c["kind"] for c in ok(kitchen.get(f"{API}/changes"))["changes"]]
+    assert kinds.count("place_added") == 1
+
+
+def test_renaming_a_place_is_in_recent_changes_and_undo_puts_the_old_name_back(
+    kitchen: TestClient,
+) -> None:
+    spice = place_id(kitchen, "Spice rack")
+    ok(kitchen.patch(f"{API}/places/{spice}", json={"name": "Larder"}))
+    top = latest(kitchen)
+    assert top["kind"] == "place_renamed"
+    assert top["summary"] == "Renamed the place Spice rack to Larder" and top["can_undo"] is True
+    assert ok(undo(kitchen, top))["result"] == "done"
+    assert "Spice rack" in names(ok(kitchen.get(f"{API}/places")))
+
+
+def test_a_place_rename_to_the_same_name_records_nothing_and_a_stale_one_cannot_be_undone(
+    kitchen: TestClient,
+) -> None:
+    spice = place_id(kitchen, "Spice rack")
+    ok(kitchen.patch(f"{API}/places/{spice}", json={"name": "Spice rack"}))
+    assert ok(kitchen.get(f"{API}/changes"))["changes"] == []
+    ok(kitchen.patch(f"{API}/places/{spice}", json={"name": "Larder"}))
+    first = latest(kitchen)
+    ok(kitchen.patch(f"{API}/places/{spice}", json={"name": "Pantry shelf"}))
+    refused = undo(kitchen, first)
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert "Pantry shelf" in names(ok(kitchen.get(f"{API}/places")))
+
+
+def test_reordering_the_shops_is_in_recent_changes_and_undo_puts_the_order_back(
+    kitchen: TestClient,
+) -> None:
+    a = ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
+    b = ok(kitchen.post(f"{API}/shops", json={"name": "Lidl"}), 201)
+    ok(kitchen.put(f"{API}/shops/order", json={"ids": [b["id"], a["id"]]}))
+    top = latest(kitchen)
+    assert top["kind"] == "shops_ordered" and top["summary"] == "Changed the order of the shops"
+    assert names(shops(kitchen)) == ["Lidl", "Aldi"]
+    assert ok(undo(kitchen, top))["result"] == "done"
+    assert names(shops(kitchen)) == ["Aldi", "Lidl"]
+
+
+def test_reordering_the_places_is_in_recent_changes_and_undo_puts_the_order_back(
+    kitchen: TestClient,
+) -> None:
+    ids = [p["id"] for p in ok(kitchen.get(f"{API}/places"))]
+    wanted = [ids[3], ids[0], ids[1], ids[2]]
+    ok(kitchen.put(f"{API}/places/order", json={"ids": wanted}))
+    top = latest(kitchen)
+    assert top["kind"] == "places_ordered" and top["summary"] == "Changed the order of the places"
+    assert ok(undo(kitchen, top))["result"] == "done"
+    assert [p["id"] for p in ok(kitchen.get(f"{API}/places"))] == ids
+
+
+def test_the_same_order_records_nothing_and_a_stale_order_cannot_be_undone(
+    kitchen: TestClient,
+) -> None:
+    a = ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
+    b = ok(kitchen.post(f"{API}/shops", json={"name": "Lidl"}), 201)
+    ok(kitchen.put(f"{API}/shops/order", json={"ids": [a["id"], b["id"]]}))
+    kinds = [c["kind"] for c in ok(kitchen.get(f"{API}/changes"))["changes"]]
+    assert "shops_ordered" not in kinds
+    ok(kitchen.put(f"{API}/shops/order", json={"ids": [b["id"], a["id"]]}))
+    first = latest(kitchen)
+    ok(kitchen.put(f"{API}/shops/order", json={"ids": [a["id"], b["id"]]}))
+    refused = undo(kitchen, first)
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert names(shops(kitchen)) == ["Aldi", "Lidl"]
+
+
+def test_a_shop_added_after_an_order_does_not_stop_its_undo(kitchen: TestClient) -> None:
+    a = ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
+    b = ok(kitchen.post(f"{API}/shops", json={"name": "Lidl"}), 201)
+    ok(kitchen.put(f"{API}/shops/order", json={"ids": [b["id"], a["id"]]}))
+    first = latest(kitchen)
+    ok(kitchen.post(f"{API}/shops", json={"name": "Spar"}), 201)
+    assert ok(undo(kitchen, first))["result"] == "done"
+    assert names(shops(kitchen)) == ["Aldi", "Lidl", "Spar"]
+
+
+def test_the_kitchens_equipment_is_in_recent_changes_and_undo_puts_it_back(
+    kitchen: TestClient,
+) -> None:
+    before = ok(kitchen.get(f"{API}/household/kitchen"))
+    ok(
+        kitchen.patch(
+            f"{API}/household/kitchen",
+            json={"hob_rings": before["hob_rings"] + 1, "pressure_cookers": 0, "oven": False},
+        )
+    )
+    top = latest(kitchen)
+    assert top["kind"] == "kitchen_changed" and top["can_undo"] is True
+    assert top["summary"].startswith("Changed your kitchen: ")
+    assert f"{before['hob_rings'] + 1} hob rings (was {before['hob_rings']})" in top["summary"]
+    assert "no oven (was yes)" in top["summary"]
+    assert ok(undo(kitchen, top))["result"] == "done"
+    after = ok(kitchen.get(f"{API}/household/kitchen"))
+    assert {k: after[k] for k in ("hob_rings", "pressure_cookers", "oven")} == {
+        k: before[k] for k in ("hob_rings", "pressure_cookers", "oven")
+    }
+    assert after["asked"] is True  # asked stays: the kitchen was asked, whatever the numbers
+
+
+def test_saving_the_same_kitchen_records_nothing_and_a_stale_one_cannot_be_undone(
+    kitchen: TestClient,
+) -> None:
+    before = ok(kitchen.get(f"{API}/household/kitchen"))
+    ok(kitchen.patch(f"{API}/household/kitchen", json={"hob_rings": before["hob_rings"]}))
+    assert ok(kitchen.get(f"{API}/changes"))["changes"] == []
+    ok(kitchen.patch(f"{API}/household/kitchen", json={"hob_rings": 2}))
+    first = latest(kitchen)
+    ok(kitchen.patch(f"{API}/household/kitchen", json={"hob_rings": 3}))
+    refused = undo(kitchen, first)
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert ok(kitchen.get(f"{API}/household/kitchen"))["hob_rings"] == 3
+
+
+def test_the_batch_cook_switch_is_in_recent_changes_and_only_an_admin_undoes_it(
+    member: TestClient, kitchen: TestClient
+) -> None:
+    ok(kitchen.patch(f"{API}/household", json={"batch_cook": False}))
+    top = latest(kitchen)
+    assert top["kind"] == "batch_cook_switch" and top["summary"] == "Switched Batch cook off"
+    assert ok(kitchen.get(f"{API}/household"))["batch_cook"] is False
+    forbidden = undo(member, top)
+    assert forbidden.status_code == 403, forbidden.text
+    assert ok(undo(kitchen, top))["result"] == "done"
+    assert ok(kitchen.get(f"{API}/household"))["batch_cook"] is True
+    # Setting it to what it already is records nothing; a switch back on is a change again.
+    ok(kitchen.patch(f"{API}/household", json={"batch_cook": True}))
+    ok(kitchen.patch(f"{API}/household", json={"batch_cook": False}))
+    ok(kitchen.patch(f"{API}/household", json={"batch_cook": True}))
+    kinds = [c["kind"] for c in ok(kitchen.get(f"{API}/changes"))["changes"]]
+    assert kinds.count("batch_cook_switch") == 3  # off, then off and on again (the first undone)
+    assert latest(kitchen)["summary"] == "Switched Batch cook on"
+
+
+def test_a_stale_batch_cook_switch_cannot_be_undone(kitchen: TestClient) -> None:
+    ok(kitchen.patch(f"{API}/household", json={"batch_cook": False}))
+    first = latest(kitchen)
+    ok(kitchen.patch(f"{API}/household", json={"batch_cook": True}))
+    refused = undo(kitchen, first)
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert ok(kitchen.get(f"{API}/household"))["batch_cook"] is True

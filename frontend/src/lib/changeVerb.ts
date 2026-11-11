@@ -31,7 +31,15 @@ const VERB_KINDS = new Set([
   'shop_removed',
   'shop_added',
   'shop_renamed',
-  'place_removed'
+  'place_removed',
+  // Settings (RF5, H8): places added and renamed, shops and places put in order, the kitchen's
+  // equipment and the Batch cook switch.
+  'place_added',
+  'place_renamed',
+  'shops_ordered',
+  'places_ordered',
+  'kitchen_changed',
+  'batch_cook_switch'
 ]);
 
 /** The other ways an edit's summary can end, after the ingredient's name ("{name} is now a staple"). */

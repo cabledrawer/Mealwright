@@ -150,8 +150,9 @@ KEY_ONLY_KINDS = ("recipe_created", "recipe_saved", "draft_saved")
 NOTE_KINDS = ("food_back",)
 
 
-# Changes only the household's admin can undo, as only an admin can make them (meal slots).
-ADMIN_ONLY_KINDS = ("plan_slot",)
+# Changes only the household's admin can undo, as only an admin can make them (meal slots, and
+# the Batch cook switch).
+ADMIN_ONLY_KINDS = ("plan_slot", "batch_cook_switch")
 
 
 def can_undo(kitchen: Kitchen, change: Change) -> bool:

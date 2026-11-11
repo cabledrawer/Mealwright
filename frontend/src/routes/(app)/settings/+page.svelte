@@ -72,6 +72,14 @@
     );
   }
 
+  /** One string, so the two sentences always have their space between them (RF5). */
+  const kitchenWords = $derived(
+    'Batch cook never plans more at once than your kitchen has.' +
+      (kitchenNow && !kitchenNow.asked
+        ? ' Not asked yet: Batch cook asks the first time you use it.'
+        : '')
+  );
+
   /** An admin hides or shows Batch cook (Experimental); it flips back if the server can't take it. */
   let batchProblem = $state<string | null>(null);
   async function setBatchCook(on: boolean) {
@@ -80,6 +88,7 @@
     batchCook.shown = on;
     try {
       await batchCook.set(on);
+      kitchen.wroteSettings(); // Recent changes shows "Switched Batch cook off" (RF5, H8)
     } catch (error) {
       batchCook.shown = before;
       batchProblem =
@@ -98,6 +107,15 @@
     );
   }
   onMount(readPints);
+  // An Undo from Recent changes (or the toast) may have put the Batch cook switch or the kitchen's
+  // equipment back: read them again (RF5, H8).
+  let undoneSeen = kitchen.elsewhere;
+  $effect(() => {
+    if (kitchen.elsewhere === undoneSeen) return;
+    undoneSeen = kitchen.elsewhere;
+    readKitchen();
+    void batchCook.load();
+  });
   // Opened offline: the row shows once the connection comes back.
   let seen = network.backAgain;
   $effect(() => {
@@ -543,10 +561,7 @@
           {#if batchProblem}<p class="warning-line" role="alert">{batchProblem}</p>{/if}
           <div class="row">
             <span class="who">
-              <span class="detail"
-                >Batch cook never plans more at once than your kitchen has.{#if !kitchenNow.asked}
-                  Not asked yet: Batch cook asks the first time you use it.{/if}</span
-              >
+              <span class="detail">{kitchenWords}</span>
             </span>
             <button
               type="button"
@@ -638,6 +653,7 @@
         kitchen={kitchenNow}
         onsaved={(saved) => {
           kitchenNow = saved;
+          kitchen.wroteSettings(); // Recent changes shows "Changed your kitchen…" (RF5, H8)
           kitchenOpen = false;
           kitchenOpener?.focus();
         }}
