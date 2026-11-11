@@ -23,13 +23,13 @@ def test_an_admin_can_switch_it_on_and_it_stays(kitchen: TestClient) -> None:
 
 
 def test_a_member_can_change_it_but_still_not_the_pint(kitchen: TestClient) -> None:
-    alex = person(kitchen)
-    assert ok(alex.patch(f"{API}/household", json={"cook_per_step": True}))["cook_per_step"]
+    wren = person(kitchen)
+    assert ok(wren.patch(f"{API}/household", json={"cook_per_step": True}))["cook_per_step"]
     assert ok(kitchen.get(f"{API}/household"))["cook_per_step"] is True
-    refused = alex.patch(f"{API}/household", json={"pints": "us"})
+    refused = wren.patch(f"{API}/household", json={"pints": "us"})
     assert refused.status_code == 403
     assert refused.json()["code"] == "admins_only"
-    both = alex.patch(f"{API}/household", json={"pints": "us", "cook_per_step": False})
+    both = wren.patch(f"{API}/household", json={"pints": "us", "cook_per_step": False})
     assert both.status_code == 403
     assert ok(kitchen.get(f"{API}/household"))["pints"] == "uk"
     assert ok(kitchen.get(f"{API}/household"))["cook_per_step"] is True

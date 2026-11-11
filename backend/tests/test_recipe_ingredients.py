@@ -309,17 +309,17 @@ def test_a_merged_away_id_still_links_to_the_ingredient_it_went_into(kitchen: Te
 
 
 def test_a_merge_stops_an_editor_that_was_open_on_the_recipe(kitchen: TestClient) -> None:
-    """Tess opens Sambar. Alex merges two dals. cabledrawer's save would write the old
-    links back, so it is stopped and says it was Alex."""
-    alex = person(kitchen)
+    """Tess opens Sambar. Wren merges two dals. Tess's save would write the old
+    links back, so it is stopped and says it was Wren."""
+    wren = person(kitchen)
     toor, arhar, sambar = two_dals(kitchen)
     opened = current(kitchen, sambar)  # Tess's editor holds this version
-    ok(alex.post(f"{API}/foods/{arhar['id']}/merge", json={"into_id": toor["id"]}))
+    ok(wren.post(f"{API}/foods/{arhar['id']}/merge", json={"into_id": toor["id"]}))
     stopped = save(kitchen, opened, name="Sambar 2")
     assert stopped.status_code == 409, stopped.text
     problem = stopped.json()
     assert problem["code"] == "recipe_changed"
-    assert problem["detail"] == "Alex changed this recipe after you opened it."
+    assert problem["detail"] == "Wren changed this recipe after you opened it."
     assert problem["version"] == opened["version"] + 1
     assert links(kitchen, sambar)[1] == ("arhar", "Toor dal", "ingredient")  # the merge stands
 

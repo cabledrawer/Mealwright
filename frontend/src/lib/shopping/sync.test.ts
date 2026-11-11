@@ -140,8 +140,8 @@ describe('batches', () => {
   });
 
   it('never sends another login’s waiting changes', async () => {
-    // Alex's change is waiting on this phone; her session ran out and cabledrawer signed in.
-    await addToQueue(tick('alex'), 5, deviceId());
+    // Wren's change is waiting on this phone; her session ran out and Tess signed in.
+    await addToQueue(tick('wren'), 5, deviceId());
     const sent = server(applied);
     await sendAction(tick('tess'));
     for (const s of sent) expect(s.body.login_id).toBe(ME.id);
@@ -394,16 +394,16 @@ describe('changes sent from an earlier visit (after a reload)', () => {
   it('a first answer with a message says it', async () => {
     const shown = await leftFromEarlier({
       status: 'ignored',
-      message: 'Alex had removed this.',
+      message: 'Wren had removed this.',
       repeat: false
     });
-    expect(shown).toHaveBeenCalledWith('Alex had removed this.');
+    expect(shown).toHaveBeenCalledWith('Wren had removed this.');
   });
 
   it('an answer marked repeat: true doesn’t say it again (F67)', async () => {
     const shown = await leftFromEarlier({
       status: 'ignored',
-      message: 'Alex had removed this.',
+      message: 'Wren had removed this.',
       repeat: true
     });
     expect(shown).not.toHaveBeenCalled();

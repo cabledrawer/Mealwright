@@ -141,7 +141,7 @@ export interface AisleRow {
 export interface Removed {
   food_id: number;
   shop_id: number | null;
-  /** "Alex", or "Your other phone" (sync-protocol 5.5). */
+  /** "Wren", or "Your other phone" (sync-protocol 5.5). */
   removed_by: string | null;
 }
 

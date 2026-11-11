@@ -94,11 +94,11 @@ What `GET` and the writes return: the same fields, plus `id`, `version`, `create
 Every save adds 1 to `version`. `PUT` must send the `version` the editor opened. If it is not the current one, nothing is saved and the answer is
 
 ```json
-{ "detail": "Alex changed this recipe after you opened it.", "code": "recipe_changed",
-  "version": 5, "changed_by": { "login_id": 2, "name": "Alex" }, "changed_at": "2026-10-19T18:04:11+00:00" }
+{ "detail": "Wren changed this recipe after you opened it.", "code": "recipe_changed",
+  "version": 5, "changed_by": { "login_id": 2, "name": "Wren" }, "changed_at": "2026-10-19T18:04:11+00:00" }
 ```
 
-"See Alex's version" is a plain `GET /recipes/{id}`. "Save mine anyway" is the same `PUT` again with `version` set to the 409's `version` and `overwrite: true`. The server still requires that to be the current version, so a third person's save in between is never overwritten unseen (another 409). `overwrite` changes nothing else the server does; it is how the request says what it means.
+"See Wren's version" is a plain `GET /recipes/{id}`. "Save mine anyway" is the same `PUT` again with `version` set to the 409's `version` and `overwrite: true`. The server still requires that to be the current version, so a third person's save in between is never overwritten unseen (another 409). `overwrite` changes nothing else the server does; it is how the request says what it means.
 
 ### 2.3 The loop guard
 

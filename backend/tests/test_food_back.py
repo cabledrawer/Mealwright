@@ -178,7 +178,7 @@ def test_an_offline_add_that_brings_it_back_adds_a_line_and_takes_the_removal_s_
     eggs = s.foods["Eggs"]
     ok(kitchen.delete(f"{API}/foods/{eggs}"))
     added = one(
-        s.alex, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=eggs, amount=6
+        s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=eggs, amount=6
     )
     assert added["status"] == "applied"
     assert added["message"] == "Eggs is back in Ingredients."
@@ -188,10 +188,10 @@ def test_an_offline_add_that_brings_it_back_adds_a_line_and_takes_the_removal_s_
         ("food_back", "Eggs is back in Ingredients", False),
         ("food_removed", "Removed Eggs from Ingredients", False),
     ]
-    assert eggs_rows[0]["who"]["name"] == "Alex"  # whoever's phone brought it back
+    assert eggs_rows[0]["who"]["name"] == "Wren"  # whoever's phone brought it back
     # Undoing the add removes Eggs again (0.3's rule), so the removal stands again: it is
     # the newest removal and Eggs is removed, so it has its Undo back.
-    one(s.alex, "undo", 0, PHONE_R, undoes=added["id"])
+    one(s.wren, "undo", 0, PHONE_R, undoes=added["id"])
     removal = next(
         row
         for row in ok(kitchen.get(f"{API}/changes", params={"area": "ingredients"}))["changes"]
@@ -225,8 +225,8 @@ def test_a_tick_that_brings_it_back_adds_one_line_and_its_undo_undoes_the_line(
     kitchen: TestClient,
 ) -> None:
     s = s0(kitchen)
-    one(s.alex, "delete", s.c0, PHONE_R, item_id=s.items["Paneer"])
-    ok(s.alex.delete(f"{API}/foods/{s.foods['Paneer']}"))
+    one(s.wren, "delete", s.c0, PHONE_R, item_id=s.items["Paneer"])
+    ok(s.wren.delete(f"{API}/foods/{s.foods['Paneer']}"))
     done = tick(kitchen, s, "Paneer")
     assert done["message"] == "Paneer is back in Ingredients."
     [back] = back_lines(kitchen, "Paneer")
@@ -240,7 +240,7 @@ def test_a_new_ingredient_with_a_removed_one_s_name_adds_one_line(kitchen: TestC
     s = s0(kitchen)
     ok(kitchen.delete(f"{API}/foods/{s.foods['Eggs']}"))
     added = one(
-        s.alex,
+        s.wren,
         "add",
         s.c0,
         PHONE_R,
@@ -257,10 +257,10 @@ def test_a_new_ingredient_with_a_removed_one_s_name_adds_one_line(kitchen: TestC
 def test_an_undo_that_leaves_it_in_ingredients_leaves_the_line(kitchen: TestClient) -> None:
     """Still on a list, so the Undo of the tick keeps Paneer (0.2's rule): it is still back."""
     s = s0(kitchen)
-    one(s.alex, "delete", s.c0, PHONE_R, item_id=s.items["Paneer"])
-    ok(s.alex.delete(f"{API}/foods/{s.foods['Paneer']}"))
+    one(s.wren, "delete", s.c0, PHONE_R, item_id=s.items["Paneer"])
+    ok(s.wren.delete(f"{API}/foods/{s.foods['Paneer']}"))
     done = tick(kitchen, s, "Paneer")
-    one(s.alex, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=s.foods["Paneer"])
+    one(s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=s.foods["Paneer"])
     one(kitchen, "undo", 0, PHONE_A, undoes=done["id"])
     [back] = back_lines(kitchen, "Paneer")
     assert back["undone"] is None

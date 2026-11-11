@@ -353,20 +353,20 @@ def test_anyone_in_the_household_can_carry_on_and_the_last_save_wins(
 ) -> None:
     shown = review(kitchen, PASTED)
     draft = kept(kitchen, shown, choices={"name": "Tess's name"})
-    alex = person(kitchen)
-    seen = ok(alex.get(f"{API}/recipes/drafts/{draft['id']}"))
+    wren = person(kitchen)
+    seen = ok(wren.get(f"{API}/recipes/drafts/{draft['id']}"))
     assert seen["started_by"] == "Tess" and seen["choices"]["name"] == "Tess's name"
-    assert [d["id"] for d in listed(alex)] == [draft["id"]]
+    assert [d["id"] for d in listed(wren)] == [draft["id"]]
     # Both save at once, one after the other: the second one stands, no error for either.
-    ok(put(alex, draft["id"], shown, choices={"name": "Alex's name"}))
+    ok(put(wren, draft["id"], shown, choices={"name": "Wren's name"}))
     ok(put(kitchen, draft["id"], shown, choices={"name": "Tess's second name"}))
-    now = ok(alex.get(f"{API}/recipes/drafts/{draft['id']}"))
+    now = ok(wren.get(f"{API}/recipes/drafts/{draft['id']}"))
     assert now["choices"]["name"] == "Tess's second name"
     assert now["started_by"] == "Tess"  # who started it doesn't change
     # A member can delete it, and bring it back.
-    gone = ok(alex.delete(f"{API}/recipes/drafts/{draft['id']}"))
+    gone = ok(wren.delete(f"{API}/recipes/drafts/{draft['id']}"))
     assert listed(kitchen) == []
-    ok(alex.post(f"{API}/changes/{gone['change']['id']}/undo"))
+    ok(wren.post(f"{API}/changes/{gone['change']['id']}/undo"))
     assert len(listed(kitchen)) == 1
 
 

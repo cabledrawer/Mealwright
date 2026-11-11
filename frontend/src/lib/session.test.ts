@@ -34,7 +34,7 @@ describe('signInPath', () => {
 describe('initial', () => {
   it('is the first letter, as a capital', () => {
     expect(initial('tess')).toBe('T');
-    expect(initial('  Alex ')).toBe('R');
+    expect(initial('  Wren ')).toBe('W');
     expect(initial('Ésha')).toBe('É');
     expect(initial('')).toBe('?');
   });

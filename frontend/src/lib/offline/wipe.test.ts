@@ -34,7 +34,7 @@ afterEach(async () => {
 describe('wiping this browser (sync-protocol section 12)', () => {
   it('takes the whole phone database, other caches and storage; keeps the app and display', async () => {
     const before = await loadDeviceId();
-    await setMeta({ login_id: 2, login_name: 'Alex', username: 'alex', cursor: 40 });
+    await setMeta({ login_id: 2, login_name: 'Wren', username: 'wren', cursor: 40 });
     await addToQueue(
       { id: 'a', made_at: '2026-10-18T09:00:00Z', seen: 0, kind: 'tick', item_id: 'i' },
       2,
@@ -48,7 +48,7 @@ describe('wiping this browser (sync-protocol section 12)', () => {
     localStorage.setItem(SIGN_OUT_PENDING_KEY, '1');
     localStorage.setItem('mealwright.household-from-browser', 'sent');
     localStorage.setItem(OLD_DEVICE_KEY, before);
-    localStorage.setItem(LOGIN_KEY, JSON.stringify({ id: 2, username: 'alex' }));
+    localStorage.setItem(LOGIN_KEY, JSON.stringify({ id: 2, username: 'wren' }));
     sessionStorage.setItem('anything', 'x');
 
     expect(await wipeDevice()).toBe(true);
@@ -82,7 +82,7 @@ describe('wiping this browser (sync-protocol section 12)', () => {
   });
 });
 
-const ALEX = { login_id: 2, login_name: 'Alex', username: 'alex', role: 'member', protocol: 1 };
+const WREN = { login_id: 2, login_name: 'Wren', username: 'wren', role: 'member', protocol: 1 };
 const DEVICE = '11111111-2222-4333-8444-555555555555';
 const ARLO = { id: 3, name: 'Arlo', username: 'arlo', role: 'member' };
 const tick = (id: string) => ({
@@ -97,13 +97,13 @@ const databaseThere = async () =>
   (await indexedDB.databases()).some((d) => d.name === phoneDatabaseName());
 
 describe('a phone database that can’t be read: nothing wiped, nothing written', () => {
-  it('another login signing in: “couldn’t read”, and Alex’s phone stays as it was', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+  it('another login signing in: “couldn’t read”, and Wren’s phone stays as it was', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
     await addToQueue(tick('a'), 2, DEVICE);
     const mend = breakPhone();
     expect(await wipeIfAnotherLogin(ARLO)).toBe(UNREADABLE);
     // Even with "Carry on and lose them" chosen for what an earlier warning showed.
-    const losing = { who: { ...ARLO, id: 2, name: 'Alex' }, count: 1, ids: ['a'] };
+    const losing = { who: { ...ARLO, id: 2, name: 'Wren' }, count: 1, ids: ['a'] };
     expect(await wipeIfAnotherLogin(ARLO, losing)).toBe(UNREADABLE);
     mend();
     expect(await databaseThere()).toBe(true);
@@ -113,13 +113,13 @@ describe('a phone database that can’t be read: nothing wiped, nothing written'
   });
 
   it('the login it was last written for carries on: kept, and nothing written (cabledrawer 18 Oct)', async () => {
-    await startDevice({ ...ARLO, id: 2, name: 'Alex', username: 'alex' });
-    expect(rememberedLogin()).toEqual({ id: 2, username: 'alex' });
+    await startDevice({ ...ARLO, id: 2, name: 'Wren', username: 'wren' });
+    expect(rememberedLogin()).toEqual({ id: 2, username: 'wren' });
     await setMeta({ device_id: DEVICE });
     await addToQueue(tick('a'), 2, DEVICE);
     const mend = breakPhone();
     expect(await wipeIfAnotherLogin({ id: 2 })).toBe('kept');
-    await startDevice({ ...ARLO, id: 2, name: 'Alex', username: 'alex' });
+    await startDevice({ ...ARLO, id: 2, name: 'Wren', username: 'wren' });
     // Anyone else still can't.
     expect(await wipeIfAnotherLogin(ARLO)).toBe(UNREADABLE);
     mend();
@@ -129,7 +129,7 @@ describe('a phone database that can’t be read: nothing wiped, nothing written'
   });
 
   it('“Carry on anyway” wipes it (cabledrawer 18 Oct)', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     await addToQueue(tick('a'), 2, DEVICE);
     const mend = breakPhone();
     try {
@@ -140,8 +140,8 @@ describe('a phone database that can’t be read: nothing wiped, nothing written'
     expect(await databaseThere()).toBe(false);
   });
 
-  it('“Carry on anyway” once it can be read again: the usual warning, with Alex’s changes', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+  it('“Carry on anyway” once it can be read again: the usual warning, with Wren’s changes', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
     await addToQueue(tick('a'), 2, DEVICE);
     const held = await wipeIfAnotherLogin(ARLO, 'anyway');
     expect(held).toMatchObject({ who: { id: 2 }, count: 1, ids: ['a'] });
@@ -151,25 +151,25 @@ describe('a phone database that can’t be read: nothing wiped, nothing written'
   });
 
   it('starting the app writes nothing over `meta` it couldn’t read', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     const mend = breakPhone();
     await startDevice(ARLO);
     mend();
     expect(await getMeta('login_id')).toBe(2);
-    expect(await getMeta('username')).toBe('alex');
+    expect(await getMeta('username')).toBe('wren');
     expect(await getMeta('device_id')).toBe(DEVICE);
-    // The device ID is this visit's only, not Alex's.
+    // The device ID is this visit's only, not Wren's.
     expect(deviceId()).not.toBe(DEVICE);
   });
 
   it('nor over another login’s `meta` (another tab may have changed it since the check)', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     await startDevice(ARLO);
     expect(await getMeta('login_id')).toBe(2);
     expect(await getMeta('device_id')).toBe(DEVICE);
     expect(deviceId()).not.toBe(DEVICE);
     // The same login, or a clean phone, is noted as before.
-    await startDevice({ ...ARLO, id: 2, name: 'Alex', username: 'alex' });
+    await startDevice({ ...ARLO, id: 2, name: 'Wren', username: 'wren' });
     expect(await getMeta('device_id')).toBe(DEVICE);
     expect(deviceId()).toBe(DEVICE);
   });
@@ -177,14 +177,14 @@ describe('a phone database that can’t be read: nothing wiped, nothing written'
 
 describe('“Carry on and lose them” loses only the changes the warning showed', () => {
   it('another tab sends one and queues a different one: as many, but not the same, so it warns again', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     const first = await addToQueue(tick('a'), 2, DEVICE);
     await addToQueue(tick('b'), 2, DEVICE);
-    // The warning shows Alex's 2 changes: a and b.
+    // The warning shows Wren's 2 changes: a and b.
     const shown = (await heldChanges()) as Held;
     expect(shown).toMatchObject({ count: 2, ids: ['a', 'b'] });
 
-    // Meanwhile, in another tab, Alex's change a is sent and she makes a new one, c.
+    // Meanwhile, in another tab, Wren's change a is sent and she makes a new one, c.
     await dropFromQueue([first.seq!]);
     await addToQueue(tick('c'), 2, DEVICE);
 
@@ -201,7 +201,7 @@ describe('“Carry on and lose them” loses only the changes the warning showed
   });
 
   it('fewer than shown (some were sent since): goes ahead', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     const first = await addToQueue(tick('a'), 2, DEVICE);
     await addToQueue(tick('b'), 2, DEVICE);
     const shown = (await heldChanges()) as Held;
@@ -210,8 +210,8 @@ describe('“Carry on and lose them” loses only the changes the warning showed
     expect(await databaseThere()).toBe(false);
   });
 
-  it('a warning about someone else’s changes covers none of Alex’s', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+  it('a warning about someone else’s changes covers none of Wren’s', async () => {
+    await setMeta({ ...WREN, device_id: DEVICE });
     await addToQueue(tick('a'), 2, DEVICE);
     const someoneElse = { who: { ...ARLO, id: 5, name: 'Sam' }, count: 1, ids: ['a'] };
     expect(await wipeIfAnotherLogin(ARLO, someoneElse)).toMatchObject({ who: { id: 2 } });
@@ -221,10 +221,10 @@ describe('“Carry on and lose them” loses only the changes the warning showed
 
 describe('adding to the queue and wiping take turns (Web Locks)', () => {
   it('a change added between the wipe’s read and its delete waits, and lands after the wipe, never lost', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     await addToQueue(tick('a'), 2, DEVICE);
     const shown = (await heldChanges()) as Held;
-    // Another tab adds Alex's change "late" just as the wipe is about to delete.
+    // Another tab adds Wren's change "late" just as the wipe is about to delete.
     let late: Promise<unknown> | null = null;
     vi.spyOn(shoppingSync, 'forget').mockImplementationOnce(() => {
       late = addToQueue(tick('late'), 2, DEVICE);
@@ -237,7 +237,7 @@ describe('adding to the queue and wiping take turns (Web Locks)', () => {
   });
 
   it('a change added just before the wipe’s read is seen, and warned about', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     await addToQueue(tick('a'), 2, DEVICE);
     const shown = (await heldChanges()) as Held;
     const adding = addToQueue(tick('b'), 2, DEVICE);
@@ -249,7 +249,7 @@ describe('adding to the queue and wiping take turns (Web Locks)', () => {
 
   it('a browser without Web Locks wipes as before', async () => {
     vi.spyOn(navigator, 'locks', 'get').mockReturnValue(undefined as never);
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     const entry = await addToQueue(tick('a'), 2, DEVICE);
     expect(entry.seq).toBeGreaterThan(0);
     const shown = (await heldChanges()) as Held;
@@ -260,7 +260,7 @@ describe('adding to the queue and wiping take turns (Web Locks)', () => {
 
 describe('a wipe that can’t delete the phone database (cabledrawer 18 Oct)', () => {
   it('everything else goes, and the old login’s data is never opened, shown or used', async () => {
-    await setMeta(ALEX);
+    await setMeta(WREN);
     await addToQueue(tick('r1'), 2, DEVICE);
     const mend = failPhoneDelete();
     expect(await wipeDevice()).toBe(false);
@@ -268,7 +268,7 @@ describe('a wipe that can’t delete the phone database (cabledrawer 18 Oct)', (
     expect(wipeFailed()).toBe(true);
     expect(localStorage.getItem(WIPE_PENDING_KEY)).toBe('failed');
     expect(await databaseThere()).toBe(true);
-    // Nothing of Alex's is found, and the database isn't opened again.
+    // Nothing of Wren's is found, and the database isn't opened again.
     expect(await heldChanges()).toBeNull();
     expect(await lastSignedIn()).toBeNull();
     await expect(openPhone()).rejects.toThrow();
@@ -286,10 +286,10 @@ describe('a wipe that can’t delete the phone database (cabledrawer 18 Oct)', (
   });
 
   it('whoever signs in next, the wipe is tried again first: still failing, nobody gets in', async () => {
-    await setMeta(ALEX);
+    await setMeta(WREN);
     const mend = failPhoneDelete();
     await wipeDevice();
-    // Even Alex herself (the wipe was chosen already).
+    // Even Wren herself (the wipe was chosen already).
     expect(await wipeIfAnotherLogin({ id: 2 })).toBe('wipe-failed');
     expect(await wipeIfAnotherLogin(ARLO)).toBe('wipe-failed');
     mend();
@@ -303,7 +303,7 @@ describe('a wipe that can’t delete the phone database (cabledrawer 18 Oct)', (
   });
 
   it('while a wipe is still deleting, it is pending but not failed', async () => {
-    await setMeta(ALEX);
+    await setMeta(WREN);
     const seen: [boolean, boolean][] = [];
     const real = indexedDB.deleteDatabase.bind(indexedDB);
     vi.spyOn(indexedDB, 'deleteDatabase').mockImplementation((name) => {
@@ -319,7 +319,7 @@ describe('a wipe that can’t delete the phone database (cabledrawer 18 Oct)', (
   });
 
   it('a different login’s own wipe failing says so', async () => {
-    await setMeta(ALEX);
+    await setMeta(WREN);
     const mend = failPhoneDelete();
     expect(await wipeIfAnotherLogin(ARLO)).toBe('wipe-failed');
     expect(wipePending()).toBe(true);

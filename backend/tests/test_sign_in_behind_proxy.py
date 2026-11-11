@@ -37,8 +37,8 @@ def set_up_household(client: TestClient) -> None:
         db.add(
             Login(
                 household_id=1,
-                username="alex",
-                name="Alex",
+                username="wren",
+                name="Wren",
                 password_hash=hash_password(PASSWORD),
                 role="member",
             )
@@ -69,17 +69,17 @@ def test_one_persons_guesses_dont_slow_down_others(behind_caddy: TestClient) -> 
     # The guesser now has to wait...
     assert attempt(behind_caddy, "tess", "wrong-guess", GUESSER) == 429
     # ...but someone else, from their own address, signs in to their own account at once.
-    assert attempt(behind_caddy, "alex", PASSWORD, FAMILY) == 200
+    assert attempt(behind_caddy, "wren", PASSWORD, FAMILY) == 200
 
 
 def test_guessing_many_accounts_slows_down_only_the_guesser(behind_caddy: TestClient) -> None:
     for name in ("a", "b", "c", "d", "e"):
         assert attempt(behind_caddy, name, "wrong-guess", GUESSER) == 401
     # A new username doesn't help the guesser: their address is counted too.
-    assert attempt(behind_caddy, "alex", "wrong-guess", GUESSER) == 429
+    assert attempt(behind_caddy, "wren", "wrong-guess", GUESSER) == 429
     # Everyone else is unaffected.
     assert attempt(behind_caddy, "tess", PASSWORD, FAMILY) == 200
-    assert attempt(behind_caddy, "alex", PASSWORD, FAMILY) == 200
+    assert attempt(behind_caddy, "wren", PASSWORD, FAMILY) == 200
 
 
 def test_the_account_being_guessed_at_is_protected(behind_caddy: TestClient) -> None:
@@ -89,7 +89,7 @@ def test_the_account_being_guessed_at_is_protected(behind_caddy: TestClient) -> 
         attempt(behind_caddy, "tess", "wrong-guess", GUESSER)
     assert attempt(behind_caddy, "tess", PASSWORD, FAMILY) == 429
     # Other accounts are unaffected.
-    assert attempt(behind_caddy, "alex", PASSWORD, FAMILY) == 200
+    assert attempt(behind_caddy, "wren", PASSWORD, FAMILY) == 200
 
 
 def test_the_log_shows_the_real_address(
@@ -134,4 +134,4 @@ def test_a_made_up_address_in_front_of_the_proxys_is_ignored(behind_caddy: TestC
     for n in range(5):
         assert attempt(behind_caddy, f"user{n}", "wrong-guess", f"192.0.2.{n}, {GUESSER}") == 401
     assert attempt(behind_caddy, "user9", "wrong-guess", f"192.0.2.99, {GUESSER}") == 429
-    assert attempt(behind_caddy, "alex", PASSWORD, FAMILY) == 200
+    assert attempt(behind_caddy, "wren", PASSWORD, FAMILY) == 200

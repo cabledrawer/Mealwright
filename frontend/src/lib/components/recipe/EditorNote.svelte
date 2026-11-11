@@ -1,6 +1,6 @@
 <script lang="ts">
   // A bar between the editor's top bar and its boxes: "You’re offline…", "Couldn’t save. Try
-  // again." with its button, "Alex changed this recipe…" with its two buttons.
+  // again." with its button, "Wren changed this recipe…" with its two buttons.
   import type { Snippet } from 'svelte';
   import Icon from '../Icon.svelte';
 

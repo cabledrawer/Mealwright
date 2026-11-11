@@ -10,10 +10,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 from sync_kit import (
-    ALEX_PASSWORD,
     API,
     PHONE_A,
     PHONE_R,
+    WREN_PASSWORD,
     S0,
     action,
     changes,
@@ -69,16 +69,16 @@ def test_sy06_sy07_delete_against_an_edit(kitchen: TestClient, a_first: bool, ba
         a_first,
         lambda: results.update(delete=one(kitchen, "delete", s.c0, item_id=milk)),
         lambda: results.update(
-            set=one(s.alex, "set_amount", s.c0, PHONE_R, item_id=milk, amount=4000)
+            set=one(s.wren, "set_amount", s.c0, PHONE_R, item_id=milk, amount=4000)
         ),
     )
     assert s.item(kitchen, "Milk", s.c0)["deleted"] is True
     assert s.total("Milk") == 0
-    (note,) = changes(s.alex)["notes"]
+    (note,) = changes(s.wren)["notes"]
     assert note["text"] == "Tess had removed Milk, so your change wasn’t kept."
     assert note["undo"] == results["delete"]["id"]
     assert changes(kitchen)["notes"] == []
-    assert _undo(s.alex, note["undo"], PHONE_R)["status"] == "applied"
+    assert _undo(s.wren, note["undo"], PHONE_R)["status"] == "applied"
     row = s.item(kitchen, "Milk")
     assert row["deleted"] is False and row["amount"] == back_at
 
@@ -91,7 +91,7 @@ def test_sy45_deleted_on_both(kitchen: TestClient, a_first: bool) -> None:
     _in_order(
         a_first,
         lambda: results.append(one(kitchen, "delete", s.c0, item_id=milk)),
-        lambda: results.append(one(s.alex, "delete", s.c0, PHONE_R, item_id=milk)),
+        lambda: results.append(one(s.wren, "delete", s.c0, PHONE_R, item_id=milk)),
     )
     first, second = results
     assert first["status"] == "applied"
@@ -117,7 +117,7 @@ def test_sy10_both_add_eggs(kitchen: TestClient, a_first: bool) -> None:
         ),
         lambda: results.update(
             b=one(
-                s.alex, "add", s.c0, PHONE_R, list_id=s.main, item_id=hers, food_id=eggs, amount=12
+                s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=hers, food_id=eggs, amount=12
             )
         ),
     )
@@ -126,8 +126,8 @@ def test_sy10_both_add_eggs(kitchen: TestClient, a_first: bool) -> None:
     (line,) = _lines(kitchen, s, "Eggs")
     assert line["amount"] == 12
     (mine_note,) = changes(kitchen)["notes"]
-    (her_note,) = changes(s.alex)["notes"]
-    assert mine_note["text"] == "Alex added Eggs too"
+    (her_note,) = changes(s.wren)["notes"]
+    assert mine_note["text"] == "Wren added Eggs too"
     assert her_note["text"] == "Tess added Eggs too"
     assert mine_note["undo"] == later["id"] == her_note["undo"]
     assert _undo(kitchen, mine_note["undo"])["status"] == "applied"
@@ -148,7 +148,7 @@ def test_sy11_adds_to_other_lists_and_shops_stay_apart(kitchen: TestClient, a_fi
 
     def b() -> None:
         send(
-            s.alex,
+            s.wren,
             action("add", seen, list_id=party, item_id=new_id(), food_id=eggs, amount=6),
             action(
                 "add", seen, list_id=s.main, item_id=new_id(), food_id=eggs, amount=6, shop_id=None
@@ -161,7 +161,7 @@ def test_sy11_adds_to_other_lists_and_shops_stay_apart(kitchen: TestClient, a_fi
         [0, s.shops["Supermarket"]]
     )
     assert len(_lines(kitchen, s, "Eggs", party)) == 1
-    assert changes(kitchen)["notes"] == [] and changes(s.alex)["notes"] == []
+    assert changes(kitchen)["notes"] == [] and changes(s.wren)["notes"] == []
 
 
 @BOTH
@@ -181,7 +181,7 @@ def test_sy39_two_new_ingredients_with_one_name(kitchen: TestClient, a_first: bo
 
     def b() -> None:
         results["b"] = one(
-            s.alex,
+            s.wren,
             "add",
             s.c0,
             PHONE_R,
@@ -203,7 +203,7 @@ def test_sy39_two_new_ingredients_with_one_name(kitchen: TestClient, a_first: bo
         if row["food_id"] == made.id and not row["merged_into_id"]
     ]
     assert len(lines) == 1
-    assert len(changes(kitchen)["notes"]) == 1 and len(changes(s.alex)["notes"]) == 1
+    assert len(changes(kitchen)["notes"]) == 1 and len(changes(s.wren)["notes"]) == 1
 
 
 @BOTH
@@ -226,7 +226,7 @@ def test_sy39_variant_one_name_counted_two_ways(kitchen: TestClient, a_first: bo
 
     def b() -> None:
         results["b"] = one(
-            s.alex,
+            s.wren,
             "add",
             s.c0,
             PHONE_R,
@@ -247,7 +247,7 @@ def test_sy39_variant_one_name_counted_two_ways(kitchen: TestClient, a_first: bo
     ]
     # The first adder's amount stands: 500 g by weight, or 2 in items.
     assert line["amount"] == (500 if a_first else 2)
-    late, first = (s.alex, kitchen) if a_first else (kitchen, s.alex)
+    late, first = (s.wren, kitchen) if a_first else (kitchen, s.wren)
     texts = [note["text"] for note in changes(late)["notes"]]
     n9 = f"{name} was already in Ingredients, counted another way, so check the amount."
     assert n9 in texts
@@ -263,7 +263,7 @@ def test_a_new_ingredient_counted_another_way_gets_a_blank_amount(kitchen: TestC
     there = food(kitchen, "Tahini", counted_as="count")["id"]
     item = new_id()
     added = one(
-        s.alex,
+        s.wren,
         "add",
         s.c0,
         PHONE_R,
@@ -275,15 +275,15 @@ def test_a_new_ingredient_counted_another_way_gets_a_blank_amount(kitchen: TestC
     assert added["status"] == "applied" and added["food_id"] == there
     row = item_row(changes(kitchen), item)
     assert (row["amount"], row["size_id"]) == (1, None)
-    (note,) = changes(s.alex)["notes"]
+    (note,) = changes(s.wren)["notes"]
     assert (
         note["text"]
         == "Tahini was already in Ingredients, counted another way, so check the amount."
     )
     before = counter(kitchen)
-    assert _undo(s.alex, note["undo"], PHONE_R)["status"] == "applied"
+    assert _undo(s.wren, note["undo"], PHONE_R)["status"] == "applied"
     assert item_row(changes(kitchen, before), item)["deleted"] is True
-    assert changes(s.alex)["notes"] == []
+    assert changes(s.wren)["notes"] == []
 
 
 def test_sy64_an_add_to_a_line_you_could_see(kitchen: TestClient) -> None:
@@ -355,15 +355,15 @@ def test_sy12_two_amounts(kitchen: TestClient, a_first: bool) -> None:
         a_first,
         lambda: results.update(a=one(kitchen, "set_amount", s.c0, item_id=milk, amount=3000)),
         lambda: results.update(
-            b=one(s.alex, "set_amount", s.c0, PHONE_R, item_id=milk, amount=4000)
+            b=one(s.wren, "set_amount", s.c0, PHONE_R, item_id=milk, amount=4000)
         ),
     )
     row = s.item(kitchen, "Milk")
     assert row["amount"] == (4000 if a_first else 3000) and row["hand_edited"] is True
     loser, text, mine = (
-        (kitchen, "Alex changed Milk to 4\u00a0L", 3000)
+        (kitchen, "Wren changed Milk to 4\u00a0L", 3000)
         if a_first
-        else (s.alex, "Tess changed Milk to 3\u00a0L", 4000)
+        else (s.wren, "Tess changed Milk to 3\u00a0L", 4000)
     )
     (note,) = changes(loser)["notes"]
     assert note["text"] == text
@@ -379,9 +379,9 @@ def test_sy12b_a_count_in_the_note_never_says_left(kitchen: TestClient) -> None:
     send(kitchen, action("add", s.c0, list_id=s.main, item_id=item, food_id=onions, amount=1))
     seen = counter(kitchen)
     one(kitchen, "set_amount", seen, item_id=item, amount=3)
-    one(s.alex, "set_amount", seen - 1, PHONE_R, item_id=item, amount=6)
+    one(s.wren, "set_amount", seen - 1, PHONE_R, item_id=item, amount=6)
     (note,) = changes(kitchen)["notes"]
-    assert note["text"] == "Alex changed Spring onions to 6"
+    assert note["text"] == "Wren changed Spring onions to 6"
 
 
 def test_sy44_typed_then_hand_edited(kitchen: TestClient) -> None:
@@ -426,12 +426,12 @@ def test_sy52_add_of_an_ingredient_merged_meanwhile(kitchen: TestClient) -> None
     arhar = food(kitchen, "Arhar dal", counted_as="weight")["id"]
     ok(kitchen.post(f"{API}/foods/{arhar}/merge", json={"into_id": s.foods["Toor dal"]}))
     added = one(
-        s.alex, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=arhar, amount=1000
+        s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=arhar, amount=1000
     )
     assert added["status"] == "merged" and added["item_id"] == s.items["Toor dal"]
     (line,) = _lines(kitchen, s, "Toor dal")
     assert line["amount"] == 1500 and line["shop_id"] == s.shops["Supermarket"]
-    assert changes(s.alex)["notes"] == []
+    assert changes(s.wren)["notes"] == []
 
 
 def test_sy53_add_brings_back_a_removed_ingredient(kitchen: TestClient) -> None:
@@ -439,7 +439,7 @@ def test_sy53_add_brings_back_a_removed_ingredient(kitchen: TestClient) -> None:
     ok(kitchen.delete(f"{API}/foods/{s.foods['Eggs']}"))
     item = new_id()
     added = one(
-        s.alex,
+        s.wren,
         "add",
         s.c0,
         PHONE_R,
@@ -467,7 +467,7 @@ def test_sy54_add_of_an_ingredient_deleted_for_good(kitchen: TestClient) -> None
         session.commit()
         purge_removed(session, session.get(Household, 1))
     added = one(
-        s.alex,
+        s.wren,
         "add",
         s.c0,
         PHONE_R,
@@ -485,7 +485,7 @@ def test_sy56_amount_in_a_size_removed_meanwhile(kitchen: TestClient) -> None:
     pack = s.sizes["Paneer"]
     ok(kitchen.delete(f"{API}/foods/{s.foods['Paneer']}/sizes/{pack}"))
     done = one(
-        s.alex, "set_amount", s.c0, PHONE_R, item_id=s.items["Paneer"], amount=600, size_id=pack
+        s.wren, "set_amount", s.c0, PHONE_R, item_id=s.items["Paneer"], amount=600, size_id=pack
     )
     assert done["status"] == "applied"
     row = s.item(kitchen, "Paneer")
@@ -501,7 +501,7 @@ def test_sy57_add_with_a_shop_removed_meanwhile(kitchen: TestClient) -> None:
         session.commit()
     item = new_id()
     one(
-        s.alex,
+        s.wren,
         "add",
         s.c0,
         PHONE_R,
@@ -521,7 +521,7 @@ def test_sy66_add_via_a_removed_ingredient_when_a_new_one_has_its_name(kitchen: 
     ok(kitchen.delete(f"{API}/foods/{old}"))
     new = food(kitchen, "Ghee", counted_as="weight")["id"]
     item = new_id()
-    added = one(s.alex, "add", s.c0, PHONE_R, list_id=s.main, item_id=item, food_id=old, amount=500)
+    added = one(s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=item, food_id=old, amount=500)
     assert added["status"] == "applied" and added["food_id"] == new
     assert item_row(changes(kitchen), item)["food_id"] == new
     with db(kitchen) as session:
@@ -533,12 +533,12 @@ def test_sy66_variant_add_via_a_removed_ingredient(kitchen: TestClient) -> None:
     old = food(kitchen, "Ghee", counted_as="weight")["id"]
     ok(kitchen.delete(f"{API}/foods/{old}"))
     added = one(
-        s.alex, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=old, amount=500
+        s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=old, amount=500
     )
     assert added["status"] == "applied" and added["food_id"] == old
     with db(kitchen) as session:
         assert session.get(Food, old).removed_at is None
-    assert _undo(s.alex, added["id"], PHONE_R)["status"] == "applied"
+    assert _undo(s.wren, added["id"], PHONE_R)["status"] == "applied"
     with db(kitchen) as session:
         assert session.get(Food, old).removed_at is not None
 
@@ -548,13 +548,13 @@ def test_an_undo_of_an_add_keeps_the_brought_back_ingredient_while_it_is_on_a_li
 ) -> None:
     """5.9 with 0.2's rule (`cannot_remove`): an ingredient on a list can't be removed.
     Tess put the brought-back Ghee on the list for the Indian grocer too, so the Undo of
-    Alex's add takes her line off but leaves Ghee in Ingredients."""
+    Wren's add takes her line off but leaves Ghee in Ingredients."""
     s = s0(kitchen)
-    # No Usual shop, so Alex's line stays apart from the Indian grocer line below.
+    # No Usual shop, so Wren's line stays apart from the Indian grocer line below.
     old = food(kitchen, "Ghee", counted_as="weight", shop_id=None)["id"]
     ok(kitchen.delete(f"{API}/foods/{old}"))
     added = one(
-        s.alex, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=old, amount=500
+        s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=new_id(), food_id=old, amount=500
     )
     other = one(
         kitchen,
@@ -569,7 +569,7 @@ def test_an_undo_of_an_add_keeps_the_brought_back_ingredient_while_it_is_on_a_li
     )
     assert other["status"] == "applied" and other["item_id"] != added["item_id"]
     before = counter(kitchen)
-    assert _undo(s.alex, added["id"], PHONE_R)["status"] == "applied"
+    assert _undo(s.wren, added["id"], PHONE_R)["status"] == "applied"
     assert item_row(changes(kitchen, before), added["item_id"])["deleted"] is True
     assert item_row(changes(kitchen), other["item_id"])["deleted"] is False
     with db(kitchen) as session:
@@ -587,12 +587,12 @@ def test_an_add_via_a_removed_ingredient_never_carries_its_amount_to_one_counted
     ok(kitchen.delete(f"{API}/foods/{old}"))
     new = food(kitchen, "Ghee", counted_as="count")["id"]
     item = new_id()
-    added = one(s.alex, "add", s.c0, PHONE_R, list_id=s.main, item_id=item, food_id=old, amount=500)
+    added = one(s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=item, food_id=old, amount=500)
     assert added["status"] == "applied" and added["food_id"] == new
     row = item_row(changes(kitchen), item)
     assert (row["food_id"], row["amount"], row["size_id"]) == (new, 1, None)
     # The adder is told, as for a typed new ingredient (N9).
-    (note,) = changes(s.alex)["notes"]
+    (note,) = changes(s.wren)["notes"]
     assert note["text"] == (
         "Ghee was already in Ingredients, counted another way, so check the amount."
     )
@@ -610,9 +610,9 @@ def test_sy34_queue_sent_after_signing_in_again(kitchen: TestClient) -> None:
         action("set_amount", s.c0, item_id=s.items["Milk"], amount=3000),
         action("delete", s.c0, item_id=s.items["Onions"]),
     ]
-    alex = s.alex
-    me = int(ok(alex.get(f"{API}/me"))["id"])
-    assert alex.delete(f"{API}/session").status_code == 204
+    wren = s.wren
+    me = int(ok(wren.get(f"{API}/me"))["id"])
+    assert wren.delete(f"{API}/session").status_code == 204
     body = {
         "protocol": 1,
         "device_id": PHONE_R,
@@ -621,10 +621,10 @@ def test_sy34_queue_sent_after_signing_in_again(kitchen: TestClient) -> None:
         "sent_at": utcnow().isoformat(),
         "actions": queued,
     }
-    assert alex.post(f"{API}/shopping/actions", json=body).status_code == 401
+    assert wren.post(f"{API}/shopping/actions", json=body).status_code == 401
     assert counter(kitchen) == s.c0
-    ok(alex.post(f"{API}/session", json={"username": "alex", "password": ALEX_PASSWORD}))
-    answer = send(alex, *queued, device=PHONE_R)
+    ok(wren.post(f"{API}/session", json={"username": "wren", "password": WREN_PASSWORD}))
+    answer = send(wren, *queued, device=PHONE_R)
     assert [r["status"] for r in answer["results"]] == ["applied"] * 3
 
 
@@ -702,7 +702,7 @@ def test_sy43_two_batches_at_once(kitchen: TestClient) -> None:
         threading.Thread(target=reader),
         threading.Thread(target=lambda: answers.update(a=send(_client_like(kitchen), *first))),
         threading.Thread(
-            target=lambda: answers.update(b=send(_client_like(s.alex), *second, device=PHONE_R))
+            target=lambda: answers.update(b=send(_client_like(s.wren), *second, device=PHONE_R))
         ),
     ]
     for thread in threads:
@@ -787,13 +787,13 @@ def test_sy41_another_households_ids(kitchen: TestClient) -> None:
                 household_id=2,
                 username="neighbour",
                 name="Neighbour",
-                password_hash=hash_password(ALEX_PASSWORD),
+                password_hash=hash_password(WREN_PASSWORD),
                 role="admin",
             )
         )
         session.commit()
     neighbour = TestClient(kitchen.app, base_url="https://testserver")
-    ok(neighbour.post(f"{API}/session", json={"username": "neighbour", "password": ALEX_PASSWORD}))
+    ok(neighbour.post(f"{API}/session", json={"username": "neighbour", "password": WREN_PASSWORD}))
     theirs = food(neighbour, "Bread", counted_as="count")["id"]
     their_main = main_id(neighbour)
     my_main = s.main
@@ -854,9 +854,9 @@ def test_a_note_never_offers_to_undo_an_undo(kitchen: TestClient) -> None:
     added = one(kitchen, "add", list_id=s.main, item_id=item, food_id=s.foods["Eggs"], amount=6)
     seen = counter(kitchen)
     one(kitchen, "undo", seen, undoes=added["id"])
-    late = one(s.alex, "set_amount", seen, PHONE_R, item_id=item, amount=12)
+    late = one(s.wren, "set_amount", seen, PHONE_R, item_id=item, amount=12)
     assert (late["status"], late["reason"]) == ("ignored", "deleted")
-    (note,) = changes(s.alex)["notes"]
+    (note,) = changes(s.wren)["notes"]
     assert note["text"] == "Tess had removed Eggs, so your change wasn’t kept."
     assert note["undo"] is None
 
@@ -879,7 +879,7 @@ def test_an_ingredient_edit_can_be_undone_from_a_list(kitchen: TestClient) -> No
         before = session.get(Food, s.foods["Onions"]).aisle
     assert before != "dry_goods"
     ok(kitchen.patch(f"{API}/foods/{s.foods['Onions']}", json={"aisle": "dry_goods"}))
-    done = one(s.alex, "undo", 0, PHONE_R, undoes=_last_row(kitchen, "food_edit"))
+    done = one(s.wren, "undo", 0, PHONE_R, undoes=_last_row(kitchen, "food_edit"))
     assert done["status"] == "applied", done
     with db(kitchen) as session:
         assert session.get(Food, s.foods["Onions"]).aisle == before
@@ -890,7 +890,7 @@ def test_a_followed_shop_can_be_undone_from_a_list(kitchen: TestClient) -> None:
     grocer = s.shops["Indian grocer"]
     ok(kitchen.patch(f"{API}/foods/{s.foods['Toor dal']}", json={"shop_id": grocer}))
     assert _lines(kitchen, s, "Toor dal")[0]["shop_id"] == grocer
-    done = one(s.alex, "undo", 0, PHONE_R, undoes=_last_row(kitchen, "follow_shop"))
+    done = one(s.wren, "undo", 0, PHONE_R, undoes=_last_row(kitchen, "follow_shop"))
     assert done["status"] == "applied", done
     assert _lines(kitchen, s, "Toor dal")[0]["shop_id"] == s.shops["Supermarket"]
 
@@ -899,7 +899,7 @@ def test_a_merge_can_be_undone_from_a_list(kitchen: TestClient) -> None:
     s = s0(kitchen)
     arhar = food(kitchen, "Arhar dal", counted_as="weight")["id"]
     ok(kitchen.post(f"{API}/foods/{arhar}/merge", json={"into_id": s.foods["Toor dal"]}))
-    done = one(s.alex, "undo", 0, PHONE_R, undoes=_last_row(kitchen, "merge_foods"))
+    done = one(s.wren, "undo", 0, PHONE_R, undoes=_last_row(kitchen, "merge_foods"))
     assert done["status"] == "applied", done
     with db(kitchen) as session:
         assert session.get(Food, arhar).merged_into_id is None
@@ -915,5 +915,5 @@ def test_a_server_made_undo_cant_be_undone(kitchen: TestClient, kind: str) -> No
         put = one(kitchen, "put_away", s.c0, item_id=item, place_id=freezer, tick_ids=[t["id"]])
         undone = put["change"]["id"]
     ok(kitchen.post(f"{API}/changes/{undone}/undo"))
-    done = one(s.alex, "undo", 0, PHONE_R, undoes=_last_row(kitchen, kind))
+    done = one(s.wren, "undo", 0, PHONE_R, undoes=_last_row(kitchen, kind))
     assert done["status"] == "ignored" and done["reason"] == "cannot_undo"

@@ -34,7 +34,7 @@ const THREE = [
     id: 2,
     name: 'Rava dosa',
     source: { kind: 'text', site: null },
-    started_by: 'Alex',
+    started_by: 'Wren',
     days_left: 15,
     lines_total: 10,
     lines_checked: 2
@@ -43,7 +43,7 @@ const THREE = [
     id: 3,
     name: 'Aloo paratha',
     source: { kind: 'link', site: 'www.example.com' },
-    started_by: 'Alex',
+    started_by: 'Wren',
     days_left: 3,
     lines_total: 4,
     lines_checked: 4
@@ -94,7 +94,7 @@ describe('the Drafts screen', () => {
         .toBeVisible();
       await expect.element(page.getByText('13 days left')).toBeVisible();
       await expect.element(page.getByText('6 of 9 ingredients checked · 3 need you')).toBeVisible();
-      await expect.element(page.getByText('Pasted text · started by Alex')).toBeVisible();
+      await expect.element(page.getByText('Pasted text · started by Wren')).toBeVisible();
       await expect.element(page.getByText('15 days left')).toBeVisible();
       await expect.element(page.getByText('3 days left')).toBeVisible();
       await expect.element(page.getByText('All checked · ready to save')).toBeVisible();

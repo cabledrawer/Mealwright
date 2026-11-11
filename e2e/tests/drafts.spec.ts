@@ -229,8 +229,8 @@ test('the menu has Drafts back: the sidebar on a computer, a button on All recip
 test('the Drafts screen as the mockup shows it: days left, how far, Carry on or Save recipe, and Delete', async ({ page }) => {
   await listing(page, [
     brief(1),
-    brief(2, { name: 'Rava dosa', source: { kind: 'text', site: null }, started_by: 'Alex', days_left: 15, lines_total: 10, lines_checked: 2 }),
-    brief(3, { name: 'Aloo paratha', source: { kind: 'link', site: 'www.example.com' }, started_by: 'Alex', days_left: 3, lines_total: 4, lines_checked: 4 }),
+    brief(2, { name: 'Rava dosa', source: { kind: 'text', site: null }, started_by: 'Wren', days_left: 15, lines_total: 10, lines_checked: 2 }),
+    brief(3, { name: 'Aloo paratha', source: { kind: 'link', site: 'www.example.com' }, started_by: 'Wren', days_left: 3, lines_total: 4, lines_checked: 4 }),
   ]);
   await page.goto('/recipes/drafts');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Drafts');
@@ -240,7 +240,7 @@ test('the Drafts screen as the mockup shows it: days left, how far, Carry on or 
     await expect(page.getByText('13 days left')).toBeVisible();
     await expect(page.getByText('3 days left', { exact: true })).toBeVisible();
     await expect(page.getByText('6 of 9 ingredients checked · 3 need you')).toBeVisible();
-    await expect(page.getByText('Pasted text · started by Alex')).toBeVisible();
+    await expect(page.getByText('Pasted text · started by Wren')).toBeVisible();
   } else {
     await expect(page.getByRole('table', { name: 'Drafts' })).toBeVisible();
     await expect(page.getByRole('columnheader')).toHaveText(['Recipe', 'From', 'Started by', 'Checked', 'Left', 'Actions']);

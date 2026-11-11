@@ -15,7 +15,7 @@ import {
 import { closePhone, deletePhone, phoneDatabaseName, sealPhone, setMeta } from './phone';
 import { addToQueue } from './store';
 
-const ALEX = { login_id: 2, login_name: 'Alex', username: 'alex', role: 'member' };
+const WREN = { login_id: 2, login_name: 'Wren', username: 'wren', role: 'member' };
 const DEVICE = '11111111-2222-4333-8444-555555555555';
 const tick = (id: string) => ({
   id,
@@ -34,12 +34,12 @@ afterEach(async () => {
 
 describe('changes held on this phone', () => {
   it('counts the last signed-in person’s waiting changes only', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     await addToQueue(tick('a'), 2, DEVICE);
     await addToQueue(tick('b'), 2, DEVICE);
     await addToQueue(tick('c'), 1, DEVICE);
     expect(await heldChanges()).toEqual({
-      who: { id: 2, name: 'Alex', username: 'alex', role: 'member' },
+      who: { id: 2, name: 'Wren', username: 'wren', role: 'member' },
       count: 2,
       ids: ['a', 'b']
     });
@@ -47,12 +47,12 @@ describe('changes held on this phone', () => {
 
   it('none when nothing is waiting, or nobody signed in here', async () => {
     expect(await heldChanges()).toBeNull();
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     expect(await heldChanges()).toBeNull();
   });
 
   it('a tab sealed by another tab’s wipe still reads a database made again since, without making one', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     await addToQueue(tick('a'), 2, DEVICE);
     sealPhone();
     expect(await heldChanges()).toMatchObject({ who: { id: 2 }, count: 1, ids: ['a'] });
@@ -74,24 +74,24 @@ describe('changes held on this phone', () => {
   it('says 1 change and 3 changes', () => {
     expect(keptText(3)).toBe('Please sign in again. Your 3 changes are kept on this phone.');
     expect(keptText(1)).toBe('Please sign in again. Your 1 change is kept on this phone.');
-    expect(waitingForText('Alex', 3)).toBe(
-      'Alex’s 3 changes are waiting on this phone. Sign in as Alex to send them.'
+    expect(waitingForText('Wren', 3)).toBe(
+      'Wren’s 3 changes are waiting on this phone. Sign in as Wren to send them.'
     );
-    expect(waitingForText('Alex', 1)).toBe(
-      'Alex’s 1 change is waiting on this phone. Sign in as Alex to send it.'
+    expect(waitingForText('Wren', 1)).toBe(
+      'Wren’s 1 change is waiting on this phone. Sign in as Wren to send it.'
     );
     // With the sidebar, it's this computer (by layout).
     expect(keptText(2, 'computer')).toBe(
       'Please sign in again. Your 2 changes are kept on this computer.'
     );
-    expect(waitingForText('Alex', 1, 'computer')).toBe(
-      'Alex’s 1 change is waiting on this computer. Sign in as Alex to send it.'
+    expect(waitingForText('Wren', 1, 'computer')).toBe(
+      'Wren’s 1 change is waiting on this computer. Sign in as Wren to send it.'
     );
-    expect(loseOthersText('Alex', 3)).toBe(
-      'Alex’s 3 changes haven’t been sent yet. If you carry on, they’re lost.'
+    expect(loseOthersText('Wren', 3)).toBe(
+      'Wren’s 3 changes haven’t been sent yet. If you carry on, they’re lost.'
     );
-    expect(loseOthersText('Alex', 1)).toBe(
-      'Alex’s 1 change hasn’t been sent yet. If you carry on, it’s lost.'
+    expect(loseOthersText('Wren', 1)).toBe(
+      'Wren’s 1 change hasn’t been sent yet. If you carry on, it’s lost.'
     );
     expect(loseOnSignOutText(3)).toBe(
       '3 changes haven’t been sent yet. If you sign out now, they’re lost.'
@@ -102,15 +102,15 @@ describe('changes held on this phone', () => {
   });
 
   it('compares usernames as the server does', () => {
-    const alex = { id: 2, name: 'Alex', username: 'alex', role: 'member' };
-    expect(sameUsername(' Alex ', alex)).toBe(true);
-    expect(sameUsername('arlo', alex)).toBe(false);
+    const wren = { id: 2, name: 'Wren', username: 'wren', role: 'member' };
+    expect(sameUsername(' Wren ', wren)).toBe(true);
+    expect(sameUsername('arlo', wren)).toBe(false);
   });
 });
 
 describe('a phone database that can’t be read', () => {
   it('is “couldn’t read”, never “nothing waiting” or “nobody here”', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     await addToQueue(tick('a'), 2, DEVICE);
     const mend = breakPhone();
     expect(await heldChanges()).toBe(UNREADABLE);
@@ -124,7 +124,7 @@ describe('a phone database that can’t be read', () => {
   });
 
   it('nor when the browser can’t even list its databases', async () => {
-    await setMeta({ ...ALEX, device_id: DEVICE });
+    await setMeta({ ...WREN, device_id: DEVICE });
     await addToQueue(tick('a'), 2, DEVICE);
     closePhone();
     vi.spyOn(indexedDB, 'databases').mockRejectedValue(new DOMException('broken', 'UnknownError'));

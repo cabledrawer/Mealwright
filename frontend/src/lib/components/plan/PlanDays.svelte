@@ -22,7 +22,7 @@
   let { actions, days }: { actions: PlanActions; days: string[] } = $props();
   const model = $derived(actions.model);
 
-  /** "Tub 2 of 4 · Alex" for a meal that holds tubs; the prep note on a cook day. */
+  /** "Tub 2 of 4 · Wren" for a meal that holds tubs; the prep note on a cook day. */
   function batchLine(meal: PlanMeal): string | null {
     const tubs = meal.items.flatMap((i) => {
       const found = tubOf(model.plan, i);

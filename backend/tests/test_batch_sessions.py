@@ -343,10 +343,10 @@ def test_another_households_ids_are_not_found_on_any_route(
 
 
 def test_any_signed_in_person_can_plan_a_batch(kitchen: TestClient, three: list[int]) -> None:
-    alex = person(kitchen)
-    made = alex.post(f"{API}/batch-cook/sessions", json=body(kitchen, three[:2]))
+    wren = person(kitchen)
+    made = wren.post(f"{API}/batch-cook/sessions", json=body(kitchen, three[:2]))
     assert made.status_code == 201
-    assert alex.delete(f"{API}/batch-cook/sessions/{made.json()['session_id']}").status_code == 200
+    assert wren.delete(f"{API}/batch-cook/sessions/{made.json()['session_id']}").status_code == 200
 
 
 def test_signed_out_is_refused(client: TestClient) -> None:

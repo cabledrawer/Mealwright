@@ -8,11 +8,11 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sync_kit import (
-    ALEX_PASSWORD,
     API,
     PHONE_A,
     PHONE_B,
     PHONE_R,
+    WREN_PASSWORD,
     S0,
     action,
     changes,
@@ -56,25 +56,25 @@ def test_sy01_same_item_ticked_on_both(kitchen: TestClient, a_first: bool) -> No
     _in_order(
         a_first,
         lambda: results.append(tick(kitchen, s, "Toor dal", PHONE_A)),
-        lambda: results.append(tick(s.alex, s, "Toor dal", PHONE_R)),
+        lambda: results.append(tick(s.wren, s, "Toor dal", PHONE_R)),
     )
     assert [r["status"] for r in results] == ["applied", "applied"]
     assert s.lots("Toor dal") == [("Cupboard", 500), ("Cupboard", 500)]
     shopped = s.changes_of("Toor dal", "shopped")
-    assert sorted(c.login_name for c in shopped) == ["Tess", "Alex"]
+    assert sorted(c.login_name for c in shopped) == ["Tess", "Wren"]
     assert shopped[0].summary == "Bought 1\u00a0packet Toor dal → Cupboard"
     row = s.item(kitchen, "Toor dal")
-    assert sorted(t["by"]["name"] for t in row["ticks"]) == ["Tess", "Alex"]
+    assert sorted(t["by"]["name"] for t in row["ticks"]) == ["Tess", "Wren"]
     assert all(t["standing"] for t in row["ticks"])
     (mine,) = _card(kitchen)
-    (hers,) = _card(s.alex)
+    (hers,) = _card(s.wren)
     assert mine["id"] == hers["id"] and mine["title"] == "Did you buy 2?"
     assert mine["text"] == (
-        "You and Alex both ticked Toor dal while offline, so 2\u00a0packets went into the pantry."
+        "You and Wren both ticked Toor dal while offline, so 2\u00a0packets went into the pantry."
     )
     assert hers["text"].startswith("You and Tess both ticked Toor dal")
     assert (mine["yes"], mine["no"]) == ("Yes, 2", "Just 1")
-    assert changes(kitchen)["notes"] == [] and changes(s.alex)["notes"] == []
+    assert changes(kitchen)["notes"] == [] and changes(s.wren)["notes"] == []
 
 
 @BOTH
@@ -88,7 +88,7 @@ def test_sy02_ticked_on_two_phones_of_one_login(kitchen: TestClient, a_first: bo
     assert s.total("Toor dal") == 1000
     (card,) = _card(kitchen)
     assert card["text"] == "This was ticked on two phones, so 2\u00a0packets went into the pantry."
-    assert _card(s.alex) == []
+    assert _card(s.wren) == []
 
 
 def test_sy02b_a_count_on_two_phones_never_says_left(kitchen: TestClient) -> None:
@@ -130,7 +130,7 @@ def test_sy04_a_tick_sticks(kitchen: TestClient, a_first: bool) -> None:
         results["a_tick"] = tick(kitchen, s, "Coriander", PHONE_A)
 
     def b() -> None:
-        results["b"] = one(s.alex, "untick", s.c0, PHONE_R, item_id=item, tick_ids=[t0])
+        results["b"] = one(s.wren, "untick", s.c0, PHONE_R, item_id=item, tick_ids=[t0])
 
     _in_order(a_first, a, b)
     loser = results["b"] if a_first else results["a_untick"]
@@ -139,7 +139,7 @@ def test_sy04_a_tick_sticks(kitchen: TestClient, a_first: bool) -> None:
     assert s.total("Coriander") == 1
     (standing,) = s.ticks("Coriander")
     assert standing.id == results["a_tick"]["id"] and standing.login_name == "Tess"
-    assert changes(kitchen)["notes"] == [] and changes(s.alex)["notes"] == []
+    assert changes(kitchen)["notes"] == [] and changes(s.wren)["notes"] == []
 
 
 @BOTH
@@ -151,7 +151,7 @@ def test_sy05_both_untick(kitchen: TestClient, a_first: bool) -> None:
     _in_order(
         a_first,
         lambda: results.append(one(kitchen, "untick", s.c0, PHONE_A, item_id=item, tick_ids=[t0])),
-        lambda: results.append(one(s.alex, "untick", s.c0, PHONE_R, item_id=item, tick_ids=[t0])),
+        lambda: results.append(one(s.wren, "untick", s.c0, PHONE_R, item_id=item, tick_ids=[t0])),
     )
     assert [r["status"] for r in results] == ["applied", "ignored"]
     assert results[1]["reason"] == "not_ticked"
@@ -171,23 +171,23 @@ def test_sy08_sy09_tick_against_a_delete(kitchen: TestClient, a_first: bool) -> 
     _in_order(
         a_first,
         lambda: results.update(tick=tick(kitchen, s, "Paneer")),
-        lambda: results.update(delete=one(s.alex, "delete", s.c0, PHONE_R, item_id=item)),
+        lambda: results.update(delete=one(s.wren, "delete", s.c0, PHONE_R, item_id=item)),
     )
     assert s.lots("Paneer") == [("Fridge", 200), ("Fridge", 200)]
     assert s.item(kitchen, "Paneer", s.c0)["deleted"] is True
     (note,) = changes(kitchen)["notes"]
-    assert note["text"] == "Alex had removed this. Your tick still went into the pantry."
+    assert note["text"] == "Wren had removed this. Your tick still went into the pantry."
     assert note["undo"] == results["tick"]["id"]
-    assert changes(s.alex)["notes"] == []
+    assert changes(s.wren)["notes"] == []
     assert _undo(kitchen, note["undo"])["status"] == "applied"
     assert s.total("Paneer") == 0
     assert changes(kitchen)["notes"] == []
 
 
 def _removed_with_its_line(s: S0, name: str) -> None:
-    """Alex removes the line, then the ingredient (phone A hasn't seen either)."""
-    one(s.alex, "delete", s.c0, PHONE_R, item_id=s.items[name])
-    ok(s.alex.delete(f"{API}/foods/{s.foods[name]}"))
+    """Wren removes the line, then the ingredient (phone A hasn't seen either)."""
+    one(s.wren, "delete", s.c0, PHONE_R, item_id=s.items[name])
+    ok(s.wren.delete(f"{API}/foods/{s.foods[name]}"))
 
 
 def _live(s: S0, name: str) -> list[int]:
@@ -225,16 +225,16 @@ def test_an_undo_of_a_tick_keeps_the_brought_back_ingredient_while_stock_is_left
 def test_an_undo_of_a_tick_keeps_the_brought_back_ingredient_while_it_is_on_a_list(
     kitchen: TestClient,
 ) -> None:
-    """0.2's rule (`cannot_remove`): an ingredient on a list can't be removed. Alex put
+    """0.2's rule (`cannot_remove`): an ingredient on a list can't be removed. Wren put
     Paneer on the list again after the tick brought it back, so the Undo takes the tick
     back but Paneer stays in Ingredients, and her line stays."""
     s = s0(kitchen)
     _removed_with_its_line(s, "Paneer")
     done = tick(kitchen, s, "Paneer")
     again = one(
-        s.alex,
+        s.wren,
         "add",
-        counter(s.alex),
+        counter(s.wren),
         PHONE_R,
         list_id=s.main,
         item_id=new_id(),
@@ -302,7 +302,7 @@ def test_a_tick_into_an_ingredient_counted_differently_puts_nothing_in(
     (note,) = changes(kitchen)["notes"]
     assert note["text"] == "Paneer is counted differently now, so nothing went into the pantry."
     assert (note["undo"], note["food_id"]) == (done["id"], new)
-    assert changes(s.alex)["notes"] == []  # only the ticker's
+    assert changes(s.wren)["notes"] == []  # only the ticker's
     assert _undo(kitchen, note["undo"])["status"] == "applied"
     assert s.ticks("Paneer") == [] and changes(kitchen)["notes"] == []
 
@@ -330,7 +330,7 @@ def test_sy13_put_away_on_two_phones(kitchen: TestClient, a_first: bool) -> None
         kitchen, "put_away", s.c0, PHONE_A, item_id=item, place_id=places["Cupboard"], tick_ids=[t0]
     )
     b = lambda: one(  # noqa: E731
-        s.alex, "put_away", s.c0, PHONE_R, item_id=item, place_id=places["Freezer"], tick_ids=[t0]
+        s.wren, "put_away", s.c0, PHONE_R, item_id=item, place_id=places["Freezer"], tick_ids=[t0]
     )
     _in_order(a_first, a, b)
     last = "Freezer" if a_first else "Cupboard"
@@ -338,7 +338,7 @@ def test_sy13_put_away_on_two_phones(kitchen: TestClient, a_first: bool) -> None
     assert len(s.changes_of("Coriander", "moved")) == 2
     row = s.item(kitchen, "Coriander")
     assert row["put_away_place_id"] == places[last]
-    loser, winner = (kitchen, "Alex") if a_first else (s.alex, "Tess")
+    loser, winner = (kitchen, "Wren") if a_first else (s.wren, "Tess")
     (note,) = changes(loser)["notes"]
     assert note["text"] == f"{winner} put Coriander in the {last}"
     first = "Cupboard" if a_first else "Freezer"
@@ -479,7 +479,7 @@ def test_sy16_different_pack_after_some_was_used(kitchen: TestClient) -> None:
     s = s0(kitchen)
     t = tick(kitchen, s, "Paneer")
     ok(
-        s.alex.post(
+        s.wren.post(
             f"{API}/foods/{s.foods['Paneer']}/used", json={"amount": {"amount": 100, "unit": "g"}}
         )
     )
@@ -526,7 +526,7 @@ def test_sy21_old_queue_after_clear_ticked(kitchen: TestClient) -> None:
     friday = _at(days=-3)
     eggs = new_id()
     answer = send(
-        s.alex,
+        s.wren,
         action("tick", s.c0, item_id=s.items["Toor dal"], made_at=friday),
         action(
             "add",
@@ -545,9 +545,9 @@ def test_sy21_old_queue_after_clear_ticked(kitchen: TestClient) -> None:
     assert item_row(changes(kitchen), eggs)["amount"] == 6
     assert s.item(kitchen, "Milk", s.c0)["deleted"] is True
     assert s.lots("Toor dal") == [("Cupboard", 500), ("Cupboard", 500)]
-    assert len(_card(kitchen)) == 1 and len(_card(s.alex)) == 1
+    assert len(_card(kitchen)) == 1 and len(_card(s.wren)) == 1
     assert changes(kitchen)["notes"] == []
-    (note,) = changes(s.alex)["notes"]
+    (note,) = changes(s.wren)["notes"]
     assert note["text"].startswith("Tess had removed Milk")
 
 
@@ -557,7 +557,7 @@ def test_sy22_queued_undo_counts_and_tick_on_a_delete(kitchen: TestClient) -> No
     _age(kitchen, gone["id"], 14)
     paneer = new_id()
     answer = send(
-        s.alex,
+        s.wren,
         action("tick", s.c0, id=paneer, item_id=s.items["Paneer"], made_at=_at(days=-21)),
         action("undo", s.c0, undoes=paneer, made_at=_at(days=-21, seconds=10)),
         action("tick", s.c0, item_id=s.items["Coriander"], made_at=_at(days=-21, seconds=20)),
@@ -566,7 +566,7 @@ def test_sy22_queued_undo_counts_and_tick_on_a_delete(kitchen: TestClient) -> No
     assert [r["status"] for r in answer["results"]] == ["applied"] * 3
     assert s.total("Paneer") == 0 and s.ticks("Paneer") == []
     assert s.lots("Coriander") == [("Fridge", 1)]
-    (note,) = changes(s.alex)["notes"]
+    (note,) = changes(s.wren)["notes"]
     assert note["text"] == "Tess had removed this. Your tick still went into the pantry."
     assert changes(kitchen)["notes"] == []
 
@@ -582,14 +582,14 @@ def _undo_pressed(
 
 def test_sy22b_queued_undo_pressed_in_time(kitchen: TestClient) -> None:
     s = s0(kitchen)
-    first = tick(s.alex, s, "Toor dal", PHONE_R)
+    first = tick(s.wren, s, "Toor dal", PHONE_R)
     _age(kitchen, first["id"], 10)
-    done = _undo_pressed(s.alex, first["id"], _at(days=-8), _at())
+    done = _undo_pressed(s.wren, first["id"], _at(days=-8), _at())
     assert done["status"] == "applied"
     assert s.total("Toor dal") == 0 and s.ticks("Toor dal") == []
-    again = tick(s.alex, s, "Toor dal", PHONE_R)
+    again = tick(s.wren, s, "Toor dal", PHONE_R)
     _age(kitchen, again["id"], 10)
-    late = _undo_pressed(s.alex, again["id"], _at(days=-1), _at())
+    late = _undo_pressed(s.wren, again["id"], _at(days=-1), _at())
     assert (late["status"], late["reason"]) == ("ignored", "too_old")
     assert late["message"]
     assert s.total("Toor dal") == 500
@@ -598,13 +598,13 @@ def test_sy22b_queued_undo_pressed_in_time(kitchen: TestClient) -> None:
 @pytest.mark.parametrize("skew", [-30, 30], ids=["slow", "fast"])
 def test_sy63_undo_window_with_a_wrong_clock(kitchen: TestClient, skew: int) -> None:
     s = s0(kitchen)
-    first = tick(s.alex, s, "Toor dal", PHONE_R)
+    first = tick(s.wren, s, "Toor dal", PHONE_R)
     _age(kitchen, first["id"], 3)
-    done = _undo_pressed(s.alex, first["id"], _at(days=skew - 1), _at(days=skew))
+    done = _undo_pressed(s.wren, first["id"], _at(days=skew - 1), _at(days=skew))
     assert done["status"] == "applied"
-    second = tick(s.alex, s, "Paneer", PHONE_R)
+    second = tick(s.wren, s, "Paneer", PHONE_R)
     _age(kitchen, second["id"], 10)
-    late = _undo_pressed(s.alex, second["id"], _at(days=skew - 1), _at(days=skew))
+    late = _undo_pressed(s.wren, second["id"], _at(days=skew - 1), _at(days=skew))
     assert (late["status"], late["reason"]) == ("ignored", "too_old")
     assert s.total("Toor dal") == 0 and s.total("Paneer") == 400
 
@@ -622,12 +622,12 @@ EAST, WEST = "0001-01-01T00:00:00+05:00", "9999-12-31T23:59:59-05:00"
 )
 def test_undo_with_an_impossible_clock(kitchen: TestClient, made: str, sent: str) -> None:
     s = s0(kitchen)
-    first = tick(s.alex, s, "Toor dal", PHONE_R)
+    first = tick(s.wren, s, "Toor dal", PHONE_R)
     _age(kitchen, first["id"], 3)
-    second = tick(s.alex, s, "Paneer", PHONE_R)
+    second = tick(s.wren, s, "Paneer", PHONE_R)
     _age(kitchen, second["id"], 10)
     answer = send(
-        s.alex,
+        s.wren,
         action("undo", 0, undoes=first["id"], made_at=made),
         action("undo", 0, undoes=second["id"], made_at=made),
         action("tick", 0, item_id=s.items["Coriander"], made_at=made),
@@ -648,7 +648,7 @@ def test_undo_with_an_impossible_clock(kitchen: TestClient, made: str, sent: str
 def _after_sy01(s: S0) -> tuple[Any, Any, int]:
     """SY-01 (A→B), both synced: the two ticks and the card's ID."""
     a = tick(s.kitchen, s, "Toor dal", PHONE_A)
-    b = tick(s.alex, s, "Toor dal", PHONE_R)
+    b = tick(s.wren, s, "Toor dal", PHONE_R)
     s.c0 = int(changes(s.kitchen)["cursor"])
     (card,) = _card(s.kitchen)
     return a, b, int(card["id"])
@@ -667,18 +667,18 @@ def test_sy23_just_one_and_its_undo(kitchen: TestClient) -> None:
     assert s.lots("Toor dal") == [("Cupboard", 500)]
     (standing,) = s.ticks("Toor dal")
     assert standing.id == a["id"]
-    assert _card(kitchen) == [] and _card(s.alex) == []
+    assert _card(kitchen) == [] and _card(s.wren) == []
     assert _undo(kitchen, done["id"])["status"] == "applied"
     assert s.total("Toor dal") == 1000 and len(s.ticks("Toor dal")) == 2
     assert [q["id"] for q in _card(kitchen)] == [card]
-    assert [q["id"] for q in _card(s.alex)] == [card]
+    assert [q["id"] for q in _card(s.wren)] == [card]
 
 
 def test_sy24_sy24u_just_one_after_some_was_used(kitchen: TestClient) -> None:
     s = s0(kitchen)
     _, _, card = _after_sy01(s)
     used = {"amount": {"amount": 800, "unit": "g"}}
-    ok(s.alex.post(f"{API}/foods/{s.foods['Toor dal']}/used", json=used))
+    ok(s.wren.post(f"{API}/foods/{s.foods['Toor dal']}/used", json=used))
     assert s.lots("Toor dal") == [("Cupboard", 200)]
     done = _answer(kitchen, s, card, "one")
     assert done["message"] == (
@@ -686,11 +686,11 @@ def test_sy24_sy24u_just_one_after_some_was_used(kitchen: TestClient) -> None:
     )
     assert s.total("Toor dal") == 0
     assert [t.login_name for t in s.ticks("Toor dal")] == ["Tess"]
-    # SY-24u: Undo puts back exactly what was taken out, into Alex's lot.
+    # SY-24u: Undo puts back exactly what was taken out, into Wren's lot.
     assert _undo(kitchen, done["id"])["status"] == "applied"
     assert s.lots("Toor dal") == [("Cupboard", 200)]
     assert len(s.ticks("Toor dal")) == 2
-    assert len(_card(kitchen)) == 1 and len(_card(s.alex)) == 1
+    assert len(_card(kitchen)) == 1 and len(_card(s.wren)) == 1
 
 
 @BOTH
@@ -701,13 +701,13 @@ def test_sy25_two_answers_offline(kitchen: TestClient, a_first: bool) -> None:
     _in_order(
         a_first,
         lambda: results.update(a=_answer(kitchen, s, card, "two")),
-        lambda: results.update(b=_answer(s.alex, s, card, "one", PHONE_R)),
+        lambda: results.update(b=_answer(s.wren, s, card, "one", PHONE_R)),
     )
     first, second = (results["a"], results["b"]) if a_first else (results["b"], results["a"])
     assert first["status"] == "applied"
     assert (second["status"], second["reason"]) == ("ignored", "answered")
     assert s.total("Toor dal") == (1000 if a_first else 500)
-    assert _card(kitchen) == [] and _card(s.alex) == []
+    assert _card(kitchen) == [] and _card(s.wren) == []
 
 
 # --- Untick, and its Undo (7.2) ------------------------------------------------------------------
@@ -717,7 +717,7 @@ def test_sy26_sy26u_untick_after_some_was_used(kitchen: TestClient) -> None:
     s = s0(kitchen)
     t = tick(kitchen, s, "Toor dal")
     used = {"amount": {"amount": 200, "unit": "g"}}
-    ok(s.alex.post(f"{API}/foods/{s.foods['Toor dal']}/used", json=used))
+    ok(s.wren.post(f"{API}/foods/{s.foods['Toor dal']}/used", json=used))
     off = one(kitchen, "untick", s.c0, item_id=s.items["Toor dal"], tick_ids=[t["id"]])
     assert off["message"] == (
         "Took back 300\u00a0g of the 500\u00a0g: the rest has been used since."
@@ -738,10 +738,10 @@ def test_sy27_untick_naming_both_ticks(kitchen: TestClient) -> None:
     s = s0(kitchen)
     a, b, _ = _after_sy01(s)
     item = s.items["Toor dal"]
-    done = one(s.alex, "untick", s.c0, PHONE_R, item_id=item, tick_ids=[a["id"], b["id"]])
+    done = one(s.wren, "untick", s.c0, PHONE_R, item_id=item, tick_ids=[a["id"], b["id"]])
     assert done["status"] == "applied"
     assert s.total("Toor dal") == 0 and s.ticks("Toor dal") == []
-    assert _card(kitchen) == [] and _card(s.alex) == []
+    assert _card(kitchen) == [] and _card(s.wren) == []
 
 
 def test_sy27_variant_untick_naming_only_my_tick(kitchen: TestClient) -> None:
@@ -751,7 +751,7 @@ def test_sy27_variant_untick_naming_only_my_tick(kitchen: TestClient) -> None:
     assert s.total("Toor dal") == 500
     (standing,) = s.ticks("Toor dal")
     assert standing.id == b["id"]
-    assert _card(kitchen) == [] and _card(s.alex) == []
+    assert _card(kitchen) == [] and _card(s.wren) == []
 
 
 @BOTH
@@ -760,11 +760,11 @@ def test_sy28_staple_ticked_on_both(kitchen: TestClient, a_first: bool) -> None:
     _in_order(
         a_first,
         lambda: tick(kitchen, s, "Salt", PHONE_A),
-        lambda: tick(s.alex, s, "Salt", PHONE_R),
+        lambda: tick(s.wren, s, "Salt", PHONE_R),
     )
     assert s.total("Salt") == 0 and s.changes_of("Salt", "shopped") == []
     assert len(s.ticks("Salt")) == 2
-    assert _card(kitchen) == [] and _card(s.alex) == []
+    assert _card(kitchen) == [] and _card(s.wren) == []
 
 
 def test_sy29_clear_ticked_and_a_new_tick(kitchen: TestClient) -> None:
@@ -772,7 +772,7 @@ def test_sy29_clear_ticked_and_a_new_tick(kitchen: TestClient) -> None:
     tick(kitchen, s, "Toor dal")
     s.c0 = int(changes(kitchen)["cursor"])
     one(kitchen, "clear_ticked", s.c0, list_id=s.main, item_ids=[s.items["Toor dal"]])
-    assert tick(s.alex, s, "Onions", PHONE_R)["status"] == "applied"
+    assert tick(s.wren, s, "Onions", PHONE_R)["status"] == "applied"
     assert s.item(kitchen, "Toor dal", s.c0)["deleted"] is True
     assert s.item(kitchen, "Onions")["ticks"][0]["standing"] is True
     assert s.lots("Toor dal") == [("Cupboard", 500)]
@@ -783,11 +783,11 @@ def test_sy30_tick_after_clear_ticked(kitchen: TestClient) -> None:
     s = s0(kitchen)
     tick(kitchen, s, "Toor dal")
     one(kitchen, "clear_ticked", s.c0, list_id=s.main, item_ids=[s.items["Toor dal"]])
-    assert tick(s.alex, s, "Toor dal", PHONE_R)["status"] == "applied"
+    assert tick(s.wren, s, "Toor dal", PHONE_R)["status"] == "applied"
     assert s.item(kitchen, "Toor dal", s.c0)["deleted"] is True
     assert s.total("Toor dal") == 1000
-    assert len(_card(kitchen)) == 1 and len(_card(s.alex)) == 1
-    assert changes(kitchen)["notes"] == [] and changes(s.alex)["notes"] == []
+    assert len(_card(kitchen)) == 1 and len(_card(s.wren)) == 1
+    assert changes(kitchen)["notes"] == [] and changes(s.wren)["notes"] == []
 
 
 def test_sy31_clear_ticked_and_undo(kitchen: TestClient) -> None:
@@ -826,7 +826,7 @@ def test_sy32_queue_hits_a_removed_list(kitchen: TestClient) -> None:
     seen = int(changes(kitchen)["cursor"])
     removed = one(kitchen, "remove_list", seen, list_id=party)
     answer = send(
-        s.alex,
+        s.wren,
         action("tick", seen, item_id=items["crisps"]),
         action(
             "add",
@@ -840,14 +840,14 @@ def test_sy32_queue_hits_a_removed_list(kitchen: TestClient) -> None:
     )
     assert [r["status"] for r in answer["results"]] == ["applied"] * 3
     assert [lot for lot in _lots_of(kitchen, crisps)] == [2]
-    (note,) = changes(s.alex)["notes"]
+    (note,) = changes(s.wren)["notes"]
     assert note["text"] == (
         "Tess had removed Party on Saturday. Your changes are kept with it."
         " Your ticks still went into the pantry."
     )
     assert changes(kitchen)["notes"] == []
     assert note["undo"] == removed["id"]
-    assert _undo(s.alex, note["undo"], PHONE_R)["status"] == "applied"
+    assert _undo(s.wren, note["undo"], PHONE_R)["status"] == "applied"
     copy = changes(kitchen)
     assert next(row for row in copy["lists"] if row["id"] == party)["removed"] is False
     assert item_row(copy, items["crisps"])["ticks"][0]["standing"] is True
@@ -877,7 +877,7 @@ def test_sy36_pantry_undo_of_a_purchase(kitchen: TestClient) -> None:
     t = tick(kitchen, s, "Toor dal")
     assert t["change"]["summary"] == "Bought 1\u00a0packet Toor dal → Cupboard"
     s.c0 = int(changes(kitchen)["cursor"])
-    _pantry_undo(s.alex, t["change"]["id"])
+    _pantry_undo(s.wren, t["change"]["id"])
     assert s.total("Toor dal") == 0
     row = s.item(kitchen, "Toor dal", s.c0)
     assert [tick_row["standing"] for tick_row in row["ticks"]] == [False]
@@ -896,16 +896,16 @@ def test_sy38_untick_after_clear_ticked(kitchen: TestClient) -> None:
     t = tick(kitchen, s, "Toor dal")
     s.c0 = int(changes(kitchen)["cursor"])
     one(kitchen, "clear_ticked", s.c0, list_id=s.main, item_ids=[s.items["Toor dal"]])
-    off = one(s.alex, "untick", s.c0, PHONE_R, item_id=s.items["Toor dal"], tick_ids=[t["id"]])
+    off = one(s.wren, "untick", s.c0, PHONE_R, item_id=s.items["Toor dal"], tick_ids=[t["id"]])
     assert off["status"] == "applied"
     assert s.item(kitchen, "Toor dal", s.c0)["deleted"] is True
     assert s.total("Toor dal") == 0
-    (note,) = changes(s.alex)["notes"]
+    (note,) = changes(s.wren)["notes"]
     assert note["text"] == (
         "Tess had removed this, so it isn’t back on the list."
         " Your untick took it out of the pantry."
     )
-    assert _undo(s.alex, note["undo"], PHONE_R)["status"] == "applied"
+    assert _undo(s.wren, note["undo"], PHONE_R)["status"] == "applied"
     assert s.total("Toor dal") == 500
     assert s.item(kitchen, "Toor dal", s.c0)["deleted"] is True
 
@@ -918,17 +918,17 @@ def test_sy38_no_n5_when_it_had_all_been_used(kitchen: TestClient) -> None:
     one(kitchen, "clear_ticked", s.c0, list_id=s.main, item_ids=[s.items["Toor dal"]])
     used = {"amount": {"amount": 500, "unit": "g"}}
     ok(kitchen.post(f"{API}/foods/{s.foods['Toor dal']}/used", json=used))
-    off = one(s.alex, "untick", s.c0, PHONE_R, item_id=s.items["Toor dal"], tick_ids=[t["id"]])
+    off = one(s.wren, "untick", s.c0, PHONE_R, item_id=s.items["Toor dal"], tick_ids=[t["id"]])
     assert off["status"] == "applied"
     assert s.ticks("Toor dal") == []
-    assert changes(s.alex)["notes"] == []
+    assert changes(s.wren)["notes"] == []
 
 
 def test_just_1_keeps_the_first_purchase_in_server_order(kitchen: TestClient) -> None:
     """L-3: server order is the counter's, not the server clock's."""
     s = s0(kitchen)
     first = tick(kitchen, s, "Toor dal")
-    tick(s.alex, s, "Toor dal", PHONE_R)
+    tick(s.wren, s, "Toor dal", PHONE_R)
     with db(kitchen) as session:  # the clock stepped back between the two
         row = session.get(ListTick, (1, first["id"]))
         row.ticked_at = utcnow() + timedelta(hours=1)
@@ -967,10 +967,10 @@ def test_sy47_tick_with_a_merged_item_id(kitchen: TestClient) -> None:
     eggs = s.foods["Eggs"]
     one(kitchen, "add", s.c0, list_id=s.main, item_id=mine, food_id=eggs, amount=6)
     merged = one(
-        s.alex, "add", s.c0, PHONE_R, list_id=s.main, item_id=hers, food_id=eggs, amount=12
+        s.wren, "add", s.c0, PHONE_R, list_id=s.main, item_id=hers, food_id=eggs, amount=12
     )
     assert merged["status"] == "merged" and merged["item_id"] == mine
-    done = one(s.alex, "tick", s.c0, PHONE_R, item_id=hers)
+    done = one(s.wren, "tick", s.c0, PHONE_R, item_id=hers)
     assert done["status"] == "applied" and done["item_id"] == mine
     assert item_row(changes(kitchen), mine)["ticks"][0]["standing"] is True
     assert s.total("Eggs") == 12
@@ -1105,7 +1105,7 @@ def test_sy51_pantry_undo_of_a_put_away(kitchen: TestClient) -> None:
     s.c0 = int(changes(kitchen)["cursor"])
     _pantry_undo(kitchen, put["change"]["id"])
     assert s.lots("Coriander") == [("Fridge", 1)]
-    row = s.item(s.alex, "Coriander", s.c0)
+    row = s.item(s.wren, "Coriander", s.c0)
     assert row["put_away_place_id"] is None
     assert row["ticks"][0]["place_id"] == s.places["Fridge"]
     assert row["ticks"][0]["standing"] is True
@@ -1117,7 +1117,7 @@ def test_sy55_put_away_to_a_removed_place(kitchen: TestClient) -> None:
         session.delete(session.get(Place, s.places["Spice rack"]))
         session.commit()
     answer = send(
-        s.alex,
+        s.wren,
         action(
             "put_away",
             s.c0,
@@ -1136,14 +1136,14 @@ def test_sy55_put_away_to_a_removed_place(kitchen: TestClient) -> None:
 
 def test_sy62_tick_again_after_signing_back_in(kitchen: TestClient) -> None:
     s = s0(kitchen)
-    assert tick(s.alex, s, "Toor dal", PHONE_R)["status"] == "applied"
-    assert s.alex.delete(f"{API}/session").status_code == 204
+    assert tick(s.wren, s, "Toor dal", PHONE_R)["status"] == "applied"
+    assert s.wren.delete(f"{API}/session").status_code == 204
     queued = action("tick", s.c0, item_id=s.items["Toor dal"])
-    assert s.alex.post(f"{API}/shopping/actions", json={}).status_code == 401
-    ok(s.alex.post(f"{API}/session", json={"username": "alex", "password": ALEX_PASSWORD}))
-    (again,) = send(s.alex, queued, device=PHONE_R)["results"]
+    assert s.wren.post(f"{API}/shopping/actions", json={}).status_code == 401
+    ok(s.wren.post(f"{API}/session", json={"username": "wren", "password": WREN_PASSWORD}))
+    (again,) = send(s.wren, queued, device=PHONE_R)["results"]
     assert (again["status"], again["reason"]) == ("ignored", "already_ticked")
-    assert s.total("Toor dal") == 500 and _card(s.alex) == []
+    assert s.total("Toor dal") == 500 and _card(s.wren) == []
 
 
 def test_sy15c_a_count_with_no_amount_gets_n_items_and_no_pack_size(kitchen: TestClient) -> None:

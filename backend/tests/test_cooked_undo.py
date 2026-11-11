@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sync_kit import PHONE_A, ok, one
 from test_cooking import amounts, cook
 from test_deduction import recipe_of
-from test_history import alex  # noqa: F401 (a fixture)
+from test_history import wren  # noqa: F401 (a fixture)
 from test_plan import db_of, slot_ids
 from test_recipe_list import line, stock
 from test_recipes import food, make
@@ -192,11 +192,11 @@ def test_a_meal_answered_before_its_review_stays_separate(kitchen: TestClient) -
     assert not undone(kitchen, answer["id"]) and status_of(kitchen, meal) == "cooked"
 
 
-def test_another_logins_cooked_is_not_joined(kitchen: TestClient, alex: TestClient) -> None:  # noqa: F811
+def test_another_logins_cooked_is_not_joined(kitchen: TestClient, wren: TestClient) -> None:  # noqa: F811
     _dal, meal, item = eaten_today(kitchen)
     pantry = ok(cook(kitchen, item), 201)["change"]
-    answer = answer_cooked(alex, meal)["change"]
-    assert ok(undo(alex, answer["id"]))["result"] == "done"
+    answer = answer_cooked(wren, meal)["change"]
+    assert ok(undo(wren, answer["id"]))["result"] == "done"
     assert not undone(kitchen, pantry["id"])
 
 

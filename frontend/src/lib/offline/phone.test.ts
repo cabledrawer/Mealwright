@@ -165,10 +165,10 @@ describe('the device ID (sync-protocol 11.8)', () => {
   });
 
   it('keeps who is signed in, for opening offline', async () => {
-    await startDevice({ id: 3, name: 'Alex', username: 'alex', role: 'member' });
+    await startDevice({ id: 3, name: 'Wren', username: 'wren', role: 'member' });
     expect(await getMeta('login_id')).toBe(3);
-    expect(await getMeta('login_name')).toBe('Alex');
-    expect(await getMeta('username')).toBe('alex');
+    expect(await getMeta('login_name')).toBe('Wren');
+    expect(await getMeta('username')).toBe('wren');
     expect(await getMeta('protocol')).toBe(1);
     expect(await getMeta('device_id')).toMatch(UUID);
     closePhone();

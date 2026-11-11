@@ -349,10 +349,10 @@ def test_an_admin_can_hide_batch_cook_and_the_suggestions_are_then_refused(
 
 
 def test_only_an_admin_can_hide_it(kitchen: TestClient) -> None:
-    alex = person(kitchen)
-    assert alex.patch(f"{API}/household", json={"batch_cook": False}).status_code == 403
+    wren = person(kitchen)
+    assert wren.patch(f"{API}/household", json={"batch_cook": False}).status_code == 403
     assert ok(kitchen.get(f"{API}/household"))["batch_cook"] is True
-    assert alex.get(f"{API}/batch-cook/suggestions").status_code == 200
+    assert wren.get(f"{API}/batch-cook/suggestions").status_code == 200
 
 
 def test_the_other_households_recipes_are_never_picked_or_kept(

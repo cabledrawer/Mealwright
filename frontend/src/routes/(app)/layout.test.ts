@@ -34,7 +34,7 @@ const open = () =>
     untrack: <T>(fn: () => T) => fn()
   } as unknown as LoadEvent);
 
-const ALEX = { login_id: 2, login_name: 'Alex', username: 'alex', role: 'member', protocol: 1 };
+const WREN = { login_id: 2, login_name: 'Wren', username: 'wren', role: 'member', protocol: 1 };
 const DEVICE = '11111111-2222-4333-8444-555555555555';
 const signedInAs = (id: number, name: string) => ({
   'GET /setup': [200, { needs_setup: false }] as [number, unknown],
@@ -44,18 +44,18 @@ const signedInAs = (id: number, name: string) => ({
   ]
 });
 
-/** Signed in as Alex, whose account's theme is `choice`. */
-const alexWithTheme = (choice: ThemeChoice) => ({
-  ...signedInAs(2, 'Alex'),
-  'GET /me': [200, { id: 2, name: 'Alex', username: 'alex', role: 'member', theme: choice }] as [
+/** Signed in as Wren, whose account's theme is `choice`. */
+const wrenWithTheme = (choice: ThemeChoice) => ({
+  ...signedInAs(2, 'Wren'),
+  'GET /me': [200, { id: 2, name: 'Wren', username: 'wren', role: 'member', theme: choice }] as [
     number,
     unknown
   ]
 });
 
-/** Alex's phone: her copy of the list, her device ID, and `count` changes waiting. */
+/** Wren's phone: her copy of the list, her device ID, and `count` changes waiting. */
 async function wrensPhone(count: number) {
-  await setMeta({ ...ALEX, device_id: DEVICE });
+  await setMeta({ ...WREN, device_id: DEVICE });
   await saveCopy(null, sampleCopy());
   for (let i = 0; i < count; i++) {
     await addToQueue(makeAction({ kind: 'tick', item_id: 'i-onions' }), 2, DEVICE);
@@ -77,17 +77,17 @@ describe('opening the app (11.4)', () => {
   });
 
   it('opens as the last signed-in person when the server can’t be reached', async () => {
-    await setMeta(ALEX);
+    await setMeta(WREN);
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
     await open();
-    expect(session.me).toMatchObject({ id: 2, name: 'Alex', username: 'alex', role: 'member' });
+    expect(session.me).toMatchObject({ id: 2, name: 'Wren', username: 'wren', role: 'member' });
   });
 
   it('does the same when the reverse proxy can’t reach the server (503)', async () => {
-    await setMeta(ALEX);
+    await setMeta(WREN);
     fakeApi({ 'GET /setup': [503, null] });
     await open();
-    expect(session.me).toMatchObject({ id: 2, name: 'Alex' });
+    expect(session.me).toMatchObject({ id: 2, name: 'Wren' });
   });
 
   it('offline on a device nobody has signed in on: the sign-in page', async () => {
@@ -102,7 +102,7 @@ describe('opening the app (11.4)', () => {
   });
 
   it('offline after signing out offline: the sign-in page, not the last person', async () => {
-    await setMeta(ALEX);
+    await setMeta(WREN);
     markSignOutPending();
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
     await expect(open()).rejects.toMatchObject({ status: 307 });
@@ -111,7 +111,7 @@ describe('opening the app (11.4)', () => {
   });
 
   it('a server that answers “not signed in” still goes to sign in, whoever was here', async () => {
-    await setMeta(ALEX);
+    await setMeta(WREN);
     fakeApi({
       'GET /setup': [200, { needs_setup: false }],
       'GET /me': [401, { detail: 'Not signed in.' }]
@@ -124,7 +124,7 @@ describe('opening the app (11.4)', () => {
   });
 
   it('a server error that isn’t about reaching it is not hidden', async () => {
-    await setMeta(ALEX);
+    await setMeta(WREN);
     fakeApi({ 'GET /setup': [500, { detail: 'Something broke.' }] });
     await expect(open()).rejects.toMatchObject({ status: 500 });
     expect(session.me).toBeNull();
@@ -135,7 +135,7 @@ describe('opening the app (11.4)', () => {
     fakeApi(signedInAs(3, 'Arlo'));
     await open();
     expect(session.me).toMatchObject({ id: 3, name: 'Arlo' });
-    // Alex's copy is gone; the database now holds only Arlo, with a new device ID.
+    // Wren's copy is gone; the database now holds only Arlo, with a new device ID.
     expect(await loadCopy()).toBeNull();
     expect(await getMeta('login_id')).toBe(3);
     const fresh = await getMeta('device_id');
@@ -147,9 +147,9 @@ describe('opening the app (11.4)', () => {
   it('the same login after its session ran out keeps the copy, the queue and the device ID, and sends the queue', async () => {
     await wrensPhone(2);
     const copy = sampleCopy();
-    const { requests } = fakeShopping(copy, signedInAs(2, 'Alex'));
+    const { requests } = fakeShopping(copy, signedInAs(2, 'Wren'));
     await open();
-    expect(session.me).toMatchObject({ id: 2, name: 'Alex' });
+    expect(session.me).toMatchObject({ id: 2, name: 'Wren' });
     expect(await loadCopy()).not.toBeNull();
     expect(await readQueue()).toHaveLength(2);
     expect(await getMeta('device_id')).toBe(DEVICE);
@@ -170,13 +170,13 @@ describe('opening the app (11.4)', () => {
       status: 307,
       location: '/sign-in?next=%2Fshopping'
     });
-    // Alex's phone exactly as it was: her `meta`, her device ID, her copy and her change.
+    // Wren's phone exactly as it was: her `meta`, her device ID, her copy and her change.
     expect(await getMeta('login_id')).toBe(2);
-    expect(await getMeta('login_name')).toBe('Alex');
+    expect(await getMeta('login_name')).toBe('Wren');
     expect(await getMeta('device_id')).toBe(DEVICE);
     expect(await loadCopy()).not.toBeNull();
     expect(await readQueue()).toHaveLength(1);
-    expect(await heldChanges()).toMatchObject({ who: { id: 2, name: 'Alex' }, count: 1 });
+    expect(await heldChanges()).toMatchObject({ who: { id: 2, name: 'Wren' }, count: 1 });
     // Arlo's session is ended, nothing is sent, and the sign-in page will name him.
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
       'GET /setup',
@@ -187,7 +187,7 @@ describe('opening the app (11.4)', () => {
     expect(takeTurnedAway()).toBe('arlo');
   });
 
-  it('then Alex signs back in: her waiting change is sent, from her device', async () => {
+  it('then Wren signs back in: her waiting change is sent, from her device', async () => {
     await wrensPhone(1);
     let me: [number, unknown] = [
       200,
@@ -202,9 +202,9 @@ describe('opening the app (11.4)', () => {
     takeTurnedAway();
     expect(requests.filter((r) => r.path === '/shopping/actions')).toEqual([]);
 
-    me = [200, { id: 2, name: 'Alex', username: 'alex', role: 'member', theme: 'auto' }];
+    me = [200, { id: 2, name: 'Wren', username: 'wren', role: 'member', theme: 'auto' }];
     await open();
-    expect(session.me).toMatchObject({ id: 2, name: 'Alex' });
+    expect(session.me).toMatchObject({ id: 2, name: 'Wren' });
     await shoppingSync.start();
     await vi.waitFor(() => expect(shoppingSync.queue).toHaveLength(0));
     const sent = requests.filter((r) => r.path === '/shopping/actions');
@@ -233,7 +233,7 @@ describe('opening the app (11.4)', () => {
     ]);
     expect(session.me).toBeNull();
     expect(takeTurnedAway()).toBe('arlo');
-    // Alex's phone exactly as it was.
+    // Wren's phone exactly as it was.
     expect(await getMeta('login_id')).toBe(2);
     expect(await getMeta('device_id')).toBe(DEVICE);
     expect(await loadCopy()).not.toBeNull();
@@ -244,7 +244,7 @@ describe('opening the app (11.4)', () => {
     await wrensPhone(1);
     const mend = failPhoneDelete();
     await wipeDevice();
-    const requests = fakeApi({ ...signedInAs(2, 'Alex'), 'DELETE /session': [204, null] });
+    const requests = fakeApi({ ...signedInAs(2, 'Wren'), 'DELETE /session': [204, null] });
     try {
       await expect(open()).rejects.toMatchObject({
         status: 307,
@@ -269,8 +269,8 @@ describe('opening the app (11.4)', () => {
     expect(session.me).toBeNull();
     vi.unstubAllGlobals();
 
-    // Mended: the next start finishes the wipe, and Alex starts clean.
-    fakeApi(signedInAs(2, 'Alex'));
+    // Mended: the next start finishes the wipe, and Wren starts clean.
+    fakeApi(signedInAs(2, 'Wren'));
     await open();
     expect(session.me).toMatchObject({ id: 2 });
     expect(wipePending()).toBe(false);
@@ -281,8 +281,8 @@ describe('opening the app (11.4)', () => {
 
   it('a phone database that can’t be read, and the login it was written for: carries on, wiping and writing nothing (cabledrawer 18 Oct)', async () => {
     await wrensPhone(1);
-    await startDevice({ id: 2, name: 'Alex', username: 'alex', role: 'member' });
-    const requests = fakeApi(signedInAs(2, 'Alex'));
+    await startDevice({ id: 2, name: 'Wren', username: 'wren', role: 'member' });
+    const requests = fakeApi(signedInAs(2, 'Wren'));
     const mend = breakPhone();
     try {
       await open();
@@ -323,7 +323,7 @@ describe('opening the app (11.4)', () => {
       'GET /setup',
       'GET /setup'
     ]);
-    // Nothing wiped: Alex's phone exactly as it was.
+    // Nothing wiped: Wren's phone exactly as it was.
     expect(session.me).toBeNull();
     expect(await getMeta('login_id')).toBe(2);
     expect(await getMeta('device_id')).toBe(DEVICE);
@@ -434,10 +434,10 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
 
   it('opens at once as the last signed-in person, and the same login then carries on in place', async () => {
     await wrensPhone(1);
-    const server = slowly(signedInAs(2, 'Alex'));
+    const server = slowly(signedInAs(2, 'Wren'));
     const { ms } = await timed(begin);
     expect(ms).toBeLessThan(START_WAIT_MS + 500);
-    expect(session.me).toMatchObject({ id: 2, name: 'Alex' });
+    expect(session.me).toMatchObject({ id: 2, name: 'Wren' });
     expect(serverListsHeld()).not.toBeNull();
     const opened = session.me;
 
@@ -459,8 +459,8 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     it('a theme picked after the app opened stays when the server’s slower answer comes', async () => {
       await wrensPhone(1);
       theme.adopt('light');
-      // The server read Alex's account (Light) before she picked; its answer arrives late.
-      const server = slowly(alexWithTheme('light'));
+      // The server read Wren's account (Light) before she picked; its answer arrives late.
+      const server = slowly(wrenWithTheme('light'));
       await begin();
       theme.set('auto');
       server.release();
@@ -478,10 +478,10 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
       theme.adopt('light');
       let account: ThemeChoice = 'light';
       fakeApi({
-        ...signedInAs(2, 'Alex'),
+        ...signedInAs(2, 'Wren'),
         'GET /me': () => [
           200,
-          { id: 2, name: 'Alex', username: 'alex', role: 'member', theme: account }
+          { id: 2, name: 'Wren', username: 'wren', role: 'member', theme: account }
         ]
       });
       // Each GET /me is answered when asked (the account as it is then) and held: the first
@@ -525,7 +525,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     it('nothing picked meanwhile: the late answer’s account theme still wins over this device’s copy', async () => {
       await wrensPhone(1);
       theme.adopt('light');
-      const server = slowly(alexWithTheme('dark'));
+      const server = slowly(wrenWithTheme('dark'));
       await begin();
       expect(theme.choice).toBe('light');
       server.release();
@@ -537,7 +537,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     it('a theme picked before the app started doesn’t count: the account’s wins, as before', async () => {
       await wrensPhone(1);
       theme.set('dark');
-      const server = slowly(alexWithTheme('light'));
+      const server = slowly(wrenWithTheme('light'));
       await begin();
       server.release();
       await vi.waitFor(() => expect(serverListsHeld()).toBeNull());
@@ -554,7 +554,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
       await vi.waitFor(() => expect(serverListsHeld()).toBeNull());
       vi.unstubAllGlobals();
       theme.set('dark');
-      fakeApi(alexWithTheme('light'));
+      fakeApi(wrenWithTheme('light'));
       await askAgain();
       await expect(reruns[0]).resolves.toBeUndefined();
       expect(session.me).toMatchObject({ id: 2 });
@@ -564,7 +564,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     it('answered in time: the account’s theme wins over this device’s copy, as before', async () => {
       await wrensPhone(1);
       theme.set('dark');
-      fakeApi(alexWithTheme('light'));
+      fakeApi(wrenWithTheme('light'));
       await begin();
       expect(theme.choice).toBe('light');
     });
@@ -573,7 +573,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
   it('the list isn’t asked for until the server has said who is signed in; sending starts at once', async () => {
     await wrensPhone(1);
     const copy = sampleCopy();
-    const shop = fakeShopping(copy, signedInAs(2, 'Alex'));
+    const shop = fakeShopping(copy, signedInAs(2, 'Wren'));
     // Only the start's questions hang: the send is answered at once, so only the hold keeps
     // the list from being asked for.
     const server = holdOnly(['GET /setup', 'GET /me']);
@@ -613,7 +613,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     expect(await listed).toMatchObject({ status: 401, detail: 'Please sign in again.' });
     expect(session.me).toBeNull();
     expect(server.asked).toEqual(['GET /setup', 'GET /me']);
-    // Alex's phone exactly as it was (11.5: her change waits for her).
+    // Wren's phone exactly as it was (11.5: her change waits for her).
     expect(await getMeta('login_id')).toBe(2);
     expect(await getMeta('device_id')).toBe(DEVICE);
     expect(await loadCopy()).not.toBeNull();
@@ -629,8 +629,8 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
       'POST /shopping/actions': [409, { code: 'other_login', detail: 'Another login.' }]
     });
     await begin();
-    expect(session.me).toMatchObject({ id: 2, name: 'Alex' });
-    // The app starts sending Alex's change meanwhile: the server turns it away (11.5).
+    expect(session.me).toMatchObject({ id: 2, name: 'Wren' });
+    // The app starts sending Wren's change meanwhile: the server turns it away (11.5).
     await shoppingSync.start();
     const listed = shoppingSync.refresh().catch((error: unknown) => error);
 
@@ -646,13 +646,13 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     expect(server.requests.map((r) => `${r.method} ${r.path}`).sort()).toEqual(
       ['DELETE /session', 'GET /me', 'GET /setup', 'POST /shopping/actions'].sort()
     );
-    // Alex's phone exactly as it was: her `meta`, her device ID, her copy and her change.
+    // Wren's phone exactly as it was: her `meta`, her device ID, her copy and her change.
     expect(await getMeta('login_id')).toBe(2);
-    expect(await getMeta('login_name')).toBe('Alex');
+    expect(await getMeta('login_name')).toBe('Wren');
     expect(await getMeta('device_id')).toBe(DEVICE);
     expect(await loadCopy()).toEqual(saved);
     expect(await readQueue()).toHaveLength(1);
-    expect(await heldChanges()).toMatchObject({ who: { id: 2, name: 'Alex' }, count: 1 });
+    expect(await heldChanges()).toMatchObject({ who: { id: 2, name: 'Wren' }, count: 1 });
   });
 
   it('a late different login with nothing waiting: nothing wiped while the screen is up; signed out to the sign-in page, and the next start wipes', async () => {
@@ -679,7 +679,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
       'GET /me',
       'DELETE /session'
     ]);
-    // Alex's phone untouched; nothing she was shown stays in memory.
+    // Wren's phone untouched; nothing she was shown stays in memory.
     expect(await getMeta('login_id')).toBe(2);
     expect(await getMeta('device_id')).toBe(DEVICE);
     expect(await loadCopy()).toEqual(saved);
@@ -698,7 +698,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     expect(shoppingSync.copy).toBeNull();
   });
 
-  it('a tick while a late different login is being signed out is Alex’s: kept, never sent as Arlo, and warned about', async () => {
+  it('a tick while a late different login is being signed out is Wren’s: kept, never sent as Arlo, and warned about', async () => {
     await wrensPhone(0);
     const posted: unknown[] = [];
     fakeApi({
@@ -715,7 +715,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     await shoppingSync.start();
 
     server.release();
-    // The answer has come; the sign-out it leads to is still on its way. Alex ticks.
+    // The answer has come; the sign-out it leads to is still on its way. Wren ticks.
     await vi.waitFor(() => expect(signingOut.asked).toContain('DELETE /session'));
     expect(session.me).toMatchObject({ id: 2 });
     await new Promise<void>((queued) => {
@@ -732,8 +732,8 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     expect(queue).toHaveLength(1);
     expect(queue[0]).toMatchObject({ login_id: 2, device_id: DEVICE });
     expect(await getMeta('login_id')).toBe(2);
-    expect(await heldChanges()).toMatchObject({ who: { id: 2, name: 'Alex' }, count: 1 });
-    // Anything sent named Alex's login (and the server refused it under Arlo's session).
+    expect(await heldChanges()).toMatchObject({ who: { id: 2, name: 'Wren' }, count: 1 });
+    // Anything sent named Wren's login (and the server refused it under Arlo's session).
     for (const body of posted) expect(body).toMatchObject({ login_id: 2 });
 
     // Arlo's next start doesn't wipe it: he's turned away to the warning again.
@@ -773,7 +773,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     expect(await readQueue()).toHaveLength(1);
 
     // The next start that hears from the server decides, and lets the list through.
-    fakeShopping(sampleCopy(), signedInAs(2, 'Alex'));
+    fakeShopping(sampleCopy(), signedInAs(2, 'Wren'));
     await open();
     await expect(listed).resolves.toMatchObject({ cursor: expect.any(Number) });
     expect(serverListsHeld()).toBeNull();
@@ -782,7 +782,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
   it('a late answer after a wipe that couldn’t delete the phone database: nobody gets in', async () => {
     await wrensPhone(1);
     const server = slowly({
-      ...signedInAs(2, 'Alex'),
+      ...signedInAs(2, 'Wren'),
       'DELETE /session': [204, null]
     });
     await begin();
@@ -851,7 +851,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
       await wrensPhone(1);
       await openedStillOffline();
       const opened = session.me;
-      const requests = fakeApi(signedInAs(2, 'Alex'));
+      const requests = fakeApi(signedInAs(2, 'Wren'));
       await askAgain();
       expect(said(requests)).toEqual(['GET /setup', 'GET /me']);
       expect(reruns).toHaveLength(1);
@@ -865,11 +865,11 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
       expect(said(requests)).toEqual(['GET /setup', 'GET /me']);
     });
 
-    it('a different login: signed out again to the sign-in page, and nothing of Alex’s kept in memory', async () => {
+    it('a different login: signed out again to the sign-in page, and nothing of Wren’s kept in memory', async () => {
       await wrensPhone(0);
       const saved = await loadCopy();
       await openedStillOffline();
-      placesAndShops.places = [{ id: 9, name: 'Alex’s fridge', kind: 'fridge' }];
+      placesAndShops.places = [{ id: 9, name: 'Wren’s fridge', kind: 'fridge' }];
       const requests = fakeApi({ ...signedInAs(3, 'Arlo'), 'DELETE /session': [204, null] });
       await askAgain();
       expect(reruns).toHaveLength(1);
@@ -951,7 +951,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
 
     it('a start the server answered in time never asks again', async () => {
       await wrensPhone(0);
-      const requests = fakeApi(signedInAs(2, 'Alex'));
+      const requests = fakeApi(signedInAs(2, 'Wren'));
       await begin();
       expect(said(requests)).toEqual(['GET /setup', 'GET /me']);
       await askAgain();
@@ -967,10 +967,10 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     expect(nobody.result).toMatchObject({ status: 307, location: '/sign-in?next=%2Fshopping' });
     expect(nobody.ms).toBeLessThan(START_WAIT_MS);
 
-    await setMeta(ALEX);
-    const alex = await timed(begin);
-    expect(alex.ms).toBeLessThan(START_WAIT_MS);
-    expect(session.me).toMatchObject({ id: 2, name: 'Alex' });
+    await setMeta(WREN);
+    const wren = await timed(begin);
+    expect(wren.ms).toBeLessThan(START_WAIT_MS);
+    expect(session.me).toMatchObject({ id: 2, name: 'Wren' });
   });
 
   it('someone else just signed in waits for the server rather than opening as the last person', async () => {

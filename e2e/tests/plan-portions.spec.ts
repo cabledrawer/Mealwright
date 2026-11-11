@@ -250,7 +250,7 @@ test('who’s eating: shown when the household has more than one login, by sign-
   // The test household has one login; show a second person (who isn't really there) to see the
   // chips. Only the real login is ticked, so the server takes it.
   await page.route('**/api/v1/plan/people', (route) =>
-    route.fulfill({ json: [{ login_id: me.id, name: me.name }, { login_id: 987654, name: 'Alex' }] }),
+    route.fulfill({ json: [{ login_id: me.id, name: me.name }, { login_id: 987654, name: 'Wren' }] }),
   );
   await openWeekOf(page, today, day);
   await mealButton(page, day, 'Dinner', slot.Dinner, name).click();

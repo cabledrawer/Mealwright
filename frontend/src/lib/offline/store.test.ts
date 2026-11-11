@@ -49,7 +49,7 @@ describe('the offline copy on the phone', () => {
           version: 41,
           food_id: gone.food_id,
           shop_id: gone.shop_id,
-          removed_by: 'Alex'
+          removed_by: 'Wren'
         }
       ]
     });
@@ -58,7 +58,7 @@ describe('the offline copy on the phone', () => {
     expect(kept.cursor).toBe(first.cursor + 1);
     expect(kept.items.some((i) => i.id === gone.id)).toBe(false);
     expect(kept.items).toHaveLength(first.items.length - 1);
-    expect(kept.removed[gone.id]).toMatchObject({ removed_by: 'Alex' });
+    expect(kept.removed[gone.id]).toMatchObject({ removed_by: 'Wren' });
   });
 
   it('a reset throws away the copy and cursor only', async () => {

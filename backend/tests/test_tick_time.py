@@ -48,7 +48,7 @@ def _near(found: datetime, wanted: datetime) -> bool:
 def test_an_offline_tick_keeps_the_phones_time(kitchen: TestClient) -> None:
     s = s0(kitchen)
     monday = utcnow() - timedelta(days=2)
-    done = _tick_at(s.alex, s, "Toor dal", monday.isoformat(), sent_at_now())
+    done = _tick_at(s.wren, s, "Toor dal", monday.isoformat(), sent_at_now())
     assert done["status"] == "applied"
     ticked, copy, added = _times(s, "Toor dal")
     assert _near(ticked, monday) and ticked == copy == added
@@ -65,7 +65,7 @@ def test_a_phone_clock_two_hours_fast_is_corrected(kitchen: TestClient) -> None:
     skew = timedelta(hours=2)
     sent = utcnow() + skew
     made = sent - timedelta(days=1)
-    _tick_at(s.alex, s, "Toor dal", made.isoformat(), sent.isoformat())
+    _tick_at(s.wren, s, "Toor dal", made.isoformat(), sent.isoformat())
     ticked, copy, added = _times(s, "Toor dal")
     assert _near(ticked, utcnow() - timedelta(days=1)) and ticked == copy == added
 
@@ -77,7 +77,7 @@ def test_a_phone_clock_two_hours_fast_is_corrected(kitchen: TestClient) -> None:
 )
 def test_a_wrong_phone_time_uses_the_servers(kitchen: TestClient, made: str | None) -> None:
     s = s0(kitchen)
-    done = _tick_at(s.alex, s, "Toor dal", made, sent_at_now())
+    done = _tick_at(s.wren, s, "Toor dal", made, sent_at_now())
     assert done["status"] == "applied"
     ticked, copy, added = _times(s, "Toor dal")
     assert _near(ticked, datetime.now(UTC)) and ticked == copy == added
@@ -86,7 +86,7 @@ def test_a_wrong_phone_time_uses_the_servers(kitchen: TestClient, made: str | No
 @pytest.mark.parametrize("sent", [FIRST, LAST], ids=["sent-year-1", "sent-year-9999"])
 def test_an_impossible_sent_time_is_never_a_500(kitchen: TestClient, sent: str) -> None:
     s = s0(kitchen)
-    done = _tick_at(s.alex, s, "Toor dal", _iso(days=-1), sent)
+    done = _tick_at(s.wren, s, "Toor dal", _iso(days=-1), sent)
     assert done["status"] == "applied"
     ticked, _, _ = _times(s, "Toor dal")
     assert _near(ticked, datetime.now(UTC))
@@ -108,7 +108,7 @@ def test_a_tick_made_before_the_typed_date_no_longer_counts(kitchen: TestClient)
     saturday = utcnow() - timedelta(days=3)
     _type(kitchen, salt, saturday)
     monday = utcnow() - timedelta(days=5)
-    _tick_at(s.alex, s, "Salt", monday.isoformat(), sent_at_now())
+    _tick_at(s.wren, s, "Salt", monday.isoformat(), sent_at_now())
     found = _restocked(kitchen, salt)
     assert found is not None and _near(found, saturday)
 
@@ -119,7 +119,7 @@ def test_a_tick_made_after_the_typed_date_still_wins(kitchen: TestClient) -> Non
     salt = s.foods["Salt"]
     _type(kitchen, salt, utcnow() - timedelta(days=3))
     pressed = utcnow()
-    _tick_at(s.alex, s, "Salt", pressed.isoformat(), sent_at_now())
+    _tick_at(s.wren, s, "Salt", pressed.isoformat(), sent_at_now())
     found = _restocked(kitchen, salt)
     assert found is not None and _near(found, pressed)
 
@@ -147,7 +147,7 @@ def test_a_phone_time_with_an_offset_lands_at_the_real_moment(
     tick is not stored as wall-clock time, up to 14 hours late (security pass, 2 Nov)."""
     s = s0(kitchen)
     pressed = utcnow() - timedelta(hours=3)
-    _tick_at(s.alex, s, "Toor dal", _zone(pressed, hours), _zone(utcnow(), hours))
+    _tick_at(s.wren, s, "Toor dal", _zone(pressed, hours), _zone(utcnow(), hours))
     ticked, copy, added = _times(s, "Toor dal")
     assert _near(ticked, pressed) and ticked == copy == added
     assert ticked <= datetime.now(UTC)
@@ -181,11 +181,11 @@ def test_a_different_pack_keeps_the_ticks_date(kitchen: TestClient) -> None:
     """Ticked offline 2 days back, then "Different pack?": the new lots keep that date."""
     s = s0(kitchen)
     monday = utcnow() - timedelta(days=2)
-    done = _tick_at(s.alex, s, "Paneer", monday.isoformat(), sent_at_now())
+    done = _tick_at(s.wren, s, "Paneer", monday.isoformat(), sent_at_now())
     assert done["status"] == "applied"
     row = action("different_pack", s.c0, item_id=s.items["Paneer"], tick_id=done["id"])
     row.update(count=3, pack=150)
-    changed = send(s.alex, row, device=PHONE_R)["results"][0]
+    changed = send(s.wren, row, device=PHONE_R)["results"][0]
     assert changed["status"] == "applied"
     dates = _lot_dates(s, "Paneer")
     assert len(dates) == 3 and all(_near(found, monday) for found in dates)
@@ -196,9 +196,9 @@ def test_a_tick_put_back_keeps_its_date(kitchen: TestClient) -> None:
     the tick's date, not the time of the Undo."""
     s = s0(kitchen)
     monday = utcnow() - timedelta(days=1)
-    done = _tick_at(s.alex, s, "Paneer", monday.isoformat(), sent_at_now())
+    done = _tick_at(s.wren, s, "Paneer", monday.isoformat(), sent_at_now())
     off = send(
-        s.alex,
+        s.wren,
         action("untick", s.c0, item_id=s.items["Paneer"], tick_ids=[done["id"]]),
         device=PHONE_R,
     )["results"][0]
@@ -207,7 +207,7 @@ def test_a_tick_put_back_keeps_its_date(kitchen: TestClient) -> None:
         for lot in session.scalars(select(StockLot).where(StockLot.food_id == s.foods["Paneer"])):
             session.delete(lot)
         session.commit()
-    back = send(s.alex, action("undo", s.c0, undoes=off["id"]), device=PHONE_R)["results"][0]
+    back = send(s.wren, action("undo", s.c0, undoes=off["id"]), device=PHONE_R)["results"][0]
     assert back["status"] == "applied"
     dates = _lot_dates(s, "Paneer")
     assert dates and all(_near(found, monday) for found in dates)
@@ -220,7 +220,7 @@ def test_the_move_note_names_the_first_tick_in_server_order(kitchen: TestClient)
     first = send(kitchen, action("tick", s.c0, item_id=s.items["Paneer"]), device=PHONE_A)
     assert first["results"][0]["status"] == "applied"
     old = (utcnow() - timedelta(days=3)).isoformat()
-    later = _tick_at(s.alex, s, "Paneer", old, sent_at_now())
+    later = _tick_at(s.wren, s, "Paneer", old, sent_at_now())
     assert later["status"] == "applied"
     move = send(
         kitchen,

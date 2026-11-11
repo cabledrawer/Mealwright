@@ -240,7 +240,7 @@ def bump_recipes(
 ) -> None:
     """A merge, a removal, a delete or an Undo changed some recipes' links without anyone
     editing them: each gets the next version, and is marked as changed by whoever did it, so
-    an editor that was open on one is stopped ("Alex changed this recipe after you opened
+    an editor that was open on one is stopped ("Wren changed this recipe after you opened
     it") instead of saving the old links back."""
     ids = set(recipe_ids)
     if ids:
