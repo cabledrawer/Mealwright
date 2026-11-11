@@ -18,9 +18,14 @@ export function readAmount(text: string): { amount: number | null } | null {
   const typed = text.trim();
   if (typed === '') return { amount: null };
   if (typed.length > 20) return null;
-  const match = typed.match(/^(\d+(?:[.,]\d+)?)?\s*([¼½¾⅓⅔]|\d+\/\d+)?$/u);
-  if (!match) return null;
-  const [, whole, part] = match;
+  // A plain fraction is tried first, and a whole number needs a space before a fraction written
+  // with a slash: "10/3" is ten thirds, never 1 and 0/3 (RF4 I11).
+  const match = typed.match(
+    /^(?:(?<plain>\d+\/\d+)|(?<whole>\d+(?:[.,]\d+)?)?(?:\s*(?<glyph>[¼½¾⅓⅔])|\s+(?<slash>\d+\/\d+))?)$/u
+  );
+  if (!match?.groups) return null;
+  const { plain, whole, glyph, slash } = match.groups;
+  const part = plain ?? glyph ?? slash;
   if (!whole && !part) return null;
   let amount = whole ? Number(whole.replace(',', '.')) : 0;
   if (part) {
