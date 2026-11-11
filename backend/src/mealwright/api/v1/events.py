@@ -27,6 +27,7 @@ EXAMPLE = (
     'event: shopping\ndata: {"cursor": 1053}\n\n'
     'event: pantry\ndata: {"change_id": 815}\n\n'
     'event: batch_cook\ndata: {"session_id": 7}\n\n'
+    'event: plan\ndata: {"change_id": 816}\n\n'
     ": keep-alive\n\n"
     "event: signed_out\ndata: {}\n\n"
 )
@@ -90,7 +91,8 @@ async def stream(
                 "A stream of Server-Sent Events: `hello {cursor}` on connect, `shopping "
                 "{cursor}` after a commit that raised the household’s list counter, "
                 "`pantry {change_id}` after a stock change, `batch_cook {session_id}` after a "
-                "Batch cook schedule or its progress changed, a `: keep-alive` comment every "
+                "Batch cook schedule or its progress changed, `plan {change_id}` after a planned "
+                "meal, its items, eaters, tubs, batches or the meal slots changed, a `: keep-alive` comment every "
                 "25 seconds, and `signed_out` (then the stream closes) when the sign-in "
                 "runs out. Numbers only, never names. Only this household’s events. The "
                 "stream is not activity: it never extends the sign-in. One sign-in may "
