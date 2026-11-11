@@ -18,6 +18,7 @@ import threading
 import time
 from collections import defaultdict, deque
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
@@ -77,22 +78,45 @@ def _as_utc(moment: datetime) -> datetime:
 # --- Passwords -------------------------------------------------------------------------
 
 
+# Argon2 takes 64 MiB and a noticeable moment for each hash, so only a few run at a time
+# (review of v0.6.0). Requests beyond that wait a little for a turn, then get a plain "busy"
+# answer instead of piling up memory until the server falls over.
+HASHES_AT_ONCE = 2
+WAIT_FOR_A_TURN = 5.0  # seconds
+BUSY = "Mealwright is busy. Try again in a few seconds."
+_hash_turns = threading.BoundedSemaphore(HASHES_AT_ONCE)
+
+
+@contextmanager
+def _hash_turn() -> Iterator[None]:
+    turns = _hash_turns  # read once: the tests swap it
+    if not turns.acquire(timeout=WAIT_FOR_A_TURN):
+        log.warning("Sign-in busy: too many passwords being checked at once")
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, BUSY, headers={"Retry-After": "5"})
+    try:
+        yield
+    finally:
+        turns.release()
+
+
 def hash_password(password: str) -> str:
-    return _hasher.hash(password)
+    with _hash_turn():
+        return _hasher.hash(password)
 
 
 def check_password(login: Login | None, password: str) -> bool:
     """True if the password is right. Upgrades the stored hash if Argon2's settings
     have changed since it was made. Always does one full hash check."""
     stored = login.password_hash if login is not None else None
-    try:
-        _hasher.verify(stored or _DUMMY_HASH, password)
-    except VerificationError, InvalidHashError:
-        return False
-    if login is None or stored is None:
-        return False
-    if _hasher.check_needs_rehash(stored):
-        login.password_hash = _hasher.hash(password)
+    with _hash_turn():
+        try:
+            _hasher.verify(stored or _DUMMY_HASH, password)
+        except VerificationError, InvalidHashError:
+            return False
+        if login is None or stored is None:
+            return False
+        if _hasher.check_needs_rehash(stored):
+            login.password_hash = _hasher.hash(password)
     return True
 
 
