@@ -737,6 +737,73 @@ test('the editor passes the accessibility checks in both themes, new and filled 
   await inTheme(page, 'dark');
 });
 
+test('Batch cook (B1): each step shows its guessed timing, a change makes it set by you, Save keeps it, Guess again undoes it', async ({ page }) => {
+  const recipe = await makeRecipe(page, {
+    name: unique('Timed sambar'),
+    steps: [
+      { text: 'Wash the toor dal and pressure cook it with turmeric for 3 whistles.' },
+      { text: 'Chop the onion, tomato and drumsticks.' },
+      { text: 'Boil the vegetables in the tamarind water until soft.' },
+    ],
+  });
+  // The server has guessed them already, from the words.
+  expect(recipe.steps[0].timing).toMatchObject({ hands: 'waiting', minutes: 15, equipment: 'pressure', hands_guessed: true });
+  await page.goto(`/recipes/${recipe.id}/edit`);
+  await expect(page.getByText('Waiting · 15 min')).toBeVisible();
+  await expect(page.getByText('Pressure cooker', { exact: true })).toBeVisible();
+  await expect(page.getByText('guessed', { exact: true })).toHaveCount(3);
+  await expect(page.getByText('set by you', { exact: true })).toHaveCount(0);
+  // Change step 2: all three become the person's.
+  await page.getByRole('button', { name: 'Change the timing of step 2' }).click();
+  await page.getByRole('radio', { name: 'Waiting' }).click();
+  await page.getByRole('textbox', { name: /^Minutes/ }).fill('12');
+  await page.getByRole('radio', { name: 'Hob ring' }).click();
+  await expect(page.getByText('Waiting · 12 min')).toBeVisible();
+  await expect(page.getByText('set by you', { exact: true })).toHaveCount(1);
+  await expect(page.getByText('guessed', { exact: true })).toHaveCount(2);
+  await checkPage(page);
+  await save(page).click();
+  await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}$`));
+  const saved = await getRecipe(page, recipe.id);
+  expect(saved.steps[1].timing).toEqual({
+    hands: 'waiting',
+    minutes: 12,
+    equipment: 'hob',
+    hands_guessed: false,
+    minutes_guessed: false,
+    equipment_guessed: false,
+  });
+  expect(saved.steps[0].timing.hands_guessed).toBe(true);
+  // Opened again it says so, and Guess again gives the guess back.
+  await page.goto(`/recipes/${recipe.id}/edit`);
+  await expect(page.getByText('set by you', { exact: true })).toHaveCount(1);
+  await page.getByRole('button', { name: 'Change the timing of step 2' }).click();
+  await page.getByRole('button', { name: 'Guess again' }).click();
+  await expect(page.getByText('set by you', { exact: true })).toHaveCount(0);
+  await save(page).click();
+  await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}$`));
+  expect((await getRecipe(page, recipe.id)).steps[1].timing).toMatchObject({ hands: 'hands', equipment: 'none', hands_guessed: true });
+});
+
+test('Batch cook (B1): a step whose words change says its guess is made when saved, and a minutes box that is not a number stops Save until it is put right', async ({ page }) => {
+  const recipe = await makeRecipe(page, { name: unique('Timed words'), steps: [{ text: 'Chop the onion.' }, { kind: 'heading', text: 'Tadka' }] });
+  await page.goto(`/recipes/${recipe.id}/edit`);
+  await expect(page.getByText('Hands-on · 5 min')).toBeVisible();
+  await page.getByRole('textbox', { name: 'Step 1', exact: true }).fill('Pressure cook the dal for 3 whistles.');
+  await expect(page.getByText('Guessed when you save')).toBeVisible();
+  await page.getByRole('button', { name: 'Change the timing of step 1' }).click();
+  await page.getByRole('textbox', { name: /^Minutes/ }).fill('ten');
+  await expect(page.getByText('Type the minutes as a whole number, such as 10.').first()).toBeVisible();
+  await save(page).click();
+  await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}/edit$`));
+  await page.getByRole('textbox', { name: /^Minutes/ }).fill('10');
+  await save(page).click();
+  await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}$`));
+  expect((await getRecipe(page, recipe.id)).steps[0].timing).toMatchObject({ minutes: 10, minutes_guessed: false });
+  // A heading has no timing boxes.
+  await expect(page.getByRole('button', { name: /Change the timing of step 2/ })).toHaveCount(0);
+});
+
 test('a very long name wraps, and text at 200% still fits', async ({ browser }) => {
   // A new context gets the project's options and this worker's server and sign-in by itself.
   const context = await browser.newContext({ bypassCSP: true });

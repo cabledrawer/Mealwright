@@ -68,6 +68,7 @@ test('the section list shows every section, goes to one, and the page passes the
     'Amounts',
     'Meal slots',
     'Shops & places',
+    'Your kitchen',
     'Recent changes',
     'Privacy',
     'Sign-in',
@@ -97,7 +98,7 @@ test('F193: the phone lists Settings in three groups, each row opens its section
   // The groups, in order, with their rows (Amounts shows once the household has answered).
   for (const [group, rows] of [
     ['Your settings', ['Appearance', 'Amounts']],
-    ['Kitchen settings', ['Meal slots', 'Shops & places', 'Recent changes']],
+    ['Kitchen settings', ['Meal slots', 'Shops & places', 'Your kitchen', 'Recent changes']],
     ['Household settings', ['Privacy', 'Sign-in']],
   ] as const) {
     const links = page.getByRole('navigation', { name: group }).getByRole('link');
@@ -112,6 +113,7 @@ test('F193: the phone lists Settings in three groups, each row opens its section
   await expect(page.getByRole('link', { name: /^Amounts/ })).toContainText(/UK pints|US pints/);
   await expect(page.getByRole('link', { name: /^Meal slots/ })).toContainText(/\d+ on/);
   await expect(page.getByRole('link', { name: /^Shops & places/ })).toContainText(/\d+ shops? · \d+ places?/);
+  await expect(page.getByRole('link', { name: /^Your kitchen/ })).toContainText(/\d+ hob rings?/);
   await expect(page.getByRole('link', { name: /^Privacy/ })).toContainText(/All off|\d+ on/);
   await expect(page.getByText('Household, Your data and About come in 0.9.')).toBeVisible();
   // The list shows no section's own controls.
@@ -134,6 +136,45 @@ test('F193: the phone lists Settings in three groups, each row opens its section
   // An old link with "#shops-places" opens that section.
   await page.goto('/settings#shops-places');
   await expect(page.getByRole('heading', { level: 1, name: 'Shops & places' })).toBeVisible();
+});
+
+test('Your kitchen (Batch cook, B1): Settings shows it, Change opens the sheet, Save keeps it for the household, and the sheet passes the accessibility checks', async ({
+  page,
+}) => {
+  await page.goto(isPhone(page) ? '/settings?section=your-kitchen' : '/settings');
+  const kitchen = section(page, 'Your kitchen');
+  await expect(kitchen).toBeVisible();
+  await expect(kitchen).toContainText(/Hob rings\s*\d+/);
+  await kitchen.getByRole('button', { name: 'Change' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Your kitchen' });
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toContainText('Batch cook never plans more at once than your kitchen has.');
+  for (const button of await sheet.getByRole('button').all()) {
+    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+  await checkPage(page);
+  await sheet.getByRole('button', { name: 'Fewer hob rings' }).click();
+  await sheet.getByRole('button', { name: 'More pressure cookers' }).click();
+  await sheet.getByRole('radio', { name: 'No' }).click();
+  const before = await (await page.request.get('/api/v1/household/kitchen')).json();
+  await sheet.getByRole('button', { name: 'Save' }).click();
+  await expect(sheet).toBeHidden();
+  const after = await (await page.request.get('/api/v1/household/kitchen')).json();
+  expect(after).toEqual({
+    hob_rings: before.hob_rings - 1,
+    pressure_cookers: before.pressure_cookers + 1,
+    oven: false,
+    asked: true,
+  });
+  await expect(kitchen).toContainText(new RegExp(`Hob rings\\s*${after.hob_rings}`));
+  await expect(kitchen).toContainText(/Oven\s*No/);
+  await expect(kitchen).not.toContainText('Not asked yet');
+  // Put it back for the other projects.
+  const put = await page.request.patch('/api/v1/household/kitchen', {
+    data: { hob_rings: before.hob_rings, pressure_cookers: before.pressure_cookers, oven: before.oven },
+    headers: key(),
+  });
+  expect(put.status()).toBe(200);
 });
 
 test('Meal slots: rename, reorder with Move down, switch off, and add; Undo of a rename', async ({ page }) => {
