@@ -814,3 +814,36 @@ def test_a_place_renamed_at_the_same_moment_with_one_key_answers_with_the_first_
     assert second.status_code == 200, second.text
     assert second.json() == first
     assert "Shed" not in names(ok(kitchen.get(f"{API}/places")))
+
+
+def test_a_retried_kitchen_key_after_another_change_changes_nothing(kitchen: TestClient) -> None:
+    url = f"{API}/household/kitchen"
+    ok(kitchen.patch(url, json={"hob_rings": 3}, headers={"Idempotency-Key": "kitchen-k"}))
+    ok(kitchen.patch(url, json={"hob_rings": 2}, headers={"Idempotency-Key": "kitchen-other"}))
+    retry = kitchen.patch(url, json={"hob_rings": 3}, headers={"Idempotency-Key": "kitchen-k"})
+    assert retry.status_code == 200
+    assert retry.headers.get("Idempotent-Replayed") == "true"
+    assert retry.json()["hob_rings"] == 2  # the current value, not the old one put back
+    assert ok(kitchen.get(url))["hob_rings"] == 2
+    top = latest(kitchen)
+    assert top["kind"] == "kitchen_changed" and top["can_undo"] is True
+    assert ok(undo(kitchen, top))["result"] == "done"  # the 2's Undo still works
+    assert ok(kitchen.get(url))["hob_rings"] == 3
+
+
+def test_undoing_an_added_place_is_refused_when_a_stocktake_used_it(kitchen: TestClient) -> None:
+    from mealwright.models import StocktakeEntry, StocktakePlace
+
+    made = ok(kitchen.post(f"{API}/places", json={"name": "Garage", "kind": "cupboard"}), 201)
+    top = latest(kitchen)
+    rice = food(kitchen, "Rice")
+    with db(kitchen) as session:
+        session.add(StocktakePlace(household_id=1, place_id=made["id"]))
+        session.add(StocktakeEntry(household_id=1, place_id=made["id"], food_id=rice["id"]))
+        session.commit()
+    refused = undo(kitchen, top)
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert "Garage" in names(ok(kitchen.get(f"{API}/places")))
+    with db(kitchen) as session:
+        assert session.scalar(select(StocktakePlace).where(StocktakePlace.place_id == made["id"]))
+        assert session.scalar(select(StocktakeEntry).where(StocktakeEntry.place_id == made["id"]))

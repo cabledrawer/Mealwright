@@ -572,6 +572,9 @@ def change_kitchen(body: KitchenChange, kitchen: Here, response: Response) -> Ki
     # Any person may (proposed, for cabledrawer; kept out of the docstring, which is the public API).
     lock_db(kitchen.db, kitchen.household)  # one key twice at once: the second waits, then sees it
     household = kitchen.household
+    if replayed(kitchen) is not None:  # a retry of a used key: change nothing, answer as stored
+        response.headers["Idempotent-Replayed"] = "true"
+        return _kitchen_out(kitchen)
     before = _equipment(kitchen)
     if body.hob_rings is not None:
         household.kitchen_hob_rings = body.hob_rings

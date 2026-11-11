@@ -23,6 +23,8 @@ from mealwright.models import (
     Place,
     Shop,
     StockLot,
+    StocktakeEntry,
+    StocktakePlace,
     Tub,
 )
 from mealwright.names import fold
@@ -164,6 +166,10 @@ def _undo_place_added(kitchen: Kitchen, data: dict[str, Any]) -> None:
         or db.scalar(select(Food.id).where(Food.place_id == place.id).limit(1))
         or db.scalar(select(ListItem.id).where(ListItem.put_away_place_id == place.id).limit(1))
         or db.scalar(select(ListTick.id).where(ListTick.place_id == place.id).limit(1))
+        or db.scalar(
+            select(StocktakePlace.place_id).where(StocktakePlace.place_id == place.id).limit(1)
+        )
+        or db.scalar(select(StocktakeEntry.id).where(StocktakeEntry.place_id == place.id).limit(1))
         or db.scalar(
             select(ChangeLine.id)
             .where(
