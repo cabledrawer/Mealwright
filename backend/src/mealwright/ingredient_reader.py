@@ -33,6 +33,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from fractions import Fraction
+from itertools import pairwise
 
 from mealwright.amounts import DEFAULT_CUP_ML, MAX_AMOUNT, CountedAs, unit_family, unit_size
 from mealwright.api.v1.recipe_schemas import GLYPHS, UNIT_ALIASES, fraction_of
@@ -1058,7 +1059,7 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
             and all(any(c.isalpha() for c in piece) for piece in pieces)
             # "shallot or 1/2 red onion": a fraction's slash (a digit on both sides) is not a "/"
             # between names; "ghee / 2 tbsp oil" still is (FX6)
-            and not any(a[-1:].isdigit() and b[:1].isdigit() for a, b in zip(pieces, pieces[1:]))
+            and not any(a[-1:].isdigit() and b[:1].isdigit() for a, b in pairwise(pieces))
         ):
             rest = _with_shared_noun(pieces[0], pieces[-1])
             names.extend(pieces[1:])
