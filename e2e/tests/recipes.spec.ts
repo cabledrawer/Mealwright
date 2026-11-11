@@ -554,12 +554,22 @@ test('the tag chips are one row that scrolls sideways, never wraps, and the page
     const where = `${width} px${big ? ' at 200% text' : ''}`;
     // The row that is on screen: in the three panes the list is the middle pane.
     const shown = group.first();
+    // The page has taken its new width first. From 1024 px the list moves into the middle pane: a new
+    // list that loads again, so for a moment the old chips are still there, and then none are (this
+    // test once measured in that moment and found no chips at all).
+    await expect(page.getByRole('region', { name: 'Recipe', exact: true }), where).toHaveCount(width >= 1024 ? 1 : 0);
     await expect(shown, where).toBeVisible();
     await expect(shown.getByRole('button').nth(16), where).toBeVisible(); // the list has come back
-    const tops = await shown
-      .getByRole('button')
-      .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
-    expect(new Set(tops).size, `one row at ${where}`).toBe(1);
+    // Every chip there is, measured together: more than 16 of them, all on one row.
+    await expect
+      .poll(
+        async () => {
+          const tops = await shown.getByRole('button').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+          return tops.length > 16 ? new Set(tops).size : `only ${tops.length} chips`;
+        },
+        { message: `one row at ${where}` },
+      )
+      .toBe(1);
     // It scrolls inside itself (the layout has settled once it has a width).
     await expect
       .poll(() => shown.evaluate((el) => el.clientWidth > 0 && el.scrollWidth > el.clientWidth), { message: `it scrolls inside itself at ${where}` })
