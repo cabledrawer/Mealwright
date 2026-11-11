@@ -4,7 +4,14 @@
   // lines. A sheet on a phone, a dialog on a computer. Loaded when first opened.
   import { onMount, untrack } from 'svelte';
   import type { ImportFlow } from '#lib/import.svelte.js';
-  import { OWN_UNITS, ownDefaults, ownLineWords, sectionOf } from '#lib/importOwn.js';
+  import {
+    OWN_NAME_TAKEN,
+    OWN_UNITS,
+    otherSectionCalled,
+    ownDefaults,
+    ownLineWords,
+    sectionOf
+  } from '#lib/importOwn.js';
   import { makeOwn } from '#lib/importOwnEdits.js';
   import { holdUndo } from '#lib/undo.svelte.js';
   import '#lib/styles/fields.css';
@@ -67,6 +74,10 @@
     }
     if (made === null) {
       problem = 'Type how much it makes.';
+      return;
+    }
+    if (otherSectionCalled(review, heading, typed) !== null) {
+      problem = OWN_NAME_TAKEN;
       return;
     }
     makeOwn(flow, heading, { name: typed, amount: made, unit });

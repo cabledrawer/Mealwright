@@ -5,7 +5,7 @@ import { fakeApi } from '#lib/testing/fakeApi.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import { ImportFlow } from './import.svelte';
 import { keepInMain, makeOwn } from './importOwnEdits';
-import { ownDefaults, ownLineWords, sectionOf } from './importOwn';
+import { otherSectionCalled, ownDefaults, ownLineWords, sectionOf } from './importOwn';
 
 // A section as its own recipe on Check (F190, cabledrawer 8 Nov): the pure work, what Save sends, and
 // what a draft keeps.
@@ -308,5 +308,20 @@ describe('a stand-in line inside another section made its own recipe', () => {
     // Every line that links to a section recipe is a line the server can match to its save.
     const links = body.lines.filter((l) => l.link?.kind === 'own_recipe');
     expect(links.map((l) => (l.link as { own_recipe: number }).own_recipe).sort()).toEqual([0, 1]);
+  });
+});
+
+describe('two sections with one name (RF4 I13)', () => {
+  it('finds another section already making a recipe of that name, in any case and spacing', () => {
+    const flow = dosa();
+    const review = flow.review!;
+    const heading0 = review.lines.findIndex((l) => l.kind === 'heading');
+    makeOwn(flow, heading0, { name: 'Dosa batter', amount: 4, unit: 'cup' });
+    review.lines.push(heading('For the chutney'));
+    const chutney = review.lines.length - 1;
+    expect(otherSectionCalled(review, chutney, ' dosa   BATTER ')).toBe(heading0);
+    expect(otherSectionCalled(review, chutney, 'Coconut chutney')).toBeNull();
+    // the section's own name is not "another section"
+    expect(otherSectionCalled(review, heading0, 'Dosa batter')).toBeNull();
   });
 });

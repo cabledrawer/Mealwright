@@ -22,6 +22,26 @@ export function headingCore(heading: string): string {
 /** The most sections of one recipe that can be made their own recipes in one save (the server's). */
 export const MOST_OWN = 5;
 
+/** The heading of another section that is already making a recipe called `name` (any case, any
+ *  spacing), or null. Two sections can't make recipes of one name: both would be looking for the
+ *  same stand-in line, and Save would refuse the second with no line marked (RF4 I13). */
+export function otherSectionCalled(
+  review: Pick<ImportReview, 'lines'>,
+  heading: number,
+  name: string
+): number | null {
+  const wanted = flat(name);
+  const at = review.lines.findIndex(
+    (line, i) =>
+      i !== heading && line.kind === 'heading' && !!line.own && flat(line.own.name) === wanted
+  );
+  return at >= 0 ? at : null;
+}
+
+/** Said in the sheet when that name is taken (proposed, for cabledrawer). */
+export const OWN_NAME_TAKEN =
+  'Another section is already making a recipe with that name. Type a different name.';
+
 /** The units "It makes" offers: each is a unit a recipe line can use too, so the main recipe's
  *  one line says "Dosa batter · 4 cups". */
 export const OWN_UNITS: { unit: string; words: string }[] = [
