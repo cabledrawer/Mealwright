@@ -110,8 +110,10 @@ test('cooks a session: shared prep, a timer that survives a reload, Done, next, 
     const waiting = found.tasks.filter((t) => t.hands === 'waiting' && t.state !== 'done');
     for (const t of waiting) await call(page, 'PUT', `/batch-cook/sessions/${s.id}/schedule/tasks/${t.id}/done`);
     await page.reload();
-    if (await page.getByRole('button', { name: 'Cooked it' }).isVisible()) break;
-    if (await done(page).isVisible()) await done(page).click();
+    const cooked = page.getByRole('button', { name: 'Cooked it', exact: true });
+    await expect(done(page).or(cooked)).toBeVisible();
+    if (await cooked.isVisible()) break;
+    await done(page).click();
     await expect.poll(async () => (await schedule(page, s.id)).done_count).toBeGreaterThan(found.done_count);
   }
   await expect(page.getByTestId('batch-now')).toContainText('Everything is cooked');
