@@ -353,7 +353,7 @@ def test_clearing_the_eaters_announces_a_plan_event(
     kitchen: TestClient,
 ) -> None:
     # Clearing writes with a bulk DELETE, which the session can't see (RF5 fix round 1).
-    food, slot, today = _plan_kit(kitchen)
+    _, slot, today = _plan_kit(kitchen)
     api = "/api/v1"
     me = kitchen.get(f"{api}/me").json()["id"]
     recipe = kitchen.post(f"{api}/recipes", json={"name": "Dal", "steps": [{"text": "Cook."}]})

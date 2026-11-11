@@ -368,7 +368,8 @@ def test_undo_after_a_healed_meal_leaves_it_planned_with_stock_back_once(
     today = date.today().isoformat()
     plan = ok(kitchen.get(f"{API}/plan", params={"from": today, "to": today}))
     assert [m["status"] for m in plan["meals"] if m["id"] == meal] == ["cooked"]
-    assert [e.name for e in heard] == ["pantry"]
+    # The healed meal is a planned meal changing too, so open Plans are told (RF5).
+    assert [e.name for e in heard] == ["pantry", "plan"]
     assert ok(undo(kitchen, last["id"]))["result"] == "done"
     assert status_of(kitchen, meal) == "planned"
     assert cooked_flags(kitchen) == {khichdi: False, soup: True}
