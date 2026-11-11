@@ -61,7 +61,7 @@ async function session(page: Page) {
       { recipe_id: b.id, tub_count: 3 },
     ],
   });
-  return { id: made.session_id as number, sambar, chettinad, change: made.change.id as number };
+  return { id: made.session_id as number, sambar, chettinad, day, change: made.change.id as number };
 }
 
 type Schedule = { done_count: number; tasks: { id: string; hands: string; state: string }[] };
@@ -181,7 +181,7 @@ test('passes the accessibility checks in both themes, and at 200% text nothing s
 
 test('Start batch cook on the Plan card opens batch cook mode for that session', async ({ page }) => {
   const s = await session(page);
-  await page.goto('/plan');
+  await page.goto(`/plan?day=${s.day}`);
   const card = page.getByTestId('batch-card').filter({ hasText: s.sambar });
   await card.getByRole('button', { name: 'Start batch cook' }).click();
   await expect(page).toHaveURL(new RegExp(`/batch-cook/session/${s.id}/cook$`));
