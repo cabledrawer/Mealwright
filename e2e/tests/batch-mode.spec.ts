@@ -79,7 +79,7 @@ test('cooks a session: shared prep, a timer that survives a reload, Done, next, 
   await expect(page.getByRole('heading', { name: 'Batch cook · 2 recipes' })).toBeVisible();
   await expect(now(page)).toContainText('Chop 3 ');
   await expect(now(page)).toContainText(`1 for ${s.sambar}`);
-  await expect(page.getByTestId('batch-in-use')).toContainText('In use: ');
+  await expect(page.getByTestId('batch-in-use')).toContainText('Nothing in use right now'); // chopping needs no equipment
   await expect(page.getByTestId('batch-next')).toBeVisible();
   await expect(page.getByTestId('batch-timer')).toHaveCount(2);
 
@@ -93,6 +93,7 @@ test('cooks a session: shared prep, a timer that survives a reload, Done, next, 
   await expect(now(page)).not.toContainText('Chop 3 ');
   await page.getByRole('button', { name: `Start timer for ${s.sambar}` }).click();
   await expect(page.getByRole('timer')).toBeVisible();
+  await expect(page.getByTestId('batch-in-use')).toContainText('pressure cooker 1 of 1');
   await expect.poll(async () => (await schedule(page, s.id)).done_count).toBe(1);
 
   // A reload carries on where it was.
