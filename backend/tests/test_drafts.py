@@ -1127,6 +1127,22 @@ def test_an_ingredient_made_since_is_used_by_a_waiting_draft_when_it_is_opened(
         assert stored.review["lines"][3]["label"] == "needs_you"
 
 
+def test_a_hand_fixed_amount_unit_and_note_survive_the_ingredient_being_made_since(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    """RF4 I1: the line's amount, unit and note fixed by hand while it still needed an
+    ingredient are kept when another draft makes that ingredient; only the match changes."""
+    shown = review(kitchen, PASTED)
+    line = shown["lines"][3]
+    assert line["label"] == "needs_you"
+    shown["lines"][3] = {**line, "amount": 1, "amount_text": "1", "unit": "kg", "note": "sifted"}
+    draft = kept(kitchen, shown)
+    asafoetida = make_food(kitchen, "Asafoetida", counted_as="weight")
+    got = ok(kitchen.get(f"{API}/recipes/drafts/{draft['id']}"))["review"]["lines"][3]
+    assert (got["label"], got["food"]["id"]) == ("matched", asafoetida["id"])
+    assert (got["amount"], got["amount_text"], got["unit"], got["note"]) == (1, "1", "kg", "sifted")
+
+
 def test_a_new_ingredient_choice_whose_name_now_exists_becomes_that_ingredient(
     kitchen: TestClient, pantry: dict[str, Any], web: Web
 ) -> None:

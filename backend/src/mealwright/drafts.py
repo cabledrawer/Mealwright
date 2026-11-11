@@ -260,8 +260,20 @@ def rematch(
                 fresh.label == "to_confirm" and line.label == "needs_you"
             )
             if moved and fresh.food is not None:
+                # Only the match is new: what the person may have fixed by hand while the
+                # line waited (the words, amount, unit and note) stays (RF4 I1).
                 lines[index] = line = fresh.model_copy(
-                    update={"optional": line.optional, "own": line.own}
+                    update={
+                        "written": line.written,
+                        "words": line.words,
+                        "amount": line.amount,
+                        "amount_text": line.amount_text,
+                        "unit": line.unit,
+                        "note": line.note,
+                        "pint_ml": line.pint_ml,
+                        "optional": line.optional,
+                        "own": line.own,
+                    }
                 )
         if line.label in ("matched", "staple"):
             continue
