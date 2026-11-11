@@ -1188,6 +1188,46 @@ def test_another_households_ingredient_or_same_as_answer_is_never_used_by_my_dra
     assert "Ghee" not in str(got)
 
 
+def test_h2_reopening_a_draft_keeps_the_choice_made_with_use_this_instead(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    """IM1 H2: the draft says tofu (Use this instead); another draft made Chicken; opening it
+    must not put the chicken back."""
+    shown = review(kitchen, "Curry\nIngredients\n200g chicken or tofu\nMethod\n1. Cook.\n")
+    first = shown["lines"][0]
+    assert (first["words"], first["alternative"]["words"]) == ("chicken", "tofu")
+    shown["lines"][0] = {**first["alternative"], "alternative": {**first, "alternative": None}}
+    draft = kept(kitchen, shown)
+    make_food(kitchen, "Chicken", counted_as="weight")
+    got = ok(kitchen.get(f"{API}/recipes/drafts/{draft['id']}"))
+    line = got["review"]["lines"][0]
+    assert (line["words"], line["label"], line["food"]) == ("tofu", "needs_you", None)
+    assert line["alternative"]["words"] == "chicken"
+    # Tofu made since: the swapped line picks it up, and can still be swapped back.
+    tofu = make_food(kitchen, "Tofu", counted_as="weight")
+    got = ok(kitchen.get(f"{API}/recipes/drafts/{draft['id']}"))
+    line = got["review"]["lines"][0]
+    assert (line["words"], line["label"], line["food"]["id"]) == ("tofu", "matched", tofu["id"])
+    assert line["alternative"]["words"] == "chicken"
+
+
+def test_m4_a_row_made_by_each_picks_up_an_ingredient_made_since(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    shown = review(kitchen, "Rub\nIngredients\n1 tsp each cumin and sumac\nMethod\n1. Mix.\n")
+    assert [x["words"] for x in shown["lines"]] == ["cumin", "sumac"]
+    assert [x["label"] for x in shown["lines"]] == ["needs_you", "needs_you"]
+    draft = kept(kitchen, shown)
+    sumac = make_food(kitchen, "Sumac", counted_as="weight")
+    got = ok(kitchen.get(f"{API}/recipes/drafts/{draft['id']}"))
+    lines = got["review"]["lines"]
+    assert [(x["words"], x["label"]) for x in lines] == [
+        ("cumin", "needs_you"),
+        ("sumac", "matched"),
+    ]
+    assert lines[1]["food"]["id"] == sumac["id"]
+
+
 # --- Other households ---------------------------------------------------------------------
 
 

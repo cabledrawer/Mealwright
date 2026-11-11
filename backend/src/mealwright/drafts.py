@@ -43,7 +43,7 @@ from mealwright.api.v1.draft_schemas import (
     DraftOut,
     DraftSource,
 )
-from mealwright.api.v1.import_schemas import ImportReview, ReviewCounts, ReviewPhoto
+from mealwright.api.v1.import_schemas import ImportReview, ReviewCounts, ReviewLine, ReviewPhoto
 from mealwright.api.v1.schemas import Ref
 from mealwright.errors import Problem, not_found
 from mealwright.history import as_utc, record
@@ -254,8 +254,8 @@ def rematch(
             continue
         line = lines[index]
         found = recipe_import._lines(ingredients, places, line.written, False, pint_ml)
-        if len(found) == 1:
-            fresh = found[0][0]
+        fresh = _same_reading(line, [read for read, _pints in found])
+        if fresh is not None:
             moved = fresh.label in ("matched", "staple") or (
                 fresh.label == "to_confirm" and line.label == "needs_you"
             )
@@ -281,6 +281,24 @@ def rematch(
         review.model_copy(update={"lines": lines, "counts": ReviewCounts(**counts)}),
         choices.model_copy(update={"lines": kept}),
     )
+
+
+def _same_reading(line: ReviewLine, reads: list[ReviewLine]) -> ReviewLine | None:
+    """The fresh read of a written line that says what the stored line says: the one whose words
+    are the same. A line written "each salt, cumin" is several lines (M4), and a line that says
+    "or" can have been swapped to its other choice (H2, F217): then the fresh read's alternative
+    is the match, with the fresh first choice as its own alternative so it can still be swapped
+    back. None when no fresh read has the stored words (the person changed them): the line stays."""
+    words = fold(line.words)
+    for read in reads:
+        if fold(read.words) == words:
+            return read
+        other = read.alternative
+        if other is not None and fold(other.words) == words:
+            return other.model_copy(
+                update={"alternative": read.model_copy(update={"alternative": None})}
+            )
+    return None
 
 
 # --- Ingredients that have gone ---------------------------------------------------------------

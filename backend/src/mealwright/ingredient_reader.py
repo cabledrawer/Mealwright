@@ -1053,7 +1053,12 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
     # "hing / asafoetida": the first is the name, the rest are other names.
     if "/" in rest:
         pieces = [piece.strip() for piece in rest.split("/")]
-        if 1 < len(pieces) <= 3 and all(any(c.isalpha() for c in piece) for piece in pieces):
+        if (
+            1 < len(pieces) <= 3
+            and all(any(c.isalpha() for c in piece) for piece in pieces)
+            # "shallot or 1/2 red onion": a fraction's slash is not a "/" between names
+            and not any(p[-1:].isdigit() or p[:1].isdigit() for p in pieces)
+        ):
             rest = _with_shared_noun(pieces[0], pieces[-1])
             names.extend(pieces[1:])
 
@@ -1266,7 +1271,9 @@ def _short_side(side: str) -> bool:
 
 # "1 tsp each onion & garlic powder": the amount, then "each" (and an optional "of"), then the
 # foods it is for (F210, cabledrawer 10 Nov).
-_EACH = re.compile(r"\s+each(?:\s+of)?\s+", re.IGNORECASE)
+_EACH = re.compile(r"\s+each(?:\s+of)?\s*[,:]?\s+", re.IGNORECASE)
+# A word before the first food that goes with every food after it: "each fresh parsley and mint".
+SHARED_LEADS = frozenset({"fresh", "dried", "ground"})
 # A word that ends the last of two names and belongs to both: "onion & garlic powder".
 SHARED_TAILS = frozenset({"powder", "flakes", "seeds", "paste", "leaves"})
 MAX_EACH_FOODS = 8
@@ -1315,14 +1322,28 @@ def split_each(text: str, size_words: Iterable[str] = ()) -> list[str] | None:
     foods = _top_level_split(work[found.end() :])
     if not 1 <= len(foods) <= MAX_EACH_FOODS or not all(_short_side(food) for food in foods):
         return None
+    # Words that are only how it is prepared ("mint, chopped") go with every food.
+    prepared = [f for f in foods if all(_is_prep(w, PREP_WORDS) for w in f.split())]
+    foods = [f for f in foods if f not in prepared]
+    if not foods:
+        return None
+    if prepared:
+        foods = [f"{food}, {', '.join(prepared)}" for food in foods]
     last = _brackets(foods[-1])[0].split()
-    if (
-        len(foods) == 2
-        and len(_brackets(foods[0])[0].split()) == 1
-        and len(last) >= 2
-        and _clean_token(last[-1]) in SHARED_TAILS
-    ):  # "onion & garlic powder"
-        foods[0] = f"{foods[0]} {last[-1]}"
+    if len(foods) == 2 and len(_brackets(foods[0])[0].split()) == 1 and len(last) >= 2:
+        first = _clean_token(foods[0])
+        if _clean_token(last[-1]) in SHARED_TAILS:  # "onion & garlic powder"
+            foods[0] = f"{foods[0]} {last[-1]}"
+        elif first in MODIFIER_WORDS:  # "red and green peppers"
+            foods[0] = f"{foods[0]} {' '.join(last[1:])}"
+    elif len(foods) >= 2:
+        lead = _brackets(foods[0])[0].split()
+        if (
+            len(lead) >= 2
+            and _clean_token(lead[0]) in SHARED_LEADS
+            and all(len(_brackets(f.partition(",")[0])[0].split()) == 1 for f in foods[1:])
+        ):  # "fresh parsley and mint"
+            foods = [foods[0], *[f"{lead[0]} {f}" for f in foods[1:]]]
     return [f"{left.strip()} {food}" for food in foods]
 
 
@@ -1382,7 +1403,13 @@ def _with_alternative(
     if not (left.readable and right.readable) or left.name == "" or _NO_AMOUNT.match(right_text):
         return whole
     modifier = left.name.split()
-    if len(modifier) == 1 and len(right.name.split()) >= 2:  # "black or white pepper"
+    if (
+        right.amount is None
+        and right.size_word is None
+        and len(modifier) == 1
+        and _clean_token(modifier[0]) in MODIFIER_WORDS
+        and len(right.name.split()) >= 2
+    ):  # "black or white pepper": the other side has no amount, and this one only a describing word
         left_text = f"{left_text} {' '.join(right.name.split()[1:])}"
     if right.amount is None and right.size_word is None and left.amount is not None:
         # "1 tbsp ghee or butter": the same amount of the other choice

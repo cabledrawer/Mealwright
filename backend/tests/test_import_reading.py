@@ -209,3 +209,61 @@ def test_f217_the_review_carries_the_other_choice_and_save_keeps_it_as_the_note(
     # Save sends the line as shown: the other choice is only in the note (no new field).
     sent = to_save(shown)["lines"][0]
     assert "alternative" not in sent and sent["note"] == first["note"]
+
+
+# --- Round 1 fixes (H1, M3, L6) -----------------------------------------------------------------
+
+
+def test_h1_the_other_choice_keeps_its_own_words_in_both_notes() -> None:
+    """Both ways round: the first food's note and the alternative's, in full."""
+    cases = {
+        "1 large shrak or 2 medium size flat bread or tortillas.": (
+            (D(1), "shrak", "large, or 2 medium size flat bread or tortillas"),
+            (D(2), "flat bread", "or 1 large shrak, medium size, or tortillas"),
+        ),
+        "2 tbsp butter or olive oil": (
+            (D(2), "butter", "or olive oil"),
+            (D(2), "olive oil", "or 2 tbsp butter"),
+        ),
+        "1 egg or 2 egg whites": (
+            (D(1), "egg", "or 2 egg whites"),
+            (D(2), "egg whites", "or 1 egg"),
+        ),
+        "1 shallot or 1/2 red onion": (
+            (D(1), "shallot", "or 1/2 red onion"),
+            (D("0.5"), "red onion", "or 1 shallot"),
+        ),
+        "1 tsp black or white pepper": (
+            (D(1), "black pepper", "or white pepper"),
+            (D(1), "white pepper", "or 1 tsp black pepper"),
+        ),
+    }
+    for text, (first, other) in cases.items():
+        (line,) = read_lines(text)
+        assert (line.amount, line.name, line.note) == first, text
+        assert line.alternative is not None, text
+        assert (line.alternative.amount, line.alternative.name, line.alternative.note) == other, (
+            text
+        )
+
+
+def test_m3_red_and_green_peppers_are_red_peppers_and_green_peppers() -> None:
+    for text, amount, names in (
+        ("2 each red and green peppers", 2, ["red peppers", "green peppers"]),
+        ("1 each red and green pepper", 1, ["red pepper", "green pepper"]),
+    ):
+        reads = read_lines(text)
+        assert [(r.amount, r.name) for r in reads] == [(amount, n) for n in names], text
+
+
+def test_l6_each_with_a_comma_a_colon_or_a_describing_word() -> None:
+    for text in ("1 tsp each, salt and pepper", "1 tsp each: salt, pepper"):
+        assert [(r.amount, r.unit, r.name) for r in read_lines(text)] == [
+            (D(1), "tsp", "salt"),
+            (D(1), "tsp", "pepper"),
+        ], text
+    reads = read_lines("2 tbsp each fresh parsley and mint, chopped")
+    assert [(r.amount, r.name, r.note) for r in reads] == [
+        (D(2), "parsley", "fresh, chopped"),
+        (D(2), "mint", "fresh, chopped"),
+    ]
