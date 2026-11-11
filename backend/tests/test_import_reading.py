@@ -457,3 +457,17 @@ def test_slash_between_two_amounts_gives_use_this_instead_at_the_review(
     assert ghee["note"] == "or 2 tbsp oil"
     assert ghee["alternative"]["words"] == "oil"
     assert hing["words"] == "hing" and hing["alternative"] is None
+
+
+def test_rf4_h_a_fraction_before_a_slash_keeps_its_digits() -> None:
+    """The slash rule's guard for a fraction's slash lost the digits (non-raw backreference)."""
+    (line,) = read_lines("1 1/2 cups milk / 2 cups water")
+    assert (line.amount, line.unit, line.name) == (D("1.5"), "cup", "milk")
+    assert line.alternative is not None
+    assert (line.alternative.amount, line.alternative.name) == (D(2), "water")
+    (line,) = read_lines("1 1/2 tbsp ghee / 1 tbsp oil")
+    assert (line.amount, line.unit, line.name) == (D("1.5"), "tbsp", "ghee")
+    assert line.alternative is not None and line.alternative.name == "oil"
+    (line,) = read_lines("1/2 tsp ghee / 1 tsp oil")
+    assert (line.amount, line.unit, line.name) == (D("0.5"), "tsp", "ghee")
+    assert line.alternative is not None and line.alternative.name == "oil"

@@ -1457,7 +1457,7 @@ def _slash_as_or(text: str) -> str | None:
     work = working_text(text)
     if "/" not in work or len(work) > MAX_LINE_CHARS:
         return None
-    guarded = _FRACTION_SLASH.sub("\1\u2044\2", work)
+    guarded = _FRACTION_SLASH.sub("\\1\u2044\\2", work)
     depth = 0
     cuts: list[int] = []
     for at, char in enumerate(guarded):
