@@ -402,6 +402,32 @@ def test_i6_a_plus_amount_after_an_amount_keeps_the_first_and_notes_the_rest() -
         assert line.name in ("sugar", "flour") and note in (line.note or ""), (text, line.note)
 
 
+def test_i9_a_describing_word_between_a_and_pinch_is_not_part_of_the_name() -> None:
+    for text, name, note in (
+        ("a generous pinch of salt", "salt", "generous"),
+        ("a big pinch of salt", "salt", "big"),
+        ("a good splash of oil", "oil", "good"),
+    ):
+        (line,) = read_lines(text)
+        assert (line.amount, line.name) == (D(1), name), text
+        assert note in (line.note or ""), text
+    (line,) = read_lines("a generous pinch of salt")
+    assert (line.unit, line.counts) == ("pinch", False)
+
+
+def test_slash_between_two_amounts_is_an_or_line() -> None:
+    (line,) = read_lines("2 tbsp ghee / 2 tbsp oil")
+    assert (line.amount, line.unit, line.name) == (D(2), "tbsp", "ghee")
+    assert line.note == "or 2 tbsp oil"
+    other = line.alternative
+    assert other is not None
+    assert (other.amount, other.unit, other.name) == (D(2), "tbsp", "oil")
+    assert other.note == "or 2 tbsp ghee"
+    assert line.text == other.text == "2 tbsp ghee / 2 tbsp oil"
+    (line,) = read_lines("250g butter/200g margarine")
+    assert line.alternative is not None and line.alternative.name == "margarine"
+
+
 def test_slash_without_amounts_stays_other_names() -> None:
     for text, name, other in (
         ("hing / asafoetida", "hing", "asafoetida"),
@@ -417,3 +443,17 @@ def test_slash_that_is_a_second_measure_or_a_fraction_is_not_an_or() -> None:
     for text in ("1 cup / 240 ml milk", "1/2 tsp salt", "1 1/2 cups rice", "500g/1lb beef mince"):
         (line,) = read_lines(text)
         assert line.alternative is None, text
+
+
+def test_slash_between_two_amounts_gives_use_this_instead_at_the_review(
+    kitchen: TestClient, web: Web
+) -> None:
+    text = (
+        "Dal tadka\nIngredients\n2 tbsp ghee / 2 tbsp oil\n1 tsp hing / asafoetida\n"
+        "Method\n1. Cook.\n"
+    )
+    ghee, hing = review(kitchen, text)["lines"]
+    assert (ghee["words"], ghee["amount"], ghee["unit"]) == ("ghee", 2, "tbsp")
+    assert ghee["note"] == "or 2 tbsp oil"
+    assert ghee["alternative"]["words"] == "oil"
+    assert hing["words"] == "hing" and hing["alternative"] is None

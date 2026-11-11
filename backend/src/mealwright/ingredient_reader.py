@@ -97,6 +97,10 @@ CONTAINER_WORDS = frozenset(
     {"tin", "can", "jar", "packet", "pack", "bag", "box", "carton", "bottle", "tub", "tube",
      "sachet", "pot", "block"}
 )  # fmt: skip
+# Describing words that can stand between "a" and a pinch or a size word ("a generous pinch").
+BEFORE_UNIT_WORDS = frozenset(
+    {"generous", "big", "good", "healthy", "hearty", "large", "nice", "tiny", "decent", "heaped"}
+)
 # Size words that mean a fixed number of the thing itself, so an ingredient with no size of that
 # name still gets an amount: "a dozen eggs" is 12 eggs. Not "clove": one clove is not one garlic,
 # so "2 cloves garlic" stays "2 cloves" like "1 bunch coriander" (F89, cabledrawer 31 Oct).
@@ -954,6 +958,20 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
             position = of.end() if of else position
         elif article is not None:
             amount, position = Fraction(1), article.end()
+            # "a generous pinch of salt", "a good splash of oil": the describing word is a note
+            # (RF4 I9), the pinch is the unit.
+            if first in BEFORE_UNIT_WORDS and word is not None:
+                next_word = (
+                    _WORD.match(work, word.end() + 1)
+                    if work[word.end() : word.end() + 1] == " "
+                    else None
+                )
+                if next_word is not None and (
+                    next_word.group().lower() in {"pinch", "pinches"}
+                    or _is_size(next_word.group().lower(), extra)
+                ):
+                    qualifiers.append(first)
+                    position = word.end()
         elif first in {"dozen", "pinch", "pinches"} and word is not None:
             # "dozen eggs", "Pinch black pepper" (F218): one of it, and the word is the unit
             amount, position = Fraction(1), word.start()
@@ -1431,6 +1449,39 @@ def _each_first(work: str) -> str:
     return work
 
 
+def _slash_as_or(text: str) -> str | None:
+    """ "2 tbsp ghee / 2 tbsp oil" said as an "or" line, "2 tbsp ghee or 2 tbsp oil", when a slash
+    between two foods has an amount on both sides (cabledrawer 11 Nov; RF4). None for a slash between
+    names alone ("hing / asafoetida"), a fraction's slash, and a second measure straight after the
+    first ("500g/1lb beef", "1 cup / 240 ml milk": nothing but a measure before the slash)."""
+    work = working_text(text)
+    if "/" not in work or len(work) > MAX_LINE_CHARS:
+        return None
+    guarded = _FRACTION_SLASH.sub("\1\u2044\2", work)
+    depth = 0
+    cuts: list[int] = []
+    for at, char in enumerate(guarded):
+        if char in "([":
+            depth += 1
+        elif char in ")]":
+            depth = max(depth - 1, 0)
+        elif char == "/" and depth == 0:
+            cuts.append(at)
+    if len(cuts) != 1:
+        return None
+    left, right = guarded[: cuts[0]].strip(" ,;"), guarded[cuts[0] + 1 :].strip(" ,;")
+    first = _measure(left, 0)
+    second = _measure(right, 0)
+    if (
+        first is None
+        or second is None
+        or not any(c.isalpha() for c in left[first.end :])  # only a measure: a second measure
+        or not any(c.isalpha() for c in right[second.end :])
+    ):
+        return None
+    return f"{left} or {right}".replace("\u2044", "/")
+
+
 def read_lines(
     text: str, size_words: Iterable[str] = (), pint_ml: int | None = None
 ) -> list[ReadLine]:
@@ -1438,6 +1489,18 @@ def read_lines(
     "1 tsp each salt, cumin" gives one line for each food (see `split_each`). If any part can't
     be read, the line is read as one. Never raises."""
     extra = tuple(size_words)
+    as_or = _slash_as_or(text)
+    if as_or is not None:  # "2 tbsp ghee / 2 tbsp oil" is "2 tbsp ghee or 2 tbsp oil"
+        return [
+            replace(
+                read,
+                text=text,
+                alternative=(
+                    replace(read.alternative, text=text) if read.alternative is not None else None
+                ),
+            )
+            for read in read_lines(as_or, extra, pint_ml)
+        ]
     each = split_each(text, extra)
     if each is not None:
         reads = [replace(read_line(part, extra, pint_ml), text=text) for part in each]
