@@ -48,3 +48,15 @@ def test_finding_all_of_it_leaves_nothing_to_buy(kitchen: TestClient) -> None:
     from_plan(kitchen)
     assert lines(kitchen, ghee["id"]) == [(620, True)]
     assert changes(kitchen)["items"]
+
+
+def test_an_amount_with_too_many_decimals_is_refused_in_plain_words(kitchen: TestClient) -> None:
+    # RF2 Sh5: the sheet now rounds, but if a phone ever sends 0.0625 the toast must not read
+    # "found_at_home.amount: Decimal input should have no more than 3 decimal places".
+    _ghee, row = halwa(kitchen)
+    done = one(
+        kitchen, "found_at_home", counter(kitchen), PHONE_A, item_id=row["id"], amount=0.0625
+    )
+    assert (done["status"], done["reason"]) == ("refused", "bad_action")
+    assert done["message"] == "That amount has too many decimal places. Use at most 3."
+    assert "found_at_home" not in done["message"]

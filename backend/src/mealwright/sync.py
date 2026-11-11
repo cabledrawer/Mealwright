@@ -38,6 +38,8 @@ from mealwright.shopping import Act, Batch, Refused
 KEY_REUSED = "That change ID was already used for something else."
 TOO_OLD = "Too late to undo: changes can be undone for 7 days."
 MAX_ACTIONS = 100
+# Proposed, for cabledrawer (RF2 Sh5): an amount sent with more than 3 decimal places.
+TOO_MANY_DECIMALS = "That amount has too many decimal places. Use at most 3."
 
 UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 NewId = Annotated[str, Field(pattern=UUID_PATTERN)]  # a new phone-made list or item ID
@@ -588,7 +590,11 @@ def apply_batch(
         except ValidationError as err:
             first = err.errors()[0]
             where = ".".join(str(part) for part in first["loc"])
-            message = f"That change isn’t valid ({where}: {first['msg']})."
+            if first["type"] == "decimal_max_places":
+                # Plain words for the one a phone's rounding could ever hit (RF2 Sh5).
+                message = TOO_MANY_DECIMALS
+            else:
+                message = f"That change isn’t valid ({where}: {first['msg']})."
             results.append(refused(action_id[:64], "bad_action", message[:300]))
             continue
         act = Act(

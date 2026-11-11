@@ -54,7 +54,10 @@
   /** The list's amount first, then the pack's halves and quarters; with no amount, ready-made. */
   const choices = $derived.by(() => {
     const out: Choice[] = [];
-    const add = (label: string, amount: number, sizeId: number | null) => {
+    const add = (label: string, exact: number, sizeId: number | null) => {
+      // The server takes at most 3 decimal places (RF2 Sh5): a quarter of an amount that is
+      // already small is rounded to that, and left out if it rounds to nothing.
+      const amount = Math.round(exact * 1000) / 1000;
       if (amount > 0 && !out.some((c) => c.amount === amount && c.sizeId === sizeId)) {
         out.push({ key: `${amount}:${sizeId}`, label, amount, sizeId });
       }

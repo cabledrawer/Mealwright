@@ -352,6 +352,31 @@ describe('Shopping on the phone', () => {
       expect(kinds()).toEqual(['found_at_home']);
     });
 
+    it('the quarter chip of an already small amount sends at most 3 decimals (RF2 Sh5)', async () => {
+      // A quarter of 0.25 is 0.0625, which the server refuses ("no more than 3 decimal places").
+      copy.items.find((i) => i.id === 'i-onions')!.amount = 0.25;
+      await render();
+      await openHave('Onions');
+      const sheet = page.getByRole('dialog', { name: 'Already have Onions' });
+      const radios = await vi.waitFor(() => {
+        const found = sheet.getByRole('radio').elements();
+        if (found.length < 4) throw new Error('chips not shown yet');
+        return found;
+      });
+      for (const radio of radios) {
+        const decimals = (radio.getAttribute('value') ?? '').split(':')[0]?.split('.')[1] ?? '';
+        expect(decimals.length).toBeLessThanOrEqual(3);
+      }
+      await sheet
+        .getByRole('radio')
+        .nth(radios.length - 2)
+        .click();
+      await sheet.getByRole('button', { name: /^Put .* in the pantry$/ }).click();
+      await vi.waitFor(() => expect(server.actions[0]).toMatchObject({ kind: 'found_at_home' }));
+      const sent = String(server.actions[0]!.amount);
+      expect((sent.split('.')[1] ?? '').length).toBeLessThanOrEqual(3);
+    });
+
     it('Other… takes a typed amount', async () => {
       await render();
       await openHave('Toor dal');
