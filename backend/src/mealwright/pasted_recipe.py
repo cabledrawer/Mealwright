@@ -69,6 +69,10 @@ class PastedRecipe:
 
 # --- Serves and time (F171) --------------------------------------------------------------------
 
+# The most the recipe's own boxes take: Serves 1 to 99, and the time in whole minutes up to 10 days.
+MAX_SERVES = 99
+MAX_MINUTES = 14_400
+
 _NUM = r"(?:\d+\s*[½¼¾]|\d+(?:\.\d+)?|[½¼¾])"
 _SERVES_FACT = re.compile(
     r"(?:serves|servings?|serving size)\s*:?\s*(?P<a>\d{1,3})"
@@ -112,6 +116,8 @@ def _fact_line(line: str, strict: bool = True) -> tuple[int | None, dict[str, in
         found = _SERVES_FACT.fullmatch(part)
         if found:
             serves = int(found["b"] or found["a"])
+            if not 1 <= serves <= MAX_SERVES:
+                return None  # "Serves 500": not a fact; the line stays as it was read (RF4 I12)
             continue
         found = _TIME_FACT.fullmatch(part)
         if not found or not (found["h"] or found["m"]):
@@ -126,6 +132,8 @@ def _fact_line(line: str, strict: bool = True) -> tuple[int | None, dict[str, in
             return None  # "Cook 20 minutes.", "Total 30 min": maybe a step
         kind = "prep" if word.startswith("prep") else "cook" if word.startswith("cook") else "total"
         minutes[kind] = round(_hours(found["h"] or "") * 60) + int(found["m"] or 0)
+        if minutes[kind] > MAX_MINUTES:
+            return None  # "Total time: 400 hours": more than a recipe can say (RF4 I12)
     if serves is None and not minutes:
         return None
     return serves, minutes
@@ -135,10 +143,12 @@ def _total_minutes(minutes: dict[str, int]) -> int | None:
     """A total beats the parts; prep and cook together add up; a lone cook time stands in for
     the total; a lone prep time is not one."""
     if "total" in minutes:
-        return minutes["total"] or None
-    if "prep" in minutes and "cook" in minutes:
-        return minutes["prep"] + minutes["cook"]
-    return minutes.get("cook") or None
+        total = minutes["total"]
+    elif "prep" in minutes and "cook" in minutes:
+        total = minutes["prep"] + minutes["cook"]
+    else:
+        total = minutes.get("cook", 0)
+    return total if 0 < total <= MAX_MINUTES else None
 
 
 # --- Headings ---------------------------------------------------------------------------------

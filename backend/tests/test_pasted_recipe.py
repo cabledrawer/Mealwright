@@ -658,3 +658,25 @@ def test_a_heading_without_the_is_kept_when_another_heading_follows_f222() -> No
     assert recipe.ingredients[0] == "To make the batter"
     recipe = read_pasted("Dosa\nFor batter\n1 cup urad dal\nFor dipping\n1 tbsp ghee\nFry.")
     assert recipe.ingredients == ("For batter", "1 cup urad dal", "For dipping", "1 tbsp ghee")
+
+
+@pytest.mark.parametrize("line", ["Serves 500", "Serves 100", "Serves 0", "Total time: 400 hours"])
+def test_rf4_i12_a_serves_or_time_the_boxes_cannot_hold_is_left_empty(line: str) -> None:
+    """RF4 I12 (proposed, for cabledrawer): Serves is 1 to 99 and the time up to 14,400 minutes. A
+    pasted line that says more is not put in the boxes (they stay empty, so Check never refuses a
+    value nobody typed); the line is not read as a fact, so it stays where the text had it."""
+    recipe = read_pasted(f"Dal\n{line}\nIngredients\n1 cup toor dal\nMethod\n1. Cook.\n")
+    assert (recipe.serves, recipe.time_minutes) == (None, None)
+    assert recipe.ingredients == ("1 cup toor dal",)
+    assert recipe.steps == ("Cook.",)
+
+
+def test_rf4_i12_the_edges_are_still_read() -> None:
+    assert read_pasted("Dal\nServes 99\n1 cup toor dal\nCook.").serves == 99
+    assert read_pasted("Dal\nTotal time: 240 hours\n1 cup toor dal\nCook.").time_minutes == 14_400
+    assert (
+        read_pasted(
+            "Dal\nPrep time: 200 hours\nCook time: 100 hours\n1 cup dal\nCook."
+        ).time_minutes
+        is None
+    )
