@@ -30,6 +30,7 @@
   import { cookedUseBy, eatOnUntil } from '#lib/tubUseBy.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { batchCook } from '#lib/batchCook.svelte.js';
+  import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
   import type { CookEntry } from '#lib/planCook.js';
@@ -191,6 +192,22 @@
   onMount(() => {
     void recipes.load();
     void batchCook.load();
+    // Midnight in the household's zone moves "today" on (RF5, H3).
+    return model.watchDay();
+  });
+
+  // Coming back to the tab, and another person's batch cook change (a session made, changed or
+  // removed, its progress) read the plan and the household's today again, so the Batch cook card
+  // never keeps a session that is gone (RF5, H3; cabledrawer 11 Nov).
+  function onVisible() {
+    if (document.visibilityState === 'visible') void model.refresh();
+  }
+  let heardBatch = untrack(() => live.batchCook);
+  $effect(() => {
+    const now = live.batchCook;
+    if (now === heardBatch) return;
+    heardBatch = now;
+    untrack(() => void model.refresh());
   });
 
   // The phone's Month starts on today, or the 1st when today is in another month.
@@ -401,6 +418,7 @@
   const hasBatches = $derived((model.plan?.batch_cooks.length ?? 0) > 0);
 </script>
 
+<svelte:document onvisibilitychange={onVisible} />
 <svelte:window
   onkeydown={(event) => {
     if (event.key === 'Alt') drag.alt = true;

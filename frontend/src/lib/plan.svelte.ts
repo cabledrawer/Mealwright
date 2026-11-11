@@ -51,6 +51,7 @@ import {
   dayShort,
   monthGrid,
   monthStart,
+  msUntilNextDay,
   nextMonth,
   prevMonth,
   weekDays,
@@ -98,6 +99,8 @@ export class PlanModel {
   /** Any day in the week or month on show. */
   anchor = $state('');
   today = $state('');
+  /** The household's time zone, for the midnight timer. */
+  zone = $state<string | null>(null);
   startsOn = $state(1);
   /** Days a tub keeps in the fridge (its default use-by), from the household. */
   tubFridgeDays = $state(0);
@@ -127,12 +130,42 @@ export class PlanModel {
     this.slots.filter((s) => s.enabled).sort((a, b) => a.position - b.position || a.id - b.id)
   );
 
-  async load(): Promise<void> {
+  /**
+   * Read everything again, the household's today too (RF5, H3): coming back to the tab, after
+   * midnight, after another person's change. A Plan that was showing today's week moves on with
+   * the day; one someone has paged to stays where it is.
+   */
+  async refresh(): Promise<void> {
+    return this.load(true);
+  }
+
+  /**
+   * Refresh at each midnight in the household's time zone. Returns a function that stops it.
+   * (A laptop that was asleep through midnight is caught by coming back to the tab.)
+   */
+  watchDay(): () => void {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const arm = () => {
+      timer = setTimeout(
+        () => {
+          void this.refresh();
+          arm();
+        },
+        msUntilNextDay(Date.now(), this.zone)
+      );
+    };
+    arm();
+    return () => clearTimeout(timer);
+  }
+
+  async load(again = false): Promise<void> {
     const asked = ++this.#asked;
     try {
-      if (!this.today) {
+      if (!this.today || again) {
         const household = await getHousehold();
         if (asked !== this.#asked) return;
+        if (!this.anchor || this.anchor === this.today) this.anchor = household.today;
+        this.zone = household.time_zone;
         this.today = household.today;
         this.startsOn = household.week_starts_on || 1;
         this.tubFridgeDays = household.tub_fridge_days ?? 0;

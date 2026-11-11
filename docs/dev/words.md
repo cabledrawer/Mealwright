@@ -1061,3 +1061,9 @@ Words from the mockup `Dark-RecipesTags08-Phone` are agreed; the rest are propos
 - **Two sections with one name (I12, proposed, for cabledrawer):** in the sheet that makes a section its own recipe, **Another section is already making a recipe with that name. Type a different name.**
 - **Notes the reader writes (I6, proposed, for cabledrawer; they appear in a line's note, not as screen words):** **plus 1 tsp** for "1 tbsp + 1 tsp sugar" (the line keeps the first amount), and **1lb 2oz** for "500g/1lb 2oz beef mince" (the line is 500 g); "or more", "or less", "or so" and "generous" or "big" stay in the note as written.
 - **No new words:** Serves and time out of range (I11) simply stay empty; the Drafts list's count (I7) and a typed 10/3 (I10) use the words that were there.
+
+## 69. Whole-0.8 review fixes: screens (RF5)
+
+All proposed, for cabledrawer.
+
+- **The Plan's Start batch cook, when the batch cook was changed or removed meanwhile (H3):** **That batch cook was changed or removed. The Plan is up to date now.** (shown when no batch cook is left on that day; when one is, Start batch cook opens it).

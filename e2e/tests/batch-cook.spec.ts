@@ -280,6 +280,26 @@ test('Change reopens the picks with the session’s recipes, and Remove takes th
   await call(page, 'DELETE', `/batch-cook/sessions/${(await planRange(page, day)).batch_sessions[0].id}`);
 });
 
+test('Start batch cook opens the current session after another person pressed Change (never "not found")', async ({ page }) => {
+  const tag = `s${Date.now().toString(36)}`;
+  const ids = await seed(page, tag);
+  const day = cookDay(await today(page), 2);
+  const body = (recipes: number[]) => ({
+    date: day,
+    recipes: recipes.map((recipe_id) => ({ recipe_id, tub_count: 1, pattern: 'dinners' })),
+  });
+  const made = await call(page, 'POST', '/batch-cook/sessions', body([ids.a, ids.b]));
+  await page.goto(`/plan?day=${day}`);
+  await expect(page.getByTestId('batch-card')).toContainText('Batch cook · 2 recipes');
+  // Someone else presses Change: the session gets a new id while this Plan is still open.
+  const changed = await call(page, 'PUT', `/batch-cook/sessions/${made.session_id}`, body([ids.a, ids.c]));
+  expect(changed.session_id).not.toBe(made.session_id);
+  await page.getByTestId('batch-card').getByRole('button', { name: 'Start batch cook' }).click();
+  await expect(page).toHaveURL(new RegExp(`/batch-cook/session/${changed.session_id}/cook`));
+  await expect(page.getByText(/not found/i)).toHaveCount(0);
+  await call(page, 'DELETE', `/batch-cook/sessions/${changed.session_id}`);
+});
+
 test('an admin can hide Batch cook in Settings: no sidebar entry, no Plan tab, and the picks are refused', async ({ page }) => {
   await page.goto('/settings');
   if (isPhone(page)) await page.getByRole('link', { name: /^Your kitchen/ }).click();

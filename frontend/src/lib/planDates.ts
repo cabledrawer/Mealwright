@@ -89,3 +89,30 @@ export const dayFull = (iso: string) =>
   `${dayLong(iso)} ${dayNumber(iso)} ${long.format(noon(iso))}`;
 
 export const dayOfMonth = dayNumber;
+
+/**
+ * Milliseconds from `now` to the next midnight in `zone` (the household's time zone; the device's
+ * own when it has none). Always at least one second, so a timer set with it fires after midnight.
+ */
+export function msUntilNextDay(now: number, zone: string | null): number {
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat('en-GB', {
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hourCycle: 'h23',
+      ...(zone ? { timeZone: zone } : {})
+    }).formatToParts(now);
+  } catch {
+    parts = new Intl.DateTimeFormat('en-GB', {
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hourCycle: 'h23'
+    }).formatToParts(now);
+  }
+  const of = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  const sinceMidnight = ((of('hour') * 60 + of('minute')) * 60 + of('second')) * 1000;
+  return Math.max(1000, 24 * 3_600_000 - sinceMidnight);
+}

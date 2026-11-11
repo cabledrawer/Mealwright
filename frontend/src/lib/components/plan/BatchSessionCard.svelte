@@ -11,6 +11,7 @@
   import { dayShort } from '#lib/planDates.js';
   import { colourOfBatch } from '#lib/planMeals.js';
   import { timeWords } from '#lib/timeWords.js';
+  import { toasts } from '#lib/toast.svelte.js';
 
   let {
     actions,
@@ -34,9 +35,25 @@
   });
   const tubs = (b: PlanBatch) => `${b.tub_count} ${b.tub_count === 1 ? 'tub' : 'tubs'}`;
 
-  /** Start batch cook: batch cook mode for the whole session (B3). */
+  /**
+   * Start batch cook: batch cook mode for the whole session (B3). The plan is read again first
+   * (RF5, H3): another person may have pressed Change meanwhile, which makes a new session, so the
+   * card on screen could hold an id that is gone. It opens the one now on that cook day, or says
+   * plainly that it changed.
+   */
   async function start() {
-    await goto(resolve('/(app)/batch-cook/session/[id]/cook', { id: String(session.id) }));
+    await actions.model.refresh();
+    const sessions = actions.model.plan?.batch_sessions;
+    let id = session.id;
+    if (sessions && !sessions.some((s) => s.id === id)) {
+      const there = sessions.filter((s) => s.cook_day === session.cook_day);
+      if (there.length !== 1) {
+        toasts.show('That batch cook was changed or removed. The Plan is up to date now.');
+        return;
+      }
+      id = there[0]!.id;
+    }
+    await goto(resolve('/(app)/batch-cook/session/[id]/cook', { id: String(id) }));
   }
 
   async function change() {
