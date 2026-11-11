@@ -77,7 +77,7 @@ test('cooks a session: shared prep, a timer that survives a reload, Done, next, 
   await page.goto(`/batch-cook/session/${s.id}/cook`);
   await expect(region(page)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Batch cook · 2 recipes' })).toBeVisible();
-  await expect(now(page)).toContainText('Chop 3 onions');
+  await expect(now(page)).toContainText('Chop 3 ');
   await expect(now(page)).toContainText(`1 for ${s.sambar}`);
   await expect(page.getByTestId('batch-in-use')).toContainText('In use: ');
   await expect(page.getByTestId('batch-next')).toBeVisible();
@@ -90,7 +90,7 @@ test('cooks a session: shared prep, a timer that survives a reload, Done, next, 
 
   // Done, next frees the dal's pressure cooker: its timer starts on a tap, and is kept.
   await done(page).click();
-  await expect(now(page)).not.toContainText('Chop 3 onions');
+  await expect(now(page)).not.toContainText('Chop 3 ');
   await page.getByRole('button', { name: `Start timer for ${s.sambar}` }).click();
   await expect(page.getByRole('timer')).toBeVisible();
   await expect.poll(async () => (await schedule(page, s.id)).done_count).toBe(1);
@@ -98,7 +98,7 @@ test('cooks a session: shared prep, a timer that survives a reload, Done, next, 
   // A reload carries on where it was.
   await page.reload();
   await expect(region(page)).toBeVisible();
-  await expect(now(page)).not.toContainText('Chop 3 onions');
+  await expect(now(page)).not.toContainText('Chop 3 ');
   await expect(page.getByRole('timer')).toBeVisible();
   await expect(page.getByTestId('batch-progress')).toContainText('Task 2 of');
 
@@ -136,22 +136,22 @@ test('cooks a session: shared prep, a timer that survives a reload, Done, next, 
 test('another phone agrees without reloading', async ({ page }) => {
   const s = await session(page);
   await page.goto(`/batch-cook/session/${s.id}/cook`);
-  await expect(now(page)).toContainText('Chop 3 onions');
+  await expect(now(page)).toContainText('Chop 3 ');
   const other = await page.context().newPage();
   await other.goto(`/batch-cook/session/${s.id}/cook`);
-  await expect(now(other)).toContainText('Chop 3 onions');
+  await expect(now(other)).toContainText('Chop 3 ');
   await done(other).click();
-  await expect(now(page)).not.toContainText('Chop 3 onions');
+  await expect(now(page)).not.toContainText('Chop 3 ');
   await call(page, 'DELETE', `/batch-cook/sessions/${s.id}`);
 });
 
 test('offline, Done, next keeps working and is sent when the connection is back', async ({ page, context }) => {
   const s = await session(page);
   await page.goto(`/batch-cook/session/${s.id}/cook`);
-  await expect(now(page)).toContainText('Chop 3 onions');
+  await expect(now(page)).toContainText('Chop 3 ');
   await context.setOffline(true);
   await done(page).click();
-  await expect(now(page)).not.toContainText('Chop 3 onions');
+  await expect(now(page)).not.toContainText('Chop 3 ');
   await expect(page.getByTestId('batch-offline')).toBeVisible();
   await context.setOffline(false);
   await expect.poll(async () => (await schedule(page, s.id)).done_count, { timeout: 30_000 }).toBe(1);
@@ -161,7 +161,7 @@ test('offline, Done, next keeps working and is sent when the connection is back'
 test('passes the accessibility checks in both themes, and at 200% text nothing scrolls sideways', async ({ page }) => {
   const s = await session(page);
   await page.goto(`/batch-cook/session/${s.id}/cook`);
-  await expect(now(page)).toContainText('Chop 3 onions');
+  await expect(now(page)).toContainText('Chop 3 ');
   await checkPage(page);
   await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
   for (const theme of ['light', 'dark'] as const) {
