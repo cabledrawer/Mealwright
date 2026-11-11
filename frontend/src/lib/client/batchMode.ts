@@ -23,6 +23,8 @@ export interface ScheduleTask {
   equipment: Equipment;
   slot: number | null;
   lacks: boolean;
+  /** An Optional step that was kept (a copy kept on a phone before this has none). */
+  optional?: boolean;
   state: TaskState;
   started_at: string | null;
   done_at: string | null;

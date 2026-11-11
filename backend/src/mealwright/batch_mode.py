@@ -145,6 +145,7 @@ def recipes_in(kitchen: Kitchen, found: list[BatchCook]) -> list[RecipeIn]:
                     equipment=timing.equipment,
                     line_ids=tuple(links.get(step.id, [])),
                     ahead=wait is not None and wait.min_minutes >= start_ahead.MIN_AHEAD_MINUTES,
+                    optional=step.optional,
                 )
             )
         if not timed:
@@ -251,6 +252,7 @@ class TaskView:
     equipment: str
     slot: int | None
     lacks: bool
+    optional: bool
     state: str  # done, running, ready, later
     started_at: datetime | None
     done_at: datetime | None
@@ -360,6 +362,7 @@ def states(
             equipment=task["equipment"],
             slot=task["slot"],
             lacks=task["lacks"],
+            optional=bool(task.get("optional", False)),
             state=state,
             started_at=started,
             done_at=done_at,

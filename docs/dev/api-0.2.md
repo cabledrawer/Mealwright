@@ -651,6 +651,7 @@ Database change 3 (migration `e7b4d9a1c628`): `batch_session.schedule` (JSON sna
   - `DELETE /batch-cook/sessions/{id}` still works while Batch cook is hidden (the Plan's card keeps its Remove); every other `/batch-cook/…` route answers `409 batch_cook_hidden`.
   - A session's Cooked it (`POST .../cook`) also answers the cook-day meal's own "Cooked it" in the same change (the meal is cooked at once and the tubs count from the day cooked); one Undo takes it all back. Moving the cook-day meal moves the session's `cook_day` with it.
   - `POST /stocktake/places/{place_id}/foods/{food_id}/answer`: a count far above the stock is stored as given (one lot above 50 packets); a pack called tin, tins, can or cans is counted whole.
+  - Each `Task` of the schedule has `optional` (true: the step is an Optional one that was kept; the screen shows **Optional step** above its words). A schedule made before this reads as false.
   - `GET /today` reads the plan 11 days past today (a wait of up to ten days is started on its day), and the Plan screen reads 11 days past its last day.
 
 ### 6.4 Stock (the Pantry screen)

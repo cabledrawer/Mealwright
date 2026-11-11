@@ -419,3 +419,13 @@ def test_a_session_recipe_takes_the_way_of_cooking_it_was_asked_for(kitchen: Tes
     ok(kitchen.post(f"{API}/batch-cook/sessions", json=body(method_id=other)), 201)
     items = [i for m in view(kitchen)["meals"] for i in m["items"] if i["recipe"]]
     assert [i["method"] for i in items if i["recipe"]["name"] == "Two ways"] == ["Instant Pot"]
+
+
+def test_a_task_says_when_its_step_is_optional(kitchen: TestClient) -> None:
+    """cabledrawer 11 Nov: an optional step says Optional in batch cook mode."""
+    sid, _, _ = biryani_session(kitchen, optional_use=["cashew"])
+    made = ok(kitchen.post(f"{API}/batch-cook/sessions/{sid}/schedule"), 201)
+    by_title = {t["title"]: t["optional"] for t in made["tasks"]}
+    assert by_title["Fry the cashews for the top."] is True
+    assert by_title["Garnish with coriander."] is True
+    assert by_title["Simmer the rice for 15 minutes."] is False

@@ -65,6 +65,7 @@ class StepIn:
     equipment: Equipment
     line_ids: tuple[int, ...] = ()
     ahead: bool = False  # a wait of four hours or more (soak, marinate overnight)
+    optional: bool = False  # an Optional step that was kept
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,7 @@ class Task:
     equipment: Equipment
     slot: int | None  # which hob ring (1...), pressure cooker or oven it uses; None for none
     lacks: bool  # needs equipment the kitchen has none of: done alone
+    optional: bool = False  # the step is an Optional one (cabledrawer 11 Nov: the screen says so)
 
 
 @dataclass(frozen=True)
@@ -134,6 +136,7 @@ class _Node:
     hands: Hands
     equipment: Equipment
     after: set[int] = field(default_factory=set)  # indexes of nodes that must end first
+    optional: bool = False
 
 
 # --- Shared prep ------------------------------------------------------------------------------
@@ -249,6 +252,7 @@ def _build(
                 minutes=step.minutes,
                 hands=step.hands,
                 equipment=step.equipment,
+                optional=step.optional,
             )
             if previous is not None:
                 node.after.add(previous)
@@ -471,6 +475,7 @@ def schedule(recipes: list[RecipeIn], kit: KitchenIn) -> Schedule:
             equipment=node.equipment,
             slot=spot.slot,
             lacks=spot.lacks,
+            optional=node.optional,
         )
         for n, (start, _i, node, spot) in enumerate(out, start=1)
     )

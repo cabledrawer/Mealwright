@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { ScheduleRecipe, ScheduleTask } from './client/batchMode';
 import { timeWords } from './timeWords';
-import { inUseWords, nextWords, progressWords, sharedWords, tagWords } from './batchModeWords';
+import {
+  inUseWords,
+  nextWords,
+  optionalWords,
+  progressWords,
+  sharedWords,
+  tagWords
+} from './batchModeWords';
 
 const recipes: ScheduleRecipe[] = [
   { batch_id: 1, recipe_id: 1, recipe_name: 'Sambar', tub_count: 3, pattern: 'pick', colour: null },
@@ -63,5 +70,13 @@ describe('the words of Batch cook mode', () => {
       )
     ).toBe('Nothing in use right now');
     expect(progressWords(19, 19, 0)).toBe('All 19 done');
+  });
+});
+
+describe('an optional step says so (cabledrawer 11 Nov)', () => {
+  it('has the recipe page’s words, and nothing for an ordinary step or an old copy', () => {
+    expect(optionalWords(task({ optional: true }))).toBe('Optional step');
+    expect(optionalWords(task({ optional: false }))).toBeNull();
+    expect(optionalWords(task({}))).toBeNull();
   });
 });

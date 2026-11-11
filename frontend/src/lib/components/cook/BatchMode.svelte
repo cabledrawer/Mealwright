@@ -10,6 +10,7 @@
     inUseWords,
     lacksWords,
     nextWords,
+    optionalWords,
     progressWords,
     sharedWords,
     startsWords,
@@ -151,6 +152,9 @@
             <h2 id="{uid}-now">Now</h2>
             <span class="tag hands">{tagWords(now)}</span>
           </div>
+          {#if optionalWords(now)}<span class="opt" data-testid="batch-optional"
+              >{optionalWords(now)}</span
+            >{/if}
           <p class="text" data-testid="batch-now">{now.title}</p>
           {#if sharedWords(now, recipes)}<p class="quiet">{sharedWords(now, recipes)}</p>{:else}
             <p class="quiet">{now.recipe_ids.map(nameOf).join(' and ')}</p>
@@ -527,6 +531,17 @@
     font-size: var(--text-base);
     font-weight: var(--weight-semibold);
     overflow-wrap: anywhere;
+  }
+
+  /* "Optional step", as on the recipe page: its own line above the step's words. */
+  .opt {
+    display: block;
+    width: fit-content;
+    padding: 2px var(--space-4);
+    border-radius: var(--radius-full);
+    background: var(--color-chip);
+    color: var(--color-text-muted);
+    font: var(--weight-bold) var(--text-sm) var(--font-ui);
   }
 
   .acts {

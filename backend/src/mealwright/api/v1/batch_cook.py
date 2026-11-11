@@ -343,6 +343,9 @@ class TaskOut(BaseModel):
     equipment: str = Field(description="`hob`, `pressure`, `oven` or `none`.")
     slot: int | None = Field(description="Which hob ring (1...), pressure cooker or oven.")
     lacks: bool = Field(description="The kitchen has none of its equipment: done alone.")
+    optional: bool = Field(
+        description="The step is an Optional one that was kept (the screen says so)."
+    )
     state: str = Field(description="`done`, `running` (a timer), `ready` or `later`.")
     started_at: datetime | None = Field(description="When its timer was started.")
     done_at: datetime | None

@@ -93,3 +93,7 @@ export function lacksWords(task: ScheduleTask): string {
 export function startsWords(inMinutes: number): string {
   return inMinutes <= 0 ? 'Starts next' : `Starts in about ${timeWords(inMinutes)}`;
 }
+
+/** The pill above an Optional step's words, as the recipe page says it (cabledrawer 11 Nov). */
+export const optionalWords = (task: Pick<ScheduleTask, 'optional'>): string | null =>
+  task.optional ? 'Optional step' : null;
