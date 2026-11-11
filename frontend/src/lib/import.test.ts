@@ -991,6 +991,15 @@ describe('importer consistency on Check (0.7)', () => {
       expect(toasts.current?.message).toBe('Used “shrak” instead of “flat bread”');
     });
 
+    it('keeps the line Optional across the swap, both ways', () => {
+      const flow = flowOf({ lines: [{ ...shrak(), optional: true }] });
+      flow.useAlternative(0);
+      expect(flow.review!.lines[0]!.optional).toBe(true);
+      expect(flow.review!.lines[0]!.alternative!.optional).toBe(true);
+      flow.useAlternative(0);
+      expect(flow.review!.lines[0]!.optional).toBe(true);
+    });
+
     it('Undo puts the first choice back', async () => {
       const flow = flowOf({ lines: [shrak()] });
       flow.useAlternative(0);

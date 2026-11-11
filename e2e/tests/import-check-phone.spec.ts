@@ -415,3 +415,28 @@ test('One at a time: "Make this its own recipe" is above a line of the section, 
   await expect(page.locator('.said')).toContainText('Batter · 3 cups');
   await deleteDrafts(page, title);
 });
+
+test('an "or" line shows the other choice; Use this instead swaps it and Undo puts it back (F217)', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone’s layout');
+  await chooseMode(page, 'focus');
+  const title = unique('Mansaf');
+  const shrak = unique('Shrak').toLowerCase();
+  const bread = unique('Flat bread').toLowerCase();
+  await page.goto('/recipes/import');
+  await page
+    .getByLabel('Paste a link or the recipe’s text')
+    .fill(`${title}\nIngredients\n1 large ${shrak} or 2 medium size ${bread}\nMethod\n1. Cook.\n`);
+  await page.getByRole('button', { name: 'Read the recipe' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  const swap = page.getByRole('button', { name: /^Use this instead: / });
+  await expect(swap).toContainText('Use this instead');
+  await expect(swap).toHaveAttribute('aria-label', new RegExp(bread));
+  await expectNoSidewaysScroll(page);
+  await swap.click();
+  // Now the flat bread is the line, and the shrak is the "or" choice.
+  await expect(page.getByRole('button', { name: new RegExp(`^Use this instead: .*${shrak}`) })).toBeVisible();
+  await expect(page.getByText(/Used .* instead of/)).toBeVisible();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByRole('button', { name: new RegExp(`^Use this instead: .*${bread}`) })).toBeVisible();
+  await deleteDrafts(page, title);
+});

@@ -738,7 +738,11 @@ export class ImportFlow {
     const line = this.review?.lines[index];
     const other = line?.alternative;
     if (!line || line.kind !== 'ingredient' || !other) return;
-    const now: ReviewLine = { ...other, alternative: { ...line, alternative: null } };
+    const now: ReviewLine = {
+      ...other,
+      optional: line.optional,
+      alternative: { ...line, alternative: null }
+    };
     this.#swap(
       index,
       [line],
