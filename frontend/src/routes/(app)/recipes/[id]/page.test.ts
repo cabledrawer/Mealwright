@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import Toast from '#lib/components/Toast.svelte';
 import type { Recipe, RecipeLine, RecipeStock } from '#lib/client/recipes.js';
+import { drafts } from '#lib/drafts.svelte.js';
 import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
+import { nextDraft } from '#lib/nextDraft.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { session } from '#lib/session.svelte.js';
 import { fakeShopping, ME, sampleCopy } from '#lib/testing/fakeShopping.js';
@@ -143,6 +145,8 @@ describe('the recipe page', () => {
     network.reset();
     ingredientEditor.close();
     navigation.go.mockClear();
+    drafts.forget();
+    nextDraft.savedId = null;
   });
 
   afterEach(async () => {
@@ -268,6 +272,56 @@ describe('the recipe page', () => {
       await page.getByRole('menuitem', { name: 'Delete recipe' }).click();
       await expect.element(page.getByText('Something went wrong. Try again.')).toBeVisible();
       expect(navigation.go).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Next draft after a Save from Check (F212)', () => {
+    const draftBrief = (id: number, name: string, startedAt: string) => ({
+      id,
+      name,
+      source: { kind: 'link', site: 'kitchen.example' },
+      started_by: 'Tess',
+      started_at: startedAt,
+      updated_at: startedAt,
+      expires_at: '2026-11-30T10:00:00Z',
+      days_left: 15,
+      lines_total: 4,
+      lines_checked: 1
+    });
+    const WAITING = [
+      draftBrief(12, 'Newer dal', '2026-11-10T12:00:00Z'),
+      draftBrief(11, 'Older curry', '2026-11-10T09:00:00Z')
+    ];
+
+    it('shows Next draft, opening the oldest other waiting draft, right after a save', async () => {
+      nextDraft.mark(1);
+      await open({}, STOCK, {
+        'GET /recipes/drafts': [200, { drafts: WAITING, count: 2 }]
+      });
+      const link = page.getByRole('link', { name: /^Next draft/ });
+      await expect.element(link).toHaveAttribute('href', '/recipes/drafts/11');
+      await expect.element(link).toHaveTextContent('Next draft Older curry');
+    });
+
+    it('shows nothing when no other draft is waiting', async () => {
+      nextDraft.mark(1);
+      await open({}, STOCK, { 'GET /recipes/drafts': [200, { drafts: [], count: 0 }] });
+      await expect.element(page.getByRole('heading', { name: 'Sambar', level: 1 })).toBeVisible();
+      expect(page.getByRole('link', { name: /^Next draft/ }).elements()).toEqual([]);
+    });
+
+    it('is not there on an ordinary visit, even with drafts waiting', async () => {
+      await open({}, STOCK, { 'GET /recipes/drafts': [200, { drafts: WAITING, count: 2 }] });
+      await expect.element(page.getByRole('heading', { name: 'Sambar', level: 1 })).toBeVisible();
+      expect(page.getByRole('link', { name: /^Next draft/ }).elements()).toEqual([]);
+    });
+
+    it('is forgotten once the page is left', async () => {
+      nextDraft.mark(1);
+      await open({}, STOCK, { 'GET /recipes/drafts': [200, { drafts: WAITING, count: 2 }] });
+      await expect.element(page.getByRole('link', { name: /^Next draft/ })).toBeVisible();
+      for (const component of mounted.splice(0)) unmount(component);
+      expect(nextDraft.savedId).toBeNull();
     });
   });
 

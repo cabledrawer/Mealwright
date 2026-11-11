@@ -25,6 +25,7 @@
   } from '#lib/draftWords.js';
   import { drafts } from '#lib/drafts.svelte.js';
   import { kitchen } from '#lib/freshness.svelte.js';
+  import { nextDraft } from '#lib/nextDraft.svelte.js';
   import { saveFromDraft } from '#lib/import.draftSave.js';
   import { initial } from '#lib/session.svelte.js';
   import { network } from '#lib/network.svelte.js';
@@ -79,6 +80,7 @@
       return;
     }
     void drafts.load();
+    nextDraft.mark(done.recipeId);
     await goto(resolve('/(app)/recipes/[id]', { id: String(done.recipeId) }));
   }
 

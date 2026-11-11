@@ -10,7 +10,8 @@ import { drafts } from '#lib/drafts.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { changeOf, fakeApi, PLACES, SHOPS } from '#lib/testing/fakeApi.js';
-import { reviewFlow } from '#lib/testing/importSamples.js';
+import { PINTS_REVIEW, reviewFlow } from '#lib/testing/importSamples.js';
+import { nextDraft } from '#lib/nextDraft.svelte.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import ReviewPage from './ReviewPage.svelte';
@@ -170,6 +171,49 @@ for (const screen of screens) {
       await expect.element(discardButton()).toBeDisabled();
       await page.getByRole('button', { name: 'Done' }).click();
       await expect.element(discardButton()).toBeEnabled();
+    });
+  });
+}
+
+for (const screen of screens) {
+  describe(`Save recipe on ${screen.name} (F212, cabledrawer 10 Nov)`, () => {
+    it('opens the new recipe’s page, and marks it so that page offers Next draft', async () => {
+      await page.viewport(screen.width, screen.width === 390 ? 844 : 900);
+      checkMode.set(screen.choice);
+      nextDraft.savedId = null;
+      const flow = reviewFlow({ ...PINTS_REVIEW });
+      show(flow, screen.phone);
+      const requests = fakeApi({
+        'GET /places': [200, PLACES],
+        'GET /shops': [200, SHOPS],
+        'POST /recipes/import/save': [
+          201,
+          {
+            recipe: { id: 55, name: 'Creamy rice pudding' },
+            change: changeOf(60, 'Imported Creamy rice pudding'),
+            new_ingredients: [],
+            learned: 0
+          }
+        ]
+      });
+      // One at a time shows one line at a time: Next until the last screen's Save recipe.
+      for (let n = 0; n < 12; n++) {
+        const save = page.getByRole('button', { name: 'Save recipe' });
+        const more = page.getByRole('button', { name: 'Next →' });
+        // One at a time loads its own code first: wait for either button.
+        await vi.waitFor(() =>
+          expect(more.elements().length + save.elements().length).toBeGreaterThan(0)
+        );
+        if (more.elements().length > 0) await more.click();
+        else {
+          await save.click();
+          break;
+        }
+      }
+      await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
+      expect(requests.some((r) => r.path === '/recipes/import/save')).toBe(true);
+      expect(String(nav.goto.mock.calls[0]![0])).toBe('/recipes/55');
+      expect(nextDraft.savedId).toBe(55);
     });
   });
 }

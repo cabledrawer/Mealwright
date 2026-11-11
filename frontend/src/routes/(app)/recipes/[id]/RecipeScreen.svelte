@@ -26,6 +26,8 @@
   import ServingsStepper from '#lib/components/ServingsStepper.svelte';
   import { cookNow } from '#lib/cookNow.svelte.js';
   import { kitchen } from '#lib/freshness.svelte.js';
+  import { drafts } from '#lib/drafts.svelte.js';
+  import { nextDraft, oldestDraft } from '#lib/nextDraft.svelte.js';
   import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
@@ -146,6 +148,17 @@
     view.stop();
   });
 
+  // Next draft (F212): shown only on the visit right after a Save from Check, and only while
+  // another draft is waiting. The Drafts list is fetched again so the answer is the server's.
+  $effect(() => {
+    const mine = id;
+    return () => nextDraft.clear(mine);
+  });
+  $effect(() => {
+    if (nextDraft.savedId === id && !network.offline) untrack(() => void drafts.load());
+  });
+  const upNext = $derived(nextDraft.savedId === id ? oldestDraft(drafts.drafts) : null);
+
   // In the desktop's three panes this is the reading pane (mockups Desktop-Recipe and
   // Dark-Recipe): wider, ingredients beside the method when there is room, and focus comes
   // to the recipe's heading when it opens, so the screen reader says its name and Tab goes on
@@ -260,6 +273,13 @@
       />
     {/if}
   </div>
+
+  {#if upNext && !network.offline}
+    <a class="next-draft" href={resolve('/(app)/recipes/drafts/[id]', { id: String(upNext.id) })}>
+      <span class="next-title">Next draft</span>
+      <span class="next-name">{upNext.name}</span>
+    </a>
+  {/if}
 
   {#if !recipe && network.down}
     <!-- In the three panes, when the list couldn't load either, the layout shows its one note
@@ -482,6 +502,33 @@
     align-items: center;
     gap: var(--space-4);
     min-height: var(--touch-target);
+  }
+
+  .next-draft {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    align-self: flex-start;
+    justify-content: center;
+    min-height: var(--touch-target);
+    padding: var(--space-3) var(--space-7);
+    border-radius: var(--radius-full);
+    background: var(--color-inverse);
+    color: var(--color-inverse-text);
+    text-decoration: none;
+  }
+
+  .next-title {
+    font-weight: var(--weight-extrabold);
+  }
+
+  .next-name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-md);
+    opacity: 0.85;
   }
 
   .back {

@@ -14,6 +14,7 @@
   import { beforeNavigate, goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { drafts } from '#lib/drafts.svelte.js';
+  import { nextDraft } from '#lib/nextDraft.svelte.js';
   import { changesToast } from '#lib/import.save.js';
   import { CLOSE_OFFLINE, isBlank, leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
   import { sentenceCount, stepRuns } from '#lib/importSteps.js';
@@ -72,6 +73,7 @@
   async function finish(saved: Awaited<ReturnType<typeof flow.save>>) {
     if (!saved) return;
     changesToast(saved);
+    nextDraft.mark(saved.recipe.id); // the recipe's page offers the next draft (F212)
     await goto(resolve('/(app)/recipes/[id]', { id: String(saved.recipe.id) }));
   }
 
