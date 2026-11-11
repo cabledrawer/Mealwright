@@ -273,7 +273,7 @@ def _progress_rows(
 
 def _same_stocktake(db: DbSession, household_id: int, data: dict[str, Any]) -> bool:
     """Whether the stocktake the place was removed from is still the one going on (RF1 review
-    r1, proposed, for cabledrawer). "Start a new stocktake" forgets every row, so when other places
+    r1; cabledrawer 11 Nov). "Start a new stocktake" forgets every row, so when other places
     had progress at the removal, at least one of those rows must still be there; when the removed
     place had the only progress, nothing may have been answered since. Records made before this
     have no `removed_at`: they put the progress back as before."""
