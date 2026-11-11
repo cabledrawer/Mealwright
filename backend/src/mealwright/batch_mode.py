@@ -188,9 +188,15 @@ def _food_names(kitchen: Kitchen, lines: list[RecipeLine]) -> dict[int, str]:
 
 def basis_of(recipes: list[RecipeIn], kit: KitchenIn) -> str:
     """What a schedule is made from, as a fingerprint: the recipes' steps, timings and lines, and
-    the kitchen. The same words, timings and kitchen always give the same one."""
+    the kitchen. The same words, timings and kitchen always give the same one. A step's
+    `optional` mark is left out: it changes no time, and a schedule made before it existed must
+    not show as stale for it."""
+    shown = [asdict(r) for r in recipes]
+    for each in shown:
+        for step in each["steps"]:
+            step.pop("optional", None)
     text = json.dumps(
-        {"recipes": [asdict(r) for r in recipes], "kitchen": asdict(kit)},
+        {"recipes": shown, "kitchen": asdict(kit)},
         sort_keys=True,
         separators=(",", ":"),
     )

@@ -56,7 +56,6 @@ from mealwright.models import (
     Meal,
     MealItem,
     MealSlot,
-    Place,
     Recipe,
     Tub,
 )

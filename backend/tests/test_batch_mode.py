@@ -474,3 +474,17 @@ def test_a_mark_can_be_answered_with_the_progress_only_so_no_step_words_are_sent
         kitchen.put(url(session, f"/tasks/{t['id']}/done"))
     timed = ok(kitchen.put(url(session, f"/tasks/{waiting}/timer"), params={"brief": "true"}))
     assert next(t for t in timed["tasks"] if t["id"] == waiting)["state"] == "running"
+
+
+def test_a_steps_optional_mark_is_not_part_of_the_schedules_fingerprint() -> None:
+    """RF3 fix 2: a schedule made before `optional` existed must not show as stale for it."""
+    from dataclasses import replace
+
+    from mealwright.batch_mode import basis_of
+    from mealwright.batch_schedule import KitchenIn, RecipeIn, StepIn
+
+    kit = KitchenIn(hob_rings=4, pressure_cookers=1, oven=True)
+    step = StepIn(id=1, text="Chop.", hands="on", minutes=5, equipment="none")  # type: ignore[arg-type]
+    plain = RecipeIn(id=1, name="Sambar", steps=(step,))
+    marked = RecipeIn(id=1, name="Sambar", steps=(replace(step, optional=True),))
+    assert basis_of([plain], kit) == basis_of([marked], kit)
