@@ -126,3 +126,25 @@ def test_changing_the_words_changes_the_guess_but_never_a_hand_set_value() -> No
 def test_a_heading_has_no_timing() -> None:
     heading = RecipeStep(household_id=1, recipe_id=1, position=0, kind="heading", text="Tadka")
     assert step_timings.of_step(heading) is None
+
+
+def test_chillies_are_not_chilling() -> None:
+    # B1 review r1 H1: "chill" matched "chillies", so chopping and tempering were waits.
+    assert g("Chop the onions and green chillies.") == ("hands", 5, "none")
+    assert g("Heat oil, add mustard seeds, curry leaves and dried red chillies.") == (
+        "hands",
+        5,
+        "hob",
+    )
+    assert g("Dry roast the coriander seeds and red chillies in a pan") == ("hands", 5, "hob")
+    assert g("Add chilli powder and stir.") == ("hands", 5, "none")
+    assert g("Chill the dough for 30 minutes.") == ("waiting", 30, "none")
+    assert g("Leave the kheer to chill.")[0] == "waiting"
+
+
+def test_heat_or_cook_beside_add_still_uses_a_hob_ring() -> None:
+    # B1 review r1 M2: "add" stopped heat and cook from counting as the hob.
+    assert g("Heat oil in a pan and add the onions.") == ("hands", 5, "hob")
+    assert g("Add the tomatoes and cook until soft.") == ("hands", 5, "hob")
+    assert g("Add the dal to the kadai and stir.") == ("hands", 5, "hob")
+    assert g("Add the cooking liquid and mix.")[2] == "none"

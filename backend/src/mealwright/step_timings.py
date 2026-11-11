@@ -39,7 +39,15 @@ _HOB_HANDS = re.compile(
     re.I,
 )
 _HOB_WAIT = re.compile(r"\bsimmer(?:ing)?\b|\bboil(?:ing)?\b|\bstew\b|\bsteam(?:ing)?\b", re.I)
-_HOB_OTHER = re.compile(r"\bheat\b|\bstove\b|\bhob\b|\bcook(?:ing)?\b", re.I)
+# Heat, a pan or the stove is the hob even with "add" beside it ("Heat oil and add the onions");
+# "cook" on its own words, too ("Add the tomatoes and cook until soft"; B1 review r1 M2).
+_HOB_ALWAYS = re.compile(
+    r"\bheat\b|\bstove\b|\bhob\b|\bpan\b|\bkadai\b|\bkadhai\b|\btawa\b|\bskillet\b|\bwok\b"
+    r"|\bcook\b",
+    re.I,
+)
+# "cooking" is often a noun ("the cooking liquid"): the hob only when nothing hands-on is said.
+_HOB_OTHER = re.compile(r"\bcooking\b", re.I)
 _HANDS_ON = re.compile(
     r"\bchop(?:ping)?\b|\bgrind(?:ing)?\b|\bblend\b|\bmix(?:ing)?\b|\bknead(?:ing)?\b"
     r"|\bslice\b|\bdice\b|\bmince\b|\bgrate\b|\bpeel\b|\bwash\b|\bwhisk\b|\bshape\b|\broll\b"
@@ -47,7 +55,7 @@ _HANDS_ON = re.compile(
     re.I,
 )
 _WAIT_WORDS = re.compile(
-    r"\bsoak(?:ing)?\b|\bmarinat(?:e|ing)\b|\brest(?:ing)?\b|\bferment|\bchill|\brefrigerat"
+    r"\bsoak(?:ing)?\b|\bmarinat(?:e|ing)\b|\brest(?:ing)?\b|\bferment|\bchill(?:s|ed|ing)?\b|\brefrigerat"
     r"|\bprov(?:e|ing)\b|\bproof\b|\bsteep|\bcool(?:ing)?\b|\blet (?:it|them) (?:stand|sit|rest)"
     r"|\bset aside for\b",
     re.I,
@@ -123,6 +131,7 @@ def guess(text: str, wait: step_waits.Wait | None = None) -> Guess:
         _HOB_HANDS.search(text)
         or _HOB_WAIT.search(text)
         or pan_roast
+        or _HOB_ALWAYS.search(text)
         or (_HOB_OTHER.search(text) and not _HANDS_ON.search(text))
     ):
         equipment = "hob"
