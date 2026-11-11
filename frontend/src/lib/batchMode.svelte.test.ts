@@ -122,6 +122,27 @@ describe('Batch cook mode model', () => {
     expect(model.pending).toEqual([]);
   });
 
+  it('tries the waiting marks again by itself when the first try fails', async () => {
+    vi.useFakeTimers();
+    try {
+      calls.start.mockResolvedValue(two());
+      calls.done.mockRejectedValueOnce(offline());
+      const model = new BatchModeModel(7);
+      await model.load();
+      model.mark('done', 't1');
+      await model.flush();
+      expect(model.pending).toHaveLength(1);
+      const after = two();
+      after.tasks[0] = { ...after.tasks[0]!, done_at: new Date().toISOString() };
+      calls.done.mockResolvedValue(after);
+      await vi.advanceTimersByTimeAsync(3100);
+      expect(model.pending).toEqual([]);
+      model.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('a reload while offline carries on from what the phone kept', async () => {
     calls.start.mockResolvedValue(two());
     calls.done.mockRejectedValue(offline());

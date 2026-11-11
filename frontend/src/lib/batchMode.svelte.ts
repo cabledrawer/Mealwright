@@ -27,6 +27,9 @@ interface Pending {
   at: string;
 }
 
+/** How soon marks that could not be sent are tried again. */
+export const RETRY_MS = 3000;
+
 const KEY = (id: number) => `mealwright.batchmode.${id}`;
 
 export class BatchModeModel {
@@ -81,6 +84,7 @@ export class BatchModeModel {
   }
 
   stop(): void {
+    this.stopRetrying();
     this.#stop?.();
     this.#stop = null;
   }
@@ -185,6 +189,23 @@ export class BatchModeModel {
     void this.flush();
   }
 
+  #retry: ReturnType<typeof setTimeout> | null = null;
+
+  /** Try the waiting marks again shortly: "back online" can be heard before the connection works,
+   * and nothing else would ask again. */
+  #retryLater(): void {
+    if (this.#retry !== null) return;
+    this.#retry = setTimeout(() => {
+      this.#retry = null;
+      if (this.pending.length) void this.flush();
+    }, RETRY_MS);
+  }
+
+  stopRetrying(): void {
+    if (this.#retry !== null) clearTimeout(this.#retry);
+    this.#retry = null;
+  }
+
   /** Send the waiting marks, in order, until one can't be sent. */
   async flush(): Promise<void> {
     if (this.#sending) return;
@@ -202,7 +223,10 @@ export class BatchModeModel {
           else this.schedule = this.#withPending(reply);
           this.#keep();
         } catch (error) {
-          if (cantReach(error)) return; // kept on the phone, sent when the connection is back
+          if (cantReach(error)) {
+            this.#retryLater(); // kept on the phone, sent when the connection is back
+            return;
+          }
           this.pending = this.pending.slice(1); // refused: the server's own state wins
           this.problem = error instanceof ApiError ? error.detail : cantReachWords();
           this.#keep();
