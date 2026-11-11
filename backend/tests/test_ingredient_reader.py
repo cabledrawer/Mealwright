@@ -595,6 +595,9 @@ def test_a_slash_between_two_measured_ingredients_still_splits_on_the_first() ->
     assert "/" not in line.name
     # a fraction's slash is still not a split
     assert read_line("1/2 cup milk").name == "milk"
+    # a fraction after the slash doesn't stop the split either (FX6 review L1)
+    line = read_line("1 tbsp oil / 1/2 tsp salt")
+    assert (line.amount, line.unit, line.name) == (D(1), "tbsp", "oil")
 
 
 def test_indian_recipes() -> None:

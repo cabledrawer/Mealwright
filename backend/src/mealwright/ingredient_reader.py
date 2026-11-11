@@ -33,7 +33,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from fractions import Fraction
-from itertools import pairwise
 
 from mealwright.amounts import DEFAULT_CUP_ML, MAX_AMOUNT, CountedAs, unit_family, unit_size
 from mealwright.api.v1.recipe_schemas import GLYPHS, UNIT_ALIASES, fraction_of
@@ -812,6 +811,8 @@ def _cap(text: str, limit: int) -> str:
 
 
 # Only before pepper (C1 security round 3): "freshly ground almonds" stay ground almonds.
+# A fraction's slash ("1/2", "1 / 2"): kept out of the "/" between names.
+_FRACTION_SLASH = re.compile(r"(\d)\s*/\s*(\d)")
 _FRESHLY_GROUND = re.compile(
     r"\bfreshly\s+ground\b(?=\s+(?:black\s+|white\s+)?pepper)", re.IGNORECASE
 )
@@ -1053,14 +1054,11 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
 
     # "hing / asafoetida": the first is the name, the rest are other names.
     if "/" in rest:
-        pieces = [piece.strip() for piece in rest.split("/")]
-        if (
-            1 < len(pieces) <= 3
-            and all(any(c.isalpha() for c in piece) for piece in pieces)
-            # "shallot or 1/2 red onion": a fraction's slash (a digit on both sides) is not a "/"
-            # between names; "ghee / 2 tbsp oil" still is (FX6)
-            and not any(a[-1:].isdigit() and b[:1].isdigit() for a, b in pairwise(pieces))
-        ):
+        # "shallot or 1/2 red onion": a fraction's slash (a digit on both sides) is not a "/"
+        # between names; "ghee / 2 tbsp oil" and "oil / 1/2 tsp salt" still are (FX6)
+        guarded = _FRACTION_SLASH.sub("\\1\u2044\\2", rest)
+        pieces = [piece.strip().replace("\u2044", "/") for piece in guarded.split("/")]
+        if 1 < len(pieces) <= 3 and all(any(c.isalpha() for c in piece) for piece in pieces):
             rest = _with_shared_noun(pieces[0], pieces[-1])
             names.extend(pieces[1:])
 
