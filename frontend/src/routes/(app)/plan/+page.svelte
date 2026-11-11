@@ -12,7 +12,7 @@
   import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
   import { onDestroy, onMount, tick, untrack } from 'svelte';
-  import type { PlanBatch, PlanItem, PlanMeal, TubLeft } from '#lib/client/plan.js';
+  import type { PlanItem, PlanMeal, TubLeft } from '#lib/client/plan.js';
   import type { RecipeRow } from '#lib/client/recipes.js';
   import BatchSessionCard from '#lib/components/plan/BatchSessionCard.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
@@ -36,7 +36,7 @@
   import type { StartEntry } from '#lib/startWords.js';
   import { dayFull, dayWords, monthWords, weekWords } from '#lib/planDates.js';
   import { drag, type Carried } from '#lib/planDrag.svelte.js';
-  import { afterCook, cookBatchOfItem, itemName, mealName, nextFreeMeals } from '#lib/planMeals.js';
+  import { afterCook, itemName, mealName, nextFreeMeals } from '#lib/planMeals.js';
   import { PlanModel } from '#lib/plan.svelte.js';
   import { session } from '#lib/session.svelte.js';
   import { keepShow, readShow, type PlanShow } from '#lib/planShow.js';
@@ -120,19 +120,6 @@
     const to = resolve('/(app)/recipes/[id]/cook', { id: String(entry.recipeId) });
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
     await goto(`${to}?meal=${entry.meal.id}&day=${entry.meal.date}`);
-  }
-
-  /** Start batch cook: until batch cook mode is built (B3) it opens the first recipe's Cook mode. */
-  async function startBatch(first: PlanBatch) {
-    const meal = model.plan?.meals.find((m) => m.id === first.cook_meal_id);
-    const item = meal?.items.find((i) => cookBatchOfItem(model.plan, meal, i)?.id === first.id);
-    if (!meal || !item || first.recipe_id === null) return;
-    const { cookNow } = await import('#lib/cookNow.svelte.js');
-    if (left) return;
-    cookNow.open(first.recipe_id, meal.id, item.id);
-    const to = resolve('/(app)/recipes/[id]/cook', { id: String(first.recipe_id) });
-    // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
-    await goto(`${to}?meal=${meal.id}&day=${meal.date}`);
   }
 
   /** Start it in Cook mode, for a long wait to start ahead (M3): Cook mode for that meal's recipe. */
@@ -537,7 +524,7 @@
       {#if model.view === 'week'}
         <!-- Batch cook (Experimental): one card for each session cooked this week, above the days. -->
         {#each weekSessions as session (session.id)}
-          <BatchSessionCard {actions} {session} onstart={startBatch} />
+          <BatchSessionCard {actions} {session} />
         {/each}
         {#if past.length}
           <button

@@ -178,3 +178,12 @@ test('passes the accessibility checks in both themes, and at 200% text nothing s
   if (isPhone(page)) await expectNoSidewaysScroll(page);
   await call(page, 'DELETE', `/batch-cook/sessions/${s.id}`);
 });
+
+test('Start batch cook on the Plan card opens batch cook mode for that session', async ({ page }) => {
+  const s = await session(page);
+  await page.goto('/plan');
+  const card = page.getByTestId('batch-card').filter({ hasText: s.sambar });
+  await card.getByRole('button', { name: 'Start batch cook' }).click();
+  await expect(page).toHaveURL(new RegExp(`/batch-cook/session/${s.id}/cook$`));
+  await expect(region(page)).toBeVisible();
+});

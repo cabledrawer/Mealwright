@@ -1,7 +1,7 @@
 <script lang="ts">
   // The Batch cook (Experimental) card on a cook day (mockup Dark-PlanBatch08-Phone): "Batch cook
   // · 3 recipes", the rough time and when it starts, each recipe in its batch colour with its tubs,
-  // Start batch cook, Change. Remove takes the whole session off in one change with one Undo.
+  // Start batch cook (batch cook mode), Change. Remove takes the whole session off in one change with one Undo.
   import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
   import { batchCook } from '#lib/batchCook.svelte.js';
@@ -14,13 +14,10 @@
 
   let {
     actions,
-    session,
-    onstart
+    session
   }: {
     actions: Pick<PlanActions, 'model' | 'readonly'>;
     session: PlanSession;
-    /** Start batch cook: Cook mode for the first recipe, until batch cook mode (B3) is built. */
-    onstart: (first: PlanBatch) => void;
   } = $props();
 
   const batches = $derived(
@@ -36,6 +33,11 @@
     return parts.join(' · ');
   });
   const tubs = (b: PlanBatch) => `${b.tub_count} ${b.tub_count === 1 ? 'tub' : 'tubs'}`;
+
+  /** Start batch cook: batch cook mode for the whole session (B3). */
+  async function start() {
+    await goto(resolve('/(app)/batch-cook/session/[id]/cook', { id: String(session.id) }));
+  }
 
   async function change() {
     const to = resolve('/(app)/batch-cook');
@@ -67,7 +69,7 @@
         type="button"
         class="go"
         disabled={actions.readonly || batches.length === 0}
-        onclick={() => batches[0] && onstart(batches[0])}>Start batch cook</button
+        onclick={start}>Start batch cook</button
       >
       <button type="button" class="btn" disabled={actions.readonly} onclick={change}>Change</button>
     {/if}
