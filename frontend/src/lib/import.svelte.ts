@@ -731,6 +731,22 @@ export class ImportFlow {
     return true;
   }
 
+  /** Use this instead (F217): the line's "or" choice becomes the line, and the first choice
+   *  becomes the "or" choice, so the person can swap back. The note of each already holds the
+   *  other (the reader wrote both), so Save needs nothing new. Undo puts the first back. */
+  useAlternative(index: number): void {
+    const line = this.review?.lines[index];
+    const other = line?.alternative;
+    if (!line || line.kind !== 'ingredient' || !other) return;
+    const now: ReviewLine = { ...other, alternative: { ...line, alternative: null } };
+    this.#swap(
+      index,
+      [line],
+      [now],
+      `Used “${shorter(other.words)}” instead of “${shorter(line.words)}”`
+    );
+  }
+
   /** An Undo for a section made its own recipe (F190) joins the lines', so leaving the screen
    *  forgets it too. */
   keepLineUndo(entry: UndoEntry): void {

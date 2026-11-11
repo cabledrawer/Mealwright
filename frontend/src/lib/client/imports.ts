@@ -48,6 +48,8 @@ export interface ReviewLine {
   optional?: boolean;
   /** A heading only: the section is made its own recipe (F190). */
   own?: OwnRecipe | null;
+  /** The other choice of an "or" line, as a line of its own (F217); never set on that line itself. */
+  alternative?: ReviewLine | null;
 }
 
 /** A step on the review: "wait" is the reader's suggestion, kept once the person says Yes, it

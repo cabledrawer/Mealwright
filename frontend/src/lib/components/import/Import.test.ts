@@ -1016,6 +1016,37 @@ describe('Import a recipe', () => {
       expect(toasts.current?.message).toBe('Split “4 1/2 cups water and broth” into two');
     });
 
+    it('an "or" line shows the other choice, and Use this instead swaps them (F217)', async () => {
+      undoHistory.clear();
+      toasts.dismiss();
+      const flow = await reviewing();
+      const first = flow.review!.lines[1]!;
+      flow.review!.lines[1] = {
+        ...first,
+        written: '1 large shrak or 2 medium size flat bread',
+        words: 'shrak',
+        amount: 1,
+        amount_text: '1',
+        note: 'large, or 2 medium size flat bread',
+        alternative: {
+          ...first,
+          written: '1 large shrak or 2 medium size flat bread',
+          words: 'flat bread',
+          amount: 2,
+          amount_text: '2',
+          note: 'or 1 large shrak',
+          alternative: null
+        }
+      };
+      flushSync();
+      await expect.element(page.getByText('2 flat bread')).toBeVisible();
+      await page.getByRole('button', { name: 'Use this instead: 2 flat bread' }).click();
+      await vi.waitFor(() => expect(flow.review!.lines[1]!.words).toBe('flat bread'));
+      await expect
+        .element(page.getByRole('button', { name: 'Use this instead: 1 shrak' }))
+        .toBeVisible();
+    });
+
     it('a name that is not two things is left alone: Cancel closes the boxes (F109)', async () => {
       await reviewing();
       await page.getByRole('button', { name: /^Split into two: ¼ tsp asafoetida/ }).click();

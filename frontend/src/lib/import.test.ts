@@ -950,6 +950,56 @@ describe('importer consistency on Check (0.7)', () => {
     });
   });
 
+  describe('F217: Use this instead', () => {
+    beforeEach(() => {
+      undoHistory.clear();
+      toasts.dismiss();
+    });
+
+    const shrak = () =>
+      icing({
+        written: '1 large shrak or 2 medium size flat bread or tortillas.',
+        words: 'shrak',
+        note: 'large, or 2 medium size flat bread or tortillas',
+        alternative: icing({
+          written: '1 large shrak or 2 medium size flat bread or tortillas.',
+          words: 'flat bread',
+          amount: 2,
+          amount_text: '2',
+          note: 'or 1 large shrak, medium size, or tortillas'
+        })
+      });
+
+    it('swaps the two choices, and each note holds the other one', () => {
+      const flow = flowOf({ lines: [shrak(), icing({ written: '1 egg', words: 'egg' })] });
+      flow.useAlternative(0);
+      const [now, egg] = flow.review!.lines;
+      expect(now).toMatchObject({ words: 'flat bread', amount: 2 });
+      expect(now!.note).toBe('or 1 large shrak, medium size, or tortillas');
+      expect(now!.alternative).toMatchObject({
+        words: 'shrak',
+        note: 'large, or 2 medium size flat bread or tortillas',
+        alternative: null
+      });
+      expect(egg!.words).toBe('egg');
+      // Save sends what the line is now, with the other choice only in its note.
+      expect(flow.body()!.lines[0]).toMatchObject({ words: 'flat bread', amount: 2 });
+      expect(flow.body()!.lines[0]).not.toHaveProperty('alternative');
+      // And back again.
+      flow.useAlternative(0);
+      expect(flow.review!.lines[0]).toMatchObject({ words: 'shrak', amount: 1 });
+      expect(toasts.current?.message).toBe('Used “shrak” instead of “flat bread”');
+    });
+
+    it('Undo puts the first choice back', async () => {
+      const flow = flowOf({ lines: [shrak()] });
+      flow.useAlternative(0);
+      expect(await undoHistory.undoLast()).toBe(true);
+      expect(flow.review!.lines[0]).toMatchObject({ words: 'shrak' });
+      expect(flow.review!.lines[0]!.alternative).toMatchObject({ words: 'flat bread' });
+    });
+  });
+
   describe('F108: Made in this recipe', () => {
     const spice = () =>
       icing({

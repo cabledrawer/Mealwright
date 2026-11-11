@@ -102,6 +102,17 @@
       ? [line.amount_text, line.unit ? unitWord(line.unit) : ''].join(' ').trim()
       : ''
   );
+  /** The other choice of an "or" line (F217), as the words after "or": "2 medium flat bread". */
+  const orText = $derived.by(() => {
+    const other = line.alternative;
+    if (!other || choice) return '';
+    const amount = other.amount_text
+      ? [other.amount_text, other.unit ? unitFor(other.unit, other.amount ?? 1) : '']
+          .join(' ')
+          .trim()
+      : '';
+    return [amount, other.words].filter(Boolean).join(' ');
+  });
   /** The note as a chip: not the "as written" copy the reader keeps. */
   const noteChip = $derived(line.note && !line.note.startsWith('as written:') ? line.note : '');
   const units = $derived(
@@ -419,6 +430,19 @@
           {#if !choice && !line.counts && line.label === 'matched'}
             <span class="muted">· not counted</span>
           {/if}
+        </p>
+      {/if}
+
+      {#if orText}
+        <p class="or-choice">
+          <span class="muted">or</span>
+          <b>{orText}</b>
+          <button
+            type="button"
+            class="chip-small"
+            aria-label="Use this instead: {orText}"
+            onclick={() => flow.useAlternative(index)}>Use this instead</button
+          >
         </p>
       {/if}
 
@@ -946,6 +970,15 @@
     gap: var(--space-3) var(--space-4);
     align-items: baseline;
     font-size: var(--text-base);
+  }
+
+  .or-choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3) var(--space-4);
+    align-items: baseline;
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
   }
 
   .what {
