@@ -26,7 +26,7 @@ Day = date  # for a model with a field called "date" (mypy reads later "date" as
 # --- Suggestions --------------------------------------------------------------------------------
 
 
-class UseSoonOut(BaseModel):
+class PickUseSoonOut(BaseModel):
     foods: list[str]
     days_left: int  # 0 is today
 
@@ -36,7 +36,7 @@ class PickOut(BaseModel):
     name: str
     minutes: int  # the recipe's steps added up
     why: str
-    use_soon: UseSoonOut | None
+    use_soon: PickUseSoonOut | None
 
 
 class KitchenBrief(BaseModel):
@@ -99,7 +99,7 @@ def get_suggestions(
                 name=p.name,
                 minutes=p.minutes,
                 why=p.why,
-                use_soon=UseSoonOut(foods=p.soon_foods, days_left=p.soon_days or 0)
+                use_soon=PickUseSoonOut(foods=p.soon_foods, days_left=p.soon_days or 0)
                 if p.soon_foods
                 else None,
             )

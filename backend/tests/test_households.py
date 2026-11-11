@@ -10,7 +10,7 @@ the same afterwards.
 """
 
 from collections.abc import Iterator
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 import photo_kit as kit
@@ -133,6 +133,27 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
         kitchen.post(f"{API}/plan/items/{planned['item_id']}/batch", json={"tub_count": 1}), 201
     )
     tub = ok(kitchen.get(f"{API}/plan/tubs-left"))["tubs"][0]
+    pair = [
+        ok(
+            kitchen.post(
+                f"{API}/recipes", json={"name": name, "steps": [{"text": "Cook for 10 minutes."}]}
+            ),
+            201,
+        )["id"]
+        for name in ("Rasam", "Poriyal")
+    ]
+    cook_day = str(date.today() + timedelta(days=20))
+    session = ok(
+        kitchen.post(
+            f"{API}/batch-cook/sessions",
+            json={
+                "date": cook_day,
+                "slot_id": slots["Dinner"],
+                "recipes": [{"recipe_id": r, "tub_count": 1} for r in pair],
+            },
+        ),
+        201,
+    )
     entry = ok(kitchen.post(f"{API}/privacy/own-network", json={"value": "wiki.home.example"}), 201)
     photo = kit.uploaded(kitchen)  # not saved on a recipe, so household 1 could delete it
     draft = ok(kitchen.post(f"{API}/recipes/drafts", json=DRAFT_BODY), 201)
@@ -144,6 +165,7 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
         "plan_meal_id": planned["meal_id"],
         "plan_slot_id": slots["Dinner"],
         "plan_batch_id": batch["batch_id"],
+        "session_id": session["session_id"],
         "plan_tub_id": tub["id"],
         "entry_id": entry["id"],
         "photo_id": photo["id"],
@@ -263,6 +285,13 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("PUT", "/api/v1/plan/items/{plan_item_id}/started"): {"started": True},
     ("PUT", "/api/v1/plan/meals/{plan_meal_id}/eaters"): {"login_ids": []},
     ("DELETE", "/api/v1/plan/batches/{plan_batch_id}"): None,
+    ("GET", "/api/v1/batch-cook/sessions/{session_id}"): None,
+    ("DELETE", "/api/v1/batch-cook/sessions/{session_id}"): None,
+    ("PUT", "/api/v1/batch-cook/sessions/{session_id}"): {
+        "date": "2030-01-01",
+        "slot_id": 1,
+        "recipes": [{"recipe_id": 1, "tub_count": 1}, {"recipe_id": 2, "tub_count": 1}],
+    },
     ("POST", "/api/v1/plan/tubs/{plan_tub_id}/place"): {"date": "2030-01-01", "slot_id": 1},
     ("PATCH", "/api/v1/plan/tubs/{plan_tub_id}"): {"use_by": "2030-01-01"},
     ("POST", "/api/v1/plan/tubs/{plan_tub_id}/freezer"): None,

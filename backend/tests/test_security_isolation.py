@@ -414,6 +414,12 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("PlanMethodIn", "method_id"): "test_recipe_methods",
     # Cook once (0.6 PR 4): test_plan_batches.py,
     # test_another_households_ids_get_404_on_every_new_route.
+    # Batch cook (0.8 wave 6, B2): test_batch_sessions.py,
+    # test_another_households_ids_are_not_found_on_any_route.
+    ("SessionIn", "slot_id"): "test_batch_sessions",
+    ("SessionPreviewIn", "slot_id"): "test_batch_sessions",
+    ("SessionRecipeIn", "recipe_id"): "test_batch_sessions",
+    ("SessionRecipeIn", "member_login_ids"): "test_batch_sessions",
     ("BatchIn", "member_login_ids"): "test_plan_batches",
     ("SpotIn", "slot_id"): "test_plan_batches",
     ("TubPlaceIn", "slot_id"): "test_plan_batches",
