@@ -365,6 +365,33 @@ test('resizing across the width where the panes fit changes the layout without l
   await expect(page).toHaveURL(`/recipes/${one!.id}`);
 });
 
+test('All recipes keeps its rows, its search and its tag when the window crosses the width where the panes fit (T1)', async ({ page }) => {
+  const tag = `Cross${stamp()}`;
+  const word = `Crossing ${stamp()}`;
+  await manyNamed(page, word, 3, { tags: [tag] });
+  await manyNamed(page, `${word} untagged`, 1);
+  await page.goto('/recipes');
+  const box = page.getByRole('searchbox', { name: 'Search recipes' });
+  const chip = page.getByRole('group', { name: 'Show' }).getByRole('button', { name: tag });
+  const listed = page.getByRole('link', { name: new RegExp(word) });
+  await box.fill(word);
+  await expect(listed).toHaveCount(4);
+  await chip.click();
+  await expect(chip).toHaveAttribute('aria-pressed', 'true');
+  await expect(listed).toHaveCount(3);
+  // From here the server is slow to answer the list: what shows is what the page already had.
+  await page.route(/\/api\/v1\/recipes(\?|\/tags$)/, () => undefined);
+
+  for (const width of [900, 1300, 900]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(list(page)).toHaveCount(width < 1024 ? 0 : 1);
+    await expect(box).toHaveValue(word);
+    await expect(chip).toHaveAttribute('aria-pressed', 'true');
+    await expect(listed).toHaveCount(3);
+    await expect(page.getByText('Loading…')).toHaveCount(0);
+  }
+});
+
 // --- States -------------------------------------------------------------------------------------
 
 test('not found: a deleted recipe says so beside a working list', async ({ page }) => {

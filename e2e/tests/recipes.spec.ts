@@ -235,6 +235,32 @@ test('on a phone, Back from a recipe finds the list on the chip it was on', asyn
   await expect(allChip(page)).toHaveAttribute('aria-pressed', 'true');
 });
 
+test('on a phone, Back from a recipe keeps the search as well, and the Recipes tab opens the list on All (T1)', async ({ page }) => {
+  // One list for All recipes, whatever the layout (T1): it keeps what was typed while a recipe is
+  // open, as the computer's panes do (proposed, for cabledrawer). "Use soon" follows the address.
+  test.skip(!isPhone(page), 'phone layout');
+  const word = unique(page, 'Keep').replace(/\s+/g, '');
+  await soonRecipes(page, word);
+  await page.goto('/recipes?filter=use-soon');
+  await search(page, word);
+  await expect(page.locator('li')).toHaveCount(2);
+  await page.getByRole('link', { name: new RegExp(`^${word} greens curry`) }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  await page.goBack();
+  await expect(page).toHaveURL('/recipes?filter=use-soon');
+  await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toHaveValue(word);
+  await expect(useSoonChip(page)).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('li')).toHaveCount(2);
+  // The Recipes tab is plain /recipes: the list is on All, still searched.
+  await page.getByRole('link', { name: new RegExp(`^${word} greens curry`) }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Recipes' }).click();
+  await expect(page).toHaveURL('/recipes');
+  await expect(allChip(page)).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('searchbox', { name: 'Search recipes' })).toHaveValue(word);
+  await expect(page.locator('li')).toHaveCount(3);
+});
+
 test('on a computer, opening a recipe keeps the Use soon filter, a reload too, and Back and Forward move it with the address', async ({ page }) => {
   test.skip(isPhone(page), 'the three panes');
   const word = unique(page, 'Panes').replace(/\s+/g, '');

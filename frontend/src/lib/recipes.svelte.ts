@@ -2,6 +2,7 @@
 // (docs/dev/api-0.4-recipes.md section 4). An answer that arrives late (an older search) is
 // ignored. The tags for the filter row come with it.
 
+import { getContext, setContext } from 'svelte';
 import { cantReachWords, cantReach } from './api';
 import { listRecipes, listTags, type RecipeRow, type TagCount } from './client/recipes';
 
@@ -115,4 +116,18 @@ export class RecipeList {
         : 'Couldn’t load more recipes. Try again.';
     }
   }
+}
+
+const SHARED = Symbol('the All recipes list');
+
+/** The recipes layout's list, for All recipes wherever it shows: in the computer's panes or as
+ *  the page itself. One list, so crossing the width where the panes fit keeps its rows, its
+ *  search and its filter (T1). Called while the layout starts. */
+export function shareRecipeList(list: RecipeList): void {
+  setContext(SHARED, list);
+}
+
+/** The list the recipes layout shares, if there is one (not in a component test). */
+export function sharedRecipeList(): RecipeList | undefined {
+  return getContext<RecipeList | undefined>(SHARED);
 }

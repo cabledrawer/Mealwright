@@ -22,12 +22,15 @@
   import { RECIPES_PAGES, isCurrentRecipesPage } from '#lib/nav.js';
   import { network } from '#lib/network.svelte.js';
   import { recipePanes } from '#lib/recipePanes.svelte.js';
-  import { RecipeList, filterFromSearch } from '#lib/recipes.svelte.js';
+  import { RecipeList, filterFromSearch, shareRecipeList } from '#lib/recipes.svelte.js';
 
   let { children }: { children: Snippet } = $props();
 
   // Pantry's "Recipes for these" arrives with ?filter=use-soon, which starts the list on "Use soon".
   const list = new RecipeList(filterFromSearch(new URLSearchParams(page.url.search)));
+  // The same list is All recipes when there's no room for the panes (+page.svelte): crossing that
+  // width keeps its rows, search and filter instead of starting again blank (T1).
+  shareRecipeList(list);
   // Import a recipe is a page of its own, full width (mockups Import05-Desktop), not a pane.
   const panes = $derived(
     recipePanes.fits &&
