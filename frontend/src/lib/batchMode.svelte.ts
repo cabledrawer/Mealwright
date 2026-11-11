@@ -200,11 +200,11 @@ export class BatchModeModel {
   }
 
   mark(mark: Mark, task: string): void {
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a moment to write down, not state
     if (!this.schedule) return;
     const p: Pending = {
       mark,
       task,
+      // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a moment to write down, not state
       at: new Date(Date.now() + this.#skew).toISOString(),
       made_at: this.schedule.made_at
     };
