@@ -671,6 +671,8 @@ def _names_something(bracket: str) -> bool:
         bool(first)
         and not any(c.isdigit() for c in " ".join(first))
         and (_clean_token(first[0]) not in NOTE_HINTS)
+        # "(ground)", "(finely chopped)": describing words only, so not a name (F219)
+        and not all(_clean_token(w) in WEAK_WORDS or _is_prep(w, PREP_WORDS) for w in first)
     )
 
 
@@ -777,6 +779,21 @@ def _take_size(text: str, start: int, extra: frozenset[str]) -> tuple[str | None
             of = re.compile(r"\s+of\b", re.IGNORECASE).match(text, end)
             return word, of.end() if of else end, passed
         return None, start, []
+
+
+def _is_the_name(after: str, size_word: str) -> bool:
+    """ "1/2 teaspoon clove (ground)", "2 cloves, ground": "clove" is the spice, not a size, when
+    nothing but describing words come after it, in a bracket or after a comma (F219). Other size
+    words keep to being sizes ("1 x 400g tin")."""
+    if singular(size_word) != "clove":
+        return False
+    plain, inside = _brackets(after.partition(",")[0])
+    if any(c.isalpha() for c in " ".join(_strip_prep(plain.split(), PREP_WORDS)[0])):
+        return False
+    return all(
+        all(_clean_token(w) in WEAK_WORDS or _is_prep(w, PREP_WORDS) for w in part.split())
+        for part in inside
+    )
 
 
 def _cap(text: str, limit: int) -> str:
@@ -887,7 +904,8 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
             position = of.end() if of else position
         elif article is not None:
             amount, position = Fraction(1), article.end()
-        elif first == "dozen" and word is not None:  # "dozen eggs"
+        elif first in {"dozen", "pinch", "pinches"} and word is not None:
+            # "dozen eggs", "Pinch black pepper" (F218): one of it, and the word is the unit
             amount, position = Fraction(1), word.start()
         elif first in BARE_QUANTITY_WORDS or (
             first in LOOSE_SIZE_WORDS
@@ -910,7 +928,10 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
                 position = of.end() if of else position
 
     if amount is not None or quantity is not None:
+        before = position
         size_word, position, passed = _take_size(work, position, extra)
+        if size_word is not None and _is_the_name(work[position:], size_word):
+            size_word, position, passed = None, before, []
         size_word = size_word or quantity
 
     rest = work[position:] if (amount is not None or quantity is not None) else work[start:]

@@ -467,6 +467,39 @@ def test_a_pinch_is_kept_and_never_counts() -> None:
         assert line.name == "salt"
 
 
+def test_f218_pinch_is_an_amount_not_part_of_the_name() -> None:
+    """cabledrawer 10 Nov: "Pinch black pepper" was a New ingredient named "Pinch black pepper"."""
+    for text, name in (
+        ("Pinch black pepper", "black pepper"),
+        ("a pinch of salt", "salt"),
+        ("1 pinch saffron", "saffron"),
+        ("Pinch of black pepper", "black pepper"),
+    ):
+        line = read_line(text)
+        assert (line.amount, line.unit, line.name, line.counts) == (D(1), "pinch", name, False)
+
+
+def test_f219_a_word_in_brackets_after_a_food_stays_with_the_food() -> None:
+    """cabledrawer 10 Nov: "1/2 teaspoon clove (ground)" was read as a New ingredient "Ground"."""
+    for text in (
+        "1/2 teaspoon clove (ground)",
+        "1/2 teaspoon cloves (ground)",
+        "1/2 teaspoon clove, ground",
+    ):
+        line = read_line(text)
+        assert (line.amount, line.unit, line.size_word) == (D("0.5"), "tsp", None), text
+        assert line.name.rstrip("s") == "clove", text
+        assert line.note == "ground", text
+    line = read_line("1/2 teaspoon cardamom (ground)")  # as it always read
+    assert (line.name, line.note) == ("cardamom", "ground")
+    # The sweep: a describing word in brackets is never the name, whatever stands before it.
+    assert read_line("2 cloves (ground)").name == "cloves"
+    assert read_line("2 cloves garlic").size_word == "cloves"  # a size, as before
+    assert not read_line("1 tsp (ground)").readable
+    assert not read_line("2 large (chopped)").readable
+    assert read_line("3 large (ripe bananas, well mashed)").name == "bananas"
+
+
 # --- The name and the note -------------------------------------------------------------------
 
 

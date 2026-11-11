@@ -301,6 +301,16 @@ def test_and_cut_into_chunks_is_a_note() -> None:
     assert (line.name, line.note) == ("King Edward potatoes", "and cut into chunks")
 
 
+def test_f218_a_pinch_is_the_same_written_three_ways() -> None:
+    line = same("Pinch black pepper", "a pinch of black pepper", "1 pinch black pepper")
+    assert (line.amount, line.unit, line.name) == (D(1), "pinch", "black pepper")
+
+
+def test_f219_clove_in_brackets_reads_like_cardamom_in_brackets() -> None:
+    same("1/2 teaspoon clove (ground)", "1/2 teaspoon clove, ground", "1/2 tsp clove (ground)")
+    assert core("1/2 teaspoon cardamom (ground)")[2] == "cardamom"
+
+
 # --- Lines (F11, F26) --------------------------------------------------------------------------
 
 
