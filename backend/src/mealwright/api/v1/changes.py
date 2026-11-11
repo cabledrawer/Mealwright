@@ -498,10 +498,11 @@ def _undo_out(kitchen: Kitchen, undo: Change) -> UndoOut:
     )
 
 
-def in_use(kitchen: Kitchen, food_id: int) -> bool:
+def in_use(kitchen: Kitchen, food_id: int, apart_from: frozenset[int] = frozenset()) -> bool:
     """Is this ingredient used anywhere: a recipe line (or made ahead by a recipe), the plan,
     the shopping list, the pantry, or a staple someone has dealt with (cabledrawer 7 Nov)? A
-    staple counts once it has been checked ("Got it") or restocked, not by being a staple."""
+    staple counts once it has been checked ("Got it") or restocked, not by being a staple.
+    `apart_from`: recipes whose lines don't count (the ones an import's Undo is taking back)."""
     db, home = kitchen.db, kitchen.household_id
     food = db.get(Food, food_id)
     if food is None or food.household_id != home:
@@ -510,11 +511,16 @@ def in_use(kitchen: Kitchen, food_id: int) -> bool:
         return True  # a kept or typed date, or a standing Restocked tick on the list
     if db.get(StapleCheck, food_id) is not None:
         return True
-    if recipes.made_ahead_of(kitchen, food_id) is not None:
+    made = recipes.made_ahead_of(kitchen, food_id)
+    if made is not None and made.id not in apart_from:
         return True
     if db.scalar(
         select(RecipeLine.id)
-        .where(RecipeLine.household_id == home, RecipeLine.food_id == food_id)
+        .where(
+            RecipeLine.household_id == home,
+            RecipeLine.food_id == food_id,
+            RecipeLine.recipe_id.not_in(apart_from),
+        )
         .limit(1)
     ):
         return True
@@ -534,6 +540,8 @@ def _keep_in_use(
     ingredient made with a new shopping-list item) takes out only the ones not used anywhere;
     the rest stay, and the message says how many (cabledrawer 7 Nov: one rule for every Undo that
     would take out an ingredient)."""
+    if change.kind == "recipe_imported":
+        return _keep_import_foods(kitchen, change, foods, tally)
     if change.kind != "food_created":
         return frozenset()
     kept = frozenset(
@@ -560,6 +568,64 @@ def _keep_in_use(
         else:
             tally.message = "Nothing to take out: these ingredients are already in use."
     return kept
+
+
+def _keep_import_foods(
+    kitchen: Kitchen, change: Change, foods: dict[str, Any], tally: Tally
+) -> frozenset[int]:
+    """The Undo of an import's save takes out the new ingredients it made, except one that
+    something else uses now (RF4 I2, cabledrawer 11 Nov): another saved recipe's line, the plan, the
+    list or the pantry. The recipes this Undo takes back don't count as using it. The Undo is
+    still "done"; the message names what stayed."""
+    data = change.undo_data or {}
+    own = frozenset(
+        int(i) for i in [data.get("recipe_id"), *data.get("section_recipe_ids", [])] if i
+    )
+    made = sorted(
+        int(key.split(":")[0])
+        for key, (old, _new) in foods.get("fields", {}).items()
+        if key.endswith(":exists") and old is None
+    )
+    kept = [food_id for food_id in made if in_use(kitchen, food_id, own)]
+    for food_id in kept:
+        food = kitchen.db.get(Food, food_id)
+        if food is not None:
+            tally.stays.append(food.name)
+    if kept:
+        tally.stays_for_recipe = all(
+            kitchen.db.scalar(
+                select(RecipeLine.id)
+                .where(
+                    RecipeLine.household_id == kitchen.household_id,
+                    RecipeLine.food_id == food_id,
+                    RecipeLine.recipe_id.not_in(own),
+                )
+                .limit(1)
+            )
+            is not None
+            for food_id in kept
+        )
+    return frozenset(kept)
+
+
+def stays_sentence(names: list[str], by_recipe: bool) -> str:
+    """ "Pork shoulder is kept: another recipe uses it." (proposed, for cabledrawer): the names when
+    there are up to three, else how many."""
+    if len(names) == 1:
+        who, verb, them = names[0], "is", "it"
+    else:
+        who = (
+            f"{', '.join(names[:-1])} and {names[-1]}"
+            if len(names) <= 3
+            else f"{len(names)} ingredients"
+        )
+        verb, them = "are", "them"
+    used = (
+        f"another recipe uses {them}"
+        if by_recipe
+        else f"{'it is' if them == 'it' else 'they are'} in use"
+    )
+    return f"{who} {verb} kept: {used}."
 
 
 def _still_needed(kitchen: Kitchen, change: Change, foods: dict[str, Any]) -> bool:
@@ -635,6 +701,8 @@ def undo_change(
         message = back if result == "done" else f"{back} {message}"
     if draft_back:
         message = f"{message} {draft_back}"
+    if tally.stays:
+        message = f"{message} {stays_sentence(tally.stays, tally.stays_for_recipe)}"
     undo = record(
         kitchen,
         "undo",

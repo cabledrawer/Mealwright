@@ -12,7 +12,7 @@ someone has changed since are left alone, and the result says so ("partly").
 import logging
 import uuid
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -447,6 +447,10 @@ class Tally:
     sentence: str | None = None
     # The whole answer, when the generic words don't fit (an Undo that left ingredients in use).
     message: str | None = None
+    # Ingredients an import's Undo left in place because another recipe (or the plan, the list,
+    # the pantry) uses them now (RF4 I2): their names, and whether a recipe is what uses them.
+    stays: list[str] = field(default_factory=list)
+    stays_for_recipe: bool = True
 
     @property
     def result(self) -> UndoResult:

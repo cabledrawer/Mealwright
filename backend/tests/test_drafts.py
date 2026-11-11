@@ -1480,3 +1480,58 @@ def test_f108_made_here_refuses_an_ingredient_a_name_or_a_learned_name(
         keep(kitchen, shown, choices={"lines": {"3": {"kind": "here"}}}, key="ok").status_code
         == 201
     )
+
+
+# --- Undo of an import's save keeps a new ingredient another recipe now uses (RF4 I2) ---------
+
+_KADHI = "Kadhi\nIngredients\n2 cups besan\n1 tsp ajwain\nMethod\n1. Whisk.\n"
+_PAKORA = "Pakora\nIngredients\n2 cups besan\n1 onion\nMethod\n1. Fry.\n"
+_NEW_BESAN = {"kind": "new", "name": "Besan", "counted_as": "weight", "place_id": None}
+
+
+def _two_saved_recipes(kitchen: TestClient) -> tuple[dict[str, Any], dict[str, Any]]:
+    a, b = review(kitchen, _KADHI), review(kitchen, _PAKORA)
+    first = ok(save(kitchen, to_save(a, {0: _NEW_BESAN})), 201)
+    # The second is saved with what its screen still said (New ingredient: Besan): it uses the
+    # first one's Besan and is never refused (F213).
+    second = ok(save(kitchen, to_save(b, {0: _NEW_BESAN})), 201)
+    assert second["new_ingredients"] == []
+    return first, second
+
+
+def test_undo_of_an_import_keeps_a_new_ingredient_another_saved_recipe_now_uses(
+    kitchen: TestClient, web: Web
+) -> None:
+    first, second = _two_saved_recipes(kitchen)
+    besan = first["new_ingredients"][0]
+    undone = ok(kitchen.post(f"{API}/changes/{first['change']['id']}/undo"))
+    assert "Besan is kept: another recipe uses it." in undone["message"]
+    assert undone["result"] == "done"
+    line = ok(kitchen.get(f"{API}/recipes/{second['recipe']['id']}"))["lines"][0]
+    assert line["food"]["id"] == besan["id"]
+    names = [f["name"] for f in ok(kitchen.get(f"{API}/foods", params={"q": "besan"}))["foods"]]
+    assert names == ["Besan"]
+    # The first recipe itself is gone, as an Undo of a save always was.
+    assert kitchen.get(f"{API}/recipes/{first['recipe']['id']}").status_code == 404
+
+
+def test_undo_of_an_import_still_takes_out_a_new_ingredient_nothing_else_uses(
+    kitchen: TestClient, web: Web
+) -> None:
+    a = review(kitchen, _KADHI)
+    saved = ok(save(kitchen, to_save(a, {0: _NEW_BESAN})), 201)
+    undone = ok(kitchen.post(f"{API}/changes/{saved['change']['id']}/undo"))
+    assert "is kept" not in undone["message"]
+    assert ok(kitchen.get(f"{API}/foods", params={"q": "besan"}))["foods"] == []
+
+
+def test_undo_of_an_import_names_every_ingredient_it_keeps(kitchen: TestClient, web: Web) -> None:
+    text_a = "Kadhi\nIngredients\n2 cups besan\n1 tsp ajwain\nMethod\n1. Whisk.\n"
+    text_b = "Pakora\nIngredients\n2 cups besan\n1 tsp ajwain\nMethod\n1. Fry.\n"
+    new = {"kind": "new", "counted_as": "weight", "place_id": None}
+    a, b = review(kitchen, text_a), review(kitchen, text_b)
+    pick = {0: {**new, "name": "Besan"}, 1: {**new, "name": "Ajwain"}}
+    first = ok(save(kitchen, to_save(a, pick)), 201)
+    ok(save(kitchen, to_save(b, pick)), 201)
+    undone = ok(kitchen.post(f"{API}/changes/{first['change']['id']}/undo"))
+    assert "Besan and Ajwain are kept: another recipe uses them." in undone["message"]
