@@ -327,3 +327,34 @@ test('a draft in the dark theme passes the accessibility scan, on the review and
   await inTheme(page, 'dark');
   await checkPage(page, { themes: ['dark'] });
 });
+
+// F213 (cabledrawer 10 Nov): an ingredient made while one draft from the batch was checked is used
+// by the other waiting draft when it is opened, and that draft's Save is not refused for it.
+test('a waiting draft uses an ingredient another draft made, and saves without being refused', async ({ page }) => {
+  const first = unique('Rasam');
+  const second = unique('Sambar');
+  const hing = unique('Hing');
+  const masala = unique('Garam masala');
+  await reviewOf(page, first, hing, masala);
+  await keepDraft(page);
+  await reviewOf(page, second, hing, masala);
+  await keepDraft(page);
+  // The first one is finished by someone: its ingredient is made and the draft saved.
+  const made = await page.request.post('/api/v1/foods', {
+    data: { name: hing, counted_as: 'weight' },
+    headers: { 'idempotency-key': crypto.randomUUID() },
+  });
+  expect(made.ok(), await made.text()).toBe(true);
+  const foodId = ((await made.json()) as Json).food.id as number;
+  try {
+    await page.reload();
+    await page.getByRole('link', { name: `Carry on ${second}` }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+    // Only the masala line still offers a new ingredient: the hing line was found.
+    await expect(page.getByRole('button', { name: 'New ingredient' })).toHaveCount(1);
+  } finally {
+    await deleteDrafts(page, first);
+    await deleteDrafts(page, second);
+    await page.request.delete(`/api/v1/foods/${foodId}`, { headers: { 'idempotency-key': crypto.randomUUID() } });
+  }
+});

@@ -222,8 +222,9 @@
         </select>
         {#if intoTag}
           <p class="note">
-            Merge “{mergingTag.name}” into “{intoTag.name}”? Its {count(mergingTag.recipes)} {mergingTag.recipes === 1 ? 'gets' : 'get'} “{intoTag.name}”,
-            and “{mergingTag.name}” goes. You can Undo.
+            Merge “{mergingTag.name}” into “{intoTag.name}”? Its {count(mergingTag.recipes)}
+            {mergingTag.recipes === 1 ? 'gets' : 'get'} “{intoTag.name}”, and “{mergingTag.name}”
+            goes. You can Undo.
           </p>
         {/if}
         <div class="two">

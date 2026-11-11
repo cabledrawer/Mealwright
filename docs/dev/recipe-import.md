@@ -569,8 +569,14 @@ downloaded — The photo wasn’t kept."
 was renamed shows its new name, one that was merged into another shows that one, and one that was
 removed is no longer offered: a line that was tied to it goes back to "needs you", and a choice
 that pointed at it is dropped (`drafts.freshen`; what is stored is not rewritten by looking). Save
-would refuse them anyway, line by line. A *new* ingredient made since by someone else is not
-picked up by lines that were read before it existed; "Pick an ingredient" finds it.
+would refuse them anyway, line by line. **Drafts from one batch (F213, F215; cabledrawer 10 Nov;
+`drafts.rematch`, run on opening, nothing stored is rewritten):** a line still waiting ("needs you"
+or "to confirm") with no choice is read again against the ingredients as they are now, so an
+ingredient made since by another draft or person is found; a line set to a *new* ingredient whose
+name now exists is set to that ingredient; and a line that another waiting draft of the household
+was told "Same as X" (with "adds the name") takes the same answer. Save no longer refuses a *new*
+ingredient whose name exists: the line uses that ingredient and nothing is made
+(`recipe_import.save`, `reused`). No API change.
 
 **Logs** never hold a draft's link or text (`test_logs_never_hold_a_drafts_link_or_text`): nothing
 here logs anything but a count of how many old drafts the hourly tidy-up deleted.
