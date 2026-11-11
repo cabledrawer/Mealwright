@@ -539,3 +539,19 @@ def test_moving_the_cook_day_meal_moves_the_session_with_it_and_undo_puts_it_bac
     undo(kitchen, moved.json())
     assert ok(kitchen.get(f"{API}/batch-cook/sessions/{sid}"))["cook_day"] == D1.isoformat()
     assert [s["cook_day"] for s in view(kitchen)["batch_sessions"]] == [D1.isoformat()]
+
+
+def test_another_households_method_or_optional_line_is_refused_in_a_session(
+    kitchen: TestClient, neighbour: TestClient, three: list[int]
+) -> None:
+    """RF3, C6: the new `method_id` and `optional_use` of a session's recipe are the recipe's own
+    ways and lines only: another household's ids are refused, and nothing is planned."""
+    theirs = recipe(neighbour, "Theirs", [food(neighbour, "Rice")])
+    their_way = ok(neighbour.get(f"{API}/recipes/{theirs['id']}"))["methods"][0]["id"]
+    their_line = ok(neighbour.get(f"{API}/recipes/{theirs['id']}"))["lines"][0]["id"]
+    for field, value in (("method_id", their_way), ("optional_use", [their_line])):
+        mine = body(kitchen, three[:2])
+        mine["recipes"][0][field] = value
+        refused = kitchen.post(f"{API}/batch-cook/sessions", json=mine)
+        assert refused.status_code == 422, (field, refused.text)
+    assert view(kitchen)["batch_sessions"] == []

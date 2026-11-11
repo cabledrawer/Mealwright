@@ -462,7 +462,7 @@ describe('from the meal', () => {
 });
 
 describe('the plan on screen', () => {
-  it('is read three days past the last day shown, so a start on the last day for a meal just after it shows', async () => {
+  it('is read eleven days past the last day shown, so a start on the last day for a meal up to ten days after it shows', async () => {
     const requests = fakeApi({
       'GET /household': [
         200,
@@ -479,7 +479,8 @@ describe('the plan on screen', () => {
     const model = new PlanModel();
     await model.load();
     const asked = requests.find((r) => r.path === '/plan')!;
-    // The week of Sat 17 Oct is Mon 12 to Sun 18; the read goes to Wed 21.
-    expect(asked.url).toBe('/plan?from=2026-10-12&to=2026-10-21');
+    // The week of Sat 17 Oct is Mon 12 to Sun 18; the read goes 11 days on, to Thu 29 (RF3, H6: it
+    // was 3 days; the longest start is ten days of wait and a day more).
+    expect(asked.url).toBe('/plan?from=2026-10-12&to=2026-10-29');
   });
 });

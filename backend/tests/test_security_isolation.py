@@ -426,6 +426,7 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("SessionPreviewIn", "session_id"): "test_batch_sessions",
     ("SessionRecipeIn", "recipe_id"): "test_batch_sessions",
     ("SessionRecipeIn", "member_login_ids"): "test_batch_sessions",
+    ("SessionRecipeIn", "method_id"): "test_batch_sessions",
     ("BatchIn", "member_login_ids"): "test_plan_batches",
     ("SpotIn", "slot_id"): "test_plan_batches",
     ("TubPlaceIn", "slot_id"): "test_plan_batches",
