@@ -8,7 +8,8 @@ Two parts:
 - `OutboundGate.request()` makes an HTTP(S) request for one kind of connection, only if
   that connection's switch is on. It sends no cookies, never follows redirects by itself
   (callers check each hop, e.g. for SSRF in recipe import), and its user agent is just
-  "Mealwright", with no version or anything about the install (spec section 7).
+  "Mealwright", with no version or anything about the install (spec section 7). The whole
+  request, slow answers included, has a time limit (REQUEST_TIME_LIMIT, X1).
 - `OutboundGate.look_up()` and `OutboundGate.get_pinned()` are the two halves of a request
   whose address the caller checks first (recipe import, `mealwright.page_fetch`): look the
   name up, check every address, then connect to exactly the address that was checked,
@@ -30,13 +31,10 @@ import socket
 import ssl
 import threading
 import time
-import urllib.error
-import urllib.request
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
 from urllib.parse import urlsplit
 
 from sqlalchemy import select
@@ -51,6 +49,9 @@ log = logging.getLogger(__name__)
 
 USER_AGENT = "Mealwright"  # no version and nothing about the install
 TIMEOUT_SECONDS = 15
+# The longest `OutboundGate.request()` may take altogether, from looking the name up to the last
+# byte of the answer (X1; proposed, for cabledrawer). A caller can ask for less (or more).
+REQUEST_TIME_LIMIT = 30.0
 MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 
 
@@ -128,11 +129,6 @@ def set_switch(session: Session, household_id: int, connection: Connection, on: 
 
 
 # --- The gate --------------------------------------------------------------------
-
-
-class _NoRedirects(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
-        return None  # hand the 3xx back to the caller
 
 
 def _lookup(host: str, port: int) -> list[str]:
@@ -322,17 +318,6 @@ class OutboundGate:
         self._sessions = sessions
         # Certificates are checked against the host name, with the system's trusted list.
         self._tls = tls if tls is not None else ssl.create_default_context()
-        # No proxies from the environment, no cookies, no automatic redirects.
-        self._opener = urllib.request.OpenerDirector()
-        for handler in (
-            urllib.request.UnknownHandler(),
-            urllib.request.HTTPHandler(),
-            urllib.request.HTTPSHandler(),
-            urllib.request.HTTPDefaultErrorHandler(),
-            urllib.request.HTTPErrorProcessor(),
-            _NoRedirects(),
-        ):
-            self._opener.add_handler(handler)
 
     @property
     def sessions(self) -> sessionmaker[Session]:
@@ -360,31 +345,55 @@ class OutboundGate:
         headers: dict[str, str] | None = None,
         body: bytes | None = None,
         max_bytes: int = MAX_RESPONSE_BYTES,
+        time_limit: float | None = None,
     ) -> OutboundResponse:
+        """One request to `url`, only if the connection's switch is on. For a fixed address
+        the app itself chose (the update check's release list), not for one a person typed:
+        that goes through `look_up()` and `get_pinned()`, which check the address first.
+
+        Everything (looking the name up, connecting, the TLS handshake, sending, the headers
+        and the whole body) must finish within `time_limit` seconds (REQUEST_TIME_LIMIT if not
+        given), or the connection is cut and OutboundFailed("timeout") is raised: a site
+        sending a byte every few seconds can't hold it longer. Redirects are handed back, not
+        followed; an error status (4xx, 5xx) is an answer like any other. Reading stops past
+        `max_bytes` (ResponseTooLarge). A connection that fails raises OutboundFailed, which
+        never carries the library's own message."""
         self.check_switch(household_id, connection)
-        if urlsplit(url).scheme not in {"http", "https"}:
+        parts = urlsplit(url)
+        host = parts.hostname
+        if parts.scheme not in {"http", "https"} or not host:
             raise OutboundBlocked("only http and https addresses are allowed")
-
-        request = urllib.request.Request(url, data=body, method=method)  # noqa: S310 (scheme checked above)
-        for name, value in (headers or {}).items():
-            request.add_header(name, value)
-        request.add_header("User-Agent", USER_AGENT)
-
-        with gate_open():
+        try:
+            port = parts.port if parts.port is not None else _default_port(parts.scheme)
+        except ValueError:
+            raise OutboundBlocked("the port isn't a number") from None
+        if port == 0:
+            raise OutboundBlocked("port 0 can't be used")
+        limit = REQUEST_TIME_LIMIT if time_limit is None else time_limit
+        deadline = time.monotonic() + limit
+        if limit <= 0:
+            raise OutboundFailed("timeout")
+        sent = {k: v for k, v in (headers or {}).items() if k.lower() != "user-agent"}
+        sent["User-Agent"] = USER_AGENT
+        found = _look_up_within(household_id, host, port, deadline - time.monotonic())
+        failure = OutboundFailed("unreachable")
+        for address in dict.fromkeys(found):  # each address once, in the resolver's order
             try:
-                response = self._opener.open(request, timeout=TIMEOUT_SECONDS)
-            except urllib.error.HTTPError as error:  # 3xx (not followed), 4xx, 5xx
-                response = error
-            with response:
-                data = response.read(max_bytes + 1)
-                if len(data) > max_bytes:
-                    raise ResponseTooLarge(f"response is larger than {max_bytes} bytes")
-                return OutboundResponse(
-                    status=response.status,
-                    headers=dict(response.headers.items()),
-                    body=data,
-                    url=url,
+                return self._exchange(
+                    url,
+                    address,
+                    method=method,
+                    headers=sent,
+                    body=body,
+                    max_bytes=max_bytes,
+                    accept=None,
+                    deadline=deadline,
                 )
+            except OutboundFailed as error:
+                if error.kind != "unreachable":
+                    raise
+                failure = error  # try the next address, while there's time
+        raise failure
 
     def look_up(
         self,
@@ -445,20 +454,48 @@ class OutboundGate:
         host = parts.hostname
         if parts.scheme not in {"http", "https"} or not host:
             raise OutboundBlocked("only http and https addresses are allowed")
-        port = parts.port if parts.port is not None else (443 if parts.scheme == "https" else 80)
-        selector = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+        port = parts.port if parts.port is not None else _default_port(parts.scheme)
         if port == 0:
             raise OutboundBlocked("port 0 can't be used")
         own = time.monotonic() + TIMEOUT_SECONDS
         deadline = own if deadline is None else min(own, deadline)
+        return self._exchange(
+            url,
+            str(address),
+            method="GET",
+            headers={"User-Agent": USER_AGENT},
+            body=None,
+            max_bytes=max_bytes,
+            accept=accept,
+            deadline=deadline,
+        )
+
+    def _exchange(
+        self,
+        url: str,
+        address: str,
+        *,
+        method: str,
+        headers: dict[str, str],
+        body: bytes | None,
+        max_bytes: int,
+        accept: Callable[[str], bool] | None,
+        deadline: float,
+    ) -> OutboundResponse:
+        """One request to exactly `address`, cut at `deadline` wherever it has got to (the
+        caller has checked the switch and the address)."""
+        parts = urlsplit(url)
+        host = parts.hostname or ""
+        port = parts.port if parts.port is not None else _default_port(parts.scheme)
+        selector = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
         left = deadline - time.monotonic()
         if left <= 0:
             raise OutboundFailed("timeout")
         pinned: _PinnedHTTP | _PinnedHTTPS
         if parts.scheme == "https":
-            pinned = _PinnedHTTPS(host, port, str(address), left, self._tls)
+            pinned = _PinnedHTTPS(host, port, address, left, self._tls)
         else:
-            pinned = _PinnedHTTP(host, port, str(address), left)
+            pinned = _PinnedHTTP(host, port, address, left)
         with gate_open(), _Watchdog(pinned, left) as watchdog:
 
             def failed(kind: str) -> OutboundFailed:
@@ -466,9 +503,9 @@ class OutboundGate:
                 return OutboundFailed("timeout" if watchdog.expired else kind)
 
             try:
-                pinned.request("GET", selector, headers={"User-Agent": USER_AGENT})
+                pinned.request(method, selector, body=body, headers=headers)
                 response = pinned.getresponse()
-                headers = dict(response.headers.items())
+                answer_headers = dict(response.headers.items())
                 if accept is not None and 200 <= response.status < 300:
                     kind = (
                         response.headers.get_content_type()
@@ -477,10 +514,12 @@ class OutboundGate:
                     )
                     if not accept(kind):
                         raise WrongContentType("the answer isn't the kind asked for")
-                body = _read(response, pinned.raw, max_bytes, deadline)
+                data = _read(response, pinned.raw, max_bytes, deadline)
                 if watchdog.expired:
                     raise TimeoutError  # cut: the body may be only part of the answer
-                return OutboundResponse(status=response.status, headers=headers, body=body, url=url)
+                return OutboundResponse(
+                    status=response.status, headers=answer_headers, body=data, url=url
+                )
             except OutboundBlocked:
                 if watchdog.expired:
                     raise failed("timeout") from None
@@ -495,6 +534,10 @@ class OutboundGate:
                 raise failed("unreachable") from None
             finally:
                 pinned.close()
+
+
+def _default_port(scheme: str) -> int:
+    return 443 if scheme == "https" else 80
 
 
 def _read(

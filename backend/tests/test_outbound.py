@@ -9,6 +9,7 @@ import socketserver
 import subprocess
 import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
@@ -20,7 +21,7 @@ from urllib.parse import urlsplit
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
-from mealwright import migrate
+from mealwright import migrate, outbound
 from mealwright.config import Settings
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.main import create_app
@@ -31,6 +32,7 @@ from mealwright.outbound import (
     USER_AGENT,
     Connection,
     OutboundBlocked,
+    OutboundFailed,
     OutboundGate,
     set_switch,
     switches,
@@ -202,6 +204,100 @@ def test_response_size_limit(
     switch(sessions, Connection.RECIPE_IMPORT, True)
     with pytest.raises(OutboundBlocked):
         gate.request(1, Connection.RECIPE_IMPORT, f"{server}/big", max_bytes=1024)
+
+
+# --- The whole request has a time limit (X1) ------------------------------------------------
+
+
+@pytest.fixture
+def trickle() -> Iterator[str]:
+    """A local site that answers at once, then sends its body 10 bytes every 0.1 s for 3 s:
+    every read is quick, so only a limit on the whole request stops it."""
+    listener = socket.create_server(("127.0.0.1", 0))
+    stop = threading.Event()
+
+    def serve() -> None:
+        while not stop.is_set():
+            try:
+                conn, _ = listener.accept()
+            except OSError:
+                return
+            with conn:
+                data = b""
+                while b"\r\n\r\n" not in data:
+                    chunk = conn.recv(65536)
+                    if not chunk:
+                        break
+                    data += chunk
+                try:
+                    conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 300\r\n\r\n")
+                    for _ in range(30):
+                        if stop.wait(0.1):
+                            return
+                        conn.sendall(b"x" * 10)
+                except OSError:
+                    pass  # the gate cut it: what the test wants
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{listener.getsockname()[1]}"
+    stop.set()
+    listener.close()
+    thread.join(5)
+
+
+def test_a_request_that_trickles_runs_out_of_time(
+    gate: OutboundGate, sessions: sessionmaker[Session], trickle: str
+) -> None:
+    """The limit is on the whole request, the slow body included, not on each read."""
+    switch(sessions, Connection.UPDATE_CHECK, True)
+    started = time.monotonic()
+    with pytest.raises(OutboundFailed) as failed:
+        gate.request(1, Connection.UPDATE_CHECK, f"{trickle}/", time_limit=0.5)
+    assert failed.value.kind == "timeout"
+    assert time.monotonic() - started < 1.5
+
+
+def test_the_default_time_limit_is_used(
+    gate: OutboundGate,
+    sessions: sessionmaker[Session],
+    trickle: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(outbound, "REQUEST_TIME_LIMIT", 0.4)
+    switch(sessions, Connection.UPDATE_CHECK, True)
+    started = time.monotonic()
+    with pytest.raises(OutboundFailed) as failed:
+        gate.request(1, Connection.UPDATE_CHECK, f"{trickle}/")
+    assert failed.value.kind == "timeout"
+    assert time.monotonic() - started < 1.5
+
+
+def test_the_default_time_limit_is_thirty_seconds() -> None:
+    assert outbound.REQUEST_TIME_LIMIT == 30
+
+
+def test_a_request_within_its_time_sends_its_method_headers_and_body(
+    gate: OutboundGate, sessions: sessionmaker[Session], server: str
+) -> None:
+    switch(sessions, Connection.RECIPE_IMPORT, True)
+    response = gate.request(
+        1, Connection.RECIPE_IMPORT, f"{server}/hello", headers={"Accept": "text/plain"}
+    )
+    assert (response.status, response.body) == (200, b"hello")
+    assert _Handler.hits[0]["Accept"] == "text/plain"
+    assert _Handler.hits[0]["User-Agent"] == USER_AGENT
+
+
+def test_a_request_that_cant_connect_fails_plainly(
+    gate: OutboundGate, sessions: sessionmaker[Session]
+) -> None:
+    with socket.create_server(("127.0.0.1", 0)) as closed:
+        port = closed.getsockname()[1]
+    switch(sessions, Connection.UPDATE_CHECK, True)
+    with pytest.raises(OutboundFailed) as failed:
+        gate.request(1, Connection.UPDATE_CHECK, f"http://127.0.0.1:{port}/")
+    assert failed.value.kind == "unreachable"
 
 
 # --- The network guard (on for the whole test suite, see conftest.py) ------------------
