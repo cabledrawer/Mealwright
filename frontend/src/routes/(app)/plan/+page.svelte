@@ -63,21 +63,33 @@
   // lists instead of the week grid and the month grid, whose seven columns are too narrow for the
   // words, with no tray to drag from). Between 768 and 1100 px the sidebar stays (spec: every Plan
   // screen works at 768–1100 px wide, with no words breaking in the middle).
+  // The week grid needs more room than the month grid (RF5, H9): at 1100 px, with the sidebar open,
+  // a meal card is about 70 px wide inside, and "aubergine" or "chickpeas" were cut. From 1200 px
+  // the cards are wide enough for ordinary words; from 1100 to 1199 px the week is the list.
   const PHONE = '(max-width: 767px)';
   const COMPACT = '(max-width: 1099px)';
+  const WIDE_WEEK = '(min-width: 1200px)';
   let phone = $state(browser && matchMedia(PHONE).matches);
   let compact = $state(browser && matchMedia(COMPACT).matches);
+  let wideWeek = $state(browser && matchMedia(WIDE_WEEK).matches);
   $effect(() => {
-    const [small, medium] = [matchMedia(PHONE), matchMedia(COMPACT)];
+    const [small, medium, wide] = [matchMedia(PHONE), matchMedia(COMPACT), matchMedia(WIDE_WEEK)];
     const onSmall = () => (phone = small.matches);
     const onMedium = () => (compact = medium.matches);
+    const onWide = () => (wideWeek = wide.matches);
     small.addEventListener('change', onSmall);
     medium.addEventListener('change', onMedium);
+    wide.addEventListener('change', onWide);
     return () => {
       small.removeEventListener('change', onSmall);
       medium.removeEventListener('change', onMedium);
+      wide.removeEventListener('change', onWide);
     };
   });
+  /** The week is a list of days (the phone, and up to 1199 px), not the grid. */
+  const weekAsList = $derived(compact || !wideWeek);
+  /** The grids (the week from 1200 px, the month from 1100 px) with their drag and drop. */
+  const gridded = $derived(!compact && (wideWeek || model.view === 'month'));
 
   // Both · Eat · Cook: kept on this device; Eat opens first on the phone, Both on the computer.
   let show = $state<PlanShow>(untrack(() => readShow(phone)));
@@ -88,7 +100,7 @@
 
   /** Earlier days of the week are folded away on a list (the phone, Eat, Cook). */
   let earlier = $state(false);
-  const listed = $derived(compact || show !== 'both');
+  const listed = $derived(weekAsList || show !== 'both');
   const past = $derived(
     model.view === 'week' && listed && model.days.includes(model.today)
       ? model.days.filter((d) => d < model.today)
@@ -331,7 +343,7 @@
       return readonly;
     },
     get desktop() {
-      return !compact;
+      return gridded;
     },
     openMeal: (meal) => (sheet = { kind: 'meal', meal }),
     openItem: (meal, item) => (sheet = { kind: 'item', meal, item }),
@@ -428,7 +440,7 @@
   }}
 />
 
-<div class="plan" class:fill={!compact}>
+<div class="plan" class:fill={gridded}>
   <PageHeader title="Plan">
     {#snippet actions()}
       {#if !compact}
@@ -534,7 +546,7 @@
       {#if empty && model.view === 'week'}
         <p class="empty">
           Nothing planned this week.
-          {compact
+          {weekAsList
             ? 'Tap + Add on a day to plan a meal.'
             : 'Drag a recipe up from the tray, or press + Add.'}
         </p>
@@ -564,7 +576,7 @@
           {#await import('#lib/components/plan/PlanEat.svelte') then { default: Eat }}
             <Eat {actions} days={dayList} oncook={showCook} />
           {/await}
-        {:else if compact}
+        {:else if weekAsList}
           <PlanDays {actions} days={dayList} />
         {:else}
           <PlanWeek {actions} />
@@ -584,7 +596,7 @@
       {/if}
       <!-- Month has no tray: it must fit one screen (F47), and a day's own sheet offers the recipes
            and the tubs left (F53). -->
-      {#if !compact && model.view === 'week' && show === 'both'}
+      {#if !weekAsList && model.view === 'week' && show === 'both'}
         <RecipeTray
           list={recipes}
           disabled={readonly}

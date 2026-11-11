@@ -633,7 +633,7 @@ test('F65 on Today: the same "Eat it on…", and Undo takes the placement back w
     .toBe(0);
 });
 
-test("at 1100 px wide and 200% text the cards and the keyboard picker keep their words whole, in both themes", async ({
+test("at 1200 px wide and 200% text the cards and the keyboard picker keep their words whole, in both themes", async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -641,7 +641,7 @@ test("at 1100 px wide and 200% text the cards and the keyboard picker keep their
   const day = far(today, 9);
   const name = "Dal";
   const { sun } = await batchWithTubs(page, name, day, slot);
-  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.setViewportSize({ width: 1200, height: 900 });
   await openWeekOf(page, today, day);
   await expect(cookCard(cell(page, day, slot.Dinner))).toBeVisible();
   for (const theme of ["light", "dark"] as const) {
@@ -802,7 +802,7 @@ test("a second copy of the cooked recipe in the cook meal is not a COOK card, an
     .toEqual([day, [copy.item_id]]); // the cooking stayed; only the copy went
 });
 
-test("F168: at 1101 px a person's name under a tub that is too wide for its card ends in an ellipsis", async ({
+test("F168: at 1200 px a person's name under a tub that is too wide for its card ends in an ellipsis", async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -817,7 +817,7 @@ test("F168: at 1101 px a person's name under a tub that is too wide for its card
   );
   for (const tub of tubs)
     await call(page, "PATCH", `/plan/tubs/${tub.id}`, { member_login_id: me.id });
-  await page.setViewportSize({ width: 1101, height: 900 });
+  await page.setViewportSize({ width: 1200, height: 900 });
   await openWeekOf(page, today, day);
   // At 200% text the name no longer fits its card, as "Longhousename" did at 100% on a narrow week.
   await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
@@ -838,4 +838,30 @@ test("F168: at 1101 px a person's name under a tub that is too wide for its card
   });
   expect(report).toMatchObject({ overflow: "hidden", ellipsis: "ellipsis", cut: true, inside: true });
   await page.evaluate(() => (document.documentElement.style.fontSize = ""));
+});
+
+test("H9: the week grid starts at 1200 px, where ordinary words fit a card; from 1100 to 1199 px the week is the list", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const { today, slot } = await setup(page);
+  const day = addDays(today, 7 * 84); // a week of its own, after every other test's
+  const name = "Aubergine chickpeas";
+  await planned(page, await makeRecipe(page, name), day, slot.Dinner);
+  // 1199 px: the list of days, with no recipe tray (nothing to drag from).
+  await page.setViewportSize({ width: 1199, height: 900 });
+  await openWeekOf(page, today, day);
+  await expect(page.getByText(name).first()).toBeVisible();
+  await expect(page.getByRole("region", { name: "Recipe tray" })).toHaveCount(0);
+  await expect(cell(page, day, slot.Dinner)).toHaveCount(0);
+  // 1200 px: the grid, and "Aubergine" and "chickpeas" are whole, never cut with an ellipsis.
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await expect(page.getByRole("region", { name: "Recipe tray" })).toBeVisible();
+  const card = cell(page, day, slot.Dinner);
+  await expect(card).toBeVisible();
+  const cut = await card.locator(".name, .meta").evaluateAll((els) =>
+    els.filter((el) => el.scrollWidth > el.clientWidth + 1).map((el) => el.textContent),
+  );
+  expect(cut).toEqual([]);
+  await expectNoSidewaysScroll(page);
 });
