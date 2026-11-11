@@ -12,9 +12,9 @@ const IMPORT = 'Recipe import from links';
 const PHOTOS = 'Download recipe photos';
 const ADD = 'Add a name or address';
 
-/** Every test leaves both switches off and the list empty, as it found them. */
+/** Every test leaves the switches off and the list empty, as it found them. */
 async function reset(page: Page) {
-  for (const name of ['recipe_import', 'recipe_photos']) {
+  for (const name of ['recipe_import', 'recipe_photos', 'update_check']) {
     await page.request.put(`/api/v1/privacy/switches/${name}`, { data: { on: false } });
   }
   const list = await (await page.request.get('/api/v1/privacy/own-network')).json();
@@ -74,6 +74,7 @@ test('an admin switches each connection on and off, and it stays', async ({ page
     .toEqual([
       { connection: 'recipe_import', on: true },
       { connection: 'recipe_photos', on: false },
+      { connection: 'update_check', on: false },
     ]);
   await photoSwitch.click();
   await page.reload();

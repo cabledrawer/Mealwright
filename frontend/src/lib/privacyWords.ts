@@ -21,11 +21,16 @@ export const SWITCH_WORDS: Record<SwitchName, { label: string; detail: string }>
   recipe_photos: {
     label: 'Download recipe photos',
     detail: 'The recipe’s main photo, kept on this server. Off: imports come without a photo.'
+  },
+  // Mockup Dark-Privacy09-Phone (X1). Also what Check now in About needs (proposed, for cabledrawer).
+  update_check: {
+    label: 'Check for updates daily',
+    detail: 'Asks GitHub’s public release list once a day. Sends nothing about you or this server'
   }
 };
 
 /** The order they're shown in. */
-export const SWITCH_ORDER: readonly SwitchName[] = ['recipe_import', 'recipe_photos'];
+export const SWITCH_ORDER: readonly SwitchName[] = ['recipe_import', 'recipe_photos', 'update_check'];
 
 /** Why a switch or the list can't be changed just now. */
 export type Locked = 'member' | 'offline' | null;

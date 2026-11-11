@@ -132,7 +132,8 @@
   let photosOn = $state(false);
   const switchValues = (a: boolean, b: boolean): Record<SwitchName, boolean> => ({
     recipe_import: a,
-    recipe_photos: b
+    recipe_photos: b,
+    update_check: false
   });
   const entry = (
     id: number,

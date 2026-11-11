@@ -1,0 +1,149 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { test, expect, type Page } from './clock.ts';
+import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
+
+// Settings → About, the update parts (0.9, X1; mockup Dark-About09-Phone), and the "Check for
+// updates daily" switch in Privacy (Dark-Privacy09-Phone), against the real server, signed in as
+// the test admin. The real server is never let out: Check now runs for real only with the switch
+// off (it answers "off" and connects nowhere); the answers that need GitHub ("a newer version is
+// out", an old version) are made up in the browser. The server's own rules (one plain request
+// through the outbound gate, admins only, nothing with the switch off) are in
+// backend/tests/test_updates.py.
+// Runs in the "phone 0.9 about", "desktop 0.9 about" and "webkit 0.9 about" projects.
+
+const DAILY = 'Check for updates daily';
+const PAGE = 'https://github.com/placeholder_until_1_0/mealwright/releases';
+
+async function switchOff(page: Page) {
+  const response = await page.request.put('/api/v1/privacy/switches/update_check', { data: { on: false } });
+  expect(response.ok(), await response.text()).toBe(true);
+}
+
+test.beforeEach(async ({ page }) => {
+  await setAccountTheme(page, 'auto');
+  await switchOff(page);
+});
+
+test.afterEach(async ({ page }) => {
+  await setAccountTheme(page, 'auto');
+  await switchOff(page);
+});
+
+/** The server's answer to GET /updates (or POST /updates/check), made up in the browser. */
+function updates(over: Record<string, unknown> = {}) {
+  return {
+    version: '0.9.0',
+    released: '2026-10-01',
+    releases_page: PAGE,
+    can_check: true,
+    daily: true,
+    last: null,
+    ...over,
+  };
+}
+
+const newer = () => updates({ last: { outcome: 'newer', latest: 'v0.9.1', checked_at: new Date().toISOString() } });
+
+async function fake(page: Page, path: '/updates' | '/updates/check', body: unknown) {
+  await page.route(`**/api/v1${path}`, (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) }),
+  );
+}
+
+test('Settings leads to About: the version, its release day and the admins’ Updates card; Check now with the switch off asks nothing', async ({
+  page,
+}) => {
+  await page.goto('/settings');
+  await page.locator('a[href="/settings/about"]').first().click();
+  await expect(page).toHaveURL('/settings/about');
+  await expect(page.getByRole('heading', { level: 1, name: 'About' })).toBeVisible();
+  await expect(page.getByText(/^Mealwright \d+\.\d+\.\d+/)).toBeVisible();
+  await expect(page.getByText(/^Released \d{1,2} [A-Z][a-z]{2} \d{4}$/)).toBeVisible();
+  // A version released after the tests' fixed day is not old: no note.
+  await expect(page.getByText(/months? old|years? old/)).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 2, name: 'Updates (admins)' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Daily check/ })).toContainText('Off');
+  await expectNoSidewaysScroll(page);
+  await checkPage(page);
+
+  const check = page.waitForResponse((r) => r.url().endsWith('/api/v1/updates/check'));
+  await page.getByRole('button', { name: 'Check now' }).click();
+  expect((await (await check).json()).last.outcome).toBe('off');
+  const off = page.getByRole('link', { name: /^Update checks are off/ });
+  await expect(off).toContainText('Turn on “Check for updates daily” in Privacy first.');
+  await off.click();
+  await expect(page).toHaveURL('/settings/privacy#outside-connections');
+  await expect(page.getByRole('switch', { name: DAILY })).not.toBeChecked();
+});
+
+test('the daily check is its own Privacy switch, off at first; About says when it is on', async ({ page }) => {
+  await page.goto('/settings/privacy');
+  const daily = page.getByRole('switch', { name: DAILY });
+  await expect(daily).not.toBeChecked();
+  await expect(page.getByText('Asks GitHub’s public release list once a day. Sends nothing about you or this server')).toBeVisible();
+  await daily.click();
+  await expect(daily).toBeChecked();
+  await expect
+    .poll(async () => (await (await page.request.get('/api/v1/privacy/switches')).json()).switches)
+    .toContainEqual({ connection: 'update_check', on: true });
+  await page.goto('/settings/about');
+  await expect(page.getByRole('link', { name: /^Daily check/ })).toContainText('Once a day · change in Privacy');
+  await expect(page.getByRole('link', { name: /^Daily check/ })).toContainText('On');
+  await page.goto('/settings/privacy');
+  await daily.click();
+  await expect(daily).not.toBeChecked();
+  await page.reload();
+  await expect(page.getByRole('switch', { name: DAILY })).not.toBeChecked();
+});
+
+test('a newer version found shows "Update available" by About and the version on About links to the releases page', async ({
+  page,
+}) => {
+  await fake(page, '/updates', newer());
+  await page.goto('/settings');
+  if (isPhone(page)) {
+    await expect(page.getByRole('link', { name: /^About/ })).toContainText('Update available');
+  } else {
+    await expect(page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: /^About/ })).toContainText(
+      'Update available',
+    );
+  }
+  await page.goto('/settings/about');
+  const row = page.getByRole('link', { name: /^Mealwright 0\.9\.1 is out/ });
+  await expect(row).toContainText('Update');
+  await expect(row).toHaveAttribute('href', PAGE);
+  await expect(row).toHaveAttribute('target', '_blank');
+  await checkPage(page);
+});
+
+test('an old version says how old it is, with the releases link', async ({ page }) => {
+  await fake(page, '/updates', updates({ released: '2026-01-10' }));
+  await page.goto('/settings/about');
+  await expect(page.getByText(/^This version is 9 months old\./)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'github.com/…/mealwright/releases' })).toHaveAttribute('href', PAGE);
+  await expectNoSidewaysScroll(page);
+  await checkPage(page);
+});
+
+// Review pictures for cabledrawer (X1): the changed parts of About and Privacy, dark, at four widths.
+// Only when E2E_X1_SHOTS names a folder, and only on the desktop project.
+test('review pictures of About and Privacy (only with E2E_X1_SHOTS)', async ({ page }, testInfo) => {
+  const folder = process.env.E2E_X1_SHOTS;
+  test.skip(!folder || testInfo.project.name !== 'desktop 0.9 about', 'review pictures only on request');
+  mkdirSync(folder!, { recursive: true });
+  await setAccountTheme(page, 'dark');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await fake(page, '/updates', updates({ released: '2026-01-10', daily: true, last: newer().last }));
+  for (const width of [428, 768, 1100, 1300]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto('/settings/about');
+    await expect(page.getByRole('link', { name: /^Mealwright 0\.9\.1 is out/ })).toBeVisible();
+    await page.screenshot({ path: join(folder!, `about-${width}.png`), fullPage: true });
+    await page.goto('/settings/privacy#outside-connections');
+    const daily = page.getByRole('switch', { name: DAILY });
+    await expect(daily).toBeVisible();
+    await daily.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(folder!, `privacy-${width}.png`) });
+  }
+});

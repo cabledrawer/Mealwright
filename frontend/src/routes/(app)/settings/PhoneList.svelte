@@ -33,6 +33,7 @@
           </svg>
         </span>
         <span class="lbl">{row.label}</span>
+        {#if row.badge}<span class="badge">{row.badge}</span>{/if}
         {#if row.value}<span class="val">{row.value}</span>{/if}
         <span class="chev"><Icon name="back" size={18} stroke={2} /></span>
       </a>
@@ -48,6 +49,18 @@
     font-weight: var(--weight-bold);
     letter-spacing: var(--tracking-overline);
     text-transform: uppercase;
+  }
+
+  .badge {
+    flex: none;
+    padding: 2px var(--space-3);
+    border-radius: var(--radius-full);
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-extrabold);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
   }
 
   .card {

@@ -220,6 +220,32 @@ describe('Settings → Privacy', () => {
       expect(sent('PUT', '/privacy/switches/recipe_photos')).toHaveLength(0);
     });
 
+    it('turns the daily update check on, with its own words (X1)', async () => {
+      open({
+        'PUT /privacy/switches/update_check': [
+          200,
+          {
+            switches: [...switches(false, false)[1].switches, { connection: 'update_check', on: true }],
+            can_change: true
+          }
+        ]
+      });
+      const toggle = page.getByRole('switch', { name: 'Check for updates daily' });
+      await expect.element(toggle).not.toBeChecked();
+      await expect
+        .element(
+          page.getByText(
+            'Asks GitHub’s public release list once a day. Sends nothing about you or this server'
+          )
+        )
+        .toBeVisible();
+      await toggle.click();
+      await expect.element(toggle).toBeChecked();
+      await vi.waitFor(() => expect(sent('PUT', '/privacy/switches/update_check')).toHaveLength(1));
+      expect(sent('PUT', '/privacy/switches/update_check')[0]!.body).toEqual({ on: true });
+      expect(sent('PUT', '/privacy/switches/recipe_import')).toHaveLength(0);
+    });
+
     it('turns it back off', async () => {
       open({
         'GET /privacy/switches': switches(false, true),
@@ -355,7 +381,7 @@ describe('Settings → Privacy', () => {
         await expect.element(page.getByRole('alert')).toHaveTextContent(detail);
         await expect.element(box).toHaveValue('something');
         await expect.element(box).toHaveAttribute('aria-invalid', 'true');
-        expect(document.querySelectorAll('li')).toHaveLength(2); // only the two switches
+        expect(document.querySelectorAll('li')).toHaveLength(3); // only the three switches
       }
     );
 
@@ -528,7 +554,11 @@ describe('Settings → Privacy', () => {
     await expect.element(page.getByRole('switch', { name: IMPORT })).toBeChecked();
     privacy.forget();
     expect(privacy.loaded).toBe(false);
-    expect(privacy.switches).toEqual({ recipe_import: false, recipe_photos: false });
+    expect(privacy.switches).toEqual({
+      recipe_import: false,
+      recipe_photos: false,
+      update_check: false
+    });
     expect(privacy.entries).toEqual([]);
     expect(privacy.canChange).toBe(false);
   });

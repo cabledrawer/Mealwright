@@ -199,10 +199,12 @@
         "backend/src/mealwright/api/v1/privacy.py", "backend/src/mealwright/api/v1/kitchen.py",
         "frontend/src/routes/(app)/settings/**", "frontend/src/lib/components/YourKitchen.svelte", "frontend/src/lib/client/household.ts", "frontend/src/lib/components/privacy/**", "frontend/src/lib/components/RecentChanges.svelte",
         "frontend/src/lib/privacy*", "frontend/src/lib/proxyGap.ts", "frontend/src/lib/client/privacy.ts", "frontend/src/lib/client/settingsLists.ts",
-        "frontend/src/lib/client/changes.ts", "frontend/src/lib/allChanges*", "frontend/src/lib/change*", "frontend/src/lib/focusOnMount.ts"
+        "frontend/src/lib/client/changes.ts", "frontend/src/lib/allChanges*", "frontend/src/lib/change*", "frontend/src/lib/focusOnMount.ts",
+        "backend/src/mealwright/updates.py", "backend/src/mealwright/api/v1/updates.py", "frontend/src/lib/client/updates.ts", "frontend/src/lib/updates*",
+        "frontend/src/lib/aboutWords*", "frontend/src/lib/newVersion*"
       ],
-      "backend": ["test_outbound.py", "test_own_network.py", "test_privacy.py", "test_settings_lists.py", "test_changes_press_queries.py", "test_step_timings_api.py"],
-      "browser": ["settings.spec.ts", "privacy.spec.ts"]
+      "backend": ["test_outbound.py", "test_own_network.py", "test_privacy.py", "test_settings_lists.py", "test_changes_press_queries.py", "test_step_timings_api.py", "test_updates.py"],
+      "browser": ["settings.spec.ts", "privacy.spec.ts", "about.spec.ts"]
     },
     {
       "name": "People and roles",

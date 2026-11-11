@@ -22,6 +22,8 @@
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { privacy } from '#lib/privacy.svelte.js';
+  import { updates } from '#lib/updates.svelte.js';
+  import { UPDATE_AVAILABLE, UPDATE_TAG } from '#lib/aboutWords.js';
   import { THEME_LABELS, theme } from '#lib/theme.svelte.js';
   import {
     cantCheckText,
@@ -163,7 +165,8 @@
       { id: 'household', label: 'Household', show: true },
       { id: 'privacy', label: 'Privacy', show: true },
       { id: 'your-data', label: 'Your data', show: true },
-      { id: 'sign-in', label: 'Sign-in', show: true }
+      { id: 'sign-in', label: 'Sign-in', show: true },
+      { id: 'about', label: 'About', show: true }
     ].filter((section) => section.show)
   );
   let current = $state('appearance');
@@ -222,6 +225,7 @@
       (found) => (peopleCount = found.people.length),
       () => {}
     );
+    if (admin) void updates.load();
   }
   // Each time the list is shown (first, and coming back to it from a section): read the values.
   $effect(() => {
@@ -311,7 +315,15 @@
           icon: 'your-data',
           href: resolve('/(app)/settings/your-data')
         },
-        { id: 'sign-in', label: 'Sign-in', icon: 'sign-in' }
+        { id: 'sign-in', label: 'Sign-in', icon: 'sign-in' },
+        {
+          id: 'about',
+          label: 'About',
+          icon: 'about',
+          href: resolve('/(app)/settings/about'),
+          // An admin, when the last check found a newer version (spec "Updates", level 3).
+          badge: updates.available ? UPDATE_AVAILABLE : undefined
+        }
       ]
     }
   ]);
@@ -327,6 +339,11 @@
   // A computer opened with "?section=…" goes to that section.
   // The sections above it fill in as they load and push it down, so it stays put until the person
   // scrolls or presses something, or a few seconds have passed.
+  // An admin sees "Update available" by About once a check has found a newer version.
+  onMount(() => {
+    if (admin && !phone) void updates.load();
+  });
+
   let sectionsBox = $state<HTMLElement>();
   onMount(() => {
     if (phone || !asked) return;
@@ -449,7 +466,6 @@
 <div class="layout">
   {#if phone && only === null}
     <PhoneList {groups} />
-    <p class="later">About comes in 0.9.</p>
   {:else if !phone}
     <nav class="list" aria-label="Settings sections">
       <ul>
@@ -458,12 +474,14 @@
             <button
               type="button"
               aria-current={current === section.id ? 'true' : undefined}
-              onclick={() => void goTo(section.id)}>{section.label}</button
+              onclick={() => void goTo(section.id)}
+              >{section.label}{#if section.id === 'about' && updates.available}<span class="badge"
+                  >{UPDATE_AVAILABLE}</span
+                >{/if}</button
             >
           </li>
         {/each}
       </ul>
-      <p class="later">About comes in 0.9.</p>
     </nav>
   {/if}
   <div class="sections" bind:this={sectionsBox}>
@@ -632,7 +650,9 @@
           <a class="row to" href={resolve('/(app)/settings/privacy')}>
             <span class="who">
               <span class="label">Outside connections</span>
-              <span class="detail">Recipe import, recipe photos and your own network</span>
+              <span class="detail"
+                >Recipe import, recipe photos, update check and your own network</span
+              >
             </span>
             <Icon name="back" size={18} stroke={2.4} />
           </a>
@@ -702,6 +722,22 @@
             >
           </div>
         {/if}
+      </section>
+    {/if}
+
+    {#if showing('about')}
+      <section class="section" aria-labelledby="about">
+        <h2 class="title" id="about" tabindex="-1">About</h2>
+        <div class="card">
+          <a class="row to" href={resolve('/(app)/settings/about')}>
+            <span class="who">
+              <span class="label">{VERSION_WORDS}</span>
+              <span class="detail">Version, updates and how old this version is</span>
+            </span>
+            {#if updates.available}<span class="badge">{UPDATE_TAG}</span>{/if}
+            <Icon name="back" size={18} stroke={2.4} />
+          </a>
+        </div>
       </section>
     {/if}
     {#if kitchenNow !== null}
@@ -785,11 +821,18 @@
     color: var(--color-accent-on-soft);
   }
 
-  .later {
-    margin: var(--space-3) 0 0;
-    padding: 0 var(--space-6);
-    color: var(--color-text-muted);
+  /* "Update available" by About, for an admin (X1). */
+  .badge {
+    flex: none;
+    margin-left: var(--space-3);
+    padding: 2px var(--space-3);
+    border-radius: var(--radius-full);
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
     font-size: var(--text-xs);
+    font-weight: var(--weight-extrabold);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
   }
 
   .sections {

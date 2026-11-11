@@ -80,6 +80,10 @@
   --color-label: #3f4843;
   --color-note: #e4f1ea; /* reassuring note: "This login lives only on your server" */
   --color-note-text: #1f5c42;
+  --color-note-border: #b9dcc8; /* About's "New version ready" (X1) */
+  --color-caution: #fdf3dc; /* About's "This version is 4 months old" (X1) */
+  --color-caution-border: #e9cf8f;
+  --color-caution-text: #6b4a0c;
   --color-info: #e6eef8; /* a plain-fact card: "This looks like a US recipe" (mockup ImportPints) */
   --color-info-text: #16365c;
   --color-info-muted: #34557d;
@@ -322,6 +326,10 @@
   --color-label: #c9d2cd;
   --color-note: #1f3a2d;
   --color-note-text: #8fe0b5;
+  --color-note-border: #2e5e45;
+  --color-caution: #33281a;
+  --color-caution-border: #5c4520;
+  --color-caution-text: #f5cd86;
   --color-info: #18273a;
   --color-info-text: #d6e6fa;
   --color-info-muted: #a9c2e0;

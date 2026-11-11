@@ -7,6 +7,7 @@ import { kitchen as freshness } from '#lib/freshness.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { privacy } from '#lib/privacy.svelte.js';
+import { updates } from '#lib/updates.svelte.js';
 import { session } from '#lib/session.svelte.js';
 import { changeOf, fakeApi, PLACES, type FakeRequest } from '#lib/testing/fakeApi.js';
 import { ME } from '#lib/testing/fakeShopping.js';
@@ -69,6 +70,7 @@ beforeEach(async () => {
   network.reset();
   placesAndShops.forget();
   privacy.forget();
+  updates.forget();
   undoHistory.clear();
   await page.viewport(1300, 900);
 });
@@ -83,7 +85,7 @@ afterEach(() => {
 });
 
 describe('the section list', () => {
-  it('lists the sections in order, with what comes in 0.9', async () => {
+  it('lists the sections in order, with nothing left to come in 0.9', async () => {
     open();
     await expect.element(page.getByRole('heading', { name: 'Amounts' })).toBeVisible();
     const names = sections()
@@ -100,9 +102,11 @@ describe('the section list', () => {
       'Household',
       'Privacy',
       'Your data',
-      'Sign-in'
+      'Sign-in',
+      'About'
     ]);
-    await expect.element(sections().getByText('About comes in 0.9.')).toBeVisible();
+    // Household, Your data and About are all here now: nothing is left to come in 0.9.
+    expect(sections().getByText(/comes? in 0\.9\./).elements()).toHaveLength(0);
   });
 
   it('goes to a section, and marks it as the current one', async () => {
@@ -134,7 +138,7 @@ describe('the section list', () => {
     for (const [name, rows] of [
       ['Your settings', ['Appearance', 'Amounts']],
       ['Kitchen settings', ['Meal slots', 'Shops & places', 'Your kitchen', 'Recent changes']],
-      ['Household settings', ['Household', 'Privacy', 'Your data', 'Sign-in']]
+      ['Household settings', ['Household', 'Privacy', 'Your data', 'Sign-in', 'About']]
     ] as const) {
       const links = group(name).getByRole('link');
       await vi.waitFor(() => expect(links.elements().length).toBe(rows.length));
@@ -179,7 +183,10 @@ describe('the section list', () => {
     await expect
       .element(page.getByRole('link', { name: /^Household/ }))
       .toHaveAttribute('href', '/settings/household');
-    await expect.element(page.getByText('About comes in 0.9.')).toBeVisible();
+    await expect
+      .element(page.getByRole('link', { name: /^About/ }))
+      .toHaveAttribute('href', '/settings/about');
+    expect(page.getByText(/comes? in 0\.9\./).elements()).toHaveLength(0);
   });
 
   it('phone: a section opens alone, under its own title, with ‹ Settings to come back (F193)', async () => {
@@ -780,5 +787,55 @@ describe('Your kitchen (Batch cook, B1; mockup Dark-BatchKit08)', () => {
     await sheet.getByRole('button', { name: 'Save' }).click();
     await expect.element(sheet.getByRole('alert')).toBeVisible();
     await expect.element(sheet).toBeVisible();
+  });
+});
+
+describe('About and "Update available" (X1)', () => {
+  const UPDATES = (outcome: string | null, canCheck = true) => [
+    200,
+    {
+      version: '0.9.0',
+      released: '2026-11-12',
+      releases_page: 'https://github.com/placeholder_until_1_0/mealwright/releases',
+      can_check: canCheck,
+      daily: canCheck ? true : null,
+      last:
+        canCheck && outcome
+          ? { outcome, latest: outcome === 'newer' ? 'v0.9.1' : null, checked_at: new Date().toISOString() }
+          : null
+    }
+  ];
+
+  it('an admin sees "Update available" by About when a newer version is out', async () => {
+    open({ 'GET /updates': UPDATES('newer') });
+    await expect
+      .element(sections().getByRole('button', { name: 'About Update available' }))
+      .toBeVisible();
+    await expect.element(page.getByRole('link', { name: /Version, updates/ })).toHaveTextContent(
+      'Update'
+    );
+  });
+
+  it('phone: the About row carries the badge, and opens About', async () => {
+    await page.viewport(390, 800);
+    open({ 'GET /updates': UPDATES('newer') });
+    const about = page.getByRole('link', { name: /^About/ });
+    await expect.element(about).toHaveTextContent('About Update available');
+    await expect.element(about).toHaveAttribute('href', '/settings/about');
+  });
+
+  it('no badge when up to date', async () => {
+    const requests = open({ 'GET /updates': UPDATES('up_to_date') });
+    await vi.waitFor(() => expect(requests.some((r) => r.path === '/updates')).toBe(true));
+    await expect.element(sections().getByRole('button', { name: 'About' })).toBeVisible();
+    expect(page.getByText('Update available').elements()).toEqual([]);
+  });
+
+  it('a member never asks and never sees the badge', async () => {
+    session.me = { ...ME, role: 'member' };
+    const requests = open({ 'GET /updates': UPDATES('newer') });
+    await expect.element(sections().getByRole('button', { name: 'About' })).toBeVisible();
+    expect(requests.some((r) => r.path === '/updates')).toBe(false);
+    expect(page.getByText('Update available').elements()).toEqual([]);
   });
 });

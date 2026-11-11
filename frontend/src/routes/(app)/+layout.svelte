@@ -24,6 +24,7 @@
   import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { privacy } from '#lib/privacy.svelte.js';
+  import { updates } from '#lib/updates.svelte.js';
   import { session } from '#lib/session.svelte.js';
   import { shoppingSync } from '#lib/shopping/sync.svelte.js';
   import { signInPath } from '#lib/session.svelte.js';
@@ -75,6 +76,7 @@
       shoppingSync.forget();
       placesAndShops.forget();
       privacy.forget();
+      updates.forget();
       drafts.forget();
       forgetToday();
       undoHistory.clear();

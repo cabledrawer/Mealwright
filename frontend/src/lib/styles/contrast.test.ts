@@ -57,6 +57,7 @@ const PAIRS: Pair[] = [
   ['--color-accent', '--color-field', 4.5], // "Show" in the password field
   ['--color-note-text', '--color-note', 4.5],
   ['--color-warning-text', '--color-warning', 4.5],
+  ['--color-caution-text', '--color-caution', 4.5], // About's version-age note (X1)
   ['--color-danger-text', '--color-danger', 4.5], // the red Remove button
   ['--color-stop-title', '--color-stop', 4.5], // Delete everything (Your data)
   ['--color-stop-text', '--color-stop', 4.5],
