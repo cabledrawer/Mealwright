@@ -105,7 +105,7 @@
         "frontend/src/lib/components/cook/BatchMode.svelte", "frontend/src/lib/components/cooked/SessionCooked.svelte",
         "frontend/src/routes/(app)/batch-cook/**"
       ],
-      "backend": ["test_batch_schedule.py", "test_batch_mode.py", "test_batch_cooked.py", "test_start_ahead.py", "test_events.py", "test_event_streams.py"],
+      "backend": ["test_batch_schedule.py", "test_batch_state.py", "test_batch_mode.py", "test_batch_cooked.py", "test_start_ahead.py", "test_events.py", "test_event_streams.py"],
       "browser": ["batch-mode.spec.ts", "live.spec.ts"]
     },
     {
