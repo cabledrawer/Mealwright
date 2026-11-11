@@ -16,6 +16,10 @@ export interface Me {
   username: string;
   role: 'admin' | 'member';
   theme: ThemeChoice;
+  /** This login's own person in Settings → Household (0.9 A1). */
+  member_id?: number | null;
+  /** A login the household shares (a kitchen tablet): it may ask "Who's this?". */
+  shared?: boolean;
 }
 
 export interface SetupState {

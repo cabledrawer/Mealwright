@@ -8,6 +8,7 @@ export type IconKey =
   | 'shops-places'
   | 'your-kitchen'
   | 'recent-changes'
+  | 'household'
   | 'privacy'
   | 'sign-in';
 
@@ -35,6 +36,14 @@ export const SECTION_ICONS: Record<
   'recent-changes': {
     tone: 'kitchen',
     paths: ['M3 12a9 9 0 1 0 3-6.7', 'M3 4v5h5', 'M12 8v4l3 2']
+  },
+  household: {
+    tone: 'quiet',
+    paths: [
+      'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
+      'M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6',
+      'M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14.5c1.8.9 3 2.9 3 5.5'
+    ]
   },
   privacy: { tone: 'quiet', paths: ['M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z'] },
   'sign-in': {

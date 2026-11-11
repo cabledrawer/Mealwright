@@ -16,6 +16,7 @@
   import { getShops, getPlaces } from '#lib/client/foods.js';
   import { changePints, getHousehold, getKitchen, type Kitchen } from '#lib/client/household.js';
   import { getMealSlots } from '#lib/client/plan.js';
+  import { getPeople } from '#lib/client/people.js';
   import { checkMode, type CheckMode } from '#lib/checkMode.svelte.js';
   import type { Pints } from '#lib/client/types.js';
   import { kitchen } from '#lib/freshness.svelte.js';
@@ -158,6 +159,7 @@
       { id: 'shops-places', label: 'Shops & places', show: true },
       { id: 'your-kitchen', label: 'Your kitchen', show: kitchenNow !== null },
       { id: 'recent-changes', label: 'Recent changes', show: true },
+      { id: 'household', label: 'Household', show: true },
       { id: 'privacy', label: 'Privacy', show: true },
       { id: 'sign-in', label: 'Sign-in', show: true }
     ].filter((section) => section.show)
@@ -191,6 +193,7 @@
   let slotsOn = $state<number | null>(null);
   let shopsCount = $state<number | null>(null);
   let placesCount = $state<number | null>(null);
+  let peopleCount = $state<number | null>(null);
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const privacyOn = $derived(
     privacy.loaded && privacy.problem === null
@@ -213,6 +216,10 @@
       () => {}
     );
     void privacy.load().catch(() => {});
+    getPeople().then(
+      (found) => (peopleCount = found.people.length),
+      () => {}
+    );
   }
   // Each time the list is shown (first, and coming back to it from a section): read the values.
   $effect(() => {
@@ -282,6 +289,13 @@
       name: 'Household',
       label: 'Household settings',
       rows: [
+        {
+          id: 'household',
+          label: 'Household',
+          icon: 'household',
+          href: resolve('/(app)/settings/household'),
+          value: peopleCount === null ? undefined : plural(peopleCount, 'person', 'people')
+        },
         {
           id: 'privacy',
           label: 'Privacy',
@@ -427,7 +441,7 @@
 <div class="layout">
   {#if phone && only === null}
     <PhoneList {groups} />
-    <p class="later">Household, Your data and About come in 0.9.</p>
+    <p class="later">Your data and About come in 0.9.</p>
   {:else if !phone}
     <nav class="list" aria-label="Settings sections">
       <ul>
@@ -441,7 +455,7 @@
           </li>
         {/each}
       </ul>
-      <p class="later">Household, Your data and About come in 0.9.</p>
+      <p class="later">Your data and About come in 0.9.</p>
     </nav>
   {/if}
   <div class="sections" bind:this={sectionsBox}>
@@ -585,6 +599,21 @@
       <section class="section" aria-labelledby="recent-changes">
         <h2 class="title" id="recent-changes" tabindex="-1">Recent changes</h2>
         <RecentSection />
+      </section>
+    {/if}
+
+    {#if showing('household')}
+      <section class="section" aria-labelledby="household">
+        <h2 class="title" id="household" tabindex="-1">Household</h2>
+        <div class="card">
+          <a class="row to" href={resolve('/(app)/settings/household')}>
+            <span class="who">
+              <span class="label">People</span>
+              <span class="detail">Who eats here, their portions and who signs in</span>
+            </span>
+            <Icon name="back" size={18} stroke={2.4} />
+          </a>
+        </div>
       </section>
     {/if}
 

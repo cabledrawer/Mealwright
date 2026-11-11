@@ -40,6 +40,23 @@
   --color-accent-on-soft: #1f5c42;
   --color-avatar: #dcebe3;
   --color-avatar-text: #1f5c42;
+  /* A person's colour (Settings → Household, 0.9 A1): the avatar's fill and letter, and the
+     swatch to pick it by. Proposed, for cabledrawer. */
+  --person-amber: #fbebc8;
+  --person-amber-text: #7a5200;
+  --person-amber-swatch: #d99a1e;
+  --person-green: #ddf2e6;
+  --person-green-text: #1f6b47;
+  --person-green-swatch: #2e9a68;
+  --person-violet: #efe3fb;
+  --person-violet-text: #6a3a99;
+  --person-violet-swatch: #9b6bd6;
+  --person-blue: #ddeefa;
+  --person-blue-text: #1f5a85;
+  --person-blue-swatch: #3a8fd0;
+  --person-peach: #fde6d9;
+  --person-peach-text: #8a4320;
+  --person-peach-swatch: #f08f5a;
 
   /* Strong buttons (near-black on light, near-white on dark) */
   --color-inverse: #17201c;
@@ -265,6 +282,21 @@
   --color-accent-on-soft: #8fe0b5;
   --color-avatar: #1f3a2d;
   --color-avatar-text: #8fe0b5;
+  --person-amber: #3a2f1c;
+  --person-amber-text: #f2b441;
+  --person-amber-swatch: #f2b441;
+  --person-green: #1f3a2d;
+  --person-green-text: #8fe0b5;
+  --person-green-swatch: #6fcf9e;
+  --person-violet: #32243a;
+  --person-violet-text: #e3b5ff;
+  --person-violet-swatch: #c79bff;
+  --person-blue: #1d3340;
+  --person-blue-text: #8fd0ff;
+  --person-blue-swatch: #7cc4ff;
+  --person-peach: #3d2a20;
+  --person-peach-text: #ffc4a1;
+  --person-peach-swatch: #ffb98f;
 
   --color-inverse: #e9eeeb;
   --color-inverse-text: #111614;

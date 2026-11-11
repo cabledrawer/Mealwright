@@ -31,7 +31,11 @@
     count?: Snippet;
     /** The page this one sits under. */
     parent?: {
-      href: '/(app)/recipes' | '/(app)/recipes/drafts' | '/(app)/settings';
+      href:
+        | '/(app)/recipes'
+        | '/(app)/recipes/drafts'
+        | '/(app)/settings'
+        | '/(app)/settings/household';
       label: string;
     };
     /** The page's main button(s), beside the title ("+ Add to pantry"). */

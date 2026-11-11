@@ -25,6 +25,11 @@ const PAIRS: Pair[] = [
   ['--color-accent-hover', '--color-surface', 4.5],
   ['--color-accent-on-soft', '--color-accent-soft', 4.5],
   ['--color-avatar-text', '--color-avatar', 4.5],
+  ['--person-amber-text', '--person-amber', 4.5], // a person's avatar letter (0.9 A1)
+  ['--person-green-text', '--person-green', 4.5],
+  ['--person-violet-text', '--person-violet', 4.5],
+  ['--person-blue-text', '--person-blue', 4.5],
+  ['--person-peach-text', '--person-peach', 4.5],
   ['--color-inverse-text', '--color-inverse', 4.5],
   ['--color-tubs', '--color-surface', 3], // big numbers (30–36 px, extra bold)
   ['--color-use-soon', '--color-surface', 3], // big numbers

@@ -50,6 +50,10 @@ function open(routes: Record<string, Parameters<typeof fakeApi>[0][string]> = {}
     'GET /shops': [200, SHOPS],
     'GET /places': [200, PLACES],
     'GET /changes': [200, { changes: [], next: null }],
+    'GET /people': [
+      200,
+      { people: [{ id: 1 }, { id: 2 }], can_change: true, ask_whos_this: false }
+    ],
     ...routes
   });
   mounted = mount(Settings, { target: document.body.appendChild(document.createElement('div')) });
@@ -93,12 +97,11 @@ describe('the section list', () => {
       'Shops & places',
       'Your kitchen',
       'Recent changes',
+      'Household',
       'Privacy',
       'Sign-in'
     ]);
-    await expect
-      .element(sections().getByText('Household, Your data and About come in 0.9.'))
-      .toBeVisible();
+    await expect.element(sections().getByText('Your data and About come in 0.9.')).toBeVisible();
   });
 
   it('goes to a section, and marks it as the current one', async () => {
@@ -130,7 +133,7 @@ describe('the section list', () => {
     for (const [name, rows] of [
       ['Your settings', ['Appearance', 'Amounts']],
       ['Kitchen settings', ['Meal slots', 'Shops & places', 'Your kitchen', 'Recent changes']],
-      ['Household settings', ['Privacy', 'Sign-in']]
+      ['Household settings', ['Household', 'Privacy', 'Sign-in']]
     ] as const) {
       const links = group(name).getByRole('link');
       await vi.waitFor(() => expect(links.elements().length).toBe(rows.length));
@@ -159,6 +162,9 @@ describe('the section list', () => {
     await expect
       .element(page.getByRole('link', { name: /^Privacy/ }))
       .toHaveTextContent('Privacy All off');
+    await expect
+      .element(page.getByRole('link', { name: /^Household/ }))
+      .toHaveTextContent('Household 2 people');
     // No section's own controls on the list, and no list of sections beside it.
     expect(page.getByRole('switch').elements()).toEqual([]);
     expect(sections().elements()).toEqual([]);
@@ -170,8 +176,9 @@ describe('the section list', () => {
       .element(page.getByRole('link', { name: /^Privacy/ }))
       .toHaveAttribute('href', '/settings/privacy');
     await expect
-      .element(page.getByText('Household, Your data and About come in 0.9.'))
-      .toBeVisible();
+      .element(page.getByRole('link', { name: /^Household/ }))
+      .toHaveAttribute('href', '/settings/household');
+    await expect.element(page.getByText('Your data and About come in 0.9.')).toBeVisible();
   });
 
   it('phone: a section opens alone, under its own title, with ‹ Settings to come back (F193)', async () => {

@@ -11,7 +11,15 @@
     screen
   }: {
     screen:
-      'Pantry' | 'Ingredients' | 'Recipes' | 'Drafts' | 'Settings' | 'Privacy' | 'Plan' | 'Today';
+      | 'Pantry'
+      | 'Ingredients'
+      | 'Recipes'
+      | 'Drafts'
+      | 'Settings'
+      | 'Privacy'
+      | 'Household'
+      | 'Plan'
+      | 'Today';
   } = $props();
 </script>
 
