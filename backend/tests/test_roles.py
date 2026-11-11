@@ -22,11 +22,17 @@ ADMIN_ROUTES: list[tuple[str, str, dict[str, Any] | None, Action]] = [
     ("PATCH", "/meal-slots/{slot}", {"name": "Supper"}, Action.HOUSEHOLD_SETTINGS),
     ("POST", "/meal-slots", {"name": "Elevenses"}, Action.HOUSEHOLD_SETTINGS),
     ("PUT", "/meal-slots/order", {"ids": []}, Action.HOUSEHOLD_SETTINGS),
+    ("POST", "/people", {"name": "Joss"}, Action.PEOPLE),
+    ("PATCH", "/people/{person}", {"portion_quarters": 2}, Action.PEOPLE),
+    ("PATCH", "/people/{person}", {"role": "member"}, Action.PEOPLE),
+    ("DELETE", "/people/{person}", None, Action.PEOPLE),
+    ("POST", "/people/{person}/login", {"username": "someone"}, Action.PEOPLE),
+    ("DELETE", "/people/{person}/login", None, Action.PEOPLE),
+    ("PUT", "/people/ask-whos-this", {"on": True}, Action.PEOPLE),
 ]
 
-# Actions with no route yet: Settings → Sign-in comes with 0.9's sign-in work; the people routes
-# come in the next commit.
-NO_ROUTE_YET = {Action.SIGN_IN, Action.PEOPLE}
+# Actions with no route yet: Settings → Sign-in comes with 0.9's sign-in work.
+NO_ROUTE_YET = {Action.SIGN_IN}
 
 
 @pytest.fixture
@@ -69,12 +75,14 @@ def test_a_member_gets_403_on_every_admin_route(
     body: dict[str, Any] | None,
     action: Action,
 ) -> None:
-    url = API + path.format(slot=_slot(kitchen))
+    admin = kitchen.get(f"{API}/me").json()["member_id"]
+    url = API + path.format(slot=_slot(kitchen), person=admin)
     before = kitchen.get(f"{API}/changes").json()
     r = member.request(method, url, json=body)
     assert r.status_code == 403, r.text
     assert r.json()["code"] == "admins_only"
     assert kitchen.get(f"{API}/changes").json() == before
+    assert kitchen.get(f"{API}/people").json()["people"][0]["portion_quarters"] == 4
 
 
 def test_a_member_cannot_undo_an_admins_household_setting(
@@ -88,3 +96,19 @@ def test_a_member_cannot_undo_an_admins_household_setting(
     r = member.post(f"{API}/changes/{change['id']}/undo")
     assert r.status_code == 403 and r.json()["code"] == "admins_only"
 
+
+@pytest.mark.parametrize("kind", ["person_added", "person_changed", "person_removed"])
+def test_a_member_cannot_undo_an_admins_change_to_people(
+    kitchen: TestClient, member: TestClient, kind: str
+) -> None:
+    made = kitchen.post(f"{API}/people", json={"name": "Joss"})
+    assert made.status_code == 201, made.text
+    joss = made.json()["people"][-1]["id"]
+    if kind == "person_changed":
+        kitchen.patch(f"{API}/people/{joss}", json={"portion_quarters": 2})
+    elif kind == "person_removed":
+        kitchen.delete(f"{API}/people/{joss}")
+    change = kitchen.get(f"{API}/changes").json()["changes"][0]
+    assert change["kind"] == kind
+    r = member.post(f"{API}/changes/{change['id']}/undo")
+    assert r.status_code == 403 and r.json()["code"] == "admins_only"

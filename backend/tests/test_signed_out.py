@@ -30,6 +30,10 @@ ALLOWED: dict[tuple[str, str], str] = {
     ("POST", f"{API}/setup"): "first-run setup (refused once set up)",
     ("POST", f"{API}/session"): "signing in",
     ("DELETE", f"{API}/session"): "signing out (does nothing without a session)",
+    # 0.9 A1: a person given a login opens their one-time sign-in link before they can sign in.
+    # Without a link that works, both answer 404 and change nothing.
+    ("GET", f"{API}/join/{{token}}"): "whose sign-in link this is",
+    ("POST", f"{API}/join/{{token}}"): "choosing a password with a sign-in link",
 }
 
 
