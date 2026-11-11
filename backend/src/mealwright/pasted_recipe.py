@@ -117,7 +117,7 @@ def _fact_line(line: str, strict: bool = True) -> tuple[int | None, dict[str, in
         if found:
             serves = int(found["b"] or found["a"])
             if not 1 <= serves <= MAX_SERVES:
-                return None  # "Serves 500": not a fact; the line stays as it was read (RF4 I12)
+                return None  # "Serves 500": not a fact; the line stays as it was read (RF4 I11)
             continue
         found = _TIME_FACT.fullmatch(part)
         if not found or not (found["h"] or found["m"]):
@@ -133,7 +133,7 @@ def _fact_line(line: str, strict: bool = True) -> tuple[int | None, dict[str, in
         kind = "prep" if word.startswith("prep") else "cook" if word.startswith("cook") else "total"
         minutes[kind] = round(_hours(found["h"] or "") * 60) + int(found["m"] or 0)
         if minutes[kind] > MAX_MINUTES:
-            return None  # "Total time: 400 hours": more than a recipe can say (RF4 I12)
+            return None  # "Total time: 400 hours": more than a recipe can say (RF4 I11)
     if serves is None and not minutes:
         return None
     return serves, minutes

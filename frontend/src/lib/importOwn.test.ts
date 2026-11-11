@@ -311,7 +311,7 @@ describe('a stand-in line inside another section made its own recipe', () => {
   });
 });
 
-describe('two sections with one name (RF4 I13)', () => {
+describe('two sections with one name (RF4 I12)', () => {
   it('finds another section already making a recipe of that name, in any case and spacing', () => {
     const flow = dosa();
     const review = flow.review!;

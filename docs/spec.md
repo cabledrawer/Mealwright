@@ -830,6 +830,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Mockups OK'd (cabledrawer 11 Nov):** suggestions, Your kitchen, batch cook mode, the editor's step timings and the one Cooked it review as drawn (phone), the computer page as drawn, and the Plan: the cook day shows one Batch cook card (recipes in their batch colours with their tubs, **Start batch cook**, **Change**) and each meal from it says **Batch · Sun**.
 - **Time together (cabledrawer 11 Nov, mockup):** the suggestions show the rough time together against cooking them one by one ("About 1 h 50 min together · 2 h 55 min one by one").
 - **Guessed or set by you (cabledrawer 11 Nov, mockup):** in the editor each step's timing says **guessed** (pink, Experimental) until changed by hand, then **set by you**.
+- **Kept: it is in use (cabledrawer 11 Nov):** when Undo of an import keeps a new ingredient because the plan, the shopping list or the pantry uses it (not a recipe), the toast says **<Name> is kept: it is in use.** (or **… are kept: they are in use.**).
 
 ### Everything Mealwright stores (combined list, 17 Oct — draft)
 

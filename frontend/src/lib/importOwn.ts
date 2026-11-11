@@ -24,7 +24,7 @@ export const MOST_OWN = 5;
 
 /** The heading of another section that is already making a recipe called `name` (any case, any
  *  spacing), or null. Two sections can't make recipes of one name: both would be looking for the
- *  same stand-in line, and Save would refuse the second with no line marked (RF4 I13). */
+ *  same stand-in line, and Save would refuse the second with no line marked (RF4 I12). */
 export function otherSectionCalled(
   review: Pick<ImportReview, 'lines'>,
   heading: number,

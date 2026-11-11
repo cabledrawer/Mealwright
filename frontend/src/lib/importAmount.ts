@@ -19,7 +19,7 @@ export function readAmount(text: string): { amount: number | null } | null {
   if (typed === '') return { amount: null };
   if (typed.length > 20) return null;
   // A plain fraction is tried first, and a whole number needs a space before a fraction written
-  // with a slash: "10/3" is ten thirds, never 1 and 0/3 (RF4 I11).
+  // with a slash: "10/3" is ten thirds, never 1 and 0/3 (RF4 I10).
   const match = typed.match(
     /^(?:(?<plain>\d+\/\d+)|(?<whole>\d+(?:[.,]\d+)?)?(?:\s*(?<glyph>[¼½¾⅓⅔])|\s+(?<slash>\d+\/\d+))?)$/u
   );

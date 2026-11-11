@@ -1,5 +1,5 @@
 // The sheet that makes a section its own recipe refuses a name another section already uses
-// (RF4 I13): Save would otherwise refuse the second one with no line marked.
+// (RF4 I12): Save would otherwise refuse the second one with no line marked.
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
