@@ -8,23 +8,30 @@ scheduled job follows the first household's choice (an install has one household
 one exists only in tests). Proposed, for cabledrawer.
 """
 
+import logging
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import Engine
+from sqlalchemy import Engine, delete, select
 
 from mealwright import backups, export
+from mealwright.api.v1.account import how_long
 from mealwright.api.v1.context import Here
-from mealwright.auth import SameOrigin
+from mealwright.auth import COOKIE, SameOrigin, SlowDown, check_password
+from mealwright.errors import Problem
 from mealwright.household import today
-from mealwright.models import utcnow
-from mealwright.photos import store_of
+from mealwright.models import Household, Session, utcnow
+from mealwright.photos import household_folder, store_of
 
 router = APIRouter(tags=["your data"], dependencies=[SameOrigin])
+
+# Sign-ins and "Delete everything" go to the log file only (mealwright.logs).
+sign_in_log = logging.getLogger("mealwright.sign_in")
 
 
 def _folder(request: Request) -> Path:
@@ -137,4 +144,80 @@ def export_everything(kitchen: Here) -> StreamingResponse:
             "Content-Disposition": f'attachment; filename="{name}"',
             "Cache-Control": "no-store",
         },
+    )
+
+
+# --- Delete everything (start again) --------------------------------------------------------------
+
+WORDS = "delete everything"
+
+
+class DeleteEverything(BaseModel):
+    words: str = Field(max_length=100, description=f'Exactly "{WORDS}".')
+    password: str = Field(max_length=1024, description="The admin's own password.")
+
+
+@router.post("/delete-everything", status_code=status.HTTP_204_NO_CONTENT)
+def delete_everything(
+    body: DeleteEverything, kitchen: Here, request: Request, response: Response
+) -> None:
+    """Delete everything of the household: every recipe, plan, list, pantry item, person, login
+    and setting, and its photos. Admins only, with the typed words and the admin's password.
+    A safety backup is made first, and nothing is deleted if it can't
+    be. The backups folder is kept. Everyone is signed out; Mealwright then starts again at
+    first-run setup. There is no Undo."""
+    kitchen.admin_only()
+    if " ".join(body.words.split()).lower() != WORDS:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "words_wrong",
+            f"Type “{WORDS}” to confirm.",
+        )
+    slow: SlowDown = request.app.state.slow_down
+    login = kitchen.login
+    keys = [f"user:{login.username}"]
+    if wait := slow.wait_seconds(keys):
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Too many tries. Wait {how_long(wait)}.",
+            headers={"Retry-After": str(wait)},
+        )
+    if not check_password(login, body.password):
+        slow.failed(keys)
+        sign_in_log.warning("Delete everything: wrong password for %s", login.username)
+        raise Problem(status.HTTP_403_FORBIDDEN, "password_wrong", "That password isn’t right.")
+    slow.succeeded(keys[0])
+
+    engine: Engine = request.app.state.engine
+    try:
+        safety = backups.before_delete_everything(engine, _folder(request))
+    except backups.BackupFailed as error:
+        raise Problem(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "backup_failed",
+            f"{error} Nothing was deleted.",
+        ) from error
+
+    db = kitchen.db
+    household_id = kitchen.household_id
+    username = login.username
+    sessions = list(db.scalars(select(Session.id).where(Session.household_id == household_id)))
+    photos = household_folder(store_of(db), household_id)
+    # Every table points at the household with ON DELETE CASCADE: one row takes all of it.
+    db.execute(delete(Household).where(Household.id == household_id))
+    db.commit()
+    shutil.rmtree(photos, ignore_errors=True)
+    for session_id in sessions:  # open live-update streams end now
+        request.app.state.events.end_session(session_id)
+    response.delete_cookie(
+        COOKIE,
+        httponly=True,
+        secure=not request.app.state.settings.allow_plain_http,
+        samesite="lax",
+        path="/",
+    )
+    sign_in_log.warning(
+        "Deleted everything (by %s); safety backup %s; everyone signed out",
+        username,
+        safety.name,
     )
