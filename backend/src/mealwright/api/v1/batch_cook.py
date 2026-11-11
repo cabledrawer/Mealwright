@@ -431,13 +431,26 @@ def _progress_write(
     return _schedule_out(kitchen, session_id)
 
 
+class MarkIn(BaseModel):
+    at: datetime | None = Field(
+        default=None,
+        description=(
+            "When it was pressed, for a phone that was offline and sends it later. Used when it "
+            "lies between the schedule being made and now; otherwise the server's own clock."
+        ),
+    )
+
+
 @router.put("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/done")
-def mark_task_done(session_id: StoredInt, task_id: TaskId, kitchen: Here) -> ScheduleOut:
+def mark_task_done(
+    session_id: StoredInt, task_id: TaskId, kitchen: Here, body: MarkIn | None = None
+) -> ScheduleOut:
     """Mark a task done (done already: it stays as it was). Every open screen of the household
-    hears `batch_cook` and asks again."""
+    hears `batch_cook` and asks again. The optional body's `at` is when it was pressed."""
     now = utcnow()
+    at = body.at if body else None
     return _progress_write(
-        kitchen, session_id, lambda s: batch_mode.mark_done(kitchen, s, task_id, now)
+        kitchen, session_id, lambda s: batch_mode.mark_done(kitchen, s, task_id, now, at)
     )
 
 
@@ -448,12 +461,18 @@ def undo_task_done(session_id: StoredInt, task_id: TaskId, kitchen: Here) -> Sch
 
 
 @router.put("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/timer")
-def start_task_timer(session_id: StoredInt, task_id: TaskId, kitchen: Here) -> ScheduleOut:
-    """Start a waiting task's timer, on the server's clock (started already: the first start
-    stays), so every phone shows the same time left. `422 not_a_wait` for a hands-on task."""
+def start_task_timer(
+    session_id: StoredInt, task_id: TaskId, kitchen: Here, body: MarkIn | None = None
+) -> ScheduleOut:
+    """Start a waiting task's timer, on the server's clock unless the optional body's `at` (when
+    it was pressed) lies between the schedule being made and now (started already: the first
+    start stays), so every phone shows the same time left. `422 not_a_wait` for a hands-on task;
+    `409 not_ready` when what is before it in its recipe isn't done or the ring, pressure cooker
+    or oven it needs is still in use."""
     now = utcnow()
+    at = body.at if body else None
     return _progress_write(
-        kitchen, session_id, lambda s: batch_mode.start_timer(kitchen, s, task_id, now)
+        kitchen, session_id, lambda s: batch_mode.start_timer(kitchen, s, task_id, now, at)
     )
 
 

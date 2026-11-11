@@ -277,17 +277,43 @@ def _progress(kitchen: Kitchen, session: BatchSession) -> dict[str, BatchTaskPro
 
 
 def _before_ids(tasks: list[dict[str, Any]]) -> dict[str, list[str]]:
-    """Each task's previous task in each of its recipes (the step order of a recipe)."""
+    """What each task waits for (review B3 r1, fix 1: the kitchen's equipment is never over-used):
+
+    - the previous task in each of its recipes (the step order of a recipe);
+    - the previous task in the same hob ring, pressure cooker or oven, as the schedule gave them
+      out (a ring is free only when what was on it is done);
+    - a task that needs equipment the kitchen has none of (`lacks`) waits for every task before
+      it, and every task after it waits for it: it is done alone.
+
+    The same rule is in `frontend/src/lib/batchModeState.ts`."""
     last: dict[int, str] = {}
-    out: dict[str, list[str]] = {}
+    in_slot: dict[tuple[str, int], str] = {}
+    lacking: str | None = None
+    out: list[tuple[str, list[str]]] = []
+    seen: list[str] = []
     for task in tasks:  # in the order they start, which keeps each recipe's own order
         before: list[str] = []
+
+        def need(other: str | None, before: list[str] = before) -> None:
+            if other is not None and other not in before:
+                before.append(other)
+
         for recipe_id in task["recipes"]:
-            if recipe_id in last and last[recipe_id] not in before:
-                before.append(last[recipe_id])
+            need(last.get(recipe_id))
             last[recipe_id] = task["id"]
-        out[task["id"]] = before
-    return out
+        slot = task["slot"]
+        if task["equipment"] != "none" and slot is not None and not task["lacks"]:
+            need(in_slot.get((task["equipment"], slot)))
+            in_slot[(task["equipment"], slot)] = task["id"]
+        if task["lacks"]:
+            for other in seen:
+                need(other)
+            lacking = task["id"]
+        else:
+            need(lacking)
+        out.append((task["id"], before))
+        seen.append(task["id"])
+    return dict(out)
 
 
 def states(
@@ -419,12 +445,28 @@ def _row(kitchen: Kitchen, session: BatchSession, task_id: str) -> BatchTaskProg
     return row
 
 
-def mark_done(kitchen: Kitchen, session: BatchSession, task_id: str, now: datetime) -> None:
+def when(session: BatchSession, at: datetime | None, now: datetime) -> datetime:
+    """The moment a mark counts from: the time it was pressed on the phone (a phone that was
+    offline sends it later) when that lies between the schedule being made and now, else now
+    (review B3 r1, fix 4; proposed, for cabledrawer)."""
+    if at is None or session.schedule_made_at is None:
+        return now
+    pressed = as_utc(at)
+    return pressed if as_utc(session.schedule_made_at) <= pressed <= as_utc(now) else now
+
+
+def mark_done(
+    kitchen: Kitchen,
+    session: BatchSession,
+    task_id: str,
+    now: datetime,
+    at: datetime | None = None,
+) -> None:
     """Done (a second time changes nothing: the first time stays)."""
     _task(session, task_id)
     row = _row(kitchen, session, task_id)
     if row.done_at is None:
-        row.done_at = now
+        row.done_at = when(session, at, now)
 
 
 def undo_done(kitchen: Kitchen, session: BatchSession, task_id: str) -> None:
@@ -435,8 +477,16 @@ def undo_done(kitchen: Kitchen, session: BatchSession, task_id: str) -> None:
         kitchen.db.delete(row)
 
 
-def start_timer(kitchen: Kitchen, session: BatchSession, task_id: str, now: datetime) -> None:
-    """Start a waiting task's timer (started already: the first start stays)."""
+def start_timer(
+    kitchen: Kitchen,
+    session: BatchSession,
+    task_id: str,
+    now: datetime,
+    at: datetime | None = None,
+) -> None:
+    """Start a waiting task's timer (started already: the first start stays). Only when the task
+    is ready: everything before it in its recipe is done and the ring, pressure cooker or oven it
+    uses is free (review B3 r1, fix 1; `409 not_ready`, proposed, for cabledrawer)."""
     task = _task(session, task_id)
     if task["hands"] != "waiting":
         raise Problem(
@@ -444,6 +494,16 @@ def start_timer(kitchen: Kitchen, session: BatchSession, task_id: str, now: date
             "not_a_wait",
             "Only a waiting step has a timer.",  # proposed, for cabledrawer
         )
-    row = _row(kitchen, session, task_id)
-    if row.started_at is None:
-        row.started_at = now
+    moment = when(session, at, now)
+    progress = _progress(kitchen, session)
+    row = progress.get(task_id)
+    if row is not None and row.started_at is not None:
+        return  # started already: the first start stays
+    found = {t.id: t for t in states(list((session.schedule or {})["tasks"]), progress, moment)}
+    if found[task_id].state != "ready" and not (row is not None and row.done_at is not None):
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "not_ready",
+            "This has to wait: the step before it, or the equipment it needs, isn’t free yet.",
+        )  # proposed, for cabledrawer
+    _row(kitchen, session, task_id).started_at = moment

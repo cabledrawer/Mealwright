@@ -2,7 +2,7 @@
 the mode is started and kept on the session, Now and Next, timers, done and Undo, a reload or
 another phone carrying on, Plan again, live updates, the switch and the other household."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from typing import Any
 
@@ -294,3 +294,68 @@ def test_every_open_screen_hears_a_change_of_progress(kitchen: TestClient, sessi
         assert await quiet(theirs)
 
     run(scenario())
+
+
+# --- Review B3 round 1 ------------------------------------------------------------------------
+
+
+def two_dals(kitchen: TestClient) -> int:
+    """Two recipes that each start by pressure cooking, in a kitchen with one pressure cooker."""
+    ok(kitchen.patch(f"{API}/household/kitchen", json={"pressure_cookers": 1}))
+    recipes = [
+        make(
+            kitchen,
+            f"Dal {n}",
+            steps=[{"text": "Pressure cook the dal for 3 whistles."}, {"text": "Fry the onions."}],
+        )
+        for n in (1, 2)
+    ]
+    body = {
+        "date": D1.isoformat(),
+        "slot_id": slot_ids(kitchen)["Dinner"],
+        "recipes": [{"recipe_id": r["id"], "tub_count": 2} for r in recipes],
+    }
+    return int(ok(kitchen.post(f"{API}/batch-cook/sessions", json=body), 201)["session_id"])
+
+
+def test_a_second_timer_for_the_one_pressure_cooker_is_refused_until_the_first_is_done(
+    kitchen: TestClient,
+) -> None:
+    session = two_dals(kitchen)
+    made = start(kitchen, session)
+    cooks = [t for t in made["tasks"] if t["equipment"] == "pressure"]
+    assert len(cooks) == 2 and {t["state"] for t in cooks} == {"ready", "later"}
+    first = next(t for t in cooks if t["state"] == "ready")["id"]
+    second = next(t for t in cooks if t["state"] == "later")["id"]
+    refused = kitchen.put(url(session, f"/tasks/{second}/timer"))
+    assert refused.status_code == 409 and refused.json()["code"] == "not_ready"
+    assert ok(kitchen.put(url(session, f"/tasks/{first}/timer")))["in_use"]["pressure"] == 1
+    assert kitchen.put(url(session, f"/tasks/{second}/timer")).status_code == 409
+    ok(kitchen.put(url(session, f"/tasks/{first}/done")))  # taken off: the cooker is free
+    assert (
+        task(ok(kitchen.put(url(session, f"/tasks/{second}/timer"))), second)["state"] == "running"
+    )
+
+
+def test_a_timer_pressed_offline_counts_from_when_it_was_pressed_and_never_from_outside_the_session(
+    kitchen: TestClient,
+) -> None:
+    session = two_dals(kitchen)
+    made = start(kitchen, session)
+    first = next(t for t in made["tasks"] if t["equipment"] == "pressure" and t["state"] == "ready")
+    made_at = datetime.fromisoformat(made["made_at"]).replace(tzinfo=UTC)
+    pressed = made_at + (datetime.now(UTC) - made_at) / 2  # between the two
+    body = {"at": pressed.isoformat()}
+    got = task(ok(kitchen.put(url(session, f"/tasks/{first['id']}/timer"), json=body)), first["id"])
+    assert datetime.fromisoformat(got["started_at"]).replace(tzinfo=UTC) == pressed
+    # Done too: a time before the schedule was made, or in the future, is the server's own clock.
+    for at in (made_at - timedelta(days=1), datetime.now(UTC) + timedelta(days=1)):
+        ok(kitchen.delete(url(session, f"/tasks/{first['id']}/done")))
+        sent = task(
+            ok(
+                kitchen.put(url(session, f"/tasks/{first['id']}/done"), json={"at": at.isoformat()})
+            ),
+            first["id"],
+        )
+        stamp = datetime.fromisoformat(sent["done_at"]).replace(tzinfo=UTC)
+        assert made_at <= stamp <= datetime.now(UTC) + timedelta(seconds=5)
