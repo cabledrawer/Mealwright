@@ -105,6 +105,17 @@
     merging = tag.id;
     dialog.scrollTop = 0; // the picker replaces the list, so it is the first thing in view
     into = (lookalike(tag) ?? tags.find((t) => t.id !== tag.id))?.id ?? null;
+    // The button pressed is gone with the list: the keyboard goes to the picker (FX4 review r1).
+    void tick().then(() => document.getElementById(`${uid}-into`)?.focus());
+  }
+
+  /** Cancel the merge: the list comes back, and the keyboard is on that tag's Merge into…. */
+  function cancelMerge() {
+    const id = merging;
+    merging = null;
+    void tick().then(() =>
+      dialog.querySelector<HTMLButtonElement>(`[data-merge="${id}"]`)?.focus()
+    );
   }
 
   async function doMerge() {
@@ -202,6 +213,7 @@
                     class="small"
                     class:main={like !== undefined}
                     aria-label="Merge {tag.name} into…"
+                    data-merge={tag.id}
                     onclick={() => startMerge(tag)}>Merge into…</button
                   >
                 {/if}
@@ -228,7 +240,7 @@
           </p>
         {/if}
         <div class="two">
-          <button type="button" class="outline" onclick={() => (merging = null)}>Cancel</button>
+          <button type="button" class="outline" onclick={cancelMerge}>Cancel</button>
           <button
             type="button"
             class="solid"

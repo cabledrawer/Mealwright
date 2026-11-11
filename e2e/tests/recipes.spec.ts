@@ -614,6 +614,11 @@ test('Manage tags: a look-alike tag merges with a toast Undo that puts it back, 
   // The picker and its Merge button open in view, not at the foot of the long list (F221).
   await expect(sheet.getByLabel(`Merge “${dashed}” into`)).toBeInViewport();
   await expect(sheet.getByRole('button', { name: 'Merge', exact: true })).toBeInViewport();
+  // The keyboard follows: onto the picker, and back to Merge into… on Cancel (FX4 review r1).
+  await expect(sheet.getByLabel(`Merge “${dashed}” into`)).toBeFocused();
+  await sheet.getByRole('button', { name: 'Cancel' }).click();
+  await expect(sheet.getByRole('button', { name: `Merge ${dashed} into…` })).toBeFocused();
+  await sheet.getByRole('button', { name: `Merge ${dashed} into…` }).click();
   await sheet.getByLabel(`Merge “${dashed}” into`).selectOption({ label: proper });
   await expect(sheet.getByText(`Merge “${dashed}” into “${proper}”? Its 1 recipe gets “${proper}”, and “${dashed}” goes. You can Undo.`)).toBeVisible();
   await checkPage(page);
