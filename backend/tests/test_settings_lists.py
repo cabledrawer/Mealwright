@@ -768,3 +768,49 @@ def test_undoing_the_adding_of_a_place_cannot_leave_no_fridge_or_freezer(
     assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
     assert ok(kitchen.get(f"{API}/places")) == before
     assert "Chest freezer" in names(before)
+
+
+def _first_replay_check_misses(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the route's own early "was this key already used?" look miss once, as it does when
+    two requests with one key run at the same moment: the second then finds out at commit."""
+    from mealwright.api.v1 import kitchen as kitchen_routes
+
+    real = kitchen_routes.replayed
+    calls: list[int] = []
+
+    def once(kitchen: Any) -> Any:
+        calls.append(1)
+        return None if len(calls) == 1 else real(kitchen)
+
+    monkeypatch.setattr(kitchen_routes, "replayed", once)
+
+
+def test_a_place_added_at_the_same_moment_with_one_key_answers_with_the_first_one(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # RF5 fix round 1: the loser of the race answered from its own rolled-back row.
+    headers = {"Idempotency-Key": "place-race"}
+    first = ok(
+        kitchen.post(f"{API}/places", json={"name": "Garage", "kind": "cupboard"}, headers=headers),
+        201,
+    )
+    _first_replay_check_misses(monkeypatch)
+    second = kitchen.post(
+        f"{API}/places", json={"name": "Shed", "kind": "cupboard"}, headers=headers
+    )
+    assert second.status_code == 200, second.text
+    assert second.json() == first
+    assert "Shed" not in names(ok(kitchen.get(f"{API}/places")))
+
+
+def test_a_place_renamed_at_the_same_moment_with_one_key_answers_with_the_first_name(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spice = place_id(kitchen, "Spice rack")
+    headers = {"Idempotency-Key": "rename-race"}
+    first = ok(kitchen.patch(f"{API}/places/{spice}", json={"name": "Larder"}, headers=headers))
+    _first_replay_check_misses(monkeypatch)
+    second = kitchen.patch(f"{API}/places/{spice}", json={"name": "Shed"}, headers=headers)
+    assert second.status_code == 200, second.text
+    assert second.json() == first
+    assert "Shed" not in names(ok(kitchen.get(f"{API}/places")))

@@ -1,7 +1,7 @@
 """Places, shops, units and the household's settings (docs/dev/api-0.2.md 4.1, 4.5, 6.3)."""
 
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, Field, StrictBool, field_validator
@@ -59,6 +59,16 @@ class NewPlace(BaseModel):
 MAX_PLACES = 50
 
 
+def _added_before(earlier: Any, response: Response) -> PlaceOut:
+    """The place an earlier request with this key made, as that change stored it."""
+    added = (earlier.undo_data or {}).get("place") or {}
+    response.headers["Idempotent-Replayed"] = "true"
+    response.status_code = status.HTTP_200_OK
+    return PlaceOut(
+        id=added.get("id", 0), name=added.get("new", ""), kind=added.get("kind", "cupboard")
+    )
+
+
 @router.post("/places", status_code=status.HTTP_201_CREATED)
 def add_place(body: NewPlace, kitchen: Here, response: Response) -> PlaceOut:
     """ "+ Place": add a place, last in the order. `kind` (fridge, freezer or cupboard) drives
@@ -67,14 +77,12 @@ def add_place(body: NewPlace, kitchen: Here, response: Response) -> PlaceOut:
     an Undo, as "+ Shop" is (`place_added`; RF5, H8). Under the household's lock, so two phones
     at once can't pass the cap or add one name twice."""
     earlier = replayed(kitchen)
+    if earlier is None:
+        lock_db(kitchen.db, kitchen.household)
+        # Two requests with one key at once: the second looks again once it has the lock.
+        earlier = replayed(kitchen)
     if earlier is not None:
-        added = (earlier.undo_data or {}).get("place") or {}
-        response.headers["Idempotent-Replayed"] = "true"
-        response.status_code = status.HTTP_200_OK
-        return PlaceOut(
-            id=added.get("id", 0), name=added.get("new", ""), kind=added.get("kind", "cupboard")
-        )
-    lock_db(kitchen.db, kitchen.household)
+        return _added_before(earlier, response)
     existing = places(kitchen.db, kitchen.household_id)
     for old in existing:
         if fold(old.name) == fold(body.name):
@@ -100,9 +108,9 @@ def add_place(body: NewPlace, kitchen: Here, response: Response) -> PlaceOut:
     kitchen.db.add(place)
     kitchen.db.flush()
     kitchen_changes.place_added(kitchen, place)
-    if commit(kitchen) is not None:
-        response.headers["Idempotent-Replayed"] = "true"
-        response.status_code = status.HTTP_200_OK
+    earlier = commit(kitchen)
+    if earlier is not None:
+        return _added_before(earlier, response)  # the rolled-back row is not what was made
     return PlaceOut(id=place.id, name=place.name, kind=place.kind)  # type: ignore[arg-type]
 
 
@@ -125,6 +133,17 @@ def _find_place(kitchen: Kitchen, place_id: int) -> Place:
     return place
 
 
+def _renamed_before(earlier: Any, response: Response, place_id: int, name: str) -> PlaceOut:
+    """The place an earlier request with this key renamed, as that change stored it."""
+    renamed = (earlier.undo_data or {}).get("place") or {}
+    response.headers["Idempotent-Replayed"] = "true"
+    return PlaceOut(
+        id=renamed.get("id", place_id),
+        name=renamed.get("new", name),
+        kind=renamed.get("kind", "cupboard"),
+    )
+
+
 @router.patch("/places/{place_id}")
 def rename_place(
     place_id: StoredInt, body: RenamePlace, kitchen: Here, response: Response
@@ -133,15 +152,11 @@ def rename_place(
     household has (ignoring case) is a 409 `place_exists`. In Recent changes with an Undo
     (`place_renamed`). Anyone in the household can."""
     earlier = replayed(kitchen)
+    if earlier is None:
+        lock_db(kitchen.db, kitchen.household)
+        earlier = replayed(kitchen)  # two requests with one key at once: look again with the lock
     if earlier is not None:
-        renamed = (earlier.undo_data or {}).get("place") or {}
-        response.headers["Idempotent-Replayed"] = "true"
-        return PlaceOut(
-            id=renamed.get("id", place_id),
-            name=renamed.get("new", body.name),
-            kind=renamed.get("kind", "cupboard"),
-        )
-    lock_db(kitchen.db, kitchen.household)
+        return _renamed_before(earlier, response, place_id, body.name)
     place = _find_place(kitchen, place_id)
     for other in places(kitchen.db, kitchen.household_id):
         if other.id != place.id and fold(other.name) == fold(body.name):
@@ -156,8 +171,9 @@ def rename_place(
         return PlaceOut(id=place.id, name=place.name, kind=place.kind)  # type: ignore[arg-type]
     place.name = body.name
     kitchen_changes.place_renamed(kitchen, place, old)
-    if commit(kitchen) is not None:
-        response.headers["Idempotent-Replayed"] = "true"
+    earlier = commit(kitchen)
+    if earlier is not None:
+        return _renamed_before(earlier, response, place_id, body.name)
     return PlaceOut(id=place.id, name=place.name, kind=place.kind)  # type: ignore[arg-type]
 
 
@@ -174,6 +190,9 @@ def order_places(body: Order, kitchen: Here, response: Response) -> list[PlaceOu
         response.headers["Idempotent-Replayed"] = "true"
         return list_places(kitchen)
     lock_db(kitchen.db, kitchen.household)
+    if replayed(kitchen) is not None:  # one key twice at once: look again with the lock
+        response.headers["Idempotent-Replayed"] = "true"
+        return list_places(kitchen)
     existing = places(kitchen.db, kitchen.household_id)
     if sorted(body.ids) != sorted(p.id for p in existing):
         raise Problem(
@@ -186,7 +205,8 @@ def order_places(body: Order, kitchen: Here, response: Response) -> list[PlaceOu
     for position, place_id in enumerate(body.ids):
         by_id[place_id].position = position
     kitchen_changes.ordered(kitchen, "places_ordered", old, {p.id: p.position for p in existing})
-    commit(kitchen)
+    if commit(kitchen) is not None:  # lost the race: the places as the first request left them
+        response.headers["Idempotent-Replayed"] = "true"
     return list_places(kitchen)
 
 
@@ -353,6 +373,9 @@ def order_shops(body: Order, kitchen: Here, response: Response) -> list[Ref]:
         response.headers["Idempotent-Replayed"] = "true"
         return list_shops(kitchen)
     lock_db(kitchen.db, kitchen.household)
+    if replayed(kitchen) is not None:  # one key twice at once: look again with the lock
+        response.headers["Idempotent-Replayed"] = "true"
+        return list_shops(kitchen)
     existing = list(
         kitchen.db.scalars(select(Shop).where(Shop.household_id == kitchen.household_id))
     )
@@ -367,7 +390,8 @@ def order_shops(body: Order, kitchen: Here, response: Response) -> list[Ref]:
     for position, shop_id in enumerate(body.ids):
         by_id[shop_id].position = position
     kitchen_changes.ordered(kitchen, "shops_ordered", old, {s.id: s.position for s in existing})
-    commit(kitchen)
+    if commit(kitchen) is not None:  # lost the race: the shops as the first request left them
+        response.headers["Idempotent-Replayed"] = "true"
     return list_shops(kitchen)
 
 
@@ -464,7 +488,7 @@ class HouseholdChange(BaseModel):
 
 
 @router.patch("/household")
-def change_household(body: HouseholdChange, kitchen: Here) -> HouseholdOut:
+def change_household(body: HouseholdChange, kitchen: Here, response: Response) -> HouseholdOut:
     """Changes the signed-in person's own household's settings: the pint (`pints`, admins
     only), Cook mode's per-step ingredients (`cook_per_step`, any person of the household) and
     whether Batch cook is shown (`batch_cook`, admins only). Answers with the settings as
@@ -476,6 +500,9 @@ def change_household(body: HouseholdChange, kitchen: Here) -> HouseholdOut:
         kitchen.household.cook_per_step = body.cook_per_step
     if body.batch_cook is not None:
         kitchen.admin_only()
+        lock_db(
+            kitchen.db, kitchen.household
+        )  # one key twice at once: the second waits, then sees it
         switching = (
             kitchen.household.batch_cook_hidden == body.batch_cook
         )  # the answer differs from what is stored
@@ -483,7 +510,8 @@ def change_household(body: HouseholdChange, kitchen: Here) -> HouseholdOut:
             # Switched the other way: in Recent changes, with an Undo (`batch_cook_switch`).
             kitchen.household.batch_cook_hidden = not body.batch_cook
             kitchen_changes.batch_cook_switch(kitchen, body.batch_cook)
-    commit(kitchen)
+    if commit(kitchen) is not None:  # lost the race: the settings as the first request left them
+        response.headers["Idempotent-Replayed"] = "true"
     return _household(kitchen)
 
 
@@ -537,11 +565,12 @@ def get_kitchen(kitchen: Here) -> KitchenOut:
 
 
 @router.patch("/household/kitchen")
-def change_kitchen(body: KitchenChange, kitchen: Here) -> KitchenOut:
+def change_kitchen(body: KitchenChange, kitchen: Here, response: Response) -> KitchenOut:
     """Saves the kitchen's equipment (Your kitchen, or Settings, Kitchen). Any signed-in person
     of the household may: like Cook mode's per-step switch, it changes only what Batch cook
     plans. Answers with the kitchen as stored."""
     # Any person may (proposed, for cabledrawer; kept out of the docstring, which is the public API).
+    lock_db(kitchen.db, kitchen.household)  # one key twice at once: the second waits, then sees it
     household = kitchen.household
     before = _equipment(kitchen)
     if body.hob_rings is not None:
@@ -554,7 +583,8 @@ def change_kitchen(body: KitchenChange, kitchen: Here) -> KitchenOut:
     if replayed(kitchen) is None:
         # In Recent changes with an Undo (`kitchen_changed`), when a number or the oven changed.
         kitchen_changes.kitchen_equipment(kitchen, before, _equipment(kitchen))
-    commit(kitchen)
+    if commit(kitchen) is not None:  # lost the race: the kitchen as the first request left it
+        response.headers["Idempotent-Replayed"] = "true"
     return _kitchen_out(kitchen)
 
 
