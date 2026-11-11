@@ -468,6 +468,7 @@ def plan_edits(kitchen: Kitchen, main: ShoppingList, worked: Worked) -> Edits:
     plan_gone: dict[tuple[int, int | None], list[ListItem]] = defaultdict(list)
     covered: set[tuple[int, int | None]] = set()  # typed lines, which the plan never doubles
     covered_anywhere: set[int] = set()  # plan lines a person has moved or edited
+    still_to_buy: set[int] = set()  # live unticked plan lines, wherever they are (or edited)
     for item in items:
         key = (item.food_id, item.shop_id)
         if item.merged_into_id is not None:
@@ -477,10 +478,14 @@ def plan_edits(kitchen: Kitchen, main: ShoppingList, worked: Worked) -> Edits:
             # it on the main list would be a duplicate).
             if _live(item):
                 covered_anywhere.add(item.food_id)
+                if item.source == "plan" and item.ticked_at is None:
+                    still_to_buy.add(item.food_id)
             continue
         if item.source == "plan":
             if _live(item):
                 plan_live[key].append(item)
+                if item.ticked_at is None:
+                    still_to_buy.add(item.food_id)
                 if item.hand_edited or item.ticked_at is not None:
                     covered_anywhere.add(item.food_id)
             else:
@@ -525,6 +530,7 @@ def plan_edits(kitchen: Kitchen, main: ShoppingList, worked: Worked) -> Edits:
             if (
                 buy.amount_milli
                 and key not in covered
+                and key[0] not in still_to_buy  # its rest is to buy at another shop (moved)
                 and not any(
                     removed_by_hand(kitchen, gone, buy.amount_milli)
                     for gone in plan_gone.get(key, ())

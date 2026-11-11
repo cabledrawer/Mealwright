@@ -229,3 +229,26 @@ def test_a_tick_that_puts_nothing_in_does_not_split(kitchen: TestClient) -> None
     )
     one(kitchen, "tick", counter(kitchen), PHONE_A, item_id=item, amount=120)
     assert [x for x in lines(kitchen, ghee["id"]) if not x[1]] == []
+
+
+def test_a_rest_line_moved_to_another_shop_is_not_bought_twice_when_the_plan_grows(
+    kitchen: TestClient,
+) -> None:
+    ghee, row, seen = grown_line(kitchen)
+    one(kitchen, "tick", seen, PHONE_B, item_id=row["id"], amount=120)
+    rest = next(
+        i for i in changes(kitchen)["items"] if i["food_id"] == ghee["id"] and not i["ticks"]
+    )
+    shop = ok(kitchen.post("/api/v1/shops", json={"name": "Corner"}), 201)["id"]
+    one(
+        kitchen,
+        "move",
+        counter(kitchen),
+        PHONE_B,
+        item_id=rest["id"],
+        list_id=rest["list_id"],
+        shop_id=shop,
+    )
+    plan(kitchen, recipe(kitchen, "Pilau", line(ghee["id"], 100, "g")), 3)
+    from_plan(kitchen)
+    assert sorted(lines(kitchen, ghee["id"])) == [(120, False), (120, True)]
