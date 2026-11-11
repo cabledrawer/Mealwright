@@ -805,6 +805,14 @@ def move_cook_day(
         batch.cooked_on = day
         for tub, use_by in zip(tubs, moved, strict=True):
             tub.use_by = use_by
+        # The Batch cook session is cooked on that day now too: its card on the Plan, "Cooked
+        # it · Sun 15 Nov" and Today read the session's day (RF3, C5).
+        session = db.get(BatchSession, batch.session_id) if batch.session_id else None
+        if session is not None and session.household_id == kitchen.household_id:
+            steps[-1]["session"] = session.id
+            steps[-1]["session_from"] = session.cook_day.isoformat()
+            steps[-1]["session_to"] = day.isoformat()
+            session.cook_day = day
     db.flush()
 
 
@@ -1455,6 +1463,9 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         if "to_day" in step and batch.cooked_on.isoformat() != step["to_day"]:
             return False  # the cook day was changed again since (F165)
         batch.cooked_on = date.fromisoformat(step["from"])
+        session = _own(kitchen, BatchSession, step["session"]) if "session" in step else None
+        if session is not None and session.cook_day.isoformat() == step["session_to"]:
+            session.cook_day = date.fromisoformat(step["session_from"])
         complete = True
         for tub_id, use_by in step["tubs"]:
             tub = _own(kitchen, Tub, tub_id)

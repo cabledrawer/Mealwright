@@ -513,3 +513,29 @@ def test_a_preview_saves_nothing_even_when_the_session_is_committed_after_it(
         batch_sessions.preview(door, D1, slot, choices, lambda worked: len(worked.tubs))
         db.commit()  # what a stray flush would be kept by
     assert totals() == before
+
+
+# --- Whole-0.8 review fixes (RF3): C5 ------------------------------------------------------------
+
+
+def test_moving_the_cook_day_meal_moves_the_session_with_it_and_undo_puts_it_back(
+    kitchen: TestClient, three: list[int]
+) -> None:
+    """C5: the Batch cook card, "Cooked it · Sun 15 Nov" and the session's own day follow the
+    meal (they stayed on the old day, where nothing is cooked any more)."""
+    written = make(kitchen, three)
+    sid = written["session_id"]
+    meal = next(m for m in view(kitchen)["meals"] if m["date"] == D1.isoformat())
+    later = D1 + timedelta(days=9)  # another week
+    moved = kitchen.post(
+        f"{API}/plan/meals/{meal['id']}/move",
+        json={"date": later.isoformat(), "slot_id": slot_ids(kitchen)["Lunch"], "mode": "move"},
+    )
+    assert moved.status_code == 200, moved.text
+    assert ok(kitchen.get(f"{API}/batch-cook/sessions/{sid}"))["cook_day"] == later.isoformat()
+    there = view(kitchen, later - timedelta(days=1), days=3)
+    assert [s["cook_day"] for s in there["batch_sessions"]] == [later.isoformat()]
+    assert {b["cooked_on"] for b in there["batch_cooks"]} == {later.isoformat()}
+    undo(kitchen, moved.json())
+    assert ok(kitchen.get(f"{API}/batch-cook/sessions/{sid}"))["cook_day"] == D1.isoformat()
+    assert [s["cook_day"] for s in view(kitchen)["batch_sessions"]] == [D1.isoformat()]
