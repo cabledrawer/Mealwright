@@ -1,6 +1,7 @@
 """Settings changes that are listed in Recent changes with an Undo (RF5, H8; cabledrawer 11 Nov):
-adding or renaming a place, putting the shops or the places in order, the kitchen's equipment
-and the Batch cook switch. Shops already were (F225, in `removals.py`).
+adding or renaming a place, putting the shops or the places in order, the kitchen's equipment,
+the Batch cook switch, the pint and Cook mode's ingredients for each step.
+Shops already were (F225, in `removals.py`).
 
 Each change keeps what the Undo needs in `undo_data`, and the Undo is refused, with nothing
 changed, when what it would put back has been changed again since (the same rule as the
@@ -36,6 +37,8 @@ KINDS = (
     "places_ordered",
     "kitchen_changed",
     "batch_cook_switch",
+    "pints_changed",
+    "cook_step_changed",
 )
 
 
@@ -128,6 +131,36 @@ def batch_cook_switch(kitchen: Kitchen, shown: bool) -> Change:
     )
 
 
+def pints_changed(kitchen: Kitchen, old: str, new: str) -> Change:
+    """The household's pint (admins only), as it was and as it is."""
+    name = {"uk": "UK", "us": "US"}
+    return record(
+        kitchen,
+        "pints_changed",
+        f"Changed the pint to {name[new]} pints (was {name[old]} pints)",  # proposed, for cabledrawer
+        None,
+        {"pints": {"old": old, "new": new}},
+    )
+
+
+def cook_step_changed(kitchen: Kitchen, shown: bool) -> Change:
+    return record(
+        kitchen,
+        "cook_step_changed",
+        f"Switched Ingredients for each step {'on' if shown else 'off'}",  # proposed, for cabledrawer
+        None,
+        {"cook_per_step": {"old": not shown, "new": shown}},
+    )
+
+
+def key_kept(kitchen: Kitchen) -> None:
+    """A save that changed nothing still remembers its Idempotency-Key (a Change that is only
+    there for the key, as a kept draft's is, and never listed), so a retry of it later answers
+    as stored instead of putting the old body back."""
+    if kitchen.idempotency_key is not None:
+        record(kitchen, "setting_kept", "Saved a setting", None, None)
+
+
 # --- Undo -----------------------------------------------------------------------------------
 
 
@@ -147,6 +180,20 @@ def undo(kitchen: Kitchen, change: Change) -> None:
         if (not household.batch_cook_hidden) != data["batch_cook"]["new"]:
             raise _cannot_undo("That can’t be undone: Batch cook has been switched again.")
         household.batch_cook_hidden = not data["batch_cook"]["old"]
+        kitchen.db.flush()
+    elif change.kind == "pints_changed":
+        household = kitchen.household
+        if household.pints != data["pints"]["new"]:
+            raise _cannot_undo("That can’t be undone: the pint has been changed again.")
+        household.pints = data["pints"]["old"]
+        kitchen.db.flush()
+    elif change.kind == "cook_step_changed":
+        household = kitchen.household
+        if household.cook_per_step != data["cook_per_step"]["new"]:
+            raise _cannot_undo(
+                "That can’t be undone: Ingredients for each step has been switched again."
+            )
+        household.cook_per_step = data["cook_per_step"]["old"]
         kitchen.db.flush()
 
 

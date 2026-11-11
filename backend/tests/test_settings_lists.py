@@ -847,3 +847,146 @@ def test_undoing_an_added_place_is_refused_when_a_stocktake_used_it(kitchen: Tes
     with db(kitchen) as session:
         assert session.scalar(select(StocktakePlace).where(StocktakePlace.place_id == made["id"]))
         assert session.scalar(select(StocktakeEntry).where(StocktakeEntry.place_id == made["id"]))
+
+
+# --- The pint and Ingredients for each step (RF5, cabledrawer 11 Nov) -------------------------------
+
+
+def _retry_after_another_change(
+    kitchen: TestClient, url: str, field: str, first: Any, other: Any
+) -> None:
+    ok(kitchen.patch(url, json={field: first}, headers={"Idempotency-Key": f"{field}-k"}))
+    ok(kitchen.patch(url, json={field: other}, headers={"Idempotency-Key": f"{field}-o"}))
+    retry = kitchen.patch(url, json={field: first}, headers={"Idempotency-Key": f"{field}-k"})
+    assert retry.status_code == 200, retry.text
+    assert retry.headers.get("Idempotent-Replayed") == "true"
+    assert retry.json()[field] == other
+    assert ok(kitchen.get(url))[field] == other
+
+
+def test_a_retried_pints_key_after_another_change_changes_nothing(kitchen: TestClient) -> None:
+    _retry_after_another_change(kitchen, f"{API}/household", "pints", "us", "uk")
+
+
+def test_a_retried_cook_per_step_key_after_another_change_changes_nothing(
+    kitchen: TestClient,
+) -> None:
+    _retry_after_another_change(kitchen, f"{API}/household", "cook_per_step", True, False)
+
+
+def test_a_retried_batch_cook_key_after_another_change_changes_nothing(kitchen: TestClient) -> None:
+    url = f"{API}/household"
+    ok(kitchen.patch(url, json={"batch_cook": False}, headers={"Idempotency-Key": "bc-k"}))
+    ok(kitchen.patch(url, json={"batch_cook": True}, headers={"Idempotency-Key": "bc-o"}))
+    retry = kitchen.patch(url, json={"batch_cook": False}, headers={"Idempotency-Key": "bc-k"})
+    assert retry.headers.get("Idempotent-Replayed") == "true"
+    assert ok(kitchen.get(url))["batch_cook"] is True
+
+
+def test_a_save_that_changes_nothing_still_remembers_its_key(kitchen: TestClient) -> None:
+    url = f"{API}/household"
+    for field, same, other in (
+        ("pints", "uk", "us"),
+        ("cook_per_step", False, True),
+        ("batch_cook", True, False),
+    ):
+        key = {"Idempotency-Key": f"noop-{field}"}
+        ok(kitchen.patch(url, json={field: same}, headers=key))  # already the value
+        ok(kitchen.patch(url, json={field: other}, headers={"Idempotency-Key": f"o-{field}"}))
+        retry = kitchen.patch(url, json={field: same}, headers=key)
+        assert retry.headers.get("Idempotent-Replayed") == "true", field
+        assert ok(kitchen.get(url))[field] == other
+    kitchen_url = f"{API}/household/kitchen"
+    ok(kitchen.patch(kitchen_url, json={"hob_rings": 4}))  # 4 is the usual: it changes nothing
+    same = {"Idempotency-Key": "noop-kitchen"}
+    ok(kitchen.patch(kitchen_url, json={"hob_rings": 4}, headers=same))
+    ok(kitchen.patch(kitchen_url, json={"hob_rings": 2}))
+    retry = kitchen.patch(kitchen_url, json={"hob_rings": 4}, headers=same)
+    assert retry.headers.get("Idempotent-Replayed") == "true"
+    assert ok(kitchen.get(kitchen_url))["hob_rings"] == 2
+    listed = [c["kind"] for c in ok(kitchen.get(f"{API}/changes"))["changes"]]
+    assert "setting_kept" not in listed  # remembered, never listed
+
+
+def test_the_pint_is_in_recent_changes_and_only_an_admin_undoes_it(
+    member: TestClient, kitchen: TestClient
+) -> None:
+    ok(kitchen.patch(f"{API}/household", json={"pints": "us"}))
+    top = latest(kitchen)
+    assert top["kind"] == "pints_changed"
+    assert top["summary"] == "Changed the pint to US pints (was UK pints)"
+    assert top["can_undo"] is True
+    assert latest(member)["can_undo"] is False
+    assert undo(member, top).status_code == 403
+    assert ok(kitchen.get(f"{API}/household"))["pints"] == "us"
+    assert ok(undo(kitchen, top))["result"] == "done"
+    assert ok(kitchen.get(f"{API}/household"))["pints"] == "uk"
+    # Saving the pint it already is records nothing.
+    before = len(ok(kitchen.get(f"{API}/changes"))["changes"])
+    ok(kitchen.patch(f"{API}/household", json={"pints": "uk"}))
+    assert len(ok(kitchen.get(f"{API}/changes"))["changes"]) == before
+
+
+def test_a_stale_pint_cannot_be_undone(kitchen: TestClient) -> None:
+    ok(kitchen.patch(f"{API}/household", json={"pints": "us"}))
+    first = latest(kitchen)
+    ok(kitchen.patch(f"{API}/household", json={"pints": "uk"}))
+    refused = undo(kitchen, first)
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert ok(kitchen.get(f"{API}/household"))["pints"] == "uk"
+
+
+def test_cook_per_step_is_in_recent_changes_any_person_undoes_it_and_a_stale_one_cannot(
+    member: TestClient, kitchen: TestClient
+) -> None:
+    ok(member.patch(f"{API}/household", json={"cook_per_step": True}))
+    top = latest(kitchen)
+    assert top["kind"] == "cook_step_changed"
+    assert top["summary"] == "Switched Ingredients for each step on"
+    assert top["can_undo"] is True
+    assert ok(undo(kitchen, top))["result"] == "done"
+    assert ok(kitchen.get(f"{API}/household"))["cook_per_step"] is False
+    ok(member.patch(f"{API}/household", json={"cook_per_step": True}))
+    first = latest(kitchen)
+    ok(member.patch(f"{API}/household", json={"cook_per_step": False}))
+    refused = undo(member, first)
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert ok(kitchen.get(f"{API}/household"))["cook_per_step"] is False
+
+
+def test_a_sync_undo_of_a_pint_change_is_refused_for_a_member(
+    member: TestClient, kitchen: TestClient
+) -> None:
+    from sync_kit import PHONE_A, one
+
+    from mealwright.models import Change, SyncAction
+
+    ok(kitchen.patch(f"{API}/household", json={"pints": "us"}))
+    with db(kitchen) as session:
+        change = session.scalars(select(Change).where(Change.kind == "pints_changed")).one()
+        session.add(
+            SyncAction(
+                household_id=1,
+                id="pint-action",
+                seq=900,
+                kind="add",
+                login_name="Tess",
+                payload={},
+                payload_hash="x",
+                status="applied",
+                change_id=change.id,
+            )
+        )
+        session.commit()
+    refused = one(member, "undo", 0, PHONE_A, undoes="pint-action")
+    assert refused["status"] == "ignored" and refused["reason"] == "cannot_undo"
+    assert ok(kitchen.get(f"{API}/household"))["pints"] == "us"
+
+
+def test_another_households_pint_change_is_not_found(
+    kitchen: TestClient, neighbour: TestClient
+) -> None:
+    ok(neighbour.patch(f"{API}/household", json={"pints": "us"}))
+    theirs = latest(neighbour)
+    assert undo(kitchen, theirs).status_code == 404
+    assert ok(neighbour.get(f"{API}/household"))["pints"] == "us"

@@ -143,16 +143,16 @@ def undo_until(kitchen: Kitchen, change: Change) -> datetime:
 
 # Changes that only remember a request's Idempotency-Key (a recipe made or saved, a draft
 # kept): there is nothing to undo, and they are not listed in Recent changes.
-KEY_ONLY_KINDS = ("recipe_created", "recipe_saved", "draft_saved")
+KEY_ONLY_KINDS = ("recipe_created", "recipe_saved", "draft_saved", "setting_kept")
 
 # Changes that are only there to be read in Recent changes, with no Undo of their own: a
 # removed ingredient that came back ("Lemon is back in Ingredients").
 NOTE_KINDS = ("food_back",)
 
 
-# Changes only the household's admin can undo, as only an admin can make them (meal slots, and
-# the Batch cook switch).
-ADMIN_ONLY_KINDS = ("plan_slot", "batch_cook_switch")
+# Changes only the household's admin can undo, as only an admin can make them (meal slots, the
+# Batch cook switch and the pint).
+ADMIN_ONLY_KINDS = ("plan_slot", "batch_cook_switch", "pints_changed")
 
 
 def can_undo(kitchen: Kitchen, change: Change) -> bool:

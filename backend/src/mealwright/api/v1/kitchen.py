@@ -493,23 +493,34 @@ def change_household(body: HouseholdChange, kitchen: Here, response: Response) -
     only), Cook mode's per-step ingredients (`cook_per_step`, any person of the household) and
     whether Batch cook is shown (`batch_cook`, admins only). Answers with the settings as
     stored."""
-    if body.pints is not None:
+    if body.pints is not None or body.batch_cook is not None:
         kitchen.admin_only()
-        kitchen.household.pints = body.pints
-    if body.cook_per_step is not None:
-        kitchen.household.cook_per_step = body.cook_per_step
-    if body.batch_cook is not None:
-        kitchen.admin_only()
-        lock_db(
-            kitchen.db, kitchen.household
-        )  # one key twice at once: the second waits, then sees it
-        switching = (
-            kitchen.household.batch_cook_hidden == body.batch_cook
-        )  # the answer differs from what is stored
-        if replayed(kitchen) is None and switching:
-            # Switched the other way: in Recent changes, with an Undo (`batch_cook_switch`).
-            kitchen.household.batch_cook_hidden = not body.batch_cook
-            kitchen_changes.batch_cook_switch(kitchen, body.batch_cook)
+    # One key twice at once: the second waits, then sees it. A retry of a used key changes
+    # nothing and answers the settings as stored (RF5, cabledrawer 11 Nov).
+    lock_db(kitchen.db, kitchen.household)
+    if replayed(kitchen) is not None:
+        response.headers["Idempotent-Replayed"] = "true"
+        return _household(kitchen)
+    household = kitchen.household
+    key = kitchen.idempotency_key
+    kitchen.key_once = True  # the first change recorded takes the key, the others carry none
+    made = False
+    if body.pints is not None and household.pints != body.pints:
+        old, household.pints = household.pints, body.pints
+        kitchen_changes.pints_changed(kitchen, old, body.pints)
+        made = True
+    if body.cook_per_step is not None and household.cook_per_step != body.cook_per_step:
+        household.cook_per_step = body.cook_per_step
+        kitchen_changes.cook_step_changed(kitchen, body.cook_per_step)
+        made = True
+    if body.batch_cook is not None and household.batch_cook_hidden == body.batch_cook:
+        household.batch_cook_hidden = not body.batch_cook
+        kitchen_changes.batch_cook_switch(kitchen, body.batch_cook)
+        made = True
+    kitchen.key_once = False
+    kitchen.idempotency_key = key  # for commit(), if it loses a race
+    if not made:  # nothing changed: the key is still remembered
+        kitchen_changes.key_kept(kitchen)
     if commit(kitchen) is not None:  # lost the race: the settings as the first request left them
         response.headers["Idempotent-Replayed"] = "true"
     return _household(kitchen)
@@ -583,9 +594,10 @@ def change_kitchen(body: KitchenChange, kitchen: Here, response: Response) -> Ki
     if body.oven is not None:
         household.kitchen_oven = body.oven
     household.kitchen_asked = True
-    if replayed(kitchen) is None:
-        # In Recent changes with an Undo (`kitchen_changed`), when a number or the oven changed.
-        kitchen_changes.kitchen_equipment(kitchen, before, _equipment(kitchen))
+    # In Recent changes with an Undo (`kitchen_changed`), when a number or the oven changed;
+    # a save that changed nothing still remembers its key.
+    if kitchen_changes.kitchen_equipment(kitchen, before, _equipment(kitchen)) is None:
+        kitchen_changes.key_kept(kitchen)
     if commit(kitchen) is not None:  # lost the race: the kitchen as the first request left it
         response.headers["Idempotent-Replayed"] = "true"
     return _kitchen_out(kitchen)
