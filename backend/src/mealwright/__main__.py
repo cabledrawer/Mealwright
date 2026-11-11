@@ -5,6 +5,7 @@ Or give the only admin a new password: python -m mealwright reset-admin <usernam
 
 import argparse
 import logging
+import os
 from types import FrameType
 
 import uvicorn
@@ -53,6 +54,9 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> None:
     command = parse(argv)
+    # Every file and folder made from here on (the database and its -wal and -shm, backups,
+    # photos, logs) is for the Mealwright user alone: files 0600, folders 0700.
+    os.umask(0o077)
     settings = get_settings()
     if command.command == "reset-admin":
         if settings.data_dir.is_dir():

@@ -1,0 +1,26 @@
+# Hardening: who can read your data, and how the container is locked down
+
+## The data folder is private (0.9)
+
+Everything Mealwright keeps is in `/data` (the folder you mount). Each time it starts,
+Mealwright sets every file in it to mode 0600 and every folder to 0700, so only the user it
+runs as (`mealwright`, UID 10001) can read or write them: the database `mealwright.db` and
+its `-wal` and `-shm` files, `backups/`, `photos/` and `logs/`. Files made by an older
+version with wider permissions are fixed on the first start. New files get the same mode
+because the server sets a private umask (077) before it makes anything.
+
+The folder you mount must belong to UID 10001 (see `compose.example.yaml`). If it doesn't,
+Mealwright can't change the modes, logs one warning and carries on.
+
+### How a backup tool on the host reads `/data`
+
+Because the files are private to UID 10001, other host users can't read them. Pick one:
+
+- **Run the backup tool as root** on the host (the usual way: a root cron job, restic or
+  borg run by root). Root reads the files whatever their mode.
+- **Run it as UID 10001** (a host user or `docker run --user 10001:10001`) if you don't
+  want root involved.
+- Or **use Mealwright's own backups** (Settings, Your data), which are written into
+  `/data/backups` and copied out the same way.
+
+Don't loosen the modes to make a backup tool work: the next start sets them back.

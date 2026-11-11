@@ -13,7 +13,16 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from mealwright import __version__, backups, errors, events, jobs, migrate, setup_code
+from mealwright import (
+    __version__,
+    backups,
+    errors,
+    events,
+    jobs,
+    migrate,
+    private_files,
+    setup_code,
+)
 from mealwright.api.v1 import router as api_v1
 from mealwright.auth import OldCookieMiddleware, SlowDown
 from mealwright.config import Settings, get_settings
@@ -78,6 +87,8 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
         if settings.migrate_on_start:
             settings.data_dir.mkdir(parents=True, exist_ok=True)
             migrate.upgrade(engine, backups=settings.data_dir / backups.FOLDER)
+        # After the database is open (its -wal and -shm files exist): fix older installs.
+        private_files.tighten(settings.data_dir)
         # A fresh install gets a one-off setup code, printed in the log (PR A2): only
         # someone who can read the server's log can create the admin account.
         with app.state.sessionmaker() as db:
