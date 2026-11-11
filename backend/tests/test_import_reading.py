@@ -495,3 +495,15 @@ def test_rf4_m_or_choices_that_start_with_an_amount_word_stay_choices() -> None:
         (line,) = read_lines(text)
         assert line.alternative is not None, text
         assert line.alternative.name.endswith(other.split()[-1]), (text, line.alternative.name)
+
+
+def test_rf4_trailing_each_is_found_in_linear_time_on_a_long_run_of_spaces() -> None:
+    """The trailing-each pattern must not square a raw run of spaces before other text."""
+    import time
+
+    from mealwright.ingredient_reader import _each_first
+
+    text = "1 tsp salt" + " " * 20_000 + "x"
+    started = time.perf_counter()
+    assert _each_first(text) == text
+    assert time.perf_counter() - started < 1.0

@@ -1470,7 +1470,7 @@ def split_each(text: str, size_words: Iterable[str] = ()) -> list[str] | None:
 
 
 _EACH_LEAD = re.compile(r"\s*each\b(?:\s+of\b)?[\s,:;]*", re.IGNORECASE)
-_EACH_LAST = re.compile(r"(?:\s*,\s*|\s+)(?:of\s+)?each\b\s*\.?\s*$", re.IGNORECASE)
+_EACH_LAST = re.compile(r"(?<!\s)(?:\s*,\s*|\s+)(?:of\s+)?each\b\s*(?:\.\s*)?$", re.IGNORECASE)
 
 
 def _each_first(work: str) -> str:
