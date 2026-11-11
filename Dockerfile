@@ -23,15 +23,14 @@ WORKDIR /app/backend
 COPY backend/pyproject.toml backend/uv.lock ./
 # Pillow is only ever installed from its ready-made wheel (amd64 and arm64), never built
 # here from source: if no wheel fits, the build stops.
-RUN uv sync --frozen --no-dev --no-install-project --no-build-package pillow
+# --locked (not just --frozen): a uv.lock that no longer matches pyproject.toml stops the
+# build instead of being installed as it is.
+RUN uv sync --locked --no-dev --no-install-project --no-build-package pillow
 COPY backend/ ./
-RUN uv sync --frozen --no-dev --no-editable --no-build-package pillow
+RUN uv sync --locked --no-dev --no-editable --no-build-package pillow
 
 # --- 3. The image that runs --------------------------------------------------------------
 FROM python:3.14-slim-trixie@sha256:af8a5aa14780025dbfbcfbc81bd8a91ebd87711dd5b0f48ed71090949dd7cb1d
-LABEL org.opencontainers.image.title="Mealwright" \
-      org.opencontainers.image.description="Self-hosted meal planning, pantry and shopping." \
-      org.opencontainers.image.licenses="AGPL-3.0-only"
 # Security fix (cabledrawer 8 Nov): the base image's zlib has CVE-2026-76844 and CVE-2026-85091
 # (both HIGH), fixed in Debian's 1:1.3.dfsg+really1.3.1-1+deb13u1. Install exactly that version and
 # nothing else, then remove apt's lists. Drop this once python:3.14-slim-trixie ships it.
@@ -54,6 +53,19 @@ ENV PATH=/app/backend/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     MEALWRIGHT_DATA_DIR=/data \
     MEALWRIGHT_FRONTEND_DIR=/app/frontend
+# The labels come last, so a new version, date or commit only changes the last layers and
+# every layer above stays cached. The release build passes the three build arguments
+# (docs/hardening.md); a plain `docker build` leaves them "unknown".
+ARG VERSION=unknown
+ARG CREATED=unknown
+ARG REVISION=unknown
+LABEL org.opencontainers.image.title="Mealwright" \
+      org.opencontainers.image.description="Self-hosted meal planning, pantry and shopping." \
+      org.opencontainers.image.licenses="AGPL-3.0-only" \
+      org.opencontainers.image.source="<source repository URL>" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${CREATED}" \
+      org.opencontainers.image.revision="${REVISION}"
 USER mealwright
 VOLUME /data
 EXPOSE 8080

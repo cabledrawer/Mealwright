@@ -41,3 +41,40 @@ Don't loosen the modes to make a backup tool work: the next start sets them back
 Tested on the 0.9 image: with exactly these settings (and a plain-http test setting on a
 loopback port) the container starts, reports healthy, answers `/api/v1/version`, creates the
 first account (a database write) and keeps `/data` at 0700/0600.
+
+## The image: labels, layer order, a locked build (0.9)
+
+- **Labels** (OCI): title, description, licence (`AGPL-3.0-only`, as in `pyproject.toml`),
+  source (a placeholder until the public repository exists), and version, created and
+  revision from the build arguments `VERSION`, `CREATED` and `REVISION`. See
+  `docs/dev/test-on-homelab.md` for the command. Nothing personal goes in them.
+- **Layer order:** the web app's libraries and the backend's libraries are installed from
+  their package and lock files alone, before the app's own code is copied in, so a code
+  change doesn't install them all again. The labels come last, so a new version number
+  doesn't either.
+- **Locked build:** the backend is installed with `uv sync --locked`, so a `uv.lock` that
+  doesn't match `pyproject.toml` stops the build.
+
+## SBOM and provenance (release build only)
+
+An SBOM (a list of everything inside the image) and a provenance record (how and from
+which commit it was built) are attached by BuildKit while the image is built. They are not
+made by `./check` and are not in the ordinary `docker build` used for the homelab test.
+
+The release build, from a tag, on your own computer. It writes an OCI file; nothing is
+pushed anywhere:
+
+```bash
+docker buildx create --name mealwright-release --driver docker-container   # once
+git archive v<version> | docker buildx build --builder mealwright-release \
+  --sbom=true --provenance=mode=max \
+  --build-arg VERSION=<version> \
+  --build-arg CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --build-arg REVISION="$(git rev-parse v<version>^{commit})" \
+  --output type=oci,dest=mealwright-<version>.oci.tar -
+```
+
+Two things to know first. The ordinary `docker` build driver can't attach these records;
+the `docker-container` driver above can. And the SBOM step makes BuildKit pull its own
+scanner image (`docker/buildkit-syft-scanner`) from Docker Hub, which is an image
+Mealwright's checks don't use today. That is cabledrawer's call: this repository doesn't add it.

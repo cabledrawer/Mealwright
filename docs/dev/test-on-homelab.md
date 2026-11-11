@@ -24,8 +24,13 @@ Use a released tag, so you always know exactly what you are running.
 ```bash
 cd <your copy of the Mealwright repository>
 git fetch --tags
-git archive v<version> | docker build -t mealwright:<version> -
+git archive v<version> | docker build -t mealwright:<version> \
+  --build-arg VERSION=<version> \
+  --build-arg CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --build-arg REVISION="$(git rev-parse v<version>^{commit})" -
 ```
+
+The three build arguments only fill in the image's labels (version, build time, commit); leave them out and the labels say "unknown". The build stops if `backend/uv.lock` doesn't match `backend/pyproject.toml`.
 
 `git archive` builds from exactly what is in the tag, nothing else from your working folder. The build ends with a line like `naming to docker.io/library/mealwright:<version> done`.
 
@@ -120,6 +125,8 @@ networks:
 ```
 
 To update: edit the `image:` line to the new exact version (keep `pull_policy: never`).
+
+The example above leaves out the hardening lines (`security_opt`, `cap_drop`, `read_only` with a `tmpfs`, `init`, `mem_limit`). Add them from `compose.example.yaml` once the first start works; `docs/hardening.md` says what each does.
 
 Notes:
 
