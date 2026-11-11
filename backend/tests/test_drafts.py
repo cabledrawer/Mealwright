@@ -15,6 +15,7 @@ import photo_kit as kit
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select, text, update
+from sync_kit import food as make_food
 from sync_kit import ok, person
 from test_recipe_import import (  # noqa: F401
     LINK,
@@ -749,8 +750,9 @@ def test_a_save_that_fails_leaves_the_draft_and_its_photo_as_they_were(
     bad = {**to_save(shown), "draft_id": draft["id"], "name": ""}
     assert save(photos_on, bad).status_code == 422
     first = next(i for i, line in enumerate(shown["lines"]) if line["kind"] == "ingredient")
-    clash = to_save(shown, {first: {"kind": "new", "name": "Toor dal", "counted_as": "weight"}})
-    assert save(photos_on, {**clash, "draft_id": draft["id"]}).status_code == 409
+    # (A new ingredient with a name that exists is matched now, F213; a missing one still fails.)
+    clash = to_save(shown, {first: {"kind": "ingredient", "food_id": 999999}})
+    assert save(photos_on, {**clash, "draft_id": draft["id"]}).status_code == 404
     assert len(listed(photos_on)) == 1
     with db(photos_on) as session:
         row = session.get(RecipePhoto, shown["photo"]["photo"]["id"])
@@ -1101,6 +1103,66 @@ def test_an_ingredient_that_was_removed_since_is_no_longer_offered(
         assert stored is not None
         assert stored.review["lines"][0]["food"]["id"] == dal["id"]
         assert "2" in stored.choices["lines"]
+
+
+# --- Drafts from one batch learn from each other (F213, F215; cabledrawer 10 Nov) ---------------
+
+
+def test_an_ingredient_made_since_is_used_by_a_waiting_draft_when_it_is_opened(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    shown = review(kitchen, PASTED)
+    assert shown["lines"][3]["label"] == "needs_you"  # asafoetida: not an ingredient yet
+    draft = kept(kitchen, shown)
+    # Another draft from the batch made (and saved) Asafoetida meanwhile.
+    asafoetida = make_food(kitchen, "Asafoetida", counted_as="weight")
+    got = ok(kitchen.get(f"{API}/recipes/drafts/{draft['id']}"))
+    line = got["review"]["lines"][3]
+    assert (line["label"], line["food"]["id"]) == ("matched", asafoetida["id"])
+    assert got["review"]["counts"]["needs_you"] == shown["counts"]["needs_you"] - 1
+    # What is stored is not rewritten by looking.
+    with db(kitchen) as session:
+        stored = session.get(ImportDraft, draft["id"])
+        assert stored is not None
+        assert stored.review["lines"][3]["label"] == "needs_you"
+
+
+def test_a_new_ingredient_choice_whose_name_now_exists_becomes_that_ingredient(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    shown = review(kitchen, PASTED)
+    chosen = {"lines": {"3": {"kind": "new", "name": "Asafoetida", "counted_as": "weight"}}}
+    draft = kept(kitchen, shown, choices=chosen)
+    asafoetida = make_food(kitchen, "Asafoetida", counted_as="weight")
+    got = ok(kitchen.get(f"{API}/recipes/drafts/{draft['id']}"))
+    assert got["choices"]["lines"]["3"]["kind"] == "ingredient"
+    assert got["choices"]["lines"]["3"]["food"]["id"] == asafoetida["id"]
+
+
+def test_a_same_as_answer_given_in_one_draft_is_used_by_the_other_waiting_draft(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    shown = review(kitchen, PASTED)
+    onion = shown["lines"][2]
+    assert onion["label"] == "to_confirm"
+    answered = {"lines": {"2": {"kind": "ingredient", "food": onion["food"], "learn": True}}}
+    kept(kitchen, shown, choices=answered)
+    waiting = kept(kitchen, shown)  # the same line, not answered in this one yet
+    got = ok(kitchen.get(f"{API}/recipes/drafts/{waiting['id']}"))
+    assert got["choices"]["lines"]["2"] == {
+        "kind": "ingredient",
+        "food": onion["food"],
+        "recipe": None,
+        "learn": True,
+        "name": None,
+        "counted_as": "weight",
+        "place_id": None,
+    }
+    # A line with its own choice keeps it.
+    mine = {"lines": {"2": {"kind": "new", "name": "Spring onion", "counted_as": "count"}}}
+    own = kept(kitchen, shown, choices=mine)
+    got = ok(kitchen.get(f"{API}/recipes/drafts/{own['id']}"))
+    assert got["choices"]["lines"]["2"]["kind"] == "new"
 
 
 # --- Other households ---------------------------------------------------------------------

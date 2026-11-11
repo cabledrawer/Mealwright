@@ -906,14 +906,21 @@ def test_two_lines_that_want_the_same_new_ingredient_make_it_once(
     assert counts(kitchen)[1] == 1
 
 
-def test_a_new_ingredient_with_a_name_the_household_has_is_refused_at_its_line(
+def test_a_new_ingredient_with_a_name_the_household_has_uses_that_one_not_a_refusal(
     kitchen: TestClient, pantry: dict[str, dict[str, Any]], web: Web
 ) -> None:
+    # F213 (cabledrawer 10 Nov): another draft made the ingredient first, so this one is matched to
+    # it at Save and never refused with "There's already an ingredient called ...".
     shown = review(kitchen, "Dal\nIngredients\n1 cup basmati rice\n1 onion\nMethod\n1. Cook.\n")
-    response = save(kitchen, to_save(shown, {1: {"kind": "new", "name": "onions"}}))
-    assert response.status_code == 409
-    assert response.json()["code"] == "name_taken" and response.json()["line"] == 1
-    assert counts(kitchen)[0] == 0  # nothing at all was saved
+    before = counts(kitchen)[1]
+    saved = ok(save(kitchen, to_save(shown, {1: {"kind": "new", "name": "onions"}})), 201)
+    assert saved["new_ingredients"] == []
+    assert counts(kitchen)[1] == before  # no second Onions
+    recipe = kitchen.get(f"/api/v1/recipes/{saved['recipe']['id']}").json()
+    assert [line["food"]["id"] for line in recipe["lines"] if line.get("food")][-1] == pantry[
+        "Onions"
+    ]["id"]
+    assert counts(kitchen)[0] == 1
 
 
 def test_a_name_another_ingredient_already_has_is_not_stolen_when_learning(

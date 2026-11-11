@@ -58,6 +58,7 @@ from mealwright.models import (
     RecipePhoto,
     utcnow,
 )
+from mealwright.names import fold
 from mealwright.photos import delete_after_commit
 
 DRAFT_DAYS = 15
@@ -166,9 +167,119 @@ def detail(kitchen: Kitchen, draft: ImportDraft) -> DraftOut:
     taken out (see `freshen`)."""
     review = ImportReview.model_validate(draft.review)
     choices = DraftChoices.model_validate(draft.choices)
+    review, choices = rematch(kitchen, review, choices, draft.id)
     review, choices = freshen(kitchen, review, choices)
     return DraftOut(
         **brief(draft).model_dump(), text=draft.source_text, review=review, choices=choices
+    )
+
+
+# --- Drafts from one batch learn from each other (F213, F215) -------------------------------
+
+
+def _answers_of_others(
+    kitchen: Kitchen, draft_id: int, now: datetime | None = None
+) -> dict[str, Ref]:
+    """What the household's other waiting drafts were told "Same as": the line's words → the
+    ingredient. The first answer found for a name wins (the newest draft first)."""
+    rows = kitchen.db.scalars(
+        select(ImportDraft)
+        .where(
+            ImportDraft.id != draft_id,
+            *_live(kitchen.household_id, now or utcnow()),
+        )
+        .order_by(ImportDraft.updated_at.desc(), ImportDraft.id.desc())
+    )
+    answers: dict[str, Ref] = {}
+    for other in rows:
+        try:
+            review = ImportReview.model_validate(other.review)
+            choices = DraftChoices.model_validate(other.choices)
+        except ValueError:
+            continue
+        for index, choice in choices.lines.items():
+            if choice.kind != "ingredient" or not choice.learn or choice.food is None:
+                continue
+            if not 0 <= index < len(review.lines):
+                continue
+            line = review.lines[index]
+            name = line.learn_name or line.words
+            if line.kind == "ingredient" and name:
+                answers.setdefault(fold(name), choice.food)
+    return answers
+
+
+def rematch(
+    kitchen: Kitchen, review: ImportReview, choices: DraftChoices, draft_id: int
+) -> tuple[ImportReview, DraftChoices]:
+    """Bring a draft's matches up to date with the ingredients as they are now, without changing
+    anything stored (F213, F215; cabledrawer 10 Nov).
+
+    A draft is read once, when it is made, so an ingredient another draft from the same batch
+    made (and saved) since is not known to its lines, and its "Same as" answers were asked again.
+    On opening: a line still waiting ("needs you" or "to confirm") with no choice is read against
+    the ingredients as they are today; a line the person set to a *new* ingredient whose name now
+    exists is set to that ingredient instead; and a line that another waiting draft was told
+    "Same as X" takes the same answer."""
+    from mealwright import recipe_import
+    from mealwright.ingredient_match import kitchen_of
+    from mealwright.pints import PINT_ML
+
+    waiting = [
+        index
+        for index, line in enumerate(review.lines)
+        if line.kind == "ingredient" and line.readable and line.label in ("needs_you", "to_confirm")
+    ]
+    new_choices = [
+        index
+        for index, choice in choices.lines.items()
+        if choice.kind in ("new", "staple") and choice.name
+    ]
+    if not waiting and not new_choices:
+        return review, choices
+    ingredients = kitchen_of(kitchen.db, kitchen.household_id)
+    lines = list(review.lines)
+    kept = dict(choices.lines)
+    for index in new_choices:
+        owner = next(
+            (f for f in ingredients.foods if fold(f.name) == fold(kept[index].name or "")), None
+        )
+        if owner is not None:
+            kept[index] = DraftChoice(kind="ingredient", food=Ref(id=owner.id, name=owner.name))
+    places = recipe_import._food_places(kitchen)
+    pint_ml = PINT_ML[review.pints.reading]
+    answers: dict[str, Ref] | None = None
+    for index in waiting:
+        if index in kept:
+            continue
+        line = lines[index]
+        found = recipe_import._lines(ingredients, places, line.written, False, pint_ml)
+        if len(found) == 1:
+            fresh = found[0][0]
+            moved = fresh.label in ("matched", "staple") or (
+                fresh.label == "to_confirm" and line.label == "needs_you"
+            )
+            if moved and fresh.food is not None:
+                lines[index] = line = fresh.model_copy(
+                    update={"optional": line.optional, "own": line.own}
+                )
+        if line.label in ("matched", "staple"):
+            continue
+        name = line.learn_name or line.words
+        if answers is None:
+            answers = _answers_of_others(kitchen, draft_id)
+        answered = answers.get(fold(name)) if name else None
+        if answered is not None:
+            kept[index] = DraftChoice(kind="ingredient", food=answered, learn=True)
+    if lines == list(review.lines) and kept == choices.lines:
+        return review, choices
+    counts = {"matched": 0, "to_confirm": 0, "needs_you": 0, "staple": 0}
+    for line in lines:
+        if line.label is not None:
+            counts[line.label] += 1
+    return (
+        review.model_copy(update={"lines": lines, "counts": ReviewCounts(**counts)}),
+        choices.model_copy(update={"lines": kept}),
     )
 
 

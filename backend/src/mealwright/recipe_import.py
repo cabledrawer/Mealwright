@@ -61,7 +61,7 @@ from mealwright.api.v1.schemas import Ref
 from mealwright.conversions import guess_aisle, table
 from mealwright.errors import Problem, not_found
 from mealwright.foods import find as find_food
-from mealwright.foods import name_owner, name_taken, refresh_table_key, suggested_shop
+from mealwright.foods import name_owner, refresh_table_key, suggested_shop
 from mealwright.history import FoodEdit
 from mealwright.ingredient_match import KnownIngredients, Match, kitchen_of, match_line
 from mealwright.ingredient_reader import (
@@ -898,16 +898,20 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
             if homemade is not None and homemade.place_id is None:
                 homemade.place_id = keep_in
         made: dict[str, Food] = {}  # folded name → the ingredient made for it
+        # A new ingredient another draft (or person) made since this one was read: the line
+        # uses that one, and Save is never refused for it (F213, cabledrawer 10 Nov).
+        reused: dict[str, Food] = {}
         for where, index, line in every:
             link = line.link
             if line.kind == "heading" or link is None or link.kind not in ("new", "staple"):
                 continue
             key = fold(link.name or "")
-            if key in made:
+            if key in made or key in reused:
                 continue
             owner = name_owner(kitchen, link.name or "")
             if owner is not None:
-                raise _at(index, name_taken(link.name or "", owner), where)
+                reused[key] = owner
+                continue
             try:
                 place_id = _place(kitchen, link.place_id)
             except Problem as problem:
@@ -947,7 +951,9 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
                         food_id = (
                             link.food_id
                             if link.kind == "ingredient"
-                            else made[fold(link.name or "")].id
+                            else (
+                                made.get(fold(link.name or "")) or reused[fold(link.name or "")]
+                            ).id
                         )
                 rows.append(
                     {
