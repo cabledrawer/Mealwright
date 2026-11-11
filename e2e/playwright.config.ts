@@ -211,6 +211,10 @@ export default defineConfig({
     // Settings: the section list, Meal slots, Shops & places and Recent changes (0.8, S1).
     { name: 'phone 0.8 settings', testMatch: 'settings.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.8 settings', testMatch: 'settings.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    // Settings → Household: people, logins, Undo of a removal and "Who's this?" (0.9 A1).
+    { name: 'phone 0.9 household', testMatch: 'household.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.9 household', testMatch: 'household.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.9 household', testMatch: 'household.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
 
     { name: 'phone 0.3 live', testMatch: /(^|\/)(live|installable)\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(^|\/)(live|installable)\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },

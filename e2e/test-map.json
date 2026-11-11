@@ -204,6 +204,16 @@
       "browser": ["settings.spec.ts", "privacy.spec.ts"]
     },
     {
+      "name": "People and roles",
+      "paths": [
+        "backend/src/mealwright/people.py", "backend/src/mealwright/roles.py", "backend/src/mealwright/api/v1/people.py",
+        "frontend/src/routes/(app)/settings/household/**", "frontend/src/routes/(auth)/join/**", "frontend/src/lib/components/people/**",
+        "frontend/src/lib/client/people.ts", "frontend/src/lib/people.svelte.ts", "frontend/src/lib/whosThis.svelte.ts", "frontend/src/lib/testing/fakePeople.ts"
+      ],
+      "backend": ["test_people.py", "test_roles.py"],
+      "browser": ["household.spec.ts"]
+    },
+    {
       "name": "Sign-in, households and security",
       "paths": [
         "backend/src/mealwright/auth.py", "backend/src/mealwright/security.py", "backend/src/mealwright/household.py",
