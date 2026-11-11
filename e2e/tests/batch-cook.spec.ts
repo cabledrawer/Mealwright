@@ -186,7 +186,9 @@ test('Cancel on the second sheet plans nothing', async ({ page }) => {
   await chooseDay(page, day);
   await page.getByRole('button', { name: 'Plan this batch' }).click();
   await page.getByRole('dialog', { name: /1 of 2/ }).getByRole('button', { name: 'Next recipe' }).click();
-  await page.getByRole('dialog', { name: /2 of 2/ }).getByRole('button', { name: 'Cancel' }).click();
+  const second = page.getByRole('dialog', { name: /2 of 2/ });
+  await expect(second.getByTestId('cook-summary')).toBeVisible();
+  await second.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   const plan = await planRange(page, day);
   expect(plan.batch_sessions).toHaveLength(0);

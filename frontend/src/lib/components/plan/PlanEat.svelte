@@ -8,6 +8,7 @@
   import { dayFull, dayWords } from '#lib/planDates.js';
   import { pressable } from '#lib/planDrag.svelte.js';
   import { eatDays } from '#lib/planEat.js';
+  import { sessionTagOfMeal } from '#lib/planMeals.js';
 
   let {
     actions,
@@ -55,6 +56,9 @@
             aria-label="{slot.name}: {rows.map((r) => r.name).join(', ')}. Open menu"
           >
             <span class="slot">{slot.name}</span>
+            {#if sessionTagOfMeal(model.plan, meal)}
+              <span class="session">{sessionTagOfMeal(model.plan, meal)}</span>
+            {/if}
             <span class="dishes">
               {#each rows as row (row.key)}
                 <span class="dish">
@@ -104,6 +108,17 @@
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
     gap: var(--space-6);
     align-items: start;
+  }
+
+  .session {
+    align-self: flex-start;
+    padding: 2px 9px;
+    border-radius: var(--radius-full);
+    background: var(--color-fill);
+    color: var(--color-text-soft);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-extrabold);
+    white-space: nowrap;
   }
 
   .day {
