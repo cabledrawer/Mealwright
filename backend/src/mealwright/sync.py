@@ -25,11 +25,11 @@ from pydantic import (
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from mealwright import shopping
+from mealwright import roles, shopping
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import ShortAmount
 from mealwright.errors import Problem
-from mealwright.history import ADMIN_ONLY_KINDS, as_utc
+from mealwright.history import as_utc
 from mealwright.household import undo_window
 from mealwright.models import Change, ListItem, ShoppingList, SyncAction, utcnow
 from mealwright.names import clean_name, size_name
@@ -510,7 +510,7 @@ def undo(act: Act) -> None:
     if change is None:
         act.ignore("nothing_to_undo")
         return
-    if change.kind in ADMIN_ONLY_KINDS and kitchen.login.role != "admin":
+    if not roles.can_undo_kind(kitchen.login.role, change.kind):
         act.ignore("cannot_undo")
         return
     refused = undo_refusal(kitchen, change)  # the same checks as Undo in Recent changes

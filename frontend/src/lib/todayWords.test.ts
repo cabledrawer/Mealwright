@@ -34,7 +34,7 @@ const meal = (
   slot_id: slot,
   status,
   kcal: null,
-  eater_login_ids: [] as number[],
+  eater_member_ids: [] as number[],
   items: [
     {
       id: id * 10,
@@ -123,7 +123,7 @@ describe('the words on Today', () => {
         number: 2,
         place_id: null,
         place_kind: 'fridge',
-        member_login_id: null,
+        member_id: null,
         use_by: '2026-10-27'
       }
     ];
@@ -231,7 +231,7 @@ describe('This week on Today (F150)', () => {
         number: 1,
         place_id: null,
         place_kind: 'fridge',
-        member_login_id: null,
+        member_id: null,
         use_by: '2026-10-28'
       }
     ];

@@ -56,7 +56,7 @@ async function setup(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
   const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
   const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
-  const me = (await (await page.request.get('/api/v1/me')).json()) as { id: number; name: string };
+  const me = (await (await page.request.get('/api/v1/me')).json()) as { id: number; name: string; member_id: number };
   return { today: household.today, slot, me };
 }
 
@@ -242,15 +242,20 @@ test('Serves - N + in the meal’s menu works on a meal planned before the updat
   expect(meal.item_id).toBeTruthy();
 });
 
-test('who’s eating: shown when the household has more than one login, by sign-in, nobody ticked is everyone', async ({ page }) => {
+test('who’s eating: shown when the household has more than one person, nobody ticked is everyone', async ({ page }) => {
   const { today, slot, me } = await setup(page);
   const name = `Rasam ${stamp()}`;
   const day = far(today, 5);
   const meal = await planned(page, await makeRecipe(page, name), day, slot.Dinner);
-  // The test household has one login; show a second person (who isn't really there) to see the
-  // chips. Only the real login is ticked, so the server takes it.
+  // The test household may have one person; show a second (who isn't really there) to see the
+  // chips. Only the real person is ticked, so the server takes it.
   await page.route('**/api/v1/plan/people', (route) =>
-    route.fulfill({ json: [{ login_id: me.id, name: me.name }, { login_id: 987654, name: 'Wren' }] }),
+    route.fulfill({
+      json: [
+        { member_id: me.member_id, name: me.name, colour: null, portion_quarters: 4 },
+        { member_id: 987654, name: 'Wren', colour: null, portion_quarters: 4 },
+      ],
+    }),
   );
   await openWeekOf(page, today, day);
   await mealButton(page, day, 'Dinner', slot.Dinner, name).click();
@@ -259,9 +264,9 @@ test('who’s eating: shown when the household has more than one login, by sign-
   await expect(who.getByRole('button', { name: 'Everyone' })).toHaveAttribute('aria-pressed', 'true');
   await who.getByRole('button', { name: me.name }).click();
   await expect(who.getByRole('button', { name: 'Everyone' })).toHaveAttribute('aria-pressed', 'false');
-  await expect.poll(async () => (await planRange(page, day, day)).meals[0].eater_login_ids).toEqual([me.id]);
+  await expect.poll(async () => (await planRange(page, day, day)).meals[0].eater_member_ids).toEqual([me.member_id]);
   await who.getByRole('button', { name: 'Everyone' }).click();
-  await expect.poll(async () => (await planRange(page, day, day)).meals[0].eater_login_ids).toEqual([]);
+  await expect.poll(async () => (await planRange(page, day, day)).meals[0].eater_member_ids).toEqual([]);
   expect(meal.meal_id).toBeTruthy();
 });
 

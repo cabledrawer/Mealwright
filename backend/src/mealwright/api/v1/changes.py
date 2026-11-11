@@ -13,6 +13,7 @@ from mealwright import (
     cooking,
     drafts,
     kitchen_changes,
+    people,
     plan,
     recipe_tags,
     recipes,
@@ -66,6 +67,7 @@ from mealwright.models import (
     StockLot,
     utcnow,
 )
+from mealwright.roles import admin_kind_action
 from mealwright.stock import lots_of, place_totals
 
 router = APIRouter(tags=["history"], dependencies=[SameOrigin])
@@ -659,6 +661,8 @@ def undo_change(
         )  # the shop or place first: the rest points at it
     if change.kind in kitchen_changes.KINDS:
         kitchen_changes.undo(kitchen, change)
+    if change.kind in people.KINDS:
+        people.undo(kitchen, change)
     if data.get("shopping"):
         shopping.undo_shopping(kitchen, change, tally, batch, action)
     # Each lot as it was before the Undo, so the Undo gets its own lines.
@@ -854,7 +858,7 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
         if change is None or change.household_id != kitchen.household_id:
             raise not_found("That change")
         if change.kind in ADMIN_ONLY_KINDS:
-            kitchen.admin_only()  # a meal slot's change is undone by an admin, as it is made
+            kitchen.admin_only(admin_kind_action(change.kind))  # undone by an admin, as it is made
         refused = undo_kind_refusal(change)
         if refused == "already_undone":
             raise already_undone()

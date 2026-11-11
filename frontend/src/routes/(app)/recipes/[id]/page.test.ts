@@ -882,7 +882,7 @@ describe('the recipe page', () => {
           status: 'planned',
           items: [item(1, 'Rasam'), item(2, 'Rice')],
           kcal: null,
-          eater_login_ids: []
+          eater_member_ids: []
         }
       ];
       await open({}, STOCK, {

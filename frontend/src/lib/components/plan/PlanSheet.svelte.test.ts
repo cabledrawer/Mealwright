@@ -41,7 +41,7 @@ const meal: PlanMeal = {
   status: 'planned',
   items: [khichdi, soup],
   kcal: null,
-  eater_login_ids: []
+  eater_member_ids: []
 };
 
 function open(target: PlanTarget, plan: Plan | null = null) {
@@ -112,7 +112,7 @@ describe('To freezer on a leftover tub (cabledrawer 8 Nov)', () => {
           number: 1,
           place_id: 1,
           place_kind: 'fridge',
-          member_login_id: null,
+          member_id: null,
           use_by: useBy
         }
       ]

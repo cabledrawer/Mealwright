@@ -7,14 +7,13 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 
-from mealwright import batches, plan
+from mealwright import batches, people, plan
 from mealwright.api.v1.context import Here
 from mealwright.api.v1.plan import PlanWrite, _run
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt
-from mealwright.models import Login, Recipe
+from mealwright.models import Recipe
 
 router = APIRouter(tags=["plan"], dependencies=[SameOrigin])
 
@@ -23,18 +22,19 @@ Pattern = Literal["lunches", "lunch_dinner", "dinners", "pick"]
 
 
 class PersonOut(BaseModel):
-    login_id: int
+    member_id: int
     name: str
+    colour: str | None = None
+    portion_quarters: int = Field(description="How much they eat, in quarter portions (4: one).")
 
 
 @router.get("/plan/people")
 def list_people(kitchen: Here) -> list[PersonOut]:
-    """Who can be eating: the household's logins (member profiles replace this in 0.8)."""
+    """Who can be eating: the household's people (0.9 A1), oldest first. Removed people and a
+    shared login's own person ("Kitchen tablet") aren't listed."""
     return [
-        PersonOut(login_id=login.id, name=login.name)
-        for login in kitchen.db.scalars(
-            select(Login).where(Login.household_id == kitchen.household_id).order_by(Login.id)
-        )
+        PersonOut(member_id=m.id, name=m.name, colour=m.colour, portion_quarters=m.portion_quarters)
+        for m in people.eaters(kitchen)
     ]
 
 
@@ -46,7 +46,7 @@ class SpotIn(BaseModel):
 class BatchIn(BaseModel):
     tub_count: Annotated[int, Field(ge=1, le=batches.MOST_TUBS_IN_BATCH)]
     pattern: Pattern = "pick"
-    member_login_ids: Annotated[list[StoredInt], Field(max_length=20)] = Field(
+    member_ids: Annotated[list[StoredInt], Field(max_length=20)] = Field(
         default_factory=list,
         description="Who is eating. One: all the tubs are theirs. Several: the tubs go round"
         " them in turn. None: nobody in particular.",
@@ -76,7 +76,7 @@ class PreviewTubOut(BaseModel):
     slot_id: int | None
     place_kind: Literal["fridge", "freezer"]
     place_id: int | None
-    member_login_id: int | None
+    member_id: int | None
     use_by: Day
     # The meal it lands in already has something planned (the patterns skip those, a person
     # may still add one).
@@ -124,7 +124,7 @@ def preview_batch(plan_item_id: StoredInt, body: BatchIn, kitchen: Here) -> Batc
         item,
         body.tub_count,
         body.pattern,
-        body.member_login_ids,
+        body.member_ids,
         body.extras_to_freezer,
         spots_of(body),
     )
@@ -148,7 +148,7 @@ def preview_out(worked: batches.Worked) -> BatchPreviewOut:
                 slot_id=t.spot[1] if t.spot else None,
                 place_kind=t.place_kind,  # type: ignore[arg-type]
                 place_id=t.place_id,
-                member_login_id=t.member_login_id,
+                member_id=t.member_id,
                 use_by=t.use_by,
                 meal_has_food=t.meal_has_food,
             )
@@ -176,7 +176,7 @@ def make_batch(
             plan.find_item(kitchen, plan_item_id),
             body.tub_count,
             body.pattern,
-            body.member_login_ids,
+            body.member_ids,
             body.extras_to_freezer,
             body.prep_note,
             spots_of(body),
@@ -229,7 +229,7 @@ def place_tub(
 
 
 class TubEditIn(BaseModel):
-    member_login_id: StoredInt | None = Field(
+    member_id: StoredInt | None = Field(
         default=None, description="Whose tub. null: nobody in particular."
     )
     use_by: date | None = None
@@ -330,7 +330,7 @@ class TubLeftOut(BaseModel):
     amount_quarters: int
     place_id: int | None
     place_kind: Literal["fridge", "freezer", "cupboard"] | None
-    member_login_id: int | None
+    member_id: int | None
     use_by: date
 
 
@@ -356,7 +356,7 @@ def get_tubs_left(kitchen: Here, limit: Annotated[int, Query(ge=1, le=200)] = 10
                 amount_quarters=t.tub.amount_quarters,
                 place_id=t.tub.place_id,
                 place_kind=t.place_kind,  # type: ignore[arg-type]
-                member_login_id=t.tub.member_login_id,
+                member_id=t.tub.member_id,
                 use_by=t.tub.use_by,
             )
             for t in found

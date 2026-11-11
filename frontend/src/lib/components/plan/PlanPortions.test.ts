@@ -47,7 +47,7 @@ const mealOf = (id: number, day: string, slot: number, items: PlanItem[]): PlanM
   status: 'planned',
   items,
   kcal: null,
-  eater_login_ids: []
+  eater_member_ids: []
 });
 
 const written = (summary: string) => ({
@@ -115,8 +115,8 @@ describe('the meal’s menu (0.7 P1)', () => {
     model.anchor = '2026-10-19';
     model.slots = SLOTS;
     model.people = [
-      { login_id: 1, name: 'Tess' },
-      { login_id: 2, name: 'Wren' }
+      { member_id: 1, name: 'Tess', colour: null, portion_quarters: 4 },
+      { member_id: 2, name: 'Wren', colour: null, portion_quarters: 4 }
     ];
   });
 
@@ -227,20 +227,20 @@ describe('the meal’s menu (0.7 P1)', () => {
       await expect.element(everyone).toHaveAttribute('aria-pressed', 'false');
       await expect
         .poll(() => requests.filter((r) => r.method === 'PUT').map((r) => r.body))
-        .toEqual([{ login_ids: [2] }]);
+        .toEqual([{ member_ids: [2] }]);
     });
 
     it('ticking everyone one by one is the same as Everyone', async () => {
-      meal.eater_login_ids = [2];
+      meal.eater_member_ids = [2];
       const dialog = open({ kind: 'meal', meal });
       await dialog.getByRole('button', { name: 'Tess' }).click();
       await expect
         .poll(() => requests.filter((r) => r.method === 'PUT').map((r) => r.body))
-        .toEqual([{ login_ids: [] }]);
+        .toEqual([{ member_ids: [] }]);
     });
 
     it('is not asked when only one person signs in', async () => {
-      model.people = [{ login_id: 1, name: 'Tess' }];
+      model.people = [{ member_id: 1, name: 'Tess', colour: null, portion_quarters: 4 }];
       const dialog = open({ kind: 'meal', meal });
       await expect.element(dialog.getByRole('heading', { name: 'Sambar' })).toBeVisible();
       expect(dialog.getByRole('group', { name: 'Who’s eating?' }).elements()).toHaveLength(0);

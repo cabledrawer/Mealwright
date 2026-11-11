@@ -34,7 +34,6 @@ from mealwright.api.v1.schemas import (
     SizeBrief,
     SizeOut,
     Undone,
-    Who,
 )
 from mealwright.buying import (
     Choice,
@@ -71,6 +70,7 @@ from mealwright.models import (
 )
 from mealwright.names import fold
 from mealwright.pack_sizes import suggest_sizes, usual_shop_id
+from mealwright.people import who_did
 
 # Words people type for units, beyond the units' own names.
 UNIT_WORDS = {
@@ -763,12 +763,12 @@ def change_out(kitchen: Kitchen, change: Change) -> ChangeOut:
     if change.undone_by_change_id is not None:
         undo = kitchen.db.get(Change, change.undone_by_change_id)
         if undo is not None:
-            undone = Undone(at=undo.at, who=Who(login_id=undo.login_id, name=undo.login_name))
+            undone = Undone(at=undo.at, who=who_did(kitchen, undo))
     return ChangeOut(
         id=change.id,
         kind=change.kind,
         at=change.at,
-        who=Who(login_id=change.login_id, name=change.login_name),
+        who=who_did(kitchen, change),
         summary=change.summary,
         can_undo=can_undo(kitchen, change),
         undo_until=undo_until(kitchen, change),

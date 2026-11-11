@@ -452,7 +452,7 @@ def test_deleting_a_meal_clears_the_batch_link_and_the_database_refuses_otherwis
 def test_the_plan_hides_links_that_reach_into_another_household(
     kitchen: TestClient, neighbour: TestClient
 ) -> None:
-    """A planted row in household 2 pointing at household 1's recipe, place and login: the
+    """A planted row in household 2 pointing at household 1's recipe, place and person: the
     plan never shows those ids to household 2."""
     slots = slot_ids(kitchen, 2)
     with db_of(kitchen) as db:
@@ -460,8 +460,8 @@ def test_the_plan_hides_links_that_reach_into_another_household(
         mine_place = (
             db.execute(text("SELECT id FROM place WHERE household_id = 1")).scalars().first()
         )
-        mine_login = (
-            db.execute(text("SELECT id FROM login WHERE household_id = 1")).scalars().first()
+        mine_member = (
+            db.execute(text("SELECT id FROM member WHERE household_id = 1")).scalars().first()
         )
         batch = BatchCook(
             household_id=2, recipe_id=recipe.id, recipe_name="Theirs", cooked_on=DAY, tub_count=1
@@ -473,7 +473,7 @@ def test_the_plan_hides_links_that_reach_into_another_household(
             batch_id=batch.id,
             use_by=DAY,
             place_id=mine_place,
-            member_login_id=mine_login,
+            member_id=mine_member,
         )
         meal = Meal(household_id=2, day=DAY, slot_id=slots["Dinner"])
         db.add_all([tub, meal])
@@ -483,7 +483,7 @@ def test_the_plan_hides_links_that_reach_into_another_household(
     plan = neighbour.get(f"{API}/plan", params={"from": "2026-11-02", "to": "2026-11-02"}).json()
     assert plan["batch_cooks"][0]["recipe_id"] is None
     assert plan["tubs"][0]["place_id"] is None
-    assert plan["tubs"][0]["member_login_id"] is None
+    assert plan["tubs"][0]["member_id"] is None
 
 
 def test_an_ingredient_item_says_when_it_is_removed(kitchen: TestClient) -> None:

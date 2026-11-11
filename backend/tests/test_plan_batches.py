@@ -60,7 +60,7 @@ def wren(kitchen: TestClient) -> int:
         )
         db.add(login)
         db.commit()
-        return login.id
+        return login.member_id
 
 
 def make(client: TestClient, item_id: int, **body: Any) -> dict[str, Any]:
@@ -214,17 +214,22 @@ def test_who_is_eating_decides_whose_each_tub_is(
     kitchen: TestClient, cook: dict[str, Any], wren: int
 ) -> None:
     people = kitchen.get(f"{API}/plan/people").json()
-    assert len(people) == 2 and people[1] == {"login_id": wren, "name": "Wren"}
-    ids = [p["login_id"] for p in people]
-    both = preview(kitchen, cook["item_id"], member_login_ids=ids)
-    assert [t["member_login_id"] for t in both["tubs"]] == [ids[0], wren, ids[0], wren]
-    one = preview(kitchen, cook["item_id"], member_login_ids=[wren])
-    assert {t["member_login_id"] for t in one["tubs"]} == {wren}
+    assert len(people) == 2 and people[1] == {
+        "member_id": wren,
+        "name": "Wren",
+        "colour": None,
+        "portion_quarters": 4,
+    }
+    ids = [p["member_id"] for p in people]
+    both = preview(kitchen, cook["item_id"], member_ids=ids)
+    assert [t["member_id"] for t in both["tubs"]] == [ids[0], wren, ids[0], wren]
+    one = preview(kitchen, cook["item_id"], member_ids=[wren])
+    assert {t["member_id"] for t in one["tubs"]} == {wren}
     nobody = preview(kitchen, cook["item_id"])
-    assert {t["member_login_id"] for t in nobody["tubs"]} == {None}
-    saved = make(kitchen, cook["item_id"], member_login_ids=ids)
+    assert {t["member_id"] for t in nobody["tubs"]} == {None}
+    saved = make(kitchen, cook["item_id"], member_ids=ids)
     assert saved["batch_id"]
-    assert [t["member_login_id"] for t in view(kitchen)["tubs"]] == [ids[0], wren, ids[0], wren]
+    assert [t["member_id"] for t in view(kitchen)["tubs"]] == [ids[0], wren, ids[0], wren]
 
 
 def test_the_preview_changes_nothing_and_matches_what_is_saved(
@@ -443,13 +448,13 @@ def test_whose_tub_and_its_use_by_can_be_changed_with_undo(
     make(kitchen, cook["item_id"], tub_count=1, pattern="pick")
     tub = view(kitchen)["tubs"][0]
     url = f"{API}/plan/tubs/{tub['id']}"
-    whose = kitchen.patch(url, json={"member_login_id": wren})
+    whose = kitchen.patch(url, json={"member_id": wren})
     assert whose.status_code == 200 and "Wren" in whose.json()["change"]["summary"]
-    assert view(kitchen)["tubs"][0]["member_login_id"] == wren
-    again = kitchen.patch(url, json={"member_login_id": wren})
+    assert view(kitchen)["tubs"][0]["member_id"] == wren
+    again = kitchen.patch(url, json={"member_id": wren})
     assert again.json()["change"] is None
-    nobody = kitchen.patch(url, json={"member_login_id": None})
-    assert view(kitchen)["tubs"][0]["member_login_id"] is None
+    nobody = kitchen.patch(url, json={"member_id": None})
+    assert view(kitchen)["tubs"][0]["member_id"] is None
     assert nobody.json()["change"]["summary"].endswith("nobody’s in particular")
     new_day = (D1 + timedelta(days=9)).isoformat()
     late = kitchen.patch(url, json={"use_by": new_day})
@@ -457,7 +462,7 @@ def test_whose_tub_and_its_use_by_can_be_changed_with_undo(
     assert undo(kitchen, late.json())["result"] == "done"
     assert view(kitchen)["tubs"][0]["use_by"] == tub["use_by"]
     assert undo(kitchen, nobody.json())["result"] == "done"  # F165: the later change first
-    assert view(kitchen)["tubs"][0]["member_login_id"] == wren
+    assert view(kitchen)["tubs"][0]["member_id"] == wren
     assert undo(kitchen, whose.json())["result"] == "done"
     assert kitchen.patch(url, json={}).status_code == 422
 
@@ -931,15 +936,14 @@ def test_another_households_ids_get_404_on_every_new_route(
             )
         )
         db.commit()
-        their_login = db.scalar(select(Login.id).where(Login.username == "their-cook"))
+        their_login = db.scalar(select(Login.member_id).where(Login.username == "their-cook"))
     r = kitchen.post(
         f"{API}/plan/items/{other_item['item_id']}/batch",
-        json={"tub_count": 1, "member_login_ids": [their_login]},
+        json={"tub_count": 1, "member_ids": [their_login]},
     )
     assert r.status_code == 404
     assert (
-        kitchen.patch(f"{API}/plan/tubs/{tub}", json={"member_login_id": their_login}).status_code
-        == 404
+        kitchen.patch(f"{API}/plan/tubs/{tub}", json={"member_id": their_login}).status_code == 404
     )
     # The neighbour sees none of my tubs, people or changes, and cannot undo mine.
     assert neighbour.get(f"{API}/plan/tubs-left").json()["tubs"] == []

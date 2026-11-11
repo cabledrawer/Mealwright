@@ -284,7 +284,7 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("PUT", "/api/v1/plan/items/{plan_item_id}/method"): {"method_id": 1},
     ("PUT", "/api/v1/plan/items/{plan_item_id}/start"): {"start": None},
     ("PUT", "/api/v1/plan/items/{plan_item_id}/started"): {"started": True},
-    ("PUT", "/api/v1/plan/meals/{plan_meal_id}/eaters"): {"login_ids": []},
+    ("PUT", "/api/v1/plan/meals/{plan_meal_id}/eaters"): {"member_ids": []},
     ("DELETE", "/api/v1/plan/batches/{plan_batch_id}"): None,
     ("GET", "/api/v1/batch-cook/sessions/{session_id}"): None,
     ("DELETE", "/api/v1/batch-cook/sessions/{session_id}"): None,

@@ -28,6 +28,7 @@ from mealwright.household import today
 from mealwright.models import Household, OwnNetworkEntry
 from mealwright.outbound import LABELS, Connection, set_switch
 from mealwright.outbound import switches as stored_switches
+from mealwright.roles import Action, allowed
 from mealwright.shopping import lock_household
 
 log = logging.getLogger(__name__)
@@ -59,7 +60,7 @@ def _switches(kitchen: Here) -> SwitchesOut:
     stored = stored_switches(kitchen.db, kitchen.household_id)
     return SwitchesOut(
         switches=[SwitchOut(connection=c.value, on=stored[c]) for c in SHOWN],  # type: ignore[arg-type]
-        can_change=kitchen.login.role == "admin",
+        can_change=allowed(kitchen.login.role, Action.PRIVACY),
     )
 
 
@@ -73,7 +74,7 @@ def get_switches(kitchen: Here) -> SwitchesOut:
 def put_switch(connection: Shown, body: SwitchIn, kitchen: Here) -> SwitchesOut:
     """Admins only. Turn one switch on or off; the next connection follows it at once.
     Asking for the state it already has changes nothing. Answers with all the switches."""
-    kitchen.admin_only()
+    kitchen.admin_only(Action.PRIVACY)
     kind = Connection(connection)
     was = stored_switches(kitchen.db, kitchen.household_id)[kind]
     set_switch(kitchen.db, kitchen.household_id, kind, body.on)
@@ -133,7 +134,7 @@ def _list(kitchen: Here) -> OwnNetworkOut:
             for e in own_network.entries(kitchen.db, kitchen.household_id)
         ],
         limit=own_network.MAX_ENTRIES,
-        can_change=kitchen.login.role == "admin",
+        can_change=allowed(kitchen.login.role, Action.PRIVACY),
     )
 
 
@@ -163,7 +164,7 @@ def add_entry(body: EntryIn, kitchen: Here) -> EntryOut:
     """Admins only. Add a host name, one address or a range (CIDR) to the list. A refusal
     comes with its own sentence and a `code`: `bad_entry`, `always_blocked`, `too_wide`
     (422), `already_listed` or `list_full` (409)."""
-    kitchen.admin_only()
+    kitchen.admin_only(Action.PRIVACY)
     lock_household(kitchen)  # so two admins adding at once can't go past the limit
     try:
         row = own_network.add(kitchen.db, kitchen.household_id, body.value, kitchen.login)
@@ -182,7 +183,7 @@ def add_entry(body: EntryIn, kitchen: Here) -> EntryOut:
 def remove_entry(entry_id: StoredInt, kitchen: Here) -> Response:
     """Admins only. Take one entry off the list. An entry of another household is "not
     here" too."""
-    kitchen.admin_only()
+    kitchen.admin_only(Action.PRIVACY)
     if not own_network.remove(kitchen.db, kitchen.household_id, entry_id):
         raise not_found("That entry")
     kitchen.db.commit()

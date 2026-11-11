@@ -330,7 +330,7 @@ def test_another_households_ids_are_not_found_on_any_route(
     assert preview.status_code == 404
     leak = body(kitchen, three[:2])
     leak["date"] = (D1 + timedelta(days=10)).isoformat()
-    leak["recipes"][0]["member_login_ids"] = [2]
+    leak["recipes"][0]["member_ids"] = [2]
     assert kitchen.post(f"{API}/batch-cook/sessions", json=leak).status_code == 404
     assert len(view(kitchen)["batch_sessions"]) == 1
     assert view(neighbour)["batch_sessions"] == []

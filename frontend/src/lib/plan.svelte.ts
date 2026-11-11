@@ -507,11 +507,11 @@ export class PlanModel {
   }
 
   /** Who is eating a meal, by sign-in (an empty list: everyone). */
-  setEaters(meal: PlanMeal, loginIds: number[]) {
+  setEaters(meal: PlanMeal, memberIds: number[]) {
     return this.#send({
       label: `Changed who is eating ${mealName(meal, this.plan)}`,
-      edit: (plan) => withEaters(plan, meal.id, loginIds),
-      send: (key) => setPlanEaters(meal.id, loginIds, key)
+      edit: (plan) => withEaters(plan, meal.id, memberIds),
+      send: (key) => setPlanEaters(meal.id, memberIds, key)
     });
   }
 
@@ -745,11 +745,11 @@ export class PlanModel {
   }
 
   /** "Whose tub?": a person's login id, or null for nobody in particular. */
-  setWhose(tubId: number, name: string, loginId: number | null) {
-    const who = this.people.find((p) => p.login_id === loginId)?.name;
+  setWhose(tubId: number, name: string, memberId: number | null) {
+    const who = this.people.find((p) => p.member_id === memberId)?.name;
     return this.#send({
       label: who ? `${name} is ${who}’s` : `${name} is nobody’s in particular`,
-      send: (key) => editTub(tubId, { member_login_id: loginId }, key)
+      send: (key) => editTub(tubId, { member_id: memberId }, key)
     });
   }
 

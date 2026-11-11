@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session as DbSession
 
 from mealwright.auth import CurrentLogin, Db
 from mealwright.errors import Problem
-from mealwright.models import Household, Login
+from mealwright.models import Household, Login, Member
+from mealwright.roles import Action, allowed
 
 _KEY = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 
@@ -25,13 +26,17 @@ class Kitchen:
     # Set while a shopping action is applied: only its first change carries the key (the
     # action ID), any further changes it makes carry none (sync protocol 4.4).
     key_once: bool = False
+    # Who is doing it (0.9 A1): the login's own person, or on a shared login the one picked in
+    # "Who's this?" (None: nobody picked). Recent changes names them.
+    member_id: int | None = None
 
     @property
     def household_id(self) -> int:
         return self.household.id
 
-    def admin_only(self) -> None:
-        if self.login.role != "admin":
+    def admin_only(self, action: Action) -> None:
+        """Refuse (403) unless this login's role may do `action` (`mealwright.roles`)."""
+        if not allowed(self.login.role, action):
             raise Problem(
                 status.HTTP_403_FORBIDDEN,
                 "admins_only",
@@ -66,7 +71,22 @@ def kitchen(
         household=household,
         idempotency_key=idempotency_key,
         request=f"{request.method} {request.url.path}",
+        member_id=acting_member(db, signed_in.login, signed_in.session.member_id),
     )
+
+
+def acting_member(db: DbSession, login: Login, picked: int | None) -> int | None:
+    """Who a change is recorded for: on a shared login, the person picked on this device (if
+    they're still in the household); otherwise the login's own person."""
+    wanted = picked if login.shared else login.member_id
+    if wanted is None:
+        return None
+    member = db.get(Member, wanted)
+    if member is None or member.household_id != login.household_id:
+        return None
+    if login.shared and member.removed_at is not None:
+        return None
+    return member.id
 
 
 Here = Annotated[Kitchen, Depends(kitchen)]

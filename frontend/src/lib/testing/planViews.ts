@@ -19,8 +19,8 @@ export const SLOTS: MealSlot[] = [
 ];
 
 export const PEOPLE: Person[] = [
-  { login_id: 10, name: 'Tess' },
-  { login_id: 11, name: 'Wren' }
+  { member_id: 10, name: 'Tess', colour: null, portion_quarters: 4 },
+  { member_id: 11, name: 'Wren', colour: null, portion_quarters: 4 }
 ];
 
 export const recipeItem = (
@@ -92,7 +92,7 @@ export const mealOf = (
   status: 'planned',
   items,
   kcal: null,
-  eater_login_ids: [],
+  eater_member_ids: [],
   ...extra
 });
 
@@ -117,7 +117,7 @@ const tub = (id: number, number: number, who: number | null): PlanTub => ({
   number,
   place_id: null,
   place_kind: 'fridge',
-  member_login_id: who,
+  member_id: who,
   use_by: '2026-10-21'
 });
 
@@ -129,10 +129,10 @@ export function samplePlan(): Plan {
       mealOf(1, '2026-10-17', 1, [recipeItem(1, 5, 'Pongal')], { kcal: 400 }),
       mealOf(3, '2026-10-18', 3, [recipeItem(3, 7, 'Veg biryani', { eating: 2 })], {
         kcal: 700,
-        eater_login_ids: [10, 11]
+        eater_member_ids: [10, 11]
       }),
       mealOf(4, '2026-10-19', 2, [tubItem(4, 21)]),
-      mealOf(5, '2026-10-19', 3, [tubItem(5, 22)], { eater_login_ids: [11] }),
+      mealOf(5, '2026-10-19', 3, [tubItem(5, 22)], { eater_member_ids: [11] }),
       mealOf(6, '2026-10-20', 2, [tubItem(6, 23), tubItem(7, 24)])
     ],
     batch_cooks: [BATCH],

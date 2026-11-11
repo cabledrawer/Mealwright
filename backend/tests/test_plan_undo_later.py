@@ -88,12 +88,12 @@ def test_who_is_eating_changed_twice_undo_of_the_first_leaves_the_second(
 ) -> None:
     plan = plan_recipe(kitchen, sambar, D1, slots["Dinner"])
     url = f"{API}/plan/meals/{plan['meal_id']}/eaters"
-    first = ok(kitchen.put(url, json={"login_ids": [wren]}))
-    second = ok(kitchen.put(url, json={"login_ids": [1, wren]}))
+    first = ok(kitchen.put(url, json={"member_ids": [wren]}))
+    second = ok(kitchen.put(url, json={"member_ids": [1, wren]}))
     assert undo(kitchen, first)["result"] == "nothing"
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == [1, wren]
+    assert view(kitchen)["meals"][0]["eater_member_ids"] == [1, wren]
     assert undo(kitchen, second)["result"] == "done"
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == [wren]
+    assert view(kitchen)["meals"][0]["eater_member_ids"] == [wren]
 
 
 def test_a_meal_slot_hidden_then_shown_undo_of_the_hide_leaves_it_shown(
@@ -115,11 +115,11 @@ def test_a_tub_given_to_someone_else_since_is_not_taken_back(
     make(kitchen, cook["item_id"], tub_count=1, pattern="pick")
     tub = view(kitchen)["tubs"][0]
     url = f"{API}/plan/tubs/{tub['id']}"
-    first = ok(kitchen.patch(url, json={"member_login_id": wren}))
-    ok(kitchen.patch(url, json={"member_login_id": 1}))
+    first = ok(kitchen.patch(url, json={"member_id": wren}))
+    ok(kitchen.patch(url, json={"member_id": 1}))
     result = undo(kitchen, first)
     assert result["result"] == "nothing"
-    assert view(kitchen)["tubs"][0]["member_login_id"] == 1
+    assert view(kitchen)["tubs"][0]["member_id"] == 1
 
 
 def test_a_tub_given_another_use_by_since_the_cooking_moved_keeps_it(
@@ -151,10 +151,10 @@ def test_undo_of_to_the_freezer_keeps_a_use_by_set_since(
     frozen = ok(kitchen.post(f"{API}/plan/tubs/{tub['id']}/freezer"))
     later = (D1 + timedelta(days=40)).isoformat()
     url = f"{API}/plan/tubs/{tub['id']}"
-    ok(kitchen.patch(url, json={"use_by": later, "member_login_id": wren}))
+    ok(kitchen.patch(url, json={"use_by": later, "member_id": wren}))
     assert undo(kitchen, frozen)["result"] == "partly"
     now = view(kitchen)["tubs"][0]
-    assert (now["use_by"], now["member_login_id"]) == (later, wren)
+    assert (now["use_by"], now["member_id"]) == (later, wren)
     assert now["place_id"] == tub["place_id"]
 
 
@@ -167,12 +167,12 @@ def test_a_tub_edit_of_two_fields_puts_back_the_one_not_changed_since(
     tub = view(kitchen)["tubs"][0]
     url = f"{API}/plan/tubs/{tub['id']}"
     later = (D1 + timedelta(days=9)).isoformat()
-    first = ok(kitchen.patch(url, json={"use_by": later, "member_login_id": wren}))
-    ok(kitchen.patch(url, json={"member_login_id": 1}))
+    first = ok(kitchen.patch(url, json={"use_by": later, "member_id": wren}))
+    ok(kitchen.patch(url, json={"member_id": 1}))
     result = undo(kitchen, first)
     assert result["result"] == "partly"
     now = view(kitchen)["tubs"][0]
-    assert (now["use_by"], now["member_login_id"]) == (tub["use_by"], 1)
+    assert (now["use_by"], now["member_id"]) == (tub["use_by"], 1)
 
 
 def test_renaming_and_hiding_a_meal_slot_in_one_call_with_a_key_applies_both_and_replays(

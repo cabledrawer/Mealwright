@@ -23,7 +23,7 @@ const meal = (items: PlanItem[]): PlanMeal => ({
   status: 'planned',
   items,
   kcal: null,
-  eater_login_ids: []
+  eater_member_ids: []
 });
 
 const batch = (recipeId: number): PlanBatch =>

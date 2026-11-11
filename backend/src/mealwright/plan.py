@@ -17,11 +17,11 @@ from mealwright.models import (
     Change,
     CookedRecord,
     Food,
-    Login,
     Meal,
     MealEater,
     MealItem,
     MealSlot,
+    Member,
     Recipe,
     RecipeLine,
     RecipeMethod,
@@ -29,6 +29,7 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.names import fold
+from mealwright.people import own_members
 
 
 def delete_meal(db: DbSession, meal: Meal) -> None:
@@ -1172,45 +1173,42 @@ def set_servings(kitchen: Kitchen, item: MealItem, servings: int) -> Change | No
 
 
 def eaters_of(kitchen: Kitchen, meal: Meal) -> list[int]:
-    """The logins ticked as eating a meal, oldest first (none: everyone)."""
+    """The people ticked as eating a meal, oldest first (none: everyone)."""
     return list(
         kitchen.db.scalars(
-            select(MealEater.login_id)
-            .join(Login, Login.id == MealEater.login_id)
+            select(MealEater.member_id)
+            .join(Member, Member.id == MealEater.member_id)
             .where(
                 MealEater.household_id == kitchen.household_id,
                 MealEater.meal_id == meal.id,
-                Login.household_id == kitchen.household_id,
+                Member.household_id == kitchen.household_id,
             )
-            .order_by(MealEater.login_id)
+            .order_by(MealEater.member_id)
         )
     )
 
 
-def _write_eaters(kitchen: Kitchen, meal_id: int, login_ids: list[int]) -> None:
+def _write_eaters(kitchen: Kitchen, meal_id: int, member_ids: list[int]) -> None:
     events.note_plan(kitchen.db, kitchen.household_id)  # a bulk delete: clearing the list too
     kitchen.db.execute(
         delete(MealEater).where(
             MealEater.household_id == kitchen.household_id, MealEater.meal_id == meal_id
         )
     )
-    for login_id in sorted(set(login_ids)):
+    for member_id in sorted(set(member_ids)):
         kitchen.db.add(
-            MealEater(household_id=kitchen.household_id, meal_id=meal_id, login_id=login_id)
+            MealEater(household_id=kitchen.household_id, meal_id=meal_id, member_id=member_id)
         )
     kitchen.db.flush()
 
 
-def set_eaters(kitchen: Kitchen, meal: Meal, login_ids: list[int]) -> Change | None:
-    """Who is eating this meal (0.7 P1; F57). Proposed, for cabledrawer: by sign-in, until member
-    profiles (0.8). None ticked means everyone. Already that way → None."""
+def set_eaters(kitchen: Kitchen, meal: Meal, member_ids: list[int]) -> Change | None:
+    """Who is eating this meal (0.7 P1; F57): the household's people (0.9 A1). None ticked
+    means everyone. Already that way → None. A removed person can't be ticked."""
     _planned(meal)
-    wanted = sorted(set(login_ids))
-    for login_id in wanted:
-        login = kitchen.db.get(Login, login_id)
-        if login is None or login.household_id != kitchen.household_id:
-            raise not_found("That person")
+    wanted = sorted(set(member_ids))
     before = eaters_of(kitchen, meal)
+    own_members(kitchen, [i for i in wanted if i not in before])
     if before == wanted:
         return None
     _write_eaters(kitchen, meal.id, wanted)
@@ -1219,7 +1217,7 @@ def set_eaters(kitchen: Kitchen, meal: Meal, login_ids: list[int]) -> Change | N
         kitchen,
         "plan_eaters",
         f"Changed who is eating {_meal_name(kitchen, meal)} ({when})",
-        [{"op": "eaters", "meal": meal.id, "login_ids": before, "to": wanted}],
+        [{"op": "eaters", "meal": meal.id, "member_ids": before, "to": wanted}],
         meal_id=meal.id,
     )
 
@@ -1391,7 +1389,7 @@ def _undo_step(
             _write_eaters(
                 kitchen,
                 meal.id,
-                [i for i in step.get("eaters", []) if _own(kitchen, Login, i) is not None],
+                [i for i in step.get("eaters", []) if _own(kitchen, Member, i) is not None],
             )
             for batch_id in step["batches"]:
                 batch = _own(kitchen, BatchCook, batch_id)
@@ -1534,7 +1532,7 @@ def _undo_step(
         _write_eaters(
             kitchen,
             meal.id,
-            [i for i in step["login_ids"] if _own(kitchen, Login, i) is not None],
+            [i for i in step["member_ids"] if _own(kitchen, Member, i) is not None],
         )
         return True
     if op == "status":

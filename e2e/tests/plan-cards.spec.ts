@@ -810,13 +810,13 @@ test("F168: at 1200 px a person's name under a tub that is too wide for its card
   const day = far(today, 9);
   const { sun, batch } = await batchWithTubs(page, `${stamp()} Dal`, day, slot);
   const me = (await (await page.request.get("/api/v1/me")).json()) as {
-    id: number;
+    member_id: number;
   };
   const tubs = ((await planRange(page, day, sun)).tubs as { id: number; batch_id: number }[]).filter(
     (t) => t.batch_id === batch,
   );
   for (const tub of tubs)
-    await call(page, "PATCH", `/plan/tubs/${tub.id}`, { member_login_id: me.id });
+    await call(page, "PATCH", `/plan/tubs/${tub.id}`, { member_id: me.member_id });
   await page.setViewportSize({ width: 1200, height: 900 });
   await openWeekOf(page, today, day);
   // At 200% text the name no longer fits its card, as "Longhousename" did at 100% on a narrow week.

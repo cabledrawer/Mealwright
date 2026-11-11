@@ -45,7 +45,7 @@ function meal(
       eating: null,
       cooked: false
     })),
-    eater_login_ids: []
+    eater_member_ids: []
   };
 }
 

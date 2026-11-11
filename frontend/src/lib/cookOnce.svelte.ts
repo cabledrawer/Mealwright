@@ -109,16 +109,16 @@ export class CookOnceModel {
     if (people.length < 2) this.who = 'all';
   }
 
-  get loginIds(): number[] {
+  get memberIds(): number[] {
     if (this.people.length < 2) return [];
-    return this.who === 'all' ? this.people.map((p) => p.login_id) : [this.who];
+    return this.who === 'all' ? this.people.map((p) => p.member_id) : [this.who];
   }
 
   body(): BatchBody {
     const body: BatchBody = {
       tub_count: this.count,
       pattern: this.pattern,
-      member_login_ids: this.loginIds,
+      member_ids: this.memberIds,
       extras_to_freezer: this.extras
     };
     if (this.prepNote.trim()) body.prep_note = this.prepNote.trim();

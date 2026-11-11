@@ -39,7 +39,7 @@ export function cookTargetOf(
     status: 'planned',
     items: [item],
     kcal: null,
-    eater_login_ids: []
+    eater_member_ids: []
   };
   return { meal, item };
 }

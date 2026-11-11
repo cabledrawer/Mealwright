@@ -47,7 +47,7 @@ async function setup(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
   const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
   const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
-  const me = (await (await page.request.get('/api/v1/me')).json()) as { id: number; name: string };
+  const me = (await (await page.request.get('/api/v1/me')).json()) as { id: number; name: string; member_id: number };
   return { today: household.today, slot, me };
 }
 
@@ -100,13 +100,13 @@ async function seedWeek(page: Page, k: { today: string; slot: Record<string, num
   const fresh = await planned(page, await makeRecipe(page, pongal, { serves: 2, time_minutes: 30 }), day, k.slot.Breakfast);
   const cook = await planned(page, await makeRecipe(page, biryani, { serves: 2, time_minutes: 95 }), day, k.slot.Dinner);
   const made = await call(page, 'POST', `/plan/items/${cook.item_id}/batch`, { tub_count: 3, pattern: 'pick', prep_note: 'Soak the rice' });
-  await call(page, 'PUT', `/plan/meals/${cook.meal_id}/eaters`, { login_ids: [k.me.id] });
+  await call(page, 'PUT', `/plan/meals/${cook.meal_id}/eaters`, { member_ids: [k.me.member_id] });
   const sunday = addDays(day, 1);
   const plan = await planRange(page, day, sunday);
   const tubs = plan.tubs.filter((t: any) => t.batch_id === made.batch_id) as { id: number }[];
   for (const tub of tubs.slice(0, 2)) {
     await call(page, 'POST', `/plan/tubs/${tub.id}/place`, { date: sunday, slot_id: k.slot.Lunch });
-    await call(page, 'PATCH', `/plan/tubs/${tub.id}`, { member_login_id: k.me.id });
+    await call(page, 'PATCH', `/plan/tubs/${tub.id}`, { member_id: k.me.member_id });
   }
   return { pongal, biryani, freshMeal: fresh, cookMeal: cook, batch: made.batch_id as number, sunday };
 }

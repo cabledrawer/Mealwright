@@ -23,6 +23,7 @@ from sqlalchemy import (
     UniqueConstraint,
     event,
     false,
+    insert,
     select,
     text,
 )
@@ -84,6 +85,9 @@ class Household(Base):
     batch_cook_hidden: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=text("0")
     )
+    # "Who's this?" on shared logins (spec "History and undo", cabledrawer 17 Oct): off by default.
+    # Switched on by an admin in Settings → Household (0.9 A1).
+    ask_whos_this: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
 
 
 class OutboundSwitch(Base):
@@ -143,9 +147,38 @@ class OwnNetworkEntry(Base):
     added_by_name: Mapped[str] = mapped_column(String(100), default="")
 
 
+class Member(Base):
+    """A person in the household (spec section 3, "Users and households"; 0.9 A1): a name, a
+    colour and how much they eat, with or without a login. Kids, a baby, or two people who share
+    one "family" login are members too. Portions are counted in quarters (4 is one portion).
+
+    Removing someone only marks them (`removed_at`): their meals, tubs and history stay, and
+    Recent changes shows "Joss (removed)". Proposed, for cabledrawer: Undo for 7 days."""
+
+    __tablename__ = "member"
+    __table_args__ = (
+        CheckConstraint("portion_quarters >= 1 AND portion_quarters <= 8", name="portion_range"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(100))
+    # A palette name from the design ("green", "amber"...). Null: none chosen.
+    colour: Mapped[str | None] = mapped_column(String(20))
+    portion_quarters: Mapped[int] = mapped_column(Integer, default=4, server_default="4")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_by_name: Mapped[str] = mapped_column(String(100), default="", server_default="")
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Login(Base):
-    """Someone who can sign in. Separate from member profiles (0.8), which can exist
-    without a login (spec section 3)."""
+    """Someone who can sign in. Separate from member profiles, which can exist without a
+    login (spec section 3). Every login has its own member (0.9 A1), so its person's name,
+    colour and portion live there; a shared login ("Kitchen tablet") has one too, which
+    doesn't eat and is never offered as a person."""
 
     __tablename__ = "login"
 
@@ -158,7 +191,13 @@ class Login(Base):
     name: Mapped[str] = mapped_column(String(100))
     # Argon2 hash. Empty for logins that only use single sign-on (0.8).
     password_hash: Mapped[str | None] = mapped_column(String(255))
-    role: Mapped[str] = mapped_column(String(10))  # "admin" or "member"
+    role: Mapped[str] = mapped_column(String(10))  # "admin" or "member" (mealwright.roles)
+    member_id: Mapped[int | None] = mapped_column(
+        ForeignKey("member.id", ondelete="SET NULL"), unique=True
+    )
+    # Used by several people (a kitchen tablet, a "family" login): it asks "Who's this?" when
+    # the household has that switched on.
+    shared: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
     theme: Mapped[str] = mapped_column(String(10), default="auto")  # auto, light, dark
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_sign_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -180,6 +219,27 @@ class Session(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # On a shared login: who picked themselves in "Who's this?" on this device (0.9 A1).
+    member_id: Mapped[int | None] = mapped_column(ForeignKey("member.id", ondelete="SET NULL"))
+
+
+class JoinLink(Base):
+    """A one-time sign-in link an admin made for a person (0.9 A1; proposed, for cabledrawer): it
+    works once, for 24 hours, and the person picks their own password with it. Only the token's
+    SHA-256 is stored, like a session's."""
+
+    __tablename__ = "join_link"
+    __table_args__ = ({"sqlite_autoincrement": True},)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    login_id: Mapped[int] = mapped_column(ForeignKey("login.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 # --- Places and shops ------------------------------------------------------------------------
@@ -392,6 +452,9 @@ class Change(Base):
     kind: Mapped[str] = mapped_column(String(20))
     login_id: Mapped[int | None] = mapped_column(ForeignKey("login.id", ondelete="SET NULL"))
     login_name: Mapped[str] = mapped_column(String(100))
+    # The person who did it (0.9 A1): the login's own person, or on a shared login the one
+    # picked in "Who's this?". Null: nobody picked, so the login's name is shown.
+    member_id: Mapped[int | None] = mapped_column(ForeignKey("member.id", ondelete="SET NULL"))
     food_id: Mapped[int | None] = mapped_column(
         ForeignKey("food.id", ondelete="SET NULL"), index=True
     )
@@ -1259,8 +1322,8 @@ class Tub(Base):
     batch_id: Mapped[int] = mapped_column(Integer)
     amount_quarters: Mapped[int] = mapped_column(Integer, default=4, server_default="4")
     place_id: Mapped[int | None] = mapped_column(ForeignKey("place.id", ondelete="SET NULL"))
-    # Proposed, for cabledrawer: whose tub it is, by sign-in, until member profiles arrive (0.8).
-    member_login_id: Mapped[int | None] = mapped_column(ForeignKey("login.id", ondelete="SET NULL"))
+    # Whose tub it is: a person of the household (0.9 A1; by sign-in before).
+    member_id: Mapped[int | None] = mapped_column(ForeignKey("member.id", ondelete="SET NULL"))
     use_by: Mapped[date] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -1350,12 +1413,11 @@ class MealItem(Base):
 
 class MealEater(Base):
     """Who is eating a meal (0.7 P1, Serves - N + and "who's eating", F57). One row per person
-    ticked; none means everyone. Proposed, for cabledrawer: by sign-in (the household's logins), as
-    tubs already are (`Tub.member_login_id`), until member profiles arrive (0.8)."""
+    ticked; none means everyone. By person (`member`) since 0.9 A1, as tubs are."""
 
     __tablename__ = "meal_eater"
     __table_args__ = (
-        UniqueConstraint("meal_id", "login_id", name="uq_meal_eater_meal_id_login_id"),
+        UniqueConstraint("meal_id", "member_id", name="uq_meal_eater_meal_id_member_id"),
         ForeignKeyConstraint(
             ["household_id", "meal_id"],
             ["meal.household_id", "meal.id"],
@@ -1370,7 +1432,7 @@ class MealEater(Base):
         ForeignKey("household.id", ondelete="CASCADE"), index=True
     )
     meal_id: Mapped[int] = mapped_column(Integer, index=True)
-    login_id: Mapped[int] = mapped_column(ForeignKey("login.id", ondelete="CASCADE"), index=True)
+    member_id: Mapped[int] = mapped_column(ForeignKey("member.id", ondelete="CASCADE"), index=True)
 
 
 class CookedRecord(Base):
@@ -1441,3 +1503,21 @@ def _meal_item_kind_and_name(_mapper: Any, connection: Any, item: MealItem) -> N
             item.name = connection.execute(
                 select(table.name).where(table.id == key, table.household_id == item.household_id)
             ).scalar()
+
+
+@event.listens_for(Login, "before_insert")
+def _every_login_has_a_person(_mapper: Any, connection: Any, login: Login) -> None:
+    """Every login has its own person (0.9 A1): a login made without one gets a member of the
+    same name, eating one portion, so portions and Recent changes always have someone."""
+    if login.member_id is None:
+        login.member_id = connection.execute(
+            insert(Member)
+            .values(
+                household_id=login.household_id,
+                name=login.name,
+                portion_quarters=4,
+                created_at=utcnow(),
+                created_by_name="",
+            )
+            .returning(Member.id)
+        ).scalar_one()

@@ -425,14 +425,14 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("SessionPreviewIn", "slot_id"): "test_batch_sessions",
     ("SessionPreviewIn", "session_id"): "test_batch_sessions",
     ("SessionRecipeIn", "recipe_id"): "test_batch_sessions",
-    ("SessionRecipeIn", "member_login_ids"): "test_batch_sessions",
+    ("SessionRecipeIn", "member_ids"): "test_batch_sessions",
     ("SessionRecipeIn", "method_id"): "test_batch_sessions",
-    ("BatchIn", "member_login_ids"): "test_plan_batches",
+    ("BatchIn", "member_ids"): "test_plan_batches",
     ("SpotIn", "slot_id"): "test_plan_batches",
     ("TubPlaceIn", "slot_id"): "test_plan_batches",
-    ("TubEditIn", "member_login_id"): "test_plan_batches",
+    ("TubEditIn", "member_id"): "test_plan_batches",
     # Portions and who's eating (0.7 P1): test_plan_portions.py, test_plan_serves.py.
-    ("EatersIn", "login_ids"): "test_plan_serves",
+    ("EatersIn", "member_ids"): "test_plan_serves",
     # Today (0.6 PR 6): test_today.py, test_another_households_ids_get_404_and_nothing_changes.
     ("MovedIn", "slot_id"): "test_today",
     ("LeftoversIn", "item_id"): "test_today",

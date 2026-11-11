@@ -52,7 +52,7 @@ const meal = (items: PlanItem[], kcal: number | null = null): PlanMeal => ({
   date: '2026-10-19',
   slot_id: 1,
   status: 'planned',
-  eater_login_ids: [],
+  eater_member_ids: [],
   items,
   kcal
 });
@@ -155,7 +155,7 @@ describe('a meal card’s words', () => {
           number: 2,
           place_id: null,
           place_kind: null,
-          member_login_id: null,
+          member_id: null,
           use_by: '2026-10-21'
         }
       ]
@@ -199,7 +199,7 @@ describe('a meal card’s words', () => {
       number: 1,
       place_id: 1,
       place_kind: 'fridge' as const,
-      member_login_id: 4,
+      member_id: 4,
       use_by: '2026-10-21'
     };
     const plan: Plan = { start: '', end: '', meals: [], batch_cooks: [batch], tubs: [tub] };
@@ -222,7 +222,7 @@ describe('a meal card’s words', () => {
       date: '2026-10-18',
       slot_id: 1,
       status: 'planned',
-      eater_login_ids: [],
+      eater_member_ids: [],
       items,
       kcal: null
     });
@@ -244,7 +244,9 @@ describe('a meal card’s words', () => {
     expect(mealColour(plan, { ...meal(50) })).toBe(3);
     expect(mealColour(plan, { ...meal(60), items: [tubItem] })).toBe(3);
     expect(mealColour(plan, meal(61))).toBeNull();
-    expect(whoseTub(tub, [{ login_id: 4, name: 'Wren' }])).toBe('Wren');
+    expect(whoseTub(tub, [{ member_id: 4, name: 'Wren', colour: null, portion_quarters: 4 }])).toBe(
+      'Wren'
+    );
     expect(whoseTub(tub, [])).toBeNull();
   });
 

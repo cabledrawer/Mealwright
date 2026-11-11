@@ -232,7 +232,7 @@ test.describe('F150: This week', () => {
     status: 'planned',
     items,
     kcal: null,
-    eater_login_ids: [] as number[],
+    eater_member_ids: [] as number[],
   });
 
   async function openWithPlan(page: Page) {
@@ -261,7 +261,7 @@ test.describe('F150: This week', () => {
         },
       ],
       tubs: [
-        { id: 9201, batch_id: 9301, amount_quarters: 4, number: 1, place_id: null, place_kind: 'fridge', member_login_id: null, use_by: addDays(today, 5) },
+        { id: 9201, batch_id: 9301, amount_quarters: 4, number: 1, place_id: null, place_kind: 'fridge', member_id: null, use_by: addDays(today, 5) },
       ],
     };
     await page.route('**/api/v1/today', async (route) => {

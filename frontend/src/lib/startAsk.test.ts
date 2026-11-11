@@ -255,7 +255,7 @@ describe('round 1 fixes', () => {
             } as unknown as PlanItem
           ],
           kcal: null,
-          eater_login_ids: []
+          eater_member_ids: []
         }
       ],
       batch_cooks: [],
@@ -405,7 +405,7 @@ describe('from the meal', () => {
           status: 'planned',
           items: [item(AHEAD)],
           kcal: null,
-          eater_login_ids: []
+          eater_member_ids: []
         }
       ],
       batch_cooks: [],
@@ -440,7 +440,7 @@ describe('from the meal', () => {
           status: 'planned',
           items: [item(AHEAD)],
           kcal: null,
-          eater_login_ids: []
+          eater_member_ids: []
         }
       ],
       batch_cooks: [],

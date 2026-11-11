@@ -42,7 +42,7 @@ function show(
     status,
     items,
     kcal: null,
-    eater_login_ids: []
+    eater_member_ids: []
   };
   component = mount(MealRecipes, { target: document.body, props: { meal, plan: null, oncook } });
   flushSync();

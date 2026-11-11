@@ -21,7 +21,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import events, restock
+from mealwright import events, restock, roles
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem
 from mealwright.household import undo_window
@@ -127,6 +127,7 @@ def record(
         kind=kind,
         login_id=kitchen.login.id,
         login_name=kitchen.login.name,
+        member_id=kitchen.member_id,
         food_id=food_id,
         at=utcnow(),
         summary=summary[:300],
@@ -146,18 +147,19 @@ def undo_until(kitchen: Kitchen, change: Change) -> datetime:
 KEY_ONLY_KINDS = ("recipe_created", "recipe_saved", "draft_saved", "setting_kept")
 
 # Changes that are only there to be read in Recent changes, with no Undo of their own: a
-# removed ingredient that came back ("Lemon is back in Ingredients").
-NOTE_KINDS = ("food_back",)
+# removed ingredient that came back ("Lemon is back in Ingredients"), and a sign-in link made
+# for a person (0.9 A1).
+NOTE_KINDS = ("food_back", "person_login")
 
 
-# Changes only the household's admin can undo, as only an admin can make them (meal slots, the
-# Batch cook switch and the pint).
-ADMIN_ONLY_KINDS = ("plan_slot", "batch_cook_switch", "pints_changed")
+# Changes only the household's admin can undo, as only an admin can make them: the one list is
+# in `mealwright.roles`.
+ADMIN_ONLY_KINDS = roles.ADMIN_ONLY_KINDS
 
 
 def can_undo(kitchen: Kitchen, change: Change) -> bool:
     return (
-        (change.kind not in ADMIN_ONLY_KINDS or kitchen.login.role == "admin")
+        roles.can_undo_kind(kitchen.login.role, change.kind)
         and change.kind != "undo"
         and change.kind not in KEY_ONLY_KINDS
         and change.kind not in NOTE_KINDS
@@ -197,6 +199,7 @@ def record_back(kitchen: Kitchen, food: Food) -> Change:
         kind="food_back",
         login_id=kitchen.login.id,
         login_name=kitchen.login.name,
+        member_id=kitchen.member_id,
         food_id=food.id,
         at=utcnow(),
         summary=f"{food.name} is back in Ingredients"[:300],

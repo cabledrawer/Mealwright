@@ -266,9 +266,9 @@
     actions.openCookOnce(meal, item);
   }
 
-  function whose(loginId: number | null) {
+  function whose(memberId: number | null) {
     if (!tubItem || !tub) return;
-    void model.setWhose(tub.tub.id, itemName(tubItem, model.plan), loginId);
+    void model.setWhose(tub.tub.id, itemName(tubItem, model.plan), memberId);
     onclose();
   }
 
@@ -642,12 +642,12 @@
       {:else if mode === 'whose'}
         <h3>Whose tub?</h3>
         <div class="list">
-          {#each model.people as person (person.login_id)}
+          {#each model.people as person (person.member_id)}
             <button
               type="button"
               disabled={actions.readonly}
-              aria-pressed={tub?.tub.member_login_id === person.login_id}
-              onclick={() => whose(person.login_id)}>{person.name}</button
+              aria-pressed={tub?.tub.member_id === person.member_id}
+              onclick={() => whose(person.member_id)}>{person.name}</button
             >
           {/each}
           <button type="button" disabled={actions.readonly} onclick={() => whose(null)}

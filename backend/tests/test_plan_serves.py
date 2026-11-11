@@ -140,27 +140,27 @@ def wren(kitchen: TestClient) -> int:
         )
         db.add(login)
         db.commit()
-        return login.id
+        return login.member_id
 
 
 def test_who_is_eating_is_ticked_read_and_undone(
     kitchen: TestClient, sambar: int, wren: int, slots: dict[str, int]
 ) -> None:
     plan = plan_recipe(kitchen, sambar, D1, slots["Dinner"])
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == []  # nobody ticked: everyone
+    assert view(kitchen)["meals"][0]["eater_member_ids"] == []  # nobody ticked: everyone
     before = shape(kitchen)
-    r = kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": [wren, 1]})
+    r = kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"member_ids": [wren, 1]})
     assert r.status_code == 200, r.text
     assert r.json()["change"]["summary"].startswith("Changed who is eating Sambar (")
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == [1, wren]
-    same = kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": [1, wren]})
+    assert view(kitchen)["meals"][0]["eater_member_ids"] == [1, wren]
+    same = kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"member_ids": [1, wren]})
     assert same.json()["change"] is None
-    cleared = kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": []})
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == []
+    cleared = kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"member_ids": []})
+    assert view(kitchen)["meals"][0]["eater_member_ids"] == []
     assert undo(kitchen, cleared.json())["result"] == "done"
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == [1, wren]
+    assert view(kitchen)["meals"][0]["eater_member_ids"] == [1, wren]
     assert undo(kitchen, r.json())["result"] == "done"
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == []
+    assert view(kitchen)["meals"][0]["eater_member_ids"] == []
     assert shape(kitchen) == before
 
 
@@ -168,22 +168,22 @@ def test_who_is_eating_goes_with_the_meal_and_comes_back_with_its_undo(
     kitchen: TestClient, sambar: int, wren: int, slots: dict[str, int]
 ) -> None:
     plan = plan_recipe(kitchen, sambar, D1, slots["Dinner"])
-    ok(kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": [wren]}))
+    ok(kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"member_ids": [wren]}))
     removed = ok(kitchen.delete(f"{API}/plan/meals/{plan['meal_id']}"))
     with kitchen.app.state.sessionmaker() as db:
         assert list(db.scalars(select(MealEater))) == []
     assert undo(kitchen, removed)["result"] == "done"
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == [wren]
+    assert view(kitchen)["meals"][0]["eater_member_ids"] == [wren]
 
 
 def test_a_moved_meal_keeps_who_is_eating(
     kitchen: TestClient, sambar: int, wren: int, slots: dict[str, int]
 ) -> None:
     plan = plan_recipe(kitchen, sambar, D1, slots["Dinner"])
-    ok(kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": [wren]}))
+    ok(kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"member_ids": [wren]}))
     to = {"date": (D1 + timedelta(days=1)).isoformat(), "slot_id": slots["Lunch"], "mode": "move"}
     ok(kitchen.post(f"{API}/plan/meals/{plan['meal_id']}/move", json=to))
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == [wren]
+    assert view(kitchen)["meals"][0]["eater_member_ids"] == [wren]
 
 
 def test_who_is_eating_is_refused_for_strangers_and_locked_meals(
@@ -193,21 +193,21 @@ def test_who_is_eating_is_refused_for_strangers_and_locked_meals(
 
     plan = plan_recipe(kitchen, sambar, D1, slots["Dinner"])
     url = f"{API}/plan/meals/{plan['meal_id']}/eaters"
-    # A login of another household, and a login that is not there.
+    # A person of another household, and one that is not there.
     with kitchen.app.state.sessionmaker() as db:
-        theirs = db.scalar(select(Login.id).where(Login.username == "neighbour"))
+        theirs = db.scalar(select(Login.member_id).where(Login.username == "neighbour"))
     for stranger in (theirs, 9999):
-        assert kitchen.put(url, json={"login_ids": [stranger]}).status_code == 404
+        assert kitchen.put(url, json={"member_ids": [stranger]}).status_code == 404
     # Their meal, their reading.
-    assert neighbour.put(url, json={"login_ids": []}).status_code == 404
+    assert neighbour.put(url, json={"member_ids": []}).status_code == 404
     assert view(neighbour)["meals"] == []
-    assert kitchen.put(url, json={"login_ids": list(range(1, 22))}).status_code == 422
+    assert kitchen.put(url, json={"member_ids": list(range(1, 22))}).status_code == 422
     # A meal that was cooked is not changed here.
     past = plan_recipe(kitchen, int(sambar), ago(kitchen, 1), slots["Dinner"])
     ok(kitchen.post(f"{API}/plan/meals/{past['meal_id']}/didnt"))
-    locked = kitchen.put(f"{API}/plan/meals/{past['meal_id']}/eaters", json={"login_ids": [wren]})
+    locked = kitchen.put(f"{API}/plan/meals/{past['meal_id']}/eaters", json={"member_ids": [wren]})
     assert locked.status_code == 409 and locked.json()["code"] == "meal_done"
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == []
+    assert view(kitchen)["meals"][0]["eater_member_ids"] == []
     # The neighbour cannot reach my servings either.
     assert (
         neighbour.patch(f"{API}/plan/items/{plan['item_id']}", json={"servings": 2}).status_code
@@ -215,7 +215,7 @@ def test_who_is_eating_is_refused_for_strangers_and_locked_meals(
     )
 
 
-def test_who_is_eating_never_shows_a_login_from_another_household(
+def test_who_is_eating_never_shows_a_person_from_another_household(
     kitchen: TestClient, sambar: int, slots: dict[str, int]
 ) -> None:
     plan = plan_recipe(kitchen, sambar, D1, slots["Dinner"])
@@ -228,11 +228,11 @@ def test_who_is_eating_never_shows_a_login_from_another_household(
         db.add(other)
         db.flush()
         # Not possible through the API; written straight to the database.
-        db.add(MealEater(household_id=1, meal_id=plan["meal_id"], login_id=other.id))
+        db.add(MealEater(household_id=1, meal_id=plan["meal_id"], member_id=other.member_id))
         db.commit()
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == []
+    assert view(kitchen)["meals"][0]["eater_member_ids"] == []
 
 
 def test_the_new_routes_need_signing_in(client: TestClient) -> None:
     assert client.patch(f"{API}/plan/items/1", json={"servings": 2}).status_code == 401
-    assert client.put(f"{API}/plan/meals/1/eaters", json={"login_ids": []}).status_code == 401
+    assert client.put(f"{API}/plan/meals/1/eaters", json={"member_ids": []}).status_code == 401

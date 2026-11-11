@@ -7,7 +7,7 @@ const DAYS = ['2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20'];
 describe('who is eating', () => {
   it('names the people ticked, and nobody when the meal is for everyone', () => {
     expect(eaterNames(mealOf(1, DAYS[0]!, 1, []), PEOPLE)).toEqual([]);
-    expect(eaterNames(mealOf(1, DAYS[0]!, 1, [], { eater_login_ids: [11, 10] }), PEOPLE)).toEqual([
+    expect(eaterNames(mealOf(1, DAYS[0]!, 1, [], { eater_member_ids: [11, 10] }), PEOPLE)).toEqual([
       'Tess',
       'Wren'
     ]);
@@ -64,7 +64,7 @@ describe('the Eat rows of a meal', () => {
   });
 
   it('names the people ticked on a fresh recipe', () => {
-    const fresh = mealOf(9, DAYS[0]!, 3, [recipeItem(9, 5, 'Pongal')], { eater_login_ids: [10] });
+    const fresh = mealOf(9, DAYS[0]!, 3, [recipeItem(9, 5, 'Pongal')], { eater_member_ids: [10] });
     expect(eatRows(plan, fresh, PEOPLE)[0]?.source).toBe('Tess');
   });
 });

@@ -19,7 +19,7 @@ const fresh = (plan: Plan, day: string, slotId: number): PlanMeal => {
     status: 'planned',
     items: [],
     kcal: null,
-    eater_login_ids: []
+    eater_member_ids: []
   };
   plan.meals.push(meal);
   return meal;
@@ -123,9 +123,9 @@ export function withServings(plan: Plan, itemId: number, servings: number): Plan
 }
 
 /** Who is eating a meal (an empty list: everyone). */
-export function withEaters(plan: Plan, mealId: number, loginIds: number[]): Plan {
+export function withEaters(plan: Plan, mealId: number, memberIds: number[]): Plan {
   const next = clone(plan);
   const meal = next.meals.find((m) => m.id === mealId);
-  if (meal) meal.eater_login_ids = [...loginIds].sort((a, b) => a - b);
+  if (meal) meal.eater_member_ids = [...memberIds].sort((a, b) => a - b);
   return next;
 }

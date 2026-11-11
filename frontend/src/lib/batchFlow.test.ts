@@ -37,7 +37,7 @@ describe('after Plan this batch was refused (H10)', () => {
     const body = (n: number): BatchBody => ({
       tub_count: n,
       pattern: 'pick',
-      member_login_ids: [],
+      member_ids: [],
       extras_to_freezer: false
     });
     const picked = [{ method_id: 5 }, {}, { optional_use: [] }];

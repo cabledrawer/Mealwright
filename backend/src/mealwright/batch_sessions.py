@@ -48,7 +48,7 @@ class RecipeChoice:
     recipe_id: int
     tub_count: int
     pattern: str = "pick"
-    member_login_ids: list[int] = field(default_factory=list)
+    member_ids: list[int] = field(default_factory=list)
     extras_to_freezer: bool = False
     prep_note: str | None = None
     placements: list[batches.Spot | None] | None = None
@@ -166,7 +166,7 @@ def _plan_each(
             item,
             choice.tub_count,
             choice.pattern,
-            choice.member_login_ids,
+            choice.member_ids,
             choice.extras_to_freezer,
             choice.prep_note,
             choice.placements,
@@ -363,7 +363,7 @@ def preview[T](
                 item,
                 last.tub_count,
                 last.pattern,
-                last.member_login_ids,
+                last.member_ids,
                 last.extras_to_freezer,
                 last.placements,
             )

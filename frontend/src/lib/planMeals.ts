@@ -192,7 +192,7 @@ export function mealColour(plan: Plan | null, meal: PlanMeal): number | null {
 
 /** Whose a tub is, in words: the person's name, or null when it is nobody's in particular. */
 export const whoseTub = (tub: PlanTub, people: Person[]): string | null =>
-  people.find((p) => p.login_id === tub.member_login_id)?.name ?? null;
+  people.find((p) => p.member_id === tub.member_id)?.name ?? null;
 
 /** "3 days left", "use by today", "use by yesterday": for a tub's use-by day. Days left count
  * from the day the batch is cooked when that is still to come (F48: a tub cooked on Saturday has

@@ -13,7 +13,7 @@ const tub = (id: number, place: TubLeft['place_kind'], useBy: string): TubLeft =
   amount_quarters: 4,
   place_id: null,
   place_kind: place,
-  member_login_id: null,
+  member_id: null,
   use_by: useBy
 });
 

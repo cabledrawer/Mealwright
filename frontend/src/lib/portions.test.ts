@@ -52,7 +52,7 @@ const meal = (id: number, date: string, slot: number, items: PlanItem[]): PlanMe
   status: 'planned',
   items,
   kcal: null,
-  eater_login_ids: []
+  eater_member_ids: []
 });
 const plan = (meals: PlanMeal[]): Plan => ({
   start: '2026-10-18',
@@ -66,7 +66,7 @@ const plan = (meals: PlanMeal[]): Plan => ({
     number: id,
     place_id: null,
     place_kind: 'fridge' as const,
-    member_login_id: null,
+    member_id: null,
     use_by: '2026-10-21'
   }))
 });

@@ -25,7 +25,7 @@ from fastapi import status
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from mealwright import drafts, page_budget, page_fetch, photos, pints, step_waits
+from mealwright import drafts, page_budget, page_fetch, photos, pints, roles, step_waits
 from mealwright.amounts import MAX_AMOUNT
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.import_schemas import (
@@ -151,7 +151,7 @@ def _problem(why: FetchProblem, kitchen: Kitchen) -> Problem:
     """A refused fetch as the API's answer: the sentence, and a code the screen reacts to."""
     message = page_fetch.MESSAGES[why]
     if why in (FetchProblem.SWITCHED_OFF, FetchProblem.PHOTO_SWITCHED_OFF):
-        admin = kitchen.login.role == "admin"
+        admin = roles.allowed(kitchen.login.role, roles.Action.PRIVACY)
         if why == FetchProblem.SWITCHED_OFF and not admin:
             message = MEMBER_SWITCHED_OFF
         return Problem(status.HTTP_403_FORBIDDEN, why.value, message, admin=admin)

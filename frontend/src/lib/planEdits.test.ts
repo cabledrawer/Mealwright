@@ -28,7 +28,7 @@ const meal = (id: number, date: string, slot: number, items: PlanItem[]): PlanMe
   date,
   slot_id: slot,
   status: 'planned',
-  eater_login_ids: [],
+  eater_member_ids: [],
   items,
   kcal: null
 });
@@ -118,9 +118,9 @@ describe('Serves - N + and who is eating, straight after a change', () => {
 
   it('ticks people for a meal, in order, and an empty list is everyone', () => {
     const next = withEaters(plan(), 1, [3, 1]);
-    expect(next.meals[0]?.eater_login_ids).toEqual([1, 3]);
-    expect(next.meals[1]?.eater_login_ids).toEqual([]);
-    expect(withEaters(next, 1, []).meals[0]?.eater_login_ids).toEqual([]);
+    expect(next.meals[0]?.eater_member_ids).toEqual([1, 3]);
+    expect(next.meals[1]?.eater_member_ids).toEqual([]);
+    expect(withEaters(next, 1, []).meals[0]?.eater_member_ids).toEqual([]);
   });
 });
 

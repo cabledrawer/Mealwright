@@ -17,7 +17,7 @@
   let draft = $state<number[] | null>(null);
   // The meal as the plan holds it now (the menu's own copy goes stale after a change).
   const live = $derived(model.plan?.meals.find((m) => m.id === meal.id) ?? meal);
-  const ticked = $derived(draft ?? live.eater_login_ids);
+  const ticked = $derived(draft ?? live.eater_member_ids);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function send(): void {
@@ -26,7 +26,7 @@
     const wanted = draft;
     draft = null;
     if (wanted === null) return;
-    const now = [...live.eater_login_ids].sort((a, b) => a - b);
+    const now = [...live.eater_member_ids].sort((a, b) => a - b);
     if (wanted.length !== now.length || wanted.some((id, i) => id !== now[i]))
       void model.setEaters(live, wanted);
   }
@@ -53,12 +53,12 @@
       <button type="button" aria-pressed={ticked.length === 0} {disabled} onclick={() => set([])}
         >Everyone</button
       >
-      {#each model.people as person (person.login_id)}
+      {#each model.people as person (person.member_id)}
         <button
           type="button"
-          aria-pressed={ticked.includes(person.login_id)}
+          aria-pressed={ticked.includes(person.member_id)}
           {disabled}
-          onclick={() => toggle(person.login_id)}>{person.name}</button
+          onclick={() => toggle(person.member_id)}>{person.name}</button
         >
       {/each}
     </div>

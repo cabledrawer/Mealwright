@@ -27,14 +27,15 @@ from mealwright.models import (
     BatchSession,
     BatchTaskProgress,
     Change,
-    Login,
     Meal,
     MealItem,
     MealSlot,
+    Member,
     Place,
     Recipe,
     Tub,
 )
+from mealwright.people import own_member, own_members
 from mealwright.plan import (
     _KINDS,
     DAYS_AHEAD,
@@ -161,7 +162,7 @@ class TubPlan:
     spot: Spot | None
     place_kind: str  # fridge or freezer
     place_id: int | None
-    member_login_id: int | None
+    member_id: int | None
     use_by: date
     meal_has_food: (
         bool  # the meal it lands in already had something planned (the patterns skip those)
@@ -233,14 +234,6 @@ def auto_spots(kitchen: Kitchen, meal: Meal, count: int, pattern: str) -> list[S
     return out + [None] * (count - len(out))
 
 
-def _own_logins(kitchen: Kitchen, ids: list[int]) -> list[int]:
-    for login_id in ids:
-        login = kitchen.db.get(Login, login_id)
-        if login is None or login.household_id != kitchen.household_id:
-            raise not_found("That person")
-    return ids
-
-
 def recipe_item(kitchen: Kitchen, item: MealItem) -> tuple[Recipe, Meal]:
     """The recipe and the planned meal a batch cook can be made from."""
     meal = kitchen.db.get(Meal, item.meal_id)
@@ -292,7 +285,7 @@ def work_out(
     item: MealItem,
     tub_count: int,
     pattern: str,
-    member_login_ids: list[int],
+    member_ids: list[int],
     extras_to_freezer: bool,
     placements: list[Spot | None] | None,
 ) -> Worked:
@@ -310,7 +303,7 @@ def work_out(
     recipe, meal = recipe_item(kitchen, item)
     _no_batch_yet(kitchen, meal, recipe)
     _batches_that_day(kitchen, meal.day)
-    eaters = _own_logins(kitchen, member_login_ids)
+    eaters = own_members(kitchen, member_ids)
     if placements is not None and len(placements) != tub_count:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -365,7 +358,7 @@ def work_out(
                 spot=spot,
                 place_kind=kind,
                 place_id=place.id if place else None,
-                member_login_id=eaters[index % len(eaters)] if eaters else None,
+                member_id=eaters[index % len(eaters)] if eaters else None,
                 use_by=tub_use_by(kitchen, kind, meal.day),
                 meal_has_food=has_food,
             )
@@ -378,7 +371,7 @@ def make_batch(
     item: MealItem,
     tub_count: int,
     pattern: str,
-    member_login_ids: list[int],
+    member_ids: list[int],
     extras_to_freezer: bool,
     prep_note: str | None,
     placements: list[Spot | None] | None,
@@ -388,7 +381,7 @@ def make_batch(
         item,
         tub_count,
         pattern,
-        member_login_ids,
+        member_ids,
         extras_to_freezer,
         prep_note,
         placements,
@@ -410,7 +403,7 @@ def make_batch_steps(
     item: MealItem,
     tub_count: int,
     pattern: str,
-    member_login_ids: list[int],
+    member_ids: list[int],
     extras_to_freezer: bool,
     prep_note: str | None,
     placements: list[Spot | None] | None,
@@ -419,9 +412,7 @@ def make_batch_steps(
     """What `make_batch` does, without recording the change: the Undo steps, the batch and where
     its tubs went. A Batch cook session (B2) makes several in one change, each with its
     `session_id`."""
-    worked = work_out(
-        kitchen, item, tub_count, pattern, member_login_ids, extras_to_freezer, placements
-    )
+    worked = work_out(kitchen, item, tub_count, pattern, member_ids, extras_to_freezer, placements)
     db = kitchen.db
     steps: list[dict[str, Any]] = []
     batch = BatchCook(
@@ -444,7 +435,7 @@ def make_batch_steps(
             household_id=kitchen.household_id,
             batch_id=batch.id,
             place_id=plan_tub.place_id,
-            member_login_id=plan_tub.member_login_id,
+            member_id=plan_tub.member_id,
             use_by=plan_tub.use_by,
         )
         db.add(tub)
@@ -550,7 +541,7 @@ def _tub_fields(tub: Tub) -> dict[str, Any]:
     return {
         "op": "tub",
         "tub": tub.id,
-        "member_login_id": tub.member_login_id,
+        "member_id": tub.member_id,
         "use_by": tub.use_by.isoformat(),
         "place_id": tub.place_id,
     }
@@ -561,14 +552,14 @@ def edit_tub(kitchen: Kitchen, tub: Tub, fields: dict[str, Any]) -> Change | Non
     steps = [_tub_fields(tub)]
     left: dict[str, Any] = {}  # what each changed field now holds (F165)
     changed = False
-    if "member_login_id" in fields:
-        new = fields["member_login_id"]
+    if "member_id" in fields:
+        new = fields["member_id"]
         if new is not None:
-            _own_logins(kitchen, [new])
-        changed = changed or new != tub.member_login_id
-        if new != tub.member_login_id:
-            left["member_login_id"] = new
-        tub.member_login_id = new
+            own_members(kitchen, [new])
+        changed = changed or new != tub.member_id
+        if new != tub.member_id:
+            left["member_id"] = new
+        tub.member_id = new
     if "use_by" in fields and fields["use_by"] is not None:
         new_day = fields["use_by"]
         check_day(kitchen, new_day)  # as Leftovers' use-by: never year 1 or 9999
@@ -590,9 +581,9 @@ def edit_tub(kitchen: Kitchen, tub: Tub, fields: dict[str, Any]) -> Change | Non
     steps = [{**steps[0], "to": {field: value}} for field, value in left.items()]
     kitchen.db.flush()
     name = tub_name(kitchen, tub)
-    if set(fields) == {"member_login_id"}:
-        login = kitchen.db.get(Login, tub.member_login_id) if tub.member_login_id else None
-        summary = f"{name} is {login.name}’s" if login else f"{name} is nobody’s in particular"
+    if set(fields) == {"member_id"}:
+        member = own_member(kitchen, tub.member_id)
+        summary = f"{name} is {member.name}’s" if member else f"{name} is nobody’s in particular"
     else:
         summary = f"{name}: use by {tub.use_by:%a} {tub.use_by.day} {tub.use_by:%b}"
     return _finish(kitchen, "plan_tub", summary, steps)
@@ -889,7 +880,7 @@ def delete_batch_steps(kitchen: Kitchen, batch: BatchCook) -> tuple[list[dict[st
                     "batch_id": tub.batch_id,
                     "amount_quarters": tub.amount_quarters,
                     "place_id": tub.place_id,
-                    "member_login_id": tub.member_login_id,
+                    "member_id": tub.member_id,
                     "use_by": tub.use_by.isoformat(),
                 },
             }
@@ -1543,12 +1534,10 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
             return False
         left = step.get("to")  # the fields this change set, with what they were set to (F165)
         whole = True
-        if left is None or "member_login_id" in left:
-            if left is None or tub.member_login_id == left["member_login_id"]:
-                tub.member_login_id = (
-                    step["member_login_id"]
-                    if _own(kitchen, Login, step["member_login_id"])
-                    else None
+        if left is None or "member_id" in left:
+            if left is None or tub.member_id == left["member_id"]:
+                tub.member_id = (
+                    step["member_id"] if _own(kitchen, Member, step["member_id"]) else None
                 )
             else:
                 whole = False
@@ -1577,9 +1566,7 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
                 batch_id=old["batch_id"],
                 amount_quarters=old["amount_quarters"],
                 place_id=old["place_id"] if _own(kitchen, Place, old["place_id"]) else None,
-                member_login_id=old["member_login_id"]
-                if _own(kitchen, Login, old["member_login_id"])
-                else None,
+                member_id=old["member_id"] if _own(kitchen, Member, old["member_id"]) else None,
                 use_by=date.fromisoformat(old["use_by"]),
             )
         )

@@ -37,8 +37,8 @@ export interface EatDay {
 
 /** The people ticked for a meal; empty when it is for everyone (nothing to say). */
 export function eaterNames(meal: PlanMeal, people: Person[]): string[] {
-  if (meal.eater_login_ids.length === 0) return [];
-  return people.filter((p) => meal.eater_login_ids.includes(p.login_id)).map((p) => p.name);
+  if (meal.eater_member_ids.length === 0) return [];
+  return people.filter((p) => meal.eater_member_ids.includes(p.member_id)).map((p) => p.name);
 }
 
 const joined = (parts: (string | null)[]) => parts.filter((p) => p).join(' · ');

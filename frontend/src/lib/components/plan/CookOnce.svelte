@@ -140,7 +140,7 @@
     onclose();
   }
 
-  const names = $derived(new Map(model.people.map((p) => [p.login_id, p.name])));
+  const names = $derived(new Map(model.people.map((p) => [p.member_id, p.name])));
   const whose = (id: number | null) => (id === null ? null : (names.get(id) ?? null));
 </script>
 
@@ -231,12 +231,12 @@
                   disabled={actions.readonly}
                   onclick={() => cook?.setWho('all')}>Everyone</button
                 >
-                {#each model.people as person (person.login_id)}
+                {#each model.people as person (person.member_id)}
                   <button
                     type="button"
-                    aria-pressed={cook.who === person.login_id}
+                    aria-pressed={cook.who === person.member_id}
                     disabled={actions.readonly}
-                    onclick={() => cook?.setWho(person.login_id)}>{person.name}</button
+                    onclick={() => cook?.setWho(person.member_id)}>{person.name}</button
                   >
                 {/each}
               </div>
@@ -318,11 +318,11 @@
                             disabled={actions.readonly}
                             ondragstart={() => (dragged = tub.number)}
                             onclick={() => (moving = moving === tub.number ? null : tub.number)}
-                            aria-label="Tub {tub.number}{whose(tub.member_login_id)
-                              ? `, ${whose(tub.member_login_id)}`
+                            aria-label="Tub {tub.number}{whose(tub.member_id)
+                              ? `, ${whose(tub.member_id)}`
                               : ''}. Move it"
-                            >Tub {tub.number}{whose(tub.member_login_id)
-                              ? ` · ${whose(tub.member_login_id)}`
+                            >Tub {tub.number}{whose(tub.member_id)
+                              ? ` · ${whose(tub.member_id)}`
                               : ''}</button
                           >
                           <button

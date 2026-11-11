@@ -28,6 +28,7 @@ from mealwright.auth import (
 from mealwright.household import add_default_places, add_default_slots
 from mealwright.models import Household, Login
 from mealwright.names import one_line
+from mealwright.people import removed
 from mealwright.shopping import ensure_main_list
 
 # Every line here names an account or an address, so it goes to Mealwright's own 14-day
@@ -47,6 +48,10 @@ class Me(BaseModel):
     username: str
     role: Literal["admin", "member"]
     theme: Theme
+    # This login's own person (0.9 A1): who it is in who's eating, whose tub and Recent changes.
+    member_id: int | None = None
+    # Used by several people ("Kitchen tablet"): it may ask "Who's this?".
+    shared: bool = False
 
 
 def _me(login: Login) -> Me:
@@ -56,6 +61,8 @@ def _me(login: Login) -> Me:
         username=login.username,
         role="admin" if login.role == "admin" else "member",
         theme=login.theme if login.theme in ("auto", "light", "dark") else "auto",  # type: ignore[arg-type]
+        member_id=login.member_id,
+        shared=login.shared,
     )
 
 
@@ -180,7 +187,8 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
             f"Too many tries. Wait {how_long(wait)}.",
             headers={"Retry-After": str(wait)},
         )
-    if not check_password(login, body.password) or login is None:
+    # A removed person's login can't sign in (0.9 A1), and is told only what anyone is.
+    if not check_password(login, body.password) or login is None or removed(db, login):
         slow.failed(keys)
         log.warning("Sign-in failed for %s from %s", who, address)
         if wait := slow.wait_seconds(keys):

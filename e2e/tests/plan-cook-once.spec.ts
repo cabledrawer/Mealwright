@@ -390,11 +390,11 @@ test("tubs on the plan: Whose tub?, To freezer, back to tubs left, and put one i
     page.getByRole("status").filter({ hasText: `is ${me}’s` }),
   ).toBeVisible();
   await expect
-    .poll(async () => (await planRange(page, sun, sun)).tubs[0].member_login_id)
+    .poll(async () => (await planRange(page, sun, sun)).tubs[0].member_id)
     .not.toBeNull();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect
-    .poll(async () => (await planRange(page, sun, sun)).tubs[0].member_login_id)
+    .poll(async () => (await planRange(page, sun, sun)).tubs[0].member_id)
     .toBeNull();
 
   // F48: the tub's own use-by can be changed from here, with Undo; days left count from the cook day.

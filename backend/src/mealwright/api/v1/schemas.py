@@ -46,6 +46,8 @@ class Ref(BaseModel):
 class Who(BaseModel):
     login_id: int | None
     name: str
+    # The person (0.9 A1): on a shared login, the one picked in "Who's this?".
+    member_id: int | None = None
 
 
 class Undone(BaseModel):

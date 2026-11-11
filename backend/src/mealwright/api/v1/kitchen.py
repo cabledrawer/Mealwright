@@ -18,6 +18,7 @@ from mealwright.household import cup_ml, places, today, valid_time_zone
 from mealwright.models import Food, FoodConversion, Place, Shop
 from mealwright.names import clean_name, fold
 from mealwright.pints import household_pints
+from mealwright.roles import Action
 from mealwright.shopping import lock_db
 
 router = APIRouter(tags=["kitchen"], dependencies=[SameOrigin])
@@ -533,7 +534,7 @@ def change_household(body: HouseholdChange, kitchen: Here, response: Response) -
     whether Batch cook is shown (`batch_cook`, admins only). Answers with the settings as
     stored."""
     if body.pints is not None or body.batch_cook is not None:
-        kitchen.admin_only()
+        kitchen.admin_only(Action.HOUSEHOLD_SETTINGS)
     # One key twice at once: the second waits, then sees it. A retry of a used key changes
     # nothing and answers the settings as stored (RF5, cabledrawer 11 Nov).
     lock_db(kitchen.db, kitchen.household)
@@ -648,7 +649,7 @@ def fill_in_from_browser(body: FromBrowser, kitchen: Here) -> HouseholdOut:
     cup size. Each is stored only while the household has none: once set, it's never
     changed silently (an admin opening the app from abroad changes nothing). Changing them
     on purpose comes with Settings (0.8). Answers with the settings as stored."""
-    kitchen.admin_only()
+    kitchen.admin_only(Action.HOUSEHOLD_SETTINGS)
     household = kitchen.household
     if household.time_zone is None and body.time_zone is not None:
         household.time_zone = body.time_zone

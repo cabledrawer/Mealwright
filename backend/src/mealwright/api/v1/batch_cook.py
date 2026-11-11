@@ -190,7 +190,7 @@ def _choices(body: SessionIn | SessionPreviewIn) -> list[batch_sessions.RecipeCh
             recipe_id=r.recipe_id,
             tub_count=r.tub_count,
             pattern=r.pattern,
-            member_login_ids=list(r.member_login_ids),
+            member_ids=list(r.member_ids),
             extras_to_freezer=r.extras_to_freezer,
             prep_note=r.prep_note,
             placements=spots_of(r),

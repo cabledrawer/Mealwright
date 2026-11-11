@@ -325,7 +325,7 @@ def test_every_plan_write_announces_a_plan_event(kitchen: TestClient) -> None:
         calls: dict[str, Callable[[], Any]] = {
             "eaters": lambda: kitchen.put(
                 f"{api}/plan/meals/{meal_id}/eaters",
-                json={"login_ids": [kitchen.get(f"{api}/me").json()["id"]]},
+                json={"member_ids": [kitchen.get(f"{api}/plan/people").json()[0]["member_id"]]},
             ),
             "remove item": lambda: kitchen.delete(f"{api}/plan/items/{item_id}"),
             "remove meal": lambda: kitchen.delete(f"{api}/plan/meals/{meal_id}"),
@@ -361,12 +361,12 @@ def test_clearing_the_eaters_announces_a_plan_event(
     planned = kitchen.post(
         f"{api}/plan/items", json={"date": today, "slot_id": slot, "recipe_id": recipe_id}
     ).json()
-    kitchen.put(f"{api}/plan/meals/{planned['meal_id']}/eaters", json={"login_ids": [me]})
+    kitchen.put(f"{api}/plan/meals/{planned['meal_id']}/eaters", json={"member_ids": [me]})
 
     async def scenario() -> None:
         for name, call in {
             "clear the eaters": lambda: kitchen.put(
-                f"{api}/plan/meals/{planned['meal_id']}/eaters", json={"login_ids": []}
+                f"{api}/plan/meals/{planned['meal_id']}/eaters", json={"member_ids": []}
             ),
         }.items():
             sub = broadcaster(kitchen).subscribe(1)

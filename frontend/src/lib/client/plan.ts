@@ -91,7 +91,7 @@ export interface PlanMeal {
   /** One serving of each item added up; null when none has kcal. */
   kcal: number | null;
   /** Who is eating, by sign-in (proposed, for cabledrawer; member profiles come in 0.8). Empty: everyone. */
-  eater_login_ids: number[];
+  eater_member_ids: number[];
 }
 
 export interface PlanBatch {
@@ -133,7 +133,7 @@ export interface PlanTub {
   place_id: number | null;
   /** Where it is: the fridge or the freezer (null: no place). */
   place_kind: 'fridge' | 'freezer' | 'cupboard' | null;
-  member_login_id: number | null;
+  member_id: number | null;
   use_by: string;
 }
 
@@ -241,11 +241,11 @@ export const setPlanServings = (id: number, servings: number, key: string) =>
   api<PlanWrite>('PATCH', `/plan/items/${id}`, { servings }, { idempotencyKey: key });
 
 /** Who is eating a meal (an empty list: everyone). */
-export const setPlanEaters = (mealId: number, loginIds: number[], key: string) =>
+export const setPlanEaters = (mealId: number, memberIds: number[], key: string) =>
   api<PlanWrite>(
     'PUT',
     `/plan/meals/${mealId}/eaters`,
-    { login_ids: loginIds },
+    { member_ids: memberIds },
     { idempotencyKey: key }
   );
 
@@ -297,7 +297,7 @@ export interface Spot {
 export interface BatchBody {
   tub_count: number;
   pattern: Pattern;
-  member_login_ids: number[];
+  member_ids: number[];
   extras_to_freezer: boolean;
   prep_note?: string;
   /** The person's own choice, one per tub (null: not in a meal). Left out: the pattern picks. */
@@ -309,7 +309,7 @@ export interface PreviewTub {
   date: string | null;
   slot_id: number | null;
   place_kind: 'fridge' | 'freezer';
-  member_login_id: number | null;
+  member_id: number | null;
   use_by: string;
   /** The meal it lands in already had food. */
   meal_has_food: boolean;
@@ -329,9 +329,13 @@ export interface BatchPreview {
   per_tub: { kcal: number | null; protein_g: number | null; fibre_g: number | null };
 }
 
+/** A person of the household who can be eating (0.9 A1): `GET /plan/people`. */
 export interface Person {
-  login_id: number;
+  member_id: number;
   name: string;
+  colour: string | null;
+  /** How much they eat, in quarter portions (4: one portion). */
+  portion_quarters: number;
 }
 
 export interface TubLeft {
@@ -345,7 +349,7 @@ export interface TubLeft {
   amount_quarters: number;
   place_id: number | null;
   place_kind: 'fridge' | 'freezer' | 'cupboard' | null;
-  member_login_id: number | null;
+  member_id: number | null;
   use_by: string;
 }
 
@@ -369,7 +373,7 @@ export const placeTub = (id: number, to: Spot, key: string, fromTubsLeft = false
 
 export const editTub = (
   id: number,
-  fields: { member_login_id?: number | null; use_by?: string },
+  fields: { member_id?: number | null; use_by?: string },
   key: string
 ) => api<PlanWrite>('PATCH', `/plan/tubs/${id}`, fields, { idempotencyKey: key });
 

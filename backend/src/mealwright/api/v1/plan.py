@@ -28,11 +28,11 @@ from mealwright.models import (
     Change,
     CookedRecord,
     Food,
-    Login,
     Meal,
     MealEater,
     MealItem,
     MealSlot,
+    Member,
     Place,
     Recipe,
     RecipeLine,
@@ -42,6 +42,7 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.names import clean, clean_name, fold, one_line
+from mealwright.roles import Action
 from mealwright.shopping import lock_household
 
 router = APIRouter(tags=["plan"], dependencies=[SameOrigin])
@@ -160,9 +161,8 @@ class PlanMealOut(BaseModel):
     # One serving of each recipe and tub added up; null when none of them has kcal (PR 3;
     # cabledrawer 26 Oct).
     kcal: int | None = None
-    # Who is eating (0.7 P1): the logins ticked, by sign-in until member profiles (0.8). Empty:
-    # everyone.
-    eater_login_ids: list[int] = Field(default_factory=list)
+    # Who is eating (0.7 P1): the household's people ticked (0.9 A1). Empty: everyone.
+    eater_member_ids: list[int] = Field(default_factory=list)
 
 
 class PlanBatchOut(BaseModel):
@@ -203,7 +203,7 @@ class PlanTubOut(BaseModel):
     place_id: int | None
     # Fridge, freezer or cupboard, for the place above (null: no place, or not the household's).
     place_kind: Literal["fridge", "freezer", "cupboard"] | None = None
-    member_login_id: int | None
+    member_id: int | None  # whose tub (a person of the household; null: nobody in particular)
     use_by: date
 
 
@@ -329,12 +329,12 @@ def get_plan(
             )
         )
     }
-    mine_logins = set(
+    mine_members = set(
         db.scalars(
-            select(Login.id).where(
-                Login.household_id == household_id,
-                Login.id.in_(
-                    select(Tub.member_login_id).where(
+            select(Member.id).where(
+                Member.household_id == household_id,
+                Member.id.in_(
+                    select(Tub.member_id).where(
                         Tub.household_id == household_id,
                         or_(Tub.id.in_(tub_ids), Tub.batch_id.in_(batch_ids)),
                     )
@@ -585,17 +585,17 @@ def get_plan(
     kcal_by_meal: dict[int, int] = {}
     portions = batch_service.portions_by_batch(kitchen, batches)
     eaters: dict[int, list[int]] = {}
-    for meal_id, login_id in db.execute(
-        select(MealEater.meal_id, MealEater.login_id)
-        .join(Login, Login.id == MealEater.login_id)
+    for meal_id, member_id in db.execute(
+        select(MealEater.meal_id, MealEater.member_id)
+        .join(Member, Member.id == MealEater.member_id)
         .where(
             MealEater.household_id == household_id,
-            Login.household_id == household_id,
+            Member.household_id == household_id,
             MealEater.meal_id.in_(select(Meal.id).where(*in_range)),
         )
-        .order_by(MealEater.login_id)
+        .order_by(MealEater.member_id)
     ):
-        eaters.setdefault(meal_id, []).append(login_id)
+        eaters.setdefault(meal_id, []).append(member_id)
     session_rows = _sessions_out(kitchen, [b for b in batches if b.session_id is not None])
     for i in items:
         by_meal.setdefault(i.meal_id, []).append(item_out(i))
@@ -613,7 +613,7 @@ def get_plan(
                 status=m.status,  # type: ignore[arg-type]
                 items=by_meal.get(m.id, []),
                 kcal=kcal_by_meal.get(m.id),
-                eater_login_ids=eaters.get(m.id, []),
+                eater_member_ids=eaters.get(m.id, []),
             )
             for m in meals
         ],
@@ -642,7 +642,7 @@ def get_plan(
                 number=number.get(t.id, 1),
                 place_id=t.place_id if t.place_id in mine_places else None,
                 place_kind=mine_places.get(t.place_id) if t.place_id else None,  # type: ignore[arg-type]
-                member_login_id=t.member_login_id if t.member_login_id in mine_logins else None,
+                member_id=t.member_id if t.member_id in mine_members else None,
                 use_by=t.use_by,
             )
             for t in tubs
@@ -1039,9 +1039,8 @@ def get_start_options(
 
 
 class EatersIn(BaseModel):
-    login_ids: Annotated[list[StoredInt], Field(max_length=20)] = Field(
-        description="Who is eating, by sign-in (proposed; member profiles come in"
-        " 0.8). Empty: everyone."
+    member_ids: Annotated[list[StoredInt], Field(max_length=20)] = Field(
+        description="Who is eating: people of the household (`GET /plan/people`). Empty: everyone."
     )
 
 
@@ -1050,11 +1049,11 @@ def set_plan_meal_eaters(
     plan_meal_id: StoredInt, body: EatersIn, kitchen: Here, response: Response
 ) -> PlanWrite:
     """Who is eating a meal. Replaces the whole list; already that way → `change: null`. A
-    login of another household → `404`."""
+    person of another household, or one removed and not already ticked → `404`."""
     return _run(
         kitchen,
         response,
-        lambda: plan.set_eaters(kitchen, plan.find_meal(kitchen, plan_meal_id), body.login_ids),
+        lambda: plan.set_eaters(kitchen, plan.find_meal(kitchen, plan_meal_id), body.member_ids),
     )
 
 
@@ -1183,7 +1182,7 @@ def change_meal_slot(
     """Turn a meal (Breakfast, Lunch…) on or off for the household, or rename it (admins only).
     Its planned meals are kept while it is off and when it is renamed. With both, the answer
     carries the last change made."""
-    kitchen.admin_only()
+    kitchen.admin_only(Action.HOUSEHOLD_SETTINGS)
     if body.enabled is None and body.name is None:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -1225,7 +1224,7 @@ class NewSlot(BaseModel):
 def add_meal_slot(body: NewSlot, kitchen: Here) -> MealSlotOut:
     """Add a meal, last in the order and switched on (admins only). At most 12 meals; a name
     the household already has is a 409 `slot_exists`. Not logged as a change, like "+ Shop"."""
-    kitchen.admin_only()
+    kitchen.admin_only(Action.HOUSEHOLD_SETTINGS)
     lock_household(kitchen)
     for other in meal_slots(kitchen.db, kitchen.household_id):
         if fold(other.name) == fold(body.name):
@@ -1247,5 +1246,5 @@ class SlotOrder(BaseModel):
 def order_meal_slots(body: SlotOrder, kitchen: Here, response: Response) -> PlanWrite:
     """Put the meals in this order: every id of the household's meals, once each (admins
     only). Undo puts the old order back."""
-    kitchen.admin_only()
+    kitchen.admin_only(Action.HOUSEHOLD_SETTINGS)
     return _run(kitchen, response, lambda: plan.order_slots(kitchen, body.ids), keep_key=True)
