@@ -189,36 +189,116 @@ def _remover(act: Act, item: ListItem) -> SyncAction | None:
 
 
 def _keep_the_rest(
-    act: Act, item: ListItem, shown: int | None, bought: int, size: FoodSize | None
-) -> None:
+    act: Act, item: ListItem, shown: int, bought: int, size: FoodSize | None
+) -> dict[str, Any] | None:
     """The phone ticked `shown` (and `bought` went into the pantry, whole packs maybe); the
     line has grown since (a meal planned at home while it was offline). The line being ticked
     becomes what the phone showed, and what the pantry still lacks is a line of its own, still
-    to buy, at the same list and shop (RF2 Sh1, sync-protocol 7.1)."""
-    if shown is None or item.amount_milli is None or item.deleted_at is not None:
-        return
+    to buy, at the same list and shop (RF2 Sh1, sync-protocol 7.1). Returns what a reversal of
+    the purchase needs to put the list back (`_unsplit`), or None when nothing was split."""
+    if bought <= 0 or item.amount_milli is None or item.deleted_at is not None:
+        return None
     if item.amount_milli <= max(shown, bought):
-        return
+        return None
     kitchen = act.kitchen
-    kitchen.db.add(
-        ListItem(
-            id=str(uuid.uuid4()),
-            household_id=kitchen.household_id,
-            list_id=item.list_id,
-            food_id=item.food_id,
-            shop_id=item.shop_id,
-            amount_milli=item.amount_milli - max(shown, bought),
-            size_id=item.size_id,
-            source=item.source,
-            hand_edited=item.hand_edited,
-            put_away_place_id=None,
-            added_by_login_id=item.added_by_login_id,
-            added_by_name=item.added_by_name,
-            version=act.seq,
-        )
+    rest = ListItem(
+        id=str(uuid.uuid4()),
+        household_id=kitchen.household_id,
+        list_id=item.list_id,
+        food_id=item.food_id,
+        shop_id=item.shop_id,
+        amount_milli=item.amount_milli - max(shown, bought),
+        size_id=item.size_id,
+        source=item.source,
+        hand_edited=item.hand_edited,
+        put_away_place_id=None,
+        added_by_login_id=item.added_by_login_id,
+        added_by_name=item.added_by_name,
+        version=act.seq,
     )
+    kitchen.db.add(rest)
+    split = {
+        "rest": rest.id,
+        "rest_amount": rest.amount_milli,
+        "old": [item.amount_milli, item.size_id],
+        "new": [shown, size.id if size is not None else None],
+    }
     item.amount_milli = shown
     item.size_id = size.id if size is not None else None
+    return split
+
+
+def _split_of(kitchen: Kitchen, tick: ListTick) -> tuple[Change, dict[str, Any]] | None:
+    """The purchase's own change and the split it made of its line, if it made one."""
+    for change in kitchen.db.scalars(
+        select(Change).where(
+            Change.household_id == kitchen.household_id,
+            Change.tick_id == tick.id,
+            Change.kind.in_(("shopped", "found")),
+        )
+    ):
+        split = (change.undo_data or {}).get("split")
+        if split:
+            return change, split
+    return None
+
+
+def _unsplit(act: Act, tick: ListTick) -> None:
+    """A purchase that split its line is taken back (untick, Undo, Just 1, Pantry Undo): the
+    line gets its old amount again and the line to buy that was made for the rest goes, but
+    only while nothing has happened to either (RF2 fix round 1). A rest line that was bought,
+    moved, edited or taken off since stays as it is, and the ticked line then keeps the amount
+    it was ticked at: nothing a person did is rewritten."""
+    kitchen = act.kitchen
+    found = _split_of(kitchen, tick)
+    if found is None:
+        return
+    change, split = found
+    item = kitchen.db.get(ListItem, tick.item_id)
+    rest = kitchen.db.get(ListItem, split["rest"])
+    if item is None or rest is None or item.household_id != kitchen.household_id:
+        return
+    untouched = (
+        rest.deleted_at is None
+        and rest.merged_into_id is None
+        and rest.ticked_at is None
+        and not shopping.standing_ticks(kitchen, [rest.id])
+        and rest.amount_milli == split["rest_amount"]
+        and (rest.list_id, rest.shop_id) == (item.list_id, item.shop_id)
+        and rest.hand_edited == item.hand_edited
+        and [item.amount_milli, item.size_id] == split["new"]
+    )
+    if not untouched:
+        return
+    shopping.tombstone(kitchen, rest, act.seq, act.id)
+    item.amount_milli, item.size_id = split["old"]
+    item.version = act.seq
+    change.undo_data = {**(change.undo_data or {}), "split": {**split, "undone": True}}
+
+
+def _resplit(act: Act, tick: ListTick) -> None:
+    """The put-back of a purchase that was unsplit (Undo of an untick): split the line again."""
+    kitchen = act.kitchen
+    found = _split_of(kitchen, tick)
+    if found is None or not found[1].get("undone"):
+        return
+    change, split = found
+    item = kitchen.db.get(ListItem, tick.item_id)
+    rest = kitchen.db.get(ListItem, split["rest"])
+    if (
+        item is None
+        or rest is None
+        or rest.deleted_at is None
+        or [item.amount_milli, item.size_id] != split["old"]
+    ):
+        return
+    rest.deleted_at = None
+    rest.deleted_by_name = None
+    rest.deleted_action_id = None
+    rest.version = act.seq
+    item.amount_milli, item.size_id = split["new"]
+    item.version = act.seq
+    change.undo_data = {**(change.undo_data or {}), "split": {**split, "undone": False}}
 
 
 # --- tick (7.1) ----------------------------------------------------------------------------------
@@ -310,8 +390,12 @@ def tick(act: Act) -> None:
         change.tick_id = row.id
         row.change_id = change.id
         act.change = change
-    if shown is not None:
-        _keep_the_rest(act, item, line_milli, row.bought_milli or 0, shown_size)
+    if shown is not None and row.bought_milli and not standing:
+        # Only the first purchase of the line splits it: another phone's tick of what it saw
+        # leaves the line as it is (RF2 fix round 1).
+        split = _keep_the_rest(act, item, line_milli or 0, row.bought_milli, shown_size)
+        if split is not None:
+            change.undo_data = {**(change.undo_data or {}), "split": split}
     sync_copy(kitchen, item, act.seq)
     _removed_list(act, item, ticked=bool(row.bought_milli))
     if recount:
@@ -537,6 +621,7 @@ def reverse(act: Act, tick: ListTick, summary: Callable[[Change], str]) -> list[
     ]
     tick.reversed_at = utcnow()
     tick.reversed_by_action_id = act.id
+    _unsplit(act, tick)
     shopping.notes_gone(kitchen, tick.id, act.seq)
     close_questions(act, tick)
     return done
@@ -617,6 +702,7 @@ def put_back(act: Act, reversal: SyncAction) -> list[ListTick]:
     )
     for tick in back:
         _put_back_one(act, tick, undos.get(tick.id, []))
+        _resplit(act, tick)
     return back
 
 

@@ -5,7 +5,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from sync_kit import PHONE_A, PHONE_B, action, changes, counter, db, ok, one, send
+from sync_kit import PHONE_A, PHONE_B, action, changes, counter, db, new_id, ok, one, send
 from test_recipes import food as new_food
 from test_shop_from_plan import from_plan, line, plan, recipe
 from test_whole_packs import row_of, size
@@ -122,3 +122,110 @@ def test_a_line_a_person_removed_still_names_the_person(kitchen: TestClient) -> 
     assert [n["text"] for n in changes(kitchen)["notes"]] == [
         "Your other phone had removed Ghee, so your change wasn’t kept."
     ]
+
+
+# --- RF2 fix round 1 (Opus review r1 of a1ea6692) -------------------------------------------
+
+
+def test_a_second_phones_tick_does_not_split_the_line_again(kitchen: TestClient) -> None:
+    # Phone A ticked the whole 620 g; phone B, offline, ticks the 120 g it saw. B's amount goes
+    # into the pantry (two purchases, the card asks), but A's ticked line is left as it was and
+    # no line to buy appears.
+    ghee, row, seen = grown_line(kitchen)
+    one(kitchen, "tick", counter(kitchen), PHONE_A, item_id=row["id"], amount=620)
+    one(kitchen, "tick", seen, PHONE_B, item_id=row["id"], amount=120)
+    assert lines(kitchen, ghee["id"]) == [(620, True)]
+    assert len([q for q in changes(kitchen)["questions"] if q["open"]]) == 1
+
+
+def split_tick(kitchen: TestClient) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    ghee, row, seen = grown_line(kitchen)
+    done = one(kitchen, "tick", seen, PHONE_B, item_id=row["id"], amount=120)
+    assert sorted(lines(kitchen, ghee["id"])) == [(120, False), (120, True)]
+    return ghee, row, done
+
+
+def test_untick_of_a_split_tick_puts_the_line_back_whole(kitchen: TestClient) -> None:
+    ghee, row, done = split_tick(kitchen)
+    one(kitchen, "untick", counter(kitchen), PHONE_B, item_id=row["id"], tick_ids=[done["id"]])
+    assert pantry(kitchen, ghee["id"]) == 0
+    assert lines(kitchen, ghee["id"]) == [(620, False)]
+
+
+def test_undo_of_a_split_tick_puts_the_line_back_whole(kitchen: TestClient) -> None:
+    ghee, _row, done = split_tick(kitchen)
+    one(kitchen, "undo", counter(kitchen), PHONE_B, undoes=done["id"])
+    assert pantry(kitchen, ghee["id"]) == 0
+    assert lines(kitchen, ghee["id"]) == [(620, False)]
+
+
+def test_pantry_undo_of_a_split_purchase_puts_the_line_back_whole(kitchen: TestClient) -> None:
+    ghee, _row, done = split_tick(kitchen)
+    r = kitchen.post(
+        f"/api/v1/changes/{done['change']['id']}/undo", headers={"Idempotency-Key": "k-split"}
+    )
+    assert r.status_code == 200, r.text
+    assert pantry(kitchen, ghee["id"]) == 0
+    assert lines(kitchen, ghee["id"]) == [(620, False)]
+
+
+def test_undo_of_the_untick_splits_it_again(kitchen: TestClient) -> None:
+    ghee, row, done = split_tick(kitchen)
+    gone = one(
+        kitchen, "untick", counter(kitchen), PHONE_B, item_id=row["id"], tick_ids=[done["id"]]
+    )
+    one(kitchen, "undo", counter(kitchen), PHONE_B, undoes=gone["id"])
+    assert pantry(kitchen, ghee["id"]) == 500
+    assert sorted(lines(kitchen, ghee["id"])) == [(120, False), (120, True)]
+
+
+def test_a_hand_edited_line_comes_back_to_its_old_amount(kitchen: TestClient) -> None:
+    ghee = new_food(kitchen, "Ghee")
+    size(kitchen, ghee["id"], "jar", 500, usual=True)
+    plan(kitchen, recipe(kitchen, "Dal", line(ghee["id"], 120, "g")), 1)
+    from_plan(kitchen)
+    row = row_of(kitchen, ghee["id"])
+    seen = counter(kitchen)
+    one(kitchen, "set_amount", seen, PHONE_A, item_id=row["id"], amount=1620)
+    done = one(kitchen, "tick", seen, PHONE_B, item_id=row["id"], amount=120)
+    assert sorted(lines(kitchen, ghee["id"])) == [(120, True), (1120, False)]
+    one(kitchen, "undo", counter(kitchen), PHONE_B, undoes=done["id"])
+    assert lines(kitchen, ghee["id"]) == [(1620, False)]  # none of the need is lost
+
+
+def test_a_rest_line_that_was_ticked_since_stays_when_the_first_tick_is_undone(
+    kitchen: TestClient,
+) -> None:
+    # The rest line was bought meanwhile: it is not taken away, and the first line keeps the
+    # amount it was ticked at (chosen: nothing that was bought or edited is rewritten).
+    ghee, _row, done = split_tick(kitchen)
+    rest = next(
+        i for i in changes(kitchen)["items"] if i["food_id"] == ghee["id"] and not i["ticks"]
+    )
+    one(kitchen, "tick", counter(kitchen), PHONE_A, item_id=rest["id"], amount=120)
+    one(kitchen, "undo", counter(kitchen), PHONE_B, undoes=done["id"])
+    assert sorted(lines(kitchen, ghee["id"])) == [(120, False), (120, True)]
+
+
+def test_just_1_leaves_a_split_alone(kitchen: TestClient) -> None:
+    # A split tick is always the first purchase, and "Just 1" only reverses the later ones.
+    ghee, row, _done = split_tick(kitchen)
+    second = one(kitchen, "tick", counter(kitchen), PHONE_A, item_id=row["id"])
+    assert second["status"] == "applied"
+    q = next(q for q in changes(kitchen)["questions"] if q["open"])
+    one(kitchen, "answer_double_tick", counter(kitchen), PHONE_A, question_id=q["id"], answer="one")
+    assert sorted(lines(kitchen, ghee["id"])) == [(120, False), (120, True)]
+
+
+def test_a_tick_that_puts_nothing_in_does_not_split(kitchen: TestClient) -> None:
+    ghee = new_food(kitchen, "Salt", staple=True)
+    plan(kitchen, recipe(kitchen, "Dal", line(ghee["id"], 120, "g")), 1)
+    from_plan(kitchen)
+    main = ok(kitchen.get("/api/v1/shopping/changes"))["lists"][0]["id"]
+    item = new_id()
+    send(
+        kitchen,
+        action("add", list_id=main, item_id=item, food_id=ghee["id"], amount=620),
+    )
+    one(kitchen, "tick", counter(kitchen), PHONE_A, item_id=item, amount=120)
+    assert [x for x in lines(kitchen, ghee["id"]) if not x[1]] == []
