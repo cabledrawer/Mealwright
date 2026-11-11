@@ -24,6 +24,7 @@ from mealwright.history import commit, replayed
 from mealwright.household import add_slot, meal_slots
 from mealwright.models import (
     BatchCook,
+    BatchSession,
     Change,
     CookedRecord,
     Food,
@@ -177,6 +178,21 @@ class PlanBatchOut(BaseModel):
     # Portions (0.7): the tubs plus the cook-day meal, and how many of them are not planned yet.
     portions: int
     portions_left: int
+    # The Batch cook session it was made in (0.8 wave 6, B2), or null.
+    session_id: int | None = None
+
+
+class PlanSessionOut(BaseModel):
+    """A Batch cook (Experimental) session: its recipes are the `batch_cooks` with its id."""
+
+    id: int
+    cook_day: date
+    # The rough "about X together" and "one by one" minutes it was planned with, or null.
+    together_minutes: int | None
+    one_by_one_minutes: int | None
+    # When the first start-ahead of its recipes is to begin ("from 10:00"), or null: none is set.
+    start_day: date | None = None
+    start_time: str | None = None
 
 
 class PlanTubOut(BaseModel):
@@ -197,6 +213,7 @@ class PlanOut(BaseModel):
     meals: list[PlanMealOut]
     batch_cooks: list[PlanBatchOut]
     tubs: list[PlanTubOut]
+    batch_sessions: list[PlanSessionOut] = Field(default_factory=list)
 
 
 @router.get("/plan")
@@ -579,6 +596,7 @@ def get_plan(
         .order_by(MealEater.login_id)
     ):
         eaters.setdefault(meal_id, []).append(login_id)
+    session_rows = _sessions_out(kitchen, [b for b in batches if b.session_id is not None])
     for i in items:
         by_meal.setdefault(i.meal_id, []).append(item_out(i))
         kcal = item_kcal(i)
@@ -612,6 +630,7 @@ def get_plan(
                 colour=b.colour,
                 portions=portions[b.id].total,
                 portions_left=portions[b.id].left,
+                session_id=b.session_id,
             )
             for b in batches
         ],
@@ -628,7 +647,59 @@ def get_plan(
             )
             for t in tubs
         ],
+        batch_sessions=session_rows,
     )
+
+
+def _sessions_out(kitchen: Kitchen, found: list[BatchCook]) -> list[PlanSessionOut]:
+    """The Batch cook sessions of these batch cooks (0.8 wave 6, B2), with when each one starts:
+    the earliest start-ahead set on its cook-day recipes."""
+    ids = sorted({b.session_id for b in found if b.session_id is not None})
+    if not ids:
+        return []
+    db = kitchen.db
+    out: list[PlanSessionOut] = []
+    for session in db.scalars(
+        select(BatchSession)
+        .where(BatchSession.household_id == kitchen.household_id, BatchSession.id.in_(ids))
+        .order_by(BatchSession.cook_day, BatchSession.id)
+    ):
+        cook_meals = [
+            b.cook_meal_id for b in found if b.session_id == session.id and b.cook_meal_id
+        ]
+        starts = (
+            list(
+                db.scalars(
+                    select(MealItem.start_at).where(
+                        MealItem.household_id == kitchen.household_id,
+                        MealItem.meal_id.in_(cook_meals),
+                        MealItem.recipe_id.in_(
+                            [
+                                b.recipe_id
+                                for b in found
+                                if b.session_id == session.id and b.recipe_id
+                            ]
+                        ),
+                        MealItem.start_at.is_not(None),
+                    )
+                )
+            )
+            if cook_meals
+            else []
+        )
+        first = min((s for s in starts if s is not None), default=None)
+        local = start_ahead.local_of(kitchen.household, first) if first is not None else None
+        out.append(
+            PlanSessionOut(
+                id=session.id,
+                cook_day=session.cook_day,
+                together_minutes=session.together_minutes,
+                one_by_one_minutes=session.one_by_one_minutes,
+                start_day=local.date() if local else None,
+                start_time=start_ahead.clock_words(local.time()) if local else None,
+            )
+        )
+    return out
 
 
 # --- Writing the plan (PR 3) -----------------------------------------------------------------
@@ -643,6 +714,8 @@ class PlanWrite(BaseModel):
     item_id: int | None = None
     # Cook once (PR 4): the batch cook that was made.
     batch_id: int | None = None
+    # Batch cook (0.8 wave 6, B2): the session that was made.
+    session_id: int | None = None
 
 
 def _written(kitchen: Kitchen, change: Change | None) -> PlanWrite:
@@ -654,6 +727,7 @@ def _written(kitchen: Kitchen, change: Change | None) -> PlanWrite:
         meal_id=data.get("meal_id"),
         item_id=data.get("item_id"),
         batch_id=data.get("batch_id"),
+        session_id=data.get("session_id"),
     )
 
 

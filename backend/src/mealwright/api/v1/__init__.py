@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from mealwright.api.v1 import (
     account,
+    batch_cook,
     batches,
     changes,
     cooked,
@@ -36,6 +37,7 @@ router.include_router(pantry.router)
 router.include_router(stocktake.router)
 router.include_router(plan.router)
 router.include_router(batches.router)
+router.include_router(batch_cook.router)
 router.include_router(cooked.router)
 router.include_router(today.router)
 router.include_router(imports.router)

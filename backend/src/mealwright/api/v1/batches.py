@@ -64,7 +64,7 @@ class BatchIn(BaseModel):
     )
 
 
-def _spots(body: BatchIn) -> list[batches.Spot | None] | None:
+def spots_of(body: BatchIn) -> list[batches.Spot | None] | None:
     if body.placements is None:
         return None
     return [None if p is None else (p.date, p.slot_id) for p in body.placements]
@@ -124,8 +124,13 @@ def preview_batch(plan_item_id: StoredInt, body: BatchIn, kitchen: Here) -> Batc
         body.pattern,
         body.member_login_ids,
         body.extras_to_freezer,
-        _spots(body),
+        spots_of(body),
     )
+    return preview_out(worked)
+
+
+def preview_out(worked: batches.Worked) -> BatchPreviewOut:
+    """A worked-out batch as the preview answers it."""
     return BatchPreviewOut(
         recipe_id=worked.recipe.id,
         recipe_name=worked.recipe.name,
@@ -171,7 +176,7 @@ def make_batch(
             body.member_login_ids,
             body.extras_to_freezer,
             body.prep_note,
-            _spots(body),
+            spots_of(body),
         ),
     )
     if response.headers.get("Idempotent-Replayed"):

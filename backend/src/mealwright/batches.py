@@ -24,6 +24,7 @@ from mealwright.household import meal_slots, today
 from mealwright.models import (
     SPREAD_PATTERNS,
     BatchCook,
+    BatchSession,
     Change,
     Login,
     Meal,
@@ -356,6 +357,42 @@ def make_batch(
     prep_note: str | None,
     placements: list[Spot | None] | None,
 ) -> Change:
+    steps, batch, worked = make_batch_steps(
+        kitchen,
+        item,
+        tub_count,
+        pattern,
+        member_login_ids,
+        extras_to_freezer,
+        prep_note,
+        placements,
+    )
+    placed = sum(1 for t in worked.tubs if t.spot is not None)
+    word = "tub" if tub_count == 1 else "tubs"
+    return _finish(
+        kitchen,
+        "plan_batch",
+        f"Planned {worked.recipe.name} once for {tub_count} {word} ({placed} in the plan)",
+        steps,
+        meal_id=worked.meal.id,
+        batch_id=batch.id,
+    )
+
+
+def make_batch_steps(
+    kitchen: Kitchen,
+    item: MealItem,
+    tub_count: int,
+    pattern: str,
+    member_login_ids: list[int],
+    extras_to_freezer: bool,
+    prep_note: str | None,
+    placements: list[Spot | None] | None,
+    session_id: int | None = None,
+) -> tuple[list[dict[str, Any]], BatchCook, Worked]:
+    """What `make_batch` does, without recording the change: the Undo steps, the batch and where
+    its tubs went. A Batch cook session (B2) makes several in one change, each with its
+    `session_id`."""
     worked = work_out(
         kitchen, item, tub_count, pattern, member_login_ids, extras_to_freezer, placements
     )
@@ -366,6 +403,7 @@ def make_batch(
         recipe_id=worked.recipe.id,
         recipe_name=worked.recipe.name,
         cook_meal_id=worked.meal.id,
+        session_id=session_id,
         cooked_on=worked.meal.day,
         tub_count=tub_count,
         pattern=pattern,
@@ -388,16 +426,7 @@ def make_batch(
         steps.append({"op": "new_tub", "tub": tub.id, "count": None})
         if plan_tub.spot is not None:
             _put_tub_in_meal(kitchen, tub, plan_tub.spot, steps)
-    placed = sum(1 for t in worked.tubs if t.spot is not None)
-    word = "tub" if tub_count == 1 else "tubs"
-    return _finish(
-        kitchen,
-        "plan_batch",
-        f"Planned {worked.recipe.name} once for {tub_count} {word} ({placed} in the plan)",
-        steps,
-        meal_id=worked.meal.id,
-        batch_id=batch.id,
-    )
+    return steps, batch, worked
 
 
 def _put_tub_in_meal(
@@ -781,6 +810,13 @@ def move_cook_day(
 def delete_batch(kitchen: Kitchen, batch: BatchCook) -> Change:
     """Take a batch off: its tubs go, and their meal items. Undo brings all back. A batch that
     was cooked can't be taken off while its cooked record stands (the record is never lost)."""
+    steps, name = delete_batch_steps(kitchen, batch)
+    return _finish(kitchen, "plan_batch_removed", f"Took {name}’s tubs off the plan", steps)
+
+
+def delete_batch_steps(kitchen: Kitchen, batch: BatchCook) -> tuple[list[dict[str, Any]], str]:
+    """What `delete_batch` does, without recording the change: the Undo steps and the recipe's
+    name. A session that is left with no batch goes with its last one."""
     db = kitchen.db
     record = cooked.for_batch(db, kitchen.household_id, batch.id)
     if record is not None:
@@ -839,13 +875,44 @@ def delete_batch(kitchen: Kitchen, batch: BatchCook) -> Change:
                 "pattern": batch.pattern,
                 "prep_note": batch.prep_note,
                 "colour": batch.colour,
+                "session_id": batch.session_id,
             },
         }
     )
     name = batch.recipe_name
+    session_id = batch.session_id
     db.delete(batch)
     db.flush()
-    return _finish(kitchen, "plan_batch_removed", f"Took {name}’s tubs off the plan", steps)
+    if session_id is not None:
+        drop_empty_session(kitchen, session_id, steps)
+    return steps, name
+
+
+def drop_empty_session(kitchen: Kitchen, session_id: int, steps: list[dict[str, Any]]) -> None:
+    """A Batch cook session with no batch cook left is not a session any more: it goes, and Undo
+    (the `del_session` step, which comes after the batches' own in the steps) brings it back."""
+    db = kitchen.db
+    left = db.scalar(
+        select(BatchCook.id)
+        .where(BatchCook.household_id == kitchen.household_id, BatchCook.session_id == session_id)
+        .limit(1)
+    )
+    session = db.get(BatchSession, session_id)
+    if left is not None or session is None or session.household_id != kitchen.household_id:
+        return
+    steps.append(
+        {
+            "op": "del_session",
+            "session": {
+                "id": session.id,
+                "cook_day": session.cook_day.isoformat(),
+                "together_minutes": session.together_minutes,
+                "one_by_one_minutes": session.one_by_one_minutes,
+            },
+        }
+    )
+    db.delete(session)
+    db.flush()
 
 
 # --- "Leftovers here" makes a tub ----------------------------------------------------------------
@@ -1466,6 +1533,7 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
         # The day's cap holds for Undo too (delete, make another, then Undo would get round it).
         _batches_that_day(kitchen, date.fromisoformat(old["cooked_on"]))
         cook_meal = _own(kitchen, Meal, remap.get(old["cook_meal_id"], old["cook_meal_id"]))
+        session = _own(kitchen, BatchSession, old["session_id"]) if old.get("session_id") else None
         db.add(
             BatchCook(
                 id=old["id"],
@@ -1478,6 +1546,31 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
                 pattern=old["pattern"],
                 prep_note=old["prep_note"],
                 colour=old["colour"],
+                session_id=session.id if session else None,
+            )
+        )
+        db.flush()
+        return True
+    if op == "new_session":
+        found = _own(kitchen, BatchSession, step["session"])
+        if found is None or db.scalar(
+            select(BatchCook.id).where(BatchCook.session_id == found.id).limit(1)
+        ):
+            return False  # a batch of it is still about (cooked since): the session stays
+        db.delete(found)
+        db.flush()
+        return True
+    if op == "del_session":
+        old = step["session"]
+        if db.get(BatchSession, old["id"]) is not None:
+            return False
+        db.add(
+            BatchSession(
+                id=old["id"],
+                household_id=kitchen.household_id,
+                cook_day=date.fromisoformat(old["cook_day"]),
+                together_minutes=old["together_minutes"],
+                one_by_one_minutes=old["one_by_one_minutes"],
             )
         )
         db.flush()

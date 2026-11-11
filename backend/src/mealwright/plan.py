@@ -414,6 +414,33 @@ def add_item(
     with two the meal uses; left out, the one used last. A recipe with one method has none.
     `start` (M3, cabledrawer 9 Nov): the day and clock time the recipe's long wait will be started,
     for a recipe that has one; left out, none is set."""
+    steps, meal, item, name = add_item_steps(
+        kitchen, day, slot_id, recipe, food, servings, note, optional_use, method_id, start
+    )
+    return _finish(
+        kitchen,
+        "plan_added",
+        f"Planned {name} for {_where(kitchen, day, slot_id)}",
+        steps,
+        meal_id=meal.id,
+        item_id=item.id,
+    )
+
+
+def add_item_steps(
+    kitchen: Kitchen,
+    day: date,
+    slot_id: int,
+    recipe: Recipe | None,
+    food: Food | None,
+    servings: int | None,
+    note: str | None = None,
+    optional_use: list[int] | None = None,
+    method_id: int | None = None,
+    start: tuple[date, time] | None = None,
+) -> tuple[list[dict[str, Any]], Meal, MealItem, str]:
+    """What `add_item` does, without recording the change: the Undo steps, the meal, the item and
+    its name. Batch cook sessions (B2) put several of these into one change."""
     check_day(kitchen, day)
     slot = find_slot(kitchen, slot_id)
     method = _method_for(kitchen, recipe, method_id)
@@ -444,14 +471,7 @@ def add_item(
     kitchen.db.flush()
     steps.append({"op": "add_item", "item": item.id, **used})
     name = recipe.name if recipe else food.name if food else note or "an ingredient"
-    return _finish(
-        kitchen,
-        "plan_added",
-        f"Planned {name} for {_where(kitchen, day, slot_id)}",
-        steps,
-        meal_id=meal.id,
-        item_id=item.id,
-    )
+    return steps, meal, item, name
 
 
 def _start_instant(

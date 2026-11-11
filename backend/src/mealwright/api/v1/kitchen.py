@@ -355,6 +355,8 @@ class HouseholdOut(BaseModel):
     cup_ml_used: int
     pints: Literal["uk", "us"]
     cook_per_step: bool
+    # Batch cook (Experimental) is shown; an admin can hide it (0.8 wave 6, B2).
+    batch_cook: bool
     undo_days: int
     history_months: int
     use_soon_days: int
@@ -388,6 +390,7 @@ def _household(kitchen: Here) -> HouseholdOut:
         cup_ml_used=cup_ml(household),
         pints=household_pints(household.pints),
         cook_per_step=household.cook_per_step,
+        batch_cook=not household.batch_cook_hidden,
         undo_days=household.undo_days,
         history_months=household.history_months,
         use_soon_days=household.use_soon_days,
@@ -414,18 +417,25 @@ class HouseholdChange(BaseModel):
     # cabledrawer: any signed-in person of the household may change this one (it changes only what
     # Cook mode shows), while `pints` stays admins only.
     cook_per_step: StrictBool | None = None
+    # Batch cook (Experimental; 0.8 wave 6, B2): shown (true) or hidden (false). Admins only: it
+    # takes the sidebar entry and the Plan tab away from everyone, and its suggestions are refused.
+    batch_cook: StrictBool | None = None
 
 
 @router.patch("/household")
 def change_household(body: HouseholdChange, kitchen: Here) -> HouseholdOut:
     """Changes the signed-in person's own household's settings: the pint (`pints`, admins
-    only) and Cook mode's per-step ingredients (`cook_per_step`, any person of the household).
-    Answers with the settings as stored."""
+    only), Cook mode's per-step ingredients (`cook_per_step`, any person of the household) and
+    whether Batch cook is shown (`batch_cook`, admins only). Answers with the settings as
+    stored."""
     if body.pints is not None:
         kitchen.admin_only()
         kitchen.household.pints = body.pints
     if body.cook_per_step is not None:
         kitchen.household.cook_per_step = body.cook_per_step
+    if body.batch_cook is not None:
+        kitchen.admin_only()
+        kitchen.household.batch_cook_hidden = not body.batch_cook
     kitchen.db.commit()
     return _household(kitchen)
 
