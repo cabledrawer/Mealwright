@@ -154,8 +154,13 @@ def test_another_household_never_sees_or_changes_a_step_timing(
 ) -> None:
     recipe = make(kitchen, "Timed mine", steps=[{"text": "Stir.", "timing": {"minutes": 7}}])
     assert neighbour.get(f"{API}/recipes/{recipe['id']}").status_code == 404
-    refused = neighbour.put(f"{API}/recipes/{recipe['id']}", json={"name": "Taken", "steps": []})
-    assert refused.status_code in (404, 422)
+    body = {
+        "name": "Taken",
+        "version": recipe["version"],
+        "steps": [{"text": "Stir.", "timing": {"minutes": 99}}],
+    }
+    refused = neighbour.put(f"{API}/recipes/{recipe['id']}", json=body)
+    assert refused.status_code == 404  # a valid body: the household check refuses it (r1 L4)
     again = ok(kitchen.get(f"{API}/recipes/{recipe['id']}"))
     assert timing(again["steps"][0])["minutes"] == 7
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
