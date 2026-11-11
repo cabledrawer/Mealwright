@@ -36,6 +36,8 @@ export interface ScheduleRecipe {
   tub_count: number;
   pattern: string;
   colour: string | null;
+  /** Not part of the session's Cooked it: cooked already on its own, or its recipe was removed. */
+  left_out?: 'cooked' | 'removed' | null;
 }
 
 export interface Schedule {
@@ -85,6 +87,7 @@ export interface SessionProposal {
     tubs: { place: string | null; count: number }[];
     proposal: Proposal;
   }[];
+  left_out: ScheduleRecipe[];
 }
 
 export interface SessionItemBody {

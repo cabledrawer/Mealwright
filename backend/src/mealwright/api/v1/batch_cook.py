@@ -6,7 +6,7 @@ cook in Settings: every route here then answers 409 `batch_cook_hidden`."""
 
 from collections.abc import Callable
 from datetime import date, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Path, Query, Response, status
 from pydantic import BaseModel, Field
@@ -222,6 +222,16 @@ class SessionRecipeOut(BaseModel):
     colour: str | None
 
 
+class ScheduleRecipeOut(SessionRecipeOut):
+    left_out: Literal["cooked", "removed"] | None = Field(
+        default=None,
+        description=(
+            "Why it is not part of the session's Cooked it: `cooked` (cooked already, on its "
+            "own) or `removed` (its recipe is deleted)."
+        ),
+    )
+
+
 class SessionOut(BaseModel):
     id: int
     cook_day: Day
@@ -343,7 +353,7 @@ class ScheduleOut(BaseModel):
     total_minutes: int
     minutes_left: int = Field(description="The hands-on minutes still to give.")
     kitchen: ScheduleKitchenOut
-    recipes: list[SessionRecipeOut]
+    recipes: list[ScheduleRecipeOut]
     tasks: list[TaskOut]
     before: list[BeforeOut] = Field(
         description="Soaking and overnight steps left for the day before (Today shows them)."
@@ -372,13 +382,14 @@ def _schedule_out(kitchen: Here, session_id: int, now: datetime | None = None) -
             oven=found.kitchen.oven,
         ),
         recipes=[
-            SessionRecipeOut(
+            ScheduleRecipeOut(
                 batch_id=b.id,
                 recipe_id=b.recipe_id,
                 recipe_name=b.recipe_name,
                 tub_count=b.tub_count,
                 pattern=b.pattern,
                 colour=b.colour,
+                left_out=batch_sessions.left_out(kitchen, b),  # type: ignore[arg-type]
             )
             for b in batch_sessions.batches_of(kitchen, session)
         ],
@@ -511,6 +522,10 @@ class SessionProposalOut(BaseModel):
     session_id: int
     cook_day: Day
     items: list[SessionItemProposalOut]
+    left_out: list[ScheduleRecipeOut] = Field(
+        default_factory=list,
+        description="Recipes not in this Cooked it: cooked already, or removed.",
+    )
 
 
 def _session_entries(kitchen: Kitchen, session_id: int, body: SessionCookIn) -> list[cooking.Entry]:
@@ -560,7 +575,22 @@ def preview_session_cook(
                 proposal=proposal,
             )
         )
-    return SessionProposalOut(session_id=session.id, cook_day=session.cook_day, items=items)
+    left = [
+        ScheduleRecipeOut(
+            batch_id=b.id,
+            recipe_id=b.recipe_id,
+            recipe_name=b.recipe_name,
+            tub_count=b.tub_count,
+            pattern=b.pattern,
+            colour=b.colour,
+            left_out=why,  # type: ignore[arg-type]
+        )
+        for b in batch_sessions.batches_of(kitchen, session)
+        if (why := batch_sessions.left_out(kitchen, b)) is not None
+    ]
+    return SessionProposalOut(
+        session_id=session.id, cook_day=session.cook_day, items=items, left_out=left
+    )
 
 
 @router.post("/batch-cook/sessions/{session_id}/cook", status_code=status.HTTP_201_CREATED)

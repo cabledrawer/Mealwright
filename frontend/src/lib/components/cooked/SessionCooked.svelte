@@ -149,6 +149,11 @@
             {/if}
           </section>
         {/each}
+        {#each target.already ?? [] as one (one.name)}
+          <p class="quiet already" data-testid="session-already">
+            {one.name} · {one.why === 'cooked' ? 'already cooked' : 'removed'}
+          </p>
+        {/each}
       </div>
 
       <footer>

@@ -20,7 +20,7 @@ from typing import Any
 from fastapi import status
 from sqlalchemy import select
 
-from mealwright import batch_suggest, batches, cooking, plan, start_ahead
+from mealwright import batch_suggest, batches, cooked, cooking, plan, start_ahead
 from mealwright.api.v1.context import Kitchen
 from mealwright.deduction import Choice
 from mealwright.errors import Problem, not_found
@@ -360,6 +360,17 @@ def preview[T](
 # --- One Cooked it for the whole session ----------------------------------------------------
 
 
+def left_out(kitchen: Kitchen, batch: BatchCook) -> str | None:
+    """Why a recipe of the session isn't part of its Cooked it: `cooked` (it was cooked already,
+    on its own) or `removed` (its recipe is deleted). None: it is still to cook (review B3 r1,
+    fix 2)."""
+    if cooked.for_batch(kitchen.db, kitchen.household_id, batch.id) is not None:
+        return "cooked"
+    if not cooking._usable(kitchen, batch.recipe_id):
+        return "removed"
+    return None
+
+
 def cook_entries(
     kitchen: Kitchen,
     session: BatchSession,
@@ -376,6 +387,17 @@ def cook_entries(
             if batch_id not in by_id:
                 raise not_found("That recipe")
         found = [b for b in found if b.id in wanted]
+    else:
+        # As Cooked it does for a meal (F158): what was cooked already or removed is left out,
+        # not a reason to refuse the others.
+        left = [b for b in found if left_out(kitchen, b) is not None]
+        found = [b for b in found if b not in left]
+        if not found and left:
+            raise Problem(
+                status.HTTP_409_CONFLICT,
+                "already_cooked",
+                "Everything in this batch cook was already cooked or removed.",
+            )  # proposed, for cabledrawer
     if not found:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,

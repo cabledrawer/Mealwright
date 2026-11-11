@@ -121,13 +121,54 @@ def test_a_second_cooked_it_is_refused_and_takes_nothing(kitchen: TestClient) ->
     assert pantry(kitchen) == after
 
 
-def test_one_recipe_refused_means_none_is_taken(kitchen: TestClient) -> None:
+def test_asking_for_a_recipe_already_cooked_refuses_all_and_takes_nothing(
+    kitchen: TestClient,
+) -> None:
     session, batches = session_of(kitchen)
     ok(kitchen.post(f"{API}/plan/batches/{batches[0]}/cook", json={}), 201)  # Sambar, alone
     after = pantry(kitchen)
-    refused = kitchen.post(f"{API}/batch-cook/sessions/{session}/cook", json={})
-    assert refused.status_code == 409
+    refused = kitchen.post(
+        f"{API}/batch-cook/sessions/{session}/cook",
+        json={"items": [{"batch_id": batches[0]}, {"batch_id": batches[1]}]},
+    )
+    assert refused.status_code == 409 and refused.json()["code"] == "already_cooked"
     assert pantry(kitchen) == after  # Chicken chettinad was not taken either
+
+
+def test_a_recipe_cooked_alone_is_left_out_of_the_session_cooked_it_not_a_reason_to_refuse(
+    kitchen: TestClient,
+) -> None:
+    """Review B3 round 1, fix 2: as Cooked it does for a meal, what was cooked already or removed
+    is skipped, flagged, and the rest is cooked."""
+    session, batches = session_of(kitchen)
+    ok(kitchen.post(f"{API}/plan/batches/{batches[0]}/cook", json={}), 201)  # Sambar, alone
+    flags = {
+        r["recipe_name"]: r["left_out"]
+        for r in ok(kitchen.post(f"{API}/batch-cook/sessions/{session}/schedule", json={}), 201)[
+            "recipes"
+        ]
+    }
+    assert flags == {"Sambar": "cooked", "Chicken chettinad": None}
+    preview = ok(kitchen.post(f"{API}/batch-cook/sessions/{session}/cook/preview", json={}))
+    assert [i["recipe_name"] for i in preview["items"]] == ["Chicken chettinad"]
+    assert [(r["recipe_name"], r["left_out"]) for r in preview["left_out"]] == [
+        ("Sambar", "cooked")
+    ]
+    done = ok(kitchen.post(f"{API}/batch-cook/sessions/{session}/cook", json={}), 201)
+    assert [c["snapshot"]["name"] for c in done["cooked"]] == ["Chicken chettinad"]
+    # Everything cooked now: said so, not an empty review.
+    again = kitchen.post(f"{API}/batch-cook/sessions/{session}/cook/preview", json={})
+    assert again.status_code == 409 and again.json()["code"] == "already_cooked"
+
+
+def test_a_removed_recipe_is_left_out_too(kitchen: TestClient) -> None:
+    session, _ = session_of(kitchen)
+    recipes = ok(kitchen.get(f"{API}/batch-cook/sessions/{session}"))["recipes"]
+    gone = next(r for r in recipes if r["recipe_name"] == "Sambar")["recipe_id"]
+    ok(kitchen.delete(f"{API}/recipes/{gone}"))
+    preview = ok(kitchen.post(f"{API}/batch-cook/sessions/{session}/cook/preview", json={}))
+    assert [i["recipe_name"] for i in preview["items"]] == ["Chicken chettinad"]
+    assert [r["left_out"] for r in preview["left_out"]] == ["removed"]
 
 
 def test_a_retry_with_the_same_key_takes_nothing_more(kitchen: TestClient) -> None:

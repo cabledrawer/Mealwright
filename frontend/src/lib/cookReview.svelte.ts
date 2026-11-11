@@ -53,6 +53,8 @@ export interface CookTarget {
   /** A Batch cook session: every part is one of its batch cooks, reviewed and confirmed together
    *  as one change with one Undo (B3). */
   sessionId?: number | null;
+  /** A session's recipes that are not part of it: cooked already, or removed. */
+  already?: { name: string; why: 'cooked' | 'removed' }[];
 }
 
 /** One tab: a recipe, with its portions, its rows as proposed, and the person's say on them. */

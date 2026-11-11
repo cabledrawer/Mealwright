@@ -16,6 +16,7 @@
   import { network } from '#lib/network.svelte.js';
   import { dayShort, dayWords } from '#lib/planDates.js';
   import { ScreenAwake } from '#lib/screenAwake.svelte.js';
+  import { toasts } from '#lib/toast.svelte.js';
 
   const id = $derived(Number(page.params.id));
   const model = untrack(() => new BatchModeModel(Number(page.params.id)));
@@ -61,12 +62,20 @@
   function openCooked() {
     const schedule = model.schedule;
     if (!schedule) return;
+    // What was cooked already on its own, or removed, is left out and said so (review B3 r1).
+    const left = schedule.recipes.filter((r) => r.left_out);
+    const todo = schedule.recipes.filter((r) => !r.left_out);
+    if (todo.length === 0) {
+      toasts.show('Everything in this batch cook was already cooked.'); // proposed, for cabledrawer
+      return;
+    }
     void review.open({
       title: `Cooked it · ${dayOf(schedule.cook_day)}`,
-      subtitle: cookedTitle(schedule.recipes.map((r) => r.recipe_name)),
+      subtitle: cookedTitle(todo.map((r) => r.recipe_name)),
+      already: left.map((r) => ({ name: r.recipe_name, why: r.left_out as 'cooked' | 'removed' })),
       mealId: null,
       sessionId: id,
-      parts: schedule.recipes.map((r) => ({
+      parts: todo.map((r) => ({
         itemId: null,
         batchId: r.batch_id,
         name: r.recipe_name
