@@ -30,6 +30,7 @@ from mealwright.models import (
     StocktakeEntry,
     StocktakePlace,
     Tub,
+    utcnow,
 )
 from mealwright.names import fold
 
@@ -234,7 +235,10 @@ def _stocktake_of(db: DbSession, household_id: int, place_id: int) -> dict[str, 
             StocktakeEntry.household_id == household_id, StocktakeEntry.place_id == place_id
         )
     )
+    others = _progress_rows(db, household_id, but=place_id)
     return {
+        "removed_at": utcnow().isoformat(),
+        "others": others,
         "finished_at": as_utc(done.finished_at).isoformat() if done else None,
         "entries": [
             {
@@ -248,11 +252,46 @@ def _stocktake_of(db: DbSession, household_id: int, place_id: int) -> dict[str, 
     }
 
 
+def _progress_rows(
+    db: DbSession, household_id: int, *, but: int | None = None, until: datetime | None = None
+) -> int:
+    """How many stocktake rows (answers and finished places) the household has, leaving out the
+    place `but`, and only those made at or before `until` when given."""
+    entries = select(StocktakeEntry.place_id, StocktakeEntry.at).where(
+        StocktakeEntry.household_id == household_id
+    )
+    places = select(StocktakePlace.place_id, StocktakePlace.finished_at).where(
+        StocktakePlace.household_id == household_id
+    )
+    rows = [*db.execute(entries), *db.execute(places)]
+    return sum(
+        1
+        for place_id, at in rows
+        if place_id != but and (until is None or (at is not None and as_utc(at) <= until))
+    )
+
+
+def _same_stocktake(db: DbSession, household_id: int, data: dict[str, Any]) -> bool:
+    """Whether the stocktake the place was removed from is still the one going on (RF1 review
+    r1, proposed, for cabledrawer). "Start a new stocktake" forgets every row, so when other places
+    had progress at the removal, at least one of those rows must still be there; when the removed
+    place had the only progress, nothing may have been answered since. Records made before this
+    have no `removed_at`: they put the progress back as before."""
+    if "removed_at" not in data:
+        return True
+    removed_at = datetime.fromisoformat(data["removed_at"])
+    if data.get("others"):
+        return _progress_rows(db, household_id, until=removed_at) > 0
+    return _progress_rows(db, household_id) == 0
+
+
 def _put_back_stocktake(kitchen: Kitchen, place_id: int, data: dict[str, Any]) -> None:
     """The place's stocktake progress as it was, for rows that are not there again already and
     whose ingredient and change still exist. Records made before this have none."""
     db = kitchen.db
     hid = kitchen.household_id
+    if not _same_stocktake(db, hid, data):
+        return
     if data.get("finished_at") and db.get(StocktakePlace, (hid, place_id)) is None:
         db.add(
             StocktakePlace(

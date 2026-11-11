@@ -119,3 +119,31 @@ def test_undo_of_planning_puts_the_used_last_way_back_after_another_way_was_pick
     assert last_used() != before
     ok(kitchen.post(f"{API}/changes/{planned['change']['id']}/undo"))
     assert last_used() == before
+
+
+def test_undo_of_a_removed_place_leaves_a_new_stocktake_alone(kitchen: TestClient) -> None:
+    """RF1 review r1 (proposed, for cabledrawer): remove a place, press "Start a new stocktake", then
+    Undo the removal: the new stocktake doesn't get the old place's answers or its finished mark."""
+    garage = ok(
+        kitchen.post(f"{API}/places", json={"name": "Garage freezer", "kind": "freezer"}), 201
+    )
+    peas = food(kitchen, "Peas", place_id=garage["id"])
+    stock(kitchen, peas["id"], 500, "g", place_id=garage["id"])
+    freezer = places(kitchen)["Freezer"]
+    beans = food(kitchen, "Broad beans", place_id=freezer)
+    stock(kitchen, beans["id"], 1000, "g", place_id=freezer)
+    for place_id, food_id in ((garage["id"], peas["id"]), (freezer, beans["id"])):
+        sized = kitchen.post(f"{API}/foods/{food_id}/sizes", json={"name": "bag", "amount": 1000})
+        ok(sized, 201)
+        answered = kitchen.post(
+            f"{API}/stocktake/places/{place_id}/foods/{food_id}/answer", json={"fraction": 1}
+        )
+        assert answered.status_code == 200, answered.text
+    ok(kitchen.post(f"{API}/stocktake/places/{garage['id']}/finish"))
+    gone = ok(kitchen.delete(f"{API}/places/{garage['id']}", params={"move_to": freezer}))
+    ok(kitchen.post(f"{API}/stocktake/restart"))
+    ok(kitchen.post(f"{API}/changes/{gone['change']['id']}/undo"))
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        assert db.scalars(select(StocktakeEntry)).all() == []
+        assert db.scalars(select(StocktakePlace)).all() == []
+    assert ok(kitchen.get(f"{API}/stocktake"))["started"] is False

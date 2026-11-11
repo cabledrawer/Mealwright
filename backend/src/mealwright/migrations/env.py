@@ -14,10 +14,23 @@ target_metadata = Base.metadata
 
 
 def _configure(connection: Connection) -> None:
-    # Batch mode lets ALTER TABLE work on SQLite.
-    context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
-    # A rebuilt table would start its "never reuse an id" counter again (D1): keep the counters.
+    # A rebuilt table would start its "never reuse an id" counter again (D1): keep the counters,
+    # putting them back after every step so a later step never hands out a removed row's id
+    # (RF1 review r1). The highest counter seen so far is what each table keeps.
     counters = read_counters(connection)
+
+    def keep_counters(**_: object) -> None:
+        restore_counters(connection, counters)
+        for table, seq in read_counters(connection).items():
+            counters[table] = max(seq, counters.get(table, 0))
+
+    # Batch mode lets ALTER TABLE work on SQLite.
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        render_as_batch=True,
+        on_version_apply=keep_counters,
+    )
     with context.begin_transaction():
         context.run_migrations()
         restore_counters(connection, counters)

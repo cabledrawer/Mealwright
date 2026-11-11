@@ -116,6 +116,11 @@ def test_upgrade_from_v070_with_a_removal_in_its_last_week_never_reuses_the_id(
     old = _kitchen_with_removals(settings)
     engine = _as_v070_would_have_left_it(settings, old)
     assert migrate.current_revision(engine) == V070
+    # Up to the head before the repair: only env.py keeps the counters over these rebuilds
+    # (RF1 review r1).
+    migrate.upgrade(engine, BEFORE_REPAIR)
+    kept = _counters(engine)
+    assert kept["meal_item"] >= old["item"] and kept["batch_cook"] >= old["batch"]
     engine.dispose()
 
     with TestClient(create_app(settings), base_url="https://testserver") as app:  # upgrades
