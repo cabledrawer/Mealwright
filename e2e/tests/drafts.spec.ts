@@ -329,8 +329,9 @@ test('a draft in the dark theme passes the accessibility scan, on the review and
 });
 
 // F213 (cabledrawer 10 Nov): an ingredient made while one draft from the batch was checked is used
-// by the other waiting draft when it is opened, and that draft's Save is not refused for it.
-test('a waiting draft uses an ingredient another draft made, and saves without being refused', async ({ page }) => {
+// by the other waiting draft when it is opened (Save not being refused for it is in the
+// backend's test_drafts.py).
+test('a waiting draft uses an ingredient another draft made when it is opened', async ({ page }) => {
   const first = unique('Rasam');
   const second = unique('Sambar');
   const hing = unique('Hing');

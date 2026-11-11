@@ -456,7 +456,8 @@ changed there), each line with its `link`:
   ingredient or any other ingredient already has is skipped, never stolen.
 - `{"kind": "new", "name": "Hing", "counted_as": "weight", "place_id": 3}`: a new ingredient, made on
   Save; nothing is added to the pantry. Two lines asking for the same name make it once; a name the
-  household already has is refused at that line (409 `name_taken`, `line`).
+  household already has (made by another draft meanwhile, say) is used for the line instead, as
+  that ingredient is, so Save is never refused for it (F213, cabledrawer 10 Nov).
 - `{"kind": "staple", ...}`: a new staple ("Treat as staple"): the line never counts.
 - No `link`: the line is saved with its words only ("not linked"). The review says how many lines
   that will be; the spec does not say Save must wait for every choice, so it does not.
