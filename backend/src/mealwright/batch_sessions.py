@@ -52,6 +52,11 @@ class RecipeChoice:
     extras_to_freezer: bool = False
     prep_note: str | None = None
     placements: list[batches.Spot | None] | None = None
+    # As adding the recipe to the plan asks (RF3, C6; cabledrawer 11 Nov): the optional lines to use
+    # (None: every one counts) and the way of cooking it, for a recipe with two (None: the one
+    # used last).
+    optional_use: list[int] | None = None
+    method_id: int | None = None
 
 
 def hidden_check(kitchen: Kitchen) -> None:
@@ -112,13 +117,13 @@ def _check(
 
 
 def _start_tonight(
-    kitchen: Kitchen, day: date, slot_id: int, recipe: Recipe
+    kitchen: Kitchen, day: date, slot_id: int, recipe: Recipe, method_id: int | None = None
 ) -> tuple[date, time] | None:
     """A recipe with a long wait (soak, marinate overnight) is planned with wave 5's first "Start
     tonight" time, so Today shows it the day before (B3, cabledrawer 11 Nov; proposed, for cabledrawer:
     the session picks the time itself, and it can be changed on the Plan like any other). None
     when the recipe has no such wait or every time has gone by."""
-    method = plan._method_for(kitchen, recipe, None)
+    method = plan._method_for(kitchen, recipe, method_id)
     found = start_ahead.ahead_of(kitchen.db, recipe, method.id if method else None)
     if found is None:
         return None
@@ -143,9 +148,17 @@ def _plan_each(
     """Each recipe is planned in the cook day's meal, then cooked once. Returns that meal."""
     meal: Meal | None = None
     for choice, recipe in zip(choices, recipes, strict=True):
-        start = _start_tonight(kitchen, day, slot_id, recipe)
+        start = _start_tonight(kitchen, day, slot_id, recipe, choice.method_id)
         added, meal, item, _name = plan.add_item_steps(
-            kitchen, day, slot_id, recipe, None, None, start=start
+            kitchen,
+            day,
+            slot_id,
+            recipe,
+            None,
+            None,
+            optional_use=choice.optional_use,
+            method_id=choice.method_id,
+            start=start,
         )
         steps.extend(added)
         made, _batch, _worked = batches.make_batch_steps(

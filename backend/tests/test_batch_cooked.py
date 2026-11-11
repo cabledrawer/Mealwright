@@ -270,3 +270,133 @@ def test_a_session_cooked_before_its_day_counts_the_tubs_from_today_and_cooks_th
     ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
     assert use_bys() == before
     assert meal_status() == "planned"
+
+
+# --- Whole-0.8 review fixes (RF3): C6 ------------------------------------------------------------
+
+
+def biryani_session(
+    client: TestClient, **choice: Any
+) -> tuple[int, dict[str, Any], dict[str, Any]]:
+    """Biryani (cashews are an optional line, with an optional step that uses them) and Dal, as a
+    session on D1; `choice` goes on Biryani's entry (`optional_use`, `method_id`)."""
+    rice, nuts, dal_food = food(client, "Rice"), food(client, "Cashew"), food(client, "Toor dal")
+    for each, amount in ((rice, 1000), (nuts, 200), (dal_food, 500)):
+        stock(client, each["id"], amount, "g")
+    biryani = make(
+        client,
+        "Biryani",
+        serves=4,
+        lines=[
+            {"words": "400 g rice", "food_id": rice["id"], "amount": 400, "unit": "g"},
+            {
+                "words": "50 g cashew",
+                "food_id": nuts["id"],
+                "amount": 50,
+                "unit": "g",
+                "optional": True,
+            },
+        ],
+        steps=[
+            {"text": "Simmer the rice for 15 minutes."},
+            {"text": "Fry the cashews for the top.", "lines": [1], "optional": True},
+            {"text": "Garnish with coriander.", "optional": True},
+        ],
+    )
+    dal = make(
+        client,
+        "Dal",
+        serves=4,
+        lines=[{"words": "200 g toor dal", "food_id": dal_food["id"], "amount": 200, "unit": "g"}],
+        steps=[{"text": "Simmer the dal for 20 minutes."}],
+    )
+    if choice.get("optional_use") == ["cashew"]:  # the line's id is not known until now
+        choice["optional_use"] = [biryani["lines"][1]["id"]]
+    body = {
+        "date": D1.isoformat(),
+        "slot_id": slot_ids(client)["Dinner"],
+        "recipes": [
+            {"recipe_id": biryani["id"], "tub_count": 2, **choice},
+            {"recipe_id": dal["id"], "tub_count": 2},
+        ],
+    }
+    made = ok(client.post(f"{API}/batch-cook/sessions", json=body), 201)
+    return int(made["session_id"]), biryani, dal
+
+
+def titles(client: TestClient, session_id: int) -> list[str]:
+    made = ok(client.post(f"{API}/batch-cook/sessions/{session_id}/schedule"), 201)
+    return [str(t["title"]) for t in made["tasks"]]
+
+
+def test_the_optional_ingredients_left_out_are_neither_cooked_in_batch_mode_nor_taken(
+    kitchen: TestClient,
+) -> None:
+    """C6: the pick `optional_use: []` leaves the cashews out: their step is not in the schedule
+    (the garnish step has no ingredient, so it stays) and Cooked it takes no cashews."""
+    sid, _, _ = biryani_session(kitchen, optional_use=[])
+    names = titles(kitchen, sid)
+    assert not any("cashew" in t.lower() for t in names)
+    assert any("garnish" in t.lower() for t in names)
+    done = ok(kitchen.post(f"{API}/batch-cook/sessions/{sid}/cook", json={}), 201)
+    assert pantry(kitchen)["Cashew"] == [200_000]
+    ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
+
+
+def test_the_optional_ingredients_kept_show_in_batch_mode_and_are_taken(
+    kitchen: TestClient,
+) -> None:
+    """No pick sent (every optional line counts) or the cashew line picked: the step is there and
+    the cashews are taken."""
+    sid, _, _ = biryani_session(kitchen, optional_use=["cashew"])
+    assert any("cashew" in t.lower() for t in titles(kitchen, sid))
+    ok(kitchen.post(f"{API}/batch-cook/sessions/{sid}/cook", json={}), 201)
+    assert pantry(kitchen)["Cashew"] == [162_500]  # 37.5 g: 50 g scaled to the 3 portions
+
+
+def test_with_no_pick_sent_every_optional_ingredient_counts_as_before(
+    kitchen: TestClient,
+) -> None:
+    sid, _, _ = biryani_session(kitchen)
+    assert any("cashew" in t.lower() for t in titles(kitchen, sid))
+
+
+def test_a_session_recipe_takes_the_way_of_cooking_it_was_asked_for(kitchen: TestClient) -> None:
+    """C6: `method_id` on a session's recipe plans the meal in that way (the one used last when
+    none is sent, as adding to the plan does); a method that isn't the recipe's is refused."""
+    from test_plan_writes import view
+    from test_recipes import save
+
+    a = make(kitchen, "Two ways", steps=[{"text": "Fry."}, {"text": "Simmer for 10 minutes."}])
+    fresh_a = ok(kitchen.get(f"{API}/recipes/{a['id']}"))
+    saved = ok(
+        save(
+            kitchen,
+            fresh_a,
+            method_name="Stovetop",
+            second_method={
+                "name": "Instant Pot",
+                "time_minutes": 10,
+                "lines": [],
+                "steps": [{"text": "Pressure cook."}],
+            },
+        )
+    )
+    other = saved["methods"][1]["id"]
+    b = make(kitchen, "Plain", steps=[{"text": "Simmer for 10 minutes."}])
+
+    def body(**choice: Any) -> dict[str, Any]:
+        return {
+            "date": D1.isoformat(),
+            "slot_id": slot_ids(kitchen)["Dinner"],
+            "recipes": [
+                {"recipe_id": a["id"], "tub_count": 2, **choice},
+                {"recipe_id": b["id"], "tub_count": 2},
+            ],
+        }
+
+    refused = kitchen.post(f"{API}/batch-cook/sessions", json=body(method_id=other + 999))
+    assert refused.status_code == 422, refused.text
+    ok(kitchen.post(f"{API}/batch-cook/sessions", json=body(method_id=other)), 201)
+    items = [i for m in view(kitchen)["meals"] for i in m["items"] if i["recipe"]]
+    assert [i["method"] for i in items if i["recipe"]["name"] == "Two ways"] == ["Instant Pot"]

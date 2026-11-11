@@ -38,6 +38,7 @@ from mealwright import (
     batch_sessions,
     batches,
     methods,
+    plan,
     start_ahead,
     step_timings,
     step_waits,
@@ -92,7 +93,7 @@ def recipes_in(kitchen: Kitchen, found: list[BatchCook]) -> list[RecipeIn]:
         ways = methods.methods_of(db, batch.recipe_id)
         item = batches_item(kitchen, batch)
         method = methods.named(ways, item.method_id if item is not None else None)
-        steps = [
+        in_way = [
             s
             for s in db.scalars(
                 select(RecipeStep)
@@ -100,7 +101,23 @@ def recipes_in(kitchen: Kitchen, found: list[BatchCook]) -> list[RecipeIn]:
                 .where(RecipeStep.recipe_id == batch.recipe_id, RecipeStep.kind == "step")
                 .order_by(RecipeStep.position, RecipeStep.id)
             )
-            if not s.optional and methods.in_method(s, ways, method)
+            if methods.in_method(s, ways, method)
+        ]
+        links: dict[int, list[int]] = {}
+        for link in db.scalars(
+            select(RecipeStepLine)
+            .where(RecipeStepLine.household_id == kitchen.household_id)
+            .where(RecipeStepLine.step_id.in_([s.id for s in in_way]))
+            .order_by(RecipeStepLine.id)
+        ):
+            links.setdefault(link.step_id, []).append(link.line_id)
+        # An Optional step is cooked unless the meal left out every ingredient it uses (the picks
+        # asked when the batch was planned; a step that uses none is kept). RF3, C6.
+        skipped = plan.skipped_optional(kitchen, item) if item is not None else frozenset()
+        steps = [
+            s
+            for s in in_way
+            if not s.optional or not links.get(s.id) or any(i not in skipped for i in links[s.id])
         ]
         lines = [
             ln
@@ -112,14 +129,6 @@ def recipes_in(kitchen: Kitchen, found: list[BatchCook]) -> list[RecipeIn]:
             )
             if methods.in_method(ln, ways, method)
         ]
-        links: dict[int, list[int]] = {}
-        for link in db.scalars(
-            select(RecipeStepLine)
-            .where(RecipeStepLine.household_id == kitchen.household_id)
-            .where(RecipeStepLine.step_id.in_([s.id for s in steps]))
-            .order_by(RecipeStepLine.id)
-        ):
-            links.setdefault(link.step_id, []).append(link.line_id)
         food_names = _food_names(kitchen, lines)
         timed: list[StepIn] = []
         for step in steps:

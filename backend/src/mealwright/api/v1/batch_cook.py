@@ -138,6 +138,21 @@ class SessionRecipeIn(BatchIn):
     """One recipe of the session, with its Cook once choices (the same as one Cook once sheet)."""
 
     recipe_id: StoredInt
+    optional_use: Annotated[list[StoredInt], Field(max_length=200)] | None = Field(
+        default=None,
+        description=(
+            "The recipe's Optional ingredient lines the batch will use, as adding it to the plan "
+            "asks; the others are left out of the shopping list, of batch cook mode and of "
+            "Cooked it. Left out: every line counts."
+        ),
+    )
+    method_id: StoredInt | None = Field(
+        default=None,
+        description=(
+            "Which way of cooking a recipe with two it is cooked in, as adding it to the plan "
+            "asks. Left out: the one used last."
+        ),
+    )
 
 
 class SessionIn(BaseModel):
@@ -178,6 +193,8 @@ def _choices(body: SessionIn | SessionPreviewIn) -> list[batch_sessions.RecipeCh
             extras_to_freezer=r.extras_to_freezer,
             prep_note=r.prep_note,
             placements=spots_of(r),
+            optional_use=list(r.optional_use) if r.optional_use is not None else None,
+            method_id=r.method_id,
         )
         for r in body.recipes
     ]
