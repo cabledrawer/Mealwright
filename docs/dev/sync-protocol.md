@@ -560,7 +560,7 @@ data: {"change_id": 815}
 : keep-alive
 ```
 
-- `hello` on connect; `shopping` after any commit that raised the household's counter ("lists changed up to N"); `pantry` after any stock change (so an open Pantry screen re-fetches). `pantry` is sent only for stock changes; an ingredient renamed or made a staple elsewhere is picked up by the foreground re-fetch, not by an event. Nothing else: no list contents, no names. A device that gets `shopping` with a cursor above its own calls `GET /shopping/changes?since=…`.
+- `hello` on connect; `shopping` after any commit that raised the household's counter ("lists changed up to N"); `pantry` after any stock change (so an open Pantry screen re-fetches); `batch_cook {session_id}` after a Batch cook session's schedule or progress changed (0.8 wave 6, B3: so every phone cooking the session agrees). `pantry` is sent only for stock changes; an ingredient renamed or made a staple elsewhere is picked up by the foreground re-fetch, not by an event. Nothing else: no list contents, no names. A device that gets `shopping` with a cursor above its own calls `GET /shopping/changes?since=…`.
 - Only to sessions of the same household. Sent after commit, never before.
 - A comment line every 25 seconds keeps proxies from closing it; the session is re-checked each time, and the stream ends with `event: signed_out` when it runs out. Signing out ends that sign-in's streams the same way straight away (0.4).
 - Headers `Cache-Control: no-store` (as on all of `/api`, section 12) and `X-Accel-Buffering: no` (so nginx-style proxies don't hold events back). The reverse-proxy docs get a line about it.

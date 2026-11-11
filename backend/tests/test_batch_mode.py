@@ -1,0 +1,295 @@
+"""Batch cook mode's schedule and progress (0.8 wave 6, B3; cabledrawer 28 Oct and 11 Nov): made when
+the mode is started and kept on the session, Now and Next, timers, done and Undo, a reload or
+another phone carrying on, Plan again, live updates, the switch and the other household."""
+
+from datetime import timedelta
+from itertools import pairwise
+from typing import Any
+
+import pytest
+from fastapi.testclient import TestClient
+from sync_kit import ok, person
+from test_events import broadcaster, heard, quiet, run
+from test_plan import slot_ids
+from test_plan_writes import D1
+from test_recipes import food, make
+
+from mealwright import batch_mode
+from mealwright.api.v1.context import Kitchen
+from mealwright.models import BatchSession, BatchTaskProgress, Household, Login, utcnow
+
+API = "/api/v1"
+
+
+def recipe(
+    kitchen: TestClient, name: str, onions: int, steps: list[dict[str, Any]], onion: dict[str, Any]
+) -> dict[str, Any]:
+    return make(
+        kitchen,
+        name,
+        lines=[{"words": f"{onions} onions", "food_id": onion["id"], "amount": onions}],
+        steps=steps,
+    )
+
+
+@pytest.fixture
+def session(kitchen: TestClient) -> int:
+    """A batch cook of Sambar and Chicken chettinad, both chopping onions, on D1."""
+    onion = food(kitchen, "Onion")
+    sambar = recipe(
+        kitchen,
+        "Sambar",
+        1,
+        [
+            {"text": "Chop the onion.", "lines": [0]},
+            {"text": "Pressure cook the dal for 3 whistles."},
+            {"text": "Temper the mustard seeds in ghee for 5 minutes."},
+        ],
+        onion,
+    )
+    chettinad = recipe(
+        kitchen,
+        "Chicken chettinad",
+        2,
+        [
+            {"text": "Chop the onions finely.", "lines": [0]},
+            {"text": "Fry the onions and chicken for 8 minutes."},
+            {"text": "Simmer for 25 minutes."},
+        ],
+        onion,
+    )
+    slots = slot_ids(kitchen)
+    body = {
+        "date": D1.isoformat(),
+        "slot_id": slots["Dinner"],
+        "recipes": [
+            {"recipe_id": sambar["id"], "tub_count": 3},
+            {"recipe_id": chettinad["id"], "tub_count": 4},
+        ],
+    }
+    made = ok(kitchen.post(f"{API}/batch-cook/sessions", json=body), 201)
+    return int(made["session_id"])
+
+
+def url(session_id: int, rest: str = "") -> str:
+    return f"{API}/batch-cook/sessions/{session_id}/schedule{rest}"
+
+
+def start(kitchen: TestClient, session_id: int, **body: Any) -> dict[str, Any]:
+    found: dict[str, Any] = ok(kitchen.post(url(session_id), json=body or None), 201)
+    return found
+
+
+def task(found: dict[str, Any], tid: str) -> dict[str, Any]:
+    return next(t for t in found["tasks"] if t["id"] == tid)
+
+
+def now_task(found: dict[str, Any]) -> dict[str, Any]:
+    return task(found, found["now_id"])
+
+
+# --- Starting -----------------------------------------------------------------------------------
+
+
+def test_the_schedule_is_not_there_before_the_mode_is_started(
+    kitchen: TestClient, session: int
+) -> None:
+    refused = kitchen.get(url(session))
+    assert refused.status_code == 404 and refused.json()["code"] == "schedule_not_started"
+
+
+def test_starting_makes_the_schedule_with_shared_prep_first_and_keeps_it(
+    kitchen: TestClient, session: int
+) -> None:
+    made = start(kitchen, session)
+    assert made["stale"] is False and made["done_count"] == 0
+    assert made["kitchen"] == {"hob_rings": 4, "pressure_cookers": 1, "oven": True}
+    assert [r["recipe_name"] for r in made["recipes"]] == ["Sambar", "Chicken chettinad"]
+    prep = made["tasks"][0]
+    assert prep["kind"] == "prep" and prep["start"] == 0
+    assert prep["title"] == "Chop 3 onions: 1 for Sambar, 2 for Chicken chettinad"
+    assert len(prep["recipe_ids"]) == 2 and len(prep["step_ids"]) == 2
+    assert made["now_id"] == prep["id"] and made["next_id"] is not None
+    # Every step once: 2 shared into 1, so 6 steps are 5 tasks.
+    assert len(made["tasks"]) == 5
+    again = ok(kitchen.post(url(session)))  # started already: the same one, not a new one
+    assert again["made_at"] == made["made_at"] and again["tasks"] == made["tasks"]
+    assert ok(kitchen.get(url(session)))["tasks"] == made["tasks"]
+
+
+def test_a_recipe_still_cooks_in_its_steps_order(kitchen: TestClient, session: int) -> None:
+    made = start(kitchen, session)
+    chettinad = [t for t in made["tasks"] if made["recipes"][1]["recipe_id"] in t["recipe_ids"]]
+    for a, b in pairwise(chettinad):
+        assert a["end"] <= b["start"]
+
+
+# --- Progress -----------------------------------------------------------------------------------
+
+
+def test_done_moves_now_on_and_undo_takes_it_back(kitchen: TestClient, session: int) -> None:
+    made = start(kitchen, session)
+    first = made["now_id"]
+    after = ok(kitchen.put(url(session, f"/tasks/{first}/done")))
+    assert task(after, first)["state"] == "done" and task(after, first)["done_at"]
+    assert after["done_count"] == 1 and after["now_id"] != first
+    assert ok(kitchen.put(url(session, f"/tasks/{first}/done")))["done_count"] == 1  # once
+    back = ok(kitchen.delete(url(session, f"/tasks/{first}/done")))
+    assert back["now_id"] == first and back["done_count"] == 0
+    assert task(back, first)["done_at"] is None
+
+
+def test_a_waiting_task_starts_its_timer_and_ends_by_itself(
+    kitchen: TestClient, session: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    made = start(kitchen, session)
+    ok(kitchen.put(url(session, f"/tasks/{made['now_id']}/done")))
+    waiting = next(
+        t
+        for t in ok(kitchen.get(url(session)))["tasks"]
+        if t["hands"] == "waiting" and t["state"] == "ready"
+    )
+    running = ok(kitchen.put(url(session, f"/tasks/{waiting['id']}/timer")))
+    t = task(running, waiting["id"])
+    assert t["state"] == "running" and t["started_at"] and t["ends_at"]
+    assert running["in_use"]["pressure"] + running["in_use"]["hob"] >= 1
+    first = t["started_at"]
+    assert (
+        task(ok(kitchen.put(url(session, f"/tasks/{waiting['id']}/timer"))), waiting["id"])[
+            "started_at"
+        ]
+        == first
+    )  # the first start stays
+    # The wait runs out: the task is done and what follows it is ready.
+    later = utcnow() + timedelta(minutes=waiting["minutes"] + 1)
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        view = batch_mode.view_of(_kitchen(db), db.get(BatchSession, session), later)
+    assert next(x for x in view.tasks if x.id == waiting["id"]).state == "done"
+
+
+def _kitchen(db: Any) -> Kitchen:
+    return Kitchen(
+        db=db,
+        login=db.query(Login).first(),
+        household=db.get(Household, 1),
+        idempotency_key=None,
+        request="",
+    )
+
+
+def test_a_hands_on_task_has_no_timer(kitchen: TestClient, session: int) -> None:
+    made = start(kitchen, session)
+    refused = kitchen.put(url(session, f"/tasks/{made['now_id']}/timer"))
+    assert refused.status_code == 422 and refused.json()["code"] == "not_a_wait"
+
+
+def test_a_task_that_is_not_there_is_a_404(kitchen: TestClient, session: int) -> None:
+    start(kitchen, session)
+    assert kitchen.put(url(session, "/tasks/t99/done")).status_code == 404
+    assert kitchen.put(url(session, "/tasks/nope/done")).status_code == 422
+
+
+def test_another_phone_carries_on_where_the_first_was(kitchen: TestClient, session: int) -> None:
+    made = start(kitchen, session)
+    ok(kitchen.put(url(session, f"/tasks/{made['now_id']}/done")))
+    wren = person(kitchen)
+    seen = ok(wren.get(url(session)))
+    assert seen["done_count"] == 1 and seen["now_id"] != made["now_id"]
+    ok(wren.put(url(session, f"/tasks/{seen['now_id']}/done")))
+    assert ok(kitchen.get(url(session)))["done_count"] == 2
+
+
+# --- Plan again ---------------------------------------------------------------------------------
+
+
+def test_a_changed_kitchen_or_recipe_says_plan_again_and_plan_again_clears_the_progress(
+    kitchen: TestClient, session: int
+) -> None:
+    made = start(kitchen, session)
+    ok(kitchen.put(url(session, f"/tasks/{made['now_id']}/done")))
+    assert ok(kitchen.get(url(session)))["stale"] is False
+    ok(kitchen.patch(f"{API}/household/kitchen", json={"hob_rings": 2}))
+    stale = ok(kitchen.get(url(session)))
+    assert stale["stale"] is True and stale["kitchen"]["hob_rings"] == 4  # the running one stays
+    again = ok(kitchen.post(url(session), json={"plan_again": True}), 201)
+    assert again["stale"] is False and again["kitchen"]["hob_rings"] == 2
+    assert again["done_count"] == 0
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        assert db.query(BatchTaskProgress).count() == 0
+
+
+def test_editing_a_recipes_step_makes_it_stale(kitchen: TestClient, session: int) -> None:
+    start(kitchen, session)
+    sambar = ok(kitchen.get(f"{API}/batch-cook/sessions/{session}"))["recipes"][0]["recipe_id"]
+    full = ok(kitchen.get(f"{API}/recipes/{sambar}"))
+    body = {
+        k: full[k]
+        for k in (
+            "name",
+            "description",
+            "time_minutes",
+            "serves",
+            "makes",
+            "made_ahead",
+            "tags",
+            "nutrition",
+        )
+    }
+    body["lines"] = [
+        {
+            "id": ln["id"],
+            "kind": ln["kind"],
+            "words": ln["words"],
+            "amount": ln["amount"],
+            "food_id": ln["food"]["id"] if ln.get("food") else None,
+        }
+        for ln in full["lines"]
+    ]
+    body["steps"] = [
+        {"text": s["text"]} | ({"timing": {"minutes": 40}} if i == 1 else {})
+        for i, s in enumerate(full["steps"])
+    ]
+    ok(kitchen.put(f"{API}/recipes/{sambar}", json={**body, "version": full["version"]}))
+    assert ok(kitchen.get(url(session)))["stale"] is True
+
+
+# --- The switch and the other household ---------------------------------------------------------
+
+
+def test_hidden_batch_cook_refuses_the_schedule(kitchen: TestClient, session: int) -> None:
+    ok(kitchen.patch(f"{API}/household", json={"batch_cook": False}))
+    assert kitchen.post(url(session)).status_code == 409
+    assert kitchen.get(url(session)).json()["code"] == "batch_cook_hidden"
+
+
+def test_the_other_household_gets_404_on_every_route(
+    kitchen: TestClient, neighbour: TestClient, session: int
+) -> None:
+    made = start(kitchen, session)
+    tid = made["now_id"]
+    assert neighbour.post(url(session)).status_code == 404
+    assert neighbour.get(url(session)).status_code == 404
+    assert neighbour.put(url(session, f"/tasks/{tid}/done")).status_code == 404
+    assert neighbour.delete(url(session, f"/tasks/{tid}/done")).status_code == 404
+    assert neighbour.put(url(session, f"/tasks/{tid}/timer")).status_code == 404
+    assert ok(kitchen.get(url(session)))["done_count"] == 0
+
+
+# --- Live updates -------------------------------------------------------------------------------
+
+
+def test_every_open_screen_hears_a_change_of_progress(kitchen: TestClient, session: int) -> None:
+    made = start(kitchen, session)
+    tid = made["now_id"]
+
+    async def scenario() -> None:
+        import asyncio
+
+        mine, theirs = broadcaster(kitchen).subscribe(1), broadcaster(kitchen).subscribe(2)
+        await asyncio.to_thread(kitchen.put, url(session, f"/tasks/{tid}/done"))
+        item = await heard(mine)
+        assert item is not None and item.name == "batch_cook"
+        assert item.data == {"session_id": session}
+        assert await quiet(theirs)
+
+    run(scenario())

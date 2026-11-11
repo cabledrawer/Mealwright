@@ -4,22 +4,25 @@ and written to the household's own recipes and plan; nothing leaves the server. 
 the rest of the plan; each write has its Undo (`POST /changes/{id}/undo`). An admin can hide Batch
 cook in Settings: every route here then answers 409 `batch_cook_hidden`."""
 
-from datetime import date
+from collections.abc import Callable
+from datetime import date, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Path, Query, Response, status
 from pydantic import BaseModel, Field
 
-from mealwright import batch_sessions, batch_suggest, plan
+from mealwright import batch_mode, batch_sessions, batch_suggest, plan
 from mealwright.api.v1.batches import BatchIn, BatchPreviewOut, preview_out, spots_of
 from mealwright.api.v1.context import Here
 from mealwright.api.v1.plan import PlanWrite, _run
 from mealwright.auth import SameOrigin
 from mealwright.errors import StoredInt
-from mealwright.models import BatchCook
+from mealwright.models import BatchCook, BatchSession, utcnow
+from mealwright.shopping import lock_db
 
 router = APIRouter(tags=["batch cook"], dependencies=[SameOrigin])
 
+TaskId = Annotated[str, Path(pattern=r"^t[1-9][0-9]{0,3}$")]
 Day = date  # for a model with a field called "date" (mypy reads later "date" as that field)
 
 
@@ -272,4 +275,171 @@ def delete_session(session_id: StoredInt, kitchen: Here, response: Response) -> 
         kitchen,
         response,
         lambda: batch_sessions.remove(kitchen, batch_sessions.find_session(kitchen, session_id)),
+    )
+
+
+# --- Batch cook mode: the schedule and where it is up to ---------------------------------------
+
+
+class ScheduleStartIn(BaseModel):
+    plan_again: bool = Field(
+        default=False,
+        description=(
+            "Make the schedule afresh (a recipe or the kitchen changed since): the progress is "
+            "cleared. Left out: an existing schedule is kept as it is."
+        ),
+    )
+
+
+class TaskOut(BaseModel):
+    id: str = Field(description="`t1`, `t2`... in the order the tasks start.")
+    kind: str = Field(description="`step` (one recipe's step) or `prep` (shared prep).")
+    title: str
+    recipe_ids: list[int] = Field(description="Several for shared prep.")
+    step_ids: list[int]
+    start: int = Field(description="Minutes from the start of the session.")
+    end: int
+    minutes: int
+    hands: str = Field(description="`hands` (the cook's hands are busy) or `waiting`.")
+    equipment: str = Field(description="`hob`, `pressure`, `oven` or `none`.")
+    slot: int | None = Field(description="Which hob ring (1...), pressure cooker or oven.")
+    lacks: bool = Field(description="The kitchen has none of its equipment: done alone.")
+    state: str = Field(description="`done`, `running` (a timer), `ready` or `later`.")
+    started_at: datetime | None = Field(description="When its timer was started.")
+    done_at: datetime | None
+    ends_at: datetime | None = Field(description="When a running timer ends.")
+
+
+class BeforeOut(BaseModel):
+    recipe_id: int
+    step_id: int
+    text: str
+    minutes: int
+
+
+class ScheduleKitchenOut(BaseModel):
+    hob_rings: int
+    pressure_cookers: int
+    oven: bool
+
+
+class ScheduleOut(BaseModel):
+    session_id: int
+    made_at: datetime
+    stale: bool = Field(
+        description="A recipe or the kitchen has changed since: the screen offers Plan again."
+    )
+    total_minutes: int
+    minutes_left: int = Field(description="The hands-on minutes still to give.")
+    kitchen: ScheduleKitchenOut
+    recipes: list[SessionRecipeOut]
+    tasks: list[TaskOut]
+    before: list[BeforeOut] = Field(
+        description="Soaking and overnight steps left for the day before (Today shows them)."
+    )
+    now_id: str | None = Field(description="The one hands-on task to do now.")
+    next_id: str | None
+    in_use: dict[str, int] = Field(description="Equipment in use now: `hob`, `pressure`, `oven`.")
+    done_count: int
+    server_time: datetime
+
+
+def _schedule_out(kitchen: Here, session_id: int, now: datetime | None = None) -> ScheduleOut:
+    session = batch_sessions.find_session(kitchen, session_id)
+    now = now or utcnow()
+    found = batch_mode.view_of(kitchen, session, now)
+    return ScheduleOut(
+        session_id=session.id,
+        made_at=found.made_at,
+        stale=found.stale,
+        total_minutes=found.total_minutes,
+        minutes_left=found.minutes_left,
+        kitchen=ScheduleKitchenOut(
+            hob_rings=found.kitchen.hob_rings,
+            pressure_cookers=found.kitchen.pressure_cookers,
+            oven=found.kitchen.oven,
+        ),
+        recipes=[
+            SessionRecipeOut(
+                batch_id=b.id,
+                recipe_id=b.recipe_id,
+                recipe_name=b.recipe_name,
+                tub_count=b.tub_count,
+                pattern=b.pattern,
+                colour=b.colour,
+            )
+            for b in batch_sessions.batches_of(kitchen, session)
+        ],
+        tasks=[TaskOut(**{k: getattr(t, k) for k in TaskOut.model_fields}) for t in found.tasks],
+        before=[BeforeOut(**b) for b in found.before],
+        now_id=found.now_id,
+        next_id=found.next_id,
+        in_use=found.in_use,
+        done_count=found.done_count,
+        server_time=now,
+    )
+
+
+@router.post("/batch-cook/sessions/{session_id}/schedule")
+def start_schedule(
+    session_id: StoredInt, kitchen: Here, response: Response, body: ScheduleStartIn | None = None
+) -> ScheduleOut:
+    """Start batch cook mode: make the session's schedule from its recipes and the household's
+    kitchen (shared prep first, waits filled by hands-on work; never two hands-on tasks at once,
+    never more hob rings, pressure cookers or ovens than the kitchen has) and keep it on the
+    session. Already made: it is returned as it is (`200`); `plan_again` makes it afresh and
+    clears the progress. Not an undoable change: it plans nothing and moves no stock. Needs at
+    least one recipe with a step (`409 nothing_to_schedule`)."""
+    batch_sessions.hidden_check(kitchen)
+    lock_db(kitchen.db, kitchen.household)
+    session = batch_sessions.find_session(kitchen, session_id)
+    made = batch_mode.start(kitchen, session, again=bool(body and body.plan_again))
+    kitchen.db.commit()
+    response.status_code = status.HTTP_201_CREATED if made else status.HTTP_200_OK
+    return _schedule_out(kitchen, session_id)
+
+
+@router.get("/batch-cook/sessions/{session_id}/schedule")
+def get_schedule(session_id: StoredInt, kitchen: Here) -> ScheduleOut:
+    """The schedule and where it is up to: each task's state, the one to do now and the next, what
+    is in use, and whether a recipe or the kitchen changed since it was made. `404
+    schedule_not_started` before it is started."""
+    batch_sessions.hidden_check(kitchen)
+    return _schedule_out(kitchen, session_id)
+
+
+def _progress_write(
+    kitchen: Here, session_id: int, change: Callable[[BatchSession], None]
+) -> ScheduleOut:
+    batch_sessions.hidden_check(kitchen)
+    lock_db(kitchen.db, kitchen.household)
+    session = batch_sessions.find_session(kitchen, session_id)
+    change(session)
+    kitchen.db.commit()
+    return _schedule_out(kitchen, session_id)
+
+
+@router.put("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/done")
+def mark_task_done(session_id: StoredInt, task_id: TaskId, kitchen: Here) -> ScheduleOut:
+    """Mark a task done (done already: it stays as it was). Every open screen of the household
+    hears `batch_cook` and asks again."""
+    now = utcnow()
+    return _progress_write(
+        kitchen, session_id, lambda s: batch_mode.mark_done(kitchen, s, task_id, now)
+    )
+
+
+@router.delete("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/done")
+def undo_task_done(session_id: StoredInt, task_id: TaskId, kitchen: Here) -> ScheduleOut:
+    """Take "done" back: the task is as if untouched, and a timer it had is cleared."""
+    return _progress_write(kitchen, session_id, lambda s: batch_mode.undo_done(kitchen, s, task_id))
+
+
+@router.put("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/timer")
+def start_task_timer(session_id: StoredInt, task_id: TaskId, kitchen: Here) -> ScheduleOut:
+    """Start a waiting task's timer, on the server's clock (started already: the first start
+    stays), so every phone shows the same time left. `422 not_a_wait` for a hands-on task."""
+    now = utcnow()
+    return _progress_write(
+        kitchen, session_id, lambda s: batch_mode.start_timer(kitchen, s, task_id, now)
     )

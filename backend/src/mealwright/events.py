@@ -24,20 +24,22 @@ from dataclasses import dataclass
 from sqlalchemy import Connection, Engine, event, func, inspect, select
 from sqlalchemy.orm import Session, SessionTransaction, sessionmaker
 
-from mealwright.models import Change, Household, StockLot
+from mealwright.models import BatchSession, BatchTaskProgress, Change, Household, StockLot
 
 log = logging.getLogger(__name__)
 
 PENDING = "mealwright.pending_events"
 SHOPPING = "shopping"
 PANTRY = "pantry"
+BATCH = "batch_cook"
+PENDING_BATCH = "mealwright.pending_batch_events"
 # Open tabs and devices share a sign-in only within one browser; ten is plenty.
 MAX_STREAMS_PER_SESSION = 10
 
 
 @dataclass(frozen=True)
 class Event:
-    name: str  # "hello", "shopping", "pantry", "signed_out" or "replaced"
+    name: str  # "hello", "shopping", "pantry", "batch_cook", "signed_out" or "replaced"
     data: dict[str, int]
 
 
@@ -125,6 +127,10 @@ def note_pantry(session: Session, household_id: int) -> None:
     _note(session, PANTRY, household_id)
 
 
+def _note_batch(session: Session, household_id: int, session_id: int) -> None:
+    session.info.setdefault(PENDING_BATCH, set()).add((household_id, session_id))
+
+
 def _after_flush(session: Session, _context: object) -> None:
     for obj in session.dirty:
         if (
@@ -136,6 +142,10 @@ def _after_flush(session: Session, _context: object) -> None:
     for obj in (*session.new, *session.dirty, *session.deleted):
         if isinstance(obj, StockLot):
             _note(session, PANTRY, obj.household_id)
+        elif isinstance(obj, BatchTaskProgress):
+            _note_batch(session, obj.household_id, obj.session_id)
+        elif isinstance(obj, BatchSession):
+            _note_batch(session, obj.household_id, obj.id)
 
 
 def _read_events(connection: Connection, pending: dict[str, set[int]]) -> list[tuple[int, Event]]:
@@ -164,21 +174,25 @@ def install(factory: sessionmaker[Session], broadcaster: Broadcaster) -> None:
         if transaction.parent is not None:
             return
         pending = session.info.pop(PENDING, None)
-        if not pending:
+        batch_pending = session.info.pop(PENDING_BATCH, None)
+        if not pending and not batch_pending:
             return
         try:
             bind = session.get_bind()
             engine = bind if isinstance(bind, Engine) else bind.engine
             with engine.connect() as connection:
-                found = _read_events(connection, pending)
+                found = _read_events(connection, pending or {})
         except Exception:  # live updates must never fail a save
             log.warning("Could not announce a change to open screens", exc_info=True)
             return
+        for household_id, session_id in sorted(batch_pending or ()):
+            found.append((household_id, Event(BATCH, {"session_id": session_id})))
         for household_id, item in found:
             broadcaster.publish(household_id, item)
 
     def forget(session: Session) -> None:
         session.info.pop(PENDING, None)
+        session.info.pop(PENDING_BATCH, None)
 
     event.listen(factory, "after_rollback", forget)
     event.listen(factory, "after_transaction_end", announce)
