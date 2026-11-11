@@ -875,3 +875,45 @@ def test_f109_a_name_that_joins_two_is_never_learned() -> None:
     assert not joins_two_names("brandy")  # "and" inside a word
     assert not joins_two_names("sandwich bread")
     assert not joins_two_names("black pepper")
+
+
+def test_rf4_i8_sweep_the_end_of_line_patterns_do_not_square_a_run_of_spaces() -> None:
+    """RF4 fix round 1, I8 sweep: every `\\s*X\\s*$` pattern in line_prep.py takes a long run of
+    spaces followed by more text in a straight line. (Names are tidied to single spaces before
+    these run, so this is a second line of defence; before the fix the recipe-label tail took
+    over 15 seconds on 3,000 spaces.) The patterns are tried on their own, on the raw text."""
+    import time
+
+    from mealwright import line_prep
+
+    spaces = " " * 3000
+    cases = {
+        "_RECIPE_TAIL": (
+            "x" + spaces + "recipe" + spaces + "b",
+            spaces + "b",
+            " - " + spaces + "b",
+        ),
+        "_POSSESSIVE_RECIPE": ("x's recipe" + spaces + "b", "x's" + spaces + "b"),
+        "_RECIPE_BRACKET": ("(recipe" + spaces + "b", spaces + "x"),
+        "_BRACKET_PUFF": ("(easy" + spaces + "b", spaces + "x"),
+        "_OPT_BRACKET": ("a (optional)" + spaces + "b", "(optional" + spaces + "b"),
+    }
+    for name, texts in cases.items():
+        pattern = getattr(line_prep, name)
+        for text in texts:
+            started = time.perf_counter()
+            pattern.search(text)
+            pattern.sub("", text)
+            assert time.perf_counter() - started < 0.3, (name, text[:12])
+    # What they do is unchanged.
+    assert line_prep.clean_recipe_name("Easy Pancake Recipe") == "Easy Pancake"
+    for given, expected in (
+        ("Butter chicken - the best curry recipe!", "Butter chicken"),
+        ("Dal (Easy Recipe)", "Dal"),
+        ("Pancakes | Best Recipe ! ", "Pancakes"),
+        ("Soup (Recipe) x", "Soup x"),
+        ("Cake recipe (easy)", "Cake"),
+        ("Grandma's Recipe !", "Grandma's Recipe !"),
+        ('Joe\'s "Famous" recipe!!', 'Joe\'s "Famous" recipe!!'),
+    ):
+        assert line_prep.clean_recipe_name(given) == expected, given

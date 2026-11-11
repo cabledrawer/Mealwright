@@ -186,7 +186,7 @@ _RECIPE_FOR = re.compile(r"^recipe\s+for\s+(?:(?:a|an|the)\s+)?(?=\S)", re.IGNOR
 _RECIPE_LEAD = re.compile(r"^recipe(?::|\s+[-\u2013\u2014]\s+)\s*(?=\S)", re.IGNORECASE)
 _RECIPE_LABEL = re.compile(r"(?<![\'\u2019]s)\s+recipe\b(?![\'\u2019])(?=\s*[(\[])", re.IGNORECASE)
 _POSSESSIVE_RECIPE = re.compile(
-    r"[\'\u2019]s?\s+(?:[\"\u201c\u2018]\S+[\"\u201d\u2019]\s+)?recipe\s*!*\s*$", re.IGNORECASE
+    r"[\'\u2019]s?\s+(?:[\"\u201c\u2018]\S+[\"\u201d\u2019]\s+)?recipe\s*(?:!+\s*)?$", re.IGNORECASE
 )
 _PRONOUNS = frozenset({"my", "our", "your", "his", "her", "their"})
 # After a pronoun these still read as "whose recipe", not as a dish: "Our Family", "Their Secret".
@@ -194,17 +194,22 @@ _OWNER_WORDS = frozenset(
     {"family", "secret", "special", "favourite", "favorite", "own", "famous", "original"}
 )
 _NOTHING_LEFT = frozenset({"recipe", "for", "a", "an", "the"})
-_RECIPE_BRACKET = re.compile(r"\s*[\(\[][^()\[\]]*\brecipe\b[^()\[\]]*[\)\]]\s*", re.IGNORECASE)
+_RECIPE_BRACKET = re.compile(
+    r"(?<!\s)\s*[\(\[][^()\[\]]*\brecipe\b[^()\[\]]*[\)\]]\s*", re.IGNORECASE
+)
 # A dash (hyphen, en or em dash) is a separator only with spaces round it ("Butter chicken - the
 # best curry recipe"); "Gluten-Free Banana Bread Recipe" and "New York\u2013Style Cheesecake Recipe"
-# have none, so only " Recipe" goes (F91).
+# have none, so only " Recipe" goes (F91). No two runs of \s* touch each other, and a run of spaces
+# is tried only from its first space ((?<!\s)); otherwise a long run took the square of its length
+# (RF4 fix round 1, I8 sweep). Names are tidied to single spaces before these run, so this is a
+# second line of defence.
 _RECIPE_TAIL = re.compile(
-    r"\s*(?:(?:\s[-\u2013\u2014]\s|\s*[|:]\s*)"
-    r"(?:(?!\s[-\u2013\u2014]\s)[^|:])*?)?\brecipe\s*!*\s*$",
+    r"(?<!\s)\s*(?:(?:(?<=\s)[-\u2013\u2014]\s|[|:]\s*)"
+    r"(?:(?!\s[-\u2013\u2014]\s)[^|:])*?)?\brecipe\s*(?:!+\s*)?$",
     re.IGNORECASE,
 )
 _BRACKET_PUFF = re.compile(
-    r"\s*[\(\[]\s*(?:authentic|easy|best|simple|quick|classic|traditional|foolproof)\b[^()\[\]]*"
+    r"(?<!\s)\s*[\(\[]\s*(?:authentic|easy|best|simple|quick|classic|traditional|foolproof)\b[^()\[\]]*"
     r"[\)\]]\s*$",
     re.IGNORECASE,
 )
