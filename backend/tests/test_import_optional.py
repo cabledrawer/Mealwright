@@ -88,3 +88,29 @@ def test_a_bracket_makes_a_step_optional_only_at_its_end() -> None:
         False,
     )
     assert optional_step("Optional: fry the onions") == ("Fry the onions", True)
+
+
+def test_rf4_i8_a_step_with_a_long_run_of_spaces_is_read_at_once() -> None:
+    """RF4 I8: the "(optional)" search took seconds on 20,000 spaces (it slowed with the square of
+    the run). The bound is generous: a read now takes a few milliseconds."""
+    import time
+
+    from mealwright.line_prep import optional_step
+
+    for text in (
+        "Fry the onions" + " " * 20000 + "until golden",
+        " " * 20000,
+        "Fry" + " (" * 5000 + "x",
+        "Fry the onions (optional)" + " " * 20000,
+    ):
+        started = time.perf_counter()
+        optional_step(text)
+        assert time.perf_counter() - started < 0.5, text[:20]
+    # What it does is unchanged.
+    assert optional_step("Fry the onions (optional)") == ("Fry the onions", True)
+    assert optional_step("Fry the onions (optional).") == ("Fry the onions.", True)
+    assert optional_step("Fry the onions  [ Optional ]  ") == ("Fry the onions", True)
+    assert optional_step("Add salt (optional) and stir.") == (
+        "Add salt (optional) and stir.",
+        False,
+    )

@@ -110,7 +110,9 @@ def serving_heading(heading: str) -> bool:
 _OPT_LABEL = re.compile(r"^\s*optional(?:\s+step)?\s*[:\u2013\u2014-]\s*", re.IGNORECASE)
 # "(optional)" counts only at the end of the step (before a final full stop): in the middle it
 # is part of the sentence ("Add salt (optional) and stir.").
-_OPT_BRACKET = re.compile(r"\s*[(\[]\s*optional\s*[)\]]\s*([.!]?)\s*$", re.IGNORECASE)
+# No leading \s*: a search tried it from every space of a long run of spaces, which took seconds
+# (RF4 I8); the spaces before it are taken off with rstrip instead.
+_OPT_BRACKET = re.compile(r"[(\[]\s*optional\s*[)\]]\s*([.!]?)\s*$", re.IGNORECASE)
 
 
 def optional_step(text: str) -> tuple[str, bool]:
@@ -123,7 +125,9 @@ def optional_step(text: str) -> tuple[str, bool]:
     rest = text[label.end() :] if label else text
     bracketed = _OPT_BRACKET.search(rest) is not None
     if bracketed:
-        rest = _OPT_BRACKET.sub(lambda m: m.group(1), rest)
+        cut = _OPT_BRACKET.search(rest)
+        if cut is not None:
+            rest = rest[: cut.start()].rstrip() + cut.group(1)
     rest = re.sub(r"[ \t]{2,}", " ", rest).strip()
     rest = re.sub(r"[ \t]+([.,;!?])", r"\1", rest)
     if not (label or bracketed) or not rest:
