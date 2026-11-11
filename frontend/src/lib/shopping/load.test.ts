@@ -59,13 +59,13 @@ describe('applyChanges', () => {
             version: 3,
             food_id: 1,
             shop_id: 1,
-            removed_by: 'Remy'
+            removed_by: 'Alex'
           }
         ]
       })
     );
     expect(next.items.map((i) => i.id)).toEqual(['b']);
-    expect(next.removed['a']).toEqual({ food_id: 1, shop_id: 1, removed_by: 'Remy' });
+    expect(next.removed['a']).toEqual({ food_id: 1, shop_id: 1, removed_by: 'Alex' });
     // Brought back by an Undo: no longer removed.
     expect(applyChanges(next, answer({ items: [item('a', 1)] })).removed['a']).toBeUndefined();
   });

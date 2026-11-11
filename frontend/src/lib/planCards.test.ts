@@ -15,7 +15,7 @@ describe('COOK and EAT are separate cards', () => {
     ]);
     expect(cards[0]!.meta).toBe('Makes 6 · 4 tubs');
     expect(cards[0]!.prep).toBe('Soak the rice');
-    expect(cards[1]!.who).toEqual(['Tess', 'Remy']);
+    expect(cards[1]!.who).toEqual(['Tess', 'Alex']);
     // The COOK card carries the batch colour as its dot; the EAT card wears it.
     expect(cards[0]!.colour).toBe(3);
     expect(cards[1]!.colour).toBe(3);

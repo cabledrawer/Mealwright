@@ -20,7 +20,7 @@ export const SLOTS: MealSlot[] = [
 
 export const PEOPLE: Person[] = [
   { login_id: 10, name: 'Tess' },
-  { login_id: 11, name: 'Remy' }
+  { login_id: 11, name: 'Alex' }
 ];
 
 export const recipeItem = (

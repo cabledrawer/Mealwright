@@ -12,7 +12,7 @@ export const ME = {
   theme: 'auto'
 } as const;
 
-export const remy = { login_id: 2, name: 'Remy' };
+export const alex = { login_id: 2, name: 'Alex' };
 export const tess = { login_id: 1, name: 'Tess' };
 
 export function food(
@@ -77,7 +77,7 @@ export function sampleCopy(): ShoppingCopy {
       { id: 2, name: 'Indian grocer', position: 1, aisle_order: null }
     ],
     places: PLACES.slice(0, 3).map((p, position) => ({ ...p, position })),
-    people: [tess, remy],
+    people: [tess, alex],
     foods: [
       food(1, 'Onions', 'veg_fruit', { counted_as: 'count' }),
       food(2, 'Coriander', 'veg_fruit', { counted_as: 'count' }),
@@ -120,7 +120,7 @@ export function fakeShopping(copy: ShoppingCopy, extra: Parameters<typeof fakeAp
   const done = new Map<string, Record<string, unknown>>();
   /** Where a moved line was, for the Undo of its move. */
   const was = new Map<string, [string, number | null]>();
-  const gone = (id: string, by = 'Remy') => {
+  const gone = (id: string, by = 'Alex') => {
     const row = copy.items.find((i) => i.id === id);
     if (!row) return;
     row.deleted = true;

@@ -54,7 +54,7 @@ def _ago(days: float) -> Any:
 def _after_sy01(s: S0) -> int:
     """SY-01 (A→B), both synced: the card's ID."""
     tick(s.kitchen, s, "Toor dal")
-    tick(s.remy, s, "Toor dal", PHONE_R)
+    tick(s.alex, s, "Toor dal", PHONE_R)
     s.c0 = int(changes(s.kitchen)["cursor"])
     (card,) = [q for q in changes(s.kitchen)["questions"] if q["open"]]
     return int(card["id"])
@@ -64,8 +64,8 @@ def test_old_notes_and_closed_questions_go(kitchen: TestClient) -> None:
     s = s0(kitchen)
     card = _after_sy01(s)
     one(kitchen, "delete", s.c0, item_id=s.items["Paneer"])
-    tick(s.remy, s, "Paneer", PHONE_R)  # N1 for Remy
-    (note,) = changes(s.remy)["notes"]
+    tick(s.alex, s, "Paneer", PHONE_R)  # N1 for Alex
+    (note,) = changes(s.alex)["notes"]
     assert _tidy(kitchen) == 0  # both still new
     one(kitchen, "answer_double_tick", s.c0, question_id=card, answer="two")
     with db(kitchen) as session:
@@ -76,7 +76,7 @@ def test_old_notes_and_closed_questions_go(kitchen: TestClient) -> None:
     with db(kitchen) as session:
         assert session.get(ListNote, note["id"]) is None
         assert session.get(DoubleTick, card) is None
-    assert changes(s.remy)["notes"] == [] and changes(s.remy)["questions"] == []
+    assert changes(s.alex)["notes"] == [] and changes(s.alex)["questions"] == []
 
 
 def test_open_questions_and_new_notes_stay(kitchen: TestClient) -> None:
@@ -177,8 +177,8 @@ def test_sy58_an_old_queue_after_the_tidy_up(kitchen: TestClient) -> None:
     s = s0(kitchen)
     card = _after_sy01(s)
     one(kitchen, "delete", s.c0, item_id=s.items["Paneer"])
-    paneer = tick(s.remy, s, "Paneer", PHONE_R)
-    (note,) = changes(s.remy)["notes"]
+    paneer = tick(s.alex, s, "Paneer", PHONE_R)
+    (note,) = changes(s.alex)["notes"]
     seen = counter(kitchen)
     one(kitchen, "answer_double_tick", seen, question_id=card, answer="two")
     with db(kitchen) as session:  # 8 days on; the Paneer tombstone's tidy-up is due
@@ -190,7 +190,7 @@ def test_sy58_an_old_queue_after_the_tidy_up(kitchen: TestClient) -> None:
         session.commit()
     _tidy(kitchen)
     answer = send(
-        s.remy,
+        s.alex,
         action("dismiss_note", seen, note_id=note["id"]),
         action("answer_double_tick", seen, question_id=card, answer="one"),
         action("untick", seen, item_id=s.items["Paneer"], tick_ids=[paneer["id"]]),
@@ -214,7 +214,7 @@ def test_sy59_answer_after_the_card_and_an_ingredient_went(kitchen: TestClient) 
     _purge(kitchen)
     _tidy(kitchen)
     answer = send(
-        s.remy,
+        s.alex,
         action("answer_double_tick", s.c0, question_id=card, answer="two"),
         device=PHONE_R,
         since=s.c0,
@@ -231,7 +231,7 @@ def test_sy59_answer_after_the_card_and_an_ingredient_went(kitchen: TestClient) 
 def test_an_add_that_joined_a_tidied_line_is_gone(kitchen: TestClient) -> None:
     s = s0(kitchen)
     hers = new_id()
-    added = one(s.remy, "add", s.c0, PHONE_R, list_id=s.main, item_id=hers, food_id=s.foods["Milk"])
+    added = one(s.alex, "add", s.c0, PHONE_R, list_id=s.main, item_id=hers, food_id=s.foods["Milk"])
     assert added["status"] == "merged" and added["item_id"] == s.items["Milk"]
     one(kitchen, "delete", s.c0, item_id=s.items["Milk"])
     with db(kitchen) as session:
@@ -245,7 +245,7 @@ def test_an_add_that_joined_a_tidied_line_is_gone(kitchen: TestClient) -> None:
         assert session.get(ListItem, s.items["Milk"]) is None
     seen = counter(kitchen)
     answer = send(
-        s.remy,
+        s.alex,
         action("set_amount", seen, item_id=hers, amount=3000),
         action("delete", seen, item_id=hers),
         action("undo", seen, undoes=added["id"]),
@@ -254,4 +254,4 @@ def test_an_add_that_joined_a_tidied_line_is_gone(kitchen: TestClient) -> None:
     results = [(r["status"], r["reason"]) for r in answer["results"]]
     # Its Undo too: the line it joined is gone for good (5.9).
     assert results == [("ignored", "gone"), ("ignored", "gone"), ("ignored", "gone")]
-    assert changes(s.remy)["reset"] is True
+    assert changes(s.alex)["reset"] is True

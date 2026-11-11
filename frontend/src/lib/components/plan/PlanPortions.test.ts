@@ -116,7 +116,7 @@ describe('the meal’s menu (0.7 P1)', () => {
     model.slots = SLOTS;
     model.people = [
       { login_id: 1, name: 'Tess' },
-      { login_id: 2, name: 'Remy' }
+      { login_id: 2, name: 'Alex' }
     ];
   });
 
@@ -223,7 +223,7 @@ describe('the meal’s menu (0.7 P1)', () => {
       const dialog = open({ kind: 'meal', meal });
       const everyone = dialog.getByRole('button', { name: 'Everyone' });
       await expect.element(everyone).toHaveAttribute('aria-pressed', 'true');
-      await dialog.getByRole('button', { name: 'Remy' }).click();
+      await dialog.getByRole('button', { name: 'Alex' }).click();
       await expect.element(everyone).toHaveAttribute('aria-pressed', 'false');
       await expect
         .poll(() => requests.filter((r) => r.method === 'PUT').map((r) => r.body))

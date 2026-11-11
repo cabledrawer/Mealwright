@@ -1,5 +1,5 @@
 // The Plan's Eat view (spec "The Plan redesign, 0.7.0"): what each person eats at each meal and
-// where it comes from ("2 tubs from Thu · cabledrawer, Remy"). Worked out from the plan the server
+// where it comes from ("2 tubs from Thu · cabledrawer, Alex"). Worked out from the plan the server
 // sent, with no new request. Pure, so it is tested on its own (planEat.test.ts).
 
 import type { MealSlot, Person, Plan, PlanBatch, PlanMeal } from './client/plan';
@@ -10,7 +10,7 @@ export interface EatRow {
   key: string;
   /** What is eaten: a recipe, an ingredient, a note, or a batch's tub. */
   name: string;
-  /** Where it comes from, and for whom: "2 tubs from Thu · cabledrawer, Remy". */
+  /** Where it comes from, and for whom: "2 tubs from Thu · cabledrawer, Alex". */
   source: string | null;
   /** "fresh" on its own; a batch's cook-day meal or tub carries the batch colour instead. */
   fresh: boolean;

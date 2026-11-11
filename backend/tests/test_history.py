@@ -41,20 +41,20 @@ def undo(client: TestClient, change_id: int, **headers: str) -> Any:
 
 
 @pytest.fixture
-def remy(kitchen: TestClient) -> Iterator[TestClient]:
+def alex(kitchen: TestClient) -> Iterator[TestClient]:
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         db.add(
             Login(
                 household_id=1,
-                username="remy",
-                name="Remy",
-                password_hash=hash_password("remy's own password"),
+                username="alex",
+                name="Alex",
+                password_hash=hash_password("alex's own password"),
                 role="member",
             )
         )
         db.commit()
     with TestClient(kitchen.app, base_url="https://testserver") as other:
-        other.post(f"{API}/session", json={"username": "remy", "password": "remy's own password"})
+        other.post(f"{API}/session", json={"username": "alex", "password": "alex's own password"})
         yield other
 
 
@@ -127,11 +127,11 @@ def test_too_old_to_undo(kitchen: TestClient) -> None:
     assert listed[0]["can_undo"] is False
 
 
-def test_anyone_can_undo_anyones_change(kitchen: TestClient, remy: TestClient) -> None:
+def test_anyone_can_undo_anyones_change(kitchen: TestClient, alex: TestClient) -> None:
     change = add(kitchen, "Toor dal")["change"]
-    body = undo(remy, change["id"]).json()
+    body = undo(alex, change["id"]).json()
     assert body["result"] == "done"
-    assert body["change"]["who"]["name"] == "Remy"
+    assert body["change"]["who"]["name"] == "Alex"
 
 
 def test_undo_retry(kitchen: TestClient) -> None:
@@ -143,9 +143,9 @@ def test_undo_retry(kitchen: TestClient) -> None:
     assert again.json()["change"]["id"] == first.json()["change"]["id"]
 
 
-def test_recent_changes(kitchen: TestClient, remy: TestClient) -> None:
+def test_recent_changes(kitchen: TestClient, alex: TestClient) -> None:
     toor = add(kitchen, "Toor dal")["food"]
-    add(remy, "Onion")
+    add(alex, "Onion")
     kitchen.patch(f"{API}/foods/{toor['id']}", json={"staple": True})
 
     listed = kitchen.get(f"{API}/changes").json()
@@ -154,7 +154,7 @@ def test_recent_changes(kitchen: TestClient, remy: TestClient) -> None:
         "Added Onion",
         "Added Toor dal",
     ]
-    assert listed["changes"][1]["who"]["name"] == "Remy"
+    assert listed["changes"][1]["who"]["name"] == "Alex"
 
     mine = kitchen.get(f"{API}/changes", params={"mine": True, "limit": 1}).json()
     assert [c["summary"] for c in mine["changes"]] == ["Toor dal is now a staple"]

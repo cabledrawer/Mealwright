@@ -88,7 +88,7 @@ describe('the Shopping page', () => {
 
   it('says what it is synced with', async () => {
     await render(1000);
-    await expect.element(page.getByText('4 to buy · synced with Remy')).toBeVisible();
+    await expect.element(page.getByText('4 to buy · synced with Alex')).toBeVisible();
   });
 
   it('folds ticked items into In the trolley, with Different pack? and the place', async () => {
@@ -722,7 +722,7 @@ describe('the Shopping page', () => {
       list_id: 'main',
       item_id: 'i-dal',
       title: 'Did you buy 2?',
-      text: 'You and Remy both ticked toor dal while offline, so 2 packets went into the pantry.',
+      text: 'You and Alex both ticked toor dal while offline, so 2 packets went into the pantry.',
       yes: 'Yes, 2',
       no: 'Just 1',
       open: true
@@ -745,13 +745,13 @@ describe('the Shopping page', () => {
       list_id: 'main',
       item_id: 'i-yoghurt',
       food_id: 3,
-      text: 'Remy added Yoghurt too',
+      text: 'Alex added Yoghurt too',
       undo: 'abc',
       gone: false
     });
     await render(1000);
-    await expect.element(page.getByText('Remy added Yoghurt too')).toBeVisible();
-    await page.getByRole('button', { name: 'Dismiss: Remy added Yoghurt too' }).click();
+    await expect.element(page.getByText('Alex added Yoghurt too')).toBeVisible();
+    await page.getByRole('button', { name: 'Dismiss: Alex added Yoghurt too' }).click();
     await vi.waitFor(() =>
       expect(server.actions.at(-1)).toMatchObject({ kind: 'dismiss_note', note_id: 31 })
     );
@@ -1020,7 +1020,7 @@ describe('the Shopping page', () => {
       list_id: 'main',
       item_id: 'i-yoghurt',
       food_id: 3,
-      text: 'Remy had removed this. Your tick still went into the pantry.',
+      text: 'Alex had removed this. Your tick still went into the pantry.',
       undo: null,
       gone: false
     });
@@ -1028,7 +1028,7 @@ describe('the Shopping page', () => {
     const shop = page.getByRole('region', { name: 'Supermarket' });
     await expect
       .element(
-        shop.getByText('Yoghurt · Remy had removed this. Your tick still went into the pantry.')
+        shop.getByText('Yoghurt · Alex had removed this. Your tick still went into the pantry.')
       )
       .toBeVisible();
     expect(page.getByRole('list', { name: 'Notes' }).elements()).toHaveLength(0);
@@ -1078,7 +1078,7 @@ describe('the Shopping page', () => {
       .find((i) => i.id === 'i-paneer')!
       .ticks.push(
         tick('t-pan2', {
-          by: { login_id: 2, name: 'Remy' },
+          by: { login_id: 2, name: 'Alex' },
           bought: { amount: 400, display: '2 packs' }
         })
       );
@@ -1087,7 +1087,7 @@ describe('the Shopping page', () => {
     await openChange('Paneer');
     await page.getByRole('button', { name: 'Different pack?' }).click();
     await expect.element(page.getByText('Which purchase?')).toBeVisible();
-    await page.getByRole('radio', { name: /^Remy/ }).click();
+    await page.getByRole('radio', { name: /^Alex/ }).click();
     await page.getByRole('radio', { name: '1 × 400 g' }).click();
     await page.getByRole('button', { name: 'Done' }).click();
     await vi.waitFor(() =>
@@ -1110,24 +1110,24 @@ describe('the Shopping page', () => {
       .toHaveAttribute('aria-checked', 'true');
   });
 
-  it('a removed item shows “Paneer · removed by Remy” once the server sends the tombstone', async () => {
+  it('a removed item shows “Paneer · removed by Alex” once the server sends the tombstone', async () => {
     copy.items.find((i) => i.id === 'i-yoghurt')!.deleted = true;
-    copy.removed['i-yoghurt'] = { food_id: 3, shop_id: 1, removed_by: 'Remy' };
+    copy.removed['i-yoghurt'] = { food_id: 3, shop_id: 1, removed_by: 'Alex' };
     copy.notes.push({
       id: 41,
       list_id: 'main',
       item_id: 'i-yoghurt',
       food_id: 3,
-      text: 'Remy had removed this. Your tick still went into the pantry.',
+      text: 'Alex had removed this. Your tick still went into the pantry.',
       undo: 'abc',
       gone: false
     });
     await render(1000);
     // The first copy has no tombstones: the note's own words.
-    await expect.element(page.getByText(/^Yoghurt · Remy had removed this/)).toBeVisible();
+    await expect.element(page.getByText(/^Yoghurt · Alex had removed this/)).toBeVisible();
     // Any later answer carries the tombstone.
     await page.getByRole('checkbox', { name: 'Tick Onions' }).click();
-    await expect.element(page.getByText('Yoghurt · removed by Remy')).toBeVisible();
+    await expect.element(page.getByText('Yoghurt · removed by Alex')).toBeVisible();
   });
 
   it('shows the quiet notes N8 and N9 under their item', async () => {

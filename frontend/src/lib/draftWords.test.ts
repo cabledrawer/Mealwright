@@ -28,8 +28,8 @@ const draft = (over: Partial<DraftBrief> = {}): DraftBrief => ({
 describe('the words on the Drafts screen (the mockups’ own)', () => {
   it('says where it came from and who started it', () => {
     expect(phoneSource(draft())).toBe('From bbcgoodfood.com · started by Tess');
-    expect(phoneSource(draft({ source: { kind: 'text', site: null }, started_by: 'Remy' }))).toBe(
-      'Pasted text · started by Remy'
+    expect(phoneSource(draft({ source: { kind: 'text', site: null }, started_by: 'Alex' }))).toBe(
+      'Pasted text · started by Alex'
     );
     expect(fromWords(draft())).toBe('bbcgoodfood.com');
     expect(fromWords(draft({ source: { kind: 'text', site: null } }))).toBe('Pasted text');

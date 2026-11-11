@@ -193,10 +193,10 @@ def test_a_task_that_is_not_there_is_a_404(kitchen: TestClient, session: int) ->
 def test_another_phone_carries_on_where_the_first_was(kitchen: TestClient, session: int) -> None:
     made = start(kitchen, session)
     ok(kitchen.put(url(session, f"/tasks/{made['now_id']}/done")))
-    remy = person(kitchen)
-    seen = ok(remy.get(url(session)))
+    alex = person(kitchen)
+    seen = ok(alex.get(url(session)))
     assert seen["done_count"] == 1 and seen["now_id"] != made["now_id"]
-    ok(remy.put(url(session, f"/tasks/{seen['now_id']}/done")))
+    ok(alex.put(url(session, f"/tasks/{seen['now_id']}/done")))
     assert ok(kitchen.get(url(session)))["done_count"] == 2
 
 

@@ -410,7 +410,7 @@ describe('the import flow', () => {
       id: 5,
       name: 'My sambar',
       source: { kind: 'link', site: 'kitchen.example' },
-      started_by: 'Remy',
+      started_by: 'Alex',
       started_at: '2026-10-20T10:00:00Z',
       updated_at: '2026-10-21T10:00:00Z',
       expires_at: '2026-11-05T10:00:00Z',

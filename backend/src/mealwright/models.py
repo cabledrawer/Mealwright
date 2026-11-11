@@ -639,7 +639,7 @@ class SyncAction(Base):
 
 
 class ListNote(Base):
-    """A quiet note on Shopping ("Remy added milk too") with Undo and a dismiss button."""
+    """A quiet note on Shopping ("Alex added milk too") with Undo and a dismiss button."""
 
     __tablename__ = "list_note"
 

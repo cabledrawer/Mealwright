@@ -1,6 +1,6 @@
 <script lang="ts">
   // Plan, Eat (mockups PlanEat07-Phone, Dark-PlanEat07-Phone): what each person eats at each meal
-  // and where it comes from ("2 tubs from Thu · cabledrawer, Remy"), a card for each day. A meal is
+  // and where it comes from ("2 tubs from Thu · cabledrawer, Alex"), a card for each day. A meal is
   // tapped (or held) for the same menu as everywhere on the Plan; a day with a cook has the link
   // "You cook today →" to the Cook view. Everything comes from the plan already on the page.
   import Icon from '#lib/components/Icon.svelte';

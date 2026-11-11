@@ -546,7 +546,7 @@ test('a photo shows "uploading" while it is on its way, and its bar stops moving
   await expect(save(page)).toBeEnabled();
 });
 
-test('two people editing: the second Save is stopped, Remy’s version opens over the editor, Save mine anyway saves', async ({ page }) => {
+test('two people editing: the second Save is stopped, Alex’s version opens over the editor, Save mine anyway saves', async ({ page }) => {
   const recipe = await makeRecipe(page, {
     name: unique('Conflict'),
     lines: [{ words: 'dal', amount: 200, unit: 'g' }, { words: 'turmeric' }],

@@ -26,7 +26,7 @@ const CANT_TEXT =
   'This phone couldn’t check for changes waiting to be sent. Nothing has been deleted.';
 const phoneThere = async () =>
   (await indexedDB.databases()).some((db) => db.name === phoneDatabaseName());
-const REMY = { id: 2, name: 'Remy', username: 'remy', role: 'member', theme: 'auto' };
+const ALEX = { id: 2, name: 'Alex', username: 'alex', role: 'member', theme: 'auto' };
 const ARLO = { id: 3, name: 'Arlo', username: 'arlo', role: 'member', theme: 'auto' };
 const tick = (id: string) => ({
   id,
@@ -54,13 +54,13 @@ function holdDatabaseList(): () => void {
   };
 }
 
-/** Remy signed in here, and left `count` changes waiting when her sign-in ran out. */
+/** Alex signed in here, and left `count` changes waiting when her sign-in ran out. */
 async function wrensPhone(count: number) {
   await setMeta({
     device_id: DEVICE,
     login_id: 2,
-    login_name: 'Remy',
-    username: 'remy',
+    login_name: 'Alex',
+    username: 'alex',
     role: 'member',
     protocol: 1
   });
@@ -75,7 +75,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     requests = fakeApi({
       'POST /session': (request) => {
         const who = (request.body as { username: string }).username.trim().toLowerCase();
-        return who === 'remy' ? [200, REMY] : [200, ARLO];
+        return who === 'alex' ? [200, ALEX] : [200, ARLO];
       },
       'DELETE /session': [204, null]
     });
@@ -120,7 +120,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent('Please sign in again. Your 3 changes are kept on this phone.');
-    await fillIn('Remy');
+    await fillIn('Alex');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /session']);
@@ -135,13 +135,13 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent(
-        'Remy’s 3 changes are waiting on this phone. Sign in as Remy to send them.'
+        'Alex’s 3 changes are waiting on this phone. Sign in as Alex to send them.'
       );
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Remy’s 3 changes haven’t been sent yet. If you carry on, they’re lost.');
-    // Nothing has gone to the server yet, and nothing ever goes from Remy's queue.
+      .toHaveTextContent('Alex’s 3 changes haven’t been sent yet. If you carry on, they’re lost.');
+    // Nothing has gone to the server yet, and nothing ever goes from Alex's queue.
     expect(requests).toEqual([]);
 
     await page.getByRole('button', { name: 'Carry on and lose them' }).click();
@@ -153,7 +153,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     expect(await getMeta('device_id')).toBeUndefined();
   });
 
-  it('carrying on with a wrong password wipes nothing: Remy’s changes stay', async () => {
+  it('carrying on with a wrong password wipes nothing: Alex’s changes stay', async () => {
     await wrensPhone(3);
     let right = false;
     requests = fakeApi({
@@ -202,20 +202,20 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent(
-        'Remy’s 2 changes are waiting on this computer. Sign in as Remy to send them.'
+        'Alex’s 2 changes are waiting on this computer. Sign in as Alex to send them.'
       );
   });
 
-  it('“Sign in as Remy instead” keeps everything and puts Remy’s username in', async () => {
+  it('“Sign in as Alex instead” keeps everything and puts Alex’s username in', async () => {
     await wrensPhone(1);
     show();
     await fillIn('arlo');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Remy’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
-    await page.getByRole('button', { name: 'Sign in as Remy instead' }).click();
-    await expect.element(page.getByLabelText('Username')).toHaveValue('remy');
+      .toHaveTextContent('Alex’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
+    await page.getByRole('button', { name: 'Sign in as Alex instead' }).click();
+    await expect.element(page.getByLabelText('Username')).toHaveValue('alex');
     await expect.element(page.getByLabelText('Password')).toHaveValue('');
     await expect.element(page.getByLabelText('Password')).toHaveFocus();
     expect(page.getByRole('alert').elements()).toEqual([]);
@@ -227,12 +227,12 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await wrensPhone(2);
     requests = fakeApi({ 'POST /session': [200, ARLO], 'DELETE /session': [204, null] });
     show();
-    // Typed as Remy, but the server signed in someone else.
-    await fillIn('remy');
+    // Typed as Alex, but the server signed in someone else.
+    await fillIn('alex');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Remy’s 2 changes haven’t been sent yet. If you carry on, they’re lost.');
+      .toHaveTextContent('Alex’s 2 changes haven’t been sent yet. If you carry on, they’re lost.');
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
       'POST /session',
       'DELETE /session'
@@ -241,7 +241,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     expect(await readQueue()).toHaveLength(2);
   });
 
-  it('after the app turned Arlo away over Remy’s change: his username is in, he’s warned, and carrying on wipes, with a new device ID', async () => {
+  it('after the app turned Arlo away over Alex’s change: his username is in, he’s warned, and carrying on wipes, with a new device ID', async () => {
     await wrensPhone(1);
     turnAway('arlo');
     show();
@@ -249,13 +249,13 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await expect
       .element(page.getByRole('status'))
       .toHaveTextContent(
-        'You were signed out because Remy’s change is waiting on this phone. Sign in as Remy to send it.'
+        'You were signed out because Alex’s change is waiting on this phone. Sign in as Alex to send it.'
       );
     await userEvent.fill(page.getByLabelText('Password'), 'a long password');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Remy’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
+      .toHaveTextContent('Alex’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
     expect(requests).toEqual([]);
     await page.getByRole('button', { name: 'Carry on and lose it' }).click();
     await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
@@ -278,7 +278,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('status'))
         .toHaveTextContent(
-          'You were signed out because Remy’s 3 changes are waiting on this phone. Sign in as Remy to send them.'
+          'You were signed out because Alex’s 3 changes are waiting on this phone. Sign in as Alex to send them.'
         );
       expect(page.getByRole('status').elements()).toHaveLength(1);
       // The warning and its buttons are as they were.
@@ -287,10 +287,10 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('alert'))
         .toHaveTextContent(
-          'Remy’s 3 changes haven’t been sent yet. If you carry on, they’re lost.'
+          'Alex’s 3 changes haven’t been sent yet. If you carry on, they’re lost.'
         );
       await expect
-        .element(page.getByRole('button', { name: 'Sign in as Remy instead' }))
+        .element(page.getByRole('button', { name: 'Sign in as Alex instead' }))
         .toBeVisible();
       await expect
         .element(page.getByRole('button', { name: 'Carry on and lose them' }))
@@ -305,7 +305,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('status'))
         .toHaveTextContent(
-          'You were signed out because Remy’s 2 changes are waiting on this computer. Sign in as Remy to send them.'
+          'You were signed out because Alex’s 2 changes are waiting on this computer. Sign in as Alex to send them.'
         );
     });
 
@@ -315,7 +315,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await fillIn('arlo');
       await expect
         .element(page.getByRole('status'))
-        .toHaveTextContent('Remy’s 1 change is waiting on this phone. Sign in as Remy to send it.');
+        .toHaveTextContent('Alex’s 1 change is waiting on this phone. Sign in as Alex to send it.');
     });
 
     it('only right after: a page opened again says it the usual way', async () => {
@@ -325,7 +325,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('status'))
         .toHaveTextContent(
-          'You were signed out because Remy’s change is waiting on this phone. Sign in as Remy to send it.'
+          'You were signed out because Alex’s change is waiting on this phone. Sign in as Alex to send it.'
         );
       for (const component of mounted.splice(0)) unmount(component);
       document.body.innerHTML = '';
@@ -333,7 +333,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await fillIn('arlo');
       await expect
         .element(page.getByRole('status'))
-        .toHaveTextContent('Remy’s 1 change is waiting on this phone. Sign in as Remy to send it.');
+        .toHaveTextContent('Alex’s 1 change is waiting on this phone. Sign in as Alex to send it.');
     });
 
     it('another username typed in: the usual line', async () => {
@@ -343,7 +343,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await userEvent.fill(page.getByLabelText('Username'), 'meena');
       await expect
         .element(page.getByRole('status'))
-        .toHaveTextContent('Remy’s 1 change is waiting on this phone. Sign in as Remy to send it.');
+        .toHaveTextContent('Alex’s 1 change is waiting on this phone. Sign in as Alex to send it.');
     });
 
     it('while the server hasn’t ended his session, it doesn’t say he was signed out', async () => {
@@ -354,7 +354,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       show();
       await expect
         .element(
-          page.getByText('Remy’s 1 change is waiting on this phone. Sign in as Remy to send it.')
+          page.getByText('Alex’s 1 change is waiting on this phone. Sign in as Alex to send it.')
         )
         .toHaveAttribute('role', 'status');
       fakeApi({ 'DELETE /session': [204, null] });
@@ -362,7 +362,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('status'))
         .toHaveTextContent(
-          'You were signed out because Remy’s change is waiting on this phone. Sign in as Remy to send it.'
+          'You were signed out because Alex’s change is waiting on this phone. Sign in as Alex to send it.'
         );
     });
   });
@@ -372,14 +372,14 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     show();
     await expect.element(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
     expect(page.getByRole('status').elements()).toEqual([]);
-    // Meanwhile, in another tab, Remy queues 2 changes and her sign-in runs out.
+    // Meanwhile, in another tab, Alex queues 2 changes and her sign-in runs out.
     await addToQueue(tick('t1'), 2, DEVICE);
     await addToQueue(tick('t2'), 2, DEVICE);
     await fillIn('arlo');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Remy’s 2 changes haven’t been sent yet. If you carry on, they’re lost.');
+      .toHaveTextContent('Alex’s 2 changes haven’t been sent yet. If you carry on, they’re lost.');
     expect(requests).toEqual([]);
     expect(await readQueue()).toHaveLength(2);
     expect(await getMeta('device_id')).toBe(DEVICE);
@@ -392,13 +392,13 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Remy’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
+      .toHaveTextContent('Alex’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
     // Another tab queues one more before Carry on is pressed.
     await addToQueue(tick('t2'), 2, DEVICE);
     await page.getByRole('button', { name: 'Carry on and lose it' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Remy’s 2 changes haven’t been sent yet. If you carry on, they’re lost.');
+      .toHaveTextContent('Alex’s 2 changes haven’t been sent yet. If you carry on, they’re lost.');
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
       'POST /session',
       'DELETE /session'
@@ -421,8 +421,8 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Remy’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
-    // In Remy's other tab: her change goes, and she makes a new one. Still 1 waiting.
+      .toHaveTextContent('Alex’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
+    // In Alex's other tab: her change goes, and she makes a new one. Still 1 waiting.
     const [shown] = await readQueue();
     await dropFromQueue([shown!.seq!]);
     await addToQueue(tick('new'), 2, DEVICE);
@@ -437,7 +437,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     );
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Remy’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
+      .toHaveTextContent('Alex’s 1 change hasn’t been sent yet. If you carry on, it’s lost.');
     expect(navigation.goto).not.toHaveBeenCalled();
     expect((await readQueue()).map((e) => e.action.id)).toEqual(['new']);
     expect(await getMeta('device_id')).toBe(DEVICE);
@@ -491,17 +491,17 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('alert'))
         .toHaveTextContent(
-          'Remy’s 2 changes haven’t been sent yet. If you carry on, they’re lost.'
+          'Alex’s 2 changes haven’t been sent yet. If you carry on, they’re lost.'
         );
       expect(requests).toEqual([]);
     });
 
     it('the same login carries on: signs in, keeping and writing nothing new', async () => {
       await wrensPhone(2);
-      await startDevice(REMY);
+      await startDevice(ALEX);
       const mend = breakPhone();
       show();
-      await fillIn('Remy');
+      await fillIn('Alex');
       await page.getByRole('button', { name: 'Sign in' }).click();
       await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
       expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /session']);
@@ -542,7 +542,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       expect(await getMeta('login_id')).toBe(2);
     });
 
-    it('Carry on anyway, but readable by then and Remy’s changes there: the usual warning, nothing wiped', async () => {
+    it('Carry on anyway, but readable by then and Alex’s changes there: the usual warning, nothing wiped', async () => {
       await wrensPhone(2);
       const mend = breakPhone();
       show();
@@ -554,7 +554,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect
         .element(page.getByRole('alert'))
         .toHaveTextContent(
-          'Remy’s 2 changes haven’t been sent yet. If you carry on, they’re lost.'
+          'Alex’s 2 changes haven’t been sent yet. If you carry on, they’re lost.'
         );
       expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
         'POST /session',
@@ -652,12 +652,12 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     it('another login after all, and the server won’t end it: says so beside the warning, and wipes nothing', async () => {
       await wrensPhone(2);
       show();
-      await fillIn('remy');
+      await fillIn('alex');
       await page.getByRole('button', { name: 'Sign in' }).click();
       await expect.element(page.getByText(UNFINISHED)).toBeVisible();
       await expect
         .element(
-          page.getByText('Remy’s 2 changes haven’t been sent yet. If you carry on, they’re lost.')
+          page.getByText('Alex’s 2 changes haven’t been sent yet. If you carry on, they’re lost.')
         )
         .toBeVisible();
       expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
@@ -700,8 +700,8 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       show();
       // On opening the page: a status, not an alert (read out without interrupting).
       await expect.element(page.getByRole('status')).toHaveTextContent(WIPE_FAILED);
-      // Nothing of Remy's is shown.
-      expect(page.getByText(/Remy/).elements()).toEqual([]);
+      // Nothing of Alex's is shown.
+      expect(page.getByText(/Alex/).elements()).toEqual([]);
       await page.getByRole('button', { name: 'Try again' }).click();
       await expect.element(page.getByRole('alert')).toHaveTextContent(WIPE_FAILED);
       mend();
@@ -720,8 +720,8 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect.element(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
       expect(page.getByText(/couldn’t delete/).elements()).toEqual([]);
       expect(page.getByRole('button', { name: 'Try again' }).elements()).toEqual([]);
-      // Nothing of Remy's is shown meanwhile either.
-      expect(page.getByText(/Remy/).elements()).toEqual([]);
+      // Nothing of Alex's is shown meanwhile either.
+      expect(page.getByText(/Alex/).elements()).toEqual([]);
       // Its delete then fails: that tab's flag says so, and this one hears it.
       localStorage.setItem(WIPE_PENDING_KEY, 'failed');
       dispatchEvent(new StorageEvent('storage', { key: WIPE_PENDING_KEY, newValue: 'failed' }));
@@ -737,7 +737,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await wrensPhone(2);
       localStorage.setItem(WIPE_PENDING_KEY, '1');
       show();
-      await fillIn('remy');
+      await fillIn('alex');
       await page.getByRole('button', { name: 'Sign in' }).click();
       await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
       expect(await phoneThere()).toBe(false);
@@ -819,7 +819,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       expect(await phoneThere()).toBe(false);
       expect(requests).toEqual([]);
       // And signing in then works.
-      await fillIn('remy');
+      await fillIn('alex');
       await page.getByRole('button', { name: 'Sign in' }).click();
       await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
       expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /session']);
@@ -978,7 +978,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     it('a second press while the phone is still being read starts nothing more', async () => {
       await wrensPhone(0);
       show();
-      await fillIn('remy');
+      await fillIn('alex');
       const release = holdDatabaseList();
       pressTwice();
       await expect.element(page.getByRole('button', { name: 'Signing in…' })).toBeDisabled();
@@ -991,7 +991,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
     it('a second press while the server is answering starts nothing more', async () => {
       await wrensPhone(0);
       show();
-      await fillIn('remy');
+      await fillIn('alex');
       let answer: (reply: Response) => void = () => {};
       const fetching = vi.fn(() => new Promise<Response>((done) => (answer = done)));
       vi.stubGlobal('fetch', fetching);
@@ -1000,7 +1000,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await new Promise((done) => setTimeout(done, 50));
       expect(fetching).toHaveBeenCalledTimes(1);
       answer(
-        new Response(JSON.stringify(REMY), {
+        new Response(JSON.stringify(ALEX), {
           status: 200,
           headers: { 'content-type': 'application/json' }
         })
@@ -1026,7 +1026,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       headingFor('/pantry');
       await wrensPhone(0);
       show();
-      await fillIn('remy');
+      await fillIn('alex');
       await page.getByRole('button', { name: 'Sign in' }).click();
       await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
       expect(navigation.goto).toHaveBeenCalledTimes(1);
@@ -1042,7 +1042,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       window.addEventListener('unhandledrejection', unhandled);
       await wrensPhone(0);
       show();
-      await fillIn('remy');
+      await fillIn('alex');
       await page.getByRole('button', { name: 'Sign in' }).click();
       await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalledTimes(2));
       expect(navigation.goto).toHaveBeenLastCalledWith('/', { replace: true, refreshAll: true });
@@ -1064,7 +1064,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
         headingFor(odd);
         await wrensPhone(0);
         show();
-        await fillIn('remy');
+        await fillIn('alex');
         await page.getByRole('button', { name: 'Sign in' }).click();
         await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
         expect(navigation.goto).toHaveBeenCalledTimes(1);

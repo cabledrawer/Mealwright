@@ -167,7 +167,7 @@ plan, the staples check card, tubs, "Recipes for these".
 - Every box is 16 px (cabledrawer 20 Oct, so phones don't zoom in), so the ingredient note and the heading boxes are a little larger than the mockup's 14 px.
 - The saved Edit recipe screenshot is the seeded Sambar, opened with Edit from its page (no headings; its lines are linked).
 - "Pick an ingredient" on a computer opens under the line when you type or click in its ingredient box (the mockup's popover); on a phone it is a sheet with its own search box that edits the line's words.
-- Remy's version says "unchanged" where the mockup says "the same as yours"; Makes has a box for the count word (dosas) when the unit is "count".
+- Alex's version says "unchanged" where the mockup says "the same as yours"; Makes has a box for the count word (dosas) when the unit is "count".
 - The mockups are copied into `docs/mockups/` but `canvas.json` is unchanged: listing the new boards needs canvas positions only the design canvas knows, so `review/screens.ts --screen` can't find the new mockups by title yet.
 
 ## Where the recipe photos (0.4, photos PR) differ from the mockups

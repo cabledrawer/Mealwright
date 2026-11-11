@@ -582,30 +582,30 @@ def test_a_step_may_have_line_breaks(kitchen: TestClient) -> None:
 
 
 def test_the_second_save_is_stopped_and_says_who_changed_it(kitchen: TestClient) -> None:
-    remy = person(kitchen)
+    alex = person(kitchen)
     recipe = make(kitchen, lines=[{"words": "salt"}])
-    # Both open version 1. Remy saves first.
-    first = ok(save(remy, recipe, name="Remy's sambar", time_minutes=40))
-    assert first["version"] == 2 and first["updated_by"]["name"] == "Remy"
+    # Both open version 1. Alex saves first.
+    first = ok(save(alex, recipe, name="Alex's sambar", time_minutes=40))
+    assert first["version"] == 2 and first["updated_by"]["name"] == "Alex"
     # Tess's save (from version 1) is refused, and nothing is changed.
     stopped = save(kitchen, recipe, name="Tess's sambar")
     assert stopped.status_code == 409
     problem = stopped.json()
     assert problem["code"] == "recipe_changed"
-    assert problem["detail"] == "Remy changed this recipe after you opened it."
+    assert problem["detail"] == "Alex changed this recipe after you opened it."
     assert problem["version"] == 2
-    assert problem["changed_by"]["name"] == "Remy"
+    assert problem["changed_by"]["name"] == "Alex"
     assert problem["changed_at"].startswith("20")
     now = ok(kitchen.get(f"{API}/recipes/{recipe['id']}"))
-    assert (now["name"], now["version"], now["time_minutes"]) == ("Remy's sambar", 2, 40)
-    # "See Remy's version" is just a read of the recipe.
-    assert now["updated_by"]["name"] == "Remy"
+    assert (now["name"], now["version"], now["time_minutes"]) == ("Alex's sambar", 2, 40)
+    # "See Alex's version" is just a read of the recipe.
+    assert now["updated_by"]["name"] == "Alex"
 
 
 def test_save_mine_anyway_is_an_update_from_the_newer_version(kitchen: TestClient) -> None:
-    remy = person(kitchen)
+    alex = person(kitchen)
     recipe = make(kitchen)
-    ok(save(remy, recipe, name="Remy's"))
+    ok(save(alex, recipe, name="Alex's"))
     stopped = save(kitchen, recipe, name="Tess's").json()
     mine = ok(save(kitchen, recipe, name="Tess's", version=stopped["version"], overwrite=True))
     assert mine["name"] == "Tess's" and mine["version"] == 3
@@ -615,10 +615,10 @@ def test_save_mine_anyway_is_an_update_from_the_newer_version(kitchen: TestClien
 def test_save_mine_anyway_is_refused_if_a_third_save_came_in(kitchen: TestClient) -> None:
     """cabledrawer 19 Oct, R4: a third person's save in between stops "Save mine anyway" again,
     naming them, so nobody overwrites a version they haven't seen."""
-    remy = person(kitchen)
+    alex = person(kitchen)
     arlo = person(kitchen, "Arlo", "arlo")
     recipe = make(kitchen)
-    ok(save(remy, recipe, name="Remy's"))
+    ok(save(alex, recipe, name="Alex's"))
     stopped = save(kitchen, recipe, name="Tess's").json()
     again = ok(save(arlo, {**recipe, "version": 2}, name="Arlo's"))
     assert again["version"] == 3

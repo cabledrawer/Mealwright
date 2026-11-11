@@ -57,7 +57,7 @@ export interface AisleGroup {
 /** A note for an item that is no longer on the list: a faint row where it was (spec L311). */
 export interface Ghost {
   note: Note;
-  /** "Paneer · removed by Remy" when the server told us who; else the note's own words. */
+  /** "Paneer · removed by Alex" when the server told us who; else the note's own words. */
   text: string;
 }
 
@@ -186,7 +186,7 @@ export function listCounts(copy: ShoppingCopy, list: ListRow): { toBuy: number; 
   return { toBuy: views.length - ticked, ticked };
 }
 
-/** Remy · Remy and Arlo · Remy and 2 others (the people other than you; spec new L301). */
+/** Alex · Alex and Arlo · Alex and 2 others (the people other than you; spec new L301). */
 export function syncedWith(people: Person[], meId: number | null): string | null {
   const others = people.filter((p) => p.login_id !== meId);
   if (others.length === 0) return null;
