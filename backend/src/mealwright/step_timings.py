@@ -39,10 +39,11 @@ _HOB_HANDS = re.compile(
     re.I,
 )
 _HOB_WAIT = re.compile(r"\bsimmer(?:ing)?\b|\bboil(?:ing)?\b|\bstew\b|\bsteam(?:ing)?\b", re.I)
-# Heat, a pan or the stove is the hob even with "add" beside it ("Heat oil and add the onions");
-# "cook" on its own words, too ("Add the tomatoes and cook until soft"; B1 review r1 M2).
+# Heat, a kadai or the stove is the hob even with "add" beside it ("Heat oil and add the onions");
+# "cook" on its own words, too ("Add the tomatoes and cook until soft"; B1 review r1 M2). Not
+# "pan": a loaf pan that chills or a cake cooling in its pan uses no hob ring (r2 M1).
 _HOB_ALWAYS = re.compile(
-    r"\bheat\b|\bstove\b|\bhob\b|\bpan\b|\bkadai\b|\bkadhai\b|\btawa\b|\bskillet\b|\bwok\b"
+    r"\bheat\b|\bstove\b|\bhob\b|\bkadai\b|\bkadhai\b|\btawa\b|\bskillet\b|\bwok\b"
     r"|\bcook\b",
     re.I,
 )

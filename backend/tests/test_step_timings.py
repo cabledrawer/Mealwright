@@ -148,3 +148,11 @@ def test_heat_or_cook_beside_add_still_uses_a_hob_ring() -> None:
     assert g("Add the tomatoes and cook until soft.") == ("hands", 5, "hob")
     assert g("Add the dal to the kadai and stir.") == ("hands", 5, "hob")
     assert g("Add the cooking liquid and mix.")[2] == "none"
+
+
+def test_a_pan_alone_is_not_a_hob_ring() -> None:
+    # B1 review r2 M1: a tin or a pan that only holds food uses no hob ring.
+    assert g("Pour into a loaf pan and chill for 4 hours.") == ("waiting", 240, "none")
+    assert g("Let the cake cool in the pan for 10 minutes")[2] == "none"
+    assert g("Pour the batter into the prepared pan.")[2] == "none"
+    assert g("Heat oil in a pan and add the onions.")[2] == "hob"
