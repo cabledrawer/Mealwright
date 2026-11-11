@@ -88,6 +88,13 @@ class Household(Base):
     # "Who's this?" on shared logins (spec "History and undo", cabledrawer 17 Oct): off by default.
     # Switched on by an admin in Settings → Household (0.9 A1).
     ask_whos_this: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
+    # Backups (0.9, D1; spec section 7, cabledrawer 17 Oct): how often Mealwright backs its database
+    # up ("daily", "twice-daily" or "weekly") and how many of those it keeps (1 to 30). The last
+    # backup that failed, in plain words, and when: empty while backups work (mealwright.backups).
+    backup_every: Mapped[str] = mapped_column(String(12), default="daily", server_default="daily")
+    backup_keep: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
+    backup_problem: Mapped[str | None] = mapped_column(String(300))
+    backup_problem_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class OutboundSwitch(Base):

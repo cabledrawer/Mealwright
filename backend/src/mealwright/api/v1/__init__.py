@@ -27,6 +27,7 @@ from mealwright.api.v1 import (
     sync,
     today,
     version,
+    your_data,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -54,3 +55,4 @@ router.include_router(shopping_plan.router)
 router.include_router(sync.router)
 router.include_router(events.router)
 router.include_router(changes.router)
+router.include_router(your_data.router)

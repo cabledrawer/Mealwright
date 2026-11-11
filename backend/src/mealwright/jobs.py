@@ -22,6 +22,10 @@ Every job is added in `scheduler()`, in one place:
   is deleted quietly, and a deleted draft once its undo window has passed, photo and all
   (cabledrawer 21 and 22 Oct). Nothing is logged about a draft except how many went.
 
+- **Backups** (mealwright.backups; spec section 7, cabledrawer 17 Oct): every 10 minutes, and just
+  after start-up, it looks whether a backup of the database is due (03:00 in the household's own
+  time, daily by default) and makes it, keeping the household's chosen number.
+
 No job has a lateness limit (misfire_grace_time=None): a late run still runs.
 
 Nothing here makes a network connection.
@@ -29,12 +33,14 @@ Nothing here makes a network connection.
 
 import logging
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from sqlalchemy import select
+from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from mealwright import backups
 from mealwright.logs import DailyLogFile, tidy_once
 from mealwright.models import Household, utcnow
 
@@ -105,8 +111,15 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
                 log.exception("Couldn't tidy removed ingredients (will try again within the hour)")
 
 
+def back_up_if_due(factory: sessionmaker[Session], engine: Engine, folder: Path) -> None:
+    """Make the database's backup when one is due. Never raises."""
+    backups.run_if_due(factory, engine, folder)
+
+
 def scheduler(
-    factory: sessionmaker[Session], log_file: DailyLogFile | None = None
+    factory: sessionmaker[Session],
+    log_file: DailyLogFile | None = None,
+    backups_folder: Path | None = None,
 ) -> BackgroundScheduler:
     """The app's scheduler, with every job added. Started and stopped with the app."""
     jobs = BackgroundScheduler(
@@ -129,6 +142,16 @@ def scheduler(
         id="removed-ingredients",
         name="Delete removed ingredients and recipes for good",
     )
+    if backups_folder is not None:
+        engine = factory.kw["bind"]
+        jobs.add_job(
+            back_up_if_due,
+            CronTrigger(minute="*/10", timezone=UTC),
+            args=[factory, engine, backups_folder],
+            next_run_time=datetime.now(UTC),
+            id="backups",
+            name="Back the database up when it's due",
+        )
     if log_file is not None:
         jobs.add_job(
             tidy_logs,

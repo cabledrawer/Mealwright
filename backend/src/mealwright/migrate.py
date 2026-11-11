@@ -5,7 +5,7 @@ import os
 import re
 import sqlite3
 from collections.abc import Iterator
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -14,6 +14,8 @@ from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import Connection, Engine
+
+from mealwright.backups import copy_database, make_folder, sqlite_file
 
 log = logging.getLogger(__name__)
 
@@ -83,15 +85,6 @@ def current_revision(engine: Engine) -> str | None:
         return MigrationContext.configure(connection).get_current_revision()
 
 
-def _sqlite_file(engine: Engine) -> Path | None:
-    if engine.dialect.name != "sqlite":
-        return None
-    database = engine.url.database
-    if not database or database == ":memory:" or database.startswith("file:"):
-        return None
-    return Path(database)
-
-
 def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> Path | None:
     """Copy the database before upgrading it (cabledrawer 28 Oct, review of v0.6.0): SQLite's own
     backup, which gives a consistent copy while the database is in use (WAL included), to
@@ -100,7 +93,7 @@ def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> P
 
     Nothing is copied for a new database or one that is already up to date. Returns the copy,
     or None. Raises SafetyCopyFailed if the copy can't be made: then don't upgrade."""
-    if _sqlite_file(engine) is None:
+    if sqlite_file(engine) is None:
         return None
     revision = current_revision(engine)
     head = ScriptDirectory.from_config(alembic_config()).get_current_head()
@@ -109,30 +102,12 @@ def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> P
     stamp = (now or datetime.now(UTC)).astimezone(UTC).strftime("%Y%m%d-%H%M%S")
     target = backups / f"pre-upgrade-{revision}-{stamp}.db"
     # Written under another name first, so a copy cut short never counts as one of the three
-    # (with the process ID, so two Mealwrights started at once never write the same file).
-    partial = target.with_name(f"{target.name}.{os.getpid()}.part")
+    # (with the process ID, so two Mealwrights started at once never write the same file), and
+    # readable by Mealwright's own user only (mealwright.backups).
     try:
-        backups.mkdir(mode=0o700, parents=True, exist_ok=True)
-        partial.unlink(missing_ok=True)
-        raw = engine.raw_connection()
-        try:
-            source = raw.driver_connection
-            if not isinstance(source, sqlite3.Connection):
-                raise sqlite3.Error("not a SQLite connection")
-            copy = sqlite3.connect(partial)
-            try:
-                source.backup(copy)
-                # The copy keeps the source's WAL mode; a plain journal makes it one file that
-                # opens on its own, with no "-wal" or "-shm" files appearing beside it.
-                copy.execute("PRAGMA journal_mode=DELETE")
-            finally:
-                copy.close()
-        finally:
-            raw.close()
-        partial.replace(target)
+        make_folder(backups)
+        copy_database(engine, target)
     except (OSError, sqlite3.Error) as error:
-        with suppress(OSError):
-            partial.unlink(missing_ok=True)
         raise SafetyCopyFailed(
             f"Couldn't make a safety copy of the database in {backups} before upgrading it "
             f"({error}). The database was not changed. Check that the folder can be written "

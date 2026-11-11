@@ -130,19 +130,26 @@ def test_start_up_does_not_wait_for_thinning(
     from mealwright.main import create_app
 
     started = threading.Event()
+    release = threading.Event()
+    finished = threading.Event()
 
     def slow_thinning(_factory: object, now: object = None) -> None:
         started.set()
-        time.sleep(3)
+        release.wait(30)  # holds on until the app has answered (or long after, if it waited)
+        finished.set()
 
     monkeypatch.setattr(jobs, "thin_history", slow_thinning)
     settings = Settings(data_dir=tmp_path / "data", run_jobs=True)
-    begin = time.monotonic()
-    with TestClient(create_app(settings), base_url="https://testserver") as client:
-        assert client.get(f"{API}/version").status_code == 200
-        ready = time.monotonic() - begin
-        assert started.wait(5)  # it does run, straight away, in the background
-    assert ready < 2
+    try:
+        with TestClient(create_app(settings), base_url="https://testserver") as client:
+            # The app answers while the thinning is still running: start-up didn't wait for it.
+            # (Events, not a stopwatch: a busy machine slows start-up but can't fail this.)
+            assert client.get(f"{API}/version").status_code == 200
+            assert started.wait(10)  # it does run, straight away, in the background
+            assert not finished.is_set()
+            release.set()
+    finally:
+        release.set()
 
 
 def test_thinning_a_big_backlog_is_quick(kitchen: TestClient) -> None:
@@ -214,17 +221,22 @@ def test_scheduler_has_every_job(kitchen: TestClient, tmp_path: Path) -> None:
     folder.mkdir()
     handler = DailyLogFile(folder)
     try:
-        background = jobs.scheduler(kitchen.app.state.sessionmaker, handler)  # type: ignore[attr-defined]
+        background = jobs.scheduler(
+            kitchen.app.state.sessionmaker,  # type: ignore[attr-defined]
+            handler,
+            tmp_path / "backups",
+        )
         assert {job.id for job in background.get_jobs()} == {
             "history",
             "removed-ingredients",
             "log-tidy",
+            "backups",
         }
         background.start()
         assert background.running
         # A late run still runs (asleep at midnight, busy on the hour).
         assert all(job.misfire_grace_time is None for job in background.get_jobs())
-        background.shutdown(wait=False)
+        background.shutdown(wait=True)  # the backup started at once ends first
         without_log = jobs.scheduler(kitchen.app.state.sessionmaker)  # type: ignore[attr-defined]
         assert {job.id for job in without_log.get_jobs()} == {"history", "removed-ingredients"}
     finally:

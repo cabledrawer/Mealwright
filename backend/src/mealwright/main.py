@@ -13,7 +13,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from mealwright import __version__, errors, events, jobs, migrate, setup_code
+from mealwright import __version__, backups, errors, events, jobs, migrate, setup_code
 from mealwright.api.v1 import router as api_v1
 from mealwright.auth import OldCookieMiddleware, SlowDown
 from mealwright.config import Settings, get_settings
@@ -77,7 +77,7 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if settings.migrate_on_start:
             settings.data_dir.mkdir(parents=True, exist_ok=True)
-            migrate.upgrade(engine, backups=settings.data_dir / "backups")
+            migrate.upgrade(engine, backups=settings.data_dir / backups.FOLDER)
         # A fresh install gets a one-off setup code, printed in the log (PR A2): only
         # someone who can read the server's log can create the admin account.
         with app.state.sessionmaker() as db:
@@ -87,7 +87,9 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
             setup_code.announce(app.state.setup_code)
         background = None
         if settings.run_jobs:
-            background = jobs.scheduler(app.state.sessionmaker, log_file)
+            background = jobs.scheduler(
+                app.state.sessionmaker, log_file, settings.data_dir / backups.FOLDER
+            )
             background.start()
         yield
         app.state.events.close()  # end open live streams so shutdown isn't held up
