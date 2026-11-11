@@ -123,6 +123,9 @@
     return `${tubNumbers(unplaced.map((t) => t.number))} → ${where}`;
   });
 
+  /** "Tubs 1–4 → Fridge · they’ll show in tubs left. ", with its space (a string, so none is lost). */
+  const unplacedSentence = $derived(unplacedWords ? `${unplacedWords}. ` : '');
+
   const nutrition = $derived(cook?.preview ? perTubWords(cook.preview.per_tub) : null);
   const times = $derived(cook?.preview ? timesWords(cook.count, cook.preview.recipe_serves) : null);
 
@@ -358,9 +361,8 @@
           {/if}
           {#if cook.preview}
             <p class="foot" data-testid="cook-summary">
-              {#if unplacedWords}{unplacedWords}.
-              {/if}The pattern skips meals that already have something planned; you can still add a
-              tub to one yourself.
+              {unplacedSentence}The pattern skips meals that already have something planned; you can
+              still add a tub to one yourself.
               <strong>{cook.preview.placed} of {cook.count} placed.</strong>
             </p>
           {/if}

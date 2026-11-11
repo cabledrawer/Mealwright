@@ -327,6 +327,10 @@ test("Cook once: pattern, who is eating, nothing offline, and the sheet passes t
   await expect(sheet.getByTestId("cook-summary")).toContainText(
     "Tubs 1–4 → Freezer",
   );
+  // The two sentences have their space between them (RF5).
+  await expect(sheet.getByTestId("cook-summary")).toContainText(
+    "they’ll show in tubs left. The pattern skips meals",
+  );
   for (const theme of ["light", "dark"] as const) {
     await inTheme(page, theme);
     await expectNoAxeViolations(page, `Cook once sheet, ${theme}`);

@@ -109,6 +109,10 @@ test('the first-time note says Got it once, per person, and the picks come from 
   await expect(note).toHaveCount(0);
   await expect(page.getByText(/together/).first()).toBeVisible();
   await expect(page.getByText(/one by one/).first()).toBeVisible();
+  // Two joined strings always have their space (RF5): "one by one · hob 4 · pressure cooker 1 · oven yes".
+  if (!isPhone(page)) {
+    await expect(page.locator('.times .muted')).toHaveText(/one by one · hob \d+ · pressure cooker \d+ · oven (yes|no) Change$/);
+  }
   const picks = page.getByRole('list').filter({ has: page.getByRole('button', { name: /^Swap/ }) }).getByRole('listitem');
   await expect(picks).toHaveCount(3);
   await expect(page.getByText(/^Shares onion .* prep with/).first()).toBeVisible();

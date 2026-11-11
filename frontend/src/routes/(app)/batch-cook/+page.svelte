@@ -42,6 +42,21 @@
     return () => query.removeEventListener('change', on);
   });
 
+  /** "2 h 55 min one by one", and on a computer " · hob 4 · pressure cooker 1 · oven yes " (the space is for the Change button after it). One string, so
+   * the space before each dot is never lost where an {#if} begins (RF5). */
+  function oneByOneWords(result: {
+    one_by_one_minutes: number;
+    kitchen: { hob_rings: number; pressure_cookers: number; oven: boolean };
+  }): string {
+    const k = result.kitchen;
+    return (
+      `${timeWords(result.one_by_one_minutes)} one by one` +
+      (phone
+        ? ''
+        : ` · hob ${k.hob_rings} · pressure cooker ${k.pressure_cookers} · oven ${k.oven ? 'yes' : 'no'} `)
+    );
+  }
+
   // Changing a session: /batch-cook?change=<session id>, from the Plan's card.
   const changing = $derived(Number(page.url.searchParams.get('change')) || null);
   let changingDay = $state<string | null>(null);
@@ -329,9 +344,7 @@
         <div class="times">
           <strong>About {timeWords(model.result.together_minutes)} together</strong>
           <span class="muted"
-            >{timeWords(model.result.one_by_one_minutes)} one by one{#if !phone}
-              · hob {model.result.kitchen.hob_rings} · pressure cooker {model.result.kitchen
-                .pressure_cookers} · oven {model.result.kitchen.oven ? 'yes' : 'no'}
+            >{oneByOneWords(model.result)}{#if !phone}
               <button type="button" class="link" onclick={openKitchen}>Change</button>{/if}</span
           >
         </div>
