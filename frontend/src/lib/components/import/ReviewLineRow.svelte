@@ -459,6 +459,14 @@
           {#if !choice && !line.counts && line.label === 'matched'}
             <span class="muted">· not counted</span>
           {/if}
+          <!-- Change (F214): on every row, beside what it was read as. -->
+          <button
+            type="button"
+            class="chip-small"
+            aria-expanded={changing}
+            aria-label="Change: {line.written}"
+            onclick={openChange}>Change</button
+          >
         </p>
       {/if}
 
@@ -922,13 +930,6 @@
             <Icon name="check" size={14} stroke={2.6} />{line.place ?? 'In your ingredients'}
           {/if}
         </span>
-        <button
-          type="button"
-          class="remove"
-          aria-expanded={changing}
-          aria-label="Change: {line.written}"
-          onclick={openChange}>Change</button
-        >
         <button
           type="button"
           class="remove"
