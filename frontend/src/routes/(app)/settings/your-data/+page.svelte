@@ -308,7 +308,8 @@
     border-radius: var(--radius-field);
     background: transparent;
     color: var(--color-text-muted);
-    font: var(--weight-semibold) var(--text-base) var(--font-ui);
+    /* 16 px: smaller and iOS zooms in when it opens. */
+    font: var(--weight-semibold) 1rem var(--font-ui);
     text-align: right;
     appearance: none;
     cursor: pointer;
