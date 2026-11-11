@@ -199,6 +199,12 @@
           run: (n) => void model.addAsBought(food, { amount: n, sizeId: null })
         };
         return;
+      } else {
+        // No amount typed: what the hint promises, one of the usual pack, goes in the add and
+        // the tick, so the row says what the pantry gets (RF2 Sh4).
+        const sizes = food.id > 0 ? await model.sizesOf(food.id).catch(() => []) : [];
+        const usual = usualSize({ sizes });
+        if (usual && !food.staple) amount = { amount: usual.amount, sizeId: usual.id };
       }
       reset();
       void model.addAsBought(food, amount ?? undefined);

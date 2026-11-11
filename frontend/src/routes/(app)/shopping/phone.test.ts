@@ -187,6 +187,37 @@ describe('Shopping on the phone', () => {
       await expect.element(page.getByRole('button', { name: /^In the trolley · 3/ })).toBeVisible();
     });
 
+    it('with no amount typed, Add as bought puts in the usual pack, and the row says so (RF2 Sh4)', async () => {
+      // Paneer (usual pack 200 g) is not on the list. The hint promises "1 pack (200 g)": the
+      // add and the tick carry it, and the row does not say "Not in the pantry yet" or ask
+      // "How much?".
+      copy.items = copy.items.filter((i) => i.food_id !== 4);
+      await saveCopy(null, applyChanges(null, { ...copy, people: [], reset: true }));
+      vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
+      mountShopping();
+      await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
+      await page.getByRole('textbox', { name: 'Add an item' }).fill('paneer');
+      const hint = page.getByRole('button', { name: 'Add as bought' });
+      await vi.waitFor(() => expect(hint.element().textContent).toMatch(/1.pack/));
+      await hint.click();
+      await vi.waitFor(async () => {
+        const queue = (await readQueue()).map((e) => e.action);
+        expect(queue.map((a) => a.kind)).toEqual(['add', 'tick']);
+        expect(queue[0]).toMatchObject({ food_id: 4, as_bought: true, amount: 200 });
+        expect(queue[1]).toMatchObject({ kind: 'tick', amount: 200 });
+      });
+      await page.getByRole('button', { name: /^In the trolley/ }).click();
+      const row = await vi.waitFor(() => {
+        const found = [...document.querySelectorAll('li.item.trolley')].find((li) =>
+          /Paneer/.test(li.textContent ?? '')
+        );
+        if (!found) throw new Error('not in the trolley yet');
+        return found;
+      });
+      expect(row.textContent).not.toMatch(/Not in the pantry yet|No amount|How much/);
+      expect(row.textContent).toMatch(/Paneer\s+1 pack → Cupboard/);
+    });
+
     it('works offline: an add and a tick wait in the queue, and the line is in the trolley', async () => {
       await saveCopy(null, applyChanges(null, { ...sampleCopy(), people: [], reset: true }));
       vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
