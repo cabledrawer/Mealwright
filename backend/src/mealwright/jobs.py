@@ -25,10 +25,16 @@ Every job is added in `scheduler()`, in one place:
 - **Backups** (mealwright.backups; spec section 7, cabledrawer 17 Oct): every 10 minutes, and just
   after start-up, it looks whether a backup of the database is due (03:00 in the household's own
   time, daily by default) and makes it, keeping the household's chosen number.
+- **Daily update check** (spec section 7, "Updates"; mealwright.updates): every hour, for each
+  household whose Privacy switch "Check for updates daily" is on and whose last answer is
+  missing or nearly a day old, one request to the public release list through the outbound
+  gate. Off by default; with the switch off it connects nowhere. This is the only job that
+  connects to anything.
 
 No job has a lateness limit (misfire_grace_time=None): a late run still runs.
 
-Nothing here makes a network connection.
+Apart from the daily update check (through the outbound gate), nothing here makes a network
+connection.
 """
 
 import logging
@@ -43,6 +49,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from mealwright import backups
 from mealwright.logs import DailyLogFile, tidy_once
 from mealwright.models import Household, utcnow
+from mealwright.updates import UpdateChecks
 
 log = logging.getLogger(__name__)
 
@@ -120,6 +127,7 @@ def scheduler(
     factory: sessionmaker[Session],
     log_file: DailyLogFile | None = None,
     backups_folder: Path | None = None,
+    updates: UpdateChecks | None = None,
 ) -> BackgroundScheduler:
     """The app's scheduler, with every job added. Started and stopped with the app."""
     jobs = BackgroundScheduler(
@@ -151,6 +159,14 @@ def scheduler(
             next_run_time=datetime.now(UTC),
             id="backups",
             name="Back the database up when it's due",
+        )
+    if updates is not None:
+        jobs.add_job(
+            updates.daily_check,
+            CronTrigger(minute=50, timezone=UTC),
+            args=[factory],
+            id="update-check",
+            name="Check for updates daily (only while its Privacy switch is on)",
         )
     if log_file is not None:
         jobs.add_job(

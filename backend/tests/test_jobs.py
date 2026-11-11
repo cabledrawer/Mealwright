@@ -225,10 +225,12 @@ def test_scheduler_has_every_job(kitchen: TestClient, tmp_path: Path) -> None:
             kitchen.app.state.sessionmaker,  # type: ignore[attr-defined]
             handler,
             tmp_path / "backups",
+            kitchen.app.state.updates,  # type: ignore[attr-defined]
         )
         assert {job.id for job in background.get_jobs()} == {
             "history",
             "removed-ingredients",
+            "update-check",
             "log-tidy",
             "backups",
         }

@@ -1,0 +1,248 @@
+"""Knowing about new versions (spec section 7, "Updates", cabledrawer 17 Oct): three levels.
+
+1. **No connection, always on.** The app knows the day its version was released (`RELEASED`,
+   written into the code with each release, next to the CHANGELOG's date; a test keeps the two
+   the same). Settings → About works out how old it is and, after a while, says where new
+   versions are listed. Opening that link is the person's own click.
+2. **Check now (admins).** One plain GET of the public release list (`RELEASE_LIST_URL`)
+   through the outbound gate, as `Connection.UPDATE_CHECK`: no query string, no cookies, and
+   the only header we choose is the user agent, which is just "Mealwright". Nothing about the
+   install or the version is sent; the answer is compared here, on the server.
+3. **The daily check (off by default).** The same request once a day, while the Privacy switch
+   "Check for updates daily" is on (`daily_check`, run by the scheduler in mealwright.jobs).
+
+Both 2 and 3 go through the same switch, so with it off nothing connects at all: Check now
+answers "off" and says where to turn it on (the gate's rule that nothing leaves the server
+unless its switch is on; proposed, for cabledrawer).
+
+The last answer is kept in memory, per household, until the server restarts (proposed, for
+cabledrawer: no database change). After a restart the daily check runs again within the hour.
+
+Log lines say what happened in plain words and never the address (as for every connection).
+"""
+
+import json
+import logging
+import re
+import threading
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
+from typing import Literal
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session, sessionmaker
+
+from mealwright import __version__
+from mealwright.models import Household
+from mealwright.outbound import (
+    Connection,
+    OutboundBlocked,
+    OutboundFailed,
+    OutboundGate,
+    switches,
+)
+
+log = logging.getLogger(__name__)
+
+# The day this version was released. The release PR sets it with the CHANGELOG's date
+# (tests/test_updates.py checks they match).
+RELEASED = date(2026, 11, 11)
+
+# PLACEHOLDER, for cabledrawer: Mealwright's public home on GitHub doesn't exist until 1.0. Until
+# then these name an owner GitHub can't have (a user name never has an underscore), so the
+# request can only fail ("couldn't check") and never reaches someone else's project. Set both to
+# the real repository at 1.0.
+RELEASES_PAGE = "https://github.com/placeholder_until_1_0/mealwright/releases"
+RELEASE_LIST_URL = "https://api.github.com/repos/placeholder_until_1_0/mealwright/releases"
+
+# The release list is about 30 releases with their notes; anything bigger isn't read.
+MAX_LIST_BYTES = 2 * 1024 * 1024
+# The longest one check may take, start to finish.
+CHECK_TIME_LIMIT = 20.0
+# Check now again within this long gives the answer just had, without connecting, so a busy
+# finger can't send GitHub a stream of requests (proposed, for cabledrawer).
+RECHECK_AFTER = timedelta(minutes=1)
+# The daily check runs when the last answer is at least this old (a little under a day, so it
+# doesn't drift later by an hour each day).
+DAILY_AFTER = timedelta(hours=23)
+
+Outcome = Literal["up_to_date", "newer", "failed", "off"]
+
+
+@dataclass(frozen=True)
+class CheckResult:
+    outcome: Outcome
+    # The newest version found, as its tag ("v0.9.1"); only with "newer".
+    latest: str | None
+    checked_at: datetime
+
+
+# --- Versions --------------------------------------------------------------------------------
+
+_STAGES = {"alpha": 0, "a": 0, "beta": 1, "b": 1, "rc": 2}
+_FINAL = 3
+_PYTHON_FORM = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:(a|b|rc)(\d+))?$")
+_TAG_FORM = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$")
+
+Key = tuple[int, int, int, int, int]
+
+
+def _key(found: re.Match[str]) -> Key:
+    major, minor, patch, stage, number = found.groups()
+    if stage is None:
+        return (int(major), int(minor), int(patch), _FINAL, 0)
+    return (int(major), int(minor), int(patch), _STAGES[stage], int(number))
+
+
+def running_key(version: str = __version__) -> Key | None:
+    """The running version ("0.9.0" or "0.9.0b1"), to compare; None if it isn't one we know."""
+    found = _PYTHON_FORM.match(version)
+    return _key(found) if found else None
+
+
+def tag_key(tag: str) -> Key | None:
+    """A release's tag ("v0.9.1", "v0.9.0-beta.1"), to compare; None for any other tag."""
+    found = _TAG_FORM.match(tag) if len(tag) <= 40 else None
+    return _key(found) if found else None
+
+
+def newest(body: bytes, running: Key) -> str | None:
+    """The tag of the newest release in GitHub's release list that is newer than `running`,
+    or None. Pre-releases count only while the running version is one too (proposed, for
+    cabledrawer); drafts never. Raises ValueError if the answer isn't a release list."""
+    releases = json.loads(body)
+    if not isinstance(releases, list):
+        raise ValueError("not a list")
+    pre = running[3] != _FINAL
+    best: tuple[Key, str] | None = None
+    for release in releases:
+        if not isinstance(release, dict):
+            continue
+        tag = release.get("tag_name")
+        if not isinstance(tag, str) or release.get("draft") is not False:
+            continue
+        prerelease = release.get("prerelease")
+        if not isinstance(prerelease, bool) or (prerelease and not pre):
+            continue
+        key = tag_key(tag)
+        if key is None or (key[3] != _FINAL and not pre):
+            continue
+        if key > running and (best is None or key > best[0]):
+            best = (key, f"v{key[0]}.{key[1]}.{key[2]}" + _suffix(key))
+    return best[1] if best else None
+
+
+def _suffix(key: Key) -> str:
+    if key[3] == _FINAL:
+        return ""
+    stage = {0: "alpha", 1: "beta", 2: "rc"}[key[3]]
+    return f"-{stage}.{key[4]}"
+
+
+# --- The check -------------------------------------------------------------------------------
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+class UpdateChecks:
+    """Checks the release list, and keeps each household's last answer."""
+
+    def __init__(
+        self,
+        gate: OutboundGate,
+        clock: Callable[[], datetime] = _now,
+        version: str = __version__,
+    ) -> None:
+        self._gate = gate
+        self._clock = clock
+        self._version = version
+        self._results: dict[int, CheckResult] = {}
+        self._lock = threading.Lock()
+        # One check at a time per household: a second one waits and gets the first one's answer.
+        self._running: dict[int, threading.Lock] = {}
+
+    def last(self, household_id: int) -> CheckResult | None:
+        with self._lock:
+            return self._results.get(household_id)
+
+    def _keep(self, household_id: int, result: CheckResult) -> CheckResult:
+        with self._lock:
+            self._results[household_id] = result
+        return result
+
+    def check_now(self, household_id: int) -> CheckResult:
+        """An admin's Check now: one request, unless the switch is off (none) or an answer came
+        within RECHECK_AFTER (that answer again)."""
+        with self._lock:
+            running = self._running.setdefault(household_id, threading.Lock())
+        with running:
+            last = self.last(household_id)
+            if (
+                last is not None
+                and last.outcome in ("up_to_date", "newer")
+                and self._clock() - last.checked_at < RECHECK_AFTER
+                and self._gate.is_allowed(household_id, Connection.UPDATE_CHECK)
+            ):
+                return last
+            return self._check(household_id)
+
+    def _check(self, household_id: int) -> CheckResult:
+        now = self._clock()
+        running = running_key(self._version)
+        if running is None:  # a test build's own version text: nothing to compare with
+            log.warning("Update check: this build's version can't be compared")
+            return self._keep(household_id, CheckResult("failed", None, now))
+        try:
+            response = self._gate.request(
+                household_id,
+                Connection.UPDATE_CHECK,
+                RELEASE_LIST_URL,
+                max_bytes=MAX_LIST_BYTES,
+                time_limit=CHECK_TIME_LIMIT,
+            )
+        except OutboundFailed as failed:
+            log.warning("Update check: couldn't reach the release list (%s)", failed.kind)
+            return self._keep(household_id, CheckResult("failed", None, now))
+        except OutboundBlocked as blocked:
+            if not self._gate.is_allowed(household_id, Connection.UPDATE_CHECK):
+                return self._keep(household_id, CheckResult("off", None, now))
+            log.warning("Update check: the answer was refused (%s)", type(blocked).__name__)
+            return self._keep(household_id, CheckResult("failed", None, now))
+        if response.status != 200:
+            log.warning("Update check: the release list answered %d", response.status)
+            return self._keep(household_id, CheckResult("failed", None, now))
+        try:
+            latest = newest(response.body, running)
+        except ValueError, RecursionError:
+            log.warning("Update check: the release list couldn't be read")
+            return self._keep(household_id, CheckResult("failed", None, now))
+        if latest is None:
+            return self._keep(household_id, CheckResult("up_to_date", None, now))
+        log.info("Update check: a newer version is out")
+        return self._keep(household_id, CheckResult("newer", latest, now))
+
+    def daily_check(self, factory: sessionmaker[Session]) -> None:
+        """The daily check (the scheduler runs this every hour): for each household with the
+        switch on whose last answer is missing or at least DAILY_AFTER old, one request. A
+        household with the switch off is never checked. Never raises."""
+        try:
+            with factory() as db:
+                due = [
+                    household.id
+                    for household in db.scalars(select(Household))
+                    if switches(db, household.id)[Connection.UPDATE_CHECK]
+                ]
+        except Exception:
+            log.exception("Couldn't start the daily update check (will try again within the hour)")
+            return
+        for household_id in due:
+            last = self.last(household_id)
+            if last is not None and self._clock() - last.checked_at < DAILY_AFTER:
+                continue
+            try:
+                self._check(household_id)
+            except Exception:
+                log.exception("The daily update check failed (will try again within the hour)")

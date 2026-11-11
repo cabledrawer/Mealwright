@@ -35,6 +35,7 @@ from mealwright.logs import DailyLogFile
 from mealwright.models import Login
 from mealwright.outbound import OutboundGate, install_network_guard
 from mealwright.security import SecurityHeadersMiddleware
+from mealwright.updates import UpdateChecks
 
 log = logging.getLogger(__name__)
 
@@ -99,7 +100,10 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
         background = None
         if settings.run_jobs:
             background = jobs.scheduler(
-                app.state.sessionmaker, log_file, settings.data_dir / backups.FOLDER
+                app.state.sessionmaker,
+                log_file,
+                settings.data_dir / backups.FOLDER,
+                app.state.updates,
             )
             background.start()
         yield
@@ -125,6 +129,7 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     app.state.events = Broadcaster()
     events.install(app.state.sessionmaker, app.state.events)
     app.state.outbound = OutboundGate(app.state.sessionmaker)
+    app.state.updates = UpdateChecks(app.state.outbound)
     app.state.slow_down = SlowDown()
     app.state.setup_code = None  # set at start-up on a fresh install
     errors.install(app)

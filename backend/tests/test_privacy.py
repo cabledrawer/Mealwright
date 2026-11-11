@@ -80,12 +80,13 @@ def values(client: TestClient) -> list[str]:
 # --- The switches ------------------------------------------------------------------------
 
 
-def test_both_switches_start_off(kitchen: TestClient) -> None:
+def test_every_switch_starts_off(kitchen: TestClient) -> None:
     body = kitchen.get(SWITCHES).json()
     assert body == {
         "switches": [
             {"connection": "recipe_import", "on": False},
             {"connection": "recipe_photos", "on": False},
+            {"connection": "update_check", "on": False},
         ],
         "can_change": True,
     }
@@ -95,10 +96,12 @@ def test_an_admin_turns_a_switch_on_and_off(kitchen: TestClient) -> None:
     response = kitchen.put(f"{SWITCHES}/recipe_import", json={"on": True})
     assert response.status_code == 200
     assert response.json()["switches"][0] == {"connection": "recipe_import", "on": True}
-    assert on(kitchen) == {"recipe_import": True, "recipe_photos": False}
+    assert on(kitchen) == {"recipe_import": True, "recipe_photos": False, "update_check": False}
     kitchen.put(f"{SWITCHES}/recipe_photos", json={"on": True})
     kitchen.put(f"{SWITCHES}/recipe_import", json={"on": False})
-    assert on(kitchen) == {"recipe_import": False, "recipe_photos": True}
+    assert on(kitchen) == {"recipe_import": False, "recipe_photos": True, "update_check": False}
+    kitchen.put(f"{SWITCHES}/update_check", json={"on": True})
+    assert on(kitchen)["update_check"] is True
 
 
 def test_asking_for_the_state_it_has_changes_nothing(
@@ -118,29 +121,29 @@ def test_a_member_sees_the_switches_but_cannot_change_them(
     kitchen.put(f"{SWITCHES}/recipe_import", json={"on": True})
     body = member.get(SWITCHES).json()
     assert body["can_change"] is False
-    assert on(member) == {"recipe_import": True, "recipe_photos": False}
+    assert on(member) == {"recipe_import": True, "recipe_photos": False, "update_check": False}
     for want in (True, False):
         response = member.put(f"{SWITCHES}/recipe_photos", json={"on": want})
         assert response.status_code == 403
         assert response.json()["code"] == "admins_only"
         assert response.json()["detail"] == ADMINS_ONLY
-    assert on(kitchen) == {"recipe_import": True, "recipe_photos": False}
+    assert on(kitchen) == {"recipe_import": True, "recipe_photos": False, "update_check": False}
 
 
 def test_a_switch_that_does_nothing_yet_is_not_there(kitchen: TestClient) -> None:
-    # The update check, notifications and single sign-on arrive with 0.8.
-    for name in ("update_check", "notifications", "single_sign_on", "nonsense"):
+    # Notifications and single sign-on aren't built yet (the update check is, X1).
+    for name in ("notifications", "single_sign_on", "nonsense"):
         assert kitchen.put(f"{SWITCHES}/{name}", json={"on": True}).status_code == 422
     assert kitchen.put(f"{SWITCHES}/recipe_import", json={"on": "maybe"}).status_code == 422
     assert kitchen.put(f"{SWITCHES}/recipe_import", json={}).status_code == 422
-    assert on(kitchen) == {"recipe_import": False, "recipe_photos": False}
+    assert on(kitchen) == {"recipe_import": False, "recipe_photos": False, "update_check": False}
 
 
 def test_a_switch_belongs_to_its_household(kitchen: TestClient, neighbour: TestClient) -> None:
     kitchen.put(f"{SWITCHES}/recipe_import", json={"on": True})
-    assert on(neighbour) == {"recipe_import": False, "recipe_photos": False}
+    assert on(neighbour) == {"recipe_import": False, "recipe_photos": False, "update_check": False}
     neighbour.put(f"{SWITCHES}/recipe_photos", json={"on": True})
-    assert on(kitchen) == {"recipe_import": True, "recipe_photos": False}
+    assert on(kitchen) == {"recipe_import": True, "recipe_photos": False, "update_check": False}
     neighbour.put(f"{SWITCHES}/recipe_import", json={"on": False})
     assert on(kitchen)["recipe_import"] is True
 

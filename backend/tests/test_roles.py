@@ -16,6 +16,7 @@ ADMIN_ROUTES: list[tuple[str, str, dict[str, Any] | None, Action]] = [
     ("PUT", "/privacy/switches/recipe_import", {"on": True}, Action.PRIVACY),
     ("POST", "/privacy/own-network", {"value": "192.168.1.0/24"}, Action.PRIVACY),
     ("DELETE", "/privacy/own-network/1", None, Action.PRIVACY),
+    ("POST", "/updates/check", None, Action.PRIVACY),
     ("PATCH", "/household", {"pints": "us"}, Action.HOUSEHOLD_SETTINGS),
     ("PATCH", "/household", {"batch_cook": False}, Action.HOUSEHOLD_SETTINGS),
     ("PATCH", "/household", {"name": "Ours"}, Action.HOUSEHOLD_SETTINGS),

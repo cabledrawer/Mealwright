@@ -26,12 +26,14 @@ from mealwright.api.v1 import (
     stocktake,
     sync,
     today,
+    updates,
     version,
     your_data,
 )
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(version.router)
+router.include_router(updates.router)
 router.include_router(account.router)
 router.include_router(my_sign_in.router)
 router.include_router(kitchen.router)
