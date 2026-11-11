@@ -183,7 +183,6 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
         "conversion_id": conversions[0]["id"],
         "shop_id": shop["id"],
         "place_id": places["Fridge"],
-        "session_id": 1,  # a batch cook session: another household's (or none) is 404
         "task_id": "t1",
     }
 
