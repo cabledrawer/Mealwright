@@ -471,3 +471,14 @@ def test_rf4_h_a_fraction_before_a_slash_keeps_its_digits() -> None:
     (line,) = read_lines("1/2 tsp ghee / 1 tsp oil")
     assert (line.amount, line.unit, line.name) == (D("0.5"), "tsp", "ghee")
     assert line.alternative is not None and line.alternative.name == "oil"
+
+
+def test_rf4_m_a_name_ending_in_each_is_not_cut() -> None:
+    """"peach" ends in "each": the trailing-each rule needs a word boundary."""
+    for text, name in (("1 cup chopped peach", "peach"), ("500 g peach", "peach")):
+        (line,) = read_lines(text)
+        assert line.name == name, text
+    assert [line.name for line in read_lines("a pinch each of salt and pepper")] == [
+        "salt",
+        "pepper",
+    ]
