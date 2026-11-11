@@ -201,6 +201,9 @@ class Login(Base):
     theme: Mapped[str] = mapped_column(String(10), default="auto")  # auto, light, dark
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_sign_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When the password was last set by its owner or reset-admin (PR A2). Empty for one set
+    # before then, or at setup.
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Session(Base):
@@ -223,6 +226,9 @@ class Session(Base):
     member_id: Mapped[int | None] = mapped_column(ForeignKey("member.id", ondelete="SET NULL"))
     # When they picked themselves: a pick older than 30 minutes no longer counts.
     picked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # A short name for the device, such as "iPhone · Safari" (mealwright.devices; PR A2).
+    # Only this is kept, never the browser's whole User-Agent. Empty if not recognised.
+    device: Mapped[str | None] = mapped_column(String(60))
 
 
 class JoinLink(Base):

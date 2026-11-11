@@ -25,6 +25,7 @@ from mealwright.auth import (
     session_token,
     start_session,
 )
+from mealwright.devices import device_label
 from mealwright.errors import Problem
 from mealwright.household import add_default_places, add_default_slots
 from mealwright.models import Household, Login
@@ -65,6 +66,11 @@ def _me(login: Login) -> Me:
         member_id=login.member_id,
         shared=login.shared,
     )
+
+
+def _device(request: Request) -> str | None:
+    """ "iPhone · Safari": only this short name is kept, never the whole User-Agent."""
+    return device_label(request.headers.get("user-agent"))
 
 
 def _normalise_username(value: str) -> str:
@@ -140,7 +146,9 @@ def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
     except IntegrityError:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Mealwright is already set up.") from None
-    start_session(db, response, request.app.state.settings, login, remember=False)
+    start_session(
+        db, response, request.app.state.settings, login, remember=False, device=_device(request)
+    )
     db.commit()
     log.info("Set up: admin account %s created", login.username)
     # Setup signs the admin in, so it gets its own "Signed in" line like every sign-in.
@@ -218,7 +226,14 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
             log.warning("Sign-in slowed down for %s from %s (wait %d s)", who, address, wait)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, WRONG)
     slow.succeeded(keys[0])
-    start_session(db, response, request.app.state.settings, login, remember=body.remember)
+    start_session(
+        db,
+        response,
+        request.app.state.settings,
+        login,
+        remember=body.remember,
+        device=_device(request),
+    )
     db.commit()
     log.info("Signed in: %s from %s", login.username, address)
     return _me(login)

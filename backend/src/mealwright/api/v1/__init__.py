@@ -13,6 +13,7 @@ from mealwright.api.v1 import (
     foods,
     imports,
     kitchen,
+    my_sign_in,
     pantry,
     people,
     photos,
@@ -31,6 +32,7 @@ from mealwright.api.v1 import (
 router = APIRouter(prefix="/api/v1")
 router.include_router(version.router)
 router.include_router(account.router)
+router.include_router(my_sign_in.router)
 router.include_router(kitchen.router)
 router.include_router(foods.router)
 router.include_router(starter_packs.router)

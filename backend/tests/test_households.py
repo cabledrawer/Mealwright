@@ -158,8 +158,10 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
     photo = kit.uploaded(kitchen)  # not saved on a recipe, so household 1 could delete it
     draft = ok(kitchen.post(f"{API}/recipes/drafts", json=DRAFT_BODY), 201)
     joss = ok(kitchen.post(f"{API}/people", json={"name": "Joss"}), 201)["people"][-1]
+    sign_in = ok(kitchen.get(f"{API}/me/sign-in"))["sessions"][0]["id"]
     return {
         "member_id": joss["id"],
+        "sign_in_id": sign_in,
         "draft_id": draft["id"],
         "recipe_id": recipe["id"],
         "tag_id": tag_id,
@@ -328,6 +330,8 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("DELETE", "/api/v1/people/{member_id}"): None,
     ("POST", "/api/v1/people/{member_id}/login"): {"username": "joss"},
     ("DELETE", "/api/v1/people/{member_id}/login"): None,
+    # Signing out one device (0.9 A2): another household's sign-in is "not found".
+    ("DELETE", "/api/v1/me/sessions/{sign_in_id}"): None,
 }
 
 # Paths with a name in them, not an id: a switch is called "recipe_import", and the request

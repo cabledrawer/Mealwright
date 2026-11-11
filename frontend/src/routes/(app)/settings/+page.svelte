@@ -37,6 +37,7 @@
   import PhoneList from './PhoneList.svelte';
   import RecentSection from './RecentSection.svelte';
   import ShopsPlaces from './ShopsPlaces.svelte';
+  import SignInSection from './SignInSection.svelte';
   import type { Group } from './sectionIcons.js';
 
   // Who is shown stays put while signing out (session.me goes first).
@@ -635,6 +636,7 @@
     {#if showing('sign-in')}
       <section class="section" aria-labelledby="sign-in">
         <h2 class="title" id="sign-in" tabindex="-1">Sign-in</h2>
+        <SignInSection {device} />
         <div class="card">
           <div class="row">
             <span class="who">

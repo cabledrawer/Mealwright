@@ -219,7 +219,12 @@ def session_token(request: Request) -> str | None:
 
 
 def start_session(
-    db: DbSession, response: Response, settings: Settings, login: Login, remember: bool
+    db: DbSession,
+    response: Response,
+    settings: Settings,
+    login: Login,
+    remember: bool,
+    device: str | None = None,
 ) -> None:
     token = secrets.token_urlsafe(32)
     started = now()
@@ -234,6 +239,7 @@ def start_session(
             created_at=started,
             last_seen_at=started,
             expires_at=expires,
+            device=device,
         )
     )
     login.last_sign_in_at = started
