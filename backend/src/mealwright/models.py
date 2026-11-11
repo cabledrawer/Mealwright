@@ -72,6 +72,13 @@ class Household(Base):
     # recorded list change, and the highest version whose rows the tidy-up has deleted.
     list_seq: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     list_purged_seq: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
+    # The kitchen's equipment for Batch cook (Experimental; 0.8 wave 6, B1; cabledrawer 28 Oct): hob
+    # rings, pressure cookers (an Instant Pot counts), an oven; `kitchen_asked` is false until
+    # the household has answered once (Batch cook asks on first use).
+    kitchen_hob_rings: Mapped[int] = mapped_column(Integer, default=4, server_default="4")
+    kitchen_pressure_cookers: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    kitchen_oven: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("1"))
+    kitchen_asked: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
 
 
 class OutboundSwitch(Base):
@@ -893,6 +900,12 @@ class RecipeStep(Base):
     wait_min_minutes: Mapped[int | None] = mapped_column(Integer)
     wait_max_minutes: Mapped[int | None] = mapped_column(Integer)
     wait_overnight: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    # What a person set by hand for Batch cook (0.8 wave 6, B1): "hands" or "waiting", the
+    # minutes, and the equipment ("hob", "pressure", "oven", "none"). Empty: guessed from the
+    # step's words each time it is read (`step_timings`), never stored.
+    timing_hands: Mapped[str | None] = mapped_column(String(7))
+    timing_minutes: Mapped[int | None] = mapped_column(Integer)
+    timing_equipment: Mapped[str | None] = mapped_column(String(8))
     # The method the step is in (M2). Null: the recipe's first method.
     method_id: Mapped[int | None] = mapped_column(
         ForeignKey("recipe_method.id", ondelete="CASCADE"), index=True
