@@ -13,6 +13,7 @@
   import { tick } from 'svelte';
   import { beforeNavigate, goto } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { drafts } from '#lib/drafts.svelte.js';
   import { changesToast } from '#lib/import.save.js';
   import { CLOSE_OFFLINE, isBlank, leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
   import { sentenceCount, stepRuns } from '#lib/importSteps.js';
@@ -79,8 +80,10 @@
     await finish(await flow.trySave());
   }
 
+  /** Back to drafts (F211): leaves for Drafts. A draft that was changed (or a review not kept yet)
+   *  asks first, as any leave does (beforeNavigate). Computer only; the phone's Close does it. */
   function leave() {
-    void goto(resolve('/(app)/recipes'));
+    void goto(resolve('/(app)/recipes/drafts'));
   }
 
   /** Close (Focus and One at a time, F141): the recipe stays in Drafts with the choices made so
@@ -152,6 +155,40 @@
   function discard() {
     void flow.dropPhoto(); // its waiting photo goes at once (F92)
     if (target) void goOn(target);
+  }
+
+  // --- Discard draft (F211, cabledrawer 10 Nov) ---------------------------------------------------
+  // Asks once, then deletes the draft the way the Drafts list does (hidden at once, Undo in the
+  // toast and in Recent changes; the server takes its photo with it), and lands on Drafts. A review
+  // never kept has nothing on the server: its waiting photo goes (F92) and Recipes opens.
+  let discarding = $state(false);
+  let discardBusy = $state(false);
+  let discardProblem = $state<string | null>(null);
+  /** Deleting a draft needs the server; a review never kept can always be let go. */
+  const discardOff = $derived(flow.draftId !== null && network.offline);
+
+  function askDiscard() {
+    discardProblem = null;
+    discarding = true;
+  }
+
+  async function discardDraft() {
+    if (discardBusy) return;
+    if (flow.draftId !== null) {
+      discardBusy = true;
+      const gone = await drafts.remove({ id: flow.draftId, name: flow.name.trim() || review.name });
+      discardBusy = false;
+      if (!gone) {
+        discarding = false;
+        discardProblem = drafts.deleteProblem;
+        return;
+      }
+      discarding = false;
+      await goOn(new URL(resolve('/(app)/recipes/drafts'), window.location.href));
+      return;
+    }
+    discarding = false;
+    discardAndLeave();
   }
 
   /** Close couldn't keep the draft, so the leave sheet's Discard is offered there: the same two
@@ -574,6 +611,8 @@
       onsave={() => void save()}
       onseeall={() => (seeAll = true)}
       onleave={discardAndLeave}
+      ondiscard={askDiscard}
+      {discardProblem}
     />
   {/await}
 {:else if mode === 'focus'}
@@ -605,15 +644,19 @@
         {/if}
         {#if flow.draftProblem}
           <p class="error" role="alert">{flow.draftProblem}</p>
-          <!-- The leave sheet's own words and action: the draft can't be kept, so this is the way out. -->
-          <button
-            type="button"
-            class="leave"
-            disabled={flow.saving || editing !== null}
-            onclick={discardAndLeave}
-            >{flow.draftId !== null ? 'Discard changes' : 'Discard'}</button
-          >
+          <!-- The leave sheet's own words and action, for a draft that was changed and can't be
+               kept: the draft stays as it was last kept. A review never kept is left with Discard
+               draft below. -->
+          {#if flow.draftId !== null}
+            <button
+              type="button"
+              class="leave"
+              disabled={flow.saving || editing !== null}
+              onclick={discardAndLeave}>Discard changes</button
+            >
+          {/if}
         {/if}
+        {#if discardProblem}<p class="error" role="alert">{discardProblem}</p>{/if}
         <div class="buttons">
           <button
             type="button"
@@ -623,7 +666,7 @@
               editing !== null}
             onclick={() => void close()}
           >
-            Close <span class="sub">Kept in Drafts</span>
+            Back to drafts <span class="sub">Kept in Drafts</span>
           </button>
           <button
             type="button"
@@ -634,6 +677,12 @@
             {flow.saving ? 'Saving…' : 'Save recipe'}
           </button>
         </div>
+        <button
+          type="button"
+          class="leave"
+          disabled={flow.saving || flow.keeping || editing !== null || discardOff}
+          onclick={askDiscard}>Discard draft</button
+        >
         {#if network.offline}
           <p class="muted" role="status">
             {downLine(network.deviceOffline, (b) => `Save ${b.when}.`)}
@@ -651,9 +700,16 @@
     {:else if flow.saveProblem && flow.saveProblem.line !== null}
       <p class="error" role="alert">Line {flow.saveProblem.line + 1}: {flow.saveProblem.message}</p>
     {/if}
+    {#if discardProblem}<p class="error" role="alert">{discardProblem}</p>{/if}
     <div class="buttons">
       <button type="button" class="cancel" disabled={editing !== null} onclick={leave}
-        >Cancel</button
+        >Back to drafts</button
+      >
+      <button
+        type="button"
+        class="leave"
+        disabled={flow.saving || editing !== null || discardOff}
+        onclick={askDiscard}>Discard draft</button
       >
       <button
         type="button"
@@ -674,6 +730,19 @@
   <!-- Loaded when first needed, so the page stays small (F111). -->
   {#await import('./WalkSheet.svelte') then { default: WalkSheet }}
     <WalkSheet {flow} onsave={async () => finish(await flow.saveAnyway())} />
+  {/await}
+{/if}
+
+{#if discarding}
+  <!-- Loaded when first needed, so the page stays small. -->
+  {#await import('./DiscardSheet.svelte') then { default: DiscardSheet }}
+    <DiscardSheet
+      name={flow.name}
+      kept={flow.draftId !== null}
+      busy={discardBusy}
+      ondiscard={() => void discardDraft()}
+      onstay={() => (discarding = false)}
+    />
   {/await}
 {/if}
 
@@ -1238,6 +1307,10 @@
   }
 
   /* A blocked button looks blocked, the same as Save recipe (F154). */
+  .bar .leave {
+    padding: 0 var(--space-5);
+  }
+
   .cancel:disabled,
   .leave:disabled {
     opacity: 0.6;

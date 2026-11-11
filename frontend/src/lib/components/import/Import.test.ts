@@ -1251,10 +1251,10 @@ describe('Import a recipe', () => {
         .toBeVisible();
     });
 
-    it('Cancel leaves for Recipes, which asks', async () => {
+    it('Back to drafts leaves for Drafts, which asks', async () => {
       await reviewing();
-      await page.getByRole('button', { name: 'Cancel' }).click();
-      expect(nav.goto).toHaveBeenCalledWith('/recipes');
+      await page.getByRole('button', { name: 'Back to drafts' }).click();
+      expect(nav.goto).toHaveBeenCalledWith('/recipes/drafts');
     });
 
     it('Save draft keeps it on the server and goes to Drafts', async () => {

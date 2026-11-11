@@ -28,12 +28,12 @@ async function openImport(page: Page) {
   } else await page.goto('/recipes/import');
 }
 
-/** Leave the review for the Recipes list. A computer has Cancel; the phone's Check has Close
+/** Leave the review for the Recipes list. A computer has Back to drafts; the phone's Check has Back to drafts
  *  instead (which keeps the draft at once, F141), so what asks "Save as draft?" there is the
  *  browser's Back. */
 async function leaveCheck(page: Page) {
   if (isPhone(page)) await page.goBack();
-  else await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
+  else await page.getByRole('button', { name: 'Back to drafts', exact: true }).last().click();
 }
 
 /** Paste a recipe and read it: the review, with its lines still to settle. */
@@ -52,7 +52,7 @@ async function keepDraft(page: Page) {
     await expect(page).toHaveURL(/\/recipes\/drafts$/);
     return;
   }
-  await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
+  await page.getByRole('button', { name: 'Back to drafts', exact: true }).last().click();
   await expect(page.getByRole('dialog', { name: 'Save as draft?' })).toBeVisible();
   await page.getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);

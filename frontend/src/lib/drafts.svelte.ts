@@ -56,8 +56,10 @@ class Drafts {
   }
 
   /** Delete a draft: gone from the list at once, and the toast's Undo (or Ctrl+Z) is there at once
-   *  too: it waits for the delete to finish, so it works even if pressed straight away. */
-  async remove(draft: DraftBrief): Promise<void> {
+   *  too: it waits for the delete to finish, so it works even if pressed straight away. True when
+   *  the draft is gone (a draft someone else deleted first counts), false when the delete failed
+   *  (`deleteProblem` says why). The Check screen's Discard draft uses the same call (F211). */
+  async remove(draft: Pick<DraftBrief, 'id' | 'name'>): Promise<boolean> {
     const generation = this.#generation;
     this.deleteProblem = null;
     const before = this.drafts;
@@ -79,12 +81,14 @@ class Drafts {
     } catch (error) {
       undoHistory.forget(entry);
       if (toast !== undefined) toasts.dismiss(toast);
-      if (generation !== this.#generation) return;
+      if (generation !== this.#generation) return false;
       // Someone else deleted it first: it is gone, which is what was wanted.
-      if (error instanceof ApiError && error.status === 404) return;
+      if (error instanceof ApiError && error.status === 404) return true;
       this.drafts = before;
       this.deleteProblem = error instanceof ApiError ? error.detail : COULDNT_DELETE;
+      return false;
     }
+    return true;
   }
 
   /** Forget everything (another login's household may be next). */

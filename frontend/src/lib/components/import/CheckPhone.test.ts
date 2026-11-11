@@ -85,6 +85,12 @@ function leaveFor(path = '/recipes') {
   return cancel;
 }
 
+/** Discard draft asks once (F211); this answers yes. */
+async function discardDraft() {
+  await page.getByRole('button', { name: 'Discard draft', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Discard draft' }).click();
+}
+
 /** How see-through a button is: a blocked one is greyed the same way Save recipe is (F154). */
 const faded = (button: ReturnType<typeof page.getByRole>) =>
   Number(getComputedStyle(button.element()).opacity);
@@ -101,8 +107,8 @@ describe('Focus (the phone’s default)', () => {
     await expect.element(page.getByText('1 to confirm')).toBeVisible();
     await expect.element(page.getByText('3 need you')).toBeVisible();
     await expect.element(page.getByText('1 staple', { exact: true })).toBeVisible();
-    const close = page.getByRole('button', { name: /^Close/ });
-    await expect.element(close).toHaveTextContent('Close Kept in Drafts');
+    const close = page.getByRole('button', { name: /^Back to drafts/ });
+    await expect.element(close).toHaveTextContent('Back to drafts Kept in Drafts');
     await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
     expect(page.getByRole('button', { name: 'Cancel' }).elements()).toEqual([]);
     // No page header with its back link and settings cog: the page is its own.
@@ -139,7 +145,7 @@ describe('Focus (the phone’s default)', () => {
     });
     flow.sameAs(3, { id: 2, name: 'Onions' }); // "1 red onion": a choice made on the screen
     flushSync();
-    await page.getByRole('button', { name: /^Close/ }).click();
+    await page.getByRole('button', { name: /^Back to drafts/ }).click();
     await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
     const keep = requests.find((r) => r.method === 'POST' && r.path === '/recipes/drafts')!;
     const body = keep.body as { choices: { lines: Record<string, { kind: string }> } };
@@ -153,7 +159,7 @@ describe('Focus (the phone’s default)', () => {
     flow.load(KEPT);
     show(flow, true);
     const requests = fakeApi({});
-    await page.getByRole('button', { name: /^Close/ }).click();
+    await page.getByRole('button', { name: /^Back to drafts/ }).click();
     await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
     expect(requests.filter((r) => r.method !== 'GET')).toEqual([]);
     expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes\/drafts$/);
@@ -169,7 +175,7 @@ describe('Focus (the phone’s default)', () => {
     });
     flow.name = 'Sambar with okra';
     flushSync();
-    await page.getByRole('button', { name: /^Close/ }).click();
+    await page.getByRole('button', { name: /^Back to drafts/ }).click();
     await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
     expect(requests.some((r) => r.method === 'PUT' && r.path === '/recipes/drafts/7')).toBe(true);
   });
@@ -182,7 +188,7 @@ describe('Focus (the phone’s default)', () => {
         { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
       ]
     });
-    await page.getByRole('button', { name: /^Close/ }).click();
+    await page.getByRole('button', { name: /^Back to drafts/ }).click();
     await expect
       .element(page.getByText('You have 50 drafts. Finish or delete one first.'))
       .toBeVisible();
@@ -191,7 +197,7 @@ describe('Focus (the phone’s default)', () => {
 
   it('Close and Save recipe both look greyed while a step box is open (F154)', async () => {
     show(reviewFlow(), true);
-    const close = page.getByRole('button', { name: /^Close/ });
+    const close = page.getByRole('button', { name: /^Back to drafts/ });
     const save = page.getByRole('button', { name: 'Save recipe' });
     expect(faded(close)).toBe(1);
     await page.getByRole('button', { name: /^Change step 1/ }).click();
@@ -210,16 +216,16 @@ describe('Focus (the phone’s default)', () => {
     await page.getByRole('button', { name: /^Change step 1/ }).click();
     const box = page.getByLabelText('Words of step 1');
     await box.fill('Boil the dal for 20 minutes.');
-    await expect.element(page.getByRole('button', { name: /^Close/ })).toBeDisabled();
+    await expect.element(page.getByRole('button', { name: /^Back to drafts/ })).toBeDisabled();
     await page.getByRole('button', { name: 'Done' }).click();
-    await page.getByRole('button', { name: /^Close/ }).click();
+    await page.getByRole('button', { name: /^Back to drafts/ }).click();
     await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
     expect(flow.review!.steps.find((x) => x.kind === 'step')!.text).toBe(
       'Boil the dal for 20 minutes.'
     );
   });
 
-  it('when the draft can’t be kept, Discard is the way out and lands on Recipes', async () => {
+  it('when the draft can’t be kept, Discard draft is the way out and lands on Recipes', async () => {
     show(reviewFlow(), true);
     fakeApi({
       'POST /recipes/drafts': [
@@ -227,8 +233,8 @@ describe('Focus (the phone’s default)', () => {
         { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
       ]
     });
-    await page.getByRole('button', { name: /^Close/ }).click();
-    await page.getByRole('button', { name: 'Discard', exact: true }).click();
+    await page.getByRole('button', { name: /^Back to drafts/ }).click();
+    await discardDraft();
     await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
     expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes$/);
   });
@@ -242,10 +248,12 @@ describe('Focus (the phone’s default)', () => {
         { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
       ]
     });
-    await page.getByRole('button', { name: /^Close/ }).click();
+    await page.getByRole('button', { name: /^Back to drafts/ }).click();
     flow.saving = true;
     flushSync();
-    await expect.element(page.getByRole('button', { name: 'Discard', exact: true })).toBeDisabled();
+    await expect
+      .element(page.getByRole('button', { name: 'Discard draft', exact: true }))
+      .toBeDisabled();
     flow.saving = false;
   });
 
@@ -258,18 +266,22 @@ describe('Focus (the phone’s default)', () => {
         { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
       ]
     });
-    await page.getByRole('button', { name: /^Close/ }).click();
+    await page.getByRole('button', { name: /^Back to drafts/ }).click();
     await page.getByRole('button', { name: /^Change step 1/ }).click();
     await page.getByLabelText('Words of step 1').fill('Boil the dal for 20 minutes.');
     await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeDisabled();
-    await expect.element(page.getByRole('button', { name: 'Discard', exact: true })).toBeDisabled();
+    await expect
+      .element(page.getByRole('button', { name: 'Discard draft', exact: true }))
+      .toBeDisabled();
     await page.getByRole('button', { name: 'Done' }).click();
     await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeEnabled();
-    await expect.element(page.getByRole('button', { name: 'Discard', exact: true })).toBeEnabled();
+    await expect
+      .element(page.getByRole('button', { name: 'Discard draft', exact: true }))
+      .toBeEnabled();
     expect(flow.review!.steps.find((x) => x.kind === 'step')!.text).toBe(
       'Boil the dal for 20 minutes.'
     );
-    await page.getByRole('button', { name: 'Discard', exact: true }).click();
+    await discardDraft();
     await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
   });
 
@@ -292,7 +304,7 @@ describe('Focus (the phone’s default)', () => {
     show(flow, true);
     flow.saving = true;
     flushSync();
-    await expect.element(page.getByRole('button', { name: /^Close/ })).toBeDisabled();
+    await expect.element(page.getByRole('button', { name: /^Back to drafts/ })).toBeDisabled();
     flow.saving = false;
     flow.keeping = true;
     flushSync();
@@ -325,9 +337,9 @@ describe('a computer', () => {
     await expect.element(page.getByRole('dialog')).toBeVisible();
   });
 
-  it('Cancel looks greyed, as Save recipe does, while a step box is open (F154)', async () => {
+  it('Back to drafts looks greyed, as Save recipe does, while a step box is open (F154)', async () => {
     show(reviewFlow(), false);
-    const cancel = page.getByRole('button', { name: 'Cancel' }).last();
+    const cancel = page.getByRole('button', { name: 'Back to drafts' });
     const save = page.getByRole('button', { name: 'Save recipe' });
     expect(faded(cancel)).toBe(1);
     await page.getByRole('button', { name: /^Change step 1/ }).click();
@@ -336,15 +348,14 @@ describe('a computer', () => {
     expect(faded(cancel)).toBe(faded(save));
   });
 
-  it('Save recipe and Cancel wait while a step box is open, and work after Done (F143)', async () => {
+  it('Save recipe and Back to drafts wait while a step box is open, and work after Done (F143)', async () => {
     await page.viewport(1280, 900);
     const flow = reviewFlow();
     show(flow, false);
     await page.getByRole('button', { name: /^Change step 1/ }).click();
     await page.getByLabelText('Words of step 1').fill('Boil the dal for 20 minutes.');
     await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeDisabled();
-    // The box has a Cancel of its own; the bar's is the last one.
-    const cancel = () => page.getByRole('button', { name: 'Cancel' }).last();
+    const cancel = () => page.getByRole('button', { name: 'Back to drafts' });
     await expect.element(cancel()).toBeDisabled();
     await page.getByRole('button', { name: 'Done' }).click();
     await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeEnabled();
@@ -361,11 +372,12 @@ describe('a computer', () => {
       checkMode.set(choice);
       await page.viewport(1280, 900);
       show(reviewFlow(), false);
-      await expect.element(page.getByRole('button', { name: 'Cancel' })).toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'Back to drafts' })).toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'Discard draft' })).toBeVisible();
       await expect.element(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
       await expect.element(page.getByRole('list', { name: 'Import steps' })).toBeVisible();
       await expect.element(page.getByText('Nothing is saved until you choose.')).toBeVisible();
-      expect(page.getByRole('button', { name: /^Close/ }).elements()).toEqual([]);
+      expect(page.getByText('Kept in Drafts').elements()).toEqual([]); // the phone's own label
       expect(page.getByRole('button', { name: 'Next →' }).elements()).toEqual([]);
       expect(document.documentElement.hasAttribute('data-full-page')).toBe(false);
       unmount(component!);
@@ -422,7 +434,7 @@ describe('One at a time', () => {
     await expect.element(back()).toBeDisabled();
     await expect.element(page.getByRole('button', { name: 'See all' })).toBeVisible();
     await expect
-      .element(page.getByRole('button', { name: 'Close (kept in Drafts)' }))
+      .element(page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }))
       .toBeVisible();
     // The ready line is not on a card of its own.
     expect(document.body.textContent).not.toContain('thuvaram paruppu');
@@ -732,7 +744,7 @@ describe('One at a time', () => {
         'GET /recipes/drafts': [200, { drafts: [], count: 0 }]
       });
       await page.getByRole('button', { name: 'Same as “Onions”' }).click();
-      await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+      await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
       await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
       const keep = requests.find((r) => r.method === 'POST' && r.path === '/recipes/drafts')!;
       const body = keep.body as { choices: { lines: Record<string, { kind: string }> } };
@@ -749,7 +761,7 @@ describe('One at a time', () => {
           { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
         ]
       });
-      await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+      await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
       await expect
         .element(page.getByText('You have 50 drafts. Finish or delete one first.'))
         .toBeVisible();
@@ -767,10 +779,10 @@ describe('One at a time', () => {
       await page.getByRole('button', { name: 'Change the words' }).click();
       await page.getByLabelText('Words of step 1').fill('Boil the dal for 20 minutes.');
       await expect
-        .element(page.getByRole('button', { name: 'Close (kept in Drafts)' }))
+        .element(page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }))
         .toBeDisabled();
       await page.getByRole('button', { name: 'Done' }).click();
-      await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+      await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
       await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
       expect(flow.review!.steps[1]!.text).toBe('Boil the dal for 20 minutes.');
     });
@@ -780,7 +792,7 @@ describe('One at a time', () => {
       await next().click(); // line 2
       await next().click(); // step 1
       const buttons = [
-        page.getByRole('button', { name: 'Close (kept in Drafts)' }),
+        page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }),
         page.getByRole('button', { name: 'See all' }),
         back(),
         next()
@@ -904,17 +916,17 @@ describe('One at a time', () => {
           { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
         ]
       });
-      await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+      await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
       await next().click(); // line 2
       await next().click(); // step 1
       await page.getByRole('button', { name: 'Change the words' }).click();
       await page.getByLabelText('Words of step 1').fill('Boil the dal for 20 minutes.');
       await expect
-        .element(page.getByRole('button', { name: 'Discard', exact: true }))
+        .element(page.getByRole('button', { name: 'Discard draft', exact: true }))
         .toBeDisabled();
       await page.getByRole('button', { name: 'Done' }).click();
       expect(flow.review!.steps[1]!.text).toBe('Boil the dal for 20 minutes.');
-      await page.getByRole('button', { name: 'Discard', exact: true }).click();
+      await discardDraft();
       await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
     });
 
@@ -937,16 +949,16 @@ describe('One at a time', () => {
           { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
         ]
       });
-      await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+      await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
       flow.saving = true;
       flushSync();
       await expect
-        .element(page.getByRole('button', { name: 'Discard', exact: true }))
+        .element(page.getByRole('button', { name: 'Discard draft', exact: true }))
         .toBeDisabled();
       flow.saving = false;
     });
 
-    it('when the draft can’t be kept, Discard is the way out and lands on Recipes', async () => {
+    it('when the draft can’t be kept, Discard draft is the way out and lands on Recipes', async () => {
       await opened();
       fakeApi({
         'POST /recipes/drafts': [
@@ -954,8 +966,8 @@ describe('One at a time', () => {
           { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
         ]
       });
-      await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
-      await page.getByRole('button', { name: 'Discard', exact: true }).click();
+      await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
+      await discardDraft();
       await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
       expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes$/);
     });
@@ -966,7 +978,7 @@ describe('One at a time', () => {
       flow.saving = true;
       flushSync();
       await expect
-        .element(page.getByRole('button', { name: 'Close (kept in Drafts)' }))
+        .element(page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }))
         .toBeDisabled();
       flow.saving = false;
       flow.keeping = true;
@@ -978,7 +990,9 @@ describe('One at a time', () => {
     it('See all shows the whole list (Focus) for this visit', async () => {
       await opened();
       await page.getByRole('button', { name: 'See all' }).click();
-      await expect.element(page.getByRole('button', { name: /^Close Kept/ })).toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: /^Back to drafts Kept/ }))
+        .toBeVisible();
       await expect.element(page.getByText('Toor dal').first()).toBeVisible();
       expect(next().elements()).toEqual([]);
     });

@@ -51,7 +51,7 @@ test('Focus: no menu, the ingredients get the screen, Close keeps the draft and 
   await expect(page.getByText('Step 2 of 3 · nothing saved yet')).toBeVisible();
   // The app's menu is gone; the page is its own, with Close and Save at the foot.
   await expect(page.getByRole('navigation', { name: 'Main' })).toBeHidden();
-  const close = page.getByRole('button', { name: /^Close/ });
+  const close = page.getByRole('button', { name: /^Back to drafts/ });
   await expect(close).toContainText('Kept in Drafts');
   await expect(close).toBeInViewport({ ratio: 1 });
   await expect(page.getByRole('button', { name: 'Save recipe' })).toBeInViewport({ ratio: 1 });
@@ -72,7 +72,7 @@ test('Focus: no menu, the ingredients get the screen, Close keeps the draft and 
   await page.getByRole('link', { name: `Carry on ${title}` }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts\/\d+$/);
   await expect(page.getByText(/Made a staple when you save/)).toBeVisible();
-  await page.getByRole('button', { name: /^Close/ }).click();
+  await page.getByRole('button', { name: /^Back to drafts/ }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   await deleteDrafts(page, title);
 });
@@ -109,7 +109,7 @@ test('One at a time: each line that needs you, then every step; Close keeps the 
   await expect(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
   // Back, then Close: the draft keeps the choice made on the first line.
   await page.getByRole('button', { name: /^← Back/ }).click();
-  await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+  await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   const [draft] = await draftsNamed(page, title);
   const kept = (await (await page.request.get(`/api/v1/recipes/drafts/${draft!.id}`)).json()) as Json;
@@ -140,7 +140,7 @@ test('One at a time: Add a line goes to the new line, which is named and has the
   await page.getByRole('button', { name: 'Treat as staple', exact: true }).click();
   await expect(page.getByText('New staple:')).toBeVisible();
   // Close keeps the draft with the new line and its choice.
-  await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+  await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   const [draft] = await draftsNamed(page, title);
   const kept = (await (await page.request.get(`/api/v1/recipes/drafts/${draft!.id}`)).json()) as Json;
@@ -155,7 +155,7 @@ test('One at a time and Focus: the title is in from the edge, and the step note 
   await chooseMode(page, 'one');
   await checking(page, unique('Rasam'), unique('Hing'), unique('Masala'));
   const title = page.getByRole('heading', { level: 1 });
-  const close = (await page.getByRole('button', { name: 'Close (kept in Drafts)' }).boundingBox())!;
+  const close = (await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).boundingBox())!;
   const t = (await title.boundingBox())!;
   expect(t.x).toBeGreaterThanOrEqual(close.x + close.width);
   const note = (await page.getByText(/· nothing saved yet$/).boundingBox())!;
@@ -168,12 +168,12 @@ test('One at a time: See all shows the whole list, and a reopened draft starts O
   await chooseMode(page, 'one');
   const title = unique('Kootu');
   await checking(page, title, unique('Hing'), unique('Masala'));
-  await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+  await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   await page.getByRole('link', { name: `Carry on ${title}` }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients · 1 of 2 to check');
   await page.getByRole('button', { name: 'See all' }).click();
-  await expect(page.getByRole('button', { name: /^Close/ })).toContainText('Kept in Drafts');
+  await expect(page.getByRole('button', { name: /^Back to drafts/ })).toContainText('Kept in Drafts');
   await expect(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Next/ })).toHaveCount(0);
   await deleteDrafts(page, title);
@@ -193,7 +193,7 @@ test('Settings → Appearance chooses it, on this device: Focus until changed', 
   const title = unique('Thoran');
   await checking(page, title, unique('Hing'), unique('Masala'));
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients · 1 of 2 to check');
-  await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+  await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   await deleteDrafts(page, title);
   await page.goto('/settings?section=appearance');
@@ -207,10 +207,10 @@ test('a computer keeps today’s Check screen, whatever the phone’s choice is'
   await checking(page, unique('Pongal'), unique('Hing'), unique('Masala'));
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
   await expect(page.getByRole('list', { name: 'Import steps' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Back to drafts', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Next/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^Close/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Back to drafts/ })).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Main' }).or(page.getByRole('navigation', { name: 'Sidebar' })).first()).toBeVisible();
 });
 
@@ -220,7 +220,7 @@ test('Focus: with a step box open Close looks greyed like Save recipe (F154)', a
   test.skip(!isPhone(page), 'the phone’s layout');
   await chooseMode(page, 'focus');
   await checking(page, unique('Pongal'), unique('Hing'), unique('Masala'));
-  const close = page.getByRole('button', { name: /^Close/ });
+  const close = page.getByRole('button', { name: /^Back to drafts/ });
   const save = page.getByRole('button', { name: 'Save recipe' });
   expect(await opacity(close)).toBe(1);
   await page.getByRole('button', { name: /^Change step 1/ }).click();
@@ -237,7 +237,7 @@ test('One at a time: with a step box open Close, See all, Back and Next look gre
   await page.getByRole('button', { name: /^Next/ }).click();
   await page.getByRole('button', { name: /^Next/ }).click(); // step 1
   const buttons = [
-    page.getByRole('button', { name: 'Close (kept in Drafts)' }),
+    page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }),
     page.getByRole('button', { name: 'See all' }),
     page.getByRole('button', { name: /^← Back/ }),
     page.getByRole('button', { name: /^Next/ }),
@@ -319,7 +319,7 @@ test('F174, One at a time: Close works offline, says so and leaves; nothing was 
   await checking(page, title, unique('Hing'), unique('Masala'));
   await page.getByRole('button', { name: 'Treat as staple' }).click();
   await goOffline(page);
-  const close = page.getByRole('button', { name: 'Close (kept in Drafts)' });
+  const close = page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' });
   await expect(close).toBeEnabled();
   await close.click();
   await expect(page.getByText('You’re offline: changes since then won’t be kept')).toBeVisible();
@@ -333,7 +333,7 @@ test('F174, a draft opened again: Close works offline and the draft stays as it 
   await chooseMode(page, 'one');
   const title = unique('Kootu offline');
   await checking(page, title, unique('Hing'), unique('Masala'));
-  await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+  await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   const [before] = await draftsNamed(page, title);
   await page.getByRole('link', { name: `Carry on ${title}` }).click();
@@ -341,7 +341,7 @@ test('F174, a draft opened again: Close works offline and the draft stays as it 
   // A change since the draft was last kept (the name), then the connection goes.
   await page.getByRole('button', { name: 'Treat as staple' }).first().click();
   await goOffline(page);
-  const close = page.getByRole('button', { name: /^Close/ });
+  const close = page.getByRole('button', { name: /^Back to drafts/ });
   await expect(close).toBeEnabled();
   await close.click();
   await expect(page.getByText('You’re offline: changes since then won’t be kept')).toBeVisible();
@@ -368,7 +368,7 @@ test('F174, a keep still on its way when the connection goes: Close works at onc
     await stuck;
     await route.abort('internetdisconnected');
   });
-  const close = page.getByRole('button', { name: 'Close (kept in Drafts)' });
+  const close = page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' });
   await close.click();
   await expect(close).toBeDisabled(); // keeping, with the connection still up
   await goOffline(page);
@@ -404,7 +404,7 @@ test('One at a time: "Make this its own recipe" is above a line of the section, 
   await expect(page.locator('.said')).toContainText('3 cups');
   // The section's lines are still checked here, one at a time.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients · 1 of 3 to check');
-  await page.getByRole('button', { name: 'Close (kept in Drafts)' }).click();
+  await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   const [draft] = await draftsNamed(page, title);
   const kept = (await (await page.request.get(`/api/v1/recipes/drafts/${draft!.id}`)).json()) as Json;

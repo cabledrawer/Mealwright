@@ -37,7 +37,9 @@
     onclose,
     onsave,
     onseeall,
-    onleave
+    onleave,
+    ondiscard,
+    discardProblem = null
   }: {
     flow: ImportFlow;
     /** Keeping the draft is on its way. */
@@ -49,6 +51,10 @@
     onseeall: () => void;
     /** Leave without keeping the draft (the leave sheet's Discard). */
     onleave: () => void;
+    /** Discard draft (F211): the screen asks once, then deletes the draft. */
+    ondiscard: () => void;
+    /** Why a Discard draft didn't go through. */
+    discardProblem?: string | null;
   } = $props();
 
   const uid = $props.id();
@@ -236,7 +242,7 @@
       <button
         type="button"
         class="x"
-        aria-label="Close (kept in Drafts)"
+        aria-label="Back to drafts (kept in Drafts)"
         disabled={closing || flow.saving || editing !== null}
         onclick={onclose}><Icon name="close" size={18} stroke={2.4} /></button
       >
@@ -499,14 +505,19 @@
       {/if}
       {#if flow.draftProblem}
         <p class="error" role="alert">{flow.draftProblem}</p>
-        <!-- The leave sheet's own words and action: the draft can't be kept, so this is the way out. -->
-        <button
-          type="button"
-          class="leave"
-          disabled={flow.saving || editing !== null}
-          onclick={onleave}>{flow.draftId !== null ? 'Discard changes' : 'Discard'}</button
-        >
+        <!-- The leave sheet's own words and action, for a draft that was changed and can't be
+             kept: the draft stays as it was last kept. A review never kept is left with Discard
+             draft below. -->
+        {#if flow.draftId !== null}
+          <button
+            type="button"
+            class="leave"
+            disabled={flow.saving || editing !== null}
+            onclick={onleave}>Discard changes</button
+          >
+        {/if}
       {/if}
+      {#if discardProblem}<p class="error" role="alert">{discardProblem}</p>{/if}
       <div class="buttons">
         {#if item}
           <button
@@ -525,6 +536,15 @@
           >{last ? (flow.saving ? 'Saving…' : 'Save recipe') : 'Next →'}</button
         >
       </div>
+      <button
+        type="button"
+        class="leave"
+        disabled={flow.saving ||
+          closing ||
+          editing !== null ||
+          (flow.draftId !== null && network.offline)}
+        onclick={ondiscard}>Discard draft</button
+      >
       {#if network.offline}
         <p class="muted" role="status">
           {downLine(network.deviceOffline, (b) => `Save ${b.when}.`)}
