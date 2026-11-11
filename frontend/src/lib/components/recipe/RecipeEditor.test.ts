@@ -394,7 +394,9 @@ describe('the boxes', () => {
     await vi.waitFor(() => expect(bodyOf(requests, 'POST')).toBeDefined());
     const sent = bodyOf(requests, 'POST') as { lines: { optional: boolean }[]; steps: unknown[] };
     expect(sent.lines.map((l) => l.optional)).toEqual([true]);
-    expect(sent.steps).toEqual([{ kind: 'step', text: 'Top it.', optional: true, wait: null }]);
+    expect(sent.steps).toEqual([
+      { kind: 'step', text: 'Top it.', optional: true, wait: null, timing: null }
+    ]);
     expect('nutrition_checked' in sent).toBe(false);
   });
 
@@ -431,6 +433,18 @@ describe('the boxes', () => {
     await vi.waitFor(() => expect(bodyOf(requests, 'POST')).toBeDefined());
     const sent = bodyOf(requests, 'POST') as { steps: { wait: unknown }[] };
     expect(sent.steps[0]!.wait).toBeNull();
+  });
+
+  it('says a new step’s timing is guessed when it is saved, and sends none (Batch cook, B1)', async () => {
+    const requests = fakeApi({ 'POST /recipes': [201, saved()] });
+    open();
+    await page.getByRole('textbox', { name: 'Name' }).fill('Rasam');
+    await page.getByRole('textbox', { name: 'Step 1' }).fill('Simmer for 10 minutes.');
+    await expect.element(page.getByText('Guessed when you save')).toBeVisible();
+    await page.getByRole('button', { name: /^Save/ }).click();
+    await vi.waitFor(() => expect(bodyOf(requests, 'POST')).toBeDefined());
+    const sent = bodyOf(requests, 'POST') as { steps: { timing: unknown }[] };
+    expect(sent.steps[0]!.timing).toBeNull();
   });
 
   it('keeps Serves between 1 and 99, and can clear it', async () => {
@@ -659,6 +673,113 @@ describe('an existing recipe', () => {
       description: 'Stew'
     });
     expect('photo_id' in bodyOf(requests, 'PUT')).toBe(false);
+  });
+
+  describe('the timing of a step, for Batch cook (B1; mockup Dark-BatchSteps08)', () => {
+    const timed = (over: Record<string, unknown> = {}) => ({
+      ...sambar,
+      steps: [
+        {
+          id: 1,
+          kind: 'step',
+          text: 'Wash the toor dal and pressure cook it for 3 whistles.',
+          optional: false,
+          wait: null,
+          timing: {
+            hands: 'waiting',
+            minutes: 15,
+            equipment: 'pressure',
+            hands_guessed: true,
+            minutes_guessed: true,
+            equipment_guessed: true
+          },
+          lines: []
+        },
+        {
+          id: 2,
+          kind: 'step',
+          text: 'Chop the onion, tomato and drumsticks.',
+          optional: false,
+          wait: null,
+          timing: {
+            hands: 'hands',
+            minutes: 8,
+            equipment: 'none',
+            hands_guessed: false,
+            minutes_guessed: false,
+            equipment_guessed: false
+          },
+          lines: []
+        }
+      ],
+      ...over
+    });
+    const routes = (recipe = timed()) => ({
+      'GET /recipes/2': [200, recipe] as [number, unknown],
+      'GET /recipes/2/cannot-use': [200, { recipes: [] }] as [number, unknown],
+      'PUT /recipes/2': [200, { ...recipe, version: 4 }] as [number, unknown]
+    });
+
+    it('shows each step’s tags: guessed in pink until set by hand, then "set by you"', async () => {
+      fakeApi(routes());
+      open({ recipeId: 2 });
+      await expect.element(page.getByText('Waiting · 15\u00a0min')).toBeVisible();
+      await expect.element(page.getByText('Pressure cooker', { exact: true })).toBeVisible();
+      await expect.element(page.getByText('guessed', { exact: true })).toBeVisible();
+      await expect.element(page.getByText('Hands-on · 8\u00a0min')).toBeVisible();
+      await expect.element(page.getByText('set by you', { exact: true })).toBeVisible();
+      // No tag for Nothing.
+      expect(page.getByText('Nothing', { exact: true }).elements()).toHaveLength(0);
+    });
+
+    it('a change takes all three as yours, and Save sends them; Guess again gives them back', async () => {
+      const requests = fakeApi(routes());
+      open({ recipeId: 2 });
+      await page.getByRole('button', { name: 'Change the timing of step 1' }).click();
+      await page.getByRole('radio', { name: 'Hands-on' }).click();
+      await expect.element(page.getByText('Hands-on · 15\u00a0min')).toBeVisible();
+      // Both steps are the person's now; none is a guess any more.
+      expect(page.getByText('set by you', { exact: true }).elements()).toHaveLength(2);
+      expect(page.getByText('guessed', { exact: true }).elements()).toHaveLength(0);
+      await page.getByRole('textbox', { name: /^Minutes/ }).fill('12');
+      await page.getByRole('radio', { name: 'Oven' }).click();
+      await page.getByRole('button', { name: /^Save/ }).click();
+      await vi.waitFor(() => expect(bodyOf(requests, 'PUT')).toBeDefined());
+      const sent = bodyOf(requests, 'PUT') as { steps: { timing: unknown }[] };
+      expect(sent.steps[0]!.timing).toEqual({ hands: 'hands', minutes: 12, equipment: 'oven' });
+      // Step 2 was set by hand already and is sent as it was.
+      expect(sent.steps[1]!.timing).toEqual({ hands: 'hands', minutes: 8, equipment: 'none' });
+    });
+
+    it('Guess again clears what was set by hand', async () => {
+      const requests = fakeApi(routes());
+      open({ recipeId: 2 });
+      await page.getByRole('button', { name: 'Change the timing of step 2' }).click();
+      await page.getByRole('button', { name: 'Guess again' }).click();
+      await page.getByRole('button', { name: /^Save/ }).click();
+      await vi.waitFor(() => expect(bodyOf(requests, 'PUT')).toBeDefined());
+      const sent = bodyOf(requests, 'PUT') as { steps: { timing: unknown }[] };
+      expect(sent.steps[1]!.timing).toBeNull();
+    });
+
+    it('a minutes box that is not a whole number blocks Save and says so', async () => {
+      fakeApi(routes());
+      open({ recipeId: 2 });
+      await page.getByRole('button', { name: 'Change the timing of step 1' }).click();
+      await page.getByRole('textbox', { name: /^Minutes/ }).fill('ten');
+      await expect
+        .element(page.getByText('Type the minutes as a whole number, such as 10.').first())
+        .toBeVisible();
+      await page.getByRole('button', { name: /^Save/ }).click();
+      expect(navigation.go).not.toHaveBeenCalled();
+    });
+
+    it('a step whose words change says its guess is made again when saved', async () => {
+      fakeApi(routes());
+      open({ recipeId: 2 });
+      await page.getByRole('textbox', { name: 'Step 1' }).fill('Simmer the dal.');
+      await expect.element(page.getByText('Guessed when you save')).toBeVisible();
+    });
   });
 
   it('opened from "Update nutrition" it starts in the nutrition boxes, and Save says they were looked at (R3)', async () => {

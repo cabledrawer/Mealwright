@@ -11,7 +11,9 @@ import {
   type Nutrition,
   type PhotoOut,
   type RecipeIn,
-  type RecipeOut
+  type RecipeOut,
+  type StepTiming,
+  type StepTimingIn
 } from '#lib/client/recipes.js';
 import type { Ref } from '#lib/client/types.js';
 import { linkedWords } from './linkedWords';
@@ -79,6 +81,15 @@ export interface DraftStep {
   /** The Waits boxes don't make a wait that can be kept (not saved with the draft): Save is
    *  blocked until they are put right or the wait is taken off. */
   waitInvalid?: boolean;
+  /** What was set by hand for Batch cook; a null is guessed from the words (B1). */
+  timing: StepTimingIn;
+  /** The minutes box doesn't hold a number that can be kept (not saved with the draft): Save is
+   *  blocked until it is put right. */
+  timingInvalid?: boolean;
+  /** What the server guessed for the words the step had when it was read, and those words:
+   *  the guess is shown only while the words are the same (it is made again when saved). */
+  guess: StepTiming | null;
+  guessFor: string;
 }
 
 /** The editor's boxes as the tab keeps them (see `toCarried`). */
@@ -157,6 +168,32 @@ function waitFrom(value: unknown): StepWait | null {
   };
 }
 
+/** What was set by hand, from what the server read (a guessed value is not kept). */
+function handFrom(timing: StepTiming | null | undefined): StepTimingIn {
+  return {
+    hands: timing && !timing.hands_guessed ? timing.hands : null,
+    minutes: timing && !timing.minutes_guessed ? timing.minutes : null,
+    equipment: timing && !timing.equipment_guessed ? timing.equipment : null
+  };
+}
+
+/** What the tab kept, read back (anything odd is a guess). */
+function handKept(value: unknown): StepTimingIn {
+  const t = (value ?? {}) as Partial<Record<keyof StepTimingIn, unknown>>;
+  return {
+    hands: t.hands === 'hands' || t.hands === 'waiting' ? t.hands : null,
+    minutes:
+      Number.isInteger(t.minutes) && (t.minutes as number) > 0 ? (t.minutes as number) : null,
+    equipment:
+      t.equipment === 'hob' ||
+      t.equipment === 'pressure' ||
+      t.equipment === 'oven' ||
+      t.equipment === 'none'
+        ? t.equipment
+        : null
+  };
+}
+
 /** A step as the editor holds it, from the recipe's own. */
 function stepFrom(s: RecipeOut['steps'][number]): DraftStep {
   return {
@@ -164,12 +201,38 @@ function stepFrom(s: RecipeOut['steps'][number]): DraftStep {
     kind: s.kind,
     text: s.text,
     optional: !!s.optional,
-    wait: s.wait ? { ...s.wait } : null
+    wait: s.wait ? { ...s.wait } : null,
+    timing: handFrom(s.timing),
+    guess: s.timing ? { ...s.timing } : null,
+    guessFor: s.text
   };
 }
 
 export function blankStep(kind: DraftStep['kind'] = 'step'): DraftStep {
-  return { key: nextKey('s'), kind, text: '', optional: false, wait: null };
+  return {
+    key: nextKey('s'),
+    kind,
+    text: '',
+    optional: false,
+    wait: null,
+    timing: { hands: null, minutes: null, equipment: null },
+    guess: null,
+    guessFor: ''
+  };
+}
+
+/** Whether anything was set by hand on a step's timing. */
+export const handSet = (t: StepTimingIn): boolean =>
+  t.hands != null || t.minutes != null || t.equipment != null;
+
+/** A copy of a step, so one editor's boxes never share an object with another's. */
+function copyStep(s: DraftStep): DraftStep {
+  return {
+    ...s,
+    wait: s.wait ? { ...s.wait } : null,
+    timing: { ...s.timing },
+    guess: s.guess ? { ...s.guess } : null
+  };
 }
 
 function lineFrom(line: LineOut): DraftLine {
@@ -338,7 +401,7 @@ export class RecipeDraft {
         l.note,
         l.optional
       ]),
-      this.steps.map((s) => [s.kind, s.text, s.optional, s.wait]),
+      this.steps.map((s) => [s.kind, s.text, s.optional, s.wait, s.timing]),
       this.at,
       this.names,
       this.removedSecond,
@@ -355,7 +418,7 @@ export class RecipeDraft {
           l.note,
           l.optional
         ]),
-        this.hidden.steps.map((s) => [s.kind, s.text, s.optional, s.wait])
+        this.hidden.steps.map((s) => [s.kind, s.text, s.optional, s.wait, s.timing])
       ],
       this.source,
       this.photo.change,
@@ -383,14 +446,14 @@ export class RecipeDraft {
     this.tags = [...from.tags];
     this.nutrition = { ...from.nutrition };
     this.lines = from.lines.map((l) => ({ ...l }));
-    this.steps = from.steps.map((s) => ({ ...s, wait: s.wait ? { ...s.wait } : null }));
+    this.steps = from.steps.map(copyStep);
     this.at = from.at;
     this.names = [...from.names];
     this.removedSecond = from.removedSecond;
     this.hidden = from.hidden && {
       time: from.hidden.time,
       lines: from.hidden.lines.map((l) => ({ ...l })),
-      steps: from.hidden.steps.map((s) => ({ ...s, wait: s.wait ? { ...s.wait } : null }))
+      steps: from.hidden.steps.map(copyStep)
     };
     this.source = from.source;
     this.sizes = { ...from.sizes };
@@ -420,7 +483,7 @@ export class RecipeDraft {
       tags: [...this.tags],
       nutrition: { ...this.nutrition },
       lines: this.lines.map((l) => ({ ...l })),
-      steps: this.steps.map((s) => ({ ...s, wait: s.wait ? { ...s.wait } : null })),
+      steps: this.steps.map(copyStep),
       source: this.source,
       sizes: { ...this.sizes },
       photoRemoved: this.photo.change === 'removed'
@@ -466,7 +529,8 @@ export class RecipeDraft {
       ...blankStep(s.kind === 'heading' ? 'heading' : 'step'),
       text: str(s.text) ? s.text! : '',
       optional: !!s.optional,
-      wait: waitFrom(s.wait)
+      wait: waitFrom(s.wait),
+      timing: handKept(s.timing)
     });
     const keep = (v: unknown, fallback: string) => (str(v) ? (v as string) : fallback);
     this.name = c.name!;
@@ -733,11 +797,15 @@ export class RecipeDraft {
       if (step.kind === 'step' && step.wait && step.waitInvalid) {
         errors[`wait:${step.key}`] = 'Type how long it waits, such as 4 hours.';
       }
+      if (step.kind === 'step' && step.timingInvalid) {
+        errors[`timing:${step.key}`] = 'Type the minutes as a whole number, such as 10.';
+      }
       steps.push({
         kind: step.kind,
         text: step.kind === 'heading' ? clean(step.text) : step.text.trim(),
         optional: step.kind === 'step' && step.optional,
-        wait: step.kind === 'step' && step.wait ? { ...step.wait } : null
+        wait: step.kind === 'step' && step.wait ? { ...step.wait } : null,
+        timing: step.kind === 'step' && handSet(step.timing) ? { ...step.timing } : null
       });
       stepKeys.push(step.key);
     }

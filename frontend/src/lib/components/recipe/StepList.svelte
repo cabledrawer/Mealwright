@@ -14,6 +14,7 @@
   } from '#lib/recipes/draft.svelte.js';
   import { autosize } from '#lib/recipes/autosize.js';
   import { move, reorder } from '#lib/recipes/reorder.js';
+  import { equipmentWords, handsWords, shownTiming } from '#lib/recipes/stepTiming.js';
   import { undoHistory, type UndoEntry } from '#lib/undo.svelte.js';
 
   let {
@@ -29,6 +30,8 @@
   const uid = $props.id();
   let root: HTMLElement;
   const removed: UndoEntry[] = [];
+  /** The steps whose timing boxes are open (Batch cook; the boxes load the first time). */
+  let timingOpen = $state<Record<string, boolean>>({});
 
   const full = $derived(draft.steps.length >= MAX_STEPS);
   /** A step's number: headings are not counted. */
@@ -69,6 +72,7 @@
 <section class="steps" aria-labelledby="{uid}-title" bind:this={root}>
   <div class="title">
     <h2 id="{uid}-title">Method</h2>
+    <span class="exp"><Icon name="flask" size={13} stroke={2.4} />Experimental</span>
     <span class="note">Plain text, one step per box</span>
   </div>
 
@@ -162,6 +166,50 @@
                     overnight: false
                   })}>+ Add a wait</button
               >
+            {/if}
+          </div>
+        {/if}
+        {#if step.kind === 'step'}
+          {@const shown = shownTiming(step)}
+          <!-- Batch cook (Experimental; mockup Dark-BatchSteps08): hands-on or waiting, minutes
+           and what the step uses, guessed until set by hand. -->
+          <div class="timing" data-timing>
+            <div class="tags">
+              {#if shown.pending && shown.hands === null}
+                <span class="tag plain">Guessed when you save</span>
+              {:else}
+                {#if handsWords(shown)}
+                  <span
+                    class="tag"
+                    class:hands={shown.hands === 'hands'}
+                    class:waits={shown.hands === 'waiting'}>{handsWords(shown)}</span
+                  >
+                {/if}
+                {#if equipmentWords(shown)}<span class="tag plain">{equipmentWords(shown)}</span
+                  >{/if}
+                {#if shown.mark === 'set by you'}
+                  <span class="tag yours">set by you</span>
+                {:else}
+                  <span class="exp-tag"
+                    ><Icon name="flask" size={13} stroke={2.4} />{shown.mark}</span
+                  >
+                {/if}
+              {/if}
+              <button
+                type="button"
+                class="mw-add"
+                aria-expanded={!!timingOpen[step.key]}
+                aria-label="{timingOpen[step.key]
+                  ? 'Close'
+                  : 'Change'} the timing of step {numberOf(i)}"
+                onclick={() => (timingOpen[step.key] = !timingOpen[step.key])}
+                >{timingOpen[step.key] ? 'Done' : 'Change'}</button
+              >
+            </div>
+            {#if timingOpen[step.key]}
+              {#await import('./StepTimingFields.svelte') then { default: StepTimingFields }}
+                <StepTimingFields {step} name="step {numberOf(i)}" />
+              {/await}
             {/if}
           </div>
         {/if}
@@ -317,6 +365,65 @@
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
+  }
+
+  .exp,
+  .exp-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-4);
+    border-radius: var(--radius-full);
+    background: var(--color-experimental-bg);
+    color: var(--color-experimental-text);
+    font-size: var(--text-sm);
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .timing {
+    display: flex;
+    flex: 1 1 100%;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding-left: calc(28px + var(--space-3));
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-1) var(--space-4);
+    border-radius: var(--radius-full);
+    font-size: var(--text-sm);
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .tag.hands {
+    background: var(--color-maybe-chip);
+    color: var(--color-maybe-chip-text);
+  }
+
+  .tag.waits {
+    background: var(--color-info);
+    color: var(--color-info-text);
+  }
+
+  .tag.plain {
+    background: var(--color-fill);
+    color: var(--color-text);
+  }
+
+  .tag.yours {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
   }
 
   .adds {

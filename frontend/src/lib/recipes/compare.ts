@@ -81,7 +81,9 @@ export function compareSteps(opened: RecipeOut['steps'], theirs: RecipeOut['step
       opened[i]?.text !== step.text ||
       opened[i]?.kind !== step.kind ||
       // A wait added, taken off or changed counts (M1).
-      JSON.stringify(opened[i]?.wait ?? null) !== JSON.stringify(step.wait ?? null)
+      JSON.stringify(opened[i]?.wait ?? null) !== JSON.stringify(step.wait ?? null) ||
+      // Batch cook's timing changed by hand (a changed guess comes with changed words).
+      JSON.stringify(opened[i]?.timing ?? null) !== JSON.stringify(step.timing ?? null)
   }));
 }
 

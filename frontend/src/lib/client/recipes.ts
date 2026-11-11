@@ -120,6 +120,28 @@ export interface RecipeLine {
   optional?: boolean;
 }
 
+/** Batch cook (Experimental): whether the cook's hands are busy or the step waits. */
+export type StepHands = 'hands' | 'waiting';
+/** What a step uses: a hob ring, a pressure cooker, the oven, or nothing. */
+export type StepEquipment = 'hob' | 'pressure' | 'oven' | 'none';
+
+/** A step's timing as the server read it: each value, and whether it is still a guess. */
+export interface StepTiming {
+  hands: StepHands;
+  minutes: number;
+  equipment: StepEquipment;
+  hands_guessed: boolean;
+  minutes_guessed: boolean;
+  equipment_guessed: boolean;
+}
+
+/** What a person set by hand on a step; a value left out or null is guessed. */
+export interface StepTimingIn {
+  hands?: StepHands | null;
+  minutes?: number | null;
+  equipment?: StepEquipment | null;
+}
+
 export interface RecipeStep {
   id: number;
   kind: 'step' | 'heading';
@@ -128,6 +150,8 @@ export interface RecipeStep {
   optional?: boolean;
   /** The step waits (marinate, soak, ferment...): a range, or one that ends overnight. */
   wait?: StepWait | null;
+  /** Hands-on or waiting, minutes and equipment, guessed or set by hand (Batch cook); null for a heading. */
+  timing?: StepTiming | null;
   /** The ingredient lines the step uses (Cook mode's per-step ingredients); none for a heading. */
   lines?: { line_id: number; line: number; kind: 'guessed' | 'by_hand' }[];
 }
@@ -285,7 +309,13 @@ export interface RecipeIn {
   /** The person looked at the figures and kept them: clears "Nutrition possibly out of date". */
   nutrition_checked?: boolean;
   lines: LineIn[];
-  steps: { kind: 'step' | 'heading'; text: string; optional?: boolean; wait?: StepWait | null }[];
+  steps: {
+    kind: 'step' | 'heading';
+    text: string;
+    optional?: boolean;
+    wait?: StepWait | null;
+    timing?: StepTimingIn | null;
+  }[];
   source_note: string | null;
   /** Left out: the photo stays. null: no photo. A number: that upload. */
   photo_id?: number | null;
