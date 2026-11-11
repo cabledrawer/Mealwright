@@ -699,8 +699,25 @@ def _lines(
         line = _review_line(
             ingredients, places, cut_text(read.text, MAX_WRITTEN).rstrip(), read, match
         )
+        if read.alternative is not None:  # "1 large shrak or 2 medium flat bread" (F217)
+            other = read.alternative
+            line = line.model_copy(
+                update={
+                    "alternative": _review_line(
+                        ingredients,
+                        places,
+                        cut_text(other.text, MAX_WRITTEN).rstrip(),
+                        other,
+                        match_line(ingredients, other),
+                    )
+                }
+            )
         if optional and line.readable:  # under "For serving": Optional, the same as "(optional)"
             line = line.model_copy(update={"optional": True})
+            if line.alternative is not None:
+                line = line.model_copy(
+                    update={"alternative": line.alternative.model_copy(update={"optional": True})}
+                )
         found.append((line, read.pints is not None))
     return found
 

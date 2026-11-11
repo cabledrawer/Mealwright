@@ -119,6 +119,11 @@ class ReviewLine(BaseModel):
     optional: bool = False
     # A heading made its own recipe on Check (F190): kept in a draft, never sent by the server.
     own: OwnRecipeNote | None = None
+    # The other choice of an "or" line (F217, 0.8): "1 large shrak or 2 medium flat bread" is the
+    # shrak, with the flat bread here as a line of its own. Check offers "Use this instead", which
+    # swaps the two on the screen; this line's note already holds the other choice, so Save needs
+    # nothing new. Never set on the alternative itself.
+    alternative: ReviewLine | None = None
 
 
 class ReviewMakes(BaseModel):

@@ -327,6 +327,10 @@ class ReadLine:
     # The line says it is optional ("(optional)", ", optional", "optional: 50g pecans"): the word
     # is taken out of the note and the line is marked Optional instead (R3, F151).
     optional: bool = False
+    # The other choice of an "or" line, read as a line of its own ("1 large shrak or 2 medium flat
+    # bread": the flat bread, 2), with the first choice in its note ("or 1 large shrak"). Only
+    # `read_lines` sets it, on a line that is not itself an alternative (F217).
+    alternative: ReadLine | None = None
 
 
 def _unreadable(text: str) -> ReadLine:
@@ -732,6 +736,9 @@ def _is_prep(word: str, strip: frozenset[str]) -> bool:
 def _strip_prep(tokens: list[str], strip: frozenset[str]) -> tuple[list[str], list[str]]:
     """The tokens without prep words (and the "and" between them), and the words taken out."""
     prep = [_is_prep(token, strip) for token in tokens]
+    for index in range(1, len(tokens)):  # "medium size", "large sized": the word goes with it
+        if prep[index - 1] and _clean_token(tokens[index - 1]) in DESCRIPTOR_WORDS:
+            prep[index] = prep[index] or _clean_token(tokens[index]) in ("size", "sized")
     kept: list[str] = []
     removed: list[str] = []
     for index, token in enumerate(tokens):
@@ -1257,19 +1264,139 @@ def _short_side(side: str) -> bool:
     return any(c.isalpha() for c in bare) and len(bare.split()) <= MAX_SPLIT_WORDS
 
 
+# "1 tsp each onion & garlic powder": the amount, then "each" (and an optional "of"), then the
+# foods it is for (F210, cabledrawer 10 Nov).
+_EACH = re.compile(r"\s+each(?:\s+of)?\s+", re.IGNORECASE)
+# A word that ends the last of two names and belongs to both: "onion & garlic powder".
+SHARED_TAILS = frozenset({"powder", "flakes", "seeds", "paste", "leaves"})
+MAX_EACH_FOODS = 8
+
+
+def _top_level_split(text: str) -> list[str]:
+    """The text cut at commas, " and " and " & " that are not inside brackets."""
+    pieces: list[str] = []
+    depth = 0
+    start = 0
+    at = 0
+    while at < len(text):
+        char = text[at]
+        if char in "([":
+            depth += 1
+        elif char in ")]":
+            depth = max(depth - 1, 0)
+        elif depth == 0:
+            joiner = re.compile(r"\s*,\s*|\s+(?:and|&)\s+", re.IGNORECASE).match(text, at)
+            if joiner is not None and joiner.end() > at:
+                pieces.append(text[start:at])
+                start = at = joiner.end()
+                continue
+        at += 1
+    pieces.append(text[start:])
+    return [piece.strip() for piece in pieces if piece.strip(" ,")]
+
+
+def split_each(text: str, size_words: Iterable[str] = ()) -> list[str] | None:
+    """ "1 tsp each salt, cumin, ground coriander": one line per food, each with the amount
+    ("1 tsp salt", "1 tsp cumin", "1 tsp ground coriander"); the words in brackets stay with
+    their food, and "onion & garlic powder" is onion powder and garlic powder (F210). None when
+    the line isn't of this form: an amount straight before "each", and short names after."""
+    work = working_text(text)
+    found = _EACH.search(work)
+    if not work or len(work) > MAX_LINE_CHARS or found is None:
+        return None
+    left = work[: found.start()]
+    measure = _measure(left, 0)
+    if measure is None:
+        return None
+    leftover = left[measure.end :].split()
+    extra = frozenset(_clean_token(word) for word in size_words if word.strip())
+    if len(leftover) > 1 or (leftover and not _is_size(_clean_token(leftover[0]), extra)):
+        return None
+    foods = _top_level_split(work[found.end() :])
+    if not 1 <= len(foods) <= MAX_EACH_FOODS or not all(_short_side(food) for food in foods):
+        return None
+    last = _brackets(foods[-1])[0].split()
+    if (
+        len(foods) == 2
+        and len(_brackets(foods[0])[0].split()) == 1
+        and len(last) >= 2
+        and _clean_token(last[-1]) in SHARED_TAILS
+    ):  # "onion & garlic powder"
+        foods[0] = f"{foods[0]} {last[-1]}"
+    return [f"{left.strip()} {food}" for food in foods]
+
+
 def read_lines(
     text: str, size_words: Iterable[str] = (), pint_ml: int | None = None
 ) -> list[ReadLine]:
-    """`read_line`, but a line that holds two ingredients gives two (see `split_line`). If
-    either half can't be read, the line is read as one. Never raises."""
+    """`read_line`, but a line that holds two ingredients gives two (see `split_line`), and
+    "1 tsp each salt, cumin" gives one line for each food (see `split_each`). If any part can't
+    be read, the line is read as one. Never raises."""
     extra = tuple(size_words)
+    each = split_each(text, extra)
+    if each is not None:
+        reads = [replace(read_line(part, extra, pint_ml), text=text) for part in each]
+        if all(read.readable for read in reads):
+            return reads
     parts = split_line(text)
     if len(parts) > 1:
         reads = [read_line(part, extra, pint_ml) for part in parts]
         if all(read.readable for read in reads):
             return reads
     whole = read_line(text, extra, pint_ml)
-    return _share_amount(whole) or [whole]
+    shared = _share_amount(whole)
+    if shared is not None:
+        return shared
+    return [_with_alternative(text, whole, extra, pint_ml)]
+
+
+def _top_level_or(work: str) -> tuple[str, str] | None:
+    """The text either side of the first " or " that is not inside brackets."""
+    depth = 0
+    for at, char in enumerate(work):
+        if char in "([":
+            depth += 1
+        elif char in ")]":
+            depth = max(depth - 1, 0)
+        elif depth == 0 and char.isspace():
+            found = _OR.match(work, at)
+            if found is not None:
+                return work[:at], work[found.end() :]
+    return None
+
+
+def _with_alternative(
+    text: str, whole: ReadLine, extra: tuple[str, ...], pint_ml: int | None
+) -> ReadLine:
+    """ "1 large shrak or 2 medium flat bread or tortillas": the line stays the first food, and
+    `alternative` is the other choice read as a line (F217). Both sides must be lines in their
+    own right, so "2 or 3 cloves", "chopped or sliced onions", "1 cup (whole or 2%)" and
+    "1 tsp salt, or to taste" have none."""
+    work = working_text(text)
+    sides = _top_level_or(work) if whole.readable and len(work) <= MAX_LINE_CHARS else None
+    if sides is None:
+        return whole
+    left_text, right_text = (side.strip(" ,;") for side in sides)
+    left = read_line(left_text, extra, pint_ml)
+    right = read_line(right_text, extra, pint_ml)
+    if not (left.readable and right.readable) or left.name == "" or _NO_AMOUNT.match(right_text):
+        return whole
+    modifier = left.name.split()
+    if len(modifier) == 1 and len(right.name.split()) >= 2:  # "black or white pepper"
+        left_text = f"{left_text} {' '.join(right.name.split()[1:])}"
+    if right.amount is None and right.size_word is None and left.amount is not None:
+        # "1 tbsp ghee or butter": the same amount of the other choice
+        right = replace(
+            right,
+            amount=left.amount,
+            unit=left.unit,
+            size_word=left.size_word,
+            counts=left.counts,
+            chosen=left.chosen,
+        )
+    note = ", ".join(part for part in (f"or {_tidy(left_text)}", right.note) if part)
+    other = replace(right, text=text, note=_cap(note, MAX_NOTE_CHARS), alternative=None)
+    return replace(whole, alternative=other)
 
 
 # --- One amount for two ingredients (F109) ----------------------------------------------------
