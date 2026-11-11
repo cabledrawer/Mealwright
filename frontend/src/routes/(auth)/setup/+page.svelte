@@ -15,7 +15,7 @@
   let { data }: PageProps = $props();
 
   // Same rules as the server (backend: account.py).
-  const MIN_PASSWORD = 10;
+  const MIN_PASSWORD = 12;
   const USERNAME = /^[a-z0-9][a-z0-9._-]{0,49}$/;
 
   let name = $state('');
@@ -98,7 +98,7 @@
       type="password"
       bind:value={password}
       autocomplete="new-password"
-      hint="At least 10 characters · stored scrambled, never as plain text"
+      hint="At least 12 characters · stored scrambled, never as plain text"
       error={checked ? errors.password : undefined}
     />
     <p class="note">

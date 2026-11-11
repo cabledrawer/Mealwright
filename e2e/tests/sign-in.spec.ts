@@ -33,7 +33,7 @@ test.describe('first run', () => {
     await expect(page.getByLabel('Your name')).toBeFocused();
     await expect(page.getByText('Enter your name.')).toBeVisible();
     await expect(page.getByText('Choose a username.')).toBeVisible();
-    await expect(page.getByText('Use at least 10 characters.')).toBeVisible();
+    await expect(page.getByText('Use at least 12 characters.')).toBeVisible();
 
     await page.getByLabel('Your name').fill(ADMIN.name);
     await page.getByLabel('Username').fill('Not Allowed!');

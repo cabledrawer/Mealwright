@@ -12,9 +12,9 @@ from sqlalchemy.exc import IntegrityError
 from mealwright.auth import (
     COOKIE,
     MAX_PASSWORD,
-    MIN_PASSWORD,
     CurrentLogin,
     Db,
+    NewPassword,
     SameOrigin,
     SlowDown,
     check_password,
@@ -83,7 +83,7 @@ class SetupState(BaseModel):
 class SetupIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     username: str
-    password: str = Field(min_length=MIN_PASSWORD, max_length=MAX_PASSWORD)
+    password: NewPassword
 
     @field_validator("name")
     @classmethod

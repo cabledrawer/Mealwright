@@ -26,10 +26,12 @@ from urllib.parse import urlsplit
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends, HTTPException, Request, Response, status
+from pydantic import AfterValidator, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.config import Settings
+from mealwright.errors import Problem
 from mealwright.models import Login, Session, utcnow
 
 log = logging.getLogger(__name__)
@@ -42,8 +44,12 @@ IDLE_TIMEOUT = timedelta(hours=12)
 LONGEST_SIGN_IN = REMEMBER_FOR
 SEEN_EVERY = timedelta(minutes=1)  # don't write last_seen_at on every request
 
-MIN_PASSWORD = 10
+# New passwords (setup, change, reset) need at least 12 characters; passwords people already
+# have keep working, however short (spec section 7, cabledrawer 19 Oct). Counted in characters
+# as Python counts them (code points), as the web app does.
+MIN_PASSWORD = 12
 MAX_PASSWORD = 1024
+TOO_SHORT = f"Use at least {MIN_PASSWORD} characters."
 
 _hasher = PasswordHasher()
 # Checked when the username doesn't exist, so a wrong username takes as long as a
@@ -80,6 +86,18 @@ def check_password(login: Login | None, password: str) -> bool:
     if _hasher.check_needs_rehash(stored):
         login.password_hash = _hasher.hash(password)
     return True
+
+
+def _long_enough(value: str) -> str:
+    # Raised as a Problem so the answer is one plain sentence, not pydantic's list.
+    if len(value) < MIN_PASSWORD:
+        raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "password_too_short", TOO_SHORT)
+    return value
+
+
+# Any password someone chooses from now on. Only for new passwords: signing in with one
+# never checks the length.
+NewPassword = Annotated[str, Field(max_length=MAX_PASSWORD), AfterValidator(_long_enough)]
 
 
 # --- Slow-down after wrong guesses -------------------------------------------------------

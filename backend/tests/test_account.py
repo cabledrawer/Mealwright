@@ -78,7 +78,8 @@ def test_setup_race_is_refused(client: TestClient) -> None:
 @pytest.mark.parametrize(
     "change",
     [
-        {"password": "short"},  # under 10 characters
+        {"password": "short"},
+        {"password": "eleven-char"},  # 11 characters: new passwords need 12 (cabledrawer 19 Oct)
         {"username": "Has Space"},
         {"username": ""},
         {"name": "   "},
@@ -87,6 +88,27 @@ def test_setup_race_is_refused(client: TestClient) -> None:
 def test_setup_checks_its_input(client: TestClient, change: dict[str, str]) -> None:
     assert client.post("/api/v1/setup", json=ADMIN | change).status_code == 422
     assert client.get("/api/v1/setup").json()["needs_setup"] is True
+
+
+def test_setup_says_how_long_a_password_must_be(client: TestClient) -> None:
+    response = client.post("/api/v1/setup", json=ADMIN | {"password": "eleven-char"})
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "Use at least 12 characters.",
+        "code": "password_too_short",
+    }
+    assert (
+        client.post("/api/v1/setup", json=ADMIN | {"password": "twelve-chars"}).status_code == 201
+    )
+
+
+def test_a_shorter_password_from_before_keeps_working(client: TestClient) -> None:
+    # Passwords people already have keep working, however short (spec section 7).
+    set_up(client)
+    with db(client) as session:
+        session.execute(update(Login).values(password_hash=auth.hash_password("ten-chars!")))
+        session.commit()
+    assert sign_in(client, "ten-chars!") == 200
 
 
 # argon2-cffi's defaults (RFC 9106): 64 MiB, 3 passes, 4 lanes. The tests hash cheaply
