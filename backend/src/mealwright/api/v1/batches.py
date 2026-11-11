@@ -95,6 +95,8 @@ class BatchPreviewOut(BaseModel):
     recipe_serves: int | None
     cook_date: date
     cook_meal_id: int
+    # The meal of the cook day (Batch cook may pick it for the person).
+    cook_slot_id: int | None = None
     colour: str
     tubs: list[PreviewTubOut]
     placed: int
@@ -137,6 +139,7 @@ def preview_out(worked: batches.Worked) -> BatchPreviewOut:
         recipe_serves=worked.recipe.serves,
         cook_date=worked.meal.day,
         cook_meal_id=worked.meal.id,
+        cook_slot_id=worked.meal.slot_id,
         colour=worked.colour,
         tubs=[
             PreviewTubOut(

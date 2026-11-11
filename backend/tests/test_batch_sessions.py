@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sync_kit import ok, person
 from test_batch_suggest import recipe
 from test_plan import db_of, slot_ids
-from test_plan_writes import D1, shape, undo, view
+from test_plan_writes import D1, plan_recipe, shape, undo, view
 from test_recipes import food
 
 from mealwright.models import BatchCook, BatchSession, Meal, MealItem, Tub
@@ -379,3 +379,137 @@ def test_the_start_of_the_session_is_the_earliest_start_ahead_of_its_recipes(
     assert session["id"] == written["session_id"]
     assert session["start_day"] is not None and session["start_time"] is not None
     assert len(session["start_time"]) == 5
+
+
+# --- Review round 1 (B2): the meal, the preview of a change, the savepoint ----------------------
+
+
+def _meal_of(kitchen: TestClient, session_id: int) -> int:
+    """The meal slot a session's recipes are planned in."""
+    return int(ok(kitchen.get(f"{API}/batch-cook/sessions/{session_id}"))["slot_id"])
+
+
+def _no_slot(kitchen: TestClient, ids: list[int], **extra: Any) -> dict[str, Any]:
+    sent = body(kitchen, ids, **extra)
+    del sent["slot_id"]
+    return sent
+
+
+def test_a_session_with_no_meal_named_goes_in_the_last_meal_with_no_recipe_that_day(
+    kitchen: TestClient, three: list[int]
+) -> None:
+    slots = slot_ids(kitchen)
+    # Nothing planned: the last meal that is on.
+    first = ok(kitchen.post(f"{API}/batch-cook/sessions", json=_no_slot(kitchen, three[:2])), 201)
+    assert _meal_of(kitchen, first["session_id"]) == slots["Dinner"]
+    # Dinner now has recipes: the session goes in the next one up.
+    undo(kitchen, first)
+    plan_recipe(kitchen, three[2], D1, slots["Dinner"])
+    second = ok(kitchen.post(f"{API}/batch-cook/sessions", json=_no_slot(kitchen, three[:2])), 201)
+    assert _meal_of(kitchen, second["session_id"]) == slots["Lunch"]
+
+
+def test_tubs_do_not_fill_a_meal_and_the_week_the_screen_loaded_does_not_matter(
+    kitchen: TestClient, three: list[int]
+) -> None:
+    slots = slot_ids(kitchen)
+    day = D1 + timedelta(days=30)  # a month away from anything the Plan has loaded
+    # A batch cooked the day before, its tubs in lunch and dinner on the cook day.
+    cooking = plan_recipe(kitchen, three[2], day - timedelta(days=1), slots["Dinner"])
+    spread = {"tub_count": 2, "pattern": "lunch_dinner"}
+    ok(kitchen.post(f"{API}/plan/items/{cooking['item_id']}/batch", json=spread), 201)
+    meals = {m["slot_id"] for m in view(kitchen, day, 0)["meals"] if m["date"] == day.isoformat()}
+    assert {slots["Lunch"], slots["Dinner"]} <= meals  # both hold tubs
+    sent = _no_slot(kitchen, three[:2])
+    sent["date"] = day.isoformat()
+    made = ok(kitchen.post(f"{API}/batch-cook/sessions", json=sent), 201)
+    assert _meal_of(kitchen, made["session_id"]) == slots["Dinner"]  # not Breakfast
+
+
+def test_changing_a_session_keeps_its_meal_and_a_named_meal_wins(
+    kitchen: TestClient, three: list[int]
+) -> None:
+    slots = slot_ids(kitchen)
+    made = ok(kitchen.post(f"{API}/batch-cook/sessions", json=body(kitchen, three[:2])), 201)
+    assert _meal_of(kitchen, made["session_id"]) == slots["Dinner"]
+    # Something else is planned in Dinner now, so the rule alone would move the session.
+    plan_recipe(kitchen, three[2], D1, slots["Dinner"])
+    same = ok(
+        kitchen.put(
+            f"{API}/batch-cook/sessions/{made['session_id']}", json=_no_slot(kitchen, three[:2])
+        )
+    )
+    assert _meal_of(kitchen, same["session_id"]) == slots["Dinner"]
+    named = body(kitchen, three[:2])
+    named["slot_id"] = slots["Lunch"]
+    moved = ok(kitchen.put(f"{API}/batch-cook/sessions/{same['session_id']}", json=named))
+    assert _meal_of(kitchen, moved["session_id"]) == slots["Lunch"]
+
+
+def test_the_preview_of_a_change_is_what_the_change_saves(
+    kitchen: TestClient, three: list[int]
+) -> None:
+    made = ok(kitchen.post(f"{API}/batch-cook/sessions", json=body(kitchen, three[:2])), 201)
+    new = body(kitchen, three[:2], tubs=2)
+    del new["slot_id"]
+    # Without the session named, its own tubs fill the dinners the preview offers.
+    blind = ok(kitchen.post(f"{API}/batch-cook/sessions/preview", json=new))
+    seen = ok(
+        kitchen.post(
+            f"{API}/batch-cook/sessions/preview", json={**new, "session_id": made["session_id"]}
+        )
+    )
+    assert [t["date"] for t in seen["tubs"]] != [t["date"] for t in blind["tubs"]]
+    assert seen["cook_slot_id"] == _meal_of(kitchen, made["session_id"])
+    changed = ok(kitchen.put(f"{API}/batch-cook/sessions/{made['session_id']}", json=new))
+    plan = view(kitchen)
+    last = max(
+        (b for b in plan["batch_cooks"] if b["session_id"] == changed["session_id"]),
+        key=lambda b: b["id"],
+    )
+    saved = sorted(t["id"] for t in plan["tubs"] if t["batch_id"] == last["id"])
+    placed = sorted(m["date"] for m in plan["meals"] for i in m["items"] if i["tub_id"] in saved)
+    assert placed == sorted(t["date"] for t in seen["tubs"] if t["date"])
+
+
+def test_a_preview_of_a_change_names_only_the_households_own_session(
+    kitchen: TestClient, neighbour: TestClient, three: list[int]
+) -> None:
+    made = ok(kitchen.post(f"{API}/batch-cook/sessions", json=body(kitchen, three[:2])), 201)
+    theirs = recipe(neighbour, "Theirs", [food(neighbour, "Rice")])["id"]
+    sent = body(neighbour, [theirs])
+    sent["session_id"] = made["session_id"]
+    assert neighbour.post(f"{API}/batch-cook/sessions/preview", json=sent).status_code == 404
+
+
+def test_a_preview_saves_nothing_even_when_the_session_is_committed_after_it(
+    kitchen: TestClient, three: list[int]
+) -> None:
+    """The savepoint is what keeps the preview from saving: commit after it and count."""
+    from mealwright import batch_sessions
+    from mealwright.api.v1.context import Kitchen
+    from mealwright.models import Change
+
+    def totals() -> tuple[int, ...]:
+        with db_of(kitchen) as db:
+            return (
+                *counts(kitchen),
+                db.scalar(select(func.count()).select_from(Change)) or 0,
+            )
+
+    before = totals()
+    with db_of(kitchen) as db:
+        from mealwright.models import Household, Login
+
+        login = db.scalars(select(Login)).first()
+        household = db.get(Household, 1)
+        assert login is not None and household is not None
+        door = Kitchen(db, login, household, None, "POST /preview")
+        choices = [
+            batch_sessions.RecipeChoice(recipe_id=i, tub_count=2, pattern="dinners")
+            for i in three[:2]
+        ]
+        slot = slot_ids(kitchen)["Dinner"]
+        batch_sessions.preview(door, D1, slot, choices, lambda worked: len(worked.tubs))
+        db.commit()  # what a stray flush would be kept by
+    assert totals() == before

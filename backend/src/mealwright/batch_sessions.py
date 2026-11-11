@@ -23,6 +23,7 @@ from sqlalchemy import select
 from mealwright import batch_suggest, batches, plan
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
+from mealwright.household import meal_slots
 from mealwright.models import BatchCook, BatchSession, Change, Meal, MealItem, Recipe
 
 FEWEST = batch_suggest.FEWEST_PICKS
@@ -154,13 +155,50 @@ def _apply(
     return session, meal
 
 
+def session_slot(kitchen: Kitchen, session: BatchSession) -> int | None:
+    """The meal a session's recipes are planned in (its first batch's cook meal), or None."""
+    for batch in batches_of(kitchen, session):
+        meal = kitchen.db.get(Meal, batch.cook_meal_id) if batch.cook_meal_id else None
+        if meal is not None and meal.household_id == kitchen.household_id:
+            return meal.slot_id
+    return None
+
+
+def pick_slot(kitchen: Kitchen, day: date) -> int:
+    """The meal a new session goes in when none is named: the last meal that is on and has no
+    recipe planned on the cook day itself (tubs and plain ingredients don't count), else the last
+    meal that is on. Read for the cook day, whatever week the screen has loaded."""
+    on = [s for s in meal_slots(kitchen.db, kitchen.household_id) if s.enabled]
+    if not on:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "no_meals_on",
+            "Switch a meal on first.",  # proposed, for cabledrawer
+        )
+    busy = set(
+        kitchen.db.scalars(
+            select(Meal.slot_id)
+            .join(MealItem, MealItem.meal_id == Meal.id)
+            .where(
+                Meal.household_id == kitchen.household_id,
+                Meal.day == day,
+                MealItem.recipe_id.is_not(None),
+            )
+        )
+    )
+    free = [s for s in on if s.id not in busy]
+    return (free or on)[-1].id
+
+
 def _words(kitchen: Kitchen, day: date, count: int) -> str:
     return f"{count} recipes for {day:%a} {day.day} {day:%b}"
 
 
-def create(kitchen: Kitchen, day: date, slot_id: int, choices: list[RecipeChoice]) -> Change:
+def create(kitchen: Kitchen, day: date, slot_id: int | None, choices: list[RecipeChoice]) -> Change:
     """Plan this batch: one change, one Undo, for the whole session."""
     hidden_check(kitchen)
+    if slot_id is None:
+        slot_id = pick_slot(kitchen, day)
     recipes = _check(kitchen, day, slot_id, choices)
     steps: list[dict[str, Any]] = []
     session, meal = _apply(kitchen, day, slot_id, choices, recipes, steps)
@@ -217,11 +255,16 @@ def change(
     kitchen: Kitchen,
     session: BatchSession,
     day: date,
-    slot_id: int,
+    slot_id: int | None,
     choices: list[RecipeChoice],
 ) -> Change:
-    """Change: the session's recipes are taken off and the new ones planned, in one change."""
+    """Change: the session's recipes are taken off and the new ones planned, in one change. With
+    no meal named the session stays in the meal it was in."""
     hidden_check(kitchen)
+    if slot_id is None:
+        slot_id = session_slot(kitchen, session)
+    if slot_id is None:
+        slot_id = pick_slot(kitchen, day)
     recipes = _check(kitchen, day, slot_id, choices)
     steps: list[dict[str, Any]] = []
     _take_off(kitchen, session, steps)
@@ -239,19 +282,28 @@ def change(
 def preview[T](
     kitchen: Kitchen,
     day: date,
-    slot_id: int,
+    slot_id: int | None,
     choices: list[RecipeChoice],
     render: Callable[[batches.Worked], T],
+    session: BatchSession | None = None,
 ) -> T:
     """Where the last recipe's tubs would land, after the ones before it (the Cook once sheets of
     a session follow each other, so each one sees the meals the earlier ones filled). Makes
     everything in a savepoint and takes it back: nothing is saved. `render` turns the result into
-    plain data while the savepoint is still open."""
+    plain data while the savepoint is still open. `session` is the session being changed: it is
+    taken off first inside the savepoint, as the change itself does, so the preview is what will
+    be saved."""
     hidden_check(kitchen)
+    if slot_id is None:
+        slot_id = session_slot(kitchen, session) if session else None
+    if slot_id is None:
+        slot_id = pick_slot(kitchen, day)
     recipes = _check(kitchen, day, slot_id, choices, fewest=1)
     last = choices[-1]
     sub = kitchen.db.begin_nested()
     try:
+        if session is not None:
+            _take_off(kitchen, session, [])
         _plan_each(kitchen, day, slot_id, choices[:-1], recipes[:-1], [], None)
         _added, _meal, item, _name = plan.add_item_steps(
             kitchen, day, slot_id, recipes[-1], None, None

@@ -183,7 +183,7 @@ def test_the_why_line_names_the_shared_prep_the_wait_and_the_other_recipe(
     )
     assert why["Sambar"].startswith(
         "Shares curry leaf, onion and tomato prep with Chicken chettinad; "
-        "the pressure cooker runs while you work on the others"
+        "pressure cooker runs while you chop for the others"
     )
 
 
@@ -369,3 +369,14 @@ def test_the_other_households_recipes_are_never_picked_or_kept(
 
 def test_it_is_signed_in_only(client: TestClient) -> None:
     assert client.get(f"{API}/batch-cook/suggestions").status_code in (401, 403)
+
+
+def test_the_pressure_clause_uses_the_mockups_words_and_a_capital_when_first(
+    kitchen: TestClient,
+) -> None:
+    cooker = recipe(kitchen, "Dal", [food(kitchen, "Toor")], ["Pressure cook for 3 whistles."])
+    plain = recipe(kitchen, "Rice", [food(kitchen, "Basmati")], ["Stir."])
+    for made in (cooker, plain):
+        cooked(kitchen, made["id"], 1)
+    why = {p["name"]: p["why"] for p in suggest(kitchen, count=2)["picks"]}
+    assert why["Dal"] == "Pressure cooker runs while you chop for the others."

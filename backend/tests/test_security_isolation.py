@@ -418,6 +418,7 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     # test_another_households_ids_are_not_found_on_any_route.
     ("SessionIn", "slot_id"): "test_batch_sessions",
     ("SessionPreviewIn", "slot_id"): "test_batch_sessions",
+    ("SessionPreviewIn", "session_id"): "test_batch_sessions",
     ("SessionRecipeIn", "recipe_id"): "test_batch_sessions",
     ("SessionRecipeIn", "member_login_ids"): "test_batch_sessions",
     ("BatchIn", "member_login_ids"): "test_plan_batches",

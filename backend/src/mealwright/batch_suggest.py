@@ -336,7 +336,7 @@ def _why(pick: Candidate, others: list[Candidate]) -> str:
             longest = max(waits, key=lambda s: s.minutes)
             clauses.append(
                 {
-                    "pressure": "the pressure cooker runs while you work on the others",
+                    "pressure": "pressure cooker runs while you chop for the others",
                     "oven": "the oven does the work while you cook the others",
                     "hob": "simmers while you work on the others",
                 }.get(longest.equipment, "waits while you work on the others")

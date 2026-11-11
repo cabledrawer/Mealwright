@@ -129,13 +129,22 @@ class SessionRecipeIn(BatchIn):
 
 class SessionIn(BaseModel):
     date: Day = Field(description="The cook day.")
-    slot_id: StoredInt = Field(description="The meal of the cook day the recipes are planned in.")
+    slot_id: StoredInt | None = Field(
+        default=None,
+        description="The meal of the cook day the recipes are planned in. Left out: the last meal"
+        " that is on and has no recipe planned that day (a change keeps the session's own meal).",
+    )
     recipes: Annotated[list[SessionRecipeIn], Field(min_length=2, max_length=4)]
 
 
 class SessionPreviewIn(BaseModel):
     date: Day
-    slot_id: StoredInt
+    slot_id: StoredInt | None = None
+    session_id: StoredInt | None = Field(
+        default=None,
+        description="The session being changed: it is taken off first (as the change does), so the"
+        " preview is what the change will save.",
+    )
     recipes: Annotated[
         list[SessionRecipeIn],
         Field(
@@ -165,8 +174,14 @@ def _choices(body: SessionIn | SessionPreviewIn) -> list[batch_sessions.RecipeCh
 def preview_session(body: SessionPreviewIn, kitchen: Here) -> BatchPreviewOut:
     """Where the last recipe's tubs would land, with the recipes before it already planned (the
     Cook once sheets of a session follow each other). Changes nothing."""
+    changing = batch_sessions.find_session(kitchen, body.session_id) if body.session_id else None
     return batch_sessions.preview(
-        kitchen, body.date, body.slot_id, _choices(body), lambda worked: preview_out(worked)
+        kitchen,
+        body.date,
+        body.slot_id,
+        _choices(body),
+        lambda worked: preview_out(worked),
+        changing,
     )
 
 
@@ -197,6 +212,8 @@ class SessionRecipeOut(BaseModel):
 class SessionOut(BaseModel):
     id: int
     cook_day: Day
+    # The meal its recipes are planned in (null when none is any more).
+    slot_id: int | None
     together_minutes: int | None
     one_by_one_minutes: int | None
     recipes: list[SessionRecipeOut]
@@ -211,6 +228,7 @@ def get_session(session_id: StoredInt, kitchen: Here) -> SessionOut:
     return SessionOut(
         id=session.id,
         cook_day=session.cook_day,
+        slot_id=batch_sessions.session_slot(kitchen, session),
         together_minutes=session.together_minutes,
         one_by_one_minutes=session.one_by_one_minutes,
         recipes=[
