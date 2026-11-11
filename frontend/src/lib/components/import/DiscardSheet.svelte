@@ -1,7 +1,7 @@
 <script lang="ts">
   // "Discard this draft?" (F211, cabledrawer 10 Nov: Discard draft on Check asks once, deletes the
   // draft and its waiting photo, and Undo is in Recent changes, as on the Drafts list). The words
-  // here are proposed, for cabledrawer; the button's name is his. A sheet on a phone, a dialog on a
+  // here are accepted, cabledrawer 11 Nov; the button's name is his. A sheet on a phone, a dialog on a
   // computer, the same shape as the leave sheet.
   import { onMount } from 'svelte';
   import { holdUndo } from '#lib/undo.svelte.js';

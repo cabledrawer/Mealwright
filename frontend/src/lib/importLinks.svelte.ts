@@ -30,7 +30,7 @@ export const LINKS_HELP =
   'Each recipe goes to Drafts to check and save later. If one link can’t be read, the rest carry on. You can leave this screen.';
 export const LINKS_SERVER_NOTE =
   'Only Mealwright’s server fetches these pages, and only because Recipe import is switched on in Settings.';
-/** Quick import (F216, cabledrawer 10 Nov; the words are proposed, for cabledrawer). */
+/** Quick import (F216, cabledrawer 10 Nov; the words are accepted, cabledrawer 11 Nov). */
 export const savedWords = (count: number): string =>
   `Saved ${count} ${count === 1 ? 'recipe' : 'recipes'}`;
 export const saveReadyWords = (count: number): string =>

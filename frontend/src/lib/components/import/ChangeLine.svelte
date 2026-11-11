@@ -4,7 +4,7 @@
   // under the row. Pick an ingredient and New ingredient are the row's own parts (the pick-list
   // and the form); Edit the name read corrects what the reader found and looks for an ingredient
   // by that name. Cancel leaves the row as it was. The buttons' words are cabledrawer's; the
-  // hint and the box's label are proposed, for cabledrawer.
+  // hint and the box's label are accepted, cabledrawer 11 Nov.
   import { focusOnMount } from '#lib/focusOnMount.js';
 
   function focusFirst(node: HTMLElement) {

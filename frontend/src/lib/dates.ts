@@ -13,7 +13,7 @@ export function addDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** The words when a typed date is odd or out of range (F220; proposed, for cabledrawer). */
+/** The words when a typed date is odd or out of range (F220; accepted, cabledrawer 11 Nov). */
 export const BAD_DATE = 'That date doesn’t look right. Pick another.';
 
 /** A real day, written "2026-10-20", in a sane range. A date box can hand back a stray

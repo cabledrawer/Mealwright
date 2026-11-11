@@ -46,7 +46,7 @@
     problem = null
   }: { flow: ImportFlow; index: number; line: ReviewLine; problem?: string | null } = $props();
 
-  /** Edit the name read with no answer from the server (proposed, for cabledrawer). */
+  /** Edit the name read with no answer from the server (accepted, cabledrawer 11 Nov). */
   const RENAME_OFFLINE =
     'Name changed. Looking for an ingredient with that name needs a connection, so the row keeps its match.';
 

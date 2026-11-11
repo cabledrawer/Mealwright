@@ -12,7 +12,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Open a result (F209):** after several links, each read row has **Check**, which opens its draft; a row whose ingredients all matched says **✓ All matched**, the others **Needs checking** (FX6).
 - **Quick import (F216):** after several links, **Save 3 ready recipes** saves every draft whose ingredients all matched (nothing to confirm or needing you), one after another with the Drafts list's own Save recipe; the others stay in Drafts. One toast says **Saved 3 recipes** with one Undo that takes every save back (the server's own Undo of an import: each recipe goes and its draft comes back to Drafts). A draft that can't be saved stays in Drafts with the server's sentence on its row. The saved rows say **✓ Saved** with **Open**.
 - **After review (round 1):** the quick import's one Undo carries on past a save it can't take back and says **Undid 2 of 3**; a row whose draft is gone says **No longer in Drafts**; Cancel on New ingredient (from Change) puts the row, and the rows that took its choice, back; Next draft never names the draft just saved; offline, Edit the name read keeps the match and says the lookup needs a connection.
-- No API, database, library or Privacy change. Words are in `docs/dev/words.md` section 61 (proposed, for cabledrawer, except the button names above).
+- No API, database, library or Privacy change. Words are in `docs/dev/words.md` section 61 (accepted, cabledrawer 11 Nov, except the button names above).
 
 ## [0.8.0-beta.1] - 2026-11-10
 

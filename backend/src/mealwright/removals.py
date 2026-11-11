@@ -223,7 +223,7 @@ def _undo_shop_edit(kitchen: Kitchen, change: Change) -> None:
     data = (change.undo_data or {}).get("shop") or {}
     shop = db.get(Shop, data.get("id"))
     if shop is None or shop.household_id != kitchen.household_id:
-        raise _cannot_undo("That can’t be undone: the shop is gone.")  # proposed, for cabledrawer
+        raise _cannot_undo("That can’t be undone: the shop is gone.")  # accepted, cabledrawer 11 Nov
     if change.kind == "shop_added":
         in_use = db.scalar(
             select(Food.id).where(

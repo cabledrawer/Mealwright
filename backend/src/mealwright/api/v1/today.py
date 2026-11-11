@@ -194,7 +194,7 @@ class MovedIn(BaseModel):
     @classmethod
     def _one_start_each(cls, starts: list[ItemStartIn]) -> list[ItemStartIn]:
         if len({s.item_id for s in starts}) != len(starts):
-            raise ValueError("One start time for each recipe.")  # proposed, for cabledrawer
+            raise ValueError("One start time for each recipe.")  # accepted, cabledrawer 11 Nov
         return starts
 
 
