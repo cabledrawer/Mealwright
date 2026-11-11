@@ -1,6 +1,7 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
+import { batchCook } from '#lib/batchCook.svelte.js';
 import { drafts } from '#lib/drafts.svelte.js';
 import { network } from '#lib/network.svelte.js';
 import { fakeApi } from '#lib/testing/fakeApi.js';
@@ -85,5 +86,45 @@ describe('the sidebar’s Drafts entry', () => {
     await expect.element(page.getByText(VERSION_WORDS)).toBeVisible();
     expect(VERSION_WORDS).toMatch(/^Mealwright v\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?$/);
     expect(document.querySelector('.settings .cog')).not.toBeNull();
+  });
+});
+
+describe('the sidebar’s Batch cook entry (B2)', () => {
+  let component: ReturnType<typeof mount> | null = null;
+
+  async function open(batch_cook: boolean) {
+    await page.viewport(1280, 800);
+    fakeApi({
+      'GET /household': [200, { batch_cook }],
+      'GET /recipes/drafts': [200, { drafts: [], count: 0 }]
+    });
+    component = mount(Sidebar, { target: document.body });
+    flushSync();
+  }
+
+  afterEach(() => {
+    if (component) unmount(component);
+    component = null;
+    document.body.innerHTML = '';
+    vi.unstubAllGlobals();
+    network.reset();
+    batchCook.shown = true;
+    batchCook.known = false;
+  });
+
+  it('is after Plan, with the Experimental flask', async () => {
+    await open(true);
+    const links = [...document.querySelectorAll('nav[aria-label="Main"] > a')].map((a) =>
+      (a.textContent ?? '').replace(/\s+/g, ' ').trim()
+    );
+    expect(links.slice(0, 4)).toEqual(['Today', 'Plan', 'Batch cook Experimental', 'Shopping']);
+    const link = document.querySelector<HTMLAnchorElement>('a[href$="/batch-cook"]')!;
+    expect(link.querySelector('.flask')).not.toBeNull();
+  });
+
+  it('is gone when an admin has hidden it', async () => {
+    await open(false);
+    await vi.waitFor(() => expect(document.querySelector('a[href$="/batch-cook"]')).toBeNull());
+    expect(batchCook.known).toBe(true);
   });
 });

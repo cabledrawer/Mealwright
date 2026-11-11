@@ -4,6 +4,15 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Batch cook: suggestions and the Plan (0.8 wave 6, B2; cabledrawer 28 Oct, 6 Nov and 11 Nov)
+
+- **Database change 2 of 3 for Batch cook** (migration `d5a2c7e9b316`): a **batch session** table (cook day and the rough times), `batch_cook.session_id` (the session a Cook once batch was made in; empty for every batch before) and `household.batch_cook_hidden`. Going back drops them; the recipes keep their batches as ordinary Cook once batches. Back up first.
+- **Suggestions (`GET /api/v1/batch-cook/suggestions`):** 2 to 4 recipes from the household's own, picked on the server (nothing leaves it) by shared prep, then Use soon ingredients, then not cooked in the last 14 days, then what the kitchen can do; each pick has its why line and minutes, the set says how long it takes together (waiting steps overlap, hands-on steps never do, never more hob rings, pressure cookers or ovens than the kitchen has) and one by one. The same data gives the same picks; swap and Show me others.
+- **Sessions:** `POST /batch-cook/sessions` ("Plan this batch": each recipe planned on the cook day and cooked once, one change with one Undo for all of it), `.../sessions/preview` (each Cook once sheet sees the ones before it), `GET`, `PUT` (Change) and `DELETE` of a session. `GET /plan` also has `batch_sessions` and each batch cook's `session_id`.
+- **Screens:** a sidebar entry on the computer and the Plan's third tab on the phone, both with the pink Experimental flask; the first-time note with Got it (remembered per person in this browser); Your kitchen opens first the first time; cook day, how many, the picks with Swap and Open recipe, Show me others and Plan this batch (one Cook once sheet after another, "1 of 3"; Cancel plans nothing); on the Plan, one Batch cook card on the cook day with Start batch cook (Cook mode for the first recipe until batch cook mode is built), Change and Remove, and **Batch · Sun** on each meal from it.
+- **Admin switch:** Settings, Your kitchen, **Show Batch cook** (admins only) hides the sidebar entry, the Plan tab and the suggestions.
+- No library, Privacy or outside-connection change. Words are in `docs/dev/words.md` section 63 (mockup words agreed, the rest proposed, for cabledrawer).
+
 ### Batch cook: step timings and your kitchen (0.8 wave 6, B1, F142; cabledrawer 28 Oct, 6 Nov and 11 Nov)
 
 - **Database change 1 of 3 for Batch cook** (migration `c3e9a1d7b504`): a step can carry what a person set by hand (hands-on or waiting, minutes, equipment); the household has a kitchen (4 hob rings, 1 pressure cooker, an oven, "not asked yet"). Nothing is filled in for old recipes: a guess is made from the step's words each time a step is read, so old recipes have guesses at once and a changed step has a fresh one. A value set by hand is never overwritten. Going back drops the columns (the by-hand timings and the kitchen are lost).

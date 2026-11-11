@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MealSlot, Plan, PlanItem, PlanMeal } from './client/plan';
+import type { MealSlot, Plan, PlanBatch, PlanItem, PlanMeal } from './client/plan';
 import {
   afterCook,
   batchColour,
@@ -10,6 +10,8 @@ import {
   leftName,
   mealColour,
   mealName,
+  sessionTag,
+  sessionsOn,
   mealTotals,
   nextFreeMeals,
   recipeMeta,
@@ -357,5 +359,51 @@ describe('a meal cooked in parts (F162)', () => {
     expect(leftName(meal([soup, bread]))).toBe('Banana bread');
     expect(leftName(meal([bread, recipe(3, 'Raita'), soup]))).toBe('Banana bread and 1 more');
     expect(leftName(meal([{ ...bread, cooked: true }]))).toBe('Banana bread');
+  });
+});
+
+describe('Batch cook sessions on the plan (B2)', () => {
+  const batch = (over: Partial<PlanBatch>): PlanBatch => ({
+    id: 1,
+    recipe_id: 1,
+    recipe_name: 'Sambar',
+    cook_meal_id: null,
+    cooked_on: '2026-11-15',
+    tub_count: 3,
+    pattern: 'dinners',
+    prep_note: null,
+    colour: 'blue',
+    portions: 4,
+    portions_left: 0,
+    session_id: null,
+    ...over
+  });
+
+  it('a batch made in a session says Batch · and its cook day; a plain one says nothing', () => {
+    expect(sessionTag(batch({ session_id: 7 }))).toBe('Batch · Sun');
+    expect(sessionTag(batch({ session_id: null }))).toBeNull();
+    expect(sessionTag(undefined)).toBeNull();
+  });
+
+  it('finds the sessions cooked on a day', () => {
+    const session = (id: number, cook_day: string) => ({
+      id,
+      cook_day,
+      together_minutes: null,
+      one_by_one_minutes: null,
+      start_day: null,
+      start_time: null
+    });
+    const plan = {
+      start: '',
+      end: '',
+      meals: [],
+      batch_cooks: [],
+      tubs: [],
+      batch_sessions: [session(1, '2026-11-15'), session(2, '2026-11-16')]
+    };
+    expect(sessionsOn(plan, '2026-11-15').map((s) => s.id)).toEqual([1]);
+    expect(sessionsOn(plan, '2026-11-20')).toEqual([]);
+    expect(sessionsOn(null, '2026-11-15')).toEqual([]);
   });
 });
