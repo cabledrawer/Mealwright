@@ -163,6 +163,26 @@ describe('Batch cook mode model', () => {
     }
   });
 
+  it('sends nothing, and tries nothing again, once the screen is left', async () => {
+    vi.useFakeTimers();
+    try {
+      calls.start.mockResolvedValue(two());
+      calls.done.mockRejectedValue(offline());
+      const model = new BatchModeModel(7);
+      await model.load();
+      model.mark('done', 't1');
+      await model.flush();
+      expect(calls.done).toHaveBeenCalledTimes(1);
+      model.stop(); // the retry was waiting
+      await vi.advanceTimersByTimeAsync(10_000);
+      await model.flush();
+      expect(calls.done).toHaveBeenCalledTimes(1);
+      expect(model.pending).toHaveLength(1); // still kept on the phone
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('a reload while offline carries on from what the phone kept', async () => {
     calls.start.mockResolvedValue(two());
     calls.done.mockRejectedValue(offline());

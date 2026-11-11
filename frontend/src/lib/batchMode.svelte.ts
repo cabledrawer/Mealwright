@@ -71,6 +71,7 @@ export class BatchModeModel {
 
   /** Start the clock (a screen that comes back to the front looks at it at once). */
   start(): void {
+    this.#stopped = false;
     this.#tick();
     const id = setInterval(() => this.#tick(), 1000);
     const visible = () => {
@@ -84,6 +85,7 @@ export class BatchModeModel {
   }
 
   stop(): void {
+    this.#stopped = true;
     this.stopRetrying();
     this.#stop?.();
     this.#stop = null;
@@ -190,14 +192,16 @@ export class BatchModeModel {
   }
 
   #retry: ReturnType<typeof setTimeout> | null = null;
+  /** The screen was left: nothing is sent or tried again after that (review B3 r1, fix 5). */
+  #stopped = false;
 
   /** Try the waiting marks again shortly: "back online" can be heard before the connection works,
    * and nothing else would ask again. */
   #retryLater(): void {
-    if (this.#retry !== null) return;
+    if (this.#stopped || this.#retry !== null) return;
     this.#retry = setTimeout(() => {
       this.#retry = null;
-      if (this.pending.length) void this.flush();
+      if (!this.#stopped && this.pending.length) void this.flush();
     }, RETRY_MS);
   }
 
@@ -208,10 +212,11 @@ export class BatchModeModel {
 
   /** Send the waiting marks, in order, until one can't be sent. */
   async flush(): Promise<void> {
-    if (this.#sending) return;
+    if (this.#stopped || this.#sending) return;
     this.#sending = true;
     try {
       while (this.pending.length) {
+        if (this.#stopped) return; // left while a mark was on its way: send no more
         const p = this.pending[0]!;
         try {
           // The time it was pressed goes with a done or a timer, so a mark made offline counts
