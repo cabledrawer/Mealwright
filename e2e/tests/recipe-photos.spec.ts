@@ -147,6 +147,9 @@ test('All recipes: when a name wraps onto several lines the square stays at the 
   await recipeWith(page, `${tag} a`, undefined, { time_minutes: null, nutrition: {} });
   await page.goto('/recipes');
   await search(page, tag);
+  // The search has been made and the list holds just these two rows: until then it still shows
+  // every recipe, and a row measured then moves before its square is measured (flaky on phone).
+  await expect(page.locator('li')).toHaveCount(2);
 
   const tall = row(page, 'spiced roasted');
   await expect(tall.locator('img')).toHaveCount(1);
