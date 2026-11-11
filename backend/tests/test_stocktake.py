@@ -691,3 +691,34 @@ def test_next_after_an_undone_answer_counts_that_row_as_checked_too(kitchen: Tes
     kitchen.post(f"{STOCKTAKE}/places/{cupboard}/finish")
     assert rows(kitchen, cupboard)["Toor dal"]["answered"] is True
     assert total(kitchen, dal["id"], cupboard) == 0
+
+
+# --- Whole-0.8 review fixes (RF3): S2 and C12 ----------------------------------------------------
+
+
+def test_a_tin_count_far_above_the_stock_is_stored_as_answered(kitchen: TestClient) -> None:
+    """S2: 30 tins there, an answer of 500: the pantry says 500 (it said 100), like the changes."""
+    cupboard = place(kitchen, "Cupboard")
+    tomatoes = food(kitchen, "Chopped tomatoes", place_id=cupboard)
+    packet(kitchen, tomatoes["id"], "tin", 400)
+    add(kitchen, tomatoes["id"], 12_000, "g", cupboard)  # 30 tins
+    for count in (500, 5_000):
+        done = answer(kitchen, cupboard, tomatoes["id"], {"count": count})
+        assert done.status_code == 200, done.text
+        assert total(kitchen, tomatoes["id"], cupboard) == count * 400_000
+        assert done.json()["row"]["count_now"] == str(count)
+        assert str(count) in done.json()["change"]["summary"]
+
+
+def test_a_pack_word_of_tin_tins_can_or_cans_is_counted_whole(kitchen: TestClient) -> None:
+    """C12 (cabledrawer, 11 Nov): tin, tins, can and cans count in whole units, any case."""
+    cupboard = place(kitchen, "Cupboard")
+    for word in ("tin", "Tins", "can", "CANS"):
+        item = food(kitchen, f"Stuff in {word}", place_id=cupboard)
+        packet(kitchen, item["id"], word, 400)
+        add(kitchen, item["id"], 800, "g", cupboard)
+        row = rows(kitchen, cupboard)[f"Stuff in {word}"]
+        assert (row["counted"], row["count_now"]) == (True, "2"), word
+    jar = food(kitchen, "Jam again", place_id=cupboard)
+    packet(kitchen, jar["id"], "jar", 400)
+    assert rows(kitchen, cupboard)["Jam again"]["counted"] is False

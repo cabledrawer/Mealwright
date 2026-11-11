@@ -55,16 +55,17 @@ from mealwright.models import (
     StocktakePlace,
     utcnow,
 )
-from mealwright.stock import MAX_LOTS, StockEdit, lots_of, put_in, take
+from mealwright.stock import StockEdit, lot_amounts, lots_of, put_in, take
 
 router = APIRouter(tags=["stocktake"], dependencies=[SameOrigin])
 
 # The picks on a packet: None · ¼ · ½ · ¾ · Full.
 QUARTERS = (Decimal(0), Decimal("0.25"), Decimal("0.5"), Decimal("0.75"), Decimal(1))
 MORE_MOST = 20  # "more packets" besides the open one
-# A pack word that is counted whole ("2 tins", minus and plus; cabledrawer 7 Nov). Jars, bags,
-# bottles and the rest keep the picks. The one rule: kept here, sent to the screen on each row.
-COUNTED_WHOLE = frozenset({"tin"})
+# A pack word that is counted whole ("2 tins", minus and plus; cabledrawer 7 Nov; "can", "cans"
+# and the plural too, cabledrawer 11 Nov). Jars, bags, bottles and the rest keep the picks. The one
+# rule: kept here (compared without case), sent to the screen on each row.
+COUNTED_WHOLE = frozenset({"tin", "tins", "can", "cans"})
 
 
 # --- Shapes ---------------------------------------------------------------------------------
@@ -591,11 +592,9 @@ def _top_up(
             edit.touch(target).amount_milli += fill
             more -= fill
     if more > 0:
-        whole, rest = divmod(more, size.amount_milli)
-        amounts = [size.amount_milli] * min(whole, MAX_LOTS + MORE_MOST)
-        if rest > 0:
-            amounts.append(rest)
-        put_in(kitchen, edit, food, place, amounts, size)
+        # The answer is stored as given: a very large one goes in as one lot (as an
+        # ordinary add does), never cut short (RF3, S2).
+        put_in(kitchen, edit, food, place, lot_amounts(more, size), size)
 
 
 @router.post("/stocktake/places/{place_id}/foods/{food_id}/staple")
