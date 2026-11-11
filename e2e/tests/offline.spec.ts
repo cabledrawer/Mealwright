@@ -794,7 +794,7 @@ test('S4: Already have it sent twice (the answer was lost) puts the amount in on
   expect((await pantryChanges(page, name)).filter((c) => c.kind === 'found')).toHaveLength(1);
 });
 
-test('S4: Already have it on two phones: both amounts go in, no "Did you buy 2?", one line in the trolley', async ({ page, context, browser }) => {
+test('S4: Already have it on two phones: it counts once, the second phone is told, no "Did you buy 2?", one line in the trolley', async ({ page, context, browser }) => {
   const name = `Jeera ${tag()}`;
   await signIn(page);
   await settleCards(page);
@@ -819,8 +819,12 @@ test('S4: Already have it on two phones: both amounts go in, no "Did you buy 2?"
     await otherContext.setOffline(false);
     await expect(bar(other)).toBeHidden({ timeout: 15_000 });
 
-    await expect.poll(() => pantryStock(page, foodId)).toEqual([[500, '500 g']]);
-    expect((await pantryChanges(page, name)).filter((c) => c.kind === 'found')).toHaveLength(2);
+    // RF2 Sh2 (cabledrawer 11 Nov): found once, whoever's came first; the other phone is told.
+    await expect.poll(() => pantryStock(page, foodId)).toEqual([[250, '250 g']]);
+    expect((await pantryChanges(page, name)).filter((c) => c.kind === 'found')).toHaveLength(1);
+    await expect(
+      other.getByRole('status').filter({ hasText: 'Already found at home by the other phone.' })
+    ).toBeVisible({ timeout: 10_000 });
     for (const p of [page, other]) {
       await expect(p.getByRole('region', { name: 'Did you buy 2?' })).toHaveCount(0);
     }

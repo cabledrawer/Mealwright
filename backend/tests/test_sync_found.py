@@ -194,13 +194,35 @@ def test_different_pack_does_not_apply_to_found(kitchen: TestClient) -> None:
     assert s.total("Paneer") == 100
 
 
-def test_found_on_two_phones_is_two_finds_and_no_card(kitchen: TestClient) -> None:
+def test_found_on_two_phones_counts_once_and_the_second_phone_is_told(
+    kitchen: TestClient,
+) -> None:
+    # RF2 Sh2 (cabledrawer 11 Nov, spec "Found at home twice"): this used to be two finds and 1500
+    # in the pantry for one carton at home (review of the whole of 0.8, Sh2).
     s = s0(kitchen)
-    _found(kitchen, s, "Milk", 1000, device=PHONE_A)
-    _found(s.wren, s, "Milk", 500, device=PHONE_R)
-    assert s.total("Milk") == 1500
+    first = _found(kitchen, s, "Milk", 1000, device=PHONE_A)
+    second = _found(s.wren, s, "Milk", 500, device=PHONE_R)
+    assert first["status"] == "applied"  # type: ignore[index]
+    assert (second["status"], second["reason"]) == ("ignored", "already_found")  # type: ignore[index]
+    assert second["message"] == "Already found at home by the other phone."  # type: ignore[index]
+    assert second.get("change") is None  # type: ignore[union-attr]  # nothing to undo
+    assert s.total("Milk") == 1000
     assert [q for q in changes(kitchen)["questions"] if q["open"]] == []
-    assert len(s.item(kitchen, "Milk")["ticks"]) == 2
+    assert len(s.item(kitchen, "Milk")["ticks"]) == 1
+    assert len(s.changes_of("Milk", "found")) == 1
+
+
+def test_found_twice_still_lets_the_first_be_undone_and_then_found_again(
+    kitchen: TestClient,
+) -> None:
+    s = s0(kitchen)
+    first = _found(kitchen, s, "Milk", 1000, device=PHONE_A)
+    _found(s.wren, s, "Milk", 500, device=PHONE_R)
+    one(kitchen, "undo", s.c0, PHONE_A, undoes=first["id"])  # type: ignore[index]
+    assert s.total("Milk") == 0
+    again = _found(s.wren, s, "Milk", 500, device=PHONE_R)
+    assert again["status"] == "applied"  # type: ignore[index]
+    assert s.total("Milk") == 500
 
 
 def test_found_then_a_bought_tick_on_another_phone_asks_nothing(kitchen: TestClient) -> None:

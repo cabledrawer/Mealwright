@@ -54,6 +54,8 @@ TICK_KINDS = (
     "different_pack",
     "answer_double_tick",
 )
+# Proposed, for cabledrawer (the words); the rule is his (11 Nov). Shown as a quiet note.
+FOUND_TWICE = "Already found at home by the other phone."
 AMOUNT_KINDS = ("shopped", "found", "repacked")  # a purchase's changes that change amounts (7.5)
 
 
@@ -357,6 +359,11 @@ def found_at_home(act: Act) -> None:
     standing = ticks_of(kitchen, item.id)
     if any(t.device_id is not None and t.device_id == act.device_id for t in standing):
         act.ignore("already_ticked")
+        return
+    if any(t.bought_milli and is_found(kitchen, t) for t in standing):
+        # RF2 Sh2 (cabledrawer 11 Nov): what is at home is found once, whoever says so first; the
+        # second phone is told and has nothing to undo. A bought tick beside it still counts.
+        act.ignore("already_found", FOUND_TWICE)
         return
     from mealwright import sync
 
