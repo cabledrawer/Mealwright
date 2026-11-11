@@ -139,15 +139,23 @@ class SlowDown:
     """Counts wrong guesses per username and per address over the last 15 minutes.
 
     The first FREE wrong guesses cost nothing. After that, each further guess has to
-    wait 30 seconds, doubling each time, up to 15 minutes. A right password clears the
-    username's count. Kept in memory: a restart clears it, which is fine for one
-    process on a home server.
+    wait 30 seconds, doubling each time: up to 15 minutes for an address, but never more
+    than a minute for a username (PR A2), so guesses from many addresses can't lock
+    someone out of their own account. A right password clears the username's count.
+
+    Kept in memory, not in the database: a restart clears it, which is fine for one
+    process on a home server, and nothing about wrong guesses is ever written to disk
+    beyond the sign-in log.
     """
 
     WINDOW = 15 * 60.0
     FREE = 5
     FIRST_WAIT = 30.0
     MAX_WAIT = 15 * 60.0
+    MAX_USERNAME_WAIT = 60.0
+
+    def _longest(self, key: str) -> float:
+        return self.MAX_USERNAME_WAIT if key.startswith("user:") else self.MAX_WAIT
 
     def __init__(self) -> None:
         self._failures: dict[str, deque[float]] = defaultdict(deque)
@@ -174,7 +182,7 @@ class SlowDown:
                 times = self._recent(key, at)
                 extra = len(times) - self.FREE
                 if extra >= 0:
-                    wait = min(self.FIRST_WAIT * 2**extra, self.MAX_WAIT)
+                    wait = min(self.FIRST_WAIT * 2**extra, self._longest(key))
                     longest = max(longest, times[-1] + wait - at)
         return max(0, math.ceil(longest))
 

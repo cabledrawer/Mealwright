@@ -56,6 +56,8 @@
   let remember = $state(true);
   let busy = $state(false);
   let problem = $state('');
+  /** The problem is a username's wrong-password pause (proposed wording, PR A2). */
+  let paused = $state(false);
 
   const secure = $derived(connection(window.isSecureContext, data.setup.plain_http_allowed));
   const device = matchMedia('(max-width: 767px)').matches ? 'phone' : 'computer';
@@ -161,6 +163,7 @@
   /** What a press of Sign in does, once it has the page to itself (busy). */
   async function look() {
     problem = '';
+    paused = false;
     losing = false;
     anyway = false;
     // Nobody signs in until an unfinished wipe has deleted the phone database: the form is
@@ -300,6 +303,7 @@
     } catch (error) {
       if (!(error instanceof ApiError)) throw error;
       problem = error.detail;
+      paused = error.code === 'username_paused';
       password = '';
     }
   }
@@ -379,6 +383,12 @@
     </div>
     {#if problem}
       <p class="problem" role="alert">{problem}</p>
+      {#if paused}
+        <p class="pause-note">
+          Only one wrong-password pause per username, never longer than a minute. Other people
+          can still sign in.
+        </p>
+      {/if}
     {/if}
     <!-- While the wipe hasn't finished, no warning's choices either: only Try again works. -->
     {#if warning && waiting && !locked}
@@ -474,6 +484,13 @@
     color: var(--color-warning-text);
     font-size: var(--text-base);
     font-weight: var(--weight-semibold);
+  }
+
+  .pause-note {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.45;
   }
 
   .unfinished {

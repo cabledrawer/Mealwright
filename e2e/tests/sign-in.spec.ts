@@ -10,6 +10,9 @@ const SECURE_NEEDED =
 const PLAIN_WARNING =
   'Not secure (plain http). Fine on this device on your own network. Other phones, the installable app and offline shopping need https.';
 
+const PAUSE_NOTE =
+  'Only one wrong-password pause per username, never longer than a minute. Other people can still sign in.';
+
 const heading = (page: Page) => page.getByRole('heading', { level: 1 });
 
 async function signIn(page: Page, password = ADMIN.password) {
@@ -93,6 +96,23 @@ test.describe('signing in', () => {
     await page.goto('/sign-in');
     await signIn(page);
     await expect(page.getByRole('alert')).toHaveText('Too many tries. Wait 2 minutes.');
+    await expect(page.getByText(PAUSE_NOTE)).toHaveCount(0);
+  });
+
+  test('a username’s wrong-password pause says others can still sign in', async ({ page }) => {
+    const detail = 'Too many wrong passwords for tess. Try again in 40 seconds.';
+    await page.route('**/api/v1/session', (route) =>
+      route.fulfill({
+        status: 429,
+        contentType: 'application/json',
+        headers: { 'Retry-After': '40' },
+        body: JSON.stringify({ detail, code: 'username_paused' }),
+      }),
+    );
+    await page.goto('/sign-in');
+    await signIn(page);
+    await expect(page.getByRole('alert')).toHaveText(detail);
+    await expect(page.getByText(PAUSE_NOTE)).toBeVisible();
   });
 
   test('"Remember this computer" keeps you signed in for 30 days', async ({ page, context }) => {

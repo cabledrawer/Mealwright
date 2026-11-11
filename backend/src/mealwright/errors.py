@@ -21,6 +21,8 @@ class Problem(Exception):
         self.code = code
         self.detail = detail
         self.extra = extra
+        # Extra HTTP headers for the answer (e.g. Retry-After); set after making it.
+        self.headers: dict[str, str] | None = None
 
 
 def not_found(what: str = "That") -> Problem:
@@ -79,4 +81,4 @@ def install(app: FastAPI) -> None:
     @app.exception_handler(Problem)
     async def _problem(_request: Request, problem: Problem) -> JSONResponse:
         body = {"detail": problem.detail, "code": problem.code, **problem.extra}
-        return JSONResponse(body, status_code=problem.status_code)
+        return JSONResponse(body, status_code=problem.status_code, headers=problem.headers)

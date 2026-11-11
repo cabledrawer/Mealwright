@@ -332,7 +332,10 @@ def test_slow_down_after_five_wrong_guesses(client: TestClient) -> None:
     # Even the right password has to wait.
     assert blocked.status_code == 429
     assert int(blocked.headers["retry-after"]) > 0
-    assert blocked.json()["detail"] == "Too many tries. Wait 30 seconds."
+    assert blocked.json() == {
+        "detail": "Too many wrong passwords for tess. Try again in 30 seconds.",
+        "code": "username_paused",
+    }
 
 
 @pytest.mark.parametrize(
@@ -367,6 +370,61 @@ def test_slow_down_timing() -> None:
     assert slow.wait_seconds(keys, at=44.0) == 15 * 60  # capped at 15 minutes
     # Old guesses drop out after 15 minutes.
     assert slow.wait_seconds(keys, at=44.0 + 15 * 60 + 1) == 0
+
+
+def test_a_username_is_never_paused_for_more_than_a_minute() -> None:
+    # Wrong guesses for one username from many addresses (perhaps someone else's): the
+    # pause grows, but never past a minute, so nobody can lock the owner out for long.
+    slow = SlowDown()
+    for i in range(40):
+        slow.failed(["user:tess", f"addr:10.0.0.{i}"], at=float(i * 61))
+    assert slow.wait_seconds(["user:tess"], at=39 * 61.0) == 60
+    # One address guessing still waits up to 15 minutes, as before.
+    for t in range(20):
+        slow.failed(["addr:1.2.3.4"], at=float(t))
+    assert slow.wait_seconds(["addr:1.2.3.4"], at=19.0) == 15 * 60
+
+
+def test_a_pause_reads_the_same_for_a_made_up_username(client: TestClient) -> None:
+    set_up(client)
+    answers = {}
+    for username in ("tess", "nobody-by-this-name"):
+        slow = client.app.state.slow_down  # type: ignore[attr-defined]
+        slow._failures.clear()
+        for _ in range(5):
+            client.post("/api/v1/session", json={"username": username, "password": "x"})
+        blocked = client.post("/api/v1/session", json={"username": username, "password": "x"})
+        assert blocked.status_code == 429
+        answers[username] = (blocked.json(), blocked.headers["retry-after"])
+    assert answers["tess"][0]["detail"].replace("tess", "NAME") == answers["nobody-by-this-name"][
+        "nobody-by-this-name"
+    ][0]["detail"].replace("nobody-by-this-name", "NAME")
+    assert answers["tess"][1] == answers["nobody-by-this-name"][1]
+
+
+def test_one_username_paused_leaves_others_signing_in(client: TestClient) -> None:
+    set_up(client)
+    slow = client.app.state.slow_down  # type: ignore[attr-defined]
+    for i in range(10):
+        slow.failed(["user:tess", f"addr:192.0.2.{i}"])
+    assert sign_in(client) == 429
+    client.app.state.slow_down.succeeded("user:tess")  # type: ignore[attr-defined]
+    for i in range(10):
+        slow.failed(["user:wren", f"addr:192.0.2.{i}"])
+    assert sign_in(client) == 200  # wren's pause is wren's alone
+
+
+def test_an_address_pause_says_so(client: TestClient) -> None:
+    set_up(client)
+    slow = client.app.state.slow_down  # type: ignore[attr-defined]
+    for i in range(7):  # seven wrong guesses from here, each for a different name
+        slow.failed([f"user:guess-{i}", "addr:testclient"])
+    blocked = client.post(
+        "/api/v1/session", json={"username": "tess", "password": ADMIN["password"]}
+    )
+    assert blocked.status_code == 429
+    assert blocked.json() == {"detail": "Too many tries. Wait 2 minutes.", "code": "too_many_tries"}
+    assert blocked.headers["retry-after"] == "120"
 
 
 def test_right_password_clears_the_username_count() -> None:
@@ -416,7 +474,9 @@ def test_the_message_matches_the_real_lock(
     for _ in range(5):
         assert sign_in(client, "wrong-password") == 401
     blocked = client.post("/api/v1/session", json={"username": "tess", "password": "x"})
-    assert blocked.json()["detail"] == "Too many tries. Wait 30 seconds."
+    assert blocked.json()["detail"] == (
+        "Too many wrong passwords for tess. Try again in 30 seconds."
+    )
     assert blocked.headers["retry-after"] == "30"
     clock[0] += 29.5
     assert sign_in(client, "wrong-password") == 429  # still locked half a second before
@@ -424,7 +484,9 @@ def test_the_message_matches_the_real_lock(
     assert sign_in(client, "wrong-password") == 401  # checked normally at 30 s
     # The 6th wrong guess doubles the wait, and the message says so.
     blocked = client.post("/api/v1/session", json={"username": "tess", "password": "x"})
-    assert blocked.json()["detail"] == "Too many tries. Wait 1 minute."
+    assert (
+        blocked.json()["detail"] == "Too many wrong passwords for tess. Try again in 1 minute."
+    )
     clock[0] += 59.5
     assert sign_in(client) == 429
     clock[0] += 0.5

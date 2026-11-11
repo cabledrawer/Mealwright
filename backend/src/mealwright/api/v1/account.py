@@ -25,6 +25,7 @@ from mealwright.auth import (
     session_token,
     start_session,
 )
+from mealwright.errors import Problem
 from mealwright.household import add_default_places, add_default_slots
 from mealwright.models import Household, Login
 from mealwright.names import one_line
@@ -167,6 +168,34 @@ def how_long(seconds: int) -> str:
     return f"{minutes} minute{'s' if minutes != 1 else ''}"
 
 
+def refuse_while_paused(slow: SlowDown, username: str, address: str) -> None:
+    """Refuse a try while the username or the address is paused after wrong passwords.
+
+    The username's pause (never more than a minute) is named when it's the one that
+    holds things up: it reads the same for a made-up username as for a real one, so it
+    never tells whether an account exists. Otherwise it's the address's pause.
+    """
+    for_username = slow.wait_seconds([f"user:{username}"])
+    for_address = slow.wait_seconds([f"addr:{address}"])
+    wait = max(for_username, for_address)
+    if not wait:
+        return
+    if for_username >= for_address:
+        problem = Problem(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "username_paused",
+            f"Too many wrong passwords for {username}. Try again in {how_long(wait)}.",
+        )
+    else:
+        problem = Problem(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "too_many_tries",
+            f"Too many tries. Wait {how_long(wait)}.",
+        )
+    problem.headers = {"Retry-After": str(wait)}
+    raise problem
+
+
 @router.post("/session")
 def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
     needs_https(request, request.app.state.settings)
@@ -174,19 +203,13 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
     username = _normalise_username(body.username)
     address = client_address(request)
     keys = [f"user:{username}", f"addr:{address}"]
-    wait = slow.wait_seconds(keys)
+    # Not logged: refused tries cost nothing, so logging each one would let anyone fill
+    # the disk. The slow-down is logged once, when it starts or doubles (below).
+    refuse_while_paused(slow, username, address)
     login = db.scalar(select(Login).where(Login.username == username))
     # Only a real account's name is logged: a password typed into the username box
     # must never end up in the log.
     who = login.username if login else "unknown user"
-    if wait:
-        # Not logged: refused tries cost nothing, so logging each one would let anyone
-        # fill the disk. The slow-down is logged once, when it starts or doubles (below).
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            f"Too many tries. Wait {how_long(wait)}.",
-            headers={"Retry-After": str(wait)},
-        )
     # A removed person's login can't sign in (0.9 A1), and is told only what anyone is.
     if not check_password(login, body.password) or login is None or removed(db, login):
         slow.failed(keys)
