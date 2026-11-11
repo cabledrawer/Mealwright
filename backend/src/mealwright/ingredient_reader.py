@@ -845,50 +845,51 @@ _AMOUNT_TALK = re.compile(
 )
 
 
-# Words that may follow the amount words of an amount talk ("or enough to cover", "or more if
-# needed", "or as you like") without naming an ingredient (RF4 r1 M).
-_TALK_FILLER = frozenset(
+# Words that may start what follows the amount words of an amount talk without naming an
+# ingredient ("or more as needed", "or more for frying", "or less if using salted butter",
+# "or enough to cover the rice", "or more depending on taste") (RF4 r1 M, r2 M).
+_TALK_LINK = frozenset(
     [
+        "as",
+        "for",
         "to",
-        "cover",
-        "taste",
+        "if",
+        "depending",
+        "according",
+        "based",
+        "when",
+        "until",
+        "so",
+        "than",
+        "or",
+        "per",
         "needed",
         "required",
         "desired",
-        "if",
-        "you",
-        "like",
-        "it",
-        "your",
-        "liking",
-        "preference",
         "preferred",
-        "want",
-        "wish",
-        "prefer",
-        "need",
-        "is",
-        "the",
-        "of",
-        "than",
-        "per",
-        "a",
-        "bit",
+        "taste",
+        "you",
+        "your",
     ]
 )
 
 
 def _is_amount_talk(side: str) -> bool:
-    """The "or" side only talks about the amount: its amount words, and nothing that names an
-    ingredient after them ("or more to taste" yes; "or extra virgin olive oil", "or a little oil",
-    "or about 3/4 cup honey" no)."""
+    """The "or" side only talks about the amount: its amount words, then nothing, a comma or
+    bracket, or a link word ("or more to taste", "or more for frying" yes). It names an
+    ingredient when what follows starts with a number or any other word ("or extra virgin
+    olive oil", "or a little oil", "or about 3/4 cup honey" no)."""
     found = _AMOUNT_TALK.match(side)
     if found is None:
         return False
-    for word in re.findall(r"[^\W\d_]+", side[found.end() :]):
-        if word.lower() not in _TALK_FILLER:
-            return False
-    return True
+    after = side[found.end() :]
+    rest = after.lstrip()
+    if not rest or rest[0] in ",;:()":
+        return True
+    if rest[0] in "-\u2013\u2014":  # a dash after a space starts a note; "extra-virgin" doesn't
+        return rest != after
+    first = re.match(r"[^\W\d_]+", rest)
+    return first is not None and first.group(0).lower() in _TALK_LINK
 
 
 def _with_shared_noun(first: str, last: str) -> str:

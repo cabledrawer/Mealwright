@@ -661,7 +661,7 @@ def test_a_heading_without_the_is_kept_when_another_heading_follows_f222() -> No
 
 
 @pytest.mark.parametrize("line", ["Serves 500", "Serves 100", "Serves 0", "Total time: 400 hours"])
-def test_rf4_i12_a_serves_or_time_the_boxes_cannot_hold_is_left_empty(line: str) -> None:
+def test_rf4_i11_a_serves_or_time_the_boxes_cannot_hold_is_left_empty(line: str) -> None:
     """RF4 I11 (proposed, for cabledrawer): Serves is 1 to 99 and the time up to 14,400 minutes. A
     pasted line that says more is not put in the boxes (they stay empty, so Check never refuses a
     value nobody typed); the line is not read as a fact, so it stays where the text had it."""
@@ -671,7 +671,7 @@ def test_rf4_i12_a_serves_or_time_the_boxes_cannot_hold_is_left_empty(line: str)
     assert recipe.steps == ("Cook.",)
 
 
-def test_rf4_i12_the_edges_are_still_read() -> None:
+def test_rf4_i11_the_edges_are_still_read() -> None:
     assert read_pasted("Dal\nServes 99\n1 cup toor dal\nCook.").serves == 99
     assert read_pasted("Dal\nTotal time: 240 hours\n1 cup toor dal\nCook.").time_minutes == 14_400
     assert (

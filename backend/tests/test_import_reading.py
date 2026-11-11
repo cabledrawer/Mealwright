@@ -314,6 +314,21 @@ AMOUNT_ENDINGS = [
     ("1 tsp salt or as desired", "or as desired"),
     ("1 tsp salt or as you like", "or as you like"),
     ("1 cup milk or just enough to cover", "or just enough to cover"),
+    # amount talk with any link word after it (RF4 r2 M: these were read as an ingredient)
+    ("1 tsp salt or more as needed", "or more"),
+    ("1 tsp salt or more, as needed", "or more"),
+    ("1 tbsp oil or more for frying", "or more"),
+    ("1 tbsp oil or more for greasing", "or more"),
+    ("1 tbsp flour or more for dusting", "or more"),
+    ("1 tsp salt or more to season", "or more"),
+    ("1 tsp chilli flakes or more if you like it hot", "or more"),
+    ("1 tsp sugar or more depending on taste", "or more depending on taste"),
+    ("2 tbsp butter or less if using salted butter", "or less if using salted butter"),
+    ("1 tsp salt or as much as you need", "or as much as you need"),
+    ("1 tsp salt or as much as you want", "or as much as you want"),
+    ("2 cups water or enough to cover the rice", "or enough to cover the rice"),
+    ("1 cup milk or more for a thinner batter", "or more for a thinner batter"),
+    ("1 tsp salt or more - to taste", "or more"),
 ]
 
 
@@ -491,10 +506,11 @@ def test_rf4_m_or_choices_that_start_with_an_amount_word_stay_choices() -> None:
         ("2 tbsp butter or extra-virgin olive oil", "extra-virgin olive oil"),
         ("2 tbsp butter or a little oil", "oil"),
         ("1 cup sugar or about ¾ cup honey", "honey"),
+        ("1 cup flour or more plain flour", "more plain flour"),
     ):
         (line,) = read_lines(text)
         assert line.alternative is not None, text
-        assert line.alternative.name.endswith(other.split()[-1]), (text, line.alternative.name)
+        assert line.alternative.name == other, (text, line.alternative.name)
 
 
 def test_rf4_trailing_each_is_found_in_linear_time_on_a_long_run_of_spaces() -> None:
