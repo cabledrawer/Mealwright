@@ -811,6 +811,7 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Undo of a removed place and the stocktake (cabledrawer 11 Nov):** Undo puts the place's stocktake answers back only into the stocktake they came from, never into one started after the removal.
 - **What's still needed comes back (cabledrawer 11 Nov):** a ticked line covers only what was bought; after Clear ticked, or when the plan grows past what was bought, the rest comes back onto the list.
 - **Shopping notes (cabledrawer 11 Nov):** the words for a find another phone already made (Sh2), an amount with too many decimal places (Sh5) and a line the plan no longer needs (Sh6), as in words.md section 66.
+- **Undo of a split tick (cabledrawer 11 Nov):** Undo or untick of a tick that split a line joins the two lines back only if neither has been touched since; otherwise both stay as they are and nothing needed is lost.
 - **Batch cook mode controls (cabledrawer 11 Nov):** **End timer** and **Skip wait**; **Next** on the method and optional sheets of Plan this batch; the message when another phone has made the schedule again; an optional step says **Optional**, as in Cook mode (words.md section 67).
 - **Meal times from slot names (cabledrawer 11 Nov):** "morning", "evening" and "night" count as slot words, whole words only.
 - **Batch cook hidden (S4, cabledrawer 11 Nov):** when Batch cook is switched off, the Plan card's **Remove** goes too, and removing a session answers 409 like every other Batch cook route (words.md section 63).
