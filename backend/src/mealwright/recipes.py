@@ -20,7 +20,7 @@ from fastapi import status
 from sqlalchemy import Select, delete, func, select, update
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import methods, step_waits
+from mealwright import methods, step_timings, step_waits
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.recipe_schemas import (
     Blocked,
@@ -40,6 +40,8 @@ from mealwright.api.v1.recipe_schemas import (
     SizeRef,
     SourceOut,
     StepLineOut,
+    StepTimingIn,
+    StepTimingOut,
     StepWaitIn,
     StepWaitOut,
     amount_text,
@@ -560,6 +562,7 @@ def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
             wait_min_minutes=step.wait_min_minutes,
             wait_max_minutes=step.wait_max_minutes,
             wait_overnight=step.wait_overnight,
+            **timing_columns_of(step),
         )
         db.add(new_step)
         db.flush()
@@ -785,19 +788,24 @@ def _save_steps(
         old_step.id: wait_columns_of(old_step) for old_step in old_steps
     }
     kept_waits: list[dict[str, object] | None] = []
+    old_timings: dict[int, dict[str, object]] = {
+        old_step.id: timing_columns_of(old_step) for old_step in old_steps
+    }
+    kept_timings: list[dict[str, object] | None] = []
     for step in steps_in:
         same = by_words.get((step.kind, step.text))
         old_id = same.pop(0) if same else None
         before = old_links.get(old_id, []) if old_id is not None else []
         carried.append([(link.line_id, link.kind) for link in before])
         kept_waits.append(old_waits[old_id] if old_id is not None else None)
+        kept_timings.append(old_timings[old_id] if old_id is not None else None)
     if old_steps:
         db.execute(delete(RecipeStep).where(RecipeStep.id.in_([s.id for s in old_steps])))
         for old_step in old_steps:
             db.expunge(old_step)
     db.flush()
-    for position, (step, kept, old_wait) in enumerate(
-        zip(steps_in, carried, kept_waits, strict=True)
+    for position, (step, kept, old_wait, old_timing) in enumerate(
+        zip(steps_in, carried, kept_waits, kept_timings, strict=True)
     ):
         row = RecipeStep(
             household_id=kitchen.household_id,
@@ -811,6 +819,11 @@ def _save_steps(
                 old_wait
                 if old_wait is not None and "wait" not in step.model_fields_set
                 else wait_columns(step.wait)
+            ),
+            **(
+                old_timing
+                if old_timing is not None and "timing" not in step.model_fields_set
+                else timing_columns(step.timing)
             ),
         )
         db.add(row)
@@ -1277,6 +1290,38 @@ def wait_columns_of(step: RecipeStep) -> dict[str, object]:
     }
 
 
+def timing_columns(timing: StepTimingIn | None) -> dict[str, object]:
+    """The columns for what was set by hand for Batch cook: empty means guessed."""
+    return {
+        "timing_hands": timing.hands if timing else None,
+        "timing_minutes": timing.minutes if timing else None,
+        "timing_equipment": timing.equipment if timing else None,
+    }
+
+
+def timing_columns_of(step: RecipeStep) -> dict[str, object]:
+    """What a step has set by hand now, to carry over to its replacement."""
+    return {
+        "timing_hands": step.timing_hands,
+        "timing_minutes": step.timing_minutes,
+        "timing_equipment": step.timing_equipment,
+    }
+
+
+def timing_out(step: RecipeStep) -> StepTimingOut | None:
+    timing = step_timings.of_step(step)
+    if timing is None:
+        return None
+    return StepTimingOut(
+        hands=timing.hands,
+        minutes=timing.minutes,
+        equipment=timing.equipment,
+        hands_guessed=timing.hands_guessed,
+        minutes_guessed=timing.minutes_guessed,
+        equipment_guessed=timing.equipment_guessed,
+    )
+
+
 def wait_out(wait: step_waits.Wait | None) -> StepWaitOut | None:
     if wait is None:
         return None
@@ -1379,6 +1424,7 @@ def _method_out(
             text=s.text,
             optional=s.optional,
             wait=wait_out(step_waits.of_step(s)),
+            timing=timing_out(s),
             lines=sorted(step_lines.get(s.id, []), key=lambda uses: uses.line),
         )
         for s in step_rows

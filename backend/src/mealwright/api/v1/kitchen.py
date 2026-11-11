@@ -430,6 +430,63 @@ def change_household(body: HouseholdChange, kitchen: Here) -> HouseholdOut:
     return _household(kitchen)
 
 
+# --- The household's kitchen, for Batch cook (Experimental; 0.8 wave 6, B1) -----------------------
+
+MOST_HOB_RINGS = 12
+MOST_PRESSURE_COOKERS = 6
+
+
+class KitchenOut(BaseModel):
+    """The equipment Batch cook plans around. `asked` is false until the household has saved it
+    once (Batch cook asks on first use); the first values are the usual ones, not an answer."""
+
+    hob_rings: int
+    pressure_cookers: int
+    oven: bool
+    asked: bool
+
+
+class KitchenChange(BaseModel):
+    """Only what is sent changes. Any save counts as asking: `asked` becomes true."""
+
+    hob_rings: Annotated[int, Field(ge=1, le=MOST_HOB_RINGS)] | None = None
+    pressure_cookers: Annotated[int, Field(ge=0, le=MOST_PRESSURE_COOKERS)] | None = None
+    oven: StrictBool | None = None
+
+
+def _kitchen_out(kitchen: Here) -> KitchenOut:
+    household = kitchen.household
+    return KitchenOut(
+        hob_rings=household.kitchen_hob_rings,
+        pressure_cookers=household.kitchen_pressure_cookers,
+        oven=household.kitchen_oven,
+        asked=household.kitchen_asked,
+    )
+
+
+@router.get("/household/kitchen")
+def get_kitchen(kitchen: Here) -> KitchenOut:
+    """The household's hob rings, pressure cookers and oven, and whether it was asked yet."""
+    return _kitchen_out(kitchen)
+
+
+@router.patch("/household/kitchen")
+def change_kitchen(body: KitchenChange, kitchen: Here) -> KitchenOut:
+    """Saves the kitchen's equipment (Your kitchen, or Settings, Kitchen). Any signed-in person
+    of the household may (proposed, for cabledrawer: like Cook mode's per-step switch, it changes
+    only what Batch cook plans). Answers with the kitchen as stored."""
+    household = kitchen.household
+    if body.hob_rings is not None:
+        household.kitchen_hob_rings = body.hob_rings
+    if body.pressure_cookers is not None:
+        household.kitchen_pressure_cookers = body.pressure_cookers
+    if body.oven is not None:
+        household.kitchen_oven = body.oven
+    household.kitchen_asked = True
+    kitchen.db.commit()
+    return _kitchen_out(kitchen)
+
+
 @router.post("/household/from-browser")
 def fill_in_from_browser(body: FromBrowser, kitchen: Here) -> HouseholdOut:
     """Admins only. The web app calls this after sign-in with the browser's time zone and

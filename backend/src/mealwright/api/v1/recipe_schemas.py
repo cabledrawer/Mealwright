@@ -302,6 +302,32 @@ class StepWaitOut(BaseModel):
     overnight: bool
 
 
+HandsKind = Literal["hands", "waiting"]
+EquipmentKind = Literal["hob", "pressure", "oven", "none"]
+
+
+class StepTimingIn(BaseModel):
+    """What a person set by hand for Batch cook (Experimental): hands-on or waiting, the minutes,
+    and the equipment. A value left out or null is not set by hand: it is guessed from the step's
+    words (and stays a guess, even when the words change)."""
+
+    hands: HandsKind | None = None
+    minutes: Annotated[int, Field(ge=1, le=MAX_WAIT_MINUTES)] | None = None
+    equipment: EquipmentKind | None = None
+
+
+class StepTimingOut(BaseModel):
+    """A step's timing as it is now: each value, and whether it is still a guess (true) or was
+    set by hand (false). Null for a heading."""
+
+    hands: HandsKind
+    minutes: int
+    equipment: EquipmentKind
+    hands_guessed: bool
+    minutes_guessed: bool
+    equipment_guessed: bool
+
+
 class RecipeStepIn(BaseModel):
     kind: Literal["step", "heading"] = "step"
     text: Annotated[str, Field(min_length=1, max_length=MAX_STEP_CHARS)]
@@ -309,6 +335,9 @@ class RecipeStepIn(BaseModel):
     optional: bool = False
     # The step waits (M1): null for none. A heading never waits.
     wait: StepWaitIn | None = None
+    # What was set by hand for Batch cook (B1). Left out: the step keeps what its old self had
+    # (the same words). Null, or a value left out inside it: guessed from the words.
+    timing: StepTimingIn | None = None
     # Which ingredient lines this step uses, set by hand (0.7, for Cook mode's per-step
     # ingredients): positions in this save's `lines`, counting from 0, so a new line can be
     # linked in the same save. Left out (null): the step keeps the links it had, if it is
@@ -330,7 +359,7 @@ class RecipeStepIn(BaseModel):
             self.text = " ".join(one_line(self.text).split())
             if len(self.text) > 200:
                 raise ValueError("A heading is at most 200 characters.")
-            if self.optional or self.wait is not None:
+            if self.optional or self.wait is not None or self.timing is not None:
                 raise ValueError("A heading has only words.")
         else:
             self.text = text_block(self.text).strip()
@@ -560,6 +589,7 @@ class RecipeStepOut(BaseModel):
     text: str
     optional: bool = False
     wait: StepWaitOut | None = None  # M1: marinate, soak, ferment...
+    timing: StepTimingOut | None = None  # B1: hands-on or waiting, minutes, equipment
     lines: list[StepLineOut] = Field(default_factory=list)
 
 

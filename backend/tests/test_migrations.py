@@ -1792,3 +1792,83 @@ def test_start_times_migration_adds_two_empty_columns_keeps_every_row_and_goes_b
         )
     migrate.upgrade(engine)
     assert _row_counts(engine, skip) == before
+
+
+START_TIMES_MIGRATION = "a7c4e9d2b813"  # the one just before step timings and the kitchen
+
+
+def test_step_timings_migration_adds_empty_columns_and_a_default_kitchen_and_goes_back_and_forward(
+    tmp_path: Path,
+) -> None:
+    """0.8 wave 6, B1 (cabledrawer 28 Oct and 11 Nov), Batch cook's database change 1 of 3: every
+    step starts with nothing set by hand (so its timing is guessed from its words when read, and
+    nothing needs filling in); every household starts with the usual kitchen (4 hob rings, 1
+    pressure cooker, an oven) and has not been asked. Going back drops the columns and keeps
+    every row and "never reuse an id"; forward again leaves them empty."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "alembic_version"}
+    step_names = {"timing_hands", "timing_minutes", "timing_equipment"}
+    house_names = {
+        "kitchen_hob_rings",
+        "kitchen_pressure_cookers",
+        "kitchen_oven",
+        "kitchen_asked",
+    }
+
+    def columns(table: str) -> set[str]:
+        return {c["name"] for c in inspect(engine).get_columns(table)}
+
+    def kept() -> list[tuple[object, ...]]:
+        with engine.connect() as connection:
+            return [
+                tuple(r)
+                for r in connection.exec_driver_sql(
+                    "SELECT id, household_id, recipe_id, position, kind, text, optional"
+                    " FROM recipe_step ORDER BY id"
+                )
+            ]
+
+    assert step_names <= columns("recipe_step") and "household_id" in columns("recipe_step")
+    assert house_names <= columns("household")
+    with engine.connect() as connection:
+        for name in step_names:
+            assert set(connection.exec_driver_sql(f"SELECT {name} FROM recipe_step").scalars()) == {
+                None
+            }
+        kitchens = connection.exec_driver_sql(
+            "SELECT kitchen_hob_rings, kitchen_pressure_cookers, kitchen_oven, kitchen_asked"
+            " FROM household"
+        ).all()
+    assert kitchens and {tuple(k) for k in kitchens} == {(4, 1, 1, 0)}
+    with engine.begin() as connection:  # something set by hand, so it is shown to go
+        connection.exec_driver_sql(
+            "UPDATE recipe_step SET timing_hands = 'waiting', timing_minutes = 20,"
+            " timing_equipment = 'pressure' WHERE id = 1"
+        )
+        connection.exec_driver_sql("UPDATE household SET kitchen_hob_rings = 2, kitchen_asked = 1")
+    before = _row_counts(engine, skip)
+    held = kept()
+    migrate.downgrade(engine, START_TIMES_MIGRATION)
+    assert migrate_head(engine) == START_TIMES_MIGRATION
+    assert not step_names & columns("recipe_step")
+    assert not house_names & columns("household")
+    assert "AUTOINCREMENT" in _table_sql(engine, "recipe_step")
+    assert _row_counts(engine, skip) == before
+    assert kept() == held
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    assert step_names <= columns("recipe_step") and house_names <= columns("household")
+    assert "AUTOINCREMENT" in _table_sql(engine, "recipe_step")
+    assert _row_counts(engine, skip) == before
+    assert kept() == held
+    with engine.connect() as connection:
+        assert set(
+            connection.exec_driver_sql("SELECT timing_hands FROM recipe_step").scalars()
+        ) == {None}
+        assert {
+            tuple(k)
+            for k in connection.exec_driver_sql(
+                "SELECT kitchen_hob_rings, kitchen_asked FROM household"
+            )
+        } == {(4, 0)}

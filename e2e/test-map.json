@@ -143,7 +143,7 @@
       "name": "Recipes",
       "paths": [
         "backend/src/mealwright/recipes.py", "backend/src/mealwright/recipe_list.py", "backend/src/mealwright/photos.py",
-        "backend/src/mealwright/pints.py", "backend/src/mealwright/step_waits.py", "backend/src/mealwright/api/v1/recipe*.py", "backend/src/mealwright/api/v1/photos.py",
+        "backend/src/mealwright/pints.py", "backend/src/mealwright/step_waits.py", "backend/src/mealwright/step_timings.py", "backend/src/mealwright/api/v1/recipe*.py", "backend/src/mealwright/api/v1/photos.py",
         "frontend/src/routes/(app)/recipes/+*", "frontend/src/routes/(app)/recipes/[id]/**", "frontend/src/routes/(app)/recipes/new/**",
         "frontend/src/routes/(app)/recipes/page.test.ts",
         "frontend/src/lib/components/recipe/**", "frontend/src/lib/components/Recipe*", "frontend/src/lib/components/NewRecipeChoice*",
@@ -153,7 +153,7 @@
         "frontend/src/lib/timeWords*"
       ],
       "backend": [
-        "test_recipe*.py", "test_photos.py", "test_pints.py", "test_step_links.py", "test_step_waits.py", "test_recipes_isolation.py"
+        "test_recipe*.py", "test_photos.py", "test_pints.py", "test_step_links.py", "test_step_waits.py", "test_step_timings.py", "test_step_timings_api.py", "test_recipes_isolation.py"
       ],
       "browser": [
         "recipes.spec.ts", "recipe-page.spec.ts", "recipe-photos.spec.ts", "recipes-panes.spec.ts", "recipe-editor.spec.ts",
@@ -187,7 +187,7 @@
         "frontend/src/lib/privacy*", "frontend/src/lib/proxyGap.ts", "frontend/src/lib/client/privacy.ts", "frontend/src/lib/client/settingsLists.ts",
         "frontend/src/lib/client/changes.ts", "frontend/src/lib/allChanges*", "frontend/src/lib/change*", "frontend/src/lib/focusOnMount.ts"
       ],
-      "backend": ["test_outbound.py", "test_own_network.py", "test_privacy.py", "test_settings_lists.py", "test_changes_press_queries.py"],
+      "backend": ["test_outbound.py", "test_own_network.py", "test_privacy.py", "test_settings_lists.py", "test_changes_press_queries.py", "test_step_timings_api.py"],
       "browser": ["settings.spec.ts", "privacy.spec.ts"]
     },
     {
