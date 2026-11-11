@@ -479,6 +479,40 @@ export class ImportFlow {
     };
   }
 
+  /** What a row and the rows that took its choice (F6) had before a New ingredient was made on
+   *  it, so Cancel on the form can put them back exactly (F214: Change, New ingredient, Cancel). */
+  newIngredientUndoable(index: number, staple = false): NewIngredientBefore | null {
+    const before: NewIngredientBefore = {
+      index,
+      choice: this.choices[index] ?? null,
+      from: index in this.sharedFrom ? this.sharedFrom[index]! : null,
+      taken: []
+    };
+    const had = new Set(Object.keys(this.choices).map(Number));
+    this.newIngredient(index, staple);
+    before.taken = Object.keys(this.choices)
+      .map(Number)
+      .filter((j) => j !== index && !had.has(j));
+    return before;
+  }
+
+  /** Cancel on a New ingredient form made from a row that had something before. */
+  restoreBefore(before: NewIngredientBefore): void {
+    const next = { ...this.choices };
+    const from = { ...this.sharedFrom };
+    for (const j of before.taken) {
+      delete next[j];
+      delete from[j];
+    }
+    if (before.choice) next[before.index] = before.choice;
+    else delete next[before.index];
+    if (before.from !== null) from[before.index] = before.from;
+    else delete from[before.index];
+    this.choices = next;
+    this.sharedFrom = from;
+    this.saveProblem = null;
+  }
+
   newIngredient(index: number, staple = false): void {
     const guess = this.guessFor(index);
     if (!guess) return;
@@ -1142,6 +1176,15 @@ function problemOf(code: string, message: string): ImportProblem {
 }
 
 /** 946 → "946", 189.333 → "189.333": a number as the review shows an amount. */
+/** See `newIngredientUndoable`. */
+export interface NewIngredientBefore {
+  index: number;
+  choice: Choice | null;
+  from: number | null;
+  /** The rows that took the new choice from this one. */
+  taken: number[];
+}
+
 export function amountWords(value: number): string {
   return String(Math.round(value * 1000) / 1000);
 }

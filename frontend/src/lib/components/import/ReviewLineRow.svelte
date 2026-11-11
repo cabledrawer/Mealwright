@@ -25,7 +25,13 @@
   import type { ReviewLine } from '#lib/client/imports.js';
   import type { CountedAs, Ref } from '#lib/client/types.js';
   import { readAmount } from '#lib/importAmount.js';
-  import { amountWords, isBlank, type Choice, type ImportFlow } from '#lib/import.svelte.js';
+  import {
+    amountWords,
+    isBlank,
+    type Choice,
+    type ImportFlow,
+    type NewIngredientBefore
+  } from '#lib/import.svelte.js';
   import { focusOnMount } from '#lib/focusOnMount.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { LINE_UNITS } from '#lib/recipes/draft.svelte.js';
@@ -253,8 +259,11 @@
     return ok;
   }
 
+  /** What the row (and the rows that took its choice) had before New ingredient: Cancel puts it back. */
+  let before: NewIngredientBefore | null = null;
+
   function makeNew(staple: boolean) {
-    flow.newIngredient(index, staple);
+    before = flow.newIngredientUndoable(index, staple);
     formOpen = true;
     nameError = false;
     source = 'bought';
@@ -300,7 +309,9 @@
 
   function cancelForm() {
     formOpen = false;
-    flow.unchoose(index);
+    if (before) flow.restoreBefore(before);
+    else flow.unchoose(index);
+    before = null;
   }
 
   function openEditor() {
@@ -895,7 +906,14 @@
         {/if}
         {#if made && !formOpen}
           <p class="buttons">
-            <button type="button" class="chip" onclick={() => (formOpen = true)}>Edit</button>
+            <button
+              type="button"
+              class="chip"
+              onclick={() => {
+                before = null; // Cancel then takes the whole New ingredient back, as it always did
+                formOpen = true;
+              }}>Edit</button
+            >
           </p>
         {/if}
         <!-- Optional (R3, F151): "(optional)" in the line, or under "For serving", switches it on;

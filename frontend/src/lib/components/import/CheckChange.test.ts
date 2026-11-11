@@ -184,6 +184,43 @@ describe('Change on every row', () => {
   });
 });
 
+describe('Change, New ingredient, Cancel puts the row back (review M3)', () => {
+  it('a Same as row is still Same as, and no other row changed', async () => {
+    fakeApi({ ...FOODS });
+    const flow = reviewFlow();
+    flow.sameAs(3, { id: 2, name: 'Onions' });
+    show(flow);
+    const before = JSON.stringify([flow.choices, flow.sharedFrom]);
+    await change('1 red onion, sliced').click();
+    await page
+      .getByRole('group', { name: 'Change Onions' })
+      .getByRole('button', { name: 'New ingredient' })
+      .click();
+    expect(flow.choices[3]).toMatchObject({ kind: 'new' });
+    await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();
+    expect(JSON.stringify([flow.choices, flow.sharedFrom])).toBe(before);
+    expect(flow.choices[3]).toMatchObject({ kind: 'ingredient', food: { id: 2 } });
+  });
+
+  it('the rows that took the new choice from it give it back too', async () => {
+    fakeApi({ ...FOODS });
+    const flow = reviewFlow();
+    // A second line that reads as the same thing: it follows a New ingredient made on the first.
+    const twin = { ...flow.review!.lines[4]!, written: 'a pinch of asafoetida' };
+    flow.review!.lines.push(twin);
+    show(flow);
+    await change('¼ tsp asafoetida').click();
+    await page
+      .getByRole('group', { name: /^Change / })
+      .getByRole('button', { name: 'New ingredient' })
+      .click();
+    expect(Object.keys(flow.choices).map(Number).sort()).toContain(flow.review!.lines.length - 1);
+    await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();
+    expect(flow.choices).toEqual({});
+    expect(flow.sharedFrom).toEqual({});
+  });
+});
+
 describe('renamedLine (the lookup behind Edit the name read)', () => {
   const line = SAMPLE_LINES[4]!; // asafoetida, needs you
   it('matches by the ingredient’s name or another name for it, ignoring capitals and spaces', async () => {
