@@ -63,10 +63,23 @@ describe('a step’s timing as the editor shows it', () => {
     expect(shown.pending).toBe(false);
   });
 
-  it('takes the usual values when nothing is guessed yet', () => {
+  it('keeps only what the person set when nothing is guessed yet (B1 review r1 M3)', () => {
     const step = blankStep();
+    step.text = 'Pressure cook the dal for 4 whistles.';
     takeAsYours(step);
-    expect(step.timing).toEqual({ hands: 'hands', minutes: 5, equipment: 'none' });
+    step.timing.minutes = 20;
+    expect(step.timing).toEqual({ hands: null, minutes: 20, equipment: null });
+    const shown = shownTiming(step);
+    expect(shown.mark).toBe('partly guessed');
+    expect(shown.pending).toBe(true);
+  });
+
+  it('keeps a value set by hand and leaves the unknown ones to the guess after the words change', () => {
+    const step = guessed();
+    step.timing = { hands: null, minutes: 30, equipment: null };
+    step.text = 'Boil the dal.';
+    takeAsYours(step);
+    expect(step.timing).toEqual({ hands: null, minutes: 30, equipment: null });
   });
 
   it('puts the guess back with Guess again', () => {

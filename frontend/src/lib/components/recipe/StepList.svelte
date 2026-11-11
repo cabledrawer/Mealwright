@@ -200,7 +200,7 @@
                 class="mw-add"
                 aria-expanded={!!timingOpen[step.key]}
                 aria-label="{timingOpen[step.key]
-                  ? 'Close'
+                  ? 'Done with'
                   : 'Change'} the timing of step {numberOf(i)}"
                 onclick={() => (timingOpen[step.key] = !timingOpen[step.key])}
                 >{timingOpen[step.key] ? 'Done' : 'Change'}</button

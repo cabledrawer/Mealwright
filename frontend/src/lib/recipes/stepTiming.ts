@@ -21,9 +21,6 @@ export const EQUIPMENT_CHOICES: { value: StepEquipment; name: string }[] = [
 
 export const MOST_MINUTES = 14_400;
 
-/** What a new step is taken to be when a person sets one value before any guess is known. */
-const BEFORE_A_GUESS = { hands: 'hands', minutes: 5, equipment: 'none' } as const;
-
 export interface ShownTiming {
   hands: StepHands | null;
   minutes: number | null;
@@ -74,15 +71,17 @@ export function equipmentWords(shown: ShownTiming): string {
   return EQUIPMENT_CHOICES.find((c) => c.value === shown.equipment)!.name;
 }
 
-/** The first change a person makes takes all three values as theirs (what shows stays as it is,
- *  and a change in the words no longer moves them): "set by you". */
+/** The first change a person makes takes all three values that show as theirs (what shows stays
+ *  as it is, and a change in the words no longer moves them): "set by you". Before the guess is
+ *  known (a new step, or its words changed) only the value the person sets is theirs; the others
+ *  stay null and are guessed when the recipe is saved: "partly guessed" (B1 review r1 M3). */
 export function takeAsYours(step: DraftStep): void {
   const shown = shownTiming(step);
   if (shown.mark === 'set by you') return;
   step.timing = {
-    hands: shown.hands ?? BEFORE_A_GUESS.hands,
-    minutes: shown.minutes ?? BEFORE_A_GUESS.minutes,
-    equipment: shown.equipment ?? BEFORE_A_GUESS.equipment
+    hands: shown.hands,
+    minutes: shown.minutes,
+    equipment: shown.equipment
   };
 }
 
