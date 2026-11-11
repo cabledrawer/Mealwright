@@ -164,8 +164,9 @@ def test_the_sizes_and_names_of_a_list_are_read_once_not_once_per_line(
 ) -> None:
     """Release 0.8.0-beta.1 security pass L3: the pack wording of each line read the
     ingredient's sizes and other names again for that line. What the pack wording reads (the
-    statements made under `pack_line_out` or `PackReads.load`) must not grow with the number of lines: the phone's
-    sync pull and the list view each read them in a fixed number of statements."""
+    statements made under `pack_line_out` or `PackReads.load`) must not grow with the number of
+    lines: the phone's sync pull and the list view each read them in a fixed number of
+    statements."""
     import traceback
 
     from sqlalchemy import event
