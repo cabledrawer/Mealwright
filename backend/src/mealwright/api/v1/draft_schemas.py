@@ -141,7 +141,7 @@ class DraftSource(BaseModel):
 
 class DraftBrief(BaseModel):
     """A draft in the Drafts list: "Chettinad kuzhambu · From bbcgoodfood.com · started by
-    Wren · 13 days left · 6 of 9 ingredients checked"."""
+    Remy · 13 days left · 6 of 9 ingredients checked"."""
 
     id: int
     name: str

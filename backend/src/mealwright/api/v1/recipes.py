@@ -207,7 +207,7 @@ def update_recipe(
 ) -> RecipeOut:
     """Replace everything in the recipe at once ("nothing changes until Save"). Send the
     `version` the editor opened. If someone saved the recipe since, nothing is saved:
-    409 `recipe_changed` says who ("Wren changed this recipe after you opened it.") and
+    409 `recipe_changed` says who ("Remy changed this recipe after you opened it.") and
     carries the current `version`. "Save mine anyway" is the same request sent again with
     that newer `version` and `overwrite: true`. Every save adds 1 to the version."""
     lock_household(kitchen)

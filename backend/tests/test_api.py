@@ -32,3 +32,11 @@ def test_every_place_the_version_shows_agrees_with_pyproject(client: TestClient)
     assert __version__ == wanted
     assert client.get("/api/v1/version").json() == {"version": wanted}
     assert client.get("/api/v1/openapi.json").json()["info"]["version"] == wanted
+
+
+def test_the_api_description_names_nobody_real(client: TestClient) -> None:
+    # RF5 (cabledrawer 11 Nov): the example sentences in the API's own description used a real
+    # person's name; they use the made-up "Remy" now.
+    text = client.get("/api/v1/openapi.json").text
+    assert "Wren" not in text
+    assert "Remy" in text
