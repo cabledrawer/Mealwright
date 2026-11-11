@@ -884,10 +884,12 @@ def _is_amount_talk(side: str) -> bool:
         return False
     after = side[found.end() :]
     rest = after.lstrip()
-    if not rest or rest[0] in ",;:()":
+    if not rest:
         return True
     if rest[0] in "-\u2013\u2014":  # a dash after a space starts a note; "extra-virgin" doesn't
         return rest != after
+    if not rest[0].isalnum():  # "or more.", "or more, as needed", "or more (optional)"
+        return True
     first = re.match(r"[^\W\d_]+", rest)
     return first is not None and first.group(0).lower() in _TALK_LINK
 

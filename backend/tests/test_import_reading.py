@@ -329,6 +329,12 @@ AMOUNT_ENDINGS = [
     ("2 cups water or enough to cover the rice", "or enough to cover the rice"),
     ("1 cup milk or more for a thinner batter", "or more for a thinner batter"),
     ("1 tsp salt or more - to taste", "or more"),
+    ("2 tbsp butter or more.", "or more"),
+    ("2 tbsp butter or less.", "or less"),
+    ("1 cup yogurt or so.", "or so"),
+    ("1 tsp chilli or more!", "or more"),
+    ("1 tsp chilli or more*", "or more"),
+    ("1 tsp chilli or more…", "or more"),
 ]
 
 
