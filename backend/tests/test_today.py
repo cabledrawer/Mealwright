@@ -856,3 +856,35 @@ def test_move_it_refuses_a_start_for_a_recipe_with_no_wait_or_for_another_househ
     )
     assert other["code"] == "start_not_moved"
     assert meal_status(kitchen, meal) == "planned"
+
+
+# --- Whole-0.8 review fixes (RF3): H2 ------------------------------------------------------------
+
+
+def test_move_it_keeps_a_long_wait_that_was_already_started(
+    kitchen: TestClient, slots: dict[str, int]
+) -> None:
+    """H2: the batter was started on Friday night ("Done already"); Move it on a meal not cooked
+    must not forget it (a move on the Plan keeps it), and Undo takes the moved meal away."""
+    soaked = make(
+        kitchen,
+        "Moveit dosa",
+        steps=[
+            {
+                "text": "Soak the rice and dal, grind and leave it.",
+                "wait": {"kind": "ferment", "min_minutes": 480, "max_minutes": 720},
+            },
+            {"text": "Make the dosas."},
+        ],
+    )
+    yesterday = ago(kitchen, 1)
+    added = plan_recipe(kitchen, soaked["id"], yesterday, slots["Breakfast"])
+    started = kitchen.put(f"{API}/plan/items/{added['item_id']}/started", json={"started": True})
+    assert started.status_code == 200, started.text
+    to = {"date": str(ahead(kitchen, 1)), "slot_id": slots["Breakfast"]}
+    done = answer(kitchen, added["meal_id"], "moved", to)
+    plan = ok(
+        kitchen.get(f"{API}/plan", params={"from": str(yesterday), "to": str(ahead(kitchen, 2))})
+    )
+    (copy,) = next(m for m in plan["meals"] if m["id"] == done["meal_id"])["items"]
+    assert copy["ahead"]["started_time"] is not None

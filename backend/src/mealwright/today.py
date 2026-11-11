@@ -391,7 +391,7 @@ def moved(
             _bring(kitchen, item, target, steps)  # a tub is in one meal at a time
         elif cooked_record_of(kitchen, item, meal) is None:
             # An already-cooked recipe is not copied: it was eaten (proposed, for cabledrawer).
-            _copy_of(kitchen, item, target, steps, new_starts.get(item.id))
+            _copy_of(kitchen, item, target, steps, new_starts.get(item.id), keep_started=True)
     _set_status(meal, "moved", steps, kitchen)
     return _finish(
         kitchen,

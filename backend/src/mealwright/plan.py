@@ -870,7 +870,10 @@ def _copy_of(
     meal: Meal,
     steps: list[dict[str, Any]],
     start_at: datetime | None = None,
+    keep_started: bool = False,
 ) -> None:
+    """A copy of the item in `meal`. `keep_started`: a wait already begun stays begun (Today's
+    Move it: the meal moves, the batter doesn't un-ferment; a plain Copy starts afresh)."""
     clone = MealItem(
         household_id=kitchen.household_id,
         meal_id=meal.id,
@@ -884,6 +887,7 @@ def _copy_of(
         optional_skipped=item.optional_skipped,
         method_id=item.method_id,
         start_at=start_at,
+        started_at=item.started_at if keep_started else None,
     )
     kitchen.db.add(clone)
     kitchen.db.flush()
