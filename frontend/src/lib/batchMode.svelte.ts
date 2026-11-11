@@ -177,7 +177,9 @@ export class BatchModeModel {
   }
 
   #keep(): void {
-    if (this.#forgotten || this.#stopped) return; // the screen is gone or the session ended
+    // Only a session that ended stops this: a reply that comes after the screen is left must
+    // still clear its mark from the phone's copy, or it would be sent again later.
+    if (this.#forgotten) return;
     try {
       localStorage.setItem(
         KEY(this.id),

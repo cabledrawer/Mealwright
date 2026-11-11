@@ -380,4 +380,21 @@ describe('Batch cook mode model', () => {
     model.stop();
     expect(localStorage.getItem('mealwright.batchmode.7')).toBeNull();
   });
+
+  it('RF3 fix 2: a mark’s reply that arrives after the screen is left clears the waiting mark', async () => {
+    calls.start.mockResolvedValue(two());
+    const model = new BatchModeModel(7);
+    await model.load();
+    let answer: (value: Schedule) => void = () => {};
+    calls.done.mockReturnValue(new Promise<Schedule>((resolve) => (answer = resolve)));
+    model.mark('done', 't1');
+    const sending = model.flush();
+    model.stop(); // left while the mark was on its way
+    const after = two();
+    after.tasks[0] = { ...after.tasks[0]!, done_at: new Date().toISOString() };
+    answer(after);
+    await sending;
+    const kept = JSON.parse(localStorage.getItem('mealwright.batchmode.7') ?? '{}');
+    expect(kept.pending).toEqual([]);
+  });
 });
