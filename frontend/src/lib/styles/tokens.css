@@ -97,6 +97,12 @@
   /* A button that removes something: white on this red passes AA (mockups ShopRows-*). */
   --color-danger: #b3261e;
   --color-danger-text: #ffffff;
+  /* Something that can't be undone, said calmly (Your data's "Delete everything", mockup
+     Dark-DeleteAll09-Phone; the light colours are proposed, for cabledrawer). */
+  --color-stop: #fbeae8;
+  --color-stop-title: #8c1d18;
+  --color-stop-text: #6b1d18;
+  --color-stop-border: #c9564b;
   /* The buttons a swipe reveals (mockups PantrySwipe-Phone, ShopMove-Phone); white on each passes AA. */
   --color-swipe-used: #2e7d5b;
   --color-swipe-move: #2b5c8a;
@@ -330,6 +336,10 @@
   --color-timer-muted: #e6c77a;
   --color-danger: #c8442f;
   --color-danger-text: #ffffff;
+  --color-stop: #2a1715;
+  --color-stop-title: #ffb4ab;
+  --color-stop-text: #f2c9c4;
+  --color-stop-border: #a85048; /* mockup #6b2d28, lightened for 3:1 */
   --color-swipe-used: #2e7d5b;
   --color-swipe-move: #2b5c8a;
   --color-swipe-text: #ffffff;

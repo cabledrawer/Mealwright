@@ -35,7 +35,8 @@
         | '/(app)/recipes'
         | '/(app)/recipes/drafts'
         | '/(app)/settings'
-        | '/(app)/settings/household';
+        | '/(app)/settings/household'
+        | '/(app)/settings/your-data';
       label: string;
     };
     /** The page's main button(s), beside the title ("+ Add to pantry"). */

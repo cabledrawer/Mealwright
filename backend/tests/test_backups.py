@@ -117,7 +117,7 @@ def test_a_backup_that_cannot_be_written_says_why_and_leaves_nothing(
     folder = _folder(kitchen)
     folder.write_text("a file where the folder should be")
     body = kitchen.post(API).json()
-    assert body["problem"].startswith("The backup couldn't be written (")
+    assert body["problem"].startswith("The backup couldn’t be written (")
     assert body["problem_at"] is not None
     assert body["last"] is None
     folder.unlink()

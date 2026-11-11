@@ -185,7 +185,7 @@ def is_due(household: Household, folder: Path, now: datetime) -> bool:
 def back_up(engine: Engine, folder: Path, keep: int, now: datetime | None = None) -> Backup:
     """Make one backup now and trim the old ones to `keep`. Raises BackupFailed in plain words."""
     if sqlite_file(engine) is None:
-        raise BackupFailed("Backups need Mealwright's own database file.")
+        raise BackupFailed("Backups need Mealwright’s own database file.")
     with _ONE_AT_A_TIME:
         at = (now or utcnow()).astimezone(UTC)
         target = folder / f"backup-{at.strftime(_STAMP)}.db"
@@ -204,7 +204,7 @@ def back_up(engine: Engine, folder: Path, keep: int, now: datetime | None = None
 def before_delete_everything(engine: Engine, folder: Path, now: datetime | None = None) -> Path:
     """The safety backup made before "Delete everything" (proposed, for cabledrawer). Never trimmed."""
     if sqlite_file(engine) is None:
-        raise BackupFailed("Backups need Mealwright's own database file.")
+        raise BackupFailed("Backups need Mealwright’s own database file.")
     with _ONE_AT_A_TIME:
         at = (now or utcnow()).astimezone(UTC)
         target = folder / f"{BEFORE_DELETE}-{at.strftime(_STAMP)}.db"
@@ -224,7 +224,7 @@ def _plain(error: BaseException) -> str:
         why = error.strerror
     else:
         why = str(error) or type(error).__name__
-    return f"The backup couldn't be written ({why[:200]})."
+    return f"The backup couldn’t be written ({why[:200]})."
 
 
 def run_if_due(

@@ -10,6 +10,7 @@ export type IconKey =
   | 'recent-changes'
   | 'household'
   | 'privacy'
+  | 'your-data'
   | 'sign-in';
 
 export const SECTION_ICONS: Record<
@@ -46,6 +47,15 @@ export const SECTION_ICONS: Record<
     ]
   },
   privacy: { tone: 'quiet', paths: ['M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z'] },
+  // A database: stacked discs (proposed, for cabledrawer).
+  'your-data': {
+    tone: 'quiet',
+    paths: [
+      'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3z',
+      'M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6',
+      'M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3'
+    ]
+  },
   'sign-in': {
     tone: 'quiet',
     paths: ['M12 15a4 4 0 1 1-8 0 4 4 0 0 1 8 0z', 'M11 12l9-9M17 6l3 3M15 8l2 2']

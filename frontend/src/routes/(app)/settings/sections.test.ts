@@ -99,9 +99,10 @@ describe('the section list', () => {
       'Recent changes',
       'Household',
       'Privacy',
+      'Your data',
       'Sign-in'
     ]);
-    await expect.element(sections().getByText('Your data and About come in 0.9.')).toBeVisible();
+    await expect.element(sections().getByText('About comes in 0.9.')).toBeVisible();
   });
 
   it('goes to a section, and marks it as the current one', async () => {
@@ -133,7 +134,7 @@ describe('the section list', () => {
     for (const [name, rows] of [
       ['Your settings', ['Appearance', 'Amounts']],
       ['Kitchen settings', ['Meal slots', 'Shops & places', 'Your kitchen', 'Recent changes']],
-      ['Household settings', ['Household', 'Privacy', 'Sign-in']]
+      ['Household settings', ['Household', 'Privacy', 'Your data', 'Sign-in']]
     ] as const) {
       const links = group(name).getByRole('link');
       await vi.waitFor(() => expect(links.elements().length).toBe(rows.length));
@@ -178,7 +179,7 @@ describe('the section list', () => {
     await expect
       .element(page.getByRole('link', { name: /^Household/ }))
       .toHaveAttribute('href', '/settings/household');
-    await expect.element(page.getByText('Your data and About come in 0.9.')).toBeVisible();
+    await expect.element(page.getByText('About comes in 0.9.')).toBeVisible();
   });
 
   it('phone: a section opens alone, under its own title, with ‹ Settings to come back (F193)', async () => {

@@ -223,6 +223,10 @@ export default defineConfig({
     { name: 'phone 0.9 my sign-in', testMatch: 'my-sign-in.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.9 my sign-in', testMatch: 'my-sign-in.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.9 my sign-in', testMatch: 'my-sign-in.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
+    // Settings → Your data (0.9, D1): backups, export, How to restore and Delete everything's guard.
+    { name: 'phone 0.9 your data', testMatch: 'your-data.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.9 your data', testMatch: 'your-data.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.9 your data', testMatch: 'your-data.spec.ts', use: { ...webkitPhone, storageState: AUTH_FILE } },
 
     { name: 'phone 0.3 live', testMatch: /(^|\/)(live|installable)\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(^|\/)(live|installable)\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },

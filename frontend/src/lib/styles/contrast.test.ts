@@ -58,6 +58,11 @@ const PAIRS: Pair[] = [
   ['--color-note-text', '--color-note', 4.5],
   ['--color-warning-text', '--color-warning', 4.5],
   ['--color-danger-text', '--color-danger', 4.5], // the red Remove button
+  ['--color-stop-title', '--color-stop', 4.5], // Delete everything (Your data)
+  ['--color-stop-text', '--color-stop', 4.5],
+  ['--color-stop-title', '--color-ground', 4.5], // the Delete everything… button's words
+  ['--color-stop-border', '--color-stop', 3], // its edge
+  ['--color-stop-border', '--color-ground', 3],
   ['--color-swipe-text', '--color-swipe-used', 4.5], // the green Used… button
   ['--color-swipe-text', '--color-swipe-move', 4.5], // the blue Move… button
   ['--color-warning-text', '--color-surface', 4.5], // "Remove from list" in the amount box

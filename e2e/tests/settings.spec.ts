@@ -72,9 +72,10 @@ test('the section list shows every section, goes to one, and the page passes the
     'Recent changes',
     'Household',
     'Privacy',
+    'Your data',
     'Sign-in',
   ]);
-  await expect(list.getByText('Your data and About come in 0.9.')).toBeVisible();
+  await expect(list.getByText('About comes in 0.9.')).toBeVisible();
   for (const button of await list.getByRole('button').all()) {
     expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
@@ -100,7 +101,7 @@ test('F193: the phone lists Settings in three groups, each row opens its section
   for (const [group, rows] of [
     ['Your settings', ['Appearance', 'Amounts']],
     ['Kitchen settings', ['Meal slots', 'Shops & places', 'Your kitchen', 'Recent changes']],
-    ['Household settings', ['Household', 'Privacy', 'Sign-in']],
+    ['Household settings', ['Household', 'Privacy', 'Your data', 'Sign-in']],
   ] as const) {
     const links = page.getByRole('navigation', { name: group }).getByRole('link');
     await expect(links).toHaveCount(rows.length);
@@ -117,7 +118,7 @@ test('F193: the phone lists Settings in three groups, each row opens its section
   await expect(page.getByRole('link', { name: /^Your kitchen/ })).toContainText(/\d+ hob rings?/);
   await expect(page.getByRole('link', { name: /^Privacy/ })).toContainText(/All off|\d+ on/);
   await expect(page.getByRole('link', { name: /^Household/ })).toContainText(/\d+ (person|people)/);
-  await expect(page.getByText('Your data and About come in 0.9.')).toBeVisible();
+  await expect(page.getByText('About comes in 0.9.')).toBeVisible();
   // The list shows no section's own controls.
   await expect(page.getByRole('switch')).toHaveCount(0);
   await checkPage(page);

@@ -162,6 +162,7 @@
       { id: 'recent-changes', label: 'Recent changes', show: true },
       { id: 'household', label: 'Household', show: true },
       { id: 'privacy', label: 'Privacy', show: true },
+      { id: 'your-data', label: 'Your data', show: true },
       { id: 'sign-in', label: 'Sign-in', show: true }
     ].filter((section) => section.show)
   );
@@ -304,6 +305,12 @@
           href: resolve('/(app)/settings/privacy'),
           value: privacyOn === null ? undefined : privacyOn === 0 ? 'All off' : `${privacyOn} on`
         },
+        {
+          id: 'your-data',
+          label: 'Your data',
+          icon: 'your-data',
+          href: resolve('/(app)/settings/your-data')
+        },
         { id: 'sign-in', label: 'Sign-in', icon: 'sign-in' }
       ]
     }
@@ -442,7 +449,7 @@
 <div class="layout">
   {#if phone && only === null}
     <PhoneList {groups} />
-    <p class="later">Your data and About come in 0.9.</p>
+    <p class="later">About comes in 0.9.</p>
   {:else if !phone}
     <nav class="list" aria-label="Settings sections">
       <ul>
@@ -456,7 +463,7 @@
           </li>
         {/each}
       </ul>
-      <p class="later">Your data and About come in 0.9.</p>
+      <p class="later">About comes in 0.9.</p>
     </nav>
   {/if}
   <div class="sections" bind:this={sectionsBox}>
@@ -626,6 +633,21 @@
             <span class="who">
               <span class="label">Outside connections</span>
               <span class="detail">Recipe import, recipe photos and your own network</span>
+            </span>
+            <Icon name="back" size={18} stroke={2.4} />
+          </a>
+        </div>
+      </section>
+    {/if}
+
+    {#if showing('your-data')}
+      <section class="section" aria-labelledby="your-data">
+        <h2 class="title" id="your-data" tabindex="-1">Your data</h2>
+        <div class="card">
+          <a class="row to" href={resolve('/(app)/settings/your-data')}>
+            <span class="who">
+              <span class="label">Backups, export and starting again</span>
+              <span class="detail">How often Mealwright backs up, and how to restore</span>
             </span>
             <Icon name="back" size={18} stroke={2.4} />
           </a>
