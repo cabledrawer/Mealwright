@@ -1056,8 +1056,9 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
         if (
             1 < len(pieces) <= 3
             and all(any(c.isalpha() for c in piece) for piece in pieces)
-            # "shallot or 1/2 red onion": a fraction's slash is not a "/" between names
-            and not any(p[-1:].isdigit() or p[:1].isdigit() for p in pieces)
+            # "shallot or 1/2 red onion": a fraction's slash (a digit on both sides) is not a "/"
+            # between names; "ghee / 2 tbsp oil" still is (FX6)
+            and not any(a[-1:].isdigit() and b[:1].isdigit() for a, b in zip(pieces, pieces[1:]))
         ):
             rest = _with_shared_noun(pieces[0], pieces[-1])
             names.extend(pieces[1:])

@@ -588,6 +588,15 @@ def test_uk_packets() -> None:
     assert (line.amount, line.unit, line.size_word, line.name) == (D(500), "g", "pack", "mince")
 
 
+def test_a_slash_between_two_measured_ingredients_still_splits_on_the_first() -> None:
+    """FX6 (cabledrawer 11 Nov): 179's fraction rule must not stop "ghee / 2 tbsp oil" splitting."""
+    line = read_line("2 tbsp ghee / 2 tbsp oil")
+    assert (line.amount, line.unit, line.name) == (D(2), "tbsp", "ghee")
+    assert "/" not in line.name
+    # a fraction's slash is still not a split
+    assert read_line("1/2 cup milk").name == "milk"
+
+
 def test_indian_recipes() -> None:
     line = read_line("1 cup thuvaram paruppu (toor dal)")
     assert (line.amount, line.unit, line.name) == (D(1), "cup", "thuvaram paruppu")
