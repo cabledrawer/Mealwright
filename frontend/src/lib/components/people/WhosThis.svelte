@@ -6,6 +6,13 @@
   import { whosThis } from '#lib/whosThis.svelte.js';
   import PersonAvatar from './PersonAvatar.svelte';
 
+  /** For the gallery: what a pick does instead of telling the server. */
+  let {
+    onpick = (id: number | null) => whosThis.pick(id)
+  }: {
+    onpick?: (id: number | null) => unknown;
+  } = $props();
+
   let dialog: HTMLDialogElement;
   const uid = $props.id();
 
@@ -24,7 +31,7 @@
   aria-describedby="{uid}-sub"
   oncancel={(event) => {
     event.preventDefault();
-    void whosThis.pick(null);
+    void onpick(null);
   }}
   data-testid="whos-this"
 >
@@ -41,7 +48,7 @@
           type="button"
           class="who"
           disabled={whosThis.busy}
-          onclick={() => void whosThis.pick(person.id)}
+          onclick={() => void onpick(person.id)}
         >
           <PersonAvatar id={person.id} name={person.name} colour={person.colour} size={52} />
           <span class="name">{person.name}</span>
@@ -51,11 +58,8 @@
     {#if whosThis.problem}
       <p class="problem" role="alert">{whosThis.problem}</p>
     {/if}
-    <button
-      type="button"
-      class="looking"
-      disabled={whosThis.busy}
-      onclick={() => void whosThis.pick(null)}>Just looking (don’t ask again for an hour)</button
+    <button type="button" class="looking" disabled={whosThis.busy} onclick={() => void onpick(null)}
+      >Just looking (don’t ask again for an hour)</button
     >
     <p class="note">
       Asked again after 30 minutes without use. Turn this off in Settings › Household.
