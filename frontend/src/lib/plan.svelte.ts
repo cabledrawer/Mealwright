@@ -44,6 +44,7 @@ import {
   type TubLeft,
   type WhenNoneLeft
 } from './client/plan';
+import { forgetBatchMode } from './batchModeStore';
 import { kitchen } from './freshness.svelte';
 import {
   addDays,
@@ -634,11 +635,13 @@ export class PlanModel {
   }
 
   /** Take the whole session off the plan: one change, one Undo. */
-  removeBatch(id: number) {
-    return this.#send({
+  async removeBatch(id: number) {
+    const result = await this.#send({
       label: 'Took the batch cook off the plan',
       send: (key) => removeSession(id, key)
     });
+    if (result.ok) forgetBatchMode(id); // the session is gone: the phone's copy goes (S5)
+    return result;
   }
 
   /** Cooked it, for a meal on the Plan: the meal is answered, with "Any left over?" tubs if any.

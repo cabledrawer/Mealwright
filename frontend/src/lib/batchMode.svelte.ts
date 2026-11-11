@@ -15,9 +15,11 @@ import {
   startSchedule,
   startTaskTimer,
   undoTaskDone,
+  type Progress,
   type Schedule,
   type ScheduleTask
 } from './client/batchMode';
+import { batchModeKey } from './batchModeStore';
 import { rows, timesUp, work, type RecipeRow, type Worked } from './batchModeState';
 
 export type Mark = 'done' | 'undo' | 'timer';
@@ -33,7 +35,7 @@ interface Pending {
 /** How soon marks that could not be sent are tried again. */
 export const RETRY_MS = 3000;
 
-const KEY = (id: number) => `mealwright.batchmode.${id}`;
+const KEY = batchModeKey;
 
 export class BatchModeModel {
   schedule = $state<Schedule | null>(null);
@@ -131,6 +133,37 @@ export class BatchModeModel {
     let tasks = next.tasks;
     for (const p of this.pending) tasks = tasks.map((t) => apply(t, p));
     return { ...next, tasks };
+  }
+
+  /** The schedule this screen holds with a mark's answer put over it (only where it is up to:
+   * the words stay as they are). Null: the answer is for another schedule. */
+  #merged(reply: Progress | Schedule): Schedule | null {
+    const held = this.schedule;
+    if (!held || !same(held.made_at, reply.made_at)) return null;
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a lookup made and dropped here
+    const by = new Map(reply.tasks.map((t) => [t.id, t]));
+    return {
+      ...held,
+      stale: reply.stale,
+      minutes_left: reply.minutes_left,
+      now_id: reply.now_id,
+      next_id: reply.next_id,
+      in_use: reply.in_use,
+      done_count: reply.done_count,
+      server_time: reply.server_time,
+      tasks: held.tasks.map((t) => {
+        const found = by.get(t.id);
+        return found
+          ? {
+              ...t,
+              state: found.state,
+              started_at: found.started_at,
+              done_at: found.done_at,
+              ends_at: found.ends_at
+            }
+          : t;
+      })
+    };
   }
 
   #keep(): void {
@@ -253,8 +286,14 @@ export class BatchModeModel {
                 : await startTaskTimer(this.id, p.task, p.at, p.made_at);
           this.pending = this.pending.slice(1);
           this.#skew = Date.parse(reply.server_time) - Date.now();
-          if (!this.pending.length) this.schedule = reply;
-          else this.schedule = this.#withPending(reply);
+          const next = this.#merged(reply);
+          if (next === null) {
+            // Not the schedule this screen holds (made again meanwhile): take the whole one.
+            this.pending = [];
+            this.#take(await getSchedule(this.id));
+          } else {
+            this.schedule = this.pending.length ? this.#withPending(next) : next;
+          }
           this.#keep();
         } catch (error) {
           if (cantReach(error)) {

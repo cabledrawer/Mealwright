@@ -19,6 +19,7 @@ vi.mock('./client/batchMode', () => ({
 vi.mock('./chime', () => ({ primeChime: vi.fn(), playChime: vi.fn() }));
 
 import { BatchModeModel } from './batchMode.svelte';
+import { forgetBatchMode } from './batchModeStore';
 
 function task(over: Partial<ScheduleTask> & { id: string }): ScheduleTask {
   return {
@@ -324,5 +325,41 @@ describe('Batch cook mode model', () => {
     other.mark('done', 't1'); // Skip wait
     expect(other.worked?.tasks[0]?.state).toBe('done');
     expect(other.worked?.now?.id).toBe('t2');
+  });
+  it('S5: a mark’s answer holds progress only; the steps’ words stay as the screen has them', async () => {
+    calls.start.mockResolvedValue(two());
+    const done = new Date().toISOString();
+    calls.done.mockResolvedValue({
+      session_id: 7,
+      made_at: MADE,
+      stale: false,
+      minutes_left: 5,
+      tasks: [
+        { id: 't1', state: 'done', started_at: null, done_at: done, ends_at: null },
+        { id: 't2', state: 'ready', started_at: null, done_at: null, ends_at: null }
+      ],
+      now_id: 't2',
+      next_id: null,
+      in_use: { hob: 0, pressure: 0, oven: 0 },
+      done_count: 1,
+      server_time: new Date().toISOString()
+    });
+    const model = new BatchModeModel(7);
+    await model.load();
+    model.mark('done', 't1');
+    await vi.waitFor(() => expect(model.pending).toEqual([]));
+    expect(model.schedule?.tasks.map((t) => t.title)).toEqual(['Do t1', 'Do t2']);
+    expect(model.schedule?.tasks[0]?.done_at).toBe(done);
+    expect(model.schedule?.done_count).toBe(1);
+    expect(model.schedule?.recipes[0]?.recipe_name).toBe('Sambar');
+  });
+
+  it('S5: the phone’s copy of a session is removed when it ends', async () => {
+    calls.start.mockResolvedValue(two());
+    const model = new BatchModeModel(7);
+    await model.load();
+    expect(localStorage.getItem('mealwright.batchmode.7')).not.toBeNull();
+    forgetBatchMode(7);
+    expect(localStorage.getItem('mealwright.batchmode.7')).toBeNull();
   });
 });

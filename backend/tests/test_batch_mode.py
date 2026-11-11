@@ -445,3 +445,32 @@ def test_a_marinade_in_the_middle_of_a_recipe_is_left_for_the_night_before(
     assert made["total_minutes"] < 120
     assert len(made["before"]) == 2
     assert [t["title"] for t in made["tasks"] if "marinate" in t["title"]] == []
+
+
+# --- Whole-0.8 review fixes (RF3): S5 ------------------------------------------------------------
+
+
+def test_a_mark_can_be_answered_with_the_progress_only_so_no_step_words_are_sent_again(
+    kitchen: TestClient, session: int
+) -> None:
+    """S5: with `brief=true` the answer to a done, an undo or a timer has each task's state and
+    times but not the steps' words; without it the answer is the whole schedule as before."""
+    made = start(kitchen, session)
+    tid = made["now_id"]
+    whole = ok(kitchen.put(url(session, f"/tasks/{tid}/done")))
+    assert "title" in whole["tasks"][0] and "before" in whole
+    brief = ok(kitchen.put(url(session, f"/tasks/{tid}/done"), params={"brief": "true"}))
+    assert set(brief["tasks"][0]) == {"id", "state", "started_at", "done_at", "ends_at"}
+    assert "before" not in brief and "recipes" not in brief
+    assert brief["made_at"] == made["made_at"] and brief["done_count"] == whole["done_count"]
+    assert [t["state"] for t in brief["tasks"]] == [t["state"] for t in whole["tasks"]]
+    undone = ok(kitchen.delete(url(session, f"/tasks/{tid}/done"), params={"brief": "true"}))
+    assert undone["done_count"] == 0 and "title" not in undone["tasks"][0]
+    waiting = next(t["id"] for t in made["tasks"] if t["hands"] == "waiting")
+    # A timer can only start when the wait is ready: do what is before it first.
+    for t in made["tasks"]:
+        if t["id"] == waiting:
+            break
+        kitchen.put(url(session, f"/tasks/{t['id']}/done"))
+    timed = ok(kitchen.put(url(session, f"/tasks/{waiting}/timer"), params={"brief": "true"}))
+    assert next(t for t in timed["tasks"] if t["id"] == waiting)["state"] == "running"

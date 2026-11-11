@@ -58,6 +58,21 @@ export interface Schedule {
   server_time: string;
 }
 
+/** What a mark's answer holds (`brief=true`): where the session is up to, without the steps'
+ * words, which the screen already has (RF3, S5). */
+export interface Progress {
+  session_id: number;
+  made_at: string;
+  stale: boolean;
+  minutes_left: number;
+  tasks: Pick<ScheduleTask, 'id' | 'state' | 'started_at' | 'done_at' | 'ends_at'>[];
+  now_id: string | null;
+  next_id: string | null;
+  in_use: Record<'hob' | 'pressure' | 'oven', number>;
+  done_count: number;
+  server_time: string;
+}
+
 const base = (id: number) => `/batch-cook/sessions/${id}/schedule`;
 
 /** Start batch cook mode (an existing schedule comes back as it is). */
@@ -74,16 +89,16 @@ const marked = (at?: string, madeAt?: string) =>
   at || madeAt ? { ...(at ? { at } : {}), ...(madeAt ? { made_at: madeAt } : {}) } : undefined;
 
 export const markTaskDone = (id: number, task: string, at?: string, madeAt?: string) =>
-  api<Schedule>('PUT', `${base(id)}/tasks/${task}/done`, marked(at, madeAt));
+  api<Progress>('PUT', `${base(id)}/tasks/${task}/done?brief=true`, marked(at, madeAt));
 
 export const undoTaskDone = (id: number, task: string, madeAt?: string) =>
-  api<Schedule>(
+  api<Progress>(
     'DELETE',
-    `${base(id)}/tasks/${task}/done${madeAt ? `?made_at=${encodeURIComponent(madeAt)}` : ''}`
+    `${base(id)}/tasks/${task}/done?brief=true${madeAt ? `&made_at=${encodeURIComponent(madeAt)}` : ''}`
   );
 
 export const startTaskTimer = (id: number, task: string, at?: string, madeAt?: string) =>
-  api<Schedule>('PUT', `${base(id)}/tasks/${task}/timer`, marked(at, madeAt));
+  api<Progress>('PUT', `${base(id)}/tasks/${task}/timer?brief=true`, marked(at, madeAt));
 
 export interface SessionProposal {
   session_id: number;

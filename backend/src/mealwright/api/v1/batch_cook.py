@@ -2,7 +2,9 @@
 recipes to cook together, and the sessions that "Plan this batch" makes. Everything is read from
 and written to the household's own recipes and plan; nothing leaves the server. Online only, like
 the rest of the plan; each write has its Undo (`POST /changes/{id}/undo`). An admin can hide Batch
-cook in Settings: every route here then answers 409 `batch_cook_hidden`."""
+cook in Settings: every route here then answers 409 `batch_cook_hidden`, except taking a session off
+the plan (`DELETE /batch-cook/sessions/{id}`), which still works so the Plan can be cleaned
+(the Plan's card keeps its Remove)."""
 
 from collections.abc import Callable
 from datetime import date, datetime
@@ -448,15 +450,78 @@ def get_schedule(session_id: StoredInt, kitchen: Here) -> ScheduleOut:
     return _schedule_out(kitchen, session_id)
 
 
+class TaskProgressOut(BaseModel):
+    id: str
+    state: str = Field(description="`done`, `running` (a timer), `ready` or `later`.")
+    started_at: datetime | None
+    done_at: datetime | None
+    ends_at: datetime | None
+
+
+class ScheduleProgressOut(BaseModel):
+    """Where the session is up to, without the words (RF3, S5): the same fields as `ScheduleOut`
+    that a mark changes, so a mark's answer is small however long the steps are."""
+
+    session_id: int
+    made_at: datetime = Field(description="Of the schedule these tasks belong to.")
+    stale: bool
+    minutes_left: int
+    tasks: list[TaskProgressOut]
+    now_id: str | None
+    next_id: str | None
+    in_use: dict[str, int]
+    done_count: int
+    server_time: datetime
+
+
+BriefQuery = Annotated[
+    bool,
+    Query(
+        description=(
+            "Answer with `ScheduleProgressOut` (each task's state and times only, no step "
+            "words) instead of the whole schedule. The screen already has the words."
+        )
+    ),
+]
+
+
+def _progress_out(whole: ScheduleOut) -> ScheduleProgressOut:
+    return ScheduleProgressOut(
+        session_id=whole.session_id,
+        made_at=whole.made_at,
+        stale=whole.stale,
+        minutes_left=whole.minutes_left,
+        tasks=[
+            TaskProgressOut(
+                id=t.id,
+                state=t.state,
+                started_at=t.started_at,
+                done_at=t.done_at,
+                ends_at=t.ends_at,
+            )
+            for t in whole.tasks
+        ],
+        now_id=whole.now_id,
+        next_id=whole.next_id,
+        in_use=whole.in_use,
+        done_count=whole.done_count,
+        server_time=whole.server_time,
+    )
+
+
 def _progress_write(
-    kitchen: Here, session_id: int, change: Callable[[BatchSession], None]
-) -> ScheduleOut:
+    kitchen: Here,
+    session_id: int,
+    change: Callable[[BatchSession], None],
+    brief: bool = False,
+) -> ScheduleOut | ScheduleProgressOut:
     batch_sessions.hidden_check(kitchen)
     lock_db(kitchen.db, kitchen.household)
     session = batch_sessions.find_session(kitchen, session_id)
     change(session)
     kitchen.db.commit()
-    return _schedule_out(kitchen, session_id)
+    whole = _schedule_out(kitchen, session_id)
+    return _progress_out(whole) if brief else whole
 
 
 class MarkIn(BaseModel):
@@ -479,8 +544,12 @@ class MarkIn(BaseModel):
 
 @router.put("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/done")
 def mark_task_done(
-    session_id: StoredInt, task_id: TaskId, kitchen: Here, body: MarkIn | None = None
-) -> ScheduleOut:
+    session_id: StoredInt,
+    task_id: TaskId,
+    kitchen: Here,
+    body: MarkIn | None = None,
+    brief: BriefQuery = False,
+) -> ScheduleOut | ScheduleProgressOut:
     """Mark a task done (done already: it stays as it was). Every open screen of the household
     hears `batch_cook` and asks again. The optional body's `at` is when it was pressed."""
     now = utcnow()
@@ -491,6 +560,7 @@ def mark_task_done(
         lambda s: batch_mode.mark_done(
             kitchen, s, task_id, now, at, body.made_at if body else None
         ),
+        brief,
     )
 
 
@@ -503,17 +573,22 @@ def undo_task_done(
         datetime | None,
         Query(description="The `made_at` of the schedule the phone holds (see `MarkIn`)."),
     ] = None,
-) -> ScheduleOut:
+    brief: BriefQuery = False,
+) -> ScheduleOut | ScheduleProgressOut:
     """Take "done" back: the task is as if untouched, and a timer it had is cleared."""
     return _progress_write(
-        kitchen, session_id, lambda s: batch_mode.undo_done(kitchen, s, task_id, made_at)
+        kitchen, session_id, lambda s: batch_mode.undo_done(kitchen, s, task_id, made_at), brief
     )
 
 
 @router.put("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/timer")
 def start_task_timer(
-    session_id: StoredInt, task_id: TaskId, kitchen: Here, body: MarkIn | None = None
-) -> ScheduleOut:
+    session_id: StoredInt,
+    task_id: TaskId,
+    kitchen: Here,
+    body: MarkIn | None = None,
+    brief: BriefQuery = False,
+) -> ScheduleOut | ScheduleProgressOut:
     """Start a waiting task's timer, on the server's clock unless the optional body's `at` (when
     it was pressed) lies between the schedule being made and now (started already: the first
     start stays), so every phone shows the same time left. `422 not_a_wait` for a hands-on task;
@@ -527,6 +602,7 @@ def start_task_timer(
         lambda s: batch_mode.start_timer(
             kitchen, s, task_id, now, at, body.made_at if body else None
         ),
+        brief,
     )
 
 
