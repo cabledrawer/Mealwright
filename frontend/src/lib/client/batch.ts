@@ -51,7 +51,10 @@ export interface SessionRecipe extends BatchBody {
 
 export interface SessionBody {
   date: string;
-  slot_id: number;
+  /** Left out, the server picks the meal (a change keeps its own). */
+  slot_id?: number;
+  /** The session being changed: the preview then has it taken off first. */
+  session_id?: number;
   recipes: SessionRecipe[];
 }
 
@@ -71,6 +74,7 @@ export const removeSession = (id: number, key: string) =>
 export interface SessionRead {
   id: number;
   cook_day: string;
+  slot_id: number | null;
   together_minutes: number | null;
   one_by_one_minutes: number | null;
   recipes: {

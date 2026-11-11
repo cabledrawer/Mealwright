@@ -4,6 +4,7 @@
   // Start batch cook, Change. Remove takes the whole session off in one change with one Undo.
   import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
+  import { batchCook } from '#lib/batchCook.svelte.js';
   import type { PlanBatch, PlanSession } from '#lib/client/plan.js';
   import Icon from '#lib/components/Icon.svelte';
   import type { PlanActions } from '#lib/planActions.js';
@@ -60,13 +61,16 @@
     {/each}
   </ul>
   <div class="buttons">
-    <button
-      type="button"
-      class="go"
-      disabled={actions.readonly || batches.length === 0}
-      onclick={() => batches[0] && onstart(batches[0])}>Start batch cook</button
-    >
-    <button type="button" class="btn" disabled={actions.readonly} onclick={change}>Change</button>
+    <!-- While an admin has Batch cook hidden, its screens are gone: only Remove stays. -->
+    {#if batchCook.shown}
+      <button
+        type="button"
+        class="go"
+        disabled={actions.readonly || batches.length === 0}
+        onclick={() => batches[0] && onstart(batches[0])}>Start batch cook</button
+      >
+      <button type="button" class="btn" disabled={actions.readonly} onclick={change}>Change</button>
+    {/if}
     <button
       type="button"
       class="btn"

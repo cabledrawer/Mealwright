@@ -50,9 +50,9 @@ async function seed(page: Page, tag: string) {
   return { a, b, c };
 }
 
-async function dinnerSlot(page: Page) {
+async function mealSlot(page: Page, name: string) {
   const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
-  return list.find((s) => s.name === 'Dinner')!.id;
+  return list.find((s) => s.name === name)!.id;
 }
 
 /** Open Batch cook (the sidebar's entry, or the Plan's tab on a phone), past the first-time note and Your kitchen. */
@@ -199,7 +199,7 @@ test('Change reopens the picks with the session’s recipes, and Remove takes th
   const tag = `r${Date.now().toString(36)}`;
   const ids = await seed(page, tag);
   const day = cookDay(await today(page), 2);
-  const slot = await dinnerSlot(page);
+  const slot = await mealSlot(page, 'Lunch'); // not the server's own pick (Dinner), so a move would show
   const body = (recipes: number[]) => ({
     date: day,
     slot_id: slot,
@@ -213,6 +213,17 @@ test('Change reopens the picks with the session’s recipes, and Remove takes th
   await expect(page).toHaveURL(new RegExp(`/batch-cook\\?change=${made.session_id}`));
   await expect(page.locator('.nm').filter({ hasText: 'Chettinad' })).toBeVisible();
   await expect(page.locator('.nm').filter({ hasText: 'Sambar' })).toBeVisible();
+  // Plan this batch, unchanged: the session stays in the meal it was in.
+  await page.getByRole('button', { name: 'Plan this batch' }).click();
+  await page.getByRole('dialog', { name: /1 of 2/ }).getByRole('button', { name: 'Next recipe' }).click();
+  await page.getByRole('dialog', { name: /2 of 2/ }).getByRole('button', { name: 'Plan this batch' }).click();
+  await expect(page).toHaveURL(/\/plan/);
+  await expect(page.getByTestId('batch-card')).toContainText('Batch cook · 2 recipes');
+  const after = (await planRange(page, day)).batch_sessions as { id: number }[];
+  expect(after).toHaveLength(1);
+  expect(after[0].id).not.toBe(made.session_id);
+  const changed = (await (await page.request.get(`/api/v1/batch-cook/sessions/${after[0].id}`)).json()) as { slot_id: number };
+  expect(changed.slot_id).toBe(slot);
   await page.goto(`/plan?day=${day}`);
   await page.getByTestId('batch-card').getByRole('button', { name: 'Remove' }).click();
   await expect(page.getByTestId('batch-card')).toHaveCount(0);
@@ -228,7 +239,11 @@ test('an admin can hide Batch cook in Settings: no sidebar entry, no Plan tab, a
   if (isPhone(page)) await page.getByRole('link', { name: /^Your kitchen/ }).click();
   const row = page.getByRole('switch', { name: 'Show Batch cook' });
   await expect(row).toBeChecked();
+  const saved = (checked: boolean) =>
+    page.waitForResponse((r) => r.url().endsWith('/api/v1/household') && r.request().method() === 'PATCH' && r.ok() && r.request().postData()?.includes(String(checked)) === true);
+  const hiding = saved(false);
   await row.click();
+  await hiding;
   await expect(row).not.toBeChecked();
   const refused = await page.request.get('/api/v1/batch-cook/suggestions');
   expect(refused.status()).toBe(409);
@@ -237,7 +252,80 @@ test('an admin can hide Batch cook in Settings: no sidebar entry, no Plan tab, a
   else await expect(page.getByRole('complementary', { name: 'Sidebar' }).getByRole('link', { name: /^Batch cook/ })).toHaveCount(0);
   await page.goto('/settings');
   if (isPhone(page)) await page.getByRole('link', { name: /^Your kitchen/ }).click();
+  const showing = saved(true);
   await page.getByRole('switch', { name: 'Show Batch cook' }).click();
+  await showing;
   await expect(page.getByRole('switch', { name: 'Show Batch cook' })).toBeChecked();
   expect((await page.request.get('/api/v1/batch-cook/suggestions')).status()).toBe(200);
+});
+
+test('while Batch cook is hidden the Plan card keeps only Remove', async ({ page }) => {
+  const tag = `h${Date.now().toString(36)}`;
+  const ids = await seed(page, tag);
+  const day = cookDay(await today(page), 3);
+  const made = await call(page, 'POST', '/batch-cook/sessions', {
+    date: day,
+    recipes: [ids.a, ids.b].map((recipe_id) => ({ recipe_id, tub_count: 1, pattern: 'dinners' })),
+  });
+  await call(page, 'PATCH', '/household', { batch_cook: false });
+  try {
+    await page.goto(`/plan?day=${day}`);
+    const card = page.getByTestId('batch-card');
+    await expect(card).toContainText('Batch cook · 2 recipes');
+    await expect(card.getByRole('button', { name: 'Remove' })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Change' })).toHaveCount(0);
+    await expect(card.getByRole('button', { name: 'Start batch cook' })).toHaveCount(0);
+  } finally {
+    await call(page, 'PATCH', '/household', { batch_cook: true });
+  }
+  await page.goto(`/plan?day=${day}`);
+  await expect(page.getByTestId('batch-card').getByRole('button', { name: 'Change' })).toBeVisible();
+  await call(page, 'DELETE', `/batch-cook/sessions/${made.session_id}`);
+});
+
+test('offline the picks can be read but not changed: no Plan this batch, no Swap, no Show me others', async ({ page, context }) => {
+  const tag = `o${Date.now().toString(36)}`;
+  await seed(page, tag);
+  await call(page, 'POST', '/recipes', { name: `Extra ${tag}`, steps: [{ text: 'Cook it for 10 minutes.' }] });
+  await open(page);
+  await expect(page.getByRole('button', { name: 'Plan this batch' })).toBeEnabled();
+  await context.setOffline(true);
+  try {
+    await expect(page.getByRole('button', { name: 'Plan this batch' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Show me others' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: /^Swap/ }).first()).toBeDisabled();
+    await expect(page.getByText(/Batch cook changes/)).toBeVisible();
+    await expect(page.locator('.nm').first()).toBeVisible(); // what was read stays on screen
+  } finally {
+    await context.setOffline(false);
+  }
+});
+
+test('fewer recipes than asked: the set says so, and with one recipe there is nothing to plan', async ({ page }) => {
+  // The server's pool grows with every test, so the answer is made here: 2 recipes can be
+  // picked, then only 1.
+  let picks = 2;
+  await page.route('**/api/v1/batch-cook/suggestions*', async (route) => {
+    const day = '2026-11-15';
+    await route.fulfill({
+      json: {
+        day,
+        count: 3,
+        picks: Array.from({ length: picks }, (_, i) => ({ recipe_id: i + 1, name: `Fake ${i + 1}`, minutes: 20, why: 'Fits your kitchen.', use_soon: null })),
+        together_minutes: 30,
+        one_by_one_minutes: 40,
+        pool: picks,
+        free_days: [day],
+        kitchen: { hob_rings: 4, pressure_cookers: 1, oven: true, asked: true },
+      },
+    });
+  });
+  await page.goto('/batch-cook');
+  await expect(page.getByText('Only 2 of your recipes have steps, so this batch has 2.')).toBeVisible();
+  await expect(page.locator('.nm')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Plan this batch' })).toBeEnabled();
+  picks = 1;
+  await page.getByRole('radio', { name: '4' }).click();
+  await expect(page.getByText('Only 1 recipe has steps, so there is nothing to batch with. Add steps to another recipe.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Plan this batch' })).toBeDisabled();
 });

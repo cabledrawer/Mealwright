@@ -113,19 +113,19 @@
     flow = { at: 0, bodies: [] };
   }
 
-  const slotId = $derived(model.cookDay ? plan.slotForDay(model.cookDay) : null);
-
-  function sessionBody(bodies: BatchBody[]): SessionBody | null {
-    if (!model.cookDay || slotId === null) return null;
+  function sessionBody(bodies: BatchBody[], forPreview = false): SessionBody | null {
+    if (!model.cookDay) return null;
+    // No meal is sent: the server picks the last one with no recipe that day, and a change keeps
+    // the session's own.
     return {
       date: model.cookDay,
-      slot_id: slotId,
+      ...(forPreview && changing !== null ? { session_id: changing } : {}),
       recipes: bodies.map((b, i) => ({ ...b, recipe_id: model.picks[i]!.recipe_id }))
     };
   }
 
   const ahead = $derived.by<Ahead | null>(() => {
-    if (!flow || slotId === null || !model.cookDay) return null;
+    if (!flow || !model.cookDay) return null;
     const at = flow.at;
     const pick = model.picks[at];
     if (!pick) return null;
@@ -134,11 +134,11 @@
     return {
       name: pick.name,
       day,
-      slotId,
+      slotId: null,
       position: `${at + 1} of ${model.picks.length}`,
       last: at === model.picks.length - 1,
       preview: (body) => {
-        const so_far = sessionBody([...before, body]);
+        const so_far = sessionBody([...before, body], true);
         if (!so_far) return Promise.reject(new Error('No meal'));
         return previewSession({ ...so_far, recipes: so_far.recipes.slice(0, at + 1) });
       },

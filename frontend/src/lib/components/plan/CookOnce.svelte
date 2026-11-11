@@ -75,7 +75,9 @@
     cook?.preview ? colourOfBatch({ id: 0, colour: cook.preview.colour }) : 1
   );
   /** The slot the cook meal is in, with the slots that come after it on that day. */
-  const cookSlot = $derived(target?.meal.slot_id ?? ahead?.slotId ?? 0);
+  const cookSlot = $derived(
+    target?.meal.slot_id ?? cook?.preview?.cook_slot_id ?? ahead?.slotId ?? 0
+  );
   const slotsOn = $derived(model.slotsOn);
   const slotAt = (slotId: number) => slotsOn.findIndex((s) => s.id === slotId);
 

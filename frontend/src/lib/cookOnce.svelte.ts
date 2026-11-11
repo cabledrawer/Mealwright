@@ -64,7 +64,8 @@ export function timesWords(tubs: number, serves: number | null): string | null {
 export interface Ahead {
   name: string;
   day: string;
-  slotId: number;
+  /** The meal, when it is known before the first preview (the preview says it otherwise). */
+  slotId: number | null;
   /** "1 of 3". */
   position: string;
   /** The last sheet says "Plan this batch"; the others "Next recipe". */
