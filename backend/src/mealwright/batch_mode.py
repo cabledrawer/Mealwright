@@ -455,22 +455,43 @@ def when(session: BatchSession, at: datetime | None, now: datetime) -> datetime:
     return pressed if as_utc(session.schedule_made_at) <= pressed <= as_utc(now) else now
 
 
+def current(session: BatchSession, made_at: datetime | None) -> None:
+    """A mark made on a phone that still holds an older schedule (another phone pressed Plan
+    again since; the task ids are reused for different steps) is refused, so it never lands on
+    the wrong step (RF3, C8; `409 schedule_replaced`, proposed, for cabledrawer). A mark that doesn't
+    say which schedule it was made on is taken as before."""
+    if made_at is None or session.schedule_made_at is None:
+        return
+    if abs((as_utc(made_at) - as_utc(session.schedule_made_at)).total_seconds()) > 0.001:
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "schedule_replaced",
+            # proposed, for cabledrawer
+            "The schedule was made again on another phone. Opening it afresh.",
+        )
+
+
 def mark_done(
     kitchen: Kitchen,
     session: BatchSession,
     task_id: str,
     now: datetime,
     at: datetime | None = None,
+    made_at: datetime | None = None,
 ) -> None:
     """Done (a second time changes nothing: the first time stays)."""
+    current(session, made_at)
     _task(session, task_id)
     row = _row(kitchen, session, task_id)
     if row.done_at is None:
         row.done_at = when(session, at, now)
 
 
-def undo_done(kitchen: Kitchen, session: BatchSession, task_id: str) -> None:
+def undo_done(
+    kitchen: Kitchen, session: BatchSession, task_id: str, made_at: datetime | None = None
+) -> None:
     """Take "done" back: the task is as if untouched (a timer it had is cleared too)."""
+    current(session, made_at)
     _task(session, task_id)
     row = _progress(kitchen, session).get(task_id)
     if row is not None:
@@ -483,10 +504,12 @@ def start_timer(
     task_id: str,
     now: datetime,
     at: datetime | None = None,
+    made_at: datetime | None = None,
 ) -> None:
     """Start a waiting task's timer (started already: the first start stays). Only when the task
     is ready: everything before it in its recipe is done and the ring, pressure cooker or oven it
     uses is free (review B3 r1, fix 1; `409 not_ready`, proposed, for cabledrawer)."""
+    current(session, made_at)
     task = _task(session, task_id)
     if task["hands"] != "waiting":
         raise Problem(

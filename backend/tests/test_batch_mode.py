@@ -381,3 +381,34 @@ def test_removing_the_session_and_undo_bring_back_its_schedule_and_progress(
         assert again[key] == before[key], key
     assert task(again, first)["done_at"] == task(before, first)["done_at"]
     assert task(again, waiting["id"])["started_at"] == task(before, waiting["id"])["started_at"]
+
+
+# --- Whole-0.8 review fixes (RF3): C8 ------------------------------------------------------------
+
+
+def test_a_mark_for_an_older_schedule_is_refused_after_plan_again(
+    kitchen: TestClient, session: int
+) -> None:
+    """C8: a phone still holding the old schedule sends a done for t1, after another phone has
+    pressed Plan again (same task ids, different steps): refused, nothing marked."""
+    old = start(kitchen, session)
+    again = ok(kitchen.post(url(session), json={"plan_again": True}), 201)
+    assert again["made_at"] != old["made_at"]
+    tid = old["now_id"]
+    sent = {"made_at": old["made_at"]}
+    for refused in (
+        kitchen.put(url(session, f"/tasks/{tid}/done"), json=sent),
+        kitchen.put(url(session, f"/tasks/{tid}/timer"), json=sent),
+        kitchen.delete(url(session, f"/tasks/{tid}/done"), params=sent),
+    ):
+        assert refused.status_code == 409, refused.text
+        assert refused.json()["code"] == "schedule_replaced"
+    assert ok(kitchen.get(url(session)))["done_count"] == 0
+    # The current schedule's own made_at is accepted, and a mark without one still works.
+    assert (
+        kitchen.put(
+            url(session, f"/tasks/{tid}/done"), json={"made_at": again["made_at"]}
+        ).status_code
+        == 200
+    )
+    assert kitchen.put(url(session, f"/tasks/{again['next_id']}/done")).status_code == 200

@@ -67,15 +67,23 @@ export const startSchedule = (id: number, planAgain = false) =>
 export const getSchedule = (id: number) => api<Schedule>('GET', base(id));
 
 /** `at`: when it was pressed (a phone that was offline sends it later; the server uses it when it
- *  lies between the schedule being made and now). */
-export const markTaskDone = (id: number, task: string, at?: string) =>
-  api<Schedule>('PUT', `${base(id)}/tasks/${task}/done`, at ? { at } : undefined);
+ *  lies between the schedule being made and now). `madeAt`: the `made_at` of the schedule the
+ *  phone holds; the server refuses the mark (409 `schedule_replaced`) when another phone has made
+ *  the schedule again since, because the task ids are then reused for other steps. */
+const marked = (at?: string, madeAt?: string) =>
+  at || madeAt ? { ...(at ? { at } : {}), ...(madeAt ? { made_at: madeAt } : {}) } : undefined;
 
-export const undoTaskDone = (id: number, task: string) =>
-  api<Schedule>('DELETE', `${base(id)}/tasks/${task}/done`);
+export const markTaskDone = (id: number, task: string, at?: string, madeAt?: string) =>
+  api<Schedule>('PUT', `${base(id)}/tasks/${task}/done`, marked(at, madeAt));
 
-export const startTaskTimer = (id: number, task: string, at?: string) =>
-  api<Schedule>('PUT', `${base(id)}/tasks/${task}/timer`, at ? { at } : undefined);
+export const undoTaskDone = (id: number, task: string, madeAt?: string) =>
+  api<Schedule>(
+    'DELETE',
+    `${base(id)}/tasks/${task}/done${madeAt ? `?made_at=${encodeURIComponent(madeAt)}` : ''}`
+  );
+
+export const startTaskTimer = (id: number, task: string, at?: string, madeAt?: string) =>
+  api<Schedule>('PUT', `${base(id)}/tasks/${task}/timer`, marked(at, madeAt));
 
 export interface SessionProposal {
   session_id: number;

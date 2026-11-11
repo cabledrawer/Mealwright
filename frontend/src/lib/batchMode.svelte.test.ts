@@ -41,11 +41,13 @@ function task(over: Partial<ScheduleTask> & { id: string }): ScheduleTask {
   };
 }
 
+const MADE = '2026-11-15T09:00:00.000000Z';
+
 function schedule(tasks: ScheduleTask[]): Schedule {
   return {
     session_id: 7,
     cook_day: '2026-11-15',
-    made_at: new Date().toISOString(),
+    made_at: MADE,
     stale: false,
     total_minutes: 30,
     minutes_left: 10,
@@ -99,7 +101,7 @@ describe('Batch cook mode model', () => {
     model.mark('done', 't1');
     expect(model.worked?.now?.id).toBe('t2'); // before the server answers
     await model.flush();
-    expect(calls.done).toHaveBeenCalledWith(7, 't1', expect.any(String));
+    expect(calls.done).toHaveBeenCalledWith(7, 't1', expect.any(String), MADE);
     expect(model.pending).toEqual([]);
     expect(model.lastDone).toBe('t1');
   });
@@ -142,7 +144,7 @@ describe('Batch cook mode model', () => {
       calls.timer.mockResolvedValue(schedule([task({ id: 't1', hands: 'waiting' })]));
       await model.flush();
       expect(pressed).toBe('2026-11-15T10:00:00.000Z');
-      expect(calls.timer).toHaveBeenLastCalledWith(7, 't1', pressed);
+      expect(calls.timer).toHaveBeenLastCalledWith(7, 't1', pressed, MADE);
       model.stop();
     } finally {
       vi.useRealTimers();
@@ -241,5 +243,86 @@ describe('Batch cook mode model', () => {
     await model.load();
     await model.load(true);
     expect(calls.start).toHaveBeenLastCalledWith(7, true);
+  });
+  // --- Whole-0.8 review fixes (RF3) -------------------------------------------------------------
+
+  it('C2: a Done pressed offline is sent after a reload with the connection back, and shows', async () => {
+    calls.start.mockResolvedValueOnce(two());
+    const first = new BatchModeModel(7);
+    await first.load();
+    calls.done.mockRejectedValue(offline());
+    first.mark('done', 't1');
+    await first.flush();
+    expect(first.pending).toHaveLength(1);
+    first.stop(); // the tab is closed
+    // Back online, the screen is opened again: the server's schedule has t1 not done.
+    const after = two();
+    after.tasks[0] = { ...after.tasks[0]!, done_at: new Date().toISOString() };
+    calls.done.mockReset();
+    calls.done.mockResolvedValue(after);
+    calls.start.mockResolvedValueOnce(two());
+    const second = new BatchModeModel(7);
+    await second.load();
+    expect(second.worked?.now?.id).toBe('t2'); // shown as done at once
+    await vi.waitFor(() => expect(calls.done).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(second.pending).toEqual([]));
+    expect(second.schedule?.tasks[0]?.done_at).not.toBeNull();
+  });
+
+  it('C8: marks kept for an older schedule are dropped when the schedule was made again', async () => {
+    calls.start.mockResolvedValueOnce(two());
+    const first = new BatchModeModel(7);
+    await first.load();
+    calls.done.mockRejectedValue(offline());
+    first.mark('done', 't1');
+    await first.flush();
+    first.stop();
+    // Another phone pressed Plan again: a new schedule (a later made_at), t1 means another step.
+    calls.done.mockReset();
+    calls.start.mockResolvedValueOnce({ ...two(), made_at: '2026-11-15T09:30:00.000000Z' });
+    const second = new BatchModeModel(7);
+    await second.load();
+    expect(second.pending).toEqual([]);
+    expect(calls.done).not.toHaveBeenCalled();
+    expect(second.worked?.now?.id).toBe('t1');
+  });
+
+  it('C8: a mark the server refuses as for an older schedule takes the new schedule as it is', async () => {
+    calls.start.mockResolvedValue(two());
+    const model = new BatchModeModel(7);
+    await model.load();
+    const newer = { ...two(), made_at: '2026-11-15T09:30:00.000000Z' };
+    calls.done.mockRejectedValue(
+      new ApiError(409, 'The schedule was made again on another phone.', 'schedule_replaced')
+    );
+    calls.get.mockResolvedValue(newer);
+    model.mark('done', 't1');
+    await vi.waitFor(() => expect(model.schedule?.made_at).toBe(newer.made_at));
+    expect(model.pending).toEqual([]);
+    expect(model.worked?.now?.id).toBe('t1');
+  });
+
+  it('C7: a running timer is ended early and a wait that has not started is skipped', async () => {
+    const wait = (id: string, over: Partial<ScheduleTask> = {}) =>
+      task({ id, hands: 'waiting', minutes: 60, end: 60, state: 'ready', ...over });
+    const start = schedule([wait('t1'), task({ id: 't2', start: 60, end: 65 })]);
+    calls.start.mockResolvedValue(start);
+    calls.timer.mockImplementation(() => new Promise(() => {}));
+    calls.done.mockImplementation(() => new Promise(() => {}));
+    const model = new BatchModeModel(7);
+    await model.load();
+    expect(model.rows[0]?.kind).toBe('ready');
+    model.mark('timer', 't1');
+    expect(model.rows[0]?.kind).toBe('running');
+    model.mark('done', 't1'); // End timer
+    expect(model.rows[0]?.kind).not.toBe('running');
+    expect(model.worked?.now?.id).toBe('t2');
+    // A wait not started is skipped the same way.
+    const other = new BatchModeModel(7);
+    calls.start.mockResolvedValue(schedule([wait('t1'), task({ id: 't2', start: 60, end: 65 })]));
+    await other.load();
+    other.mark('done', 't1'); // Skip wait
+    expect(other.worked?.tasks[0]?.state).toBe('done');
+    expect(other.worked?.now?.id).toBe('t2');
   });
 });

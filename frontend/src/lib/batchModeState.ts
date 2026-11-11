@@ -110,6 +110,15 @@ export interface RecipeRow {
   left: number;
   /** About how many minutes until it starts (kind `later`). */
   inMinutes: number;
+  /** A timer of this recipe has run out and the recipe's next task isn't done yet. */
+  over: ScheduleTask | null;
+}
+
+/** The waiting tasks whose timer has run out and that nobody has marked done. */
+export function timesUp(worked: Worked): ScheduleTask[] {
+  return worked.tasks.filter(
+    (t) => t.hands === 'waiting' && t.started_at && !t.done_at && t.state === 'done'
+  );
 }
 
 export function rows(recipes: ScheduleRecipe[], worked: Worked, nowMs: number): RecipeRow[] {
@@ -121,18 +130,28 @@ export function rows(recipes: ScheduleRecipe[], worked: Worked, nowMs: number): 
     const running = mine.find((t) => t.state === 'running');
     if (running) {
       const left = Math.max(0, Math.ceil((Date.parse(running.ends_at ?? '') - nowMs) / 1000));
-      return { recipe, kind: 'running', task: running, left, inMinutes: 0 };
+      return { recipe, kind: 'running', task: running, left, inMinutes: 0, over: null };
     }
     const todo = mine.find((t) => t.state !== 'done');
     // A timer that has run out stays on the row ("Time’s up") until the recipe's next task is done.
     const over = mine.find(
       (t) => t.hands === 'waiting' && t.started_at && !t.done_at && t.state === 'done'
     );
-    if (over && todo) return { recipe, kind: 'over', task: over, left: 0, inMinutes: 0 };
+    const timeUp = todo ? (over ?? null) : null;
+    // A second wait that is ready (pressure cook, then rest) shows its Start timer before the
+    // first one's "Time's up" (RF3, C1): otherwise it could never be started.
     const ready = mine.find((t) => t.hands === 'waiting' && t.state === 'ready');
-    if (ready) return { recipe, kind: 'ready', task: ready, left: 0, inMinutes: 0 };
-    if (!todo) return { recipe, kind: 'done', task: null, left: 0, inMinutes: 0 };
+    if (ready) return { recipe, kind: 'ready', task: ready, left: 0, inMinutes: 0, over: timeUp };
+    if (timeUp) return { recipe, kind: 'over', task: timeUp, left: 0, inMinutes: 0, over: timeUp };
+    if (!todo) return { recipe, kind: 'done', task: null, left: 0, inMinutes: 0, over: null };
     const wait = Math.max(0, todo.start - (first?.start ?? 0));
-    return { recipe, kind: 'later', task: todo, left: 0, inMinutes: Math.round(wait / 5) * 5 };
+    return {
+      recipe,
+      kind: 'later',
+      task: todo,
+      left: 0,
+      inMinutes: Math.round(wait / 5) * 5,
+      over: null
+    };
   });
 }

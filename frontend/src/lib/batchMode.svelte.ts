@@ -18,13 +18,16 @@ import {
   type Schedule,
   type ScheduleTask
 } from './client/batchMode';
-import { rows, work, type RecipeRow, type Worked } from './batchModeState';
+import { rows, timesUp, work, type RecipeRow, type Worked } from './batchModeState';
 
 export type Mark = 'done' | 'undo' | 'timer';
 interface Pending {
   mark: Mark;
   task: string;
   at: string;
+  /** The `made_at` of the schedule it was made on: a mark for an older schedule (another phone
+   *  pressed Plan again) is dropped, never put on the new one's steps (RF3, C8). */
+  made_at?: string;
 }
 
 /** How soon marks that could not be sent are tried again. */
@@ -95,9 +98,9 @@ export class BatchModeModel {
     this.nowMs = Date.now() + this.#skew;
     // One chime for however many timers ran out since the last look.
     let ended = false;
-    for (const row of this.rows) {
-      if (row.kind === 'over' && row.task && !this.#over.has(row.task.id)) {
-        this.#over.add(row.task.id);
+    for (const t of this.worked ? timesUp(this.worked) : []) {
+      if (!this.#over.has(t.id)) {
+        this.#over.add(t.id);
         ended = true;
       }
     }
@@ -114,10 +117,12 @@ export class BatchModeModel {
 
   #take(next: Schedule): void {
     this.#skew = Date.parse(next.server_time) - Date.now();
+    // Marks made on an older schedule are dropped: its task ids now mean other steps.
+    this.pending = this.pending.filter((p) => !p.made_at || same(p.made_at, next.made_at));
     this.schedule = this.#withPending(next);
     this.nowMs = Date.now() + this.#skew;
     // Timers already over when the screen opens do not chime.
-    for (const row of this.rows) if (row.kind === 'over' && row.task) this.#over.add(row.task.id);
+    for (const t of this.worked ? timesUp(this.worked) : []) this.#over.add(t.id);
     this.#keep();
   }
 
@@ -154,11 +159,25 @@ export class BatchModeModel {
     }
   }
 
-  /** Open the screen: start the mode (a schedule made already comes back as it is). */
+  /** The marks kept on this phone that haven't been sent (a reload once back online must not
+   *  lose them: RF3, C2). */
+  #keptPending(): Pending[] {
+    try {
+      const text = localStorage.getItem(KEY(this.id));
+      const found = text ? (JSON.parse(text) as { pending?: Pending[] }) : null;
+      return Array.isArray(found?.pending) ? found.pending : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Open the screen: start the mode (a schedule made already comes back as it is). The marks
+   *  kept on the phone are put over it and sent. */
   async load(planAgain = false): Promise<void> {
     this.loading = true;
     try {
       if (planAgain) this.pending = [];
+      else if (!this.pending.length) this.pending = this.#keptPending();
       this.#take(await startSchedule(this.id, planAgain));
       this.problem = null;
       void this.flush();
@@ -182,8 +201,13 @@ export class BatchModeModel {
 
   mark(mark: Mark, task: string): void {
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a moment to write down, not state
-    const p: Pending = { mark, task, at: new Date(Date.now() + this.#skew).toISOString() };
     if (!this.schedule) return;
+    const p: Pending = {
+      mark,
+      task,
+      at: new Date(Date.now() + this.#skew).toISOString(),
+      made_at: this.schedule.made_at
+    };
     this.schedule = { ...this.schedule, tasks: this.schedule.tasks.map((t) => apply(t, p)) };
     this.lastDone = mark === 'done' ? task : null;
     this.pending = [...this.pending, p];
@@ -223,10 +247,10 @@ export class BatchModeModel {
           // from then, not from when the phone reconnects (review B3 r1, fix 4).
           const reply =
             p.mark === 'done'
-              ? await markTaskDone(this.id, p.task, p.at)
+              ? await markTaskDone(this.id, p.task, p.at, p.made_at)
               : p.mark === 'undo'
-                ? await undoTaskDone(this.id, p.task)
-                : await startTaskTimer(this.id, p.task, p.at);
+                ? await undoTaskDone(this.id, p.task, p.made_at)
+                : await startTaskTimer(this.id, p.task, p.at, p.made_at);
           this.pending = this.pending.slice(1);
           this.#skew = Date.parse(reply.server_time) - Date.now();
           if (!this.pending.length) this.schedule = reply;
@@ -239,6 +263,15 @@ export class BatchModeModel {
           }
           this.pending = this.pending.slice(1); // refused: the server's own state wins
           this.problem = error instanceof ApiError ? error.detail : cantReachWords();
+          if (error instanceof ApiError && error.code === 'schedule_replaced') {
+            // Made again on another phone: nothing of ours fits the new one. Take it as it is.
+            this.pending = [];
+            try {
+              this.#take(await getSchedule(this.id));
+            } catch {
+              // The screen keeps what it has; the next look at the server will take it.
+            }
+          }
           this.#keep();
         }
       }
@@ -246,6 +279,11 @@ export class BatchModeModel {
       this.#sending = false;
     }
   }
+}
+
+/** Whether two moments of the server's are the same one. */
+function same(a: string, b: string): boolean {
+  return Math.abs(Date.parse(a) - Date.parse(b)) <= 1;
 }
 
 /** One waiting mark put on a task (on the screen, before the server has it). */

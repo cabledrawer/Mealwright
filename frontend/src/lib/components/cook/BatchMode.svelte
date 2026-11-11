@@ -184,20 +184,44 @@
                 <span class="quiet">Done</span>
               {/if}
             </span>
-            {#if row.kind === 'running'}
-              <span class="clock" role="timer">{clock(row.left)}</span>
+            {#if row.kind === 'running' && row.task}
+              <span class="acts">
+                <span class="clock" role="timer">{clock(row.left)}</span>
+                <button
+                  type="button"
+                  class="go"
+                  onclick={() => {
+                    if (row.task) model.mark('done', row.task.id);
+                  }}
+                  >End timer<span class="visually-hidden">
+                    early for {row.recipe.recipe_name}</span
+                  ></button
+                >
+              </span>
             {:else if row.kind === 'ready' && row.task}
-              <button
-                type="button"
-                class="go"
-                onclick={() => {
-                  model.prime();
-                  if (row.task) model.mark('timer', row.task.id);
-                }}
-                >Start timer<span class="visually-hidden">
-                  for {row.recipe.recipe_name}</span
-                ></button
-              >
+              <span class="acts">
+                <button
+                  type="button"
+                  class="go"
+                  onclick={() => {
+                    model.prime();
+                    if (row.task) model.mark('timer', row.task.id);
+                  }}
+                  >Start timer<span class="visually-hidden">
+                    for {row.recipe.recipe_name}</span
+                  ></button
+                >
+                <button
+                  type="button"
+                  class="go"
+                  onclick={() => {
+                    if (row.task) model.mark('done', row.task.id);
+                  }}
+                  >Skip wait<span class="visually-hidden">
+                    for {row.recipe.recipe_name}</span
+                  ></button
+                >
+              </span>
             {:else}
               <span class="quiet">—</span>
             {/if}
@@ -244,7 +268,7 @@
     {#if now}{progressWords(done, total, worked?.minutesLeft ?? 0)}. {now.title}{/if}
   </p>
   <p class="visually-hidden" role="status">
-    {#each model.rows.filter((r) => r.kind === 'over') as r (r.recipe.batch_id)}Timer finished for {r
+    {#each model.rows.filter((r) => r.over !== null) as r (r.recipe.batch_id)}Timer finished for {r
         .recipe.recipe_name}.
     {/each}
   </p>
@@ -503,6 +527,13 @@
     font-size: var(--text-base);
     font-weight: var(--weight-semibold);
     overflow-wrap: anywhere;
+  }
+
+  .acts {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-3);
   }
 
   .clock {

@@ -450,6 +450,14 @@ class MarkIn(BaseModel):
             "lies between the schedule being made and now; otherwise the server's own clock."
         ),
     )
+    made_at: datetime | None = Field(
+        default=None,
+        description=(
+            "The `made_at` of the schedule the phone holds. When another phone has made the "
+            "schedule again since, the mark is refused (`409 schedule_replaced`): the task ids "
+            "are reused for different steps. Left out: not checked."
+        ),
+    )
 
 
 @router.put("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/done")
@@ -461,14 +469,28 @@ def mark_task_done(
     now = utcnow()
     at = body.at if body else None
     return _progress_write(
-        kitchen, session_id, lambda s: batch_mode.mark_done(kitchen, s, task_id, now, at)
+        kitchen,
+        session_id,
+        lambda s: batch_mode.mark_done(
+            kitchen, s, task_id, now, at, body.made_at if body else None
+        ),
     )
 
 
 @router.delete("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/done")
-def undo_task_done(session_id: StoredInt, task_id: TaskId, kitchen: Here) -> ScheduleOut:
+def undo_task_done(
+    session_id: StoredInt,
+    task_id: TaskId,
+    kitchen: Here,
+    made_at: Annotated[
+        datetime | None,
+        Query(description="The `made_at` of the schedule the phone holds (see `MarkIn`)."),
+    ] = None,
+) -> ScheduleOut:
     """Take "done" back: the task is as if untouched, and a timer it had is cleared."""
-    return _progress_write(kitchen, session_id, lambda s: batch_mode.undo_done(kitchen, s, task_id))
+    return _progress_write(
+        kitchen, session_id, lambda s: batch_mode.undo_done(kitchen, s, task_id, made_at)
+    )
 
 
 @router.put("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/timer")
@@ -483,7 +505,11 @@ def start_task_timer(
     now = utcnow()
     at = body.at if body else None
     return _progress_write(
-        kitchen, session_id, lambda s: batch_mode.start_timer(kitchen, s, task_id, now, at)
+        kitchen,
+        session_id,
+        lambda s: batch_mode.start_timer(
+            kitchen, s, task_id, now, at, body.made_at if body else None
+        ),
     )
 
 

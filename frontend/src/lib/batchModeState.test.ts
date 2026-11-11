@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ScheduleRecipe, ScheduleTask } from './client/batchMode';
-import { rows, work } from './batchModeState';
+import { rows, timesUp, work } from './batchModeState';
 
 const T0 = Date.parse('2026-11-15T10:00:00Z');
 const min = (n: number) => T0 + n * 60_000;
@@ -247,5 +247,28 @@ describe('the kitchen is never over-used (review B3 round 1)', () => {
         }
       }
     }
+  });
+});
+
+describe('two waits in a row in one recipe (RF3, C1)', () => {
+  it('the second wait can be started once the first timer has run out', () => {
+    const run = [
+      task({
+        id: 't1',
+        hands: 'waiting',
+        minutes: 10,
+        end: 10,
+        title: 'Pressure cook for 10 minutes',
+        started_at: new Date(min(0)).toISOString()
+      }),
+      task({ id: 't2', hands: 'waiting', minutes: 10, start: 10, end: 20, title: 'Let it rest' })
+    ];
+    const worked = work(run, min(11)); // the first timer ran out a minute ago
+    expect(worked.tasks.map((t) => t.state)).toEqual(['done', 'ready']);
+    const row = rows([recipes[0]!], worked, min(11))[0]!;
+    expect(row.kind).toBe('ready'); // the Start timer button is on a ready row
+    expect(row.task?.id).toBe('t2');
+    expect(row.over?.id).toBe('t1'); // and the first one's Time's up is still known
+    expect(timesUp(worked).map((t) => t.id)).toEqual(['t1']);
   });
 });
