@@ -91,6 +91,21 @@ describe('after several links', () => {
     await expect.element(page.getByRole('link', { name: 'Check Needs you' })).toBeVisible();
   });
 
+  it('a link that failed has its own Try again, and a link that worked has none (RF4 I3)', async () => {
+    const failed = importLinks.rows[1]!;
+    failed.state = 'failed';
+    failed.code = 'timeout';
+    failed.message = 'That took too long. Try again later.';
+    flushSync();
+    await expect.element(page.getByRole('button', { name: /^Try again/ })).toBeVisible();
+    expect(page.getByRole('button', { name: /^Try again/ }).elements()).toHaveLength(1);
+    // a link that can't be read at all offers Paste text instead, not Try again
+    failed.code = 'no_recipe';
+    flushSync();
+    expect(page.getByRole('button', { name: /^Try again/ }).elements()).toEqual([]);
+    await expect.element(page.getByRole('button', { name: 'Paste text' })).toBeVisible();
+  });
+
   it('one button saves only the ready drafts, and the row then opens the recipe (F216)', async () => {
     const button = page.getByRole('button', { name: 'Save 1 ready recipe' });
     await expect.element(button).toBeVisible();

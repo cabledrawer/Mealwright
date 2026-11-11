@@ -23,6 +23,8 @@ import { forgetOnWipe } from './offline/wipeHooks';
 export const ALL_MATCHED = '✓ All matched';
 export const NEEDS_CHECKING = 'Needs checking';
 export const READING = 'Reading…';
+/** The button on a link that failed (RF4 I3; proposed, for cabledrawer). */
+export const TRY_AGAIN = 'Try again';
 export const WAITING = 'Waiting';
 export const SAVED = '✓ Saved';
 export const IN_DRAFTS = 'in Drafts';
@@ -153,23 +155,41 @@ export class ImportLinks {
       });
       if (!drafts.loaded) await drafts.load();
       if (generation !== this.#generation) return;
+      // A press after some links failed reads only the links not read yet: a row that is ready
+      // with its draft still in Drafts (or already saved) is kept as it is, so no recipe gets a
+      // second draft (RF4 I3).
+      const before = new Map(this.rows.map((row) => [sameLink(row.link), row]));
+      const kept = (link: string): LinkRow | undefined => {
+        const row = before.get(sameLink(link));
+        return row && row.state === 'ready' && !this.gone(row) ? row : undefined;
+      };
+      const fresh = unique.filter((link) => !kept(link));
       const room = drafts.count === null ? null : Math.max(0, DRAFT_LIMIT - drafts.count);
       const allowed = Math.min(MOST_LINKS, room ?? MOST_LINKS);
-      this.leftOut = Math.max(0, unique.length - allowed);
+      this.leftOut = Math.max(0, fresh.length - allowed);
       this.room = room;
-      this.rows = unique.slice(0, allowed).map((link) => ({
-        link,
-        ...parts(link),
-        state: 'waiting' as const,
-        message: null,
-        code: null,
-        draftId: null,
-        savedId: null,
-        allMatched: false
-      }));
+      const taken = new Set(fresh.slice(0, allowed));
+      this.rows = unique.flatMap((link) => {
+        const row = kept(link);
+        if (row) return [row];
+        if (!taken.has(link)) return [];
+        return [
+          {
+            link,
+            ...parts(link),
+            state: 'waiting' as const,
+            message: null,
+            code: null,
+            draftId: null,
+            savedId: null,
+            allMatched: false
+          }
+        ];
+      });
       let stopped: string | null = null;
       for (const row of this.rows) {
         if (generation !== this.#generation) return;
+        if (row.state !== 'waiting') continue; // read in an earlier press
         if (stopped) {
           row.state = 'failed';
           row.message = stopped;
@@ -181,6 +201,20 @@ export class ImportLinks {
         if (row.code === 'too_many_drafts') stopped = STOPPED_DRAFTS_FULL;
         else if (row.code === 'import_switched_off') stopped = STOPPED_SWITCHED_OFF;
       }
+    } finally {
+      if (generation === this.#generation) this.running = false;
+    }
+  }
+
+  /** Read one failed link again, on its own row (RF4 I3). The other rows are left as they are. */
+  async retry(row: LinkRow): Promise<void> {
+    if (this.running || this.saving || row.state !== 'failed') return;
+    this.running = true;
+    const generation = this.#generation;
+    try {
+      row.message = null;
+      row.code = null;
+      await this.#one(row, generation);
     } finally {
       if (generation === this.#generation) this.running = false;
     }

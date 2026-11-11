@@ -27,6 +27,7 @@
     NEEDS_CHECKING,
     SAVED,
     saveReadyWords,
+    TRY_AGAIN,
     WAITING
   } from '#lib/importLinks.svelte.js';
   import { offlineNote, PASTE_INSTEAD_STEPS, type ImportFlow } from '#lib/import.svelte.js';
@@ -196,6 +197,15 @@
             {:else if canPaste(row)}
               <button type="button" class="ghost small" onclick={() => void pasteInstead()}
                 >Paste text</button
+              >
+            {:else if row.state === 'failed' && row.code !== 'already_imported'}
+              <!-- RF4 I3: this one link is read again; the others are left as they are. -->
+              <button
+                type="button"
+                class="ghost small"
+                disabled={reading}
+                aria-label="{TRY_AGAIN}: {row.title}"
+                onclick={() => void importLinks.retry(row)}>{TRY_AGAIN}</button
               >
             {/if}
           </li>

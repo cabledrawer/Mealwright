@@ -7,6 +7,7 @@ import { undoHistory } from './undo.svelte';
 import { drafts } from './drafts.svelte';
 import {
   ImportLinks,
+  type LinkRow,
   MOST_LINKS,
   STOPPED_DRAFTS_FULL,
   STOPPED_SWITCHED_OFF,
@@ -484,5 +485,79 @@ describe('opening a result, and quick import (F209, F216; cabledrawer 10 Nov)', 
     expect(reader.rows[0]!.message).toBe('That draft isn’t here any more.');
     expect(toasts.current?.message ?? '').not.toMatch(/stay/);
     expect(undoHistory.size).toBe(0);
+  });
+});
+
+describe('after one link fails (RF4 I3)', () => {
+  const links = ['https://a.example/dal', 'https://b.example/slow', 'https://c.example/rice'];
+
+  function api(slow: { fails: boolean }) {
+    let kept = 0;
+    return fakeApi({
+      'POST /recipes/import': (request: FakeRequest) => {
+        const text = (request.body as { text: string }).text;
+        return text.includes('slow') && slow.fails
+          ? [422, { detail: 'That took too long. Try again later.', code: 'timeout' }]
+          : [200, review(text)];
+      },
+      'POST /recipes/drafts': (request: FakeRequest) => [
+        201,
+        { id: ++kept, ...(request.body as object) }
+      ],
+      'GET /recipes/drafts': () => [
+        200,
+        { drafts: Array.from({ length: kept }, (_, i) => ({ id: i + 1 })), count: kept }
+      ]
+    });
+  }
+
+  it('Read the recipes again reads only the links not read yet: no second draft of one that worked', async () => {
+    const slow = { fails: true };
+    const requests = api(slow);
+    const reader = new ImportLinks();
+    await reader.run(links);
+    expect(reader.rows.map((r) => r.state)).toEqual(['ready', 'failed', 'ready']);
+    slow.fails = false;
+    await reader.run(links);
+    const kept = requests.filter((r) => r.method === 'POST' && r.path === '/recipes/drafts');
+    expect(kept).toHaveLength(3);
+    expect(reader.rows.map((r) => r.state)).toEqual(['ready', 'ready', 'ready']);
+    expect(new Set(reader.rows.map((r) => r.draftId)).size).toBe(3);
+    const reads = requests.filter((r) => r.method === 'POST' && r.path === '/recipes/import');
+    expect(reads).toHaveLength(4);
+  });
+
+  it('a link whose draft is gone from Drafts is read again', async () => {
+    const slow = { fails: false };
+    const requests = api(slow);
+    const reader = new ImportLinks();
+    await reader.run(links);
+    drafts.drafts = drafts.drafts.filter((draft) => draft.id !== 1); // discarded elsewhere
+    await reader.run(links);
+    const kept = requests.filter((r) => r.method === 'POST' && r.path === '/recipes/drafts');
+    expect(kept.length).toBeGreaterThan(3);
+  });
+
+  it('Try again reads just that link and leaves the other rows alone', async () => {
+    const slow = { fails: true };
+    const requests = api(slow);
+    const reader = new ImportLinks();
+    await reader.run(links);
+    const [first, failed] = reader.rows as [LinkRow, LinkRow];
+    slow.fails = false;
+    await reader.retry(failed);
+    expect(reader.rows[0]).toBe(first);
+    expect(reader.rows.map((r) => r.state)).toEqual(['ready', 'ready', 'ready']);
+    expect(failed.message).toBeNull();
+    const reads = requests.filter((r) => r.method === 'POST' && r.path === '/recipes/import');
+    expect(reads).toHaveLength(4);
+  });
+
+  it('Try again does nothing on a row that is not failed', async () => {
+    const requests = api({ fails: false });
+    const reader = new ImportLinks();
+    await reader.run(links.slice(0, 1));
+    await reader.retry(reader.rows[0]!);
+    expect(requests.filter((r) => r.path === '/recipes/import')).toHaveLength(1);
   });
 });
