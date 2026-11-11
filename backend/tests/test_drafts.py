@@ -1165,6 +1165,29 @@ def test_a_same_as_answer_given_in_one_draft_is_used_by_the_other_waiting_draft(
     assert got["choices"]["lines"]["2"]["kind"] == "new"
 
 
+def test_another_households_ingredient_or_same_as_answer_is_never_used_by_my_draft(
+    kitchen: TestClient, neighbour: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    """FX4 review r1 L3: the batch rematch (F213, F215) looks only in the draft's household."""
+    shown = review(kitchen, PASTED)
+    assert shown["lines"][3]["label"] == "needs_you"  # asafoetida
+    mine = kept(kitchen, shown)
+    # The other household makes Asafoetida and answers "Same as" on the same line in a draft.
+    make_food(neighbour, "Asafoetida", counted_as="weight")
+    ghee = ok(neighbour.post(f"{API}/foods", json={"name": "Ghee"}), 201)["food"]
+    answered = {
+        "lines": {
+            "2": {"kind": "ingredient", "food": {"id": ghee["id"], "name": "Ghee"}, "learn": True}
+        }
+    }
+    kept(neighbour, shown, choices=answered)
+    got = ok(kitchen.get(f"{API}/recipes/drafts/{mine['id']}"))
+    assert got["review"]["lines"][3]["label"] == "needs_you"
+    assert got["review"]["lines"][3]["food"] is None
+    assert "2" not in got["choices"]["lines"]
+    assert "Ghee" not in str(got)
+
+
 # --- Other households ---------------------------------------------------------------------
 
 
