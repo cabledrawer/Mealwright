@@ -275,6 +275,14 @@ def _ingredient_texts(lines: list[str]) -> list[str]:
 # --- Splitting without headings ---------------------------------------------------------------
 
 
+_SAYS_THE = re.compile(r"(?:for|to)\s+the\s", re.IGNORECASE)
+
+
+def _bare(line: str) -> str:
+    """The line without its bullet and outer spaces."""
+    return line.strip().lstrip(BULLETS).strip()
+
+
 def _split_by_look(lines: list[str]) -> tuple[list[str], list[str]]:
     """No headings to go by: (ingredient lines, method lines). The lines from the first to
     the last amount-like one are the ingredients, with short lines between them; lines
@@ -284,12 +292,19 @@ def _split_by_look(lines: list[str]) -> tuple[list[str], list[str]]:
         return [], [line for line in lines if line.strip()]
     first, last = amounts[0], amounts[-1]
     # A group heading right above the first amount ("For the batter") is kept, not dropped as
-    # a description (F222).
+    # a description (F222). Only when it says "the" or another heading follows among the
+    # ingredients: "For four people" or "For a crowd" under the title says who it serves
+    # (FX4 review r1).
     above = first - 1
     while above >= 0 and not lines[above].strip():
         above -= 1
-    if above >= 0 and is_ingredient_heading(lines[above].strip().lstrip(BULLETS).strip()):
-        first = above
+    if above >= 0:
+        heading = _bare(lines[above])
+        if is_ingredient_heading(heading) and (
+            _SAYS_THE.match(heading)
+            or any(is_ingredient_heading(_bare(line)) for line in lines[first : last + 1])
+        ):
+            first = above
     # A bare line straight after the last amount ("Salt") is still an ingredient.
     while (
         last + 1 < len(lines)

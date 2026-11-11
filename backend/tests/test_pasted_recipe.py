@@ -644,3 +644,17 @@ def test_a_group_heading_with_a_colon_under_the_title_is_kept_without_any_headin
 def test_a_description_above_the_amounts_is_still_dropped_f222() -> None:
     recipe = read_pasted("Dosa\nA crisp crepe from the south.\n1 cup urad dal\n2 cups rice\nFry.")
     assert "A crisp crepe from the south." not in recipe.ingredients
+
+
+def test_a_serving_line_under_the_title_is_not_made_a_heading_fx4_review() -> None:
+    # FX4 review r1: "For four people" or "For a crowd" says who it serves; it is not a group.
+    for line in ("For four people", "For two", "For a crowd", "Serves: for four"):
+        recipe = read_pasted(f"Dosa\n{line}\n1 cup urad dal\n2 cups rice\nFry.")
+        assert recipe.ingredients == ("1 cup urad dal", "2 cups rice"), line
+
+
+def test_a_heading_without_the_is_kept_when_another_heading_follows_f222() -> None:
+    recipe = read_pasted("Dosa\nTo make the batter\n1 cup urad dal\nFor dipping\n1 tbsp ghee\nFry.")
+    assert recipe.ingredients[0] == "To make the batter"
+    recipe = read_pasted("Dosa\nFor batter\n1 cup urad dal\nFor dipping\n1 tbsp ghee\nFry.")
+    assert recipe.ingredients == ("For batter", "1 cup urad dal", "For dipping", "1 tbsp ghee")
