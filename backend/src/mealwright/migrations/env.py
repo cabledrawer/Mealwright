@@ -1,6 +1,10 @@
 """Alembic environment. The database URL comes from Mealwright's settings."""
 
+from collections.abc import Collection, Mapping
+from typing import Any
+
 from alembic import context
+from alembic.runtime.migration import MigrationContext, MigrationInfo
 from sqlalchemy import Connection
 
 from mealwright import models  # noqa: F401  (registers the tables)
@@ -19,7 +23,12 @@ def _configure(connection: Connection) -> None:
     # (RF1 review r1). The highest counter seen so far is what each table keeps.
     counters = read_counters(connection)
 
-    def keep_counters(**_: object) -> None:
+    def keep_counters(  # Alembic passes these by name
+        ctx: MigrationContext,
+        step: MigrationInfo,
+        heads: Collection[Any],
+        run_args: Mapping[str, Any],
+    ) -> None:
         restore_counters(connection, counters)
         for table, seq in read_counters(connection).items():
             counters[table] = max(seq, counters.get(table, 0))
