@@ -749,7 +749,7 @@ test('Batch cook (B1): each step shows its guessed timing, a change makes it set
   // The server has guessed them already, from the words.
   expect(recipe.steps[0].timing).toMatchObject({ hands: 'waiting', minutes: 15, equipment: 'pressure', hands_guessed: true });
   await page.goto(`/recipes/${recipe.id}/edit`);
-  await expect(page.getByText('Waiting · 15 min')).toBeVisible();
+  await expect(page.getByText('Waiting · 15 min').first()).toBeVisible(); // steps 1 and 3
   await expect(page.getByText('Pressure cooker', { exact: true })).toBeVisible();
   await expect(page.getByText('guessed', { exact: true })).toHaveCount(3);
   await expect(page.getByText('set by you', { exact: true })).toHaveCount(0);
