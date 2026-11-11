@@ -35,6 +35,7 @@
     | 'place-cupboard'
     | 'place-spice'
     | 'flask'
+    | 'batch'
     | 'pan'
     | 'plate'
     | 'play'
@@ -84,6 +85,11 @@
     <path d="M9 3h6" />
     <path d="M10 3v6.2L5.2 18.4A1.8 1.8 0 0 0 6.8 21h10.4a1.8 1.8 0 0 0 1.6-2.6L14 9.2V3" />
     <path d="M7.3 15h9.4" />
+  {:else if name === 'batch'}
+    <!-- Batch cook (mockup BatchPick08-Desktop): a pot with its lid steaming. -->
+    <path d="M4 11h13v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" />
+    <path d="M17 13h3" />
+    <path d="M8 4v3M12 4v3" />
   {:else if name === 'dark'}
     <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
   {:else if name === 'expand'}

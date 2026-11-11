@@ -2,6 +2,7 @@
 // on its own (planMeals.test.ts).
 
 import type { MealSlot, Person, Plan, PlanBatch, PlanItem, PlanMeal, PlanTub } from './client/plan';
+import { dayShort } from './planDates';
 import { timePlusWait } from './timeWords';
 
 /** A thing in a meal, in words: the recipe's name, the ingredient's name, or the tub's. */
@@ -148,6 +149,23 @@ export const cookBatchOfItem = (
     .find((other) => cooks(batch, other));
   return first?.id === item.id ? batch : null;
 };
+
+/** "Batch · Sun": the small tag on a meal made in a Batch cook session (B2), by its cook day. */
+export const sessionTag = (batch: PlanBatch | null | undefined): string | null =>
+  batch?.session_id ? `Batch · ${dayShort(batch.cooked_on)}` : null;
+
+/** The tag for a whole meal: its cook-day batch's, else its first tub's batch's. */
+export function sessionTagOfMeal(plan: Plan | null, meal: PlanMeal): string | null {
+  for (const item of meal.items) {
+    const tag = sessionTag(tubOf(plan, item)?.batch ?? cookBatchOfItem(plan, meal, item));
+    if (tag) return tag;
+  }
+  return null;
+}
+
+/** The Batch cook sessions cooked on this day (the cards above the day, B2). */
+export const sessionsOn = (plan: Plan | null, day: string) =>
+  (plan?.batch_sessions ?? []).filter((s) => s.cook_day === day);
 
 /** The names of the batch colours, in the order of the design's tokens --batch-1 … --batch-6. */
 export const BATCH_PALETTE = ['purple', 'amber', 'green', 'blue', 'rose', 'teal'];

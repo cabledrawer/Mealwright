@@ -11,6 +11,7 @@
   import type { PlanItem, PlanMeal } from '#lib/client/plan.js';
   import {
     CookOnceModel,
+    type Ahead,
     MOST_TUBS,
     PATTERNS,
     perTubWords,
@@ -25,12 +26,17 @@
   let {
     actions,
     target,
+    ahead = null,
     onclose
   }: {
-    actions: PlanActions;
+    actions: Pick<PlanActions, 'model' | 'readonly'>;
     target: { meal: PlanMeal; item: PlanItem } | null;
+    ahead?: Ahead | null;
     onclose: () => void;
   } = $props();
+
+  /** What the sheet is for: a planned recipe, or one the session is about to plan. */
+  const open = $derived(target !== null || ahead !== null);
 
   const model = $derived(actions.model);
   let dialog: HTMLDialogElement;
@@ -43,29 +49,33 @@
   // reads while it asks the server is not (or every choice would start over).
   $effect(() => {
     const now = target;
+    const sheet = ahead;
     untrack(() => {
       moving = null;
-      if (now === null) {
+      if (now === null && sheet === null) {
         cook = null;
         return;
       }
-      const made = new CookOnceModel(now.item.id, now.meal.date, model.people);
+      const made = now
+        ? new CookOnceModel(now.item.id, now.meal.date, model.people)
+        : new CookOnceModel(0, sheet!.day, model.people, sheet!.preview);
       cook = made;
       void made.refresh();
     });
   });
 
   $effect(() => {
-    if (target !== null && !dialog.open) dialog.showModal();
-    else if (target === null && dialog.open) dialog.close();
+    if (open && !dialog.open) dialog.showModal();
+    else if (!open && dialog.open) dialog.close();
   });
 
-  const name = $derived(target ? itemName(target.item, model.plan) : '');
+  const name = $derived(target ? itemName(target.item, model.plan) : (ahead?.name ?? ''));
+  const cookDay = $derived(target?.meal.date ?? ahead?.day ?? '');
   const colour = $derived(
     cook?.preview ? colourOfBatch({ id: 0, colour: cook.preview.colour }) : 1
   );
   /** The slot the cook meal is in, with the slots that come after it on that day. */
-  const cookSlot = $derived(target?.meal.slot_id ?? 0);
+  const cookSlot = $derived(target?.meal.slot_id ?? ahead?.slotId ?? 0);
   const slotsOn = $derived(model.slotsOn);
   const slotAt = (slotId: number) => slotsOn.findIndex((s) => s.id === slotId);
 
@@ -115,7 +125,12 @@
   const times = $derived(cook?.preview ? timesWords(cook.count, cook.preview.recipe_serves) : null);
 
   function save() {
-    if (!cook || !target || actions.readonly || !cook.preview) return;
+    if (!cook || actions.readonly || !cook.preview) return;
+    if (ahead) {
+      ahead.save(cook.body());
+      return;
+    }
+    if (!target) return;
     void model.cookOnce(target.item.id, name, cook.body());
     onclose();
   }
@@ -126,7 +141,7 @@
 
 <dialog
   bind:this={dialog}
-  aria-label="Cook once, eat for…"
+  aria-label={ahead ? `Cook once, eat for… ${ahead.position}` : 'Cook once, eat for…'}
   oncancel={(event) => {
     event.preventDefault();
     onclose();
@@ -136,14 +151,16 @@
   }}
   data-testid="cook-once"
 >
-  {#if target && cook}
+  {#if open && cook}
     <div class="body">
       <span class="handle" aria-hidden="true"></span>
       <header>
         <p class="sub">
-          {name} · cooking {dayFull(target.meal.date)} · {model.slotName(target.meal.slot_id)}
+          {name} · cooking {dayFull(cookDay)} · {model.slotName(cookSlot)}
         </p>
-        <h2>Cook once, eat for…</h2>
+        <h2>
+          Cook once, eat for…{#if ahead}<span class="of"> {ahead.position}</span>{/if}
+        </h2>
       </header>
 
       {#if actions.readonly}
@@ -351,7 +368,8 @@
       <div class="buttons">
         <button type="button" class="back" onclick={onclose}>Cancel</button>
         <button type="button" class="go" disabled={actions.readonly || !cook.preview} onclick={save}
-          >Add {cook.count} {cook.count === 1 ? 'tub' : 'tubs'} to the plan</button
+          >{#if ahead}{ahead.last ? 'Plan this batch' : 'Next recipe'}{:else}Add {cook.count}
+            {cook.count === 1 ? 'tub' : 'tubs'} to the plan{/if}</button
         >
       </div>
     </div>
@@ -405,6 +423,11 @@
   h2 {
     font-size: var(--text-3xl);
     font-weight: var(--weight-extrabold);
+  }
+
+  .of {
+    color: var(--color-text-muted);
+    font-weight: var(--weight-bold);
   }
 
   h3 {

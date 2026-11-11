@@ -4,6 +4,7 @@
 // again so the server's version replaces the guess. Online only, like the Pantry.
 
 import { cantReachWords, cantReach, type ApiError } from './api';
+import { changeSession, makeSession, removeSession, type SessionBody } from './client/batch';
 import { serverUndo } from './client/changes';
 import { getHousehold } from './client/household';
 import { cookedIt, type Leftovers } from './client/today';
@@ -603,6 +604,31 @@ export class PlanModel {
     return this.#send({
       label: `Planned ${recipeName} once for ${body.tub_count} ${word}`,
       send: (key) => makeBatch(itemId, body, key)
+    });
+  }
+
+  /** Plan this batch (Batch cook, Experimental): each recipe through Cook once on the cook day,
+   * one change with one Undo. */
+  planBatch(body: SessionBody, count: number) {
+    return this.#send({
+      label: `Planned a batch cook of ${count} recipes`,
+      send: (key) => makeSession(body, key)
+    });
+  }
+
+  /** Change a session: its recipes are taken off and the new ones planned, in one change. */
+  changeBatch(id: number, body: SessionBody, count: number) {
+    return this.#send({
+      label: `Changed the batch cook to ${count} recipes`,
+      send: (key) => changeSession(id, body, key)
+    });
+  }
+
+  /** Take the whole session off the plan: one change, one Undo. */
+  removeBatch(id: number) {
+    return this.#send({
+      label: 'Took the batch cook off the plan',
+      send: (key) => removeSession(id, key)
     });
   }
 

@@ -12,7 +12,7 @@
   import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
   import { onDestroy, onMount, tick, untrack } from 'svelte';
-  import type { PlanItem, PlanMeal, TubLeft } from '#lib/client/plan.js';
+  import type { PlanBatch, PlanItem, PlanMeal, TubLeft } from '#lib/client/plan.js';
   import type { RecipeRow } from '#lib/client/recipes.js';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
@@ -28,13 +28,14 @@
   import { eatLeftover, type Placed } from '#lib/eatLeftover.js';
   import { cookedUseBy, eatOnUntil } from '#lib/tubUseBy.js';
   import { kitchen } from '#lib/freshness.svelte.js';
+  import { batchCook } from '#lib/batchCook.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
   import type { CookEntry } from '#lib/planCook.js';
   import type { StartEntry } from '#lib/startWords.js';
   import { dayFull, dayWords, monthWords, weekWords } from '#lib/planDates.js';
   import { drag, type Carried } from '#lib/planDrag.svelte.js';
-  import { afterCook, itemName, mealName, nextFreeMeals } from '#lib/planMeals.js';
+  import { afterCook, cookBatchOfItem, itemName, mealName, nextFreeMeals } from '#lib/planMeals.js';
   import { PlanModel } from '#lib/plan.svelte.js';
   import { session } from '#lib/session.svelte.js';
   import { keepShow, readShow, type PlanShow } from '#lib/planShow.js';
@@ -48,6 +49,7 @@
   // F169: and scrolled to that day in a list, or with that day picked in the phone's Month.
   let wantedDay = $state<string | null>(null);
   if (browser) {
+    if (new URLSearchParams(location.search).get('view') === 'month') model.view = 'month';
     const wanted = new URLSearchParams(location.search).get('day');
     if (wanted && /^\d{4}-\d{2}-\d{2}$/.test(wanted) && !Number.isNaN(Date.parse(wanted))) {
       model.anchor = wanted;
@@ -119,6 +121,19 @@
     await goto(`${to}?meal=${entry.meal.id}&day=${entry.meal.date}`);
   }
 
+  /** Start batch cook: until batch cook mode is built (B3) it opens the first recipe's Cook mode. */
+  async function startBatch(first: PlanBatch) {
+    const meal = model.plan?.meals.find((m) => m.id === first.cook_meal_id);
+    const item = meal?.items.find((i) => cookBatchOfItem(model.plan, meal, i)?.id === first.id);
+    if (!meal || !item || first.recipe_id === null) return;
+    const { cookNow } = await import('#lib/cookNow.svelte.js');
+    if (left) return;
+    cookNow.open(first.recipe_id, meal.id, item.id);
+    const to = resolve('/(app)/recipes/[id]/cook', { id: String(first.recipe_id) });
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
+    await goto(`${to}?meal=${meal.id}&day=${meal.date}`);
+  }
+
   /** Start it in Cook mode, for a long wait to start ahead (M3): Cook mode for that meal's recipe. */
   async function startAhead(entry: StartEntry) {
     const recipe = entry.item.recipe;
@@ -185,7 +200,10 @@
     }
   });
 
-  onMount(() => void recipes.load());
+  onMount(() => {
+    void recipes.load();
+    void batchCook.load();
+  });
 
   // The phone's Month starts on today, or the 1st when today is in another month.
   $effect(() => {
@@ -418,6 +436,14 @@
           aria-pressed={model.view === 'month'}
           onclick={() => model.setView('month')}>Month</button
         >
+        <!-- Batch cook (Experimental): the phone's third tab; the computer has its own sidebar entry. -->
+        {#if phone && batchCook.shown}
+          <a class="tab" href={resolve('/(app)/batch-cook')}
+            >Batch cook<Icon name="flask" size={14} stroke={2.4} /><span class="visually-hidden"
+              >Experimental</span
+            ></a
+          >
+        {/if}
       </div>
     {/snippet}
   </PageHeader>
@@ -526,9 +552,9 @@
             <Eat {actions} days={dayList} oncook={showCook} />
           {/await}
         {:else if compact}
-          <PlanDays {actions} days={dayList} />
+          <PlanDays {actions} days={dayList} onstartbatch={startBatch} />
         {:else}
-          <PlanWeek {actions} />
+          <PlanWeek {actions} onstartbatch={startBatch} />
         {/if}
       {:else if compact}
         <PlanMonthPhone
@@ -814,6 +840,23 @@
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
     cursor: pointer;
+  }
+
+  .view .tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border-radius: var(--radius-full);
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    text-decoration: none;
+  }
+
+  .view .tab :global(svg) {
+    color: var(--color-experimental);
   }
 
   .view button[aria-pressed='true'] {

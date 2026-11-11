@@ -120,6 +120,7 @@
             >
           {/if}
           <span class="name">{card.shown}</span>
+          {#if card.session}<span class="session">{card.session}</span>{/if}
           {#if card.role === 'cook'}
             <span class="meta"><i class="dot" aria-hidden="true"></i>{card.meta}</span>
             {#if card.prep}<span class="meta">{card.prep}</span>{/if}
@@ -288,6 +289,16 @@
     height: 54px;
     margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-6)) var(--space-2);
     object-fit: cover;
+  }
+
+  .session {
+    align-self: flex-start;
+    padding: 1px 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-fill);
+    color: var(--color-text-soft);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-extrabold);
   }
 
   .eyebrow {

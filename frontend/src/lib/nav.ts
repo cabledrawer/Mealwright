@@ -19,6 +19,14 @@ export const PAGES: readonly Page[] = [
   { href: '/recipes', label: 'Recipes', tabLabel: 'Recipes', icon: 'recipes' }
 ];
 
+/** Batch cook (Experimental, B2): its own entry in the sidebar, after Plan; on the phone it is
+ * the Plan's third tab (Week | Month | Batch cook), so the five bottom tabs stay. */
+export const BATCH_COOK = { href: '/batch-cook', label: 'Batch cook', icon: 'batch' } as const;
+
+export function isBatchCook(pathname: string): boolean {
+  return pathname === BATCH_COOK.href || pathname.startsWith(BATCH_COOK.href + '/');
+}
+
 /** Whether `page` is the current page (Recipes stays current on its sub-pages). */
 export function isCurrent(page: Page, pathname: string): boolean {
   if (page.href === '/') return pathname === '/';

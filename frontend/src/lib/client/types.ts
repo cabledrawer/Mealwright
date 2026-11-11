@@ -224,6 +224,8 @@ export interface Household {
   pints: Pints;
   /** Cook mode's per-step ingredients (Experimental): on for the household once switched on. */
   cook_per_step: boolean;
+  /** Batch cook (Experimental) is shown; an admin can hide it. */
+  batch_cook: boolean;
   undo_days: number;
   history_months: number;
   use_soon_days: number;

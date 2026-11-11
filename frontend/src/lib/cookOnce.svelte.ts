@@ -56,6 +56,23 @@ export function timesWords(tubs: number, serves: number | null): string | null {
   return `× ${times}`;
 }
 
+/**
+ * One sheet of a Batch cook session (B2): the recipe is not in the plan yet, so the server
+ * previews it with the recipes before it, and Save hands the choices back (nothing is saved
+ * until the last sheet). Cancel stops the whole thing and plans nothing.
+ */
+export interface Ahead {
+  name: string;
+  day: string;
+  slotId: number;
+  /** "1 of 3". */
+  position: string;
+  /** The last sheet says "Plan this batch"; the others "Next recipe". */
+  last: boolean;
+  preview: (body: BatchBody) => Promise<BatchPreview>;
+  save: (body: BatchBody) => void;
+}
+
 export class CookOnceModel {
   count = $state(4);
   pattern = $state<Pattern>('lunch_dinner');
@@ -75,11 +92,19 @@ export class CookOnceModel {
   readonly cookDate: string;
   people: Person[];
   #asked = 0;
+  /** Asks for the preview a different way (a Batch cook session's sheets). */
+  readonly #preview: (body: BatchBody) => Promise<BatchPreview>;
 
-  constructor(itemId: number, cookDate: string, people: Person[]) {
+  constructor(
+    itemId: number,
+    cookDate: string,
+    people: Person[],
+    preview?: (body: BatchBody) => Promise<BatchPreview>
+  ) {
     this.itemId = itemId;
     this.cookDate = cookDate;
     this.people = people;
+    this.#preview = preview ?? ((body) => previewBatch(itemId, body));
     if (people.length < 2) this.who = 'all';
   }
 
@@ -105,7 +130,7 @@ export class CookOnceModel {
     const asked = ++this.#asked;
     try {
       const [preview, plan] = await Promise.all([
-        previewBatch(this.itemId, this.body()),
+        this.#preview(this.body()),
         this.plan
           ? Promise.resolve(this.plan)
           : getPlan(this.cookDate, addDays(this.cookDate, MOST_DAYS + 6))

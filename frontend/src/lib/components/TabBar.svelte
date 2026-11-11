@@ -2,7 +2,7 @@
   // Bottom tabs on phones: the five pages, always in reach of a thumb.
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { PAGES, appRoute, isCurrent } from '#lib/nav.js';
+  import { PAGES, appRoute, isBatchCook, isCurrent } from '#lib/nav.js';
   import { FROM_PANTRY, isPantryIngredients, pantrySide } from '#lib/pantrySide.svelte.js';
   import Icon from './Icon.svelte';
 </script>
@@ -17,7 +17,9 @@
         ? viaPantry || isCurrent(item, page.url.pathname)
         : item.href === '/recipes'
           ? !viaPantry && isCurrent(item, page.url.pathname)
-          : isCurrent(item, page.url.pathname)}
+          : item.href === '/plan'
+            ? isCurrent(item, page.url.pathname) || isBatchCook(page.url.pathname)
+            : isCurrent(item, page.url.pathname)}
     {#if item.href === '/pantry' && pantrySide.value === 'ingredients'}
       <a
         href="{resolve('/(app)/recipes/ingredients')}?{FROM_PANTRY}"

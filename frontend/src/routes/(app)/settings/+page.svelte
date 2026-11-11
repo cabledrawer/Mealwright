@@ -5,6 +5,7 @@
   import { resolve } from '$app/paths';
   import Button from '#lib/components/Button.svelte';
   import Icon from '#lib/components/Icon.svelte';
+  import { batchCook } from '#lib/batchCook.svelte.js';
   import Switch from '#lib/components/Switch.svelte';
   import YourKitchen from '#lib/components/YourKitchen.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
@@ -71,8 +72,26 @@
     );
   }
 
+  /** An admin hides or shows Batch cook (Experimental); it flips back if the server can't take it. */
+  let batchProblem = $state<string | null>(null);
+  async function setBatchCook(on: boolean) {
+    batchProblem = null;
+    const before = batchCook.shown;
+    batchCook.shown = on;
+    try {
+      await batchCook.set(on);
+    } catch (error) {
+      batchCook.shown = before;
+      batchProblem =
+        error instanceof ApiError && !cantReach(error)
+          ? error.detail
+          : nothingChanged(network.deviceOffline);
+    }
+  }
+
   function readPints() {
     readKitchen();
+    void batchCook.load();
     getHousehold().then(
       (household) => (pints = household.pints),
       () => {} // offline or unreachable: the row stays hidden, the rest of Settings still works
@@ -506,6 +525,22 @@
               >{kitchenNow.oven ? 'Yes' : 'No'}</span
             >
           </div>
+          <div class="row">
+            <span class="who">
+              <span class="label" id="batch-label">Show Batch cook</span>
+              <span class="detail" id="batch-detail">
+                Experimental. Switched off, it leaves the sidebar and the Plan.
+                {#if !admin}Only an admin can change this.{/if}
+              </span>
+            </span>
+            <Switch
+              bind:checked={() => batchCook.shown, (on) => void setBatchCook(on)}
+              labelledby="batch-label"
+              describedby="batch-detail"
+              disabled={!admin || network.offline}
+            />
+          </div>
+          {#if batchProblem}<p class="warning-line" role="alert">{batchProblem}</p>{/if}
           <div class="row">
             <span class="who">
               <span class="detail"

@@ -108,6 +108,20 @@ export interface PlanBatch {
   /** Portions (0.7): the tubs plus the cook-day meal, and how many are not planned yet. */
   portions: number;
   portions_left: number;
+  /** The Batch cook session it was made in (B2), or null. */
+  session_id?: number | null;
+}
+
+/** A Batch cook (Experimental) session: its recipes are the batch cooks with its id. */
+export interface PlanSession {
+  id: number;
+  cook_day: string;
+  /** The rough "about X together" and "one by one" minutes it was planned with. */
+  together_minutes: number | null;
+  one_by_one_minutes: number | null;
+  /** When the first start-ahead of its recipes begins ("from 10:00"), in the household's time. */
+  start_day: string | null;
+  start_time: string | null;
 }
 
 export interface PlanTub {
@@ -129,6 +143,7 @@ export interface Plan {
   meals: PlanMeal[];
   batch_cooks: PlanBatch[];
   tubs: PlanTub[];
+  batch_sessions?: PlanSession[];
 }
 
 /** What every plan write answers: the change (with its Undo) and where the meal ended up. */
@@ -138,6 +153,8 @@ export interface PlanWrite {
   item_id: number | null;
   /** Cook once: the batch cook that was made. */
   batch_id?: number | null;
+  /** Batch cook: the session that was made. */
+  session_id?: number | null;
 }
 
 export type DropMode = 'move' | 'copy' | 'leftovers';

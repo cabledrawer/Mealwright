@@ -70,6 +70,11 @@ export function weekWords(start: string, thisYear: string): string {
 /** "October 2026". */
 export const monthWords = (iso: string) => `${long.format(noon(iso))} ${iso.slice(0, 4)}`;
 
+const monthAbbrev = new Intl.DateTimeFormat('en-GB', { month: 'short', timeZone: 'UTC' });
+
+/** "Nov". */
+export const monthShort = (iso: string) => monthAbbrev.format(noon(iso));
+
 /** "Mon". */
 export const dayShort = (iso: string) => weekdayShort.format(noon(iso));
 

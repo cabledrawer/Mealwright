@@ -12,6 +12,10 @@ export const changePints = (pints: Pints) => api<Household>('PATCH', '/household
 export const changeCookPerStep = (on: boolean) =>
   api<Household>('PATCH', '/household', { cook_per_step: on });
 
+/** Batch cook (Experimental): show it (true) or hide it for everyone (admins only). */
+export const changeBatchCook = (on: boolean) =>
+  api<Household>('PATCH', '/household', { batch_cook: on });
+
 /**
  * The cup size to start with (spec "Decided for 0.2"): 240 ml for US English, 250 ml
  * everywhere else.

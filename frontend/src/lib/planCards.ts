@@ -5,7 +5,15 @@
 
 import type { MealSlot, Person, Plan, PlanBatch, PlanItem, PlanMeal } from './client/plan';
 import { eaterNames } from './planEat';
-import { colourOfBatch, cookBatchOfItem, itemName, recipeMeta, tubOf, whoseTub } from './planMeals';
+import {
+  colourOfBatch,
+  cookBatchOfItem,
+  itemName,
+  recipeMeta,
+  sessionTag,
+  tubOf,
+  whoseTub
+} from './planMeals';
 import { timeWords } from './timeWords';
 
 export interface WeekCard {
@@ -31,6 +39,8 @@ export interface WeekCard {
   before: boolean;
   /** The batch a COOK card is for. */
   batch: PlanBatch | null;
+  /** "Batch · Sun" when it was made in a Batch cook session (B2). */
+  session: string | null;
 }
 
 /** Where a batch is cooked: its cook meal when the plan holds it, else its cook day alone. */
@@ -72,7 +82,15 @@ export function weekCards(
   slots: MealSlot[]
 ): WeekCard[] {
   const cards: WeekCard[] = [];
-  const base = { prep: null, who: [], colour: null, before: false, batch: null, meta: null };
+  const base = {
+    prep: null,
+    who: [],
+    colour: null,
+    before: false,
+    batch: null,
+    meta: null,
+    session: null
+  };
   for (const item of meal.items) {
     const name = itemName(item, plan);
     const found = tubOf(plan, item);
@@ -90,7 +108,8 @@ export function weekCards(
         shown: batch.recipe_name,
         who: who ? [who] : [],
         colour: colourOfBatch(batch),
-        before: beforeCook(meal.date, meal.slot_id, cookPlace(plan, batch), slots)
+        before: beforeCook(meal.date, meal.slot_id, cookPlace(plan, batch), slots),
+        session: sessionTag(batch)
       });
       continue;
     }
@@ -108,7 +127,8 @@ export function weekCards(
         meta: makesWords(batch),
         prep: batch.prep_note,
         colour: colourOfBatch(batch),
-        batch
+        batch,
+        session: sessionTag(batch)
       });
       cards.push({
         ...base,
@@ -119,7 +139,8 @@ export function weekCards(
         name,
         shown: name,
         who: eaterNames(meal, people),
-        colour: colourOfBatch(batch)
+        colour: colourOfBatch(batch),
+        session: sessionTag(batch)
       });
       continue;
     }

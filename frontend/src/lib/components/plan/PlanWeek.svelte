@@ -4,14 +4,29 @@
   // every card opens a menu, and a finger can drag.
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
+  import type { PlanBatch } from '#lib/client/plan.js';
   import { cookedOn } from '#lib/planMeals.js';
+  import BatchSessionCard from './BatchSessionCard.svelte';
   import MealCell from './MealCell.svelte';
 
-  let { actions }: { actions: PlanActions } = $props();
+  let {
+    actions,
+    onstartbatch
+  }: { actions: PlanActions; onstartbatch?: (first: PlanBatch) => void } = $props();
   const model = $derived(actions.model);
+  const sessions = $derived(
+    (model.plan?.batch_sessions ?? []).filter((s) => model.days.includes(s.cook_day))
+  );
 </script>
 
 <div class="week" role="group" aria-label="Week plan">
+  {#if sessions.length}
+    <div class="sessions">
+      {#each sessions as session (session.id)}
+        <BatchSessionCard {actions} {session} onstart={(first) => onstartbatch?.(first)} />
+      {/each}
+    </div>
+  {/if}
   <div
     class="grid"
     style:grid-template-rows="auto repeat({model.slotsOn.length}, minmax(6.5rem, auto))"
@@ -41,6 +56,8 @@
     flex: 1;
     min-height: 0;
     display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
     padding: var(--space-6);
     border-radius: var(--radius-2xl);
     background: var(--color-surface);
@@ -57,6 +74,12 @@
     grid-template-columns: 36px repeat(7, minmax(0, 1fr));
     gap: var(--space-4);
     min-height: min-content;
+  }
+
+  .sessions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-5);
   }
 
   .day {

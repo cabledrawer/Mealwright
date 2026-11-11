@@ -8,7 +8,16 @@
   import { onMount } from 'svelte';
   import { drafts } from '#lib/drafts.svelte.js';
   import { network } from '#lib/network.svelte.js';
-  import { PAGES, RECIPES_PAGES, appRoute, isCurrent, isCurrentRecipesPage } from '#lib/nav.js';
+  import { batchCook } from '#lib/batchCook.svelte.js';
+  import {
+    BATCH_COOK,
+    PAGES,
+    RECIPES_PAGES,
+    appRoute,
+    isBatchCook,
+    isCurrent,
+    isCurrentRecipesPage
+  } from '#lib/nav.js';
   import { initial, session } from '#lib/session.svelte.js';
   import { sidebar } from '#lib/sidebar.svelte.js';
   import { VERSION_WORDS } from '#lib/version.js';
@@ -27,12 +36,14 @@
   let seen = network.backAgain;
   onMount(() => {
     if (!network.offline) void drafts.load();
+    void batchCook.load();
   });
   $effect(() => {
     const again = network.backAgain;
     if (again !== seen) {
       seen = again;
       void drafts.load();
+      void batchCook.load();
     }
   });
 </script>
@@ -75,6 +86,27 @@
           <Icon name={item.icon} size={sidebar.collapsed ? 22 : 20} />
           {#if !sidebar.collapsed}<span class="label">{item.label}</span>{/if}
           {#if tree}<Icon name="chevron-down" size={16} stroke={2.4} />{/if}
+        </a>
+      {/if}
+      <!-- Batch cook (Experimental): its own entry after Plan, with the pink flask. An admin can hide
+           it in Settings. -->
+      {#if item.href === '/plan' && batchCook.shown}
+        {@const here = isBatchCook(page.url.pathname)}
+        <a
+          href={resolve('/(app)/batch-cook')}
+          aria-current={here ? 'page' : undefined}
+          aria-label={sidebar.collapsed ? `${BATCH_COOK.label}, Experimental` : undefined}
+          title={sidebar.collapsed ? `${BATCH_COOK.label} (Experimental)` : undefined}
+        >
+          <Icon name={BATCH_COOK.icon} size={sidebar.collapsed ? 22 : 20} />
+          {#if !sidebar.collapsed}
+            <span class="label">{BATCH_COOK.label}</span>
+            <span class="flask" title="Experimental"
+              ><Icon name="flask" size={16} stroke={2.4} /><span class="visually-hidden"
+                >Experimental</span
+              ></span
+            >
+          {/if}
         </a>
       {/if}
       {#if tree}
@@ -202,6 +234,12 @@
 
   .label {
     flex: 1;
+  }
+
+  /* The pink flask: Experimental (cabledrawer 28 Oct). */
+  .flask {
+    display: flex;
+    color: var(--color-experimental);
   }
 
   /* Recipes, while one of its pages is open. */

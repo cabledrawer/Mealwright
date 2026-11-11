@@ -3,7 +3,8 @@
   // hold a meal (or tap it) for the menu: Move to… · Copy to… · Leftovers on… · Remove. Used for
   // the phone's week and for the day picked in the phone's Month.
   import Icon from '#lib/components/Icon.svelte';
-  import type { PlanMeal } from '#lib/client/plan.js';
+  import type { PlanBatch, PlanMeal } from '#lib/client/plan.js';
+  import BatchSessionCard from './BatchSessionCard.svelte';
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
   import { pressable } from '#lib/planDrag.svelte.js';
@@ -13,11 +14,21 @@
     itemName,
     mealColour,
     mealTotals,
+    sessionTagOfMeal,
+    sessionsOn,
     tubOf,
     whoseTub
   } from '#lib/planMeals.js';
 
-  let { actions, days }: { actions: PlanActions; days: string[] } = $props();
+  let {
+    actions,
+    days,
+    onstartbatch
+  }: {
+    actions: PlanActions;
+    days: string[];
+    onstartbatch?: (first: PlanBatch) => void;
+  } = $props();
   const model = $derived(actions.model);
 
   /** "Tub 2 of 4 · Wren" for a meal that holds tubs; the prep note on a cook day. */
@@ -47,6 +58,9 @@
         {#if day === model.today}<span class="now">Today</span>{/if}
         {#if cookedOn(model.plan, day).length}<span class="cook">Cook day</span>{/if}
       </h3>
+      {#each sessionsOn(model.plan, day) as session (session.id)}
+        <BatchSessionCard {actions} {session} onstart={(first) => onstartbatch?.(first)} />
+      {/each}
       <ul>
         {#each model.slotsOn as slot (slot.id)}
           {@const meal = model.mealAt(day, slot.id)}
@@ -75,6 +89,9 @@
                     <span class="totals">{mealTotals(meal)}</span>
                   {/if}
                 </span>
+                {#if sessionTagOfMeal(model.plan, meal)}
+                  <span class="session">{sessionTagOfMeal(model.plan, meal)}</span>
+                {/if}
                 <span class="slot">{slot.name}</span>
               </button>
               <button
@@ -105,6 +122,17 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
+  }
+
+  .session {
+    align-self: flex-start;
+    padding: 2px 9px;
+    border-radius: var(--radius-full);
+    background: var(--color-fill);
+    color: var(--color-text-soft);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-extrabold);
+    white-space: nowrap;
   }
 
   .day {
