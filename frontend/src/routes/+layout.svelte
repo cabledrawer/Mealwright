@@ -5,6 +5,7 @@
   import '#lib/styles/base.css';
 
   import type { Snippet } from 'svelte';
+  import { watchLeaving } from '#lib/leaving.js';
   import { endPendingSignOutWhenOnline } from '#lib/offline/signOutPending.js';
   import { theme } from '#lib/theme.svelte.js';
 
@@ -14,6 +15,9 @@
   // Signed out while offline: the server session ends once the browser is back online
   // (docs/dev/sync-protocol.md section 12). Any request to the server does that first, too.
   $effect(() => endPendingSignOutWhenOnline());
+  // Leaving the page (a reload, a typed address): what it was still asking the server is
+  // neither sent nor reported as a failure (leaving.ts).
+  $effect(() => watchLeaving());
 </script>
 
 {@render children()}

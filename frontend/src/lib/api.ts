@@ -2,6 +2,7 @@
 // API-first). Same origin only: the session cookie goes along automatically.
 
 import { cantReachText } from './downWords';
+import { isLeaving, whenStaying } from './leaving';
 import { network } from './network.svelte';
 import { endPendingSignOut } from './offline/signOutPending';
 import { PROXY_GAP, proxyGap } from './proxyGap';
@@ -130,8 +131,22 @@ export async function api<T>(
   options: ApiOptions = {}
 ): Promise<T> {
   const doFetch = options.fetch ?? fetch;
+  // The page is being left (leaving.ts): send nothing new until it turns out to stay.
+  if (isLeaving()) await whenStaying();
+  /** Cut off by the page being left: not a failure, so nothing is said. If the page stays after
+   *  all, a read (or a change with its key, which the server never applies twice) is asked
+   *  again; any other change gets the usual "can't reach". */
+  const cutOff = async (): Promise<{ again: Promise<T> } | null> => {
+    if (!isLeaving()) return null;
+    await whenStaying();
+    return method === 'GET' || options.idempotencyKey
+      ? { again: api<T>(method, path, body, options) }
+      : null;
+  };
   // Signed out while offline: end that session on the server before anything else is sent.
   if (!(await endPendingSignOut(doFetch))) {
+    const left = await cutOff();
+    if (left) return left.again;
     network.failed();
     throw new ApiError(0, cantReachWords());
   }
@@ -152,6 +167,8 @@ export async function api<T>(
       signal: AbortSignal.timeout(options.timeoutMs ?? REQUEST_TIMEOUT_MS)
     });
   } catch {
+    const left = await cutOff();
+    if (left) return left.again;
     network.failed();
     throw new ApiError(0, cantReachWords());
   }
@@ -160,7 +177,14 @@ export async function api<T>(
   if (proxyGap(response.status)) network.failed();
   else network.succeeded(sentAt);
   if (response.status === 204) return undefined as T;
-  const data: unknown = await response.json().catch(() => null);
+  let data: unknown = null;
+  try {
+    data = await response.json();
+  } catch {
+    // No JSON (an error page), or the answer was cut off by the page being left.
+    const left = await cutOff();
+    if (left) return left.again;
+  }
   if (!response.ok) {
     if (response.status === 401 && !options.signingIn) sessionEnded();
     throw new ApiError(response.status, detailOf(data), codeOf(data), data);

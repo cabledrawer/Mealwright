@@ -136,6 +136,10 @@ export default defineConfig({
     // Recipe photos on All recipes and the recipe page (0.4).
     { name: 'phone 0.4 photos', testMatch: 'recipe-photos.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.4 photos', testMatch: 'recipe-photos.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    // Leaving a page while its requests are on their way is not an error (0.9, T1).
+    { name: 'phone 0.9 leaving', testMatch: 'leaving.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.9 leaving', testMatch: 'leaving.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.9 leaving', testMatch: 'leaving.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Recipes on a computer: the three panes (0.4).
     { name: 'desktop 0.4 panes', testMatch: 'recipes-panes.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Import a recipe: the box, the review, Save and Undo (0.5).

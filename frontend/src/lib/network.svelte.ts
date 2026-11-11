@@ -15,6 +15,7 @@
 // changes waiting. They'll save when you're back." (desktop). Once the connection is back
 // AND nothing is waiting any more, a short toast says "Back online — all saved" (11.4).
 
+import { isLeaving, whenStaying } from './leaving';
 import { endPendingSignOut } from './offline/signOutPending';
 import { proxyGap } from './proxyGap';
 import { toasts } from './toast.svelte';
@@ -236,6 +237,8 @@ class Network {
 
   async #checkOnce(round: number, asking: number, stop: AbortController): Promise<void> {
     const was = this.#failingSince !== null || this.offline;
+    // The page is being left (leaving.ts): ask nothing until it turns out to stay.
+    if (isLeaving()) await whenStaying();
     const giveUp = setTimeout(() => stop.abort(), CHECK_TIMEOUT_MS);
     try {
       // Signed out while offline: the server session ends before anything else is sent.
@@ -254,6 +257,8 @@ class Network {
       if (proxyGap(response.status)) throw new Error('the proxy can’t reach the server');
     } catch {
       if (round !== this.#round || asking !== this.#asking) return;
+      // Cut off by the page being left: that says nothing about the server.
+      if (isLeaving()) return;
       this.#reconnectAfter = this.#browserBack = false;
       this.failed();
       return;

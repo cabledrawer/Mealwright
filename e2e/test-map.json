@@ -254,11 +254,12 @@
         "frontend/src/lib/components/Toast.svelte", "frontend/src/lib/components/ThemeSwitch.svelte", "frontend/src/lib/components/AskOnce*",
         "frontend/src/lib/components/SwipeRow*", "frontend/src/lib/components/EatItOn.svelte", "frontend/src/lib/sidebar*", "frontend/src/lib/theme*",
         "frontend/src/lib/toast*", "frontend/src/lib/swipe.ts", "frontend/src/lib/radioKeys*", "frontend/src/lib/focusNear.ts", "frontend/src/lib/dates*",
-        "frontend/src/lib/timeWords*", "frontend/src/lib/plainWords*", "frontend/src/lib/save*", "frontend/src/lib/askOnce*", "frontend/src/lib/testing/**"
+        "frontend/src/lib/timeWords*", "frontend/src/lib/plainWords*", "frontend/src/lib/save*", "frontend/src/lib/askOnce*", "frontend/src/lib/testing/**",
+        "frontend/src/lib/leaving*"
       ],
       "backend": [],
       "browser": [
-        "shell.spec.ts", "a11y.spec.ts", "calm.spec.ts", "keyboard.spec.ts", "gallery.spec.ts", "slow-phone.spec.ts"
+        "shell.spec.ts", "a11y.spec.ts", "calm.spec.ts", "keyboard.spec.ts", "gallery.spec.ts", "slow-phone.spec.ts", "leaving.spec.ts"
       ]
     },
     {
