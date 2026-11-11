@@ -473,8 +473,9 @@ def get_kitchen(kitchen: Here) -> KitchenOut:
 @router.patch("/household/kitchen")
 def change_kitchen(body: KitchenChange, kitchen: Here) -> KitchenOut:
     """Saves the kitchen's equipment (Your kitchen, or Settings, Kitchen). Any signed-in person
-    of the household may (proposed, for cabledrawer: like Cook mode's per-step switch, it changes
-    only what Batch cook plans). Answers with the kitchen as stored."""
+    of the household may: like Cook mode's per-step switch, it changes only what Batch cook
+    plans. Answers with the kitchen as stored."""
+    # Any person may (proposed, for cabledrawer; kept out of the docstring, which is the public API).
     household = kitchen.household
     if body.hob_rings is not None:
         household.kitchen_hob_rings = body.hob_rings

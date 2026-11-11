@@ -1832,10 +1832,10 @@ def test_step_timings_migration_adds_empty_columns_and_a_default_kitchen_and_goe
     assert step_names <= columns("recipe_step") and "household_id" in columns("recipe_step")
     assert house_names <= columns("household")
     with engine.connect() as connection:
-        for name in step_names:
-            assert set(connection.exec_driver_sql(f"SELECT {name} FROM recipe_step").scalars()) == {
-                None
-            }
+        found = connection.exec_driver_sql(
+            "SELECT timing_hands, timing_minutes, timing_equipment FROM recipe_step"
+        ).all()
+        assert found and {tuple(f) for f in found} == {(None, None, None)}
         kitchens = connection.exec_driver_sql(
             "SELECT kitchen_hob_rings, kitchen_pressure_cookers, kitchen_oven, kitchen_asked"
             " FROM household"
