@@ -1053,3 +1053,11 @@ Words from the mockup `Dark-RecipesTags08-Phone` are agreed; the rest are propos
 - **Dropped (cabledrawer 11 Nov, prerelease note 6):** **Eaten today · no tubs** in the one Cooked it.
 - **Stocktake (cabledrawer 11 Nov: "Stocktake counts tin, tins, can, cans in whole units"):** a pack called **tin**, **tins**, **can** or **cans** (any capitals) is counted with − and +, as a tin was; an answer far above what is there is stored as given.
 - **An optional step in batch cook mode (cabledrawer 11 Nov):** the pill **Optional step** above the step's words, as on the recipe page.
+
+## 68. Whole-0.8 review fixes: import (RF4; proposed, for cabledrawer; none of these sentences is cabledrawer's own)
+
+- **Undo of an import's save keeps an ingredient another saved recipe uses (I2; the first sentence is cabledrawer's decision of 11 Nov, the rest is proposed, for cabledrawer):** after the usual Undo sentence, **Pork shoulder is kept: another recipe uses it.** (the ingredient's own name); for two or three, **Pork shoulder and Besan are kept: another recipe uses them.** (a list with "and"); for four or more, **4 ingredients are kept: another recipe uses them.**; when what uses it is the plan, the shopping list or the pantry and not a recipe, **Besan is kept: it is in use.** / **… are kept: they are in use.** The Undo itself still reads as done.
+- **A link that failed on the several-links screen (I3, proposed, for cabledrawer):** the button **Try again** on the row of that link (spoken **Try again: <the link's name>**); it reads only that link. Pressing **Read the recipes** again reads only the links not read yet; no new words.
+- **Two sections with one name (I13, proposed, for cabledrawer):** in the sheet that makes a section its own recipe, **Another section is already making a recipe with that name. Type a different name.**
+- **Notes the reader writes (I6, proposed, for cabledrawer; they appear in a line's note, not as screen words):** **plus 1 tsp** for "1 tbsp + 1 tsp sugar" (the line keeps the first amount), and **1lb 2oz** for "500g/1lb 2oz beef mince" (the line is 500 g); "or more", "or less", "or so" and "generous" or "big" stay in the note as written.
+- **No new words:** Serves and time out of range (I12) simply stay empty; the Drafts list's count (I7) and a typed 10/3 (I10) use the words that were there.
