@@ -11,12 +11,22 @@ from typing import Annotated
 from fastapi import APIRouter, Path, Query, Response, status
 from pydantic import BaseModel, Field
 
-from mealwright import batch_mode, batch_sessions, batch_suggest, plan
+from mealwright import batch_mode, batch_sessions, batch_suggest, cooking, deduction, plan
 from mealwright.api.v1.batches import BatchIn, BatchPreviewOut, preview_out, spots_of
-from mealwright.api.v1.context import Here
+from mealwright.api.v1.context import Here, Kitchen
+from mealwright.api.v1.cooked import (
+    ChoiceIn,
+    CookedMealWrite,
+    _confirm,
+    _written_meal,
+)
+from mealwright.api.v1.cooked import (
+    _choices as cook_choices,
+)
 from mealwright.api.v1.plan import PlanWrite, _run
+from mealwright.api.v1.schemas import Answer
 from mealwright.auth import SameOrigin
-from mealwright.errors import StoredInt
+from mealwright.errors import Problem, StoredInt
 from mealwright.models import BatchCook, BatchSession, utcnow
 from mealwright.shopping import lock_db
 
@@ -442,4 +452,108 @@ def start_task_timer(session_id: StoredInt, task_id: TaskId, kitchen: Here) -> S
     now = utcnow()
     return _progress_write(
         kitchen, session_id, lambda s: batch_mode.start_timer(kitchen, s, task_id, now)
+    )
+
+
+# --- One Cooked it for the whole session --------------------------------------------------------
+
+
+class SessionItemIn(BaseModel):
+    batch_id: StoredInt
+    portions: Annotated[int, Field(ge=1, le=cooking.MOST_PORTIONS)] | None = None
+    choices: list[ChoiceIn] = Field(default_factory=list, max_length=200)
+
+
+class SessionCookIn(BaseModel):
+    items: Annotated[list[SessionItemIn], Field(max_length=4)] | None = Field(
+        default=None,
+        description="Which recipes of the session, with their portions and choices. Left out: "
+        "every recipe in it, as proposed.",
+    )
+    answers: list[Answer] = Field(default_factory=list, max_length=20)
+
+
+class TubPlaceOut(BaseModel):
+    place: str | None = Field(description="Fridge, Freezer...; null: in a meal or left over.")
+    count: int
+
+
+class SessionItemProposalOut(BaseModel):
+    batch_id: int
+    recipe_name: str
+    tub_count: int
+    tubs: list[TubPlaceOut]
+    proposal: deduction.ProposalOut
+
+
+class SessionProposalOut(BaseModel):
+    session_id: int
+    cook_day: Day
+    items: list[SessionItemProposalOut]
+
+
+def _session_entries(kitchen: Kitchen, session_id: int, body: SessionCookIn) -> list[cooking.Entry]:
+    batch_sessions.hidden_check(kitchen)
+    session = batch_sessions.find_session(kitchen, session_id)
+    wanted: dict[int, tuple[int | None, dict[str, deduction.Choice]]] | None = None
+    if body.items is not None:
+        wanted = {}
+        for one in body.items:
+            if one.batch_id in wanted:
+                raise Problem(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    "twice",
+                    "A recipe can be chosen only once.",  # proposed, for cabledrawer
+                )
+            wanted[one.batch_id] = (one.portions, cook_choices(kitchen, one.choices, body.answers))
+    return batch_sessions.cook_entries(kitchen, session, wanted)
+
+
+@router.post("/batch-cook/sessions/{session_id}/cook/preview")
+def preview_session_cook(
+    session_id: StoredInt, body: SessionCookIn, kitchen: Here
+) -> SessionProposalOut:
+    """What one "Cooked it" for the whole session would take from the pantry: a proposal for each
+    recipe, worked out from one pool of packets (so two recipes never both propose the same
+    grams), and where each recipe's tubs are. Changes nothing."""
+    entries = _session_entries(kitchen, session_id, body)
+    session = batch_sessions.find_session(kitchen, session_id)
+    proposals = [
+        deduction.proposal_out(kitchen, each)
+        for each in cooking.preview(kitchen, entries, body.answers)
+    ]
+    items: list[SessionItemProposalOut] = []
+    for entry, proposal in zip(entries, proposals, strict=True):
+        batch = kitchen.db.get(BatchCook, entry.link["batch_id"])
+        if batch is None:  # pragma: no cover (the entry was made from it)
+            continue
+        items.append(
+            SessionItemProposalOut(
+                batch_id=batch.id,
+                recipe_name=batch.recipe_name,
+                tub_count=batch.tub_count,
+                tubs=[
+                    TubPlaceOut(place=name, count=count)
+                    for name, count in batch_sessions.tubs_by_place(kitchen, batch)
+                ],
+                proposal=proposal,
+            )
+        )
+    return SessionProposalOut(session_id=session.id, cook_day=session.cook_day, items=items)
+
+
+@router.post("/batch-cook/sessions/{session_id}/cook", status_code=status.HTTP_201_CREATED)
+def cook_session(
+    session_id: StoredInt, body: SessionCookIn, kitchen: Here, response: Response
+) -> CookedMealWrite:
+    """Cooked it, once, for the whole session: every recipe's ingredients are taken from the pantry
+    as chosen (rows not mentioned are as proposed), as ONE change with one Undo that puts back
+    every recipe's stock, and a cooked record for each recipe. All or nothing: if any recipe is
+    refused (`409 already_cooked`...), none is taken. A retry with the same `Idempotency-Key` takes
+    nothing more. The tubs are the ones Cook once made for each recipe."""
+    return _confirm(
+        kitchen,
+        response,
+        lambda: cooking.confirm(kitchen, _session_entries(kitchen, session_id, body), body.answers),
+        _written_meal,
     )

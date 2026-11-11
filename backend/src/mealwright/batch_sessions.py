@@ -20,11 +20,21 @@ from typing import Any
 from fastapi import status
 from sqlalchemy import select
 
-from mealwright import batch_suggest, batches, plan
+from mealwright import batch_suggest, batches, cooking, plan
 from mealwright.api.v1.context import Kitchen
+from mealwright.deduction import Choice
 from mealwright.errors import Problem, not_found
 from mealwright.household import meal_slots
-from mealwright.models import BatchCook, BatchSession, Change, Meal, MealItem, Recipe
+from mealwright.models import (
+    BatchCook,
+    BatchSession,
+    Change,
+    Meal,
+    MealItem,
+    Place,
+    Recipe,
+    Tub,
+)
 
 FEWEST = batch_suggest.FEWEST_PICKS
 MOST = batch_suggest.MOST_PICKS
@@ -321,3 +331,51 @@ def preview[T](
         )
     finally:
         sub.rollback()
+
+
+# --- One Cooked it for the whole session ----------------------------------------------------
+
+
+def cook_entries(
+    kitchen: Kitchen,
+    session: BatchSession,
+    wanted: dict[int, tuple[int | None, dict[str, Choice]]] | None,
+) -> list[cooking.Entry]:
+    """The session's recipes to take from the pantry together, as Cooked it does a meal's: one
+    entry for each batch cook of the session (the batch ids in `wanted`, with their portions and
+    choices, or all of them), worked out from one pool of packets so two recipes never take the
+    same grams. Reuses Cooked it's own entries: nothing about the stock is done here."""
+    found = batches_of(kitchen, session)
+    if wanted is not None:
+        by_id = {b.id for b in found}
+        for batch_id in wanted:
+            if batch_id not in by_id:
+                raise not_found("That recipe")
+        found = [b for b in found if b.id in wanted]
+    if not found:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "nothing_to_cook",
+            "There’s no recipe in this batch cook to cook.",  # proposed, for cabledrawer
+        )
+    return [
+        cooking.batch_entry(kitchen, b, *(wanted[b.id] if wanted is not None else (None, {})))
+        for b in found
+    ]
+
+
+def tubs_by_place(kitchen: Kitchen, batch: BatchCook) -> list[tuple[str | None, int]]:
+    """A batch's tubs counted by where they are (Fridge, Freezer...); a tub in no place (it is in
+    a meal, or left over) is counted under None. Places first in the order of their names."""
+    counts: dict[str | None, int] = {}
+    for tub in kitchen.db.scalars(
+        select(Tub)
+        .where(Tub.household_id == kitchen.household_id, Tub.batch_id == batch.id)
+        .order_by(Tub.id)
+    ):
+        place = kitchen.db.get(Place, tub.place_id) if tub.place_id is not None else None
+        name = (
+            place.name if place is not None and place.household_id == kitchen.household_id else None
+        )
+        counts[name] = counts.get(name, 0) + 1
+    return sorted(counts.items(), key=lambda c: (c[0] is None, c[0] or ""))
