@@ -1,5 +1,5 @@
 import { test, expect, type Page } from './clock.ts';
-import { expectNoAxeViolations, inTheme, isPhone, setAccountTheme } from './a11y.ts';
+import { expectNoAxeViolations, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme } from './a11y.ts';
 
 // Batch cook (Experimental; 0.8 wave 6, B2): the sidebar entry on a computer and the Plan's third
 // tab on a phone, the first-time note, Your kitchen on first use, the picks (swap, show me others),
@@ -29,6 +29,13 @@ const cookDay = (today: string, k: number) => addDays(today, 600 + 12 * (INDEX[t
 const word = (iso: string) => {
   const d = new Date(`${iso}T12:00:00Z`);
   return new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'UTC' }).format(d);
+};
+
+/** "Saturday 5 December", the grid's day heading. */
+const fullDay = (iso: string) => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  const part = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-GB', { ...o, timeZone: 'UTC' }).format(d);
+  return `${part({ weekday: 'long' })} ${d.getUTCDate()} ${part({ month: 'long' })}`;
 };
 
 async function today(page: Page) {
@@ -92,6 +99,35 @@ test('the entry is where the design puts it: the sidebar on a computer, the Plan
     await expect(links.nth(2)).toHaveText(/^\s*Batch cook/);
     await expect(links.nth(2)).toContainText('Experimental');
     await expect(links.nth(3)).toHaveText('Shopping');
+  }
+});
+
+test('phone: the Plan header is the title row, then the Week · Month · Batch cook switch the full width, with Eat · Cook · Both fully visible (RF5)', async ({ page }) => {
+  test.skip(!isPhone(page), 'the phone header');
+  await page.goto('/plan');
+  const title = page.getByRole('heading', { level: 1, name: 'Plan' });
+  const switchBox = page.getByRole('group', { name: 'View' });
+  await expect(switchBox.getByRole('link', { name: /^Batch cook/ })).toBeVisible();
+  const [t, sw, settings, width] = await Promise.all([
+    title.boundingBox(),
+    switchBox.boundingBox(),
+    page.getByRole('link', { name: /· Settings$/ }).boundingBox(),
+    page.evaluate(() => document.documentElement.clientWidth),
+  ]);
+  // The avatar and cog stay on the title's row; the switch is under it and spans the page.
+  expect(Math.abs(settings!.y + settings!.height / 2 - (t!.y + t!.height / 2))).toBeLessThan(30);
+  expect(sw!.y).toBeGreaterThanOrEqual(t!.y + t!.height - 1);
+  expect(sw!.width).toBeGreaterThan(width - 60);
+  // Eat · Cook · Both is under the header, not half hidden by it: its middle is what a tap would hit.
+  for (const name of ['Eat', 'Cook', 'Both']) {
+    const button = page.getByRole('group', { name: 'Show' }).getByRole('button', { name, exact: true });
+    await expect(button).toBeVisible();
+    const hit = await button.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      return top === el || el.contains(top);
+    });
+    expect(hit, name).toBe(true);
   }
 });
 
@@ -302,6 +338,43 @@ test('Start batch cook opens the current session after another person pressed Ch
   await expect(page).toHaveURL(new RegExp(`/batch-cook/session/${changed.session_id}/cook`));
   await expect(page.getByText(/not found/i)).toHaveCount(0);
   await call(page, 'DELETE', `/batch-cook/sessions/${changed.session_id}`);
+});
+
+test('the Batch cook card sits inside its cook day, above that day’s meals, on a phone and a computer (RF5)', async ({ page }) => {
+  const tag = `d${Date.now().toString(36)}`;
+  const ids = await seed(page, tag);
+  const day = cookDay(await today(page), 1);
+  const dinner = await mealSlot(page, 'Dinner');
+  const made = await call(page, 'POST', '/batch-cook/sessions', {
+    date: day,
+    slot_id: dinner,
+    recipes: [ids.a, ids.b].map((recipe_id) => ({ recipe_id, tub_count: 1, pattern: 'dinners' })),
+  });
+  try {
+    await page.goto(`/plan?day=${day}`);
+    const card = page.getByTestId('batch-card');
+    await expect(card).toHaveCount(1);
+    const box = (await card.boundingBox())!;
+    if (isPhone(page)) {
+      // Inside the day's own section, before its first meal.
+      const section = page.locator(`[data-plan-day="${day}"]`);
+      await expect(section.getByTestId('batch-card')).toHaveCount(1);
+      const meal = section.locator('.meal').first();
+      const mealBox = (await meal.boundingBox())!;
+      expect(box.y).toBeLessThan(mealBox.y);
+    } else {
+      // In the day's column of the week grid, between the day's name and its meals.
+      const head = (await page.getByRole('heading', { level: 3, name: fullDay(day) }).boundingBox())!;
+      const cell = (await page.getByTestId(`cell-${day}-${dinner}`).boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(head.x - 2);
+      expect(box.x + box.width).toBeLessThanOrEqual(head.x + head.width + 2);
+      expect(box.y).toBeGreaterThan(head.y);
+      expect(box.y + box.height).toBeLessThanOrEqual(cell.y + 1);
+    }
+    await expectNoSidewaysScroll(page);
+  } finally {
+    await call(page, 'DELETE', `/batch-cook/sessions/${made.session_id}`);
+  }
 });
 
 test('an admin can hide Batch cook in Settings: no sidebar entry, no Plan tab, and the picks are refused', async ({ page }) => {

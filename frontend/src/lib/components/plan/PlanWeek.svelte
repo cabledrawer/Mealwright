@@ -5,16 +5,19 @@
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
   import { cookedOn } from '#lib/planMeals.js';
+  import BatchSessionCard from './BatchSessionCard.svelte';
   import MealCell from './MealCell.svelte';
 
   let { actions }: { actions: PlanActions } = $props();
   const model = $derived(actions.model);
+  const sessionsThisWeek = $derived(model.days.some((d) => model.sessionsOn(d).length > 0));
 </script>
 
 <div class="week" role="group" aria-label="Week plan">
   <div
     class="grid"
-    style:grid-template-rows="auto repeat({model.slotsOn.length}, minmax(6.5rem, auto))"
+    style:grid-template-rows="auto {sessionsThisWeek ? 'auto ' : ''}repeat({model.slotsOn.length},
+    minmax(6.5rem, auto))"
   >
     <span class="corner"></span>
     {#each model.days as day (day)}
@@ -26,6 +29,18 @@
         {#if cooking.length}<span class="cook">COOK</span>{/if}
       </h3>
     {/each}
+
+    <!-- A Batch cook card sits in its cook day, above that day's meals (RF5). -->
+    {#if sessionsThisWeek}
+      <span class="corner"></span>
+      {#each model.days as day (day)}
+        <div class="sessions">
+          {#each model.sessionsOn(day) as session (session.id)}
+            <BatchSessionCard {actions} {session} dense />
+          {/each}
+        </div>
+      {/each}
+    {/if}
 
     {#each model.slotsOn as slot (slot.id)}
       <span class="row-label">{slot.name.toUpperCase()}</span>
@@ -93,6 +108,13 @@
     color: var(--color-inverse-text);
     font-size: var(--text-xs);
     letter-spacing: var(--tracking-overline);
+  }
+
+  .sessions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
   }
 
   .row-label {

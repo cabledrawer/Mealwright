@@ -37,6 +37,7 @@ import {
   type Person,
   type Plan,
   type PlanItem,
+  type PlanSession,
   type PlanMeal,
   type PlanWrite,
   type Spot,
@@ -124,6 +125,11 @@ export class PlanModel {
       ? weekDays(weekStart(this.anchor, this.startsOn))
       : monthGrid(this.anchor, this.startsOn);
   });
+
+  /** The Batch cook sessions cooked on this day (their card sits in the day, above its meals). */
+  sessionsOn(day: string): PlanSession[] {
+    return (this.plan?.batch_sessions ?? []).filter((s) => s.cook_day === day);
+  }
 
   /** The meals that are on, in order. */
   slotsOn = $derived(

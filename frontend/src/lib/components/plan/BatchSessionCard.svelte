@@ -15,10 +15,13 @@
 
   let {
     actions,
-    session
+    session,
+    dense = false
   }: {
     actions: Pick<PlanActions, 'model' | 'readonly'>;
     session: PlanSession;
+    /** In a narrow column of the week grid: less padding, the buttons the whole width. */
+    dense?: boolean;
   } = $props();
 
   const batches = $derived(
@@ -63,7 +66,12 @@
   }
 </script>
 
-<section class="card" aria-label="Batch cook, {batches.length} recipes" data-testid="batch-card">
+<section
+  class="card"
+  class:dense
+  aria-label="Batch cook, {batches.length} recipes"
+  data-testid="batch-card"
+>
   <div class="head">
     <span class="title">
       <strong>Batch cook · {batches.length} {batches.length === 1 ? 'recipe' : 'recipes'}</strong>
@@ -111,7 +119,22 @@
     background: var(--color-surface);
   }
 
+  .card.dense {
+    gap: var(--space-4);
+    padding: var(--space-5);
+  }
+
+  .dense .buttons > * {
+    flex: 1 1 100%;
+    padding: 0 var(--space-4);
+  }
+
+  .dense strong {
+    font-size: var(--text-md);
+  }
+
   .head {
+    flex-wrap: wrap;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;

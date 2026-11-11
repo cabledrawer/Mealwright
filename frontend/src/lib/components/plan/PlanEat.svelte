@@ -4,6 +4,7 @@
   // tapped (or held) for the same menu as everywhere on the Plan; a day with a cook has the link
   // "You cook today →" to the Cook view. Everything comes from the plan already on the page.
   import Icon from '#lib/components/Icon.svelte';
+  import BatchSessionCard from './BatchSessionCard.svelte';
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayWords } from '#lib/planDates.js';
   import { pressable } from '#lib/planDrag.svelte.js';
@@ -46,6 +47,9 @@
           <span class="kcal">{eat.kcal.toLocaleString('en-GB')} kcal each</span>
         {/if}
       </div>
+      {#each model.sessionsOn(eat.day) as session (session.id)}
+        <BatchSessionCard {actions} {session} />
+      {/each}
       {#each eat.meals as { slot, meal, rows } (slot.id)}
         {#if meal && rows.length}
           <button

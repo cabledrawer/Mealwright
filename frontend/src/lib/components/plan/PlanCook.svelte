@@ -4,6 +4,7 @@
   // tub goes, spare tubs), prep ahead, what is still to buy, and Start cooking, which opens Cook
   // mode for that plan item so "Cooked it" is there at the end.
   import Icon from '#lib/components/Icon.svelte';
+  import BatchSessionCard from './BatchSessionCard.svelte';
   import { getRecipeStock } from '#lib/client/recipes.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
@@ -103,6 +104,9 @@
           <h3>{today ? `Today · ${dayWords(cook.day)}` : dayWords(cook.day)}</h3>
           <span class="total">{cookDayTotal(cook, timeWords)}</span>
         </div>
+        {#each model.sessionsOn(cook.day) as session (session.id)}
+          <BatchSessionCard {actions} {session} />
+        {/each}
         {#each cook.starts as start (start.key)}
           <div class="entry begin" data-testid="cook-start">
             <p class="line">

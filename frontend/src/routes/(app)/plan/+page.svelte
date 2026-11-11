@@ -14,7 +14,6 @@
   import { onDestroy, onMount, tick, untrack } from 'svelte';
   import type { PlanItem, PlanMeal, TubLeft } from '#lib/client/plan.js';
   import type { RecipeRow } from '#lib/client/recipes.js';
-  import BatchSessionCard from '#lib/components/plan/BatchSessionCard.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import type { LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
@@ -424,9 +423,6 @@
       : monthWords(model.anchor);
   });
   const empty = $derived(model.loaded && model.plan !== null && model.plan.meals.length === 0);
-  const weekSessions = $derived(
-    (model.plan?.batch_sessions ?? []).filter((s) => model.days.includes(s.cook_day))
-  );
   const hasBatches = $derived((model.plan?.batch_cooks.length ?? 0) > 0);
 </script>
 
@@ -440,34 +436,44 @@
   }}
 />
 
+{#snippet viewSwitch()}
+  <div class="view" class:full={phone} role="group" aria-label="View">
+    <button type="button" aria-pressed={model.view === 'week'} onclick={() => model.setView('week')}
+      >Week</button
+    >
+    <button
+      type="button"
+      aria-pressed={model.view === 'month'}
+      onclick={() => model.setView('month')}>Month</button
+    >
+    <!-- Batch cook (Experimental): the phone's third tab; the computer has its own sidebar entry. -->
+    {#if phone && batchCook.shown}
+      <a class="tab" href={resolve('/(app)/batch-cook')}
+        >Batch cook<Icon name="flask" size={14} stroke={2.4} /><span class="visually-hidden"
+          >Experimental</span
+        ></a
+      >
+    {/if}
+  </div>
+{/snippet}
+
 <div class="plan" class:fill={gridded}>
-  <PageHeader title="Plan">
-    {#snippet actions()}
-      {#if !compact}
-        <PlanShowSwitch value={show} onchange={setShow} />
-      {/if}
-      <div class="view" role="group" aria-label="View">
-        <button
-          type="button"
-          aria-pressed={model.view === 'week'}
-          onclick={() => model.setView('week')}>Week</button
-        >
-        <button
-          type="button"
-          aria-pressed={model.view === 'month'}
-          onclick={() => model.setView('month')}>Month</button
-        >
-        <!-- Batch cook (Experimental): the phone's third tab; the computer has its own sidebar entry. -->
-        {#if phone && batchCook.shown}
-          <a class="tab" href={resolve('/(app)/batch-cook')}
-            >Batch cook<Icon name="flask" size={14} stroke={2.4} /><span class="visually-hidden"
-              >Experimental</span
-            ></a
-          >
+  {#if phone}
+    <!-- The phone: the title row, then the Week · Month · Batch cook switch the full width under
+         it, as Batch cook's own header (RF5, prerelease 1; mockup Dark-PlanBatch08-Phone). -->
+    <PageHeader title="Plan">
+      {#snippet count()}{@render viewSwitch()}{/snippet}
+    </PageHeader>
+  {:else}
+    <PageHeader title="Plan">
+      {#snippet actions()}
+        {#if !compact}
+          <PlanShowSwitch value={show} onchange={setShow} />
         {/if}
-      </div>
-    {/snippet}
-  </PageHeader>
+        {@render viewSwitch()}
+      {/snippet}
+    </PageHeader>
+  {/if}
 
   {#if compact}
     <div class="showrow"><PlanShowSwitch value={show} onchange={setShow} /></div>
@@ -552,10 +558,8 @@
         </p>
       {/if}
       {#if model.view === 'week'}
-        <!-- Batch cook (Experimental): one card for each session cooked this week, above the days. -->
-        {#each weekSessions as session (session.id)}
-          <BatchSessionCard {actions} {session} />
-        {/each}
+        <!-- Batch cook (Experimental): each session's card sits in its cook day, above that day's
+             meals (RF5, prerelease 2; mockup Dark-PlanBatch08-Phone). -->
         {#if past.length}
           <button
             type="button"
@@ -852,6 +856,16 @@
     padding: var(--space-2);
     border-radius: var(--radius-full);
     background: var(--color-fill-strong);
+  }
+
+  /* The phone: the whole width, the third tab wider, as Batch cook's own switch. */
+  .view.full {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.5fr;
+  }
+
+  .view.full .tab {
+    justify-content: center;
   }
 
   .view button {

@@ -3,6 +3,7 @@
   // hold a meal (or tap it) for the menu: Move to… · Copy to… · Leftovers on… · Remove. Used for
   // the phone's week and for the day picked in the phone's Month.
   import Icon from '#lib/components/Icon.svelte';
+  import BatchSessionCard from './BatchSessionCard.svelte';
   import type { PlanMeal } from '#lib/client/plan.js';
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
@@ -48,6 +49,9 @@
         {#if day === model.today}<span class="now">Today</span>{/if}
         {#if cookedOn(model.plan, day).length}<span class="cook">Cook day</span>{/if}
       </h3>
+      {#each model.sessionsOn(day) as session (session.id)}
+        <BatchSessionCard {actions} {session} />
+      {/each}
       <ul>
         {#each model.slotsOn as slot (slot.id)}
           {@const meal = model.mealAt(day, slot.id)}
