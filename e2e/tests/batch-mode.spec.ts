@@ -150,10 +150,14 @@ test('a running timer is ended early and a wait that has not started is skipped 
   await expect.poll(waitingDone).toBe(1);
   // The other recipe's wait is skipped without a timer once it is ready.
   const skip = page.getByRole('button', { name: `Skip wait for ${s.chettinad}` });
-  for (let guard = 0; guard < 6 && !(await skip.isVisible()); guard++) {
+  // Done, next until the wait is ready (the schedule on the server says when).
+  const readyWait = async () => (await schedule(page, s.id)).tasks.some((t) => t.hands === 'waiting' && t.state === 'ready');
+  for (let guard = 0; guard < 6 && !(await readyWait()); guard++) {
+    const before = (await schedule(page, s.id)).done_count;
     await done(page).click();
-    await page.waitForTimeout(300);
+    await expect.poll(async () => (await schedule(page, s.id)).done_count).toBeGreaterThan(before);
   }
+  await expect(skip).toBeVisible();
   await skip.click();
   await expect.poll(waitingDone).toBe(2);
   await call(page, 'DELETE', `/batch-cook/sessions/${s.id}`);
