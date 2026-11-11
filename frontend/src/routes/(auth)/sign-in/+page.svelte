@@ -64,7 +64,7 @@
   let held = $state<Held | null | Unreadable>(null);
   const unreadable = $derived(held === UNREADABLE);
   const waiting = $derived(held === UNREADABLE ? null : held);
-  /** "Alex's 3 changes haven't been sent yet. If you carry on, they're lost." */
+  /** "Remy's 3 changes haven't been sent yet. If you carry on, they're lost." */
   let warning = $state(false);
   /** "Carry on and lose them" was chosen for this username. */
   let losing = false;
@@ -109,7 +109,7 @@
   );
   /**
    * Just turned away, still as that username, and the server did end the session: the line
-   * says why ("You were signed out because Alex's change is waiting…").
+   * says why ("You were signed out because Remy's change is waiting…").
    */
   const signedOut = $derived(
     someoneElse &&

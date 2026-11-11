@@ -201,7 +201,7 @@ def test_found_on_two_phones_counts_once_and_the_second_phone_is_told(
     # in the pantry for one carton at home (review of the whole of 0.8, Sh2).
     s = s0(kitchen)
     first = _found(kitchen, s, "Milk", 1000, device=PHONE_A)
-    second = _found(s.alex, s, "Milk", 500, device=PHONE_R)
+    second = _found(s.remy, s, "Milk", 500, device=PHONE_R)
     assert first["status"] == "applied"  # type: ignore[index]
     assert (second["status"], second["reason"]) == ("ignored", "already_found")  # type: ignore[index]
     assert second["message"] == "Already found at home by the other phone."  # type: ignore[index]
@@ -249,8 +249,8 @@ def test_found_brings_back_a_removed_ingredient_and_undo_removes_it_again(
     """Phone B removed the line and Paneer; phone A's offline "Already have it" still lands:
     the ingredient comes back (as for a tick, 7.1) so the stock isn't hidden."""
     s = s0(kitchen)
-    one(s.alex, "delete", s.c0, PHONE_R, item_id=s.items["Paneer"])
-    ok(s.alex.delete(f"{API}/foods/{s.foods['Paneer']}"))
+    one(s.remy, "delete", s.c0, PHONE_R, item_id=s.items["Paneer"])
+    ok(s.remy.delete(f"{API}/foods/{s.foods['Paneer']}"))
     done = _found(kitchen, s, "Paneer", 200, "Fridge")
     assert done["status"] == "applied"  # type: ignore[index]
     assert done["message"] == "Paneer is back in Ingredients."  # type: ignore[index]
@@ -267,9 +267,9 @@ def test_found_brings_back_a_removed_ingredient_and_undo_removes_it_again(
 def test_found_against_a_delete_tells_the_finder_like_a_tick(kitchen: TestClient) -> None:
     """L-9 / N1: the deleter hadn't seen the find."""
     s = s0(kitchen)
-    _found(s.alex, s, "Milk", 1000, device=PHONE_R)
+    _found(s.remy, s, "Milk", 1000, device=PHONE_R)
     one(kitchen, "delete", s.c0, PHONE_A, item_id=s.items["Milk"])
-    (note,) = changes(s.alex)["notes"]
+    (note,) = changes(s.remy)["notes"]
     assert note["text"] == "Tess had removed this. Your tick still went into the pantry."
 
 
@@ -280,22 +280,22 @@ def test_found_against_a_delete(kitchen: TestClient, a_first: bool) -> None:
     item = s.items["Paneer"]
     steps = [
         lambda: _found(kitchen, s, "Paneer", 200, "Fridge"),
-        lambda: one(s.alex, "delete", s.c0, PHONE_R, item_id=item),
+        lambda: one(s.remy, "delete", s.c0, PHONE_R, item_id=item),
     ]
     for step in steps if a_first else steps[::-1]:
         step()
     assert s.lots("Paneer") == [("Fridge", 200)]
     (note,) = changes(kitchen)["notes"]
-    assert note["text"] == "Alex had removed this. Your tick still went into the pantry."
-    assert changes(s.alex)["notes"] == []
+    assert note["text"] == "Remy had removed this. Your tick still went into the pantry."
+    assert changes(s.remy)["notes"] == []
 
 
 def test_found_into_an_ingredient_counted_differently_puts_nothing_in(
     kitchen: TestClient,
 ) -> None:
     s = s0(kitchen)
-    one(s.alex, "delete", s.c0, PHONE_R, item_id=s.items["Paneer"])
-    ok(s.alex.delete(f"{API}/foods/{s.foods['Paneer']}"))
+    one(s.remy, "delete", s.c0, PHONE_R, item_id=s.items["Paneer"])
+    ok(s.remy.delete(f"{API}/foods/{s.foods['Paneer']}"))
     new = food(kitchen, "Paneer", counted_as="count")["id"]
     done: Any = _found(kitchen, s, "Paneer", 200, "Fridge")
     assert done["status"] == "applied" and done["change"] is None

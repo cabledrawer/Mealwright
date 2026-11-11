@@ -49,12 +49,12 @@ def test_needs_sign_in(client: TestClient) -> None:
 
 
 def test_sy35_another_logins_queue_is_refused_whole(kitchen: TestClient) -> None:
-    alex = person(kitchen)
+    remy = person(kitchen)
     milk = food(kitchen, "Milk")
     start, rows = counter(kitchen), _rows(kitchen)
     main = main_id(kitchen)
     queue = [action("add", list_id=main, item_id=new_id(), food_id=milk["id"]) for _ in range(3)]
-    answer = send(kitchen, *queue, login=login_id(alex), status=409)
+    answer = send(kitchen, *queue, login=login_id(remy), status=409)
     assert answer["code"] == "other_login"
     assert answer["detail"] == "These changes were made by another login."
     assert counter(kitchen) == start and _rows(kitchen) == rows
@@ -321,30 +321,30 @@ def test_changes_since_gives_only_newer_rows_and_a_tombstone(kitchen: TestClient
 
 
 def test_removed_by_names_the_person_or_your_other_phone(kitchen: TestClient) -> None:
-    """cabledrawer 18 Oct, decision 10: "Paneer · removed by Alex" needs who removed it."""
-    alex = person(kitchen)
+    """cabledrawer 18 Oct, decision 10: "Paneer · removed by Remy" needs who removed it."""
+    remy = person(kitchen)
     main = main_id(kitchen)
     paneer, milk = food(kitchen, "Paneer"), food(kitchen, "Milk")
-    by_alex, by_other_phone = new_id(), new_id()
+    by_remy, by_other_phone = new_id(), new_id()
     send(
         kitchen,
-        action("add", list_id=main, item_id=by_alex, food_id=paneer["id"]),
+        action("add", list_id=main, item_id=by_remy, food_id=paneer["id"]),
         action("add", list_id=main, item_id=by_other_phone, food_id=milk["id"]),
     )
     since = counter(kitchen)
-    send(alex, action("delete", item_id=by_alex), device=PHONE_R)
+    send(remy, action("delete", item_id=by_remy), device=PHONE_R)
     send(kitchen, action("delete", item_id=by_other_phone), device=PHONE_B)
 
     def removed_by(answer: Any) -> dict[str, Any]:
         return {row["id"]: row["removed_by"] for row in answer["items"]}
 
     assert removed_by(changes(kitchen, since, PHONE_A)) == {
-        by_alex: "Alex",
+        by_remy: "Remy",
         by_other_phone: "Your other phone",
     }
     # On the phone that removed it, it's just the person's own name.
     assert removed_by(changes(kitchen, since, PHONE_B))[by_other_phone] == "Tess"
-    assert removed_by(changes(alex, since))[by_other_phone] == "Tess"
+    assert removed_by(changes(remy, since))[by_other_phone] == "Tess"
     # The batch answer carries it too.
     answer = send(kitchen, since=since, device=PHONE_A)
     assert removed_by(answer["changes"])[by_other_phone] == "Your other phone"

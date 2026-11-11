@@ -733,7 +733,7 @@
       }
     ]
   } as RecipeOut;
-  let alexOpen = $state(false);
+  let remyOpen = $state(false);
   let phoneWide = $state(true);
   const noErrors = {};
 
@@ -1394,10 +1394,10 @@
         <button type="button" class="mw-pill">Try again</button>
       </EditorNote>
       <EditorNote tone="conflict">
-        <span>Alex changed this recipe after you opened it.</span>
+        <span>Remy changed this recipe after you opened it.</span>
         <span class="row">
-          <button type="button" class="mw-pill" onclick={() => (alexOpen = true)}
-            >See Alex’s version</button
+          <button type="button" class="mw-pill" onclick={() => (remyOpen = true)}
+            >See Remy’s version</button
           >
           <button type="button" class="demo">Save mine anyway</button>
         </span>
@@ -1440,17 +1440,17 @@
       <StepList {draft} errors={noErrors} announce={() => {}} />
     </div>
 
-    <h3>Alex’s version</h3>
-    <button type="button" class="demo" onclick={() => (alexOpen = true)}>Open Alex’s version</button
+    <h3>Remy’s version</h3>
+    <button type="button" class="demo" onclick={() => (remyOpen = true)}>Open Remy’s version</button
     >
-    {#if alexOpen}
+    {#if remyOpen}
       <ConflictSheet
-        who="Alex"
+        who="Remy"
         opened={rx}
         {theirs}
         phone={phoneWide}
-        onclose={() => (alexOpen = false)}
-        onsave={() => (alexOpen = false)}
+        onclose={() => (remyOpen = false)}
+        onsave={() => (remyOpen = false)}
       />
     {/if}
   </section>

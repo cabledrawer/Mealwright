@@ -7,7 +7,7 @@ import { ADMIN } from './servers.ts';
 // its own (no saved session), because E3 signs out and that must not end anyone else's.
 //
 // E1 here is the same-login version (cabledrawer 18 Oct): two devices, both signed in as
-// cabledrawer. The two-person E1 (Tess and Alex) stays for 0.8, when a second login can be
+// cabledrawer. The two-person E1 (Tess and Remy) stays for 0.8, when a second login can be
 // made in the app.
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
@@ -561,7 +561,7 @@ async function settleCards(page: Page) {
 // E1 for 0.3 (cabledrawer 18 Oct): two devices, both signed in as Tess. Both offline, both
 // tick toor dal; back online, both ask "Did you buy 2?"; Just 1 on one clears the other.
 // Nothing seeded: the ingredient is made through the API, the ticks through the app. The
-// two-person E1 (Tess and Alex) waits for 0.8, when a second login can be made in the app.
+// two-person E1 (Tess and Remy) waits for 0.8, when a second login can be made in the app.
 test('E1 (same login): toor dal ticked offline on two devices; "Did you buy 2?"; Just 1 clears both', async ({
   page,
   context,

@@ -133,10 +133,10 @@ def test_serves_of_a_meal_already_dealt_with_is_refused(
 
 
 @pytest.fixture
-def alex(kitchen: TestClient) -> int:
+def remy(kitchen: TestClient) -> int:
     with kitchen.app.state.sessionmaker() as db:
         login = Login(
-            household_id=1, username="alex", name="Alex", password_hash="x", role="member"
+            household_id=1, username="remy", name="Remy", password_hash="x", role="member"
         )
         db.add(login)
         db.commit()
@@ -144,50 +144,50 @@ def alex(kitchen: TestClient) -> int:
 
 
 def test_who_is_eating_is_ticked_read_and_undone(
-    kitchen: TestClient, sambar: int, alex: int, slots: dict[str, int]
+    kitchen: TestClient, sambar: int, remy: int, slots: dict[str, int]
 ) -> None:
     plan = plan_recipe(kitchen, sambar, D1, slots["Dinner"])
     assert view(kitchen)["meals"][0]["eater_login_ids"] == []  # nobody ticked: everyone
     before = shape(kitchen)
-    r = kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": [alex, 1]})
+    r = kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": [remy, 1]})
     assert r.status_code == 200, r.text
     assert r.json()["change"]["summary"].startswith("Changed who is eating Sambar (")
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == [1, alex]
-    same = kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": [1, alex]})
+    assert view(kitchen)["meals"][0]["eater_login_ids"] == [1, remy]
+    same = kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": [1, remy]})
     assert same.json()["change"] is None
     cleared = kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": []})
     assert view(kitchen)["meals"][0]["eater_login_ids"] == []
     assert undo(kitchen, cleared.json())["result"] == "done"
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == [1, alex]
+    assert view(kitchen)["meals"][0]["eater_login_ids"] == [1, remy]
     assert undo(kitchen, r.json())["result"] == "done"
     assert view(kitchen)["meals"][0]["eater_login_ids"] == []
     assert shape(kitchen) == before
 
 
 def test_who_is_eating_goes_with_the_meal_and_comes_back_with_its_undo(
-    kitchen: TestClient, sambar: int, alex: int, slots: dict[str, int]
+    kitchen: TestClient, sambar: int, remy: int, slots: dict[str, int]
 ) -> None:
     plan = plan_recipe(kitchen, sambar, D1, slots["Dinner"])
-    ok(kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": [alex]}))
+    ok(kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": [remy]}))
     removed = ok(kitchen.delete(f"{API}/plan/meals/{plan['meal_id']}"))
     with kitchen.app.state.sessionmaker() as db:
         assert list(db.scalars(select(MealEater))) == []
     assert undo(kitchen, removed)["result"] == "done"
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == [alex]
+    assert view(kitchen)["meals"][0]["eater_login_ids"] == [remy]
 
 
 def test_a_moved_meal_keeps_who_is_eating(
-    kitchen: TestClient, sambar: int, alex: int, slots: dict[str, int]
+    kitchen: TestClient, sambar: int, remy: int, slots: dict[str, int]
 ) -> None:
     plan = plan_recipe(kitchen, sambar, D1, slots["Dinner"])
-    ok(kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": [alex]}))
+    ok(kitchen.put(f"{API}/plan/meals/{plan['meal_id']}/eaters", json={"login_ids": [remy]}))
     to = {"date": (D1 + timedelta(days=1)).isoformat(), "slot_id": slots["Lunch"], "mode": "move"}
     ok(kitchen.post(f"{API}/plan/meals/{plan['meal_id']}/move", json=to))
-    assert view(kitchen)["meals"][0]["eater_login_ids"] == [alex]
+    assert view(kitchen)["meals"][0]["eater_login_ids"] == [remy]
 
 
 def test_who_is_eating_is_refused_for_strangers_and_locked_meals(
-    kitchen: TestClient, neighbour: TestClient, sambar: int, alex: int, slots: dict[str, int]
+    kitchen: TestClient, neighbour: TestClient, sambar: int, remy: int, slots: dict[str, int]
 ) -> None:
     from test_today import ago
 
@@ -205,7 +205,7 @@ def test_who_is_eating_is_refused_for_strangers_and_locked_meals(
     # A meal that was cooked is not changed here.
     past = plan_recipe(kitchen, int(sambar), ago(kitchen, 1), slots["Dinner"])
     ok(kitchen.post(f"{API}/plan/meals/{past['meal_id']}/didnt"))
-    locked = kitchen.put(f"{API}/plan/meals/{past['meal_id']}/eaters", json={"login_ids": [alex]})
+    locked = kitchen.put(f"{API}/plan/meals/{past['meal_id']}/eaters", json={"login_ids": [remy]})
     assert locked.status_code == 409 and locked.json()["code"] == "meal_done"
     assert view(kitchen)["meals"][0]["eater_login_ids"] == []
     # The neighbour cannot reach my servings either.

@@ -1,4 +1,4 @@
-"""P-1 (docs/dev/sync-protocol.md section 14): three phones (cabledrawer on two, Alex on one)
+"""P-1 (docs/dev/sync-protocol.md section 14): three phones (cabledrawer on two, Remy on one)
 make random queues offline and send them in random batches, in a random order, sometimes
 losing the answer and sending again, while the pantry is used in between. Whatever happens:
 
@@ -338,7 +338,7 @@ def test_p1_random_queues_from_three_phones(plan: list[Any]) -> None:
             phones = [
                 Phone(kitchen, PHONE_A, dict(lines), [s.main], seen=s.c0),
                 Phone(kitchen, PHONE_B, dict(lines), [s.main], seen=s.c0),  # the same login
-                Phone(s.alex, PHONE_R, dict(lines), [s.main], seen=s.c0),
+                Phone(s.remy, PHONE_R, dict(lines), [s.main], seen=s.c0),
             ]
             before = {row.id for row in _rows(s)}  # S0's own adds
 

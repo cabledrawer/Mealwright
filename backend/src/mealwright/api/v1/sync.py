@@ -123,7 +123,7 @@ class ItemRow(BaseModel):
 
 
 class Tombstone(BaseModel):
-    """A deleted item. Shown faintly in its shop: "Paneer · removed by Alex" (16.10)."""
+    """A deleted item. Shown faintly in its shop: "Paneer · removed by Remy" (16.10)."""
 
     id: str
     list_id: str

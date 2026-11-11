@@ -9,7 +9,7 @@ describe('who is eating', () => {
     expect(eaterNames(mealOf(1, DAYS[0]!, 1, []), PEOPLE)).toEqual([]);
     expect(eaterNames(mealOf(1, DAYS[0]!, 1, [], { eater_login_ids: [11, 10] }), PEOPLE)).toEqual([
       'Tess',
-      'Alex'
+      'Remy'
     ]);
   });
 });
@@ -28,7 +28,7 @@ describe('the Eat rows of a meal', () => {
     const [row] = eatRows(plan, meal(3), PEOPLE);
     expect(row).toMatchObject({
       name: 'Veg biryani',
-      source: 'Freshly made · cabledrawer, Alex',
+      source: 'Freshly made · cabledrawer, Remy',
       fresh: false,
       solid: true,
       colour: 3
@@ -47,13 +47,13 @@ describe('the Eat rows of a meal', () => {
 
   it('falls back to the people ticked when the tub is nobody’s in particular', () => {
     const [row] = eatRows(plan, meal(5), PEOPLE);
-    expect(row?.source).toBe('Tub from Sun · Alex');
+    expect(row?.source).toBe('Tub from Sun · Remy');
   });
 
-  it('joins the tubs of one batch in one meal: "2 tubs from Sun · cabledrawer, Alex"', () => {
+  it('joins the tubs of one batch in one meal: "2 tubs from Sun · cabledrawer, Remy"', () => {
     const rows = eatRows(plan, meal(6), PEOPLE);
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.source).toBe('2 tubs from Sun · cabledrawer, Alex');
+    expect(rows[0]?.source).toBe('2 tubs from Sun · cabledrawer, Remy');
   });
 
   it('shows a note as it was written and says nothing else', () => {

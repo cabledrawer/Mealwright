@@ -143,12 +143,12 @@ def test_the_household_starts_on_uk_pints_and_an_admin_can_change_it(kitchen: Te
 
 
 def test_a_member_cannot_change_it(kitchen: TestClient) -> None:
-    alex = person(kitchen)
-    response = alex.patch(f"{API}/household", json={"pints": "us"})
+    remy = person(kitchen)
+    response = remy.patch(f"{API}/household", json={"pints": "us"})
     assert response.status_code == 403
     assert response.json()["code"] == "admins_only"
     assert ok(kitchen.get(f"{API}/household"))["pints"] == "uk"
-    assert ok(alex.get(f"{API}/household"))["pints"] == "uk"  # members see it
+    assert ok(remy.get(f"{API}/household"))["pints"] == "uk"  # members see it
 
 
 @pytest.mark.parametrize("body", [{"pints": "imperial"}, {"pints": 568}, {"pints": ""}])

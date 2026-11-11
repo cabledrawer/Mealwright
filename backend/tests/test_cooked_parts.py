@@ -18,7 +18,7 @@ from test_cooked_undo import (
     undone,
 )
 from test_cooking import amounts, cook
-from test_history import alex  # noqa: F401 (a fixture)
+from test_history import remy  # noqa: F401 (a fixture)
 from test_plan import db_of, slot_ids
 from test_recipe_list import line, stock
 from test_recipes import food, make
@@ -212,14 +212,14 @@ def test_didnt_cook_it_acts_on_a_part_cooked_meal(kitchen: TestClient) -> None:
     assert status_of(kitchen, meal) == "didnt"
 
 
-def test_another_logins_press_is_not_joined(kitchen: TestClient, alex: TestClient) -> None:  # noqa: F811
+def test_another_logins_press_is_not_joined(kitchen: TestClient, remy: TestClient) -> None:  # noqa: F811
     _dal, meal, khichdi, soup = two_in_a_meal(kitchen)
     mine, _ = press(kitchen, meal, soup)
-    theirs, answer = press(alex, meal, khichdi)
+    theirs, answer = press(remy, meal, khichdi)
     assert answer["summary"].startswith("Cooked Zorba khichdi (")
     assert status_of(kitchen, meal) == "cooked"
-    # Alex's Undo leaves the first login's cooking.
-    assert ok(undo(alex, answer["id"]))["result"] == "done"
+    # Remy's Undo leaves the first login's cooking.
+    assert ok(undo(remy, answer["id"]))["result"] == "done"
     assert not undone(kitchen, mine["id"]) and undone(kitchen, theirs["id"])
     assert records(kitchen) == {soup} and status_of(kitchen, meal) == "planned"
 

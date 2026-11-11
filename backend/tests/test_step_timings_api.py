@@ -207,8 +207,8 @@ def test_a_bad_kitchen_is_refused_and_nothing_changes(kitchen: TestClient) -> No
 
 
 def test_a_member_can_change_the_kitchen(kitchen: TestClient) -> None:
-    alex = person(kitchen)
-    assert ok(alex.patch(f"{API}/household/kitchen", json={"oven": False}))["oven"] is False
+    remy = person(kitchen)
+    assert ok(remy.patch(f"{API}/household/kitchen", json={"oven": False}))["oven"] is False
     assert ok(kitchen.get(f"{API}/household/kitchen"))["oven"] is False
 
 

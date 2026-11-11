@@ -49,13 +49,13 @@ def cook(kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]) -> d
 
 
 @pytest.fixture
-def alex(kitchen: TestClient) -> int:
+def remy(kitchen: TestClient) -> int:
     with db_of(kitchen) as db:
         login = Login(
             household_id=1,
-            username="alex",
-            name="Alex",
-            password_hash=hash_password("alex's own password"),
+            username="remy",
+            name="Remy",
+            password_hash=hash_password("remy's own password"),
             role="member",
         )
         db.add(login)
@@ -211,20 +211,20 @@ def test_use_by_comes_from_the_household_tub_life_counted_from_the_cook_day(
 
 
 def test_who_is_eating_decides_whose_each_tub_is(
-    kitchen: TestClient, cook: dict[str, Any], alex: int
+    kitchen: TestClient, cook: dict[str, Any], remy: int
 ) -> None:
     people = kitchen.get(f"{API}/plan/people").json()
-    assert len(people) == 2 and people[1] == {"login_id": alex, "name": "Alex"}
+    assert len(people) == 2 and people[1] == {"login_id": remy, "name": "Remy"}
     ids = [p["login_id"] for p in people]
     both = preview(kitchen, cook["item_id"], member_login_ids=ids)
-    assert [t["member_login_id"] for t in both["tubs"]] == [ids[0], alex, ids[0], alex]
-    one = preview(kitchen, cook["item_id"], member_login_ids=[alex])
-    assert {t["member_login_id"] for t in one["tubs"]} == {alex}
+    assert [t["member_login_id"] for t in both["tubs"]] == [ids[0], remy, ids[0], remy]
+    one = preview(kitchen, cook["item_id"], member_login_ids=[remy])
+    assert {t["member_login_id"] for t in one["tubs"]} == {remy}
     nobody = preview(kitchen, cook["item_id"])
     assert {t["member_login_id"] for t in nobody["tubs"]} == {None}
     saved = make(kitchen, cook["item_id"], member_login_ids=ids)
     assert saved["batch_id"]
-    assert [t["member_login_id"] for t in view(kitchen)["tubs"]] == [ids[0], alex, ids[0], alex]
+    assert [t["member_login_id"] for t in view(kitchen)["tubs"]] == [ids[0], remy, ids[0], remy]
 
 
 def test_the_preview_changes_nothing_and_matches_what_is_saved(
@@ -438,15 +438,15 @@ def test_a_tub_added_to_a_full_meal_or_a_far_day_is_refused(
 
 
 def test_whose_tub_and_its_use_by_can_be_changed_with_undo(
-    kitchen: TestClient, cook: dict[str, Any], alex: int
+    kitchen: TestClient, cook: dict[str, Any], remy: int
 ) -> None:
     make(kitchen, cook["item_id"], tub_count=1, pattern="pick")
     tub = view(kitchen)["tubs"][0]
     url = f"{API}/plan/tubs/{tub['id']}"
-    whose = kitchen.patch(url, json={"member_login_id": alex})
-    assert whose.status_code == 200 and "Alex" in whose.json()["change"]["summary"]
-    assert view(kitchen)["tubs"][0]["member_login_id"] == alex
-    again = kitchen.patch(url, json={"member_login_id": alex})
+    whose = kitchen.patch(url, json={"member_login_id": remy})
+    assert whose.status_code == 200 and "Remy" in whose.json()["change"]["summary"]
+    assert view(kitchen)["tubs"][0]["member_login_id"] == remy
+    again = kitchen.patch(url, json={"member_login_id": remy})
     assert again.json()["change"] is None
     nobody = kitchen.patch(url, json={"member_login_id": None})
     assert view(kitchen)["tubs"][0]["member_login_id"] is None
@@ -457,7 +457,7 @@ def test_whose_tub_and_its_use_by_can_be_changed_with_undo(
     assert undo(kitchen, late.json())["result"] == "done"
     assert view(kitchen)["tubs"][0]["use_by"] == tub["use_by"]
     assert undo(kitchen, nobody.json())["result"] == "done"  # F165: the later change first
-    assert view(kitchen)["tubs"][0]["member_login_id"] == alex
+    assert view(kitchen)["tubs"][0]["member_login_id"] == remy
     assert undo(kitchen, whose.json())["result"] == "done"
     assert kitchen.patch(url, json={}).status_code == 422
 

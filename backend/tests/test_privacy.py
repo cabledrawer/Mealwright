@@ -31,16 +31,16 @@ def member(kitchen: TestClient) -> Iterator[TestClient]:
         db.add(
             Login(
                 household_id=1,
-                username="alex",
-                name="Alex",
-                password_hash=hash_password("alex's own password"),
+                username="remy",
+                name="Remy",
+                password_hash=hash_password("remy's own password"),
                 role="member",
             )
         )
         db.commit()
     with TestClient(kitchen.app, base_url="https://testserver") as other:
         response = other.post(
-            f"{API}/session", json={"username": "alex", "password": "alex's own password"}
+            f"{API}/session", json={"username": "remy", "password": "remy's own password"}
         )
         assert response.status_code == 200
         yield other

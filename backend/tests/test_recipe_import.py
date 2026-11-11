@@ -264,8 +264,8 @@ def test_a_link_with_the_switch_off_is_refused_and_nothing_is_fetched(
 
 
 def test_a_member_is_told_an_admin_can_switch_it_on(kitchen: TestClient, web: Web) -> None:
-    alex = person(kitchen)
-    response = start(alex, LINK)
+    remy = person(kitchen)
+    response = start(remy, LINK)
     assert response.status_code == 403
     assert response.json()["detail"] == (
         "Importing from links is switched off. An admin can switch it on."

@@ -327,7 +327,7 @@ The client shows the question with the "Remember for next time" switch (on by de
 "change": {
   "id": 812, "kind": "used",
   "at": "2026-10-17T18:04:11Z",
-  "who": { "login_id": 2, "name": "Alex" },
+  "who": { "login_id": 2, "name": "Remy" },
   "summary": "Used 200 g Spinach",
   "can_undo": true, "undo_until": "2026-10-24T18:04:11Z",
   "undone": null
@@ -733,7 +733,7 @@ Summaries: "Added 2 packets Toor dal → Cupboard", "Used 200 g Spinach", "Binne
 - `mine=true` gives the signed-in login's own changes; `mine=true&limit=1` with `can_undo` finds what **Ctrl+Z** undoes (the client ignores Ctrl+Z while focus is in a text box).
 
 ```json
-{ "changes": [ { "id": 812, "kind": "used", "summary": "Used 200 g Spinach", "who": {"login_id": 2, "name": "Alex"},
+{ "changes": [ { "id": 812, "kind": "used", "summary": "Used 200 g Spinach", "who": {"login_id": 2, "name": "Remy"},
                  "at": "…", "can_undo": true, "undo_until": "…", "undone": null,
                  "lines": [ { "food": {"id": 22, "name": "Spinach"}, "lot_id": 499,
                               "before": {"display": "200 g", "…": "…"}, "after": {"display": "0 g", "…": "…"},

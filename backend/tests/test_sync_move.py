@@ -7,10 +7,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from sync_kit import (
-    ALEX_PASSWORD,
     API,
     PHONE_A,
     PHONE_R,
+    REMY_PASSWORD,
     S0,
     action,
     changes,
@@ -255,7 +255,7 @@ def test_sy69_move_against_a_tick(kitchen: TestClient, a_first: bool) -> None:
     _in_order(
         a_first,
         lambda: results.update(move=_move(kitchen, s, "Paneer", grocer)),
-        lambda: results.update(tick=tick(s.alex, s, "Paneer", PHONE_R)),
+        lambda: results.update(tick=tick(s.remy, s, "Paneer", PHONE_R)),
     )
     assert results["tick"]["status"] == "applied"  # a tick always counts
     row = s.item(kitchen, "Paneer")
@@ -268,7 +268,7 @@ def test_sy69_move_against_a_tick(kitchen: TestClient, a_first: bool) -> None:
         assert (results["move"]["status"], results["move"]["reason"]) == ("ignored", "ticked")
         assert _where(kitchen, s.items["Paneer"])[1] == s.shops["Supermarket"]
         (note,) = changes(kitchen)["notes"]
-        assert note["text"] == "Alex had ticked Paneer, so it wasn’t moved."
+        assert note["text"] == "Remy had ticked Paneer, so it wasn’t moved."
         assert note["undo"] is None
 
 
@@ -280,7 +280,7 @@ def test_sy70_move_against_a_delete(kitchen: TestClient, a_first: bool) -> None:
         a_first,
         lambda: results.update(move=_move(kitchen, s, "Milk", None)),
         lambda: results.update(
-            delete=one(s.alex, "delete", s.c0, PHONE_R, item_id=s.items["Milk"])
+            delete=one(s.remy, "delete", s.c0, PHONE_R, item_id=s.items["Milk"])
         ),
     )
     assert s.item(kitchen, "Milk", s.c0)["deleted"] is True
@@ -290,7 +290,7 @@ def test_sy70_move_against_a_delete(kitchen: TestClient, a_first: bool) -> None:
     else:
         assert (results["move"]["status"], results["move"]["reason"]) == ("ignored", "deleted")
         (note,) = changes(kitchen)["notes"]
-        assert note["text"] == "Alex had removed Milk, so your change wasn’t kept."
+        assert note["text"] == "Remy had removed Milk, so your change wasn’t kept."
         assert _undo(kitchen, note["undo"])["status"] == "applied"
         assert s.item(kitchen, "Milk", s.c0)["deleted"] is False
 
@@ -302,11 +302,11 @@ def test_sy71_move_against_an_amount(kitchen: TestClient, a_first: bool) -> None
     _in_order(
         a_first,
         lambda: _move(kitchen, s, "Milk", grocer),
-        lambda: one(s.alex, "set_amount", s.c0, PHONE_R, item_id=s.items["Milk"], amount=4000),
+        lambda: one(s.remy, "set_amount", s.c0, PHONE_R, item_id=s.items["Milk"], amount=4000),
     )
     row = s.item(kitchen, "Milk")
     assert (row["amount"], row["shop_id"]) == (4000, grocer)  # both stand, either order
-    assert changes(kitchen)["notes"] == [] and changes(s.alex)["notes"] == []
+    assert changes(kitchen)["notes"] == [] and changes(s.remy)["notes"] == []
 
 
 @BOTH
@@ -331,21 +331,21 @@ def test_sy71_amount_against_a_move_that_joined_a_line(kitchen: TestClient, a_fi
         a_first,
         lambda: results.update(move=_move(kitchen, s, "Milk", grocer, seen=seen)),
         lambda: results.update(
-            set=one(s.alex, "set_amount", seen, PHONE_R, item_id=s.items["Milk"], amount=4000)
+            set=one(s.remy, "set_amount", seen, PHONE_R, item_id=s.items["Milk"], amount=4000)
         ),
     )
     (line,) = _live(kitchen, s, "Milk")
-    if a_first:  # joined (3 L); Alex's edit of the line that was taken off is not kept
+    if a_first:  # joined (3 L); Remy's edit of the line that was taken off is not kept
         assert line["amount"] == 3000
         assert (results["set"]["status"], results["set"]["reason"]) == ("ignored", "deleted")
-        (note,) = changes(s.alex)["notes"]
+        (note,) = changes(s.remy)["notes"]
         assert note["text"] == "Tess had moved Milk, so your change wasn’t kept."
-        # Undo of the note takes the move back: Alex's line is there again, at the old amount.
-        assert _undo(s.alex, note["undo"], PHONE_R)["status"] == "applied"
+        # Undo of the note takes the move back: Remy's line is there again, at the old amount.
+        assert _undo(s.remy, note["undo"], PHONE_R)["status"] == "applied"
         assert sorted(r["amount"] for r in _live(kitchen, s, "Milk")) == [1000, 2000]
-    else:  # Alex's 4 L is what joins the line there (5 L)
+    else:  # Remy's 4 L is what joins the line there (5 L)
         assert line["amount"] == 5000
-        assert changes(kitchen)["notes"] == [] and changes(s.alex)["notes"] == []
+        assert changes(kitchen)["notes"] == [] and changes(s.remy)["notes"] == []
 
 
 @BOTH
@@ -358,7 +358,7 @@ def test_sy72_two_moves(kitchen: TestClient, a_first: bool) -> None:
         lambda: results.update(a=_move(kitchen, s, "Coriander", grocer, seen=s.c0 + 1)),
         lambda: results.update(
             b=one(
-                s.alex,
+                s.remy,
                 "move",
                 s.c0 + 1,
                 PHONE_R,
@@ -371,10 +371,10 @@ def test_sy72_two_moves(kitchen: TestClient, a_first: bool) -> None:
     assert results["a"]["status"] == results["b"]["status"] == "applied"
     last = (party, None) if a_first else (s.main, grocer)
     assert _where(kitchen, s.items["Coriander"]) == last
-    loser = kitchen if a_first else s.alex
+    loser = kitchen if a_first else s.remy
     (note,) = changes(loser)["notes"]
     expected = (
-        "Alex moved Coriander to Diwali party"
+        "Remy moved Coriander to Diwali party"
         if a_first
         else "Tess moved Coriander to This week"
     )
@@ -399,9 +399,9 @@ def test_sy72_a_second_move_of_a_line_a_move_joined_is_not_kept(kitchen: TestCli
     send(kitchen, action("add", list_id=s.main, item_id=eggs, food_id=s.foods["Eggs"], amount=6))
     first = one(kitchen, "move", s.c0 + 2, item_id=eggs, list_id=s.main, shop_id=grocer)
     assert first["status"] == "merged"
-    stale = one(s.alex, "move", s.c0 + 2, PHONE_R, item_id=eggs, list_id=s.main, shop_id=None)
+    stale = one(s.remy, "move", s.c0 + 2, PHONE_R, item_id=eggs, list_id=s.main, shop_id=None)
     assert (stale["status"], stale["reason"]) == ("ignored", "deleted")
-    (note,) = changes(s.alex)["notes"]
+    (note,) = changes(s.remy)["notes"]
     assert note["text"] == "Tess had moved Eggs, so your change wasn’t kept."
 
 
@@ -421,10 +421,10 @@ def test_sy72_a_tick_of_a_line_a_move_joined_still_counts(kitchen: TestClient) -
         ),
     )
     _move(kitchen, s, "Milk", grocer, seen=s.c0 + 1)
-    stale = tick(s.alex, s, "Milk", PHONE_R, seen=s.c0 + 1)
+    stale = tick(s.remy, s, "Milk", PHONE_R, seen=s.c0 + 1)
     assert stale["status"] == "applied"
-    assert s.total("Milk") == 2000  # the 2 L Alex saw
-    (note,) = changes(s.alex)["notes"]
+    assert s.total("Milk") == 2000  # the 2 L Remy saw
+    (note,) = changes(s.remy)["notes"]
     assert note["text"] == "Tess had moved this. Your tick still went into the pantry."
 
 
@@ -453,13 +453,13 @@ def test_sy73_another_households_list_shop_and_line_are_not_here(kitchen: TestCl
                 household_id=2,
                 username="neighbour",
                 name="Neighbour",
-                password_hash=hash_password(ALEX_PASSWORD),
+                password_hash=hash_password(REMY_PASSWORD),
                 role="admin",
             )
         )
         session.commit()
     neighbour = TestClient(kitchen.app, base_url="https://testserver")
-    ok(neighbour.post(f"{API}/session", json={"username": "neighbour", "password": ALEX_PASSWORD}))
+    ok(neighbour.post(f"{API}/session", json={"username": "neighbour", "password": REMY_PASSWORD}))
     their_shop = ok(neighbour.post(f"{API}/shops", json={"name": "Far shop"}), 201)["id"]
     their_list = new_id()
     send(neighbour, action("create_list", list_id=their_list, name="Theirs"))

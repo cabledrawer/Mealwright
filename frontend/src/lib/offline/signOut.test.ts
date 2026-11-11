@@ -155,7 +155,7 @@ describe('the "sign-out pending" flag', () => {
 
 describe('ending the session without wiping (the app turning a login away)', () => {
   it('ended: true, and nothing is wiped', async () => {
-    await setMeta({ login_id: 2, login_name: 'Alex', username: 'alex' });
+    await setMeta({ login_id: 2, login_name: 'Remy', username: 'remy' });
     const requests = fakeApi({ 'DELETE /session': [204, null] });
     expect(await endSession()).toBe(true);
     expect(said(requests)).toEqual(['DELETE /session']);
@@ -170,7 +170,7 @@ describe('ending the session without wiping (the app turning a login away)', () 
   });
 
   it('refused or out of reach: false, “couldn’t finish signing out”, and nothing is wiped', async () => {
-    await setMeta({ login_id: 2, login_name: 'Alex', username: 'alex' });
+    await setMeta({ login_id: 2, login_name: 'Remy', username: 'remy' });
     fakeApi({ 'DELETE /session': [500, { detail: 'Something broke.' }] });
     expect(await endSession()).toBe(false);
     expect(signOutState.unfinished).toBe(true);

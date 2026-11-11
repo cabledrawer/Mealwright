@@ -602,7 +602,7 @@ def test_a_key_already_used_as_an_action_id_is_refused_by_the_0_2_api(
                 id="action-x",
                 seq=1,
                 kind="tick",
-                login_name="Alex",
+                login_name="Remy",
                 payload={},
                 payload_hash="0",
                 status="applied",
