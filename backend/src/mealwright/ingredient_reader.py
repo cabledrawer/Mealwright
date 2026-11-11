@@ -537,10 +537,17 @@ def _second_measure(text: str, start: int) -> _Measure | None:
     if slash is not None:
         inner = _measure(text, slash.end())
         if inner is not None and (inner.unit or inner.other):
-            return _Measure(inner.value, inner.unit, inner.other, start, inner.end, True)
+            end = inner.end
+            if inner.other in POUNDS:  # "500g/1lb 2oz beef": the ounces belong to the pounds
+                more = re.compile(r"\s*(?:and\s+|\+\s*)?").match(text, end)
+                ounces = _measure(text, more.end()) if more else None
+                if ounces is not None and ounces.other in OUNCES:
+                    end = ounces.end
+            return _Measure(inner.value, inner.unit, inner.other, start, end, True)
     return None
 
 
+_PLUS_AMOUNT = re.compile(r"\s*(?:\+|plus\b)\s*", re.IGNORECASE)
 _OR_MORE = re.compile(
     r"\s*,?\s*or\s+(?:(?:a\s+(?:little|bit)\s+)?(?:more|less)|fewer)\b", re.IGNORECASE
 )
@@ -896,6 +903,8 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
     other: str | None = None
     second_used = False
     or_more: str | None = None
+    second_note: str | None = None
+    plus_note: str | None = None
     size_word: str | None = None
     quantity: str | None = None
     position = start
@@ -918,6 +927,17 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
             if second.metric and not measure.metric:
                 amount, unit, other = second.value, second.unit, None
             position = second.end
+            if measure.metric and second.other in POUNDS:
+                spoken = work[second.start : second.end].lstrip(" /").strip()
+                if re.search(r"\d\s*(?:oz|ounces?)\b", spoken, re.IGNORECASE):
+                    second_note = spoken  # "500g/1lb 2oz": the pounds and ounces, in the note
+        # "1 tbsp + 1 tsp sugar": the first amount is the line's, the rest is in the note
+        # (RF4 I6; proposed, for cabledrawer).
+        plus = _PLUS_AMOUNT.match(work, position)
+        added = _measure(work, plus.end()) if plus else None
+        if plus is not None and added is not None and (added.unit or added.other):
+            plus_note = f"plus {_tidy(work[plus.end() : added.end])}"
+            position = added.end
         # "100 g or more cheese": the "or more" is a note, not the start of the name (RF4 I4).
         or_more_at = _OR_MORE.match(work, position)
         if or_more_at is not None:
@@ -972,8 +992,7 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
             rest = rest[each.end() :]
     notes: list[str] = []
 
-    if or_more is not None:
-        notes.append(or_more)
+    notes.extend(note for note in (second_note, plus_note, or_more) if note)
     rest, inside = _brackets(rest)
     # "((optional))": a bracket that holds only another bracket is that bracket (one pair only).
     inside = [_unwrapped(part) for part in inside]

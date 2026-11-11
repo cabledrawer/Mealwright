@@ -385,6 +385,23 @@ def test_i5_an_each_line_that_is_not_split_never_has_each_in_the_name_or_says_to
             assert "together" not in (r.note or ""), text
 
 
+def test_i6_pounds_and_ounces_after_a_slash_are_one_measure_not_part_of_the_name() -> None:
+    (line,) = read_lines("500g/1lb 2oz beef mince")
+    assert (line.amount, line.unit, line.name) == (D(500), "g", "beef mince")
+    assert line.note is not None and "1lb 2oz" in line.note
+
+
+def test_i6_a_plus_amount_after_an_amount_keeps_the_first_and_notes_the_rest() -> None:
+    # proposed, for cabledrawer: one line with the first amount, and the rest in the note
+    for text, first, note in (
+        ("1 tbsp + 1 tsp sugar", (D(1), "tbsp"), "plus 1 tsp"),
+        ("1 cup plus 2 tbsp flour", (D(1), "cup"), "plus 2 tbsp"),
+    ):
+        (line,) = read_lines(text)
+        assert ((line.amount, line.unit), line.alternative) == (first, None), text
+        assert line.name in ("sugar", "flour") and note in (line.note or ""), (text, line.note)
+
+
 def test_slash_without_amounts_stays_other_names() -> None:
     for text, name, other in (
         ("hing / asafoetida", "hing", "asafoetida"),
