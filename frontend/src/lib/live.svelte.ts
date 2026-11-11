@@ -3,7 +3,8 @@
 //
 // The stream carries numbers only. `shopping {cursor}` says the household's lists changed up
 // to that counter; Shopping asks GET /shopping/changes?since= when it is above its own.
-// `pantry {change_id}` says stock changed; an open Pantry fetches again. `signed_out` means
+// `pantry {change_id}` says stock changed; an open Pantry fetches again. `batch_cook {session_id}`
+// says a Batch cook session's schedule or progress changed; an open batch cook mode fetches again. `signed_out` means
 // the sign-in ran out: go to the sign-in page, exactly as a 401 does.
 //
 // The browser reconnects by itself after a drop (the server asks for 5 seconds). Coming
@@ -41,6 +42,8 @@ class Live {
   shopping = $state(0);
   /** Moves on every time the pantry's stock changed somewhere. */
   pantry = $state(0);
+  /** Moves on every time a Batch cook session's schedule or progress changed somewhere. */
+  batchCook = $state(0);
 
   #source: EventSource | null = null;
   #onHello: (() => void) | null = null;
@@ -93,6 +96,7 @@ class Live {
     });
     source.addEventListener('shopping', (event) => this.#shopping(numberIn(event, 'cursor')));
     source.addEventListener('pantry', () => this.pantry++);
+    source.addEventListener('batch_cook', () => this.batchCook++);
     source.addEventListener('signed_out', () => {
       this.#close();
       sessionEnded();

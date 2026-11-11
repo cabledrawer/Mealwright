@@ -18,6 +18,7 @@ import {
   type CookedWrite,
   type Proposal
 } from './client/cook';
+import { cookSession, previewSessionCook } from './client/batchMode';
 import type { Answer } from './client/types';
 import { TOO_MANY_ANSWERS, choicesOf, newRowState, withAnswer, type RowState } from './cookRows';
 import { kitchen } from './freshness.svelte';
@@ -49,6 +50,9 @@ export interface CookTarget {
   /** The meal the recipes are in (the server shares the packets across them). */
   mealId: number | null;
   parts: CookPart[];
+  /** A Batch cook session: every part is one of its batch cooks, reviewed and confirmed together
+   *  as one change with one Undo (B3). */
+  sessionId?: number | null;
 }
 
 /** One tab: a recipe, with its portions, its rows as proposed, and the person's say on them. */
@@ -57,6 +61,8 @@ export class CookTab {
   /** Portions the person set; null: as the server worked them out. */
   chosen = $state<number | null>(null);
   states = $state<Record<string, RowState>>({});
+  /** A session's recipe: where its tubs are ("2 Freezer, 2 Fridge"). */
+  tubs = $state<{ place: string | null; count: number }[]>([]);
 
   constructor(readonly part: CookPart) {}
 
@@ -118,6 +124,25 @@ export class CookReview {
     this.loading = true;
     try {
       const done: [CookTab, Proposal][] = [];
+      if (target.sessionId != null) {
+        const answer = await previewSessionCook(target.sessionId, {
+          items: this.tabs.map((t) => ({
+            batch_id: t.part.batchId as number,
+            ...(t.chosen !== null ? { portions: t.chosen } : {})
+          })),
+          answers: this.answers
+        });
+        if (seq !== this.#seq) return;
+        for (const one of answer.items) {
+          const tab = this.tabs.find((t) => t.part.batchId === one.batch_id);
+          if (tab) {
+            tab.proposal = one.proposal;
+            tab.tubs = one.tubs;
+          }
+        }
+        this.problem = null;
+        return;
+      }
       const items = this.tabs.filter((t) => t.part.itemId !== null);
       if (items.length && target.mealId !== null) {
         const answer = await previewMeal(target.mealId, {
@@ -190,7 +215,22 @@ export class CookReview {
     const items = this.tabs.filter((t) => t.part.itemId !== null);
     this.saving = true;
     const label = target.title;
-    if (items.length && target.mealId !== null) {
+    if (target.sessionId != null) {
+      // One call, one change, one Undo for the whole session.
+      const sessionId = target.sessionId;
+      const body = {
+        items: this.tabs.map((t) => ({
+          batch_id: t.part.batchId as number,
+          ...(t.chosen !== null ? { portions: t.chosen } : {}),
+          choices: choicesOf(t.rows, t.states)
+        })),
+        answers: this.answers
+      };
+      outcomes.push(
+        await this.#send((key, asked) => cookSession(sessionId, this.#merged(body, asked), key))
+      );
+    }
+    if (target.sessionId == null && items.length && target.mealId !== null) {
       const mealId = target.mealId;
       const body = {
         items: items.map((t) => ({
@@ -204,7 +244,9 @@ export class CookReview {
         await this.#send((key, asked) => cookMeal(mealId, this.#merged(body, asked), key))
       );
     }
-    for (const tab of this.tabs.filter((t) => t.part.batchId !== null)) {
+    for (const tab of this.tabs.filter(
+      (t) => target.sessionId == null && t.part.batchId !== null
+    )) {
       if (outcomes.some((o) => !o.ok)) break;
       const batchId = tab.part.batchId as number;
       const body = {

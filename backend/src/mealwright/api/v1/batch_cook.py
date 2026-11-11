@@ -335,6 +335,7 @@ class ScheduleKitchenOut(BaseModel):
 
 class ScheduleOut(BaseModel):
     session_id: int
+    cook_day: Day
     made_at: datetime
     stale: bool = Field(
         description="A recipe or the kitchen has changed since: the screen offers Plan again."
@@ -360,6 +361,7 @@ def _schedule_out(kitchen: Here, session_id: int, now: datetime | None = None) -
     found = batch_mode.view_of(kitchen, session, now)
     return ScheduleOut(
         session_id=session.id,
+        cook_day=session.cook_day,
         made_at=found.made_at,
         stale=found.stale,
         total_minutes=found.total_minutes,

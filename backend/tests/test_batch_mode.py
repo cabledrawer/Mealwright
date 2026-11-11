@@ -103,6 +103,7 @@ def test_starting_makes_the_schedule_with_shared_prep_first_and_keeps_it(
 ) -> None:
     made = start(kitchen, session)
     assert made["stale"] is False and made["done_count"] == 0
+    assert made["cook_day"] == D1.isoformat()
     assert made["kitchen"] == {"hob_rings": 4, "pressure_cookers": 1, "oven": True}
     assert [r["recipe_name"] for r in made["recipes"]] == ["Sambar", "Chicken chettinad"]
     prep = made["tasks"][0]
