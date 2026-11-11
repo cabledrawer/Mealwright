@@ -17,6 +17,8 @@ export type Shop = Ref;
 export interface Who {
   login_id: number;
   name: string;
+  /** The person (0.9 A1): on a shared login, the one picked in "Who's this?". */
+  member_id?: number | null;
 }
 
 /** One thing a person did: one Undo button (contract 6.1). */

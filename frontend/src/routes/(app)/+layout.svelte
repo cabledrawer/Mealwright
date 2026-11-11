@@ -30,6 +30,7 @@
   import { theme } from '#lib/theme.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
   import { handleUndoKey, undoHistory } from '#lib/undo.svelte.js';
+  import { whosThis } from '#lib/whosThis.svelte.js';
 
   let { children }: { children: Snippet } = $props();
   /** Another tab wiped this browser: nothing of the household shows here any more. */
@@ -131,6 +132,8 @@
       untrack(() => session.me?.id ?? null)
     );
     void theme.flush();
+    // A shared login asks "Who's this?" when nobody is picked on this device.
+    void whosThis.check().catch(() => {});
     // Ctrl+Z after a reload: your latest change, from the server.
     undoHistory.fallback = lastOwnChange;
     // First run: tell the server the household's time zone and cup size (admins, once).
@@ -141,12 +144,20 @@
       theme.saveChangesWith(null);
       // Signed out: this person's changes can't be undone from here any more.
       undoHistory.clear();
+      whosThis.forget();
     };
   });
 </script>
 
-<!-- Ctrl+Z / Cmd+Z undoes your own last change (not while typing in a text box). -->
-<svelte:window onkeydown={handleUndoKey} />
+<!-- Ctrl+Z / Cmd+Z undoes your own last change (not while typing in a text box). A shared
+     login notes each use, to ask "Who's this?" again after a while without one. -->
+<svelte:window
+  onkeydown={(event) => {
+    whosThis.used();
+    handleUndoKey(event);
+  }}
+  onpointerdown={() => whosThis.used()}
+/>
 
 {#if !wiped}
   <a class="skip" href="#main">Skip to content</a>
@@ -181,6 +192,12 @@
   {#if optionalAsk.startOpen}
     {#await import('#lib/components/plan/PlanStart.svelte') then { default: PlanStart }}
       <PlanStart />
+    {/await}
+  {/if}
+  <!-- "Who's this?" on a shared login (0.9 A1); fetched only there. -->
+  {#if session.me?.shared}
+    {#await import('#lib/components/people/WhosThis.svelte') then { default: WhosThis }}
+      <WhosThis />
     {/await}
   {/if}
   <NewIngredient />

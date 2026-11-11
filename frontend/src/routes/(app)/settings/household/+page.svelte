@@ -84,6 +84,7 @@
 
   async function ask(on: boolean) {
     switchProblem = null;
+    household.askWhosThis = on;
     try {
       await household.ask(on);
     } catch (error) {

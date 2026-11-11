@@ -34,6 +34,13 @@
     if (!verbFirst && !startsWithVerb(change)) return ['', summary];
     return space === -1 ? [summary, ''] : [summary.slice(0, space), summary.slice(space)];
   }
+
+  /** Someone else's change: another login's, or, on a shared login, the person picked in
+   *  "Who's this?" (0.9 A1). Your own shows no name. */
+  function byOther(who: Change['who']): boolean {
+    if (who.login_id !== session.me?.id) return true;
+    return !!session.me?.shared && (who.member_id ?? null) !== (session.me.member_id ?? null);
+  }
 </script>
 
 {#if changes.length}
@@ -44,7 +51,7 @@
         <span class="what">
           <span
             >{#if verb}<b>{verb}</b>{/if}{rest}
-            {#if change.who.login_id !== session.me?.id}
+            {#if byOther(change.who)}
               <span class="who">· {change.who.name}</span>
             {/if}</span
           >
