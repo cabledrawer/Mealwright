@@ -7,7 +7,7 @@ import pytest
 from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
 
-from mealwright import auth, migrate
+from mealwright import auth, migrate, setup_code
 from mealwright.auth import hash_password
 from mealwright.config import Settings
 from mealwright.db import Base, make_engine
@@ -87,7 +87,21 @@ def client(settings: Settings) -> Iterator[TestClient]:
         yield client
 
 
-ADMIN = {"name": "Tess", "username": "tess", "password": "correct horse battery"}
+# The first-run setup code (PR A2) is random and printed in the log; the tests know it.
+SETUP_CODE = "KTCH-NSET-UP23"
+
+
+@pytest.fixture(autouse=True)
+def _known_setup_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(setup_code, "new_code", lambda: SETUP_CODE)
+
+
+ADMIN = {
+    "name": "Tess",
+    "username": "tess",
+    "password": "correct horse battery",
+    "setup_code": SETUP_CODE,
+}
 
 
 @pytest.fixture

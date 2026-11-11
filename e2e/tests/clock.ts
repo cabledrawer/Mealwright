@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { request, test as base } from '@playwright/test';
-import { ADMIN, AUTH_FILE, MAX_WORKERS, PORTS, WORKER_PORT_FIRST, insecure, local } from './servers.ts';
+import { ADMIN, AUTH_FILE, MAX_WORKERS, PORTS, SETUP_CODE, WORKER_PORT_FIRST, insecure, local } from './servers.ts';
 
 // One fixed date and time for every browser test and saved screenshot, the same for the browser
 // and the servers, so a run that crosses midnight or a clock change (UK clocks go back on 25
@@ -123,6 +123,7 @@ export const test = base.extend<{ app: WorkerServer }, { workerServer: WorkerSer
           MEALWRIGHT_PORT: String(port),
           MEALWRIGHT_FRONTEND_DIR: FRONTEND_BUILD,
           MEALWRIGHT_ALLOW_PLAIN_HTTP: 'true',
+          E2E_SETUP_CODE: SETUP_CODE,
         },
       });
       closeSync(log); // the child has its own copy

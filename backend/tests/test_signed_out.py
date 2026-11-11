@@ -13,7 +13,7 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
-from conftest import ADMIN
+from conftest import ADMIN, SETUP_CODE
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 
@@ -117,6 +117,7 @@ def test_the_allowed_endpoints_say_nothing_private(
     assert kitchen.get(f"{API}/setup").json() == {"needs_setup": False, "plain_http_allowed": False}
     # Setup can't be run a second time to make a new admin.
     again = {"name": "Mallory", "username": "mallory", "password": "a long enough password"}
+    again["setup_code"] = SETUP_CODE  # even with the code (all a log reader could know)
     assert kitchen.post(f"{API}/setup", json=again).status_code == 409
     assert kitchen.post(f"{API}/session", json=again).status_code == 401
     assert kitchen.delete(f"{API}/session").status_code == 204

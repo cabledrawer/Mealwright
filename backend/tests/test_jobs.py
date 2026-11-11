@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import ADMIN
 from fastapi.testclient import TestClient
 from sqlalchemy import func, insert, select, update
 
@@ -100,10 +101,9 @@ def test_a_missed_night_is_caught_up_at_start_up(tmp_path: Path) -> None:
     from mealwright.config import Settings
     from mealwright.main import create_app
 
-    admin = {"name": "Tess", "username": "tess", "password": "correct horse battery"}
     settings = Settings(data_dir=tmp_path / "data", run_jobs=False)
     with TestClient(create_app(settings), base_url="https://testserver") as client:
-        client.post(f"{API}/setup", json=admin)
+        client.post(f"{API}/setup", json=ADMIN)
         make_history(client)
         with db(client) as session:
             session.execute(update(Change).values(at=utcnow() - timedelta(days=400)))

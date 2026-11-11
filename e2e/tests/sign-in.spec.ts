@@ -10,6 +10,9 @@ const SECURE_NEEDED =
 const PLAIN_WARNING =
   'Not secure (plain http). Fine on this device on your own network. Other phones, the installable app and offline shopping need https.';
 
+const SETUP_CODE_WRONG =
+  'That isn’t the setup code. Mealwright prints it in its log each time it starts.';
+
 const PAUSE_NOTE =
   'Only one wrong-password pause per username, never longer than a minute. Other people can still sign in.';
 
@@ -33,7 +36,8 @@ test.describe('first run', () => {
 
     // Says what's missing before asking the server.
     await page.getByRole('button', { name: 'Create account' }).click();
-    await expect(page.getByLabel('Your name')).toBeFocused();
+    await expect(page.getByLabel('Setup code')).toBeFocused();
+    await expect(page.getByText('Type the setup code from Mealwright’s log.')).toBeVisible();
     await expect(page.getByText('Enter your name.')).toBeVisible();
     await expect(page.getByText('Choose a username.')).toBeVisible();
     await expect(page.getByText('Use at least 12 characters.')).toBeVisible();
@@ -54,6 +58,14 @@ test.describe('first run', () => {
 
     await page.getByLabel('Username').fill('Tess'); // stored in lowercase
     await page.getByLabel('Password', { exact: true }).fill(ADMIN.password);
+
+    // The setup code is in the server's log: a wrong one is refused.
+    await page.getByLabel('Setup code').fill('ABCD-EFGH-JKMN');
+    await page.getByRole('button', { name: 'Create account' }).click();
+    await expect(page.getByRole('alert')).toHaveText(SETUP_CODE_WRONG);
+    await expect(page).toHaveURL('/setup');
+    // Typed in any case, without the dashes.
+    await page.getByLabel('Setup code').fill(ADMIN.setup_code.replaceAll('-', '').toLowerCase());
     await page.getByRole('button', { name: 'Create account' }).click();
 
     await expect(page).toHaveURL('/');

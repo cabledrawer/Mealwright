@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 import pytest
+from conftest import ADMIN
 from fastapi.testclient import TestClient
 from starlette.types import Receive, Scope, Send
 
@@ -87,8 +88,7 @@ def test_https_mode_tells_browsers_to_use_only_https(client: TestClient, path: s
 
 
 def test_hsts_is_on_a_signed_in_answer_too(client: TestClient) -> None:
-    admin = {"name": "Tess", "username": "tess", "password": "correct horse battery"}
-    response = client.post("/api/v1/setup", json=admin)
+    response = client.post("/api/v1/setup", json=ADMIN)
     assert response.status_code == 201
     assert response.headers["strict-transport-security"] == "max-age=31536000"
     assert client.get("/api/v1/me").headers["strict-transport-security"] == "max-age=31536000"

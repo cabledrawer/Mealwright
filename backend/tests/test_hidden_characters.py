@@ -6,6 +6,7 @@ shows nothing or flips the order text is drawn in. One shared check, in mealwrig
 from typing import Any
 
 import pytest
+from conftest import ADMIN
 from fastapi.testclient import TestClient
 from sync_kit import action, new_id, ok, send
 
@@ -92,7 +93,7 @@ def test_the_offline_queue_refuses_hidden_characters_in_names(kitchen: TestClien
 
 
 def test_your_name_at_set_up_refuses_hidden_characters(client: TestClient) -> None:
-    body = {"name": "Kri\tshna", "username": "tess", "password": "correct horse battery"}
+    body = {**ADMIN, "name": "Kri\tshna"}
     refused(client.post(f"{API}/setup", json=body))
     body["name"] = "Tess"
     assert client.post(f"{API}/setup", json=body).status_code == 201

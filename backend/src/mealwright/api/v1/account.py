@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
+from mealwright import setup_code
 from mealwright.auth import (
     MAX_PASSWORD,
     CurrentLogin,
@@ -91,6 +92,9 @@ class SetupIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     username: str
     password: NewPassword
+    # Printed in the log at start-up (PR A2): only someone who can read the server's log can
+    # create the admin account. Typed in any case, with or without the dashes.
+    setup_code: str = Field(max_length=64)
 
     @field_validator("name")
     @classmethod
@@ -127,6 +131,18 @@ def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
     needs_https(request, request.app.state.settings)
     if db.scalar(select(func.count()).select_from(Login)):
         raise HTTPException(status.HTTP_409_CONFLICT, "Mealwright is already set up.")
+    # Wrong setup codes are slowed down like wrong passwords, per address (PR A2).
+    slow: SlowDown = request.app.state.slow_down
+    address = client_address(request)
+    refuse_while_paused(slow, "", address, by_username=False)
+    if not setup_code.matches(request.app.state.setup_code, body.setup_code):
+        slow.failed([f"addr:{address}"])
+        log.warning("Set up refused: wrong setup code from %s", address)  # never the code
+        raise Problem(
+            status.HTTP_403_FORBIDDEN,
+            "wrong_setup_code",
+            "That isn’t the setup code. Mealwright prints it in its log each time it starts.",
+        )
     household = Household(id=1, name="Home")  # one household per install (spec section 3)
     login = Login(
         household_id=1,
@@ -150,6 +166,7 @@ def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
         db, response, request.app.state.settings, login, remember=False, device=_device(request)
     )
     db.commit()
+    request.app.state.setup_code = None  # used up
     log.info("Set up: admin account %s created", login.username)
     # Setup signs the admin in, so it gets its own "Signed in" line like every sign-in.
     log.info("Signed in: %s from %s", login.username, client_address(request))
@@ -176,19 +193,22 @@ def how_long(seconds: int) -> str:
     return f"{minutes} minute{'s' if minutes != 1 else ''}"
 
 
-def refuse_while_paused(slow: SlowDown, username: str, address: str) -> None:
+def refuse_while_paused(
+    slow: SlowDown, username: str, address: str, *, by_username: bool = True
+) -> None:
     """Refuse a try while the username or the address is paused after wrong passwords.
 
     The username's pause (never more than a minute) is named when it's the one that
     holds things up: it reads the same for a made-up username as for a real one, so it
-    never tells whether an account exists. Otherwise it's the address's pause.
+    never tells whether an account exists. Otherwise it's the address's pause. With
+    by_username=False (first-run setup's code), only the address counts.
     """
-    for_username = slow.wait_seconds([f"user:{username}"])
+    for_username = slow.wait_seconds([f"user:{username}"]) if by_username else 0
     for_address = slow.wait_seconds([f"addr:{address}"])
     wait = max(for_username, for_address)
     if not wait:
         return
-    if for_username >= for_address:
+    if by_username and for_username >= for_address:
         problem = Problem(
             status.HTTP_429_TOO_MANY_REQUESTS,
             "username_paused",

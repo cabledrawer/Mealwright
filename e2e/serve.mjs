@@ -8,6 +8,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const base = Number(process.env.E2E_APP_PORT ?? 18080);
+// The first-run setup code every test server uses: the same as SETUP_CODE in tests/servers.ts.
+const SETUP_CODE = 'TEST-SETU-PCDE';
 // E2E_SERVERS says which of the extra servers to start: a comma-separated list of fresh, strict
 // and shots, or empty for none (./check --browser-files starts only the ones its files use).
 // Unset: all of them. "main" always runs.
@@ -37,12 +39,12 @@ if (process.env.E2E_SKIP_BUILD === '1') {
   if (build.status !== 0) process.exit(build.status ?? 1);
 }
 
-// With E2E_CLOCK_SHIFT_MS (the browser tests, playwright.config.ts) each server's clock is moved
-// to the tests' fixed date and time by a test-only launcher that isn't in the app or the image
-// (backend/scripts/e2e_server.py). Without it (review/screens.ts) they run on the real time.
-const start = process.env.E2E_CLOCK_SHIFT_MS
-  ? ['../backend/scripts/e2e_server.py']
-  : ['-m', 'mealwright'];
+// Every server starts through a test-only launcher that isn't in the app or the image
+// (backend/scripts/e2e_server.py). With E2E_CLOCK_SHIFT_MS (the browser tests,
+// playwright.config.ts) it moves the server's clock to the tests' fixed date and time; without it
+// (review/screens.ts) the servers run on the real time. Either way it gives them the known setup
+// code (E2E_SETUP_CODE), so the tests can create the admin.
+const start = ['../backend/scripts/e2e_server.py'];
 
 // One throwaway folder for the whole run, with a data folder per server inside it. It is
 // removed when the servers have stopped, so a run never leaves its data behind in /tmp
@@ -122,6 +124,7 @@ for (const { name, port, plainHttp } of servers) {
       MEALWRIGHT_PORT: String(port),
       MEALWRIGHT_FRONTEND_DIR: '../frontend/build',
       MEALWRIGHT_ALLOW_PLAIN_HTTP: String(plainHttp),
+      E2E_SETUP_CODE: SETUP_CODE,
     },
   });
   child.on('exit', (code) => {

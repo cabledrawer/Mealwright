@@ -21,7 +21,16 @@ export const MAX_WORKERS = 6;
 export const local = (port: number) => `http://127.0.0.1:${port}`;
 export const insecure = (port: number) => `http://mealwright.test:${port}`;
 
-export const ADMIN = { name: 'Tess', username: 'tess', password: 'kitchen-secret-2026' };
+/** The first-run setup code every test server uses (E2E_SETUP_CODE; a real install makes a new
+ *  random one at each start and prints it in its log: backend/src/mealwright/setup_code.py). */
+export const SETUP_CODE = 'TEST-SETU-PCDE';
+
+export const ADMIN = {
+  name: 'Tess',
+  username: 'tess',
+  password: 'kitchen-secret-2026',
+  setup_code: SETUP_CODE,
+};
 
 // What playwright.config.ts gives every project that starts signed in (it is a file name only to
 // be told apart: tests/clock.ts swaps it for the worker's own sign-in). The shots sign-in is a

@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 import pytest
+from conftest import ADMIN, SETUP_CODE
 from fastapi.testclient import TestClient
 from sync_kit import API, action, login_id, new_id, now, s0
 
@@ -81,9 +82,17 @@ def test_a_lone_surrogate_in_a_query_or_path_is_not_a_500(kitchen: TestClient) -
 
 
 def test_an_ordinary_422_never_repeats_what_was_sent(client: TestClient) -> None:
-    """S2: a too-short password is refused without the password in the answer."""
+    """S2: a refused field is never repeated in the answer."""
     secret = "tiny-pw"
-    answer = client.post(f"{API}/setup", json={"name": "K", "username": "k", "password": secret})
+    body = {"name": "K", "username": "k", "password": secret, "setup_code": SETUP_CODE}
+    # A too-short password is one plain sentence since PR A2, still without the password.
+    answer = client.post(f"{API}/setup", json=body)
+    assert answer.status_code == 422
+    assert secret not in answer.text
+    assert answer.json() == {"detail": "Use at least 12 characters.", "code": "password_too_short"}
+    # Any other refused field: pydantic's list, without what was sent.
+    secret = "a name far too long " * 6
+    answer = client.post(f"{API}/setup", json=ADMIN | {"name": secret})
     assert answer.status_code == 422
     assert secret not in answer.text
     for item in answer.json()["detail"]:

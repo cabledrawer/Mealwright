@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from conftest import SETUP_CODE
 from fastapi.testclient import TestClient
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
@@ -44,7 +45,12 @@ from mealwright.config import Settings
 from mealwright.main import create_app
 from mealwright.models import Change, ChangeLine, ListItem, ListTick, StockLot, SyncAction
 
-ADMIN = {"name": "Tess", "username": "tess", "password": "correct horse battery"}
+ADMIN = {
+    "name": "Tess",
+    "username": "tess",
+    "password": "correct horse battery",
+    "setup_code": SETUP_CODE,
+}
 LINES = ("Toor dal", "Paneer", "Milk", "Coriander", "Onions", "Salt")
 USED = (("Toor dal", "g"), ("Paneer", "g"), ("Milk", "ml"), ("Coriander", "count"))
 KINDS = (  # the kinds that need something to act on come more often

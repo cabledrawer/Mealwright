@@ -1,7 +1,9 @@
 <script lang="ts">
   // First run: the first person creates the admin account (Onboarding step 1). There
   // is no default admin and no default password (spec section 7). The rest of
-  // onboarding (Amounts, Household, Shops) comes in 0.8.
+  // onboarding (Amounts, Household, Shops) comes in 0.8. The setup code (0.9, A2) is printed in
+  // the server's log at start-up, so only someone who can read that log can claim a fresh
+  // install (the words are proposed, for cabledrawer).
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { ApiError, createAdmin } from '#lib/api.js';
@@ -18,6 +20,7 @@
   const MIN_PASSWORD = 12;
   const USERNAME = /^[a-z0-9][a-z0-9._-]{0,49}$/;
 
+  let code = $state('');
   let name = $state('');
   let username = $state('');
   let password = $state('');
@@ -28,6 +31,7 @@
   const secure = $derived(connection(window.isSecureContext, data.setup.plain_http_allowed));
 
   const errors = $derived({
+    code: code.trim() ? undefined : 'Type the setup code from Mealwright’s log.',
     name: name.trim() ? undefined : 'Enter your name.',
     username: USERNAME.test(username.trim().toLowerCase())
       ? undefined
@@ -42,14 +46,25 @@
     event.preventDefault();
     checked = true;
     problem = '';
-    if (errors.name || errors.username || errors.password) {
-      const first = errors.name ? 'name' : errors.username ? 'username' : 'password';
+    if (errors.code || errors.name || errors.username || errors.password) {
+      const first = errors.code
+        ? 'setup-code'
+        : errors.name
+          ? 'name'
+          : errors.username
+            ? 'username'
+            : 'password';
       document.getElementById(first)?.focus();
       return;
     }
     busy = true;
     try {
-      const me = await createAdmin(name.trim(), username.trim().toLowerCase(), password);
+      const me = await createAdmin(
+        code.trim(),
+        name.trim(),
+        username.trim().toLowerCase(),
+        password
+      );
       session.me = me;
       theme.adopt(me.theme, undefined, me.id);
       await goto(resolve('/(app)'), { replace: true, refreshAll: true });
@@ -78,6 +93,14 @@
 
 {#if secure !== 'plain-refused'}
   <form onsubmit={submit} novalidate>
+    <TextField
+      id="setup-code"
+      label="Setup code"
+      bind:value={code}
+      autocomplete="off"
+      hint="Mealwright printed it in its log when it started (for example, docker logs mealwright)."
+      error={checked ? errors.code : undefined}
+    />
     <TextField
       id="name"
       label="Your name"

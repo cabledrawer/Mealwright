@@ -9,7 +9,7 @@ from types import ModuleType
 import pytest
 from fastapi.testclient import TestClient
 
-from mealwright import auth, models
+from mealwright import auth, models, setup_code
 from mealwright.config import Settings
 from mealwright.household import today
 from mealwright.main import create_app
@@ -49,6 +49,7 @@ def test_nothing_in_the_app_moves_the_clock_or_reads_the_variable() -> None:
     for path in SOURCE.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
         assert "E2E_CLOCK_SHIFT_MS" not in text, path
+        assert "E2E_SETUP_CODE" not in text, path
         assert not re.search(r"^\s*(?:import|from)\s+\S*e2e_server", text, re.MULTILINE), path
         sets = re.findall(r"^\s*(?:models\.)?TEST_CLOCK_SHIFT\s*[:=]", text, re.MULTILINE)
         if path.name == "models.py":
@@ -82,3 +83,9 @@ def test_the_launcher_moves_today_and_stored_times() -> None:
     finally:
         models.TEST_CLOCK_SHIFT = timedelta(0)
     assert abs(utcnow() - datetime.now(UTC)) < timedelta(seconds=5)
+
+
+def test_the_launcher_can_set_the_setup_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(setup_code, "new_code", setup_code.new_code)  # put back afterwards
+    _launcher().know_the_setup_code({"E2E_SETUP_CODE": "TEST-SETU-PCDE"})
+    assert setup_code.new_code() == "TEST-SETU-PCDE"

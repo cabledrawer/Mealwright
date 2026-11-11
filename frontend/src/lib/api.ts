@@ -180,8 +180,8 @@ export async function getMe(fetch?: Fetch): Promise<Me | null> {
   }
 }
 
-export const createAdmin = (name: string, username: string, password: string) =>
-  api<Me>('POST', '/setup', { name, username, password }, { signingIn: true });
+export const createAdmin = (code: string, name: string, username: string, password: string) =>
+  api<Me>('POST', '/setup', { setup_code: code, name, username, password }, { signingIn: true });
 
 export const signIn = (username: string, password: string, remember: boolean) =>
   api<Me>('POST', '/session', { username, password, remember }, { signingIn: true });

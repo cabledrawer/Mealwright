@@ -9,13 +9,19 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from conftest import SETUP_CODE
 from fastapi.testclient import TestClient
 
 from mealwright.auth import COOKIE, HTTPS_NEEDED, PLAIN_COOKIE
 from mealwright.config import Settings
 from mealwright.main import create_app
 
-ADMIN = {"name": "Tess", "username": "tess", "password": "kitchen-secret-2026"}
+ADMIN = {
+    "name": "Tess",
+    "username": "tess",
+    "password": "kitchen-secret-2026",
+    "setup_code": SETUP_CODE,
+}
 LAN = "http://192.168.1.20:8080"
 
 

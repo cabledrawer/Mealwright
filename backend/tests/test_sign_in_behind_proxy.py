@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from conftest import ADMIN
 from fastapi.testclient import TestClient
 
 from mealwright.auth import hash_password
@@ -30,7 +31,7 @@ def make_client(tmp_path: Path, trusted_proxies: str) -> TestClient:
 
 
 def set_up_household(client: TestClient) -> None:
-    body = {"name": "Tess", "username": "tess", "password": PASSWORD}
+    body = {**ADMIN, "password": PASSWORD}
     assert client.post("/api/v1/setup", json=body).status_code == 201
     client.delete("/api/v1/session")
     with client.app.state.sessionmaker() as db:  # type: ignore[attr-defined]

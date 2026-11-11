@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from conftest import SETUP_CODE
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sync_kit import ok
@@ -31,7 +32,12 @@ REPAIR = "a9d3f6b2c481"
 # drops them, so their counters go with them.
 AFTER_REPAIR = {"member"}
 REBUILT = {"meal_item", "batch_cook", "recipe_step", "recipe_line", "recipe", "food"}
-ADMIN = {"name": "Tess", "username": "tess", "password": "correct horse battery"}
+ADMIN = {
+    "name": "Tess",
+    "username": "tess",
+    "password": "correct horse battery",
+    "setup_code": SETUP_CODE,
+}
 
 
 def _counters(engine: Engine) -> dict[str, int]:

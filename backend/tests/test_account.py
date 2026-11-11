@@ -5,7 +5,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from conftest import CHEAP_HASHER
+from conftest import CHEAP_HASHER, SETUP_CODE
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
@@ -14,7 +14,12 @@ from mealwright.api.v1.account import how_long
 from mealwright.auth import COOKIE, IDLE_TIMEOUT, LONGEST_SIGN_IN, PLAIN_COOKIE, SlowDown, now
 from mealwright.models import Login, Session
 
-ADMIN = {"name": "Tess", "username": "tess", "password": "kitchen-secret-2026"}
+ADMIN = {
+    "name": "Tess",
+    "username": "tess",
+    "password": "kitchen-secret-2026",
+    "setup_code": SETUP_CODE,
+}
 
 
 def set_up(client: TestClient) -> None:
@@ -61,7 +66,7 @@ def test_setup_creates_the_admin_and_signs_in(client: TestClient) -> None:
 
 def test_setup_only_works_once(client: TestClient) -> None:
     set_up(client)
-    other = {"name": "Someone", "username": "someone", "password": "another-password"}
+    other = ADMIN | {"name": "Someone", "username": "someone", "password": "another-password"}
     assert client.post("/api/v1/setup", json=other).status_code == 409
 
 

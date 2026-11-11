@@ -219,11 +219,13 @@
         "backend/src/mealwright/auth.py", "backend/src/mealwright/security.py", "backend/src/mealwright/household.py",
         "backend/src/mealwright/api/v1/account.py", "frontend/src/routes/(auth)/**", "frontend/src/lib/session*",
         "backend/src/mealwright/api/v1/my_sign_in.py", "backend/src/mealwright/devices.py", "frontend/src/lib/mySignIn*",
-        "frontend/src/routes/(app)/settings/SignInSection.svelte", "frontend/src/routes/(app)/settings/password/**"
+        "frontend/src/routes/(app)/settings/SignInSection.svelte", "frontend/src/routes/(app)/settings/password/**",
+        "backend/src/mealwright/setup_code.py"
       ],
       "backend": [
         "test_account.py", "test_households.py", "test_signed_out.py", "test_security_*.py", "test_plain_http.py",
-        "test_sign_in_behind_proxy.py", "test_password_hashing_limit.py", "test_my_sign_in.py", "test_migration_sign_in.py"
+        "test_sign_in_behind_proxy.py", "test_password_hashing_limit.py", "test_my_sign_in.py", "test_migration_sign_in.py",
+        "test_setup_code.py"
       ],
       "browser": ["sign-in.spec.ts", "csp.spec.ts", "my-sign-in.spec.ts"]
     },

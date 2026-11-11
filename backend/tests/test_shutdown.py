@@ -16,10 +16,21 @@ import pytest
 
 # Signs up, opens the live stream, says so, and reports when the server ends the stream.
 CLIENT = """
-import http.client, json, sys, time
+import http.client, json, re, sys, time
 port = int(sys.argv[1])
 origin = f"http://127.0.0.1:{port}"
-body = json.dumps({"name": "Tess", "username": "tess", "password": "correct horse battery"})
+# The first-run setup code, read from the server's own output, as a person would (PR A2).
+code = None
+for _ in range(100):
+    with open(sys.argv[2]) as output:
+        found = re.search(r"setup code: ([A-Z0-9-]{14})", output.read())
+    if found:
+        code = found.group(1)
+        break
+    time.sleep(0.1)
+assert code is not None
+admin = {"name": "Tess", "username": "tess", "password": "correct horse battery"}
+body = json.dumps({**admin, "setup_code": code})
 setup = None
 for _ in range(100):
     try:
@@ -67,15 +78,16 @@ def test_stops_promptly_while_a_live_stream_is_open(tmp_path: Path) -> None:
         "MEALWRIGHT_RUN_JOBS": "false",
         "MEALWRIGHT_FRONTEND_DIR": str(tmp_path / "none"),
     }
+    output = tmp_path / "output.txt"
     server = subprocess.Popen(
         [sys.executable, "-m", "mealwright"],
         env=env,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=output.open("w"),
     )
     # The client is a separate process: this one has the network guard on.
     client = subprocess.Popen(  # noqa: S603 (fixed arguments)
-        [sys.executable, "-I", "-c", CLIENT, str(port)],
+        [sys.executable, "-I", "-c", CLIENT, str(port), str(output)],
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         text=True,

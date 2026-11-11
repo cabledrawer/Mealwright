@@ -8,11 +8,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.telemetry import TelemetryConfig
+from sqlalchemy import func, select
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from mealwright import __version__, errors, events, jobs, migrate
+from mealwright import __version__, errors, events, jobs, migrate, setup_code
 from mealwright.api.v1 import router as api_v1
 from mealwright.auth import OldCookieMiddleware, SlowDown
 from mealwright.config import Settings, get_settings
@@ -21,6 +22,7 @@ from mealwright.events import Broadcaster
 from mealwright.frontend import inline_script_hashes, mount_frontend
 from mealwright.limits import BodyLimitMiddleware
 from mealwright.logs import DailyLogFile
+from mealwright.models import Login
 from mealwright.outbound import OutboundGate, install_network_guard
 from mealwright.security import SecurityHeadersMiddleware
 
@@ -75,6 +77,13 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
         if settings.migrate_on_start:
             settings.data_dir.mkdir(parents=True, exist_ok=True)
             migrate.upgrade(engine, backups=settings.data_dir / "backups")
+        # A fresh install gets a one-off setup code, printed in the log (PR A2): only
+        # someone who can read the server's log can create the admin account.
+        with app.state.sessionmaker() as db:
+            fresh = db.scalar(select(func.count()).select_from(Login)) == 0
+        if fresh:
+            app.state.setup_code = setup_code.new_code()
+            setup_code.announce(app.state.setup_code)
         background = None
         if settings.run_jobs:
             background = jobs.scheduler(app.state.sessionmaker, log_file)
@@ -103,6 +112,7 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     events.install(app.state.sessionmaker, app.state.events)
     app.state.outbound = OutboundGate(app.state.sessionmaker)
     app.state.slow_down = SlowDown()
+    app.state.setup_code = None  # set at start-up on a fresh install
     errors.install(app)
     app.include_router(api_v1)
     mount_frontend(app, settings.frontend_dir)  # after the API, so it only gets the rest
