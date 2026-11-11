@@ -1067,3 +1067,4 @@ Words from the mockup `Dark-RecipesTags08-Phone` are agreed; the rest are propos
 All proposed, for cabledrawer.
 
 - **The Plan's Start batch cook, when the batch cook was changed or removed meanwhile (H3):** **That batch cook was changed or removed. The Plan is up to date now.** (shown when no batch cook is left on that day; when one is, Start batch cook opens it).
+- **Shops, places or meals reordered from an out-of-date list (H5):** **The list changed. Try again.** (the list is read again at the same time; it replaces the server's **Send every shop once, in the order you want.**).

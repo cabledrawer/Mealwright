@@ -13,6 +13,7 @@
   import { focusOnMount } from '#lib/focusOnMount.js';
   import { network } from '#lib/network.svelte.js';
   import { save } from '#lib/save.js';
+  import { toasts } from '#lib/toast.svelte.js';
   import OrderedRows from './OrderedRows.svelte';
 
   let slots = $state<MealSlot[]>([]);
@@ -76,7 +77,14 @@
       rollback: () => (slots = before),
       send: (key) => orderMealSlots(ids, key),
       saved: wrote,
-      undo: undoOf('Changed the order of the meals')
+      undo: undoOf('Changed the order of the meals'),
+      // The meals were added or switched elsewhere meanwhile: read them again (RF5, H5).
+      refused: (error) => {
+        if (error.code !== 'not_all_slots') return false;
+        void load();
+        toasts.show('The list changed. Try again.', { tone: 'problem' }); // proposed, for cabledrawer
+        return true;
+      }
     });
   }
 

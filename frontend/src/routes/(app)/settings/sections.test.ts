@@ -249,6 +249,34 @@ describe('Meal slots', () => {
     await expect.element(page.getByRole('button', { name: 'Move Dinner down' })).toBeDisabled();
   });
 
+  it('reads the meals again when the list was out of date, and lets you try again (RF5, H5)', async () => {
+    const NEW = { id: 5, name: 'Supper', position: 4, enabled: true };
+    let all = SLOTS;
+    const requests = open({
+      'GET /meal-slots': () => [200, all],
+      'PUT /meal-slots/order': (request) => {
+        const ids = (request.body as { ids: number[] }).ids;
+        return ids.length === all.length
+          ? [200, { change: null }]
+          : [
+              422,
+              { code: 'not_all_slots', detail: 'Send every meal once, in the order you want.' }
+            ];
+      }
+    });
+    await expect.element(page.getByText('Breakfast', { exact: true })).toBeVisible();
+    all = [...SLOTS, NEW];
+    await page.getByRole('button', { name: 'Move Breakfast down' }).click();
+    await expect.element(page.getByText('Supper', { exact: true })).toBeVisible();
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('The list changed. Try again.'));
+    await page.getByRole('button', { name: 'Move Breakfast down' }).click();
+    await vi.waitFor(() =>
+      expect(requests.filter((r) => r.method === 'PUT').at(-1)?.body).toEqual({
+        ids: [2, 1, 3, 4, 5]
+      })
+    );
+  });
+
   it('puts the order back, and says why, when the server refuses it', async () => {
     open({
       'PUT /meal-slots/order': [
@@ -345,6 +373,35 @@ describe('Shops', () => {
     const requests = open({ 'PUT /shops/order': [200, [SHOPS[1], SHOPS[0]]] });
     await page.getByRole('button', { name: 'Move Supermarket down' }).click();
     expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ ids: [2, 1] });
+  });
+
+  it('reads the shops again when the list was out of date, and lets you try again (RF5, H5)', async () => {
+    // Another tab added a shop: the order sent is missing it, so the server refuses.
+    const NEW = { id: 3, name: 'Market stall' };
+    let all = SHOPS;
+    const requests = open({
+      'GET /shops': () => [200, all],
+      'PUT /shops/order': (request) => {
+        const ids = (request.body as { ids: number[] }).ids;
+        return ids.length === all.length
+          ? [200, ids.map((id) => all.find((s) => s.id === id))]
+          : [
+              422,
+              { code: 'not_all_shops', detail: 'Send every shop once, in the order you want.' }
+            ];
+      }
+    });
+    await expect.element(page.getByText('Indian grocer', { exact: true })).toBeVisible();
+    all = [...SHOPS, NEW];
+    await page.getByRole('button', { name: 'Move Supermarket down' }).click();
+    // The list is read again and shows the new shop; the developer's words are not shown.
+    await expect.element(page.getByText('Market stall', { exact: true })).toBeVisible();
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('The list changed. Try again.'));
+    // And trying again sends all three.
+    await page.getByRole('button', { name: 'Move Supermarket down' }).click();
+    await vi.waitFor(() =>
+      expect(requests.filter((r) => r.method === 'PUT').at(-1)?.body).toEqual({ ids: [2, 1, 3] })
+    );
   });
 
   it('removes a shop at once, with an Undo that brings it back', async () => {
@@ -487,6 +544,34 @@ describe('Places', () => {
     const requests = open({ 'PUT /places/order': [200, PLACES] });
     await page.getByRole('button', { name: 'Move Spice rack up' }).click();
     expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ ids: [1, 2, 4, 3] });
+  });
+
+  it('reads the places again when the list was out of date, and lets you try again (RF5, H5)', async () => {
+    const NEW = { id: 9, name: 'Pantry shelf', kind: 'cupboard' };
+    let all = PLACES;
+    const requests = open({
+      'GET /places': () => [200, all],
+      'PUT /places/order': (request) => {
+        const ids = (request.body as { ids: number[] }).ids;
+        return ids.length === all.length
+          ? [200, ids.map((id) => all.find((p) => p.id === id))]
+          : [
+              422,
+              { code: 'not_all_places', detail: 'Send every place once, in the order you want.' }
+            ];
+      }
+    });
+    await expect.element(page.getByRole('button', { name: 'Move Spice rack up' })).toBeVisible();
+    all = [...PLACES, NEW];
+    await page.getByRole('button', { name: 'Move Spice rack up' }).click();
+    await expect.element(page.getByText('Pantry shelf', { exact: true })).toBeVisible();
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('The list changed. Try again.'));
+    await page.getByRole('button', { name: 'Move Spice rack up' }).click();
+    await vi.waitFor(() =>
+      expect(requests.filter((r) => r.method === 'PUT').at(-1)?.body).toEqual({
+        ids: [1, 2, 4, 3, 9]
+      })
+    );
   });
 
   it('renames a place', async () => {

@@ -23,6 +23,7 @@
   import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { save } from '#lib/save.js';
+  import { toasts } from '#lib/toast.svelte.js';
   import OrderedRows from './OrderedRows.svelte';
 
   const KINDS: { value: PlaceKind; label: string }[] = [
@@ -83,13 +84,25 @@
 
   // --- Shops -----------------------------------------------------------------------------------
 
+  /**
+   * The server wants every shop (or place) once. When another tab or person has added or removed
+   * one meanwhile, ours was out of date: read the lists again and say so (RF5, H5).
+   */
+  function listChanged(error: ApiError): boolean {
+    if (error.code !== 'not_all_shops' && error.code !== 'not_all_places') return false;
+    void load();
+    toasts.show('The list changed. Try again.', { tone: 'problem' }); // proposed, for cabledrawer
+    return true;
+  }
+
   function orderShopsTo(ids: number[]) {
     const before = shops;
     void save({
       apply: () => (shops = ids.map((id) => before.find((s) => s.id === id)!)),
       rollback: () => (shops = before),
       send: () => orderShops(ids),
-      saved: refreshShared
+      saved: refreshShared,
+      refused: listChanged
     });
   }
 
@@ -147,7 +160,8 @@
       apply: () => (places = ids.map((id) => before.find((p) => p.id === id)!)),
       rollback: () => (places = before),
       send: () => orderPlaces(ids),
-      saved: refreshShared
+      saved: refreshShared,
+      refused: listChanged
     });
   }
 
