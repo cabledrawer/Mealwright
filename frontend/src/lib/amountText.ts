@@ -28,9 +28,14 @@ export function parseAmount(
   const typed = text.trim().toLowerCase();
   if (typed.length > MAX_TYPED_AMOUNT) return null;
   if (/^[\d.,¼½¾/\s]*/u.exec(typed)![0].trimEnd().length > MAX_AMOUNT_TEXT) return null;
-  const match = typed.match(/^(\d+(?:[.,]\d+)?)?\s*([¼½¾]|\d+\/\d+)?\s*([\p{L} ]*?)\.?$/u);
-  if (!match) return null;
-  const [, whole, part, unitText = ''] = match;
+  // A plain fraction first, and a space before a fraction with a slash after a whole number:
+  // "10/3" is ten thirds, never 1 and 0/3 (RF4 I11, as in importAmount.ts).
+  const match = typed.match(
+    /^(?:(?<plain>\d+\/\d+)|(?<whole>\d+(?:[.,]\d+)?)?(?:\s*(?<glyph>[¼½¾])|\s+(?<slash>\d+\/\d+))?)\s*(?<unit>[\p{L} ]*?)\.?$/u
+  );
+  if (!match?.groups) return null;
+  const { plain, whole, glyph, slash, unit: unitText = '' } = match.groups;
+  const part = plain ?? glyph ?? slash;
   if (!whole && !part) return null;
   let amount = whole ? Number(whole.replace(',', '.')) : 0;
   if (part) {

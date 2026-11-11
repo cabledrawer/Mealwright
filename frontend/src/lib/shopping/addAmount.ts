@@ -9,7 +9,7 @@ import type { Chosen } from '#lib/newIngredient.svelte.js';
 import type { CountedAs, Food } from '#lib/client/types.js';
 
 /** The number as parseAmount reads it: 1, 1.5, 1,5, ½, 1½, 1/2, 1 1/2. */
-const NUMBER = String.raw`(?:\d+(?:[.,]\d+)?\s*(?:[¼½¾]|\d+\/\d+)?|[¼½¾]|\d+\/\d+)`;
+const NUMBER = String.raw`(?:\d+\/\d+|\d+(?:[.,]\d+)?(?:\s*[¼½¾]|\s+\d+\/\d+)?|[¼½¾])`;
 
 /** Units a phone can read without knowing the ingredient (amountEdit.ts: g, kg, ml, l). */
 const UNITS = String.raw`(?:g|gr|gram|grams|kg|kgs|kilo|kilos|kilogram|kilograms|ml|mls|millilitres?|milliliters?|l|ltr|litres?|liters?)`;

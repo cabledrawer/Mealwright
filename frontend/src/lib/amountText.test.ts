@@ -32,6 +32,13 @@ describe('reading a typed amount', () => {
     expect(parseAmount('0,75 packet', dal)).toEqual({ amount: 0.75, unit: 'packet' });
   });
 
+  it('reads an improper fraction as written: 10/3 is not 1 and 0/3 (RF4)', () => {
+    expect(parseAmount('10/3 packets', dal)).toEqual({ amount: 10 / 3, unit: 'packet' });
+    expect(parseAmount('15/2', dal)?.amount).toBe(7.5);
+    expect(parseAmount('3/4 packet', dal)).toEqual({ amount: 0.75, unit: 'packet' });
+    expect(parseAmount('2 3/4 packets', dal)).toEqual({ amount: 2.75, unit: 'packet' });
+  });
+
   it('reads weights and volumes as typed', () => {
     expect(parseAmount('250 g', dal)).toEqual({ amount: 250, unit: 'g' });
     expect(parseAmount('250g', dal)).toEqual({ amount: 250, unit: 'g' });

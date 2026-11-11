@@ -8,6 +8,7 @@ describe('splitAmount: an amount in front of a name in the add box (F63)', () =>
   });
   it('reads units written out, with or without a space', () => {
     expect(splitAmount('2 litres milk')).toEqual({ amountText: '2 l', name: 'milk' });
+    expect(splitAmount('10/3 l milk')).toEqual({ amountText: '10/3 l', name: 'milk' });
     expect(splitAmount('250g butter')).toEqual({ amountText: '250 g', name: 'butter' });
     expect(splitAmount('1.5 kg flour')).toEqual({ amountText: '1.5 kg', name: 'flour' });
     expect(splitAmount('500 ml cream')).toEqual({ amountText: '500 ml', name: 'cream' });
