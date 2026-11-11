@@ -644,6 +644,15 @@ Database change 3 (migration `e7b4d9a1c628`): `batch_session.schedule` (JSON sna
 - **The rules** (property-tested): never two hands-on tasks at once; never more hob rings, pressure cookers or ovens in use at once than the kitchen has (a waiting step holds its equipment all the time it waits); each recipe's steps keep their order; every step is once in `tasks` or in `before`; the same input always gives the same schedule.
 - **Live updates:** the event stream gains `batch_cook {session_id}` (numbers only) after a commit that changes a session's schedule or progress, so every open screen of the household asks again.
 
+- **Whole-0.8 review fixes (RF3; additive only).**
+  - `POST /batch-cook/sessions` (and `PUT`, and the preview): each recipe may carry `optional_use` (the Optional ingredient lines it will use; left out: every line counts) and `method_id` (the way of cooking a recipe with two; left out: the one used last), as `POST /plan/items` takes them. A line or method that isn't the recipe's is refused as there. Batch cook mode keeps an Optional step unless every ingredient it uses was left out; Cooked it takes only the kept lines.
+  - `PUT .../tasks/{task_id}/done` and `/timer` take an optional `made_at` in the body, and `DELETE .../done` an optional `made_at` query: the `made_at` of the schedule the phone holds. When the schedule has been made again since (another phone pressed Plan again, and the task ids are reused for other steps) the mark is refused with `409 schedule_replaced`. Left out: not checked.
+  - The same three routes take `?brief=true`: the answer is `ScheduleProgressOut` (`{ session_id, made_at, stale, minutes_left, tasks: [{ id, state, started_at, done_at, ends_at }], now_id, next_id, in_use, done_count, server_time }`) instead of the whole `ScheduleOut`, so no step words are sent again with each mark. Without it the answer is `ScheduleOut` as before.
+  - `DELETE /batch-cook/sessions/{id}` still works while Batch cook is hidden (the Plan's card keeps its Remove); every other `/batch-cook/…` route answers `409 batch_cook_hidden`.
+  - A session's Cooked it (`POST .../cook`) also answers the cook-day meal's own "Cooked it" in the same change (the meal is cooked at once and the tubs count from the day cooked); one Undo takes it all back. Moving the cook-day meal moves the session's `cook_day` with it.
+  - `POST /stocktake/places/{place_id}/foods/{food_id}/answer`: a count far above the stock is stored as given (one lot above 50 packets); a pack called tin, tins, can or cans is counted whole.
+  - `GET /today` reads the plan 11 days past today (a wait of up to ten days is started on its day), and the Plan screen reads 11 days past its last day.
+
 ### 6.4 Stock (the Pantry screen)
 
 **`GET /api/v1/pantry?filter=all&q=thuvaram`** — `filter`: `all` · `use_soon` · `running_low` · `staples`. `q` (from 0.2.1) searches by any name, other names too, with the same matching as `GET /foods?q=`; each place's `items` then counts only what is found, while `counts` stay for the whole pantry. One call gives the whole screen (the phone cards and the desktop columns use the same data).

@@ -4,6 +4,7 @@
   // its tubs, and Change to open that recipe's rows (the same rows as the Cooked it review), then
   // one Cooked it. One change in Recent changes, with one Undo that puts every recipe's stock and
   // tubs back. The words the mockup shows are as drawn; the others are proposed, for cabledrawer.
+  import { tubsLine } from '#lib/sessionTubs.js';
   import { TOO_MANY_ANSWERS, amountWords, shown } from '#lib/cookRows.js';
   import { downLine } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
@@ -33,17 +34,6 @@
     if (target !== null && !dialog.open) dialog.showModal();
     else if (target === null && dialog.open) dialog.close();
   });
-
-  function tubsLine(tab: CookTab): string {
-    const places = tab.tubs
-      .map((t) => (t.place ? `${t.count} ${t.place}` : null))
-      .filter((p): p is string => p !== null);
-    const loose = tab.tubs.filter((t) => !t.place).reduce((n, t) => n + t.count, 0);
-    const count = tab.tubs.reduce((n, t) => n + t.count, 0);
-    if (count === 0) return 'Eaten today · no tubs';
-    const where = [...places, ...(loose ? [`${loose} in meals`] : [])].join(', ');
-    return `${count} ${count === 1 ? 'tub' : 'tubs'} · ${where}`; // "in meals": proposed
-  }
 
   const lines = (tab: CookTab) => tab.rows.filter((r) => r.status !== 'staple');
 
@@ -117,7 +107,9 @@
                     ><span class="am">{rowWords(tab, row)}</span>
                   </li>
                 {/each}
-                <li class="tubs"><span class="rn">{tubsLine(tab)}</span></li>
+                {#if tubsLine(tab.tubs)}
+                  <li class="tubs"><span class="rn">{tubsLine(tab.tubs)}</span></li>
+                {/if}
               </ul>
               {#if open === i}
                 <div class="edit" class:busy={review.loading}>
