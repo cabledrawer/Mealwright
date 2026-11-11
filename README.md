@@ -24,6 +24,18 @@ Run Mealwright behind your own reverse proxy (Caddy, Traefik, nginx, Nginx Proxy
 
 ## Troubleshooting
 
+**Setting up: where's the setup code?** The first time Mealwright starts, before anyone has an account, it prints a setup code in its log, and the first-run page asks for it, so only someone who can read the server's log can create the admin account. Run `docker logs mealwright` (use your container's name) and look for "setup code". A new code is made each time Mealwright restarts until the admin account exists.
+
+**The only admin forgot their password.** Another admin can't see passwords, so run this on the server (use your container's name and the admin's username):
+
+```
+docker exec -it mealwright python -m mealwright reset-admin tess
+```
+
+It sets a new random password for that admin, prints it once, and signs that admin out on every device. Sign in with it, then change it in Settings → Sign-in → Change password. It works only for an admin.
+
+**Behind a reverse proxy, everyone is slowed down after one person's wrong passwords.** Mealwright logs "A request came through a reverse proxy…" once after it starts. Set `MEALWRIGHT_TRUSTED_PROXIES` to your proxy's address or network (for example `172.28.10.0/24`) and restart: Mealwright then believes the proxy's `X-Forwarded-For`, `X-Forwarded-Proto` and `X-Forwarded-Host` headers, and nobody else's.
+
 **The sign-in page says the phone couldn't delete its offline copy, and Try again doesn't help.** First close any other Mealwright tabs and restart the browser, then press Try again. If it still won't go, clear this site's data in the browser's settings. That removes the offline copy of the household and anything still waiting to be sent on that phone (nothing on the server is touched). Then sign in again.
 
 ## Licence

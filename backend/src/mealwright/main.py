@@ -19,6 +19,7 @@ from mealwright.auth import OldCookieMiddleware, SlowDown
 from mealwright.config import Settings, get_settings
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.events import Broadcaster
+from mealwright.forwarded import ForwardedMiddleware
 from mealwright.frontend import inline_script_hashes, mount_frontend
 from mealwright.limits import BodyLimitMiddleware
 from mealwright.logs import DailyLogFile
@@ -135,6 +136,9 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     # by default). The sign-in slow-down counts per address, so it needs the real one.
     if settings.trusted_proxies.strip():
         app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.trusted_proxies)
+    # Outside that: X-Forwarded-Host from a trusted proxy, and one warning when a proxy's
+    # X-Forwarded-For isn't believed (PR A2).
+    app.add_middleware(ForwardedMiddleware, trusted=settings.trusted_proxies)
     if settings.allow_plain_http:
         log.warning(
             "MEALWRIGHT_ALLOW_PLAIN_HTTP is on: sign-in works over plain http://, so "
