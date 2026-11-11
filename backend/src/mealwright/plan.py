@@ -659,7 +659,10 @@ def set_method(kitchen: Kitchen, item: MealItem, method_id: int) -> Change | Non
             "one_method",
             "This recipe has only one way of cooking it.",  # proposed, for cabledrawer
         )
-    if item.method_id == method.id:
+    # What the meal uses now: its own method, else the recipe's first (a meal planned while the
+    # recipe had one way stores none): asking for that way changes nothing (RF3, C9).
+    current = methods.named(methods.methods_of(kitchen.db, method.recipe_id), item.method_id)
+    if current is not None and current.id == method.id:
         return None
     before = {
         "method": item.method_id,

@@ -344,6 +344,7 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
     change = edit.record("cooked", _summary(entries), None)
     listed, action_id = _add_to_list(kitchen, [row for each in worked for row in each.rows], change)
     ids: list[int] = []
+    touched: list[dict[str, Any]] = []
     for entry, each in zip(entries, worked, strict=True):
         snapshot = cooked.snapshot(kitchen.db, entry.recipe, entry.method_id)
         snapshot.choices = choices_of(each)
@@ -363,12 +364,14 @@ def confirm(kitchen: Kitchen, entries: list[Entry], answers: list[Answer]) -> Ch
         ids.append(record.id)
         ways = methods.methods_of(kitchen.db, entry.recipe.id)
         if len(ways) > 1:  # the way it was cooked is pre-picked next time (M2)
-            methods.touch(methods.named(ways, entry.method_id), utcnow())
+            touched.append(methods.touch_with_undo(methods.named(ways, entry.method_id), utcnow()))
     data: dict[str, Any] = {"cooked_record_id": ids[0], "cooked_record_ids": ids, "listed": listed}
     if replaced:
         data["sizes"] = replaced  # Undo puts the old amounts back
     if action_id:
         data["action"] = action_id  # so the Undo's sync-log row can say what it undoes (5.8)
+    if touched:
+        data["methods"] = touched  # Undo puts "the way used last" back (RF3, C10)
     if len(entries) == 1:
         data.update(entries[0].link)
     else:
@@ -644,6 +647,8 @@ def forget_record(kitchen: Kitchen, change: Change) -> None:
     when the Undo was only partly done). A meal that was Cooked is no longer, as a recipe of it
     is not cooked any more (F157)."""
     db, hid = kitchen.db, kitchen.household_id
+    for step in reversed((change.undo_data or {}).get("methods", [])):
+        methods.put_back(db, step)  # the way is "used last" as it was before (RF3, C10)
     meal_ids: set[int] = set()
     for record in db.scalars(
         select(CookedRecord).where(

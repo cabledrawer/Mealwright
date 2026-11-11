@@ -685,3 +685,49 @@ def test_a_method_that_has_other_headings_or_non_method_names_stays_one_method(
     ):
         shown = import_review(kitchen, f"Meth one way\nIngredients\n1 onion\n{method}")
         assert shown["second_method"] is None and shown["method_name"] is None
+
+
+# --- Whole-0.8 review fixes (RF3): C9 and C10 ----------------------------------------------------
+
+
+def test_setting_a_meal_to_the_way_it_already_uses_changes_nothing(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    """C9: a meal planned while the recipe had one way stores no method; once a second way is
+    added, asking for the first way (what it already uses) must not clear its optional picks and
+    its start time, nor write a change that says the way changed."""
+    water = {**line(pantry["Meth water"]["id"], 200, "g"), "words": "water", "optional": True}
+    recipe = make(
+        kitchen,
+        "Meth pulao",
+        lines=[{**line(pantry["Meth chicken"]["id"], 500, "g"), "words": "chicken"}, water],
+        steps=[{"text": "Simmer."}],
+    )
+    item_id = plan_with(kitchen, recipe, 1, optional_use=[])["item_id"]
+    water_line = recipe["lines"][1]["id"]
+    assert meal_item(kitchen, item_id)["optional_skipped"] == [water_line]
+    fresh = ok(kitchen.get(f"{API}/recipes/{recipe['id']}"))
+    saved = ok(
+        save(kitchen, fresh, method_name="Stovetop", second_method=second()),
+    )
+    first = saved["methods"][0]["id"]
+    answer = ok(kitchen.put(f"{API}/plan/items/{item_id}/method", json={"method_id": first}))
+    assert answer["change"] is None
+    assert meal_item(kitchen, item_id)["optional_skipped"] == [water_line]
+
+
+def test_undo_of_cooked_it_puts_the_way_used_last_back(
+    kitchen: TestClient, pantry: dict[str, dict[str, Any]]
+) -> None:
+    """C10: cooked the Instant Pot way by mistake, Undo: Instant Pot is not "last time" any more."""
+    recipe = curry(kitchen, pantry)
+    for name in ("Meth chicken", "Meth water", "Meth stock"):
+        stock(kitchen, pantry[name]["id"], 1000, "g")
+    first, other = recipe["methods"][0]["id"], recipe["methods"][1]["id"]
+    mistaken = plan_with(kitchen, recipe, 1, method_id=other)["item_id"]
+    plan_with(kitchen, recipe, 2, method_id=first)
+    assert used_last(kitchen, recipe) == "Stovetop"
+    done = ok(cook(kitchen, mistaken), 201)
+    assert used_last(kitchen, recipe) == "Instant Pot"
+    ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
+    assert used_last(kitchen, recipe) == "Stovetop"
