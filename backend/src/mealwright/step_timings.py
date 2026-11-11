@@ -125,11 +125,16 @@ def times_in(text: str) -> int | None:
 
 # A step's words always give the same guess, so a guess is kept for the steps read lately: the
 # suggestions and "Plan this batch" read every step of the recipe book, and without this each
-# request guessed them all again (RF3, S3). Four thousand steps is a big recipe book.
-@functools.lru_cache(maxsize=4096)
+# request guessed them all again (RF3, S3). The kept key is only the words `_guess` reads (the
+# first 1500 characters, spaces tidied), never the whole step (a step may be 5000), and at most
+# 2048 are kept, so the cache stays a few megabytes (security pass 2, Low).
 def guess(text: str, wait: step_waits.Wait | None = None) -> Guess:
     """The guess for one step's words (and its M1 wait, which counts as waiting)."""
-    text = _SPACES.sub(" ", text[:_LONGEST_TEXT]).strip()
+    return _guess(_SPACES.sub(" ", text[:_LONGEST_TEXT]).strip(), wait)
+
+
+@functools.lru_cache(maxsize=2048)
+def _guess(text: str, wait: step_waits.Wait | None) -> Guess:
     pan_roast = _PAN_ROAST.search(text) is not None
     if _PRESSURE.search(text):
         equipment: Equipment = "pressure"
@@ -190,3 +195,7 @@ def of_step(step: RecipeStep) -> Timing | None:
         minutes_guessed=minutes is None,
         equipment_guessed=equipment is None,
     )
+
+
+guess.cache_clear = _guess.cache_clear  # type: ignore[attr-defined]
+guess.cache_info = _guess.cache_info  # type: ignore[attr-defined]

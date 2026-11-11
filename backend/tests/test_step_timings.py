@@ -182,3 +182,19 @@ def test_a_fraction_before_the_unit_is_read_as_a_fraction(text: str, minutes: in
 def test_a_wait_suggested_from_words_reads_a_fraction_too() -> None:
     found = step_waits.read_wait("Soak the beans for 1 1/2 hours.")
     assert found is not None and found.min_minutes == 90
+
+
+def test_steps_that_differ_only_after_what_is_read_share_one_kept_guess() -> None:
+    step_timings.guess.cache_clear()
+    head = "Simmer gently for 10 minutes. " + "x" * 1500
+    first = step_timings.guess(head[:1500] + "A" * 3000)
+    second = step_timings.guess(head[:1500] + "B" * 3000)
+    assert first == second
+    info = step_timings.guess.cache_info()
+    assert info.currsize == 1 and info.hits == 1
+    assert info.maxsize is not None and info.maxsize <= 2048
+
+
+def test_tidying_the_words_before_keeping_them_changes_no_guess() -> None:
+    spaced = "Fry   2 minutes,\n then   simmer 10 minutes"
+    assert step_timings.guess(spaced) == step_timings.guess("Fry 2 minutes, then simmer 10 minutes")
