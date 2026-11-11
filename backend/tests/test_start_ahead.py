@@ -933,3 +933,52 @@ def test_a_batch_cook_session_plans_a_long_wait_with_its_start_tonight(kitchen: 
     with_start = [i for i in items if i["ahead"]]
     assert len(with_start) == 1 and with_start[0]["ahead"]["start_day"] == FRI.isoformat()
     assert with_start[0]["ahead"]["start_time"]
+
+
+# --- Whole-0.8 review fixes (RF3): H4 and H7 -----------------------------------------------------
+
+
+def test_in_the_minutes_before_the_meal_there_is_no_start_time_to_offer_and_the_add_goes_ahead(
+    kitchen: TestClient, clock: Callable[[datetime], None]
+) -> None:
+    """H4: at 18:57 for a 19:00 dinner the only option was 19:00, which the save refused
+    ("Pick a time before the meal."); a batch cook for today was refused whole the same way."""
+    thu = date(2026, 11, 12)
+    recipe = dosa(kitchen)
+    clock(datetime(2026, 11, 12, 18, 57, tzinfo=UTC))
+    found = options(kitchen, recipe, thu, slot="Dinner")
+    assert found["wait"] is not None and found["options"] == []
+    added = plan_dosa(kitchen, recipe, day=thu, slot="Dinner")  # no start: goes ahead
+    assert item_of(kitchen, added["item_id"], thu)["ahead"]["start_time"] is None
+    other = make(kitchen, "Start rasam", steps=[{"text": "Simmer for 10 minutes."}])
+    made = kitchen.post(
+        f"{API}/batch-cook/sessions",
+        json={
+            "date": thu.isoformat(),
+            "slot_id": slot_ids(kitchen)["Lunch"],
+            "recipes": [
+                {"recipe_id": dosa(kitchen, "Start dosa two")["id"], "tub_count": 2},
+                {"recipe_id": other["id"], "tub_count": 2},
+            ],
+        },
+    )
+    assert made.status_code == 201, made.text
+
+
+@pytest.mark.parametrize(
+    ("name", "at"),
+    [
+        ("Dinner", "19:00"),
+        ("Late dinner", "19:00"),
+        ("Tea", "17:30"),
+        ("Steak", "12:00"),  # "tea" is only inside "Steak"
+        ("Steak night", "19:00"),  # proposed, for cabledrawer: "night" is a dinner word
+        ("Teatime", "12:00"),
+        ("Evening meal", "19:00"),  # proposed, for cabledrawer
+        ("Main meal", "12:00"),
+        ("Breakfast, early", "08:00"),
+    ],
+)
+def test_a_meals_time_is_read_from_whole_words_of_its_slots_name(name: str, at: str) -> None:
+    slot = models.MealSlot(name=name)
+    assert start_ahead.clock_words(start_ahead.slot_time(slot)) == at

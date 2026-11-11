@@ -11,6 +11,7 @@ a clock time and back, so a start of "Fri 21:00" is 21:00 on the wall whatever t
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
@@ -31,7 +32,9 @@ MIN_AHEAD_MINUTES = 4 * 60
 MOST_BEFORE = timedelta(minutes=step_waits.MAX_WAIT_MINUTES + 24 * 60)
 
 # The time a meal slot is eaten when nothing says (there is no setting for it yet: proposed, for
-# cabledrawer). Found by the slot's own name; a slot named anything else is eaten at noon.
+# cabledrawer). Found by the slot's own name, by whole words ("Steak night" has no "tea" in it); a
+# slot with none of these words is eaten at noon. "morning", "evening" and "night" are proposed
+# too (RF3, H7).
 _SLOT_TIMES = (
     ("breakfast", time(8, 0)),
     ("brunch", time(10, 30)),
@@ -41,6 +44,9 @@ _SLOT_TIMES = (
     ("dinner", time(19, 0)),
     ("supper", time(19, 0)),
     ("tea", time(17, 30)),
+    ("morning", time(8, 0)),
+    ("evening", time(19, 0)),
+    ("night", time(19, 0)),
 )
 _NOON = time(12, 0)
 
@@ -64,9 +70,9 @@ class Option:
 
 def slot_time(slot: MealSlot | None) -> time:
     """When a slot's meal is eaten."""
-    name = (slot.name if slot else "").casefold()
+    words = set(re.findall(r"[^\W_]+", (slot.name if slot else "").casefold()))
     for word, at in _SLOT_TIMES:
-        if word in name:
+        if word in words:
             return at
     return _NOON
 
@@ -158,7 +164,10 @@ def options(
     found = [o for o in found if o.start > now]
     if not found:
         begin = _ceil_five(now)
-        found.append(Option(begin, begin + timedelta(minutes=low) + active))
+        # Starting at once is offered only when it is still before the meal: a time the save
+        # would refuse ("Pick a time before the meal.") is no option (RF3, H4).
+        if begin < eat:
+            found.append(Option(begin, begin + timedelta(minutes=low) + active))
     return found
 
 
