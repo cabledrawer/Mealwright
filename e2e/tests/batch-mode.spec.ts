@@ -9,7 +9,7 @@ import { checkPage, expectNoSidewaysScroll, inTheme, isPhone } from './a11y.ts';
 
 const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
-async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE', path: string, data?: object) {
+async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', path: string, data?: object) {
   const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
   expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBe(true);
   return (await response.json()) as Record<string, any>;
@@ -186,4 +186,51 @@ test('Start batch cook on the Plan card opens batch cook mode for that session',
   await card.getByRole('button', { name: 'Start batch cook' }).click();
   await expect(page).toHaveURL(new RegExp(`/batch-cook/session/${s.id}/cook$`));
   await expect(region(page)).toBeVisible();
+});
+
+test('one pressure cooker is never offered twice, and the screen says what is in use', async ({ page }) => {
+  await call(page, 'PATCH', '/household/kitchen', { pressure_cookers: 1 });
+  const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const dals = [];
+  for (const n of [1, 2]) {
+    dals.push(await call(page, 'POST', '/recipes', { name: `Dal ${n} ${stamp()}`, serves: 4, steps: [{ text: 'Pressure cook the dal for 3 whistles.' }, { text: 'Fry the onions.' }] }));
+  }
+  const day = addDays(household.today, 6 + (INDEX[test.info().project.name] ?? 0));
+  const made = await call(page, 'POST', '/batch-cook/sessions', {
+    date: day,
+    slot_id: slots.find((x) => x.name === 'Dinner')!.id,
+    recipes: dals.map((d) => ({ recipe_id: d.id, tub_count: 2 })),
+  });
+  await page.goto(`/batch-cook/session/${made.session_id}/cook`);
+  const start = page.getByRole('button', { name: /^Start timer for / });
+  await expect(start).toHaveCount(1); // the second dal waits for the cooker
+  await start.click();
+  await expect(page.getByRole('timer')).toBeVisible();
+  await expect(start).toHaveCount(0);
+  await expect(page.getByTestId('batch-in-use')).toContainText('pressure cooker 1 of 1');
+  await call(page, 'DELETE', `/batch-cook/sessions/${made.session_id}`);
+});
+
+test('a recipe cooked on its own is left out of the one Cooked it, and said so', async ({ page }) => {
+  const s = await session(page);
+  const found = (await (await page.request.get(`/api/v1/batch-cook/sessions/${s.id}`)).json()) as { recipes: { batch_id: number; recipe_name: string }[] };
+  const alone = found.recipes.find((r) => r.recipe_name === s.sambar)!;
+  await call(page, 'POST', `/plan/batches/${alone.batch_id}/cook`, {});
+  await call(page, 'POST', `/batch-cook/sessions/${s.id}/schedule`, {});
+  const tasks = (await schedule(page, s.id)).tasks;
+  for (const t of tasks) await call(page, 'PUT', `/batch-cook/sessions/${s.id}/schedule/tasks/${t.id}/done`);
+  await page.goto(`/batch-cook/session/${s.id}/cook`);
+  await page.getByRole('button', { name: 'Cooked it', exact: true }).click();
+  const review = page.getByTestId('session-cooked');
+  await expect(review).toContainText(s.chettinad);
+  await expect(page.getByTestId('session-recipe')).toHaveCount(1);
+  await expect(page.getByTestId('session-already')).toContainText(`${s.sambar} · already cooked`);
+  await review.getByRole('button', { name: 'Cooked it' }).click();
+  await expect(page).toHaveURL(/\/plan/);
+  const changes = (await (await page.request.get('/api/v1/changes?area=pantry')).json()) as { changes: { id: number; kind: string; summary: string }[] };
+  for (const c of changes.changes.filter((c) => c.kind === 'cooked' && (c.summary.includes(s.chettinad) || c.summary.includes(s.sambar)))) {
+    await call(page, 'POST', `/changes/${c.id}/undo`);
+  }
+  await call(page, 'DELETE', `/batch-cook/sessions/${s.id}`);
 });
