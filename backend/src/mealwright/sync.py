@@ -166,8 +166,15 @@ class MoveLine(ActionBase):
 
 
 class Tick(ActionBase):
+    """A purchase. `amount` (base units, with an optional `size_id`) is what the phone's line
+    showed when it was ticked (RF2 Sh1): that is what goes into the pantry, and what the line
+    grew by meanwhile stays to buy. Left out (a tick queued before the update): the line's
+    amount when the tick arrives."""
+
     kind: Literal["tick"]
     item_id: RowId
+    amount: Amount | None = None
+    size_id: RowNumber | None = None
 
 
 class FoundAtHome(ActionBase):

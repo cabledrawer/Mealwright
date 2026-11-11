@@ -510,8 +510,13 @@ def plan_edits(kitchen: Kitchen, main: ShoppingList, worked: Worked) -> Edits:
         wanted[(buy.food.id, buy.food.shop_id)] = buy
 
     for key, buy in wanted.items():
-        mine = plan_live.get(key, [])
-        if mine:
+        # A ticked line is bought: it is never changed, and does not stop the plan keeping
+        # one line still to buy beside it (what the pantry lacked when it was ticked, Sh1).
+        bought = plan_live.get(key, [])
+        mine = [i for i in bought if i.ticked_at is None]
+        if bought:
+            if not mine:
+                continue
             first, *extras = mine
             for extra in extras:
                 if not extra.hand_edited and extra.ticked_at is None:

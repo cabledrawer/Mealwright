@@ -134,6 +134,9 @@ describe('the Shopping page', () => {
     const body = sent.body as { protocol: number; actions: { kind: string; item_id: string }[] };
     expect(body.protocol).toBe(1);
     expect(body.actions[0]).toMatchObject({ kind: 'tick', item_id: 'i-onions' });
+    // RF2 Sh1: the tick carries the amount the line showed (5 onions), so the server puts in
+    // that even when the line has grown meanwhile.
+    expect(body.actions[0]).toMatchObject({ amount: 5, size_id: null });
     const toast = page.getByRole('status').filter({ hasText: 'Onions → Fridge' });
     await expect.element(toast).toBeVisible();
     await expect.element(toast.getByRole('button', { name: 'Change' })).toBeVisible();

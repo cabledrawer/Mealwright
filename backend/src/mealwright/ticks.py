@@ -186,6 +186,39 @@ def _remover(act: Act, item: ListItem) -> SyncAction | None:
     return row
 
 
+def _keep_the_rest(
+    act: Act, item: ListItem, shown: int | None, bought: int, size: FoodSize | None
+) -> None:
+    """The phone ticked `shown` (and `bought` went into the pantry, whole packs maybe); the
+    line has grown since (a meal planned at home while it was offline). The line being ticked
+    becomes what the phone showed, and what the pantry still lacks is a line of its own, still
+    to buy, at the same list and shop (RF2 Sh1, sync-protocol 7.1)."""
+    if shown is None or item.amount_milli is None or item.deleted_at is not None:
+        return
+    if item.amount_milli <= max(shown, bought):
+        return
+    kitchen = act.kitchen
+    kitchen.db.add(
+        ListItem(
+            id=str(uuid.uuid4()),
+            household_id=kitchen.household_id,
+            list_id=item.list_id,
+            food_id=item.food_id,
+            shop_id=item.shop_id,
+            amount_milli=item.amount_milli - max(shown, bought),
+            size_id=item.size_id,
+            source=item.source,
+            hand_edited=item.hand_edited,
+            put_away_place_id=None,
+            added_by_login_id=item.added_by_login_id,
+            added_by_name=item.added_by_name,
+            version=act.seq,
+        )
+    )
+    item.amount_milli = shown
+    item.size_id = size.id if size is not None else None
+
+
 # --- tick (7.1) ----------------------------------------------------------------------------------
 
 
@@ -218,7 +251,15 @@ def tick(act: Act) -> None:
         item.put_away_place_id = None  # a chosen place that's gone (5.9, SY-55)
         place = default_place(kitchen, food)
     size = shopping.get_size(kitchen, food, item.size_id)
-    milli = None if food.staple or recount else item.amount_milli
+    line_milli = item.amount_milli
+    shown = act.payload.get("amount")
+    shown_size = None
+    if shown is not None:
+        # RF2 Sh1 (cabledrawer 11 Nov): the phone says what its line showed; that is what was
+        # bought, even if the line has grown since (a tick made before the update has none).
+        line_milli = shopping.milli_of(shown)
+        size = shown_size = shopping.get_size(kitchen, food, act.payload.get("size_id"))
+    milli = None if food.staple or recount else line_milli
     if milli and size is None:
         # F122 (cabledrawer 31 Oct): a line in plain grams, ml or items puts the pack bought into
         # the pantry, not the exact need: 38 g ghee with a 500 g jar is 1 jar. A line already
@@ -267,6 +308,8 @@ def tick(act: Act) -> None:
         change.tick_id = row.id
         row.change_id = change.id
         act.change = change
+    if shown is not None:
+        _keep_the_rest(act, item, line_milli, row.bought_milli or 0, shown_size)
     sync_copy(kitchen, item, act.seq)
     _removed_list(act, item, ticked=bool(row.bought_milli))
     if recount:

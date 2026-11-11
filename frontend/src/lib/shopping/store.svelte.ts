@@ -693,7 +693,12 @@ export class ShoppingModel {
     let shown: Shown | undefined;
     let tickId: string | undefined;
     const outcome = this.#act(
-      { kind: 'tick', item_id: item.id },
+      {
+        kind: 'tick',
+        item_id: item.id,
+        // What this phone's line shows is what was bought (RF2 Sh1); no amount, none sent.
+        ...(item.amount ? { amount: item.amount, size_id: item.size_id } : {})
+      },
       {
         quiet: true,
         queued: (actionId) => {

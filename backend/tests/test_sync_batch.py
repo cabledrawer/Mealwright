@@ -96,14 +96,14 @@ def test_sy60_a_bad_action_is_refused_and_the_rest_apply(kitchen: TestClient) ->
     answer = send(
         kitchen,
         action("teleport", item_id=item),
-        action("tick", item_id=item, amount=500),
+        action("tick", item_id=item, colour="red"),
         action("add", list_id=main, item_id=item, food_id=milk["id"]),
         {"kind": "add"},
     )
     unknown, tick, added, bare = answer["results"]
     assert unknown["status"] == "refused" and unknown["reason"] == "bad_action"
     assert tick["status"] == "refused" and tick["reason"] == "bad_action"
-    assert "amount" in tick["message"]
+    assert "colour" in tick["message"]
     assert bare["status"] == "refused" and bare["id"] == ""
     assert added["status"] == "applied" and added["seq"] == start + 1
     assert counter(kitchen) == start + 1

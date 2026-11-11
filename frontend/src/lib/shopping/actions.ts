@@ -42,7 +42,9 @@ export type ActionFields =
   | { kind: 'delete'; item_id: string }
   /** Move an unticked line to a shop (null = Any shop) on a list (sync protocol 4.2, M-1 to M-8). */
   | { kind: 'move'; item_id: string; list_id: string; shop_id: number | null }
-  | { kind: 'tick'; item_id: string }
+  /** A purchase. `amount` and `size_id` are what the phone's line showed (left out when it showed
+   *  none): that is what goes into the pantry, even if the line has grown since (RF2 Sh1). */
+  | { kind: 'tick'; item_id: string; amount?: number; size_id?: number | null }
   /** "Already have it": what is at home goes into the pantry as found, not bought. */
   | {
       kind: 'found_at_home';
