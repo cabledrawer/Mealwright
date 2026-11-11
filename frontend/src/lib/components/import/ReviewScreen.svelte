@@ -88,18 +88,13 @@
     void goto(resolve('/(app)/recipes/drafts'));
   }
 
-  /** Close (Focus and One at a time, F141): the recipe stays in Drafts with the choices made so
-   *  far (the same draft save as "Save draft"), and Recipes → Drafts opens. A draft that was
-   *  opened and not changed just leaves. When the draft can't be kept (offline, or 50 drafts) the
-   *  reason shows and nothing is left behind. */
+  /** Back to drafts on the phone (Focus and One at a time; F141, F211): leaves for Drafts, and a
+   *  draft that was changed (or a review not kept yet) asks first, exactly as the computer's Back
+   *  to drafts does: "Save your changes?" / "Save as draft?" (beforeNavigate). An unchanged draft
+   *  just leaves. With no connection nothing can be kept: it says so and leaves (F174). */
   async function close() {
     if (flow.keeping && !offline()) return;
     if (offline()) return closeOffline();
-    if (flow.unkept && !(await flow.keepAsDraft())) {
-      // The connection went while the draft was on its way: leave the way an offline Close does.
-      if (offline()) closeOffline();
-      return;
-    }
     await goto(resolve('/(app)/recipes/drafts'));
   }
 

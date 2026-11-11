@@ -28,9 +28,8 @@ async function openImport(page: Page) {
   } else await page.goto('/recipes/import');
 }
 
-/** Leave the review for the Recipes list. A computer has Back to drafts; the phone's Check has Back to drafts
- *  instead (which keeps the draft at once, F141), so what asks "Save as draft?" there is the
- *  browser's Back. */
+/** Leave the review for the Recipes list: the browser's Back on a phone, which asks "Save as draft?";
+ *  Back to drafts on a computer asks the same. */
 async function leaveCheck(page: Page) {
   if (isPhone(page)) await page.goBack();
   else await page.getByRole('button', { name: 'Back to drafts', exact: true }).last().click();
@@ -44,15 +43,10 @@ async function reviewOf(page: Page, title: string, hing: string, masala: string)
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
 }
 
-/** Leave the review and keep it as a draft: it lands on Drafts. On a phone that is Close, which
- *  keeps it without asking. */
+/** Leave the review through Back to drafts (phone and computer alike, F211) and keep it as a draft:
+ *  it asks, Save draft, and it lands on Drafts. */
 async function keepDraft(page: Page) {
-  if (isPhone(page)) {
-    await page.getByRole('button', { name: /^Back to drafts/ }).click();
-    await expect(page).toHaveURL(/\/recipes\/drafts$/);
-    return;
-  }
-  await page.getByRole('button', { name: 'Back to drafts', exact: true }).last().click();
+  await page.getByRole('button', { name: /^Back to drafts/ }).last().click();
   await expect(page.getByRole('dialog', { name: 'Save as draft?' })).toBeVisible();
   await page.getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);

@@ -146,6 +146,8 @@ describe('Focus (the phone’s default)', () => {
     flow.sameAs(3, { id: 2, name: 'Onions' }); // "1 red onion": a choice made on the screen
     flushSync();
     await page.getByRole('button', { name: /^Back to drafts/ }).click();
+    leaveFor('/recipes/drafts'); // the leave guard asks, as for any leave (F211)
+    await page.getByRole('button', { name: 'Save draft' }).click();
     await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
     const keep = requests.find((r) => r.method === 'POST' && r.path === '/recipes/drafts')!;
     const body = keep.body as { choices: { lines: Record<string, { kind: string }> } };
@@ -165,6 +167,25 @@ describe('Focus (the phone’s default)', () => {
     expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes\/drafts$/);
   });
 
+  it('Back to drafts on a changed draft asks “Save your changes?”; Keep checking stays, Discard changes leaves, nothing is sent (F211)', async () => {
+    const flow = reviewFlow();
+    flow.load(KEPT);
+    show(flow, true);
+    const requests = fakeApi({});
+    flow.name = 'Sambar with okra';
+    flushSync();
+    await page.getByRole('button', { name: /^Back to drafts/ }).click();
+    const cancel = leaveFor('/recipes/drafts');
+    expect(cancel).toHaveBeenCalledTimes(1);
+    await expect.element(page.getByRole('dialog', { name: 'Save your changes?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Keep checking' }).click();
+    await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+    leaveFor('/recipes/drafts');
+    await page.getByRole('button', { name: 'Discard changes' }).click();
+    await vi.waitFor(() => expect(nav.goto.mock.calls.length).toBeGreaterThan(1));
+    expect(requests.filter((r) => r.method !== 'GET')).toEqual([]);
+  });
+
   it('Close on a draft that was changed saves it over, and says nothing was lost', async () => {
     const flow = reviewFlow();
     flow.load(KEPT);
@@ -176,6 +197,8 @@ describe('Focus (the phone’s default)', () => {
     flow.name = 'Sambar with okra';
     flushSync();
     await page.getByRole('button', { name: /^Back to drafts/ }).click();
+    leaveFor('/recipes/drafts'); // the leave guard asks, as for any leave (F211)
+    await page.getByRole('button', { name: 'Save draft' }).click();
     await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
     expect(requests.some((r) => r.method === 'PUT' && r.path === '/recipes/drafts/7')).toBe(true);
   });
@@ -189,10 +212,13 @@ describe('Focus (the phone’s default)', () => {
       ]
     });
     await page.getByRole('button', { name: /^Back to drafts/ }).click();
+    leaveFor('/recipes/drafts'); // the leave guard asks, as for any leave (F211)
+    await page.getByRole('button', { name: 'Save draft' }).click();
     await expect
-      .element(page.getByText('You have 50 drafts. Finish or delete one first.'))
+      .element(page.getByText('You have 50 drafts. Finish or delete one first.').first())
       .toBeVisible();
-    expect(nav.goto).not.toHaveBeenCalled();
+    // Only Back to drafts' own attempt (the guard stopped it): nothing else left.
+    expect(nav.goto).toHaveBeenCalledTimes(1);
   });
 
   it('Close and Save recipe both look greyed while a step box is open (F154)', async () => {
@@ -225,7 +251,7 @@ describe('Focus (the phone’s default)', () => {
     );
   });
 
-  it('when the draft can’t be kept, Discard draft is the way out and lands on Recipes', async () => {
+  it('Discard draft on a review never kept lets go of it and lands on Recipes', async () => {
     show(reviewFlow(), true);
     fakeApi({
       'POST /recipes/drafts': [
@@ -233,7 +259,6 @@ describe('Focus (the phone’s default)', () => {
         { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
       ]
     });
-    await page.getByRole('button', { name: /^Back to drafts/ }).click();
     await discardDraft();
     await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
     expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes$/);
@@ -746,6 +771,8 @@ describe('One at a time', () => {
       });
       await page.getByRole('button', { name: 'Same as “Onions”' }).click();
       await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
+      leaveFor('/recipes/drafts'); // the leave guard asks, as for any leave (F211)
+      await page.getByRole('button', { name: 'Save draft' }).click();
       await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
       const keep = requests.find((r) => r.method === 'POST' && r.path === '/recipes/drafts')!;
       const body = keep.body as { choices: { lines: Record<string, { kind: string }> } };
@@ -763,10 +790,13 @@ describe('One at a time', () => {
         ]
       });
       await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
+      leaveFor('/recipes/drafts'); // the leave guard asks, as for any leave (F211)
+      await page.getByRole('button', { name: 'Save draft' }).click();
       await expect
-        .element(page.getByText('You have 50 drafts. Finish or delete one first.'))
+        .element(page.getByText('You have 50 drafts. Finish or delete one first.').first())
         .toBeVisible();
-      expect(nav.goto).not.toHaveBeenCalled();
+      // Only Back to drafts' own attempt (the guard stopped it): nothing else left.
+      expect(nav.goto).toHaveBeenCalledTimes(1);
     });
 
     it('Close waits while a step box is open, and works after Done with the edit kept', async () => {
@@ -959,7 +989,7 @@ describe('One at a time', () => {
       flow.saving = false;
     });
 
-    it('when the draft can’t be kept, Discard draft is the way out and lands on Recipes', async () => {
+    it('Discard draft on a review never kept lets go of it and lands on Recipes', async () => {
       await opened();
       fakeApi({
         'POST /recipes/drafts': [
@@ -967,7 +997,6 @@ describe('One at a time', () => {
           { detail: 'You have 50 drafts. Finish or delete one first.', code: 'too_many_drafts' }
         ]
       });
-      await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
       await discardDraft();
       await vi.waitFor(() => expect(nav.goto).toHaveBeenCalled());
       expect(String(nav.goto.mock.calls[0]![0])).toMatch(/\/recipes$/);

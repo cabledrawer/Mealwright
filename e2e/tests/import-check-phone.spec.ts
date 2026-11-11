@@ -110,6 +110,8 @@ test('One at a time: each line that needs you, then every step; Close keeps the 
   // Back, then Close: the draft keeps the choice made on the first line.
   await page.getByRole('button', { name: /^← Back/ }).click();
   await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
+  // Back to drafts asks, as the computer's does (F211): Save draft keeps it.
+  await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   const [draft] = await draftsNamed(page, title);
   const kept = (await (await page.request.get(`/api/v1/recipes/drafts/${draft!.id}`)).json()) as Json;
@@ -141,6 +143,8 @@ test('One at a time: Add a line goes to the new line, which is named and has the
   await expect(page.getByText('New staple:')).toBeVisible();
   // Close keeps the draft with the new line and its choice.
   await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
+  // Back to drafts asks, as the computer's does (F211): Save draft keeps it.
+  await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   const [draft] = await draftsNamed(page, title);
   const kept = (await (await page.request.get(`/api/v1/recipes/drafts/${draft!.id}`)).json()) as Json;
@@ -169,6 +173,8 @@ test('One at a time: See all shows the whole list, and a reopened draft starts O
   const title = unique('Kootu');
   await checking(page, title, unique('Hing'), unique('Masala'));
   await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
+  // Back to drafts asks, as the computer's does (F211): Save draft keeps it.
+  await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   await page.getByRole('link', { name: `Carry on ${title}` }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients · 1 of 2 to check');
@@ -194,6 +200,8 @@ test('Settings → Appearance chooses it, on this device: Focus until changed', 
   await checking(page, title, unique('Hing'), unique('Masala'));
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients · 1 of 2 to check');
   await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
+  // Back to drafts asks, as the computer's does (F211): Save draft keeps it.
+  await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   await deleteDrafts(page, title);
   await page.goto('/settings?section=appearance');
@@ -334,6 +342,8 @@ test('F174, a draft opened again: Close works offline and the draft stays as it 
   const title = unique('Kootu offline');
   await checking(page, title, unique('Hing'), unique('Masala'));
   await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
+  // Back to drafts asks, as the computer's does (F211): Save draft keeps it.
+  await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   const [before] = await draftsNamed(page, title);
   await page.getByRole('link', { name: `Carry on ${title}` }).click();
@@ -370,6 +380,10 @@ test('F174, a keep still on its way when the connection goes: Close works at onc
   });
   const close = page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' });
   await close.click();
+  // Back to drafts asks (F211); Save draft starts the keep, which never answers; the question is put away.
+  const ask = page.getByRole('dialog', { name: 'Save as draft?' });
+  await ask.getByRole('button', { name: 'Save draft' }).click();
+  await ask.getByRole('button', { name: 'Keep checking' }).click();
   await expect(close).toBeDisabled(); // keeping, with the connection still up
   await goOffline(page);
   await expect(close).toBeEnabled();
@@ -405,6 +419,8 @@ test('One at a time: "Make this its own recipe" is above a line of the section, 
   // The section's lines are still checked here, one at a time.
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Ingredients · 1 of 3 to check');
   await page.getByRole('button', { name: 'Back to drafts (kept in Drafts)' }).click();
+  // Back to drafts asks, as the computer's does (F211): Save draft keeps it.
+  await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   const [draft] = await draftsNamed(page, title);
   const kept = (await (await page.request.get(`/api/v1/recipes/drafts/${draft!.id}`)).json()) as Json;
