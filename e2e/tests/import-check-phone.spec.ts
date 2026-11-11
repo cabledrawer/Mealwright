@@ -210,7 +210,7 @@ test('a computer keeps today’s Check screen, whatever the phone’s choice is'
   await expect(page.getByRole('button', { name: 'Back to drafts', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Next/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^Back to drafts/ })).toHaveCount(0);
+  await expect(page.getByText('Kept in Drafts')).toHaveCount(0); // the phone’s own label
   await expect(page.getByRole('navigation', { name: 'Main' }).or(page.getByRole('navigation', { name: 'Sidebar' })).first()).toBeVisible();
 });
 

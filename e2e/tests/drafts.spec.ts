@@ -124,7 +124,8 @@ test('Discard leaves without keeping anything', async ({ page }) => {
   await reviewOf(page, title, unique('Hing'), unique('Masala'));
   await leaveCheck(page);
   await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Discard', exact: true }).click();
-  await expect(page).toHaveURL(/\/recipes$/);
+  // A computer left through Back to drafts, so Discard lands on Drafts; the phone went back to Recipes.
+  await expect(page).toHaveURL(isPhone(page) ? /\/recipes$/ : /\/recipes\/drafts$/);
   expect(await draftsNamed(page, title)).toHaveLength(0);
 });
 
