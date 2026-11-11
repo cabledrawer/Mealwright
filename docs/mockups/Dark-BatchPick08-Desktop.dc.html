@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright dark – Batch cook on the computer (0.8 wave 6, B2)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,500&amp;display=swap">
+<style>
+html,body{margin:0;background:#111614}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.scr{width:390px;height:844px;background:#111614;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#E9EEEB;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.top{padding:52px 16px 10px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid #2A332E}
+.body{flex:1;min-height:0;overflow:hidden;padding:12px 16px;display:flex;flex-direction:column;gap:12px}
+.h1{margin:0;font-size:26px;font-weight:800}
+.h2{margin:0;font-size:12px;font-weight:800;color:#A3AFA8;letter-spacing:0.05em;text-transform:uppercase}
+.sec{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ln{background:#1B221F;border:1px solid #2A332E;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.raw{font-size:13px;color:#A3AFA8;line-height:1.45}
+.nm{font-size:16px;font-weight:800}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.btn{border:1px solid #39433D;background:transparent;color:#C5CEC8;border-radius:10px;min-height:44px;padding:0 12px;font:600 13px 'Plus Jakarta Sans',sans-serif}
+.btnw{border:none;background:#E9EEEB;color:#111614;border-radius:999px;min-height:52px;font:800 15px 'Plus Jakarta Sans',sans-serif}
+.btno{border:1px solid #39433D;background:transparent;color:#E9EEEB;border-radius:999px;min-height:52px;font:700 15px 'Plus Jakarta Sans',sans-serif}
+.foot{border-top:1px solid #2A332E;background:#151B18;padding:10px 16px 26px;display:flex;gap:10px}
+.chip{border:1px solid #39433D;background:#1B221F;color:#E9EEEB;border-radius:999px;padding:0 12px;min-height:40px;font:600 13px 'Plus Jakarta Sans',sans-serif;white-space:nowrap;flex:none}
+.chip.on{border:none;background:#E9EEEB;color:#111614;font-weight:700}
+.seg{display:grid;background:#252E29;border-radius:999px;padding:3px}
+.seg span{border-radius:999px;min-height:38px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:14px;font-weight:600;color:#A3AFA8}
+.seg span.on{background:#3A4640;color:#E9EEEB;font-weight:800}
+.exp{display:inline-flex;align-items:center;gap:5px;background:#3A2238;color:#F2B5E4;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:800;white-space:nowrap;align-self:flex-start}
+.note{background:#1E2A33;border:1px solid #2E4352;color:#BFD9EA;border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.45}
+.why{font-size:13px;color:#C5CEC8;line-height:1.45}
+.tag{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:800;white-space:nowrap}
+.t-hand{background:#2B2416;color:#F3D58C}
+.t-wait{background:#1E2A33;color:#9CC9E8}
+.t-use{background:#3A2A1C;color:#FFB88A}
+.x{width:44px;height:44px;border-radius:22px;background:#252E29;color:#E9EEEB;display:flex;align-items:center;justify-content:center;flex:none;border:none}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,0.55);display:flex;flex-direction:column;justify-content:flex-end}
+.sheet{background:#161C19;border-radius:24px 24px 0 0;padding:10px 20px 32px;display:flex;flex-direction:column;gap:14px}
+.grab{width:40px;height:5px;border-radius:3px;background:#39433D;align-self:center}
+.step{display:flex;align-items:center;gap:12px;min-height:56px;border-bottom:1px solid #26302B}
+.step:last-child{border-bottom:none}
+.stp{width:44px;height:44px;border-radius:22px;border:1px solid #39433D;background:transparent;color:#E9EEEB;font:800 20px 'Plus Jakarta Sans',sans-serif;flex:none}
+.card{background:#1B221F;border-radius:18px;padding:4px 14px}
+.r{display:flex;align-items:center;gap:10px;min-height:48px;border-bottom:1px solid #26302B}
+.r:last-child{border-bottom:none}
+.rn{flex:1;min-width:0;font-size:14px;font-weight:600}
+.am{font-size:14px;color:#C5CEC8;white-space:nowrap}
+</style>
+</helmet>
+<div style="width:100%;min-height:900px;display:grid;grid-template-columns:248px minmax(0,1fr);background:#111614;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#E9EEEB">
+<nav aria-label="Main" style="border-right:1px solid #2A332E;padding:24px 14px;display:flex;flex-direction:column;gap:4px"><span style="font-size:20px;font-weight:800;padding:0 12px 18px">Mealwright</span><a href="#" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;text-decoration:none;font-size:15px;font-weight:600;color:#C5CEC8;background:transparent"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg>Today</a><a href="#" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;text-decoration:none;font-size:15px;font-weight:600;color:#C5CEC8;background:transparent"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>Plan</a><a href="#" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;text-decoration:none;font-size:15px;font-weight:800;color:#9FDDBB;background:#1C3528"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11h13v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"></path><path d="M17 13h3"></path><path d="M8 4v3M12 4v3"></path></svg>Batch cook<span style="margin-left:auto;color:#E38BD0;display:flex" title="Experimental"><svg role="img" aria-label="Experimental" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"></path><path d="M10 3v6.2L5.2 18.4A1.8 1.8 0 0 0 6.8 21h10.4a1.8 1.8 0 0 0 1.6-2.6L14 9.2V3"></path><path d="M7.3 15h9.4"></path></svg></span></a><a href="#" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;text-decoration:none;font-size:15px;font-weight:600;color:#C5CEC8;background:transparent"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1 13H7z"></path><path d="M9 7a3 3 0 0 1 6 0"></path></svg>Shopping</a><a href="#" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;text-decoration:none;font-size:15px;font-weight:600;color:#C5CEC8;background:transparent"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="6" rx="1"></rect><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9M10 14h4"></path></svg>Pantry</a><a href="#" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;text-decoration:none;font-size:15px;font-weight:600;color:#C5CEC8;background:transparent"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"></rect><path d="M9 8h6M9 12h6M9 16h4"></path></svg>Recipes</a></nav>
+<main style="padding:32px 40px;display:flex;flex-direction:column;gap:22px;max-width:1160px">
+<div class="row" style="flex-wrap:wrap"><div style="display:flex;align-items:center;gap:12px"><h1 class="h1" style="font-size:32px">Batch cook</h1><span class="exp"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"></path><path d="M10 3v6.2L5.2 18.4A1.8 1.8 0 0 0 6.8 21h10.4a1.8 1.8 0 0 0 1.6-2.6L14 9.2V3"></path><path d="M7.3 15h9.4"></path></svg>Experimental</span></div><span class="raw">Picks come only from your own recipes.</span></div>
+<div class="note">The picks and timings are guesses. Swap a recipe if it's wrong, and fix a step's timing when you edit the recipe. <a href="#">Got it</a></div>
+<div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end">
+<div style="display:flex;flex-direction:column;gap:8px"><span class="h2">Cook day</span><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="chip on">Sun 15 Nov</button><button class="chip">Mon 16</button><button class="chip">Sat 21</button><button class="chip">Other…</button></div></div>
+<div style="display:flex;flex-direction:column;gap:8px"><span class="h2">How many recipes</span><div class="seg" style="grid-template-columns:repeat(3,52px)"><span>2</span><span class="on">3</span><span>4</span></div></div>
+<div style="display:flex;flex-direction:column;gap:2px;margin-left:auto"><span style="font-size:16px;font-weight:800">About 1 h 50 min together</span><span class="raw">2 h 55 min one by one · hob 4 · pressure cooker 1 · oven <a href="#">Change</a></span></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+<div class="ln" style="padding:16px;gap:10px"><div class="row"><span class="nm" style="font-size:18px">Chicken chettinad</span><span class="am">1 h 10</span></div><span class="why" style="font-size:14px">Shares onion, tomato and curry-leaf prep with Sambar; marinates while the dal cooks.</span><div style="flex:1"></div><div class="row" style="justify-content:flex-start"><button class="btn">Swap</button><a href="#" style="font-size:13px;font-weight:700">Open recipe</a></div></div>
+<div class="ln" style="padding:16px;gap:10px"><div class="row"><span class="nm" style="font-size:18px">Sambar</span><span class="am">55 min</span></div><span class="why" style="font-size:14px">Pressure cooker runs while you chop for the others.</span><div style="flex:1"></div><div class="row" style="justify-content:flex-start"><button class="btn">Swap</button><a href="#" style="font-size:13px;font-weight:700">Open recipe</a></div></div>
+<div class="ln" style="padding:16px;gap:10px"><div class="row"><span class="nm" style="font-size:18px">Keerai poriyal</span><span class="am">20 min</span></div><span class="why" style="font-size:14px">Uses your Use soon spinach; cooked last, on a free hob ring.</span><span class="tag t-use" style="align-self:flex-start">Use soon · spinach, 2 days</span><div style="flex:1"></div><div class="row" style="justify-content:flex-start"><button class="btn">Swap</button><a href="#" style="font-size:13px;font-weight:700">Open recipe</a></div></div>
+</div>
+<div style="display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap"><button class="btno" style="padding:0 24px">Show me others</button><button class="btnw" style="padding:0 32px">Plan this batch</button></div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
