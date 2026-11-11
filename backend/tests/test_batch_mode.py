@@ -359,3 +359,25 @@ def test_a_timer_pressed_offline_counts_from_when_it_was_pressed_and_never_from_
         )
         stamp = datetime.fromisoformat(sent["done_at"]).replace(tzinfo=UTC)
         assert made_at <= stamp <= datetime.now(UTC) + timedelta(seconds=5)
+
+
+def test_removing_the_session_and_undo_bring_back_its_schedule_and_progress(
+    kitchen: TestClient, session: int
+) -> None:
+    """Review B3 round 1, fix 3: Undo of taking the session off the plan puts the schedule, what
+    was done and a running timer back, as they were."""
+    made = start(kitchen, session)
+    first = made["now_id"]
+    ok(kitchen.put(url(session, f"/tasks/{first}/done")))
+    after = ok(kitchen.get(url(session)))
+    waiting = next(t for t in after["tasks"] if t["hands"] == "waiting" and t["state"] == "ready")
+    ok(kitchen.put(url(session, f"/tasks/{waiting['id']}/timer")))
+    before = ok(kitchen.get(url(session)))
+    removed = ok(kitchen.delete(f"{API}/batch-cook/sessions/{session}"))
+    assert kitchen.get(url(session)).status_code == 404
+    ok(kitchen.post(f"{API}/changes/{removed['change']['id']}/undo"))
+    again = ok(kitchen.get(url(session)))
+    for key in ("made_at", "tasks", "stale", "done_count", "now_id", "next_id", "total_minutes"):
+        assert again[key] == before[key], key
+    assert task(again, first)["done_at"] == task(before, first)["done_at"]
+    assert task(again, waiting["id"])["started_at"] == task(before, waiting["id"])["started_at"]

@@ -7,7 +7,7 @@ at it). A tub in no meal is a "tub left". Every write is one Change with its Und
 """
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from fastapi import status
@@ -25,6 +25,7 @@ from mealwright.models import (
     SPREAD_PATTERNS,
     BatchCook,
     BatchSession,
+    BatchTaskProgress,
     Change,
     Login,
     Meal,
@@ -908,6 +909,28 @@ def drop_empty_session(kitchen: Kitchen, session_id: int, steps: list[dict[str, 
                 "cook_day": session.cook_day.isoformat(),
                 "together_minutes": session.together_minutes,
                 "one_by_one_minutes": session.one_by_one_minutes,
+                # Batch cook mode's schedule and where it was up to come back with Undo (B3 review
+                # round 1, fix 3).
+                "schedule": session.schedule,
+                "schedule_basis": session.schedule_basis,
+                "schedule_made_at": session.schedule_made_at.isoformat()
+                if session.schedule_made_at
+                else None,
+                "progress": [
+                    {
+                        "task_id": p.task_id,
+                        "done_at": p.done_at.isoformat() if p.done_at else None,
+                        "started_at": p.started_at.isoformat() if p.started_at else None,
+                    }
+                    for p in db.scalars(
+                        select(BatchTaskProgress)
+                        .where(
+                            BatchTaskProgress.household_id == kitchen.household_id,
+                            BatchTaskProgress.session_id == session.id,
+                        )
+                        .order_by(BatchTaskProgress.id)
+                    )
+                ],
             },
         }
     )
@@ -1571,8 +1594,26 @@ def undo_step(kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int]) -> 
                 cook_day=date.fromisoformat(old["cook_day"]),
                 together_minutes=old["together_minutes"],
                 one_by_one_minutes=old["one_by_one_minutes"],
+                schedule=old.get("schedule"),  # a step written before B3 has none of these
+                schedule_basis=old.get("schedule_basis"),
+                schedule_made_at=datetime.fromisoformat(old["schedule_made_at"])
+                if old.get("schedule_made_at")
+                else None,
             )
         )
+        db.flush()
+        for mark in old.get("progress", []):
+            db.add(
+                BatchTaskProgress(
+                    household_id=kitchen.household_id,
+                    session_id=old["id"],
+                    task_id=mark["task_id"],
+                    done_at=datetime.fromisoformat(mark["done_at"]) if mark["done_at"] else None,
+                    started_at=datetime.fromisoformat(mark["started_at"])
+                    if mark["started_at"]
+                    else None,
+                )
+            )
         db.flush()
         return True
     return False  # pragma: no cover (every step the plan writes is handled)
