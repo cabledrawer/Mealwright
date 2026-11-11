@@ -5,7 +5,7 @@
   // one Cooked it. One change in Recent changes, with one Undo that puts every recipe's stock and
   // tubs back. The words the mockup shows are as drawn; the others are proposed, for cabledrawer.
   import { tubsLine } from '#lib/sessionTubs.js';
-  import { TOO_MANY_ANSWERS, amountWords, shown } from '#lib/cookRows.js';
+  import { TOO_MANY_ANSWERS, amountWords, shown, upperFirst } from '#lib/cookRows.js';
   import { downLine } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
   import type { CookReview, CookTab } from '#lib/cookReview.svelte.js';
@@ -103,7 +103,9 @@
                 {#each lines(tab) as row (row.key)}
                   <li>
                     <span class="rn"
-                      >{row.food?.name ?? row.recipe?.name ?? row.lines[0]?.words}</span
+                      >{upperFirst(
+                        row.food?.name ?? row.recipe?.name ?? row.lines[0]?.words ?? ''
+                      )}</span
                     ><span class="am">{rowWords(tab, row)}</span>
                   </li>
                 {/each}

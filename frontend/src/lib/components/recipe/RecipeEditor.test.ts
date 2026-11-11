@@ -732,6 +732,17 @@ describe('an existing recipe', () => {
       expect(page.getByText('Nothing', { exact: true }).elements()).toHaveLength(0);
     });
 
+    it('the "Waiting · 15 min" tag is a chip as wide as its words, like "Hands-on", never the full width (RF5)', async () => {
+      fakeApi(routes());
+      open({ recipeId: 2 });
+      await expect.element(page.getByText('Waiting · 15\u00a0min')).toBeVisible();
+      const waiting = page.getByText('Waiting · 15\u00a0min').element().getBoundingClientRect();
+      const hands = page.getByText('Hands-on · 8\u00a0min').element().getBoundingClientRect();
+      const step = page.getByText('Waiting · 15\u00a0min').element().closest('[data-timing]')!;
+      expect(waiting.width).toBeLessThan(step.getBoundingClientRect().width * 0.6);
+      expect(waiting.height).toBeLessThan(hands.height * 1.5);
+    });
+
     it('a change takes all three as yours, and Save sends them; Guess again gives them back', async () => {
       const requests = fakeApi(routes());
       open({ recipeId: 2 });

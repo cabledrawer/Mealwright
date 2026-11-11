@@ -58,6 +58,15 @@ export function amountWords(n: number, unit: 'g' | 'ml' | 'count' | null): strin
   return unit === 'g' || unit === 'ml' ? `${text}${NBSP}${unit}` : text;
 }
 
+/**
+ * An ingredient's name as a row of the "Cooked it" review shows it (RF5): the first letter a
+ * capital, the rest as written, so "toor dal", "Onion" and "chicken thighs" read alike
+ * ("Toor dal", "Onion", "Chicken thighs"), as the ingredient lists and the mockup do. A name
+ * with other capitals in it ("TVP") keeps them.
+ */
+export const upperFirst = (name: string) =>
+  name ? `${name.charAt(0).toLocaleUpperCase('en-GB')}${name.slice(1)}` : name;
+
 /** An ingredient's name inside a sentence: "Eggs" is "eggs", "MSG" stays (F133). */
 export const nameInSentence = (name: string) =>
   name.length > 1 && /[a-z]/.test(name[1]!) ? `${name[0]!.toLowerCase()}${name.slice(1)}` : name;

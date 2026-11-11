@@ -20,6 +20,7 @@
     roundForScreen,
     listAmountWords,
     nameInSentence,
+    upperFirst,
     type RowState
   } from '#lib/cookRows.js';
   import type { CookReview, CookTab } from '#lib/cookReview.svelte.js';
@@ -34,7 +35,7 @@
 
   const uid = $props.id();
   const mine = $derived(tab.state(row.key));
-  const name = $derived(row.food?.name ?? row.recipe?.name ?? recipeSays(row));
+  const name = $derived(upperFirst(row.food?.name ?? row.recipe?.name ?? recipeSays(row)));
   const view = $derived(shown(row, mine));
   const counted = $derived(row.unit === 'count');
   const own = $derived(ownTake(row));

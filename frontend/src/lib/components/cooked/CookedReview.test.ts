@@ -189,6 +189,20 @@ describe('the "Cooked it" review', () => {
     expect(calls[0]!.url).toBe('/api/v1/plan/meals/7/cook/preview');
   });
 
+  it('one capital rule for the names: the first letter, whatever the ingredient is stored as (RF5)', async () => {
+    previews = [
+      [proposal('Sambar', [row('toor dal', 1), row('Onion', 2), row('chicken thighs', 3)])]
+    ];
+    await show(['Sambar']);
+    const dialog = page.getByRole('dialog', { name: 'Cooked Sambar' });
+    const names = () =>
+      dialog
+        .getByTestId('cook-row')
+        .elements()
+        .map((el) => el.querySelector('b')?.textContent);
+    await vi.waitFor(() => expect(names()).toEqual(['Toor dal', 'Onion', 'Chicken thighs']));
+  });
+
   it('Use off leaves an ingredient out of what is sent, and Confirm goes with one request', async () => {
     await show(['Sambar']);
     const dialog = page.getByRole('dialog', { name: 'Cooked Sambar' });

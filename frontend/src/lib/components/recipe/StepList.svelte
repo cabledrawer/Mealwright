@@ -182,7 +182,7 @@
                   <span
                     class="tag"
                     class:hands={shown.hands === 'hands'}
-                    class:waits={shown.hands === 'waiting'}>{handsWords(shown)}</span
+                    class:waiting={shown.hands === 'waiting'}>{handsWords(shown)}</span
                   >
                 {/if}
                 {#if equipmentWords(shown)}<span class="tag plain">{equipmentWords(shown)}</span
@@ -411,7 +411,7 @@
     color: var(--color-maybe-chip-text);
   }
 
-  .tag.waits {
+  .tag.waiting {
     background: var(--color-info);
     color: var(--color-info-text);
   }
