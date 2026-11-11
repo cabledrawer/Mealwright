@@ -183,6 +183,8 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
         "conversion_id": conversions[0]["id"],
         "shop_id": shop["id"],
         "place_id": places["Fridge"],
+        "session_id": 1,  # a batch cook session: another household's (or none) is 404
+        "task_id": "t1",
     }
 
 
@@ -307,6 +309,15 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("POST", "/api/v1/plan/tubs/{plan_tub_id}/bin"): None,
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/cook/preview"): {},
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/cook"): {},
+    # Batch cook mode and the one Cooked it for a session (0.8 wave 6, B3). Also tried in
+    # test_batch_mode.py and test_batch_cooked.py.
+    ("POST", "/api/v1/batch-cook/sessions/{session_id}/schedule"): {},
+    ("GET", "/api/v1/batch-cook/sessions/{session_id}/schedule"): None,
+    ("PUT", "/api/v1/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/done"): None,
+    ("DELETE", "/api/v1/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/done"): None,
+    ("PUT", "/api/v1/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/timer"): None,
+    ("POST", "/api/v1/batch-cook/sessions/{session_id}/cook/preview"): {},
+    ("POST", "/api/v1/batch-cook/sessions/{session_id}/cook"): {},
     # Today (0.6 PR 6). Also tried in test_today.py, in both directions.
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/cooked"): {},
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/didnt"): None,

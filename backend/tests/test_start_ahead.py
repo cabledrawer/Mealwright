@@ -32,12 +32,12 @@ SUN = date(2026, 11, 15)
 def clock(monkeypatch: pytest.MonkeyPatch) -> Callable[[datetime], None]:
     """Move the clock the plan reads to a chosen moment (sign-in keeps the real one, so a jump
     of a day doesn't sign the test out)."""
-    from mealwright import plan
+    from mealwright import batch_sessions, plan
     from mealwright.api.v1 import plan as plan_api
 
     def set_to(moment: datetime) -> None:
         shift = moment - datetime.now(UTC)
-        for module in (plan, plan_api):
+        for module in (plan, plan_api, batch_sessions):
             monkeypatch.setattr(module, "utcnow", lambda: datetime.now(UTC) + shift)
 
     return set_to

@@ -34,6 +34,7 @@ from mealwright.models import (
     Place,
     Recipe,
     Tub,
+    utcnow,
 )
 
 FEWEST = batch_suggest.FEWEST_PICKS
@@ -122,7 +123,7 @@ def _start_tonight(
     if found is None:
         return None
     options = start_ahead.options(
-        kitchen.household, found, day, plan.find_slot(kitchen, slot_id), plan.utcnow()
+        kitchen.household, found, day, plan.find_slot(kitchen, slot_id), utcnow()
     )
     if not options:
         return None

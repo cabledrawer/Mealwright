@@ -180,3 +180,18 @@ def test_the_other_household_and_the_switch(kitchen: TestClient, neighbour: Test
     ok(kitchen.patch(f"{API}/household", json={"batch_cook": False}))
     hidden = kitchen.post(f"{API}/batch-cook/sessions/{session}/cook", json={})
     assert hidden.status_code == 409 and hidden.json()["code"] == "batch_cook_hidden"
+
+
+def test_another_households_batch_cook_is_not_found_in_my_session(
+    kitchen: TestClient, neighbour: TestClient
+) -> None:
+    session, mine = session_of(kitchen)
+    _, theirs = session_of(neighbour, 2)
+    before = pantry(kitchen)
+    for path in ("cook/preview", "cook"):
+        refused = kitchen.post(
+            f"{API}/batch-cook/sessions/{session}/{path}",
+            json={"items": [{"batch_id": mine[0]}, {"batch_id": theirs[0]}]},
+        )
+        assert refused.status_code == 404 and refused.json()["code"] == "not_found"
+    assert pantry(kitchen) == before
