@@ -64,14 +64,16 @@ export const startSchedule = (id: number, planAgain = false) =>
 
 export const getSchedule = (id: number) => api<Schedule>('GET', base(id));
 
-export const markTaskDone = (id: number, task: string) =>
-  api<Schedule>('PUT', `${base(id)}/tasks/${task}/done`);
+/** `at`: when it was pressed (a phone that was offline sends it later; the server uses it when it
+ *  lies between the schedule being made and now). */
+export const markTaskDone = (id: number, task: string, at?: string) =>
+  api<Schedule>('PUT', `${base(id)}/tasks/${task}/done`, at ? { at } : undefined);
 
 export const undoTaskDone = (id: number, task: string) =>
   api<Schedule>('DELETE', `${base(id)}/tasks/${task}/done`);
 
-export const startTaskTimer = (id: number, task: string) =>
-  api<Schedule>('PUT', `${base(id)}/tasks/${task}/timer`);
+export const startTaskTimer = (id: number, task: string, at?: string) =>
+  api<Schedule>('PUT', `${base(id)}/tasks/${task}/timer`, at ? { at } : undefined);
 
 export interface SessionProposal {
   session_id: number;

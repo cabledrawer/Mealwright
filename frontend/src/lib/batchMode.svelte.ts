@@ -180,7 +180,7 @@ export class BatchModeModel {
 
   mark(mark: Mark, task: string): void {
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a moment to write down, not state
-    const p: Pending = { mark, task, at: new Date(this.nowMs).toISOString() };
+    const p: Pending = { mark, task, at: new Date(Date.now() + this.#skew).toISOString() };
     if (!this.schedule) return;
     this.schedule = { ...this.schedule, tasks: this.schedule.tasks.map((t) => apply(t, p)) };
     this.lastDone = mark === 'done' ? task : null;
@@ -214,9 +214,14 @@ export class BatchModeModel {
       while (this.pending.length) {
         const p = this.pending[0]!;
         try {
-          const call =
-            p.mark === 'done' ? markTaskDone : p.mark === 'undo' ? undoTaskDone : startTaskTimer;
-          const reply = await call(this.id, p.task);
+          // The time it was pressed goes with a done or a timer, so a mark made offline counts
+          // from then, not from when the phone reconnects (review B3 r1, fix 4).
+          const reply =
+            p.mark === 'done'
+              ? await markTaskDone(this.id, p.task, p.at)
+              : p.mark === 'undo'
+                ? await undoTaskDone(this.id, p.task)
+                : await startTaskTimer(this.id, p.task, p.at);
           this.pending = this.pending.slice(1);
           this.#skew = Date.parse(reply.server_time) - Date.now();
           if (!this.pending.length) this.schedule = reply;

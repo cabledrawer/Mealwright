@@ -99,7 +99,7 @@ describe('Batch cook mode model', () => {
     model.mark('done', 't1');
     expect(model.worked?.now?.id).toBe('t2'); // before the server answers
     await model.flush();
-    expect(calls.done).toHaveBeenCalledWith(7, 't1');
+    expect(calls.done).toHaveBeenCalledWith(7, 't1', expect.any(String));
     expect(model.pending).toEqual([]);
     expect(model.lastDone).toBe('t1');
   });
@@ -120,6 +120,26 @@ describe('Batch cook mode model', () => {
     calls.done.mockResolvedValue(after);
     await model.flush();
     expect(model.pending).toEqual([]);
+  });
+
+  it('sends the time a timer was pressed, so one started offline counts from then', async () => {
+    calls.start.mockResolvedValue(
+      schedule([task({ id: 't1', hands: 'waiting', equipment: 'pressure', slot: 1, minutes: 15 })])
+    );
+    calls.timer.mockRejectedValueOnce(offline());
+    const model = new BatchModeModel(7);
+    await model.load();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-15T10:00:00Z'));
+    model.mark('timer', 't1');
+    const pressed = model.pending[0]!.at;
+    vi.setSystemTime(new Date('2026-11-15T10:20:00Z')); // the connection is back twenty minutes on
+    calls.timer.mockResolvedValue(schedule([task({ id: 't1', hands: 'waiting' })]));
+    await model.flush();
+    vi.useRealTimers();
+    expect(pressed).toBe('2026-11-15T10:00:00.000Z');
+    expect(calls.timer).toHaveBeenLastCalledWith(7, 't1', pressed);
+    model.stop();
   });
 
   it('tries the waiting marks again by itself when the first try fails', async () => {

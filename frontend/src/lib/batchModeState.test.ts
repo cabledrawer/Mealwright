@@ -125,3 +125,127 @@ describe('batch cook mode state', () => {
     expect(rows(recipes, w, min(60)).map((r) => r.kind)).toEqual(['done', 'done']);
   });
 });
+
+describe('the kitchen is never over-used (review B3 round 1)', () => {
+  const kit = { hob_rings: 4, pressure_cookers: 1, oven: true };
+  const cook = (id: string, recipe: number, over: Partial<ScheduleTask> = {}) =>
+    task({
+      id,
+      recipe_ids: [recipe],
+      hands: 'waiting',
+      equipment: 'pressure',
+      slot: 1,
+      minutes: 15,
+      ...over
+    });
+
+  it('a second pressure cook waits for the one cooker', () => {
+    const two = [cook('t1', 1), cook('t2', 2, { start: 15, end: 30 })];
+    const w = work(two, min(0));
+    expect(w.tasks.map((t) => t.state)).toEqual(['ready', 'later']);
+    const running = work([{ ...two[0]!, started_at: '2026-11-15T10:00:00Z' }, two[1]!], min(5));
+    expect(running.tasks[1]!.state).toBe('later');
+    expect(running.inUse.pressure).toBe(1);
+    const over = work([{ ...two[0]!, started_at: '2026-11-15T10:00:00Z' }, two[1]!], min(16));
+    expect(over.tasks[1]!.state).toBe('ready');
+  });
+
+  it('frying waits for the hob ring a simmer is on', () => {
+    const simmer = task({
+      id: 't1',
+      recipe_ids: [1],
+      hands: 'waiting',
+      equipment: 'hob',
+      slot: 1,
+      minutes: 20,
+      end: 20
+    });
+    const fry = task({ id: 't2', recipe_ids: [2], equipment: 'hob', slot: 1, start: 20, end: 25 });
+    const w = work([{ ...simmer, started_at: '2026-11-15T10:00:00Z' }, fry], min(1));
+    expect(w.tasks[1]!.state).toBe('later');
+    expect(w.now).toBeNull();
+  });
+
+  it('a step without its equipment waits for everything, and everything waits for it', () => {
+    const a = task({ id: 't1', recipe_ids: [1] });
+    const bake = task({
+      id: 't2',
+      recipe_ids: [2],
+      hands: 'waiting',
+      equipment: 'oven',
+      lacks: true,
+      start: 5,
+      end: 25,
+      minutes: 20
+    });
+    const c = task({ id: 't3', recipe_ids: [3], start: 25, end: 30 });
+    expect(work([a, bake, c], min(0)).tasks.map((t) => t.state)).toEqual([
+      'ready',
+      'later',
+      'later'
+    ]);
+    const done = { ...a, done_at: '2026-11-15T10:05:00Z' };
+    expect(work([done, bake, c], min(5)).tasks.map((t) => t.state)).toEqual([
+      'done',
+      'ready',
+      'later'
+    ]);
+    void kit;
+  });
+
+  it('pressing whatever is ready never goes over what the kitchen has', () => {
+    let seed = 7;
+    const rand = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
+    for (let round = 0; round < 200; round++) {
+      const rings = 1 + Math.floor(rand() * 3);
+      const tasks: ScheduleTask[] = [];
+      for (let i = 0; i < 6; i++) {
+        const recipe = 1 + Math.floor(rand() * 3);
+        const waiting = rand() < 0.6;
+        const equipment = rand() < 0.3 ? 'pressure' : 'hob';
+        tasks.push(
+          task({
+            id: `t${i + 1}`,
+            recipe_ids: [recipe],
+            hands: waiting ? 'waiting' : 'hands',
+            equipment,
+            slot: 1 + Math.floor(rand() * (equipment === 'pressure' ? 1 : rings)),
+            start: i,
+            end: i + 5,
+            minutes: 5 + Math.floor(rand() * 10)
+          })
+        );
+      }
+      const marks = new Map<string, { started_at: string | null; done_at: string | null }>();
+      let now = T0;
+      for (let step = 0; step < 100; step++) {
+        const w = work(
+          tasks.map((t) => ({ ...t, ...(marks.get(t.id) ?? {}) })),
+          now
+        );
+        if (w.doneCount === w.tasks.length) break;
+        for (const [kind, cap] of [
+          ['hob', rings],
+          ['pressure', 1],
+          ['oven', 1]
+        ] as const) {
+          const using = w.tasks.filter(
+            (t) => t.equipment === kind && (t.state === 'running' || t.id === w.now?.id)
+          );
+          const slots = new Set(using.map((t) => t.slot));
+          expect(using.length).toBeLessThanOrEqual(cap);
+          expect(slots.size).toBe(using.length); // no two on one ring
+        }
+        const timers = w.tasks.filter((t) => t.hands === 'waiting' && t.state === 'ready');
+        if (timers.length && (rand() < 0.5 || !w.now)) {
+          marks.set(timers[0]!.id, { started_at: new Date(now).toISOString(), done_at: null });
+        } else if (w.now) {
+          marks.set(w.now.id, { started_at: null, done_at: new Date(now).toISOString() });
+          now += w.now.minutes * 60_000;
+        } else {
+          now += 60_000;
+        }
+      }
+    }
+  });
+});

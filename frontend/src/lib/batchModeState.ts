@@ -22,18 +22,41 @@ export interface Worked {
   minutesLeft: number;
 }
 
-/** Each task's previous task in each of its recipes. */
+/**
+ * What each task waits for (the same rule as the server's `batch_mode._before_ids`, review B3
+ * round 1, fix 1): the previous task in each of its recipes; the previous task in the same hob
+ * ring, pressure cooker or oven as the schedule gave them out; and a task that needs equipment
+ * the kitchen has none of (`lacks`) waits for every task before it, with every task after it
+ * waiting for it, so it is done alone.
+ */
 function before(tasks: ScheduleTask[]): Map<string, string[]> {
   const last = new Map<number, string>();
+  const inSlot = new Map<string, string>();
   const out = new Map<string, string[]>();
+  const seen: string[] = [];
+  let lacking: string | null = null;
   for (const task of tasks) {
     const found: string[] = [];
+    const need = (other: string | null | undefined) => {
+      if (other && !found.includes(other)) found.push(other);
+    };
     for (const recipe of task.recipe_ids) {
-      const prev = last.get(recipe);
-      if (prev !== undefined && !found.includes(prev)) found.push(prev);
+      need(last.get(recipe));
       last.set(recipe, task.id);
     }
+    if (task.equipment !== 'none' && task.slot !== null && !task.lacks) {
+      const key = `${task.equipment}:${task.slot}`;
+      need(inSlot.get(key));
+      inSlot.set(key, task.id);
+    }
+    if (task.lacks) {
+      for (const other of seen) need(other);
+      lacking = task.id;
+    } else {
+      need(lacking);
+    }
     out.set(task.id, found);
+    seen.push(task.id);
   }
   return out;
 }
