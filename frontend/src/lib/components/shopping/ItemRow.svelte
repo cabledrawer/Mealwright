@@ -679,6 +679,7 @@
 
   .plan:not(.trolley) .why {
     grid-area: why;
+    min-height: 28px; /* a button: room to tap, 24 px at least */
     padding-bottom: var(--space-3);
   }
 
