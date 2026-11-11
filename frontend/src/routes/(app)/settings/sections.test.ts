@@ -37,11 +37,14 @@ const write = (summary: string, id = 90) => [
   { change: { ...changeOf(id, summary), kind: 'shop_removed' } }
 ];
 
+const KITCHEN = { hob_rings: 4, pressure_cookers: 1, oven: true, asked: false };
+
 let mounted: ReturnType<typeof mount> | null = null;
 
 function open(routes: Record<string, Parameters<typeof fakeApi>[0][string]> = {}): FakeRequest[] {
   const requests = fakeApi({
     'GET /household': [200, { name: 'Home', pints: 'uk' }],
+    'GET /household/kitchen': [200, KITCHEN],
     'GET /meal-slots': [200, SLOTS],
     'GET /shops': [200, SHOPS],
     'GET /places': [200, PLACES],
@@ -87,6 +90,7 @@ describe('the section list', () => {
       'Amounts',
       'Meal slots',
       'Shops & places',
+      'Your kitchen',
       'Recent changes',
       'Privacy',
       'Sign-in'
@@ -124,7 +128,7 @@ describe('the section list', () => {
     await expect.element(group('Your settings')).toBeVisible();
     for (const [name, rows] of [
       ['Your settings', ['Appearance', 'Amounts']],
-      ['Kitchen settings', ['Meal slots', 'Shops & places', 'Recent changes']],
+      ['Kitchen settings', ['Meal slots', 'Shops & places', 'Your kitchen', 'Recent changes']],
       ['Household settings', ['Privacy', 'Sign-in']]
     ] as const) {
       const links = group(name).getByRole('link');
@@ -148,6 +152,9 @@ describe('the section list', () => {
     await expect
       .element(page.getByRole('link', { name: /^Shops & places/ }))
       .toHaveTextContent('Shops & places 2 shops · 4 places');
+    await expect
+      .element(page.getByRole('link', { name: /^Your kitchen/ }))
+      .toHaveTextContent('Your kitchen 4 hob rings');
     await expect
       .element(page.getByRole('link', { name: /^Privacy/ }))
       .toHaveTextContent('Privacy All off');
@@ -573,5 +580,83 @@ describe('Recent changes', () => {
     open({ 'GET /changes': [500, { detail: 'No.' }] });
     await expect.element(page.getByText(/Couldn’t load the recent changes\./)).toBeVisible();
     await expect.element(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+  });
+});
+
+describe('Your kitchen (Batch cook, B1; mockup Dark-BatchKit08)', () => {
+  const kitchen = () => page.getByRole('region', { name: 'Your kitchen' });
+
+  it('shows the kitchen as it is, and says it has not been asked yet', async () => {
+    open();
+    await expect.element(kitchen()).toBeVisible();
+    await vi.waitFor(() => expect(kitchen().element().textContent).toMatch(/Hob rings\s*4/));
+    await vi.waitFor(() => expect(kitchen().element().textContent).toMatch(/Pressure cookers\s*1/));
+    await vi.waitFor(() => expect(kitchen().element().textContent).toMatch(/Oven\s*Yes/));
+    await vi.waitFor(() => expect(kitchen().element().textContent).toContain('Not asked yet'));
+  });
+
+  it('phone: it has its own page under Kitchen', async () => {
+    await page.viewport(390, 800);
+    at('?section=your-kitchen');
+    open();
+    await expect
+      .element(page.getByRole('heading', { level: 1, name: 'Your kitchen' }))
+      .toBeVisible();
+    await expect.element(kitchen()).toBeVisible();
+  });
+
+  it('Change opens the sheet; Save sends the kitchen, and the section shows it', async () => {
+    const requests = open({
+      'PATCH /household/kitchen': [
+        200,
+        { hob_rings: 3, pressure_cookers: 2, oven: false, asked: true }
+      ]
+    });
+    await page.getByRole('button', { name: 'Change' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Your kitchen' });
+    await expect.element(sheet).toBeVisible();
+    await sheet.getByRole('button', { name: 'Fewer hob rings' }).click();
+    await sheet.getByRole('button', { name: 'More pressure cookers' }).click();
+    await sheet.getByRole('radio', { name: 'No' }).click();
+    await sheet.getByRole('button', { name: 'Save' }).click();
+    await vi.waitFor(() =>
+      expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({
+        hob_rings: 3,
+        pressure_cookers: 2,
+        oven: false
+      })
+    );
+    await vi.waitFor(() => expect(kitchen().element().textContent).toMatch(/Hob rings\s*3/));
+    await vi.waitFor(() => expect(kitchen().element().textContent).toMatch(/Oven\s*No/));
+    expect(kitchen().element().textContent).not.toContain('Not asked yet');
+  });
+
+  it('keeps the steppers between 1 and 12 hob rings and 0 and 6 pressure cookers', async () => {
+    open({ 'GET /household/kitchen': [200, { ...KITCHEN, hob_rings: 1, pressure_cookers: 0 }] });
+    await page.getByRole('button', { name: 'Change' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Your kitchen' });
+    await expect.element(sheet.getByRole('button', { name: 'Fewer hob rings' })).toBeDisabled();
+    await expect
+      .element(sheet.getByRole('button', { name: 'Fewer pressure cookers' }))
+      .toBeDisabled();
+  });
+
+  it('Close leaves it as it was, and nothing is sent', async () => {
+    const requests = open();
+    await page.getByRole('button', { name: 'Change' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Your kitchen' });
+    await sheet.getByRole('button', { name: 'More hob rings' }).click();
+    await sheet.getByRole('button', { name: 'Close' }).click();
+    await vi.waitFor(() => expect(kitchen().element().textContent).toMatch(/Hob rings\s*4/));
+    expect(requests.some((r) => r.method === 'PATCH')).toBe(false);
+  });
+
+  it('says it could not save, and keeps the sheet open', async () => {
+    open({ 'PATCH /household/kitchen': [503, { detail: 'down' }] });
+    await page.getByRole('button', { name: 'Change' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Your kitchen' });
+    await sheet.getByRole('button', { name: 'Save' }).click();
+    await expect.element(sheet.getByRole('alert')).toBeVisible();
+    await expect.element(sheet).toBeVisible();
   });
 });

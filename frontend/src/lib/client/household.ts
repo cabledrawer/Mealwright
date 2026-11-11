@@ -54,3 +54,22 @@ export async function settleHousehold(
   }
   return true;
 }
+
+/** The household's kitchen, for Batch cook (Experimental; 0.8 wave 6, B1). */
+export interface Kitchen {
+  hob_rings: number;
+  pressure_cookers: number;
+  oven: boolean;
+  /** False until the household has saved it once. */
+  asked: boolean;
+}
+
+export const getKitchen = () => api<Kitchen>('GET', '/household/kitchen');
+
+/** Saves the kitchen's equipment; any save counts as asking. */
+export const saveKitchen = (kitchen: Pick<Kitchen, 'hob_rings' | 'pressure_cookers' | 'oven'>) =>
+  api<Kitchen>('PATCH', '/household/kitchen', kitchen);
+
+/** The most a kitchen is asked for (the server's own limits). */
+export const MOST_HOB_RINGS = 12;
+export const MOST_PRESSURE_COOKERS = 6;

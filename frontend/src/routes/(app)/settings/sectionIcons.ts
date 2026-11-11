@@ -6,6 +6,7 @@ export type IconKey =
   | 'amounts'
   | 'meal-slots'
   | 'shops-places'
+  | 'your-kitchen'
   | 'recent-changes'
   | 'privacy'
   | 'sign-in';
@@ -26,6 +27,10 @@ export const SECTION_ICONS: Record<
   'shops-places': {
     tone: 'kitchen',
     paths: ['M4 9l1.5-5h13L20 9', 'M4 9h16v11H4z', 'M10 20v-6h4v6']
+  },
+  'your-kitchen': {
+    tone: 'kitchen',
+    paths: ['M5 10h14v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z', 'M3 10h18', 'M10 6.5h4M8 3.5h8']
   },
   'recent-changes': {
     tone: 'kitchen',

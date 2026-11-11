@@ -35,6 +35,7 @@
   import Icon, { type Name } from '#lib/components/Icon.svelte';
   import SwipeRow from '#lib/components/SwipeRow.svelte';
   import UsedSheet from '#lib/components/UsedSheet.svelte';
+  import YourKitchen from '#lib/components/YourKitchen.svelte';
   import LotMenu from '#lib/components/LotMenu.svelte';
   import Logo from '#lib/components/Logo.svelte';
   import NewIngredient from '#lib/components/NewIngredient.svelte';
@@ -122,6 +123,8 @@
   ];
 
   let usedSheet = $state<'weight' | 'count' | null>(null);
+  let kitchenSheet = $state(false);
+  let kitchenShown = $state({ hob_rings: 4, pressure_cookers: 1, oven: true, asked: false });
 
   // --- Settings → Privacy -----------------------------------------------------------------
   let importOn = $state(true);
@@ -778,6 +781,7 @@
     <a href="#changes">Recent changes</a>
     <a href="#chrome">Page chrome</a>
     <a href="#recipe-editor">Recipe editor</a>
+    <a href="#your-kitchen">Your kitchen</a>
     <a href="#privacy">Privacy</a>
     <a href="#icons">Icons</a>
   </nav>
@@ -1451,6 +1455,17 @@
     {/if}
   </section>
 
+  <section id="your-kitchen">
+    <h2>Your kitchen</h2>
+    <p class="note">
+      Batch cook asks for the hob rings, pressure cookers and oven once, on first use; Settings,
+      Kitchen changes them. Nothing here is saved or sent.
+    </p>
+    <p class="inline">
+      <Button onclick={() => (kitchenSheet = true)}>Open Your kitchen</Button>
+    </p>
+  </section>
+
   <section id="privacy">
     <h2>Settings → Privacy: outside connections, your own network</h2>
     <p class="note">
@@ -1575,6 +1590,17 @@
   onpart={() => (usedSheet = null)}
   onleft={() => (usedSheet = null)}
   onclose={() => (usedSheet = null)}
+/>
+
+<YourKitchen
+  open={kitchenSheet}
+  kitchen={kitchenShown}
+  save={async (kitchen) => ({ ...kitchen, asked: true })}
+  onsaved={(kitchen) => {
+    kitchenShown = kitchen;
+    kitchenSheet = false;
+  }}
+  onclose={() => (kitchenSheet = false)}
 />
 
 {#if showAlready}

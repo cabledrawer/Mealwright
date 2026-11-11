@@ -6,13 +6,14 @@
   import Button from '#lib/components/Button.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import Switch from '#lib/components/Switch.svelte';
+  import YourKitchen from '#lib/components/YourKitchen.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import ThemeSwitch from '#lib/components/ThemeSwitch.svelte';
   import { ApiError, cantReach } from '#lib/api.js';
   import { nothingChanged } from '#lib/downWords.js';
   import { getShops, getPlaces } from '#lib/client/foods.js';
-  import { changePints, getHousehold } from '#lib/client/household.js';
+  import { changePints, getHousehold, getKitchen, type Kitchen } from '#lib/client/household.js';
   import { getMealSlots } from '#lib/client/plan.js';
   import { checkMode, type CheckMode } from '#lib/checkMode.svelte.js';
   import type { Pints } from '#lib/client/types.js';
@@ -59,7 +60,19 @@
     }
   ];
 
+  /** The kitchen's equipment for Batch cook (B1), once the server has said. */
+  let kitchenNow = $state<Kitchen | null>(null);
+  let kitchenOpen = $state(false);
+  let kitchenOpener = $state<HTMLElement | null>(null);
+  function readKitchen() {
+    getKitchen().then(
+      (found) => (kitchenNow = found),
+      () => {} // offline or unreachable: the row stays hidden, as Amounts does
+    );
+  }
+
   function readPints() {
+    readKitchen();
     getHousehold().then(
       (household) => (pints = household.pints),
       () => {} // offline or unreachable: the row stays hidden, the rest of Settings still works
@@ -102,6 +115,7 @@
       { id: 'amounts', label: 'Amounts', show: pints !== null },
       { id: 'meal-slots', label: 'Meal slots', show: admin },
       { id: 'shops-places', label: 'Shops & places', show: true },
+      { id: 'your-kitchen', label: 'Your kitchen', show: kitchenNow !== null },
       { id: 'recent-changes', label: 'Recent changes', show: true },
       { id: 'privacy', label: 'Privacy', show: true },
       { id: 'sign-in', label: 'Sign-in', show: true }
@@ -210,6 +224,16 @@
               ? undefined
               : `${plural(shopsCount, 'shop', 'shops')} · ${plural(placesCount, 'place', 'places')}`
         },
+        ...(kitchenNow !== null
+          ? [
+              {
+                id: 'your-kitchen',
+                label: 'Your kitchen',
+                icon: 'your-kitchen' as const,
+                value: `${kitchenNow.hob_rings} hob ${kitchenNow.hob_rings === 1 ? 'ring' : 'rings'}`
+              }
+            ]
+          : []),
         { id: 'recent-changes', label: 'Recent changes', icon: 'recent-changes' }
       ]
     },
@@ -465,6 +489,44 @@
       </section>
     {/if}
 
+    {#if kitchenNow !== null && showing('your-kitchen')}
+      <section class="section" aria-labelledby="your-kitchen">
+        <h2 class="title" id="your-kitchen" tabindex="-1">Your kitchen</h2>
+        <div class="card" data-testid="your-kitchen">
+          <div class="row">
+            <span class="label">Hob rings</span><span class="value">{kitchenNow.hob_rings}</span>
+          </div>
+          <div class="row">
+            <span class="label">Pressure cookers</span><span class="value"
+              >{kitchenNow.pressure_cookers}</span
+            >
+          </div>
+          <div class="row">
+            <span class="label">Oven</span><span class="value"
+              >{kitchenNow.oven ? 'Yes' : 'No'}</span
+            >
+          </div>
+          <div class="row">
+            <span class="who">
+              <span class="detail"
+                >Batch cook never plans more at once than your kitchen has.{#if !kitchenNow.asked}
+                  Not asked yet: Batch cook asks the first time you use it.{/if}</span
+              >
+            </span>
+            <button
+              type="button"
+              class="change"
+              disabled={network.offline}
+              onclick={(event) => {
+                kitchenOpener = event.currentTarget;
+                kitchenOpen = true;
+              }}>Change</button
+            >
+          </div>
+        </div>
+      </section>
+    {/if}
+
     {#if showing('recent-changes')}
       <section class="section" aria-labelledby="recent-changes">
         <h2 class="title" id="recent-changes" tabindex="-1">Recent changes</h2>
@@ -534,6 +596,21 @@
           </div>
         {/if}
       </section>
+    {/if}
+    {#if kitchenNow !== null}
+      <YourKitchen
+        open={kitchenOpen}
+        kitchen={kitchenNow}
+        onsaved={(saved) => {
+          kitchenNow = saved;
+          kitchenOpen = false;
+          kitchenOpener?.focus();
+        }}
+        onclose={() => {
+          kitchenOpen = false;
+          kitchenOpener?.focus();
+        }}
+      />
     {/if}
     <!-- The sidebar shows the version on a computer; this is the phone's place for it (N1). -->
     <p class="version">{VERSION_WORDS}</p>
@@ -677,7 +754,13 @@
     font-size: var(--text-sm);
   }
 
-  .sign-out {
+  .value {
+    font-size: var(--text-md);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .sign-out,
+  .change {
     min-height: var(--touch-target);
     padding: 0 18px;
     border: 1px solid var(--color-border-strong);
