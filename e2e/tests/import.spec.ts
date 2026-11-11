@@ -828,6 +828,12 @@ test('several links are read one after another, each into its own draft, and a f
       body: JSON.stringify({ id: kept.length, ...body }),
     });
   });
+  // The list agrees with the made-up drafts, so a row is not taken for a draft that is gone.
+  await page.route('**/api/v1/recipes/drafts', async (route: Route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const drafts = kept.map((name, i) => ({ id: i + 1, name, source: { kind: 'link', site: null }, started_by: 'x', started_at: '2026-11-10T10:00:00Z', updated_at: '2026-11-10T10:00:00Z', expires_at: '2026-11-25T10:00:00Z', days_left: 15, lines_total: 3, lines_checked: 0 }));
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ drafts, count: drafts.length }) });
+  });
   await page.goto('/recipes/import');
   await box(page).fill(
     'https://example-recipes.org/masala-dosa\nhttps://refuses.example/chicken-65\nhttps://example-kitchen.net/rasam',

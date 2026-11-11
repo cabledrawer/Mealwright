@@ -157,7 +157,9 @@
   $effect(() => {
     if (nextDraft.savedId === id && !network.offline) untrack(() => void drafts.load());
   });
-  const upNext = $derived(nextDraft.savedId === id ? oldestDraft(drafts.drafts, nextDraft.fromDraftId) : null);
+  const upNext = $derived(
+    nextDraft.savedId === id ? oldestDraft(drafts.drafts, nextDraft.fromDraftId) : null
+  );
 
   // In the desktop's three panes this is the reading pane (mockups Desktop-Recipe and
   // Dark-Recipe): wider, ingredients beside the method when there is room, and focus comes
