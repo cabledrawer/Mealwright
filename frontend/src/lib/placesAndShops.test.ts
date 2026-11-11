@@ -17,21 +17,21 @@ import { placesAndShops } from './placesAndShops.svelte';
 
 type Routes = Parameters<typeof fakeApi>[0];
 
-const WRENS: Routes = {
-  'GET /places': [200, [{ id: 1, name: 'Wren’s fridge', kind: 'fridge' }]],
-  'GET /shops': [200, [{ id: 1, name: 'Wren’s corner shop' }]]
+const ALEXS: Routes = {
+  'GET /places': [200, [{ id: 1, name: 'Alex’s fridge', kind: 'fridge' }]],
+  'GET /shops': [200, [{ id: 1, name: 'Alex’s corner shop' }]]
 };
 const ARLOS: Routes = {
   'GET /places': [200, [{ id: 7, name: 'Arlo’s freezer', kind: 'freezer' }]],
   'GET /shops': [200, [{ id: 7, name: 'Arlo’s market' }]]
 };
 
-/** Wren is signed in and her shops and places have been fetched. */
+/** Alex is signed in and her shops and places have been fetched. */
 async function wrensLoaded(more: Routes = {}) {
-  fakeApi({ ...WRENS, ...more });
+  fakeApi({ ...ALEXS, ...more });
   await placesAndShops.load();
-  expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge']);
-  expect(placesAndShops.shops.map((s) => s.name)).toEqual(['Wren’s corner shop']);
+  expect(placesAndShops.places.map((p) => p.name)).toEqual(['Alex’s fridge']);
+  expect(placesAndShops.shops.map((s) => s.name)).toEqual(['Alex’s corner shop']);
 }
 
 /** Arlo signs in next (no reload): he sees only his own. */
@@ -94,7 +94,7 @@ describe('signing out forgets the household’s shops and places', () => {
   it('an answer that comes after signing out is dropped, not shown to the next login', async () => {
     let answer!: () => void;
     const answered = new Promise<void>((done) => (answer = done));
-    fakeApi(WRENS);
+    fakeApi(ALEXS);
     const fetched = globalThis.fetch;
     vi.stubGlobal('fetch', async (...args: Parameters<typeof fetch>) => {
       await answered;
@@ -108,7 +108,7 @@ describe('signing out forgets the household’s shops and places', () => {
   });
 
   it('a shop added just before signing out isn’t kept for the next login', async () => {
-    await wrensLoaded({ 'POST /shops': [201, { id: 2, name: 'Wren’s market' }] });
+    await wrensLoaded({ 'POST /shops': [201, { id: 2, name: 'Alex’s market' }] });
     let answer!: () => void;
     const answered = new Promise<void>((done) => (answer = done));
     const fetched = globalThis.fetch;
@@ -116,7 +116,7 @@ describe('signing out forgets the household’s shops and places', () => {
       await answered;
       return fetched(...args);
     });
-    const adding = placesAndShops.addShop('Wren’s market');
+    const adding = placesAndShops.addShop('Alex’s market');
     sessionEnded();
     answer();
     await adding;
@@ -126,13 +126,13 @@ describe('signing out forgets the household’s shops and places', () => {
   it('"+ Place" adds the place, last, with the name tidied and the kind sent', async () => {
     await wrensLoaded();
     const requests = fakeApi({
-      ...WRENS,
+      ...ALEXS,
       'POST /places': [201, { id: 2, name: 'Garage fridge', kind: 'fridge' }]
     });
     const made = await placesAndShops.addPlace('  Garage fridge ', 'fridge');
     expect(made).toEqual({ id: 2, name: 'Garage fridge', kind: 'fridge' });
     expect(requests[0]?.body).toEqual({ name: 'Garage fridge', kind: 'fridge' });
-    expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge', 'Garage fridge']);
+    expect(placesAndShops.places.map((p) => p.name)).toEqual(['Alex’s fridge', 'Garage fridge']);
   });
 
   it('a place the household already has is picked, not added twice', async () => {
@@ -141,14 +141,14 @@ describe('signing out forgets the household’s shops and places', () => {
         409,
         {
           code: 'place_exists',
-          detail: 'There’s already a place called Wren’s fridge.',
-          place: { id: 1, name: 'Wren’s fridge', kind: 'fridge' }
+          detail: 'There’s already a place called Alex’s fridge.',
+          place: { id: 1, name: 'Alex’s fridge', kind: 'fridge' }
         }
       ]
     });
-    const made = await placesAndShops.addPlace('wren’s FRIDGE', 'cupboard');
-    expect(made).toEqual({ id: 1, name: 'Wren’s fridge', kind: 'fridge' });
-    expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge']);
+    const made = await placesAndShops.addPlace('alex’s FRIDGE', 'cupboard');
+    expect(made).toEqual({ id: 1, name: 'Alex’s fridge', kind: 'fridge' });
+    expect(placesAndShops.places.map((p) => p.name)).toEqual(['Alex’s fridge']);
   });
 
   it('a place that is already held by the other server list is put in once', async () => {
@@ -168,7 +168,7 @@ describe('signing out forgets the household’s shops and places', () => {
   });
 
   it('a place added just before signing out isn’t kept for the next login', async () => {
-    await wrensLoaded({ 'POST /places': [201, { id: 2, name: 'Wren’s shed', kind: 'cupboard' }] });
+    await wrensLoaded({ 'POST /places': [201, { id: 2, name: 'Alex’s shed', kind: 'cupboard' }] });
     let answer!: () => void;
     const answered = new Promise<void>((done) => (answer = done));
     const fetched = globalThis.fetch;
@@ -176,7 +176,7 @@ describe('signing out forgets the household’s shops and places', () => {
       await answered;
       return fetched(...args);
     });
-    const adding = placesAndShops.addPlace('Wren’s shed', 'cupboard');
+    const adding = placesAndShops.addPlace('Alex’s shed', 'cupboard');
     sessionEnded();
     answer();
     await adding;
@@ -185,11 +185,11 @@ describe('signing out forgets the household’s shops and places', () => {
   });
   it('a place added before the list was fetched leaves the whole list, not just the new place', async () => {
     fakeApi({
-      ...WRENS,
+      ...ALEXS,
       'GET /places': [
         200,
         [
-          { id: 1, name: 'Wren’s fridge', kind: 'fridge' },
+          { id: 1, name: 'Alex’s fridge', kind: 'fridge' },
           { id: 2, name: 'Shed', kind: 'cupboard' }
         ]
       ],
@@ -197,7 +197,7 @@ describe('signing out forgets the household’s shops and places', () => {
     });
     expect(placesAndShops.places).toEqual([]);
     await placesAndShops.addPlace('Shed', 'cupboard');
-    expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge', 'Shed']);
+    expect(placesAndShops.places.map((p) => p.name)).toEqual(['Alex’s fridge', 'Shed']);
   });
 
   describe('a place made on another phone (M1)', () => {
@@ -205,7 +205,7 @@ describe('signing out forgets the household’s shops and places', () => {
       'GET /places': [
         200,
         [
-          { id: 1, name: 'Wren’s fridge', kind: 'fridge' },
+          { id: 1, name: 'Alex’s fridge', kind: 'fridge' },
           { id: 5, name: 'Shed', kind: 'cupboard' }
         ]
       ],
@@ -216,13 +216,13 @@ describe('signing out forgets the household’s shops and places', () => {
       await wrensLoaded();
       fakeApi(WITH_SHED);
       await placesAndShops.load(true);
-      expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge', 'Shed']);
+      expect(placesAndShops.places.map((p) => p.name)).toEqual(['Alex’s fridge', 'Shed']);
     });
 
     it('an answer asked for before a place or shop was added keeps the new one', async () => {
       await wrensLoaded({
         'POST /places': [201, { id: 2, name: 'Garage fridge', kind: 'fridge' }],
-        'POST /shops': [201, { id: 2, name: 'Wren’s market' }]
+        'POST /shops': [201, { id: 2, name: 'Alex’s market' }]
       });
       let answer!: () => void;
       const answered = new Promise<void>((done) => (answer = done));
@@ -234,18 +234,18 @@ describe('signing out forgets the household’s shops and places', () => {
       // The editor opens (fetching again), then "+ Place" and "+ Shop" answer first.
       const loading = placesAndShops.load(true);
       await placesAndShops.addPlace('Garage fridge', 'fridge');
-      await placesAndShops.addShop('Wren’s market');
+      await placesAndShops.addShop('Alex’s market');
       answer();
       await loading;
-      expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge', 'Garage fridge']);
+      expect(placesAndShops.places.map((p) => p.name)).toEqual(['Alex’s fridge', 'Garage fridge']);
       expect(placesAndShops.shops.map((s) => s.name)).toEqual([
-        'Wren’s corner shop',
-        'Wren’s market'
+        'Alex’s corner shop',
+        'Alex’s market'
       ]);
       // A fetch asked for afterwards is the server's whole word.
-      fakeApi(WRENS);
+      fakeApi(ALEXS);
       await placesAndShops.load(true);
-      expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge']);
+      expect(placesAndShops.places.map((p) => p.name)).toEqual(['Alex’s fridge']);
     });
 
     it('a picker given a place that is not in the list fetches them again, once', async () => {

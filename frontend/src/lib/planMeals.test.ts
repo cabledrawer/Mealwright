@@ -244,7 +244,7 @@ describe('a meal card’s words', () => {
     expect(mealColour(plan, { ...meal(50) })).toBe(3);
     expect(mealColour(plan, { ...meal(60), items: [tubItem] })).toBe(3);
     expect(mealColour(plan, meal(61))).toBeNull();
-    expect(whoseTub(tub, [{ login_id: 4, name: 'Wren' }])).toBe('Wren');
+    expect(whoseTub(tub, [{ login_id: 4, name: 'Alex' }])).toBe('Alex');
     expect(whoseTub(tub, [])).toBeNull();
   });
 

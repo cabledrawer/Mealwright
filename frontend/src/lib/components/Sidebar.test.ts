@@ -14,7 +14,7 @@ const brief = (id: number) => ({
   id,
   name: `Draft ${id}`,
   source: { kind: 'text', site: null },
-  started_by: 'Wren',
+  started_by: 'Alex',
   started_at: '2026-10-20T10:00:00Z',
   updated_at: '2026-10-22T10:00:00Z',
   expires_at: '2026-11-06T10:00:00Z',

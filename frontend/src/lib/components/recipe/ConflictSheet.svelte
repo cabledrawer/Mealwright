@@ -1,6 +1,6 @@
 <script lang="ts">
   import { timeWords } from '#lib/timeWords.js';
-  // "Wren’s version" (cabledrawer 19 Oct, editor brief decision 4): the recipe as the other person
+  // "Alex’s version" (cabledrawer 19 Oct, editor brief decision 4): the recipe as the other person
   // saved it, in a sheet over the editor (not a new tab: the installed app has none). Closing
   // brings you back to your own edit, untouched. Nothing here can be edited.
   import { downLine } from '#lib/downWords.js';

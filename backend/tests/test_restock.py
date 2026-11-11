@@ -51,7 +51,7 @@ def test_untick_puts_the_date_back_to_the_restock_before(kitchen: TestClient) ->
     with db(kitchen) as session:
         session.execute(update(ListTick).where(ListTick.id == first).values(ticked_at=earlier))
         session.commit()
-    tick(s.wren, s, "Salt", PHONE_R, id=second)
+    tick(s.alex, s, "Salt", PHONE_R, id=second)
     assert _close(_restocked(kitchen, salt), datetime.now(UTC))
     seen = int(changes(kitchen)["cursor"])
     one(kitchen, "untick", seen, item_id=s.items["Salt"], tick_ids=[second])

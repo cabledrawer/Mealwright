@@ -35,10 +35,10 @@ def test_a_sync_undo_of_cooked_it_lets_it_be_cooked_again(kitchen: TestClient) -
 def test_a_sync_undo_of_a_removal_that_no_longer_stands_is_refused(kitchen: TestClient) -> None:
     """The same rule as `can_undo` for Recent changes: Paneer is back, so its removal stays."""
     s = s0(kitchen)
-    one(s.wren, "delete", s.c0, "0b6c3f0e-7c1a-4f7e-9d0b-2f7a3c1e5d43", item_id=s.items["Paneer"])
-    ok(s.wren.delete(f"{API}/foods/{s.foods['Paneer']}"))
+    one(s.alex, "delete", s.c0, "0b6c3f0e-7c1a-4f7e-9d0b-2f7a3c1e5d43", item_id=s.items["Paneer"])
+    ok(s.alex.delete(f"{API}/foods/{s.foods['Paneer']}"))
     one(
-        s.wren,
+        s.alex,
         "add",
         s.c0,
         "0b6c3f0e-7c1a-4f7e-9d0b-2f7a3c1e5d43",
@@ -63,10 +63,10 @@ def test_a_too_old_removal_that_no_longer_stands_says_too_old_over_http(
     did."""
     s = s0(kitchen)
     phone = "0b6c3f0e-7c1a-4f7e-9d0b-2f7a3c1e5d43"
-    one(s.wren, "delete", s.c0, phone, item_id=s.items["Paneer"])
-    ok(s.wren.delete(f"{API}/foods/{s.foods['Paneer']}"))
+    one(s.alex, "delete", s.c0, phone, item_id=s.items["Paneer"])
+    ok(s.alex.delete(f"{API}/foods/{s.foods['Paneer']}"))
     one(
-        s.wren,
+        s.alex,
         "add",
         s.c0,
         phone,

@@ -15,8 +15,8 @@ from mealwright.models import Change, Household, ListTick, Login, Place, StockLo
 API = "/api/v1"
 PHONE_A = "0b6c3f0e-7c1a-4f7e-9d0b-2f7a3c1e5d42"  # Tess's phone
 PHONE_B = "1c7d4a1f-8d2b-4a8f-8e1c-3a8b4d2f6e53"  # Tess's other phone
-PHONE_R = "2d8e5b2a-9e3c-4b9a-9f2d-4b9c5e3a7f64"  # Wren's phone
-WREN_PASSWORD = "wren's long password"
+PHONE_R = "2d8e5b2a-9e3c-4b9a-9f2d-4b9c5e3a7f64"  # Alex's phone
+ALEX_PASSWORD = "alex's long password"
 
 
 def db(client: TestClient) -> Any:
@@ -55,7 +55,7 @@ def login_id(client: TestClient) -> int:
     return int(ok(client.get(f"{API}/me"))["id"])
 
 
-def person(kitchen: TestClient, name: str = "Wren", username: str = "wren") -> TestClient:
+def person(kitchen: TestClient, name: str = "Alex", username: str = "alex") -> TestClient:
     """A second login in the household, signed in on its own client (S0)."""
     with db(kitchen) as session:
         session.add(
@@ -63,13 +63,13 @@ def person(kitchen: TestClient, name: str = "Wren", username: str = "wren") -> T
                 household_id=1,
                 username=username,
                 name=name,
-                password_hash=hash_password(WREN_PASSWORD),
+                password_hash=hash_password(ALEX_PASSWORD),
                 role="member",
             )
         )
         session.commit()
     other = TestClient(kitchen.app, base_url="https://testserver")
-    ok(other.post(f"{API}/session", json={"username": username, "password": WREN_PASSWORD}))
+    ok(other.post(f"{API}/session", json={"username": username, "password": ALEX_PASSWORD}))
     return other
 
 
@@ -125,11 +125,11 @@ def item_row(answer: Any, item_id: str) -> Any:
 
 @dataclass
 class S0:
-    """One household; Tess (phone A) and Wren (phone R); two shops; the four places;
+    """One household; cabledrawer (phone A) and Alex (phone R); two shops; the four places;
     seven ingredients; the main list with six items, none ticked; both phones at C0."""
 
     kitchen: TestClient
-    wren: TestClient
+    alex: TestClient
     main: str
     shops: dict[str, int]
     places: dict[str, int]
@@ -181,7 +181,7 @@ class S0:
 
 
 def s0(kitchen: TestClient) -> S0:
-    wren = person(kitchen)
+    alex = person(kitchen)
     with db(kitchen) as session:
         places = {
             p.name: p.id for p in session.scalars(select(Place).where(Place.household_id == 1))
@@ -230,7 +230,7 @@ def s0(kitchen: TestClient) -> S0:
             for name, extra in lines
         ),
     )
-    return S0(kitchen, wren, main, shops, places, foods, sizes, items, counter(kitchen))
+    return S0(kitchen, alex, main, shops, places, foods, sizes, items, counter(kitchen))
 
 
 def tick(

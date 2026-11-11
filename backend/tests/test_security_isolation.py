@@ -57,7 +57,7 @@ SECRETS = (
     "Supermarket",
     "Indian grocer",
     "Tess",
-    "Wren",
+    "Alex",
     "Party",
     "had removed",
     "packet",
@@ -90,12 +90,12 @@ class Theirs:
 @pytest.fixture
 def mine(kitchen: TestClient) -> Mine:
     s = s0(kitchen)
-    # A "both ticked" question: Tess and Wren both bought the Toor dal.
+    # A "both ticked" question: Tess and Alex both bought the Toor dal.
     tick(kitchen, s, "Toor dal")
-    tick(s.wren, s, "Toor dal", "2d8e5b2a-9e3c-4b9a-9f2d-4b9c5e3a7f64")
+    tick(s.alex, s, "Toor dal", "2d8e5b2a-9e3c-4b9a-9f2d-4b9c5e3a7f64")
     (question,) = [q for q in changes(kitchen)["questions"] if q["open"]]
-    # A quiet note: Wren removed the Paneer while Tess ticked it.
-    one(s.wren, "delete", s.c0, "2d8e5b2a-9e3c-4b9a-9f2d-4b9c5e3a7f64", item_id=s.items["Paneer"])
+    # A quiet note: Alex removed the Paneer while Tess ticked it.
+    one(s.alex, "delete", s.c0, "2d8e5b2a-9e3c-4b9a-9f2d-4b9c5e3a7f64", item_id=s.items["Paneer"])
     tick(kitchen, s, "Paneer")
     (note,) = changes(kitchen)["notes"]
     milk = tick(kitchen, s, "Milk")

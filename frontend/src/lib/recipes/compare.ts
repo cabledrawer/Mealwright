@@ -1,4 +1,4 @@
-// "Wren's version" (cabledrawer 19 Oct): the recipe as someone else saved it, set beside what was
+// "Alex's version" (cabledrawer 19 Oct): the recipe as someone else saved it, set beside what was
 // opened, so the sheet can highlight what they changed. Nothing here is editable.
 
 import type { LineOut, RecipeOut } from '#lib/client/recipes.js';

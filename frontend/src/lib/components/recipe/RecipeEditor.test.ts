@@ -830,10 +830,10 @@ describe('an existing recipe', () => {
           ? [
               409,
               {
-                detail: 'Wren changed this recipe after you opened it.',
+                detail: 'Alex changed this recipe after you opened it.',
                 code: 'recipe_changed',
                 version: 5,
-                changed_by: { login_id: 2, name: 'Wren' }
+                changed_by: { login_id: 2, name: 'Alex' }
               }
             ]
           : [200, { ...sambar, version: 6 }];
@@ -844,9 +844,9 @@ describe('an existing recipe', () => {
     await page.getByRole('textbox', { name: /^Short description/ }).fill('Mine');
     await page.getByRole('button', { name: /^Save/ }).click();
     await expect
-      .element(page.getByText('Wren changed this recipe after you opened it.'))
+      .element(page.getByText('Alex changed this recipe after you opened it.'))
       .toBeVisible();
-    await expect.element(page.getByRole('button', { name: 'See Wren’s version' })).toBeVisible();
+    await expect.element(page.getByRole('button', { name: 'See Alex’s version' })).toBeVisible();
     expect(navigation.go).not.toHaveBeenCalled();
     await page.getByRole('button', { name: 'Save mine anyway' }).click();
     await vi.waitFor(() => expect(navigation.go).toHaveBeenCalledWith('/recipes/2'));
@@ -858,10 +858,10 @@ describe('an existing recipe', () => {
     const changed = [
       409,
       {
-        detail: 'Wren changed this recipe after you opened it.',
+        detail: 'Alex changed this recipe after you opened it.',
         code: 'recipe_changed',
         version: 5,
-        changed_by: { login_id: 2, name: 'Wren' }
+        changed_by: { login_id: 2, name: 'Alex' }
       }
     ] as [number, unknown];
 
@@ -881,7 +881,7 @@ describe('an existing recipe', () => {
 
     it('is greyed out while offline, in the note and in the sheet, and sends nothing', async () => {
       const requests = await openInConflict();
-      await page.getByRole('button', { name: 'See Wren’s version' }).click();
+      await page.getByRole('button', { name: 'See Alex’s version' }).click();
       const sheet = page.getByRole('dialog');
       await expect.element(sheet.getByRole('button', { name: 'Save mine anyway' })).toBeEnabled();
       network.offline = true;

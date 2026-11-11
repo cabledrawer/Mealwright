@@ -8,7 +8,7 @@ import { deviceId, loadDeviceId, startDevice } from './device';
 import { getMeta, openPhone, phoneDatabaseName, setMeta } from './phone';
 import { onWipedElsewhere, tellOtherTabs, WIPED } from './otherTabs';
 
-const WREN = { id: 2, name: 'Wren', username: 'wren', role: 'member' };
+const ALEX = { id: 2, name: 'Alex', username: 'alex', role: 'member' };
 let stop: () => void = () => {};
 
 beforeEach(() => freshPhone());
@@ -79,7 +79,7 @@ describe('another tab wiped this browser', () => {
       new StorageEvent('storage', { key: WIPED, newValue: phoneDatabaseName() })
     );
     await expect(openPhone()).rejects.toThrow();
-    await startDevice(WREN);
+    await startDevice(ALEX);
     expect(await getMeta('login_id')).toBe(2);
   });
 

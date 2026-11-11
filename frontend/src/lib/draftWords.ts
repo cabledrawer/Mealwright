@@ -11,7 +11,7 @@ export function fromWords(draft: Pick<DraftBrief, 'source'>): string {
 }
 
 /** The phone's line under the name: "From bbcgoodfood.com · started by Tess" and
- *  "Pasted text · started by Wren" (the mockup's own words). */
+ *  "Pasted text · started by Alex" (the mockup's own words). */
 export function phoneSource(draft: DraftBrief): string {
   const from = draft.source.kind === 'text' ? 'Pasted text' : `From ${fromWords(draft)}`;
   return `${from} · started by ${draft.started_by}`;

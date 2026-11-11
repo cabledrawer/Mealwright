@@ -13,7 +13,7 @@ import {
 } from './view';
 import type { ListItem, ShoppingCopy } from './types';
 
-const wren = { login_id: 2, name: 'Wren' };
+const alex = { login_id: 2, name: 'Alex' };
 const arlo = { login_id: 3, name: 'Arlo' };
 const me = { login_id: 1, name: 'Tess' };
 
@@ -127,47 +127,47 @@ describe('groupByShop', () => {
 
 describe('subtitle', () => {
   it('says the list was built from the plan, in the look-ahead’s words (docs/dev/words.md 21)', () => {
-    expect(subtitle(main, 12, [me, wren], 1, false, 'phone', planWords(7))).toBe(
-      '12 to buy · built from this week’s plan · synced with Wren'
+    expect(subtitle(main, 12, [me, alex], 1, false, 'phone', planWords(7))).toBe(
+      '12 to buy · built from this week’s plan · synced with Alex'
     );
-    expect(subtitle(main, 12, [me, wren], 1, true, 'computer', planWords(7))).toBe(
+    expect(subtitle(main, 12, [me, alex], 1, true, 'computer', planWords(7))).toBe(
       '12 to buy · built from this week’s plan · offline, saving on this computer'
     );
     expect(planWords(1)).toBe('today’s plan');
     expect(planWords(10)).toBe('the plan for the next 10 days');
     expect(planWords(null)).toBe('the plan');
     // An extra list is never "built from the plan".
-    expect(subtitle({ ...main, main: false }, 5, [me, wren], 1, false, 'phone', planWords(7))).toBe(
+    expect(subtitle({ ...main, main: false }, 5, [me, alex], 1, false, 'phone', planWords(7))).toBe(
       'Extra list · 5 · ticked items still go to the pantry'
     );
   });
   const main = { id: 'L', name: 'This week', main: true, position: 0, removed: false };
   it('says who it is synced with', () => {
-    expect(subtitle(main, 12, [me, wren], 1)).toBe('12 to buy · synced with Wren');
-    expect(subtitle(main, 12, [me, wren, arlo], 1)).toBe('12 to buy · synced with Wren and Arlo');
-    expect(subtitle(main, 12, [me, wren, arlo, { login_id: 4, name: 'Mo' }], 1)).toBe(
-      '12 to buy · synced with Wren and 2 others'
+    expect(subtitle(main, 12, [me, alex], 1)).toBe('12 to buy · synced with Alex');
+    expect(subtitle(main, 12, [me, alex, arlo], 1)).toBe('12 to buy · synced with Alex and Arlo');
+    expect(subtitle(main, 12, [me, alex, arlo, { login_id: 4, name: 'Mo' }], 1)).toBe(
+      '12 to buy · synced with Alex and 2 others'
     );
   });
   it('FE-2: says offline, saving on this phone (or computer) while offline', () => {
-    expect(subtitle(main, 12, [me, wren], 1, true)).toBe(
+    expect(subtitle(main, 12, [me, alex], 1, true)).toBe(
       '12 to buy · offline, saving on this phone'
     );
     expect(subtitle(main, 12, null, 1, true, 'phone')).toBe(
       '12 to buy · offline, saving on this phone'
     );
-    expect(subtitle(main, 12, [me, wren], 1, true, 'computer')).toBe(
+    expect(subtitle(main, 12, [me, alex], 1, true, 'computer')).toBe(
       '12 to buy · offline, saving on this computer'
     );
   });
   it('keeps an extra list short while offline (cabledrawer 18 Oct)', () => {
-    expect(subtitle({ ...main, main: false }, 5, [me, wren], 1, true)).toBe(
+    expect(subtitle({ ...main, main: false }, 5, [me, alex], 1, true)).toBe(
       'Extra list · 5 · offline'
     );
-    expect(subtitle({ ...main, main: false }, 5, [me, wren], 1, true, 'computer')).toBe(
+    expect(subtitle({ ...main, main: false }, 5, [me, alex], 1, true, 'computer')).toBe(
       'Extra list · 5 · offline'
     );
-    expect(subtitle({ ...main, main: false }, 5, [me, wren], 1)).toBe(
+    expect(subtitle({ ...main, main: false }, 5, [me, alex], 1)).toBe(
       'Extra list · 5 · ticked items still go to the pantry'
     );
   });

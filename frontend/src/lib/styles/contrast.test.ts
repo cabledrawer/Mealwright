@@ -84,7 +84,7 @@ const PAIRS: Pair[] = [
   ['--color-use-soon-text', '--color-fill', 4.5], // "1 missing" on its bar
   // The recipe editor
   ['--color-photo-text', '--color-photo', 4.5], // "Uploading photo…"
-  ['--color-text', '--color-changed', 4.5], // Wren's version: what they changed
+  ['--color-text', '--color-changed', 4.5], // Alex's version: what they changed
   ['--color-text-muted', '--color-changed', 4.5],
   ['--color-warning-text', '--color-surface', 4.5], // a box's message
   ['--color-warning-text', '--color-ground', 4.5],
