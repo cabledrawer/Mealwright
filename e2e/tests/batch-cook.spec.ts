@@ -61,8 +61,12 @@ async function open(page: Page) {
   if (isPhone(page)) await page.getByRole('link', { name: /^Batch cook/ }).click();
   else await page.getByRole('complementary', { name: 'Sidebar' }).getByRole('link', { name: /^Batch cook/ }).click();
   await expect(page).toHaveURL(/\/batch-cook/);
+  // The picks are in; Your kitchen opens with them the first time it is used (once per server).
+  await expect(page.getByText(/together/).first()).toBeVisible();
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
   const kitchen = page.getByRole('dialog', { name: 'Your kitchen' });
-  if (await kitchen.isVisible().catch(() => false)) await kitchen.getByRole('button', { name: 'Save' }).click();
+  if (await kitchen.isVisible()) await kitchen.getByRole('button', { name: 'Save' }).click();
+  await expect(kitchen).toHaveCount(0);
 }
 
 async function chooseDay(page: Page, day: string) {
@@ -85,7 +89,7 @@ test('the entry is where the design puts it: the sidebar on a computer, the Plan
   } else {
     const links = page.getByRole('complementary', { name: 'Sidebar' }).getByRole('navigation', { name: 'Main' }).getByRole('link');
     await expect(links.nth(1)).toHaveText('Plan');
-    await expect(links.nth(2)).toHaveText(/^Batch cook/);
+    await expect(links.nth(2)).toHaveText(/^\s*Batch cook/);
     await expect(links.nth(2)).toContainText('Experimental');
     await expect(links.nth(3)).toHaveText('Shopping');
   }
@@ -219,6 +223,7 @@ test('Change reopens the picks with the session’s recipes, and Remove takes th
 
 test('an admin can hide Batch cook in Settings: no sidebar entry, no Plan tab, and the picks are refused', async ({ page }) => {
   await page.goto('/settings');
+  if (isPhone(page)) await page.getByRole('link', { name: /^Your kitchen/ }).click();
   const row = page.getByRole('switch', { name: 'Show Batch cook' });
   await expect(row).toBeChecked();
   await row.click();
@@ -229,6 +234,7 @@ test('an admin can hide Batch cook in Settings: no sidebar entry, no Plan tab, a
   if (isPhone(page)) await expect(page.getByRole('link', { name: /^Batch cook/ })).toHaveCount(0);
   else await expect(page.getByRole('complementary', { name: 'Sidebar' }).getByRole('link', { name: /^Batch cook/ })).toHaveCount(0);
   await page.goto('/settings');
+  if (isPhone(page)) await page.getByRole('link', { name: /^Your kitchen/ }).click();
   await page.getByRole('switch', { name: 'Show Batch cook' }).click();
   await expect(page.getByRole('switch', { name: 'Show Batch cook' })).toBeChecked();
   expect((await page.request.get('/api/v1/batch-cook/suggestions')).status()).toBe(200);

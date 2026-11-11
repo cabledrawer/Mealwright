@@ -14,6 +14,7 @@
   import { onDestroy, onMount, tick, untrack } from 'svelte';
   import type { PlanBatch, PlanItem, PlanMeal, TubLeft } from '#lib/client/plan.js';
   import type { RecipeRow } from '#lib/client/recipes.js';
+  import BatchSessionCard from '#lib/components/plan/BatchSessionCard.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import type { LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
@@ -407,6 +408,9 @@
       : monthWords(model.anchor);
   });
   const empty = $derived(model.loaded && model.plan !== null && model.plan.meals.length === 0);
+  const weekSessions = $derived(
+    (model.plan?.batch_sessions ?? []).filter((s) => model.days.includes(s.cook_day))
+  );
   const hasBatches = $derived((model.plan?.batch_cooks.length ?? 0) > 0);
 </script>
 
@@ -531,6 +535,10 @@
         </p>
       {/if}
       {#if model.view === 'week'}
+        <!-- Batch cook (Experimental): one card for each session cooked this week, above the days. -->
+        {#each weekSessions as session (session.id)}
+          <BatchSessionCard {actions} {session} onstart={startBatch} />
+        {/each}
         {#if past.length}
           <button
             type="button"
@@ -552,9 +560,9 @@
             <Eat {actions} days={dayList} oncook={showCook} />
           {/await}
         {:else if compact}
-          <PlanDays {actions} days={dayList} onstartbatch={startBatch} />
+          <PlanDays {actions} days={dayList} />
         {:else}
-          <PlanWeek {actions} onstartbatch={startBatch} />
+          <PlanWeek {actions} />
         {/if}
       {:else if compact}
         <PlanMonthPhone
