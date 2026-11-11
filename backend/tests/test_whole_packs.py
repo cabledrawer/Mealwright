@@ -157,3 +157,65 @@ def test_use_this_is_undone_like_any_change_of_amount(kitchen: TestClient) -> No
     ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
     back = row_of(kitchen, milk["id"])
     assert back["pack"]["buy"] == f"2{NBSP}tins (400{NBSP}ml)"
+
+
+def test_the_sizes_and_names_of_a_list_are_read_once_not_once_per_line(
+    kitchen: TestClient,
+) -> None:
+    """Release 0.8.0-beta.1 security pass L3: the pack wording of each line read the
+    ingredient's sizes and other names again for that line. What the pack wording reads (the
+    statements made under `pack_line_out` or `PackReads.load`) must not grow with the number of lines: the phone's
+    sync pull and the list view each read them in a fixed number of statements."""
+    import traceback
+
+    from sqlalchemy import event
+    from test_plan import db_of
+
+    with db_of(kitchen) as db:
+        engine = db.get_bind()
+    made = 0
+
+    def add_lines(count: int) -> None:
+        nonlocal made
+        for _ in range(count):
+            made += 1
+            item = new_food(kitchen, f"Pasta {made}", counted_as="weight")
+            size(kitchen, item["id"], "pack", 500, usual=True)
+            ok(
+                kitchen.post(
+                    f"{API}/foods/{item['id']}/other-names", json={"name": f"Spaghetti {made}"}
+                ),
+                201,
+            )
+            plan(kitchen, recipe(kitchen, f"Dish {made}", line(item["id"], 900, "g")))
+        from_plan(kitchen)
+
+    def pack_reads() -> tuple[int, int]:
+        """(statements made for the pack wording in a pull, in a list view)."""
+        counted = {"pull": 0, "view": 0}
+        phase = ["pull"]
+
+        def watch(_c: Any, _cur: Any, statement: str, *_rest: Any) -> None:
+            if "food_size" not in statement and "food_name" not in statement:
+                return
+            if any(f.name in ("pack_line_out", "load") for f in traceback.extract_stack()):
+                counted[phase[0]] += 1
+
+        event.listen(engine, "before_cursor_execute", watch)
+        try:
+            pulled = changes(kitchen)
+            assert sum(1 for r in pulled["items"] if r.get("pack")) == made
+            phase[0] = "view"
+            lists = ok(kitchen.get(f"{API}/shopping/lists"))
+            main = next(x["id"] for x in lists["lists"] if x["main"])
+            ok(kitchen.get(f"{API}/shopping/lists/{main}"))
+        finally:
+            event.remove(engine, "before_cursor_execute", watch)
+        return counted["pull"], counted["view"]
+
+    add_lines(2)
+    few = pack_reads()
+    add_lines(6)
+    many = pack_reads()
+    assert many == few  # the same statements for 8 lines as for 2
+    assert 0 < few[0] <= 2 and 0 < few[1] <= 2  # one for sizes, one for names

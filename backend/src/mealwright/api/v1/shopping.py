@@ -34,7 +34,15 @@ from mealwright.api.v1.schemas import (
 )
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt
-from mealwright.foods import amount_out, change_out, find, pack_line_out, pack_sizes_out, resolve
+from mealwright.foods import (
+    PackReads,
+    amount_out,
+    change_out,
+    find,
+    pack_line_out,
+    pack_sizes_out,
+    resolve,
+)
 from mealwright.history import commit, replayed
 from mealwright.models import Change, Food, FoodSize, ListItem, Place, Shop, ShoppingList
 from mealwright.names import clean_name, fold
@@ -165,15 +173,16 @@ def _item_out(
     food: Food,
     shops: dict[int, Shop],
     uses: dict[int, dict[str, set[date]]] | None = None,
+    reads: PackReads | None = None,
 ) -> ItemOut:
     """`uses`: what the plan needs (shop_from_plan.Worked.uses); worked out here when a plan
-    item is shown on its own."""
+    item is shown on its own. `reads`: the list's sizes and names, read once."""
     size = kitchen.db.get(FoodSize, item.size_id) if item.size_id else None
     shop = shops.get(item.shop_id) if item.shop_id else None
     place = item.put_away_place_id
     aisle = food.aisle if food.aisle in AISLE_KEYS else DEFAULT_AISLE
     place_row = kitchen.db.get(Place, place) if place else None
-    pack = pack_line_out(kitchen, food, item.amount_milli, size)
+    pack = pack_line_out(kitchen, food, item.amount_milli, size, reads)
     if uses is None:
         uses = work_out(kitchen).uses if item.source == "plan" else {}
     return ItemOut(
@@ -251,6 +260,7 @@ def list_view(kitchen: Kitchen, shopping_list: ShoppingList) -> ListView:
         if food is None:  # an ingredient that's gone: nothing to show
             continue
         by_shop.setdefault(item.shop_id if item.shop_id in shops else None, []).append((item, food))
+    reads = PackReads(kitchen, {food.id for pairs in by_shop.values() for _item, food in pairs})
     groups: list[ShopGroup] = []
     ordered: list[int | None] = [sid for sid in shops if sid in by_shop]
     if None in by_shop:
@@ -258,7 +268,7 @@ def list_view(kitchen: Kitchen, shopping_list: ShoppingList) -> ListView:
     for shop_id in ordered:
         shop = shops.get(shop_id) if shop_id is not None else None
         pairs = sorted(by_shop[shop_id], key=lambda pair: (fold(pair[1].name), pair[0].id))
-        outs = [(_item_out(kitchen, i, f, shops, uses), i) for i, f in pairs]
+        outs = [(_item_out(kitchen, i, f, shops, uses, reads), i) for i, f in pairs]
         aisles = []
         for key in _aisle_order(shop):
             members = [o for o, i in outs if o.aisle == key and i.ticked_at is None]

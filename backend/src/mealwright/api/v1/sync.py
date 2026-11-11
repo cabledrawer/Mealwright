@@ -20,7 +20,7 @@ from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import ChangeOut, PackLineOut, Who
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt
-from mealwright.foods import amount_out, change_out, pack_line_out
+from mealwright.foods import PackReads, amount_out, change_out, pack_line_out
 from mealwright.models import (
     Change,
     DoubleTick,
@@ -295,7 +295,9 @@ def _ticks(kitchen: Kitchen, item: ListItem, food: Food | None) -> list[TickRow]
     return out
 
 
-def _item(kitchen: Kitchen, item: ListItem, foods: dict[int, Food | None]) -> ItemRow:
+def _item(
+    kitchen: Kitchen, item: ListItem, foods: dict[int, Food | None], reads: PackReads
+) -> ItemRow:
     if item.food_id not in foods:
         foods[item.food_id] = kitchen.db.get(Food, item.food_id)
     food = foods[item.food_id]
@@ -311,7 +313,11 @@ def _item(kitchen: Kitchen, item: ListItem, foods: dict[int, Food | None]) -> It
         amount=_number(item.amount_milli) if item.amount_milli is not None else None,
         size_id=item.size_id,
         display=display,
-        pack=pack_line_out(kitchen, food, item.amount_milli, size) if food is not None else None,
+        pack=(
+            pack_line_out(kitchen, food, item.amount_milli, size, reads)
+            if food is not None
+            else None
+        ),
         source=item.source,
         hand_edited=item.hand_edited,
         put_away_place_id=item.put_away_place_id,
@@ -397,13 +403,18 @@ def changes_since(kitchen: Kitchen, since: int, device_id: str | None = None) ->
 
     foods: dict[int, Food | None] = {}
     items: list[ItemRow | Tombstone] = []
-    for item in db.scalars(
-        select(ListItem)
-        .where(ListItem.household_id == hid, newer(ListItem.version))
-        .order_by(ListItem.version, ListItem.id)
-    ):
+    changed = list(
+        db.scalars(
+            select(ListItem)
+            .where(ListItem.household_id == hid, newer(ListItem.version))
+            .order_by(ListItem.version, ListItem.id)
+        )
+    )
+    # The sizes and other names of every line's ingredient, read once for the whole answer.
+    reads = PackReads(kitchen, {i.food_id for i in changed if i.deleted_at is None})
+    for item in changed:
         if item.deleted_at is None:
-            items.append(_item(kitchen, item, foods))
+            items.append(_item(kitchen, item, foods, reads))
         elif not reset:
             items.append(
                 Tombstone(

@@ -1,5 +1,6 @@
 """Foods: finding them, converting their amounts, and describing them for the web app."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Literal, cast
@@ -181,10 +182,55 @@ def usual_size(kitchen: Kitchen, food_id: int) -> FoodSize | None:
     return next((size for size in found if size.usual), found[0] if found else None)
 
 
-def pack_bought(kitchen: Kitchen, food_id: int) -> FoodSize | None:
+class PackReads:
+    """The sizes and other names of the ingredients on one list, read once for the whole list
+    and not again for each line (release 0.8.0-beta.1 security pass L3): a list of 500 lines
+    asks the database a fixed number of times for them. A food left out of `load` is read when
+    first asked for. Made for one request, never kept (a later size or name would be missed)."""
+
+    CHUNK = 500  # ids per statement, well under SQLite's limit
+
+    def __init__(self, kitchen: Kitchen, food_ids: Iterable[int] = ()) -> None:
+        self._kitchen = kitchen
+        self._sizes: dict[int, list[FoodSize]] = {}
+        self._names: dict[int, list[FoodName]] = {}
+        self.load(food_ids)
+
+    def load(self, food_ids: Iterable[int]) -> None:
+        ids = sorted({i for i in food_ids if i not in self._sizes})
+        for start in range(0, len(ids), self.CHUNK):
+            chunk = ids[start : start + self.CHUNK]
+            found_sizes: dict[int, list[FoodSize]] = {i: [] for i in chunk}
+            found_names: dict[int, list[FoodName]] = {i: [] for i in chunk}
+            db = self._kitchen.db
+            for size in db.scalars(
+                select(FoodSize)
+                .where(FoodSize.food_id.in_(chunk))
+                .order_by(FoodSize.position, FoodSize.id)
+            ):
+                found_sizes[size.food_id].append(size)
+            for name in db.scalars(
+                select(FoodName).where(FoodName.food_id.in_(chunk)).order_by(FoodName.id)
+            ):
+                found_names[name.food_id].append(name)
+            self._sizes.update(found_sizes)
+            self._names.update(found_names)
+
+    def sizes(self, food_id: int) -> list[FoodSize]:
+        if food_id not in self._sizes:
+            self.load([food_id])
+        return self._sizes[food_id]
+
+    def names(self, food_id: int) -> list[FoodName]:
+        if food_id not in self._names:
+            self.load([food_id])
+        return self._names[food_id]
+
+
+def pack_bought(kitchen: Kitchen, food_id: int, reads: PackReads | None = None) -> FoodSize | None:
     """The size a list amount is bought in (F122): the ingredient's Usual size, else its only
     size. With several sizes and none Usual there is no way to know, so none."""
-    found = sizes(kitchen, food_id)
+    found = reads.sizes(food_id) if reads else sizes(kitchen, food_id)
     usual = next((size for size in found if size.usual), None)
     if usual is not None:
         return usual
@@ -579,16 +625,19 @@ def pack_suggestions(
     return out
 
 
-def _choices(kitchen: Kitchen, food: Food, need: int) -> list[Choice]:
+def _choices(
+    kitchen: Kitchen, food: Food, need: int, reads: PackReads | None = None
+) -> list[Choice]:
     """Every size the need could be bought in: the ingredient's own, then the bundled table's
     common sizes it has not got (made when picked), without repeats."""
     out = [
         choice_for(size.id, size.name, size.plural, size.amount_milli, need)
-        for size in sizes(kitchen, food.id)
+        for size in (reads.sizes(food.id) if reads else sizes(kitchen, food.id))
         if size.amount_milli > 0
     ]
     taken = {c.size_milli for c in out}
-    names = [food.name, *(n.name for n in other_names(kitchen, food.id))]
+    others = reads.names(food.id) if reads else other_names(kitchen, food.id)
+    names = [food.name, *(n.name for n in others)]
     for pick in suggest_sizes(names, cast(CountedAs, food.counted_as), food.table_key):
         if pick.amount_milli > 0 and pick.amount_milli not in taken and pick.pack:
             taken.add(pick.amount_milli)
@@ -640,20 +689,26 @@ def pack_sizes_out(
 
 
 def pack_line_out(
-    kitchen: Kitchen, food: Food, need_milli: int | None, chosen: FoodSize | None = None
+    kitchen: Kitchen,
+    food: Food,
+    need_milli: int | None,
+    chosen: FoodSize | None = None,
+    reads: PackReads | None = None,
 ) -> PackLineOut | None:
     """The whole-packs wording for a list line (F120), with the common sizes to pick from when
     no size is known, and another size when it leaves much less over (cabledrawer 9 Nov). Used by
     Shopping and by the phone's sync pull. `chosen`: the size the line itself is in (set with
-    "Use this"), which then takes the Usual size's place for this line."""
-    usual = chosen or pack_bought(kitchen, food.id)  # F122: Usual, else the only size
+    "Use this"), which then takes the Usual size's place for this line. `reads`: the sizes and
+    other names of the whole list, read once (a list builder makes one; left out, they are read
+    for this line)."""
+    usual = chosen or pack_bought(kitchen, food.id, reads)  # F122: Usual, else the only size
     line = pack_line(food, need_milli, usual)
     if line is None:
         return None
     alternative = None
     if chosen is None and usual is not None and need_milli and usual.amount_milli > 0:
         mine = choice_for(usual.id, usual.name, usual.plural, usual.amount_milli, need_milli)
-        other = better_choice(mine, _choices(kitchen, food, need_milli))
+        other = better_choice(mine, _choices(kitchen, food, need_milli, reads))
         if other is not None:
             alternative = _choice_out(food, other, usual.amount_milli, None, False)
     return PackLineOut(
@@ -662,7 +717,16 @@ def pack_line_out(
         buy=line.buy,
         need=line.need,
         line=line.line,
-        suggestions=pack_suggestions(kitchen, food, []) if usual is None else [],
+        suggestions=(
+            pack_suggestions(
+                kitchen,
+                food,
+                [],
+                [n.name for n in reads.names(food.id)] if reads else None,
+            )
+            if usual is None
+            else []
+        ),
         alternative=alternative,
     )
 
