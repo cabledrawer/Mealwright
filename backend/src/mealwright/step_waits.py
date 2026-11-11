@@ -143,11 +143,12 @@ def read_wait(text: str) -> Wait | None:
     """A wait suggested from a step's words, or None: "marinate for 4 hours or overnight",
     "ferment 8-12 hours", "soak overnight". The first sentence with a wait word and a length
     after it of 30 minutes or more (or "overnight") gives it; one step gets one wait."""
-    text = with_fractions(_SPACES.sub(" ", text))  # a paste keeps its runs of spaces (M1)
+    text = _SPACES.sub(" ", text)  # a paste keeps its runs of spaces (security pass r2, M1)
     left = WORDS_PER_STEP
     for sentence in _SENTENCE.split(text):
         if left <= 0:
             break  # the rest of a step with this many wait words is not read
+        sentence = with_fractions(sentence)  # only the sentences read (RF3 fast check)
         for found in itertools.islice(_KIND.finditer(sentence), min(WORDS_PER_SENTENCE, left)):
             left -= 1
             kind = found.lastgroup or "rest"
