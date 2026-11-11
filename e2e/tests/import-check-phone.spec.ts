@@ -65,6 +65,7 @@ test('Focus: no menu, the ingredients get the screen, Close keeps the draft and 
   // A choice, then Close: the draft is on Drafts with it.
   await page.getByRole('button', { name: 'Treat as staple' }).first().click();
   await close.click();
+  await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   await expect(page.getByText(title)).toBeVisible();
   expect(await draftsNamed(page, title)).toHaveLength(1);
