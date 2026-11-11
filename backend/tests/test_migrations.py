@@ -773,6 +773,7 @@ def _table_sql(engine: Engine, table: str) -> str:
 # them out of their row counts.
 STOCKTAKE_TABLES = {"stocktake_place", "stocktake_entry"}
 METHOD_TABLES = {"recipe_method"}
+SESSION_TABLES = {"batch_session"}  # Batch cook sessions (0.8 wave 6, B2)
 
 
 def _row_counts(engine: Engine, skip: set[str]) -> dict[str, int]:
@@ -795,6 +796,7 @@ def test_plan_migration_keeps_everything_adds_slots_and_goes_back_and_forward(
     skip = {
         *STOCKTAKE_TABLES,
         *METHOD_TABLES,
+        *SESSION_TABLES,
         *PLAN_TABLES,
         "staple_check",
         *K1_TABLES,
@@ -843,7 +845,14 @@ def test_staple_check_migration_adds_one_table_and_goes_back_and_forward(tmp_pat
     does, and one household's row can't be written twice for one ingredient."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "staple_check", *K1_TABLES, "alembic_version"}
+    skip = {
+        *STOCKTAKE_TABLES,
+        *METHOD_TABLES,
+        *SESSION_TABLES,
+        "staple_check",
+        *K1_TABLES,
+        "alembic_version",
+    }
     before = _row_counts(engine, skip)
     assert "staple_check" in inspect(engine).get_table_names()
     migrate.downgrade(engine, PLAN_MIGRATION)
@@ -883,7 +892,7 @@ def test_household_pints_migration_adds_one_column_and_goes_back_and_forward(
     keeps every other row; going forward again puts every household back on UK pints."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *K1_TABLES, "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, *K1_TABLES, "alembic_version"}
     before = _row_counts(engine, skip)
     with engine.connect() as connection:
         households = connection.exec_driver_sql("SELECT count(*) FROM household").scalar_one()
@@ -939,7 +948,7 @@ def test_restock_date_migration_marks_old_staple_ticks_and_goes_back_and_forward
                 " bought_milli) VALUES (1, ?, ?, 'User', '2026-10-21 10:00:00', ?)",
                 (tick, item, bought),
             )
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *K1_TABLES, "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, *K1_TABLES, "alembic_version"}
     before = _row_counts(engine, skip)
 
     def marks() -> dict[str, int]:
@@ -973,6 +982,7 @@ def test_step_links_migration_adds_one_table_and_goes_back_and_forward(tmp_path:
     skip = {
         *STOCKTAKE_TABLES,
         *METHOD_TABLES,
+        *SESSION_TABLES,
         "recipe_step_line",
         "cooked_record",
         "meal_eater",
@@ -1032,7 +1042,14 @@ def test_cooked_records_migration_adds_one_table_and_goes_back_and_forward(
             "INSERT INTO meal_item (id, household_id, meal_id, position, kind, recipe_id)"
             " VALUES (1, 1, 1, 0, 'recipe', 1)"
         )
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "cooked_record", "meal_eater", "alembic_version"}
+    skip = {
+        *STOCKTAKE_TABLES,
+        *METHOD_TABLES,
+        *SESSION_TABLES,
+        "cooked_record",
+        "meal_eater",
+        "alembic_version",
+    }
     before = _row_counts(engine, skip)
     migrate.upgrade(engine)
     assert migrate_head(engine) == newest_migration()
@@ -1098,7 +1115,7 @@ def test_note_migration_changes_one_rule_and_goes_back_and_forward(tmp_path: Pat
                 "INSERT INTO meal_item (household_id, meal_id, position, kind, name)"
                 " VALUES (1, 2, 0, 'note', 'Eating out')"
             )
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "meal_eater", "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "meal_eater", "alembic_version"}
     before = _row_counts(engine, skip)
     migrate.upgrade(engine)
     assert migrate_head(engine) == newest_migration()
@@ -1157,7 +1174,7 @@ def test_meal_eaters_migration_adds_one_table_and_goes_back_and_forward(tmp_path
     its meal or its login; going back drops only the table."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "meal_eater", "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "meal_eater", "alembic_version"}
     before = _row_counts(engine, skip)
     migrate.downgrade(engine, NOTE_MIGRATION)
     assert "meal_eater" not in inspect(engine).get_table_names()
@@ -1207,7 +1224,7 @@ def test_cook_per_step_migration_adds_one_column_and_goes_back_and_forward(
     column and keeps every other row; going forward again puts every household back to off."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "alembic_version"}
     before = _row_counts(engine, skip)
     with engine.connect() as connection:
         households = connection.exec_driver_sql("SELECT count(*) FROM household").scalar_one()
@@ -1243,7 +1260,7 @@ def test_restock_typed_at_migration_adds_one_column_and_goes_back_and_forward(
     every row and "never reuse an id"; going forward again adds it empty."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "alembic_version"}
     before = _row_counts(engine, skip)
     with engine.connect() as connection:
         found = connection.exec_driver_sql("SELECT restock_typed_at FROM food").scalars().all()
@@ -1294,7 +1311,7 @@ def test_date_kind_migration_adds_one_empty_column_and_goes_back_and_forward(
     "never reuse an id"; going forward again adds it empty."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "alembic_version"}
     before = _row_counts(engine, skip)
     with engine.connect() as connection:
         found = connection.exec_driver_sql("SELECT date_kind FROM food").scalars().all()
@@ -1340,7 +1357,7 @@ def test_stocktake_migration_adds_two_empty_tables_and_goes_back_and_forward(
     drops only them and leaves every other row alone; going forward again makes them empty."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {"alembic_version", *STOCKTAKE_TABLES, *METHOD_TABLES}
+    skip = {"alembic_version", *STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES}
     before = _row_counts(engine, skip)
     tables = STOCKTAKE_TABLES
     assert tables <= set(inspect(engine).get_table_names())
@@ -1393,7 +1410,7 @@ def test_place_and_shop_ids_migration_keeps_rows_and_never_reuses_an_id(tmp_path
         )
         shop_id = connection.exec_driver_sql("SELECT max(id) FROM shop").scalar_one()
         connection.exec_driver_sql("UPDATE food SET shop_id = ? WHERE id = 1", (shop_id,))
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "alembic_version"}
     before = _row_counts(engine, skip)
 
     def rows() -> dict[str, list[tuple[object, ...]]]:
@@ -1444,7 +1461,7 @@ def test_optional_migration_adds_empty_columns_and_goes_back_and_forward(tmp_pat
     them empty. The new columns are on tables that already have `household_id`."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "alembic_version"}
 
     def columns(table: str) -> set[str]:
         return {c["name"] for c in inspect(engine).get_columns(table)}
@@ -1523,7 +1540,7 @@ def test_step_wait_migration_adds_empty_columns_and_goes_back_and_forward(tmp_pa
     single time is left as it was (nothing is guessed from old words)."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "alembic_version"}
     names = {"wait_kind", "wait_min_minutes", "wait_max_minutes", "wait_overnight"}
 
     def columns() -> set[str]:
@@ -1586,7 +1603,7 @@ def test_methods_migration_gives_every_recipe_one_method_and_goes_back_and_forwa
     gives every recipe its method. The new table has `household_id`."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "alembic_version"}
     assert "household_id" in {c["name"] for c in inspect(engine).get_columns("recipe_method")}
 
     def recipe_ids() -> list[int]:
@@ -1739,7 +1756,7 @@ def test_start_times_migration_adds_two_empty_columns_keeps_every_row_and_goes_b
     keeps the meals, their cooked records and their "never reuse an id" numbering."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "alembic_version"}
     migrate.downgrade(engine, METHODS_MIGRATION)
     assert migrate_head(engine) == METHODS_MIGRATION
     assert "start_at" not in {c["name"] for c in inspect(engine).get_columns("meal_item")}
@@ -1807,7 +1824,7 @@ def test_step_timings_migration_adds_empty_columns_and_a_default_kitchen_and_goe
     every row and "never reuse an id"; forward again leaves them empty."""
     engine = _make_0_2_database(tmp_path / "old.db")
     _with_recipes(engine)
-    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, "alembic_version"}
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "alembic_version"}
     step_names = {"timing_hands", "timing_minutes", "timing_equipment"}
     house_names = {
         "kitchen_hob_rings",
@@ -1872,3 +1889,59 @@ def test_step_timings_migration_adds_empty_columns_and_a_default_kitchen_and_goe
                 "SELECT kitchen_hob_rings, kitchen_asked FROM household"
             )
         } == {(4, 0)}
+
+
+STEP_TIMINGS_MIGRATION = "c3e9a1d7b504"  # the one just before Batch cook sessions
+
+
+def test_batch_session_migration_adds_a_table_and_two_columns_and_goes_back_and_forward(
+    tmp_path: Path,
+) -> None:
+    """0.8 wave 6, B2 (cabledrawer 28 Oct and 11 Nov), Batch cook's database change 2 of 3: a new,
+    empty `batch_session` table (with a household), `batch_cook.session_id` empty for every batch
+    already there, and the Batch cook switch on for every household. Going back drops the
+    table and both columns, keeps every other row and "never reuse an id"; forward again leaves
+    them empty, with the household link on the batch cook."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "alembic_version"}
+
+    def columns(table: str) -> set[str]:
+        return {c["name"] for c in inspect(engine).get_columns(table)}
+
+    assert {"id", "household_id", "cook_day", "together_minutes"} <= columns("batch_session")
+    assert "session_id" in columns("batch_cook")
+    assert "batch_cook_hidden" in columns("household")
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT count(*) FROM batch_session").scalar_one() == 0
+        assert {
+            r[0] for r in connection.exec_driver_sql("SELECT batch_cook_hidden FROM household")
+        } == {0}
+    assert "AUTOINCREMENT" in _table_sql(engine, "batch_session")
+    assert "AUTOINCREMENT" in _table_sql(engine, "batch_cook")
+    before = _row_counts(engine, skip)
+    migrate.downgrade(engine, STEP_TIMINGS_MIGRATION)
+    assert migrate_head(engine) == STEP_TIMINGS_MIGRATION
+    assert "batch_session" not in inspect(engine).get_table_names()
+    assert "session_id" not in columns("batch_cook")
+    assert "batch_cook_hidden" not in columns("household")
+    assert "AUTOINCREMENT" in _table_sql(engine, "batch_cook")
+    assert _row_counts(engine, skip) == before
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    assert "batch_session" in inspect(engine).get_table_names()
+    assert "session_id" in columns("batch_cook") and "batch_cook_hidden" in columns("household")
+    assert "AUTOINCREMENT" in _table_sql(engine, "batch_session")
+    assert "AUTOINCREMENT" in _table_sql(engine, "batch_cook")
+    assert _row_counts(engine, skip) == before
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT count(*) FROM batch_session").scalar_one() == 0
+        assert {r[0] for r in connection.exec_driver_sql("SELECT session_id FROM batch_cook")} <= {
+            None
+        }
+    keys = inspect(engine).get_foreign_keys("batch_cook")
+    assert any(
+        k["referred_table"] == "batch_session"
+        and k["constrained_columns"] == ["household_id", "session_id"]
+        for k in keys
+    )

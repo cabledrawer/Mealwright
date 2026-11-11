@@ -79,6 +79,11 @@ class Household(Base):
     kitchen_pressure_cookers: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     kitchen_oven: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("1"))
     kitchen_asked: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
+    # An admin can hide Batch cook (0.8 wave 6, B2): no sidebar entry, no Plan tab, and its
+    # suggestions are refused. False (shown) is the usual.
+    batch_cook_hidden: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("0")
+    )
 
 
 class OutboundSwitch(Base):
@@ -1121,6 +1126,29 @@ class Meal(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class BatchSession(Base):
+    """One Batch cook (Experimental) session (0.8 wave 6, B2; cabledrawer 28 Oct): several recipes
+    cooked together on one day, each through Cook once. The session's recipes are its batch
+    cooks (`batch_cook.session_id`), in the order they were made; the cook-day meal items are
+    theirs by the cook meal. `together_minutes` and `one_by_one_minutes` are the rough times
+    shown when it was planned (a snapshot: a recipe edited later does not move them)."""
+
+    __tablename__ = "batch_session"
+    __table_args__ = (
+        UniqueConstraint("household_id", "id", name="uq_batch_session_household_id_id"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    cook_day: Mapped[date] = mapped_column(Date)
+    together_minutes: Mapped[int | None] = mapped_column(Integer)
+    one_by_one_minutes: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class BatchCook(Base):
     """One "Cook once, eat for..." session: a recipe cooked on a day into several tubs."""
 
@@ -1139,6 +1167,13 @@ class BatchCook(Base):
             ["meal.household_id", "meal.id"],
             name="fk_batch_cook_household_id_meal",
         ),
+        # The Batch cook session it was made in, if any. Same rule: the server clears or removes
+        # it first, the database refuses otherwise.
+        ForeignKeyConstraint(
+            ["household_id", "session_id"],
+            ["batch_session.household_id", "batch_session.id"],
+            name="fk_batch_cook_household_id_batch_session",
+        ),
         {"sqlite_autoincrement": True},
     )
 
@@ -1153,6 +1188,7 @@ class BatchCook(Base):
     )
     recipe_name: Mapped[str] = mapped_column(String(200))
     cook_meal_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    session_id: Mapped[int | None] = mapped_column(Integer, index=True)
     cooked_on: Mapped[date] = mapped_column(Date)
     tub_count: Mapped[int] = mapped_column(Integer)
     pattern: Mapped[str] = mapped_column(String(14), default="pick", server_default="pick")
