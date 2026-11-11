@@ -17,6 +17,7 @@ from sqlalchemy import select
 from mealwright import people
 from mealwright.api.v1.account import USERNAME
 from mealwright.api.v1.context import Here, acting_member
+from mealwright.api.v1.schemas import ChangeOut
 from mealwright.auth import (
     MAX_PASSWORD,
     MIN_PASSWORD,
@@ -28,8 +29,10 @@ from mealwright.auth import (
     needs_https,
 )
 from mealwright.errors import Problem, StoredInt, not_found
+from mealwright.foods import change_out
 from mealwright.history import as_utc, commit, replayed
-from mealwright.models import JoinLink, Login, Member, utcnow
+from mealwright.kitchen_changes import key_kept
+from mealwright.models import Change, JoinLink, Login, Member, utcnow
 from mealwright.names import one_line
 from mealwright.roles import ADMIN, Action, allowed
 from mealwright.shopping import lock_db
@@ -90,6 +93,8 @@ class PeopleOut(BaseModel):
     can_change: bool
     # The household switch: shared logins ask "Who's this?" (off at first).
     ask_whos_this: bool
+    # After a change: the change, for its Undo.
+    change: ChangeOut | None = None
 
 
 def _person(kitchen: Here, member: Member) -> HouseholdPerson:
@@ -133,19 +138,30 @@ def list_people(kitchen: Here) -> PeopleOut:
     return _people(kitchen)
 
 
-def _start(kitchen: Here, response: Response) -> bool:
-    """Admins only; the household's lock; True when this is a retry of a change already made."""
+def _start(kitchen: Here, response: Response) -> Change | None:
+    """Admins only; the household's lock. A retry of a change already made: that change."""
     kitchen.admin_only(Action.PEOPLE)
     lock_db(kitchen.db, kitchen.household)
-    if replayed(kitchen) is not None:
+    earlier = replayed(kitchen)
+    if earlier is not None:
         response.headers["Idempotent-Replayed"] = "true"
-        return True
-    return False
+    return earlier
 
 
-def _finish(kitchen: Here, response: Response) -> None:
-    if commit(kitchen) is not None:
+def _finish(kitchen: Here, response: Response, made: Change | None) -> PeopleOut:
+    """Commit, and answer with everyone and the change made (for its Undo)."""
+    earlier = commit(kitchen)
+    if earlier is not None:  # lost the race to the same change: answer as for a retry
         response.headers["Idempotent-Replayed"] = "true"
+        made = earlier
+    return _out(kitchen, made)
+
+
+def _out(kitchen: Here, made: Change | None) -> PeopleOut:
+    out = _people(kitchen)
+    if made is not None and made.kind in people.KINDS:  # not a kept key ("setting_kept")
+        out.change = change_out(kitchen, made)
+    return out
 
 
 class PersonIn(BaseModel):
@@ -162,10 +178,12 @@ class PersonIn(BaseModel):
 @router.post("/people", status_code=status.HTTP_201_CREATED)
 def add_person(body: PersonIn, kitchen: Here, response: Response) -> PeopleOut:
     """Add a person with no login (a child, someone who never signs in). Admins only."""
-    if not _start(kitchen, response):
-        people.add(kitchen, body.name, body.colour, body.portion_quarters)
-        _finish(kitchen, response)
-    return _people(kitchen)
+    earlier = _start(kitchen, response)
+    if earlier is not None:
+        return _out(kitchen, earlier)
+    return _finish(
+        kitchen, response, people.add(kitchen, body.name, body.colour, body.portion_quarters)
+    )
 
 
 class PersonChange(BaseModel):
@@ -189,17 +207,20 @@ def change_person(
 ) -> PeopleOut:
     """Change a person's name, colour, portion, role or whether their login is shared. The
     household's only admin can't be made a member. Admins only."""
-    if not _start(kitchen, response):
-        member = people.mine(kitchen, member_id)
-        # Null means "no colour"; for the others it means "as it is".
-        wanted = {
-            key: value
-            for key, value in body.model_dump(exclude_unset=True).items()
-            if value is not None or key == "colour"
-        }
-        people.change(kitchen, member, wanted)
-        _finish(kitchen, response)
-    return _people(kitchen)
+    earlier = _start(kitchen, response)
+    if earlier is not None:
+        return _out(kitchen, earlier)
+    member = people.mine(kitchen, member_id)
+    # Null means "no colour"; for the others it means "as it is".
+    wanted = {
+        key: value
+        for key, value in body.model_dump(exclude_unset=True).items()
+        if value is not None or key == "colour"
+    }
+    made = people.change(kitchen, member, wanted)
+    if made is None:
+        key_kept(kitchen)
+    return _finish(kitchen, response, made)
 
 
 @router.delete("/people/{member_id}")
@@ -207,10 +228,10 @@ def remove_person(member_id: StoredInt, kitchen: Here, response: Response) -> Pe
     """Remove a person: their meals, tubs and history stay, Recent changes shows "Joss
     (removed)", and their login can't sign in. Undo puts them back. Admins only; nobody can
     remove themselves, and the household always keeps an admin."""
-    if not _start(kitchen, response):
-        people.remove(kitchen, people.mine(kitchen, member_id))
-        _finish(kitchen, response)
-    return _people(kitchen)
+    earlier = _start(kitchen, response)
+    if earlier is not None:
+        return _out(kitchen, earlier)
+    return _finish(kitchen, response, people.remove(kitchen, people.mine(kitchen, member_id)))
 
 
 class LoginIn(BaseModel):
@@ -260,13 +281,13 @@ class SwitchIn(BaseModel):
 @router.put("/people/ask-whos-this")
 def switch_whos_this(body: SwitchIn, kitchen: Here, response: Response) -> PeopleOut:
     """The household switch: shared logins ask "Who's this?". Admins only."""
-    if not _start(kitchen, response):
-        if people.ask_whos_this(kitchen, body.on) is None:
-            from mealwright.kitchen_changes import key_kept
-
-            key_kept(kitchen)
-        _finish(kitchen, response)
-    return _people(kitchen)
+    earlier = _start(kitchen, response)
+    if earlier is not None:
+        return _out(kitchen, earlier)
+    made = people.ask_whos_this(kitchen, body.on)
+    if made is None:
+        key_kept(kitchen)
+    return _finish(kitchen, response, made)
 
 
 # --- "Who's this?" on a shared login -----------------------------------------------------------

@@ -107,6 +107,29 @@ def test_adding_a_person_without_a_login_and_undo(kitchen: TestClient) -> None:
     assert [p["name"] for p in _people(kitchen)["people"]] == ["Tess"]
 
 
+def test_each_change_answers_with_its_change_and_a_retry_changes_nothing_more(
+    kitchen: TestClient,
+) -> None:
+    key = {"Idempotency-Key": "4b1c1f0e-0a51-4d1e-9a8e-6f7e3a0d5c21"}
+    first = kitchen.post(f"{API}/people", json={"name": "Joss"}, headers=key)
+    assert first.status_code == 201, first.text
+    change = first.json()["change"]
+    assert change["summary"] == "Added Joss to the household" and change["can_undo"]
+    again = kitchen.post(f"{API}/people", json={"name": "Joss"}, headers=key)
+    assert again.status_code == 201 and again.headers["Idempotent-Replayed"] == "true"
+    assert again.json()["change"]["id"] == change["id"]
+    assert [p["name"] for p in again.json()["people"]] == ["Tess", "Joss"]
+    joss = _id(kitchen, "Joss")
+    changed = ok(kitchen.patch(f"{API}/people/{joss}", json={"portion_quarters": 2}))
+    assert changed["change"]["kind"] == "person_changed"
+    same = ok(kitchen.patch(f"{API}/people/{joss}", json={"portion_quarters": 2}))
+    assert same["change"] is None  # nothing changed
+    assert ok(kitchen.delete(f"{API}/people/{joss}"))["change"]["kind"] == "person_removed"
+    switched = ok(kitchen.put(f"{API}/people/ask-whos-this", json={"on": True}))
+    assert switched["change"]["kind"] == "whos_this_switch" and switched["ask_whos_this"]
+    assert ok(kitchen.get(f"{API}/people"))["change"] is None
+
+
 def test_names_must_differ_and_portions_are_quarter_to_two(kitchen: TestClient) -> None:
     _add(kitchen)
     _problem(kitchen.post(f"{API}/people", json={"name": " joss "}), 409, "name_taken")

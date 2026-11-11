@@ -159,7 +159,7 @@ def _state(kitchen: Kitchen, member: Member) -> dict[str, Any]:
     }
 
 
-def add(kitchen: Kitchen, name: str, colour: str | None, portion_quarters: int) -> Member:
+def add(kitchen: Kitchen, name: str, colour: str | None, portion_quarters: int) -> Change:
     check_name(kitchen, name)
     member = Member(
         household_id=kitchen.household_id,
@@ -171,14 +171,13 @@ def add(kitchen: Kitchen, name: str, colour: str | None, portion_quarters: int) 
     )
     kitchen.db.add(member)
     kitchen.db.flush()
-    record(
+    return record(
         kitchen,
         "person_added",
         f"Added {name} to the household",  # proposed, for cabledrawer
         None,
         {"person": {"id": member.id, "new": _state(kitchen, member)}},
     )
-    return member
 
 
 def change(kitchen: Kitchen, member: Member, wanted: dict[str, Any]) -> Change | None:
