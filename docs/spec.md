@@ -552,7 +552,7 @@ The shape is in "Data model notes" below: each meal sits on a date and slot and 
 **Decided for 0.2 (cabledrawer 17 Oct):**
 
 - **Undo reverses just that change**; later changes stay. If the packet has been used up since, Undo puts back what it can and says so. Stock never goes below zero.
-- **Anyone in the household** can undo anyone's change within the undo window (7 days).
+- **Anyone in the household** can undo anyone's change within the undo window (7 days). **The undo window stays fixed (cabledrawer 11 Nov):** it is not a setting in 0.9 (no `undo_days`), so Undo of a recipe Save never brings a recipe back without its draft. Revisit after 1.0.
 - **Ctrl+Z on desktop** undoes your own last change. When the cursor is in a text box, Ctrl+Z undoes the typing as normal, never a pantry change.
 - **Thinning history** runs as a daily job with APScheduler (approved 17 Oct, MIT), in the household's local time.
 - **Recent changes on Ingredients (cabledrawer 18 Oct, 0.3):** Ingredients gets its own Recent changes, a side panel on desktop and a "Recent changes" button on the phone, listing ingredient changes: new ingredients (including "+ Staple"), Staple on/off, removals, merges, edits and "made its own ingredient again" (cabledrawer 18 Oct), each with Undo for 7 days. Pantry's Recent changes stays stock-only. On desktop a one-line "Recent changes · N" bar above the editor opens the list in the side column; closing it brings the editor back. Past ten it reads "Recent changes · 10+" (cabledrawer 18 Oct). Not live in 0.3: the list updates when you come back to the page; live ingredient updates are for a later milestone (cabledrawer 18 Oct).
@@ -834,6 +834,15 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Guessed or set by you (cabledrawer 11 Nov, mockup):** in the editor each step's timing says **guessed** (pink, Experimental) until changed by hand, then **set by you**.
 - **Kept: it is in use (cabledrawer 11 Nov):** when Undo of an import keeps a new ingredient because the plan, the shopping list or the pantry uses it (not a recipe), the toast says **<Name> is kept: it is in use.** (or **… are kept: they are in use.**).
 
+### Decided for 0.9.0 (cabledrawer 11 Nov)
+
+- **Leaked passwords, the cookie in plain http, the undo window:** see section 7 ("No leaked-password list", "`__Host-` cookie name") and "History and undo" (cabledrawer 11 Nov).
+- **A member can be given a login later (cabledrawer 11 Nov):** yes, by an Admin only, from Settings → Household. Their portions and history stay with them.
+- **Single sign-on is tested against throwaway providers only (cabledrawer 11 Nov):** a few OIDC providers (for example Authelia, Authentik, Keycloak, Pocket ID) run in throwaway containers during the checks; nothing changes on the household's own server.
+- **Proxy examples (cabledrawer 11 Nov):** the Caddy example is tested for real on the test bed; Traefik, nginx and Nginx Proxy Manager are tested in throwaway containers.
+- **Test releases (cabledrawer 11 Nov):** two test tags for 0.9.0, `v0.9.0-alpha.1` after the accounts and sign-in work and `v0.9.0-beta.1` when everything is in; both go to the test bed only.
+- **Drafts list count (cabledrawer 11 Nov, from the whole-0.8 review, I7):** the count on the Drafts list may lag until the draft is opened; OK as built.
+
 ### Everything Mealwright stores (combined list, 17 Oct — draft)
 
 Plain-language list of every kind of record, grouped. Every record belongs to the household (household_id), so more than one household per install stays possible later.
@@ -922,9 +931,9 @@ Plain-language list of every kind of record, grouped. Every record belongs to th
 
 - **HTTPS only, remembered by the browser (HSTS), done in 0.4:** in https mode (the default) every answer tells the browser to use only https for this address for a year (`Strict-Transport-Security: max-age=31536000`). No `includeSubDomains` and no `preload`, so other sub-domains are not affected; another plain-http service on the same host name (a different port) would be. Never sent in plain-http mode (`MEALWRIGHT_ALLOW_PLAIN_HTTP`).
 - **Longest sign-in, done in 0.4:** a sign-in without "Remember this phone/computer" still ends after 12 hours without use, and now also ends 30 days after it started however often it's used, the same as with it.
-- **Shortest password, 0.8:** 12 characters for new passwords (set up, password change, reset). Existing shorter passwords keep working.
-- **Leaked-password check, 0.8:** new passwords are checked against a list of leaked passwords bundled with the app, under a licence on the allow list. Offline only, never an online lookup.
-- **`__Host-` cookie name, 0.8:** the sign-in cookie gets the `__Host-` name, so a site on another subdomain can't set it. It signs everyone out once. It can't work in plain-http mode (browsers only accept it over https); what that mode does is settled in 0.8.
+- **Shortest password, 0.9:** 12 characters for new passwords (set up, password change, reset). Existing shorter passwords keep working.
+- **No leaked-password list (cabledrawer 11 Nov; replaces the 19 Oct line "new passwords are checked against a list of leaked passwords bundled with the app"):** no bundled leaked-password check. New passwords need 12 characters, together with the per-username lock-out and the limit on Argon2.
+- **`__Host-` cookie name, 0.9:** the sign-in cookie gets the `__Host-` name, so a site on another subdomain can't set it. It signs everyone out once. **Plain-http mode (cabledrawer 11 Nov):** it keeps today's cookie name and the sign-in page shows a "not secure, this device only" note; https gets `__Host-`.
 - **Database file readable only by Mealwright, 0.9:** `mealwright.db` (today readable by any user inside the container) becomes readable only by the `mealwright` user, done with the backup docs (lead's note: once it's clear how backup tools read `/data`).
 
 **Backups (cabledrawer 17 Oct):** the app makes its own backup automatically, daily by default, into its existing data volume, keeping the last 7. The user can change how often and how many are kept. Nothing leaves the server; the user's own backup tools can copy it from there.
