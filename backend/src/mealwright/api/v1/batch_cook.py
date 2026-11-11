@@ -11,7 +11,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Path, Query, Response, status
 from pydantic import BaseModel, Field
 
-from mealwright import batch_mode, batch_sessions, batch_suggest, cooking, deduction, plan
+from mealwright import batch_mode, batch_sessions, batch_suggest, cooking, deduction, plan, today
 from mealwright.api.v1.batches import BatchIn, BatchPreviewOut, preview_out, spots_of
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.cooked import (
@@ -27,7 +27,7 @@ from mealwright.api.v1.plan import PlanWrite, _run
 from mealwright.api.v1.schemas import Answer
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt
-from mealwright.models import BatchCook, BatchSession, utcnow
+from mealwright.models import BatchCook, BatchSession, Change, Meal, utcnow
 from mealwright.shopping import lock_db
 
 router = APIRouter(tags=["batch cook"], dependencies=[SameOrigin])
@@ -628,9 +628,34 @@ def cook_session(
     every recipe's stock, and a cooked record for each recipe. All or nothing: if any recipe is
     refused (`409 already_cooked`...), none is taken. A retry with the same `Idempotency-Key` takes
     nothing more. The tubs are the ones Cook once made for each recipe."""
-    return _confirm(
-        kitchen,
-        response,
-        lambda: cooking.confirm(kitchen, _session_entries(kitchen, session_id, body), body.answers),
-        _written_meal,
-    )
+
+    def make() -> Change:
+        entries = _session_entries(kitchen, session_id, body)
+        change = cooking.confirm(kitchen, entries, body.answers)
+        _answer_cook_meals(kitchen, entries)
+        return change
+
+    return _confirm(kitchen, response, make, _written_meal)
+
+
+def _answer_cook_meals(kitchen: Kitchen, entries: list[cooking.Entry]) -> None:
+    """The meal the recipes were cooked for gets its own "Cooked it" answer in the same press
+    (as the Plan's own Cooked it does): the meal is cooked at once, and the tubs count from the
+    day cooked when that was before the meal's day (F159; RF3, C3). One Undo takes it all back.
+    A meal that was dealt with by hand already is left as it is."""
+    seen: set[int] = set()
+    for entry in entries:
+        batch = kitchen.db.get(BatchCook, entry.link.get("batch_id") or 0)
+        meal_id = batch.cook_meal_id if batch is not None else None
+        meal = kitchen.db.get(Meal, meal_id) if meal_id else None
+        if meal is None or meal.household_id != kitchen.household_id or meal.id in seen:
+            continue
+        seen.add(meal.id)
+        if meal.status == "planned":
+            # The pantry change keeps the request's key (a retry answers from it); the meal's
+            # answer is written without one.
+            kept, kitchen.idempotency_key = kitchen.idempotency_key, None
+            try:
+                today.cooked(kitchen, meal, None)
+            finally:
+                kitchen.idempotency_key = kept

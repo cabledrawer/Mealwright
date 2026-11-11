@@ -236,3 +236,37 @@ def test_another_households_batch_cook_is_not_found_in_my_session(
         )
         assert refused.status_code == 404 and refused.json()["code"] == "not_found"
     assert pantry(kitchen) == before
+
+
+# --- Whole-0.8 review fixes (RF3): C3 ------------------------------------------------------------
+
+
+def test_a_session_cooked_before_its_day_counts_the_tubs_from_today_and_cooks_the_meal(
+    kitchen: TestClient,
+) -> None:
+    """C3 (against F159): a session on D1 cooked today: the tubs' use-by counts from today, the
+    cook-day meal is cooked at once (not "planned" for 5 minutes), one Undo gives it all back."""
+    from sqlalchemy import select
+    from test_plan_writes import view
+
+    from mealwright.models import Tub
+
+    sid, _ = session_of(kitchen)
+
+    def use_bys() -> list[Any]:
+        with db_of(kitchen) as db:
+            return sorted(t.use_by for t in db.scalars(select(Tub)) if t.use_by is not None)
+
+    def meal_status() -> str:
+        meal = next(m for m in view(kitchen)["meals"] if m["date"] == D1.isoformat())
+        return str(meal["status"])
+
+    before = use_bys()
+    assert before and meal_status() == "planned"
+    done = ok(kitchen.post(f"{API}/batch-cook/sessions/{sid}/cook", json={}), 201)
+    after = use_bys()
+    assert len(after) == len(before) and all(a < b for a, b in zip(after, before, strict=True))
+    assert meal_status() == "cooked"
+    ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
+    assert use_bys() == before
+    assert meal_status() == "planned"
