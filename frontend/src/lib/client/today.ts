@@ -59,5 +59,13 @@ export const cookedIt = (mealId: number, leftovers: Leftovers | null, key: strin
 export const didntCook = (mealId: number, key: string) =>
   api<PlanWrite>('POST', `/plan/meals/${mealId}/didnt`, undefined, { idempotencyKey: key });
 
-export const moveIt = (mealId: number, to: { date: string; slot_id: number }, key: string) =>
-  api<PlanWrite>('POST', `/plan/meals/${mealId}/moved`, to, { idempotencyKey: key });
+export const moveIt = (
+  mealId: number,
+  to: {
+    date: string;
+    slot_id: number;
+    /** The new start time of each recipe with a long wait, by the item's id. */
+    starts?: { item_id: number; day: string; time: string }[];
+  },
+  key: string
+) => api<PlanWrite>('POST', `/plan/meals/${mealId}/moved`, to, { idempotencyKey: key });

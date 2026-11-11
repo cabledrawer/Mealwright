@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import and_, exists, select
 
 from mealwright import plan
@@ -14,7 +14,7 @@ from mealwright import today as answers
 from mealwright.api.v1.batches import PersonOut, TubLeftOut, get_tubs_left, list_people
 from mealwright.api.v1.context import Here
 from mealwright.api.v1.pantry import UseSoonLot, UseSoonTub, use_soon
-from mealwright.api.v1.plan import MealSlotOut, PlanOut, PlanWrite, _run, get_plan
+from mealwright.api.v1.plan import ItemStartIn, MealSlotOut, PlanOut, PlanWrite, _run, get_plan
 from mealwright.auth import SameOrigin
 from mealwright.batches import tub_use_by
 from mealwright.errors import StoredInt
@@ -180,6 +180,22 @@ class CookedIn(BaseModel):
 class MovedIn(BaseModel):
     date: date
     slot_id: StoredInt
+    starts: list[ItemStartIn] = Field(
+        default_factory=list,
+        max_length=50,
+        description="the new start time of each recipe in the meal with a long wait, by"
+        " `item_id`, asked again for the new day, as when a planned meal is moved. A recipe left"
+        " out has no time yet. Same refusals as planning it (`422 bad_start`, `no_wait`,"
+        " `not_a_recipe`); `422 start_not_moved` for an item not in the meal; an item named"
+        " twice is refused (422).",
+    )
+
+    @field_validator("starts")
+    @classmethod
+    def _one_start_each(cls, starts: list[ItemStartIn]) -> list[ItemStartIn]:
+        if len({s.item_id for s in starts}) != len(starts):
+            raise ValueError("One start time for each recipe.")  # proposed, for cabledrawer
+        return starts
 
 
 @router.post("/plan/meals/{plan_meal_id}/cooked")
@@ -224,6 +240,10 @@ def move_it(plan_meal_id: StoredInt, body: MovedIn, kitchen: Here, response: Res
         kitchen,
         response,
         lambda: answers.moved(
-            kitchen, plan.find_meal(kitchen, plan_meal_id), body.date, body.slot_id
+            kitchen,
+            plan.find_meal(kitchen, plan_meal_id),
+            body.date,
+            body.slot_id,
+            {s.item_id: s.at() for s in body.starts} or None,
         ),
     )

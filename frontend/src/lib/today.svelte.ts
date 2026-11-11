@@ -249,12 +249,39 @@ export class TodayModel {
     });
   }
 
-  move(waiting: WaitingMeal, day: string, slotId: number) {
+  /**
+   * "Move it": to a day and a meal. Each recipe in the meal that had a start time for its long
+   * wait is asked "When will you start it?" again for the new day, as the Plan's Move does (Move,
+   * No time yet, Cancel); Cancel moves nothing.
+   */
+  async move(waiting: WaitingMeal, day: string, slotId: number) {
     const name = this.nameOf(waiting);
+    const meal = this.data?.plan.meals.find((m) => m.id === waiting.meal_id);
+    const asking = (meal?.items ?? []).filter(
+      (i) => i.kind === 'recipe' && i.recipe && i.ahead && i.ahead.start_day
+    );
+    const starts: { item_id: number; day: string; time: string }[] = [];
+    if (asking.length) {
+      const { startAsk } = await import('./startAsk.svelte');
+      for (const item of asking) {
+        const start = await startAsk.ask(
+          { id: item.recipe!.id, name: item.recipe!.name },
+          { day, slotId, slotName: this.slotName(slotId) },
+          { method: item.method_id ?? null, adding: true, button: 'Move' }
+        );
+        if (start === null) return undefined; // Cancel: nothing is moved
+        if (start) starts.push({ item_id: item.id, ...start });
+      }
+    }
     return this.#send({
       label: `Moved ${name} to ${this.slotName(slotId)}`,
       mealId: waiting.meal_id,
-      send: (key) => moveIt(waiting.meal_id, { date: day, slot_id: slotId }, key)
+      send: (key) =>
+        moveIt(
+          waiting.meal_id,
+          { date: day, slot_id: slotId, ...(starts.length ? { starts } : {}) },
+          key
+        )
     });
   }
 }

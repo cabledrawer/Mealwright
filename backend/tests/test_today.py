@@ -769,3 +769,90 @@ def test_undo_of_older_leftovers_keeps_a_tub_added_since(
     with db_of(kitchen) as db:
         assert db.scalar(select(func.count(Tub.id))) == 3
         assert db.scalars(select(BatchCook)).one().tub_count == 3
+
+
+# --- Move it asks the start time again (FX5) ---------------------------------------------------
+
+
+def _dosa_yesterday(kitchen: TestClient, slots: dict[str, int]) -> tuple[int, int]:
+    from test_start_ahead import dosa
+
+    written = plan_recipe(kitchen, dosa(kitchen)["id"], ago(kitchen, 1), slots["Dinner"])
+    return written["meal_id"], written["item_id"]
+
+
+def _starts_on(kitchen: TestClient, day: date) -> list[tuple[str | None, str | None]]:
+    plan_view = ok(kitchen.get(f"{API}/plan", params={"from": str(day), "to": str(day)}))
+    return [
+        (i["ahead"]["start_day"], i["ahead"]["start_time"])
+        for m in plan_view["meals"]
+        for i in m["items"]
+        if i["ahead"]
+    ]
+
+
+def test_move_it_takes_the_start_time_of_a_recipe_with_a_long_wait_and_undo_takes_it_away(
+    kitchen: TestClient, slots: dict[str, int]
+) -> None:
+    meal, item = _dosa_yesterday(kitchen, slots)
+    day = ahead(kitchen, 2)
+    eve = {"day": str(day - timedelta(days=1)), "time": "21:00"}
+    to = {"date": str(day), "slot_id": slots["Breakfast"]}
+    # Refused ones change nothing: a bad day, an item that is not in the meal, one named twice.
+    far = {"item_id": item, "day": "9999-12-31", "time": "23:59"}
+    assert answer(kitchen, meal, "moved", {**to, "starts": [far]}, 422)["code"] == "bad_start"
+    stray = {"item_id": item + 999, **eve}
+    assert (
+        answer(kitchen, meal, "moved", {**to, "starts": [stray]}, 422)["code"] == "start_not_moved"
+    )
+    twice = [{"item_id": item, **eve}, {"item_id": item, "day": eve["day"], "time": "20:00"}]
+    answer(kitchen, meal, "moved", {**to, "starts": twice}, 422)
+    assert meal_status(kitchen, meal) == "planned"
+    done = answer(kitchen, meal, "moved", {**to, "starts": [{"item_id": item, **eve}]})
+    assert _starts_on(kitchen, day) == [(eve["day"], "21:00")]
+    undo(kitchen, done)
+    assert _starts_on(kitchen, day) == []
+    assert meal_status(kitchen, meal) == "planned"
+
+
+def test_move_it_with_no_start_time_leaves_the_recipe_with_none(
+    kitchen: TestClient, slots: dict[str, int]
+) -> None:
+    meal, _item = _dosa_yesterday(kitchen, slots)
+    day = ahead(kitchen, 2)
+    answer(kitchen, meal, "moved", {"date": str(day), "slot_id": slots["Breakfast"]})
+    assert _starts_on(kitchen, day) == [(None, None)]
+
+
+def test_move_it_refuses_a_start_for_a_recipe_with_no_wait_or_for_another_households_item(
+    kitchen: TestClient,
+    neighbour: TestClient,
+    yesterday: dict[str, Any],
+    slots: dict[str, int],
+) -> None:
+    from test_start_ahead import dosa
+
+    meal, item = yesterday["meal_id"], yesterday["item_id"]
+    to = {"date": str(ahead(kitchen, 2)), "slot_id": slots["Breakfast"]}
+    day = str(ahead(kitchen, 1))
+    no_wait = answer(
+        kitchen,
+        meal,
+        "moved",
+        {**to, "starts": [{"item_id": item, "day": day, "time": "21:00"}]},
+        422,
+    )
+    assert no_wait["code"] == "no_wait"
+    # An item of the other household is not in this meal: refused the same way, nothing leaks.
+    theirs = plan_recipe(
+        neighbour, dosa(neighbour)["id"], ago(neighbour, 1), slot_ids(neighbour, 2)["Dinner"]
+    )["item_id"]
+    other = answer(
+        kitchen,
+        meal,
+        "moved",
+        {**to, "starts": [{"item_id": theirs, "day": day, "time": "21:00"}]},
+        422,
+    )
+    assert other["code"] == "start_not_moved"
+    assert meal_status(kitchen, meal) == "planned"

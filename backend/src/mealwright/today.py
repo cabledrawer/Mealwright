@@ -32,7 +32,7 @@ Proposed, for cabledrawer (each is one rule here, easy to change later):
 """
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from typing import Any
 
 from fastapi import status
@@ -66,6 +66,7 @@ from mealwright.plan import (
     _finish,
     _make_meal,
     _meal_name,
+    _moved_starts,
     _own,
     _planned,
     _room,
@@ -346,8 +347,16 @@ def didnt(kitchen: Kitchen, meal: Meal) -> Change:
     return _finish(kitchen, "plan_didnt", f"Didn’t cook {name} ({where})", steps, meal_id=meal.id)
 
 
-def moved(kitchen: Kitchen, meal: Meal, day: date, slot_id: int) -> Change:
-    """Move it: to a day and a meal. A meal that already has food gets it alongside."""
+def moved(
+    kitchen: Kitchen,
+    meal: Meal,
+    day: date,
+    slot_id: int,
+    starts: dict[int, tuple[date, time]] | None = None,
+) -> Change:
+    """Move it: to a day and a meal. A meal that already has food gets it alongside. `starts`: the
+    new start time of each recipe with a long wait, by item id, asked again for the new day; a
+    recipe left out has no time yet. Undo takes the copies away, so no time is left behind."""
     answerable(kitchen, meal)
     check_day(kitchen, day)
     find_slot(kitchen, slot_id)
@@ -365,6 +374,7 @@ def moved(kitchen: Kitchen, meal: Meal, day: date, slot_id: int) -> Change:
     steps: list[dict[str, Any]] = []
     where_from = _where(kitchen, meal.day, meal.slot_id)
     items = items_of(kitchen, meal)
+    new_starts = _moved_starts(kitchen, items, day, slot_id, starts or {})  # before any change
     # Only what moves is named: a recipe cooked already stays (F162, cabledrawer 6 Nov).
     left = [i for i in items if i.tub_id is not None or cooked_record_of(kitchen, i, meal) is None]
     names = [plan_item_name(kitchen, i) for i in left or items]
@@ -381,7 +391,7 @@ def moved(kitchen: Kitchen, meal: Meal, day: date, slot_id: int) -> Change:
             _bring(kitchen, item, target, steps)  # a tub is in one meal at a time
         elif cooked_record_of(kitchen, item, meal) is None:
             # An already-cooked recipe is not copied: it was eaten (proposed, for cabledrawer).
-            _copy_of(kitchen, item, target, steps)
+            _copy_of(kitchen, item, target, steps, new_starts.get(item.id))
     _set_status(meal, "moved", steps, kitchen)
     return _finish(
         kitchen,
