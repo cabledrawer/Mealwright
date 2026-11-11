@@ -19,6 +19,24 @@ services:
       # The folder must belong to UID 10001, the user Mealwright runs as:
       #   sudo mkdir -p ./data && sudo chown 10001:10001 ./data
       - ./data:/data
+    # Hardening (docs/hardening.md). Mealwright needs none of the extra rights a container
+    # gets by default, and writes only to /data and /tmp.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      # The only place outside /data that may be written to (temporary files only).
+      - /tmp:size=64m,mode=1777
+    # A tiny init process, so stopping the container is clean and nothing is left defunct.
+    init: true
+    # Raise it if you have a very big recipe library; Mealwright normally uses far less.
+    mem_limit: 512m
+    # Only if the folder on the host can't belong to UID 10001 (for example it is shared
+    # with other services and belongs to another user): run as that user instead, e.g.
+    # "1000:1000". The data folder must belong to the same UID.
+    # user: "10001:10001"
     # Mealwright keeps its own log in data/logs and deletes it after 14 days; sign-in
     # lines (names, addresses) go only there. Docker's copy holds start-up messages,
     # warnings and errors. Docker can only limit it by size, not age: here 2 files of
