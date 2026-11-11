@@ -845,6 +845,52 @@ _AMOUNT_TALK = re.compile(
 )
 
 
+# Words that may follow the amount words of an amount talk ("or enough to cover", "or more if
+# needed", "or as you like") without naming an ingredient (RF4 r1 M).
+_TALK_FILLER = frozenset(
+    [
+        "to",
+        "cover",
+        "taste",
+        "needed",
+        "required",
+        "desired",
+        "if",
+        "you",
+        "like",
+        "it",
+        "your",
+        "liking",
+        "preference",
+        "preferred",
+        "want",
+        "wish",
+        "prefer",
+        "need",
+        "is",
+        "the",
+        "of",
+        "than",
+        "per",
+        "a",
+        "bit",
+    ]
+)
+
+
+def _is_amount_talk(side: str) -> bool:
+    """The "or" side only talks about the amount: its amount words, and nothing that names an
+    ingredient after them ("or more to taste" yes; "or extra virgin olive oil", "or a little oil",
+    "or about 3/4 cup honey" no)."""
+    found = _AMOUNT_TALK.match(side)
+    if found is None:
+        return False
+    for word in re.findall(r"[^\W\d_]+", side[found.end() :]):
+        if word.lower() not in _TALK_FILLER:
+            return False
+    return True
+
+
 def _with_shared_noun(first: str, last: str) -> str:
     """ "heavy" beside "thickened cream" is "heavy cream"; "black" beside "white pepper" is
     "black pepper". Only when the first side is one describing word and the other side has
@@ -1545,7 +1591,7 @@ def _with_alternative(
     if sides is None:
         return whole
     left_text, right_text = (side.strip(" ,;") for side in sides)
-    if _AMOUNT_TALK.match(right_text):
+    if _is_amount_talk(right_text):
         return whole  # "or more to taste", "or so": a note, not another food (RF4 I4)
     left = read_line(left_text, extra, pint_ml)
     right = read_line(right_text, extra, pint_ml)

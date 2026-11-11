@@ -474,7 +474,7 @@ def test_rf4_h_a_fraction_before_a_slash_keeps_its_digits() -> None:
 
 
 def test_rf4_m_a_name_ending_in_each_is_not_cut() -> None:
-    """"peach" ends in "each": the trailing-each rule needs a word boundary."""
+    """ "peach" ends in "each": the trailing-each rule needs a word boundary."""
     for text, name in (("1 cup chopped peach", "peach"), ("500 g peach", "peach")):
         (line,) = read_lines(text)
         assert line.name == name, text
@@ -482,3 +482,16 @@ def test_rf4_m_a_name_ending_in_each_is_not_cut() -> None:
         "salt",
         "pepper",
     ]
+
+
+def test_rf4_m_or_choices_that_start_with_an_amount_word_stay_choices() -> None:
+    """An "or" side that names an ingredient is another ingredient, whatever word it starts with."""
+    for text, other in (
+        ("2 tbsp butter or extra virgin olive oil", "extra virgin olive oil"),
+        ("2 tbsp butter or extra-virgin olive oil", "extra-virgin olive oil"),
+        ("2 tbsp butter or a little oil", "oil"),
+        ("1 cup sugar or about ¾ cup honey", "honey"),
+    ):
+        (line,) = read_lines(text)
+        assert line.alternative is not None, text
+        assert line.alternative.name.endswith(other.split()[-1]), (text, line.alternative.name)
