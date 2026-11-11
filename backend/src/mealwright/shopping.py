@@ -1122,6 +1122,21 @@ def _edit_against_delete(act: Act, item: ListItem, food: Food) -> None:
     if removal is None or act.plain:
         return
     me = act.kitchen.login.id
+    from mealwright.shop_from_plan import PLAN_KIND  # that module imports this one
+
+    if removal.kind == PLAN_KIND:
+        # The plan took the line off, not a person (RF2 Sh6; words proposed, for cabledrawer): nobody
+        # to name, and nothing to undo from here.
+        note(
+            act,
+            "N4",
+            me,
+            f"{food.name} isn’t needed by the plan any more, so your change wasn’t kept.",
+            list_id=item.list_id,
+            item_id=item.id,
+            food_id=food.id,
+        )
+        return
     taken = "moved" if removal.kind == "move" else "removed"  # a move can merge a line away
     note(
         act,

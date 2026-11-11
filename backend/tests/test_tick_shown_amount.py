@@ -89,3 +89,36 @@ def test_a_tick_with_an_amount_that_is_not_valid_is_refused(kitchen: TestClient)
     bad = send(kitchen, action("tick", seen, item_id=row["id"], amount=0), device=PHONE_B)
     assert bad["results"][0]["status"] == "refused"
     assert ok(kitchen.get("/api/v1/shopping/changes"))["items"]
+
+
+def test_a_line_the_plan_removed_is_not_blamed_on_a_person(kitchen: TestClient) -> None:
+    # RF2 Sh6 (older than 0.8): a phone's change to a line the plan took off used to say
+    # "Your other phone had removed Ghee, so your change wasn't kept." when no phone had.
+    ghee = new_food(kitchen, "Ghee")
+    size(kitchen, ghee["id"], "jar", 500, usual=True)
+    made = plan(kitchen, recipe(kitchen, "Dal", line(ghee["id"], 120, "g")), 1)
+    from_plan(kitchen)
+    row = row_of(kitchen, ghee["id"])
+    seen = counter(kitchen)
+    shop = ok(kitchen.post("/api/v1/shops", json={"name": "Corner"}), 201)["id"]
+    ok(kitchen.post(f"/api/v1/changes/{made['change']['id']}/undo"))
+    from_plan(kitchen)
+    one(kitchen, "set_amount", seen, PHONE_B, item_id=row["id"], amount=250)
+    one(kitchen, "move", seen, PHONE_B, item_id=row["id"], list_id=row["list_id"], shop_id=shop)
+    texts = [n["text"] for n in changes(kitchen)["notes"]]
+    assert texts == ["Ghee isn’t needed by the plan any more, so your change wasn’t kept."] * 2
+    assert all(n["undo"] is None for n in changes(kitchen)["notes"])
+
+
+def test_a_line_a_person_removed_still_names_the_person(kitchen: TestClient) -> None:
+    ghee = new_food(kitchen, "Ghee")
+    size(kitchen, ghee["id"], "jar", 500, usual=True)
+    plan(kitchen, recipe(kitchen, "Dal", line(ghee["id"], 120, "g")), 1)
+    from_plan(kitchen)
+    row = row_of(kitchen, ghee["id"])
+    seen = counter(kitchen)
+    one(kitchen, "delete", seen, PHONE_A, item_id=row["id"])
+    one(kitchen, "set_amount", seen, PHONE_B, item_id=row["id"], amount=250)
+    assert [n["text"] for n in changes(kitchen)["notes"]] == [
+        "Your other phone had removed Ghee, so your change wasn’t kept."
+    ]
