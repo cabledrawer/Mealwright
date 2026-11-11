@@ -22,6 +22,7 @@
   import ChangeLine from './ChangeLine.svelte';
   import OwnRecipeHead from './OwnRecipeHead.svelte';
   import { listFoods } from '#lib/client/foods.js';
+  import { toasts } from '#lib/toast.svelte.js';
   import type { ReviewLine } from '#lib/client/imports.js';
   import type { CountedAs, Ref } from '#lib/client/types.js';
   import { readAmount } from '#lib/importAmount.js';
@@ -44,6 +45,10 @@
     line,
     problem = null
   }: { flow: ImportFlow; index: number; line: ReviewLine; problem?: string | null } = $props();
+
+  /** Edit the name read with no answer from the server (proposed, for cabledrawer). */
+  const RENAME_OFFLINE =
+    'Name changed. Looking for an ingredient with that name needs a connection, so the row keeps its match.';
 
   const uid = $props.id();
   /** " · US pints" after a line that says pints: which pint it is read with. */
@@ -252,11 +257,14 @@
 
   /** Change's Edit the name read: the corrected name is matched again (F214). */
   async function changeName(typed: string): Promise<boolean> {
-    const ok = await flow.renameLine(index, typed, (q) =>
+    const done = await flow.renameLine(index, typed, (q) =>
       listFoods({ q, limit: 8 }).then((list) => list.foods)
     );
-    if (ok) changing = false;
-    return ok;
+    if (done === 'empty') return false;
+    changing = false;
+    // The name is kept, but no ingredient could be looked up: the row keeps what it had.
+    if (done === 'offline') toasts.show(RENAME_OFFLINE);
+    return true;
   }
 
   /** What the row (and the rows that took its choice) had before New ingredient: Cancel puts it back. */

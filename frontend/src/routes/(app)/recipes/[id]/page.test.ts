@@ -303,6 +303,16 @@ describe('the recipe page', () => {
       await expect.element(link).toHaveTextContent('Next draft Older curry');
     });
 
+    it('never offers the draft that was just saved, even while it is still in the list (review L)', async () => {
+      nextDraft.mark(1, 11); // saved from draft 11
+      await open({}, STOCK, {
+        'GET /recipes/drafts': [200, { drafts: WAITING, count: 2 }]
+      });
+      await expect
+        .element(page.getByRole('link', { name: /^Next draft/ }))
+        .toHaveAttribute('href', '/recipes/drafts/12');
+    });
+
     it('shows nothing when no other draft is waiting', async () => {
       nextDraft.mark(1);
       await open({}, STOCK, { 'GET /recipes/drafts': [200, { drafts: [], count: 0 }] });

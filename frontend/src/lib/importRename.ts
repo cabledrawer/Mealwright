@@ -17,14 +17,16 @@ export async function renamedLine(
   line: ReviewLine,
   name: string,
   find: (query: string) => Promise<FoodRow[]>
-): Promise<Partial<ReviewLine>> {
+): Promise<{ patch: Partial<ReviewLine>; lookedUp: boolean }> {
   const words = name.trim().replace(/\s+/g, ' ');
   const key = norm(words);
-  let foods: FoodRow[] = [];
+  let foods: FoodRow[];
   try {
     foods = await find(words);
   } catch {
-    // No answer (offline, or the server busy): the line needs the person, who can still Pick.
+    // No answer (offline, or the server busy): the name is kept and the row keeps its match (the
+    // person can still Pick an ingredient); the screen says the lookup needs a connection.
+    return { patch: { words }, lookedUp: false };
   }
   const found = foods.find(
     (food) => norm(food.name) === key || food.other_names.some((other) => norm(other) === key)
@@ -35,7 +37,7 @@ export async function renamedLine(
     place: line.new_ingredient?.place ?? null
   };
   if (found) {
-    return {
+    const patch: Partial<ReviewLine> = {
       words,
       label: found.staple ? 'staple' : 'matched',
       food: { id: found.id, name: found.name },
@@ -45,15 +47,19 @@ export async function renamedLine(
       new_ingredient: guess,
       learn_name: null
     };
+    return { patch, lookedUp: true };
   }
   return {
-    words,
-    label: 'needs_you',
-    food: null,
-    place: null,
-    matched_by: null,
-    counts: true,
-    new_ingredient: guess,
-    learn_name: null
+    lookedUp: true,
+    patch: {
+      words,
+      label: 'needs_you',
+      food: null,
+      place: null,
+      matched_by: null,
+      counts: true,
+      new_ingredient: guess,
+      learn_name: null
+    }
   };
 }

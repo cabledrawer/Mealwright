@@ -13,23 +13,35 @@ class NextDraft {
   /** The recipe that was just saved from Check (or from a draft's own Save recipe). */
   savedId = $state<number | null>(null);
 
-  mark(recipeId: number): void {
+  /** The draft that was just saved, so it is never the one offered next (it can still be in the
+   *  Drafts list for a moment). */
+  fromDraftId = $state<number | null>(null);
+
+  mark(recipeId: number, draftId: number | null = null): void {
     this.savedId = recipeId;
+    this.fromDraftId = draftId;
   }
 
   /** The page was left: the next visit to that recipe shows nothing extra. */
   clear(recipeId: number): void {
-    if (this.savedId === recipeId) this.savedId = null;
+    if (this.savedId === recipeId) {
+      this.savedId = null;
+      this.fromDraftId = null;
+    }
   }
 }
 
 export const nextDraft = new NextDraft();
 forgetWhenSessionEnds(() => (nextDraft.savedId = null));
 
-/** The oldest waiting draft, or null when none is waiting. */
-export function oldestDraft(waiting: readonly DraftBrief[]): DraftBrief | null {
+/** The oldest waiting draft other than `except` (the one just saved), or null. */
+export function oldestDraft(
+  waiting: readonly DraftBrief[],
+  except: number | null = null
+): DraftBrief | null {
   let first: DraftBrief | null = null;
   for (const draft of waiting) {
+    if (draft.id === except) continue;
     if (
       first === null ||
       draft.started_at < first.started_at ||

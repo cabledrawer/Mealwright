@@ -80,7 +80,7 @@
       return;
     }
     void drafts.load();
-    nextDraft.mark(done.recipeId);
+    nextDraft.mark(done.recipeId, draft.id);
     await goto(resolve('/(app)/recipes/[id]', { id: String(done.recipeId) }));
   }
 

@@ -97,6 +97,8 @@ describe('after several links', () => {
     await expect
       .element(page.getByRole('link', { name: 'Open Ready dal' }))
       .toHaveAttribute('href', '/recipes/55');
+    // The button went with its work: the cursor is on the results, not lost to the page (review L).
+    await vi.waitFor(() => expect(document.activeElement?.textContent).toContain('links · one'));
     // The one that needs checking is still a draft to check.
     await expect.element(page.getByRole('link', { name: 'Check Needs you' })).toBeVisible();
     expect(page.getByRole('button', { name: /^Save \d+ ready/ }).elements()).toEqual([]);

@@ -73,7 +73,7 @@
   async function finish(saved: Awaited<ReturnType<typeof flow.save>>) {
     if (!saved) return;
     changesToast(saved);
-    nextDraft.mark(saved.recipe.id); // the recipe's page offers the next draft (F212)
+    nextDraft.mark(saved.recipe.id, flow.draftId); // the recipe's page offers the next draft (F212)
     await goto(resolve('/(app)/recipes/[id]', { id: String(saved.recipe.id) }));
   }
 

@@ -221,12 +221,31 @@ describe('Change, New ingredient, Cancel puts the row back (review M3)', () => {
   });
 });
 
+describe('Edit the name read with no connection (review L)', () => {
+  it('keeps the name, keeps the match and the choice, and says the lookup needs a connection', async () => {
+    const flow = reviewFlow();
+    flow.sameAs(3, { id: 2, name: 'Onions' });
+    show(flow);
+    vi.stubGlobal('fetch', async () => {
+      throw new TypeError('offline');
+    });
+    await change('1 red onion, sliced').click();
+    await page.getByRole('button', { name: 'Edit the name read' }).click();
+    await page.getByLabelText('Name read').fill('shallots');
+    await page.getByRole('button', { name: 'Done' }).click();
+    await vi.waitFor(() => expect(flow.review!.lines[3]!.words).toBe('shallots'));
+    expect(flow.choices[3]).toMatchObject({ kind: 'ingredient', food: { id: 2 } });
+    expect(flow.review!.lines[3]!.label).toBe('to_confirm');
+    expect(toasts.current?.message).toMatch(/needs a connection/);
+  });
+});
+
 describe('renamedLine (the lookup behind Edit the name read)', () => {
   const line = SAMPLE_LINES[4]!; // asafoetida, needs you
   it('matches by the ingredient’s name or another name for it, ignoring capitals and spaces', async () => {
     const hing = foodRow({ id: 3, name: 'Hing', other_names: ['Asafoetida'] });
     const byName = await renamedLine(line, '  HING ', async () => [hing]);
-    expect(byName).toMatchObject({
+    expect(byName.patch).toMatchObject({
       label: 'matched',
       food: { id: 3, name: 'Hing' },
       matched_by: null
@@ -234,24 +253,24 @@ describe('renamedLine (the lookup behind Edit the name read)', () => {
     const byOther = await renamedLine(line, 'asafoetida powder', async () => [
       { ...hing, other_names: ['asafoetida powder'] }
     ]);
-    expect(byOther).toMatchObject({ label: 'matched', matched_by: 'asafoetida powder' });
+    expect(byOther.patch).toMatchObject({ label: 'matched', matched_by: 'asafoetida powder' });
   });
 
   it('a close match is not guessed: the row needs the person, with the corrected name as the guess', async () => {
     const found = await renamedLine(line, 'bbq rub', async () => [
       foodRow({ id: 4, name: 'Rub mix' })
     ]);
-    expect(found).toMatchObject({
+    expect(found.patch).toMatchObject({
       label: 'needs_you',
       food: null,
       new_ingredient: { name: 'Bbq rub' }
     });
   });
 
-  it('with no answer the row needs the person, and nothing throws', async () => {
+  it('with no answer the name is kept and the match is left as it was, and nothing throws', async () => {
     const found = await renamedLine(line, 'hing', async () => {
       throw new Error('offline');
     });
-    expect(found.label).toBe('needs_you');
+    expect(found).toEqual({ patch: { words: 'hing' }, lookedUp: false });
   });
 });

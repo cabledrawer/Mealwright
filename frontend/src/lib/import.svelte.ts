@@ -443,21 +443,22 @@ export class ImportFlow {
 
   /** "Same as Onions" on a line that is to confirm (its best guess) or one picked from the list. */
   /** Edit the name read (F214): the line takes the corrected name, any choice on it goes, and it
-   *  is matched again by that name (`importRename.ts`). False when the name is empty. */
+   *  is matched again by that name (`importRename.ts`). 'empty' when there is no name; 'offline'
+   *  when the lookup could not be made: the name is kept and the row keeps its match and choice. */
   async renameLine(
     index: number,
     name: string,
     find: (query: string) => Promise<FoodRow[]>
-  ): Promise<boolean> {
+  ): Promise<'done' | 'empty' | 'offline'> {
     const line = this.review?.lines[index];
-    if (!line || line.kind !== 'ingredient' || !name.trim()) return false;
-    const patch = await renamedLine(line, name, find);
+    if (!line || line.kind !== 'ingredient' || !name.trim()) return 'empty';
+    const { patch, lookedUp } = await renamedLine(line, name, find);
     // The review moved on while the lookup was out (a line removed or added): the same line only.
-    if (this.review?.lines[index] !== line) return true;
-    this.unchoose(index);
+    if (this.review?.lines[index] !== line) return 'done';
+    if (lookedUp) this.unchoose(index);
     Object.assign(line, patch);
     this.saveProblem = null;
-    return true;
+    return lookedUp ? 'done' : 'offline';
   }
 
   sameAs(index: number, food: Ref): void {
@@ -488,11 +489,11 @@ export class ImportFlow {
       from: index in this.sharedFrom ? this.sharedFrom[index]! : null,
       taken: []
     };
-    const had = new Set(Object.keys(this.choices).map(Number));
+    const had = Object.keys(this.choices).map(Number);
     this.newIngredient(index, staple);
     before.taken = Object.keys(this.choices)
       .map(Number)
-      .filter((j) => j !== index && !had.has(j));
+      .filter((j) => j !== index && !had.includes(j));
     return before;
   }
 
