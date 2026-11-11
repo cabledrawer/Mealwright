@@ -344,6 +344,47 @@ def test_i4_or_more_straight_after_an_amount_is_a_note_not_part_of_the_name() ->
         assert line.note is not None and "or more" in line.note, text
 
 
+def test_i5_each_with_a_trailing_to_taste_gives_each_food_its_amount_and_the_note() -> None:
+    reads = read_lines("1 tsp each salt and pepper, or to taste")
+    assert [(r.amount, r.unit, r.name, r.note) for r in reads] == [
+        (D(1), "tsp", "salt", "or to taste"),
+        (D(1), "tsp", "pepper", "or to taste"),
+    ]
+    reads = read_lines("1 tsp each salt, cumin (ground), or to taste")
+    assert [(r.amount, r.unit, r.name) for r in reads] == [
+        (D(1), "tsp", "salt"),
+        (D(1), "tsp", "cumin"),
+    ]
+    assert all(r.note is not None and "or to taste" in r.note for r in reads)
+    assert "ground" in (reads[1].note or "")
+
+
+def test_i5_a_trailing_each_is_read_like_a_leading_one() -> None:
+    for text in ("1 tsp salt and pepper each", "salt and pepper, 1 tsp each"):
+        reads = read_lines(text)
+        assert [(r.amount, r.unit, r.name) for r in reads] == [
+            (D(1), "tsp", "salt"),
+            (D(1), "tsp", "pepper"),
+        ], text
+        assert all("each" not in (r.note or "") and "together" not in (r.note or "") for r in reads)
+
+
+def test_i5_more_than_eight_foods_after_each_still_one_line_each() -> None:
+    names = ["salt", "pepper", "cumin", "paprika", "turmeric", "oregano", "thyme", "basil", "sage"]
+    reads = read_lines("1 tsp each " + ", ".join(names))
+    assert [r.name for r in reads] == names
+    assert {(r.amount, r.unit) for r in reads} == {(D(1), "tsp")}
+
+
+def test_i5_an_each_line_that_is_not_split_never_has_each_in_the_name_or_says_together() -> None:
+    reads = read_lines("1 tsp each (salt)")
+    assert all(not r.name.lower().startswith("each") for r in reads)
+    for text in ("1 tsp each salt, 1 tsp each pepper", "1 tsp each of the spice mix"):
+        for r in read_lines(text):
+            assert not r.name.lower().startswith("each"), (text, r.name)
+            assert "together" not in (r.note or ""), text
+
+
 def test_slash_without_amounts_stays_other_names() -> None:
     for text, name, other in (
         ("hing / asafoetida", "hing", "asafoetida"),

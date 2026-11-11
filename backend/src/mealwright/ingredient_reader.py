@@ -965,6 +965,11 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
         size_word = size_word or quantity
 
     rest = work[position:] if (amount is not None or quantity is not None) else work[start:]
+    if amount is not None:
+        # "1 tsp each (salt)": a line that wasn't split never keeps "each" in the name (RF4 I5).
+        each = _EACH_LEAD.match(rest)
+        if each is not None and any(c.isalpha() for c in rest[each.end() :]):
+            rest = rest[each.end() :]
     notes: list[str] = []
 
     if or_more is not None:
@@ -1299,7 +1304,7 @@ _EACH = re.compile(r"\s+each(?:\s+of)?\s*[,:]?\s+", re.IGNORECASE)
 SHARED_LEADS = frozenset({"fresh", "dried", "ground"})
 # A word that ends the last of two names and belongs to both: "onion & garlic powder".
 SHARED_TAILS = frozenset({"powder", "flakes", "seeds", "paste", "leaves"})
-MAX_EACH_FOODS = 8
+MAX_EACH_FOODS = 24
 
 
 def _top_level_split(text: str) -> list[str]:
@@ -1330,7 +1335,7 @@ def split_each(text: str, size_words: Iterable[str] = ()) -> list[str] | None:
     ("1 tsp salt", "1 tsp cumin", "1 tsp ground coriander"); the words in brackets stay with
     their food, and "onion & garlic powder" is onion powder and garlic powder (F210). None when
     the line isn't of this form: an amount straight before "each", and short names after."""
-    work = working_text(text)
+    work = _each_first(working_text(text))
     found = _EACH.search(work)
     if not work or len(work) > MAX_LINE_CHARS or found is None:
         return None
@@ -1342,7 +1347,16 @@ def split_each(text: str, size_words: Iterable[str] = ()) -> list[str] | None:
     extra = frozenset(_clean_token(word) for word in size_words if word.strip())
     if len(leftover) > 1 or (leftover and not _is_size(_clean_token(leftover[0]), extra)):
         return None
-    foods = _top_level_split(work[found.end() :])
+    tail = work[found.end() :]
+    # "1 tsp each salt and pepper, or to taste": the ending is every food's note (RF4 I5).
+    ending = ""
+    phrase = _NO_AMOUNT.search(tail)
+    if phrase is not None and not tail[phrase.end() :].strip(" .,;"):
+        ending = tail[phrase.start() :].strip(" .,;")
+        tail = tail[: phrase.start()].rstrip(" ,;")
+    foods = _top_level_split(tail)
+    if any(c.isdigit() for food in foods for c in _brackets(food)[0]):
+        return None  # "1 tsp each salt, 1 tsp each pepper" is not one amount for every food
     if not 1 <= len(foods) <= MAX_EACH_FOODS or not all(_short_side(food) for food in foods):
         return None
     # Words that are only how it is prepared ("mint, chopped") go with every food.
@@ -1367,7 +1381,35 @@ def split_each(text: str, size_words: Iterable[str] = ()) -> list[str] | None:
             and all(len(_brackets(f.partition(",")[0])[0].split()) == 1 for f in foods[1:])
         ):  # "fresh parsley and mint"
             foods = [foods[0], *[f"{lead[0]} {f}" for f in foods[1:]]]
+    if ending:
+        foods = [f"{food}, {ending}" for food in foods]
     return [f"{left.strip()} {food}" for food in foods]
+
+
+_EACH_LEAD = re.compile(r"\s*each\b(?:\s+of\b)?[\s,:;]*", re.IGNORECASE)
+_EACH_LAST = re.compile(r"\s*(?:,\s*)?(?:of\s+)?each\s*\.?\s*$", re.IGNORECASE)
+
+
+def _each_first(work: str) -> str:
+    """ "1 tsp salt and pepper each" and "salt and pepper, 1 tsp each" said the way split_each
+    reads them, "1 tsp each salt and pepper" (RF4 I5). Any other text is returned as it is."""
+    last = _EACH_LAST.search(work)
+    if last is None or _EACH.search(work) is not None:
+        return work
+    body = work[: last.start()]
+    measure = _measure(body, 0)
+    if measure is not None and (measure.unit or measure.other) and body[measure.end :].strip():
+        return f"{body[: measure.end].strip()} each {body[measure.end :].strip()}"
+    head, comma, tail = body.rpartition(",")
+    if comma and head.strip() and _measure(head.strip(), 0) is None:
+        measure = _measure(tail.strip(), 0)
+        if (
+            measure is not None
+            and (measure.unit or measure.other)
+            and measure.end == len(tail.strip())
+        ):
+            return f"{tail.strip()} each {head.strip()}"
+    return work
 
 
 def read_lines(
