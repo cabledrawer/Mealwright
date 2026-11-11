@@ -111,8 +111,10 @@ _OPT_LABEL = re.compile(r"^\s*optional(?:\s+step)?\s*[:\u2013\u2014-]\s*", re.IG
 # "(optional)" counts only at the end of the step (before a final full stop): in the middle it
 # is part of the sentence ("Add salt (optional) and stir.").
 # No leading \s*: a search tried it from every space of a long run of spaces, which took seconds
-# (RF4 I8); the spaces before it are taken off with rstrip instead.
-_OPT_BRACKET = re.compile(r"[(\[]\s*optional\s*[)\]]\s*([.!]?)\s*$", re.IGNORECASE)
+# (RF4 I8); the spaces before it are taken off with rstrip instead. Nor does it end in two runs of
+# \s* in a row (they split a run of spaces n ways, each way read to the end: the square again, RF4
+# fix round 1); the text is rstripped before the search, so the end is just \Z.
+_OPT_BRACKET = re.compile(r"[(\[]\s*optional\s*[)\]]\s*([.!]?)\Z", re.IGNORECASE)
 
 
 def optional_step(text: str) -> tuple[str, bool]:
@@ -123,9 +125,10 @@ def optional_step(text: str) -> tuple[str, bool]:
     nothing is returned as it was (R3, F151)."""
     label = _OPT_LABEL.match(text)
     rest = text[label.end() :] if label else text
-    bracketed = _OPT_BRACKET.search(rest) is not None
+    tail = rest.rstrip()
+    bracketed = _OPT_BRACKET.search(tail) is not None
     if bracketed:
-        cut = _OPT_BRACKET.search(rest)
+        cut = _OPT_BRACKET.search(tail)
         if cut is not None:
             rest = rest[: cut.start()].rstrip() + cut.group(1)
     rest = re.sub(r"[ \t]{2,}", " ", rest).strip()

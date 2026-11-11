@@ -102,10 +102,17 @@ def test_rf4_i8_a_step_with_a_long_run_of_spaces_is_read_at_once() -> None:
         " " * 20000,
         "Fry" + " (" * 5000 + "x",
         "Fry the onions (optional)" + " " * 20000,
+        "a (optional)" + " " * 20000 + "b",
     ):
         started = time.perf_counter()
         optional_step(text)
         assert time.perf_counter() - started < 0.5, text[:20]
+    # The reviewer's input: 19 pasted steps, each a bracket, a long run of spaces, then more text
+    # (about 1.7 seconds before the fix: the run was tried from every space after the bracket).
+    started = time.perf_counter()
+    for _ in range(19):
+        optional_step("a (optional)" + " " * 4900 + "b")
+    assert time.perf_counter() - started < 0.5
     # What it does is unchanged.
     assert optional_step("Fry the onions (optional)") == ("Fry the onions", True)
     assert optional_step("Fry the onions (optional).") == ("Fry the onions.", True)
