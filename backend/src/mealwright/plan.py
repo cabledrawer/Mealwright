@@ -7,7 +7,7 @@ from fastapi import status
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import cooked, methods, start_ahead
+from mealwright import cooked, events, methods, start_ahead
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
 from mealwright.history import Tally, as_utc, record, undo_message
@@ -1188,6 +1188,7 @@ def eaters_of(kitchen: Kitchen, meal: Meal) -> list[int]:
 
 
 def _write_eaters(kitchen: Kitchen, meal_id: int, login_ids: list[int]) -> None:
+    events.note_plan(kitchen.db, kitchen.household_id)  # a bulk delete: clearing the list too
     kitchen.db.execute(
         delete(MealEater).where(
             MealEater.household_id == kitchen.household_id, MealEater.meal_id == meal_id

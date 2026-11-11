@@ -20,7 +20,7 @@ from fastapi import status
 from sqlalchemy import Select, delete, func, select, update
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import methods, step_timings, step_waits
+from mealwright import events, methods, step_timings, step_waits
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.recipe_schemas import (
     Blocked,
@@ -711,6 +711,7 @@ def remove_method(kitchen: Kitchen, method: RecipeMethod) -> None:
     db.execute(delete(RecipeStep).where(RecipeStep.method_id == method.id))
     db.execute(delete(RecipeLine).where(RecipeLine.method_id == method.id))
     db.execute(update(MealItem).where(MealItem.method_id == method.id).values(method_id=None))
+    events.note_plan(db, kitchen.household_id)
     db.delete(method)
     db.flush()
 
@@ -1093,6 +1094,7 @@ def purge_removed_recipes(db: DbSession, household: Household, now: datetime | N
     )
     # A link from another household's meal was never valid: it goes, and takes no name with it.
     db.execute(delete(MealItem).where(MealItem.recipe_id.in_(ids)))
+    events.note_plan(db, household.id)  # planned meals show the recipe's name only now
     keys = list(db.scalars(select(RecipePhoto.file_key).where(RecipePhoto.recipe_id.in_(ids))))
     if keys:
         delete_after_commit(db, household.id, keys)  # the files, once this is committed

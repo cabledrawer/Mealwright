@@ -145,6 +145,25 @@ export class PlanModel {
     return this.load(true);
   }
 
+  #soon: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * Read again shortly: another person changed the plan (the live `plan` event). A burst of
+   * events makes one read, and none while `busy()` says something is being carried (a drag), so
+   * the card under the finger doesn't move; it tries again a second later.
+   */
+  refreshSoon(busy: () => boolean): void {
+    clearTimeout(this.#soon);
+    const run = () => {
+      if (busy()) {
+        this.#soon = setTimeout(run, 1000);
+        return;
+      }
+      void this.refresh();
+    };
+    this.#soon = setTimeout(run, 400);
+  }
+
   /**
    * Refresh at each midnight in the household's time zone. Returns a function that stops it.
    * (A laptop that was asleep through midnight is caught by coming back to the tab.)

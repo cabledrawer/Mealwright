@@ -213,6 +213,15 @@
   function onVisible() {
     if (document.visibilityState === 'visible') void model.refresh();
   }
+  // Another person's change to the plan (the live `plan` event; cabledrawer 11 Nov): read again, but not
+  // while a card is being carried.
+  let heardPlan = untrack(() => live.plan);
+  $effect(() => {
+    const now = live.plan;
+    if (now === heardPlan) return;
+    heardPlan = now;
+    untrack(() => model.refreshSoon(() => drag.carried !== null));
+  });
   let heardBatch = untrack(() => live.batchCook);
   $effect(() => {
     const now = live.batchCook;

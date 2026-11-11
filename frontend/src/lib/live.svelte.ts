@@ -6,6 +6,8 @@
 // `pantry {change_id}` says stock changed; an open Pantry fetches again. `batch_cook {session_id}`
 // says a Batch cook session's schedule or progress changed; an open batch cook mode fetches again. `signed_out` means
 // the sign-in ran out: go to the sign-in page, exactly as a 401 does.
+// `plan {change_id}` says a planned meal, tub, batch or meal slot changed (RF5, cabledrawer 11 Nov); an open
+// Plan reads again.
 //
 // The browser reconnects by itself after a drop (the server asks for 5 seconds). Coming
 // back to the foreground, the screens fetch again on their own (visibilitychange).
@@ -44,6 +46,8 @@ class Live {
   pantry = $state(0);
   /** Moves on every time a Batch cook session's schedule or progress changed somewhere. */
   batchCook = $state(0);
+  /** Moves on every time another person (or this one) changed the plan: planned meals, tubs, batches. */
+  plan = $state(0);
 
   #source: EventSource | null = null;
   #onHello: (() => void) | null = null;
@@ -97,6 +101,7 @@ class Live {
     source.addEventListener('shopping', (event) => this.#shopping(numberIn(event, 'cursor')));
     source.addEventListener('pantry', () => this.pantry++);
     source.addEventListener('batch_cook', () => this.batchCook++);
+    source.addEventListener('plan', () => this.plan++);
     source.addEventListener('signed_out', () => {
       this.#close();
       sessionEnded();

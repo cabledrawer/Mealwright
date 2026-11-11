@@ -24,7 +24,22 @@ from dataclasses import dataclass
 from sqlalchemy import Connection, Engine, event, func, inspect, select
 from sqlalchemy.orm import Session, SessionTransaction, sessionmaker
 
-from mealwright.models import BatchSession, BatchTaskProgress, Change, Household, StockLot
+from mealwright.models import (
+    BatchCook,
+    BatchSession,
+    BatchTaskProgress,
+    Change,
+    Household,
+    Meal,
+    MealEater,
+    MealItem,
+    MealSlot,
+    StockLot,
+    Tub,
+)
+
+# What a plan write touches: one row of any of these changing tells the open Plans.
+PLAN_MODELS = (Meal, MealItem, MealEater, MealSlot, BatchCook, BatchSession, Tub)
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +47,9 @@ PENDING = "mealwright.pending_events"
 SHOPPING = "shopping"
 PANTRY = "pantry"
 BATCH = "batch_cook"
+# The plan (RF5 fix round 1): any write to a planned meal, its items, tubs, batches, eaters or the
+# meal slots. `plan {change_id}` carries the household's newest change number, nothing else.
+PLAN = "plan"
 PENDING_BATCH = "mealwright.pending_batch_events"
 # Open tabs and devices share a sign-in only within one browser; ten is plenty.
 MAX_STREAMS_PER_SESSION = 10
@@ -39,7 +57,7 @@ MAX_STREAMS_PER_SESSION = 10
 
 @dataclass(frozen=True)
 class Event:
-    name: str  # "hello", "shopping", "pantry", "batch_cook", "signed_out" or "replaced"
+    name: str  # "hello", "shopping", "pantry", "batch_cook", "plan", "signed_out" or "replaced"
     data: dict[str, int]
 
 
@@ -127,6 +145,12 @@ def note_pantry(session: Session, household_id: int) -> None:
     _note(session, PANTRY, household_id)
 
 
+def note_plan(session: Session, household_id: int) -> None:
+    """Tell the open Plans a planned meal changed in a way the session can't see (a bulk
+    UPDATE or DELETE of meal items or eaters)."""
+    _note(session, PLAN, household_id)
+
+
 def _note_batch(session: Session, household_id: int, session_id: int) -> None:
     session.info.setdefault(PENDING_BATCH, set()).add((household_id, session_id))
 
@@ -140,6 +164,8 @@ def _after_flush(session: Session, _context: object) -> None:
         ):
             _note(session, SHOPPING, obj.id)
     for obj in (*session.new, *session.dirty, *session.deleted):
+        if isinstance(obj, PLAN_MODELS):
+            _note(session, PLAN, obj.household_id)
         if isinstance(obj, StockLot):
             _note(session, PANTRY, obj.household_id)
         elif isinstance(obj, BatchTaskProgress):
@@ -161,6 +187,11 @@ def _read_events(connection: Connection, pending: dict[str, set[int]]) -> list[t
             select(func.max(Change.id)).where(Change.household_id == household_id)
         )
         out.append((household_id, Event(PANTRY, {"change_id": int(latest or 0)})))
+    for household_id in sorted(pending.get(PLAN, ())):
+        latest = connection.scalar(
+            select(func.max(Change.id)).where(Change.household_id == household_id)
+        )
+        out.append((household_id, Event(PLAN, {"change_id": int(latest or 0)})))
     return out
 
 

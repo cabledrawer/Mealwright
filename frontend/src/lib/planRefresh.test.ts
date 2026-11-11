@@ -111,3 +111,39 @@ describe('watchDay()', () => {
     expect(requests.length).toBe(asked); // stopped: nothing more is asked
   });
 });
+
+describe('refreshSoon() (another person changed the plan)', () => {
+  it('reads again once for a burst of events, after a short wait', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const { requests } = server();
+    const model = new PlanModel();
+    await model.load();
+    const before = requests.filter((r) => r.path === '/plan').length;
+    model.refreshSoon(() => false);
+    model.refreshSoon(() => false);
+    model.refreshSoon(() => false);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(requests.filter((r) => r.path === '/plan').length).toBe(before); // not yet
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.waitFor(() =>
+      expect(requests.filter((r) => r.path === '/plan').length).toBe(before + 1)
+    );
+  });
+
+  it('waits while something is being carried, and reads when it is put down', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const { requests } = server();
+    const model = new PlanModel();
+    await model.load();
+    const before = requests.filter((r) => r.path === '/plan').length;
+    let busy = true;
+    model.refreshSoon(() => busy);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(requests.filter((r) => r.path === '/plan').length).toBe(before);
+    busy = false;
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.waitFor(() =>
+      expect(requests.filter((r) => r.path === '/plan').length).toBe(before + 1)
+    );
+  });
+});

@@ -21,7 +21,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import restock
+from mealwright import events, restock
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem
 from mealwright.household import undo_window
@@ -1149,6 +1149,7 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     )
     # A link from another household's meal was never valid: it goes, and takes no name with it.
     db.execute(delete(MealItem).where(MealItem.food_id.in_(ids)))
+    events.note_plan(db, household.id)  # planned meals keep the ingredient's name only now
     db.execute(
         update(RecipeLine)
         .where(RecipeLine.size_id.in_(select(FoodSize.id).where(FoodSize.food_id.in_(ids))))

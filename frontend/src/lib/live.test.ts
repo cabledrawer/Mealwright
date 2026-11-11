@@ -101,6 +101,13 @@ describe('the live stream', () => {
     }
   });
 
+  it('counts the plan events, one for each, so an open Plan can read again (RF5)', () => {
+    expect(live.plan).toBe(0);
+    stream().send('plan', { change_id: 4 });
+    stream().send('plan', { change_id: 4 });
+    expect(live.plan).toBe(2);
+  });
+
   it('ignores garbled lines', () => {
     stream().dispatchEvent(new MessageEvent('shopping', { data: 'not json' }));
     expect(live.shopping).toBe(0);

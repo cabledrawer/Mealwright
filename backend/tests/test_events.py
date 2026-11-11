@@ -269,3 +269,110 @@ def test_the_check_does_not_extend_the_session(kitchen: TestClient) -> None:
         assert (row.last_seen_at, row.expires_at) == before
         assert auth.peek_session(session, token(kitchen)) is not None
         assert (row.last_seen_at, row.expires_at) == before
+
+
+# --- The plan (RF5 fix round 1, H3: an open Plan hears another person's change) -----------------
+
+
+def _plan_kit(kitchen: TestClient) -> tuple[int, int, str]:
+    """A recipe-less plan write needs an ingredient, a meal slot and a day."""
+    food = kitchen.post("/api/v1/foods", json={"name": "Rice"}).json()["food"]["id"]
+    slot = kitchen.get("/api/v1/meal-slots").json()[-1]["id"]
+    return food, slot, kitchen.get("/api/v1/household").json()["today"]
+
+
+async def _plan_heard(sub: Subscription) -> list[Event]:
+    got: list[Event] = []
+    try:
+        while True:
+            got.append(await heard(sub, 0.5))
+    except TimeoutError:
+        return got
+
+
+def _names(events: list[Event]) -> set[str]:
+    return {e.name for e in events}
+
+
+def test_every_plan_write_announces_a_plan_event(kitchen: TestClient) -> None:
+    food, slot, today = _plan_kit(kitchen)
+    api = "/api/v1"
+
+    async def after(call: Callable[[], Any]) -> set[str]:
+        sub = broadcaster(kitchen).subscribe(1)
+        response = await asyncio.to_thread(call)
+        assert response.status_code < 300, response.text
+        names = _names(await _plan_heard(sub))
+        broadcaster(kitchen).unsubscribe(sub)
+        return names
+
+    async def scenario() -> None:
+        added = await asyncio.to_thread(
+            lambda: kitchen.post(
+                f"{api}/plan/items", json={"date": today, "slot_id": slot, "ingredient_id": food}
+            )
+        )
+        assert added.status_code == 201, added.text
+        item_id, meal_id = added.json()["item_id"], added.json()["meal_id"]
+        sub = broadcaster(kitchen).subscribe(1)
+        await asyncio.to_thread(
+            lambda: kitchen.post(
+                f"{api}/plan/items",
+                json={"date": today, "slot_id": slot, "ingredient_id": food},
+            )
+        )
+        assert "plan" in _names(await _plan_heard(sub))  # adding a meal or item
+        calls: dict[str, Callable[[], Any]] = {
+            "eaters": lambda: kitchen.put(
+                f"{api}/plan/meals/{meal_id}/eaters",
+                json={"login_ids": [kitchen.get(f"{api}/me").json()["id"]]},
+            ),
+            "remove item": lambda: kitchen.delete(f"{api}/plan/items/{item_id}"),
+            "remove meal": lambda: kitchen.delete(f"{api}/plan/meals/{meal_id}"),
+            "rename a meal slot": lambda: kitchen.patch(
+                f"{api}/meal-slots/{slot}", json={"name": "Supper!"}
+            ),
+        }
+        for name, call in calls.items():
+            assert "plan" in await after(call), name
+
+    run(scenario())
+
+
+def test_a_read_or_a_change_outside_the_plan_sends_no_plan_event(kitchen: TestClient) -> None:
+    async def scenario() -> None:
+        sub = broadcaster(kitchen).subscribe(1)
+        await asyncio.to_thread(lambda: kitchen.get("/api/v1/plan?from=2026-11-01&to=2026-11-07"))
+        await asyncio.to_thread(lambda: kitchen.post("/api/v1/shops", json={"name": "Aldi"}))
+        assert "plan" not in _names(await _plan_heard(sub))
+
+    run(scenario())
+
+
+def test_clearing_the_eaters_announces_a_plan_event(
+    kitchen: TestClient,
+) -> None:
+    # Clearing writes with a bulk DELETE, which the session can't see (RF5 fix round 1).
+    food, slot, today = _plan_kit(kitchen)
+    api = "/api/v1"
+    me = kitchen.get(f"{api}/me").json()["id"]
+    recipe = kitchen.post(f"{api}/recipes", json={"name": "Dal", "steps": [{"text": "Cook."}]})
+    recipe_id = recipe.json()["id"]
+    planned = kitchen.post(
+        f"{api}/plan/items", json={"date": today, "slot_id": slot, "recipe_id": recipe_id}
+    ).json()
+    kitchen.put(f"{api}/plan/meals/{planned['meal_id']}/eaters", json={"login_ids": [me]})
+
+    async def scenario() -> None:
+        for name, call in {
+            "clear the eaters": lambda: kitchen.put(
+                f"{api}/plan/meals/{planned['meal_id']}/eaters", json={"login_ids": []}
+            ),
+        }.items():
+            sub = broadcaster(kitchen).subscribe(1)
+            response = await asyncio.to_thread(call)
+            assert response.status_code < 300, (name, response.text)
+            assert "plan" in _names(await _plan_heard(sub)), name
+            broadcaster(kitchen).unsubscribe(sub)
+
+    run(scenario())
