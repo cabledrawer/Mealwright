@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, StrictBool, field_validator
 from sqlalchemy import select
 
 from mealwright import people
-from mealwright.api.v1.account import USERNAME, Me, _me
+from mealwright.api.v1.account import USERNAME
 from mealwright.api.v1.context import Here, acting_member
 from mealwright.auth import (
     MAX_PASSWORD,
@@ -26,7 +26,6 @@ from mealwright.auth import (
     client_address,
     hash_password,
     needs_https,
-    start_session,
 )
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.history import as_utc, commit, replayed
@@ -363,17 +362,16 @@ def join_link(token: str, db: Db) -> JoinOut:
 
 class JoinIn(BaseModel):
     password: str = Field(min_length=JOIN_MIN_PASSWORD, max_length=MAX_PASSWORD)
-    remember: bool = False
 
 
-@router.post("/join/{token}")
-def join(token: str, body: JoinIn, request: Request, response: Response, db: Db) -> Me:
-    """Choose a password with a sign-in link, and be signed in. The link works once."""
+@router.post("/join/{token}", status_code=status.HTTP_204_NO_CONTENT)
+def join(token: str, body: JoinIn, request: Request, db: Db) -> None:
+    """Choose a password with a sign-in link. The link works once."""
+    # The person then signs in on the sign-in page like anyone else, so a phone holding
+    # someone else's waiting changes warns first there (proposed, for cabledrawer).
     needs_https(request, request.app.state.settings)
     link, login, _member = _link(db, token)
     link.used_at = utcnow()
     login.password_hash = hash_password(body.password)
-    start_session(db, response, request.app.state.settings, login, remember=body.remember)
     db.commit()
     log.info("Joined with a sign-in link: %s from %s", login.username, client_address(request))
-    return _me(login)

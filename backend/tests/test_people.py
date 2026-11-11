@@ -286,9 +286,10 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
     assert page["name"] == "Joss" and page["username"] == "joss" and page["min_password"] == 12
     short = joss_client.post(f"{API}/join/{token}", json={"password": "eleven char"})
     assert short.status_code == 422
-    me = ok(joss_client.post(f"{API}/join/{token}", json={"password": "joss's own password"}))
-    assert me["member_id"] == joss and me["role"] == "member"
-    assert ok(joss_client.get(f"{API}/me"))["username"] == "joss"
+    joined = joss_client.post(f"{API}/join/{token}", json={"password": "joss's own password"})
+    assert joined.status_code == 204, joined.text
+    # Joining sets the password only: she signs in on the sign-in page like anyone else.
+    assert joss_client.get(f"{API}/me").status_code == 401
     # The link works once.
     _problem(_fresh(kitchen).get(f"{API}/join/{token}"), 404, "link_gone")
     again = _fresh(kitchen).post(f"{API}/join/{token}", json={"password": "someone else's pw"})
@@ -298,6 +299,7 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
         f"{API}/session", json={"username": "joss", "password": "joss's own password"}
     )
     assert signed.status_code == 200
+    assert signed.json()["member_id"] == joss and signed.json()["role"] == "member"
     r = kitchen.post(f"{API}/people/{joss}/login", json={"username": "joss"})
     _problem(r, 409, "signs_in_already")
     after = next(p for p in _people(kitchen)["people"] if p["id"] == joss)["login"]
