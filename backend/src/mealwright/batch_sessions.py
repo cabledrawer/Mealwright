@@ -286,7 +286,9 @@ def _take_off(kitchen: Kitchen, session: BatchSession, steps: list[dict[str, Any
 
 
 def remove(kitchen: Kitchen, session: BatchSession) -> Change:
-    """Take the whole session off the plan: one change, one Undo that puts all of it back."""
+    """Take the whole session off the plan: one change, one Undo that puts all of it back. Like
+    every Batch cook route it answers 409 while an admin has Batch cook hidden (cabledrawer 11 Nov)."""
+    hidden_check(kitchen)
     day, count = session.cook_day, len(batches_of(kitchen, session))
     steps: list[dict[str, Any]] = []
     _take_off(kitchen, session, steps)

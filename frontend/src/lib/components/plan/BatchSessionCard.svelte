@@ -62,9 +62,10 @@
       </li>
     {/each}
   </ul>
-  <div class="buttons">
-    <!-- While an admin has Batch cook hidden, its screens are gone: only Remove stays. -->
-    {#if batchCook.shown}
+  <!-- While an admin has Batch cook hidden, the card has no buttons: every Batch cook route,
+       taking a session off included, is refused then (cabledrawer 11 Nov). -->
+  {#if batchCook.shown}
+    <div class="buttons">
       <button
         type="button"
         class="go"
@@ -72,14 +73,14 @@
         onclick={start}>Start batch cook</button
       >
       <button type="button" class="btn" disabled={actions.readonly} onclick={change}>Change</button>
-    {/if}
-    <button
-      type="button"
-      class="btn"
-      disabled={actions.readonly}
-      onclick={() => void actions.model.removeBatch(session.id)}>Remove</button
-    >
-  </div>
+      <button
+        type="button"
+        class="btn"
+        disabled={actions.readonly}
+        onclick={() => void actions.model.removeBatch(session.id)}>Remove</button
+      >
+    </div>
+  {/if}
 </section>
 
 <style>

@@ -37,8 +37,8 @@ MOST_DAYS_AHEAD = MOST_BEFORE.days + (1 if MOST_BEFORE.seconds else 0)
 
 # The time a meal slot is eaten when nothing says (there is no setting for it yet: proposed, for
 # cabledrawer). Found by the slot's own name, by whole words ("Steak night" has no "tea" in it); a
-# slot with none of these words is eaten at noon. "morning", "evening" and "night" are proposed
-# too (RF3, H7).
+# slot with none of these words is eaten at noon. "morning", "evening" and "night" too (RF3, H7;
+# cabledrawer 11 Nov).
 _SLOT_TIMES = (
     ("breakfast", time(8, 0)),
     ("brunch", time(10, 30)),

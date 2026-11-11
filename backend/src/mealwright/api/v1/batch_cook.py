@@ -2,9 +2,8 @@
 recipes to cook together, and the sessions that "Plan this batch" makes. Everything is read from
 and written to the household's own recipes and plan; nothing leaves the server. Online only, like
 the rest of the plan; each write has its Undo (`POST /changes/{id}/undo`). An admin can hide Batch
-cook in Settings: every route here then answers 409 `batch_cook_hidden`, except taking a session off
-the plan (`DELETE /batch-cook/sessions/{id}`), which still works so the Plan can be cleaned
-(the Plan's card keeps its Remove)."""
+cook in Settings: every route here, taking a session off the plan included, then answers 409
+`batch_cook_hidden` (cabledrawer 11 Nov)."""
 
 from collections.abc import Callable
 from datetime import date, datetime

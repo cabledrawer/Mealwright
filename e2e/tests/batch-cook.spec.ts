@@ -305,7 +305,7 @@ test('an admin can hide Batch cook in Settings: no sidebar entry, no Plan tab, a
   expect((await page.request.get('/api/v1/batch-cook/suggestions')).status()).toBe(200);
 });
 
-test('while Batch cook is hidden the Plan card keeps only Remove', async ({ page }) => {
+test('while Batch cook is hidden the Plan card has no buttons, and taking the session off is refused (cabledrawer 11 Nov)', async ({ page }) => {
   const tag = `h${Date.now().toString(36)}`;
   const ids = await seed(page, tag);
   const day = cookDay(await today(page), 3);
@@ -318,8 +318,9 @@ test('while Batch cook is hidden the Plan card keeps only Remove', async ({ page
     await page.goto(`/plan?day=${day}`);
     const card = page.getByTestId('batch-card');
     await expect(card).toContainText('Batch cook · 2 recipes');
-    await expect(card.getByRole('button', { name: 'Remove' })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Remove' })).toHaveCount(0);
     await expect(card.getByRole('button', { name: 'Change' })).toHaveCount(0);
+    expect((await page.request.delete(`/api/v1/batch-cook/sessions/${made.session_id}`, { headers: key() })).status()).toBe(409);
     await expect(card.getByRole('button', { name: 'Start batch cook' })).toHaveCount(0);
   } finally {
     await call(page, 'PATCH', '/household', { batch_cook: true });

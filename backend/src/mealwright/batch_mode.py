@@ -470,7 +470,7 @@ def when(session: BatchSession, at: datetime | None, now: datetime) -> datetime:
 def current(session: BatchSession, made_at: datetime | None) -> None:
     """A mark made on a phone that still holds an older schedule (another phone pressed Plan
     again since; the task ids are reused for different steps) is refused, so it never lands on
-    the wrong step (RF3, C8; `409 schedule_replaced`, proposed, for cabledrawer). A mark that doesn't
+    the wrong step (RF3, C8; `409 schedule_replaced`, cabledrawer 11 Nov). A mark that doesn't
     say which schedule it was made on is taken as before."""
     if made_at is None or session.schedule_made_at is None:
         return
@@ -478,7 +478,7 @@ def current(session: BatchSession, made_at: datetime | None) -> None:
         raise Problem(
             status.HTTP_409_CONFLICT,
             "schedule_replaced",
-            # proposed, for cabledrawer
+            # cabledrawer 11 Nov
             "The schedule was made again on another phone. Opening it afresh.",
         )
 

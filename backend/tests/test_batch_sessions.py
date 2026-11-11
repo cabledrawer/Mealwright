@@ -255,10 +255,12 @@ def test_hidden_batch_cook_refuses_the_session_routes(
         kitchen.put(
             f"{API}/batch-cook/sessions/{written['session_id']}", json=body(kitchen, three)
         ),
+        kitchen.delete(f"{API}/batch-cook/sessions/{written['session_id']}"),
     ):
         assert response.status_code == 409 and response.json()["code"] == "batch_cook_hidden"
-    # What was already planned stays on the Plan, and can be taken off, and undone.
+    # What was already planned stays on the Plan; taking it off waits until Batch cook is on again.
     assert len(view(kitchen)["batch_sessions"]) == 1
+    ok(kitchen.patch(f"{API}/household", json={"batch_cook": True}))
     ok(kitchen.delete(f"{API}/batch-cook/sessions/{written['session_id']}"))
 
 
