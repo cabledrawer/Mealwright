@@ -38,7 +38,7 @@ from mealwright.shopping import Act, Batch, Refused
 KEY_REUSED = "That change ID was already used for something else."
 TOO_OLD = "Too late to undo: changes can be undone for 7 days."
 MAX_ACTIONS = 100
-# Proposed, for cabledrawer (RF2 Sh5): an amount sent with more than 3 decimal places.
+# cabledrawer 11 Nov (RF2 Sh5): an amount sent with more than 3 decimal places.
 TOO_MANY_DECIMALS = "That amount has too many decimal places. Use at most 3."
 
 UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"

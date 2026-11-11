@@ -1125,7 +1125,7 @@ def _edit_against_delete(act: Act, item: ListItem, food: Food) -> None:
     from mealwright.shop_from_plan import PLAN_KIND  # that module imports this one
 
     if removal.kind == PLAN_KIND:
-        # The plan took the line off, not a person (RF2 Sh6; words proposed, for cabledrawer): nobody
+        # The plan took the line off, not a person (RF2 Sh6; cabledrawer 11 Nov): nobody
         # to name, and nothing to undo from here.
         note(
             act,

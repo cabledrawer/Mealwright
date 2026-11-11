@@ -54,7 +54,7 @@ TICK_KINDS = (
     "different_pack",
     "answer_double_tick",
 )
-# Proposed, for cabledrawer (the words); the rule is his (11 Nov). Shown as a quiet note.
+# cabledrawer 11 Nov (RF2 Sh2). Shown as a quiet note.
 FOUND_TWICE = "Already found at home by the other phone."
 AMOUNT_KINDS = ("shopped", "found", "repacked")  # a purchase's changes that change amounts (7.5)
 
