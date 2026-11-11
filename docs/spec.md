@@ -800,6 +800,13 @@ cabledrawer's decisions after his 0.6.0 hand test (F-numbers are the hand-test f
 - **Reading amounts (F210, F218, F219, cabledrawer 10 Nov):** "1 tsp each salt, cumin" becomes one line per food with that amount; "pinch" is an amount; a word in brackets after a food ("clove (ground)") stays with the food.
 - **Add as bought for a food on the list (F224, cabledrawer 10 Nov):** "Add as bought" is offered for a food already on the list too; it adds a separate bought line and the unticked one stays to buy.
 - **Shops in Recent changes (F225, cabledrawer 10 Nov):** adding, renaming and removing a shop are all in Recent changes, with Undo.
+- **Found at home twice (Sh2, cabledrawer 11 Nov):** "Already have it" for the same row from two phones counts once; the second phone is told it was already found.
+- **Undo of an import (I2, cabledrawer 11 Nov):** a new ingredient made by the import stays when another saved recipe uses it, and the message says so.
+- **Plan this batch asks (C6, cabledrawer 11 Nov):** each recipe's optional ingredients and, for two methods, the method are asked as when adding to the plan; batch cook mode and Cooked it follow them.
+- **Whole tins (C12, cabledrawer 11 Nov):** Stocktake counts packs called tin, tins, can or cans in whole units.
+- **More in Recent changes (H8, cabledrawer 11 Nov):** adding or renaming a place, reordering shops or places, kitchen equipment and the Batch cook switch, each with Undo.
+- **A slash between two amounts (cabledrawer 11 Nov):** "2 tbsp ghee / 2 tbsp oil" is an "or" line; a slash between names alone ("hing / asafoetida") gives other names.
+- **No real names in the public API description (cabledrawer 11 Nov).**
 
 ### Batch cook (Experimental) (cabledrawer 28 Oct; in 0.8.0, built last, cabledrawer 6 Nov)
 
