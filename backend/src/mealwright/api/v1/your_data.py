@@ -13,13 +13,16 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine
 
-from mealwright import backups
+from mealwright import backups, export
 from mealwright.api.v1.context import Here
 from mealwright.auth import SameOrigin
+from mealwright.household import today
 from mealwright.models import utcnow
+from mealwright.photos import store_of
 
 router = APIRouter(tags=["your data"], dependencies=[SameOrigin])
 
@@ -110,3 +113,28 @@ def back_up_now(kitchen: Here, request: Request) -> BackupsOut:
         backups.note_problem(kitchen.db, kitchen.household, None, now)
     return _out(kitchen, folder)
 
+
+@router.get(
+    "/export",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"application/zip": {}}, "description": "The export file."}},
+)
+def export_everything(kitchen: Here) -> StreamingResponse:
+    """Export everything (Admins only): one zip file with every recipe, plan, list, pantry
+    item, person and setting of the household, and its photos (docs/dev/export-format.md,
+    version 1). Sign-ins and passwords are left out. Written as it is sent."""
+    kitchen.admin_only()
+    household_id = kitchen.household_id
+    # Everything is read now, in one snapshot, before the first byte is sent.
+    doc = export.document(kitchen.db, household_id)
+    kitchen.db.rollback()  # ends the read
+    photos = export.photo_files(store_of(kitchen.db), household_id)
+    name = export.file_name(today(kitchen.household))
+    return StreamingResponse(
+        export.zip_stream(doc, photos),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}"',
+            "Cache-Control": "no-store",
+        },
+    )
