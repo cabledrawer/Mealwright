@@ -34,6 +34,10 @@ export const savedWords = (count: number): string =>
   `Saved ${count} ${count === 1 ? 'recipe' : 'recipes'}`;
 export const saveReadyWords = (count: number): string =>
   `Save ${count} ready ${count === 1 ? 'recipe' : 'recipes'}`;
+/** After the one Undo of a quick import when some of the saves couldn't be taken back (proposed,
+ *  for cabledrawer). */
+export const undidWords = (done: number, total: number): string => `Undid ${done} of ${total}`;
+export const GONE_FROM_DRAFTS = 'No longer in Drafts';
 export const QUICK_HELP =
   'Ready means every ingredient matched. The others stay in Drafts for you to check.';
 export const ALREADY_HAVE = 'You already have this recipe. It was not read again.';
@@ -199,6 +203,9 @@ export class ImportLinks {
         row.code = flow.problem.code;
       } else if (flow.review) {
         if (await flow.keepAsDraft()) {
+          // The list knows the new draft before its row says it is there (see `gone`).
+          await drafts.load();
+          if (generation !== this.#generation) return;
           row.state = 'ready';
           row.title = flow.review.name || row.title;
           row.draftId = flow.draftId;
@@ -220,11 +227,22 @@ export class ImportLinks {
   /** Saving quick import's drafts is under way. */
   saving = $state(false);
 
-  /** The read links whose drafts can be saved as they are: every ingredient matched. */
+  /** The draft this row was kept as isn't in Drafts any more: saved or discarded from Check, or
+   *  deleted on another phone. Only said once the list has been fetched. */
+  gone(row: LinkRow): boolean {
+    return (
+      row.state === 'ready' &&
+      row.savedId === null &&
+      (row.draftId === null ||
+        (drafts.loaded && !drafts.drafts.some((draft) => draft.id === row.draftId)))
+    );
+  }
+
+  /** The read links whose drafts can be saved as they are: every ingredient matched, and still
+   *  there. */
   get ready(): LinkRow[] {
     return this.rows.filter(
-      (row) =>
-        row.state === 'ready' && row.draftId !== null && row.allMatched && row.savedId === null
+      (row) => row.state === 'ready' && row.allMatched && row.savedId === null && !this.gone(row)
     );
   }
 
@@ -234,6 +252,8 @@ export class ImportLinks {
    *  Drafts). A draft that can't be saved stays in Drafts with its sentence on its row. */
   async saveReady(): Promise<void> {
     if (this.saving || this.running) return;
+    if (this.ready.length === 0) return;
+    await drafts.load(); // what is still there now
     const rows = this.ready;
     if (rows.length === 0) return;
     this.saving = true;
@@ -246,8 +266,10 @@ export class ImportLinks {
         const result = await saveFromDraft(row.draftId!, { quiet: true });
         if (generation !== this.#generation) return;
         if ('problem' in result) {
-          failed += 1;
           row.message = result.problem;
+          // Already gone (saved or discarded elsewhere): not a failure, and no draft to open.
+          if (result.gone) row.draftId = null;
+          else failed += 1;
           continue;
         }
         row.savedId = result.recipeId;
@@ -258,6 +280,7 @@ export class ImportLinks {
       if (generation === this.#generation) this.saving = false;
     }
     void drafts.load();
+    if (done.length === 0 && failed === 0) return; // every one was already gone
     if (done.length === 0) {
       toasts.show('Couldn’t save those recipes. They stay in Drafts.', { tone: 'problem' });
       return;
@@ -270,13 +293,20 @@ export class ImportLinks {
       needsServer: true,
       undo: async () => {
         let message: string | void = undefined;
+        let undone = 0;
+        // Each save is taken back on its own: one that can't be doesn't stop the rest.
         for (const { row, saved } of done) {
-          const said = await serverUndo(saved.change.id)();
-          if (said) message = said;
-          row.savedId = null;
+          try {
+            const said = await serverUndo(saved.change.id)();
+            if (said) message = said;
+            row.savedId = null;
+            undone += 1;
+          } catch {
+            // stays saved; counted below
+          }
         }
         await drafts.load();
-        return message;
+        return undone === done.length ? message : undidWords(undone, done.length);
       }
     });
   }

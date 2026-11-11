@@ -36,7 +36,10 @@ beforeEach(async () => {
       bodies.set(id, body);
       return [201, { id, ...body }];
     },
-    'GET /recipes/drafts': [200, { drafts: [], count: 0 }],
+    'GET /recipes/drafts': () => [
+      200,
+      { drafts: [...bodies.keys()].map((id) => ({ id, name: 'x' })), count: bodies.size }
+    ],
     'GET /recipes/drafts/40': () => [200, { id: 40, name: 'Ready dal', ...bodies.get(40) }],
     'POST /recipes/import/save': [
       201,

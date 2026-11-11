@@ -12,6 +12,7 @@
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import {
     canPaste,
+    GONE_FROM_DRAFTS,
     IN_DRAFTS,
     importLinks,
     LINKS_HELP,
@@ -44,6 +45,15 @@
   $effect(() => {
     if (refused) void tick().then(() => box?.focus());
   });
+
+  let resultsHeading = $state<HTMLElement>();
+
+  /** Save ready recipes: the button goes when it is done, so the cursor goes to the results. */
+  async function saveReady() {
+    await importLinks.saveReady();
+    await tick();
+    resultsHeading?.focus();
+  }
 
   /** "Paste text instead": empty the box of the link and put the cursor back in it. */
   async function pasteInstead() {
@@ -144,7 +154,9 @@
 
   {#if importLinks.rows.length > 0}
     <section class="results" aria-label="Links being read">
-      <h2 class="overline">{linksHeading(importLinks.rows.length)}</h2>
+      <h2 class="overline" tabindex="-1" bind:this={resultsHeading}>
+        {linksHeading(importLinks.rows.length)}
+      </h2>
       <ul class="rows" aria-live="polite">
         {#each importLinks.rows as row (row.link)}
           <li class="row" data-state={row.state}>
@@ -161,6 +173,9 @@
                 href={resolve('/(app)/recipes/[id]', { id: String(row.savedId) })}
                 aria-label="Open {row.title}">Open</a
               >
+            {:else if row.state === 'ready' && importLinks.gone(row)}
+              <!-- Saved or discarded elsewhere: nothing to open. -->
+              <span class="status">{GONE_FROM_DRAFTS}</span>
             {:else if row.state === 'ready'}
               <span class="status ok">{READY_TO_CHECK}</span>
               {#if row.draftId !== null}
@@ -191,7 +206,7 @@
             type="button"
             class="button"
             disabled={importLinks.saving}
-            onclick={() => void importLinks.saveReady()}
+            onclick={() => void saveReady()}
             >{importLinks.saving ? 'Saving…' : saveReadyWords(importLinks.ready.length)}</button
           >
         </p>

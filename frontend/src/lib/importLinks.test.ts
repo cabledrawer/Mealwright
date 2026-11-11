@@ -286,6 +286,8 @@ describe('several links at once (F110)', () => {
 // one go (F216, quick import).
 describe('opening a result, and quick import (F209, F216; cabledrawer 10 Nov)', () => {
   const bodies = new Map<number, Record<string, unknown>>();
+  /** Drafts taken away behind this screen's back (saved or discarded from Check, or elsewhere). */
+  const gone = new Set<number>();
   let next = 40;
 
   /** A server with drafts that remember what was kept, and the save for the matched one. */
@@ -293,6 +295,7 @@ describe('opening a result, and quick import (F209, F216; cabledrawer 10 Nov)', 
     extra: Record<string, [number, unknown] | ((r: FakeRequest) => [number, unknown])> = {}
   ) {
     bodies.clear();
+    gone.clear();
     next = 40;
     return fakeApi({
       'POST /recipes/import': (request: FakeRequest) =>
@@ -305,7 +308,14 @@ describe('opening a result, and quick import (F209, F216; cabledrawer 10 Nov)', 
         bodies.set(id, body);
         return [201, { id, ...body }];
       },
-      'GET /recipes/drafts': [200, { drafts: [], count: 0 }],
+      // The household's drafts, as kept so far (so a draft that is gone can be told from one that is not).
+      'GET /recipes/drafts': () => [
+        200,
+        {
+          drafts: [...bodies.keys()].filter((id) => !gone.has(id)).map((id) => ({ id, name: 'x' })),
+          count: bodies.size
+        }
+      ],
       ...extra
     });
   }
@@ -394,6 +404,85 @@ describe('opening a result, and quick import (F209, F216; cabledrawer 10 Nov)', 
     const before = requests.length;
     await reader.saveReady();
     expect(requests).toHaveLength(before);
+    expect(undoHistory.size).toBe(0);
+  });
+
+  it('one Undo that fails for one save carries on with the rest, and says how many were undone', async () => {
+    const requests = server({
+      'GET /recipes/drafts/40': draftOut,
+      'GET /recipes/drafts/41': draftOut,
+      'GET /recipes/drafts/42': draftOut,
+      'POST /recipes/import': [200, review('Ready dal')],
+      'POST /recipes/import/save': (request: FakeRequest) => {
+        const id = (request.body as { draft_id: number }).draft_id;
+        return [
+          201,
+          {
+            recipe: { id: id + 15, name: 'Ready dal' },
+            change: changeOf(id + 20, 'Imported Ready dal'),
+            new_ingredients: [],
+            learned: 0
+          }
+        ];
+      },
+      'POST /changes/60/undo': [
+        200,
+        { result: 'done', message: 'back', change: changeOf(70, 'x') }
+      ],
+      'POST /changes/61/undo': [500, { detail: 'Something went wrong.' }],
+      'POST /changes/62/undo': [200, { result: 'done', message: 'back', change: changeOf(71, 'x') }]
+    });
+    const reader = new ImportLinks();
+    await reader.run(['https://a.example/1', 'https://a.example/2', 'https://a.example/3']);
+    await reader.saveReady();
+    expect(reader.rows.map((r) => r.savedId)).toEqual([55, 56, 57]);
+    await undoHistory.undoLast();
+    // The second failed; the third was still taken back, and only the undone ones are unsaved.
+    expect(requests.filter((r) => r.path.endsWith('/undo')).map((r) => r.path)).toEqual([
+      '/changes/60/undo',
+      '/changes/61/undo',
+      '/changes/62/undo'
+    ]);
+    expect(reader.rows.map((r) => r.savedId)).toEqual([null, 56, null]);
+    expect(toasts.current?.message).toBe('Undid 2 of 3');
+  });
+
+  it('a draft that is gone from Drafts is not offered for saving, and its Check link goes', async () => {
+    server({
+      'GET /recipes/drafts/40': draftOut,
+      'POST /recipes/import': [200, review('Ready dal')],
+      'POST /recipes/import/save': [
+        201,
+        {
+          recipe: { id: 55, name: 'Ready dal' },
+          change: changeOf(60, 'Imported Ready dal'),
+          new_ingredients: [],
+          learned: 0
+        }
+      ]
+    });
+    const reader = new ImportLinks();
+    await reader.run(['https://a.example/1', 'https://a.example/2']);
+    await drafts.load();
+    expect(reader.ready).toHaveLength(2);
+    gone.add(41); // the second was discarded from Check
+    await drafts.load();
+    expect(reader.gone(reader.rows[1]!)).toBe(true);
+    expect(reader.gone(reader.rows[0]!)).toBe(false);
+    expect(reader.ready.map((r) => r.draftId)).toEqual([40]);
+  });
+
+  it('a 404 while saving means already gone: no failure toast, no draft left to open', async () => {
+    server({
+      'GET /recipes/drafts/40': [404, { detail: 'That draft isn’t here any more.' }],
+      'POST /recipes/import': [200, review('Ready dal')]
+    });
+    const reader = new ImportLinks();
+    await reader.run(['https://a.example/1']);
+    await reader.saveReady();
+    expect(reader.rows[0]!.draftId).toBeNull();
+    expect(reader.rows[0]!.message).toBe('That draft isn’t here any more.');
+    expect(toasts.current?.message ?? '').not.toMatch(/stay/);
     expect(undoHistory.size).toBe(0);
   });
 });

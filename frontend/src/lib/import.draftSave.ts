@@ -17,7 +17,7 @@ export const NEEDS_YOU = 'That draft has ingredients that still need you. Carry 
 export async function saveFromDraft(
   id: number,
   options: { quiet?: boolean } = {}
-): Promise<{ recipeId: number; saved: Saved } | { problem: string }> {
+): Promise<{ recipeId: number; saved: Saved } | { problem: string; gone?: true }> {
   try {
     const flow = new ImportFlow();
     flow.load(await getDraft(id));
@@ -27,6 +27,9 @@ export async function saveFromDraft(
     if (!options.quiet) changesToast(saved);
     return { recipeId: saved.recipe.id, saved };
   } catch (error) {
+    // The draft isn't there any more (saved, discarded, or deleted on another phone).
+    if (error instanceof ApiError && error.status === 404)
+      return { problem: error.detail, gone: true };
     return { problem: error instanceof ApiError ? error.detail : 'Couldn’t save. Try again.' };
   }
 }
