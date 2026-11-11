@@ -166,16 +166,90 @@ export function nameForms(name: string): string[] {
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Whether the step's words include `form` as whole words. */
-function mentions(text: string, form: string): boolean {
-  return new RegExp(`(?<![\\p{L}\\d])${escape(form)}(?![\\p{L}\\d])`, 'iu').test(text);
+// F142 (cabledrawer 3 Nov): the guesses were poor. Three things made them so, each fixed below.
+
+/** Chilli is spelt chilli, chili, chile, chillies, chilies...: all one word for matching. */
+const CHILLI = /\bchill?(?:ies|is|i|es|e)\b/gi;
+const fold = (text: string) => text.toLowerCase().replace(CHILLI, 'chilli');
+
+/** Words a recipe puts before a name that a step often leaves out ("dried red chillies" on the
+ *  line, "the red chillies" in the step). */
+const MODIFIERS = new Set([
+  'dried',
+  'dry',
+  'fresh',
+  'raw',
+  'ripe',
+  'whole',
+  'frozen',
+  'large',
+  'small'
+]);
+
+/** The part of a plant a word names. Seeds and leaves of one plant are different ingredients
+ *  ("coriander seeds" is not "coriander leaves"). */
+const PART_WORDS: Record<string, string> = {
+  seed: 'seed',
+  seeds: 'seed',
+  leaf: 'leaf',
+  leaves: 'leaf',
+  stalk: 'stalk',
+  stalks: 'stalk',
+  stem: 'stalk',
+  stems: 'stalk',
+  root: 'root',
+  roots: 'root',
+  flower: 'flower',
+  flowers: 'flower'
+};
+const partsIn = (text: string): Set<string> =>
+  new Set(
+    (fold(text).match(/\p{L}+/gu) ?? []).flatMap((word) =>
+      PART_WORDS[word] === undefined ? [] : [PART_WORDS[word]!]
+    )
+  );
+
+/** What a line is called, for matching: its ingredient's name and other names, the recipe it is,
+ *  and the words as typed (without a note after a comma or a bracket), each also without a
+ *  leading "dried", "fresh"... so "dried red chilies" is found as "red chillies". */
+function namesOf(line: RecipeLine): string[] {
+  const typed = line.words.split(/[,(;]/)[0]!.trim();
+  const named = [line.food?.name, ...(line.food?.other_names ?? []), line.recipe?.name, typed]
+    .filter((n): n is string => typeof n === 'string')
+    .map((n) => fold(n).trim())
+    .filter((n) => n !== '' && n.split(/\s+/).length <= 5);
+  const all = new Set<string>();
+  for (const name of named) {
+    all.add(name);
+    const words = name.split(/\s+/);
+    let from = 0;
+    while (from < words.length - 1 && MODIFIERS.has(words[from]!)) from++;
+    if (from > 0) all.add(words.slice(from).join(' '));
+  }
+  return [...all];
+}
+
+/** Whether the step's words include `form` as whole words, as a different part of the plant
+ *  than the line is (the line says leaves, the step says "coriander seeds") not counting. */
+function mentions(text: string, form: string, parts: Set<string>): boolean {
+  const found = new RegExp(`(?<![\\p{L}\\d])${escape(form)}(?![\\p{L}\\d])(\\s+\\p{L}+)?`, 'giu');
+  for (const match of text.matchAll(found)) {
+    const next = (match[1] ?? '').trim();
+    const part = PART_WORDS[next];
+    // The step names another part of the plant than the line does: not this line.
+    if (part !== undefined && parts.size > 0 && !parts.has(part)) continue;
+    return true;
+  }
+  return false;
 }
 
 /**
  * The ingredient lines a step uses. The links the server holds (set by hand, or guessed
  * when the recipe was saved) win; without any, the guess is made here from the step's words:
  * a step uses an ingredient when its words include the ingredient's name, its plural or one of
- * its other names (cabledrawer 31 Oct). Headings are never ingredients.
+ * its other names (cabledrawer 31 Oct), spelt any way and with or without "dried", "fresh"... (F142
+ * case c), and not when the step names another part of the plant ("coriander seeds" is not
+ * "coriander leaves", F142 case a). Headings are never ingredients.
  */
 export function stepLines(step: CookStep, lines: RecipeLine[]): RecipeLine[] {
   const ingredients = lines.filter((l) => l.kind === 'ingredient');
@@ -183,10 +257,27 @@ export function stepLines(step: CookStep, lines: RecipeLine[]): RecipeLine[] {
     const set = new Set(step.linked);
     return ingredients.filter((l) => set.has(l.id));
   }
+  const text = fold(step.text);
   return ingredients.filter((line) => {
-    const names = [line.food?.name, ...(line.food?.other_names ?? []), line.recipe?.name];
-    return names
-      .filter((n): n is string => typeof n === 'string')
-      .some((name) => nameForms(name).some((form) => mentions(step.text, form)));
+    const parts = partsIn(
+      [line.words, line.food?.name, ...(line.food?.other_names ?? [])].join(' ')
+    );
+    return namesOf(line).some((name) =>
+      nameForms(name).some((form) => mentions(text, form, parts))
+    );
   });
+}
+
+/**
+ * The lines that more than one step uses (F142 case b): "2 cups water" is used by the dal, the
+ * vegetables and the sambar, and showing the full amount on each of them says it is used three
+ * times over. A shared line is shown without its amount in a step's own list (the step's words
+ * say how much, and "Show ingredients" has the full amount). Proposed, for cabledrawer.
+ */
+export function sharedLineIds(steps: CookStep[], lines: RecipeLine[]): Set<number> {
+  const uses = new Map<number, number>();
+  for (const step of steps) {
+    for (const line of stepLines(step, lines)) uses.set(line.id, (uses.get(line.id) ?? 0) + 1);
+  }
+  return new Set([...uses].filter(([, n]) => n > 1).map(([id]) => id));
 }

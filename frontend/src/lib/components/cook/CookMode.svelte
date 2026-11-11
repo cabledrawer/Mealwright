@@ -9,7 +9,7 @@
   import { tick, untrack } from 'svelte';
   import type { Recipe } from '#lib/client/recipes.js';
   import type { AheadView } from '#lib/cookAhead.js';
-  import { clock, cookSteps, findTimers, stepLines } from '#lib/cookSteps.js';
+  import { clock, cookSteps, findTimers, sharedLineIds, stepLines } from '#lib/cookSteps.js';
   import type { CookTimers } from '#lib/cookTimers.svelte.js';
   import { lineAmount } from '#lib/recipeAmounts.js';
   import { waitLength, waitName } from '#lib/timeWords.js';
@@ -81,6 +81,8 @@
   const last = $derived(steps.length === 0 || index === steps.length - 1);
   const found = $derived(step ? findTimers(step.text) : []);
   const mine = $derived(step ? stepLines(step, recipe.lines) : []);
+  /** Lines more than one step uses: a step's own list shows them without the full amount (F142). */
+  const shared = $derived(sharedLineIds(steps, recipe.lines));
   const keyOf = (n: number, i: number) => `${n}:${i}`;
   /** Timers started on other steps, still running or ended: seen from every step. */
   const elsewhere = $derived(
@@ -472,7 +474,8 @@
             <ul class="chips">
               {#each mine as line (line.id)}
                 <li>
-                  {#if amountFor(line)}<b>{amountFor(line)}</b>{SPACE}{/if}{wordsFor(line)}
+                  {#if amountFor(line) && !shared.has(line.id)}<b>{amountFor(line)}</b
+                    >{SPACE}{/if}{wordsFor(line)}
                 </li>
               {/each}
             </ul>

@@ -595,6 +595,29 @@ describe('Cook mode', () => {
       await shows(box, has('No ingredient guessed for this step.'));
     });
 
+    it('shows an ingredient several steps use without its full amount in the step, but in full under Show ingredients (F142)', async () => {
+      const water = line(5, 'Water', '2', { unit: 'cup' });
+      open(
+        recipe(
+          [
+            step(1, 'Boil the dal in the water.'),
+            step(2, 'Add the tamarind and more water.'),
+            step(3, 'Fry the shallots.')
+          ],
+          [...LINES, water]
+        ),
+        { perStep: true }
+      );
+      const box = page.getByTestId('per-step');
+      await shows(box, has('water'));
+      expect(box.element().textContent).not.toMatch(/2\scup/);
+      await next().click();
+      await shows(box, has('tamarind'));
+      expect(box.element().textContent).not.toMatch(/2\scup/);
+      await next().click(); // shallots: used by this step only, so its amount stays
+      await shows(box, /15\sshallots/);
+    });
+
     it('lays the box out as the 0.8 mockup does (F148)', async () => {
       open(recipe(FOUR), { perStep: true });
       const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
