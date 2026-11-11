@@ -725,13 +725,13 @@ def cook_session(
     def make() -> Change:
         entries = _session_entries(kitchen, session_id, body)
         change = cooking.confirm(kitchen, entries, body.answers)
-        _answer_cook_meals(kitchen, entries)
+        _answer_cook_meals(kitchen, entries, change)
         return change
 
     return _confirm(kitchen, response, make, _written_meal)
 
 
-def _answer_cook_meals(kitchen: Kitchen, entries: list[cooking.Entry]) -> None:
+def _answer_cook_meals(kitchen: Kitchen, entries: list[cooking.Entry], press: Change) -> None:
     """The meal the recipes were cooked for gets its own "Cooked it" answer in the same press
     (as the Plan's own Cooked it does): the meal is cooked at once, and the tubs count from the
     day cooked when that was before the meal's day (F159; RF3, C3). One Undo takes it all back.
@@ -749,6 +749,6 @@ def _answer_cook_meals(kitchen: Kitchen, entries: list[cooking.Entry]) -> None:
             # answer is written without one.
             kept, kitchen.idempotency_key = kitchen.idempotency_key, None
             try:
-                today.cooked(kitchen, meal, None)
+                today.cooked(kitchen, meal, None, [press])
             finally:
                 kitchen.idempotency_key = kept

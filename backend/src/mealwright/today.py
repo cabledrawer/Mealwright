@@ -293,15 +293,22 @@ def _refuse_nothing_reviewed(kitchen: Kitchen, meal: Meal) -> None:
     )
 
 
-def cooked(kitchen: Kitchen, meal: Meal, leftovers: Leftovers | None) -> Change:
+def cooked(
+    kitchen: Kitchen,
+    meal: Meal,
+    leftovers: Leftovers | None,
+    press_given: list[Change] | None = None,
+) -> Change:
     """Cooked it. The meal becomes cooked when every recipe in it has been (F157): one press
     of a meal with several recipes cooks only the ones it reviewed. An answer with no pantry
     change of its own (nothing was reviewed) cooks the whole meal, unless a recipe of it is
-    cooked already and others are left: then it is refused (cabledrawer 7 Nov)."""
+    cooked already and others are left: then it is refused (cabledrawer 7 Nov). `press_given`: the
+    pantry changes of this press when the caller made them itself (a session's Cooked it), so an
+    earlier separate "Cooked it" is not joined to it."""
     answerable(kitchen, meal, ahead=True)
     steps: list[dict[str, Any]] = []
     where = _where(kitchen, meal.day, meal.slot_id)
-    press = together.press_changes(kitchen, meal)
+    press = press_given if press_given is not None else together.press_changes(kitchen, meal)
     if not press:
         _refuse_nothing_reviewed(kitchen, meal)
     names = together.cooked_names(kitchen, press, meal) if press else []
@@ -334,7 +341,7 @@ def cooked(kitchen: Kitchen, meal: Meal, leftovers: Leftovers | None) -> Change:
     if made:
         summary += f" and kept {made} {'tub' if made == 1 else 'tubs'} of leftovers"
     change = _finish(kitchen, "plan_cooked", summary, steps, meal_id=meal.id)
-    together.join_answer(kitchen, meal, change)  # one "Cooked it", one Undo (F125)
+    together.join_answer(kitchen, meal, change, press_given)  # one "Cooked it", one Undo (F125)
     return change
 
 

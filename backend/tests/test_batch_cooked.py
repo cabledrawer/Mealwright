@@ -261,15 +261,34 @@ def test_a_session_cooked_before_its_day_counts_the_tubs_from_today_and_cooks_th
         meal = next(m for m in view(kitchen)["meals"] if m["date"] == D1.isoformat())
         return str(meal["status"])
 
+    stock_before = pantry(kitchen)
     before = use_bys()
     assert before and meal_status() == "planned"
     done = ok(kitchen.post(f"{API}/batch-cook/sessions/{sid}/cook", json={}), 201)
     after = use_bys()
     assert len(after) == len(before) and all(a < b for a, b in zip(after, before, strict=True))
     assert meal_status() == "cooked"
+    assert pantry(kitchen) != stock_before
     ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
     assert use_bys() == before
     assert meal_status() == "planned"
+    assert pantry(kitchen) == stock_before
+
+
+def test_undoing_the_sessions_cooked_it_leaves_an_earlier_separate_cooked_it_standing(
+    kitchen: TestClient,
+) -> None:
+    """RF3 review r1: one recipe cooked on its own, then the session's Cooked it with nothing
+    saved between: the session's Undo gives back only the session's stock."""
+    sid, batch_ids = session_of(kitchen)
+    start = pantry(kitchen)
+    ok(kitchen.post(f"{API}/plan/batches/{batch_ids[0]}/cook", json={}), 201)
+    alone = pantry(kitchen)
+    assert alone != start
+    done = ok(kitchen.post(f"{API}/batch-cook/sessions/{sid}/cook", json={}), 201)
+    assert pantry(kitchen) != alone
+    ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
+    assert pantry(kitchen) == alone  # the separate cook still stands
 
 
 # --- Whole-0.8 review fixes (RF3): C6 ------------------------------------------------------------

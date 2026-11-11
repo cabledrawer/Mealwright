@@ -102,10 +102,12 @@ def cooked_names(kitchen: Kitchen, changes: list[Change], meal: Meal) -> list[st
     return names
 
 
-def join_answer(kitchen: Kitchen, meal: Meal, answer: Change) -> None:
+def join_answer(
+    kitchen: Kitchen, meal: Meal, answer: Change, press: list[Change] | None = None
+) -> None:
     """The meal's "Cooked it" answer, just recorded: join it to the pantry changes of the same
     press, if there are any."""
-    pantry = press_changes(kitchen, meal, answer)
+    pantry = press if press is not None else press_changes(kitchen, meal, answer)
     if not pantry:
         return
     ids = [change.id for change in pantry] + [answer.id]
