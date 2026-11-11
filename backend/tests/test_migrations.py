@@ -773,7 +773,7 @@ def _table_sql(engine: Engine, table: str) -> str:
 # them out of their row counts.
 STOCKTAKE_TABLES = {"stocktake_place", "stocktake_entry"}
 METHOD_TABLES = {"recipe_method"}
-SESSION_TABLES = {"batch_session"}  # Batch cook sessions (0.8 wave 6, B2)
+SESSION_TABLES = {"batch_session", "batch_task_progress"}  # Batch cook (0.8 wave 6, B2 and B3)
 
 
 def _row_counts(engine: Engine, skip: set[str]) -> dict[str, int]:
@@ -1945,3 +1945,67 @@ def test_batch_session_migration_adds_a_table_and_two_columns_and_goes_back_and_
         and k["constrained_columns"] == ["household_id", "session_id"]
         for k in keys
     )
+
+
+BATCH_SESSIONS_MIGRATION = "d5a2c7e9b316"  # the one just before the Batch cook schedule
+
+
+def test_batch_schedule_migration_adds_columns_and_a_table_and_goes_back_and_forward(
+    tmp_path: Path,
+) -> None:
+    """0.8 wave 6, B3 (cabledrawer 28 Oct and 11 Nov), Batch cook's database change 3 of 3: the
+    schedule snapshot columns on `batch_session` (empty until the mode is started) and the
+    progress table (with a household, going with its session). Going back drops them and keeps
+    the session; forward again leaves them empty."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    skip = {*STOCKTAKE_TABLES, *METHOD_TABLES, *SESSION_TABLES, "alembic_version"}
+
+    def columns(table: str) -> set[str]:
+        return {c["name"] for c in inspect(engine).get_columns(table)}
+
+    assert {"schedule", "schedule_basis", "schedule_made_at"} <= columns("batch_session")
+    assert {"household_id", "session_id", "task_id", "done_at", "started_at"} <= columns(
+        "batch_task_progress"
+    )
+    assert "AUTOINCREMENT" in _table_sql(engine, "batch_task_progress")
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "INSERT INTO batch_session (household_id, cook_day, created_at, schedule) "
+            "SELECT id, '2026-11-14', '2026-11-11 10:00:00', '{\"tasks\": []}' FROM household "
+            "ORDER BY id LIMIT 1"
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO batch_task_progress (household_id, session_id, task_id, done_at) "
+            "SELECT household_id, id, 't1', '2026-11-14 09:00:00' FROM batch_session"
+        )
+    before = _row_counts(engine, skip)
+    migrate.downgrade(engine, BATCH_SESSIONS_MIGRATION)
+    assert migrate_head(engine) == BATCH_SESSIONS_MIGRATION
+    assert "batch_task_progress" not in inspect(engine).get_table_names()
+    assert not {"schedule", "schedule_basis", "schedule_made_at"} & columns("batch_session")
+    assert "AUTOINCREMENT" in _table_sql(engine, "batch_session")
+    assert _row_counts(engine, skip) == before
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("SELECT count(*) FROM batch_session").scalar_one() == 1
+    migrate.upgrade(engine)
+    assert migrate_head(engine) == newest_migration()
+    assert "AUTOINCREMENT" in _table_sql(engine, "batch_session")
+    assert "AUTOINCREMENT" in _table_sql(engine, "batch_task_progress")
+    assert _row_counts(engine, skip) == before
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql(
+            "SELECT schedule, schedule_basis, schedule_made_at FROM batch_session"
+        ).all() == [(None, None, None)]
+        assert (
+            connection.exec_driver_sql("SELECT count(*) FROM batch_task_progress").scalar_one() == 0
+        )
+    keys = inspect(engine).get_foreign_keys("batch_task_progress")
+    assert any(
+        k["referred_table"] == "batch_session"
+        and k["constrained_columns"] == ["household_id", "session_id"]
+        and k["options"].get("ondelete") == "CASCADE"
+        for k in keys
+    )
+    keys = inspect(engine).get_foreign_keys("batch_cook")
+    assert any(k["referred_table"] == "batch_session" for k in keys)

@@ -1147,6 +1147,41 @@ class BatchSession(Base):
     together_minutes: Mapped[int | None] = mapped_column(Integer)
     one_by_one_minutes: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Batch cook mode (0.8 wave 6, B3): the schedule as it was made when the mode was started (a
+    # snapshot, so a reload, another phone or a closed tab carries on where it was, and a recipe
+    # edited later does not move it), and a fingerprint of what it was made from, so "Plan again"
+    # is offered when a recipe or the kitchen has changed since. Both empty until it is started.
+    schedule: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    schedule_basis: Mapped[str | None] = mapped_column(String(64))
+    schedule_made_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class BatchTaskProgress(Base):
+    """Where a Batch cook session is up to (0.8 wave 6, B3): one row for each task of the
+    schedule that is done or whose timer has been started. A row of its own for each task (not
+    one JSON on the session) so two phones marking different tasks never overwrite each other.
+    Goes with its session; "Plan again" clears them."""
+
+    __tablename__ = "batch_task_progress"
+    __table_args__ = (
+        UniqueConstraint("session_id", "task_id", name="uq_batch_task_progress_session_id_task_id"),
+        ForeignKeyConstraint(
+            ["household_id", "session_id"],
+            ["batch_session.household_id", "batch_session.id"],
+            ondelete="CASCADE",
+            name="fk_batch_task_progress_household_id_batch_session",
+        ),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    session_id: Mapped[int] = mapped_column(Integer, index=True)
+    task_id: Mapped[str] = mapped_column(String(16))  # "t1"... as in the schedule
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class BatchCook(Base):
