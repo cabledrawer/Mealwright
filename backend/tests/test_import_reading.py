@@ -267,3 +267,19 @@ def test_l6_each_with_a_comma_a_colon_or_a_describing_word() -> None:
         (D(2), "parsley", "fresh, chopped"),
         (D(2), "mint", "fresh, chopped"),
     ]
+
+
+def test_fx6_a_matched_ghee_line_is_saved_linked_to_ghee(kitchen: TestClient) -> None:
+    """FX6 confirm: the pr180 screenshot showed ghee "not linked" after Check showed it matched."""
+    for name in ("Toor dal", "Turmeric", "Ghee"):
+        ok(kitchen.post(f"{API}/foods", json={"name": name, "counted_as": "weight"}), 201)
+    text = (
+        "Saved dal tadka\nServes 4\nIngredients\n200 g toor dal\n1 tsp turmeric\n2 tbsp ghee\n"
+        "Method\n1. Cook the dal with the turmeric.\n2. Pour over the hot ghee.\n"
+    )
+    shown = review(kitchen, text)
+    assert [line["label"] for line in shown["lines"] if line["kind"] == "ingredient"] != []
+    saved = ok(save(kitchen, to_save(shown)), 201)
+    recipe = ok(kitchen.get(f"{API}/recipes/{saved['recipe']['id']}"))
+    ghee = next(line for line in recipe["lines"] if "ghee" in line["words"].lower())
+    assert ghee["link"] != "none", ghee
