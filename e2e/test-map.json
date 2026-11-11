@@ -97,6 +97,18 @@
       "browser": ["today.spec.ts", "cooked.spec.ts", "cook-mode.spec.ts", "plan-start.spec.ts"]
     },
     {
+      "name": "Batch cook mode",
+      "paths": [
+        "backend/src/mealwright/batch_schedule.py", "backend/src/mealwright/batch_mode.py", "backend/src/mealwright/batch_sessions.py",
+        "backend/src/mealwright/events.py", "backend/src/mealwright/api/v1/batch_cook.py", "backend/src/mealwright/api/v1/events.py",
+        "frontend/src/lib/batchMode*", "frontend/src/lib/client/batchMode.ts", "frontend/src/lib/live.svelte.ts",
+        "frontend/src/lib/components/cook/BatchMode.svelte", "frontend/src/lib/components/cooked/SessionCooked.svelte",
+        "frontend/src/routes/(app)/batch-cook/**"
+      ],
+      "backend": ["test_batch_schedule.py", "test_batch_mode.py", "test_batch_cooked.py", "test_start_ahead.py", "test_events.py", "test_event_streams.py"],
+      "browser": ["batch-mode.spec.ts", "live.spec.ts"]
+    },
+    {
       "name": "Shopping",
       "paths": [
         "backend/src/mealwright/shopping.py", "backend/src/mealwright/shop_why.py", "backend/src/mealwright/shop_from_plan.py",

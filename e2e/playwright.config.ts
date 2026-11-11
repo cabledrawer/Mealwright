@@ -165,6 +165,9 @@ export default defineConfig({
     { name: 'desktop 0.7 cooked', testMatch: 'cooked.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.7 cooked', testMatch: 'cooked.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Cook mode: steps, timers, the chime, leaving, Keep screen awake, Experimental (0.7, K4).
+    { name: 'phone 0.8 batch mode', testMatch: 'batch-mode.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.8 batch mode', testMatch: 'batch-mode.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.8 batch mode', testMatch: 'batch-mode.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     { name: 'phone 0.7 cook mode', testMatch: 'cook-mode.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.7 cook mode', testMatch: 'cook-mode.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.7 cook mode', testMatch: 'cook-mode.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
