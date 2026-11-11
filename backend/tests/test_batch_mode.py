@@ -412,3 +412,36 @@ def test_a_mark_for_an_older_schedule_is_refused_after_plan_again(
         == 200
     )
     assert kitchen.put(url(session, f"/tasks/{again['next_id']}/done")).status_code == 200
+
+
+def test_a_marinade_in_the_middle_of_a_recipe_is_left_for_the_night_before(
+    kitchen: TestClient,
+) -> None:
+    """C4: Today says Start tonight, so the session has no twelve-hour timer."""
+    tandoori = make(
+        kitchen,
+        "Tandoori",
+        steps=[
+            {"text": "Mix the yoghurt and spices and coat the chicken."},
+            {
+                "text": "Leave to marinate.",
+                "wait": {"kind": "marinate", "min_minutes": 240, "overnight": True},
+            },
+            {"text": "Grill for 20 minutes."},
+        ],
+    )
+    rice = make(kitchen, "Plain rice", steps=[{"text": "Simmer the rice for 15 minutes."}])
+    slots = slot_ids(kitchen)
+    body = {
+        "date": D1.isoformat(),
+        "slot_id": slots["Dinner"],
+        "recipes": [
+            {"recipe_id": tandoori["id"], "tub_count": 2},
+            {"recipe_id": rice["id"], "tub_count": 2},
+        ],
+    }
+    sid = int(ok(kitchen.post(f"{API}/batch-cook/sessions", json=body), 201)["session_id"])
+    made = start(kitchen, sid)
+    assert made["total_minutes"] < 120
+    assert len(made["before"]) == 2
+    assert [t["title"] for t in made["tasks"] if "marinate" in t["title"]] == []

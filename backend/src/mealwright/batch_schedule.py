@@ -22,8 +22,9 @@ always gives the same schedule.
   step holds its hob ring, pressure cooker or oven all the time it waits.
 - A step that needs equipment the kitchen has none of (no oven) still gets scheduled: **alone**,
   with nothing else going on at the same time, and marked `lacks` so the screen can say so.
-- Steps that wait four hours or more at the start of a recipe (soak, marinate overnight) are
-  not part of the day: they are `before`, for Today the evening before (wave 5's Start tonight).
+- A recipe's first wait of four hours or more (soak, marinate overnight, ferment) and the steps
+  before it are not part of the day: they are `before`, for Today the evening before (wave 5's
+  Start tonight; RF3, C4: the wait can be anywhere in the recipe, not only at its start).
 """
 
 from __future__ import annotations
@@ -405,13 +406,18 @@ def _remaining(nodes: list[_Node]) -> dict[int, int]:
 
 
 def _leading(recipe: RecipeIn) -> list[StepIn]:
-    """The steps at the start of a recipe that wait four hours or more: left for the day before."""
+    """The steps up to and including the recipe's first long wait (four hours or more: soak,
+    marinate overnight, ferment): left for the day before, as Today's Start tonight and Cook mode
+    on day two read it (`start_ahead.of_steps`: the first long wait, wherever it is in the
+    recipe and whatever it names, RF3, C4)."""
     found: list[StepIn] = []
     for step in recipe.steps:
-        if not step.ahead or step.hands != "waiting" or step.equipment != "none":
-            break
         found.append(step)
-    # Everything is a wait: keep the last as a step, so the recipe is not empty.
+        if step.ahead:
+            break
+    else:
+        return []
+    # Everything would be left out: keep the last as a step, so the recipe is not empty.
     if len(found) == len(recipe.steps):
         found = found[:-1]
     return found

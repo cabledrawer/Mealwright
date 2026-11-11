@@ -137,6 +137,48 @@ def test_a_long_soak_at_the_start_is_left_for_the_day_before() -> None:
     assert by_step(found)[402][0] < 60  # no twelve-hour wait in the day
 
 
+def test_a_long_wait_in_the_middle_of_a_recipe_leaves_the_steps_up_to_it_for_the_day_before() -> (
+    None
+):
+    """C4: mix, marinate overnight, grill: Today says Start tonight, so the day's schedule has the
+    grill only, not a twelve-hour timer (the same step Today's start uses: the first long wait)."""
+    tandoori = RecipeIn(
+        id=5,
+        name="Tandoori",
+        steps=(
+            StepIn(501, "Mix the yoghurt and spices and coat the chicken.", "hands", 10, "none"),
+            StepIn(502, "Leave to marinate (overnight).", "waiting", 720, "none", ahead=True),
+            StepIn(503, "Grill for 20 minutes.", "waiting", 20, "oven"),
+        ),
+    )
+    found = schedule([tandoori, sambar()], KIT)
+    assert [(b.recipe_id, b.step_id) for b in found.before] == [(5, 501), (5, 502)]
+    assert set(by_step(found)) >= {503} and not {501, 502} & set(by_step(found))
+    assert found.total_minutes < 120
+
+
+def test_a_long_wait_that_names_the_hob_is_left_for_the_day_before_too() -> None:
+    curd = RecipeIn(
+        id=6,
+        name="Curd",
+        steps=(
+            StepIn(601, "Boil the milk and cool it.", "hands", 10, "hob"),
+            StepIn(
+                602,
+                "Set with a spoon of curd and ferment for 8 hours.",
+                "waiting",
+                480,
+                "hob",
+                ahead=True,
+            ),
+            StepIn(603, "Chill and serve.", "hands", 2, "none"),
+        ),
+    )
+    found = schedule([curd], KIT)
+    assert [b.step_id for b in found.before] == [601, 602]
+    assert found.total_minutes == 2
+
+
 def test_the_same_input_gives_the_same_schedule() -> None:
     assert schedule([sambar(), chettinad(), sweet()], KIT) == schedule(
         [sambar(), chettinad(), sweet()], KIT
