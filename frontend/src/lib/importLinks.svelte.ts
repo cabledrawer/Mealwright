@@ -18,9 +18,10 @@ import { toasts } from './toast.svelte';
 import { undoHistory } from './undo.svelte';
 import { forgetOnWipe } from './offline/wipeHooks';
 
-/** Words on the screen (mockup Dark-ImportLinks08-Phone; "Ready to check" and "in Drafts" are
- *  agreed, the rest is proposed, for cabledrawer). */
-export const READY_TO_CHECK = '✓ Ready to check';
+/** Words on the screen (mockup Dark-ImportLinks08-Phone; "in Drafts" is agreed; "✓ All matched" and
+ *  "Needs checking" are cabledrawer 11 Nov; the rest is proposed, for cabledrawer). */
+export const ALL_MATCHED = '✓ All matched';
+export const NEEDS_CHECKING = 'Needs checking';
 export const READING = 'Reading…';
 export const WAITING = 'Waiting';
 export const SAVED = '✓ Saved';

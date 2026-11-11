@@ -82,6 +82,15 @@ describe('after several links', () => {
       .toHaveAttribute('href', '/recipes/drafts/41');
   });
 
+  it('a row whose ingredients all matched says so, and the other says it needs checking (cabledrawer 11 Nov)', async () => {
+    await expect.element(page.getByText('✓ All matched')).toBeVisible();
+    await expect.element(page.getByText('Needs checking')).toBeVisible();
+    expect(page.getByText('Ready to check').elements()).toEqual([]);
+    // both keep Check
+    await expect.element(page.getByRole('link', { name: 'Check Ready dal' })).toBeVisible();
+    await expect.element(page.getByRole('link', { name: 'Check Needs you' })).toBeVisible();
+  });
+
   it('one button saves only the ready drafts, and the row then opens the recipe (F216)', async () => {
     const button = page.getByRole('button', { name: 'Save 1 ready recipe' });
     await expect.element(button).toBeVisible();

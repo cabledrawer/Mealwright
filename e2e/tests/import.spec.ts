@@ -845,11 +845,11 @@ test('several links are read one after another, each into its own draft, and a f
   await expect(rows).toHaveCount(3);
   await expect(rows.nth(0)).toContainText('Masala dosa');
   await expect(rows.nth(0)).toContainText('example-recipes.org · in Drafts');
-  await expect(rows.nth(0)).toContainText('✓ Ready to check');
+  await expect(rows.nth(0)).toContainText('Needs checking');
   await expect(rows.nth(1)).toContainText('That site wouldn’t let Mealwright read the page. Paste the recipe’s text instead.');
   await expect(rows.nth(1).getByRole('button', { name: 'Paste text' })).toBeVisible();
   await expect(rows.nth(2)).toContainText('Rasam');
-  await expect(rows.nth(2)).toContainText('✓ Ready to check');
+  await expect(rows.nth(2)).toContainText('Needs checking');
   // In order, never two at once, and one draft for each link that could be read.
   expect(asked).toEqual([
     'https://example-recipes.org/masala-dosa',
@@ -1306,6 +1306,10 @@ test('each read link opens its draft, and one button saves the drafts whose ingr
   const results = page.getByRole('region', { name: 'Links being read' });
   await expect(results.getByRole('listitem')).toHaveCount(2);
   await expect(results.getByRole('link', { name: `Check ${other}` })).toBeVisible();
+  // cabledrawer 11 Nov: a row whose ingredients all matched says so; the others say they need checking.
+  await expect(results.getByRole('listitem').filter({ hasText: ready })).toContainText('✓ All matched');
+  await expect(results.getByRole('listitem').filter({ hasText: other })).toContainText('Needs checking');
+  await expect(results.getByRole('link', { name: `Check ${ready}` })).toBeVisible();
   // Only the draft whose ingredients all matched is offered for saving.
   await expect(results.getByRole('button', { name: 'Save 1 ready recipe' })).toBeVisible();
   await expect(results).toContainText('Ready means every ingredient matched. The others stay in Drafts for you to check.');

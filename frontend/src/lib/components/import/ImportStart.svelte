@@ -23,7 +23,8 @@
     linksHeading,
     READING,
     QUICK_HELP,
-    READY_TO_CHECK,
+    ALL_MATCHED,
+    NEEDS_CHECKING,
     SAVED,
     saveReadyWords,
     WAITING
@@ -177,7 +178,9 @@
               <!-- Saved or discarded elsewhere: nothing to open. -->
               <span class="status">{GONE_FROM_DRAFTS}</span>
             {:else if row.state === 'ready'}
-              <span class="status ok">{READY_TO_CHECK}</span>
+              <span class="status" class:ok={row.allMatched}
+                >{row.allMatched ? ALL_MATCHED : NEEDS_CHECKING}</span
+              >
               {#if row.draftId !== null}
                 <!-- F209 (cabledrawer 10 Nov): each result opens its draft's Check straight away. -->
                 <a
