@@ -10,7 +10,9 @@
   import { page } from '$app/state';
   import { downLine } from '#lib/downWords.js';
   import { batchCook, markNoteSeen, noteSeen } from '#lib/batchCook.svelte.js';
+  import { askPicks, reopenLast, type Flow, type Picked } from '#lib/batchFlow.js';
   import { BatchPickModel, COUNTS } from '#lib/batchPick.svelte.js';
+  import { optionalAsk } from '#lib/optionalAsk.svelte.js';
   import type { BatchBody } from '#lib/client/plan.js';
   import { previewSession, type SessionBody } from '#lib/client/batch.js';
   import { getKitchen, type Kitchen } from '#lib/client/household.js';
@@ -104,23 +106,59 @@
   const enough = $derived(model.picks.length >= 2);
 
   // --- Plan this batch: one Cook once sheet after another ------------------------------------
-  let flow = $state<{ at: number; bodies: BatchBody[] } | null>(null);
+  let flow = $state<Flow | null>(null);
   let flowAsked = $state(false);
+  // The questions of a recipe are on show (the Cook once sheet comes after them).
+  let asking = $state(false);
 
-  function plan_() {
-    if (!enough || readonly || !model.cookDay) return;
-    flowAsked = true;
-    flow = { at: 0, bodies: [] };
+  /** Ask what adding the recipe to the plan asks (the way of cooking it, then the optional
+   * ingredients), then show its Cook once sheet. Cancelling any question plans nothing. */
+  async function open(at: number, bodies: BatchBody[], picked: Picked[]) {
+    const pick = model.picks[at];
+    if (!pick || !model.cookDay) return;
+    asking = true;
+    let answer: Picked | null;
+    try {
+      answer = await askPicks(
+        pick.recipe_id,
+        `${dayShort(model.cookDay)} ${dayOfMonth(model.cookDay)}`,
+        {
+          method: async (id, where) =>
+            (await import('#lib/methodAsk.svelte.js')).methodAsk.ask({ id }, where, {
+              button: 'Next'
+            }),
+          optional: (id, where, method) =>
+            optionalAsk.ask({ id }, where, { method, button: 'Next' })
+        }
+      );
+    } finally {
+      asking = false;
+    }
+    flow = answer === null ? null : { at, bodies, picked: [...picked, answer] };
   }
 
-  function sessionBody(bodies: BatchBody[], forPreview = false): SessionBody | null {
+  function plan_() {
+    if (!enough || readonly || !model.cookDay || asking) return;
+    flowAsked = true;
+    void open(0, [], []);
+  }
+
+  function sessionBody(
+    bodies: BatchBody[],
+    picked: Picked[],
+    forPreview = false
+  ): SessionBody | null {
     if (!model.cookDay) return null;
     // No meal is sent: the server picks the last one with no recipe that day, and a change keeps
     // the session's own.
     return {
       date: model.cookDay,
       ...(forPreview && changing !== null ? { session_id: changing } : {}),
-      recipes: bodies.map((b, i) => ({ ...b, recipe_id: model.picks[i]!.recipe_id }))
+      recipes: bodies.map((b, i) => ({
+        ...b,
+        ...picked[i],
+        recipe_id: model.picks[i]!.recipe_id
+      }))
     };
   }
 
@@ -131,6 +169,7 @@
     if (!pick) return null;
     const day = model.cookDay;
     const before = flow.bodies.slice(0, at);
+    const picked = flow.picked;
     return {
       name: pick.name,
       day,
@@ -138,7 +177,7 @@
       position: `${at + 1} of ${model.picks.length}`,
       last: at === model.picks.length - 1,
       preview: (body) => {
-        const so_far = sessionBody([...before, body], true);
+        const so_far = sessionBody([...before, body], picked, true);
         if (!so_far) return Promise.reject(new Error('No meal'));
         return previewSession({ ...so_far, recipes: so_far.recipes.slice(0, at + 1) });
       },
@@ -149,11 +188,13 @@
   async function next(body: BatchBody) {
     if (!flow) return;
     const bodies = [...flow.bodies, body];
+    const picked = flow.picked;
     if (bodies.length < model.picks.length) {
-      flow = { at: flow.at + 1, bodies };
+      flow = null; // the next recipe's questions, then its sheet
+      void open(bodies.length, bodies, picked);
       return;
     }
-    const made = sessionBody(bodies);
+    const made = sessionBody(bodies, picked);
     flow = null;
     if (!made) return;
     const result =
@@ -164,6 +205,9 @@
       const to = resolve('/(app)/plan');
       // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
       await goto(`${to}?day=${made.date}`);
+    } else if (!result.cancelled) {
+      // Refused: the last sheet is offered again, with every answer so far kept (H10).
+      flow = reopenLast(bodies, picked);
     }
   }
 

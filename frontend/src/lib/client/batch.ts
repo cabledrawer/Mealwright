@@ -47,6 +47,10 @@ export function getSuggestions(ask: SuggestionAsk): Promise<BatchSuggestions> {
 /** One recipe of a session, with its Cook once choices. */
 export interface SessionRecipe extends BatchBody {
   recipe_id: number;
+  /** The Optional lines it will use (left out: every one counts) and the way of cooking it, for a
+   * recipe with two (left out: the one used last), as adding it to the plan asks. */
+  optional_use?: number[];
+  method_id?: number;
 }
 
 export interface SessionBody {
