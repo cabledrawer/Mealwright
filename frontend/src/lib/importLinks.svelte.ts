@@ -158,9 +158,9 @@ export class ImportLinks {
       // A press after some links failed reads only the links not read yet: a row that is ready
       // with its draft still in Drafts (or already saved) is kept as it is, so no recipe gets a
       // second draft (RF4 I3).
-      const before = new Map(this.rows.map((row) => [sameLink(row.link), row]));
+      const before = [...this.rows];
       const kept = (link: string): LinkRow | undefined => {
-        const row = before.get(sameLink(link));
+        const row = before.find((each) => sameLink(each.link) === sameLink(link));
         return row && row.state === 'ready' && !this.gone(row) ? row : undefined;
       };
       const fresh = unique.filter((link) => !kept(link));
@@ -168,11 +168,11 @@ export class ImportLinks {
       const allowed = Math.min(MOST_LINKS, room ?? MOST_LINKS);
       this.leftOut = Math.max(0, fresh.length - allowed);
       this.room = room;
-      const taken = new Set(fresh.slice(0, allowed));
+      const taken = fresh.slice(0, allowed);
       this.rows = unique.flatMap((link) => {
         const row = kept(link);
         if (row) return [row];
-        if (!taken.has(link)) return [];
+        if (!taken.includes(link)) return [];
         return [
           {
             link,
