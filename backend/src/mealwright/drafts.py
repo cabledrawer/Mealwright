@@ -152,14 +152,37 @@ def brief(draft: ImportDraft, now: datetime | None = None) -> DraftBrief:
 
 
 def listing(kitchen: Kitchen) -> list[DraftBrief]:
-    """The household's drafts, the one changed last first."""
+    """The household's drafts, the one changed last first. A draft with ingredients still
+    waiting is counted as opening it would find it (RF4 I7): one that another draft has made
+    the ingredient for since shows it checked, so the list's count and its Save recipe button
+    agree with the draft."""
     now = utcnow()
-    rows = kitchen.db.scalars(
-        select(ImportDraft)
-        .where(*_live(kitchen.household_id, now))
-        .order_by(ImportDraft.updated_at.desc(), ImportDraft.id.desc())
+    rows = list(
+        kitchen.db.scalars(
+            select(ImportDraft)
+            .where(*_live(kitchen.household_id, now))
+            .order_by(ImportDraft.updated_at.desc(), ImportDraft.id.desc())
+        )
     )
-    return [brief(draft, now) for draft in rows]
+    given: list[tuple[int, str, Ref]] | None = None
+    briefs = []
+    for draft in rows:
+        out = brief(draft, now)
+        if draft.lines_checked < draft.lines_total:
+            if given is None:
+                given = _answers_given(kitchen, now)
+            try:
+                review = ImportReview.model_validate(draft.review)
+                choices = DraftChoices.model_validate(draft.choices)
+            except ValueError:
+                briefs.append(out)
+                continue
+            review, choices = rematch(kitchen, review, choices, draft.id, given)
+            review, choices = freshen(kitchen, review, choices)
+            total, checked = _progress(review, choices)
+            out = out.model_copy(update={"lines_total": total, "lines_checked": checked})
+        briefs.append(out)
+    return briefs
 
 
 def detail(kitchen: Kitchen, draft: ImportDraft) -> DraftOut:
@@ -177,20 +200,15 @@ def detail(kitchen: Kitchen, draft: ImportDraft) -> DraftOut:
 # --- Drafts from one batch learn from each other (F213, F215) -------------------------------
 
 
-def _answers_of_others(
-    kitchen: Kitchen, draft_id: int, now: datetime | None = None
-) -> dict[str, Ref]:
-    """What the household's other waiting drafts were told "Same as": the line's words → the
-    ingredient. The first answer found for a name wins (the newest draft first)."""
+def _answers_given(kitchen: Kitchen, now: datetime | None = None) -> list[tuple[int, str, Ref]]:
+    """What the household's waiting drafts were told "Same as": (the draft, the line's words
+    folded, the ingredient), the newest draft first."""
     rows = kitchen.db.scalars(
         select(ImportDraft)
-        .where(
-            ImportDraft.id != draft_id,
-            *_live(kitchen.household_id, now or utcnow()),
-        )
+        .where(*_live(kitchen.household_id, now or utcnow()))
         .order_by(ImportDraft.updated_at.desc(), ImportDraft.id.desc())
     )
-    answers: dict[str, Ref] = {}
+    given: list[tuple[int, str, Ref]] = []
     for other in rows:
         try:
             review = ImportReview.model_validate(other.review)
@@ -205,12 +223,32 @@ def _answers_of_others(
             line = review.lines[index]
             name = line.learn_name or line.words
             if line.kind == "ingredient" and name:
-                answers.setdefault(fold(name), choice.food)
+                given.append((other.id, fold(name), choice.food))
+    return given
+
+
+def _answers_of_others(
+    kitchen: Kitchen, draft_id: int, now: datetime | None = None
+) -> dict[str, Ref]:
+    """What the household's other waiting drafts were told "Same as": the line's words → the
+    ingredient. The first answer found for a name wins (the newest draft first)."""
+    return _others(_answers_given(kitchen, now), draft_id)
+
+
+def _others(given: list[tuple[int, str, Ref]], draft_id: int) -> dict[str, Ref]:
+    answers: dict[str, Ref] = {}
+    for owner, name, food in given:
+        if owner != draft_id:
+            answers.setdefault(name, food)
     return answers
 
 
 def rematch(
-    kitchen: Kitchen, review: ImportReview, choices: DraftChoices, draft_id: int
+    kitchen: Kitchen,
+    review: ImportReview,
+    choices: DraftChoices,
+    draft_id: int,
+    given: list[tuple[int, str, Ref]] | None = None,
 ) -> tuple[ImportReview, DraftChoices]:
     """Bring a draft's matches up to date with the ingredients as they are now, without changing
     anything stored (F213, F215; cabledrawer 10 Nov).
@@ -220,7 +258,8 @@ def rematch(
     On opening: a line still waiting ("needs you" or "to confirm") with no choice is read against
     the ingredients as they are today; a line the person set to a *new* ingredient whose name now
     exists is set to that ingredient instead; and a line that another waiting draft was told
-    "Same as X" takes the same answer."""
+    "Same as X" takes the same answer. `given`: those answers, when the caller has them already
+    (the Drafts list asks for every draft at once)."""
     from mealwright import recipe_import
     from mealwright.ingredient_match import kitchen_of
     from mealwright.pints import PINT_ML
@@ -279,7 +318,11 @@ def rematch(
             continue
         name = line.learn_name or line.words
         if answers is None:
-            answers = _answers_of_others(kitchen, draft_id)
+            answers = (
+                _others(given, draft_id)
+                if given is not None
+                else _answers_of_others(kitchen, draft_id)
+            )
         answered = answers.get(fold(name)) if name else None
         if answered is not None:
             kept[index] = DraftChoice(kind="ingredient", food=answered, learn=True)

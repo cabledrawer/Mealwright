@@ -1535,3 +1535,30 @@ def test_undo_of_an_import_names_every_ingredient_it_keeps(kitchen: TestClient, 
     ok(save(kitchen, to_save(b, pick)), 201)
     undone = ok(kitchen.post(f"{API}/changes/{first['change']['id']}/undo"))
     assert "Besan and Ajwain are kept: another recipe uses them." in undone["message"]
+
+
+def test_the_list_counts_a_draft_as_opening_it_would_find_it(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    """RF4 I7: another draft made the ingredient since: the list's count and its Save recipe
+    button (which shows when every ingredient is checked) agree with the draft."""
+    shown = review(kitchen, PASTED)
+    draft = kept(kitchen, shown)
+    before = listed(kitchen)[0]
+    assert before["lines_checked"] < before["lines_total"]
+    for line in shown["lines"]:
+        if line["kind"] == "ingredient" and line["label"] == "needs_you":
+            make_food(kitchen, line["words"].title(), counted_as="weight")
+    opened = ok(kitchen.get(f"{API}/recipes/drafts/{draft['id']}"))["review"]
+    assert all(
+        line["label"] in ("matched", "staple") or line["kind"] == "heading"
+        for line in opened["lines"]
+        if line["label"] != "to_confirm"
+    )
+    after = listed(kitchen)[0]
+    assert after["lines_checked"] > before["lines_checked"]
+    total, checked = (
+        sum(1 for line in opened["lines"] if line["kind"] == "ingredient"),
+        sum(1 for line in opened["lines"] if line["label"] in ("matched", "staple")),
+    )
+    assert (after["lines_total"], after["lines_checked"]) == (total, checked)
