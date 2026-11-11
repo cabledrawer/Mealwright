@@ -990,3 +990,78 @@ def test_another_households_pint_change_is_not_found(
     theirs = latest(neighbour)
     assert undo(kitchen, theirs).status_code == 404
     assert ok(neighbour.get(f"{API}/household"))["pints"] == "us"
+
+
+# --- A save that changes nothing still remembers its key (RF5 sweep, cabledrawer 11 Nov) -----------
+
+
+def _replayed(response: Any) -> None:
+    assert response.status_code == 200, response.text
+    assert response.headers.get("Idempotent-Replayed") == "true"
+
+
+def test_a_no_op_place_rename_keeps_its_key(kitchen: TestClient) -> None:
+    spice = place_id(kitchen, "Spice rack")
+    key = {"Idempotency-Key": "noop-place"}
+    ok(kitchen.patch(f"{API}/places/{spice}", json={"name": "Spice rack"}, headers=key))
+    ok(kitchen.patch(f"{API}/places/{spice}", json={"name": "Larder"}))
+    retry = kitchen.patch(f"{API}/places/{spice}", json={"name": "Spice rack"}, headers=key)
+    _replayed(retry)
+    assert retry.json()["name"] == "Larder"
+    assert "Larder" in names(ok(kitchen.get(f"{API}/places")))
+
+
+def test_a_no_op_shop_rename_keeps_its_key(kitchen: TestClient) -> None:
+    aldi = ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
+    key = {"Idempotency-Key": "noop-shop"}
+    ok(kitchen.patch(f"{API}/shops/{aldi['id']}", json={"name": "Aldi"}, headers=key))
+    ok(kitchen.patch(f"{API}/shops/{aldi['id']}", json={"name": "Lidl"}))
+    retry = kitchen.patch(f"{API}/shops/{aldi['id']}", json={"name": "Aldi"}, headers=key)
+    _replayed(retry)
+    assert retry.json()["name"] == "Lidl"
+    assert names(ok(kitchen.get(f"{API}/shops"))) == ["Lidl"]
+
+
+@pytest.mark.parametrize("what", ["places", "shops"])
+def test_a_no_op_order_of_places_or_shops_keeps_its_key(kitchen: TestClient, what: str) -> None:
+    if what == "shops":
+        ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
+        ok(kitchen.post(f"{API}/shops", json={"name": "Lidl"}), 201)
+    url = f"{API}/{what}/order"
+    ids = [r["id"] for r in ok(kitchen.get(f"{API}/{what}"))]
+    key = {"Idempotency-Key": f"noop-{what}-order"}
+    ok(kitchen.put(url, json={"ids": ids}, headers=key))  # the order it already has
+    ok(kitchen.put(url, json={"ids": ids[::-1]}))
+    retry = kitchen.put(url, json={"ids": ids}, headers=key)
+    _replayed(retry)
+    assert [r["id"] for r in retry.json()] == ids[::-1]
+    assert [r["id"] for r in ok(kitchen.get(f"{API}/{what}"))] == ids[::-1]
+
+
+def test_a_no_op_meal_slot_save_keeps_its_key(kitchen: TestClient) -> None:
+    lunch = next(s for s in slots(kitchen) if s["name"] == "Lunch")
+    url = f"{API}/meal-slots/{lunch['id']}"
+    for body, other, field, same, changed in (
+        ({"name": "Lunch"}, {"name": "Brunch"}, "name", "Lunch", "Brunch"),
+        ({"enabled": True}, {"enabled": False}, "enabled", True, False),
+    ):
+        key = {"Idempotency-Key": f"noop-slot-{field}"}
+        ok(kitchen.patch(url, json=body, headers=key))  # already the value
+        ok(kitchen.patch(url, json=other))
+        retry = kitchen.patch(url, json=body, headers=key)
+        _replayed(retry)
+        assert retry.json()["change"] is None
+        now = next(s for s in slots(kitchen) if s["id"] == lunch["id"])
+        assert now[field] == changed != same
+        ok(kitchen.patch(url, json={field: same}))  # back, for the next round
+
+
+def test_a_no_op_meal_order_keeps_its_key(kitchen: TestClient) -> None:
+    url = f"{API}/meal-slots/order"
+    ids = [s["id"] for s in slots(kitchen)]
+    key = {"Idempotency-Key": "noop-slot-order"}
+    ok(kitchen.put(url, json={"ids": ids}, headers=key))
+    ok(kitchen.put(url, json={"ids": ids[::-1]}))
+    retry = kitchen.put(url, json={"ids": ids}, headers=key)
+    _replayed(retry)
+    assert [s["id"] for s in slots(kitchen)] == ids[::-1]

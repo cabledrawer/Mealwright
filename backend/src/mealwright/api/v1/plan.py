@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, StrictBool, field_validator
 from sqlalchemy import and_, or_, select
 
 from mealwright import batches as batch_service
-from mealwright import cooking, methods, plan, start_ahead
+from mealwright import cooking, kitchen_changes, methods, plan, start_ahead
 from mealwright import recipes as recipe_service
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.recipe_schemas import StepWaitOut
@@ -20,7 +20,7 @@ from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import change_out
-from mealwright.history import commit, replayed
+from mealwright.history import KEY_ONLY_KINDS, commit, replayed
 from mealwright.household import add_slot, meal_slots
 from mealwright.models import (
     BatchCook,
@@ -731,17 +731,27 @@ def _written(kitchen: Kitchen, change: Change | None) -> PlanWrite:
     )
 
 
-def _run(kitchen: Kitchen, response: Response, make: Callable[[], Change | None]) -> PlanWrite:
+def _run(
+    kitchen: Kitchen,
+    response: Response,
+    make: Callable[[], Change | None],
+    keep_key: bool = False,
+) -> PlanWrite:
     """The shared shape of a write: the household's lock, a retry with the same
-    Idempotency-Key answers from the first change, and the commit."""
+    Idempotency-Key answers from the first change, and the commit. `keep_key`: a save that
+    changes nothing still remembers its key, so a retry of it later changes nothing either."""
     lock_household(kitchen)
     earlier = replayed(kitchen)
     if earlier is None:
         change = make()
+        if change is None and keep_key:
+            kitchen_changes.key_kept(kitchen)
         earlier = commit(kitchen)
         if earlier is None:
             return _written(kitchen, change)
     response.headers["Idempotent-Replayed"] = "true"
+    if earlier.kind in KEY_ONLY_KINDS:  # a kept key: nothing was changed, nothing to undo
+        return PlanWrite(change=None)
     return _written(kitchen, earlier)
 
 
@@ -1190,7 +1200,7 @@ def change_meal_slot(
             change = plan.set_slot(kitchen, slot, body.enabled) or change
         return change
 
-    return _run(kitchen, response, make)
+    return _run(kitchen, response, make, keep_key=True)
 
 
 class NewSlot(BaseModel):
@@ -1232,4 +1242,4 @@ def order_meal_slots(body: SlotOrder, kitchen: Here, response: Response) -> Plan
     """Put the meals in this order: every id of the household's meals, once each (admins
     only). Undo puts the old order back."""
     kitchen.admin_only()
-    return _run(kitchen, response, lambda: plan.order_slots(kitchen, body.ids))
+    return _run(kitchen, response, lambda: plan.order_slots(kitchen, body.ids), keep_key=True)

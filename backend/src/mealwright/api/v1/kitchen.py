@@ -133,10 +133,16 @@ def _find_place(kitchen: Kitchen, place_id: int) -> Place:
     return place
 
 
-def _renamed_before(earlier: Any, response: Response, place_id: int, name: str) -> PlaceOut:
-    """The place an earlier request with this key renamed, as that change stored it."""
-    renamed = (earlier.undo_data or {}).get("place") or {}
+def _renamed_before(
+    kitchen: Kitchen, earlier: Any, response: Response, place_id: int, name: str
+) -> PlaceOut:
+    """The place an earlier request with this key renamed, as that change stored it. A key
+    that was kept by a save that changed nothing answers the place as it is now."""
     response.headers["Idempotent-Replayed"] = "true"
+    if earlier.kind == "setting_kept":
+        place = _find_place(kitchen, place_id)
+        return PlaceOut(id=place.id, name=place.name, kind=place.kind)  # type: ignore[arg-type]
+    renamed = (earlier.undo_data or {}).get("place") or {}
     return PlaceOut(
         id=renamed.get("id", place_id),
         name=renamed.get("new", name),
@@ -156,7 +162,7 @@ def rename_place(
         lock_db(kitchen.db, kitchen.household)
         earlier = replayed(kitchen)  # two requests with one key at once: look again with the lock
     if earlier is not None:
-        return _renamed_before(earlier, response, place_id, body.name)
+        return _renamed_before(kitchen, earlier, response, place_id, body.name)
     place = _find_place(kitchen, place_id)
     for other in places(kitchen.db, kitchen.household_id):
         if other.id != place.id and fold(other.name) == fold(body.name):
@@ -167,13 +173,17 @@ def rename_place(
                 place={"id": other.id, "name": other.name, "kind": other.kind},
             )
     old = place.name
-    if old == body.name:
+    if old == body.name:  # nothing changed: the key is still remembered
+        kitchen_changes.key_kept(kitchen)
+        earlier = commit(kitchen)
+        if earlier is not None:
+            return _renamed_before(kitchen, earlier, response, place_id, body.name)
         return PlaceOut(id=place.id, name=place.name, kind=place.kind)  # type: ignore[arg-type]
     place.name = body.name
     kitchen_changes.place_renamed(kitchen, place, old)
     earlier = commit(kitchen)
     if earlier is not None:
-        return _renamed_before(earlier, response, place_id, body.name)
+        return _renamed_before(kitchen, earlier, response, place_id, body.name)
     return PlaceOut(id=place.id, name=place.name, kind=place.kind)  # type: ignore[arg-type]
 
 
@@ -204,7 +214,13 @@ def order_places(body: Order, kitchen: Here, response: Response) -> list[PlaceOu
     old = {p.id: p.position for p in existing}
     for position, place_id in enumerate(body.ids):
         by_id[place_id].position = position
-    kitchen_changes.ordered(kitchen, "places_ordered", old, {p.id: p.position for p in existing})
+    if (
+        kitchen_changes.ordered(
+            kitchen, "places_ordered", old, {p.id: p.position for p in existing}
+        )
+        is None
+    ):
+        kitchen_changes.key_kept(kitchen)  # the same order: the key is still remembered
     if commit(kitchen) is not None:  # lost the race: the places as the first request left them
         response.headers["Idempotent-Replayed"] = "true"
     return list_places(kitchen)
@@ -274,11 +290,13 @@ def add_shop(body: NewShop, kitchen: Here, response: Response) -> Ref:
     """ "+ Shop": add a shop by name. A name that's already there gives that shop (200).
     Under the household's lock, so two phones at once can't add one name twice."""
     earlier = replayed(kitchen)
+    if earlier is None:
+        lock_db(kitchen.db, kitchen.household)
+        earlier = replayed(kitchen)  # two requests with one key at once: look again with the lock
     if earlier is not None:
         added = (earlier.undo_data or {}).get("shop") or {}
         response.headers["Idempotent-Replayed"] = "true"
         return Ref(id=added.get("id", 0), name=added.get("new", ""))
-    lock_db(kitchen.db, kitchen.household)
     existing = list(
         kitchen.db.scalars(select(Shop).where(Shop.household_id == kitchen.household_id))
     )
@@ -328,16 +346,29 @@ def _find_shop(kitchen: Kitchen, shop_id: int) -> Shop:
     return shop
 
 
+def _shop_renamed_before(
+    kitchen: Kitchen, earlier: Any, response: Response, shop_id: int, name: str
+) -> Ref:
+    """The shop an earlier request with this key renamed, as that change stored it; a key kept
+    by a save that changed nothing answers the shop as it is now."""
+    response.headers["Idempotent-Replayed"] = "true"
+    if earlier.kind == "setting_kept":
+        shop = _find_shop(kitchen, shop_id)
+        return Ref(id=shop.id, name=shop.name)
+    renamed = (earlier.undo_data or {}).get("shop") or {}
+    return Ref(id=renamed.get("id", shop_id), name=renamed.get("new", name))
+
+
 @router.patch("/shops/{shop_id}")
 def rename_shop(shop_id: StoredInt, body: RenameShop, kitchen: Here, response: Response) -> Ref:
     """Rename a shop. A name another shop has (ignoring case) is a 409 `shop_exists` that
     carries that shop. Anyone in the household can."""
     earlier = replayed(kitchen)
+    if earlier is None:
+        lock_db(kitchen.db, kitchen.household)
+        earlier = replayed(kitchen)  # two requests with one key at once: look again with the lock
     if earlier is not None:
-        renamed = (earlier.undo_data or {}).get("shop") or {}
-        response.headers["Idempotent-Replayed"] = "true"
-        return Ref(id=renamed.get("id", shop_id), name=renamed.get("new", body.name))
-    lock_db(kitchen.db, kitchen.household)
+        return _shop_renamed_before(kitchen, earlier, response, shop_id, body.name)
     shop = _find_shop(kitchen, shop_id)
     for other in kitchen.db.scalars(select(Shop).where(Shop.household_id == kitchen.household_id)):
         if other.id != shop.id and fold(other.name) == fold(body.name):
@@ -348,8 +379,12 @@ def rename_shop(shop_id: StoredInt, body: RenameShop, kitchen: Here, response: R
                 shop={"id": other.id, "name": other.name},
             )
     old = shop.name
-    if old == body.name:
-        return Ref(id=shop.id, name=shop.name)  # nothing changed: nothing to list
+    if old == body.name:  # nothing changed: nothing to list, but the key is remembered
+        kitchen_changes.key_kept(kitchen)
+        earlier = commit(kitchen)
+        if earlier is not None:
+            return _shop_renamed_before(kitchen, earlier, response, shop_id, body.name)
+        return Ref(id=shop.id, name=shop.name)
     shop.name = body.name
     record(
         kitchen,
@@ -360,7 +395,7 @@ def rename_shop(shop_id: StoredInt, body: RenameShop, kitchen: Here, response: R
     )
     earlier = commit(kitchen)
     if earlier is not None:
-        response.headers["Idempotent-Replayed"] = "true"
+        return _shop_renamed_before(kitchen, earlier, response, shop_id, body.name)
     return Ref(id=shop.id, name=shop.name)
 
 
@@ -389,7 +424,11 @@ def order_shops(body: Order, kitchen: Here, response: Response) -> list[Ref]:
     old = {s.id: s.position for s in existing}
     for position, shop_id in enumerate(body.ids):
         by_id[shop_id].position = position
-    kitchen_changes.ordered(kitchen, "shops_ordered", old, {s.id: s.position for s in existing})
+    if (
+        kitchen_changes.ordered(kitchen, "shops_ordered", old, {s.id: s.position for s in existing})
+        is None
+    ):
+        kitchen_changes.key_kept(kitchen)  # the same order: the key is still remembered
     if commit(kitchen) is not None:  # lost the race: the shops as the first request left them
         response.headers["Idempotent-Replayed"] = "true"
     return list_shops(kitchen)
