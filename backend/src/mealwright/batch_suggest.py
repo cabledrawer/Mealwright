@@ -178,10 +178,14 @@ def together_minutes(recipes: list[list[step_timings.Timing]], kit: Equipment) -
 # --- Reading the household's recipes ----------------------------------------------------------
 
 
-def _candidates(kitchen: Kitchen, kit: Equipment) -> list[Candidate]:
+def _candidates(kitchen: Kitchen, kit: Equipment, only: set[int] | None = None) -> list[Candidate]:
+    """The recipes that can be planned into a session. `only`: just these recipe ids (the 2 to 4
+    a session was made of: `times_for` doesn't read the whole recipe book to time them)."""
     db = kitchen.db
     hid = kitchen.household_id
     recipes = live_recipes(kitchen)
+    if only is not None:
+        recipes = {rid: r for rid, r in recipes.items() if rid in only}
     if not recipes:
         return []
     foods = _foods(kitchen)
@@ -189,21 +193,24 @@ def _candidates(kitchen: Kitchen, kit: Equipment) -> list[Candidate]:
     ms = methods.of_recipes(db, recipes)
     first = {rid: methods.named(ms.get(rid, []), None) for rid in recipes}
 
+    mine = list(recipes) if only is not None else None  # the filter only when asked to narrow
     steps_by: dict[int, list[RecipeStep]] = defaultdict(list)
-    for step in db.scalars(
-        select(RecipeStep)
-        .where(RecipeStep.household_id == hid)
-        .order_by(RecipeStep.recipe_id, RecipeStep.position)
-    ):
+    step_query = select(RecipeStep).where(RecipeStep.household_id == hid)
+    if mine is not None:
+        step_query = step_query.where(RecipeStep.recipe_id.in_(mine))
+    for step in db.scalars(step_query.order_by(RecipeStep.recipe_id, RecipeStep.position)):
         if step.recipe_id in recipes and methods.in_method(
             step, ms.get(step.recipe_id, []), first[step.recipe_id]
         ):
             steps_by[step.recipe_id].append(step)
 
     lines_by: dict[int, list[RecipeLine]] = defaultdict(list)
-    for line in db.scalars(
-        select(RecipeLine).where(RecipeLine.household_id == hid, RecipeLine.kind == "ingredient")
-    ):
+    line_query = select(RecipeLine).where(
+        RecipeLine.household_id == hid, RecipeLine.kind == "ingredient"
+    )
+    if mine is not None:
+        line_query = line_query.where(RecipeLine.recipe_id.in_(mine))
+    for line in db.scalars(line_query):
         if line.recipe_id in recipes and methods.in_method(
             line, ms.get(line.recipe_id, []), first[line.recipe_id]
         ):
@@ -430,7 +437,7 @@ def times_for(kitchen: Kitchen, recipe_ids: list[int]) -> tuple[int, int]:
     """(together, one by one) minutes for these recipes, as the kitchen is now. A recipe with no
     steps adds nothing."""
     kit = equipment_of(kitchen)
-    found = {c.recipe_id: c for c in _candidates(kitchen, kit)}
+    found = {c.recipe_id: c for c in _candidates(kitchen, kit, set(recipe_ids))}
     chosen = [found[r] for r in recipe_ids if r in found]
     return (
         together_minutes([c.steps for c in chosen], kit) if chosen else 0,

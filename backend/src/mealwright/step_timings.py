@@ -10,6 +10,7 @@ set by hand is kept as it is (the three columns `recipe_step.timing_*`; empty me
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass
 from typing import Literal
@@ -122,6 +123,10 @@ def times_in(text: str) -> int | None:
     return minutes if minutes > 0 else None
 
 
+# A step's words always give the same guess, so a guess is kept for the steps read lately: the
+# suggestions and "Plan this batch" read every step of the recipe book, and without this each
+# request guessed them all again (RF3, S3). Four thousand steps is a big recipe book.
+@functools.lru_cache(maxsize=4096)
 def guess(text: str, wait: step_waits.Wait | None = None) -> Guess:
     """The guess for one step's words (and its M1 wait, which counts as waiting)."""
     text = _SPACES.sub(" ", text[:_LONGEST_TEXT]).strip()

@@ -380,3 +380,49 @@ def test_the_pressure_clause_uses_the_mockups_words_and_a_capital_when_first(
         cooked(kitchen, made["id"], 1)
     why = {p["name"]: p["why"] for p in suggest(kitchen, count=2)["picks"]}
     assert why["Dal"] == "Pressure cooker runs while you chop for the others."
+
+
+# --- Whole-0.8 review fixes (RF3): S3 ------------------------------------------------------------
+
+
+def test_the_times_of_a_session_read_only_its_own_recipes_and_say_what_the_suggestions_did(
+    kitchen: TestClient,
+) -> None:
+    """S3: `times_for` timed the 2 to 4 chosen recipes by reading every recipe's steps. It reads
+    only theirs now, and gives the same minutes as the suggestions for the same recipes."""
+    from sqlalchemy import event
+
+    from mealwright import batch_suggest
+    from mealwright.api.v1.context import Kitchen
+    from mealwright.models import Household, Login
+
+    rice, peas = food(kitchen, "Rice"), food(kitchen, "Peas")
+    a = recipe(kitchen, "A", [rice], ["Chop the rice.", "Pressure cook for 20 minutes."])
+    b = recipe(kitchen, "B", [peas], ["Chop the peas.", "Boil for 20 minutes."])
+    for n in range(5):
+        recipe(kitchen, f"Other {n}", [food(kitchen, f"Veg {n}")])
+    found = suggest(kitchen, count=2, keep=[a["id"], b["id"]])
+    assert {p["recipe_id"] for p in found["picks"]} == {a["id"], b["id"]}
+    read: list[str] = []
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        here = Kitchen(
+            db=db,
+            login=db.query(Login).first(),
+            household=db.get(Household, 1),
+            idempotency_key=None,
+            request="",
+        )
+        event.listen(db.get_bind(), "before_cursor_execute", lambda *args: read.append(args[2]))
+        together, one_by_one = batch_suggest.times_for(here, [a["id"], b["id"]])
+    assert (together, one_by_one) == (found["together_minutes"], found["one_by_one_minutes"])
+    steps_read = [
+        q for q in read if "FROM recipe_step " in q and "recipe_step.recipe_id IN" not in q
+    ]
+    assert steps_read == []  # every read of steps was narrowed to the chosen recipes
+
+
+def test_a_steps_guess_is_kept_so_the_next_request_does_not_make_it_again() -> None:
+    step_timings.guess.cache_clear()
+    first = step_timings.guess("Simmer for 25 minutes.")
+    again = step_timings.guess("Simmer for 25 minutes.")
+    assert first == again and step_timings.guess.cache_info().hits == 1
