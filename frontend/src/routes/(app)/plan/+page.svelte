@@ -121,7 +121,10 @@
   }
 
   let left = false;
-  onDestroy(() => (left = true));
+  onDestroy(() => {
+    left = true;
+    model.cancelSoon();
+  });
 
   /** Start cooking: Cook mode for this plan item, so "Cooked it" is there at the last step. */
   async function startCooking(entry: CookEntry) {

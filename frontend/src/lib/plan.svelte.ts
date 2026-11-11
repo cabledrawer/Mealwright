@@ -164,6 +164,12 @@ export class PlanModel {
     this.#soon = setTimeout(run, 400);
   }
 
+  /** The Plan was left: no read waits to happen (RF5 review r2). */
+  cancelSoon(): void {
+    clearTimeout(this.#soon);
+    this.#soon = undefined;
+  }
+
   /**
    * Refresh at each midnight in the household's time zone. Returns a function that stops it.
    * (A laptop that was asleep through midnight is caught by coming back to the tab.)

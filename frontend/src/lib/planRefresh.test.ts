@@ -146,4 +146,16 @@ describe('refreshSoon() (another person changed the plan)', () => {
       expect(requests.filter((r) => r.path === '/plan').length).toBe(before + 1)
     );
   });
+  it('reads nothing once the Plan is left, even while something was being carried', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const { requests } = server();
+    const model = new PlanModel();
+    await model.load();
+    const before = requests.filter((r) => r.path === '/plan').length;
+    model.refreshSoon(() => true); // a drag the page was torn down in the middle of
+    model.cancelSoon(); // the Plan is left
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(requests.filter((r) => r.path === '/plan').length).toBe(before);
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });
