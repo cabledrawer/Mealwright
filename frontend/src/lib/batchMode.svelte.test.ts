@@ -362,4 +362,22 @@ describe('Batch cook mode model', () => {
     forgetBatchMode(7);
     expect(localStorage.getItem('mealwright.batchmode.7')).toBeNull();
   });
+
+  it('RF3 r1: a reply that arrives after the session ended does not write the phone’s copy back', async () => {
+    calls.start.mockResolvedValue(two());
+    const model = new BatchModeModel(7);
+    await model.load();
+    let answer: (value: Schedule) => void = () => {};
+    calls.get.mockReturnValue(new Promise<Schedule>((resolve) => (answer = resolve)));
+    const asking = model.refresh(); // the live event: asking again
+    model.forget(); // Cooked it confirmed
+    expect(localStorage.getItem('mealwright.batchmode.7')).toBeNull();
+    answer(two());
+    await asking;
+    expect(localStorage.getItem('mealwright.batchmode.7')).toBeNull();
+    // Nor does a mark, or the screen being left.
+    model.mark('done', 't1');
+    model.stop();
+    expect(localStorage.getItem('mealwright.batchmode.7')).toBeNull();
+  });
 });

@@ -9,7 +9,6 @@
   import { resolve } from '$app/paths';
   import { onDestroy, onMount, untrack } from 'svelte';
   import { BatchModeModel } from '#lib/batchMode.svelte.js';
-  import { forgetBatchMode } from '#lib/batchModeStore.js';
   import BatchMode from '#lib/components/cook/BatchMode.svelte';
   import { CookReview } from '#lib/cookReview.svelte.js';
   import { cookedTitle } from '#lib/cookTargets.js';
@@ -105,7 +104,7 @@
       onclose={closeCooked}
       onconfirmed={() => {
         confirmed = true;
-        forgetBatchMode(id); // the session is cooked: the phone's copy goes
+        model.forget(); // the session is cooked: the phone's copy goes, and is not written again
         closeCooked();
       }}
     />

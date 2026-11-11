@@ -19,7 +19,7 @@ import {
   type Schedule,
   type ScheduleTask
 } from './client/batchMode';
-import { batchModeKey } from './batchModeStore';
+import { batchModeKey, forgetBatchMode } from './batchModeStore';
 import { rows, timesUp, work, type RecipeRow, type Worked } from './batchModeState';
 
 export type Mark = 'done' | 'undo' | 'timer';
@@ -118,6 +118,7 @@ export class BatchModeModel {
   }
 
   #take(next: Schedule): void {
+    if (this.#forgotten) return;
     this.#skew = Date.parse(next.server_time) - Date.now();
     // Marks made on an older schedule are dropped: its task ids now mean other steps.
     this.pending = this.pending.filter((p) => !p.made_at || same(p.made_at, next.made_at));
@@ -166,7 +167,17 @@ export class BatchModeModel {
     };
   }
 
+  #forgotten = false;
+
+  /** The session ended (cooked): the phone's copy is removed and nothing writes it again, even a
+   * reply that is still on its way (RF3 review r1). */
+  forget(): void {
+    this.#forgotten = true;
+    forgetBatchMode(this.id);
+  }
+
   #keep(): void {
+    if (this.#forgotten || this.#stopped) return; // the screen is gone or the session ended
     try {
       localStorage.setItem(
         KEY(this.id),
@@ -224,7 +235,7 @@ export class BatchModeModel {
 
   /** Ask again (another phone marked something). Not while marks of this phone are waiting. */
   async refresh(): Promise<void> {
-    if (this.pending.length || this.#sending) return;
+    if (this.pending.length || this.#sending || this.#stopped || this.#forgotten) return;
     try {
       this.#take(await getSchedule(this.id));
     } catch {
