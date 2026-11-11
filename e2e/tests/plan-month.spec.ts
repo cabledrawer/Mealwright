@@ -933,15 +933,15 @@ test.describe('F167 on the computer', () => {
   });
 });
 
-// --- F137: Week names at about 1100 px ----------------------------------------------------------
+// --- F137: Week names at the narrowest week grid, 1200 px (H9, cabledrawer 11 Nov) ------------------
 
 test.describe('F137: a Week card’s name breaks between words only', () => {
   test.skip(() => kind() === 'phone', 'the week grid is the computer’s');
 
-  test('at 1100 px a name never breaks inside a word; a name too long for its cell ends in an ellipsis and is whole on hover', async ({
+  test('at 1200 px (the narrowest week grid) a name never breaks inside a word; a name too long for its cell ends in an ellipsis and is whole on hover', async ({
     page
   }) => {
-    await page.setViewportSize({ width: 1100, height: 900 });
+    await page.setViewportSize({ width: 1200, height: 900 });
     const { today, slot } = await setup(page);
     const day = dayFor(today, 'M');
     await clearDay(page, day);
