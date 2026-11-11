@@ -1,5 +1,9 @@
-"""Run the server: python -m mealwright"""
+"""Run the server: python -m mealwright
 
+Or give the only admin a new password: python -m mealwright reset-admin <username> (PR A2).
+"""
+
+import argparse
 import logging
 from types import FrameType
 
@@ -9,6 +13,7 @@ from mealwright.config import get_settings
 from mealwright.events import Broadcaster
 from mealwright.logs import set_up_logging
 from mealwright.main import UnsupportedSetup, create_app
+from mealwright.reset_admin import reset_admin
 
 GRACEFUL_SECONDS = 5
 
@@ -35,8 +40,24 @@ class StoppableServer(uvicorn.Server):
         super().handle_exit(sig, frame)
 
 
-def main() -> None:
+def parse(argv: list[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(prog="python -m mealwright", description="Run Mealwright.")
+    commands = parser.add_subparsers(dest="command")
+    reset = commands.add_parser(
+        "reset-admin",
+        help="give an admin a new random password and sign them out everywhere",
+    )
+    reset.add_argument("username", help="the admin's username")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    command = parse(argv)
     settings = get_settings()
+    if command.command == "reset-admin":
+        if settings.data_dir.is_dir():
+            set_up_logging(settings.data_dir)  # the reset goes in the log file (no password)
+        raise SystemExit(reset_admin(settings, command.username))
     # Our own log lines (errors and sign-ins only; spec section 7): the container output
     # and a 14-day log file in the data folder (mealwright.logs).
     log_file = set_up_logging(settings.data_dir)
