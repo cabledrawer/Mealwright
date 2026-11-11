@@ -753,3 +753,18 @@ def test_a_stale_batch_cook_switch_cannot_be_undone(kitchen: TestClient) -> None
     refused = undo(kitchen, first)
     assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
     assert ok(kitchen.get(f"{API}/household"))["batch_cook"] is True
+
+
+def test_undoing_the_adding_of_a_place_cannot_leave_no_fridge_or_freezer(
+    kitchen: TestClient,
+) -> None:
+    # RF5 fix round 1: add a second freezer, remove the first, then Undo the adding: that would
+    # leave the household with no freezer, which the removal itself never allows.
+    ok(kitchen.post(f"{API}/places", json={"name": "Chest freezer", "kind": "freezer"}), 201)
+    added = latest(kitchen)
+    ok(kitchen.delete(f"{API}/places/{place_id(kitchen, 'Freezer')}"))
+    before = ok(kitchen.get(f"{API}/places"))
+    refused = undo(kitchen, added)
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert ok(kitchen.get(f"{API}/places")) == before
+    assert "Chest freezer" in names(before)

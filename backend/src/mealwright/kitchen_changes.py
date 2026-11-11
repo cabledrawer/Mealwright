@@ -174,6 +174,19 @@ def _undo_place_added(kitchen: Kitchen, data: dict[str, Any]) -> None:
     )
     if in_use is not None:
         raise _cannot_undo("That can’t be undone: the place is in use now.")
+    if place.kind in ("fridge", "freezer") and not db.scalar(
+        select(Place.id)
+        .where(
+            Place.household_id == kitchen.household_id,
+            Place.kind == place.kind,
+            Place.id != place.id,
+        )
+        .limit(1)
+    ):
+        # The same rule as removing a place: Mealwright keeps a Fridge and a Freezer.
+        raise _cannot_undo(  # proposed, for cabledrawer
+            f"That can’t be undone: {place.name} is your only {place.kind} now."
+        )
     db.delete(place)
     db.flush()
 
