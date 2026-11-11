@@ -156,11 +156,31 @@ def remove_place(kitchen: Kitchen, place: Place, move_to: Place | None) -> Chang
     foods = list(
         db.scalars(select(Food).where(Food.household_id == hid, Food.place_id == place.id))
     )
-    lots = list(db.scalars(select(StockLot.id).where(StockLot.place_id == place.id)))
-    tubs = list(db.scalars(select(Tub.id).where(Tub.place_id == place.id)))
-    before = list(db.scalars(select(ChangeLine.id).where(ChangeLine.place_before_id == place.id)))
-    after = list(db.scalars(select(ChangeLine.id).where(ChangeLine.place_after_id == place.id)))
-    ticks = list(db.scalars(select(ListTick.id).where(ListTick.place_id == place.id)))
+    lots = list(
+        db.scalars(
+            select(StockLot.id).where(StockLot.household_id == hid, StockLot.place_id == place.id)
+        )
+    )
+    tubs = list(db.scalars(select(Tub.id).where(Tub.household_id == hid, Tub.place_id == place.id)))
+    before = list(
+        db.scalars(
+            select(ChangeLine.id).where(
+                ChangeLine.household_id == hid, ChangeLine.place_before_id == place.id
+            )
+        )
+    )
+    after = list(
+        db.scalars(
+            select(ChangeLine.id).where(
+                ChangeLine.household_id == hid, ChangeLine.place_after_id == place.id
+            )
+        )
+    )
+    ticks = list(
+        db.scalars(
+            select(ListTick.id).where(ListTick.household_id == hid, ListTick.place_id == place.id)
+        )
+    )
     items = list(
         db.scalars(
             select(ListItem).where(
@@ -172,11 +192,11 @@ def remove_place(kitchen: Kitchen, place: Place, move_to: Place | None) -> Chang
     with FoodEdit(kitchen, [f.id for f in foods]) as edit:
         for food in foods:
             food.place_id = soft
-        _point(db, StockLot, "place_id", lots, fallback.id)
-        _point(db, Tub, "place_id", tubs, fallback.id)
-        _point(db, ChangeLine, "place_before_id", before, fallback.id)
-        _point(db, ChangeLine, "place_after_id", after, fallback.id)
-        _point(db, ListTick, "place_id", ticks, soft)
+        _point(db, hid, StockLot, "place_id", lots, fallback.id)
+        _point(db, hid, Tub, "place_id", tubs, fallback.id)
+        _point(db, hid, ChangeLine, "place_before_id", before, fallback.id)
+        _point(db, hid, ChangeLine, "place_after_id", after, fallback.id)
+        _point(db, hid, ListTick, "place_id", ticks, soft)
         if items:
             seq = edit.batch.number()
             for item in items:
@@ -202,9 +222,17 @@ def remove_place(kitchen: Kitchen, place: Place, move_to: Place | None) -> Chang
     return edit.record("place_removed", f"Removed the place {name}", None)
 
 
-def _point(db: DbSession, model: Any, column: str, ids: list[Any], to: int | None) -> None:
+def _point(
+    db: DbSession, household_id: int, model: Any, column: str, ids: list[Any], to: int | None
+) -> None:
+    """Re-point rows by id, only this household's own: a purchase's id is the phone's own action
+    id, so another household can hold one with the same id (whole-0.8 review S1)."""
     for chunk in _chunks(ids):
-        db.execute(update(model).where(model.id.in_(chunk)).values({column: to}))
+        db.execute(
+            update(model)
+            .where(model.household_id == household_id, model.id.in_(chunk))
+            .values({column: to})
+        )
     db.flush()
 
 
@@ -310,7 +338,11 @@ def restore(kitchen: Kitchen, change: Change, batch: shopping.Batch) -> None:
             col = getattr(model_, column)
             db.execute(
                 update(model_)
-                .where(model_.id.in_(chunk), col.is_(None) if target is None else col == target)
+                .where(
+                    model_.household_id == kitchen.household_id,
+                    model_.id.in_(chunk),
+                    col.is_(None) if target is None else col == target,
+                )
                 .values({column: old})
             )
     if data["items"]:

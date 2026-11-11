@@ -1164,9 +1164,19 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     # purchase's changes lose the
     # link first (sync protocol 3.7, 3.9).
     item_ids = select(ListItem.id).where(ListItem.food_id.in_(ids))
-    tick_ids = select(ListTick.id).where(ListTick.item_id.in_(item_ids))
-    db.execute(update(Change).where(Change.tick_id.in_(tick_ids)).values(tick_id=None))
-    db.execute(delete(ListTick).where(ListTick.item_id.in_(item_ids)))
+    tick_ids = select(ListTick.id).where(
+        ListTick.household_id == household.id, ListTick.item_id.in_(item_ids)
+    )
+    db.execute(
+        update(Change)
+        .where(Change.household_id == household.id, Change.tick_id.in_(tick_ids))
+        .values(tick_id=None)
+    )
+    db.execute(
+        delete(ListTick).where(
+            ListTick.household_id == household.id, ListTick.item_id.in_(item_ids)
+        )
+    )
     db.execute(delete(ListItem).where(ListItem.food_id.in_(ids)))
     db.execute(update(Food).where(Food.id.in_(ids)).values(merged_into_id=None))
     db.execute(delete(Food).where(Food.id.in_(ids)))
@@ -1271,9 +1281,17 @@ def tidy_lists(db: DbSession, household: Household, now: datetime | None = None)
     highest = max([version for _, version in lists + items], default=0)
     if item_ids:
         restock.keep_before_tidy_up(db, hid, item_ids)
-        ticks = select(ListTick.id).where(ListTick.item_id.in_(item_ids))
-        db.execute(update(Change).where(Change.tick_id.in_(ticks)).values(tick_id=None))
-        db.execute(delete(ListTick).where(ListTick.item_id.in_(item_ids)))
+        ticks = select(ListTick.id).where(
+            ListTick.household_id == hid, ListTick.item_id.in_(item_ids)
+        )
+        db.execute(
+            update(Change)
+            .where(Change.household_id == hid, Change.tick_id.in_(ticks))
+            .values(tick_id=None)
+        )
+        db.execute(
+            delete(ListTick).where(ListTick.household_id == hid, ListTick.item_id.in_(item_ids))
+        )
         db.execute(delete(ListNote).where(ListNote.item_id.in_(item_ids)))
         db.execute(delete(DoubleTick).where(DoubleTick.item_id.in_(item_ids)))
         went += _deleted(db, delete(ListItem).where(ListItem.id.in_(item_ids)))
