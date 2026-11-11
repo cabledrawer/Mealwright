@@ -14,13 +14,13 @@ record is never lost (`already_cooked`, as for a batch).
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, time
 from typing import Any
 
 from fastapi import status
 from sqlalchemy import select
 
-from mealwright import batch_suggest, batches, cooking, plan
+from mealwright import batch_suggest, batches, cooking, plan, start_ahead
 from mealwright.api.v1.context import Kitchen
 from mealwright.deduction import Choice
 from mealwright.errors import Problem, not_found
@@ -110,6 +110,26 @@ def _check(
     return recipes
 
 
+def _start_tonight(
+    kitchen: Kitchen, day: date, slot_id: int, recipe: Recipe
+) -> tuple[date, time] | None:
+    """A recipe with a long wait (soak, marinate overnight) is planned with wave 5's first "Start
+    tonight" time, so Today shows it the day before (B3, cabledrawer 11 Nov; proposed, for cabledrawer:
+    the session picks the time itself, and it can be changed on the Plan like any other). None
+    when the recipe has no such wait or every time has gone by."""
+    method = plan._method_for(kitchen, recipe, None)
+    found = start_ahead.ahead_of(kitchen.db, recipe, method.id if method else None)
+    if found is None:
+        return None
+    options = start_ahead.options(
+        kitchen.household, found, day, plan.find_slot(kitchen, slot_id), plan.utcnow()
+    )
+    if not options:
+        return None
+    local = start_ahead.local_of(kitchen.household, options[0].start)
+    return local.date(), local.time().replace(second=0, microsecond=0)
+
+
 def _plan_each(
     kitchen: Kitchen,
     day: date,
@@ -122,7 +142,10 @@ def _plan_each(
     """Each recipe is planned in the cook day's meal, then cooked once. Returns that meal."""
     meal: Meal | None = None
     for choice, recipe in zip(choices, recipes, strict=True):
-        added, meal, item, _name = plan.add_item_steps(kitchen, day, slot_id, recipe, None, None)
+        start = _start_tonight(kitchen, day, slot_id, recipe)
+        added, meal, item, _name = plan.add_item_steps(
+            kitchen, day, slot_id, recipe, None, None, start=start
+        )
         steps.extend(added)
         made, _batch, _worked = batches.make_batch_steps(
             kitchen,

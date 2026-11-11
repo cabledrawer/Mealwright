@@ -902,3 +902,34 @@ def test_a_start_with_a_move_or_copy_of_an_item_that_is_not_there_is_a_404(
         },
     )
     assert gone_meal.status_code == 404
+
+
+def test_a_batch_cook_session_plans_a_long_wait_with_its_start_tonight(kitchen: TestClient) -> None:
+    """B3 (cabledrawer 11 Nov): a session's recipe with a long wait gets wave 5's first Start tonight
+    time, so Today shows it the day before; a recipe with no long wait gets none."""
+    batter = dosa(kitchen)
+    plain_one = make(kitchen, "Plain rasam", steps=[{"text": "Simmer for 10 minutes."}])
+    made = ok(
+        kitchen.post(
+            f"{API}/batch-cook/sessions",
+            json={
+                "date": SAT.isoformat(),
+                "slot_id": slot_ids(kitchen)["Breakfast"],
+                "recipes": [
+                    {"recipe_id": batter["id"], "tub_count": 2},
+                    {"recipe_id": plain_one["id"], "tub_count": 2},
+                ],
+            },
+        ),
+        201,
+    )
+    items = [
+        i
+        for m in ok(kitchen.get(f"{API}/today"))["plan"]["meals"]
+        for i in m["items"]
+        if i["kind"] == "recipe"
+    ]
+    assert made["session_id"]
+    with_start = [i for i in items if i["ahead"]]
+    assert len(with_start) == 1 and with_start[0]["ahead"]["start_day"] == FRI.isoformat()
+    assert with_start[0]["ahead"]["start_time"]

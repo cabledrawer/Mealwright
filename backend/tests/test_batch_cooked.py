@@ -171,7 +171,7 @@ def test_the_tubs_of_each_recipe_are_counted_by_where_they_are(kitchen: TestClie
 
 
 def test_the_other_household_and_the_switch(kitchen: TestClient, neighbour: TestClient) -> None:
-    session, batches = session_of(kitchen)
+    session, _ = session_of(kitchen)
     assert (
         neighbour.post(f"{API}/batch-cook/sessions/{session}/cook/preview", json={}).status_code
         == 404
