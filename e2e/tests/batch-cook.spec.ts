@@ -177,6 +177,52 @@ test('Plan this batch goes through Cook once for each recipe, plans one session,
   expect((await planRange(page, day)).batch_sessions).toHaveLength(0);
 });
 
+test('Plan this batch asks which optional ingredients each recipe will use, and batch cook mode follows the answer (RF3, C6)', async ({ page }) => {
+  const tag = `o${Date.now().toString(36)}`;
+  const onion = (await call(page, 'POST', '/foods', { name: `Onion ${tag}` })).food.id as number;
+  const cashew = (await call(page, 'POST', '/foods', { name: `Cashew ${tag}` })).food.id as number;
+  const a = (await call(page, 'POST', '/recipes', {
+    name: `Biryani ${tag}`,
+    lines: [
+      { words: `1 onion ${tag}`, food_id: onion, amount: 1 },
+      { words: `50 g cashew ${tag}`, food_id: cashew, amount: 50, unit: 'g', optional: true },
+    ],
+    steps: [{ text: 'Chop the onion.', lines: [0] }, { text: 'Fry the cashews for the top.', lines: [1], optional: true }, { text: 'Simmer for 20 minutes.' }],
+  })).id as number;
+  const b = (await call(page, 'POST', '/recipes', { name: `Dal ${tag}`, steps: [{ text: 'Simmer for 15 minutes.' }] })).id as number;
+  const day = addDays(await today(page), 700 + 12 * (INDEX[test.info().project.name] ?? 0));
+  const made = await call(page, 'POST', '/batch-cook/sessions', {
+    date: day,
+    slot_id: await mealSlot(page, 'Dinner'),
+    recipes: [{ recipe_id: a, tub_count: 2 }, { recipe_id: b, tub_count: 2 }],
+  });
+  // Change opens the picks with the session's own two recipes.
+  await page.goto(`/batch-cook?change=${made.session_id}`);
+  await expect(page.getByText(/together/).first()).toBeVisible();
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+  const kitchen = page.getByRole('dialog', { name: 'Your kitchen' });
+  if (await kitchen.isVisible()) await kitchen.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Plan this batch' }).click();
+  // The optional question comes first, then the Cook once sheet; Cancel on it plans nothing.
+  const asked = page.getByTestId('plan-optional');
+  await expect(asked).toBeVisible();
+  await expect(asked).toContainText(`Biryani ${tag}`);
+  await asked.getByRole('checkbox').uncheck(); // no cashews
+  await asked.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('dialog', { name: /1 of 2/ }).getByRole('button', { name: 'Next recipe' }).click();
+  await page.getByRole('dialog', { name: /2 of 2/ }).getByRole('button', { name: 'Plan this batch' }).click();
+  await expect(page).toHaveURL(/\/plan/);
+  const plan = await planRange(page, day);
+  const items = plan.meals.flatMap((m: any) => m.items).filter((i: any) => i.recipe?.name === `Biryani ${tag}`);
+  expect(items).toHaveLength(1);
+  expect(items[0].optional_skipped).toHaveLength(1);
+  // Batch cook mode has no step for the cashews that were left out.
+  const sid = plan.batch_sessions[0].id as number;
+  const schedule = await call(page, 'POST', `/batch-cook/sessions/${sid}/schedule`, {});
+  expect((schedule.tasks as { title: string }[]).some((t) => /cashew/i.test(t.title))).toBe(false);
+  await call(page, 'DELETE', `/batch-cook/sessions/${sid}`);
+});
+
 test('Cancel on the second sheet plans nothing', async ({ page }) => {
   const tag = `c${Date.now().toString(36)}`;
   await seed(page, tag);

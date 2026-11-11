@@ -136,6 +136,29 @@ test('cooks a session: shared prep, a timer that survives a reload, Done, next, 
   await call(page, 'DELETE', `/batch-cook/sessions/${s.id}`);
 });
 
+test('a running timer is ended early and a wait that has not started is skipped (RF3, C7)', async ({ page }) => {
+  const s = await session(page);
+  await page.goto(`/batch-cook/session/${s.id}/cook`);
+  await expect(now(page)).toContainText('Chop 3 ');
+  const waitingDone = async () => (await schedule(page, s.id)).tasks.filter((t) => t.hands === 'waiting' && t.state === 'done').length;
+  // The dal's timer is started, then ended early: its row has no clock any more.
+  await done(page).click();
+  await page.getByRole('button', { name: `Start timer for ${s.sambar}` }).click();
+  await expect(page.getByRole('timer')).toBeVisible();
+  await page.getByRole('button', { name: `End timer early for ${s.sambar}` }).click();
+  await expect(page.getByRole('timer')).toHaveCount(0);
+  await expect.poll(waitingDone).toBe(1);
+  // The other recipe's wait is skipped without a timer once it is ready.
+  const skip = page.getByRole('button', { name: `Skip wait for ${s.chettinad}` });
+  for (let guard = 0; guard < 6 && !(await skip.isVisible()); guard++) {
+    await done(page).click();
+    await page.waitForTimeout(300);
+  }
+  await skip.click();
+  await expect.poll(waitingDone).toBe(2);
+  await call(page, 'DELETE', `/batch-cook/sessions/${s.id}`);
+});
+
 test('another phone agrees without reloading', async ({ page }) => {
   const s = await session(page);
   await page.goto(`/batch-cook/session/${s.id}/cook`);
