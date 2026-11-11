@@ -42,7 +42,7 @@ def raise_counter(connection: Connection, table: str, at_least: int) -> bool:
     if made is None or "AUTOINCREMENT" not in made.upper():
         return False
     quoted = '"' + table.replace('"', '""') + '"'
-    top = connection.exec_driver_sql(f"SELECT coalesce(max(rowid), 0) FROM {quoted}").scalar_one()  # noqa: S608
+    top = connection.exec_driver_sql(f"SELECT coalesce(max(rowid), 0) FROM {quoted}").scalar_one()  # noqa: S608  # nosec B608
     want = max(at_least, int(top))
     row = connection.exec_driver_sql(
         "SELECT seq FROM sqlite_sequence WHERE name = ?", (table,)
