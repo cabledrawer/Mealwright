@@ -9,7 +9,7 @@
   // were. Back and Next; Next on the last screen is Save recipe. Close keeps the recipe in
   // Drafts. Loaded the first time it is chosen, so the import page stays small.
   // Words are the mockups', except those marked "proposed, for cabledrawer". The label
-  // "Close (kept in Drafts)" on the X is cabledrawer 5 Nov (F141).
+  // "Back to drafts (kept in Drafts)" on the X (was "Close", F211) is cabledrawer 5 Nov (F141).
   import { tick, untrack } from 'svelte';
   import { downLine } from '#lib/downWords.js';
   import { leftOutWords, type ImportFlow } from '#lib/import.svelte.js';

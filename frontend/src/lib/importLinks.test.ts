@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ImportReview } from '#lib/client/imports.js';
-import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
-import { PINTS_REVIEW } from '#lib/testing/importSamples.js';
+import { changeOf, fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
+import { PINTS_REVIEW, SAMPLE_REVIEW } from '#lib/testing/importSamples.js';
+import { toasts } from './toast.svelte';
+import { undoHistory } from './undo.svelte';
 import { drafts } from './drafts.svelte';
 import {
   ImportLinks,
@@ -20,6 +22,8 @@ const review = (name: string): ImportReview => ({ ...PINTS_REVIEW, name });
 afterEach(() => {
   vi.unstubAllGlobals();
   drafts.forget();
+  undoHistory.clear();
+  toasts.dismiss();
 });
 
 const keepsDrafts = (request: FakeRequest): [number, unknown] => [
@@ -275,5 +279,121 @@ describe('several links at once (F110)', () => {
     expect(importLinks.rows).toHaveLength(1);
     runWipeHooks();
     expect(importLinks.rows).toEqual([]);
+  });
+});
+
+// Each read link opens its draft (F209) and the ones whose ingredients all matched can be saved in
+// one go (F216, quick import).
+describe('opening a result, and quick import (F209, F216; cabledrawer 10 Nov)', () => {
+  const bodies = new Map<number, Record<string, unknown>>();
+  let next = 40;
+
+  /** A server with drafts that remember what was kept, and the save for the matched one. */
+  function server(
+    extra: Record<string, [number, unknown] | ((r: FakeRequest) => [number, unknown])> = {}
+  ) {
+    bodies.clear();
+    next = 40;
+    return fakeApi({
+      'POST /recipes/import': (request: FakeRequest) =>
+        (request.body as { text: string }).text.includes('ready')
+          ? [200, review('Ready dal')]
+          : [200, { ...SAMPLE_REVIEW, name: 'Needs you' }],
+      'POST /recipes/drafts': (request: FakeRequest) => {
+        const id = next++;
+        const body = request.body as Record<string, unknown>;
+        bodies.set(id, body);
+        return [201, { id, ...body }];
+      },
+      'GET /recipes/drafts': [200, { drafts: [], count: 0 }],
+      ...extra
+    });
+  }
+  const draftOut = (request: FakeRequest): [number, unknown] => {
+    const id = Number(request.path.split('/').pop());
+    return [200, { id, name: 'x', ...bodies.get(id) }];
+  };
+  const links = ['https://a.example/ready-dal', 'https://b.example/other'];
+
+  it('keeps the draft each read link was kept as, and which ones matched completely', async () => {
+    server();
+    const reader = new ImportLinks();
+    await reader.run(links);
+    expect(reader.rows.map((r) => [r.title, r.draftId, r.allMatched])).toEqual([
+      ['Ready dal', 40, true],
+      ['Needs you', 41, false]
+    ]);
+    expect(reader.ready.map((r) => r.title)).toEqual(['Ready dal']);
+  });
+
+  it('saves only the drafts that matched completely, with one toast and one Undo for them all', async () => {
+    const requests = server({
+      'GET /recipes/drafts/40': draftOut,
+      'POST /recipes/import/save': [
+        201,
+        {
+          recipe: { id: 55, name: 'Ready dal' },
+          change: changeOf(60, 'Imported Ready dal'),
+          new_ingredients: [],
+          learned: 0
+        }
+      ],
+      'POST /changes/60/undo': [200, { result: 'done', message: 'back', change: changeOf(61, 'x') }]
+    });
+    const reader = new ImportLinks();
+    await reader.run(links);
+    await reader.saveReady();
+    const saves = requests.filter((r) => r.path === '/recipes/import/save');
+    expect(saves).toHaveLength(1);
+    expect((saves[0]!.body as { draft_id: number }).draft_id).toBe(40);
+    // The one that needs checking was never opened for saving, and stays a draft.
+    expect(requests.some((r) => r.path === '/recipes/drafts/41' && r.method !== 'GET')).toBe(false);
+    expect(reader.rows.map((r) => r.savedId)).toEqual([55, null]);
+    expect(toasts.current?.message).toBe('Saved 1 recipe');
+    expect(undoHistory.size).toBe(1);
+    // One Undo takes every save back (the server's own Undo of an import brings the draft back).
+    await undoHistory.undoLast();
+    expect(requests.some((r) => r.path === '/changes/60/undo')).toBe(true);
+    expect(reader.rows.map((r) => r.savedId)).toEqual([null, null]);
+    expect(reader.ready).toHaveLength(1);
+  });
+
+  it('a draft that can’t be saved stays in Drafts with its sentence, and the toast counts the rest', async () => {
+    server({
+      'GET /recipes/drafts/40': draftOut,
+      'GET /recipes/drafts/41': draftOut,
+      'POST /recipes/import': [200, review('Ready dal')],
+      'POST /recipes/import/save': (request: FakeRequest) =>
+        (request.body as { draft_id: number }).draft_id === 40
+          ? [
+              201,
+              {
+                recipe: { id: 55, name: 'Ready dal' },
+                change: changeOf(60, 'Imported Ready dal'),
+                new_ingredients: [],
+                learned: 0
+              }
+            ]
+          : [409, { detail: 'There’s already an ingredient called Paprika.' }]
+    });
+    const reader = new ImportLinks();
+    await reader.run(['https://a.example/one', 'https://b.example/two']);
+    await reader.saveReady();
+    expect(reader.rows.map((r) => r.savedId)).toEqual([55, null]);
+    expect(reader.rows[1]!.message).toBe('There’s already an ingredient called Paprika.');
+    expect(toasts.current?.message).toBe('Saved 1 recipe. 1 stays in Drafts');
+  });
+
+  it('with nothing matched completely there is nothing to save, and nothing is sent', async () => {
+    const requests = server({
+      'POST /recipes/import': [200, { ...SAMPLE_REVIEW, name: 'Needs you' }]
+    });
+    const reader = new ImportLinks();
+    await reader.run(links);
+    expect(reader.ready).toEqual([]);
+    const before = requests.length;
+    await reader.saveReady();
+    expect(requests).toHaveLength(before);
+    expect(undoHistory.size).toBe(0);
   });
 });

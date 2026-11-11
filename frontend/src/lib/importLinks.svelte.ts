@@ -8,8 +8,14 @@
 
 import { SvelteURL } from 'svelte/reactivity';
 import { forgetWhenSessionEnds } from './api';
+import { serverUndo } from './client/changes';
+import type { Saved } from './client/imports';
 import { drafts } from './drafts.svelte';
+import { kitchen } from './freshness.svelte';
+import { saveFromDraft } from './import.draftSave';
 import { ImportFlow } from './import.svelte';
+import { toasts } from './toast.svelte';
+import { undoHistory } from './undo.svelte';
 import { forgetOnWipe } from './offline/wipeHooks';
 
 /** Words on the screen (mockup Dark-ImportLinks08-Phone; "Ready to check" and "in Drafts" are
@@ -17,11 +23,19 @@ import { forgetOnWipe } from './offline/wipeHooks';
 export const READY_TO_CHECK = '✓ Ready to check';
 export const READING = 'Reading…';
 export const WAITING = 'Waiting';
+export const SAVED = '✓ Saved';
 export const IN_DRAFTS = 'in Drafts';
 export const LINKS_HELP =
   'Each recipe goes to Drafts to check and save later. If one link can’t be read, the rest carry on. You can leave this screen.';
 export const LINKS_SERVER_NOTE =
   'Only Mealwright’s server fetches these pages, and only because Recipe import is switched on in Settings.';
+/** Quick import (F216, cabledrawer 10 Nov; the words are proposed, for cabledrawer). */
+export const savedWords = (count: number): string =>
+  `Saved ${count} ${count === 1 ? 'recipe' : 'recipes'}`;
+export const saveReadyWords = (count: number): string =>
+  `Save ${count} ready ${count === 1 ? 'recipe' : 'recipes'}`;
+export const QUICK_HELP =
+  'Ready means every ingredient matched. The others stay in Drafts for you to check.';
 export const ALREADY_HAVE = 'You already have this recipe. It was not read again.';
 
 /** The most links one paste reads (proposed, for cabledrawer). */
@@ -63,6 +77,13 @@ export interface LinkRow {
   message: string | null;
   /** The failure's code, for "Paste text" (offered where pasting the text can help). */
   code: string | null;
+  /** The draft a read link was kept as, so its row can open it (F209). */
+  draftId: number | null;
+  /** The recipe a quick import saved it as (F216), until that is undone. */
+  savedId: number | null;
+  /** Every ingredient line matched, none to confirm or needing the person: the draft can be saved
+   *  as it is (quick import, F216). */
+  allMatched: boolean;
 }
 
 /** The codes after which pasting the page's text is the way forward (as for one link). */
@@ -91,6 +112,13 @@ function parts(link: string): { site: string; title: string } {
   } catch {
     return { site: '', title: link };
   }
+}
+
+/** Every ingredient line is tied to an ingredient (matched, or a staple), and there is at least
+ *  one: nothing is to confirm and nothing needs the person (F216). */
+export function readyToSave(flow: ImportFlow): boolean {
+  const lines = flow.review?.lines.filter((line) => line.kind === 'ingredient') ?? [];
+  return lines.length > 0 && flow.unlinked === 0;
 }
 
 export class ImportLinks {
@@ -129,7 +157,10 @@ export class ImportLinks {
         ...parts(link),
         state: 'waiting' as const,
         message: null,
-        code: null
+        code: null,
+        draftId: null,
+        savedId: null,
+        allMatched: false
       }));
       let stopped: string | null = null;
       for (const row of this.rows) {
@@ -170,6 +201,8 @@ export class ImportLinks {
         if (await flow.keepAsDraft()) {
           row.state = 'ready';
           row.title = flow.review.name || row.title;
+          row.draftId = flow.draftId;
+          row.allMatched = readyToSave(flow);
         } else {
           void flow.dropPhoto();
           row.state = 'failed';
@@ -182,6 +215,70 @@ export class ImportLinks {
       row.message = 'Couldn’t read that. Try again.';
       row.code = 'failed';
     }
+  }
+
+  /** Saving quick import's drafts is under way. */
+  saving = $state(false);
+
+  /** The read links whose drafts can be saved as they are: every ingredient matched. */
+  get ready(): LinkRow[] {
+    return this.rows.filter(
+      (row) =>
+        row.state === 'ready' && row.draftId !== null && row.allMatched && row.savedId === null
+    );
+  }
+
+  /** Quick import (F216): save every draft whose ingredients all matched, one after another, with
+   *  the Drafts list's own Save recipe. One toast says how many, with one Undo that takes each
+   *  save back (the server's own Undo of an import: the recipe goes and its draft comes back to
+   *  Drafts). A draft that can't be saved stays in Drafts with its sentence on its row. */
+  async saveReady(): Promise<void> {
+    if (this.saving || this.running) return;
+    const rows = this.ready;
+    if (rows.length === 0) return;
+    this.saving = true;
+    const generation = this.#generation;
+    const done: { row: LinkRow; saved: Saved }[] = [];
+    let failed = 0;
+    try {
+      for (const row of rows) {
+        if (generation !== this.#generation) return;
+        const result = await saveFromDraft(row.draftId!, { quiet: true });
+        if (generation !== this.#generation) return;
+        if ('problem' in result) {
+          failed += 1;
+          row.message = result.problem;
+          continue;
+        }
+        row.savedId = result.recipeId;
+        row.message = null;
+        done.push({ row, saved: result.saved });
+      }
+    } finally {
+      if (generation === this.#generation) this.saving = false;
+    }
+    void drafts.load();
+    if (done.length === 0) {
+      toasts.show('Couldn’t save those recipes. They stay in Drafts.', { tone: 'problem' });
+      return;
+    }
+    kitchen.changed();
+    const words = savedWords(done.length);
+    undoHistory.record({
+      label:
+        failed > 0 ? `${words}. ${failed} ${failed === 1 ? 'stays' : 'stay'} in Drafts` : words,
+      needsServer: true,
+      undo: async () => {
+        let message: string | void = undefined;
+        for (const { row, saved } of done) {
+          const said = await serverUndo(saved.change.id)();
+          if (said) message = said;
+          row.savedId = null;
+        }
+        await drafts.load();
+        return message;
+      }
+    });
   }
 
   clear(): void {

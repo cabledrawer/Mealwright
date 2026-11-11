@@ -104,8 +104,8 @@ describe('carrying on with a draft', () => {
   it('opens the review with every choice made so far, and does not change the draft by looking', async () => {
     const requests = await open({ 'GET /recipes/drafts/7': [200, DRAFT] });
     await expect.element(page.getByRole('heading', { name: 'Check before saving' })).toBeVisible();
-    // On a phone this is the Focus page (F141): Close, kept in Drafts, takes the back link's place.
-    await expect.element(page.getByRole('button', { name: /^Close/ })).toBeVisible();
+    // On a phone this is the Focus page (F141): Back to drafts, kept in Drafts, takes the back link's place.
+    await expect.element(page.getByRole('button', { name: /^Back to drafts/ })).toBeVisible();
     await expect.element(page.getByLabelText('Name')).toHaveValue('Rava dosa with extra');
     await expect.element(page.getByLabelText('Serves')).toHaveValue('6');
     // “Same as Onions” was chosen, and is shown as chosen.

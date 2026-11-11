@@ -257,7 +257,7 @@ test('the review: on a phone the menu is hidden, and Close and Save stay at the 
   // No bottom tabs: Close and Save are at the foot, in view, whatever the list is scrolled to.
   await expect(page.getByRole('navigation', { name: 'Main' })).toBeHidden();
   const save = page.getByRole('button', { name: 'Save recipe' });
-  const close = page.getByRole('button', { name: /^Close/ });
+  const close = page.getByRole('button', { name: /^Back to drafts/ });
   await expect(save).toBeInViewport({ ratio: 1 });
   await expect(close).toBeInViewport({ ratio: 1 });
   await page.locator('ol li').last().scrollIntoViewIfNeeded();
@@ -1276,4 +1276,51 @@ test('Offline, Save waits as it always does, and the section stays its own recip
   await expect(page).toHaveURL(/\/recipes\/\d+$/);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText(/^Undone/)).toBeVisible();
+});
+
+// --- After several links: open a result, and quick import (0.8 IM2: F209, F216; cabledrawer 10 Nov) --
+
+test('each read link opens its draft, and one button saves the drafts whose ingredients all matched (F209, F216)', async ({ page }) => {
+  const ready = unique('Ready dal');
+  const other = unique('Needs checking');
+  const food = await api(page, 'post', '/foods', { name: unique('Toor dal'), counted_as: 'weight' });
+  const foodId: number = food.food.id;
+  const foodName: string = food.food.name;
+  await page.route('**/api/v1/recipes/import', async (route: Route) => {
+    const text: string = route.request().postDataJSON().text;
+    const matched = lineOf({ written: '200 g toor dal', words: foodName, amount: 200, amount_text: '200', unit: 'g', label: 'matched', food: { id: foodId, name: foodName }, matched_by: foodName });
+    const body = text.includes('ready')
+      ? review({ name: ready, lines: [headingLine('For the dal'), matched], counts: { matched: 1, to_confirm: 0, needs_you: 0, staple: 0 } })
+      : review({ name: other });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  await page.goto('/recipes/import');
+  await box(page).fill('https://example-recipes.org/ready-dal\nhttps://example-kitchen.net/other');
+  await page.getByRole('button', { name: 'Read the recipes' }).click();
+  const results = page.getByRole('region', { name: 'Links being read' });
+  await expect(results.getByRole('listitem')).toHaveCount(2);
+  await expect(results.getByRole('link', { name: `Check ${other}` })).toBeVisible();
+  // Only the draft whose ingredients all matched is offered for saving.
+  await expect(results.getByRole('button', { name: 'Save 1 ready recipe' })).toBeVisible();
+  await expect(results).toContainText('Ready means every ingredient matched. The others stay in Drafts for you to check.');
+  await checkPage(page);
+  await results.getByRole('button', { name: 'Save 1 ready recipe' }).click();
+  await expect(page.getByText('Saved 1 recipe', { exact: true })).toBeVisible();
+  await expect(results.getByRole('link', { name: `Open ${ready}` })).toBeVisible();
+  const list = (await (await page.request.get('/api/v1/recipes/drafts')).json()) as Json;
+  expect(list.drafts.filter((d: Json) => d.name === ready)).toHaveLength(0);
+  const waiting = list.drafts.filter((d: Json) => d.name === other);
+  expect(waiting).toHaveLength(1);
+  // One Undo takes the quick save back: its draft is there again, and can be saved again.
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByText(/^Undone/)).toBeVisible();
+  await expect(results.getByRole('button', { name: 'Save 1 ready recipe' })).toBeVisible();
+  await expect.poll(async () => ((await (await page.request.get('/api/v1/recipes/drafts')).json()) as Json).drafts.filter((d: Json) => d.name === ready).length).toBe(1);
+  // The result opens its draft's Check.
+  await results.getByRole('link', { name: `Check ${other}` }).click();
+  await expect(page).toHaveURL(new RegExp(`/recipes/drafts/${waiting[0].id}$`));
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  for (const draft of ((await (await page.request.get('/api/v1/recipes/drafts')).json()) as Json).drafts.filter((d: Json) => d.name === ready || d.name === other)) {
+    await page.request.delete(`/api/v1/recipes/drafts/${draft.id}`);
+  }
 });

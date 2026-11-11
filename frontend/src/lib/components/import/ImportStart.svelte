@@ -5,6 +5,7 @@
   // never goes online. Online only: offline, the box says it needs the server and nothing is
   // queued. Under "How it works", a note says photos aren't downloaded while that switch is
   // off (`photosOff`: true only when the server has said so, never on a guess).
+  import { resolve } from '$app/paths';
   import { tick } from 'svelte';
   import Icon from '#lib/components/Icon.svelte';
   import { network } from '#lib/network.svelte.js';
@@ -20,7 +21,10 @@
     pasteLimitWords,
     linksHeading,
     READING,
+    QUICK_HELP,
     READY_TO_CHECK,
+    SAVED,
+    saveReadyWords,
     WAITING
   } from '#lib/importLinks.svelte.js';
   import { offlineNote, PASTE_INSTEAD_STEPS, type ImportFlow } from '#lib/import.svelte.js';
@@ -149,8 +153,24 @@
               <span class="site">{row.site}{row.state === 'ready' ? ` · ${IN_DRAFTS}` : ''}</span>
               {#if row.message}<span class="why">{row.message}</span>{/if}
             </span>
-            {#if row.state === 'ready'}
+            {#if row.state === 'ready' && row.savedId !== null}
+              <!-- Saved by quick import (F216): its recipe, until that is undone. -->
+              <span class="status ok">{SAVED}</span>
+              <a
+                class="ghost small check"
+                href={resolve('/(app)/recipes/[id]', { id: String(row.savedId) })}
+                aria-label="Open {row.title}">Open</a
+              >
+            {:else if row.state === 'ready'}
               <span class="status ok">{READY_TO_CHECK}</span>
+              {#if row.draftId !== null}
+                <!-- F209 (cabledrawer 10 Nov): each result opens its draft's Check straight away. -->
+                <a
+                  class="ghost small check"
+                  href={resolve('/(app)/recipes/drafts/[id]', { id: String(row.draftId) })}
+                  aria-label="Check {row.title}">Check</a
+                >
+              {/if}
             {:else if row.state === 'reading'}
               <span class="status busy">{READING}</span>
             {:else if row.state === 'waiting'}
@@ -163,6 +183,20 @@
           </li>
         {/each}
       </ul>
+      {#if importLinks.ready.length > 0 && !importLinks.running}
+        <!-- Quick import (F216, cabledrawer 10 Nov): the drafts whose ingredients all matched, saved
+             in one go; the rest stay in Drafts for checking. -->
+        <p class="actions">
+          <button
+            type="button"
+            class="button"
+            disabled={importLinks.saving}
+            onclick={() => void importLinks.saveReady()}
+            >{importLinks.saving ? 'Saving…' : saveReadyWords(importLinks.ready.length)}</button
+          >
+        </p>
+        <p class="help">{QUICK_HELP}</p>
+      {/if}
       {#if importLinks.leftOut > 0}
         <p class="help" role="status">{leftOutWords(importLinks.leftOut, importLinks.room)}</p>
       {/if}
@@ -424,6 +458,18 @@
 
   .small {
     flex: none;
+  }
+
+  a.check {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-5);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    color: var(--color-text);
+    font-weight: var(--weight-bold);
+    text-decoration: none;
   }
 
   .photos {

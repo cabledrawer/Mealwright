@@ -48,7 +48,7 @@ async function reviewOf(page: Page, title: string, hing: string, masala: string)
  *  keeps it without asking. */
 async function keepDraft(page: Page) {
   if (isPhone(page)) {
-    await page.getByRole('button', { name: /^Close/ }).click();
+    await page.getByRole('button', { name: /^Back to drafts/ }).click();
     await expect(page).toHaveURL(/\/recipes\/drafts$/);
     return;
   }
@@ -153,7 +153,7 @@ test('carry on opens the review with the choices made, and Save makes the recipe
   await checkPage(page);
   await page.setViewportSize(size);
   // Nothing changed: leaving doesn't ask (on a phone, Close just leaves).
-  if (isPhone(page)) await page.getByRole('button', { name: /^Close/ }).click();
+  if (isPhone(page)) await page.getByRole('button', { name: /^Back to drafts/ }).click();
   else await page.getByRole('link', { name: 'Drafts', exact: true }).first().click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   await page.getByRole('link', { name: `Carry on ${title} (mine)` }).click();
@@ -358,4 +358,83 @@ test('a waiting draft uses an ingredient another draft made when it is opened', 
     await deleteDrafts(page, second);
     await page.request.delete(`/api/v1/foods/${foodId}`, { headers: { 'idempotency-key': crypto.randomUUID() } });
   }
+});
+
+// --- Leaving Check, after Save recipe, and Change on a row (0.8 IM2: F211, F212, F214; cabledrawer 10 Nov) ---
+
+test('Discard draft on Check asks once, deletes the draft, and Undo brings it back (F211)', async ({ page }) => {
+  const title = unique('Discard dal');
+  await reviewOf(page, title, unique('Hing'), unique('Masala'));
+  await keepDraft(page);
+  await page.getByRole('link', { name: `Carry on ${title}` }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await page.getByRole('button', { name: 'Discard draft', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Discard this draft?' });
+  await expect(dialog).toBeVisible();
+  await checkPage(page);
+  // Keep checking changes nothing.
+  await dialog.getByRole('button', { name: 'Keep checking' }).click();
+  await expect(dialog).toBeHidden();
+  expect(await draftsNamed(page, title)).toHaveLength(1);
+  await page.getByRole('button', { name: 'Discard draft', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Discard draft' }).click();
+  await expect(page).toHaveURL(/\/recipes\/drafts$/);
+  expect(await draftsNamed(page, title)).toHaveLength(0);
+  await expect(page.getByText(`Deleted the ${title} draft`)).toBeVisible();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByRole('link', { name: `Carry on ${title}` })).toBeVisible();
+  expect(await draftsNamed(page, title)).toHaveLength(1);
+  await deleteDrafts(page, title);
+});
+
+test('Save recipe opens the recipe, and with more drafts waiting offers Next draft (F212)', async ({ page }) => {
+  const first = unique('Older rasam');
+  const second = unique('Newer sambar');
+  await reviewOf(page, first, unique('Hing'), unique('Masala'));
+  await keepDraft(page);
+  await reviewOf(page, second, unique('Hing'), unique('Masala'));
+  await keepDraft(page);
+  await page.getByRole('link', { name: `Carry on ${second}` }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await page.getByRole('button', { name: 'Treat as staple' }).first().click();
+  await page.getByRole('button', { name: 'Treat as staple' }).first().click();
+  await page.getByRole('button', { name: 'Save recipe' }).click();
+  await expect(page).toHaveURL(/\/recipes\/\d+$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(second);
+  // The oldest of the drafts still waiting is next.
+  const next = page.getByRole('link', { name: /^Next draft/ });
+  await expect(next).toContainText(first);
+  await checkPage(page);
+  await next.click();
+  await expect(page).toHaveURL(/\/recipes\/drafts\/\d+$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check before saving');
+  await expect(page.getByLabel('Name', { exact: true }).first()).toHaveValue(first);
+  // Visiting the saved recipe later shows no Next draft.
+  await page.goBack();
+  await page.reload();
+  expect(await page.getByRole('link', { name: /^Next draft/ }).count()).toBe(0);
+  await deleteDrafts(page, first);
+  await deleteDrafts(page, second);
+});
+
+test('Change on a row edits the name read, and Cancel leaves the row as it was (F214)', async ({ page }) => {
+  const title = unique('Change dal');
+  const hing = unique('Hing');
+  await reviewOf(page, title, hing, unique('Masala'));
+  const written = `¼ tsp ${hing}`;
+  const change = page.getByRole('button', { name: `Change: ${written}` });
+  await change.click();
+  const sheet = page.getByRole('group', { name: /^Change / });
+  await expect(sheet.getByRole('button', { name: 'Pick an ingredient' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'New ingredient' })).toBeVisible();
+  await checkPage(page);
+  await sheet.getByRole('button', { name: 'Cancel' }).click();
+  await expect(sheet).toBeHidden();
+  await change.click();
+  await sheet.getByRole('button', { name: 'Edit the name read' }).click();
+  const renamed = unique('Asafoetida');
+  await sheet.getByLabel('Name read').fill(renamed);
+  await sheet.getByRole('button', { name: 'Done' }).click();
+  await expect(sheet).toBeHidden();
+  await expect(page.getByRole('button', { name: `New ingredient “${renamed}”` })).toBeVisible();
 });
