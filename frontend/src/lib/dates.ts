@@ -19,9 +19,15 @@ export const BAD_DATE = 'That date doesn’t look right. Pick another.';
 /** A real day, written "2026-10-20", in a sane range. A date box can hand back a stray
  * six-digit year or a year 6; those are never a day to keep or to format (F220). */
 export function isSaneDay(iso: unknown): iso is string {
-  if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  if (!isRealDay(iso)) return false;
   const year = Number(iso.slice(0, 4));
-  if (year < 2000 || year > 2100) return false;
+  return year >= 2000 && year <= 2100;
+}
+
+/** Any real day written "2026-10-20", whatever its year: what the formatters need so they
+ * never throw. A stored date outside the date boxes' range still shows (FX4 review r1). */
+export function isRealDay(iso: unknown): iso is string {
+  if (typeof iso !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
   const d = new Date(`${iso}T12:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso;
 }
@@ -35,7 +41,7 @@ const dayMonth = new Intl.DateTimeFormat('en-GB', {
 
 /** "Today", "Tomorrow", "Mon" (this week), "12 Nov"; "Date passed" when it's gone. */
 export function dateWords(iso: string | null, daysLeft: number | null): string {
-  if (!iso || daysLeft === null || !isSaneDay(iso)) return '';
+  if (!iso || daysLeft === null || !isRealDay(iso)) return '';
   if (daysLeft < 0) return 'Date passed';
   if (daysLeft === 0) return 'Today';
   if (daysLeft === 1) return 'Tomorrow';
@@ -45,13 +51,13 @@ export function dateWords(iso: string | null, daysLeft: number | null): string {
 
 /** A date as day and month: "22 Oct". */
 export function dayMonthWords(iso: string): string {
-  if (!isSaneDay(iso)) return '';
+  if (!isRealDay(iso)) return '';
   return dayMonth.format(noonUtc(iso));
 }
 
 /** A chosen date on a chip: "Sat 24 Oct". */
 export function pickedDateWords(iso: string): string {
-  if (!isSaneDay(iso)) return '';
+  if (!isRealDay(iso)) return '';
   const date = noonUtc(iso);
   return `${weekday.format(date)} ${dayMonth.format(date)}`;
 }

@@ -268,7 +268,7 @@
   }
 
   /** Not before the cook day (cabledrawer 29 Oct); dates compare as yyyy-mm-dd text. */
-  const badDay = $derived(!!useBy && !isSaneDay(useBy));
+  const badDay = $derived(!!useBy && useBy !== tub?.tub.use_by && !isSaneDay(useBy));
   const tooEarly = $derived(!!tub && !!useBy && useBy < tub.batch.cooked_on);
 
   function saveUseBy() {

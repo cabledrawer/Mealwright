@@ -133,6 +133,14 @@ describe('To freezer on a leftover tub (cabledrawer 8 Nov)', () => {
     );
   });
 
+  it("opens Change use-by date on a stored date outside the date boxes' range with no error (FX4 review r1 M1)", async () => {
+    const { target, plan } = tubMeal('2101-01-01');
+    open(target, plan);
+    await page.getByRole('button', { name: 'Change use-by date' }).click();
+    await expect.element(page.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(page.getByRole('alert').elements()).toHaveLength(0);
+  });
+
   it('still works on the use-by day itself, with no note', async () => {
     const { target, plan } = tubMeal('2026-11-02');
     open(target, plan);

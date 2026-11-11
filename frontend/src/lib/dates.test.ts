@@ -122,4 +122,13 @@ describe('odd dates from a date box (F220)', () => {
     expect(dayMonthWords('275760-09-13')).toBe('');
     expect(dateWords('012112-12-11', 5)).toBe('');
   });
+
+  // FX4 review r1: the range is for what is typed; a date already stored outside it (the
+  // server takes any real day) still shows in words, never as a blank.
+  it("still words a stored real date outside the date boxes' range", () => {
+    expect(dayMonthWords('2101-01-01')).toBe('1 Jan');
+    expect(dateWords('2101-01-01', 40000)).toBe('1 Jan');
+    expect(dateWords('1999-12-31', -9000)).toBe('Date passed');
+    expect(pickedDateWords('0202-03-04')).not.toBe('');
+  });
 });
