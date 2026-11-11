@@ -587,7 +587,9 @@ def undo_change(
     if change.kind == "recipe_imported":
         recipes.check_import_undo(kitchen, data)  # at 50 drafts: refused before anything is done
     if change.kind in removals.KINDS:
-        removals.restore(kitchen, change, batch)  # the shop or place first: the rest points at it
+        removals.restore(
+            kitchen, change, batch, tally
+        )  # the shop or place first: the rest points at it
     if data.get("shopping"):
         shopping.undo_shopping(kitchen, change, tally, batch, action)
     # Each lot as it was before the Undo, so the Undo gets its own lines.

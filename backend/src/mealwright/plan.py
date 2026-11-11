@@ -1320,6 +1320,24 @@ def _cooked_now(kitchen: Kitchen, item: MealItem) -> bool:
     return meal is not None and cooked_record_of(kitchen, item, meal) is not None
 
 
+def _put_back_picks(kitchen: Kitchen, item_id: int) -> None:
+    """The meal's item is going: every way of cooking picked for it since, which is still marked
+    "used last" from that pick, goes back as it was before (newest pick first; D4)."""
+    for change in kitchen.db.scalars(
+        select(Change)
+        .where(
+            Change.household_id == kitchen.household_id,
+            Change.kind == "plan_method",
+            Change.undone_by_change_id.is_(None),
+        )
+        .order_by(Change.id.desc())
+    ):
+        for picked in (change.undo_data or {}).get("plan", []):
+            is_pick = picked.get("op") == "method" and picked.get("item") == item_id
+            if is_pick and "method_used" in picked:
+                methods.put_back(kitchen.db, picked)
+
+
 def _undo_step(
     kitchen: Kitchen, step: dict[str, Any], remap: dict[int, int], touched: set[int]
 ) -> bool:
@@ -1332,8 +1350,10 @@ def _undo_step(
         if _cooked_now(kitchen, item):
             return False  # cooked since: its record stays
         touched.add(item.meal_id)
+        item_id = item.id
         db.delete(item)
         db.flush()
+        _put_back_picks(kitchen, item_id)  # a way picked for this meal after it was planned
         if "method_used" in step:
             methods.put_back(db, step)  # the way is "used last" as it was before (M2)
         return True

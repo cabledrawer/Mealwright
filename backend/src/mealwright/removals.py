@@ -7,6 +7,7 @@ Neither table has a "removed" mark, so the row is deleted and its old id and det
 in the change, for Undo to make it again (`restore`, called by `undo_change`).
 """
 
+from datetime import datetime
 from typing import Any
 
 from fastapi import status
@@ -16,7 +17,7 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright import shopping
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem
-from mealwright.history import FoodEdit
+from mealwright.history import FoodEdit, Tally, as_utc
 from mealwright.models import (
     Change,
     ChangeLine,
@@ -26,6 +27,8 @@ from mealwright.models import (
     Place,
     Shop,
     StockLot,
+    StocktakeEntry,
+    StocktakePlace,
     Tub,
 )
 from mealwright.names import fold
@@ -215,11 +218,76 @@ def remove_place(kitchen: Kitchen, place: Place, move_to: Place | None) -> Chang
             "line_after": after,
             "ticks": ticks,
             "items": [item.id for item in items],
+            "stocktake": _stocktake_of(db, hid, place.id),
         }
         db.flush()
         db.delete(place)
         db.flush()
     return edit.record("place_removed", f"Removed the place {name}", None)
+
+
+def _stocktake_of(db: DbSession, household_id: int, place_id: int) -> dict[str, Any]:
+    """Where this place's stocktake was up to, for Undo (the rows go with the place, D2)."""
+    done = db.get(StocktakePlace, (household_id, place_id))
+    entries = db.scalars(
+        select(StocktakeEntry).where(
+            StocktakeEntry.household_id == household_id, StocktakeEntry.place_id == place_id
+        )
+    )
+    return {
+        "finished_at": as_utc(done.finished_at).isoformat() if done else None,
+        "entries": [
+            {
+                "food_id": e.food_id,
+                "answered": e.answered,
+                "change_id": e.change_id,
+                "at": as_utc(e.at).isoformat(),
+            }
+            for e in entries
+        ],
+    }
+
+
+def _put_back_stocktake(kitchen: Kitchen, place_id: int, data: dict[str, Any]) -> None:
+    """The place's stocktake progress as it was, for rows that are not there again already and
+    whose ingredient and change still exist. Records made before this have none."""
+    db = kitchen.db
+    hid = kitchen.household_id
+    if data.get("finished_at") and db.get(StocktakePlace, (hid, place_id)) is None:
+        db.add(
+            StocktakePlace(
+                household_id=hid,
+                place_id=place_id,
+                finished_at=datetime.fromisoformat(data["finished_at"]),
+            )
+        )
+    for entry in data.get("entries") or []:
+        food = db.get(Food, entry["food_id"])
+        if food is None or food.household_id != hid:
+            continue
+        if db.scalar(
+            select(StocktakeEntry.id).where(
+                StocktakeEntry.place_id == place_id, StocktakeEntry.food_id == food.id
+            )
+        ):
+            continue
+        change_id = entry["change_id"]
+        has_change = (
+            change_id is not None
+            and (change := db.get(Change, change_id)) is not None
+            and change.household_id == hid
+        )
+        db.add(
+            StocktakeEntry(
+                household_id=hid,
+                place_id=place_id,
+                food_id=food.id,
+                answered=entry["answered"],
+                change_id=change_id if has_change else None,
+                at=datetime.fromisoformat(entry["at"]),
+            )
+        )
+    db.flush()
 
 
 def _point(
@@ -278,7 +346,7 @@ def _undo_shop_edit(kitchen: Kitchen, change: Change) -> None:
     db.flush()
 
 
-def restore(kitchen: Kitchen, change: Change, batch: shopping.Batch) -> None:
+def restore(kitchen: Kitchen, change: Change, batch: shopping.Batch, tally: Tally) -> None:
     """Make the removed shop or place again, with its old id, before the rest of the Undo
     (ingredients, shopping lines) is put back. Refused when a newer one has taken its id."""
     if change.kind in ("shop_added", "shop_renamed"):
@@ -325,8 +393,11 @@ def restore(kitchen: Kitchen, change: Change, batch: shopping.Batch) -> None:
         )
     )
     db.flush()
+    tally.done += 1  # the place itself is back
     old, to, soft = data["id"], data["to"], data["soft_to"]
-    # Each row goes back only if it still points where the removal put it.
+    hid = kitchen.household_id
+    # Each row goes back only if it still points where the removal put it; one that has been
+    # moved on since stays where it is, and the answer says so ("partly", D3).
     for model_, column, key, target in (
         (StockLot, "place_id", "lots", to),
         (Tub, "place_id", "tubs", to),
@@ -336,27 +407,31 @@ def restore(kitchen: Kitchen, change: Change, batch: shopping.Batch) -> None:
     ):
         for chunk in _chunks(data[key]):
             col = getattr(model_, column)
-            db.execute(
+            result = db.execute(
                 update(model_)
                 .where(
-                    model_.household_id == kitchen.household_id,
+                    model_.household_id == hid,
                     model_.id.in_(chunk),
                     col.is_(None) if target is None else col == target,
                 )
                 .values({column: old})
             )
+            there = len(
+                db.scalars(
+                    select(model_.id).where(model_.household_id == hid, model_.id.in_(chunk))
+                ).all()
+            )
+            tally.skipped += max(0, there - result.rowcount)  # type: ignore[attr-defined]
     if data["items"]:
         seq = batch.number()
         for chunk in _chunks(data["items"]):
             for item in db.scalars(
-                select(ListItem).where(
-                    ListItem.household_id == kitchen.household_id,
-                    ListItem.id.in_(chunk),
-                    ListItem.put_away_place_id.is_(None)
-                    if soft is None
-                    else ListItem.put_away_place_id == soft,
-                )
+                select(ListItem).where(ListItem.household_id == hid, ListItem.id.in_(chunk))
             ):
+                if item.put_away_place_id != soft:
+                    tally.skipped += 1
+                    continue
                 item.put_away_place_id = old
                 item.version = seq
+    _put_back_stocktake(kitchen, old, data.get("stocktake") or {})
     db.flush()
