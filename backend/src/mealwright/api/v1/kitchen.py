@@ -525,6 +525,18 @@ class HouseholdChange(BaseModel):
     # Batch cook (Experimental; 0.8 wave 6, B2): shown (true) or hidden (false). Admins only: it
     # takes the sidebar entry and the Plan tab away from everyone, and its suggestions are refused.
     batch_cook: StrictBool | None = None
+    # The household's name (0.9 A1, Settings → Household). Admins only.
+    name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = clean_name(value)
+        if not value:
+            raise ValueError("Type the household’s name.")  # proposed, for cabledrawer
+        return value
 
 
 @router.patch("/household")
@@ -533,7 +545,7 @@ def change_household(body: HouseholdChange, kitchen: Here, response: Response) -
     only), Cook mode's per-step ingredients (`cook_per_step`, any person of the household) and
     whether Batch cook is shown (`batch_cook`, admins only). Answers with the settings as
     stored."""
-    if body.pints is not None or body.batch_cook is not None:
+    if body.pints is not None or body.batch_cook is not None or body.name is not None:
         kitchen.admin_only(Action.HOUSEHOLD_SETTINGS)
     # One key twice at once: the second waits, then sees it. A retry of a used key changes
     # nothing and answers the settings as stored (RF5, cabledrawer 11 Nov).
@@ -556,6 +568,10 @@ def change_household(body: HouseholdChange, kitchen: Here, response: Response) -
     if body.batch_cook is not None and household.batch_cook_hidden == body.batch_cook:
         household.batch_cook_hidden = not body.batch_cook
         kitchen_changes.batch_cook_switch(kitchen, body.batch_cook)
+        made = True
+    if body.name is not None and household.name != body.name:
+        old_name, household.name = household.name, body.name
+        kitchen_changes.household_renamed(kitchen, old_name, body.name)
         made = True
     kitchen.key_once = False
     kitchen.idempotency_key = key  # for commit(), if it loses a race

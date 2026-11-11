@@ -52,6 +52,8 @@ def test_setup_creates_the_admin_and_signs_in(client: TestClient) -> None:
         "username": "tess",
         "role": "admin",
         "theme": "auto",
+        "member_id": 1,  # the admin's own person in Settings → Household (0.9 A1)
+        "shared": False,
     }
     assert client.get("/api/v1/setup").json()["needs_setup"] is False
     assert client.get("/api/v1/me").json()["username"] == "tess"

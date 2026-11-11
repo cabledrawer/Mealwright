@@ -258,6 +258,24 @@ def test_a_removed_persons_meals_and_tubs_keep_them(kitchen: TestClient) -> None
         assert member is not None and member.removed_at is not None  # kept, only marked
 
 
+def test_an_admin_renames_the_household_and_can_undo_it(kitchen: TestClient) -> None:
+    before = ok(kitchen.get(f"{API}/household"))["name"]
+    renamed = ok(kitchen.patch(f"{API}/household", json={"name": "  Our   kitchen "}))
+    assert renamed["name"] == "Our kitchen"
+    change = _newest(kitchen)
+    assert change["summary"] == f"Renamed the household to Our kitchen (was {before})"
+    assert change["kind"] == "household_renamed"
+    blank = kitchen.patch(f"{API}/household", json={"name": "   "})
+    assert blank.status_code == 422
+    _undo(kitchen, change)
+    assert ok(kitchen.get(f"{API}/household"))["name"] == before
+    # Renamed again since: that Undo is refused.
+    ok(kitchen.patch(f"{API}/household", json={"name": "One"}))
+    first = _newest(kitchen)
+    ok(kitchen.patch(f"{API}/household", json={"name": "Two"}))
+    _problem(kitchen.post(f"{API}/changes/{first['id']}/undo"), 409, "cannot_undo")
+
+
 # --- The sign-in link ---------------------------------------------------------------------------
 
 

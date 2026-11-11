@@ -46,6 +46,7 @@ ADMIN_KINDS: dict[str, Action] = {
     "plan_slot": Action.HOUSEHOLD_SETTINGS,
     "batch_cook_switch": Action.HOUSEHOLD_SETTINGS,
     "pints_changed": Action.HOUSEHOLD_SETTINGS,
+    "household_renamed": Action.HOUSEHOLD_SETTINGS,
     "person_added": Action.PEOPLE,
     "person_changed": Action.PEOPLE,
     "person_removed": Action.PEOPLE,

@@ -157,7 +157,9 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
     entry = ok(kitchen.post(f"{API}/privacy/own-network", json={"value": "wiki.home.example"}), 201)
     photo = kit.uploaded(kitchen)  # not saved on a recipe, so household 1 could delete it
     draft = ok(kitchen.post(f"{API}/recipes/drafts", json=DRAFT_BODY), 201)
+    joss = ok(kitchen.post(f"{API}/people", json={"name": "Joss"}), 201)["people"][-1]
     return {
+        "member_id": joss["id"],
         "draft_id": draft["id"],
         "recipe_id": recipe["id"],
         "tag_id": tag_id,
@@ -321,6 +323,11 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/cooked"): {},
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/didnt"): None,
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/moved"): {"date": "2030-01-01", "slot_id": 1},
+    # Settings → Household (0.9 A1). Also tried in test_people.py.
+    ("PATCH", "/api/v1/people/{member_id}"): {"portion_quarters": 2},
+    ("DELETE", "/api/v1/people/{member_id}"): None,
+    ("POST", "/api/v1/people/{member_id}/login"): {"username": "joss"},
+    ("DELETE", "/api/v1/people/{member_id}/login"): None,
 }
 
 # Paths with a name in them, not an id: a switch is called "recipe_import", and the request
@@ -330,6 +337,10 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
 # household; what it adds goes into the signed-in household only (test_starter_packs.py).
 NAMED_NOT_NUMBERED = {
     ("PUT", "/api/v1/privacy/switches/{connection}"),
+    # A sign-in link's secret, not an id: it names one link of one household, and works signed
+    # out (test_people.py tries used, run-out, replaced and made-up links).
+    ("GET", "/api/v1/join/{token}"),
+    ("POST", "/api/v1/join/{token}"),
     ("POST", "/api/v1/starter-packs/{pack_id}/add"),
 }
 

@@ -27,6 +27,9 @@ API = "/api/v1"
 V070 = "5fbd6d33c434"  # v0.7.0's last migration
 BEFORE_REPAIR = "e7b4d9a1c628"  # the head before the counter repair
 REPAIR = "a9d3f6b2c481"
+# Tables made by migrations after the repair (0.9 A1's people): going back before the repair
+# drops them, so their counters go with them.
+AFTER_REPAIR = {"member"}
 REBUILT = {"meal_item", "batch_cook", "recipe_step", "recipe_line", "recipe", "food"}
 ADMIN = {"name": "Tess", "username": "tess", "password": "correct horse battery"}
 
@@ -214,7 +217,7 @@ def test_the_repair_migration_raises_a_counter_an_earlier_upgrade_reset(tmp_path
     # Running it again changes nothing, and going back leaves the counters alone.
     again = _counters(engine)
     migrate.downgrade(engine, BEFORE_REPAIR)
-    assert _counters(engine) == again
+    assert _counters(engine) == {k: v for k, v in again.items() if k not in AFTER_REPAIR}
     migrate.upgrade(engine)
     assert _counters(engine) == again
     engine.dispose()
@@ -232,9 +235,10 @@ def test_the_repair_leaves_a_healthy_database_alone(tmp_path: Path) -> None:
     engine.dispose()
 
 
-def test_the_repair_is_the_newest_migration() -> None:
+def test_the_repair_follows_the_head_it_repairs_and_every_newer_migration_follows_it() -> None:
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(migrate.alembic_config())
-    assert script.get_current_head() == REPAIR
+    line = [r.revision for r in script.walk_revisions()]  # from the head down
+    assert REPAIR in line and line.index(REPAIR) < line.index(BEFORE_REPAIR)
     assert script.get_revision(REPAIR).down_revision == BEFORE_REPAIR

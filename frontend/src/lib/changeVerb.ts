@@ -41,7 +41,15 @@ const VERB_KINDS = new Set([
   'kitchen_changed',
   'batch_cook_switch',
   'pints_changed',
-  'cook_step_changed'
+  'cook_step_changed',
+  // Settings → Household (0.9 A1): people added, changed and removed, sign-in links, the
+  // "Who's this?" switch and the household's name.
+  'person_added',
+  'person_changed',
+  'person_removed',
+  'person_login',
+  'whos_this_switch',
+  'household_renamed'
 ]);
 
 /** The other ways an edit's summary can end, after the ingredient's name ("{name} is now a staple"). */

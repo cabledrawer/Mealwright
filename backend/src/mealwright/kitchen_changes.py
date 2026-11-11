@@ -39,6 +39,7 @@ KINDS = (
     "batch_cook_switch",
     "pints_changed",
     "cook_step_changed",
+    "household_renamed",
 )
 
 
@@ -143,6 +144,17 @@ def pints_changed(kitchen: Kitchen, old: str, new: str) -> Change:
     )
 
 
+def household_renamed(kitchen: Kitchen, old: str, new: str) -> Change:
+    """The household's name (admins only; 0.9 A1, Settings → Household)."""
+    return record(
+        kitchen,
+        "household_renamed",
+        f"Renamed the household to {new} (was {old})",  # proposed, for cabledrawer
+        None,
+        {"name": {"old": old, "new": new}},
+    )
+
+
 def cook_step_changed(kitchen: Kitchen, shown: bool) -> Change:
     return record(
         kitchen,
@@ -194,6 +206,12 @@ def undo(kitchen: Kitchen, change: Change) -> None:
                 "That can’t be undone: Ingredients for each step has been switched again."
             )
         household.cook_per_step = data["cook_per_step"]["old"]
+        kitchen.db.flush()
+    elif change.kind == "household_renamed":
+        household = kitchen.household
+        if household.name != data["name"]["new"]:
+            raise _cannot_undo("That can’t be undone: the household has been renamed again.")
+        household.name = data["name"]["old"]
         kitchen.db.flush()
 
 

@@ -18,6 +18,7 @@ ADMIN_ROUTES: list[tuple[str, str, dict[str, Any] | None, Action]] = [
     ("DELETE", "/privacy/own-network/1", None, Action.PRIVACY),
     ("PATCH", "/household", {"pints": "us"}, Action.HOUSEHOLD_SETTINGS),
     ("PATCH", "/household", {"batch_cook": False}, Action.HOUSEHOLD_SETTINGS),
+    ("PATCH", "/household", {"name": "Ours"}, Action.HOUSEHOLD_SETTINGS),
     ("POST", "/household/from-browser", {"cup_ml": 250}, Action.HOUSEHOLD_SETTINGS),
     ("PATCH", "/meal-slots/{slot}", {"name": "Supper"}, Action.HOUSEHOLD_SETTINGS),
     ("POST", "/meal-slots", {"name": "Elevenses"}, Action.HOUSEHOLD_SETTINGS),
