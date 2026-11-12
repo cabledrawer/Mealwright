@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop dark – First-run setup on one page: setup code + account, amounts, shops, people, starter packs (0.9, proposed)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.h2{margin:0 4px;font-size:13px;font-weight:700;color:#A3AFA8;text-transform:uppercase;letter-spacing:0.06em}
+.card{background:#1B221F;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;flex:none}
+.pad{padding:14px 16px;gap:8px}
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:12px 14px;box-sizing:border-box;flex:none;border-top:1px solid #26302B;text-decoration:none;color:#E9EEEB}
+.row:first-child{border-top:none}
+.lbl{flex:1;min-width:0;font-size:16px;font-weight:600;display:flex;flex-direction:column;gap:2px}
+.lbl small{font-size:13px;font-weight:500;color:#A3AFA8;line-height:1.4}
+.val{font-size:14px;color:#A3AFA8;white-space:nowrap}
+.chev{color:#A3AFA8;flex:none}
+.sub{margin:0;font-size:13px;color:#A3AFA8;line-height:1.45}
+.note{margin:0 4px;font-size:13px;color:#A3AFA8;line-height:1.45}
+.av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:14px;flex:none}
+.btn{border:none;background:#E9EEEB;color:#111614;border-radius:14px;min-height:48px;padding:0 18px;font:700 15px 'Plus Jakarta Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.btn2{border:1px solid #39433D;background:#1B221F;color:#E9EEEB;border-radius:14px;min-height:48px;padding:0 16px;font:700 15px 'Plus Jakarta Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.sm{min-height:36px;padding:0 12px;font-size:13px;border-radius:10px}
+.danger{border:1px solid #6B2D28;background:#2A1715;color:#FFB4AB}
+.add{border:1px dashed #4A554E;background:transparent;color:#6FCF9E;border-radius:12px;min-height:44px;padding:0 14px;font:700 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.sw{width:46px;height:28px;border:none;border-radius:14px;background:#39433D;position:relative;padding:0;flex:none;cursor:pointer}
+.sw span{position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:12px;background:#C5CEC8}
+.sw[aria-checked="true"]{background:#2E7D5B}
+.sw[aria-checked="true"] span{left:20px;background:#FFFFFF}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:#C9D2CD}
+.fld input,.fld textarea{border:1px solid #39433D;border-radius:12px;min-height:46px;padding:0 12px;font:500 15px 'Plus Jakarta Sans',sans-serif;color:#E9EEEB;background:#111614;box-sizing:border-box;width:100%}
+.fld textarea{padding:10px 12px;min-height:84px;resize:none}
+.hint{font-size:12px;font-weight:500;color:#A3AFA8}
+.seg{display:flex;background:#111614;border:1px solid #39433D;border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:none;background:transparent;color:#C5CEC8;border-radius:9px;min-height:38px;font:700 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.seg button[aria-pressed="true"]{background:#1F3A2D;color:#8FE0B5}
+.chip{border:1px solid #39433D;background:#111614;color:#C5CEC8;border-radius:999px;min-height:36px;padding:0 12px;font:700 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip[aria-pressed="true"]{border-color:#2E7D5B;background:#1F3A2D;color:#8FE0B5}
+.tag{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:800;letter-spacing:0.02em}
+.warn{background:#33281A;border:1px solid #5C4520;color:#F5CD86;border-radius:14px;padding:12px 14px;font-size:13px;line-height:1.45;display:flex;gap:10px}
+.ok{background:#173326;border:1px solid #2E5E45;color:#A9E8C6;border-radius:14px;padding:12px 14px;font-size:13px;line-height:1.45;display:flex;gap:10px}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+html,body{margin:0;overflow-x:hidden;background:#111614}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:#E9EEEB;font-size:15px;font-weight:600;text-decoration:none}
+.sec{display:flex;flex-direction:column;gap:2px}
+.sec button{display:flex;align-items:center;border:none;background:transparent;border-radius:12px;padding:0 14px;min-height:44px;font:600 15px 'Plus Jakarta Sans',sans-serif;color:#E9EEEB;text-align:left;cursor:pointer}
+.sec button[aria-current="true"]{background:#1F3A2D;color:#8FE0B5;font-weight:700}
+.dcard{background:#1B221F;border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.dcard h2{margin:0;font-size:17px;font-weight:800}
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-size:12px;font-weight:700;color:#A3AFA8;text-transform:uppercase;letter-spacing:0.05em;padding:8px 10px;border-bottom:1px solid #26302B}
+td{padding:10px;border-bottom:1px solid #26302B;font-size:14px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex">
+<aside style="width: 232px; flex: none; background: #161C19; border-right: 1px solid #2A332E; padding: 24px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; padding: 0 8px">Mealwright</div>
+<nav class="nav" aria-label="Main" style="display: flex; flex-direction: column; gap: 2px"><a href="Dark-Today.dc.html">Today</a><a href="Dark-Plan.dc.html">Plan</a><a href="Dark-ShopPlan08-Desktop.dc.html">Shopping</a><a href="Dark-Pantry08-Desktop.dc.html">Pantry</a><a href="Dark-Recipe.dc.html">Recipes</a><a href="Dark-IngredientsPack08-Desktop.dc.html">Ingredients</a></nav>
+<a href="Dark-Settings09-Desktop.dc.html" aria-current="page" style="margin-top: auto; padding: 10px 12px; border-radius: 12px; background: #1F3A2D; color: #8FE0B5; text-decoration: none; font-size: 14px; font-weight: 700">Tess · Settings</a>
+</aside>
+<main style="flex: 1; min-width: 0; padding: 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px">
+<h1 style="margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -0.02em">Welcome to Mealwright. Five quick things.</h1>
+<p class="sub" style="font-size: 14px">Only the first is needed. Everything else has a sensible default and can change later in Settings.</p>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start">
+<section class="dcard" style="border: 1px solid #2E5E45"><h2>1 · Your account</h2>
+<label class="fld">Setup code<input type="text" value="KX7-42Q-PL9" class="mono"><span class="hint">In the server's log: <span class="mono">docker logs mealwright</span></span></label>
+<label class="fld">Your name<input type="text" value="Tess"></label>
+<label class="fld">Username<input type="text" value="tess"></label>
+<label class="fld">Password<input type="password" value="a long kitchen sentence"><span class="hint">At least 12 characters.</span></label></section>
+<section class="dcard"><h2>2 · Amounts</h2>
+<div style="display: flex; flex-direction: column; gap: 8px"><button class="chip" type="button" aria-pressed="true" style="justify-content: flex-start">As the recipe says</button><button class="chip" type="button" aria-pressed="false" style="justify-content: flex-start">Metric: grams and ml</button><button class="chip" type="button" aria-pressed="false" style="justify-content: flex-start">US: cups and ounces</button></div>
+<h2 style="margin-top: 10px">3 · Shops</h2>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><span class="chip">Supermarket ✕</span><span class="chip">Indian grocer ✕</span><button class="add" type="button">+ Shop</button></div></section>
+<section class="dcard"><h2>4 · Who eats here?</h2>
+<table><tbody><tr><td><strong>Tess (you)</strong></td><td>Admin</td><td>1</td></tr><tr><td><strong>Wren</strong></td><td>Signs in</td><td>1</td></tr><tr><td><strong>Joss</strong></td><td>Profile only</td><td>½</td></tr></tbody></table>
+<button class="add" type="button" style="align-self: flex-start">+ Add a person</button></section>
+<section class="dcard" style="grid-column: 1 / -1"><h2>5 · Start with common ingredients?</h2><p class="sub">Ready-made ingredients with aisle, usual UK pack sizes and other names. You see the list before anything is added.</p>
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><button class="chip" type="button" aria-pressed="true">Everyday basics</button><button class="chip" type="button" aria-pressed="true">Indian</button><button class="chip" type="button" aria-pressed="false">Chinese</button><button class="chip" type="button" aria-pressed="false">Japanese</button><button class="chip" type="button" aria-pressed="false">Middle Eastern</button><button class="chip" type="button" aria-pressed="true">Household</button><button class="chip" type="button" aria-pressed="false">Baking</button></div></section>
+</div>
+<div style="display: flex; gap: 12px; align-items: center"><button class="btn" type="button">Finish setup</button><span class="sub">Nothing connects outside until you switch it on in Privacy.</span></div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1440, "height": 900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
