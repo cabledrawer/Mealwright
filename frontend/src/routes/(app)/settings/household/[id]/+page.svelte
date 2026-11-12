@@ -484,6 +484,7 @@
   }
 
   .chip {
+    min-width: var(--touch-target);
     min-height: var(--touch-target);
     padding: 0 var(--space-6);
     border: 1px solid var(--color-border-strong);
@@ -520,6 +521,19 @@
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
     cursor: pointer;
+  }
+
+  /* On a touch screen or a phone, everything here is at least 44 × 44 px to tap. */
+  @media (pointer: coarse), (max-width: 767px) {
+    .swatch {
+      width: var(--touch-target);
+      height: var(--touch-target);
+      margin: 0;
+    }
+
+    .seg button {
+      min-height: var(--touch-target);
+    }
   }
 
   .seg button[aria-pressed='true'] {

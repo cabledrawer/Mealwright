@@ -55,8 +55,11 @@ async function tidy(page: Page) {
 /** A second browser, signed out, the same size as this project's. */
 async function anotherBrowser(browser: Browser, baseURL: string) {
   const use = test.info().project.use;
+  // Signed out: a context made here would otherwise start with the project's saved
+  // sign-in (the admin's), and /join and /sign-in send a signed-in browser straight on.
   return browser.newContext({
     baseURL,
+    storageState: { cookies: [], origins: [] },
     viewport: use.viewport,
     hasTouch: use.hasTouch,
     isMobile: use.browserName === 'chromium' ? use.isMobile : undefined,
