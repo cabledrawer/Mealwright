@@ -38,7 +38,7 @@ from mealwright.household import add_default_places, add_default_slots
 from mealwright.models import Household, Login
 from mealwright.names import one_line
 from mealwright.people import removed
-from mealwright.shopping import ensure_main_list
+from mealwright.shopping import ensure_main_list, lock_db
 
 # Every line here names an account or an address, so it goes to Mealwright's own 14-day
 # log file only, never to the container output (mealwright.logs, cabledrawer 17 Oct).
@@ -227,6 +227,12 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
 
     right = counted_check(slow, tries, password_right, failed)
     if not right or not login:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, WRONG)
+    # Asked again under the household's write lock, the one removing someone takes: a removal
+    # that committed while the password was checked wins, and one that comes later deletes the
+    # session added here (0.9.0-alpha.1 security pass).
+    lock_db(db, db.get_one(Household, login.household_id))
+    if removed(db, login):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, WRONG)
     slow.succeeded(user_key)
     if device:

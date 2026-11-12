@@ -42,7 +42,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from mealwright.config import Settings
 from mealwright.errors import Problem
-from mealwright.models import Login, Session, utcnow
+from mealwright.models import Login, Member, Session, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -554,12 +554,26 @@ class SignedIn:
     session: Session
 
 
+def _session_and_login(db: DbSession, token: str) -> tuple[Session, Login] | None:
+    """The session with this token and its login, in one query, only while the login's person
+    hasn't been removed: a session that outlived a removal (one added by a sign-in that raced
+    it) is never used (0.9.0-alpha.1 security pass)."""
+    found = db.execute(
+        select(Session, Login)
+        .join(Login, Login.id == Session.login_id)
+        .outerjoin(Member, Member.id == Login.member_id)
+        .where(Session.token_hash == _token_hash(token), Member.removed_at.is_(None))
+    ).first()
+    return None if found is None else (found[0], found[1])
+
+
 def find_session(db: DbSession, token: str | None) -> SignedIn | None:
     if not token:
         return None
-    session = db.scalar(select(Session).where(Session.token_hash == _token_hash(token)))
-    if session is None:
+    found = _session_and_login(db, token)
+    if found is None:
         return None
+    session, login = found
     at = now()
     if _as_utc(session.expires_at) <= at:
         db.delete(session)
@@ -571,9 +585,6 @@ def find_session(db: DbSession, token: str | None) -> SignedIn | None:
             ends_by = _as_utc(session.created_at) + LONGEST_SIGN_IN
             session.expires_at = min(at + IDLE_TIMEOUT, ends_by)
         db.commit()
-    login = db.get(Login, session.login_id)
-    if login is None:
-        return None
     return SignedIn(login=login, session=session)
 
 
@@ -583,11 +594,10 @@ def peek_session(db: DbSession, token: str | None) -> SignedIn | None:
     activity and the 12-hour idle sign-out still happens (cabledrawer 18 Oct)."""
     if not token:
         return None
-    session = db.scalar(select(Session).where(Session.token_hash == _token_hash(token)))
-    if session is None or _as_utc(session.expires_at) <= now():
+    found = _session_and_login(db, token)
+    if found is None or _as_utc(found[0].expires_at) <= now():
         return None
-    login = db.get(Login, session.login_id)
-    return None if login is None else SignedIn(login=login, session=session)
+    return SignedIn(login=found[1], session=found[0])
 
 
 # --- Request helpers (FastAPI dependencies) -------------------------------------------------
