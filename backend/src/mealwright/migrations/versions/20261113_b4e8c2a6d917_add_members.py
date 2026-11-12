@@ -12,7 +12,8 @@ them", cabledrawer 11 Nov).
   Each login there now gets its own person with the same name and one portion, numbered the same
   as the login, so every link that named a login still names the same person.
 - `login.member_id` (that person) and `login.shared` (no: no login is shared yet).
-- `session.member_id`: who picked themselves in "Who's this?" on a shared login (empty).
+- `session.member_id` and `session.picked_at`: who picked themselves in "Who's this?" on a
+  shared login, and when (empty).
 - `change.member_id`: who did it. Filled in for every change a login made, with its person.
 - `tub.member_login_id` becomes `tub.member_id`, and `meal_eater.login_id` becomes
   `meal_eater.member_id`, pointing at the same people. Recent changes' Undo records that name
@@ -21,9 +22,12 @@ them", cabledrawer 11 Nov).
 - `household.ask_whos_this` (off).
 
 Going back puts the tubs and who's eating back on the logins (a person without a login is
-dropped from them), drops the new tables and columns, and puts the Undo records' names back.
-What is lost: people without a login, colours and portions, shared-login marks, unused sign-in
-links, and who picked themselves in "Who's this?".
+dropped from them), drops the new tables and columns, and puts the Undo records' names back,
+each person's id turned into their login's id (a person without a login is left out of them).
+A removed person's login loses its password and every device it's signed in on is signed out,
+so they can't sign in again on 0.8 (0.8 knows nothing of removed people).
+What is lost: people without a login, removed people's passwords and sessions, colours and
+portions, shared-login marks, unused sign-in links, and who picked themselves in "Who's this?".
 """
 
 import json
@@ -46,20 +50,44 @@ _KEEP = {"sqlite_autoincrement": True}
 _TUB_KEYS = (("member_login_id", "member_id"), ("member_login_ids", "member_ids"))
 
 
-def _rename(value: Any, forward: bool) -> Any:
+def _logins_of(ids: Any, login_of: dict[int, int]) -> Any:
+    """Going back: a person's id (or a list of them) as their login's id. A person without a
+    login becomes None in a single id and is left out of a list."""
+    if isinstance(ids, list):
+        return [login_of[i] for i in ids if isinstance(i, int) and i in login_of]
+    return login_of.get(ids) if isinstance(ids, int) else ids
+
+
+def _rename(value: Any, forward: bool, login_of: dict[int, int] | None = None) -> Any:
+    """Forward, a login's id is its person's id, so only the key changes. Back, `login_of`
+    (person id → login id) turns each person's id into their login's."""
     if isinstance(value, list):
-        return [_rename(v, forward) for v in value]
+        return [_rename(v, forward, login_of) for v in value]
     if not isinstance(value, dict):
         return value
     pairs = [(old, new) if forward else (new, old) for old, new in _TUB_KEYS]
     if value.get("op") == "eaters":
         pairs.append(("login_ids", "member_ids") if forward else ("member_ids", "login_ids"))
     names = dict(pairs)
-    return {names.get(k, k): _rename(v, forward) for k, v in value.items()}
+    renamed: dict[str, Any] = {}
+    for key, item in value.items():
+        if key in names and login_of is not None:
+            renamed[names[key]] = _logins_of(item, login_of)
+        else:
+            renamed[names.get(key, key)] = _rename(item, forward, login_of)
+    return renamed
 
 
 def _rewrite_undo_records(forward: bool) -> None:
     bind = op.get_bind()
+    login_of: dict[int, int] | None = None
+    if not forward:
+        login_of = {
+            member_id: login_id
+            for login_id, member_id in bind.exec_driver_sql(
+                "SELECT id, member_id FROM login WHERE member_id IS NOT NULL"
+            ).all()
+        }
     words = ("member_login_id", '%"eaters"%') if forward else ("member_id", '%"eaters"%')
     rows = bind.exec_driver_sql(
         "SELECT id, undo_data FROM change WHERE undo_data LIKE ? OR undo_data LIKE ?",
@@ -67,7 +95,7 @@ def _rewrite_undo_records(forward: bool) -> None:
     ).fetchall()
     for change_id, raw in rows:
         data = json.loads(raw) if isinstance(raw, str) else raw
-        new = _rename(data, forward)
+        new = _rename(data, forward, login_of)
         if new != data:
             bind.exec_driver_sql(
                 "UPDATE change SET undo_data = ? WHERE id = ?", (json.dumps(new), change_id)
@@ -123,6 +151,7 @@ def upgrade() -> None:
 
     with op.batch_alter_table("session", schema=None) as batch_op:
         batch_op.add_column(sa.Column("member_id", sa.Integer(), nullable=True))
+        batch_op.add_column(sa.Column("picked_at", sa.DateTime(timezone=True), nullable=True))
         batch_op.create_foreign_key(
             batch_op.f("fk_session_member_id_member"),
             "member",
@@ -218,6 +247,15 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # 0.8 doesn't know a person can be removed: their login must not sign in there.
+    removed = (
+        "SELECT login.id FROM login JOIN member ON member.id = login.member_id"
+        " WHERE member.removed_at IS NOT NULL"
+    )
+    op.execute(f"DELETE FROM session WHERE login_id IN ({removed})")  # noqa: S608
+    op.execute(f"DELETE FROM join_link WHERE login_id IN ({removed})")  # noqa: S608
+    op.execute(f"UPDATE login SET password_hash = NULL WHERE id IN ({removed})")  # noqa: S608
+
     _rewrite_undo_records(forward=False)
 
     with op.batch_alter_table("household", schema=None) as batch_op:
@@ -268,6 +306,7 @@ def downgrade() -> None:
 
     with op.batch_alter_table("session", schema=None) as batch_op:
         batch_op.drop_constraint("fk_session_member_id_member", type_="foreignkey")
+        batch_op.drop_column("picked_at")
         batch_op.drop_column("member_id")
 
     with op.batch_alter_table("login", schema=None) as batch_op:

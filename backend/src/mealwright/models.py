@@ -221,6 +221,8 @@ class Session(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     # On a shared login: who picked themselves in "Who's this?" on this device (0.9 A1).
     member_id: Mapped[int | None] = mapped_column(ForeignKey("member.id", ondelete="SET NULL"))
+    # When they picked themselves: a pick older than 30 minutes no longer counts.
+    picked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class JoinLink(Base):

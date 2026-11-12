@@ -2,6 +2,12 @@
 
 All notable changes to Mealwright are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the plan in `docs/spec.md` section 8: 0.N.0 per build milestone (not published), then MAJOR.MINOR.PATCH from 1.0.0.
 
+## [Unreleased]
+
+### People and roles (0.9 A1)
+
+- **Database change** (`b4e8c2a6d917`): people of the household (`member`), each login's own person, shared logins, "Who's this?" (who picked themselves on a device, and when) and one-time sign-in links. Back up first. **Going back** puts whose tub and who's eating back on the logins, and Recent changes' Undo records name each person by their login again (a person without a login is left out of them). A removed person's login loses its password and every device it's signed in on is signed out, so they can't sign in on the older version. What is lost going back: people without a login, removed people's passwords and sessions, colours and portions, shared-login marks, unused sign-in links, and who picked themselves in "Who's this?".
+
 ## [0.8.0] - 2026-11-11
 
 The end of the 0.8 milestone: Batch cook (Experimental, from the step timings to batch cook mode and one Cooked it for a whole session), the fixes from cabledrawer's look at 0.8.0-beta.1 (10 Nov), and the fixes from the whole-0.8 review (11 Nov), which are all of its findings. Batch cook, planned for 0.8.5 in the beta.1 notes, is in 0.8.0 (cabledrawer 11 Nov).

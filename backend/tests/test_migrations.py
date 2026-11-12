@@ -2182,3 +2182,84 @@ def test_members_migration_gives_each_login_a_person_moves_tubs_and_eaters_and_g
     with engine.begin() as connection:
         assert connection.exec_driver_sql("SELECT member_id FROM tub").all() == [(1,)]
         assert connection.exec_driver_sql("SELECT count(*) FROM member").scalar_one() == 2
+
+
+def test_members_migration_going_back_keeps_removed_people_out_and_undo_names_the_same_people(
+    tmp_path: Path,
+) -> None:
+    """Review r1: 0.8 knows nothing of removed people, so going back takes a removed person's
+    password and signs them out everywhere (they can't sign in on 0.8). Undo records name
+    each person by their login's id there, and by the same person again on the way forward."""
+    engine = _make_0_2_database(tmp_path / "old.db")
+    _with_recipes(engine)
+    migrate.upgrade(engine)
+    wren_password = "Wren’s long password"
+    with engine.begin() as connection:
+        for member_id, login_id, name, removed in ((60, 70, "Wren", None), (61, 71, "Sam", "x")):
+            connection.exec_driver_sql(
+                "INSERT INTO member (id, household_id, name, portion_quarters, created_at,"
+                " removed_at) VALUES (?, 1, ?, 4, '2026-11-11', ?)",
+                (member_id, name, None if removed is None else "2026-11-12"),
+            )
+            connection.exec_driver_sql(
+                "INSERT INTO login (id, household_id, username, name, password_hash, role,"
+                " theme, created_at, member_id) VALUES (?, 1, ?, ?, ?, 'member', 'auto',"
+                " '2026-11-11', ?)",
+                (login_id, name.lower(), name, hash_password(wren_password), member_id),
+            )
+            connection.exec_driver_sql(
+                "INSERT INTO session (household_id, login_id, token_hash, remember, created_at,"
+                " last_seen_at, expires_at) VALUES (1, ?, ?, 0, '2026-11-11', '2026-11-11',"
+                " '2099-01-01')",
+                (login_id, f"token{login_id}"),
+            )
+            connection.exec_driver_sql(
+                "INSERT INTO join_link (household_id, login_id, token_hash, created_at,"
+                " expires_at) VALUES (1, ?, ?, '2026-11-11', '2099-01-01')",
+                (login_id, f"link{login_id}"),
+            )
+        # A person without a login (Joss, 62) is left out on the way back.
+        connection.exec_driver_sql(
+            "INSERT INTO member (id, household_id, name, portion_quarters, created_at)"
+            " VALUES (62, 1, 'Joss', 2, '2026-11-11')"
+        )
+        undo = {
+            "steps": [
+                {"op": "tub", "tub": 1, "member_id": 60, "to": {"member_id": 62}},
+                {"op": "eaters", "meal": 1, "member_ids": [60, 62, 1], "to": []},
+            ]
+        }
+        connection.exec_driver_sql(
+            "UPDATE change SET undo_data = ? WHERE id = 1", (json.dumps(undo),)
+        )
+
+    migrate.downgrade(engine, BATCH_SCHEDULE_MIGRATION)
+    with engine.begin() as connection:
+        hashes = dict(
+            connection.exec_driver_sql(
+                "SELECT username, password_hash FROM login WHERE id IN (70, 71)"
+            ).all()
+        )
+        assert hashes["sam"] is None  # removed: no password, so 0.8 can't sign Sam in
+        assert hashes["wren"] is not None
+        assert connection.exec_driver_sql(
+            "SELECT login_id FROM session WHERE login_id IN (70, 71)"
+        ).all() == [(70,)]
+        back = json.loads(
+            connection.exec_driver_sql("SELECT undo_data FROM change WHERE id = 1").scalar_one()
+        )
+        assert back["steps"] == [
+            {"op": "tub", "tub": 1, "member_login_id": 70, "to": {"member_login_id": None}},
+            {"op": "eaters", "meal": 1, "login_ids": [70, 1], "to": []},
+        ]
+
+    migrate.upgrade(engine)
+    with engine.begin() as connection:
+        forward = json.loads(
+            connection.exec_driver_sql("SELECT undo_data FROM change WHERE id = 1").scalar_one()
+        )
+        assert forward["steps"][0]["member_id"] == 70
+        assert forward["steps"][1]["member_ids"] == [70, 1]
+        assert connection.exec_driver_sql(
+            "SELECT name FROM member WHERE id = 70"
+        ).scalar_one() == "Wren"
