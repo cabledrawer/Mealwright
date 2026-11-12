@@ -20,7 +20,7 @@
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { drafts } from '#lib/drafts.svelte.js';
 import { runWipeHooks } from './wipeHooks';
-import { privacy } from '#lib/privacy.svelte.js';
+import { forgetLoaded } from '#lib/forgetWhenLoaded.js';
 import { updates } from '#lib/updates.svelte.js';
 import { forgetToday } from '#lib/today.svelte.js';
 import { shoppingSync } from '#lib/shopping/sync.svelte.js';
@@ -73,7 +73,7 @@ export async function wipeNow(): Promise<boolean> {
   tellOtherTabs();
   shoppingSync.forget();
   placesAndShops.forget();
-  privacy.forget();
+  forgetLoaded('privacy');
   updates.forget();
   drafts.forget();
   runWipeHooks();

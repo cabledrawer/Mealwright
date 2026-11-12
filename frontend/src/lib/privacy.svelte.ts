@@ -20,6 +20,7 @@ import {
   type SwitchName
 } from './client/privacy';
 import { nothingChanged } from './downWords';
+import { rememberToForget } from './forgetWhenLoaded';
 import { network } from './network.svelte';
 import { undoHistory } from './undo.svelte';
 
@@ -226,3 +227,5 @@ class Privacy {
 export const privacy = new Privacy();
 
 forgetWhenSessionEnds(() => privacy.forget());
+// The shell forgets it on a wipe or a turned-away sign-in without loading this file for it.
+rememberToForget('privacy', () => privacy.forget());
