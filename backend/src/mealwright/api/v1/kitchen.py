@@ -472,7 +472,7 @@ class HouseholdOut(BaseModel):
     today: date
     # Full Onboarding (0.9 U2): false until the first admin finishes or skips it after setup.
     onboarding_done: bool
-    # How amounts are shown (0.9 U2; proposed, for cabledrawer): as written, or grams and ml. Stored
+    # How amounts are shown (0.9 U2; cabledrawer 12 Nov): as written, or grams and ml. Stored
     # only for now: nothing on screen converts yet.
     amounts_shown: Literal["as_written", "metric"]
 
@@ -537,7 +537,7 @@ class HouseholdChange(BaseModel):
     # Onboarding finished or skipped (0.9 U2). Admins only, and only ever true: it never opens
     # again. Not in Recent changes: there is nothing to undo.
     onboarding_done: Literal[True] | None = None
-    # How amounts are shown (0.9 U2; proposed, for cabledrawer): admins only, like the pint.
+    # How amounts are shown (0.9 U2; cabledrawer 12 Nov): admins only, like the pint.
     amounts_shown: Literal["as_written", "metric"] | None = None
 
     @field_validator("name")

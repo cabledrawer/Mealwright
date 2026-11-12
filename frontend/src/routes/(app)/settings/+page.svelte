@@ -57,7 +57,7 @@
   /** The household's pint, once the server has said (null until then, and when it can't). */
   let pints = $state<Pints | null>(null);
   let pintsProblem = $state<string | null>(null);
-  /** How amounts are shown (0.9 U2; proposed, for cabledrawer). Read with the pint. */
+  /** How amounts are shown (0.9 U2; cabledrawer 12 Nov). Read with the pint. */
   let amountsShown = $state<AmountsShown>('as_written');
   const admin = who?.role === 'admin';
 

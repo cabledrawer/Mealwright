@@ -98,7 +98,7 @@ class Household(Base):
     # Full Onboarding (0.9 U2): false until the first admin finishes or skips the steps after
     # making the account; then onboarding never shows again. Households from before are true.
     onboarding_done: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
-    # How amounts are shown (spec "Amounts shown in 1.0"; 0.9 U2, proposed, for cabledrawer):
+    # How amounts are shown (spec "Amounts shown in 1.0"; 0.9 U2, cabledrawer 12 Nov):
     # "as_written" (the usual) or "metric" (grams and millilitres). Stored only for now.
     amounts_shown: Mapped[str] = mapped_column(
         String(10), default="as_written", server_default="as_written"
