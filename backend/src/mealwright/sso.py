@@ -140,9 +140,12 @@ OFFLINE_REFUSED = frozenset({"invalid_scope", "not_allowed"})
 class SsoFailed(Exception):
     """Single sign-on didn't work; `code` is a key of MESSAGES. Never carries a token."""
 
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, *, say_nothing_of_it: bool = False) -> None:
         super().__init__(code)
         self.code = code
+        # True when the failure is Mealwright's own (no free place for a look-up), not the
+        # sign-in server's: it is never remembered as the server not answering.
+        self.say_nothing_of_it = say_nothing_of_it
 
     @property
     def message(self) -> str:
@@ -255,8 +258,8 @@ def _addresses(
             addresses = gate.look_up(household_id, CONNECTION, host, port, deadline=deadline)
         except OutboundBlocked:
             raise SsoFailed("switched_off") from None
-        except OutboundFailed:
-            raise SsoFailed("unreachable") from None
+        except OutboundFailed as failure:
+            raise SsoFailed("unreachable", say_nothing_of_it=failure.busy) from None
         if not addresses:
             raise SsoFailed("unreachable")
     name_listed = literal is None and listed.lists_name(host)
@@ -406,7 +409,7 @@ def discover(
     try:
         provider = _discover(gate, household_id, issuer, deadline)
     except SsoFailed as failure:
-        if failure.code in _NO_ANSWER:
+        if failure.code in _NO_ANSWER and not failure.say_nothing_of_it:
             cache.put("no_discovery", issuer, failure.code, FAIL_FOR)
         raise
     cache.put("discovery", issuer, provider)

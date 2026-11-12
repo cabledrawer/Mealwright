@@ -94,9 +94,12 @@ class OutboundFailed(Exception):
     "unreachable", "tls" or "bad_answer"); nothing else is kept, because the library's own
     message can name the host."""
 
-    def __init__(self, kind: str) -> None:
+    def __init__(self, kind: str, *, busy: bool = False) -> None:
         super().__init__(kind)
         self.kind = kind
+        # True when nothing was tried: every place for a name look-up was held (by someone
+        # else's stuck look-ups), so this says nothing about the host.
+        self.busy = busy
 
 
 @dataclass(frozen=True)
@@ -201,7 +204,7 @@ def _look_up_within(household_id: int, host: str, port: int, seconds: float) -> 
     with _look_ups_lock:
         mine = _look_ups_by_household.get(household_id, 0)
         if _look_ups_running >= MAX_STUCK_LOOK_UPS or mine >= MAX_STUCK_PER_HOUSEHOLD:
-            raise OutboundFailed("timeout")
+            raise OutboundFailed("timeout", busy=True)
         _look_ups_running += 1
         _look_ups_by_household[household_id] = mine + 1
     try:
