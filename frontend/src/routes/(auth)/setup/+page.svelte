@@ -3,7 +3,7 @@
   // is no default admin and no default password (spec section 7). The rest of
   // onboarding (Amounts, Household, Shops) comes in 0.8. The setup code (0.9, A2) is printed in
   // the server's log at start-up, so only someone who can read that log can claim a fresh
-  // install (the words are proposed, for cabledrawer).
+  // install (the words are accepted (cabledrawer 12 Nov)).
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { ApiError, createAdmin } from '#lib/api.js';

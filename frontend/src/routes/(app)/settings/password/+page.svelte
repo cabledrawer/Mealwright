@@ -2,7 +2,7 @@
   // Settings → Sign-in → Change password (PR A2; the mockup Dark-ChangePassword09). Needs the
   // current password. New passwords need 12 characters (cabledrawer 11 Nov); passwords people
   // already have keep working (19 Oct). "Sign out my other devices" is on to start with
-  // (proposed, for cabledrawer), and is only shown while there are other devices.
+  // (cabledrawer 12 Nov), and is only shown while there are other devices.
   import { ApiError, cantReach, cantReachWords, detailOf } from '#lib/api.js';
   import Button from '#lib/components/Button.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';

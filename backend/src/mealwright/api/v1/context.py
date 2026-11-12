@@ -16,7 +16,7 @@ from mealwright.roles import Action, allowed
 
 _KEY = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 # A "Who's this?" pick counts for 30 minutes after it was made or after the last change made as
-# that person, like the browser's 30 minutes without use (proposed, for cabledrawer). "Just looking"
+# that person, like the browser's 30 minutes without use (cabledrawer 12 Nov). "Just looking"
 # (an hour without asking) stays in the browser: it records nobody, so the server needn't know.
 PICK_FOR = timedelta(minutes=30)
 SAFE = {"GET", "HEAD", "OPTIONS"}

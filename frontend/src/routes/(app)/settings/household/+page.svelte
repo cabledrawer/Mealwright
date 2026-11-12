@@ -71,7 +71,7 @@
     addError = undefined;
     try {
       if (!(await household.add(newName, null, 4))) return;
-      // The new person opens, to choose their colour, portion and login (proposed, for cabledrawer).
+      // The new person opens, to choose their colour, portion and login (cabledrawer 12 Nov).
       const wanted = newName.trim().toLocaleLowerCase();
       const made = household.people.find((p) => p.name.toLocaleLowerCase() === wanted);
       newName = '';

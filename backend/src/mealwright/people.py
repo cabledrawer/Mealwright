@@ -76,12 +76,12 @@ def who_did(kitchen: Kitchen, change: Change) -> Who:
 
 # --- Changing people (admins only; the routes are in `api/v1/people.py`) -------------------------
 
-# The colours a person can have, as the design names them (proposed, for cabledrawer).
+# The colours a person can have, as the design names them (cabledrawer 12 Nov).
 COLOURS = ("amber", "green", "violet", "blue", "peach")
 KINDS = ("person_added", "person_changed", "person_removed", "whos_this_switch")
 # A sign-in link was made: only there to be read in Recent changes, with no Undo of its own.
 LINK_KIND = "person_login"
-JOIN_FOR = timedelta(hours=24)  # proposed, for cabledrawer
+JOIN_FOR = timedelta(hours=24)  # cabledrawer 12 Nov
 
 
 def _refused(code: str, detail: str) -> Problem:
@@ -117,7 +117,7 @@ def can_sign_in() -> ColumnElement[bool]:
 def admins_left(kitchen: Kitchen, apart_from: int | None = None) -> int:
     """How many admins the household has who can sign in, apart from this person. An admin
     whose sign-in link isn't used yet doesn't count: they can't sign in to do admin things.
-    A shared login (a kitchen tablet) doesn't count either: proposed, for cabledrawer."""
+    A shared login (a kitchen tablet) doesn't count either: cabledrawer 12 Nov."""
     query = (
         select(func.count())
         .select_from(Login)
@@ -131,7 +131,7 @@ def admins_left(kitchen: Kitchen, apart_from: int | None = None) -> int:
 
 
 def last_admin(member: Member) -> Problem:
-    return _refused(  # proposed, for cabledrawer
+    return _refused(  # cabledrawer 12 Nov
         "last_admin",
         f"{member.name} is the household’s only admin. Make someone else an admin first.",
     )
@@ -139,7 +139,7 @@ def last_admin(member: Member) -> Problem:
 
 def check_name(kitchen: Kitchen, name: str, apart_from: int | None = None) -> None:
     """Two people of the household can't have the same name: "Who's this?" and Recent changes
-    tell them apart by it (proposed, for cabledrawer)."""
+    tell them apart by it (cabledrawer 12 Nov)."""
     for other in kitchen.db.scalars(
         select(Member).where(
             Member.household_id == kitchen.household_id, Member.removed_at.is_(None)
@@ -183,7 +183,7 @@ def add(kitchen: Kitchen, name: str, colour: str | None, portion_quarters: int) 
     return record(
         kitchen,
         "person_added",
-        f"Added {name} to the household",  # proposed, for cabledrawer
+        f"Added {name} to the household",  # cabledrawer 12 Nov
         None,
         {"person": {"id": member.id, "new": _state(kitchen, member)}},
     )
@@ -194,7 +194,7 @@ def change(kitchen: Kitchen, member: Member, wanted: dict[str, Any]) -> Change |
     need a login. Nothing is recorded when nothing changed."""
     login = login_of(kitchen, member)
     if ("role" in wanted or "shared" in wanted) and login is None:
-        raise _refused("no_login", f"{member.name} doesn’t sign in.")  # proposed, for cabledrawer
+        raise _refused("no_login", f"{member.name} doesn’t sign in.")  # cabledrawer 12 Nov
     old = _state(kitchen, member)
     if "name" in wanted and wanted["name"] != member.name:
         check_name(kitchen, wanted["name"], member.id)
@@ -229,7 +229,7 @@ def _apply(kitchen: Kitchen, member: Member, login: Login | None, wanted: dict[s
 
 
 def _change_words(old: dict[str, Any], new: dict[str, Any]) -> str:
-    """Proposed, for cabledrawer: "Changed Joss: ½ portion (was 1 portion)"."""
+    """cabledrawer 12 Nov: "Changed Joss: ½ portion (was 1 portion)"."""
     parts: list[str] = []
     if old["name"] != new["name"]:
         parts.append(f"renamed from {old['name']}")
@@ -251,7 +251,7 @@ def remove(kitchen: Kitchen, member: Member) -> Change:
     """Mark the person removed: their meals, tubs and history stay. Their login can't sign in
     any more, and every device they're signed in on is signed out."""
     if member.id == kitchen.login.member_id:
-        raise _refused(  # proposed, for cabledrawer
+        raise _refused(  # cabledrawer 12 Nov
             "remove_yourself", "You can’t remove yourself. Ask another admin."
         )
     login = login_of(kitchen, member)
@@ -271,7 +271,7 @@ def remove(kitchen: Kitchen, member: Member) -> Change:
     return record(
         kitchen,
         "person_removed",
-        f"Removed {member.name} from the household",  # proposed, for cabledrawer
+        f"Removed {member.name} from the household",  # cabledrawer 12 Nov
         None,
         {"person": {"id": member.id}},
     )
@@ -286,7 +286,7 @@ def ask_whos_this(kitchen: Kitchen, on: bool) -> Change | None:
     return record(
         kitchen,
         "whos_this_switch",
-        f"Switched Ask “Who’s this?” {'on' if on else 'off'}",  # proposed, for cabledrawer
+        f"Switched Ask “Who’s this?” {'on' if on else 'off'}",  # cabledrawer 12 Nov
         None,
         {"whos_this": {"old": not on, "new": on}},
     )
@@ -298,11 +298,11 @@ def _token_hash(token: str) -> str:
 
 def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tuple[str, JoinLink]:
     """Give a person a login with no password yet, and a one-time sign-in link (24 hours) where
-    they choose one (proposed, for cabledrawer). A new link replaces any unused one. Returns the
+    they choose one (cabledrawer 12 Nov). A new link replaces any unused one. Returns the
     link's token (shown once, never stored) and the link."""
     login = login_of(kitchen, member)
     if login is not None and login.password_hash:
-        raise _refused(  # proposed, for cabledrawer
+        raise _refused(  # cabledrawer 12 Nov
             "signs_in_already", f"{member.name} already signs in."
         )
     taken = kitchen.db.scalar(select(Login).where(Login.username == username))
@@ -340,7 +340,7 @@ def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tu
     record(
         kitchen,
         LINK_KIND,
-        f"Made a sign-in link for {member.name}",  # proposed, for cabledrawer
+        f"Made a sign-in link for {member.name}",  # cabledrawer 12 Nov
         None,
         None,
     )
@@ -349,7 +349,7 @@ def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tu
 
 def take_back_login(kitchen: Kitchen, member: Member) -> None:
     """ "Profile only" for a person whose sign-in link hasn't been used yet: the login and its
-    link go. Someone who already signs in is removed instead (proposed, for cabledrawer)."""
+    link go. Someone who already signs in is removed instead (cabledrawer 12 Nov)."""
     login = login_of(kitchen, member)
     if login is None:
         return
@@ -444,7 +444,7 @@ def undo(kitchen: Kitchen, change: Change) -> None:
         if member.removed_at is not None:
             raise _cannot_undo(f"That can’t be undone: {member.name} has been removed already.")
         if login_of(kitchen, member) is not None:
-            raise _cannot_undo(  # proposed, for cabledrawer
+            raise _cannot_undo(  # cabledrawer 12 Nov
                 f"That can’t be undone: {member.name} has a login now. Remove them instead."
             )
         member.removed_at = utcnow()
@@ -481,7 +481,7 @@ def _undo_change(kitchen: Kitchen, member: Member, data: dict[str, Any]) -> None
             ) from None
     goes_shared = wanted.get("shared") is True and now["role"] == ADMIN
     if (wanted.get("role") == MEMBER or goes_shared) and admins_left(kitchen, member.id) == 0:
-        raise _cannot_undo(  # proposed, for cabledrawer
+        raise _cannot_undo(  # cabledrawer 12 Nov
             f"That can’t be undone: {member.name} is the household’s only admin now."
         )
     _apply(kitchen, member, login_of(kitchen, member), wanted)

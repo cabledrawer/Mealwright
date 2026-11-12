@@ -1,10 +1,10 @@
 // The words of Settings → About's update parts (mockup Dark-About09-Phone; plan row X1). Every
-// sentence here is "proposed, for cabledrawer" (docs/dev/words.md, "About").
+// sentence here was accepted by cabledrawer on 12 Nov (docs/dev/words.md, "About").
 
 import type { CheckOutcome, LastCheck } from './client/updates';
 import { tagForm } from './version';
 
-/** After this many whole months About says how old the version is (proposed, for cabledrawer). */
+/** After this many whole months About says how old the version is (cabledrawer 12 Nov). */
 export const OLD_AFTER_MONTHS = 3;
 
 const dayMonthYear = new Intl.DateTimeFormat('en-GB', {

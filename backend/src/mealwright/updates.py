@@ -54,7 +54,7 @@ RELEASED = date(2026, 11, 12)
 # then these name an owner GitHub can't have (a user name never has an underscore), so they can
 # never reach someone else's project, and while the list is still the placeholder no check
 # connects at all: it answers "couldn't check" without asking, as the answer could only be "not
-# found" (security review r1; proposed, for cabledrawer). Set PLACEHOLDER_OWNER's two uses to the
+# found" (security review r1; cabledrawer 12 Nov). Set PLACEHOLDER_OWNER's two uses to the
 # real repository at 1.0.
 PLACEHOLDER_OWNER = "placeholder_until_1_0"
 RELEASES_PAGE = f"https://github.com/{PLACEHOLDER_OWNER}/mealwright/releases"
@@ -65,7 +65,7 @@ MAX_LIST_BYTES = 2 * 1024 * 1024
 # The longest one check may take, start to finish.
 CHECK_TIME_LIMIT = 20.0
 # Check now again within this long gives the answer just had, without connecting, so a busy
-# finger can't send GitHub a stream of requests (proposed, for cabledrawer). A failed answer is kept
+# finger can't send GitHub a stream of requests (cabledrawer 12 Nov). A failed answer is kept
 # too: otherwise each press after a failure would connect again.
 RECHECK_AFTER = timedelta(minutes=1)
 # The daily check runs when the last answer is at least this old (a little under a day, so it

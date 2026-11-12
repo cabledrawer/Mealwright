@@ -22,7 +22,7 @@ describe('how old a version is', () => {
     expect(monthsBetween('2026-11-12', '2026-10-01')).toBe(0); // a clock set wrong: never negative
   });
 
-  it('says nothing for the first three months (proposed, for cabledrawer)', () => {
+  it('says nothing for the first three months (cabledrawer 12 Nov)', () => {
     expect(OLD_AFTER_MONTHS).toBe(3);
     expect(ageWords('2026-11-12', '2027-02-11')).toBeNull();
     expect(ageWords('2026-11-12', '2027-02-12')).toBe('This version is 3 months old.');

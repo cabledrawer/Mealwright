@@ -4,7 +4,7 @@
   //
   // 1. The server builds the report (version, browser and device, recent errors for an admin)
   //    with personal details already removed. 2. All of it is shown here; every line can be
-  //    changed or removed (proposed, for cabledrawer: each line with its own ✕, as drawn), and
+  //    changed or removed (cabledrawer 12 Nov: each line with its own ✕, as drawn), and
   //    "What were you doing?" is typed here. 3. The person sends it: Open on GitHub (a link to a
   //    filled-in new-issue page, their own click), Copy, or Download (a text file made here).
   //    The server makes no connection for any of it.

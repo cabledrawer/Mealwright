@@ -60,7 +60,7 @@
     loginProblem = null;
   }
 
-  /** "Joss Roe" → "joss.roe": a starting point the admin can change (proposed, for cabledrawer). */
+  /** "Joss Roe" → "joss.roe": a starting point the admin can change (cabledrawer 12 Nov). */
   function suggestedUsername(of: string): string {
     return of
       .normalize('NFKD')

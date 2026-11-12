@@ -1,6 +1,6 @@
 // Settings → About → Report a problem (spec section 7, "Bug reports", cabledrawer 17 Oct; mockup
 // Dark-Report09-Phone; plan row X2). The words from the mockup are the mockup's; every other
-// sentence here is "proposed, for cabledrawer" (docs/dev/words.md section 74).
+// sentence here was accepted by cabledrawer on 12 Nov (docs/dev/words.md section 74).
 //
 // The report is built in the browser from what the server sent and what the person kept and
 // typed. Copy, Download and Open on GitHub all use the same text, so what is sent is what was
@@ -24,7 +24,7 @@ export const COPY = 'Copy';
 export const DOWNLOAD = 'Download';
 export const REMOVE_LINE = 'Remove this line';
 
-// Proposed, for cabledrawer.
+// cabledrawer 12 Nov.
 export const LINE_REMOVED = 'Line removed';
 export const COPIED = 'Report copied';
 export const COPY_FAILED = 'Couldn’t copy. Use Download instead.';

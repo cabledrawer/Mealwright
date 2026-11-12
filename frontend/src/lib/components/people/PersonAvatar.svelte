@@ -1,7 +1,7 @@
 <script lang="ts">
   // A person's round initial (0.9 A1, mockups Household09, Person09 and WhosThis09), in their
   // colour. Someone with no colour chosen gets one from their number, so two people side by
-  // side rarely match (proposed, for cabledrawer). The name is said next to it, so it is hidden
+  // side rarely match (cabledrawer 12 Nov). The name is said next to it, so it is hidden
   // from screen readers.
   import { COLOURS, initial, type Colour } from '#lib/client/people.js';
 

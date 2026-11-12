@@ -107,7 +107,7 @@ export const getJoinLink = (token: string) =>
 export const join = (token: string, password: string) =>
   api<void>('POST', `/join/${encodeURIComponent(token)}`, { password }, { signingIn: true });
 
-/** "½ portion", "1 portion", "1½ portions" (proposed, for cabledrawer). */
+/** "½ portion", "1 portion", "1½ portions" (cabledrawer 12 Nov). */
 export function portionWords(quarters: number): string {
   const whole = Math.floor(quarters / 4);
   const part = ['', '¼', '½', '¾'][quarters % 4];
@@ -122,7 +122,7 @@ export const PORTION_CHOICES = [1, 2, 4, 6, 8] as const;
 export const initial = (name: string): string =>
   (Array.from(name.trim())[0] ?? '?').toLocaleUpperCase();
 
-/** The small line under a name on the Household screen (proposed, for cabledrawer). */
+/** The small line under a name on the Household screen (cabledrawer 12 Nov). */
 export function personLine(person: Person): string {
   const login = person.login;
   const portion = portionWords(person.portion_quarters);

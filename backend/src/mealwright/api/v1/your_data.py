@@ -5,7 +5,7 @@ household settings). Nothing here makes a network connection.
 
 Backups copy the whole database, so they belong to the install, not to one household: the
 scheduled job follows the first household's choice (an install has one household; the second
-one exists only in tests). Proposed, for cabledrawer.
+one exists only in tests). cabledrawer 12 Nov.
 """
 
 import logging
@@ -183,7 +183,7 @@ def _sign_out(request: Request, response: Response) -> None:
 def _remove_photos(folder: Path) -> None:
     """Delete the household's photo files. The next household gets the same number, so what
     can't be removed is moved out of `photos/` to `photos-left-over-<UTC time>` beside it,
-    where it is never served or exported (review r1; the name is proposed, for cabledrawer). The
+    where it is never served or exported (review r1; the name is accepted (cabledrawer 12 Nov)). The
     log says how many files, never which."""
     shutil.rmtree(folder, ignore_errors=True)
     if not folder.exists():
@@ -270,7 +270,7 @@ def delete_everything(
         db.commit()
         # First-run setup needs a setup code from the log (0.9 A2), and the one made at start-up
         # is long forgotten: make a new one now that nobody is left, and print it as start-up
-        # does (joining D1 and A2; proposed, for cabledrawer).
+        # does (joining D1 and A2; cabledrawer 12 Nov).
         if db.scalar(select(func.count()).select_from(Login)) == 0:
             request.app.state.setup_code = setup_code.new_code()
             setup_code.announce(request.app.state.setup_code)

@@ -160,7 +160,7 @@ class Member(Base):
     one "family" login are members too. Portions are counted in quarters (4 is one portion).
 
     Removing someone only marks them (`removed_at`): their meals, tubs and history stay, and
-    Recent changes shows "Joss (removed)". Proposed, for cabledrawer: Undo for 7 days."""
+    Recent changes shows "Joss (removed)". cabledrawer 12 Nov: Undo for 7 days."""
 
     __tablename__ = "member"
     __table_args__ = (
@@ -239,7 +239,7 @@ class Session(Base):
 
 
 class JoinLink(Base):
-    """A one-time sign-in link an admin made for a person (0.9 A1; proposed, for cabledrawer): it
+    """A one-time sign-in link an admin made for a person (0.9 A1; cabledrawer 12 Nov): it
     works once, for 24 hours, and the person picks their own password with it. Only the token's
     SHA-256 is stored, like a session's."""
 

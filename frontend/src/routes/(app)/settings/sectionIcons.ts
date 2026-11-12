@@ -48,7 +48,7 @@ export const SECTION_ICONS: Record<
     ]
   },
   privacy: { tone: 'quiet', paths: ['M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z'] },
-  // A database: stacked discs (proposed, for cabledrawer).
+  // A database: stacked discs (cabledrawer 12 Nov).
   'your-data': {
     tone: 'quiet',
     paths: [

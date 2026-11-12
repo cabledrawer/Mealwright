@@ -51,9 +51,9 @@ log = logging.getLogger(__name__)
 USER_AGENT = "Mealwright"  # no version and nothing about the install
 TIMEOUT_SECONDS = 15
 # The longest `OutboundGate.request()` may take altogether, from looking the name up to the last
-# byte of the answer (X1; proposed, for cabledrawer). A caller can ask for less (or more).
+# byte of the answer (X1; cabledrawer 12 Nov). A caller can ask for less (or more).
 REQUEST_TIME_LIMIT = 30.0
-# The most a caller may ask for; more is cut to this (security review r1; proposed, for cabledrawer).
+# The most a caller may ask for; more is cut to this (security review r1; cabledrawer 12 Nov).
 MAX_REQUEST_TIME_LIMIT = 120.0
 MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 

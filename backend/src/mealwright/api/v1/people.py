@@ -368,7 +368,7 @@ GONE = "This sign-in link has been used or has run out. Ask your household’s a
 def _link(db: Db, token: str) -> tuple[JoinLink, Login, Member]:
     found = people.find_link(db, token) if len(token) <= 100 else None
     if found is None:
-        raise Problem(status.HTTP_404_NOT_FOUND, "link_gone", GONE)  # proposed, for cabledrawer
+        raise Problem(status.HTTP_404_NOT_FOUND, "link_gone", GONE)  # cabledrawer 12 Nov
     return found
 
 
@@ -392,7 +392,7 @@ class JoinIn(BaseModel):
 def join(token: str, body: JoinIn, request: Request, db: Db) -> None:
     """Choose a password with a sign-in link. The link works once."""
     # The person then signs in on the sign-in page like anyone else, so a phone holding
-    # someone else's waiting changes warns first there (proposed, for cabledrawer).
+    # someone else's waiting changes warns first there (cabledrawer 12 Nov).
     needs_https(request, request.app.state.settings)
     link, login, _member = _link(db, token)
     # Claim the link first, so of two requests at once only one sets a password.

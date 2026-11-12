@@ -12,7 +12,10 @@ from mealwright.config import Settings
 from mealwright.main import create_app
 from mealwright.setup_code import new_code  # the real one: conftest swaps in a known code
 
-WRONG = "That isn’t the setup code. Mealwright prints it in its log each time it starts."
+WRONG = (
+    "That isn’t the setup code. Mealwright prints it in its log when it starts, "
+    "and again after Delete everything."
+)
 
 
 def test_a_code_looks_like_this() -> None:

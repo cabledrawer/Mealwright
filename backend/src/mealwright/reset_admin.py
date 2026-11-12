@@ -32,7 +32,7 @@ def new_password() -> str:
 
 def _admins(db: DbSession) -> list[str]:
     """The admins who can sign in: not removed, with a password, or with a sign-in link not
-    used yet (marked so; proposed, for cabledrawer)."""
+    used yet (marked so; cabledrawer 12 Nov)."""
     live_link = (
         select(JoinLink.id)
         .where(
@@ -69,7 +69,7 @@ def reset_admin(settings: Settings, username: str, out: TextIO = sys.stdout) -> 
             if login is None or login.role != "admin" or (member and member.removed_at):
                 if login is None:
                     why = f"The login {name!r} doesn't exist"
-                elif member and member.removed_at:  # proposed, for cabledrawer
+                elif member and member.removed_at:  # cabledrawer 12 Nov
                     why = (
                         f"The login {name!r} can't be reset: "
                         f"{member.name} has been removed from the household"

@@ -423,7 +423,7 @@ def test_while_the_release_list_is_the_placeholder_nothing_connects(
 ) -> None:
     """Until 1.0 the release list doesn't exist, so asking for it could only get "not found":
     with the switch on, Check now and the daily check connect nowhere and say "couldn't
-    check" (security review r1; proposed, for cabledrawer)."""
+    check" (security review r1; cabledrawer 12 Nov)."""
     asked: list[object] = []
     monkeypatch.setattr(checks._gate, "request", lambda *args, **options: asked.append(args))
     assert checks.check_now(1).outcome == "failed"  # the switch is off: pressed all the same

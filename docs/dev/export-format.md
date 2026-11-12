@@ -9,7 +9,7 @@ read without Mealwright or brought into another program. (Spec section 7, "Expor
 - `mealwright-export.json`: every row of every household table, as JSON, read in one database
   snapshot.
 - `photos/`: the household's recipe photos, as Mealwright stores them.
-- Left out on purpose (proposed, for cabledrawer): sign-ins (the `session` table, and the
+- Left out on purpose (cabledrawer 12 Nov): sign-ins (the `session` table, and the
   `join_link` table of sign-in links made for people) and passwords
   (`login.password_hash`). Whoever restores from an export sets passwords again.
 - Optional password encryption (cabledrawer's decision) is **not built yet**. It comes in a later

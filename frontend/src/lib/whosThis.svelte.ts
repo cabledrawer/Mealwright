@@ -4,7 +4,7 @@
 //
 // Asked when the app opens with nobody picked, and again after 30 minutes without use (the pick
 // is cleared first, so nothing is recorded for the last person meanwhile). "Just looking" picks
-// nobody and doesn't ask again for an hour on this device. Both times are proposed, for cabledrawer.
+// nobody and doesn't ask again for an hour on this device. Both times are accepted (cabledrawer 12 Nov).
 
 import { cantReach } from './api';
 import { getWhosThis, pickWho, type Pickable } from './client/people';

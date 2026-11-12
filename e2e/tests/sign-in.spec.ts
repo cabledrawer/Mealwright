@@ -11,7 +11,7 @@ const PLAIN_WARNING =
   'Not secure (plain http). Fine on this device on your own network. Other phones, the installable app and offline shopping need https.';
 
 const SETUP_CODE_WRONG =
-  'That isn’t the setup code. Mealwright prints it in its log each time it starts.';
+  'That isn’t the setup code. Mealwright prints it in its log when it starts, and again after Delete everything.';
 
 const PAUSE_NOTE =
   'Only one wrong-password pause per username, never longer than a minute. Other people can still sign in.';

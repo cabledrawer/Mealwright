@@ -147,7 +147,8 @@ def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
         raise Problem(
             status.HTTP_403_FORBIDDEN,
             "wrong_setup_code",
-            "That isn’t the setup code. Mealwright prints it in its log each time it starts.",
+            "That isn’t the setup code. Mealwright prints it in its log when it starts, "
+            "and again after Delete everything.",
         )
     household = Household(id=1, name="Home")  # one household per install (spec section 3)
     login = Login(

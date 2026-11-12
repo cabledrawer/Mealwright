@@ -1,5 +1,5 @@
 <script lang="ts">
-  // A one-time sign-in link (0.9 A1, proposed, for cabledrawer): an admin gives someone a login in
+  // A one-time sign-in link (0.9 A1, cabledrawer 12 Nov): an admin gives someone a login in
   // Settings → Household, and sends them this link. Here they choose their own password; the
   // link then stops working, and they sign in like anyone else (so the sign-in page's checks
   // for changes waiting on this device apply to them too). Works once, for 24 hours.

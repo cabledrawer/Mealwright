@@ -611,7 +611,7 @@ def _pick_made(kitchen: TestClient, minutes_ago: int) -> None:
 def test_a_pick_older_than_30_minutes_without_a_change_credits_nobody(
     kitchen: TestClient,
 ) -> None:
-    """Review r1: the server forgets a pick like the browser does (proposed, for cabledrawer); a
+    """Review r1: the server forgets a pick like the browser does (cabledrawer 12 Nov); a
     change made as the person keeps it going."""
     tablet = _tablet(kitchen)
     ok(kitchen.put(f"{API}/people/ask-whos-this", json={"on": True}))

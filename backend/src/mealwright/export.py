@@ -6,7 +6,7 @@ One zip file with everything a household keeps:
   read in one database snapshot, so it is consistent even while people keep using Mealwright.
 - `photos/<name>.jpg`: the household's recipe photo files, as stored (large and list copies).
 
-Two things are left out on purpose (proposed, for cabledrawer), and the document says so in
+Two things are left out on purpose (cabledrawer 12 Nov), and the document says so in
 `left_out`: the `session` table (who is signed in where: a stolen copy must never sign anyone
 in), the `join_link` table (sign-in links made for people, 0.9 A1) and `login.password_hash`
 (a copy of the file must not let anyone try passwords offline).
@@ -40,7 +40,7 @@ PHOTOS = "photos/"
 
 # Left out of every export (see the module's note).
 # `join_link` (0.9 A1) joined when D1 met the people work: a sign-in link is a sign-in too
-# (proposed, for cabledrawer).
+# (cabledrawer 12 Nov).
 LEFT_OUT_TABLES = {
     "session": "who is signed in where (sign-in cookies)",
     "join_link": "sign-in links made for people",

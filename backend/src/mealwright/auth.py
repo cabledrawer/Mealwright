@@ -282,7 +282,7 @@ class SlowDown:
 # doesn't stop a try for that login: a guesser polling the username can't keep its owner out of
 # the new password. Each try is still counted and still meets the address limit and the hash
 # turns; a wrong one is told the username is paused, as before (PR A2, security review r2;
-# proposed, for cabledrawer).
+# cabledrawer 12 Nov).
 NEW_PASSWORD_WINDOW = timedelta(minutes=10)
 
 

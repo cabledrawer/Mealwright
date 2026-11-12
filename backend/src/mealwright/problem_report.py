@@ -6,7 +6,7 @@ it themselves (Open on GitHub in their own browser, Copy, or Download).
 
 What it holds: the app version, the browser and device type (from the request's User-Agent,
 reduced to the browser's name, its major version and the kind of device), and the recent errors
-from the log file (`mealwright.logs`): proposed, for cabledrawer, the last `ERRORS_KEPT` error lines
+from the log file (`mealwright.logs`): cabledrawer 12 Nov, the last `ERRORS_KEPT` error lines
 written in the last `ERRORS_WITHIN`, each reduced to its time, the part of the app that wrote it,
 its message and the kind of error (never the traceback).
 
@@ -45,7 +45,7 @@ from mealwright.updates import RELEASES_PAGE
 # (mealwright.updates; both become the real one at 1.0). Opened by the person's own click.
 NEW_ISSUE_PAGE = RELEASES_PAGE.removesuffix("/releases") + "/issues/new"
 
-# Proposed, for cabledrawer: the last 20 error lines from the last 24 hours.
+# cabledrawer 12 Nov: the last 20 error lines from the last 24 hours.
 ERRORS_KEPT = 20
 ERRORS_WITHIN = timedelta(hours=24)
 # Only the end of each log file is read: errors are the newest lines, and a big file stays cheap.
@@ -295,7 +295,7 @@ def _mark_ranges() -> str:
 _WORD_CHAR = rf"(?:[^\W\d_]|[{_mark_ranges()}\u200c\u200d])"
 _WORD = re.compile(rf"{_WORD_CHAR}+")
 # "Granny Mabel's lasagne": a capitalised word before 's in a recipe's or ingredient's name is
-# most likely a person's, and is removed on its own like one (proposed, for cabledrawer).
+# most likely a person's, and is removed on its own like one (cabledrawer 12 Nov).
 _POSSESSIVE = re.compile(r"(?<![^\W\d_])([^\W\d_]{2,})['\u2019]s(?![^\W\d_])")
 # Words of household names that are never removed on their own ("The Marshes").
 _JOINING = frozenset({"the", "and", "of"})
@@ -390,7 +390,7 @@ def _phrases(pattern_words: Iterable[str]) -> re.Pattern[str] | None:
     return re.compile(rf"(?<![\w.\-])(?:{alternatives})(?![\w\-]|\.\w)", re.IGNORECASE)
 
 
-# People: every word of these is removed on its own, wherever it is (proposed, for cabledrawer).
+# People: every word of these is removed on its own, wherever it is (cabledrawer 12 Nov).
 _PEOPLE_COLUMNS: tuple[Any, ...] = (
     models.Login.username,
     models.Login.name,
@@ -419,7 +419,7 @@ _PEOPLE_COLUMNS: tuple[Any, ...] = (
 
 # Everything else is removed only as a whole phrase (its last word may have an "s"), so the
 # everyday words in it ("hour", "removed") stay in other lines. What each is replaced with
-# (proposed, for cabledrawer); a phrase that is two kinds at once gets the first kind's word.
+# (cabledrawer 12 Nov); a phrase that is two kinds at once gets the first kind's word.
 _PHRASE_COLUMNS: tuple[tuple[str, tuple[Any, ...]], ...] = (
     (
         "[recipe]",
