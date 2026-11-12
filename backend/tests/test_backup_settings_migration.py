@@ -9,7 +9,7 @@ from sqlalchemy import inspect
 from mealwright import migrate
 from mealwright.db import make_engine
 
-BEFORE = "b4f8e2a6c917"  # the migration just before this one (0.9 A2: sign-in device and password date)
+BEFORE = "b4f8e2a6c917"  # the migration just before this one (0.9 A2: sign-in columns)
 THIS = "b2f7c4e8a915"
 COLUMNS = {"backup_every", "backup_keep", "backup_problem", "backup_problem_at"}
 

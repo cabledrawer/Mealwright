@@ -30,6 +30,15 @@ ADMIN_ROUTES: list[tuple[str, str, dict[str, Any] | None, Action]] = [
     ("POST", "/people/{person}/login", {"username": "someone"}, Action.PEOPLE),
     ("DELETE", "/people/{person}/login", None, Action.PEOPLE),
     ("PUT", "/people/ask-whos-this", {"on": True}, Action.PEOPLE),
+    ("PATCH", "/backups", {"keep": 3}, Action.YOUR_DATA),
+    ("POST", "/backups", None, Action.YOUR_DATA),
+    ("GET", "/export", None, Action.YOUR_DATA),
+    (
+        "POST",
+        "/delete-everything",
+        {"words": "delete everything", "password": "x"},
+        Action.YOUR_DATA,
+    ),
 ]
 
 # Actions with no route yet: Settings → Sign-in comes with 0.9's sign-in work.
@@ -51,6 +60,7 @@ def test_the_table_says_admins_only_for_people_and_household_privacy_and_sign_in
         Action.HOUSEHOLD_SETTINGS,
         Action.PRIVACY,
         Action.SIGN_IN,
+        Action.YOUR_DATA,
     }
     for action in Action:
         assert roles.allowed(roles.ADMIN, action)

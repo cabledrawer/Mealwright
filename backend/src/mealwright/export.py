@@ -8,7 +8,8 @@ One zip file with everything a household keeps:
 
 Two things are left out on purpose (proposed, for cabledrawer), and the document says so in
 `left_out`: the `session` table (who is signed in where: a stolen copy must never sign anyone
-in) and `login.password_hash` (a copy of the file must not let anyone try passwords offline).
+in), the `join_link` table (sign-in links made for people, 0.9 A1) and `login.password_hash`
+(a copy of the file must not let anyone try passwords offline).
 
 The zip is written as it is sent (streamed), never kept on the server. Nothing here makes a
 network connection.
@@ -38,7 +39,12 @@ DOCUMENT = "mealwright-export.json"
 PHOTOS = "photos/"
 
 # Left out of every export (see the module's note).
-LEFT_OUT_TABLES = {"session": "who is signed in where (sign-in cookies)"}
+# `join_link` (0.9 A1) joined when D1 met the people work: a sign-in link is a sign-in too
+# (proposed, for cabledrawer).
+LEFT_OUT_TABLES = {
+    "session": "who is signed in where (sign-in cookies)",
+    "join_link": "sign-in links made for people",
+}
 LEFT_OUT_COLUMNS = {("login", "password_hash"): "passwords, even scrambled"}
 
 _PHOTO_FILE = re.compile(r"^[0-9a-f]{32}(-list)?\.jpg$")

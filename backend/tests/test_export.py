@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from photo_kit import jpeg, uploaded
 
 from mealwright import export
-from mealwright.auth import hash_password
+from mealwright.auth import COOKIE, hash_password
 from mealwright.db import Base
 from mealwright.models import Login
 from mealwright.photos import household_folder
@@ -71,8 +71,8 @@ def test_the_round_trip_brings_back_rows_and_photos(kitchen: TestClient) -> None
     assert doc["version"] == 1
     assert doc["household_id"] == 1
     assert doc["database_revision"]
-    # Every household table is there (even when empty), except the sign-ins.
-    expected = {t.name for t in Base.metadata.sorted_tables} - {"session"}
+    # Every household table is there (even when empty), except the sign-ins and sign-in links.
+    expected = {t.name for t in Base.metadata.sorted_tables} - {"session", "join_link"}
     assert set(doc["tables"]) == expected
     names = [row["name"] for row in doc["tables"]["recipe"]]
     assert names == ["Dal with ümlauts and ½ tsp"]
@@ -108,14 +108,18 @@ def test_no_password_and_no_sign_in_ever_leaves(kitchen: TestClient) -> None:
     assert [login["username"] for login in logins] == ["tess"]
     assert all("password_hash" not in login for login in logins)
     assert "session" not in doc["tables"]
-    assert doc["left_out"]["tables"] == {"session": "who is signed in where (sign-in cookies)"}
+    assert "join_link" not in doc["tables"]  # sign-in links (0.9 A1) are sign-ins too
+    assert doc["left_out"]["tables"] == {
+        "session": "who is signed in where (sign-in cookies)",
+        "join_link": "sign-in links made for people",
+    }
     assert "login.password_hash" in doc["left_out"]["columns"]
     assert b"$argon2" not in raw
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         text = archive.read(export.DOCUMENT)
     assert b"$argon2" not in text
     assert ADMIN_PASSWORD.encode() not in text
-    cookie = kitchen.cookies.get("mealwright_session")
+    cookie = kitchen.cookies.get(COOKIE)
     assert cookie
     assert cookie.encode() not in text
 

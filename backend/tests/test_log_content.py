@@ -10,6 +10,7 @@ there, so the test isn't passing on an empty log.
 import logging
 
 import pytest
+from conftest import SETUP_CODE
 from fastapi.testclient import TestClient
 
 API = "/api/v1"
@@ -51,7 +52,12 @@ def test_no_password_and_nothing_people_cook_or_buy_reaches_the_log(
     client: TestClient, caplog: pytest.LogCaptureFixture
 ) -> None:
     with caplog.at_level(logging.DEBUG):
-        admin = {"name": "Tess", "username": "tess", "password": PASSWORD}
+        admin = {
+            "name": "Tess",
+            "username": "tess",
+            "password": PASSWORD,
+            "setup_code": SETUP_CODE,
+        }
         ok(client.post(f"{API}/setup", json=admin), 201)
 
         # Sign-ins: a wrong password, a password typed into the username box, then the right one.

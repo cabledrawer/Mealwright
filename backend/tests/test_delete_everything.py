@@ -6,19 +6,20 @@ stay; everyone is signed out; Mealwright then asks for first-run setup. The othe
 (tests only) is untouched.
 """
 
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
 import test_households
-from conftest import ADMIN
+from conftest import ADMIN, SETUP_CODE
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select, update
 from test_households import snapshot
 
 from mealwright import backups
-from mealwright.auth import hash_password
+from mealwright.auth import COOKIE, hash_password
 from mealwright.models import Change, Household, ListItem, ListTick, Login
 
 API = "/api/v1/delete-everything"
@@ -91,13 +92,29 @@ def test_it_deletes_every_row_and_photo_keeps_backups_and_starts_again(
     assert safety.startswith("before-delete-everything-")
     assert (folder / safety).stat().st_size > 0
     # Everyone is signed out, the admin's cookie with them.
-    assert "mealwright_session" not in kitchen.cookies
+    assert COOKIE not in kitchen.cookies
     assert kitchen.get("/api/v1/me").status_code == 401
     assert member.get("/api/v1/me").status_code == 401
     # Mealwright starts again at first-run setup, and setup works.
     assert kitchen.get("/api/v1/setup").json()["needs_setup"] is True
     assert kitchen.post("/api/v1/setup", json=ADMIN).status_code == 201
     assert kitchen.get("/api/v1/recipes").status_code == 200
+
+
+def test_it_prints_a_new_setup_code_because_first_run_setup_needs_one(
+    kitchen: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """First-run setup needs the code from the log (0.9 A2), and the one from start-up was
+    forgotten when the admin was made: without a new one nobody could set up again until a
+    restart."""
+    assert kitchen.app.state.setup_code is None  # type: ignore[attr-defined]
+    with caplog.at_level(logging.WARNING, logger="mealwright.setup"):
+        assert kitchen.post(API, json=RIGHT).status_code == 204
+    assert kitchen.app.state.setup_code == SETUP_CODE  # type: ignore[attr-defined]
+    assert any(SETUP_CODE in record.getMessage() for record in caplog.records)
+    without = ADMIN | {"setup_code": "ABCD-EFGH-JKMN"}
+    assert kitchen.post("/api/v1/setup", json=without).status_code == 403
+    assert kitchen.post("/api/v1/setup", json=ADMIN).status_code == 201
 
 
 def test_the_safety_backup_holds_what_was_deleted(kitchen: TestClient) -> None:

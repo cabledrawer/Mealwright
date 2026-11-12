@@ -18,16 +18,16 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import Engine, delete, select
+from sqlalchemy import Engine, delete, func, select
 
-from mealwright import backups, export
-from mealwright.api.v1.account import how_long
+from mealwright import backups, export, setup_code
 from mealwright.api.v1.context import Here
-from mealwright.auth import COOKIE, SameOrigin, SlowDown, check_password
+from mealwright.auth import SameOrigin, SlowDown, check_password, cookie_name, how_long
 from mealwright.errors import Problem
 from mealwright.household import today
-from mealwright.models import Household, Session, utcnow
+from mealwright.models import Household, Login, Session, utcnow
 from mealwright.photos import household_folder, store_of
+from mealwright.roles import Action
 
 router = APIRouter(tags=["your data"], dependencies=[SameOrigin])
 
@@ -93,7 +93,7 @@ class BackupsChange(BaseModel):
 @router.patch("/backups")
 def change_backups(body: BackupsChange, kitchen: Here, request: Request) -> BackupsOut:
     """Change how often and how many. Keeping fewer removes the oldest backups now."""
-    kitchen.admin_only()
+    kitchen.admin_only(Action.YOUR_DATA)
     household = kitchen.household
     folder = _folder(request)
     if body.every is not None:
@@ -110,7 +110,7 @@ def change_backups(body: BackupsChange, kitchen: Here, request: Request) -> Back
 def back_up_now(kitchen: Here, request: Request) -> BackupsOut:
     """Back up now ("Back up now"). Admins only. A failure is answered as the settings with
     `problem` set, as the screen shows it, not as an error."""
-    kitchen.admin_only()
+    kitchen.admin_only(Action.YOUR_DATA)
     engine: Engine = request.app.state.engine
     folder = _folder(request)
     now = utcnow()
@@ -132,7 +132,7 @@ def export_everything(kitchen: Here) -> StreamingResponse:
     """Export everything (Admins only): one zip file with every recipe, plan, list, pantry
     item, person and setting of the household, and its photos (docs/dev/export-format.md,
     version 1). Sign-ins and passwords are left out. Written as it is sent."""
-    kitchen.admin_only()
+    kitchen.admin_only(Action.YOUR_DATA)
     household_id = kitchen.household_id
     # Everything is read now, in one snapshot, before the first byte is sent.
     doc = export.document(kitchen.db, household_id)
@@ -163,10 +163,11 @@ _ONE_DELETE_AT_A_TIME = threading.Lock()
 
 
 def _sign_out(request: Request, response: Response) -> None:
+    settings = request.app.state.settings
     response.delete_cookie(
-        COOKIE,
+        cookie_name(settings),  # this mode's sign-in cookie (0.9 A2)
         httponly=True,
-        secure=not request.app.state.settings.allow_plain_http,
+        secure=not settings.allow_plain_http,
         samesite="lax",
         path="/",
     )
@@ -217,7 +218,7 @@ def delete_everything(
     A safety backup is made first, and nothing is deleted if it can't
     be. The backups folder is kept. Everyone is signed out; Mealwright then starts again at
     first-run setup. There is no Undo."""
-    kitchen.admin_only()
+    kitchen.admin_only(Action.YOUR_DATA)
     if " ".join(body.words.split()).lower() != WORDS:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -264,6 +265,12 @@ def delete_everything(
         # Every table points at the household with ON DELETE CASCADE: one row takes all of it.
         db.execute(delete(Household).where(Household.id == household_id))
         db.commit()
+        # First-run setup needs a setup code from the log (0.9 A2), and the one made at start-up
+        # is long forgotten: make a new one now that nobody is left, and print it as start-up
+        # does (joining D1 and A2; proposed, for cabledrawer).
+        if db.scalar(select(func.count()).select_from(Login)) == 0:
+            request.app.state.setup_code = setup_code.new_code()
+            setup_code.announce(request.app.state.setup_code)
         _remove_photos(photos)
     for session_id in sessions:  # open live-update streams end now
         request.app.state.events.end_session(session_id)

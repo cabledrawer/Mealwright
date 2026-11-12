@@ -27,6 +27,9 @@ class Action(StrEnum):
     PRIVACY = "privacy"
     # Settings → Sign-in (single sign-on, password sign-in, API tokens; from 0.9).
     SIGN_IN = "sign_in"
+    # Settings → Your data: how often and how many backups, Back up now, Export everything and
+    # Delete everything (0.9 D1).
+    YOUR_DATA = "your_data"
     # Cook mode's ingredients for each step: any person of the household (cabledrawer 1 Nov).
     COOK_PER_STEP = "cook_per_step"
 
@@ -37,6 +40,7 @@ TABLE: dict[Action, frozenset[str]] = {
     Action.HOUSEHOLD_SETTINGS: frozenset({ADMIN}),
     Action.PRIVACY: frozenset({ADMIN}),
     Action.SIGN_IN: frozenset({ADMIN}),
+    Action.YOUR_DATA: frozenset({ADMIN}),
     Action.COOK_PER_STEP: frozenset({ADMIN, MEMBER}),
 }
 
