@@ -2,6 +2,16 @@
 
 All notable changes to Mealwright are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the plan in `docs/spec.md` section 8: 0.N.0 per build milestone (not published), then MAJOR.MINOR.PATCH from 1.0.0.
 
+## [Unreleased]
+
+### Fixed
+
+- **Plan this batch (F229, cabledrawer 12 Nov).** The second and later recipes' "Where the tubs land" shows the tubs the earlier recipes already placed, as "Paneer Butter Masala · Tub 1 · already placed", so a meal that is taken doesn't look free. "Already placed" is proposed, for cabledrawer. The server's count ("N of M placed") and where the rest go were already worked out after the earlier recipes; only the grid hid them.
+- **Use a tub (F230, cabledrawer 12 Nov).** A tub is never offered for a meal on a day before its batch's cook day, nor, on the cook day, for a meal at or before the cooking (spec F50). It is the Plan's list that now leaves them out; the server still takes a tub placed some other way.
+- **The Pantry's Fridge (F230, cabledrawer 12 Nov).** The tubs of a Batch cook session are listed (and counted, and in Use soon) only after that session's Cooked it. A Cook once batch outside a session is listed as before.
+- **Today after Cooked it (F233, cabledrawer 12 Nov).** Once a Batch cook session's Cooked it is done, its cook-day meal's kcal and name count only what is eaten there (a tub eaten at that meal), not the recipes the session cooked. A meal with nothing else in it still counts them. This also changes the kcal the Plan shows for that meal.
+- **The Plan card (F234, cabledrawer 12 Nov).** While batch cook mode has been started for a session and a recipe in it is still to cook, the card's button says **Carry on batch cook** (proposed, for cabledrawer) instead of "Start batch cook". The Plan asks the server for the session's schedule to know; offline it keeps "Start batch cook".
+
 ## [0.9.0-beta.1] - 2026-11-12
 
 The first 0.9.0 test version (alpha.1 was not released; its changes are here too, under "People and roles (0.9 A1)" and "Security (0.9 A2, sign-in hardening)"): the household's people and their roles (A1) and harder sign-in (A2), plus Settings in the spec's order and Licences and credits (U1), onboarding and "Amounts shown" (U2), backups, export, restore and Delete everything (D1), a hardened data folder and compose example (D2), the update check and About's update parts (X1), Report a problem (X2), the install guide and proxy examples (M1), single sign-on (O1), API tokens (O2), the leaving-a-page fixes (T1), the pool fix, and Report a problem's old names. Several lines are marked "proposed, for cabledrawer": they are words or rules I chose that still need your yes.
