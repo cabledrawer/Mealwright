@@ -13,7 +13,7 @@ dependencies = [
     "argon2-cffi==25.1.0",
     # Single sign-on (0.9 O1): its protocol pieces only (PKCE, JOSE, OIDC claims), never its
     # HTTP clients; every request goes through the outbound gate. Brings cryptography.
-    "authlib>=1.6.0,<1.7",
+    "authlib>=1.9.1,<1.10",
     "fastapi>=0.143.3",
     "pillow==13.0.0",
     "pydantic-settings>=2.16.0",
@@ -38,7 +38,7 @@ dev = [
 
 [tool.uv]
 # New dependencies: prefer releases at least two weeks old (as for the ./check scanners).
-exclude-newer-package = { pycparser = "2026-10-03T00:00:00Z", hypothesis = "2026-10-03T00:00:00Z", sortedcontainers = "2026-10-03T00:00:00Z", apscheduler = "2026-10-03T00:00:00Z", tzlocal = "2026-10-03T00:00:00Z", authlib = "2026-10-29T00:00:00Z", cryptography = "2026-10-29T00:00:00Z" }
+exclude-newer-package = { pycparser = "2026-10-03T00:00:00Z", hypothesis = "2026-10-03T00:00:00Z", sortedcontainers = "2026-10-03T00:00:00Z", apscheduler = "2026-10-03T00:00:00Z", tzlocal = "2026-10-03T00:00:00Z", authlib = "2026-11-12T00:00:00Z", joserfc = "2026-11-12T00:00:00Z", cryptography = "2026-10-29T00:00:00Z" }
 
 [tool.ruff]
 line-length = 100
