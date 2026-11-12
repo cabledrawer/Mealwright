@@ -1024,7 +1024,8 @@ def test_errors_from_before_delete_everything_are_not_in_the_report(
     body = {"words": "delete everything", "password": ADMIN["password"]}
     assert kitchen.post(f"{API}/delete-everything", json=body).status_code == 204
     assert kitchen.post(f"{API}/setup", json=ADMIN).status_code == 201
-    write_log(folder, [error("New install broke", ago=timedelta(seconds=0))])
+    # Stamped 2 s after the set-up: a line in the set-up's own second is left out (review r2).
+    write_log(folder, [error("New install broke", ago=timedelta(seconds=-2))])
     lines = report(kitchen)["errors"]
     assert not any("Old install" in line for line in lines), lines
     assert any("New install" in line for line in lines), lines
@@ -1128,3 +1129,20 @@ def test_a_name_kept_only_by_a_change_tick_or_queued_action_is_removed(column: s
     line = scrub("Couldn't save for Quentin Thorne (Quentin)")
     assert "quentin" not in line.lower(), line
     assert "thorne" not in line.lower(), line
+
+
+def test_a_line_in_the_same_second_as_the_new_set_up_is_left_out(tmp_path: Path) -> None:
+    """Review r2, L: log times are whole seconds, so a set-up at 12:00:00.4 rounds UP to
+    12:00:01: a line stamped 12:00:00 was written before it (the old install's), and a line
+    at 12:00:01 is the new one's."""
+    now = datetime.now(UTC)  # the file's own time must be inside the window too
+    set_up = (now - timedelta(minutes=10)).replace(microsecond=400_000)
+    write_log(
+        tmp_path,
+        [
+            f"{stamp(set_up)} ERROR mealwright.old: Written before the set-up",
+            f"{stamp(set_up + timedelta(seconds=1))} ERROR mealwright.new: After it",
+        ],
+    )
+    found = recent_errors(tmp_path, now, installed=set_up)
+    assert [error.message for error in found] == ["After it"]

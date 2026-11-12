@@ -173,7 +173,12 @@ def recent_errors(
     if installed is not None:
         if installed.tzinfo is None:
             installed = installed.replace(tzinfo=UTC)
-        since = max(since, installed.replace(microsecond=0))  # log times are whole seconds
+        # Log times are whole seconds: round the set-up UP, so a line stamped in the same second
+        # as the set-up (written before it, truncated) is left out.
+        whole = installed.replace(microsecond=0)
+        if installed.microsecond:
+            whole += timedelta(seconds=1)
+        since = max(since, whole)
     found: list[LogError] = []
     try:
         paths = [path for path in folder.glob(f"{FILE_NAME}*") if path.is_file()]
@@ -181,7 +186,8 @@ def recent_errors(
         return []
     for path in paths:
         try:
-            if datetime.fromtimestamp(path.stat().st_mtime, UTC) < since:
+            # (a second of slack: `since` may be rounded up to the next whole second)
+            if datetime.fromtimestamp(path.stat().st_mtime, UTC) < since - timedelta(seconds=1):
                 continue  # last written before the window: nothing in it is recent
             text = _tail(path)
         except OSError:
