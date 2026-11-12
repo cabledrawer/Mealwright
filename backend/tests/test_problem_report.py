@@ -984,6 +984,8 @@ def test_a_renamed_person_is_removed_by_the_old_name_and_the_new(
 # Columns with "name" in them that are not a person's name, and what each is.
 _NOT_A_PERSON: dict[str, str] = {
     "food_size.name": "a size word of an ingredient (tin, bunch)",
+    "api_token.name": "the admin's label for an app (Home Assistant), never a person",
+    "sso_settings.button_name": "the sign-in button's text (Authentik), the admin's own word",
 }
 
 
