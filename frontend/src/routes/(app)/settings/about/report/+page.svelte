@@ -268,6 +268,7 @@
   .line {
     flex: 1;
     min-width: 0;
+    min-height: var(--touch-target);
     box-sizing: border-box;
     padding: var(--space-2) var(--space-3);
     border: 1px solid transparent;
