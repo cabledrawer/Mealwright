@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { test, expect, request, type Page } from './clock.ts';
 
 // Settings → Sign-in → API tokens (0.9, O2): an admin makes a token, sees it once, and another
@@ -87,7 +89,10 @@ test('a token is shown once, works for another app, and stops when deleted', asy
 
   await del.click();
   await ask.getByRole('button', { name: 'Delete', exact: true }).click();
-  await expect(page.getByText(name)).toHaveCount(0);
+  // The page also says "Deleted <name>." for screen readers, so look at the list.
+  await expect(
+    page.getByTestId('api-tokens').getByRole('listitem').filter({ hasText: name }),
+  ).toHaveCount(0);
   const refused = await other.get('/api/v1/me');
   expect(refused.status()).toBe(401);
   expect((await refused.json()).code).toBe('bad_token');
@@ -122,7 +127,9 @@ test('a read-and-change token that never expires can change the kitchen', async 
   // Tidy up, so the other tests in this worker see their own tokens only.
   await page.getByRole('button', { name: `Delete ${name} token` }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete', exact: true }).click();
-  await expect(page.getByText(name)).toHaveCount(0);
+  await expect(
+    page.getByTestId('api-tokens').getByRole('listitem').filter({ hasText: name }),
+  ).toHaveCount(0);
 });
 
 test('fits the screen, and touch targets are 44 px', async ({ page }) => {
@@ -137,5 +144,56 @@ test('fits the screen, and touch targets are 44 px', async ({ page }) => {
   if (isPhone()) {
     await page.getByRole('button', { name: 'Pick a date' }).click();
     await expect(page.getByLabel('Last day it works')).toBeVisible();
+  }
+});
+
+/** Dark screenshots at four widths for the review, only when E2E_SHOTS_DIR is set (by hand). */
+test('screenshots, dark (by hand only)', async ({ page, app }) => {
+  const dir = process.env.E2E_SHOTS_DIR;
+  test.skip(!dir || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+  mkdirSync(dir!, { recursive: true });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  const shot = async (screen: string, open: () => Promise<void>) => {
+    for (const width of [428, 768, 1100, 1300]) {
+      await page.setViewportSize({ width, height: 900 });
+      await open();
+      await page.screenshot({ path: join(dir!, `${screen}-${width}.png`), fullPage: true });
+    }
+  };
+  for (const [name, scope] of [
+    ['Home Assistant', 'read'],
+    ['Backup script', 'full'],
+  ]) {
+    const response = await page.request.post('/api/v1/api-tokens', {
+      data: { name, scope, expires_on: null },
+    });
+    expect(response.status(), await response.text()).toBe(201);
+    if (scope === 'read') {
+      // One that has been used, so the list shows both "used" and "never used".
+      const other = await request.newContext({
+        baseURL: app.url,
+        extraHTTPHeaders: { Authorization: `Bearer ${(await response.json()).token}` },
+        storageState: { cookies: [], origins: [] },
+      });
+      await other.get('/api/v1/me');
+      await other.dispose();
+    }
+  }
+  await shot('api-tokens', () => openTokens(page));
+  await shot('api-tokens-ask', async () => {
+    await openTokens(page);
+    await page.getByRole('button', { name: 'Delete Home Assistant token' }).click();
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+  });
+  await shot('api-tokens-shown', async () => {
+    await openTokens(page);
+    await page.getByLabel('Name').fill('Shopping widget');
+    await page.getByRole('button', { name: 'Make token' }).click();
+    await expect(page.getByRole('status', { name: 'Your new token' })).toHaveText(/^mw_r/);
+  });
+  // Tidy up: this worker's other tests count the tokens.
+  const list = await (await page.request.get('/api/v1/api-tokens')).json();
+  for (const t of list.tokens as { id: number }[]) {
+    await page.request.delete(`/api/v1/api-tokens/${t.id}`);
   }
 });

@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 
@@ -74,6 +76,7 @@ test('an admin switches each connection on and off, and it stays', async ({ page
     .toEqual([
       { connection: 'recipe_import', on: true },
       { connection: 'recipe_photos', on: false },
+      { connection: 'single_sign_on', on: false },
       { connection: 'update_check', on: false },
     ]);
   await photoSwitch.click();
@@ -290,4 +293,18 @@ test.describe('states made up in the browser', () => {
     await context.setOffline(false);
     await expect(page.getByRole('switch', { name: IMPORT })).toBeEnabled({ timeout: 20_000 });
   });
+});
+
+/** Dark screenshots at four widths for the review, only when E2E_SHOTS_DIR is set (by hand). */
+test('screenshots, dark (by hand only)', async ({ page }) => {
+  const dir = process.env.E2E_SHOTS_DIR;
+  test.skip(!dir || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+  mkdirSync(dir!, { recursive: true });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  for (const width of [428, 768, 1100, 1300]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/settings/privacy');
+    await expect(page.getByRole('switch', { name: 'Single sign-on' })).toBeVisible();
+    await page.screenshot({ path: join(dir!, `privacy-${width}.png`), fullPage: true });
+  }
 });
