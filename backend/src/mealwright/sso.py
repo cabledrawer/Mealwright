@@ -361,8 +361,10 @@ def _addresses(
 def look_up_issuer(gate: OutboundGate, household_id: int, issuer: str, listed: OwnNetwork) -> None:
     """One gated look-up of the sign-in server's name, to fill the memory `issuer_can_be_reached`
     reads (after a restart it is empty). Does nothing for an address that isn't a name, or a
-    name already remembered. If the look-up fails, is held or is refused, the memory stays empty:
-    "can't tell", and passwords work (O1 review r4, finding 1)."""
+    name whose remembered address already works (one that fails the screen is looked up again,
+    so a wrong answer once can't keep passwords open: O1 review r5, finding 1). If the look-up
+    fails, is held or is refused, the memory stays empty: "can't tell", and passwords work
+    (O1 review r4, finding 1)."""
     try:
         parts = urlsplit(issuer)
         host = parts.hostname
@@ -376,8 +378,8 @@ def look_up_issuer(gate: OutboundGate, household_id: int, issuer: str, listed: O
         return  # an address needs no look-up
     except ValueError:
         pass
-    if own_network.is_localhost(host) or remembered(host) is not None:
-        return
+    if own_network.is_localhost(host) or issuer_can_be_reached(issuer, listed):
+        return  # only a remembered answer that works is kept: a bad one is looked at again
     # The name is remembered first; any other failure leaves the memory empty.
     with contextlib.suppress(SsoFailed):
         _addresses(gate, household_id, host, port, listed, time.monotonic() + TIME_LIMIT)

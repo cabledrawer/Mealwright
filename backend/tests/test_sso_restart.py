@@ -176,3 +176,20 @@ def test_turning_passwords_off_while_single_sign_on_cannot_start_is_refused(
     assert refused.status_code == 409 and refused.json()["code"] == "passwords_needed"
     start_job(kitchen)
     assert kitchen.put(f"{API}/sso/password-sign-in", json={"on": False}).is_success
+
+
+def test_one_wrong_answer_for_the_name_is_looked_at_again_by_the_job(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O1 review r5, finding 1. Fails when the job skips any remembered name: the wrong answer
+    (an address not on Your own network) stayed remembered, so passwords stayed open."""
+    idp = home(kitchen, monkeypatch, "192.168.1.50")  # listed by address
+    right = idp.address
+    restart(kitchen)
+    idp.address = "10.66.66.66"  # one wrong answer
+    start_job(kitchen)
+    assert passwords_work(kitchen)  # can't start: passwords work
+    idp.address = right  # the name answers right again
+    start_job(kitchen)
+    assert browser(kitchen).get(f"{API}/sign-in-options").json()["password"] is False
+    assert not passwords_work(kitchen)
