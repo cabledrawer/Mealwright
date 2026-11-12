@@ -243,7 +243,8 @@ def test_the_repair_leaves_a_healthy_database_alone(tmp_path: Path) -> None:
 
 def test_the_repair_follows_the_head_it_repairs_and_every_newer_migration_follows_it() -> None:
     """It was the newest migration when it was written; later ones (0.9 A1's people, then A2's
-    sign-in columns) come after it on the one line, so every upgrade still runs it."""
+    sign-in columns, then D1's backup settings) come after it on the one line, so every upgrade
+    still runs it; the tests above upgrade to head, so they cover those too."""
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(migrate.alembic_config())
