@@ -206,6 +206,46 @@ test.describe('the setup screen', () => {
     });
   });
 
+  const TESTED = {
+    passed: true,
+    username: 'mallory',
+    name: 'Mallory M',
+    email: 'mallory@example.org',
+    groups: ['mealwright-admins'],
+    role: 'admin',
+    link: 'can',
+    message: null,
+    code: null,
+  };
+
+  test('a test links nobody: the screen asks first, and only Link links (O1 review r1 H1)', async ({ page }) => {
+    test.skip(isPhone(), 'set up on a computer');
+    await answer(page, '/sso/settings', { ...SETUP, test: TESTED });
+    const sent: string[] = [];
+    await page.route('**/api/v1/sso/link', (route) => {
+      sent.push(route.request().method());
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...SETUP, admin_linked: true, test: { ...TESTED, link: 'linked' } }),
+      });
+    });
+    await page.goto('/settings/sso');
+    // "Test sign-in" is a button that posts, never a link another site could send someone to.
+    await expect(page.getByRole('button', { name: 'Test sign-in' })).toBeVisible();
+    await expect(page.locator('a[href*="/sso/test"]')).toHaveCount(0);
+    const question = page.getByRole('group', { name: /^Link \S+ to mallory\?$/ });
+    await expect(question).toBeVisible();
+    await expect(question).toContainText('Your sign-in server says this is Mallory M (mallory@example.org).');
+    await expect(page.getByRole('switch', { name: 'Allow password sign-in' })).toBeDisabled();
+    expect(sent).toEqual([]);
+    await question.getByRole('button', { name: 'Link', exact: true }).click();
+    await expect(question).toHaveCount(0);
+    await expect(page.getByText(/is linked to mallory at your sign-in server\./)).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'Allow password sign-in' })).toBeEnabled();
+    expect(sent).toEqual(['POST']);
+  });
+
   test('screenshots, dark (by hand only)', async ({ page }) => {
     test.skip(!process.env.E2E_SHOTS_DIR || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
     await answer(page, '/sso/settings', { ...SETUP, redirect_uri: null });
@@ -213,6 +253,12 @@ test.describe('the setup screen', () => {
       await page.goto('/settings/sso');
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       await expect(page.getByText(/Set up on a computer|Your sign-in server/).first()).toBeVisible();
+    });
+    await page.unroute('**/api/v1/sso/settings');
+    await answer(page, '/sso/settings', { ...SETUP, test: TESTED });
+    await shots(page, 'sso-setup-link', async () => {
+      await page.goto('/settings/sso');
+      await expect(page.getByText(/Set up on a computer|Link \S+ to mallory\?/).first()).toBeVisible();
     });
   });
 });

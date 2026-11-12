@@ -24,6 +24,7 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from sqlalchemy import ColumnElement, and_, func, select
 from sqlalchemy.orm import Session as DbSession
@@ -194,25 +195,49 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity) -> Login:
     return login
 
 
-def link_for_test(db: DbSession, row: SsoSettings, login: Login, identity: Identity) -> str | None:
-    """The setup screen's test, signed in as `login` (an admin): links that login to this
-    identity, so the admin can sign in with single sign-on. Gives the role the groups would
-    give (None: not let in); the role itself isn't changed by a test. Raises SsoFailed."""
-    role = role_for(row, identity.groups)
-    other = find_login(db, identity)
+type Link = Literal["can", "linked", "no"]
+
+
+def _someone_else(db: DbSession, login: Login, issuer: str, subject: str) -> None:
+    """Raise SsoFailed("someone_else") when this identity is another login's, or `login` is
+    linked to another identity at this issuer."""
+    other = db.scalar(select(Login).where(Login.sso_issuer == issuer, Login.sso_subject == subject))
     if other is not None and other.id != login.id:
         raise SsoFailed("someone_else")
     if (
-        login.sso_issuer == identity.issuer
+        login.sso_issuer == issuer
         and login.sso_subject is not None
-        and login.sso_subject != identity.subject
+        and login.sso_subject != subject
     ):
         raise SsoFailed("someone_else")
-    if role is not None and other is None:
-        login.sso_issuer, login.sso_subject = identity.issuer, identity.subject
-        db.flush()
-        log.info("Single sign-on: %s linked by the setup test", login.username)
-    return role
+
+
+def outcome_of_test(
+    db: DbSession, row: SsoSettings, login: Login, identity: Identity
+) -> tuple[str | None, Link]:
+    """The setup screen's test, signed in as `login` (an admin): the role the groups would
+    give (None: not let in), and whether this identity can be linked to that login. A test
+    links nothing and changes no role (O1 review r1 H1). Only an identity the groups make an
+    Admin can be linked, and only by the admin's own confirmation afterwards (`link`): a
+    Member at the sign-in server who happens to be signed in there in the admin's browser
+    must never become the admin. Raises SsoFailed."""
+    role = role_for(row, identity.groups)
+    _someone_else(db, login, identity.issuer, identity.subject)
+    if login.sso_issuer == identity.issuer and login.sso_subject == identity.subject:
+        return role, "linked"
+    return role, "can" if role == ADMIN else "no"
+
+
+def link(db: DbSession, row: SsoSettings, login: Login, issuer: str, subject: str) -> None:
+    """Link `login` (an admin) to the identity their test found, once they have confirmed
+    it. Checked again now: the setup's issuer is still the test's, and nobody else has the
+    identity. Raises SsoFailed. Flushes, doesn't commit."""
+    if row.issuer != issuer or login.role != ADMIN or login.household_id != row.household_id:
+        raise SsoFailed("link_gone")
+    _someone_else(db, login, issuer, subject)
+    login.sso_issuer, login.sso_subject = issuer, subject
+    db.flush()
+    log.info("Single sign-on: %s linked after the setup test, confirmed", login.username)
 
 
 def keep(db: DbSession, data_dir: Path, session: Session, identity: Identity) -> None:

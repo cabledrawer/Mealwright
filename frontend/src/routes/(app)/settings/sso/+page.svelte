@@ -2,16 +2,21 @@
   // Settings → Sign-in → Single sign-on (0.9 O1; the mockup Dark-SSO09-Desktop). Admins only,
   // and on a computer: a phone says "Set up on a computer" (proposed, for cabledrawer). The client
   // secret is never shown or sent back: the field is blank, and blank keeps the saved one.
-  // "Test sign-in" opens the sign-in server in a new tab; when this tab is looked at again it
-  // asks the server for the result. Password sign-in can be turned off only once an admin has
-  // signed in with single sign-on and its Privacy switch is on (proposed, for cabledrawer).
+  // "Test sign-in" asks the server to start a test (a POST, never a link) and opens the
+  // sign-in server in a new tab; when this tab is looked at again it asks the server for the
+  // result. A test links nothing. When the sign-in server makes whoever signed in there an
+  // Admin, this screen asks "Link tess to …?" with their name and email address, and only
+  // "Link" links them (O1 review r1 H1). Password sign-in can be turned off only once an admin
+  // has signed in with single sign-on and its Privacy switch is on (proposed, for cabledrawer).
   import { MediaQuery } from 'svelte/reactivity';
   import { ApiError, cantReach, cantReachWords, detailOf } from '#lib/api.js';
   import {
-    TEST_ADDRESS,
     callbackAddress,
+    dropTestedLink,
     getSsoSetup,
+    linkTested,
     putSsoSetup,
+    startTest,
     type GroupRole,
     type SsoSetup
   } from '#lib/client/sso.js';
@@ -22,8 +27,15 @@
   import { radioKeys } from '#lib/radioKeys.js';
   import { session } from '#lib/session.svelte.js';
   import {
+    LINK,
+    NOT_LINKED_MEMBER,
+    NOT_NOW,
     SETUP_ON_COMPUTER,
     SETUP_PHONE_NOTE,
+    linkNote,
+    linkQuestion,
+    linkWho,
+    linkedText,
     signInWith,
     ssoMessage,
     testPassedText
@@ -47,6 +59,10 @@
   let problem = $state('');
   let done = $state('');
   let copied = $state(false);
+  let testing = $state(false);
+  let testProblem = $state('');
+  let linking = $state(false);
+  const myUsername = $derived(session.me?.username ?? '');
 
   const redirect = callbackAddress();
 
@@ -161,6 +177,48 @@
     if (saved) fill(saved);
     problem = '';
     done = '';
+  }
+
+  function wordsFor(error: unknown): string {
+    if (cantReach(error)) return cantReachWords();
+    return error instanceof ApiError ? error.detail : detailOf(null);
+  }
+
+  /** The tab opens on the click itself (a browser blocks one opened later), blank and cut
+   *  off from this one; it goes to the sign-in server once the server has started the test.
+   *  If the browser won't open a tab, this tab goes there and comes back. */
+  async function test() {
+    if (testing) return;
+    testing = true;
+    testProblem = '';
+    const tab = window.open('about:blank', '_blank');
+    if (tab) tab.opener = null;
+    try {
+      const { url } = await startTest();
+      if (tab) tab.location.replace(url);
+      else location.assign(url);
+    } catch (error) {
+      tab?.close();
+      testProblem = wordsFor(error);
+    } finally {
+      testing = false;
+    }
+  }
+
+  /** "Link" or "Not now": the server's answer is the setup with the test as it now stands. */
+  async function answerLink(link: boolean) {
+    if (linking || !saved) return;
+    linking = true;
+    testProblem = '';
+    try {
+      const setup = await (link ? linkTested() : dropTestedLink());
+      saved = { ...saved, test: setup.test, admin_linked: setup.admin_linked };
+    } catch (error) {
+      testProblem = wordsFor(error);
+      void load(false);
+    } finally {
+      linking = false;
+    }
   }
 </script>
 
@@ -315,19 +373,12 @@
     <section class="card full" aria-labelledby="sso-try">
       <h2 id="sso-try">3 · Try it, then decide about passwords</h2>
       <div class="test">
-        {#if saved?.secret_set}
-          <!-- eslint-disable svelte/no-navigation-without-resolve -- an API address, not a page -->
-          <a
-            class="test-button"
-            href={TEST_ADDRESS}
-            target="_blank"
-            rel="noopener"
-            data-sveltekit-reload>Test sign-in</a
-          >
-          <!-- eslint-enable svelte/no-navigation-without-resolve -->
-        {:else}
-          <button type="button" class="test-button" disabled>Test sign-in</button>
-        {/if}
+        <button
+          type="button"
+          class="test-button"
+          disabled={!saved?.secret_set || testing}
+          onclick={() => void test()}>Test sign-in</button
+        >
         <span class="sub">
           {saved?.secret_set
             ? 'Opens your sign-in server in a new tab and comes back here.'
@@ -338,11 +389,34 @@
         {#if saved.test.passed}
           <p class="ok" role="status">
             {testPassedText(saved.test.username, saved.test.groups, saved.test.role)}
+            {#if saved.test.link === 'linked'}
+              {linkedText(myUsername, saved.test.username ?? 'them')}
+            {:else if saved.test.link !== 'can' && saved.test.role === 'member'}
+              {NOT_LINKED_MEMBER}
+            {/if}
           </p>
+          {#if saved.test.link === 'can'}
+            <div class="link" role="group" aria-labelledby="sso-link-question">
+              <p class="link-question" id="sso-link-question">
+                {linkQuestion(myUsername, saved.test.username ?? 'them')}
+              </p>
+              <p class="sub">
+                {linkWho(saved.test.name, saved.test.email)}
+                {linkNote(myUsername)}
+              </p>
+              <div class="actions">
+                <Button disabled={linking} onclick={() => void answerLink(true)}>{LINK}</Button>
+                <Button quiet disabled={linking} onclick={() => void answerLink(false)}
+                  >{NOT_NOW}</Button
+                >
+              </div>
+            </div>
+          {/if}
         {:else}
           <p class="warn" role="status">{saved.test.message ?? ssoMessage(saved.test.code)}</p>
         {/if}
       {/if}
+      {#if testProblem}<p class="problem" role="alert">{testProblem}</p>{/if}
       {#if saved && !saved.switch_on}
         <p class="warn">
           The Single sign-on switch in Settings › Privacy is off, so nothing is sent to your sign-in
@@ -636,6 +710,21 @@
   .test-button:disabled {
     opacity: 0.55;
     cursor: default;
+  }
+
+  .link {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-5) 14px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: 14px;
+  }
+
+  .link-question {
+    margin: 0;
+    font-size: var(--text-lg);
+    font-weight: var(--weight-bold);
   }
 
   .actions {

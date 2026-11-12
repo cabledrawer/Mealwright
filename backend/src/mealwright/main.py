@@ -136,6 +136,7 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     app.state.slow_down = SlowDown()
     app.state.sso_flows = sso.Flows()  # single sign-on sign-ins under way (memory only)
     app.state.sso_tests = {}  # the setup screen's last test, by household (memory only)
+    app.state.sso_links = {}  # a test's link waiting for its admin's OK (memory only)
     app.state.setup_code = None  # set at start-up on a fresh install
     errors.install(app)
     app.include_router(api_v1)

@@ -138,9 +138,123 @@ describe('single sign-on setup', () => {
     await expect
       .element(page.getByRole('switch', { name: 'Allow password sign-in' }))
       .toBeEnabled();
+    await expect.element(page.getByRole('button', { name: 'Test sign-in' })).toBeEnabled();
+    // Never a link: a link on another site could start a test (O1 review r1 H1).
+    expect(document.querySelector('a[href*="/sso/test"]')).toBeNull();
+  });
+
+  const TESTED = {
+    passed: true,
+    username: 'mallory',
+    name: 'Mallory M',
+    email: 'mallory@example.org',
+    groups: ['mealwright-admins'],
+    role: 'admin',
+    link: 'can',
+    message: null,
+    code: null
+  };
+
+  it('Test sign-in posts, and opens the sign-in server in a tab cut off from this one', async () => {
+    requests = fakeApi({
+      'GET /sso/settings': [200, SAVED],
+      'POST /sso/test': [200, { url: 'https://id.example.org/authorize?state=s1' }]
+    });
+    const tab = { opener: window as unknown, location: { replace: vi.fn() }, close: vi.fn() };
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as never);
+    show();
+    await page.getByRole('button', { name: 'Test sign-in' }).click();
+    await vi.waitFor(() =>
+      expect(tab.location.replace).toHaveBeenCalledWith('https://id.example.org/authorize?state=s1')
+    );
+    expect(open).toHaveBeenCalledWith('about:blank', '_blank');
+    expect(tab.opener).toBeNull();
+    expect(requests.filter((r) => r.path === '/sso/test').map((r) => r.method)).toEqual(['POST']);
+  });
+
+  it('says why when a test can’t start, and closes the tab it opened', async () => {
+    fakeApi({
+      'GET /sso/settings': [200, SAVED],
+      'POST /sso/test': [
+        400,
+        {
+          detail: 'Mealwright couldn’t reach your sign-in server. Try again in a minute.',
+          code: 'unreachable'
+        }
+      ]
+    });
+    const tab = { opener: null, location: { replace: vi.fn() }, close: vi.fn() };
+    vi.spyOn(window, 'open').mockReturnValue(tab as never);
+    show();
+    await page.getByRole('button', { name: 'Test sign-in' }).click();
     await expect
-      .element(page.getByRole('link', { name: 'Test sign-in' }))
-      .toHaveAttribute('target', '_blank');
+      .element(page.getByRole('alert'))
+      .toHaveTextContent('Mealwright couldn’t reach your sign-in server. Try again in a minute.');
+    expect(tab.close).toHaveBeenCalled();
+    expect(tab.location.replace).not.toHaveBeenCalled();
+  });
+
+  it('asks before linking, with who the sign-in server said it was; Link links', async () => {
+    requests = fakeApi({
+      'GET /sso/settings': [200, { ...SAVED, test: TESTED }],
+      'POST /sso/link': [200, { ...SAVED, admin_linked: true, test: { ...TESTED, link: 'linked' } }]
+    });
+    show();
+    const question = page.getByRole('group', { name: 'Link tess to mallory?' });
+    await expect.element(question).toBeVisible();
+    await expect
+      .element(question)
+      .toHaveTextContent(
+        'Link tess to mallory? Your sign-in server says this is Mallory M (mallory@example.org). After linking, whoever signs in there as this person is tess here, an admin. Link Not now'
+      );
+    // Nothing is linked yet: password sign-in can't go off.
+    await expect
+      .element(page.getByRole('switch', { name: 'Allow password sign-in' }))
+      .toBeDisabled();
+    expect(requests.some((r) => r.path === '/sso/link')).toBe(false);
+    await page.getByRole('button', { name: 'Link', exact: true }).click();
+    await expect
+      .element(page.getByRole('status').filter({ hasText: 'Test passed' }))
+      .toHaveTextContent(
+        'Test passed: signed in as mallory, groups mealwright-admins → Admin. tess is linked to mallory at your sign-in server.'
+      );
+    await expect.element(question).not.toBeInTheDocument();
+    await expect
+      .element(page.getByRole('switch', { name: 'Allow password sign-in' }))
+      .toBeEnabled();
+    expect(requests.filter((r) => r.path === '/sso/link').map((r) => r.method)).toEqual(['POST']);
+  });
+
+  it('Not now links nothing', async () => {
+    requests = fakeApi({
+      'GET /sso/settings': [200, { ...SAVED, test: TESTED }],
+      'DELETE /sso/link': [200, { ...SAVED, test: { ...TESTED, link: 'no' } }]
+    });
+    show();
+    await page.getByRole('button', { name: 'Not now' }).click();
+    await expect
+      .element(page.getByRole('group', { name: 'Link tess to mallory?' }))
+      .not.toBeInTheDocument();
+    expect(requests.filter((r) => r.path === '/sso/link').map((r) => r.method)).toEqual(['DELETE']);
+  });
+
+  it('never offers to link someone the sign-in server makes a Member', async () => {
+    fakeApi({
+      'GET /sso/settings': [
+        200,
+        { ...SAVED, test: { ...TESTED, groups: ['family'], role: 'member', link: 'no' } }
+      ]
+    });
+    show();
+    await expect
+      .element(page.getByRole('status').filter({ hasText: 'Test passed' }))
+      .toHaveTextContent(
+        'Test passed: signed in as mallory, groups family → Member. Not linked to you: your sign-in server doesn’t make this person an Admin.'
+      );
+    expect(document.querySelector('.link')).toBeNull();
+    await expect
+      .element(page.getByRole('button', { name: 'Link', exact: true }))
+      .not.toBeInTheDocument();
   });
 
   it('shows the server’s refusal', async () => {

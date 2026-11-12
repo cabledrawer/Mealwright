@@ -182,10 +182,15 @@ async function mealwright(browser, method, path, json) {
   return { status: res.status, data, location: res.headers.get('location') };
 }
 
+/** Start (a link for a sign-in, a POST for the setup screen's test), sign in at the sign-in
+ *  server, and post what comes back. */
 async function signInWith(browser, path) {
-  const started = await mealwright(browser, 'GET', path);
-  if (started.status !== 303) throw new Error(`start answered ${started.status}`);
-  const query = await browser.toCallback(new URL(started.location, BASE).toString());
+  const test = path === '/sso/test';
+  const started = await mealwright(browser, test ? 'POST' : 'GET', path);
+  if (started.status !== (test ? 200 : 303)) throw new Error(`start answered ${started.status}`);
+  const first = test ? started.data.url : started.location;
+  if (test && new URL(first).searchParams.get('prompt') !== 'login') throw new Error('a test must ask who you are');
+  const query = await browser.toCallback(new URL(first, BASE).toString());
   return mealwright(browser, 'POST', '/sso/finish', {
     state: query.get('state'),
     code: query.get('code'),
@@ -371,12 +376,26 @@ async function run() {
   check('Keycloak: signed in through its form, account made', kc.data?.done === 'signed_in', `${kc.status} ${kc.data?.me?.username ?? kc.data?.code ?? ''}`);
   check('Keycloak: role from the group "family" is Member', kc.data?.me?.role === 'member', kc.data?.me?.role);
 
-  // The admin's test sign-in links them, then password sign-in can go off.
+  // A test links nothing by itself (O1 review r1 H1). A Member at the sign-in server, signed
+  // in there in the admin's browser, is never linked to the admin, even when asked for.
   let refused = await mealwright(admin, 'PUT', '/sso/password-sign-in', { on: false });
   check('Passwords stay on before an admin has signed in by SSO', refused.status === 409);
+  const followed = await mealwright(admin, 'GET', '/sso/test');
+  check('A link to the test starts nothing', followed.status === 404 || followed.status === 405, String(followed.status));
+  admin.user = { username: 'trout', password: KEYCLOAK_USERS.trout };
+  const member = await signInWith(admin, '/sso/test');
+  check('Keycloak: a Member\'s test passes as Member, with nothing to link', member.data?.test?.role === 'member' && member.data.test.link === 'no', JSON.stringify(member.data?.test ?? member.data));
+  const notLinked = await mealwright(admin, 'POST', '/sso/link');
+  check('Keycloak: the Member can\'t be linked to the admin', notLinked.status === 409 && (await mealwright(admin, 'GET', '/sso/settings')).data.admin_linked === false, String(notLinked.status));
+  // The admin's own test, then their confirmation, links them; then password sign-in can go off.
+  admin.jar.delete(new URL(KEYCLOAK_ISSUER).host); // signed out at the sign-in server
   admin.user = { username: 'boss', password: KEYCLOAK_USERS.boss };
   const tested = await signInWith(admin, '/sso/test');
-  check('Keycloak: the setup test passes as Admin', tested.data?.test?.passed === true && tested.data.test.role === 'admin', JSON.stringify(tested.data?.test ?? tested.data));
+  check('Keycloak: the setup test passes as Admin, and asks before linking', tested.data?.test?.passed === true && tested.data.test.role === 'admin' && tested.data.test.link === 'can', JSON.stringify(tested.data?.test ?? tested.data));
+  refused = await mealwright(admin, 'PUT', '/sso/password-sign-in', { on: false });
+  check('Passwords stay on until the admin confirms the link', refused.status === 409, String(refused.status));
+  const linked = await mealwright(admin, 'POST', '/sso/link');
+  check('Keycloak: the admin confirms, and is linked', linked.status === 200 && linked.data.admin_linked === true, String(linked.status));
   refused = await mealwright(admin, 'PUT', '/sso/password-sign-in', { on: false });
   check('Passwords can go off once the admin is linked', refused.status === 200 && refused.data.password_sign_in === false);
   const now = await mealwright(new Browser(), 'GET', '/sign-in-options');

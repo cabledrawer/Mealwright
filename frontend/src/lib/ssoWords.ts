@@ -25,7 +25,8 @@ export const SSO_MESSAGES: Record<string, string> = {
     'There’s already a Mealwright account with your name here, so it wasn’t used. Ask your household’s admin.',
   removed: 'That account was removed. Ask your household’s admin.',
   someone_else:
-    'Your account is linked to someone else at your sign-in server. Sign out there and test again.'
+    'Your account is linked to someone else at your sign-in server. Sign out there and test again.',
+  link_gone: 'There’s no test waiting to be linked. Test sign-in again.'
 };
 
 /** The sentence for a code from `?sso=`, or null when there's none. Unknown codes get the
@@ -54,6 +55,24 @@ export const PASSWORD_ON = 'On';
 export const PASSWORD_OFF = 'Off: everyone uses single sign-on';
 export const PASSWORDS_NOTE =
   'Password sign-in can only be turned off while an admin can sign in with single sign-on.';
+
+// Linking the admin's own login to who the test found (O1 review r1 H1; proposed, for cabledrawer).
+export const linkQuestion = (me: string, them: string): string => `Link ${me} to ${them}?`;
+
+/** "Your sign-in server says this is Tess R (tess@example.org)." */
+export function linkWho(name: string | null | undefined, email: string | null | undefined) {
+  const who = name && email ? `${name} (${email})` : name || email;
+  return who ? `Your sign-in server says this is ${who}.` : '';
+}
+
+export const linkNote = (me: string): string =>
+  `After linking, whoever signs in there as this person is ${me} here, an admin.`;
+export const LINK = 'Link';
+export const NOT_NOW = 'Not now';
+export const linkedText = (me: string, them: string): string =>
+  `${me} is linked to ${them} at your sign-in server.`;
+export const NOT_LINKED_MEMBER =
+  'Not linked to you: your sign-in server doesn’t make this person an Admin.';
 
 /** "Test passed: signed in as tess, groups mealwright-admins → Admin." */
 export function testPassedText(

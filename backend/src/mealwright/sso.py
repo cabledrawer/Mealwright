@@ -122,6 +122,7 @@ MESSAGES: dict[str, str] = {
         "Your account is linked to someone else at your sign-in server. Sign out there and "
         "test again."
     ),
+    "link_gone": "There’s no test waiting to be linked. Test sign-in again.",
 }
 
 
@@ -544,19 +545,21 @@ def start(
             login_id=login_id,
         )
     )
-    query = urlencode(
-        {
-            "response_type": "code",
-            "client_id": client.client_id,
-            "redirect_uri": client.redirect_uri,
-            "scope": scope_for(provider, client),
-            "state": state,
-            "nonce": nonce,
-            "code_challenge": create_s256_code_challenge(verifier),
-            "code_challenge_method": "S256",
-        },
-        quote_via=quote,
-    )
+    asked = {
+        "response_type": "code",
+        "client_id": client.client_id,
+        "redirect_uri": client.redirect_uri,
+        "scope": scope_for(provider, client),
+        "state": state,
+        "nonce": nonce,
+        "code_challenge": create_s256_code_challenge(verifier),
+        "code_challenge_method": "S256",
+    }
+    if mode == "test":
+        # A test asks the sign-in server to ask who this is, whoever is signed in there
+        # already: the admin sees which account they are testing (O1 review r1 H1).
+        asked["prompt"] = "login"
+    query = urlencode(asked, quote_via=quote)
     joiner = "&" if "?" in provider.authorization_endpoint else "?"
     return Started(
         url=f"{provider.authorization_endpoint}{joiner}{query}", state=state, binding=binding

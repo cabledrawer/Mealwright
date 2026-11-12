@@ -1,6 +1,8 @@
 // Single sign-on (backend api/v1/sso.py, 0.9 O1). Signing in starts with a plain link to
 // /api/v1/sso/start (the server answers with a redirect to the sign-in server); the sign-in
 // server sends the browser back to /auth/callback, which posts what it brought to /sso/finish.
+// The setup screen's test starts with a POST (never a link), and links nothing: the admin
+// who tested confirms the link afterwards with another POST (O1 review r1 H1).
 // The setup is for admins only, and never carries the client secret back ("set" only).
 
 import { api, type Me } from '#lib/api.js';
@@ -14,9 +16,15 @@ export interface SignInOptions {
 
 export interface TestResult {
   passed: boolean;
+  /** Who the sign-in server said it was: its user name, name and email address for them. */
   username: string | null;
+  name?: string | null;
+  email?: string | null;
   groups: string[];
   role: 'admin' | 'member' | null;
+  /** 'can': the admin who tested may link this person to their own login, by confirming.
+   *  'linked': they already are. */
+  link?: 'can' | 'linked' | 'no';
   message: string | null;
   code: string | null;
 }
@@ -75,8 +83,14 @@ export const callbackAddress = (origin: string = location.origin): string =>
 export const startAddress = (remember: boolean): string =>
   `/api/v1/sso/start?remember=${remember ? 'true' : 'false'}`;
 
-/** Where "Test sign-in" goes, in a new tab. */
-export const TEST_ADDRESS = '/api/v1/sso/test';
+/** "Test sign-in": the sign-in server's address, to open in a new tab. */
+export const startTest = () => api<{ url: string }>('POST', '/sso/test');
+
+/** "Link tess to …?", confirmed: links the admin's own login to who the test found. */
+export const linkTested = () => api<SsoSetup>('POST', '/sso/link');
+
+/** "Not now": nothing is linked. */
+export const dropTestedLink = () => api<SsoSetup>('DELETE', '/sso/link');
 
 export const getSignInOptions = (fetcher?: typeof fetch) =>
   api<SignInOptions>('GET', '/sign-in-options', undefined, fetcher ? { fetch: fetcher } : {});

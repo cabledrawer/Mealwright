@@ -13,9 +13,12 @@ The sign-in goes start → the sign-in server → the callback → a session:
    on first sign-in if allowed, and its role follows the groups (`mealwright.sso_accounts`).
 3. A session starts like a password sign-in's, with the refresh token sealed.
 
-`GET /sso/test` does the same for the setup screen's "Test sign-in", signed in as an admin:
-it links that admin to the identity (so turning password sign-in off can't lock them out) and
-keeps the result in memory for the setup screen.
+`POST /sso/test` starts the same for the setup screen's "Test sign-in", signed in as an admin.
+It is a POST from this site only (a link or a form on another site starts nothing), and it
+asks the sign-in server to ask who this is (`prompt=login`). The test links nothing: its
+result is kept in memory for the setup screen, with who the sign-in server said it was. Only
+when the groups make that identity an Admin can the admin link it to their own login, and
+only by confirming it there: `POST /sso/link` ("Link tess to …?"; O1 review r1 H1).
 
 The client secret is sealed (`mealwright.secret_box`) before it is stored, and no answer ever
 holds it: the setup says only whether one is saved. Nothing here logs a token, a code, the
@@ -23,6 +26,8 @@ secret or an address.
 """
 
 import logging
+import time
+from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import quote, urlsplit
 
@@ -70,6 +75,17 @@ BAD_REDIRECT = (
 )
 BAD_ISSUER = "Enter the issuer address, starting with https://."
 NO_SECRET = "Enter the client secret."  # noqa: S105 (words, not a secret)
+
+
+@dataclass(frozen=True)
+class WaitingLink:
+    """A test's identity the admin who ran it may link to their login, once they confirm.
+    Kept in memory only, for as long as a sign-in may take."""
+
+    login_id: int
+    issuer: str
+    subject: str
+    expires: float
 
 
 def _cookie(settings: Settings) -> str:
@@ -128,17 +144,16 @@ def _begin(
     mode: sso.Mode,
     remember: bool = False,
     login_id: int | None = None,
-) -> RedirectResponse:
-    """Send the browser to the sign-in server, or back with `?sso=<code>` if that can't be."""
-    back = "/sign-in" if mode == "sign_in" else "/settings/sso"
+) -> sso.Started:
+    """Begin a sign-in or a test: where to send the browser. Raises SsoFailed."""
     row = _row(db)
     if row is None or not sso_accounts.usable(row):
-        return _go(back, "not_set_up")
+        raise sso.SsoFailed("not_set_up")
     if not _same_host(request, row.redirect_uri):
-        return _go(back, "wrong_address")
+        raise sso.SsoFailed("wrong_address")
     try:
         client = sso_accounts.client(row, request.app.state.settings.data_dir)
-        started = sso.start(
+        return sso.start(
             _gate(request),
             request.app.state.sso_flows,
             client,
@@ -148,9 +163,11 @@ def _begin(
         )
     except sso.SsoFailed as failure:
         log.warning("Single sign-on couldn’t start: %s", failure.code)
-        return _go(back, failure.code)
-    settings: Settings = request.app.state.settings
-    response = RedirectResponse(started.url, status_code=status.HTTP_303_SEE_OTHER)
+        raise
+
+
+def _bind(response: Response, settings: Settings, started: sso.Started) -> None:
+    """Tie the sign-in to this browser with a cookie of its own."""
     response.set_cookie(
         _cookie(settings),
         started.binding,
@@ -160,21 +177,41 @@ def _begin(
         samesite="lax",  # sent when the sign-in server sends the browser back
         path="/",
     )
-    return response
 
 
 @router.get("/sso/start", response_class=RedirectResponse, status_code=303)
 def start(request: Request, db: Db, remember: bool = False) -> RedirectResponse:
     """Public: begin signing in with single sign-on (a link, not a fetch). Answers with a
-    redirect to the sign-in server, or to `/sign-in?sso=<code>` when it can't."""
-    return _begin(request, db, mode="sign_in", remember=remember)
+    redirect to the sign-in server, or to `/sign-in?sso=<code>` when it can't. A link is safe
+    here: following it changes nothing for someone signed in."""
+    try:
+        started = _begin(request, db, mode="sign_in", remember=remember)
+    except sso.SsoFailed as failure:
+        return _go("/sign-in", failure.code)
+    response = RedirectResponse(started.url, status_code=status.HTTP_303_SEE_OTHER)
+    _bind(response, request.app.state.settings, started)
+    return response
 
 
-@router.get("/sso/test", response_class=RedirectResponse, status_code=303)
-def test(request: Request, kitchen: Here) -> RedirectResponse:
-    """Admins only: the setup screen's "Test sign-in", in a new tab."""
+class TestStarted(BaseModel):
+    # The sign-in server's page, for the setup screen to open in a new tab.
+    url: str
+
+
+@router.post("/sso/test")
+def test(request: Request, response: Response, kitchen: Here) -> TestStarted:
+    """Admins only: begin the setup screen's "Test sign-in". A POST, so only this site's own
+    page can start one (the router refuses another site's). A refusal is a 400 with a `code`
+    and a sentence to show."""
     kitchen.admin_only(Action.SIGN_IN)
-    return _begin(request, kitchen.db, mode="test", login_id=kitchen.login.id)
+    settings: Settings = request.app.state.settings
+    needs_https(request, settings)
+    try:
+        started = _begin(request, kitchen.db, mode="test", login_id=kitchen.login.id)
+    except sso.SsoFailed as failure:
+        raise _refused(failure) from None
+    _bind(response, settings, started)
+    return TestStarted(url=started.url)
 
 
 class FinishIn(BaseModel):
@@ -186,9 +223,16 @@ class FinishIn(BaseModel):
 
 class TestResult(BaseModel):
     passed: bool
+    # Who the sign-in server said it was: the user name Mealwright would use, and its own
+    # name and email address for them, to show beside "Link … to …?".
     username: str | None = None
+    name: str | None = None
+    email: str | None = None
     groups: list[str] = []
     role: Literal["admin", "member"] | None = None
+    # "can": the groups make them an Admin, and the admin who tested may link them to their
+    # own login by confirming (POST /sso/link). "linked": they already are. Else "no".
+    link: Literal["can", "linked", "no"] = "no"
     # Why it didn't pass, in plain words.
     message: str | None = None
     code: str | None = None
@@ -204,16 +248,35 @@ def _refused(failure: sso.SsoFailed) -> Problem:
     return Problem(status.HTTP_400_BAD_REQUEST, failure.code, failure.message)
 
 
-def _tested(request: Request, household_id: int, result: TestResult) -> FinishOut:
+def _tested(
+    request: Request, household_id: int, result: TestResult, waiting: WaitingLink | None = None
+) -> FinishOut:
     request.app.state.sso_tests[household_id] = result
+    if waiting is None:
+        request.app.state.sso_links.pop(household_id, None)
+    else:
+        request.app.state.sso_links[household_id] = waiting
     return FinishOut(done="tested", test=result)
+
+
+def _waiting(request: Request, kitchen: Here) -> WaitingLink | None:
+    """The link waiting for this admin's confirmation, if there is one still."""
+    found: WaitingLink | None = request.app.state.sso_links.get(kitchen.household_id)
+    if found is None or found.login_id != kitchen.login.id or found.expires <= time.monotonic():
+        return None
+    return found
+
+
+def _forget_test(request: Request, household_id: int) -> None:
+    request.app.state.sso_tests.pop(household_id, None)
+    request.app.state.sso_links.pop(household_id, None)
 
 
 @router.post("/sso/finish")
 def finish(body: FinishIn, request: Request, response: Response, db: Db) -> FinishOut:
     """Public: the callback page posts what the sign-in server sent back. Signs in (or, for a
-    test, links the admin) and answers what happened. A refusal is a 400 with a `code` and a
-    sentence to show."""
+    test, keeps the result for the setup screen) and answers what happened. A refusal is a
+    400 with a `code` and a sentence to show."""
     settings: Settings = request.app.state.settings
     needs_https(request, settings)
     binding = request.cookies.get(_cookie(settings))
@@ -267,18 +330,28 @@ def _finish_test(
     if signed_in is None or signed_in.login.id != login_id or signed_in.login.role != ADMIN:
         raise sso.SsoFailed("expired")  # signed out, or someone else, since it started
     login = signed_in.login
-    role = sso_accounts.link_for_test(db, row, login, identity)
-    db.commit()
+    role, link = sso_accounts.outcome_of_test(db, row, login, identity)
     result = TestResult(
         passed=role is not None,
-        username=sso_accounts.new_username(identity),
+        username=identity.username or sso_accounts.new_username(identity),
+        name=identity.name,
+        email=identity.email,
         groups=identity.groups[:MOST_GROUPS],
         role="admin" if role == ADMIN else "member" if role == MEMBER else None,
+        link=link,
         message=None if role is not None else sso.MESSAGES["not_let_in"],
         code=None if role is not None else "not_let_in",
     )
+    waiting = None
+    if link == "can":
+        waiting = WaitingLink(
+            login_id=login.id,
+            issuer=identity.issuer,
+            subject=identity.subject,
+            expires=time.monotonic() + sso.FLOW_FOR,
+        )
     log.info("Single sign-on test by %s: %s", login.username, "passed" if role else "not let in")
-    return _tested(request, row.household_id, result)
+    return _tested(request, row.household_id, result, waiting)
 
 
 # --- The setup (admins only) ------------------------------------------------------------------
@@ -324,7 +397,10 @@ class SsoSetupIn(BaseModel):
 
 def _setup(request: Request, kitchen: Here, row: SsoSettings | None) -> SsoSetupOut:
     switch = sso_accounts.switch_on(kitchen.db, kitchen.household_id)
-    test = request.app.state.sso_tests.get(kitchen.household_id)
+    test: TestResult | None = request.app.state.sso_tests.get(kitchen.household_id)
+    if test is not None and test.link == "can" and _waiting(request, kitchen) is None:
+        # Only the admin who tested can link, and only for a while.
+        test = test.model_copy(update={"link": "no"})
     if row is None:
         return SsoSetupOut(
             issuer="",
@@ -439,6 +515,7 @@ def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
     row.password_sign_in = body.password_sign_in
     db.commit()
     sso.cache.forget()
+    _forget_test(request, kitchen.household_id)  # it was a test of the setup before
     log.info("Single sign-on: setup saved by %s", kitchen.login.username)
     return _setup(request, kitchen, row)
 
@@ -467,3 +544,39 @@ def put_passwords(body: PasswordsIn, request: Request, kitchen: Here) -> SsoSetu
             kitchen.login.username,
         )
     return _setup(request, kitchen, row)
+
+
+@router.post("/sso/link")
+def link(request: Request, kitchen: Here) -> SsoSetupOut:
+    """Admins only: "Link (you) to (them)?", confirmed. Links the admin's own login to the
+    identity their last test found, when the groups made it an Admin. Refused (409
+    `link_gone`) when no such test is waiting: it was someone else's, it ran out, or the
+    setup was saved since."""
+    kitchen.admin_only(Action.SIGN_IN)
+    row = sso_accounts.settings_row(kitchen.db, kitchen.household_id)
+    waiting = _waiting(request, kitchen)
+    try:
+        if row is None or waiting is None:
+            raise sso.SsoFailed("link_gone")
+        sso_accounts.link(kitchen.db, row, kitchen.login, waiting.issuer, waiting.subject)
+    except sso.SsoFailed as failure:
+        kitchen.db.rollback()
+        raise Problem(status.HTTP_409_CONFLICT, failure.code, failure.message) from None
+    kitchen.db.commit()
+    request.app.state.sso_links.pop(kitchen.household_id, None)
+    result: TestResult | None = request.app.state.sso_tests.get(kitchen.household_id)
+    if result is not None:
+        request.app.state.sso_tests[kitchen.household_id] = result.model_copy(
+            update={"link": "linked"}
+        )
+    return _setup(request, kitchen, row)
+
+
+@router.delete("/sso/link")
+def not_now(request: Request, kitchen: Here) -> SsoSetupOut:
+    """Admins only: "Not now". Drops the link that was waiting for this admin; nothing was
+    linked."""
+    kitchen.admin_only(Action.SIGN_IN)
+    if _waiting(request, kitchen) is not None:
+        request.app.state.sso_links.pop(kitchen.household_id, None)
+    return _setup(request, kitchen, sso_accounts.settings_row(kitchen.db, kitchen.household_id))

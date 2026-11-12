@@ -4,6 +4,7 @@ network: nothing goes online."""
 
 import io
 import logging
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, cast
@@ -68,16 +69,33 @@ def browser(client: TestClient) -> TestClient:
     return TestClient(client.app, base_url="https://testserver", follow_redirects=False)
 
 
+def begin(client: TestClient, path: str = "/sso/start") -> str:
+    """Start a sign-in (a link) or a test (a POST from the setup screen): the sign-in
+    server's address for the browser."""
+    if path == "/sso/test":
+        started = client.post(f"{API}{path}", headers={"Origin": "https://testserver"})
+        assert started.status_code == 200, started.text
+        return str(started.json()["url"])
+    started = client.get(f"{API}{path}", follow_redirects=False)
+    assert started.status_code == 303, started.text
+    return str(started.headers["location"])
+
+
 def sign_in(
     client: TestClient, idp: FakeProvider, path: str = "/sso/start", **claims: Any
 ) -> tuple[Any, str]:
     """Start, sign in at the provider, and post the callback: (the answer, the state)."""
-    started = client.get(f"{API}{path}", follow_redirects=False)
-    assert started.status_code == 303, started.text
-    assert started.headers["location"].startswith(f"{ISSUER}/authorize?")
-    code, state = idp.sign_in(started.headers["location"], **claims)
+    url = begin(client, path)
+    assert url.startswith(f"{ISSUER}/authorize?")
+    code, state = idp.sign_in(url, **claims)
     answer = client.post(f"{API}/sso/finish", json={"state": state, "code": code})
     return answer, state
+
+
+def subject_of(client: TestClient, username: str) -> str | None:
+    with cast(Any, client.app).state.sessionmaker() as db:
+        login = db.scalars(select(Login).where(Login.username == username)).one()
+        return cast("str | None", login.sso_subject)
 
 
 def logins(client: TestClient) -> dict[str, str]:
@@ -192,7 +210,9 @@ def test_only_an_admin_sees_or_changes_the_setup(admin: TestClient) -> None:
             member.get(f"{API}/sso/settings"),
             member.put(f"{API}/sso/settings", json=SETUP),
             member.put(f"{API}/sso/password-sign-in", json={"on": False}),
-            member.get(f"{API}/sso/test", follow_redirects=False),
+            member.post(f"{API}/sso/test"),
+            member.post(f"{API}/sso/link"),
+            member.delete(f"{API}/sso/link"),
         ):
             assert response.status_code == 403
             assert response.json()["code"] == "admins_only"
@@ -376,7 +396,7 @@ def test_password_sign_in_stays_on_until_an_admin_has_signed_in_with_sso(
     assert admin.put(f"{API}/sso/password-sign-in", json={"on": False}).status_code == 409
 
 
-def test_the_setup_test_links_the_admin_and_then_passwords_can_go(
+def test_the_setup_test_then_linking_lets_passwords_go(
     admin: TestClient, idp: FakeProvider
 ) -> None:
     answer, _ = sign_in(
@@ -391,11 +411,15 @@ def test_the_setup_test_links_the_admin_and_then_passwords_can_go(
     assert test == {
         "passed": True,
         "username": "tess",
+        "name": "Ayla",
+        "email": "ayla@example.org",
         "groups": ["mealwright-admins"],
         "role": "admin",
+        "link": "can",
         "message": None,
         "code": None,
     }
+    assert admin.post(f"{API}/sso/link").status_code == 200  # the admin confirms
     setup = admin.get(f"{API}/sso/settings").json()
     assert setup["test"]["passed"] is True
     assert setup["admin_linked"] is True
@@ -420,6 +444,145 @@ def test_the_setup_test_links_the_admin_and_then_passwords_can_go(
     assert browser(admin).post(f"{API}/session", json=password).status_code == 200
 
 
+# O1 review r1 H1: a test never hands the admin's account to whoever is signed in at the provider.
+
+MALLORY = {"preferred_username": "mallory", "name": "Mallory M", "email": "mallory@example.org"}
+
+
+def test_a_member_at_the_provider_in_the_admins_browser_is_never_linked(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    answer, _ = sign_in(
+        admin,
+        idp,
+        path="/sso/test",
+        sub="mallory-1",
+        extra={**MALLORY, "groups": ["mealwright-users"]},
+    )
+    assert answer.status_code == 200, answer.text
+    assert subject_of(admin, "tess") is None
+    test = answer.json()["test"]
+    assert (test["passed"], test["role"], test["link"]) == (True, "member", "no")
+    assert admin.get(f"{API}/sso/settings").json()["admin_linked"] is False
+    # Asking to link anyway is refused: there is nothing to confirm.
+    refused = admin.post(f"{API}/sso/link")
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["code"] == "link_gone"
+    assert subject_of(admin, "tess") is None
+    # Mallory then signs in as herself, a member: never as the admin.
+    answer, _ = sign_in(
+        browser(admin), idp, sub="mallory-1", extra={**MALLORY, "groups": ["mealwright-users"]}
+    )
+    assert answer.json()["me"]["username"] == "mallory"
+    assert answer.json()["me"]["role"] == "member"
+
+
+def test_a_test_sign_in_starts_only_by_a_post_from_this_site(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    # A link another site gets the admin's browser to follow starts nothing.
+    followed = admin.get(f"{API}/sso/test", follow_redirects=False)
+    assert followed.status_code in (404, 405)  # there is no such link
+    assert "set-cookie" not in followed.headers
+    # Nor does a form on another site.
+    posted = admin.post(f"{API}/sso/test", headers={"Origin": "https://evil.example"})
+    assert posted.status_code == 403
+    assert "set-cookie" not in posted.headers
+    assert idp.seen == []  # the sign-in server wasn't even asked
+    # The setup screen's own POST does.
+    started = admin.post(f"{API}/sso/test", headers={"Origin": "https://testserver"})
+    assert started.status_code == 200, started.text
+    assert started.json()["url"].startswith(f"{ISSUER}/authorize?")
+
+
+def test_a_test_asks_the_provider_to_ask_who_you_are(admin: TestClient) -> None:
+    query = parse_qs(urlsplit(begin(admin, "/sso/test")).query)
+    assert query["prompt"] == ["login"]
+    # An everyday sign-in doesn't: someone signed in at the provider goes straight through.
+    assert "prompt" not in parse_qs(urlsplit(begin(browser(admin))).query)
+
+
+def test_nothing_is_linked_until_the_admin_confirms(admin: TestClient, idp: FakeProvider) -> None:
+    answer, _ = sign_in(
+        admin,
+        idp,
+        path="/sso/test",
+        sub="tess-at-idp",
+        extra={
+            "preferred_username": "tess.r",
+            "name": "Tess R",
+            "email": "tess@example.org",
+            "groups": ["mealwright-admins"],
+        },
+    )
+    test = answer.json()["test"]
+    assert (test["passed"], test["role"], test["link"]) == (True, "admin", "can")
+    # Who the provider says it was, for the question on the setup screen.
+    assert (test["username"], test["name"], test["email"]) == (
+        "tess.r",
+        "Tess R",
+        "tess@example.org",
+    )
+    setup = admin.get(f"{API}/sso/settings").json()
+    assert setup["admin_linked"] is False and setup["test"]["link"] == "can"
+    assert subject_of(admin, "tess") is None
+    assert admin.put(f"{API}/sso/password-sign-in", json={"on": False}).status_code == 409
+    # A confirmation from another site is refused.
+    cross = admin.post(f"{API}/sso/link", headers={"Origin": "https://evil.example"})
+    assert cross.status_code == 403
+    assert subject_of(admin, "tess") is None
+    # Confirmed: linked.
+    linked = admin.post(f"{API}/sso/link", headers={"Origin": "https://testserver"})
+    assert linked.status_code == 200, linked.text
+    assert linked.json()["admin_linked"] is True and linked.json()["test"]["link"] == "linked"
+    assert subject_of(admin, "tess") == "tess-at-idp"
+    # Once: there's nothing left to confirm.
+    assert admin.post(f"{API}/sso/link").status_code == 409
+
+
+def test_not_now_drops_the_link_that_was_waiting(admin: TestClient, idp: FakeProvider) -> None:
+    sign_in(admin, idp, path="/sso/test", sub="k", extra={"groups": ["mealwright-admins"]})
+    dropped = admin.delete(f"{API}/sso/link")
+    assert dropped.status_code == 200, dropped.text
+    assert dropped.json()["test"]["link"] == "no"
+    assert admin.post(f"{API}/sso/link").status_code == 409
+    assert subject_of(admin, "tess") is None
+
+
+def test_only_the_admin_who_tested_can_confirm_and_not_after_a_save_or_too_late(
+    admin: TestClient, idp: FakeProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        db.add(
+            Login(
+                household_id=1,
+                username="wren",
+                name="Wren",
+                password_hash=hash_password("wren's own password"),
+                role="admin",
+            )
+        )
+        db.commit()
+    sign_in(admin, idp, path="/sso/test", sub="k", extra={"groups": ["mealwright-admins"]})
+    with TestClient(admin.app, base_url="https://testserver") as wren:
+        assert wren.post(
+            f"{API}/session", json={"username": "wren", "password": "wren's own password"}
+        ).is_success
+        assert wren.get(f"{API}/sso/settings").json()["test"]["link"] == "no"
+        assert wren.post(f"{API}/sso/link").status_code == 409
+        assert subject_of(admin, "wren") is None
+    # Saving the setup drops the test: it was of the setup before.
+    assert admin.put(f"{API}/sso/settings", json={**SETUP, "client_secret": ""}).is_success
+    assert admin.post(f"{API}/sso/link").status_code == 409
+    # And a test's link waits only so long.
+    sign_in(admin, idp, path="/sso/test", sub="k", extra={"groups": ["mealwright-admins"]})
+    real = time.monotonic()
+    monkeypatch.setattr(time, "monotonic", lambda: real + sso.FLOW_FOR + 1)
+    assert admin.get(f"{API}/sso/settings").json()["test"]["link"] == "no"
+    assert admin.post(f"{API}/sso/link").status_code == 409
+    assert subject_of(admin, "tess") is None
+
+
 def test_a_failed_test_is_shown_on_the_setup_screen(admin: TestClient, idp: FakeProvider) -> None:
     answer, _ = sign_in(admin, idp, path="/sso/test", extra={"groups": ["friends"]})
     assert answer.json()["test"]["passed"] is False
@@ -441,6 +604,7 @@ def test_a_test_can_link_only_an_identity_nobody_else_has(
 
 def test_reset_admin_turns_password_sign_in_back_on(admin: TestClient, idp: FakeProvider) -> None:
     sign_in(admin, idp, path="/sso/test", sub="k", extra={"groups": ["mealwright-admins"]})
+    assert admin.post(f"{API}/sso/link").is_success
     assert admin.put(f"{API}/sso/password-sign-in", json={"on": False}).is_success
     out = io.StringIO()
     assert reset_admin(cast(Any, admin.app).state.settings, "tess", out) == 0
