@@ -1037,6 +1037,24 @@ def test_errors_from_before_delete_everything_are_not_in_the_report(
     assert any("New install" in line for line in lines), lines
 
 
+def test_another_households_report_has_no_line_from_before_a_delete_everything(
+    kitchen: TestClient, neighbour: TestClient, settings: Settings
+) -> None:
+    """cabledrawer 12 Nov: after one household deletes everything, another household's report
+    shows no line from before that, which could hold the first household's names, foods or
+    people (their names are no longer there to be removed). Lines from after it are kept."""
+    from conftest import ADMIN
+
+    folder = log_folder(settings)
+    write_log(folder, [error("Couldn't save Quillfeather aubergine for Ramaswamy in Home")])
+    body = {"words": "delete everything", "password": ADMIN["password"]}
+    assert kitchen.post(f"{API}/delete-everything", json=body).status_code == 204
+    write_log(folder, [error("Later broke", ago=timedelta(seconds=-3))])
+    lines = report(neighbour)["errors"]
+    assert not any("Quillfeather" in line for line in lines), lines
+    assert any("Later broke" in line for line in lines), lines
+
+
 def test_a_households_old_name_is_removed_after_a_rename(
     kitchen: TestClient, neighbour: TestClient, settings: Settings
 ) -> None:

@@ -255,6 +255,23 @@ def before_delete_everything(engine: Engine, folder: Path, now: datetime | None 
     return target
 
 
+_DELETE_NAME = re.compile(rf"^{BEFORE_DELETE}-(\d{{8}}-\d{{6}})(?:-\d+)?\.db$")
+
+
+def last_delete_everything(folder: Path) -> datetime | None:
+    """When the latest "Delete everything" of any household was done (by its safety backup,
+    which is never trimmed and stays in the backups folder), or None. The log holds every
+    household's lines, so a report leaves out all lines from before this (cabledrawer 12 Nov)."""
+    try:
+        names = [path.name for path in folder.iterdir()]
+    except OSError:
+        return None
+    stamps = [m.group(1) for name in names if (m := _DELETE_NAME.match(name))]
+    if not stamps:
+        return None
+    return datetime.strptime(max(stamps), _STAMP).replace(tzinfo=UTC)
+
+
 def _plain(error: BaseException) -> str:
     """What went wrong, short. An OSError says which (the disk is full, no permission); the
     folder is always the backups folder, so its path isn't repeated."""

@@ -9,9 +9,12 @@ holds every household's errors, so only an admin's report includes them (propose
 cabledrawer); a member's has the version and the browser.
 """
 
+from datetime import UTC, timedelta
+
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
+from mealwright import backups
 from mealwright.api.v1.context import Here
 from mealwright.auth import SameOrigin
 from mealwright.config import Settings
@@ -50,7 +53,18 @@ def problem_report(kitchen: Here, request: Request) -> ProblemReportOut:
     admin = kitchen.login.role == "admin"
     errors: list[str] = []
     if admin:
-        found = recent_errors(settings.data_dir / "logs", installed=kitchen.household.created_at)
+        # Nothing from before this household's set-up, nor from before the latest Delete
+        # everything of any household: the log holds every household's lines, and a deleted
+        # household's names are no longer there to be removed (cabledrawer 12 Nov). The safety
+        # backup is stamped just before the delete, so a second is added.
+        installed = kitchen.household.created_at
+        deleted = backups.last_delete_everything(settings.data_dir / backups.FOLDER)
+        if deleted is not None:
+            deleted += timedelta(seconds=1)
+            if installed.tzinfo is None:
+                installed = installed.replace(tzinfo=UTC)
+            installed = max(installed, deleted)
+        found = recent_errors(settings.data_dir / "logs", installed=installed)
         if found:
             server = server_address(request.url.hostname, request.url.port, settings.port)
             scrub = scrubber_for(kitchen.db, server, settings.data_dir)
