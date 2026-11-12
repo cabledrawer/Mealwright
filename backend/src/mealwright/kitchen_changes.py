@@ -153,7 +153,7 @@ def amounts_shown_changed(kitchen: Kitchen, old: str, new: str) -> Change:
     return record(
         kitchen,
         "amounts_shown_changed",
-        # proposed, for cabledrawer
+        # cabledrawer 12 Nov (accepted as built)
         f"Changed amounts to {AMOUNTS_WORDS[new]} (was {AMOUNTS_WORDS[old]})",
         None,
         {"amounts_shown": {"old": old, "new": new}},

@@ -1,8 +1,8 @@
 <script lang="ts">
   // How amounts are shown (0.9 U2; spec "Amounts shown in 1.0": as written, plus grams and
   // millilitres; cups as a display choice come after 1.0, and Onboarding and Settings say so).
-  // The same choice in Onboarding's Amounts step and Settings → Amounts. The words are proposed,
-  // for cabledrawer. Nothing on screen converts yet: the choice is kept for a later version.
+  // The same choice in Onboarding's Amounts step and Settings → Amounts. The words are cabledrawer's
+  // (12 Nov). Nothing on screen converts yet: the choice is kept for a later version.
   import type { AmountsShown } from '#lib/client/types.js';
 
   let {
