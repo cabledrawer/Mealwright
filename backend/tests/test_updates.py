@@ -24,7 +24,7 @@ from mealwright import __version__, migrate, updates
 from mealwright.auth import hash_password
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.models import Household, Login
-from mealwright.outbound import Connection, OutboundGate, set_switch
+from mealwright.outbound import Connection, OutboundGate, OutboundResponse, set_switch
 from mealwright.updates import (
     DAILY_AFTER,
     RELEASE_LIST_URL,
@@ -465,3 +465,25 @@ def test_check_now_needs_the_same_site(kitchen: TestClient, release_list: list) 
     )
     assert response.status_code == 403
     assert release_list == []
+
+
+def test_no_database_connection_is_held_while_check_now_waits(
+    kitchen: TestClient, release_list: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Check now's wait on the release list (up to 20 s) holds no database connection, so a few
+    slow checks can't use up the pool other requests and sign-in need (security review r1)."""
+    kitchen.put(f"{API}/privacy/switches/update_check", json={"on": True})
+    pool = kitchen.app.state.sessionmaker.kw["bind"].pool  # type: ignore[attr-defined]
+    gate: OutboundGate = kitchen.app.state.outbound  # type: ignore[attr-defined]
+    real = gate.request
+    open_during: list[int] = []
+
+    def waiting(*args: object, **options: object) -> OutboundResponse:
+        open_during.append(pool.checkedout())
+        return real(*args, **options)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(gate, "request", waiting)
+    response = kitchen.post(f"{API}/updates/check")
+    assert response.status_code == 200
+    assert response.json()["last"]["outcome"] == "up_to_date"
+    assert open_during == [0]

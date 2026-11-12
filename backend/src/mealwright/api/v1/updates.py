@@ -80,6 +80,10 @@ def check_now(kitchen: Here, request: Request) -> UpdatesOut:
     the Privacy switch off nothing is asked, and `last.outcome` is "off"."""
     kitchen.admin_only(Action.PRIVACY)  # it connects out, as the Privacy switches do
     checks = _checks(request)
-    kitchen.db.rollback()  # end the read before waiting on the network (up to 20 s)
-    checks.check_now(kitchen.household_id)
+    # Read the household before ending the read: after the rollback, `kitchen.household_id`
+    # would load it again and keep a database connection through the whole wait (up to 20 s),
+    # so a few slow checks could use up the connections everyone else needs.
+    household_id = kitchen.household_id
+    kitchen.db.rollback()
+    checks.check_now(household_id)
     return _out(kitchen, checks)
