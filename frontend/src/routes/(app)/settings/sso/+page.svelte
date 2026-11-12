@@ -164,7 +164,10 @@
           .filter((g) => g.group),
         anyone_else: anyoneElse,
         make_accounts: makeAccounts,
-        password_sign_in: passwords
+        // The stored choice goes back unless the admin moved the switch: while single sign-on
+        // can't start the screen shows passwords on, and saving that must not store it.
+        password_sign_in:
+          saved && passwords === saved.password_sign_in ? saved.password_sign_in_stored : passwords
       });
       fill(setup);
       // "Saved. Password sign-in is on again…" when the save changed who gets in while it was off.

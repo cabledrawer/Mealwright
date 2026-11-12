@@ -55,6 +55,9 @@ export interface SsoSetup {
   anyone_else: 'none' | 'member';
   make_accounts: boolean;
   password_sign_in: boolean;
+  /** What an admin chose, stored as it is; differs from `password_sign_in` while single sign-on
+   *  can't start and passwords work again. A save sends it back unless the switch was moved. */
+  password_sign_in_stored: boolean;
   /** An admin has signed in with single sign-on (or passed the test). */
   admin_linked: boolean;
   /** The Single sign-on switch in Settings → Privacy. */

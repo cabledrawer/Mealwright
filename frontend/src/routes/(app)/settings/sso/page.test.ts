@@ -26,6 +26,7 @@ const SAVED: SsoSetup = {
   anyone_else: 'none',
   make_accounts: true,
   password_sign_in: true,
+  password_sign_in_stored: true,
   admin_linked: false,
   switch_on: true,
   test: null
@@ -277,6 +278,23 @@ describe('single sign-on setup', () => {
       .toHaveTextContent(notice);
     await expect.element(passwords).toBeChecked();
     await expect.element(page.getByText('Saved.', { exact: true })).not.toBeInTheDocument();
+  });
+
+  it('a save while passwords work again keeps the stored choice, unless the switch is moved (O1 review r4)', async () => {
+    requests = fakeApi({
+      'GET /sso/settings': [
+        200,
+        { ...SAVED, admin_linked: true, password_sign_in: true, password_sign_in_stored: false }
+      ],
+      'PUT /sso/settings': [200, { ...SAVED, admin_linked: true, password_sign_in_stored: false }]
+    });
+    show();
+    const passwords = page.getByRole('switch', { name: 'Allow password sign-in' });
+    await expect.element(passwords).toBeChecked(); // what counts now
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect.element(page.getByText('Saved.', { exact: true })).toBeInTheDocument();
+    const put = requests.find((r) => r.method === 'PUT')!;
+    expect((put.body as { password_sign_in: boolean }).password_sign_in).toBe(false);
   });
 
   it('shows the server’s refusal', async () => {

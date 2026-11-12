@@ -146,3 +146,33 @@ def test_a_client_id_only_change_drops_the_refresh_tokens(
     assert check(kitchen) == 0
     assert app.get(f"{API}/me").status_code == 200
     assert there.get(f"{API}/me").status_code == 200
+
+
+def test_a_save_in_the_fall_back_keeps_the_stored_choice(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O1 review r4, finding 3. The settings give the stored choice beside the effective
+    value; sending it back in a save keeps passwords off once single sign-on starts again."""
+    home(kitchen, monkeypatch, "id.example.org")
+    restart(kitchen)  # memory empty: passwords work for now
+    shown = kitchen.get(f"{API}/sso/settings").json()
+    assert shown["password_sign_in"] is True  # what counts
+    assert shown["password_sign_in_stored"] is False  # what the admin chose
+    body = {**SETUP, "client_secret": "", "button_name": "Sign in"}
+    saved = kitchen.put(
+        f"{API}/sso/settings", json={**body, "password_sign_in": shown["password_sign_in_stored"]}
+    )
+    assert saved.is_success and saved.json()["password_sign_in_stored"] is False
+    start_job(kitchen)  # the memory is filled again
+    assert browser(kitchen).post(f"{API}/session", json=PASSWORD).status_code == 403
+
+
+def test_turning_passwords_off_while_single_sign_on_cannot_start_is_refused(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home(kitchen, monkeypatch, "id.example.org")
+    restart(kitchen)
+    refused = kitchen.put(f"{API}/sso/password-sign-in", json={"on": False})
+    assert refused.status_code == 409 and refused.json()["code"] == "passwords_needed"
+    start_job(kitchen)
+    assert kitchen.put(f"{API}/sso/password-sign-in", json={"on": False}).is_success

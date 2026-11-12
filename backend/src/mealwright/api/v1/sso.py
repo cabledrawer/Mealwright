@@ -447,6 +447,10 @@ class SsoSetupOut(BaseModel):
     anyone_else: Literal["none", "member"]
     make_accounts: bool
     password_sign_in: bool
+    # What an admin chose, stored as it is. It differs from `password_sign_in` (what counts now)
+    # while single sign-on can't start and passwords work again; a save sends it back so the
+    # choice is kept (O1 review r4, finding 3).
+    password_sign_in_stored: bool = True
     # Whether an admin can sign in with single sign-on (so passwords may be turned off).
     admin_linked: bool
     switch_on: bool
@@ -489,6 +493,7 @@ def _setup(request: Request, kitchen: Here, row: SsoSettings | None) -> SsoSetup
             anyone_else="none",
             make_accounts=True,
             password_sign_in=True,
+            password_sign_in_stored=True,
             admin_linked=False,
             switch_on=switch,
             test=test,
@@ -507,6 +512,7 @@ def _setup(request: Request, kitchen: Here, row: SsoSettings | None) -> SsoSetup
         password_sign_in=not sso_accounts.passwords_off(
             kitchen.db, request.app.state.settings.data_dir, kitchen.household_id
         ),
+        password_sign_in_stored=row.password_sign_in,
         admin_linked=sso_accounts.admin_signs_in_with_sso(kitchen.db, row),
         switch_on=switch,
         test=test,
@@ -676,6 +682,12 @@ def put_passwords(body: PasswordsIn, request: Request, kitchen: Here) -> SsoSetu
         raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED)
     if not body.on and row.password_sign_in:
         _passwords_off_allowed(request, kitchen, row)
+    elif not body.on and not sso_accounts.sso_can_start(
+        kitchen.db, request.app.state.settings.data_dir, kitchen.household_id
+    ):
+        # Stored off but single sign-on can't start now, so passwords still work: say so, not a
+        # silent 200 (O1 review r4, finding 3).
+        raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED)
     if row.password_sign_in != body.on:
         row.password_sign_in = body.on
         kitchen.db.commit()
