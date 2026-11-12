@@ -8,7 +8,8 @@
 - Repeated wrong guesses for a username, or from one address, slow sign-in down. Each try
   is counted before its password is checked. A device that has signed in as someone before
   (the "known device" cookie) skips that username's pause, so guessing at a username can't
-  keep its owner out (PR A2).
+  keep its owner out (PR A2). For ten minutes after a password is set, the username's pause
+  doesn't stop its owner's right password either (`NEW_PASSWORD_WINDOW`).
 - Requests that change something must come from Mealwright's own pages (Origin check);
   together with SameSite=Lax cookies this stops other sites acting as you.
 """
@@ -19,6 +20,7 @@ import hmac
 import ipaddress
 import logging
 import math
+import re
 import secrets
 import threading
 import time
@@ -192,9 +194,6 @@ class SlowDown:
 
     def __init__(self) -> None:
         self._failures: dict[str, deque[float]] = defaultdict(deque)
-        # When each real login's password last changed, as last seen at sign-in. Only real
-        # logins are kept (a handful), never made-up usernames.
-        self._passwords: dict[str, object] = {}
         self._lock = threading.Lock()
 
     def _recent(self, key: str, at: float) -> deque[float]:
@@ -238,18 +237,22 @@ class SlowDown:
             self._count(keys, at)
 
     def begin(
-        self, keys: list[str], at: float | None = None
+        self, keys: list[str], at: float | None = None, unstopped: frozenset[str] = frozenset()
     ) -> tuple[float | None, dict[str, int]]:
         """Start a try: if none of the keys is paused, count it now as a wrong guess and give
         back its moment (for `take_back`); otherwise count nothing and give back each key's
-        wait. Both in one step under the lock."""
+        wait. Both in one step under the lock.
+
+        A key in `unstopped` doesn't stop the try while paused: the try is counted all the
+        same, and its wait comes back with the moment (`counted_check` tells a wrong guess
+        it's paused)."""
         at = time.monotonic() if at is None else at
         with self._lock:
             waits = {key: self._wait(key, at) for key in keys}
-            if any(waits.values()):
+            if any(wait for key, wait in waits.items() if key not in unstopped):
                 return None, waits
             self._count(keys, at)
-            return at, {}
+            return at, {key: waits[key] for key in keys if key in unstopped and waits[key]}
 
     def take_back(self, keys: list[str], at: float) -> None:
         """Un-count a try `begin` counted: the password was right, or it was never checked."""
@@ -265,15 +268,19 @@ class SlowDown:
         with self._lock:
             self._failures.pop(key, None)
 
-    def password_seen(self, key: str, changed: object) -> None:
-        """A real login's password was last changed at `changed`. If that's not what was seen
-        before, its password has been changed (Settings, or `reset-admin` from another
-        process), so the username's pause is lifted."""
-        with self._lock:
-            before = self._passwords.get(key, changed)
-            self._passwords[key] = changed
-            if before != changed:
-                self._failures.pop(key, None)
+
+# For this long after a login's password is set (Settings, or reset-admin), the username's pause
+# doesn't stop a try for that login: a guesser polling the username can't keep its owner out of
+# the new password. Each try is still counted and still meets the address limit and the hash
+# turns; a wrong one is told the username is paused, as before (PR A2, security review r2;
+# proposed, for cabledrawer).
+NEW_PASSWORD_WINDOW = timedelta(minutes=10)
+
+
+def new_password(login: Login) -> bool:
+    """True if `login`'s password was set less than NEW_PASSWORD_WINDOW ago."""
+    changed = login.password_changed_at
+    return changed is not None and now() - _as_utc(changed) < NEW_PASSWORD_WINDOW
 
 
 # --- Counting a password check ------------------------------------------------------------
@@ -317,6 +324,9 @@ class Tries:
     name: str = ""
     personal: str | None = None
     address: str | None = None
+    # The login's password was set in the last NEW_PASSWORD_WINDOW: `personal`'s pause doesn't
+    # stop the try (a wrong one is still told it's paused).
+    new_password: bool = False
 
     @property
     def keys(self) -> list[str]:
@@ -343,18 +353,28 @@ def _paused(tries: Tries, waits: dict[str, int]) -> Problem:
     return problem
 
 
-def counted_check(slow: SlowDown, tries: Tries, check: Callable[[], bool]) -> bool:
+def counted_check(
+    slow: SlowDown,
+    tries: Tries,
+    check: Callable[[], bool],
+    on_wrong: Callable[[], None] | None = None,
+) -> bool:
     """Run one password (or setup code) check under the slow-down; every such check goes
     through here.
 
     Refused at once (429) while any of the keys is paused. Otherwise the try is counted
     first, then `check` runs (Argon2 checks take a hash turn, with its waiting room); a right
     answer, or a busy one (503), takes the try back. Gives back whether it was right; a wrong
-    one stays counted. Refused tries aren't logged: they cost nothing, and a line each would
-    let anyone fill the disk.
+    one stays counted (and `on_wrong` runs). Refused tries aren't logged: they cost nothing,
+    and a line each would let anyone fill the disk.
+
+    Just after a password change (`tries.new_password`) the personal pause doesn't refuse the
+    try, so a guesser can't keep the owner out of their new password; a wrong one is then
+    told it's paused (429), in the same words as a refused try.
     """
     keys = tries.keys
-    at, waits = slow.begin(keys)
+    unstopped = frozenset([tries.personal] if tries.new_password and tries.personal else [])
+    at, waits = slow.begin(keys, unstopped=unstopped)
     if at is None:
         raise _paused(tries, waits)
     try:
@@ -364,7 +384,12 @@ def counted_check(slow: SlowDown, tries: Tries, check: Callable[[], bool]) -> bo
         raise
     if right:
         slow.take_back(keys, at)
-    return right
+        return True
+    if on_wrong is not None:
+        on_wrong()
+    if waits:
+        raise _paused(tries, {key: slow.wait_seconds([key]) for key in keys})
+    return False
 
 
 # --- Sessions ------------------------------------------------------------------------------
@@ -392,9 +417,10 @@ def session_token(request: Request) -> str | None:
 #
 # Nothing is stored for it. Each entry is "<login id>.<random>.<HMAC>", keyed by the login's
 # own password hash, which only the server knows; so it can't be made up, and every known
-# device is forgotten when the password changes (Settings, or reset-admin). Up to five logins
-# per browser (a shared kitchen tablet). Same rules as the sign-in cookie: HttpOnly, SameSite,
-# and Secure with the `__Host-` prefix in https mode.
+# device is forgotten when the password changes (Settings, or reset-admin), except the one that
+# changed it in Settings, which is remembered again. Sign out everywhere else doesn't forget
+# them. Up to five logins per browser (a shared kitchen tablet). Same rules as the sign-in
+# cookie: HttpOnly, SameSite, and Secure with the `__Host-` prefix in https mode.
 DEVICE_COOKIE = "__Host-mealwright_device"
 PLAIN_DEVICE_COOKIE = "mealwright_device"
 KNOWN_FOR = timedelta(days=365)
@@ -414,16 +440,23 @@ def _device_mac(login: Login, nonce: str) -> str | None:
     return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
 
 
+# Each part of an entry: what Mealwright writes (a login id, URL-safe base64 without padding).
+_DEVICE_PART = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+
 def _device_entries(request: Request) -> list[tuple[str, str, str]]:
+    """The cookie's entries, read strictly: an entry with any part Mealwright wouldn't write
+    (a control character, a space, too long…) is dropped without a word, so it is never
+    checked, never sent back and never reaches a header or the log (security review r2)."""
     value = request.cookies.get(device_cookie_name(request.app.state.settings), "")
     if len(value) > _LONGEST_DEVICE_COOKIE:
         return []
     entries = []
-    for entry in value.split("~")[:KNOWN_LOGINS]:
+    for entry in value.split("~"):
         parts = entry.split(".")
-        if len(parts) == 3 and all(parts):
+        if len(parts) == 3 and all(_DEVICE_PART.fullmatch(part) for part in parts):
             entries.append((parts[0], parts[1], parts[2]))
-    return entries
+    return entries[:KNOWN_LOGINS]
 
 
 def known_device(request: Request, login: Login) -> str | None:

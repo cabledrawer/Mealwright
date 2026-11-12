@@ -2,8 +2,10 @@
 
 Run inside the container (`docker exec -it mealwright python -m mealwright reset-admin tess`).
 It sets a new random password on that admin's login, prints it once, and signs that login out
-on every device. Only someone who can run commands in the container can use it, which is the
-same person who can read the database. The password is never logged or stored as typed.
+on every device. For `auth.NEW_PASSWORD_WINDOW` after, the username's pause doesn't stop that
+admin's new password (it goes by the password's date). Only someone who can run commands in the
+container can use it, which is the same person who can read the database. The password is never
+logged or stored as typed.
 """
 
 import logging

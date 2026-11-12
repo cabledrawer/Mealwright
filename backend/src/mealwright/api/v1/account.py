@@ -26,6 +26,7 @@ from mealwright.auth import (
     hash_password,
     known_device,
     needs_https,
+    new_password,
     peek_session,
     remember_device,
     session_token,
@@ -197,27 +198,35 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
     user_key = f"user:{username}"
     device = None
     if login is not None:
-        # A new password (Settings, or reset-admin) lifts the username's pause.
-        slow.password_seen(user_key, login.password_changed_at)
         # A device that has signed in as this login before skips the username's pause and
         # has its own instead (PR A2).
         device = known_device(request, login)
-    tries = Tries(name=username, personal=device or user_key, address=address_key(address))
+    tries = Tries(
+        name=username,
+        personal=device or user_key,
+        address=address_key(address),
+        # Just after a new password (Settings, or reset-admin) the username's pause doesn't
+        # stop a try (security review r2).
+        new_password=login is not None and device is None and new_password(login),
+    )
     # Only a real account's name is logged: a password typed into the username box
     # must never end up in the log. Refused tries (429) aren't logged: they cost nothing,
     # so logging each one would let anyone fill the disk. The slow-down is logged once,
     # when it starts or doubles (below).
     who = login.username if login else "unknown user"
 
-    # A removed person's login can't sign in (0.9 A1): it's told only what anyone is, and the
-    # try is counted like a wrong password.
-    def right() -> bool:
-        return check_password(login, body.password) and login is not None and not removed(db, login)
-
-    if not counted_check(slow, tries, right) or not login:
+    def failed() -> None:
         log.warning("Sign-in failed for %s from %s", who, address)
         if wait := slow.wait_seconds(tries.keys):
             log.warning("Sign-in slowed down for %s from %s (wait %d s)", who, address, wait)
+
+    # A removed person's login can't sign in (0.9 A1): it's told only what anyone is, and the
+    # try is counted like a wrong password.
+    def password_right() -> bool:
+        return check_password(login, body.password) and login is not None and not removed(db, login)
+
+    right = counted_check(slow, tries, password_right, failed)
+    if not right or not login:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, WRONG)
     slow.succeeded(user_key)
     if device:

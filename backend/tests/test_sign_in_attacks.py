@@ -2,8 +2,10 @@
 
 - Someone guessing at a known username from a few addresses mustn't keep its owner out: a
   device that has signed in as that login before skips the username's pause (it keeps its
-  own small one, and the address limit still applies). reset-admin lifts the pause too, and
-  changing your password has its own count.
+  own small one, and the address limit still applies). For ten minutes after a new password
+  (Settings or reset-admin) the username's pause doesn't stop a try either, and changing your
+  password has its own count.
+- A planted device cookie with odd entries is read strictly: the odd entries are dropped.
 - A flood of sign-ins mustn't stall everyone: only a few wait for a hash turn, the rest are
   told "busy" at once.
 - Every try is counted before the password is checked, so a burst from one address gets
@@ -11,9 +13,12 @@
 """
 
 import io
+import logging
+import re
 import threading
 import time
 from collections.abc import Iterator
+from datetime import timedelta
 from http.cookies import SimpleCookie
 from typing import Any
 
@@ -58,6 +63,17 @@ def proxied(settings: Settings) -> Iterator[TestClient]:
         client.delete("/api/v1/session")
         client.cookies.clear()
         yield client
+
+
+@pytest.fixture
+def later(monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Call to move the clock the new-password window reads past that window."""
+    real = auth.now
+
+    def move() -> None:
+        monkeypatch.setattr(auth, "now", lambda: real() + auth.NEW_PASSWORD_WINDOW + timedelta(1))
+
+    return move
 
 
 def fresh(client: TestClient) -> TestClient:
@@ -145,13 +161,14 @@ def test_a_made_up_device_cookie_doesnt_get_past_the_pause(proxied: TestClient) 
             assert answer.status_code == 429
 
 
-def test_a_new_password_forgets_the_known_devices(kitchen: TestClient) -> None:
+def test_a_new_password_forgets_the_known_devices(kitchen: TestClient, later: Any) -> None:
     phone = fresh(kitchen)
     assert phone.post("/api/v1/session", json=RIGHT).status_code == 200
     phone.delete("/api/v1/session")
     new = "a brand new password"
     body = {"current_password": PASSWORD, "new_password": new}
     assert kitchen.put("/api/v1/me/password", json=body).status_code == 200
+    later()  # past the new password's window, so only the device could get past the pause
     for _ in range(6):
         guess(kitchen, "testclient", {"username": "tess", "password": "wrong"})
     answer = phone.post("/api/v1/session", json={"username": "tess", "password": new})
@@ -179,17 +196,72 @@ def test_a_known_devices_wrong_guesses_have_their_own_pause(proxied: TestClient)
 # --- reset-admin and change password ------------------------------------------------------------
 
 
-def test_reset_admin_lifts_the_usernames_pause(client: TestClient) -> None:
-    assert client.post("/api/v1/setup", json=ADMIN).status_code == 201
+def user_count(client: TestClient) -> int:
+    slow: auth.SlowDown = client.app.state.slow_down  # type: ignore[attr-defined]
+    return len(slow._failures.get("user:tess", ()))
+
+
+def test_reset_admins_password_gets_in_while_a_guesser_polls_the_username(
+    proxied: TestClient, clock: Clock, later: Any
+) -> None:
+    # The review's race: a guesser keeps the username paused from many addresses, each guess
+    # as soon as it may; the admin runs reset-admin and signs in with the new password.
+    addresses = iter(f"203.0.113.{n}" for n in range(200))
     for _ in range(6):
-        guess(client, "testclient")
-    assert guess(client, "testclient", RIGHT) == 429
-    # The address pause is the guesser's own; only the username's is lifted.
-    client.app.state.slow_down.succeeded("addr:testclient")  # type: ignore[attr-defined]
+        guess(proxied, next(addresses))
+    assert guess(proxied, OWNER, RIGHT) == 429
     out = io.StringIO()
-    assert reset_admin(client.app.state.settings, "tess", out) == 0  # type: ignore[attr-defined]
+    assert reset_admin(proxied.app.state.settings, "tess", out) == 0  # type: ignore[attr-defined]
     password = out.getvalue().split("New password for tess: ")[1].split()[0]
-    assert guess(client, "testclient", {"username": "tess", "password": password}) == 200
+    new = {"username": "tess", "password": password}
+
+    for _ in range(3):  # the guesser gets in first each time, from a new address
+        counted = user_count(proxied)
+        with fresh(proxied) as guesser:
+            answer = guesser.post("/api/v1/session", json=WRONG, headers=from_(next(addresses)))
+        # A wrong guess in the window is still told the username is paused, and still counted.
+        assert answer.status_code == 429
+        assert answer.json()["code"] == "username_paused"
+        assert answer.json()["detail"].startswith("Too many wrong passwords for tess. Try ")
+        assert user_count(proxied) == counted + 1
+        clock.at += 1
+    # The admin's right password gets in, from a browser that never signed in before.
+    assert guess(proxied, OWNER, new) == 200
+
+    # After the window the pause works as before: right passwords wait too.
+    later()
+    for _ in range(6):
+        guess(proxied, next(addresses))
+    assert guess(proxied, "198.51.100.8", new) == 429
+    assert guess(proxied, next(addresses)) == 429
+
+
+def test_the_window_still_has_the_address_limit(proxied: TestClient) -> None:
+    # Five wrong from one address pause it, window or not.
+    for _ in range(6):
+        guess(proxied, "192.0.2.50")
+    out = io.StringIO()
+    assert reset_admin(proxied.app.state.settings, "tess", out) == 0  # type: ignore[attr-defined]
+    password = out.getvalue().split("New password for tess: ")[1].split()[0]
+    answer_code = guess(proxied, "192.0.2.50", {"username": "tess", "password": password})
+    assert answer_code == 429
+
+
+def test_the_device_that_changed_the_password_stays_known(proxied: TestClient, later: Any) -> None:
+    phone = fresh(proxied)
+    assert phone.post("/api/v1/session", json=RIGHT, headers=from_(OWNER)).status_code == 200
+    new = "a brand new password"
+    body = {"current_password": PASSWORD, "new_password": new}
+    assert phone.put("/api/v1/me/password", json=body, headers=from_(OWNER)).status_code == 200
+    phone.delete("/api/v1/session")
+    later()  # past the new password's window: only being known gets past the pause
+    for n in range(6):
+        guess(proxied, f"192.0.2.{n}")
+    assert guess(proxied, "198.51.100.9", {"username": "tess", "password": new}) == 429
+    answer = phone.post(
+        "/api/v1/session", json={"username": "tess", "password": new}, headers=from_(OWNER)
+    )
+    assert answer.status_code == 200
 
 
 def test_sign_in_guessing_doesnt_block_changing_your_password(kitchen: TestClient) -> None:
@@ -207,6 +279,57 @@ def test_change_password_guessing_doesnt_pause_signing_in(kitchen: TestClient) -
         assert kitchen.put("/api/v1/me/password", json=body).status_code == 422
     assert kitchen.put("/api/v1/me/password", json=body).status_code == 429
     assert guess(kitchen, "testclient", RIGHT) == 200
+
+
+# --- A planted device cookie --------------------------------------------------------------------
+
+ODD_ENTRIES = [
+    "9.a\x01.b",  # a control character
+    "9.a b.c",
+    "9.a\tb.c",
+    "9.a.b.c",
+    "9..b",
+    "9." + "x" * 65 + ".b",
+    "9.\u00e9.b",
+]
+CLEAN = re.compile(r"[A-Za-z0-9_-]{1,64}\.[A-Za-z0-9_-]{1,64}\.[A-Za-z0-9_-]{1,64}")
+
+
+@pytest.mark.parametrize("plain_http", [True, False])
+def test_odd_device_cookie_entries_are_dropped(
+    settings: Settings, plain_http: bool, caplog: pytest.LogCaptureFixture
+) -> None:
+    settings = settings.model_copy(update={"allow_plain_http": plain_http})
+    name = auth.PLAIN_DEVICE_COOKIE if plain_http else auth.DEVICE_COOKIE
+    base = "http://testserver" if plain_http else "https://testserver"
+    with TestClient(create_app(settings), base_url=base) as client:
+        assert client.post("/api/v1/setup", json=ADMIN).status_code == 201
+        for odd in ODD_ENTRIES:
+            with TestClient(client.app, base_url=base, raise_server_exceptions=False) as other:
+                caplog.clear()
+                planted = f"{odd}~5.kept_other-1.abc~{odd}"
+                # Sent as bytes, as a browser might (a cookie header is read as Latin-1).
+                cookie = [(b"cookie", f"{name}={planted}".encode("latin-1"))]
+                with caplog.at_level(logging.DEBUG):
+                    answer = other.post("/api/v1/session", json=RIGHT, headers=cookie)
+                assert answer.status_code == 200, odd
+                headers = [
+                    h for h in answer.headers.get_list("set-cookie") if h.startswith(f"{name}=")
+                ]
+                assert len(headers) == 1
+                value = headers[0].split(";")[0].split("=", 1)[1]
+                entries = value.split("~")
+                assert all(CLEAN.fullmatch(entry) for entry in entries), odd
+                # The login's new entry, and the well-formed one for someone else, kept.
+                assert len(entries) == 2 and entries[1] == "5.kept_other-1.abc"
+                # Nothing in the log carries the new cookies, and nothing went wrong.
+                session = (
+                    next(h for h in answer.headers.get_list("set-cookie") if "_session=" in h)
+                    .split(";")[0]
+                    .split("=", 1)[1]
+                )
+                assert session not in caplog.text and entries[0] not in caplog.text
+                assert "Traceback" not in caplog.text and "Exception" not in caplog.text
 
 
 # --- A flood waits in a small room ----------------------------------------------------------------

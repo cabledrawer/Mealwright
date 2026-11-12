@@ -7,7 +7,7 @@ Every answer is about the signed-in login only: nobody sees or ends anyone else'
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
@@ -27,6 +27,7 @@ from mealwright.auth import (
     counted_check,
     hash_password,
     now,
+    remember_device,
 )
 from mealwright.errors import Problem, StoredInt
 from mealwright.models import Session
@@ -114,11 +115,13 @@ def my_sign_in(signed_in: CurrentLogin, db: Db) -> MySignIn:
 
 @router.put("/me/password")
 def change_password(
-    body: PasswordChange, request: Request, signed_in: CurrentLogin, db: Db
+    body: PasswordChange, request: Request, response: Response, signed_in: CurrentLogin, db: Db
 ) -> MySignIn:
     """Change your password. Needs the current one; wrong ones have their own pause for this
     login, apart from signing in, so guessing at the username can't stop you changing it.
-    Signs out your other devices unless `sign_out_others` is false."""
+    Signs out your other devices unless `sign_out_others` is false. Every known device is
+    forgotten (the new password makes their cookies useless) except this one, which is
+    remembered again under the new password."""
     login = signed_in.login
     if login.password_hash is None:
         raise Problem(status.HTTP_409_CONFLICT, "no_password", NOTHING_TO_CHANGE)
@@ -134,6 +137,7 @@ def change_password(
     login.password_changed_at = now()
     ended = _end_others(request, db, signed_in) if body.sign_out_others else []
     db.commit()
+    remember_device(request, response, request.app.state.settings, login)
     _tell_streams(request, ended)
     log.info(
         "Password changed: %s from %s (%d other device(s) signed out)",
