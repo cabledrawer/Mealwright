@@ -37,6 +37,7 @@ from urllib.parse import quote, urlsplit
 from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import update
 
 from mealwright import sso, sso_accounts
 from mealwright.api.v1.account import Me, _device, _me
@@ -52,7 +53,7 @@ from mealwright.auth import (
 )
 from mealwright.config import Settings
 from mealwright.errors import Problem
-from mealwright.models import SsoSettings, utcnow
+from mealwright.models import Session, SsoSettings, utcnow
 from mealwright.outbound import OutboundGate
 from mealwright.own_network import is_localhost
 from mealwright.roles import ADMIN, MEMBER, Action
@@ -621,6 +622,14 @@ def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
     if changed and not was_off and not body.password_sign_in:
         # Turning passwords off together with a change nobody has tested yet.
         raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED)
+    if before is not None and (row.issuer, row.client_id) != (issuer, body.client_id.strip()):
+        # A refresh token belongs to the server and client that gave it: drop them all (the
+        # people stay signed in; they just aren't asked about again), O1 review r3, L5.
+        db.execute(
+            update(Session)
+            .where(Session.household_id == kitchen.household_id)
+            .values(sso_refresh_sealed=None, sso_check_at=None)
+        )
     row.issuer = issuer
     row.client_id = body.client_id.strip()
     if new_secret:

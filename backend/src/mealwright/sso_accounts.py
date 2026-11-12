@@ -333,6 +333,14 @@ def check_sessions(gate: OutboundGate, factory: sessionmaker[DbSession], data_di
             if row is None or not usable(row):
                 session.sso_check_at = None  # nothing to ask any more
                 continue
+            owner = db.get(Login, session.login_id)
+            if owner is None or owner.sso_issuer != row.issuer:
+                # Signed in at another sign-in server than the saved one (the admin moved to
+                # a new one): its token isn't this server's to be asked about (O1 review r3,
+                # L5). Not asked, not ended, and so no API token is stopped by it.
+                session.sso_refresh_sealed = None
+                session.sso_check_at = None
+                continue
             try:
                 setup = client(row, data_dir)
                 token = open_sealed(data_dir, str(session.sso_refresh_sealed))

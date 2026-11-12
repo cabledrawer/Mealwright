@@ -258,3 +258,78 @@ def test_a_waiting_link_does_not_survive_signing_out_and_in_even_if_the_session_
         db.commit()
     r = again.post(f"{API}/sso/link")
     assert r.status_code == 409 and r.json()["code"] == "link_gone"
+
+
+def _make_token_and_sso_session(
+    kitchen: TestClient, idp: FakeProvider
+) -> tuple[TestClient, TestClient]:
+    from sync_kit import ok
+    from test_sso_api import sign_in
+
+    there = browser(kitchen)
+    signed, _ = sign_in(there, idp, sub="k", extra=ADMIN_GROUPS)
+    assert signed.status_code == 200
+    made = ok(kitchen.post(f"{API}/api-tokens", json={"name": "HA", "scope": "full"}), 201)
+    app = TestClient(kitchen.app, base_url="https://testserver")
+    app.headers["Authorization"] = f"Bearer {made['token']}"
+    assert app.get(f"{API}/me").status_code == 200
+    return there, app
+
+
+def _due_now(kitchen: TestClient) -> None:
+    from sqlalchemy import select
+
+    from mealwright.auth import now
+    from mealwright.models import Session
+
+    with cast(Any, kitchen.app).state.sessionmaker() as db:
+        for session in db.scalars(select(Session).where(Session.sso.is_(True))):
+            session.sso_check_at = now()
+        db.commit()
+
+
+def test_moving_to_another_sign_in_server_keeps_the_admins_api_tokens(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O1 review r3, L5: the old refresh tokens aren't sent to the new server (which would
+    answer invalid_grant, end the session and stop the tokens for good)."""
+    from test_sso_api import check
+
+    idp = home(kitchen, monkeypatch, "id.example.org", off=False)
+    there, app = _make_token_and_sso_session(kitchen, idp)
+    other = "https://id.example.org/realms/new"
+    idp.issuer = other
+    idp.refresh_tokens.clear()  # the new server never gave that token
+    saved = kitchen.put(f"{API}/sso/settings", json={**SETUP, "client_secret": "", "issuer": other})
+    assert saved.is_success, saved.text
+    _due_now(kitchen)
+    assert check(kitchen) == 0
+    assert app.get(f"{API}/me").status_code == 200
+    assert there.get(f"{API}/me").status_code == 200
+    assert not [s for s in idp.seen if s.method == "POST" and b"refresh_token" in s.body]
+
+
+def test_the_hourly_job_skips_a_sign_in_from_another_issuer(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Even if a token from the old server is still there (say, a restored backup), a login
+    linked at another issuer is not asked about."""
+    from sqlalchemy import update
+    from test_sso_api import check
+
+    from mealwright.models import Login
+
+    idp = home(kitchen, monkeypatch, "id.example.org", off=False)
+    _there, app = _make_token_and_sso_session(kitchen, idp)
+    idp.refresh_tokens.clear()  # a token the server would refuse
+    with cast(Any, kitchen.app).state.sessionmaker() as db:
+        db.execute(
+            update(Login)
+            .where(Login.username == "tess")
+            .values(sso_issuer="https://old.example.org")
+        )
+        db.commit()
+    _due_now(kitchen)
+    assert check(kitchen) == 0
+    assert app.get(f"{API}/me").status_code == 200
+    assert not [s for s in idp.seen if s.method == "POST" and b"refresh_token" in s.body]
