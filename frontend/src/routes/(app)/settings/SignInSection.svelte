@@ -3,10 +3,11 @@
   // password ("Change password", with when it last changed), where you're signed in (this
   // device tagged, every other one with its own Sign out) and "Sign out everywhere else".
   // For admins, "For the household": single sign-on (set up on a computer) and the Password
-  // sign-in switch (0.9 O1). API tokens come later (O2). Signing out another device has no
+  // sign-in switch (0.9 O1). API tokens and how many there are (0.9 O2). Signing out another device has no
   // "Are you sure?": nothing is lost, it only has to sign in again.
   import { resolve } from '$app/paths';
   import { cantReach, cantReachWords, detailOf, ApiError } from '#lib/api.js';
+  import { getApiTokens } from '#lib/apiTokens.js';
   import Icon from '#lib/components/Icon.svelte';
   import {
     changedText,
@@ -20,7 +21,6 @@
   import { network } from '#lib/network.svelte.js';
   import { getSsoSetup, putPasswordSignIn, type SsoSetup } from '#lib/client/sso.js';
   import Switch from '#lib/components/Switch.svelte';
-  import { session } from '#lib/session.svelte.js';
   import {
     NOT_SET_UP,
     PASSWORDS_NOTE,
@@ -29,17 +29,18 @@
     SETUP_ON_COMPUTER
   } from '#lib/ssoWords.js';
 
-  let { device }: { device: 'phone' | 'computer' } = $props();
+  let { device, admin = false }: { device: 'phone' | 'computer'; admin?: boolean } = $props();
 
   let mine = $state<MySignIn | null>(null);
   let problem = $state('');
   /** Why the list couldn't be fetched: shown in its place, not read out (nothing was tapped). */
   let loadProblem = $state('');
   let busy = $state(false);
+  /** How many API tokens the household has (admins only); null until known. */
+  let tokens = $state<number | null>(null);
   /** Said after a sign-out here, for screen readers ("Signed out iPad · Safari."). */
   let said = $state('');
 
-  const admin = $derived(session.me?.role === 'admin');
   let sso = $state<SsoSetup | null>(null);
   let passwords = $state(true);
   let ssoProblem = $state('');
@@ -78,6 +79,10 @@
   $effect(() => {
     void network.backAgain;
     void load();
+    if (admin)
+      void getApiTokens()
+        .then((found) => (tokens = found.tokens.length))
+        .catch(() => undefined); // the row still leads to the list, which says what's wrong
   });
 
   function why(error: unknown): string {
@@ -188,6 +193,11 @@
         onchange={(on) => void setPasswords(on)}
       />
     </div>
+    <a class="row to" href={resolve('/(app)/settings/api-tokens')}>
+      <span class="who"><span class="label">API tokens</span></span>
+      {#if tokens !== null}<span class="count" data-testid="api-token-count">{tokens}</span>{/if}
+      <Icon name="back" size={18} stroke={2.4} />
+    </a>
   </div>
   {#if ssoProblem}<p class="warning-line" role="alert">{ssoProblem}</p>{/if}
   <p class="note">{PASSWORDS_NOTE}</p>
@@ -255,6 +265,11 @@
   .detail {
     color: var(--color-text-muted);
     font-size: var(--text-sm);
+  }
+
+  .count {
+    color: var(--color-text-muted);
+    font-size: var(--text-base);
   }
 
   .to {

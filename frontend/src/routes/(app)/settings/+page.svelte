@@ -708,7 +708,7 @@
     {#if showing('sign-in')}
       <section class="section" aria-labelledby="sign-in">
         <h2 class="title" id="sign-in" tabindex="-1">Sign-in</h2>
-        <SignInSection {device} />
+        <SignInSection {device} {admin} />
         <div class="card">
           <div class="row">
             <span class="who">
