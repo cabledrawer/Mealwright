@@ -74,9 +74,6 @@ describe('the last check', () => {
       title: 'Couldn’t check for updates',
       detail: 'Checked 5 minutes ago. Try again later.'
     });
-    expect(lastWords({ outcome: 'off', latest: null, checked_at: at(0) }, now).detail).toContain(
-      'in Privacy'
-    );
   });
 
   it('says whether the daily check is on', () => {

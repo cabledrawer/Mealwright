@@ -4,9 +4,9 @@
 
 import { api } from '#lib/api.js';
 
-/** up_to_date: nothing newer. newer: `latest` is out. failed: couldn't check. off: the Privacy
- *  switch is off, so nothing was asked. */
-export type CheckOutcome = 'up_to_date' | 'newer' | 'failed' | 'off';
+/** up_to_date: nothing newer. newer: `latest` is out. failed: couldn't check. (Check now works
+ *  with the Privacy switch off; cabledrawer 12 Nov.) */
+export type CheckOutcome = 'up_to_date' | 'newer' | 'failed';
 
 export interface LastCheck {
   outcome: CheckOutcome;

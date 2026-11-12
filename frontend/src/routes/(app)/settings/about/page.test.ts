@@ -135,16 +135,19 @@ describe('Settings → About (X1)', () => {
     await expect.element(page.getByText(words, { exact: true })).toBeVisible();
   });
 
-  it('with the switch off, Check now says to turn it on in Privacy', async () => {
-    open({ 'POST /updates/check': [200, info({ last: last('off') })] });
-    await page.getByRole('button', { name: 'Check now' }).click();
-    const row = page.getByRole('link', { name: /Update checks are off/ });
-    await vi.waitFor(() =>
-      expect(row.element().textContent).toMatch(
-        /Turn on “Check for updates daily” in Privacy first\.\s*$/
+  it('with the daily switch off, Check now is still there with its note, and asks', async () => {
+    // cabledrawer 12 Nov: the switch only controls the automatic check.
+    open({ 'POST /updates/check': [200, info({ daily: false, last: last('up_to_date') })] });
+    await expect.element(page.getByRole('button', { name: 'Check now' })).toBeEnabled();
+    await expect
+      .element(
+        page.getByText('One request to GitHub’s public release list; nothing about you is sent')
       )
-    );
-    await expect.element(row).toHaveAttribute('href', '/settings/privacy#outside-connections');
+      .toBeVisible();
+    await page.getByRole('button', { name: 'Check now' }).click();
+    await expect.element(page.getByText('You have the newest version')).toBeVisible();
+    expect(sent('POST', '/updates/check')).toHaveLength(1);
+    expect(page.getByText(/Privacy first/).elements()).toEqual([]);
     await vi.waitFor(() =>
       expect(page.getByRole('link', { name: /Daily check/ }).element().textContent).toMatch(
         /Turn on in Privacy/

@@ -98,12 +98,6 @@ export function lastWords(
         detail: `${checked}. Try again later.`,
         outcome: last.outcome
       };
-    case 'off':
-      return {
-        title: 'Update checks are off',
-        detail: 'Nothing was asked. Turn on “Check for updates daily” in Privacy first.',
-        outcome: last.outcome
-      };
   }
 }
 

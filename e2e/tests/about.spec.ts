@@ -5,10 +5,11 @@ import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a
 
 // Settings → About, the update parts (0.9, X1; mockup Dark-About09-Phone), and the "Check for
 // updates daily" switch in Privacy (Dark-Privacy09-Phone), against the real server, signed in as
-// the test admin. The real server is never let out: Check now runs for real only with the switch
-// off (it answers "off" and connects nowhere); the answers that need GitHub ("a newer version is
+// the test admin. The real server is never let out: Check now runs for real only while the
+// release list is still the placeholder (it answers "couldn't check" and connects nowhere; Check
+// now works with the switch off, cabledrawer 12 Nov); the answers that need GitHub ("a newer version is
 // out", an old version) are made up in the browser. The server's own rules (one plain request
-// through the outbound gate, admins only, nothing with the switch off) are in
+// through the outbound gate, admins only, the daily check only with the switch on) are in
 // backend/tests/test_updates.py.
 // Runs in the "phone 0.9 about", "desktop 0.9 about" and "webkit 0.9 about" projects.
 
@@ -56,7 +57,7 @@ async function fake(page: Page, path: '/updates' | '/updates/check', body: unkno
   );
 }
 
-test('Settings leads to About: the version, its release day and the admins’ Updates card; Check now with the switch off asks nothing', async ({
+test('Settings leads to About: the version, its release day and the admins’ Updates card; Check now works with the switch off', async ({
   page,
 }) => {
   await page.goto('/settings');
@@ -74,10 +75,10 @@ test('Settings leads to About: the version, its release day and the admins’ Up
 
   const check = page.waitForResponse((r) => r.url().endsWith('/api/v1/updates/check'));
   await page.getByRole('button', { name: 'Check now' }).click();
-  expect((await (await check).json()).last.outcome).toBe('off');
-  const off = page.getByRole('link', { name: /^Update checks are off/ });
-  await expect(off).toContainText('Turn on “Check for updates daily” in Privacy first.');
-  await off.click();
+  expect((await (await check).json()).last.outcome).toBe('failed');
+  await expect(page.getByText('Couldn’t check for updates', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Privacy first/)).toHaveCount(0);
+  await page.getByRole('link', { name: /^Daily check/ }).click();
   await expect(page).toHaveURL('/settings/privacy#outside-connections');
   await expect(page.getByRole('switch', { name: DAILY })).not.toBeChecked();
 });

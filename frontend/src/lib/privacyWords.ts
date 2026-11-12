@@ -22,7 +22,8 @@ export const SWITCH_WORDS: Record<SwitchName, { label: string; detail: string }>
     label: 'Download recipe photos',
     detail: 'The recipe’s main photo, kept on this server. Off: imports come without a photo.'
   },
-  // Mockup Dark-Privacy09-Phone (X1). Also what Check now in About needs (proposed, for cabledrawer).
+  // Mockup Dark-Privacy09-Phone (X1). Only the daily check: Check now in About works either way
+  // (cabledrawer 12 Nov).
   update_check: {
     label: 'Check for updates daily',
     detail: 'Asks GitHub’s public release list once a day. Sends nothing about you or this server'

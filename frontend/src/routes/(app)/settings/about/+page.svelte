@@ -7,6 +7,7 @@
   // Spec section 7 "Updates" (cabledrawer 17 Oct): (1) how old this version is, with no connection;
   // (2) Check now, admins only, one plain request to the public release list, made by the
   // server through its outbound gate; (3) the daily check, its own Privacy switch, off at first.
+  // Check now works whatever that switch says: it only controls the daily check (cabledrawer 12 Nov).
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
   import Icon from '#lib/components/Icon.svelte';
@@ -102,11 +103,6 @@
             >
               <span class="lbl">{last.title}<small>{last.detail}</small></span>
               <span class="tag">{UPDATE_TAG}</span>
-              <span class="chev"><Icon name="back" size={18} stroke={2} /></span>
-            </a>
-          {:else if last.outcome === 'off'}
-            <a class="row" href={privacyHref} data-outcome={last.outcome}>
-              <span class="lbl">{last.title}<small>{last.detail}</small></span>
               <span class="chev"><Icon name="back" size={18} stroke={2} /></span>
             </a>
           {:else}

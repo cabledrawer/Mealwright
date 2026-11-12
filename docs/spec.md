@@ -37,7 +37,7 @@ Hard rules (no exceptions):
 **Outbound connection rule (settled 17 Oct):** outbound connections happen only when the user triggers or configures them. Each one is clearly labelled and switched off until the user sets it up. The README gets a "Privacy" section listing every possible outbound connection. Settings → Privacy shows the same list, each with its own switch, under "Nothing leaves this server unless you switch it on". Known cases:
 
 - Recipe URL import: the server fetches the page the user asked for (that site sees the server's IP). User-triggered.
-- Update check (cabledrawer 17 Oct): "Check now" (admin click) or an optional daily check, off by default. One plain request to GitHub's public release list; GitHub sees the server's IP, nothing else is sent.
+- Update check (cabledrawer 17 Oct): "Check now" (admin click) or an optional daily check, off by default (the switch controls only the daily check; Check now always works, cabledrawer 12 Nov). One plain request to GitHub's public release list; GitHub sees the server's IP, nothing else is sent.
 - Notifications (not built before 1.0, cabledrawer 18 Oct): go only to the services the user configures (their own ntfy/Gotify/email, or a public one they choose). Nothing configured = nothing sent.
 - Single sign-on: talks only to the user's own identity provider.
 - Barcode lookups (Open Food Facts; not in 1.0): opt-in, or use a downloaded offline copy of the OFF database (several GB).
@@ -954,7 +954,7 @@ No automatic crash reporting. Not in the Privacy list, because the server makes 
 **Updates (decided, cabledrawer 17 Oct)** — three levels, all built:
 
 1. **No connection, always on:** the app knows its own release date; after a while Settings → About shows "This version is 4 months old. New versions are listed at <link>." Opening the link is the user's own click.
-2. **"Check now" button, admins only:** one plain request to GitHub's public release list. Nothing about the user or install is sent (no install ID, no version in the request; the user-agent is just `Mealwright`, with no version, as for every request through the gate); the comparison happens on the server.
+2. **"Check now" button, admins only:** one plain request to GitHub's public release list. Nothing about the user or install is sent (no install ID, no version in the request; the user-agent is just `Mealwright`, with no version, as for every request through the gate); the comparison happens on the server. **Check now always works for an admin when pressed, whatever the daily switch says** (the note beside it says it asks GitHub's release list); the daily switch only controls the automatic check (cabledrawer 12 Nov).
 3. **Automatic daily check, off by default:** the same request once a day, listed in Settings → Privacy with its own switch. When an update exists, admins see a small "Update available" badge, optionally also sent through the household's own notifications.
 
 Also: the app reports its version number on the local network (in `/api/v1`), so Diun, Renovate etc. keep working with no extra connection. **Settings mockups need updating** (Privacy gets the update-check switch; About gets the version-age note and Check now) — all four versions.
