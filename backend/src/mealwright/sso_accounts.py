@@ -90,6 +90,20 @@ def sso_can_start(db: DbSession, data_dir: Path | None, household_id: int) -> bo
         return False
 
 
+def fill_memory(gate: OutboundGate, factory: sessionmaker[DbSession]) -> None:
+    """After a start the memory of the sign-in server's address is empty, which would read as
+    "single sign-on can't start" and open password sign-in again. For each household with
+    passwords off, the switch on and a setup, make the one gated look-up that fills it. Nothing
+    a signed-out person does comes here (O1 review r4, finding 1)."""
+    with factory() as db:
+        rows = db.scalars(select(SsoSettings).where(SsoSettings.password_sign_in.is_(False))).all()
+        for row in rows:
+            if not usable(row) or not switch_on(db, row.household_id):
+                continue
+            listed = own_network.load(db, row.household_id)
+            sso.look_up_issuer(gate, row.household_id, row.issuer, listed)
+
+
 def passwords_off(db: DbSession, data_dir: Path | None, household_id: int) -> bool:
     """True only while an admin turned password sign-in off AND single sign-on can start. If it
     can't (the switch is off, the secret is lost, the sign-in server is off Your own network,

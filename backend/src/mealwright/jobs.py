@@ -133,6 +133,7 @@ def check_single_sign_on(
 ) -> None:
     from mealwright import sso_accounts  # imported here: it needs the API's models
 
+    sso_accounts.fill_memory(gate, factory)  # first: a restart empties the memory
     ended = sso_accounts.check_sessions(gate, factory, data_dir)
     if ended:
         log.info("Single sign-on: %d sign-ins ended by the sign-in server", ended)
@@ -189,6 +190,7 @@ def scheduler(
             check_single_sign_on,
             IntervalTrigger(minutes=5, timezone=UTC),
             args=[single_sign_on[0], factory, single_sign_on[1]],
+            next_run_time=datetime.now(UTC),  # at start too: a restart empties the memory
             id="single-sign-on",
             name="Check single sign-on sign-ins with the sign-in server",
         )

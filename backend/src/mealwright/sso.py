@@ -245,9 +245,11 @@ def remember(host: str, addresses: list[_Address]) -> None:
     """The addresses a sign-in server's name last had (memory only), so "can single sign-on
     start?" can be answered without a look-up (O1 review r3)."""
     with _seen_lock:
-        if len(_seen) > 50:
-            _seen.clear()
-        _seen[host.lower()] = list(addresses)
+        name = host.lower()
+        _seen.pop(name, None)  # put back last, so it is the newest
+        while len(_seen) >= 50:
+            del _seen[next(iter(_seen))]  # the oldest goes, not everything (O1 review r4, 5c)
+        _seen[name] = list(addresses)
 
 
 def remembered(host: str) -> list[_Address] | None:
@@ -347,10 +349,38 @@ def _addresses(
             raise SsoFailed("unreachable", say_nothing_of_it=failure.busy) from None
         if not addresses:
             raise SsoFailed("unreachable")
-    _screen(host, literal, addresses, listed)
     if literal is None:
+        # Remembered before the check, so a name that now answers an address that isn't on
+        # Your own network counts as "can't start" and passwords work (O1 review r4, L2).
         remember(host, addresses)
+    _screen(host, literal, addresses, listed)
     return [own_network.plain(a) for a in addresses]
+
+
+def look_up_issuer(gate: OutboundGate, household_id: int, issuer: str, listed: OwnNetwork) -> None:
+    """One gated look-up of the sign-in server's name, to fill the memory `issuer_can_be_reached`
+    reads (after a restart it is empty). Does nothing for an address that isn't a name, or a
+    name already remembered. If the look-up fails, is held or is refused, the memory stays empty:
+    "can't tell", and passwords work (O1 review r4, finding 1)."""
+    try:
+        parts = urlsplit(issuer)
+        host = parts.hostname
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+    except ValueError:
+        return
+    if parts.scheme not in {"http", "https"} or not host or "%" in host or port == 0:
+        return
+    try:
+        ipaddress.ip_address(host)
+        return  # an address needs no look-up
+    except ValueError:
+        pass
+    if own_network.is_localhost(host) or remembered(host) is not None:
+        return
+    try:
+        _addresses(gate, household_id, host, port, listed, time.monotonic() + TIME_LIMIT)
+    except SsoFailed:
+        pass  # it remembered the name first; anything else leaves the memory empty
 
 
 def _send(
