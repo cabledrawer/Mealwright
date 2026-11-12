@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import update
+from sqlalchemy import event, update
 
 from mealwright import __version__, problem_report
 from mealwright.auth import hash_password
@@ -567,6 +567,13 @@ PLANTED = [
     ("bearer after a proxy colon", "Proxy-Authorization: Bearer abc123XYZ", "abc123", "[secret]"),
     ("bearer after token colon", "Refresh token: bearer abc123XYZ expired", "abc123", "[secret]"),
     ("bearer after auth=", "Bad auth=Bearer abc123XYZ given", "abc123", "[secret]"),
+    # Review r4, 1: "Bearer"/"Basic" before a key name doesn't hide the key's value.
+    ("bearer before token=", "Invalid bearer token=hunter2x", "hunter2x", "[secret]"),
+    ("bearer before token colon", "Invalid bearer token: hunter2x", "hunter2x", "[secret]"),
+    ("basic before auth colon", "Basic auth: hunter2x sent", "hunter2x", "[secret]"),
+    ("basic before a quoted password", "Basic password='hunter2x'", "hunter2x", "[secret]"),
+    ("basic before mw_session=", "basic mw_session=hunter2x", "hunter2x", "[secret]"),
+    ("bearer before apikey=", "Bearer apikey=hunter2x", "hunter2x", "[secret]"),
 ]
 
 
@@ -847,3 +854,51 @@ def test_the_s_after_a_removed_name_does_not_open_a_quote(
     line = report(planted)["errors"][0]
     assert "phone couldn't sync" in line, line
     assert "vance" not in line.lower(), line
+
+
+def test_a_report_built_while_a_name_commits_is_built_again(
+    planted: TestClient, neighbour: TestClient, settings: Settings
+) -> None:
+    """Review r4, 3: SQLAlchemy's "commit" event fires before the database commits, so a report
+    built in that gap can't see the new name; the next report must be built again."""
+    folder = log_folder(settings)
+    write_log(folder, [error("Sign-in for tess failed")])
+    assert "[name]" in report(neighbour)["errors"][0]
+    engine = planted.app.state.engine  # type: ignore[attr-defined]
+    built: list[bool] = []
+
+    def in_the_gap(connection: object) -> None:
+        if not built:
+            built.append(True)
+            report(neighbour)  # the new name isn't committed yet
+
+    event.listen(engine, "commit", in_the_gap)
+    try:
+        with planted.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+            db.add(
+                Login(
+                    household_id=1,
+                    username="quillon",
+                    name="Quillon Brasswick",
+                    password_hash=None,
+                    role="member",
+                )
+            )
+            db.commit()
+    finally:
+        event.remove(engine, "commit", in_the_gap)
+    assert built
+    write_log(folder, [error("Sign-in for Quillon Brasswick failed")])
+    line = report(neighbour)["errors"][-1]
+    assert "brasswick" not in line.lower(), line
+
+
+def test_a_quote_straight_after_a_link_is_still_a_quote() -> None:
+    """Review r4, 7: only "[name]'s" and "[name]'" are kept; a quote opening right after "]"
+    (a link, a file, an index) is still removed."""
+    scrub = Scrubber(FakeDB({"Login.name": ["Tess Marsh"]}), NO_SERVER, Path("/data"))  # type: ignore[arg-type]
+    assert "Zelda" not in scrub('see https://e.example/x"Zelda Quimby" failed')
+    assert "Zelda" not in scrub("bad tags[0]'Zelda Quimby' given")
+    kept = scrub("Tess Marsh's list 'plans' failed")
+    assert "[name]'s list " in kept, kept
+    assert "plans" not in kept, kept

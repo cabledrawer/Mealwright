@@ -35,6 +35,7 @@ from urllib.parse import urlsplit
 from sqlalchemy import event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import Pool
 
 from mealwright import __version__, models
 from mealwright.logs import FILE_NAME
@@ -199,7 +200,7 @@ _URL = re.compile(
 # "password=…", "password: …", "mw_session=…", "apikey=…": the name stays, the value goes.
 _SECRET_VALUE = re.compile(
     r"(?<![a-z])((?:api[_\-]?)?(?:password|passwd|pwd|token|secret|cookie|session|key|auth)"
-    r"[a-z_\-]{0,30})(\s{0,3}[=:]\s{0,3})(?:\"[^\"\n]{0,300}\"|'[^'\n]{0,300}'|[^\s,;&)\]]+)",
+    r"[a-z_\-]{0,30})(\s{0,3}[=:]\s{0,3}(?:(?:bearer|basic)\s{1,3})?)(?:\"[^\"\n]{0,300}\"|'[^'\n]{0,300}'|[^\s,;&)\]]+)",
     re.IGNORECASE,
 )
 _BEARER = re.compile(r"(?<![a-z])(bearer|basic)\s{1,3}[\w\-.~+/]+=*", re.IGNORECASE)
@@ -246,12 +247,12 @@ _ANY_PORT = re.compile(r"(?<![a-z])(port)(\s{0,3}[=:]\s{0,3}|\s{1,3})\d{1,5}(?!\
 _LONG_RUN = re.compile(r"(?<![\w+/=\-])[A-Za-z0-9+/_\-]{20,}={0,2}")
 _HEX = frozenset("0123456789abcdefABCDEF-")
 # Quoted words: quote marks that aren't inside a word ("Couldn't" and "Mabel's" aren't quotes, nor
-# is the "'s" after a removed name, "[name]'s"),
+# is the "'s" or "'" after a removed name, "[name]'s"; any other quote after "]" still is),
 # and an apostrophe inside a quote ("'Auntie Shanti's biryani'") doesn't end it. A quote that is
 # never closed runs to the end of the line.
 _Q = MESSAGE_READ
 _QUOTED = re.compile(
-    rf"(?<![\w\]])(?:'(?:[^'\n]|'(?=\w)){{0,{_Q}}}(?:'|(?=\n|\Z))"
+    rf"(?<!\w)(?:(?!(?<=\])'s?(?!\w))'(?:[^'\n]|'(?=\w)){{0,{_Q}}}(?:'|(?=\n|\Z))"
     rf"|\u2018(?:[^\u2019\n]|\u2019(?=\w)){{0,{_Q}}}(?:\u2019|(?=\n|\Z))"
     rf"|\"[^\"\n]{{0,{_Q}}}(?:\"|(?=\n|\Z))"
     rf"|\u201c[^\u201d\n]{{0,{_Q}}}(?:\u201d|(?=\n|\Z))"
@@ -608,9 +609,10 @@ class Scrubber:
     def __call__(self, text: str) -> str:
         text = _URL.sub("[link]", text)
         text = _JWT.sub("[secret]", text)
-        # Bearer/Basic first: otherwise "Authorization: Basic x" takes "Basic" as the value.
-        text = _BEARER.sub(r"\1 [secret]", text)
+        # Key=value first, so "bearer token=x" keeps no part of x; "Authorization: Basic x" is
+        # caught there too ("Basic " is part of the separator), and a bare "Bearer x" after.
         text = _SECRET_VALUE.sub(r"\1\2[secret]", text)
+        text = _BEARER.sub(r"\1 [secret]", text)
         text = _EMAIL.sub("[e-mail]", text)
         text = _PATH.sub("[file]", text)
         text = self._files.sub("[file]", text)
@@ -673,6 +675,7 @@ def _changes_names(statement: str, context: Any) -> bool:
 
 
 _NAME_WRITTEN = "mealwright_name_written"
+_NAME_COMMITTED = "mealwright_name_committed"
 
 
 @event.listens_for(Engine, "after_cursor_execute")
@@ -691,19 +694,49 @@ def _note_write(
         connection.info[_NAME_WRITTEN] = True  # type: ignore[attr-defined]
 
 
-@event.listens_for(Engine, "commit")
-def _note_commit(connection: Any) -> None:
-    """Count a name write again when it is committed: a report built between the write and
-    its commit couldn't see the new row but saw the count, so it must be built again."""
+def _gone(connection: Any) -> bool:
+    """A dropped or closed connection: its `info` can't be read (review r4, 6)."""
+    return bool(connection.invalidated or connection.closed)
+
+
+def _count_committed(info: dict[str, Any]) -> None:
     global _writes
-    if connection.info.pop(_NAME_WRITTEN, False):
+    if info.pop(_NAME_COMMITTED, False):
         with _kept_lock:
             _writes += 1
 
 
+@event.listens_for(Engine, "commit")
+def _note_commit(connection: Any) -> None:
+    """Count a name write again when it is committed: a report built between the write and
+    its commit couldn't see the new row but saw the count, so it must be built again. The
+    "commit" event fires before the database commits (review r4, 3), so the write is counted
+    once more after it is done: when the connection goes back to the pool or starts again."""
+    global _writes
+    if _gone(connection):
+        return
+    if connection.info.pop(_NAME_WRITTEN, False):
+        with _kept_lock:
+            _writes += 1
+        connection.info[_NAME_COMMITTED] = True
+
+
+@event.listens_for(Engine, "begin")
+def _note_begin(connection: Any) -> None:
+    if not _gone(connection):
+        _count_committed(connection.info)
+
+
+@event.listens_for(Pool, "checkin")
+def _note_checkin(dbapi_connection: object, record: Any) -> None:
+    if record is not None:
+        _count_committed(record.info)
+
+
 @event.listens_for(Engine, "rollback")
 def _note_rollback(connection: Any) -> None:
-    connection.info.pop(_NAME_WRITTEN, None)
+    if not _gone(connection):
+        connection.info.pop(_NAME_WRITTEN, None)
 
 
 # The built Scrubber of each database, kept for at most SCRUBBER_KEPT seconds and only while no
