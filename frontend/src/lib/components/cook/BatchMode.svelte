@@ -189,8 +189,8 @@
               {/if}
             </span>
             {#if row.kind === 'running' && row.task}
+              <span class="clock" role="timer">{clock(row.left)}</span>
               <span class="acts">
-                <span class="clock" role="timer">{clock(row.left)}</span>
                 <button
                   type="button"
                   class="go"
@@ -510,6 +510,7 @@
 
   .timers li {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-5);
@@ -544,10 +545,14 @@
     font: var(--weight-bold) var(--text-sm) var(--font-ui);
   }
 
+  /* The buttons of a recipe's timer (F227; cabledrawer 12 Nov): one row under its name, every button
+   * the same size, and on a narrow phone they share the width equally. */
   .acts {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
+    display: grid;
+    flex-basis: 100%;
+    grid-auto-columns: minmax(0, 8.5rem);
+    grid-auto-flow: column;
+    justify-content: end;
     gap: var(--space-3);
   }
 
@@ -559,7 +564,7 @@
 
   .go {
     min-height: var(--touch-target);
-    padding: 0 var(--space-6);
+    padding: 0 var(--space-4);
     border: none;
     border-radius: var(--radius-full);
     background: var(--color-inverse);
