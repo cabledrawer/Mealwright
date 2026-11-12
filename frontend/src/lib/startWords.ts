@@ -131,3 +131,28 @@ function startsWhere(
   }
   return found.sort((a, b) => a.day.localeCompare(b.day) || a.time.localeCompare(b.time));
 }
+
+/** The day and time reached by adding minutes to a start, on the wall clock ("2026-11-13",
+ *  "22:50", 505 is Sat 07:15). The household's clock is the one the server gave, so no zone is
+ *  read here. */
+export function readyAt(day: string, time: string, minutes: number): { day: string; time: string } {
+  const [y, mo, d] = day.split('-').map(Number) as [number, number, number];
+  const [h, mi] = time.split(':').map(Number) as [number, number];
+  const at = new Date(Date.UTC(y, mo - 1, d, h, mi + minutes));
+  const two = (n: number) => String(n).padStart(2, '0');
+  return {
+    day: `${at.getUTCFullYear()}-${two(at.getUTCMonth() + 1)}-${two(at.getUTCDate())}`,
+    time: `${two(at.getUTCHours())}:${two(at.getUTCMinutes())}`
+  };
+}
+
+/** True when a dish ready at one time is ready after the meal (F228). */
+export const isLate = (
+  ready: { day: string; time: string },
+  meal: { day: string; time: string }
+): boolean => `${ready.day} ${ready.time}` > `${meal.day} ${meal.time}`;
+
+/** What the sheet says when the chosen start can't be ready by the meal (F228; proposed, for
+ *  cabledrawer). */
+export const lateWords = (ready: { day: string; time: string }) =>
+  `Started then it won’t be ready by the meal: the earliest is ${startOptionWords(ready.day, ready.time)}.`;

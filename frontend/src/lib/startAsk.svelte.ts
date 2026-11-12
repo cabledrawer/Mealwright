@@ -19,6 +19,9 @@ export interface StartQuestion {
   /** "Breakfast at 08:00". */
   eatsWords: string;
   wait: StepWait;
+  /** The recipe's work in minutes (not the wait), or null: a start is ready after it and the
+   *  shortest wait (F228). */
+  activeMinutes: number | null;
   options: StartOption[];
   /** The time the meal has now, when it is being changed. */
   current: StartAt | null;
@@ -87,6 +90,7 @@ class StartAsk {
           eatsAt: found.eats_at,
           eatsWords: `${meal.slotName} at ${found.eats_at}`,
           wait: found.wait!,
+          activeMinutes: found.active_minutes ?? null,
           options: found.options,
           current: options.current ?? null,
           button: options.button ?? 'Add to plan',

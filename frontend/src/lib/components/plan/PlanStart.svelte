@@ -7,7 +7,15 @@
   // proposed, for cabledrawer.
   import { BAD_DATE, isSaneDay } from '#lib/dates.js';
   import { startAsk } from '#lib/startAsk.svelte.js';
-  import { hasToWords, startOptionWords, startWords, waitRange } from '#lib/startWords.js';
+  import {
+    hasToWords,
+    isLate,
+    lateWords,
+    readyAt,
+    startOptionWords,
+    startWords,
+    waitRange
+  } from '#lib/startWords.js';
 
   const uid = $props.id();
   let dialog: HTMLDialogElement;
@@ -56,6 +64,24 @@
   const startHint = $derived.by(() => {
     const time = (picked === 'other' ? otherTime : picked.split(' ')[1]) || '21:00';
     return { words: startWords(time), evening: Number(time.slice(0, 2)) >= 17 };
+  });
+
+  /** When the start on screen is ready, if that can't be by the meal (F228): an offered time
+   *  says when it is ready itself; any other is the start, the shortest wait and the work. */
+  const late = $derived.by(() => {
+    if (!question) return null;
+    const meal = { day: question.day, time: question.eatsAt };
+    let ready: { day: string; time: string } | null = null;
+    const offered = question.options.find((o) => keyOf(o.day, o.time) === picked);
+    if (offered) {
+      ready = { day: offered.ready_by_day, time: offered.ready_by };
+    } else {
+      const [day, time] = picked === 'other' ? [otherDay, otherTime] : picked.split(' ');
+      if (day && time) {
+        ready = readyAt(day, time, question.wait.min_minutes + (question.activeMinutes ?? 0));
+      }
+    }
+    return ready && isLate(ready, meal) ? lateWords(ready) : null;
   });
 
   function submit(event: SubmitEvent) {
@@ -150,6 +176,7 @@
             >Another time…</button
           >
         {/if}
+        {#if late}<p class="problem" role="status" data-testid="plan-start-late">{late}</p>{/if}
         <p class="hint">
           {startHint.evening ? 'The day before, ' : ''}Today and the Cook view say “{startHint.words}”.
           You can change the time from the meal.

@@ -6,7 +6,9 @@ import type { PlanAhead, PlanItem } from './client/plan';
 import {
   doneWords,
   hasToWords,
+  isLate,
   neededWords,
+  readyAt,
   startOptionWords,
   startsByNow,
   startsOn,
@@ -123,5 +125,23 @@ describe('what is to be started', () => {
       recipeItem(52, 7, 'Vada', { ahead: { ...AHEAD, start_time: '20:30' } })
     );
     expect(startsOn(plan, '2026-10-16').map((s) => s.item.id)).toEqual([51, 52, 50]);
+  });
+});
+
+describe('when a start is ready (F228)', () => {
+  it('adds minutes to a day and a time, across midnight', () => {
+    expect(readyAt('2026-11-13', '22:50', 8 * 60 + 25)).toEqual({
+      day: '2026-11-14',
+      time: '07:15'
+    });
+    expect(readyAt('2026-11-14', '04:05', 505)).toEqual({ day: '2026-11-14', time: '12:30' });
+    expect(readyAt('2026-12-31', '23:00', 120)).toEqual({ day: '2027-01-01', time: '01:00' });
+  });
+
+  it('is late only when it is ready after the meal', () => {
+    const meal = { day: '2026-11-14', time: '12:30' };
+    expect(isLate({ day: '2026-11-14', time: '12:30' }, meal)).toBe(false);
+    expect(isLate({ day: '2026-11-14', time: '12:31' }, meal)).toBe(true);
+    expect(isLate({ day: '2026-11-13', time: '23:59' }, meal)).toBe(false);
   });
 });

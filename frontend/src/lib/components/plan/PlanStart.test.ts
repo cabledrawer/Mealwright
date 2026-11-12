@@ -71,4 +71,72 @@ describe('the start question sheet', () => {
       )
     );
   });
+
+  // F228 (cabledrawer 12 Nov): the sheet says so when the chosen start can't be ready by the meal.
+  const warning = () =>
+    document
+      .querySelector('[data-testid="plan-start-late"]')
+      ?.textContent?.replace(/\s+/g, ' ')
+      .trim();
+
+  function askWith(options: unknown[], active: number | null, adding = true) {
+    fakeApi({
+      'GET /plan/start-options': [
+        200,
+        { wait: WAIT, eats_at: '12:30', active_minutes: active, options }
+      ]
+    });
+    component = mount(PlanStart, { target: document.body });
+    flushSync();
+    return startAsk.ask(
+      { id: 5, name: 'Dosa Batter' },
+      { day: '2026-11-14', slotId: 1, slotName: 'Lunch' },
+      { adding }
+    );
+  }
+
+  it('says nothing for a start that is ready by the meal', async () => {
+    void askWith(
+      [{ day: '2026-11-13', time: '21:00', ready_by: '12:30', ready_by_day: '2026-11-14' }],
+      25
+    );
+    await expect.element(page.getByRole('button', { name: 'Add to plan' })).toBeVisible();
+    expect(warning()).toBeUndefined();
+  });
+
+  it('says so, and when it is ready, for an offered start that cannot be ready by the meal', async () => {
+    void askWith(
+      [{ day: '2026-11-14', time: '05:05', ready_by: '13:30', ready_by_day: '2026-11-14' }],
+      25
+    );
+    await vi.waitFor(() =>
+      expect(warning()).toBe(
+        'Started then it won’t be ready by the meal: the earliest is Sat 13:30.'
+      )
+    );
+  });
+
+  it('works out Another time from the wait and the work, 8 h and 25 min here', async () => {
+    void askWith([], 25, false);
+    await vi.waitFor(() => expect(startAsk.current).not.toBeNull());
+    await page.getByLabelText('Day').fill('2026-11-14');
+    await page.getByLabelText('Time').fill('04:05'); // ready 12:30: just in time
+    expect(warning()).toBeUndefined();
+    await page.getByLabelText('Time').fill('04:06'); // ready 12:31
+    await vi.waitFor(() =>
+      expect(warning()).toBe(
+        'Started then it won’t be ready by the meal: the earliest is Sat 12:31.'
+      )
+    );
+  });
+
+  it('counts only the wait when the recipe has no Time', async () => {
+    void askWith([], null, false);
+    await vi.waitFor(() => expect(startAsk.current).not.toBeNull());
+    await page.getByLabelText('Day').fill('2026-11-14');
+    await page.getByLabelText('Time').fill('04:30'); // 8 h: 12:30
+    expect(warning()).toBeUndefined();
+    await page.getByLabelText('Time').fill('04:31');
+    await vi.waitFor(() => expect(warning()).toContain('Sat 12:31'));
+  });
 });

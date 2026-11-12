@@ -207,6 +207,9 @@ export interface StartOptions {
   wait: StepWait | null;
   /** The meal's usual time. */
   eats_at: string;
+  /** The recipe's work in minutes, a saved Time that holds its wait having the wait taken off
+   *  (F228); null when the recipe has no Time. */
+  active_minutes?: number | null;
   options: StartOption[];
 }
 
