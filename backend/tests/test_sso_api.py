@@ -951,7 +951,10 @@ def signed_in(admin: TestClient, idp: FakeProvider) -> Iterator[TestClient]:
 def check(client: TestClient) -> int:
     app = cast(Any, client.app)
     return sso_accounts.check_sessions(
-        app.state.outbound, app.state.sessionmaker, app.state.settings.data_dir
+        app.state.outbound,
+        app.state.sessionmaker,
+        app.state.settings.data_dir,
+        app.state.events,
     )
 
 

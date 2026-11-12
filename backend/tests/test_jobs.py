@@ -385,7 +385,7 @@ def test_the_single_sign_on_job_first_runs_now(kitchen: TestClient, tmp_path: Pa
     so the job must not wait its 5 minutes. Fails without `next_run_time` on the job."""
     background = jobs.scheduler(
         kitchen.app.state.sessionmaker,  # type: ignore[attr-defined]
-        single_sign_on=(kitchen.app.state.outbound, tmp_path),  # type: ignore[attr-defined]
+        single_sign_on=(kitchen.app.state.outbound, tmp_path, kitchen.app.state.events),  # type: ignore[attr-defined]
     )
     try:
         background.start(paused=True)  # works out when each job first runs, runs none
@@ -394,3 +394,28 @@ def test_the_single_sign_on_job_first_runs_now(kitchen: TestClient, tmp_path: Pa
         assert job.next_run_time <= datetime.now(UTC) + timedelta(seconds=5)
     finally:
         background.shutdown(wait=False)
+
+
+def test_the_apps_single_sign_on_job_gets_the_apps_event_hub(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O2 review r5, finding 4: a job that ends a sign-in must end its open streams, so the real
+    scheduler's job is given the app's own hub. Fails when `main.py` leaves it out."""
+    from mealwright.config import Settings
+    from mealwright.main import create_app
+
+    made: list[Any] = []
+    real = jobs.scheduler
+
+    def spy(*args: Any, **kwargs: Any) -> Any:
+        scheduler = real(*args, **kwargs)
+        made.append(scheduler)
+        return scheduler
+
+    monkeypatch.setattr(jobs, "scheduler", spy)
+    app = create_app(Settings(data_dir=tmp_path / "data", run_jobs=True))
+    with TestClient(app, base_url="https://testserver") as client:
+        assert client.get(f"{API}/version").status_code == 200
+        job = made[0].get_job("single-sign-on")
+        assert job is not None
+        assert job.args[3] is app.state.events  # type: ignore[attr-defined]

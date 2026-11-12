@@ -105,8 +105,7 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
                 log_file,
                 settings.data_dir / backups.FOLDER,
                 app.state.updates,
-                single_sign_on=(app.state.outbound, settings.data_dir),
-                events=app.state.events,
+                single_sign_on=(app.state.outbound, settings.data_dir, app.state.events),
             )
             background.start()
         yield

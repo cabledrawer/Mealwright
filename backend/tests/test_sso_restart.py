@@ -37,7 +37,10 @@ def restart(kitchen: TestClient) -> None:
 def start_job(kitchen: TestClient) -> None:
     app = cast(Any, kitchen.app)
     jobs.check_single_sign_on(
-        app.state.outbound, app.state.sessionmaker, app.state.settings.data_dir
+        app.state.outbound,
+        app.state.sessionmaker,
+        app.state.settings.data_dir,
+        app.state.events,
     )
 
 

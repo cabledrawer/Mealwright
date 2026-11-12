@@ -166,3 +166,55 @@ def test_a_refused_logins_open_event_stream_ends_at_once(
 
     frames = asyncio.run(go())
     assert any("signed_out" in f for f in frames), frames
+
+
+def _people(client: TestClient) -> dict[str, int]:
+    return {p["name"]: p["id"] for p in ok(client.get(f"{API}/people"))["people"]}
+
+
+def test_a_refused_admin_is_signed_out_only_while_another_admin_can_get_in(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """O2 review r5, findings 1 and 3. Two linked admins, passwords off, the groups drop both.
+    Wren has a live sign-in, so cabledrawer's refusal ends his; then Wren is the only way in and
+    keeps hers. Fails when a linked admin counts as a way in only because they are linked."""
+    wren = browser(sso_only)
+    sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
+    first, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": []})
+    assert first.status_code != 200
+    assert sso_only.get(f"{API}/me").status_code == 401  # cabledrawer: Wren can still get in
+    second, _ = sign_in(browser(sso_only), idp, sub="wren", extra={"groups": []})
+    assert second.status_code != 200
+    assert wren.get(f"{API}/sso/settings").status_code == 200  # Wren: nobody else can
+
+
+def test_a_linked_admin_with_no_live_sign_in_is_no_way_in(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """The same, the other order: Wren is linked but has no sign-in left, so Tess's refusal
+    leaves his sign-ins (the household can't be locked out)."""
+    wren = browser(sso_only)
+    sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
+    with cast(Any, sso_only.app).state.sessionmaker() as db:
+        for session in db.scalars(select(Session).where(Session.login_id != 1)):
+            db.delete(session)
+        db.commit()
+    first, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": []})
+    assert first.status_code != 200
+    assert sso_only.get(f"{API}/sso/settings").status_code == 200
+
+
+def test_a_sole_admin_with_no_password_keeps_their_sign_ins_with_passwords_on(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """O2 review r5, finding 2: Wren (made by single sign-on, no password) is the only admin
+    left; refused, they keep their sign-ins and lose their token."""
+    wren = browser(admin)
+    sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
+    kid = _people(wren)["Tess"]
+    assert wren.patch(f"{API}/people/{kid}", json={"role": "member"}).is_success
+    token = a_token(wren)
+    refused, _ = sign_in(browser(admin), idp, sub="wren", extra={"groups": []})
+    assert refused.status_code != 200
+    assert wren.get(f"{API}/sso/settings").status_code == 200
+    assert token.get(f"{API}/me").status_code == 401

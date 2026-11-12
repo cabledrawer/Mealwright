@@ -133,7 +133,7 @@ def check_single_sign_on(
     gate: OutboundGate,
     factory: sessionmaker[Session],
     data_dir: Path,
-    events: Broadcaster | None = None,
+    events: Broadcaster,
 ) -> None:
     from mealwright import sso_accounts  # imported here: it needs the API's models
 
@@ -148,8 +148,7 @@ def scheduler(
     log_file: DailyLogFile | None = None,
     backups_folder: Path | None = None,
     updates: UpdateChecks | None = None,
-    single_sign_on: tuple[OutboundGate, Path] | None = None,
-    events: Broadcaster | None = None,
+    single_sign_on: tuple[OutboundGate, Path, Broadcaster] | None = None,
 ) -> BackgroundScheduler:
     """The app's scheduler, with every job added. Started and stopped with the app."""
     jobs = BackgroundScheduler(
@@ -194,7 +193,7 @@ def scheduler(
         jobs.add_job(
             check_single_sign_on,
             IntervalTrigger(minutes=5, timezone=UTC),
-            args=[single_sign_on[0], factory, single_sign_on[1], events],
+            args=[single_sign_on[0], factory, single_sign_on[1], single_sign_on[2]],
             next_run_time=datetime.now(UTC),  # at start too: a restart empties the memory
             id="single-sign-on",
             name="Check single sign-on sign-ins with the sign-in server",

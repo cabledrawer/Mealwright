@@ -33,7 +33,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal, NoReturn
 
-from sqlalchemy import ColumnElement, and_, delete, func, select
+from sqlalchemy import ColumnElement, and_, delete, exists, func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
@@ -231,23 +231,41 @@ def find_login(db: DbSession, identity: Identity) -> Login | None:
     )
 
 
+def another_admin_gets_in(db: DbSession, login: Login, off: bool) -> bool:
+    """True when another admin of this household can get in without the sign-in server's say:
+    they have a password and password sign-in isn't off (`off`), or they have a sign-in that
+    hasn't run out. Being linked to the sign-in server is not enough: the same groups that
+    refuse `login` may refuse them (O2 review r5, findings 1, 2 and 3). Not shared logins, not
+    removed people. This is the one answer to "is someone else a way in?" for a refusal."""
+    has_password = and_(Login.password_hash.is_not(None), Login.password_hash != "")  # nosec B105
+    live = exists().where(Session.login_id == Login.id, Session.expires_at > now())
+    ways = live if off else or_(has_password, live)
+    query = (
+        select(func.count())
+        .select_from(Login)
+        .join(Member, Member.id == Login.member_id)
+        .where(Login.household_id == login.household_id, Login.role == ADMIN)
+        .where(Login.shared.is_(False), Login.id != login.id, Member.removed_at.is_(None))
+        .where(ways)
+    )
+    return int(db.scalar(query) or 0) > 0
+
+
 def _last_admin_keeps(db: DbSession, login: Login, row: SsoSettings, data_dir: Path) -> str:
-    """What a refused login keeps. "all": an admin who is the household's last one who can sign
-    in, and can still do it with a password while password sign-in really works (the stored
-    setting is on, or single sign-on can't start): they stay an admin and keep their tokens and
-    sign-ins (O2 review r3, findings 1 and 2). "sign-ins": the last admin who can sign in while
-    passwords are off: their tokens stop (nobody could sign in to delete one) but their sign-ins
-    stay, so they can still reach Settings and turn passwords back on; a refusal can't lock the
-    household out (O2 review r4, finding 1; lead's choice, proposed, for cabledrawer). "": anyone
-    else: tokens and sign-ins both end."""
+    """What a refused login keeps (proposed, for cabledrawer; O2 review r2 to r5). An admin with no
+    other admin who can get in without the sign-in server's say (`another_admin_gets_in`) is the
+    household's last way in. "all": they can still sign in with a password while password
+    sign-in really works (the stored setting is on, or single sign-on can't start): they stay
+    an admin and keep their tokens and sign-ins. "sign-ins": any other last way in (passwords
+    off, or no password of their own): their tokens stop (nobody could sign in to delete one) but
+    their sign-ins stay, so they can still reach Settings; a refusal can't lock the household
+    out. "": anyone else: tokens and sign-ins both end."""
     if login.role != ADMIN:
         return ""
     off = passwords_off(db, data_dir, row.household_id)
-    if other_admins(db, login, off) != 0:
+    if another_admin_gets_in(db, login, off):
         return ""
-    if not off:
-        return "all" if login.password_hash else ""
-    return "sign-ins"
+    return "all" if login.password_hash and not off else "sign-ins"
 
 
 def _refused_known(
@@ -392,7 +410,7 @@ def check_sessions(
     gate: OutboundGate,
     factory: sessionmaker[DbSession],
     data_dir: Path,
-    events: Broadcaster | None = None,
+    events: Broadcaster,
 ) -> int:
     """The job: ask the provider about each single sign-on sign-in that's due. Gives how many
     were signed out; their open live-update streams end now (`events`: O2 review r4, finding 4)."""
@@ -442,6 +460,5 @@ def check_sessions(
                 session.sso_check_at = at + sso.RETRY_AFTER
         db.commit()
     for session_id in ended_ids:
-        if events is not None:
-            events.end_session(session_id)
+        events.end_session(session_id)
     return ended
