@@ -47,7 +47,7 @@ log = logging.getLogger(__name__)
 
 # The day this version was released. The release PR sets it with the CHANGELOG's date
 # (tests/test_updates.py checks they match).
-RELEASED = date(2026, 11, 11)
+RELEASED = date(2026, 11, 12)
 
 # PLACEHOLDER, for cabledrawer: Mealwright's public home on GitHub doesn't exist until 1.0. Until
 # then these name an owner GitHub can't have (a user name never has an underscore), so they can
