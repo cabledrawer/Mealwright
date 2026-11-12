@@ -9,6 +9,7 @@ from fastapi import status
 from sqlalchemy import ColumnElement, and_, delete, func, or_, select, update
 from sqlalchemy.orm import Session as DbSession
 
+from mealwright import api_tokens
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Who
 from mealwright.errors import Problem, not_found
@@ -250,6 +251,8 @@ def _apply(kitchen: Kitchen, member: Member, login: Login | None, wanted: dict[s
         login.name = member.name  # the login's name follows its person's
         if wanted.get("role") is not None:
             login.role = wanted["role"]
+            if login.role != ADMIN:  # only admins have API tokens (PR O2)
+                api_tokens.stop_for(kitchen.db, login.id)
         if wanted.get("shared") is not None:
             login.shared = wanted["shared"]
     kitchen.db.flush()
@@ -288,6 +291,7 @@ def remove(kitchen: Kitchen, member: Member) -> Change:
     if login is not None:
         kitchen.db.execute(delete(Session).where(Session.login_id == login.id))
         kitchen.db.execute(delete(JoinLink).where(JoinLink.login_id == login.id))
+        api_tokens.stop_for(kitchen.db, login.id)  # for good: Undo doesn't bring them back
     # Nobody is "Who's this?"-picked as them any more.
     kitchen.db.execute(
         update(Session)

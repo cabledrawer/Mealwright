@@ -510,7 +510,7 @@ def undo(act: Act) -> None:
     if change is None:
         act.ignore("nothing_to_undo")
         return
-    if not roles.can_undo_kind(kitchen.login.role, change.kind):
+    if not roles.can_undo_kind(kitchen.login.role, change.kind, kitchen.by_token):
         act.ignore("cannot_undo")
         return
     refused = undo_refusal(kitchen, change)  # the same checks as Undo in Recent changes

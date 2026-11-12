@@ -37,16 +37,18 @@ import anyio
 import anyio.to_thread
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
-from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi import Depends, HTTPException, Request, Response, Security, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import AfterValidator, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from mealwright import api_tokens
 from mealwright import db as database
 from mealwright.config import Settings
 from mealwright.errors import Problem
-from mealwright.models import Login, Member, Session, utcnow
+from mealwright.models import ApiToken, Login, Member, Session, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -658,14 +660,66 @@ def same_origin(request: Request) -> None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "This request came from another site.")
 
 
-def current(request: Request, db: Db) -> SignedIn:
+@dataclass
+class Caller:
+    """Who a request to /api/v1 comes from: a signed-in device (`session`) or an API token
+    (`token`, PR O2), never both."""
+
+    login: Login
+    session: Session | None = None
+    token: ApiToken | None = None
+
+    @property
+    def by_token(self) -> bool:
+        return self.token is not None
+
+
+def _has_cookie(request: Request) -> bool:
+    return bool(request.cookies.get(COOKIE) or request.cookies.get(PLAIN_COOKIE))
+
+
+# Documents the token in OpenAPI (`ApiToken`); `current` reads the header itself.
+_BEARER = HTTPBearer(
+    auto_error=False,
+    scheme_name="ApiToken",
+    description="An API token from Settings, Sign-in, API tokens: `Authorization: Bearer mw_…`. "
+    "Read-only tokens (`mw_ro_`) can only read. Without one, the sign-in cookie is used.",
+)
+
+
+def current(
+    request: Request,
+    db: Db,
+    _documented: Annotated[HTTPAuthorizationCredentials | None, Security(_BEARER)] = None,
+) -> Caller:
+    """The signed-in device's login, or an API token's (`Authorization: Bearer mw_…`). A request
+    carrying both is refused (proposed, for cabledrawer); a read-only token may only read."""
+    token = api_tokens.bearer(request)
+    if token is not None:
+        if _has_cookie(request):
+            raise Problem(status.HTTP_400_BAD_REQUEST, "token_and_cookie", api_tokens.BOTH)
+        by_token = api_tokens.find(db, token)
+        if by_token is None:
+            raise api_tokens.doesnt_work()
+        api_tokens.check_method(by_token.token, request.method)
+        return Caller(login=by_token.login, token=by_token.token)
     found = find_session(db, session_token(request))
     if found is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Please sign in.")
-    return found
+    return Caller(login=found.login, session=found.session)
 
 
-CurrentLogin = Annotated[SignedIn, Depends(current)]
+def current_session(signed_in: Annotated[Caller, Depends(current)]) -> SignedIn:
+    """Only a signed-in device, never an API token: for what tokens never do (making or
+    listing tokens, your password, where you're signed in, "Who's this?"; proposed, for
+    cabledrawer)."""
+    if signed_in.session is None:
+        raise api_tokens.not_for_tokens()
+    return SignedIn(login=signed_in.login, session=signed_in.session)
+
+
+CurrentLogin = Annotated[Caller, Depends(current)]
+CurrentSession = Annotated[SignedIn, Depends(current_session)]
 SameOrigin = Depends(same_origin)
 
 

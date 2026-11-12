@@ -21,7 +21,7 @@ from mealwright.api.v1.schemas import ChangeOut
 from mealwright.auth import (
     MAX_PASSWORD,
     MIN_PASSWORD,
-    CurrentLogin,
+    CurrentSession,
     Db,
     SameOrigin,
     client_address,
@@ -127,7 +127,7 @@ def _people(kitchen: Here) -> PeopleOut:
     )
     return PeopleOut(
         people=[_person(kitchen, m) for m in members],
-        can_change=allowed(kitchen.login.role, Action.PEOPLE),
+        can_change=allowed(kitchen.login.role, Action.PEOPLE, kitchen.by_token),
         ask_whos_this=kitchen.household.ask_whos_this,
     )
 
@@ -307,7 +307,7 @@ class WhosThisOut(BaseModel):
     people: list[Pickable]
 
 
-def _whos_this(kitchen: Here, signed_in: CurrentLogin) -> WhosThisOut:
+def _whos_this(kitchen: Here, signed_in: CurrentSession) -> WhosThisOut:
     login = signed_in.login
     return WhosThisOut(
         ask=login.shared and kitchen.household.ask_whos_this,
@@ -324,7 +324,7 @@ def _whos_this(kitchen: Here, signed_in: CurrentLogin) -> WhosThisOut:
 
 
 @router.get("/whos-this")
-def whos_this(kitchen: Here, signed_in: CurrentLogin) -> WhosThisOut:
+def whos_this(kitchen: Here, signed_in: CurrentSession) -> WhosThisOut:
     return _whos_this(kitchen, signed_in)
 
 
@@ -334,7 +334,7 @@ class PickIn(BaseModel):
 
 
 @router.put("/whos-this")
-def pick(body: PickIn, kitchen: Here, signed_in: CurrentLogin) -> WhosThisOut:
+def pick(body: PickIn, kitchen: Here, signed_in: CurrentSession) -> WhosThisOut:
     """Pick who is using this shared login on this device: their changes are recorded as
     theirs. Only a shared login can pick, and only a person of the household."""
     if not signed_in.login.shared:

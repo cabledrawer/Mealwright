@@ -28,6 +28,7 @@ from mealwright.api.v1 import (
     stocktake,
     sync,
     today,
+    tokens,
     updates,
     version,
     your_data,
@@ -40,6 +41,7 @@ router.include_router(report.router)
 router.include_router(account.router)
 router.include_router(sso.router)
 router.include_router(my_sign_in.router)
+router.include_router(tokens.router)
 router.include_router(kitchen.router)
 router.include_router(foods.router)
 router.include_router(starter_packs.router)

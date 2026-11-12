@@ -159,7 +159,11 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
     draft = ok(kitchen.post(f"{API}/recipes/drafts", json=DRAFT_BODY), 201)
     joss = ok(kitchen.post(f"{API}/people", json={"name": "Joss"}), 201)["people"][-1]
     sign_in = ok(kitchen.get(f"{API}/me/sign-in"))["sessions"][0]["id"]
+    token = ok(
+        kitchen.post(f"{API}/api-tokens", json={"name": "Home Assistant", "scope": "read"}), 201
+    )["made"]
     return {
+        "token_id": token["id"],
         "member_id": joss["id"],
         "sign_in_id": sign_in,
         "draft_id": draft["id"],
@@ -332,6 +336,8 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("DELETE", "/api/v1/people/{member_id}/login"): None,
     # Signing out one device (0.9 A2): another household's sign-in is "not found".
     ("DELETE", "/api/v1/me/sessions/{sign_in_id}"): None,
+    # Deleting an API token (0.9 O2): another household's token is "not found".
+    ("DELETE", "/api/v1/api-tokens/{token_id}"): None,
 }
 
 # Paths with a name in them, not an id: a switch is called "recipe_import", and the request

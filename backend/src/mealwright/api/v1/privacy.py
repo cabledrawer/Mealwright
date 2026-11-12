@@ -65,7 +65,7 @@ def _switches(kitchen: Here) -> SwitchesOut:
     stored = stored_switches(kitchen.db, kitchen.household_id)
     return SwitchesOut(
         switches=[SwitchOut(connection=c.value, on=stored[c]) for c in SHOWN],  # type: ignore[arg-type]
-        can_change=allowed(kitchen.login.role, Action.PRIVACY),
+        can_change=allowed(kitchen.login.role, Action.PRIVACY, kitchen.by_token),
     )
 
 
@@ -139,7 +139,7 @@ def _list(kitchen: Here) -> OwnNetworkOut:
             for e in own_network.entries(kitchen.db, kitchen.household_id)
         ],
         limit=own_network.MAX_ENTRIES,
-        can_change=allowed(kitchen.login.role, Action.PRIVACY),
+        can_change=allowed(kitchen.login.role, Action.PRIVACY, kitchen.by_token),
     )
 
 

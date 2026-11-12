@@ -159,7 +159,7 @@ ADMIN_ONLY_KINDS = roles.ADMIN_ONLY_KINDS
 
 def can_undo(kitchen: Kitchen, change: Change) -> bool:
     return (
-        roles.can_undo_kind(kitchen.login.role, change.kind)
+        roles.can_undo_kind(kitchen.login.role, change.kind, kitchen.by_token)
         and change.kind != "undo"
         and change.kind not in KEY_ONLY_KINDS
         and change.kind not in NOTE_KINDS

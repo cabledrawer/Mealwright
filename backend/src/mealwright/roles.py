@@ -60,8 +60,16 @@ ADMIN_KINDS: dict[str, Action] = {
 ADMIN_ONLY_KINDS = tuple(ADMIN_KINDS)
 
 
-def allowed(role: str, action: Action) -> bool:
-    """True when a login with this role may do this. An unknown role may do nothing."""
+# What an API token never does, even an admin's full one (PR O2; proposed, for cabledrawer): change
+# the people of the household or their roles, the outside-connection switches, or sign-in.
+TOKENS_NEVER: frozenset[Action] = frozenset({Action.PEOPLE, Action.PRIVACY, Action.SIGN_IN})
+
+
+def allowed(role: str, action: Action, by_token: bool = False) -> bool:
+    """True when a login with this role may do this, signed in on a device or (`by_token`)
+    through an API token. An unknown role may do nothing."""
+    if by_token and action in TOKENS_NEVER:
+        return False
     return role in TABLE[action]
 
 
@@ -75,6 +83,7 @@ def admin_kind_action(kind: str) -> Action:
     return ADMIN_KINDS[kind]
 
 
-def can_undo_kind(role: str, kind: str) -> bool:
-    """False when only an admin may undo this kind of change and this role isn't one."""
-    return kind not in ADMIN_KINDS or allowed(role, ADMIN_KINDS[kind])
+def can_undo_kind(role: str, kind: str, by_token: bool = False) -> bool:
+    """False when only an admin may undo this kind of change and this role (or an API token)
+    may not make it."""
+    return kind not in ADMIN_KINDS or allowed(role, ADMIN_KINDS[kind], by_token)

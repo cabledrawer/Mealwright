@@ -151,7 +151,7 @@ def _problem(why: FetchProblem, kitchen: Kitchen) -> Problem:
     """A refused fetch as the API's answer: the sentence, and a code the screen reacts to."""
     message = page_fetch.MESSAGES[why]
     if why in (FetchProblem.SWITCHED_OFF, FetchProblem.PHOTO_SWITCHED_OFF):
-        admin = roles.allowed(kitchen.login.role, roles.Action.PRIVACY)
+        admin = roles.allowed(kitchen.login.role, roles.Action.PRIVACY, kitchen.by_token)
         if why == FetchProblem.SWITCHED_OFF and not admin:
             message = MEMBER_SWITCHED_OFF
         return Problem(status.HTTP_403_FORBIDDEN, why.value, message, admin=admin)

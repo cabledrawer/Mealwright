@@ -9,6 +9,7 @@ from typing import Annotated
 from fastapi import Depends, Header, Request, status
 from sqlalchemy.orm import Session as DbSession
 
+from mealwright.api_tokens import not_for_tokens
 from mealwright.auth import CurrentLogin, Db
 from mealwright.errors import Problem
 from mealwright.models import Household, Login, Member, Session, utcnow
@@ -35,6 +36,8 @@ class Kitchen:
     # Who is doing it (0.9 A1): the login's own person, or on a shared login the one picked in
     # "Who's this?" (None: nobody picked). Recent changes names them.
     member_id: int | None = None
+    # Through an API token, not a signed-in device (PR O2): `roles.TOKENS_NEVER` is refused.
+    by_token: bool = False
 
     @property
     def household_id(self) -> int:
@@ -42,7 +45,9 @@ class Kitchen:
 
     def admin_only(self, action: Action) -> None:
         """Refuse (403) unless this login's role may do `action` (`mealwright.roles`)."""
-        if not allowed(self.login.role, action):
+        if not allowed(self.login.role, action, self.by_token):
+            if self.by_token and allowed(self.login.role, action):
+                raise not_for_tokens()
             raise Problem(
                 status.HTTP_403_FORBIDDEN,
                 "admins_only",
@@ -72,7 +77,12 @@ def kitchen(
     if household is None:  # pragma: no cover (a login always has a household)
         raise Problem(status.HTTP_401_UNAUTHORIZED, "signed_out", "Please sign in.")
     member_id = acting_member(db, signed_in.login, household, signed_in.session)
-    if signed_in.login.shared and member_id is not None and request.method not in SAFE:
+    if (
+        signed_in.session is not None
+        and signed_in.login.shared
+        and member_id is not None
+        and request.method not in SAFE
+    ):
         # A change made as the picked person keeps the pick going (saved with the change).
         signed_in.session.picked_at = utcnow()
     return Kitchen(
@@ -82,18 +92,20 @@ def kitchen(
         idempotency_key=idempotency_key,
         request=f"{request.method} {request.url.path}",
         member_id=member_id,
+        by_token=signed_in.by_token,
     )
 
 
 def acting_member(
-    db: DbSession, login: Login, household: Household, session: Session
+    db: DbSession, login: Login, household: Household, session: Session | None
 ) -> int | None:
     """Who a change is recorded for: on a shared login, the person picked on this device (if
     the household still asks "Who's this?", the pick is under 30 minutes old and they're still
-    in the household); otherwise the login's own person."""
+    in the household; an API token has no device, so nobody); otherwise the login's own
+    person."""
     if not login.shared:
         wanted = login.member_id
-    elif not household.ask_whos_this or not _fresh_pick(session):
+    elif session is None or not household.ask_whos_this or not _fresh_pick(session):
         return None
     else:
         wanted = session.member_id

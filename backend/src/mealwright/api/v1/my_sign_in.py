@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from mealwright.auth import (
     MAX_PASSWORD,
-    CurrentLogin,
+    CurrentSession,
     Db,
     NewPassword,
     SameOrigin,
@@ -108,14 +108,14 @@ def _tell_streams(request: Request, ended: list[int]) -> None:
 
 
 @router.get("/me/sign-in")
-def my_sign_in(signed_in: CurrentLogin, db: Db) -> MySignIn:
+def my_sign_in(signed_in: CurrentSession, db: Db) -> MySignIn:
     """Your password's date and every device where you're signed in."""
     return _my_sign_in(db, signed_in)
 
 
 @router.put("/me/password")
 def change_password(
-    body: PasswordChange, request: Request, response: Response, signed_in: CurrentLogin, db: Db
+    body: PasswordChange, request: Request, response: Response, signed_in: CurrentSession, db: Db
 ) -> MySignIn:
     """Change your password. Needs the current one; wrong ones have their own pause for this
     login, apart from signing in, so guessing at the username can't stop you changing it.
@@ -149,7 +149,7 @@ def change_password(
 
 
 @router.delete("/me/sessions/others")
-def sign_out_everywhere_else(request: Request, signed_in: CurrentLogin, db: Db) -> MySignIn:
+def sign_out_everywhere_else(request: Request, signed_in: CurrentSession, db: Db) -> MySignIn:
     """Sign out every device but this one."""
     ended = _end_others(request, db, signed_in)
     db.commit()
@@ -160,7 +160,7 @@ def sign_out_everywhere_else(request: Request, signed_in: CurrentLogin, db: Db) 
 
 @router.delete("/me/sessions/{sign_in_id}")
 def sign_out_one(
-    sign_in_id: StoredInt, request: Request, signed_in: CurrentLogin, db: Db
+    sign_in_id: StoredInt, request: Request, signed_in: CurrentSession, db: Db
 ) -> MySignIn:
     """Sign out one of your other devices. Someone else's session is "not found"."""
     found = db.get(Session, sign_in_id)
