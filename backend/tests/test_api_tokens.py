@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 from sync_kit import API, db, ok, person
 
-from mealwright import api_tokens
+from mealwright import api_tokens, roles
 from mealwright.auth import COOKIE, current_session
 from mealwright.models import ApiToken, Login, Member, utcnow
 
@@ -402,3 +402,79 @@ def test_a_token_cant_start_a_wrong_password_pause_on_the_admin(kitchen: TestCli
 def test_the_export_isnt_readable_with_a_read_only_token(kitchen: TestClient) -> None:
     assert kitchen.get(f"{API}/export").status_code == 200  # the admin can
     _refused(_app(kitchen, _make(kitchen, "read")).get(f"{API}/export"), 403, "not_for_tokens")
+
+
+# --- Every route of a token-never action, so taking an action out of TOKENS_NEVER fails here
+# (O2 review r1, finding 4). A full token on each, as an admin's own would be. ----------------
+
+NEVER_ROUTES = [
+    # People
+    ("POST", "/people", {"name": "Joss"}),
+    ("PATCH", "/people/{wren}", {"role": "admin"}),
+    ("DELETE", "/people/{wren}", None),
+    ("POST", "/people/{wren}/login", {"username": "wren2"}),
+    ("DELETE", "/people/{wren}/login", None),
+    ("PUT", "/people/ask-whos-this", {"on": True}),
+    # Privacy (and the update check, which connects out)
+    ("PUT", "/privacy/switches/recipe_import", {"on": True}),
+    ("POST", "/privacy/own-network", {"value": "wiki.home"}),
+    ("DELETE", "/privacy/own-network/1", None),
+    ("POST", "/updates/check", None),
+    # Sign-in: single sign-on, in every part (reading the setup too)
+    ("GET", "/sso/settings", None),
+    (
+        "PUT",
+        "/sso/settings",
+        {
+            "issuer": "https://id.example.org",
+            "client_id": "mealwright",
+            "client_secret": "a-secret",
+            "button_name": "Authentik",
+            "redirect_uri": "https://testserver/auth/callback",
+        },
+    ),
+    ("PUT", "/sso/password-sign-in", {"on": False}),
+    ("POST", "/sso/test", None),
+    ("POST", "/sso/link", None),
+    ("DELETE", "/sso/link", None),
+    # Your data
+    ("GET", "/backups", None),
+    ("PATCH", "/backups", {"keep": 3}),
+    ("POST", "/backups", None),
+    ("GET", "/export", None),
+    ("POST", "/delete-everything", {"words": "delete everything", "password": "x"}),
+]
+
+
+def _never(app: TestClient, wren: int) -> list[tuple[str, str, Any]]:
+    out = []
+    for method, path, body in NEVER_ROUTES:
+        r = app.request(method, f"{API}{path.replace('{wren}', str(wren))}", json=body)
+        out.append((method, path, r))
+    return out
+
+
+def test_a_full_token_is_refused_on_every_route_of_a_token_never_action(
+    kitchen: TestClient,
+) -> None:
+    person(kitchen)
+    app = _app(kitchen, _make(kitchen, "full"))
+    for method, path, r in _never(app, _people_ids(kitchen)["Wren"]):
+        assert r.status_code == 403 and r.json()["code"] == "not_for_tokens", (method, path, r.text)
+
+
+@pytest.mark.parametrize("action", sorted(roles.TOKENS_NEVER))
+def test_taking_an_action_out_of_tokens_never_is_noticed(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch, action: roles.Action
+) -> None:
+    """Whichever action is let through, some route above stops being refused."""
+    person(kitchen)
+    app = _app(kitchen, _make(kitchen, "full"))
+    wren = _people_ids(kitchen)["Wren"]
+    monkeypatch.setattr(roles, "TOKENS_NEVER", roles.TOKENS_NEVER - {action})
+    let_through = [
+        (method, path)
+        for method, path, r in _never(app, wren)
+        if not (r.status_code == 403 and r.json().get("code") == "not_for_tokens")
+    ]
+    assert let_through, f"nothing in NEVER_ROUTES notices {action} leaving TOKENS_NEVER"
