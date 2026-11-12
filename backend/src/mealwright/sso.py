@@ -127,6 +127,7 @@ MESSAGES: dict[str, str] = {
         "Your account is linked to someone else at your sign-in server. Sign out there and "
         "test again."
     ),
+    # Proposed, for cabledrawer (not among his 12 Nov words above; O1 review r1 H1, r2 note 8):
     "link_gone": "There’s no test waiting to be linked. Test sign-in again.",
 }
 
