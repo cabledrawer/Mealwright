@@ -265,6 +265,10 @@ export default defineConfig({
     { name: 'phone 0.9 about', testMatch: 'about.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.9 about', testMatch: 'about.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.9 about', testMatch: 'about.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
+    // Report a problem (0.9, X2).
+    { name: 'phone 0.9 report', testMatch: 'report.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.9 report', testMatch: 'report.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.9 report', testMatch: 'report.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Accessibility (tests/a11y.ts): axe in light and dark; 44 px targets on phone.
     { name: 'phone a11y', testMatch: 'a11y.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop a11y', testMatch: 'a11y.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
