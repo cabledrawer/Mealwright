@@ -467,6 +467,96 @@ def test_a_password_sign_in_after_sso_still_works_while_passwords_are_on(
     assert fresh.post(f"{API}/session", json=password).status_code == 200
 
 
+# O1 review r1 L4: offline_access is asked for when listed; refused, the sign-in is tried once
+# more without it, and no refresh token is kept.
+
+
+def _offline(query_url: str) -> bool:
+    return "offline_access" in parse_qs(urlsplit(query_url).query)["scope"][0].split()
+
+
+def test_a_listed_offline_access_is_asked_for_and_its_refresh_token_kept(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    idp.discovery_extra = {"scopes_supported": ["openid", "profile", "email", "offline_access"]}
+    sso.cache.forget()
+    phone = browser(admin)
+    answer, _ = sign_in(phone, idp)
+    assert answer.json()["done"] == "signed_in"
+    assert idp.scopes_asked == ["openid profile email offline_access"]
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        session = db.scalars(select(Session).where(Session.sso.is_(True))).one()
+        assert session.sso_refresh_sealed is not None
+
+
+@pytest.mark.parametrize("where", ["token", "authorize"])
+def test_a_sign_in_refused_for_offline_access_is_tried_once_more_without_it(
+    admin: TestClient, idp: FakeProvider, where: str
+) -> None:
+    idp.refuse_offline = where
+    sso.cache.forget()
+    phone = browser(admin)
+    url = begin(phone)
+    assert _offline(url)
+    code, state = idp.sign_in(url)
+    sent = {"state": state, "error": "invalid_scope"} if where == "authorize" else None
+    again = phone.post(f"{API}/sso/finish", json=sent or {"state": state, "code": code})
+    assert again.status_code == 200, again.text
+    assert again.json()["done"] == "again"
+    assert logins(admin) == {}  # nobody is signed in yet
+    # The browser goes to the sign-in server once more, this time without offline_access.
+    url = again.json()["url"]
+    assert url.startswith(f"{ISSUER}/authorize?") and not _offline(url)
+    code, state = idp.sign_in(url)
+    answer = phone.post(f"{API}/sso/finish", json={"state": state, "code": code})
+    assert answer.status_code == 200, answer.text
+    assert answer.json()["me"]["username"] == "ayla"
+    # No refresh token is kept, though this sign-in server sent one: nothing is checked hourly.
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        session = db.scalars(select(Session).where(Session.sso.is_(True))).one()
+        assert session.sso_refresh_sealed is None and session.sso_check_at is None
+
+
+def test_the_try_without_offline_access_happens_only_once(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    idp.refuse_offline = "authorize"
+    sso.cache.forget()
+    phone = browser(admin)
+    _, state = idp.sign_in(begin(phone))
+    again = phone.post(f"{API}/sso/finish", json={"state": state, "error": "invalid_scope"})
+    _, state = idp.sign_in(again.json()["url"])
+    refused = phone.post(f"{API}/sso/finish", json={"state": state, "error": "invalid_scope"})
+    assert refused.status_code == 400
+    assert refused.json()["code"] == "cancelled"
+
+
+def test_a_cancelled_sign_in_isnt_tried_again(admin: TestClient, idp: FakeProvider) -> None:
+    idp.refuse_offline = "token"
+    sso.cache.forget()
+    phone = browser(admin)
+    _, state = idp.sign_in(begin(phone))
+    answer = phone.post(f"{API}/sso/finish", json={"state": state, "error": "access_denied"})
+    assert answer.status_code == 400
+    assert answer.json()["code"] == "cancelled"
+
+
+def test_a_test_refused_for_offline_access_is_tried_again_as_a_test(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    idp.refuse_offline = "token"
+    sso.cache.forget()
+    code, state = idp.sign_in(begin(admin, "/sso/test"), sub="k", extra=ADMIN_GROUPS)
+    again = admin.post(f"{API}/sso/finish", json={"state": state, "code": code})
+    assert again.json()["done"] == "again"
+    query = parse_qs(urlsplit(again.json()["url"]).query)
+    assert query["prompt"] == ["login"] and "offline_access" not in query["scope"][0]
+    code, state = idp.sign_in(again.json()["url"], sub="k", extra=ADMIN_GROUPS)
+    answer = admin.post(f"{API}/sso/finish", json={"state": state, "code": code})
+    assert answer.json()["done"] == "tested"
+    assert answer.json()["test"]["link"] == "can"
+
+
 # --- The test, and turning password sign-in off ---------------------------------------------
 
 

@@ -75,6 +75,12 @@ class FakeProvider:
     userinfo: dict[str, Any] | None = None
     token_override: Callable[[dict[str, Any]], tuple[int, dict[str, Any]]] | None = None
     secret_post_only: bool = False
+    # Lists offline_access but refuses a sign-in that asks for it: "authorize" sends the
+    # browser back with error=invalid_scope; "token" refuses the code (as Keycloak does for
+    # a user without its offline_access role).
+    refuse_offline: str | None = None
+    scopes_asked: list[str] = field(default_factory=list)
+    made: int = 0  # codes given so far
 
     @property
     def base(self) -> str:
@@ -91,6 +97,8 @@ class FakeProvider:
         }
         if self.secret_post_only:
             document["token_endpoint_auth_methods_supported"] = ["client_secret_post"]
+        if self.refuse_offline:
+            document["scopes_supported"] = ["openid", "profile", "email", "offline_access"]
         return {**document, **self.discovery_extra}
 
     # --- The browser's part: what the provider's sign-in page would do --------------------
@@ -120,8 +128,11 @@ class FakeProvider:
             "groups": ["mealwright-users"],
             **(extra or {}),
         }
-        code = f"code-{len(self.codes) + 1}"
+        self.scopes_asked.append(query["scope"])
+        self.made += 1
+        code = f"code-{self.made}"
         self.codes[code] = {
+            "offline": "offline_access" in query["scope"].split(),
             "claims": claims,
             "challenge": query["code_challenge"],
             "redirect_uri": query["redirect_uri"],
@@ -152,6 +163,11 @@ class FakeProvider:
         issued = self.codes.pop(form.get("code", ""), None)
         if issued is None or issued["redirect_uri"] != form.get("redirect_uri"):
             return 400, {"error": "invalid_grant"}
+        if issued["offline"] and self.refuse_offline == "token":
+            return 400, {
+                "error": "not_allowed",
+                "error_description": "Offline tokens not allowed for the user or client",
+            }
         if create_s256_code_challenge(form.get("code_verifier", "")) != issued["challenge"]:
             return 400, {"error": "invalid_grant"}
         make = issued["id_token"] or sign

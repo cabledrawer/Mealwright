@@ -30,9 +30,12 @@ export interface TestResult {
 }
 
 export interface FinishOut {
-  done: 'signed_in' | 'tested';
+  /** 'again': the sign-in server refused the sign-in for asking to stay signed in while
+   *  away; the browser goes to `url` to try once more without (the server allows one). */
+  done: 'signed_in' | 'tested' | 'again';
   me: Me | null;
   test: TestResult | null;
+  url?: string | null;
 }
 
 export interface GroupRole {
@@ -95,6 +98,12 @@ export const linkTested = () => api<SsoSetup>('POST', '/sso/link');
 
 /** "Not now": nothing is linked. */
 export const dropTestedLink = () => api<SsoSetup>('DELETE', '/sso/link');
+
+/** Send this tab to the sign-in server (off this site). On its own so tests can stand in. */
+export const goToSignInServer = (url: string, keepHistory = false): void => {
+  if (keepHistory) location.assign(url);
+  else location.replace(url);
+};
 
 export const getSignInOptions = (fetcher?: typeof fetch) =>
   api<SignInOptions>('GET', '/sign-in-options', undefined, fetcher ? { fetch: fetcher } : {});

@@ -16,6 +16,11 @@ const navigation = vi.hoisted(() => ({
 const where = vi.hoisted(() => ({ url: new URL('http://mealwright.test/auth/callback') }));
 vi.mock('$app/navigation', () => navigation);
 vi.mock('$app/state', () => ({ page: where }));
+const leave = vi.hoisted(() => ({ goToSignInServer: vi.fn<(url: string) => void>() }));
+vi.mock('#lib/client/sso.js', async (original) => ({
+  ...(await original<typeof import('#lib/client/sso.js')>()),
+  goToSignInServer: leave.goToSignInServer
+}));
 
 const WREN = { id: 2, name: 'Wren', username: 'wren', role: 'member', theme: 'auto' };
 
@@ -34,6 +39,7 @@ describe('the single sign-on callback', () => {
   beforeEach(async () => {
     freshPhone();
     navigation.goto.mockClear();
+    leave.goToSignInServer.mockClear();
     session.me = null;
     await page.viewport(390, 800);
   });
@@ -97,6 +103,24 @@ describe('the single sign-on callback', () => {
       .toHaveTextContent('Test passed: signed in as tess, groups mealwright-admins → Admin.');
     await expect.element(page.getByRole('link', { name: 'Back to single sign-on' })).toBeVisible();
     expect(navigation.goto).not.toHaveBeenCalled();
+  });
+
+  it('goes to the sign-in server once more when the server says "again"', async () => {
+    requests = fakeApi({
+      'POST /sso/finish': [
+        200,
+        { done: 'again', me: null, test: null, url: 'https://id.example.org/authorize?state=s2' }
+      ]
+    });
+    show('?state=s1&code=c1');
+    await vi.waitFor(() =>
+      expect(leave.goToSignInServer).toHaveBeenCalledWith(
+        'https://id.example.org/authorize?state=s2'
+      )
+    );
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /sso/finish']);
+    expect(navigation.goto).not.toHaveBeenCalled();
+    expect(session.me).toBeNull();
   });
 
   it('without a state, sends nothing and says to try again', async () => {

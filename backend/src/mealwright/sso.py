@@ -131,6 +131,12 @@ MESSAGES: dict[str, str] = {
 }
 
 
+# What a provider says when it won't give offline_access: at its sign-in page (OAuth's
+# invalid_scope), or when the code is swapped (Keycloak's not_allowed, for a user without
+# its offline_access role).
+OFFLINE_REFUSED = frozenset({"invalid_scope", "not_allowed"})
+
+
 class SsoFailed(Exception):
     """Single sign-on didn't work; `code` is a key of MESSAGES. Never carries a token."""
 
@@ -342,15 +348,17 @@ def _scopes(document: dict[str, Any]) -> frozenset[str] | None:
     return frozenset(str(scope) for scope in listed if isinstance(scope, str))
 
 
-def scope_for(provider: Provider, client: Client) -> str:
+def scope_for(provider: Provider, client: Client, offline: bool = True) -> str:
     """What to ask for. `groups` when the groups come from that claim and the provider lists
-    it (or lists nothing); `offline_access` when the provider lists it, as most providers only
-    give a refresh token for it, and the refresh token is how Mealwright learns the sign-in is
-    over there (proposed, for cabledrawer)."""
+    it (or lists nothing); `offline_access` when the provider lists it (and `offline`), as
+    most providers only give a refresh token for it, and the refresh token is how Mealwright
+    learns the account is gone there (proposed, for cabledrawer). A refresh token isn't needed
+    to sign in: when the provider refuses a sign-in for asking, it is tried once more
+    without (`offline` False; O1 review r1 L4)."""
     scopes = ["openid", "profile", "email"]
     if client.group_claim == "groups" and (provider.scopes is None or "groups" in provider.scopes):
         scopes.append("groups")
-    if provider.scopes is not None and "offline_access" in provider.scopes:
+    if offline and provider.scopes is not None and "offline_access" in provider.scopes:
         scopes.append("offline_access")
     return " ".join(scopes)
 
@@ -495,6 +503,10 @@ class Flow:
     remember: bool = False
     login_id: int | None = None  # a test: the admin who started it
     started: float = field(default_factory=time.time)  # the clock's time, in seconds
+    offline: bool = False  # offline_access was asked for
+    # The second try, after the provider refused the first for offline_access: it isn't
+    # asked for, no refresh token is kept, and there is no third try.
+    retried: bool = False
 
     def pack(self) -> str:
         """As text, for the caller to seal into the browser's cookie."""
@@ -515,6 +527,8 @@ class Flow:
             or not isinstance(flow.redirect_uri, str)
             or not isinstance(flow.household_id, int)
             or not isinstance(flow.remember, bool)
+            or not isinstance(flow.offline, bool)
+            or not isinstance(flow.retried, bool)
             or not (flow.login_id is None or isinstance(flow.login_id, int))
             or not isinstance(flow.started, int | float)
         ):
@@ -583,14 +597,17 @@ def start(
     mode: Mode,
     remember: bool = False,
     login_id: int | None = None,
+    retried: bool = False,
 ) -> Started:
     """Begin a sign-in: the provider's address to send the browser to, and the sign-in's
-    own state, nonce and verifier for the browser's cookie. Nothing is kept here."""
+    own state, nonce and verifier for the browser's cookie. Nothing is kept here.
+    `retried`: the second try, without offline_access."""
     deadline = time.monotonic() + TIME_LIMIT
     provider = discover(gate, client.household_id, client.issuer, deadline, fresh=mode == "test")
     verifier = secrets.token_urlsafe(48)
     nonce = secrets.token_urlsafe(32)
     state = secrets.token_urlsafe(32)
+    scope = scope_for(provider, client, offline=not retried)
     flow = Flow(
         household_id=client.household_id,
         mode=mode,
@@ -602,12 +619,14 @@ def start(
         redirect_uri=client.redirect_uri,
         remember=remember,
         login_id=login_id,
+        offline="offline_access" in scope.split(),
+        retried=retried,
     )
     asked = {
         "response_type": "code",
         "client_id": client.client_id,
         "redirect_uri": client.redirect_uri,
-        "scope": scope_for(provider, client),
+        "scope": scope,
         "state": state,
         "nonce": nonce,
         "code_challenge": create_s256_code_challenge(verifier),
@@ -665,8 +684,17 @@ def _token_request(
     return response.status, _json(response)
 
 
+def may_retry(flow: Flow, error: str | None = None) -> bool:
+    """Whether a sign-in the provider refused may be tried once more without
+    offline_access: it was asked for, this isn't that second try already, and (with `error`,
+    what the provider sent the browser back with) the refusal was about the scope."""
+    return flow.offline and not flow.retried and (error is None or error in OFFLINE_REFUSED)
+
+
 def finish(gate: OutboundGate, flow: Flow, client: Client, code: str) -> Identity:
-    """Swap the code for tokens and check the ID token. The flow was already taken."""
+    """Swap the code for tokens and check the ID token. The flow was already taken. Raises
+    SsoFailed; "offline_refused" when the provider refused the code for offline_access and
+    the sign-in may be tried once more without it (`may_retry`)."""
     if client.issuer != flow.issuer or client.client_id != flow.client_id:
         raise SsoFailed("expired")  # the setup changed while this sign-in was under way
     deadline = time.monotonic() + TIME_LIMIT
@@ -684,6 +712,8 @@ def finish(gate: OutboundGate, flow: Flow, client: Client, code: str) -> Identit
         deadline,
     )
     id_token = answer.get("id_token")
+    if status == 400 and answer.get("error") in OFFLINE_REFUSED and may_retry(flow):
+        raise SsoFailed("offline_refused")
     if status != 200 or not isinstance(id_token, str):
         raise SsoFailed("refused")
     try:
@@ -707,7 +737,8 @@ def finish(gate: OutboundGate, flow: Flow, client: Client, code: str) -> Identit
         access = answer.get("access_token")
         if isinstance(access, str) and access:
             claims = _with_userinfo(gate, provider, client, access, claims, deadline)
-    refresh = answer.get("refresh_token")
+    # The second try, without offline_access, keeps no refresh token even if one came.
+    refresh = None if flow.retried else answer.get("refresh_token")
 
     def text(name: str) -> str | None:
         value = claims.get(name)

@@ -9,12 +9,18 @@
   Admin gives Admin, else any mapped to Member gives Member, else "Anyone else" (Not let in, the
   default, or Member; proposed, for cabledrawer). The household's last admin who can sign in is
   never made a Member this way (proposed, for cabledrawer).
-- **Staying signed in.** A single sign-on sign-in keeps the provider's refresh token, sealed
-  (`mealwright.secret_box`). Every CHECK_EVERY a job asks the provider with it: if the provider
-  says the sign-in is over (the person was removed or signed out there), Mealwright signs them
-  out too; if the provider can't be reached, it tries again later. Mealwright's own session
-  rules (12 hours idle, 30 days with "Remember") still apply on top. Signing out deletes the
-  session row, and the token with it.
+- **Staying signed in.** A single sign-on sign-in keeps the provider's refresh token when
+  it gives one, sealed (`mealwright.secret_box`). `offline_access` is asked for when the
+  provider lists it; if the provider refuses the sign-in for that, it is tried once more
+  without, and that sign-in keeps no refresh token. Every CHECK_EVERY a job asks the provider
+  with the token: if the provider refuses it (the account was removed or disabled there, or
+  the token was taken back), Mealwright signs the person out too; if the provider can't be
+  reached, it tries again later. An offline token outlives a sign-out at the provider, so
+  signing out there does NOT end the Mealwright sign-in: an admin removing the person in
+  Mealwright (or the person signing out here) does, at once. The job doesn't read the groups
+  again: the role follows the groups at each sign-in. Mealwright's own session rules (12
+  hours idle, 30 days with "Remember") still apply on top. Signing out deletes the session
+  row, and the token with it.
 
 Nothing here logs a token, the client secret or a claim, only the account's user name.
 """

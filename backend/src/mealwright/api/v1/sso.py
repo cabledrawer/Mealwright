@@ -152,6 +152,7 @@ def _begin(
     mode: sso.Mode,
     remember: bool = False,
     login_id: int | None = None,
+    retried: bool = False,
 ) -> sso.Started:
     """Begin a sign-in or a test: where to send the browser. Raises SsoFailed."""
     row = _row(db)
@@ -167,6 +168,7 @@ def _begin(
             mode=mode,
             remember=remember,
             login_id=login_id,
+            retried=retried,
         )
     except sso.SsoFailed as failure:
         log.warning("Single sign-on couldn’t start: %s", failure.code)
@@ -247,9 +249,13 @@ class TestResult(BaseModel):
 
 
 class FinishOut(BaseModel):
-    done: Literal["signed_in", "tested"]
+    # "again": the sign-in server refused this sign-in for asking to stay signed in while
+    # away (offline_access); the callback page sends the browser to `url`, to try once
+    # more without.
+    done: Literal["signed_in", "tested", "again"]
     me: Me | None = None
     test: TestResult | None = None
+    url: str | None = None
 
 
 def _refused(failure: sso.SsoFailed) -> Problem:
@@ -300,6 +306,8 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
     except sso.SsoFailed as failure:
         raise _refused(failure) from None
     try:
+        if body.error and sso.may_retry(flow, body.error):
+            return _again(request, response, db, flow)
         if body.error or not body.code:
             raise sso.SsoFailed("cancelled")
         row = sso_accounts.settings_row(db, flow.household_id)
@@ -314,6 +322,11 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
         login = sso_accounts.login_for(db, row, identity)
     except sso.SsoFailed as failure:
         db.rollback()
+        if failure.code == "offline_refused":
+            try:
+                return _again(request, response, db, flow)
+            except sso.SsoFailed as second:
+                failure = second
         log.warning("Single sign-on refused (%s) from %s", failure.code, client_address(request))
         if flow.mode == "test":
             _tested(
@@ -329,6 +342,23 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
     db.commit()
     log.info("Signed in with single sign-on: %s from %s", login.username, client_address(request))
     return FinishOut(done="signed_in", me=_me(login))
+
+
+def _again(request: Request, response: Response, db: Db, flow: sso.Flow) -> FinishOut:
+    """The sign-in server refused the sign-in for offline_access: begin it once more without
+    (the same kind, for the same browser), and say where to send the browser. That second
+    sign-in keeps no refresh token (O1 review r1 L4). Raises SsoFailed."""
+    started = _begin(
+        request,
+        db,
+        mode=flow.mode,
+        remember=flow.remember,
+        login_id=flow.login_id,
+        retried=True,
+    )
+    _bind(response, request.app.state.settings, started)
+    log.info("Single sign-on: trying once more without offline_access")
+    return FinishOut(done="again", url=started.url)
 
 
 def _finish_test(

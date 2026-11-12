@@ -7,12 +7,14 @@
   //   ended again and the sign-in page says whose changes are waiting.
   // - a setup test: the result, and the setup tab shows it too (it looks again on focus).
   // - refused: the server's sentence, and a way back.
+  // - again: the sign-in server refused the sign-in for one thing Mealwright asked for and
+  //   can do without; the server has begun a second try, and the browser goes there.
   // The address bar loses the code at once, so it's never left in the history.
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
-  import { finishSignIn, type TestResult } from '#lib/client/sso.js';
+  import { finishSignIn, goToSignInServer, type TestResult } from '#lib/client/sso.js';
   import Logo from '#lib/components/Logo.svelte';
   import { endSession } from '#lib/offline/signOut.js';
   import { signOutState } from '#lib/offline/unfinished.svelte.js';
@@ -46,6 +48,10 @@
     }
     try {
       const out = await finishSignIn(flowState, code, error);
+      if (out.done === 'again' && out.url) {
+        goToSignInServer(out.url);
+        return;
+      }
       if (out.done === 'tested') {
         back = 'setup';
         tested = out.test;

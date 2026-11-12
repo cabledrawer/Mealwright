@@ -190,13 +190,22 @@ async function signInWith(browser, path) {
   if (started.status !== (test ? 200 : 303)) throw new Error(`start answered ${started.status}`);
   const first = test ? started.data.url : started.location;
   if (test && new URL(first).searchParams.get('prompt') !== 'login') throw new Error('a test must ask who you are');
-  const query = await browser.toCallback(new URL(first, BASE).toString());
-  return mealwright(browser, 'POST', '/sso/finish', {
-    state: query.get('state'),
-    code: query.get('code'),
-    error: query.get('error'),
-  });
+  let next = first;
+  for (let tries = 1; ; tries++) {
+    const query = await browser.toCallback(new URL(next, BASE).toString());
+    const finished = await mealwright(browser, 'POST', '/sso/finish', {
+      state: query.get('state'),
+      code: query.get('code'),
+      error: query.get('error'),
+    });
+    // "again": the sign-in server refused offline_access; Mealwright tries once more without.
+    if (finished.data?.done !== 'again' || tries === 2) return { ...finished, tries, offline: scopeOf(first).includes('offline_access') };
+    next = finished.data.url;
+    if (scopeOf(next).includes('offline_access')) throw new Error('the second try asked for offline_access again');
+  }
 }
+
+const scopeOf = (url) => (new URL(url, BASE).searchParams.get('scope') ?? '').split(' ');
 
 function setup(issuer, secret, buttonName, groupRoles) {
   return {
@@ -249,7 +258,7 @@ function startDex() {
 }
 
 function startKeycloak() {
-  const user = (username, password, first, groups) => ({
+  const user = (username, password, first, groups, offline) => ({
     username,
     enabled: true,
     email: `${username}@example.org`,
@@ -257,9 +266,11 @@ function startKeycloak() {
     firstName: first,
     lastName: 'Test',
     credentials: [{ type: 'password', value: password, temporary: false }],
-    // Imported users don't get the realm's default roles, so give them offline_access: Mealwright
-    // asks for it when the server lists it (to keep checking the account while no one signs in).
-    realmRoles: ['offline_access'],
+    // Imported users don't get the realm's default roles. Mealwright asks for offline_access
+    // when the server lists it (to keep checking the account while no one signs in): boss has
+    // the role; trout doesn't, so Keycloak refuses trout's first try and Mealwright signs
+    // trout in on a second, without it and without a refresh token (O1 review r1 L4).
+    realmRoles: offline ? ['offline_access'] : [],
     groups,
   });
   const realm = {
@@ -292,8 +303,8 @@ function startKeycloak() {
       },
     ],
     users: [
-      user('trout', KEYCLOAK_USERS.trout, 'Trout', ['/family']),
-      user('boss', KEYCLOAK_USERS.boss, 'Boss', ['/mealwright-admins']),
+      user('trout', KEYCLOAK_USERS.trout, 'Trout', ['/family'], false),
+      user('boss', KEYCLOAK_USERS.boss, 'Boss', ['/mealwright-admins'], true),
     ],
   };
   const file = join(scratch, 'mw-realm.json');
@@ -375,6 +386,7 @@ async function run() {
   const kc = await signInWith(trout, '/sso/start?remember=true');
   check('Keycloak: signed in through its form, account made', kc.data?.done === 'signed_in', `${kc.status} ${kc.data?.me?.username ?? kc.data?.code ?? ''}`);
   check('Keycloak: role from the group "family" is Member', kc.data?.me?.role === 'member', kc.data?.me?.role);
+  check('Keycloak: without the offline_access role, signed in on the second try, without it', kc.offline && kc.tries === 2, `asked ${kc.offline}, tries ${kc.tries}`);
 
   // A test links nothing by itself (O1 review r1 H1). A Member at the sign-in server, signed
   // in there in the admin's browser, is never linked to the admin, even when asked for.
@@ -384,7 +396,8 @@ async function run() {
   check('A link to the test starts nothing', followed.status === 404 || followed.status === 405, String(followed.status));
   admin.user = { username: 'trout', password: KEYCLOAK_USERS.trout };
   const member = await signInWith(admin, '/sso/test');
-  check('Keycloak: a Member\'s test passes as Member, with nothing to link', member.data?.test?.role === 'member' && member.data.test.link === 'no', JSON.stringify(member.data?.test ?? member.data));
+  // (trout has a Mealwright account already, so the test is refused outright.)
+  check('Keycloak: a Member\'s test in the admin\'s browser is refused, with nothing to link', member.status === 400 && member.data?.code === 'someone_else', JSON.stringify(member.data?.test ?? member.data));
   const notLinked = await mealwright(admin, 'POST', '/sso/link');
   check('Keycloak: the Member can\'t be linked to the admin', notLinked.status === 409 && (await mealwright(admin, 'GET', '/sso/settings')).data.admin_linked === false, String(notLinked.status));
   // The admin's own test, then their confirmation, links them; then password sign-in can go off.
@@ -404,6 +417,7 @@ async function run() {
   boss.user = admin.user;
   const bossIn = await signInWith(boss, '/sso/start');
   check('Keycloak: the admin signs in by SSO as themself', bossIn.data?.me?.username === ADMIN.username && bossIn.data.me.role === 'admin');
+  check('Keycloak: with the offline_access role, signed in on the first try', bossIn.offline && bossIn.tries === 1, `asked ${bossIn.offline}, tries ${bossIn.tries}`);
   const password = await mealwright(new Browser(), 'POST', '/session', { username: ADMIN.username, password: ADMIN.password, remember: false });
   check('Password sign-in is refused while it is off', password.status >= 400, String(password.status));
   await mealwright(boss, 'PUT', '/sso/password-sign-in', { on: true });

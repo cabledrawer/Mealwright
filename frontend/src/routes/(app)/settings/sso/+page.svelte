@@ -14,6 +14,7 @@
     callbackAddress,
     dropTestedLink,
     getSsoSetup,
+    goToSignInServer,
     linkTested,
     putSsoSetup,
     startTest,
@@ -202,7 +203,7 @@
     try {
       const { url } = await startTest();
       if (tab) tab.location.replace(url);
-      else location.assign(url);
+      else goToSignInServer(url, true);
     } catch (error) {
       tab?.close();
       testProblem = wordsFor(error);
