@@ -22,6 +22,8 @@
 
   let mine = $state<MySignIn | null>(null);
   let problem = $state('');
+  /** Why the list couldn't be fetched: shown in its place, not read out (nothing was tapped). */
+  let loadProblem = $state('');
   let busy = $state(false);
   /** Said after a sign-out here, for screen readers ("Signed out iPad · Safari."). */
   let said = $state('');
@@ -42,9 +44,9 @@
   async function load() {
     try {
       mine = await getMySignIn();
-      problem = '';
+      loadProblem = '';
     } catch (error) {
-      problem = why(error);
+      loadProblem = why(error);
     }
   }
 
@@ -80,7 +82,7 @@
 <h3 class="sub-title">Where you’re signed in</h3>
 <div class="card" data-testid="signed-in-places">
   {#if mine === null}
-    <p class="row detail">{problem ? '' : 'Loading…'}</p>
+    <p class="row detail">{loadProblem || 'Loading…'}</p>
   {:else}
     {#each mine.sessions as place (place.id)}
       <div class="row">

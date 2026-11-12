@@ -385,8 +385,8 @@
       <p class="problem" role="alert">{problem}</p>
       {#if paused}
         <p class="pause-note">
-          Only one wrong-password pause per username, never longer than a minute. Other people
-          can still sign in.
+          Only one wrong-password pause per username, never longer than a minute. Other people can
+          still sign in.
         </p>
       {/if}
     {/if}

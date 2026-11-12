@@ -34,9 +34,9 @@ describe('when a device was last used', () => {
   });
 
   it('this device is always "Now", and remembering says so', () => {
-    expect(placeDetail(place({ this_device: true, last_used_at: ago(90), remember: true }), NOW)).toBe(
-      'Now · remembered for 30 days'
-    );
+    expect(
+      placeDetail(place({ this_device: true, last_used_at: ago(90), remember: true }), NOW)
+    ).toBe('Now · remembered for 30 days');
     expect(placeDetail(place({ last_used_at: ago(120) }), NOW)).toBe('2 hours ago');
   });
 });

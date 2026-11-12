@@ -125,6 +125,14 @@ describe('signing out', () => {
     expect(page.getByRole('alert').elements()).toEqual([]);
   });
 
+  it('where you’re signed in, unreachable: said in the list, not read out as an alert', async () => {
+    await show(0);
+    await expect
+      .element(page.getByTestId('signed-in-places'))
+      .toHaveTextContent('Can’t reach your Mealwright server. Check your connection.');
+    expect(page.getByRole('alert').elements()).toEqual([]);
+  });
+
   it('changes that can’t be sent: the warning, with its three choices', async () => {
     await show(3);
     await button('Sign out').click();
