@@ -1,9 +1,11 @@
 """Settings → Household (0.9 A1): the people of the household, their logins and roles, the
 one-time sign-in link, removing with Undo, and "Who's this?" on a shared login."""
 
+import threading
 from datetime import timedelta
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import API, db, ok, person
@@ -414,6 +416,50 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
     _problem(r, 409, "signs_in_already")
     after = next(p for p in _people(kitchen)["people"] if p["id"] == joss)["login"]
     assert after["has_password"] is True and after["link_pending"] is False
+
+
+def test_a_link_works_once_even_for_requests_at_the_same_time(kitchen: TestClient) -> None:
+    """Review r1: four joins at once: exactly one sets its password, the rest are told the link
+    is gone, and the one that was told yes is the password that works."""
+    token = _join(kitchen, _add(kitchen), "joss")
+    results: dict[int, int] = {}
+    start = threading.Barrier(4)
+
+    def join(i: int) -> None:
+        client = _fresh(kitchen)
+        start.wait()
+        r = client.post(f"{API}/join/{token}", json={"password": f"password number {i}!!"})
+        results[i] = r.status_code
+
+    threads = [threading.Thread(target=join, args=(i,)) for i in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert sorted(results.values()) == [204, 404, 404, 404]
+    winner = next(i for i, code in results.items() if code == 204)
+    for i in range(4):
+        r = _fresh(kitchen).post(
+            f"{API}/session", json={"username": "joss", "password": f"password number {i}!!"}
+        )
+        assert r.status_code == (200 if i == winner else 401), (i, winner)
+
+
+def test_a_link_works_again_when_the_password_couldnt_be_set(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    token = _join(kitchen, _add(kitchen), "joss")
+
+    def broken(password: str) -> str:
+        raise RuntimeError("hash failed")
+
+    monkeypatch.setattr("mealwright.api.v1.people.hash_password", broken)
+    with pytest.raises(RuntimeError):
+        _fresh(kitchen).post(f"{API}/join/{token}", json={"password": "a long password!!"})
+    monkeypatch.undo()
+    assert ok(_fresh(kitchen).get(f"{API}/join/{token}"))["username"] == "joss"
+    r = _fresh(kitchen).post(f"{API}/join/{token}", json={"password": "a long password!!"})
+    assert r.status_code == 204, r.text
 
 
 def test_a_link_runs_out_after_24_hours(kitchen: TestClient) -> None:

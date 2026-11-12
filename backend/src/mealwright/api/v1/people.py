@@ -32,7 +32,7 @@ from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import change_out
 from mealwright.history import as_utc, commit, replayed
 from mealwright.kitchen_changes import key_kept
-from mealwright.models import Change, JoinLink, Login, Member, utcnow
+from mealwright.models import Change, JoinLink, Login, Member
 from mealwright.names import one_line
 from mealwright.roles import ADMIN, Action, allowed
 from mealwright.shopping import lock_db
@@ -392,7 +392,13 @@ def join(token: str, body: JoinIn, request: Request, db: Db) -> None:
     # someone else's waiting changes warns first there (proposed, for cabledrawer).
     needs_https(request, request.app.state.settings)
     link, login, _member = _link(db, token)
-    link.used_at = utcnow()
-    login.password_hash = hash_password(body.password)
-    db.commit()
+    # Claim the link first, so of two requests at once only one sets a password.
+    if not people.claim_link(db, link):
+        raise Problem(status.HTTP_404_NOT_FOUND, "link_gone", GONE)
+    try:
+        login.password_hash = hash_password(body.password)
+        db.commit()
+    except Exception:
+        people.give_back_link(db, link)
+        raise
     log.info("Joined with a sign-in link: %s from %s", login.username, client_address(request))

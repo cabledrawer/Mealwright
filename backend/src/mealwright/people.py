@@ -392,6 +392,32 @@ def find_link(db: DbSession, token: str) -> tuple[JoinLink, Login, Member] | Non
     return link, login, member
 
 
+def claim_link(db: DbSession, link: JoinLink) -> bool:
+    """Mark the link used, in one step that only one request can win: True for the request
+    that did, False for any other (it was used, or ran out, in the meantime). Committed."""
+    now = utcnow()
+    claimed = db.execute(
+        update(JoinLink)
+        .where(JoinLink.id == link.id, JoinLink.used_at.is_(None), JoinLink.expires_at > now)
+        .values(used_at=now)
+        .execution_options(synchronize_session=False)
+    )
+    db.commit()
+    return bool(getattr(claimed, "rowcount", 0) == 1)
+
+
+def give_back_link(db: DbSession, link: JoinLink) -> None:
+    """Undo `claim_link` when the password couldn't be set: the link works again."""
+    db.rollback()
+    db.execute(
+        update(JoinLink)
+        .where(JoinLink.id == link.id)
+        .values(used_at=None)
+        .execution_options(synchronize_session=False)
+    )
+    db.commit()
+
+
 def removed(db: DbSession, login: Login) -> bool:
     """True when this login's person has been removed: it can't sign in."""
     member = db.get(Member, login.member_id) if login.member_id is not None else None
