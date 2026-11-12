@@ -24,6 +24,9 @@ const THREE = {
 };
 const ONLY_HERE = { ...THREE, sessions: THREE.sessions.slice(0, 1) };
 
+const PAUSE_NOTE =
+  'Only one wrong-password pause per username, never longer than a minute. Other people can still sign in.';
+
 const places = (page: Page) => page.getByTestId('signed-in-places');
 const isPhone = () => test.info().project.name.startsWith('phone');
 const thisTag = () => (isPhone() ? 'This phone' : 'This computer');
@@ -185,11 +188,11 @@ test.describe('Change password', () => {
     };
     await fill();
     await expect(page.getByRole('alert')).toHaveText('That isn’t your current password.');
-    await expect(page.getByText(/Other people can still sign in/)).toHaveCount(0);
+    await expect(page.getByText(PAUSE_NOTE)).toHaveCount(0);
     await fill();
     await expect(page.getByRole('alert')).toHaveText(
       'Too many wrong passwords for tess. Try again in 30 seconds.',
     );
-    await expect(page.getByText(/Other people can still sign in/)).toBeVisible();
+    await expect(page.getByText(PAUSE_NOTE)).toBeVisible();
   });
 });
