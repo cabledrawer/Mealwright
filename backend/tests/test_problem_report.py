@@ -19,7 +19,15 @@ from mealwright import __version__, problem_report
 from mealwright.auth import hash_password
 from mealwright.config import Settings
 from mealwright.logs import FILE_NAME
-from mealwright.models import FoodName, Household, ImportDraft, Login, OwnNetworkEntry, Recipe
+from mealwright.models import (
+    FoodName,
+    Household,
+    ImportDraft,
+    Login,
+    Member,
+    OwnNetworkEntry,
+    Recipe,
+)
 from mealwright.outbound import Connection, OutboundGate
 from mealwright.problem_report import (
     ERRORS_KEPT,
@@ -919,3 +927,64 @@ def test_a_person_without_a_login_is_removed_too(
     line = report(neighbour)["errors"][-1]
     assert "anoushka" not in line.lower(), line
     assert "quibbleton" not in line.lower(), line
+
+
+def test_a_renamed_person_is_removed_by_the_old_name_and_the_new(
+    kitchen: TestClient, neighbour: TestClient, settings: Settings
+) -> None:
+    """Review r1 (beta join): the old name stays in history (a change's login name, the undo
+    data of "added" and "renamed"), so a renamed person, with a login or without, is removed
+    by both names."""
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.execute(
+            update(Login).where(Login.household_id == 1).values(name="Ravindranath Pemberton")
+        )
+        db.execute(
+            update(Member).where(Member.household_id == 1).values(name="Ravindranath Pemberton")
+        )
+        db.commit()
+    child = kitchen.post(f"{API}/people", json={"name": "Anoushka Quibbleton"})
+    assert child.status_code == 201, child.text
+    people = {p["name"]: p["id"] for p in kitchen.get(f"{API}/people").json()["people"]}
+    renames = {
+        "Anoushka Quibbleton": "Zephyrine Wattlesworth",  # no login
+        "Ravindranath Pemberton": "Octavian Fennimore",  # signs in
+    }
+    for old, new in renames.items():
+        done = kitchen.patch(f"{API}/people/{people[old]}", json={"name": new})
+        assert done.status_code == 200, done.text
+    log = "Failed for " + " and ".join(f"{old} / {new}" for old, new in renames.items())
+    write_log(log_folder(settings), [error(log)])
+    line = report(neighbour)["errors"][-1].lower()
+    for word in ("anoushka", "quibbleton", "zephyrine", "wattlesworth"):
+        assert word not in line, line
+    for word in ("ravindranath", "pemberton", "octavian", "fennimore"):
+        assert word not in line, line
+
+
+# Columns with "name" in them that are not a person's name, and what each is.
+_NOT_A_PERSON: dict[str, str] = {
+    "food_size.name": "a size word of an ingredient (tin, bunch)",
+}
+
+
+def test_every_name_column_is_classified_for_reports() -> None:
+    """A guard: a column with "name" in its name must be removed from reports as a person's
+    name (the people columns), as a phrase, or be listed above as not a person's name. A new
+    `*_by_name` or `login_name` column must be a person's."""
+    from mealwright.models import Base
+
+    people = {f"{c.table.name}.{c.name}" for c in problem_report._PEOPLE_COLUMNS}
+    phrases = {
+        f"{c.table.name}.{c.name}" for _, cols in problem_report._PHRASE_COLUMNS for c in cols
+    }
+    found = {
+        f"{table.name}.{column.name}"
+        for table in Base.metadata.tables.values()
+        for column in table.columns
+        if "name" in column.name
+    }
+    assert found - people - phrases - set(_NOT_A_PERSON) == set()
+    for key in found:
+        if key.endswith("_by_name") or key.endswith(".login_name"):
+            assert key in people, key

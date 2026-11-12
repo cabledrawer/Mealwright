@@ -403,6 +403,10 @@ _PEOPLE_COLUMNS: tuple[Any, ...] = (
     models.RecipePhoto.added_by_name,
     models.ImportDraft.started_by_name,
     models.CookedRecord.cooked_by_name,
+    # Who did each change, tick and queued action, by the name they had then (review r1).
+    models.Change.login_name,
+    models.ListTick.login_name,
+    models.SyncAction.login_name,
 )
 
 # Everything else is removed only as a whole phrase (its last word may have an "s"), so the
@@ -471,8 +475,19 @@ class Scrubber:
         # longest first.
         self._phrases: dict[tuple[str, str], list[tuple[tuple[str, ...], str]]] = {}
         for column in _PEOPLE_COLUMNS:
-            for value in db.scalars(select(column)):
+            for value in db.scalars(select(column).distinct()):
                 self._add_person(value)
+        # The names a person had before they were renamed, kept in the undo data of the
+        # changes that added or renamed them (review r1).
+        for data in db.scalars(
+            select(models.Change.undo_data).where(
+                models.Change.kind.in_(("person_added", "person_changed"))
+            )
+        ):
+            person = data.get("person") if isinstance(data, dict) else None
+            for state in (person.get("old"), person.get("new")) if isinstance(person, dict) else ():
+                if isinstance(state, dict) and isinstance(state.get("name"), str):
+                    self._add_person(state["name"])
         for replacement, columns in _PHRASE_COLUMNS:
             for column in columns:
                 for value in db.scalars(select(column)):
