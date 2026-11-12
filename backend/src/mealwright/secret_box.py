@@ -12,6 +12,7 @@ again, and single sign-on sessions sign in again. Nothing here logs a secret or 
 """
 
 import base64
+import contextlib
 import os
 import secrets
 import threading
@@ -50,7 +51,10 @@ def _read_key(path: Path) -> bytes:
 
 def key(data_dir: Path, make: bool = True) -> bytes:
     """The key, made (0600) on first use when `make` is True. Two processes making it at once
-    can't both win: the file is created exclusively, and the loser reads the winner's."""
+    can't both win, and neither ever sees it empty or half-written (O1 review r1 L5): each
+    writes its key whole to a temporary file of its own in the same folder, then links it
+    into place, which fails if the key file is already there; the loser reads the winner's.
+    (Where the folder can't make links, the whole file is moved into place instead.)"""
     path = _key_path(data_dir)
     with _lock:
         if path.exists():
@@ -59,16 +63,43 @@ def key(data_dir: Path, make: bool = True) -> bytes:
             raise SecretUnreadable("there's no key file")
         data_dir.mkdir(parents=True, exist_ok=True)
         new = secrets.token_bytes(_KEY_BYTES)
+        temporary = data_dir / f".{KEY_FILE}.{os.getpid()}.{secrets.token_hex(8)}"
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         try:
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        except FileExistsError:
-            return _read_key(path)
-        with os.fdopen(fd, "wb") as out:
-            out.write(base64.urlsafe_b64encode(new) + b"\n")
-            out.flush()
-            os.fsync(out.fileno())
-        os.chmod(path, 0o600)  # whatever the umask
+            with os.fdopen(fd, "wb") as out:
+                os.fchmod(out.fileno(), 0o600)  # whatever the umask
+                out.write(base64.urlsafe_b64encode(new) + b"\n")
+                out.flush()
+                os.fsync(out.fileno())
+            try:
+                os.link(temporary, path)  # all or nothing; never over one that's there
+            except FileExistsError:
+                return _read_key(path)
+            except OSError:
+                # A data folder that can't make links (some network shares): move the whole
+                # file into place instead, unless a key file has appeared meanwhile.
+                if path.exists():
+                    return _read_key(path)
+                os.rename(temporary, path)
+        finally:
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(temporary)
+        _sync_folder(data_dir)
         return new
+
+
+def _sync_folder(folder: Path) -> None:
+    """Make the new name last through a power cut, where the system can."""
+    try:
+        fd = os.open(folder, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
 
 
 def seal(data_dir: Path, plain: str) -> str:
