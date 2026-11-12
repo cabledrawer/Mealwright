@@ -245,12 +245,13 @@ _ANY_PORT = re.compile(r"(?<![a-z])(port)(\s{0,3}[=:]\s{0,3}|\s{1,3})\d{1,5}(?!\
 # A run of 20 or more characters that could be a key, a hash or a token (see _long_run).
 _LONG_RUN = re.compile(r"(?<![\w+/=\-])[A-Za-z0-9+/_\-]{20,}={0,2}")
 _HEX = frozenset("0123456789abcdefABCDEF-")
-# Quoted words: quote marks that aren't inside a word ("Couldn't" and "Mabel's" aren't quotes),
+# Quoted words: quote marks that aren't inside a word ("Couldn't" and "Mabel's" aren't quotes, nor
+# is the "'s" after a removed name, "[name]'s"),
 # and an apostrophe inside a quote ("'Auntie Shanti's biryani'") doesn't end it. A quote that is
 # never closed runs to the end of the line.
 _Q = MESSAGE_READ
 _QUOTED = re.compile(
-    rf"(?<!\w)(?:'(?:[^'\n]|'(?=\w)){{0,{_Q}}}(?:'|(?=\n|\Z))"
+    rf"(?<![\w\]])(?:'(?:[^'\n]|'(?=\w)){{0,{_Q}}}(?:'|(?=\n|\Z))"
     rf"|\u2018(?:[^\u2019\n]|\u2019(?=\w)){{0,{_Q}}}(?:\u2019|(?=\n|\Z))"
     rf"|\"[^\"\n]{{0,{_Q}}}(?:\"|(?=\n|\Z))"
     rf"|\u201c[^\u201d\n]{{0,{_Q}}}(?:\u201d|(?=\n|\Z))"
@@ -607,8 +608,9 @@ class Scrubber:
     def __call__(self, text: str) -> str:
         text = _URL.sub("[link]", text)
         text = _JWT.sub("[secret]", text)
-        text = _SECRET_VALUE.sub(r"\1\2[secret]", text)
+        # Bearer/Basic first: otherwise "Authorization: Basic x" takes "Basic" as the value.
         text = _BEARER.sub(r"\1 [secret]", text)
+        text = _SECRET_VALUE.sub(r"\1\2[secret]", text)
         text = _EMAIL.sub("[e-mail]", text)
         text = _PATH.sub("[file]", text)
         text = self._files.sub("[file]", text)
@@ -670,6 +672,9 @@ def _changes_names(statement: str, context: Any) -> bool:
     return name is None or name in _NAME_TABLES
 
 
+_NAME_WRITTEN = "mealwright_name_written"
+
+
 @event.listens_for(Engine, "after_cursor_execute")
 def _note_write(
     connection: object,
@@ -681,7 +686,24 @@ def _note_write(
 ) -> None:
     global _writes
     if _changes_names(statement, context):
-        _writes += 1
+        with _kept_lock:
+            _writes += 1
+        connection.info[_NAME_WRITTEN] = True  # type: ignore[attr-defined]
+
+
+@event.listens_for(Engine, "commit")
+def _note_commit(connection: Any) -> None:
+    """Count a name write again when it is committed: a report built between the write and
+    its commit couldn't see the new row but saw the count, so it must be built again."""
+    global _writes
+    if connection.info.pop(_NAME_WRITTEN, False):
+        with _kept_lock:
+            _writes += 1
+
+
+@event.listens_for(Engine, "rollback")
+def _note_rollback(connection: Any) -> None:
+    connection.info.pop(_NAME_WRITTEN, None)
 
 
 # The built Scrubber of each database, kept for at most SCRUBBER_KEPT seconds and only while no

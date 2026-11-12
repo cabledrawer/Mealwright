@@ -562,6 +562,11 @@ PLANTED = [
     ("an apikey", "Bad apikey=abc123XYZ given", "abc123", "[secret]"),
     ("an api_key after a colon", "Bad api_key: abc123XYZ given", "abc123", "[secret]"),
     ("a token after a colon", "Refresh token: abc123XYZ expired", "abc123", "[secret]"),
+    # Review r3, N1: "Basic"/"Bearer" after a colon is not the secret; what follows it is.
+    ("basic after a colon", "Authorization: Basic dXNlcjpwYXNz sent", "dXNlcjpwYXNz", "[secret]"),
+    ("bearer after a proxy colon", "Proxy-Authorization: Bearer abc123XYZ", "abc123", "[secret]"),
+    ("bearer after token colon", "Refresh token: bearer abc123XYZ expired", "abc123", "[secret]"),
+    ("bearer after auth=", "Bad auth=Bearer abc123XYZ given", "abc123", "[secret]"),
 ]
 
 
@@ -804,3 +809,41 @@ def test_a_message_cut_at_the_read_limit_keeps_no_half_word() -> None:
         pad = "https://e.example/" + "a" * (size - 19) + " "  # one [link]
         line = error_line(LogError(at, "m.x", pad + tail, None), scrub)
         assert "9f86" not in line, (cut_in, line)
+
+
+def test_a_name_committed_after_a_report_was_built_is_removed(
+    planted: TestClient, neighbour: TestClient, settings: Settings
+) -> None:
+    """Review r3, N2: a report built between a name's write and its commit can't see the row,
+    so the commit makes the next report build again."""
+    folder = log_folder(settings)
+    write_log(folder, [error("Sign-in for tess failed")])
+    assert "[name]" in report(neighbour)["errors"][0]
+    with planted.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.add(
+            Login(
+                household_id=1,
+                username="xylophia",
+                name="Xylophia Racewin",
+                password_hash=None,
+                role="member",
+            )
+        )
+        db.flush()  # written, not yet committed
+        report(neighbour)  # built now, without the new name
+        db.commit()
+    write_log(folder, [error("Sign-in for Xylophia Racewin failed")])
+    line = report(neighbour)["errors"][-1]
+    assert "racewin" not in line.lower(), line
+
+
+def test_the_s_after_a_removed_name_does_not_open_a_quote(
+    planted: TestClient, settings: Settings
+) -> None:
+    """Review r3, N3: "Vance's" becomes "[name]'s", and that apostrophe is not a quote."""
+    write_log(
+        log_folder(settings), [error("Tess: Vance's phone couldn't sync (OperationalError)")]
+    )
+    line = report(planted)["errors"][0]
+    assert "phone couldn't sync" in line, line
+    assert "vance" not in line.lower(), line
