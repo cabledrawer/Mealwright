@@ -336,7 +336,10 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Pat
         _refused_known(db, login, row, "removed", data_dir)
     if role is None:
         _refused_known(db, login, row, "not_let_in", data_dir)
-    api_tokens.clear_refused(db, login)  # the sign-in server accepts them again
+    if role == ADMIN:  # accepted again as an admin by the groups: the mark ends (not before the
+        api_tokens.clear_refused(db, login)  # role is decided; fix13 review)
+        if _kept.get(login.household_id, (0, ""))[0] == login.id:
+            del _kept[login.household_id]  # and so does the warning
     if login.role != role:
         off = passwords_off(db, data_dir, row.household_id)
         if login.role == ADMIN and not another_admin_gets_in(db, login, off, again=True):
@@ -348,6 +351,7 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Pat
             if login.role == ADMIN:  # only admins have API tokens (O2 review r1, finding 3)
                 api_tokens.stop_for(db, login.id)
             login.role = role
+            api_tokens.clear_refused(db, login)  # a Member makes no tokens: the mark ends
     return login
 
 
@@ -508,9 +512,12 @@ def check_sessions(
                     session.login_id,
                 )
             elif result == "ok":
-                if _kept.get(session.household_id, (0, ""))[0] == owner.id:
-                    del _kept[session.household_id]  # accepted again: the warning goes
-                api_tokens.clear_refused(db, owner)
+                # A working refresh doesn't end the mark (groups aren't asked on a refresh), so
+                # the warning stays with it (fix13 review; proposed, for cabledrawer).
+                if owner.sso_refused_at is None and (
+                    _kept.get(session.household_id, (0, ""))[0] == owner.id
+                ):
+                    del _kept[session.household_id]
                 if new:
                     session.sso_refresh_sealed = seal(data_dir, new)
                 session.sso_check_at = at + sso.CHECK_EVERY

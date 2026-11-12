@@ -54,10 +54,14 @@ def test_the_only_admins_last_sign_in_is_kept_with_a_warning_while_passwords_are
     warning = _warning(sso_only)
     assert warning is not None and warning.startswith("The sign-in server no longer accepts ")
     assert "only admin who can get in" in warning
-    # A refresh that works again takes the warning away.
+    # A refresh that works again does not end the mark (the groups aren't asked on a refresh),
+    # so the warning stays; a fresh sign-in the groups accept as an admin takes it away.
     idp.refresh_tokens.update(taken)
     _due(sso_only, "k")
     assert check(sso_only) == 0
+    assert _warning(sso_only) is not None
+    again, _ = sign_in(browser(sso_only), idp, sub="k", extra=ADMIN_GROUPS)
+    assert again.status_code == 200
     assert _warning(sso_only) is None
 
 
@@ -214,12 +218,58 @@ def test_the_mark_ends_when_the_sign_in_server_accepts_them_again_and_old_tokens
             )
         )
         db.commit()
-    idp.refresh_tokens.update(taken)  # accepted again: a refresh works
+    idp.refresh_tokens.update(taken)  # a refresh works again: the mark stands (fix13 review)
     _due(sso_only, "x")
     check(sso_only)
+    assert _login_row(sso_only, "x").sso_refused_at is not None
+    refused = x.post(f"{API}/api-tokens", json={"name": "HA", "scope": "full"})
+    assert refused.status_code == 403
+    accepted, _ = sign_in(browser(sso_only), idp, sub="x", extra=ADMIN_GROUPS)  # admin again
+    assert accepted.status_code == 200
     assert _login_row(sso_only, "x").sso_refused_at is None
     again = x.post(f"{API}/api-tokens", json={"name": "HA", "scope": "full"})
     assert again.status_code == 201
     late = TestClient(sso_only.app, base_url="https://testserver")
     late.headers["Authorization"] = f"Bearer {secret}"
     assert late.get(f"{API}/me").status_code == 401  # made during the mark: stays dead
+
+
+def test_a_working_refresh_does_not_end_the_mark_and_the_warning_stays(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """Fix13 review, M. X is dropped from the admin group, refused and kept; their older
+    sign-in still refreshes (the groups aren't asked on a refresh). That must not clear the mark
+    or they could make a token and sign out with it. Fails when a refresh clears the mark."""
+    x = browser(sso_only)
+    sign_in(x, idp, sub="x", extra=ADMIN_GROUPS)
+    assert sso_only.delete(f"{API}/session").status_code == 204  # nobody else is signed in
+    refused, _ = sign_in(browser(sso_only), idp, sub="x", extra={"groups": []})
+    assert refused.status_code != 200
+    assert _login_row(sso_only, "x").sso_refused_at is not None
+    _due(sso_only, "x")
+    assert check(sso_only) == 0  # the refresh token still works at the provider
+    assert _login_row(sso_only, "x").sso_refused_at is not None
+    assert x.post(f"{API}/api-tokens", json={"name": "HA", "scope": "full"}).status_code == 403
+
+
+def test_signing_in_as_a_member_by_the_setup_does_not_end_the_mark(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """Fix13 review, L. The only admin (no password), refused and kept, sets "anyone else" to
+    Member and signs in as a Member by the groups: the role isn't Admin, so the mark stays."""
+    from test_sso_api import SETUP
+    from test_sso_refused import _people
+
+    wren = browser(admin)
+    sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
+    kid = _people(wren)["Tess"]
+    assert wren.patch(f"{API}/people/{kid}", json={"role": "member"}).is_success
+    sign_in(browser(admin), idp, sub="wren", extra={"groups": []})  # refused, kept: marked
+    assert _login_row(admin, "wren").sso_refused_at is not None
+    put = wren.put(
+        f"{API}/sso/settings", json={**SETUP, "client_secret": "", "anyone_else": "member"}
+    )
+    assert put.is_success
+    sign_in(browser(admin), idp, sub="wren", extra={"groups": []})  # now a Member by the setup
+    assert _login_row(admin, "wren").sso_refused_at is not None  # still the kept admin: marked
+    assert wren.post(f"{API}/api-tokens", json={"name": "HA", "scope": "full"}).status_code == 403
