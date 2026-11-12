@@ -166,7 +166,9 @@ def _begin(
         raise sso.SsoFailed("wrong_address")
     try:
         client = sso_accounts.client(row, request.app.state.settings.data_dir)
-        with without_place(request, db):  # the sign-in server may be slow: hold no place
+        # The sign-in server may be slow: no place is held while it is waited on (not when
+        # the answer is already remembered).
+        with sso.waiting_for(client.household_id, lambda: without_place(request, db)):
             return sso.start(
                 _gate(request),
                 client,
@@ -336,7 +338,7 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
         if row.redirect_uri != flow.redirect_uri:
             raise sso.SsoFailed("expired")  # the setup changed while this was under way
         client = sso_accounts.client(row, settings.data_dir)
-        with without_place(request, db):  # the token exchange waits on the sign-in server
+        with sso.waiting_for(client.household_id, lambda: without_place(request, db)):
             identity = sso.finish(_gate(request), flow, client, body.code)
         if flow.mode == "test":
             return _finish_test(request, db, row, flow.login_id, identity)

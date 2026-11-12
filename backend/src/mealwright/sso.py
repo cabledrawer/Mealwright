@@ -425,6 +425,7 @@ def _send_one(
     host = parts.hostname
     if parts.scheme not in {"http", "https"} or not host or "%" in host or port == 0:
         raise SsoFailed("bad_answer")
+    _begin_wait()
     with gate.sessions() as db:
         listed = own_network.load(db, household_id)
     addresses = _addresses(gate, household_id, host, port, listed, deadline)
@@ -505,6 +506,7 @@ def scope_for(provider: Provider, client: Client, offline: bool = True) -> str:
 # server not answering). A request that waits on another's fetch of the same thing counts too.
 
 IN_FLIGHT_MOST = 4
+IN_FLIGHT_TOTAL = 8  # and all households together: threads without a database place
 _in_flight: dict[int, int] = {}
 _in_flight_lock = threading.Lock()
 _holding = threading.local()
@@ -522,7 +524,10 @@ def _slot(household_id: int) -> Iterator[None]:
             _holding.depth -= 1
         return
     with _in_flight_lock:
-        if _in_flight.get(household_id, 0) >= IN_FLIGHT_MOST:
+        if (
+            _in_flight.get(household_id, 0) >= IN_FLIGHT_MOST
+            or sum(_in_flight.values()) >= IN_FLIGHT_TOTAL
+        ):
             raise SsoFailed("unreachable", say_nothing_of_it=True)
         _in_flight[household_id] = _in_flight.get(household_id, 0) + 1
     _holding.depth = 1
@@ -534,6 +539,37 @@ def _slot(household_id: int) -> Iterator[None]:
             _in_flight[household_id] -= 1
             if _in_flight[household_id] <= 0:
                 del _in_flight[household_id]
+
+
+@contextlib.contextmanager
+def waiting_for(household_id: int, around: Callable[[], Any] | None = None) -> Iterator[None]:
+    """A request's calls to the sign-in server, as one. Takes its place to wait first (when they
+    are all taken the caller is told to try again at once, still holding what it holds), and
+    `around()` (a context manager: the request giving back its database place) is entered only
+    when a real wait begins: never for an answer that is already remembered. So at most
+    IN_FLIGHT_MOST of a household's threads, and IN_FLIGHT_TOTAL in all, are ever without a
+    place, and a thread never waits for a place while others wait for threads (O2 fix11)."""
+    with _slot(household_id):
+        _holding.around = around
+        _holding.opened = None
+        try:
+            yield
+        finally:
+            opened = _holding.opened
+            _holding.around = None
+            _holding.opened = None
+            if opened is not None:
+                opened.__exit__(None, None, None)
+
+
+def _begin_wait() -> None:
+    """The real wait on the sign-in server (or on another request's fetch of it) begins: give
+    the request's place back, once."""
+    around = getattr(_holding, "around", None)
+    if around is not None and getattr(_holding, "opened", None) is None:
+        opened = around()
+        opened.__enter__()
+        _holding.opened = opened
 
 
 class _Flight:
@@ -558,16 +594,25 @@ def _shared(kind: str, key: str, deadline: float, fetch: Callable[[], Any]) -> A
         if flight is None:
             flight = _flights[(kind, key)] = _Flight()
     if leader:
+        crashed: Exception | None = None
         try:
             flight.result = fetch()
         except SsoFailed as failure:
             flight.failure = failure
+        except Exception as error:
+            # Something unforeseen: the others are told to try again (never remembered).
+            flight.failure = SsoFailed("unreachable", say_nothing_of_it=True)
+            crashed = error
         finally:
             with _flights_lock:
                 _flights.pop((kind, key), None)
             flight.done.set()
-    elif not flight.done.wait(max(deadline - time.monotonic(), 0.0)):
-        raise SsoFailed("unreachable", say_nothing_of_it=True)
+        if crashed is not None:
+            raise crashed
+    else:
+        _begin_wait()
+        if not flight.done.wait(max(deadline - time.monotonic(), 0.0)):
+            raise SsoFailed("unreachable", say_nothing_of_it=True)
     if flight.failure is not None:
         raise SsoFailed(
             flight.failure.code, say_nothing_of_it=flight.failure.say_nothing_of_it
