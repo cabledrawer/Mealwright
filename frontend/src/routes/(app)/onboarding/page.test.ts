@@ -1,6 +1,6 @@
 // Full Onboarding (0.9 U2): after first-run setup the admin comes here once. The phone shows one
-// step per screen, a computer one page of cards. Skip, Finish setup and Go to Today mark it done
-// for the household and go to Today; anyone else, or a household that has finished, goes straight
+// step per screen, a computer one page of cards. Skip passes over one step (the last one's Skip, and Finish
+// setup and Go to Today, mark it done for the household and go to Today); anyone else, or a household that has finished, goes straight
 // to Today.
 
 import { flushSync, mount, unmount } from 'svelte';
@@ -69,7 +69,7 @@ afterEach(() => {
 describe('on the phone', () => {
   beforeEach(() => page.viewport(428, 900));
 
-  it('starts at step 2 of 6, saves the Amounts choice, and Skip ends it for good', async () => {
+  it('starts at step 2 of 6, saves the Amounts choice, and Skip passes over just that step', async () => {
     open();
     await expect.element(page.getByText('Step 2 of 6')).toBeVisible();
     await expect.element(page.getByRole('heading', { name: 'How do you measure?' })).toBeVisible();
@@ -84,8 +84,21 @@ describe('on the phone', () => {
     await vi.waitFor(() => expect(patches()).toEqual([{ amounts_shown: 'metric' }]));
 
     await page.getByRole('button', { name: 'Skip' }).click();
+    await expect.element(page.getByText('Step 3 of 6')).toBeVisible();
+    await expect.element(page.getByRole('heading', { name: 'Who eats here?' })).toHaveFocus();
+    expect(goto).not.toHaveBeenCalled();
+    expect(patches()).toEqual([{ amounts_shown: 'metric' }]);
+    await page.getByRole('button', { name: 'Back' }).click();
+    await expect.element(page.getByText('Step 2 of 6')).toBeVisible();
+  });
+
+  it('Skip on the last step that has one (5) finishes setup', async () => {
+    open();
+    for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Next' }).click();
+    await expect.element(page.getByText('Step 5 of 6')).toBeVisible();
+    await page.getByRole('button', { name: 'Skip' }).click();
     await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/', { replace: true }));
-    expect(patches()).toEqual([{ amounts_shown: 'metric' }, { onboarding_done: true }]);
+    expect(patches()).toEqual([{ onboarding_done: true }]);
   });
 
   it('goes through every step with Next and Back, and Go to Today finishes it', async () => {
@@ -160,8 +173,9 @@ describe('on the phone', () => {
     expect(starterPacks.open).toBe(true);
   });
 
-  it('says so and stays when Skip can’t be saved', async () => {
+  it('says so and stays when the last Skip can’t be saved', async () => {
     open({ 'PATCH /household': [403, { detail: 'Only the household’s admin can change this.' }] });
+    for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Next' }).click();
     await page.getByRole('button', { name: 'Skip' }).click();
     await expect
       .element(page.getByRole('alert'))
@@ -188,6 +202,8 @@ describe('on a computer', () => {
       await expect.element(page.getByRole('heading', { name: card })).toBeVisible();
     }
     await expect.element(page.getByText('Step 2 of 6')).not.toBeInTheDocument();
+    // The desktop mockup draws no Skip: the page has Finish setup only.
+    await expect.element(page.getByRole('button', { name: 'Skip' })).not.toBeInTheDocument();
     await page.getByRole('button', { name: 'Finish setup' }).click();
     await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/', { replace: true }));
     expect(patches()).toEqual([{ onboarding_done: true }]);

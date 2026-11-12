@@ -1,11 +1,12 @@
 <script lang="ts">
   // Full Onboarding (0.9 U2; spec "Layout decisions": Onboarding, and section 2 "Onboarding";
-  // mockups Dark-Onboard09-Phone and Dark-Onboard09-Desktop, proposed, for cabledrawer). First-run
+  // mockups Dark-Onboard09-Phone and Dark-Onboard09-Desktop). First-run
   // setup makes the admin account (step 1) and comes here once. The phone shows one step per
-  // screen (steps 2 to 6 of 6); a computer shows one page of cards, then "Finish setup". Skip,
-  // Finish setup and "Go to Today" all mark it done for the household and go to Today: it never
-  // shows again. Nothing here is needed: every step saves at once through the same /api/v1 calls
-  // as Settings and Ingredients, and has a sensible default. Anyone else (a member, or a
+  // screen (steps 2 to 6 of 6); a computer shows one page of cards, then "Finish setup". Skip
+  // passes over just that step and shows the next (cabledrawer 12 Nov); Skip on step 5 (the last with
+  // a Skip), Finish setup and "Go to Today" mark it done for the household and go to Today: it
+  // never shows again. The computer page has no Skip (the mockup draws none).
+  // Nothing here is needed: every step saves at once through the same /api/v1 calls as Settings and Ingredients, and has a sensible default. Anyone else (a member, or a
   // household that has finished) is sent to Today.
   import { onMount, tick } from 'svelte';
   import { goto } from '$app/navigation';
@@ -87,7 +88,13 @@
     }
   }
 
-  /** Skip, Finish setup and Go to Today: done for the household, then Today. */
+  /** The phone's Skip passes over this step (nothing more is saved); the last step with a Skip
+   *  (5) finishes setup, as Finish does (cabledrawer 12 Nov). */
+  function skip() {
+    return step < 5 ? go(step + 1) : finish();
+  }
+
+  /** Finish setup, Go to Today and the last Skip: done for the household, then Today. */
   async function finish() {
     if (finishing) return;
     finishing = true;
@@ -127,7 +134,7 @@
         <div class="top">
           <span class="count">Step {step} of 6</span>
           {#if step < 6}
-            <button type="button" class="skip" disabled={finishing} onclick={() => void finish()}
+            <button type="button" class="skip" disabled={finishing} onclick={() => void skip()}
               >Skip</button
             >
           {/if}
@@ -192,9 +199,6 @@
               in Settings.
             </p>
           </div>
-          <button type="button" class="skip" disabled={finishing} onclick={() => void finish()}
-            >Skip</button
-          >
         </div>
         <div class="cards">
           <section class="card" aria-labelledby="ob-account">

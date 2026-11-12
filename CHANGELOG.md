@@ -18,7 +18,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Onboarding (0.9 U2)
 
-- After the admin account is made, onboarding shows once for the household: six steps on a phone, one page of cards on a computer. How amounts are shown, who eats here (names only), shops and a starter pack, each optional; Skip, Finish setup or Go to Today goes to Today, and it never shows again. Households from before this version count as done.
+- After the admin account is made, onboarding shows once for the household: six steps on a phone, one page of cards on a computer. How amounts are shown, who eats here (names only), shops and a starter pack, each optional; on a phone Skip passes over just that step (the last Skip, Finish setup or Go to Today finishes it and goes to Today, and it never shows again); a computer's page has Finish setup only. Households from before this version count as done.
 - Settings › Amounts: choose **As the recipe says** or **Metric: grams and ml** (admins; in Recent changes with Undo). The choice is kept; grams and millilitres on screen come in a later version, and cups after 1.0.
 - **Back up first:** one database change (`c7a1e5d3f802`: the household's onboarding and amounts choice).
 
