@@ -12,7 +12,7 @@ is `/data` inside the container).
 
 - **The database**: every recipe, plan, list, pantry item, person, login and setting. One file,
   `data/backups/backup-<date>-<time>.db` (the date and time in UTC).
-- **The single sign-on client secret opens only with `data/secret.key`** (proposed, for cabledrawer). A backup keeps the secret sealed; on a new server without that key file, Mealwright can't open it, password sign-in works again, and an admin types the secret again in Settings → Sign-in → Single sign-on. An export leaves the secret out altogether, and API tokens too: make new ones.
+- **The single sign-on client secret opens only with `data/secret.key`** (proposed, for cabledrawer). A backup keeps the secret sealed; on a new server without that key file, Mealwright can't open it, password sign-in works again, and an admin types the secret again in Settings → Sign-in → Single sign-on. An admin who has only ever signed in with single sign-on has no password: run the `reset-admin` command for them first (proposed, for cabledrawer). An export leaves the secret out altogether, and API tokens too: make new ones.
 - **Not the photos.** Recipe photos are files in `data/photos`. A restore leaves them where they
   are. If the disk itself is lost, the photos come back only from a copy of the whole data
   folder, so copy the data folder (or at least `backups` and `photos`) to another disk or your
@@ -67,7 +67,8 @@ is `/data` inside the container).
    ```
 
    Sign in with the password you had **when the backup was made**. Everything is as it was at
-   that time; whatever changed after it is gone. Once all is well, you can delete the
+   that time; whatever changed after it is gone. API tokens deleted since the backup work
+   again: delete them again (proposed, for cabledrawer). Once all is well, you can delete the
    `data/before-restore-…` folder.
 
 ## Restore on a new server (the disk died)

@@ -102,6 +102,7 @@ def reset_admin(settings: Settings, username: str, out: TextIO = sys.stdout) -> 
     if turned_on:
         log.warning("reset-admin: password sign-in turned back on")
     print(f"New password for {login.username}: {password}", file=out)
+    # The last sentence about API tokens is proposed, for cabledrawer (O2 review r2, finding 7).
     print(
         "It's shown only this once. Sign in with it, then change it in Settings, Sign-in. "
         f"{login.username} is now signed out everywhere, "

@@ -39,9 +39,13 @@ A photo's name is the `file_key` of its row in the `recipe_photo` table.
   "left_out": {
     "tables": {
       "session": "who is signed in where (sign-in cookies)",
-      "join_link": "sign-in links made for people"
+      "join_link": "sign-in links made for people",
+      "api_token": "API tokens, which only an admin at the screen makes"
     },
-    "columns": {"login.password_hash": "passwords, even scrambled"}
+    "columns": {
+      "login.password_hash": "passwords, even scrambled",
+      "sso_settings.client_secret_sealed": "the single sign-on client secret"
+    }
   },
   "tables": {
     "household": [{"id": 1, "name": "Home", "...": "..."}],

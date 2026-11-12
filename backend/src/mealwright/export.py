@@ -6,10 +6,12 @@ One zip file with everything a household keeps:
   read in one database snapshot, so it is consistent even while people keep using Mealwright.
 - `photos/<name>.jpg`: the household's recipe photo files, as stored (large and list copies).
 
-Two things are left out on purpose (cabledrawer 12 Nov), and the document says so in
-`left_out`: the `session` table (who is signed in where: a stolen copy must never sign anyone
-in), the `join_link` table (sign-in links made for people, 0.9 A1) and `login.password_hash`
-(a copy of the file must not let anyone try passwords offline).
+Some things are left out on purpose (cabledrawer 12 Nov; the last two proposed, for cabledrawer), and
+the document says so in `left_out`: the `session` table (who is signed in where: a stolen copy
+must never sign anyone in), the `join_link` table (sign-in links made for people, 0.9 A1),
+`login.password_hash` (a copy of the file must not let anyone try passwords offline), the
+`api_token` table (0.9 O2) and `sso_settings.client_secret_sealed` (the single sign-on client
+secret; the admin types it again).
 
 The zip is written as it is sent (streamed), never kept on the server. Nothing here makes a
 network connection.
