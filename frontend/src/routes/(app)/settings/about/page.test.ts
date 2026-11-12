@@ -175,4 +175,13 @@ describe('Settings → About (X1)', () => {
         'New version ready. Close every Mealwright tab and window, then open it again to finish updating.'
       );
   });
+
+  it('Help has "Report a problem" for everyone, a link to its own screen (X2)', async () => {
+    open({ 'GET /updates': [200, info({ can_check: false })] });
+    await expect.element(page.getByRole('heading', { name: 'Help', level: 2 })).toBeVisible();
+    const row = page.getByRole('link', { name: 'Report a problem' });
+    await expect.element(row).toHaveAttribute('href', '/settings/about/report');
+    const box = row.element().getBoundingClientRect();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  });
 });

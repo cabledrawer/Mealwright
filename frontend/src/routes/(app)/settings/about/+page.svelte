@@ -1,12 +1,14 @@
 <script lang="ts">
   // Settings → About (mockup Dark-About09-Phone). This PR (X1, "Update check") builds only the
   // update parts: "New version ready", the version and its release day, the version-age note
-  // and the admins' Updates card. Help and "Licences and credits" come with U1.
+  // and the admins' Updates card. X2 adds Help's "Report a problem". "Licences and credits"
+  // come with U1.
   //
   // Spec section 7 "Updates" (cabledrawer 17 Oct): (1) how old this version is, with no connection;
   // (2) Check now, admins only, one plain request to the public release list, made by the
   // server through its outbound gate; (3) the daily check, its own Privacy switch, off at first.
   import { onMount } from 'svelte';
+  import { resolve } from '$app/paths';
   import Icon from '#lib/components/Icon.svelte';
   import Logo from '#lib/components/Logo.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
@@ -32,6 +34,7 @@
   import { updates } from '#lib/updates.svelte.js';
   import { VERSION } from '#lib/version.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
+  import { HELP_HEADING, TITLE as REPORT_A_PROBLEM } from '#lib/problemReport.js';
 
   onMount(() => {
     void newVersion.watch();
@@ -136,6 +139,17 @@
       </p>
     </section>
   {/if}
+
+  <!-- Help (mockup Dark-About09-Phone): Report a problem, for everyone (X2). -->
+  <section class="section" aria-labelledby="help">
+    <h2 class="title" id="help">{HELP_HEADING}</h2>
+    <div class="card">
+      <a class="row" href={resolve('/(app)/settings/about/report')}>
+        <span class="lbl">{REPORT_A_PROBLEM}</span>
+        <span class="chev"><Icon name="back" size={18} stroke={2} /></span>
+      </a>
+    </div>
+  </section>
 </div>
 
 <style>
