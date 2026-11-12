@@ -258,7 +258,8 @@
         "test_sso.py", "test_sso_api.py", "test_secret_box.py", "test_migration_sso.py",
         "test_sso_proven.py", "test_sso_own_network.py", "test_sso_look_up_cap.py", "test_sso_guards.py",
         "test_api_tokens_sso.py", "test_api_tokens_sign_out.py", "test_api_tokens_guards.py",
-        "test_sso_passwords_off_class.py", "test_sso_refused.py", "test_sso_restart.py"
+        "test_sso_passwords_off_class.py", "test_sso_refused.py", "test_sso_restart.py",
+        "test_sso_slow_provider.py"
       ],
       "browser": ["sign-in.spec.ts", "csp.spec.ts", "my-sign-in.spec.ts", "sso.spec.ts", "api-tokens.spec.ts"]
     },

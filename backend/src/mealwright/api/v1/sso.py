@@ -50,6 +50,7 @@ from mealwright.auth import (
     needs_https,
     session_token,
     start_session,
+    without_place,
 )
 from mealwright.config import Settings
 from mealwright.errors import Problem
@@ -165,14 +166,15 @@ def _begin(
         raise sso.SsoFailed("wrong_address")
     try:
         client = sso_accounts.client(row, request.app.state.settings.data_dir)
-        return sso.start(
-            _gate(request),
-            client,
-            mode=mode,
-            remember=remember,
-            login_id=login_id,
-            retried=retried,
-        )
+        with without_place(request, db):  # the sign-in server may be slow: hold no place
+            return sso.start(
+                _gate(request),
+                client,
+                mode=mode,
+                remember=remember,
+                login_id=login_id,
+                retried=retried,
+            )
     except sso.SsoFailed as failure:
         log.warning("Single sign-on couldn’t start: %s", failure.code)
         raise
@@ -334,7 +336,8 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
         if row.redirect_uri != flow.redirect_uri:
             raise sso.SsoFailed("expired")  # the setup changed while this was under way
         client = sso_accounts.client(row, settings.data_dir)
-        identity = sso.finish(_gate(request), flow, client, body.code)
+        with without_place(request, db):  # the token exchange waits on the sign-in server
+            identity = sso.finish(_gate(request), flow, client, body.code)
         if flow.mode == "test":
             return _finish_test(request, db, row, flow.login_id, identity)
         login = sso_accounts.login_for(db, row, identity, settings.data_dir)

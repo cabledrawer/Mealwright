@@ -16,6 +16,7 @@
 
 import asyncio
 import base64
+import contextlib
 import hashlib
 import hmac
 import ipaddress
@@ -34,6 +35,7 @@ from typing import Annotated, Any
 from urllib.parse import urlsplit
 
 import anyio
+import anyio.from_thread
 import anyio.to_thread
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
@@ -642,6 +644,22 @@ async def get_db(request: Request) -> AsyncIterator[DbSession]:
             # server, and one of its own, never one of the 40, which may all be busy.
             with anyio.CancelScope(shield=True):
                 await anyio.to_thread.run_sync(db.close, limiter=anyio.CapacityLimiter(1))
+
+
+@contextlib.contextmanager
+def without_place(request: Request, db: DbSession) -> Iterator[None]:
+    """For a handler that is about to wait a long time on someone else (the sign-in server): give
+    the request's database connection and its place back, and take a place again after. So a
+    flood of slow waits never holds the places everyone else needs (O2 release pass, M). Only
+    for a handler that runs in a worker thread, and that reads what it needs first: after the
+    rollback, what was loaded is read again from the database when next used."""
+    db.rollback()  # the connection goes back to the pool
+    turns = anyio.from_thread.run_sync(_turns, request.app)
+    anyio.from_thread.run_sync(turns.release)
+    try:
+        yield
+    finally:
+        anyio.from_thread.run(turns.acquire)
 
 
 Db = Annotated[DbSession, Depends(get_db, scope="function")]

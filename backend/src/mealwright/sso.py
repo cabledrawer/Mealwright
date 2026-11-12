@@ -37,6 +37,7 @@ import secrets
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Callable, Iterator
 from dataclasses import asdict, dataclass, field
 from datetime import timedelta
 from typing import Any, Literal
@@ -400,6 +401,22 @@ def _send(
 ) -> OutboundResponse:
     """One request to the provider, through the gate, after checking where it goes."""
     check_now(gate, household_id)  # nothing at all leaves while it's off
+    with _slot(household_id):
+        return _send_one(
+            gate, household_id, url, deadline=deadline, method=method, headers=headers, body=body
+        )
+
+
+def _send_one(
+    gate: OutboundGate,
+    household_id: int,
+    url: str,
+    *,
+    deadline: float,
+    method: str,
+    headers: dict[str, str] | None,
+    body: bytes | None,
+) -> OutboundResponse:
     try:
         parts = urlsplit(url)
         port = parts.port or (443 if parts.scheme == "https" else 80)
@@ -479,6 +496,85 @@ def scope_for(provider: Provider, client: Client, offline: bool = True) -> str:
     return " ".join(scopes)
 
 
+# --- Waiting on the sign-in server holds a thread, so it is capped (O2 release pass, M) -----
+# A signed-out stranger can start a sign-in as often as they like. While the sign-in server is
+# slow or down, each start would hold a worker thread (and a database place) for up to
+# TIME_LIMIT. So at most IN_FLIGHT_MOST of a household's requests wait on the sign-in server at
+# once (the look-ups are capped the same way); another gets the same quick "try again" a busy
+# look-up gives (`say_nothing_of_it`: it is Mealwright's own limit, never remembered as the
+# server not answering). A request that waits on another's fetch of the same thing counts too.
+
+IN_FLIGHT_MOST = 4
+_in_flight: dict[int, int] = {}
+_in_flight_lock = threading.Lock()
+_holding = threading.local()
+
+
+@contextlib.contextmanager
+def _slot(household_id: int) -> Iterator[None]:
+    """One of the household's places to wait on the sign-in server. Re-entrant: a step inside
+    another (a discovery inside a start) is the same request and counts once."""
+    if getattr(_holding, "depth", 0) > 0:
+        _holding.depth += 1
+        try:
+            yield
+        finally:
+            _holding.depth -= 1
+        return
+    with _in_flight_lock:
+        if _in_flight.get(household_id, 0) >= IN_FLIGHT_MOST:
+            raise SsoFailed("unreachable", say_nothing_of_it=True)
+        _in_flight[household_id] = _in_flight.get(household_id, 0) + 1
+    _holding.depth = 1
+    try:
+        yield
+    finally:
+        _holding.depth = 0
+        with _in_flight_lock:
+            _in_flight[household_id] -= 1
+            if _in_flight[household_id] <= 0:
+                del _in_flight[household_id]
+
+
+class _Flight:
+    """One fetch under way; the others who need the same thing wait for its outcome."""
+
+    def __init__(self) -> None:
+        self.done = threading.Event()
+        self.result: Any = None
+        self.failure: SsoFailed | None = None
+
+
+_flights: dict[tuple[str, str], _Flight] = {}
+_flights_lock = threading.Lock()
+
+
+def _shared(kind: str, key: str, deadline: float, fetch: Callable[[], Any]) -> Any:
+    """`fetch()` once at a time for this `kind` and `key`: the others wait (no longer than
+    `deadline`) and share its answer or its failure, so a flood makes one connection."""
+    with _flights_lock:
+        flight = _flights.get((kind, key))
+        leader = flight is None
+        if flight is None:
+            flight = _flights[(kind, key)] = _Flight()
+    if leader:
+        try:
+            flight.result = fetch()
+        except SsoFailed as failure:
+            flight.failure = failure
+        finally:
+            with _flights_lock:
+                _flights.pop((kind, key), None)
+            flight.done.set()
+    elif not flight.done.wait(max(deadline - time.monotonic(), 0.0)):
+        raise SsoFailed("unreachable", say_nothing_of_it=True)
+    if flight.failure is not None:
+        raise SsoFailed(
+            flight.failure.code, say_nothing_of_it=flight.failure.say_nothing_of_it
+        ) from None
+    return flight.result
+
+
 # Failures that mean the sign-in server didn't answer, or not usefully: the slow ones.
 _NO_ANSWER = ("unreachable", "bad_answer")
 
@@ -499,7 +595,13 @@ def discover(
         check_now(gate, household_id)
         raise SsoFailed(failed)
     try:
-        provider = _discover(gate, household_id, issuer, deadline)
+        with _slot(household_id):
+            provider: Provider = _shared(
+                "discovery",
+                issuer,
+                deadline,
+                lambda: _discover(gate, household_id, issuer, deadline),
+            )
     except SsoFailed as failure:
         if failure.code in _NO_ANSWER and not failure.say_nothing_of_it:
             cache.put("no_discovery", issuer, failure.code, FAIL_FOR)
@@ -540,6 +642,16 @@ def _keys(
     found = None if fresh else cache.get("jwks", provider.jwks_uri)
     if found is not None:
         return found
+    with _slot(household_id):
+        return _shared(
+            "jwks",
+            provider.jwks_uri,
+            deadline,
+            lambda: _fetch_keys(gate, household_id, provider, deadline),
+        )
+
+
+def _fetch_keys(gate: OutboundGate, household_id: int, provider: Provider, deadline: float) -> Any:
     response = _send(gate, household_id, provider.jwks_uri, deadline=deadline)
     if response.status != 200:
         raise SsoFailed("unreachable" if response.status >= 500 else "bad_answer")
