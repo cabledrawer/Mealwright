@@ -327,8 +327,8 @@ def _join_back(act: Act, item: ListItem, tick: ListTick) -> None:
         return
     origin = _origin(kitchen, tick)
     line = shopping.matching_line(kitchen, item.list_id, item.food_id, item.shop_id, skip=item.id)
-    if origin is None or line is None:
-        return
+    if line is None or (origin is None and item.amount_milli is not None):
+        return  # an amount joined needs the purchase's change to keep what it did (for Undo)
     if None not in (item.amount_milli, line.amount_milli) and item.size_id != line.size_id:
         return
     old = [line.amount_milli, line.size_id]
@@ -346,6 +346,8 @@ def _join_back(act: Act, item: ListItem, tick: ListTick) -> None:
     line.version = act.seq
     item.merged_into_id = line.id
     item.version = act.seq
+    if origin is None:
+        return  # no amount was added: Undo only needs to see the line is joined
     origin.undo_data = {
         **(origin.undo_data or {}),
         "join": {
@@ -367,9 +369,16 @@ def _unjoin(act: Act, tick: ListTick) -> None:
     origin = _origin(kitchen, tick)
     join = (origin.undo_data or {}).get("join") if origin is not None else None
     item = kitchen.db.get(ListItem, tick.item_id)
-    if not join or join.get("undone") or origin is None or item is None:
+    if item is None or item.household_id != kitchen.household_id or (join and join.get("undone")):
         return
-    if item.household_id != kitchen.household_id or item.merged_into_id != join["into"]:
+    if not join:
+        # A line with no amount joined without a record: nothing was added to the line it
+        # joined, so it only comes back (only a join gives a line with a purchase a merge).
+        if item.merged_into_id is not None and item.amount_milli is None:
+            item.merged_into_id = None
+            item.version = act.seq
+        return
+    if origin is None or item.merged_into_id != join["into"]:
         return
     item.merged_into_id = None
     item.version = act.seq

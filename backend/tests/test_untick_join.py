@@ -18,13 +18,14 @@ def pantry(kitchen: TestClient, food_id: int) -> float:
         return float(sum(lot.amount_milli for lot in found)) / 1000
 
 
-def lines(kitchen: TestClient, food_id: int) -> list[tuple[float, bool]]:
+def lines(kitchen: TestClient, food_id: int) -> list[tuple[float | None, bool]]:
     """(amount, ticked) of the ingredient's lines a phone shows (not taken off, not joined)."""
-    return sorted(
+    found = [
         (i["amount"], any(t["standing"] for t in i["ticks"]))
         for i in changes(kitchen)["items"]
         if i["food_id"] == food_id and not i["deleted"] and not i["merged_into_id"]
-    )
+    ]
+    return sorted(found, key=lambda line: (line[0] is not None, line[0] or 0, line[1]))
 
 
 def add(kitchen: TestClient, food_id: int, amount: float, **extra: Any) -> str:
@@ -205,3 +206,29 @@ def test_a_tick_keeps_the_rest_of_a_line_for_an_ingredient_with_no_pack_size(
     line = add(kitchen, ghee["id"], 1100)
     one(kitchen, "tick", counter(kitchen), PHONE_A, item_id=line, amount=300)
     assert lines(kitchen, ghee["id"]) == [(300, True), (800, False)]
+
+
+def test_an_as_bought_line_with_no_amount_joins_and_comes_back_on_undo(
+    kitchen: TestClient,
+) -> None:
+    # "Add as bought" with no amount typed: the line has none, so the line to buy keeps its
+    # 800 g, and Undo of the untick brings the bought line back on its own.
+    ghee = food(kitchen, "Ghee")
+    add(kitchen, ghee["id"], 800)
+    bought = new_id()
+    one(
+        kitchen,
+        "add",
+        counter(kitchen),
+        PHONE_A,
+        list_id=main_id(kitchen),
+        item_id=bought,
+        food_id=ghee["id"],
+        as_bought=True,
+    )
+    done = one(kitchen, "tick", counter(kitchen), PHONE_A, item_id=bought)
+    assert lines(kitchen, ghee["id"]) == [(None, True), (800, False)]
+    gone = untick(kitchen, bought, done)
+    assert lines(kitchen, ghee["id"]) == [(800, False)]
+    one(kitchen, "undo", counter(kitchen), PHONE_A, undoes=gone["id"])
+    assert lines(kitchen, ghee["id"]) == [(None, True), (800, False)]

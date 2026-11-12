@@ -383,14 +383,16 @@ test('L1c Sh7: unticking an as-bought line joins it back into the line to buy, a
   await page.getByRole('textbox', { name: 'Add an item' }).fill(name);
   await page.getByRole('button', { name: 'Add as bought' }).click();
   await expect(page.getByRole('status').filter({ hasText: name })).toBeVisible();
-  const lines = async (): Promise<{ amount: number; ticked: boolean }[]> =>
+  const lines = async (): Promise<{ amount: number | null; ticked: boolean }[]> =>
     ((await (await page.request.get('/api/v1/shopping/changes')).json()).items as any[])
       .filter((i) => i.food_id === id && !i.deleted && !i.merged_into_id)
       .map((i) => ({ amount: i.amount, ticked: i.ticks.some((t: any) => t.standing) }))
-      .sort((x, y) => x.amount - y.amount);
+      .sort((x, y) => (x.amount ?? -1) - (y.amount ?? -1));
   await expect.poll(async () => (await lines()).map((l) => l.ticked).sort()).toEqual([false, true]);
   const before = await lines();
-  const bought = before.find((l) => l.ticked)!.amount;
+  // Added as bought with no amount typed: the bought line has none, so the join keeps the 800 g
+  // (the amounts adding up is in backend/tests/test_untick_join.py).
+  const bought = before.find((l) => l.ticked)!.amount ?? 0;
   expect(before.find((l) => !l.ticked)!.amount).toBe(800);
   await openTrolleyOf(page);
   await page.getByRole('checkbox', { name: `Untick ${name}`, exact: true }).click();
