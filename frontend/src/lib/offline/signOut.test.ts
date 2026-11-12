@@ -5,6 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, getMe } from '#lib/api.js';
+import { watchLeaving } from '#lib/leaving.js';
 import { network } from '#lib/network.svelte.js';
 import { session } from '#lib/session.svelte.js';
 import { makeAction } from '#lib/shopping/actions.js';
@@ -150,6 +151,21 @@ describe('the "sign-out pending" flag', () => {
       stop();
     }
     expect(said(requests)).toEqual(['DELETE /session']);
+  });
+  it('the browser coming back online while the page is being left sends nothing', () => {
+    markSignOutPending();
+    const requests = fakeApi({ 'DELETE /session': [204, null] });
+    const stopWatching = watchLeaving();
+    const stop = endPendingSignOutWhenOnline();
+    try {
+      window.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+      window.dispatchEvent(new Event('online'));
+    } finally {
+      stop();
+      stopWatching();
+    }
+    expect(said(requests)).toEqual([]);
+    expect(signOutPending()).toBe(true);
   });
 });
 

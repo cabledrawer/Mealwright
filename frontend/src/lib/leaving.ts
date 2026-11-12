@@ -12,7 +12,15 @@
 //
 // A leave the page itself has asked the browser to confirm (Cook mode with a timer running) is
 // not counted until the browser hides the page (`pagehide`). Any key or tap on the page means
-// it is staying.
+// it is staying. So does the page showing again (`visibilitychange`), and so does a quiet
+// `LEAVE_GRACE_MS` after a `beforeunload` that no `pagehide` followed (a typed address then
+// Stop, a download, a 204 answer: the page never went). Once `pagehide` has come, it is on
+// until `pageshow`.
+const LEAVE_GRACE_MS = 3000;
+// A main `import()` cut off by the leave rejects with a TypeError whose words differ by browser
+// (Chrome, Firefox, Safari); Vite's preload error covers only the styles and preloads.
+const CUT_IMPORT =
+  /dynamically imported module|importing a module script failed|module script failed/i;
 
 let leaving = false;
 let stay: (() => void) | null = null;
@@ -50,10 +58,28 @@ function staying(): void {
  * stops watching.
  */
 export function watchLeaving(target: Window = window): () => void {
+  let grace: ReturnType<typeof setTimeout> | undefined;
+  const cancelGrace = () => {
+    clearTimeout(grace);
+    grace = undefined;
+  };
   const onBeforeUnload = (event: BeforeUnloadEvent) => {
     // Asked to confirm (the browser's "Leave page?"): the person may stay.
     if (event.defaultPrevented) return;
     startLeaving();
+    cancelGrace();
+    grace = setTimeout(staying, LEAVE_GRACE_MS);
+  };
+  const onPageHide = () => {
+    cancelGrace(); // the page is going: on until `pageshow`
+    startLeaving();
+  };
+  const onStay = () => {
+    cancelGrace();
+    staying();
+  };
+  const onVisibility = () => {
+    if (document.visibilityState !== 'hidden') onStay();
   };
   // A page's code or styles cut off by the leave (Vite's "Unable to preload CSS"): Vite throws
   // the error on, and nothing is waiting for it any more. Not prevented here, which would make
@@ -65,14 +91,17 @@ export function watchLeaving(target: Window = window): () => void {
   };
   const onUnhandled = (event: PromiseRejectionEvent) => {
     const error: unknown = event.reason;
-    if (leaving && error && typeof error === 'object' && cut.has(error)) event.preventDefault();
+    if (!leaving || !error || typeof error !== 'object') return;
+    if (cut.has(error) || (error instanceof TypeError && CUT_IMPORT.test(error.message)))
+      event.preventDefault();
   };
   const listeners: [string, EventListener, AddEventListenerOptions?][] = [
     ['beforeunload', onBeforeUnload as EventListener],
-    ['pagehide', startLeaving],
-    ['pageshow', staying],
-    ['pointerdown', staying, { capture: true, passive: true }],
-    ['keydown', staying, { capture: true, passive: true }],
+    ['pagehide', onPageHide],
+    ['pageshow', onStay],
+    ['visibilitychange', onVisibility],
+    ['pointerdown', onStay, { capture: true, passive: true }],
+    ['keydown', onStay, { capture: true, passive: true }],
     ['vite:preloadError', onPreloadError],
     ['unhandledrejection', onUnhandled as EventListener]
   ];
@@ -81,6 +110,6 @@ export function watchLeaving(target: Window = window): () => void {
   return () => {
     for (const [type, listener, options] of listeners)
       target.removeEventListener(type, listener, options);
-    staying();
+    onStay();
   };
 }

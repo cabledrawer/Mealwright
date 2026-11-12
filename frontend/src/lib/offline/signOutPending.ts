@@ -8,6 +8,7 @@
 // database, and the flag has to outlast it (cabledrawer 18 Oct). It says nothing about the
 // household: only "1".
 
+import { isLeaving } from '../leaving';
 import { signOutState } from './unfinished.svelte';
 
 export const SIGN_OUT_PENDING_KEY = 'mealwright.sign-out-pending';
@@ -78,7 +79,10 @@ export function endPendingSignOut(doFetch: typeof fetch = fetch): Promise<boolea
  * sends nothing by itself). Returns a function that stops listening.
  */
 export function endPendingSignOutWhenOnline(): () => void {
-  const end = () => void endPendingSignOut();
+  // A page being left sends nothing new (leaving.ts); the next page tries again.
+  const end = () => {
+    if (!isLeaving()) void endPendingSignOut();
+  };
   window.addEventListener('online', end);
   return () => window.removeEventListener('online', end);
 }

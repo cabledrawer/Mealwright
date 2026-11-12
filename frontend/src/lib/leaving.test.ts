@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isLeaving, watchLeaving, whenStaying } from './leaving';
 
 // A stand-in window, so the test's own page is never left.
@@ -88,6 +88,63 @@ describe('watchLeaving', () => {
     expect(rejected(cut)).toBe(true);
     // Any other error while leaving is still reported.
     expect(rejected(new Error('a real bug'))).toBe(false);
+  });
+
+  it('lets go of a main import() cut off by the leave, in any browser’s words, only while leaving', () => {
+    const rejected = (reason: unknown) => {
+      const event = new Event('unhandledrejection', { cancelable: true }) as Event & {
+        reason: unknown;
+      };
+      event.reason = reason;
+      win.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    const failed = () => new TypeError('Failed to fetch dynamically imported module: /a.js');
+    expect(rejected(failed())).toBe(false);
+    fire('beforeunload');
+    expect(rejected(failed())).toBe(true);
+    expect(rejected(new TypeError('Importing a module script failed.'))).toBe(true);
+    expect(rejected(new TypeError('x is not a function'))).toBe(false);
+  });
+
+  describe('a leave that never happens', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it('the page showing again means it is staying', () => {
+      fire('beforeunload');
+      expect(isLeaving()).toBe(true);
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+      fire('visibilitychange');
+      expect(isLeaving()).toBe(false);
+    });
+
+    it('stays on while the page is hidden', () => {
+      fire('beforeunload');
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      fire('visibilitychange');
+      expect(isLeaving()).toBe(true);
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    });
+
+    it('is off after 3 s with no pagehide, and holds requests until then', async () => {
+      fire('beforeunload');
+      const waiting = whenStaying();
+      vi.advanceTimersByTime(2900);
+      expect(isLeaving()).toBe(true);
+      vi.advanceTimersByTime(200);
+      expect(isLeaving()).toBe(false);
+      await expect(waiting).resolves.toBeUndefined();
+    });
+
+    it('once pagehide has come it stays on until pageshow', () => {
+      fire('beforeunload');
+      fire('pagehide');
+      vi.advanceTimersByTime(10_000);
+      expect(isLeaving()).toBe(true);
+      fire('pageshow');
+      expect(isLeaving()).toBe(false);
+    });
   });
 
   it('stops watching, and is no longer leaving, once stopped', async () => {
