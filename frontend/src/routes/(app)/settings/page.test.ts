@@ -541,3 +541,76 @@ describe('Checking a recipe on the phone (Appearance, F141)', () => {
     expect(checkMode.choice).toBe('focus');
   });
 });
+
+describe('how amounts are shown (Amounts, 0.9 U2)', () => {
+  const mounted: ReturnType<typeof mount>[] = [];
+  const household = (amounts_shown: 'as_written' | 'metric') => ({
+    name: 'Home',
+    pints: 'uk',
+    amounts_shown
+  });
+
+  beforeEach(() => {
+    onSection('amounts');
+    session.me = { ...ME };
+    network.reset();
+  });
+
+  afterEach(() => {
+    for (const component of mounted.splice(0)) unmount(component);
+    document.body.innerHTML = '';
+    vi.unstubAllGlobals();
+    network.reset();
+  });
+
+  function open() {
+    const target = document.body.appendChild(document.createElement('div'));
+    mounted.push(mount(Settings, { target }));
+    flushSync();
+  }
+
+  const asWritten = () => page.getByRole('radio', { name: 'As the recipe says (cups stay cups)' });
+  const metric = () => page.getByRole('radio', { name: 'Metric: grams and ml' });
+
+  it('shows the household’s choice and sends a change', async () => {
+    const requests = fakeApi({
+      'GET /household': [200, household('as_written')],
+      'PATCH /household': [200, household('metric')]
+    });
+    open();
+    await expect.element(asWritten()).toBeChecked();
+    await expect.element(metric()).not.toBeChecked();
+    // Cups come after 1.0, and nothing on screen converts yet: the page says both.
+    await expect
+      .element(page.getByText(/Cups and ounces as a choice come after version 1\.0\./))
+      .toBeVisible();
+    await expect.element(page.getByText(/your choice is kept\./)).toBeVisible();
+    await metric().click();
+    await expect.element(metric()).toBeChecked();
+    expect(requests.filter((r) => r.method === 'PATCH').map((r) => r.body)).toEqual([
+      { amounts_shown: 'metric' }
+    ]);
+  });
+
+  it('goes back and says why when the server will not take it', async () => {
+    fakeApi({
+      'GET /household': [200, household('as_written')],
+      'PATCH /household': [403, { detail: 'Only the household’s admin can change this.' }]
+    });
+    open();
+    await metric().click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent('Only the household’s admin can change this.');
+    await expect.element(asWritten()).toBeChecked();
+  });
+
+  it('is off for a member', async () => {
+    session.me = { ...ME, role: 'member' };
+    fakeApi({ 'GET /household': [200, household('metric')] });
+    open();
+    await expect.element(metric()).toBeChecked();
+    await expect.element(asWritten()).toBeDisabled();
+    await expect.element(metric()).toBeDisabled();
+  });
+});

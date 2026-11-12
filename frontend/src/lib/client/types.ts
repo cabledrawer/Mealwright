@@ -217,6 +217,9 @@ export interface UndoResult {
 /** The household's pint (0.6 import pints). */
 export type Pints = 'uk' | 'us';
 
+/** How amounts are shown (0.9 U2): as the recipe says, or grams and millilitres. Cups after 1.0. */
+export type AmountsShown = 'as_written' | 'metric';
+
 export interface Household {
   name: string;
   time_zone: string | null;
@@ -239,6 +242,10 @@ export interface Household {
   week_starts_on: number;
   /** Today, in the household's own time zone ("2026-10-17"). */
   today: string;
+  /** Full Onboarding (0.9 U2): false until the first admin finishes or skips it after setup. */
+  onboarding_done: boolean;
+  /** Settings → Amounts (0.9 U2): stored only; nothing on screen converts yet. */
+  amounts_shown: AmountsShown;
 }
 
 // --- Stock (the Pantry screen, contract 6.4) ---------------------------------------

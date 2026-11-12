@@ -27,7 +27,10 @@ async function signIn(page: Page, password = ADMIN.password) {
 test.describe('first run', () => {
   test.use({ baseURL: local(PORTS.fresh) });
 
-  test('the first person creates the admin account, then lands on Today', async ({ page }) => {
+  test('the first person creates the admin account, has onboarding once, then lands on Today', async ({
+    page,
+    browser,
+  }) => {
     // Any page leads to setup while there's no account yet.
     await page.goto('/pantry');
     await expect(page).toHaveURL('/setup');
@@ -68,13 +71,63 @@ test.describe('first run', () => {
     await page.getByLabel('Setup code').fill(ADMIN.setup_code.replaceAll('-', '').toLowerCase());
     await page.getByRole('button', { name: 'Create account' }).click();
 
+    // Onboarding comes once, straight after the account is made (0.9 U2). Skip ends it.
+    await expect(page).toHaveURL('/onboarding');
+    await expect(heading(page)).toHaveText('Welcome to Mealwright. Five quick things.');
+    await expect(page.getByText('Made: Tess, the admin.')).toBeVisible();
+    await page.getByRole('button', { name: 'Skip' }).click();
+
     await expect(page).toHaveURL('/');
     await expect(heading(page)).toHaveText('Today');
     await expect(page.getByRole('link', { name: 'Tess · Settings' }).first()).toBeVisible();
 
+    // It never comes back: not on reload, and not by its address.
+    await page.reload();
+    await expect(heading(page)).toHaveText('Today');
+    await page.goto('/onboarding');
+    await expect(page).toHaveURL('/');
+    await expect(heading(page)).toHaveText('Today');
+
     // Setup works only once.
     await page.goto('/setup');
     await expect(page).toHaveURL('/');
+
+    // A second admin's first sign-in goes to Today: onboarding is the household's, done once.
+    const key = () => ({ 'idempotency-key': crypto.randomUUID() });
+    const made = await page.request.post('/api/v1/people', {
+      data: { name: 'Wren', portion_quarters: 4 },
+      headers: key(),
+    });
+    expect(made.status(), await made.text()).toBe(201);
+    const people = ((await made.json()) as { people: { id: number; name: string }[] }).people;
+    const wren = people.find((p) => p.name === 'Wren')!;
+    const link = await page.request.post(`/api/v1/people/${wren.id}/login`, {
+      data: { username: 'wren', role: 'admin' },
+      headers: key(),
+    });
+    expect(link.status(), await link.text()).toBe(201);
+    const path = ((await link.json()) as { path: string }).path;
+    const joined = await page.request.post(`/api/v1${path}`, { data: { password: ADMIN.password } });
+    expect(joined.status(), await joined.text()).toBe(204);
+
+    const other = await browser.newContext({
+      baseURL: local(PORTS.fresh),
+      storageState: { cookies: [], origins: [] },
+      viewport: test.info().project.use.viewport,
+    });
+    try {
+      const second = await other.newPage();
+      await second.goto('/sign-in');
+      await second.getByLabel('Username').fill('wren');
+      await second.getByLabel('Password', { exact: true }).fill(ADMIN.password);
+      await second.getByRole('button', { name: 'Sign in' }).click();
+      await expect(second).toHaveURL('/');
+      await expect(heading(second)).toHaveText('Today');
+      await second.goto('/onboarding');
+      await expect(second).toHaveURL('/');
+    } finally {
+      await other.close();
+    }
   });
 });
 

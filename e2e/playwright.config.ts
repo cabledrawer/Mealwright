@@ -220,6 +220,9 @@ export default defineConfig({
     { name: 'desktop 0.9 household', testMatch: 'household.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.9 household', testMatch: 'household.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // Settings → Sign-in and Change password (0.9, A2).
+    // Full Onboarding (0.9 U2): each step against the real server; Skip itself is sign-in.spec's first run.
+    { name: 'phone 0.9 onboarding', testMatch: 'onboarding.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.9 onboarding', testMatch: 'onboarding.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'phone 0.9 my sign-in', testMatch: 'my-sign-in.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.9 my sign-in', testMatch: 'my-sign-in.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.9 my sign-in', testMatch: 'my-sign-in.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },

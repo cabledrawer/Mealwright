@@ -42,6 +42,8 @@ const VERB_KINDS = new Set([
   'batch_cook_switch',
   'pints_changed',
   'cook_step_changed',
+  // Settings → Amounts and Onboarding (0.9 U2): how amounts are shown.
+  'amounts_shown_changed',
   // Settings → Household (0.9 A1): people added, changed and removed, sign-in links, the
   // "Who's this?" switch and the household's name.
   'person_added',

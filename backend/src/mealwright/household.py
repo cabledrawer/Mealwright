@@ -1,6 +1,7 @@
 """The household's own settings: time zone, cup size, and the places every household has."""
 
 from datetime import date, datetime, timedelta
+from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 
 from fastapi import status
@@ -48,6 +49,14 @@ def today(household: Household, at: datetime | None = None) -> date:
 
 def cup_ml(household: Household) -> int:
     return household.cup_ml or DEFAULT_CUP_ML
+
+
+AmountsShown = Literal["as_written", "metric"]
+
+
+def amounts_shown(value: str | None) -> AmountsShown:
+    """How amounts are shown (0.9 U2): "metric" when chosen, else as the recipe wrote it."""
+    return "metric" if value == "metric" else "as_written"
 
 
 def undo_window(household: Household) -> timedelta:

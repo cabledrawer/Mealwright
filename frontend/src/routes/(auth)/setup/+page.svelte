@@ -67,7 +67,7 @@
       );
       session.me = me;
       theme.adopt(me.theme, undefined, me.id);
-      await goto(resolve('/(app)'), { replace: true, refreshAll: true });
+      await goto(resolve('/(app)/onboarding'), { replace: true, refreshAll: true });
     } catch (error) {
       if (!(error instanceof ApiError)) throw error;
       problem = error.detail;

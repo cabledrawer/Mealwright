@@ -1,12 +1,16 @@
 // The household's settings (contract 6.3).
 
 import { api } from '#lib/api.js';
-import type { Household, Pints } from './types';
+import type { AmountsShown, Household, Pints } from './types';
 
 export const getHousehold = () => api<Household>('GET', '/household');
 
 /** Settings: which pint a recipe's "pint" is (an admin only; the server refuses a member). */
 export const changePints = (pints: Pints) => api<Household>('PATCH', '/household', { pints });
+
+/** Settings → Amounts and Onboarding: how amounts are shown (an admin only). */
+export const changeAmountsShown = (amounts_shown: AmountsShown) =>
+  api<Household>('PATCH', '/household', { amounts_shown });
 
 /** Cook mode's per-step ingredients, for the household (any person of it may change it). */
 export const changeCookPerStep = (on: boolean) =>
@@ -15,6 +19,10 @@ export const changeCookPerStep = (on: boolean) =>
 /** Batch cook (Experimental): show it (true) or hide it for everyone (admins only). */
 export const changeBatchCook = (on: boolean) =>
   api<Household>('PATCH', '/household', { batch_cook: on });
+
+/** Onboarding finished or skipped, for the whole household (admins only; never opens again). */
+export const finishOnboarding = () =>
+  api<Household>('PATCH', '/household', { onboarding_done: true });
 
 /**
  * The cup size to start with (spec "Decided for 0.2"): 240 ml for US English, 250 ml

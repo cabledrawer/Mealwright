@@ -23,6 +23,7 @@ describe('the kinds in Settings → Recent changes (F172)', () => {
       'batch_cook_switch',
       'pints_changed',
       'cook_step_changed',
+      'amounts_shown_changed',
       'person_added',
       'person_changed',
       'person_removed',

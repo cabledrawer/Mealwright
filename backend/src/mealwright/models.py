@@ -95,6 +95,14 @@ class Household(Base):
     backup_keep: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
     backup_problem: Mapped[str | None] = mapped_column(String(300))
     backup_problem_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Full Onboarding (0.9 U2): false until the first admin finishes or skips the steps after
+    # making the account; then onboarding never shows again. Households from before are true.
+    onboarding_done: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
+    # How amounts are shown (spec "Amounts shown in 1.0"; 0.9 U2, proposed, for cabledrawer):
+    # "as_written" (the usual) or "metric" (grams and millilitres). Stored only for now.
+    amounts_shown: Mapped[str] = mapped_column(
+        String(10), default="as_written", server_default="as_written"
+    )
 
 
 class OutboundSwitch(Base):

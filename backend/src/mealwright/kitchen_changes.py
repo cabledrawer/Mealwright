@@ -40,6 +40,7 @@ KINDS = (
     "pints_changed",
     "cook_step_changed",
     "household_renamed",
+    "amounts_shown_changed",
 )
 
 
@@ -144,6 +145,21 @@ def pints_changed(kitchen: Kitchen, old: str, new: str) -> Change:
     )
 
 
+AMOUNTS_WORDS = {"as_written": "as the recipe says", "metric": "grams and ml"}
+
+
+def amounts_shown_changed(kitchen: Kitchen, old: str, new: str) -> Change:
+    """How amounts are shown (admins only; 0.9 U2, Onboarding and Settings → Amounts)."""
+    return record(
+        kitchen,
+        "amounts_shown_changed",
+        # proposed, for cabledrawer
+        f"Changed amounts to {AMOUNTS_WORDS[new]} (was {AMOUNTS_WORDS[old]})",
+        None,
+        {"amounts_shown": {"old": old, "new": new}},
+    )
+
+
 def household_renamed(kitchen: Kitchen, old: str, new: str) -> Change:
     """The household's name (admins only; 0.9 A1, Settings → Household)."""
     return record(
@@ -206,6 +222,12 @@ def undo(kitchen: Kitchen, change: Change) -> None:
                 "That can’t be undone: Ingredients for each step has been switched again."
             )
         household.cook_per_step = data["cook_per_step"]["old"]
+        kitchen.db.flush()
+    elif change.kind == "amounts_shown_changed":
+        household = kitchen.household
+        if household.amounts_shown != data["amounts_shown"]["new"]:
+            raise _cannot_undo("That can’t be undone: amounts have been changed again.")
+        household.amounts_shown = data["amounts_shown"]["old"]
         kitchen.db.flush()
     elif change.kind == "household_renamed":
         household = kitchen.household

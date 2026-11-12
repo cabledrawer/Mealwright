@@ -208,6 +208,16 @@
       "browser": ["settings.spec.ts", "privacy.spec.ts", "about.spec.ts", "report.spec.ts"]
     },
     {
+      "name": "Onboarding and how amounts are shown",
+      "paths": [
+        "frontend/src/routes/(app)/onboarding/**", "frontend/src/lib/components/AmountsChoice.svelte",
+        "backend/src/mealwright/migrations/versions/20261113_c7a1e5d3f802_add_onboarding_done.py",
+        "backend/src/mealwright/api/v1/kitchen.py", "backend/src/mealwright/household.py", "frontend/src/lib/client/household.ts"
+      ],
+      "backend": ["test_onboarding.py", "test_migration_onboarding.py"],
+      "browser": ["onboarding.spec.ts", "sign-in.spec.ts"]
+    },
+    {
       "name": "People and roles",
       "paths": [
         "backend/src/mealwright/people.py", "backend/src/mealwright/roles.py", "backend/src/mealwright/api/v1/people.py",

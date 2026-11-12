@@ -7,6 +7,7 @@
   import Icon from '#lib/components/Icon.svelte';
   import { batchCook } from '#lib/batchCook.svelte.js';
   import Switch from '#lib/components/Switch.svelte';
+  import AmountsChoice from '#lib/components/AmountsChoice.svelte';
   import YourKitchen from '#lib/components/YourKitchen.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
@@ -14,11 +15,17 @@
   import { ApiError, cantReach } from '#lib/api.js';
   import { nothingChanged } from '#lib/downWords.js';
   import { getShops, getPlaces } from '#lib/client/foods.js';
-  import { changePints, getHousehold, getKitchen, type Kitchen } from '#lib/client/household.js';
+  import {
+    changeAmountsShown,
+    changePints,
+    getHousehold,
+    getKitchen,
+    type Kitchen
+  } from '#lib/client/household.js';
   import { getMealSlots } from '#lib/client/plan.js';
   import { getPeople } from '#lib/client/people.js';
   import { checkMode, type CheckMode } from '#lib/checkMode.svelte.js';
-  import type { Pints } from '#lib/client/types.js';
+  import type { AmountsShown, Pints } from '#lib/client/types.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { privacy } from '#lib/privacy.svelte.js';
@@ -50,6 +57,8 @@
   /** The household's pint, once the server has said (null until then, and when it can't). */
   let pints = $state<Pints | null>(null);
   let pintsProblem = $state<string | null>(null);
+  /** How amounts are shown (0.9 U2; proposed, for cabledrawer). Read with the pint. */
+  let amountsShown = $state<AmountsShown>('as_written');
   const admin = who?.role === 'admin';
 
   /** The two ways Check can look on the phone (F141; words are the mockup's). */
@@ -105,7 +114,10 @@
 
   function readPint() {
     getHousehold().then(
-      (household) => (pints = household.pints),
+      (household) => {
+        pints = household.pints;
+        amountsShown = household.amounts_shown ?? 'as_written';
+      },
       () => {} // offline or unreachable: the row stays hidden, the rest of Settings still works
     );
   }
@@ -134,6 +146,23 @@
       if (pints === null) readPints();
     }
   });
+
+  /** How amounts are shown (0.9 U2): the choice moves at once; if it can't be saved it goes back. */
+  async function setAmountsShown(next: AmountsShown) {
+    const before = amountsShown;
+    pintsProblem = null;
+    amountsShown = next;
+    try {
+      amountsShown = (await changeAmountsShown(next)).amounts_shown;
+      kitchen.wroteSettings();
+    } catch (error) {
+      amountsShown = before;
+      pintsProblem =
+        error instanceof ApiError && !cantReach(error)
+          ? error.detail
+          : nothingChanged(network.deviceOffline);
+    }
+  }
 
   /** The switch flips at once and is sent; if it can't be saved it flips back and says so. */
   async function setPints(us: boolean) {
@@ -543,6 +572,12 @@
     {#if pints !== null && showing('amounts')}
       <section class="section" aria-labelledby="amounts">
         <h2 class="title" id="amounts" tabindex="-1">Amounts</h2>
+        <AmountsChoice
+          value={amountsShown}
+          disabled={!admin || network.offline}
+          onchange={(next) => void setAmountsShown(next)}
+          describedby={admin ? undefined : 'amounts-admin'}
+        />
         <div class="card">
           <div class="row">
             <span class="who">
@@ -551,17 +586,17 @@
                 {pints === 'us'
                   ? 'A pint is 473 ml (US).'
                   : 'A pint is 568 ml (UK). Switch on for 473 ml (US).'}
-                {#if !admin}Only an admin can change this.{/if}
               </span>
             </span>
             <Switch
               bind:checked={() => pints === 'us', (on) => void setPints(on)}
               labelledby="pints-label"
-              describedby="pints-detail"
+              describedby={admin ? 'pints-detail' : 'pints-detail amounts-admin'}
               disabled={!admin || network.offline}
             />
           </div>
         </div>
+        {#if !admin}<p class="detail" id="amounts-admin">Only an admin can change this.</p>{/if}
         {#if pintsProblem}<p class="warning-line" role="alert">{pintsProblem}</p>{/if}
       </section>
     {/if}

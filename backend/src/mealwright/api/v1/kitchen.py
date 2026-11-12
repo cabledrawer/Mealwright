@@ -14,7 +14,7 @@ from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import change_out, find
 from mealwright.history import FoodEdit, commit, record, replayed
-from mealwright.household import cup_ml, places, today, valid_time_zone
+from mealwright.household import amounts_shown, cup_ml, places, today, valid_time_zone
 from mealwright.models import Food, FoodConversion, Place, Shop
 from mealwright.names import clean_name, fold
 from mealwright.pints import household_pints
@@ -470,6 +470,11 @@ class HouseholdOut(BaseModel):
     plan_ahead_days: int
     week_starts_on: int
     today: date
+    # Full Onboarding (0.9 U2): false until the first admin finishes or skips it after setup.
+    onboarding_done: bool
+    # How amounts are shown (0.9 U2; proposed, for cabledrawer): as written, or grams and ml. Stored
+    # only for now: nothing on screen converts yet.
+    amounts_shown: Literal["as_written", "metric"]
 
 
 class FromBrowser(BaseModel):
@@ -504,6 +509,8 @@ def _household(kitchen: Here) -> HouseholdOut:
         plan_ahead_days=household.plan_ahead_days,
         week_starts_on=household.week_starts_on,
         today=today(household),
+        onboarding_done=household.onboarding_done,
+        amounts_shown=amounts_shown(household.amounts_shown),
     )
 
 
@@ -527,6 +534,11 @@ class HouseholdChange(BaseModel):
     batch_cook: StrictBool | None = None
     # The household's name (0.9 A1, Settings → Household). Admins only.
     name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
+    # Onboarding finished or skipped (0.9 U2). Admins only, and only ever true: it never opens
+    # again. Not in Recent changes: there is nothing to undo.
+    onboarding_done: Literal[True] | None = None
+    # How amounts are shown (0.9 U2; proposed, for cabledrawer): admins only, like the pint.
+    amounts_shown: Literal["as_written", "metric"] | None = None
 
     @field_validator("name")
     @classmethod
@@ -543,9 +555,17 @@ class HouseholdChange(BaseModel):
 def change_household(body: HouseholdChange, kitchen: Here, response: Response) -> HouseholdOut:
     """Changes the signed-in person's own household's settings: the pint (`pints`, admins
     only), Cook mode's per-step ingredients (`cook_per_step`, any person of the household) and
-    whether Batch cook is shown (`batch_cook`, admins only). Answers with the settings as
-    stored."""
-    if body.pints is not None or body.batch_cook is not None or body.name is not None:
+    whether Batch cook is shown (`batch_cook`, admins only), the household's name (`name`,
+    admins only), how amounts are shown (`amounts_shown`, admins only) and onboarding as
+    finished (`onboarding_done`, admins only, only ever true).
+    Answers with the settings as stored."""
+    if (
+        body.pints is not None
+        or body.batch_cook is not None
+        or body.name is not None
+        or body.onboarding_done is not None
+        or body.amounts_shown is not None
+    ):
         kitchen.admin_only(Action.HOUSEHOLD_SETTINGS)
     # One key twice at once: the second waits, then sees it. A retry of a used key changes
     # nothing and answers the settings as stored (RF5, cabledrawer 11 Nov).
@@ -573,6 +593,12 @@ def change_household(body: HouseholdChange, kitchen: Here, response: Response) -
         old_name, household.name = household.name, body.name
         kitchen_changes.household_renamed(kitchen, old_name, body.name)
         made = True
+    if body.amounts_shown is not None and household.amounts_shown != body.amounts_shown:
+        old_shown, household.amounts_shown = household.amounts_shown, body.amounts_shown
+        kitchen_changes.amounts_shown_changed(kitchen, old_shown, body.amounts_shown)
+        made = True
+    if body.onboarding_done:
+        household.onboarding_done = True
     kitchen.key_once = False
     kitchen.idempotency_key = key  # for commit(), if it loses a race
     if not made:  # nothing changed: the key is still remembered
