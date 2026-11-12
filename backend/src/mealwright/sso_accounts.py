@@ -45,6 +45,7 @@ from mealwright.auth import now
 from mealwright.events import Broadcaster
 from mealwright.models import Login, Member, Session, SsoSettings
 from mealwright.outbound import Connection, OutboundGate, switches
+from mealwright.people import admin_can_sign_in
 from mealwright.roles import ADMIN, MEMBER
 from mealwright.secret_box import SecretUnreadable, open_sealed, seal
 from mealwright.sso import Client, Identity, SsoFailed
@@ -217,12 +218,16 @@ def find_login(db: DbSession, identity: Identity) -> Login | None:
     )
 
 
-def another_admin_gets_in(db: DbSession, login: Login, off: bool) -> bool:
+def another_admin_gets_in(db: DbSession, login: Login, off: bool, *, again: bool = False) -> bool:
     """True when another admin of this household can get in without the sign-in server's say:
     they have a password and password sign-in isn't off (`off`), or they have a sign-in that
     hasn't run out. Being linked to the sign-in server is not enough: the same groups that
     refuse `login` may refuse them (O2 review r5, findings 1, 2 and 3). Not shared logins, not
-    removed people. This is the one answer to "is someone else a way in?" for a refusal."""
+    removed people. This is the one answer to "is someone else a way in?". `again` (for a group
+    demotion, which lasts): they must also be able to sign in again once their sign-in runs out
+    (`admin_can_sign_in`: with passwords off, linked to the saved sign-in server), not only be
+    signed in from before passwords went off (O2 review r9, finding 1). A refusal is temporary,
+    so it keeps the plain meaning."""
     has_password = and_(Login.password_hash.is_not(None), Login.password_hash != "")  # nosec B105
     live = exists().where(Session.login_id == Login.id, Session.expires_at > now())
     ways = live if off else or_(has_password, live)
@@ -234,6 +239,8 @@ def another_admin_gets_in(db: DbSession, login: Login, off: bool) -> bool:
         .where(Login.shared.is_(False), Login.id != login.id, Member.removed_at.is_(None))
         .where(ways)
     )
+    if again:
+        query = query.where(admin_can_sign_in(db, login.household_id, off))
     return int(db.scalar(query) or 0) > 0
 
 
@@ -318,7 +325,7 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Pat
         _refused_known(db, login, row, "not_let_in", data_dir)
     if login.role != role:
         off = passwords_off(db, data_dir, row.household_id)
-        if login.role == ADMIN and not another_admin_gets_in(db, login, off):
+        if login.role == ADMIN and not another_admin_gets_in(db, login, off, again=True):
             log.warning(
                 "Single sign-on: %s stays an admin, as the household's last one", login.username
             )

@@ -272,3 +272,24 @@ def test_another_admins_expired_sign_in_is_no_way_in(
     refused, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": []})
     assert refused.status_code != 200
     assert sso_only.get(f"{API}/sso/settings").status_code == 200
+
+
+def test_a_group_demotion_needs_the_other_admin_to_be_able_to_sign_in_again(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """O2 review r9, finding 1. Joss is an admin with a password, signed in from before
+    passwords went off; Tess links himself and turns passwords off. The provider sends him
+    only the users group: Joss's sign-in will run out and she has no way back in, so he stays
+    admin. Fails when a still-signed-in admin counts for a demotion."""
+    from test_sso_api import _add_admin
+
+    _add_admin(admin, "joss")
+    joss = browser(admin)
+    assert joss.post(
+        f"{API}/session", json={"username": "joss", "password": "joss's own password"}
+    ).is_success
+    sign_in(admin, idp, path="/sso/test", sub="k", extra=ADMIN_GROUPS)
+    assert admin.post(f"{API}/sso/link").is_success
+    assert admin.put(f"{API}/sso/password-sign-in", json={"on": False}).is_success
+    result, _ = sign_in(browser(admin), idp, sub="k", extra={"groups": ["mealwright-users"]})
+    assert result.json()["me"]["role"] == "admin"
