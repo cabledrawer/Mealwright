@@ -71,11 +71,11 @@ test.describe('first run', () => {
     await page.getByLabel('Setup code').fill(ADMIN.setup_code.replaceAll('-', '').toLowerCase());
     await page.getByRole('button', { name: 'Create account' }).click();
 
-    // Onboarding comes once, straight after the account is made (0.9 U2). Skip ends it.
+    // Onboarding comes once, straight after the account is made (0.9 U2). Finish setup ends it (the computer page has no Skip).
     await expect(page).toHaveURL('/onboarding');
     await expect(heading(page)).toHaveText('Welcome to Mealwright. Five quick things.');
     await expect(page.getByText('Made: Tess, the admin.')).toBeVisible();
-    await page.getByRole('button', { name: 'Skip' }).click();
+    await page.getByRole('button', { name: 'Finish setup' }).click();
 
     await expect(page).toHaveURL('/');
     await expect(heading(page)).toHaveText('Today');

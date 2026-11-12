@@ -3,7 +3,7 @@ import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
 // Full Onboarding (0.9 U2), against the real server, signed in as the test admin. This worker's
 // server was set up through /api/v1/setup, so its household hasn't finished onboarding yet: these
-// tests never press Skip or Finish (that is sign-in.spec.ts's first run, on the fresh server), so
+// tests never press the last Skip or Finish (that is sign-in.spec.ts's first run, on the fresh server), so
 // a retry finds it the same. Every test takes away what it added (the person, the shop, the
 // starter pack and the Amounts choice), so the household the other screens share is as it was.
 // Runs in the "phone 0.9 onboarding" and "desktop 0.9 onboarding" projects.
@@ -85,7 +85,8 @@ test('each step saves through the same settings: Amounts, people, shops and a st
         page.getByRole('heading', { level: 1, name: 'Welcome to Mealwright. Five quick things.' }),
       ).toBeVisible();
     }
-    await expect(page.getByRole('button', { name: 'Skip' })).toBeVisible();
+    // The phone's Skip passes over one step; the computer page draws none.
+    await expect(page.getByRole('button', { name: 'Skip' })).toHaveCount(phone ? 1 : 0);
 
     // Amounts: the 1.0 choices only; cups come after 1.0.
     await expect(page.getByRole('radio', { name: 'As the recipe says (cups stay cups)' })).toBeChecked();
@@ -134,7 +135,7 @@ test('each step saves through the same settings: Amounts, people, shops and a st
     await page.goto('/recipes/ingredients');
     await expect(page.getByText('self-raising flour', { exact: true }).first()).toBeVisible();
 
-    // Nothing here finished onboarding: only Skip, Finish setup and Go to Today do.
+    // Nothing here finished onboarding: only the last Skip (step 5), Finish setup and Go to Today do.
     expect((await json(page, '/household')).onboarding_done).toBe(false);
   } finally {
     await tidy(page, person, shop);
