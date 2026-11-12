@@ -10,7 +10,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Fixed
 
-- **Many requests at once no longer fail or stall.** About 60 signed-in requests in the same moment used to leave most of them with an error and everyone waiting 30 seconds (the database connections ran out; older than 0.9, found by a security review). Now at most 40 requests use the database at a time and the rest wait their turn, and a request gives its connection back before its answer is sent. Nothing on screen changes.
+- **Many requests at once no longer fail or stall.** About 60 signed-in requests in the same moment used to leave most of them with an error and everyone waiting 30 seconds (the database connections ran out; older than 0.9, found by a security review). Now at most 40 requests use the database at a time and the rest wait their turn, a request gives its connection back before its answer is sent, and a photo upload holds nothing while the photo arrives (its sign-in is checked before the photo is read, and again once it's in). Nothing on screen changes.
 
 ## [0.9.0-alpha.1] - 2026-11-12
 

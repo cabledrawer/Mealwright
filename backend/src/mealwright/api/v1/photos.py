@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from mealwright import photos
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.recipe_schemas import PhotoOut
-from mealwright.auth import SameOrigin
+from mealwright.auth import SameOrigin, current
 from mealwright.drafts import is_live
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.limits import MAX_PHOTO_BYTES
@@ -39,9 +39,20 @@ _PHOTO_BODY = {
 }
 
 
-async def _photo_bytes(request: Request) -> bytes:
-    # Declared after the sign-in, so a signed-out request is refused before the body is
-    # read. The body limit (15 MB on this route only) is checked as it arrives.
+def _signed_in(request: Request) -> None:
+    """Refuse (401) unless signed in, with a session of its own that is closed, and its
+    connection back, before this returns: all inside one thread."""
+    with request.app.state.sessionmaker() as db:
+        current(request, db)
+
+
+async def _photo_bytes(request: Request, _: Annotated[None, Depends(_signed_in)]) -> bytes:
+    # The sign-in is checked first, so a signed-out request is refused before the body is
+    # read; but with a short session of its own, so while the body arrives (15 MB, as slowly
+    # as the sender likes) the upload holds no connection and no place among the requests
+    # using the database (`mealwright.db.REQUESTS_AT_ONCE`). The endpoint asks for this
+    # before `Here`, which checks the sign-in again once the body is in. The body limit
+    # (15 MB on this route only) is checked as it arrives.
     return await request.body()
 
 
@@ -110,7 +121,7 @@ def _own(kitchen: Kitchen, photo_id: int) -> RecipePhoto:
         422: {"description": "`not_a_photo` or `too_many_pixels`."},
     },
 )
-def upload_photo(kitchen: Here, data: PhotoBytes) -> PhotoOut:
+def upload_photo(data: PhotoBytes, kitchen: Here) -> PhotoOut:
     """Upload a photo for a recipe: send the JPEG, PNG or WebP file itself as the body.
     What it is is read from the file, never its name. It's cleaned straight away (turned
     upright, every hidden detail such as the place it was taken removed, colours made
