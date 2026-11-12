@@ -17,10 +17,10 @@ from mealwright.auth import SameOrigin
 from mealwright.config import Settings
 from mealwright.problem_report import (
     NEW_ISSUE_PAGE,
-    Scrubber,
     browser_words,
     error_line,
     recent_errors,
+    scrubber_for,
     server_address,
     version_line,
 )
@@ -53,7 +53,7 @@ def problem_report(kitchen: Here, request: Request) -> ProblemReportOut:
         found = recent_errors(settings.data_dir / "logs")
         if found:
             server = server_address(request.url.hostname, request.url.port, settings.port)
-            scrub = Scrubber(kitchen.db, server, settings.data_dir)
+            scrub = scrubber_for(kitchen.db, server, settings.data_dir)
             errors = [error_line(error, scrub) for error in found]
     return ProblemReportOut(
         version=version_line(),

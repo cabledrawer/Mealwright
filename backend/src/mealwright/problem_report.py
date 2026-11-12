@@ -11,15 +11,19 @@ written in the last `ERRORS_WITHIN`, each reduced to its time, the part of the a
 its message and the kind of error (never the traceback).
 
 Personal details are removed here, on the server, before the web app sees the lines
-(`Scrubber`): every username, person and household name, recipe, ingredient, shop, place,
-list and tag name kept on this server (the log is the whole server's, so every household's),
-the server's own address, host name and port, any IP address, link or e-mail address, files
-under the data folder, and anything a log line quotes.
+(`Scrubber`): every word of every username, person's and household's name kept on this
+server (the log is the whole server's, so every household's), every recipe, ingredient, shop,
+place, list and tag name as a whole phrase, the server's own address, host name and port, any
+IP address, link, host name, e-mail address, file path, password, token or key, and anything
+a log line quotes.
 """
 
 import os
 import platform
 import re
+import threading
+import time
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -45,12 +49,18 @@ ERRORS_WITHIN = timedelta(hours=24)
 TAIL_BYTES = 2 * 1024 * 1024
 # A longer message is cut here, with "…".
 LINE_LIMIT = 300
+# Only this much of a message is scrubbed (and so read at all): scrubbing a huge line is slow.
+MESSAGE_READ = 2000
+# How long a built Scrubber is used again before it is built afresh, in seconds.
+SCRUBBER_KEPT = 60.0
 
 # 2026-10-17T18:21:50Z ERROR mealwright.jobs: Couldn't thin the history …
 _RECORD = re.compile(r"^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ) ([A-Z]+) ([\w.\-]+): ?(.*)$")
 _ERROR_LEVELS = {"ERROR", "CRITICAL"}
 # The last line of a traceback: "sqlite3.OperationalError: database is locked".
-_EXCEPTION = re.compile(r"^([A-Za-z_][\w.]*)(?::|$)")
+_EXCEPTION = re.compile(r"^([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)(?::|$)")
+#   File "/app/src/mealwright/recipes.py", line 12, in save
+_FRAME = re.compile(r'^\s+File "')
 
 
 # --- The browser and device ---------------------------------------------------------------
@@ -131,15 +141,22 @@ def _records(text: str) -> Iterable[tuple[str, str, str, str, list[str]]]:
 
 
 def _kind(following: list[str]) -> str | None:
-    """The kind of error a traceback ended with: the last part of its name only."""
+    """The kind of error a traceback ended with: the last part of its name only.
+
+    It is the first unindented line after the traceback's last frame (an error's message can
+    run on over more lines after it), and only if that line starts with a class's name
+    ("sqlite3.OperationalError: …"); otherwise just "error". It is scrubbed like the message.
+    """
     if not any(line.startswith("Traceback") for line in following):
         return None
-    for line in reversed(following):
+    frames = [index for index, line in enumerate(following) if _FRAME.match(line)]
+    if not frames:
+        return "error"
+    for line in following[frames[-1] + 1 :]:
         if line and not line[0].isspace():
             found = _EXCEPTION.match(line)
-            if found and not line.startswith("Traceback"):
-                return found.group(1).rsplit(".", 1)[-1]
-    return None
+            return found.group(1).rsplit(".", 1)[-1] if found else "error"
+    return "error"
 
 
 def recent_errors(folder: Path, now: datetime | None = None) -> list[LogError]:
@@ -169,157 +186,177 @@ def recent_errors(folder: Path, now: datetime | None = None) -> list[LogError]:
 
 
 # --- Removing personal details --------------------------------------------------------------
+#
+# Every pattern here is linear: no nested or unbounded repeats that can backtrack, so even a
+# huge line costs little (and only MESSAGE_READ characters of it are read).
 
-_URL = re.compile(r"\b[a-z][a-z0-9+.\-]*://[^\s<>\"']+|\bwww\.[^\s<>\"']+", re.IGNORECASE)
-_EMAIL = re.compile(r"[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+")
-_IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?::\d{1,5})?(?![\w.])")
+_URL = re.compile(
+    r"(?<![a-z0-9+.\-])[a-z][a-z0-9+.\-]{0,30}://[^\s<>\"']*|(?<![\w.\-])www\.[^\s<>\"']+",
+    re.IGNORECASE,
+)
+# "password=…", "mw_session=…", "api_key=…": the name stays, the value goes.
+_SECRET_VALUE = re.compile(
+    r"(?<![a-z])((?:password|passwd|pwd|token|secret|cookie|session|key|auth)[a-z_\-]{0,30})"
+    r"\s{0,3}=\s{0,3}(?:\"[^\"\n]{0,300}\"|'[^'\n]{0,300}'|[^\s,;&)\]]+)",
+    re.IGNORECASE,
+)
+_BEARER = re.compile(r"(?<![a-z])(bearer|basic)\s{1,3}[\w\-.~+/]+=*", re.IGNORECASE)
+_JWT = re.compile(r"(?<![\w\-])eyJ[\w\-]{5,}\.[\w\-]{5,}\.[\w\-]*")
+# Also "user@host" with no dot.
+_EMAIL = re.compile(
+    r"[\w.+\-]{1,64}@(?:\[[0-9a-f:.]{1,45}\]|[\w\-]{1,63}(?:\.[\w\-]{1,63}){0,10})",
+    re.IGNORECASE,
+)
+# A host name without a scheme ("recipes.example.org/pie", "caddy.home.arpa"), with any port
+# and path after it. Kept unless it is a known site or ends in one of _TLDS: module names
+# ("sqlalchemy.exc", "mealwright.jobs") look the same.
+_HOST = re.compile(
+    r"(?<![\w.\-@/\\])((?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.){1,10}([a-z][a-z0-9\-]{0,62}))"
+    r"(?![\w\-]|\.[a-z0-9])((?::\d{1,5})?(?:/[^\s<>\"']*)?)",
+    re.IGNORECASE,
+)
+_TLDS = frozenset(
+    (
+        *("com", "net", "org", "edu", "gov", "mil", "int", "io", "co", "uk", "de", "fr", "nl"),
+        *("be", "ch", "at", "it", "es", "se", "no", "dk", "fi", "pl", "cz", "ie", "eu", "us"),
+        *("ca", "au", "nz", "in", "jp", "cn", "br", "ru", "info", "biz", "dev", "me", "tv"),
+        *("xyz", "online", "site", "cloud", "email", "local", "localdomain", "lan", "home"),
+        *("arpa", "internal", "intranet", "corp", "example", "test", "invalid", "localhost"),
+        "onion",
+    )
+)
+# Any absolute path: Unix (a part may hold up to four spaces when another "/" follows it, so
+# "/data/photos/Ayla Roe/x.jpg" goes whole), Windows and network shares.
+_PART = r"[^\s/\\'\"<>:;,()\[\]|?*]+"
+_PATH = re.compile(
+    rf"(?<![\w/.~\]\[])~?/(?:{_PART}(?: {_PART}){{0,4}}/)*{_PART}"
+    rf"|(?<![\w\\])[a-z]:\\(?:{_PART}(?: {_PART}){{0,4}}\\)*(?:{_PART})?"
+    rf"|(?<![\w\\])\\\\{_PART}(?:\\{_PART}){{0,30}}",
+    re.IGNORECASE,
+)
+_IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?::\d{1,5})?(?!\w|\.\d)")
 _IPV6 = re.compile(
     r"(?<![\w:])\[?[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}\]?(?::\d{1,5})?(?![\w:])", re.I
 )
-# Quoted words: quote marks that aren't inside a word ("Couldn't" and "Mabel's" aren't quotes).
+# "port=8443", "port 8443": any port, not just this server's.
+_ANY_PORT = re.compile(r"(?<![a-z])(port)(\s{0,3}[=:]\s{0,3}|\s{1,3})\d{1,5}(?!\d)", re.I)
+# A run of 20 or more characters that could be a key, a hash or a token (see _long_run).
+_LONG_RUN = re.compile(r"(?<![\w+/=\-])[A-Za-z0-9+/_\-]{20,}={0,2}")
+_HEX = frozenset("0123456789abcdefABCDEF-")
+# Quoted words: quote marks that aren't inside a word ("Couldn't" and "Mabel's" aren't quotes),
+# and an apostrophe inside a quote ("'Auntie Shanti's biryani'") doesn't end it.
 _QUOTED = re.compile(
-    r"(?<!\w)(?:'[^'\n]*'|\"[^\"\n]*\"|\u2018[^\u2019\n]*\u2019|\u201c[^\u201d\n]*\u201d)(?!\w)"
+    r"(?<!\w)(?:'(?:[^'\n]|'(?=\w)){0,300}'"
+    r"|\u2018(?:[^\u2019\n]|\u2019(?=\w)){0,300}\u2019"
+    r"|\"[^\"\n]{0,300}\""
+    r"|\u201c[^\u201d\n]{0,300}\u201d"
+    r"|\u201e[^\u201c\u201d\n]{0,300}[\u201c\u201d]"
+    r"|\u00ab[^\u00bb\n]{0,300}\u00bb"
+    r"|\u203a[^\u2039\n]{0,300}\u2039|\u2039[^\u203a\n]{0,300}\u203a"
+    r"|`[^`\n]{0,300}`)(?!\w)"
 )
+# A word: a run of letters (with any combining accents). Anything else is a boundary, so
+# "tess_backup.db", "user_tess" and "tess2" each hold the word "tess".
+_WORD = re.compile(r"(?:[^\W\d_]|[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff])+")
+# "Granny Mabel's lasagne": a capitalised word before 's in a recipe's or ingredient's name is
+# most likely a person's, and is removed on its own like one (proposed, for cabledrawer).
+_POSSESSIVE = re.compile(r"(?<![^\W\d_])([^\W\d_]{2,})['\u2019]s(?![^\W\d_])")
+# Words of household names that are never removed on their own ("The Marshes").
+_JOINING = frozenset({"the", "and", "of"})
+# Between two words of one phrase in a log line: a few characters that aren't letters.
+_GAP = 4
 
 
 def _ipv6(found: re.Match[str]) -> str:
     text = found.group(0)
-    # A time ("12:41:07") has colons too: an address has "::" or a letter a to f.
-    if "::" in text or re.search(r"[a-f]", text, re.IGNORECASE):
+    # A time ("12:41:07") has colons too: an address has "::", a letter a to f, or 4+ groups.
+    if "::" in text or re.search(r"[a-f]", text, re.IGNORECASE) or text.count(":") >= 3:
         return "[address]"
     return text
 
 
+def _long_run(found: re.Match[str]) -> str:
+    text = found.group(0)
+    core = text.rstrip("=")
+    hex_digits = sum(char != "-" for char in core)
+    if set(core) <= _HEX and hex_digits >= 20 and any(char.isdigit() for char in core):
+        return "[secret]"
+    if (
+        any(char.isdigit() for char in core)
+        and any(char.isupper() for char in core)
+        and any(char.islower() for char in core)
+    ):
+        return "[secret]"
+    return text
+
+
+def _key(word: str) -> str:
+    """How a word is looked up: any capitals, and an accent written either way ("Jos\u00e9",
+    "JOSE", "Jose" with a combining accent all match), "\u00df" as "ss", and the Turkish
+    dotted and dotless i as "i"."""
+    if word.isascii():
+        return word.lower()
+    folded = unicodedata.normalize("NFD", word.casefold())
+    return "".join(char for char in folded if not unicodedata.combining(char)).replace(
+        "\u0131", "i"
+    )
+
+
+def _variants(key: str) -> tuple[str, ...]:
+    """The word, and without a plural or possessive "s" or "es" ("Tesss", "paruppus")."""
+    if len(key) > 4 and key.endswith("es"):
+        return (key, key[:-1], key[:-2])
+    if len(key) > 3 and key.endswith("s"):
+        return (key, key[:-1])
+    return (key,)
+
+
+def _keys(text: str) -> tuple[str, ...]:
+    return tuple(_key(word) for word in _WORD.findall(unicodedata.normalize("NFC", text)))
+
+
 def _phrases(pattern_words: Iterable[str]) -> re.Pattern[str] | None:
+    """One pattern for a few host names (this server's, its own network's)."""
     words = {
         word.strip()
         for word in pattern_words
-        if word and len(word.strip()) >= 2 and re.search(r"[^\W\d_]", word)
+        if word and len(word.strip()) >= 2 and re.search(r"[^\W_]", word)
     }
     if not words:
         return None
     alternatives = "|".join(re.escape(word) for word in sorted(words, key=len, reverse=True))
-    return re.compile(rf"(?<!\w)(?:{alternatives})(?!\w)", re.IGNORECASE)
+    return re.compile(rf"(?<![\w.\-])(?:{alternatives})(?![\w\-]|\.\w)", re.IGNORECASE)
 
 
-# Short everyday words that are never removed on their own (they are inside a whole name).
-_EVERYDAY = frozenset(
-    (
-        "about",
-        "after",
-        "again",
-        "also",
-        "baked",
-        "best",
-        "big",
-        "black",
-        "blue",
-        "brown",
-        "cold",
-        "dark",
-        "days",
-        "does",
-        "done",
-        "each",
-        "every",
-        "fast",
-        "fine",
-        "fresh",
-        "from",
-        "full",
-        "good",
-        "green",
-        "half",
-        "have",
-        "hers",
-        "home",
-        "into",
-        "just",
-        "kind",
-        "large",
-        "last",
-        "left",
-        "like",
-        "little",
-        "long",
-        "made",
-        "make",
-        "many",
-        "mine",
-        "more",
-        "most",
-        "much",
-        "next",
-        "nice",
-        "none",
-        "only",
-        "other",
-        "over",
-        "plain",
-        "quick",
-        "real",
-        "really",
-        "right",
-        "same",
-        "side",
-        "slow",
-        "small",
-        "some",
-        "such",
-        "than",
-        "that",
-        "their",
-        "them",
-        "then",
-        "there",
-        "these",
-        "they",
-        "this",
-        "those",
-        "very",
-        "well",
-        "were",
-        "what",
-        "when",
-        "where",
-        "which",
-        "white",
-        "with",
-        "your",
-    )
+# People: every word of these is removed on its own, wherever it is (proposed, for cabledrawer).
+_PEOPLE_COLUMNS: tuple[Any, ...] = (
+    models.Login.username,
+    models.Login.name,
+    models.Household.name,
+    models.Recipe.source_author,
+    # People who have left or been renamed are still named here.
+    models.OwnNetworkEntry.added_by_name,
+    models.FoodConversion.answered_by_name,
+    models.ShoppingList.created_by_name,
+    models.ListItem.ticked_by_name,
+    models.ListItem.added_by_name,
+    models.ListItem.deleted_by_name,
+    models.DoubleTick.answered_by_name,
+    models.Recipe.updated_by_name,
+    models.RecipePhoto.added_by_name,
+    models.ImportDraft.started_by_name,
+    models.CookedRecord.cooked_by_name,
 )
 
-
-def _name_parts(name: str) -> list[str]:
-    """A name, and each word of it of four letters or more that isn't an everyday word: a
-    log line may name "paruppu" without "Thuvaram" (proposed, for cabledrawer)."""
-    name = " ".join(name.split())
-    if not name:
-        return []
-    parts = [name]
-    for word in re.findall(r"[^\W\d_][\w’'-]*", name):
-        bare = word.strip("’'-")
-        if len(bare) >= 4 and bare.casefold() not in _EVERYDAY:
-            parts.append(bare)
-    return parts
-
-
-# What each kind of name is replaced with (proposed, for cabledrawer).
-_NAME_COLUMNS: tuple[tuple[str, tuple[Any, ...]], ...] = (
-    (
-        "[name]",
-        (
-            models.Login.username,
-            models.Login.name,
-            models.Household.name,
-        ),
-    ),
+# Everything else is removed only as a whole phrase (its last word may have an "s"), so the
+# everyday words in it ("hour", "removed") stay in other lines. What each is replaced with
+# (proposed, for cabledrawer); a phrase that is two kinds at once gets the first kind's word.
+_PHRASE_COLUMNS: tuple[tuple[str, tuple[Any, ...]], ...] = (
     (
         "[recipe]",
         (
             models.Recipe.name,
             models.Recipe.description,
-            models.Recipe.source_author,
             models.RecipeLine.words,
             models.RecipeLine.note,
             models.RecipeMethod.name,
@@ -346,6 +383,17 @@ _NAME_COLUMNS: tuple[tuple[str, tuple[Any, ...]], ...] = (
         ),
     ),
 )
+# Names whose possessive words are people's ("Granny Mabel's lasagne").
+_TITLE_COLUMNS = {
+    models.Recipe.name,
+    models.BatchCook.recipe_name,
+    models.ImportDraft.name,
+    models.MealItem.name,
+    models.Food.name,
+    models.FoodName.name,
+}
+# A phrase longer than this many words can't fit in MESSAGE_READ characters.
+_LONGEST_PHRASE = MESSAGE_READ // 2
 
 
 @dataclass(frozen=True)
@@ -360,24 +408,35 @@ class Scrubber:
     """Removes personal details from one log message."""
 
     def __init__(self, db: Session, server: ServerAddress, data_dir: Path) -> None:
-        # One pattern for every name, longest first, so a person's name inside a longer
-        # ingredient name ("Neighbour's sourdough") can't leave the rest of it behind. A name
-        # that is two kinds at once gets the first kind's word.
-        self._name_kinds: dict[str, str] = {}
-        for replacement, columns in _NAME_COLUMNS:
+        # One word: a person's, or a one-word name of another kind. Looked up word by word.
+        self._words: dict[str, str] = {}
+        # Phrases of two words or more, by their first two words: (the rest, replacement),
+        # longest first.
+        self._phrases: dict[tuple[str, str], list[tuple[tuple[str, ...], str]]] = {}
+        for column in _PEOPLE_COLUMNS:
+            for value in db.scalars(select(column)):
+                self._add_person(value)
+        for replacement, columns in _PHRASE_COLUMNS:
             for column in columns:
                 for value in db.scalars(select(column)):
-                    for phrase in _name_parts(value or ""):
-                        self._name_kinds.setdefault(phrase.casefold(), replacement)
-        self._names = _phrases(self._name_kinds)
-        sites: list[str] = []
-        sites.extend(site for site in db.scalars(select(models.ImportDraft.site)) if site)
+                    if not value:
+                        continue
+                    if column in _TITLE_COLUMNS:
+                        for found in _POSSESSIVE.finditer(unicodedata.normalize("NFC", value)):
+                            if found.group(1)[0].isupper():
+                                self._add_person(found.group(1))
+                    self._add_phrase(_keys(value), replacement)
+        for options in self._phrases.values():
+            options.sort(key=lambda option: len(option[0]), reverse=True)
+        self._sites: set[str] = set()
+        for site in db.scalars(select(models.ImportDraft.site)):
+            if site:
+                self._sites.add(site.casefold().removeprefix("www."))
         for link in db.scalars(select(models.Recipe.source_url)):
             host = urlsplit(link or "").hostname
             if host:
-                sites.append(host)
+                self._sites.add(host.casefold().removeprefix("www."))
         own = [entry for entry in db.scalars(select(models.OwnNetworkEntry.value)) if entry]
-        self._sites = _phrases(sites)
         self._server = _phrases([*server.hosts, *own])
         ports = sorted({str(port) for port in server.ports})
         self._ports = (
@@ -385,26 +444,124 @@ class Scrubber:
             if ports
             else None
         )
+        # The data folder, also when it is given as a relative path.
         folders = sorted({str(data_dir).rstrip("/") or "/data", "/data"}, key=len, reverse=True)
         roots = "|".join(re.escape(folder) for folder in folders)
         self._files = re.compile(rf"(?<![\w/])(?:{roots})(?:/[^\s'\":,;)\]]*)?(?!\w)")
 
+    def _add_person(self, name: str | None) -> None:
+        for key in _keys(name or ""):
+            if len(key) >= 2 and key not in _JOINING:
+                self._words.setdefault(key, "[name]")
+
+    def _add_phrase(self, keys: tuple[str, ...], replacement: str) -> None:
+        if not keys or len(keys) > _LONGEST_PHRASE or len("".join(keys)) < 2:
+            return
+        if len(keys) == 1:
+            self._words.setdefault(keys[0], replacement)
+            return
+        options = self._phrases.setdefault((keys[0], keys[1]), [])
+        option = (keys[2:], replacement)
+        if option not in options:
+            options.append(option)
+
+    def _word(self, key: str) -> str | None:
+        for variant in _variants(key):
+            found = self._words.get(variant)
+            if found is not None:
+                return found
+        return None
+
+    def _host(self, found: re.Match[str]) -> str:
+        host = found.group(1).casefold().removeprefix("www.")
+        labels = host.split(".")
+        if any(".".join(labels[start:]) in self._sites for start in range(len(labels) - 1)):
+            return "[site]"
+        if found.group(2).casefold() in _TLDS:
+            return "[link]"
+        return found.group(0)
+
+    def _names(self, text: str) -> str:
+        words = [
+            (found.start(), found.end(), found.group(0), _key(found.group(0)))
+            for found in _WORD.finditer(text)
+        ]
+        # Whether a word and the next one can be two words of one phrase.
+        joined = [
+            words[n + 1][0] - words[n][1] <= _GAP
+            and not any(c in "\n[]" for c in text[words[n][1] : words[n + 1][0]])
+            for n in range(len(words) - 1)
+        ]
+        out: list[str] = []
+        done = 0
+        n = 0
+        while n < len(words):
+            start, end, word, key = words[n]
+            if start > 0 and text[start - 1] == "[" and text[end : end + 1] == "]":
+                n += 1  # one of the replacements ("[link]")
+                continue
+            last, replacement = self._phrase_at(words, joined, n)
+            if replacement is None:
+                replacement = self._word(key) or self._joined_words(word)
+            if replacement is not None:
+                out.append(text[done:start])
+                out.append(replacement)
+                done = words[last][1]
+            n = last + 1
+        out.append(text[done:])
+        return "".join(out)
+
+    def _phrase_at(
+        self, words: list[tuple[int, int, str, str]], joined: list[bool], n: int
+    ) -> tuple[int, str | None]:
+        """The longest phrase starting at word n: its last word and its replacement."""
+        if n + 1 >= len(words) or not joined[n]:
+            return n, None
+        first, second = words[n][3], words[n + 1][3]
+        for variant in _variants(second):
+            for rest, replacement in self._phrases.get((first, variant), ()):
+                if variant != second and rest:
+                    continue  # only a phrase's last word may have an "s"
+                last = n + 1 + len(rest)
+                if last >= len(words) or not all(joined[n + 1 : last]):
+                    continue
+                if all(words[n + 2 + k][3] == part for k, part in enumerate(rest[:-1])) and (
+                    not rest or rest[-1] in _variants(words[last][3])
+                ):
+                    return last, replacement
+        return n, None
+
+    def _joined_words(self, word: str) -> str | None:
+        """ "TessMarsh": names run together, each with a capital."""
+        cuts = [0] + [
+            at for at in range(1, len(word)) if word[at - 1].islower() and word[at].isupper()
+        ]
+        if len(cuts) == 1:
+            return None
+        parts = [word[a:b] for a, b in zip(cuts, [*cuts[1:], len(word)], strict=True)]
+        replaced = [self._word(_key(part)) for part in parts]
+        if not any(replaced):
+            return None
+        return "".join(r or part for r, part in zip(replaced, parts, strict=True))
+
     def __call__(self, text: str) -> str:
         text = _URL.sub("[link]", text)
+        text = _JWT.sub("[secret]", text)
+        text = _SECRET_VALUE.sub(r"\1=[secret]", text)
+        text = _BEARER.sub(r"\1 [secret]", text)
         text = _EMAIL.sub("[e-mail]", text)
+        text = _PATH.sub("[file]", text)
         text = self._files.sub("[file]", text)
         if self._server is not None:
             text = self._server.sub("[server]", text)
-        if self._sites is not None:
-            text = self._sites.sub("[site]", text)
+        text = _HOST.sub(self._host, text)
         text = _IPV4.sub("[address]", text)
         text = _IPV6.sub(_ipv6, text)
         if self._ports is not None:
             text = self._ports.sub("[port]", text)
-        if self._names is not None:
-            text = self._names.sub(
-                lambda found: self._name_kinds.get(found.group(0).casefold(), "[removed]"), text
-            )
+        text = _ANY_PORT.sub(r"\1\2[port]", text)
+        text = _LONG_RUN.sub(_long_run, text)
+        text = self._names(text)
         text = _QUOTED.sub("[text]", text)
         return text
 
@@ -415,15 +572,53 @@ def server_address(request_host: str | None, request_port: int | None, port: int
     return ServerAddress(hosts=tuple(hosts), ports=tuple(ports))
 
 
+def _now() -> float:
+    return time.monotonic()
+
+
+# Built Scrubbers, kept for SCRUBBER_KEPT seconds: by database, households, address and folder.
+_kept: dict[tuple[object, ...], tuple[float, Scrubber]] = {}
+_kept_lock = threading.Lock()
+
+
+def scrubber_for(db: Session, server: ServerAddress, data_dir: Path) -> Scrubber:
+    """A Scrubber for this server, built at most once every SCRUBBER_KEPT seconds (a name
+    added since is removed from the next one built)."""
+    households = tuple(db.scalars(select(models.Household.id).order_by(models.Household.id)))
+    key = (str(getattr(db.get_bind(), "url", "")), households, server, str(data_dir))
+    now = _now()
+    with _kept_lock:
+        kept = _kept.get(key)
+        if kept is not None and now - kept[0] < SCRUBBER_KEPT:
+            return kept[1]
+    scrubber = Scrubber(db, server, data_dir)
+    with _kept_lock:
+        for old in [k for k, (at, _) in _kept.items() if now - at >= SCRUBBER_KEPT]:
+            del _kept[old]
+        _kept[key] = (now, scrubber)
+    return scrubber
+
+
 _MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def _read(message: str) -> str:
+    """The start of a message, written one way (NFC), never ending in half a word."""
+    message = unicodedata.normalize("NFC", message)
+    if len(message) <= MESSAGE_READ:
+        return message
+    start = message[:MESSAGE_READ]
+    if _WORD.match(message, MESSAGE_READ):
+        start = re.sub(r"(?:[^\W\d_]|[\u0300-\u036f])+$", "", start)
+    return start
 
 
 def error_line(error: LogError, scrub: Scrubber) -> str:
     """ "12 Nov 12:41 UTC mealwright.jobs: Couldn't thin the history (OperationalError)"."""
-    message = scrub(error.message)
+    message = scrub(_read(error.message))
     if len(message) > LINE_LIMIT:
         message = message[: LINE_LIMIT - 1] + "…"
-    kind = f" ({error.kind})" if error.kind else ""
+    kind = f" ({scrub(_read(error.kind))})" if error.kind else ""
     when = f"{error.at.day} {_MONTHS[error.at.month - 1]} {error.at:%H:%M} UTC"
     return f"{when} {error.logger}: {message}{kind}"
 
