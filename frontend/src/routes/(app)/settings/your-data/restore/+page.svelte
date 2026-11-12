@@ -40,7 +40,7 @@
         <pre><code
             >sudo tar -C &lt;folder&gt; --exclude=data/logs -czf "&lt;another disk&gt;/mealwright-data-$(date +%Y%m%d-%H%M).tar.gz" data</code
           ></pre>
-        With<code>rsync</code>, add <code>--exclude=logs/</code>.
+        With&nbsp;<code>rsync</code>, add <code>--exclude=logs/</code>.
       </li>
       <li>
         The copies made before an upgrade (<code>pre-upgrade-…</code>) and before Delete everything
