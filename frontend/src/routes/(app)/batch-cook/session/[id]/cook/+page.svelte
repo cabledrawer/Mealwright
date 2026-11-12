@@ -49,7 +49,7 @@
     const now = live.batchCook;
     if (now === heard) return;
     heard = now;
-    untrack(() => void model.refresh());
+    untrack(() => model.refreshSoon());
   });
   $effect(() => {
     if (!network.offline) untrack(() => void model.flush());

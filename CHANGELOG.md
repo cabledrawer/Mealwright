@@ -20,6 +20,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Batch cook (F227):** Start timer, Skip wait and End timer on each recipe of the session sit in one row of same-size buttons, which stays in the row on a phone.
 - **Start times (F228):** a recipe whose saved Time already includes its wait (Dosa Batter: 745 min with an 8–12 h ferment) no longer counts the wait again as work: its work is 25 min, not 12 h 25 min, so "When will you start it?" offers starts that are ready by the meal, and Today's work time follows. The sheet says so, with the earliest ready time, when the start you pick (offered or Another time) can't be ready by the meal. The rule is proposed, for cabledrawer (spec, "The plan works backwards"). `GET /plan/start-options` gains `active_minutes`.
 - **Guessed step timings (F231):** "8 hours" and "12 hours or the yogurt setting 8 hours" give the longer way, not the two added up; moving the batter to a bowl or an instant pot steel insert is hands-on, not a wait; an instant pot insert or the yogurt setting no longer names the pressure cooker.
+- **Batch cook, late replies (L1d).** A slow reply from the server no longer overwrites a newer copy of the schedule on the Batch cook page: an older ask is dropped when a later one (or a mark on this phone) has happened since. The page also waits a moment after another person's change and asks once, like the Plan page.
 
 ## [0.9.0-beta.1] - 2026-11-12
 

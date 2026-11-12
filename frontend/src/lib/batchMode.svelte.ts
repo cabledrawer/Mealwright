@@ -91,6 +91,8 @@ export class BatchModeModel {
 
   stop(): void {
     this.#stopped = true;
+    clearTimeout(this.#soon);
+    this.#soon = undefined;
     this.stopRetrying();
     this.#stop?.();
     this.#stop = null;
@@ -222,6 +224,7 @@ export class BatchModeModel {
   async load(planAgain = false): Promise<void> {
     this.loading = true;
     try {
+      this.#asked++;
       if (planAgain) this.pending = [];
       else if (!this.pending.length) this.pending = this.#keptPending();
       this.#take(await startSchedule(this.id, planAgain));
@@ -235,14 +238,29 @@ export class BatchModeModel {
     }
   }
 
-  /** Ask again (another phone marked something). Not while marks of this phone are waiting. */
+  #asked = 0;
+
+  /** Ask again (another phone marked something). Not while marks of this phone are waiting. A
+   *  reply that is older than a later ask is dropped, so a slow one never writes over a newer
+   *  copy. */
   async refresh(): Promise<void> {
     if (this.pending.length || this.#sending || this.#stopped || this.#forgotten) return;
+    const asked = ++this.#asked;
     try {
-      this.#take(await getSchedule(this.id));
+      const next = await getSchedule(this.id);
+      if (asked !== this.#asked) return;
+      this.#take(next);
     } catch {
       // The screen keeps what it has.
     }
+  }
+
+  #soon: ReturnType<typeof setTimeout> | undefined;
+
+  /** Ask again shortly (the live event): a burst of events makes one ask, as on the Plan. */
+  refreshSoon(): void {
+    clearTimeout(this.#soon);
+    this.#soon = setTimeout(() => void this.refresh(), 400);
   }
 
   mark(mark: Mark, task: string): void {
@@ -256,6 +274,7 @@ export class BatchModeModel {
     };
     this.schedule = { ...this.schedule, tasks: this.schedule.tasks.map((t) => apply(t, p)) };
     this.lastDone = mark === 'done' ? task : null;
+    this.#asked++; // an ask made before this mark has an older copy
     this.pending = [...this.pending, p];
     this.#keep();
     void this.flush();

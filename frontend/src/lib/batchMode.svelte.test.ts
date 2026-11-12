@@ -238,6 +238,64 @@ describe('Batch cook mode model', () => {
     expect(calls.get).not.toHaveBeenCalled();
   });
 
+  it('a late reply from an older ask does not overwrite a newer copy', async () => {
+    calls.start.mockResolvedValue(two());
+    const model = new BatchModeModel(7);
+    await model.load();
+    const older = two();
+    const newer = two();
+    newer.tasks[0] = { ...newer.tasks[0]!, done_at: new Date().toISOString() };
+    let answerOlder: (value: Schedule) => void = () => {};
+    let answerNewer: (value: Schedule) => void = () => {};
+    calls.get
+      .mockReturnValueOnce(new Promise<Schedule>((resolve) => (answerOlder = resolve)))
+      .mockReturnValueOnce(new Promise<Schedule>((resolve) => (answerNewer = resolve)));
+    const first = model.refresh();
+    const second = model.refresh();
+    answerNewer(newer);
+    await second;
+    expect(model.worked?.now?.id).toBe('t2');
+    answerOlder(older);
+    await first;
+    expect(model.worked?.now?.id).toBe('t2');
+  });
+
+  it('a reply to an ask made before a mark on this phone does not undo the mark', async () => {
+    calls.start.mockResolvedValue(two());
+    const model = new BatchModeModel(7);
+    await model.load();
+    let answer: (value: Schedule) => void = () => {};
+    calls.get.mockReturnValue(new Promise<Schedule>((resolve) => (answer = resolve)));
+    const asking = model.refresh();
+    calls.done.mockRejectedValue(offline());
+    model.mark('done', 't1');
+    answer(two()); // the server's copy from before the mark
+    await asking;
+    expect(model.worked?.now?.id).toBe('t2');
+  });
+
+  it('refreshSoon: a burst of live events makes one ask, and none after the screen is left', async () => {
+    vi.useFakeTimers();
+    try {
+      calls.start.mockResolvedValue(two());
+      const model = new BatchModeModel(7);
+      await model.load();
+      calls.get.mockResolvedValue(two());
+      model.refreshSoon();
+      model.refreshSoon();
+      model.refreshSoon();
+      expect(calls.get).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(calls.get).toHaveBeenCalledTimes(1);
+      model.refreshSoon();
+      model.stop();
+      await vi.advanceTimersByTimeAsync(500);
+      expect(calls.get).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('Plan again makes it afresh and drops waiting marks', async () => {
     calls.start.mockResolvedValue(two());
     const model = new BatchModeModel(7);
