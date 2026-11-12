@@ -181,12 +181,15 @@ def cook_step_changed(kitchen: Kitchen, shown: bool) -> Change:
     )
 
 
-def key_kept(kitchen: Kitchen) -> None:
+def key_kept(kitchen: Kitchen, answer: dict[str, Any] | None = None) -> None:
     """A save that changed nothing still remembers its Idempotency-Key (a Change that is only
     there for the key, as a kept draft's is, and never listed), so a retry of it later answers
     as stored instead of putting the old body back."""
     if kitchen.idempotency_key is not None:
-        record(kitchen, "setting_kept", "Saved a setting", None, None)
+        # `answer` (a new meal): what a retry answers, as the first request did.
+        record(
+            kitchen, "setting_kept", "Saved a setting", None, {"slot": answer} if answer else None
+        )
 
 
 # --- Undo -----------------------------------------------------------------------------------

@@ -1096,6 +1096,72 @@ def test_a_no_op_meal_slot_save_keeps_its_key(kitchen: TestClient) -> None:
         ok(kitchen.patch(url, json={field: same}))  # back, for the next round
 
 
+def test_a_retried_new_meal_with_the_same_key_answers_the_stored_answer(
+    kitchen: TestClient,
+) -> None:
+    key = {"Idempotency-Key": "new-slot-1"}
+    first = kitchen.post(f"{API}/meal-slots", json={"name": "Elevenses"}, headers=key)
+    assert first.status_code == 201, first.text
+    retry = kitchen.post(f"{API}/meal-slots", json={"name": "Elevenses"}, headers=key)
+    assert retry.status_code == 201, retry.text
+    assert retry.headers.get("Idempotent-Replayed") == "true"
+    assert retry.json() == first.json()
+    assert names(slots(kitchen)).count("Elevenses") == 1
+    # Without the key, or with another, the same name is still refused.
+    again = kitchen.post(f"{API}/meal-slots", json={"name": "Elevenses"})
+    assert again.status_code == 409 and again.json()["code"] == "slot_exists"
+    listed = [c["kind"] for c in ok(kitchen.get(f"{API}/changes"))["changes"]]
+    assert "setting_kept" not in listed  # remembered, never listed
+
+
+def _same_change(a: Any, b: Any) -> bool:
+    """The same change in two answers (its clock text can be written differently)."""
+    one, two = a.json()["change"], b.json()["change"]
+    return bool(one) and one["id"] == two["id"] and one["summary"] == two["summary"]
+
+
+def test_a_retried_rename_and_hide_with_a_key_answers_the_whole_change(
+    kitchen: TestClient,
+) -> None:
+    dinner = next(s for s in slots(kitchen) if s["name"] == "Dinner")
+    url = f"{API}/meal-slots/{dinner['id']}"
+    key = {"Idempotency-Key": "slot-two-fields"}
+    body = {"name": "Supper", "enabled": False}
+    first = kitchen.patch(url, json=body, headers=key)
+    assert first.status_code == 200, first.text
+    assert first.json()["change"]["summary"] == "Hid Supper in the plan"
+    retry = kitchen.patch(url, json=body, headers=key)
+    _replayed(retry)
+    assert _same_change(retry, first)
+    both = [c["summary"] for c in ok(kitchen.get(f"{API}/changes"))["changes"]][:2]
+    assert both == ["Hid Supper in the plan", "Renamed Dinner to Supper"]
+    # The rename alone (the hide a no-op) answers with the rename's change, replayed the same.
+    body2 = {"name": "Tea", "enabled": False}
+    key2 = {"Idempotency-Key": "slot-two-fields-b"}
+    first2 = kitchen.patch(url, json=body2, headers=key2)
+    assert first2.json()["change"]["summary"] == "Renamed Supper to Tea"
+    retry2 = kitchen.patch(url, json=body2, headers=key2)
+    _replayed(retry2)
+    assert _same_change(retry2, first2)
+
+
+def test_a_retried_no_op_rename_after_the_meal_is_gone_does_not_answer_404(
+    kitchen: TestClient,
+) -> None:
+    from mealwright.models import MealSlot
+
+    lunch = next(s for s in slots(kitchen) if s["name"] == "Lunch")
+    url = f"{API}/meal-slots/{lunch['id']}"
+    key = {"Idempotency-Key": "noop-then-gone"}
+    ok(kitchen.patch(url, json={"name": "Lunch"}, headers=key))  # already its name
+    with db(kitchen) as session:
+        session.delete(session.get(MealSlot, lunch["id"]))
+        session.commit()
+    retry = kitchen.patch(url, json={"name": "Lunch"}, headers=key)
+    _replayed(retry)
+    assert retry.json()["change"] is None
+
+
 def test_a_no_op_meal_order_keeps_its_key(kitchen: TestClient) -> None:
     url = f"{API}/meal-slots/order"
     ids = [s["id"] for s in slots(kitchen)]

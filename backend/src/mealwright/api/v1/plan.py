@@ -1218,15 +1218,17 @@ def change_meal_slot(
         slot = plan.find_slot(kitchen, plan_slot_id, on=False)
         change = None
         key = kitchen.idempotency_key
-        kitchen.key_once = True  # the first change recorded takes the key, the other carries none
+        kitchen.idempotency_key = None  # the last change made takes the key, the other carries none
         try:
             if body.name is not None:
                 change = plan.rename_slot(kitchen, slot, body.name)
             if body.enabled is not None:
                 change = plan.set_slot(kitchen, slot, body.enabled) or change
         finally:
-            kitchen.key_once = False
             kitchen.idempotency_key = key  # for commit(), if it loses a race
+        if change is not None:
+            # The answer carries the last change made, and so does a retry's.
+            change.idempotency_key = key
         return change
 
     return _run(kitchen, response, make, keep_key=True)
@@ -1245,11 +1247,15 @@ class NewSlot(BaseModel):
 
 
 @router.post("/meal-slots", status_code=status.HTTP_201_CREATED)
-def add_meal_slot(body: NewSlot, kitchen: Here) -> MealSlotOut:
+def add_meal_slot(body: NewSlot, kitchen: Here, response: Response) -> MealSlotOut:
     """Add a meal, last in the order and switched on (admins only). At most 12 meals; a name
-    the household already has is a 409 `slot_exists`. Not logged as a change, like "+ Shop"."""
+    the household already has is a 409 `slot_exists`. Not logged as a change, like "+ Shop". A
+    retry with the same Idempotency-Key answers what the first one did, not `slot_exists`."""
     kitchen.admin_only(Action.HOUSEHOLD_SETTINGS)
     lock_household(kitchen)
+    earlier = replayed(kitchen)
+    if earlier is not None:
+        return _slot_replayed(earlier, response)
     for other in meal_slots(kitchen.db, kitchen.household_id):
         if fold(other.name) == fold(body.name):
             raise Problem(
@@ -1258,8 +1264,17 @@ def add_meal_slot(body: NewSlot, kitchen: Here) -> MealSlotOut:
                 f"There’s already a meal called {other.name}.",  # proposed, for cabledrawer
             )
     slot = add_slot(kitchen.db, kitchen.household_id, body.name)
-    kitchen.db.commit()
-    return MealSlotOut(id=slot.id, name=slot.name, position=slot.position, enabled=slot.enabled)
+    answer = MealSlotOut(id=slot.id, name=slot.name, position=slot.position, enabled=slot.enabled)
+    kitchen_changes.key_kept(kitchen, answer.model_dump())  # a retry answers this
+    earlier = commit(kitchen)
+    if earlier is not None:  # lost a race to the same key: its answer
+        return _slot_replayed(earlier, response)
+    return answer
+
+
+def _slot_replayed(earlier: Change, response: Response) -> MealSlotOut:
+    response.headers["Idempotent-Replayed"] = "true"
+    return MealSlotOut(**((earlier.undo_data or {}).get("slot") or {}))
 
 
 class SlotOrder(BaseModel):
