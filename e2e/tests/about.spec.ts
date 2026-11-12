@@ -132,6 +132,28 @@ test('an old version says how old it is, with the releases link', async ({ page 
   await checkPage(page);
 });
 
+test('Licences and credits (U1): the licence, the source link, the USDA credit and the fonts, with no outside request', async ({
+  page,
+}) => {
+  const outside: string[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (!['localhost', '127.0.0.1'].includes(url.hostname) && !request.url().startsWith('data:')) outside.push(request.url());
+  });
+  await page.goto('/settings/about');
+  await expect(page.getByRole('heading', { level: 2, name: 'Licences and credits' })).toBeVisible();
+  await expect(page.getByText('AGPL-3.0', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Source code \(AGPL-3\.0\)/ })).toHaveAttribute(
+    'href',
+    PAGE.replace(/\/releases$/, ''),
+  );
+  await expect(page.getByText('USDA FoodData Central (public domain)')).toBeVisible();
+  await expect(page.getByText('Plus Jakarta Sans · Newsreader · SIL Open Font License 1.1')).toBeVisible();
+  expect(outside).toEqual([]);
+  await expectNoSidewaysScroll(page);
+  await checkPage(page);
+});
+
 // Review pictures for cabledrawer (X1): the changed parts of About and Privacy, dark, at four widths.
 // Only when E2E_X1_SHOTS names a folder, and only on the desktop project.
 test('review pictures of About and Privacy (only with E2E_X1_SHOTS)', async ({ page }, testInfo) => {

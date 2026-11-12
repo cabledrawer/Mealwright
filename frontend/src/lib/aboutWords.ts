@@ -112,3 +112,21 @@ export function dailyWords(on: boolean): { detail: string; value: string } {
 export function versionHeading(version: string): string {
   return `Mealwright ${tagForm(version).replace(/^v/, '')}`;
 }
+
+// Licences and credits (mockup Dark-About09-Phone; U1). The words are proposed, for cabledrawer,
+// except the USDA credit line, which is the credit the data file itself carries (spec section 6,
+// "Conversion table source").
+export const LICENCES_HEADING = 'Licences and credits';
+export const LICENCE_LABEL = 'Licence';
+export const LICENCE_VALUE = 'AGPL-3.0';
+export const SOURCE_LABEL = 'Source code (AGPL-3.0)';
+export const SOURCE_DETAIL = 'The exact code of this version';
+export const DATA_LABEL = 'Nutrition data';
+export const DATA_DETAIL = 'USDA FoodData Central (public domain)';
+export const FONTS_LABEL = 'Fonts';
+/** The bundled fonts (spec section 8, "Licences"); each is OFL-1.1. */
+export const FONTS = ['Plus Jakarta Sans', 'Newsreader'] as const;
+export const FONTS_DETAIL = `${FONTS.join(' · ')} · SIL Open Font License 1.1`;
+
+/** Where the source lives: the releases page without its last part. */
+export const sourceLink = (releasesPage: string): string => releasesPage.replace(/\/releases$/, '');

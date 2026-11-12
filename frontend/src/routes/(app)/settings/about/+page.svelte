@@ -1,8 +1,9 @@
 <script lang="ts">
   // Settings → About (mockup Dark-About09-Phone). This PR (X1, "Update check") builds only the
   // update parts: "New version ready", the version and its release day, the version-age note
-  // and the admins' Updates card. X2 adds Help's "Report a problem". "Licences and credits"
-  // come with U1.
+  // and the admins' Updates card. X2 adds Help's "Report a problem". U1 adds "Licences and
+  // credits": the licence, a plain link to the source, the USDA credit and the fonts' licences.
+  // Nothing is requested for them: the link is the person's own click.
   //
   // Spec section 7 "Updates" (cabledrawer 17 Oct): (1) how old this version is, with no connection;
   // (2) Check now, admins only, one plain request to the public release list, made by the
@@ -18,6 +19,13 @@
     CHECK_NOW_DETAIL,
     CHECKING,
     DAILY,
+    DATA_DETAIL,
+    DATA_LABEL,
+    FONTS_DETAIL,
+    FONTS_LABEL,
+    LICENCE_LABEL,
+    LICENCE_VALUE,
+    LICENCES_HEADING,
     READY_TEXT,
     READY_TITLE,
     UPDATE_TAG,
@@ -27,6 +35,9 @@
     lastWords,
     releasedWords,
     shortLink,
+    SOURCE_DETAIL,
+    SOURCE_LABEL,
+    sourceLink,
     todayHere,
     versionHeading
   } from '#lib/aboutWords.js';
@@ -144,6 +155,38 @@
         <span class="lbl">{REPORT_A_PROBLEM}</span>
         <span class="chev"><Icon name="back" size={18} stroke={2} /></span>
       </a>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="licences">
+    <h2 class="title" id="licences">{LICENCES_HEADING}</h2>
+    <div class="card">
+      <div class="row">
+        <span class="lbl">{LICENCE_LABEL}</span>
+        <span class="val">{LICENCE_VALUE}</span>
+      </div>
+      {#if info}
+        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the source is another site: the person's own click, no request from the app -->
+        <a
+          class="row"
+          href={sourceLink(info.releases_page)}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span class="lbl">{SOURCE_LABEL}<small>{SOURCE_DETAIL}</small></span>
+          <span class="chev"><Icon name="back" size={18} stroke={2} /></span>
+        </a>
+      {:else}
+        <div class="row">
+          <span class="lbl">{SOURCE_LABEL}<small>{SOURCE_DETAIL}</small></span>
+        </div>
+      {/if}
+      <div class="row">
+        <span class="lbl">{DATA_LABEL}<small>{DATA_DETAIL}</small></span>
+      </div>
+      <div class="row">
+        <span class="lbl">{FONTS_LABEL}<small>{FONTS_DETAIL}</small></span>
+      </div>
     </div>
   </section>
 </div>

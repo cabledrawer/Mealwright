@@ -10,6 +10,7 @@ import {
   monthsBetween,
   releasedWords,
   shortLink,
+  sourceLink,
   versionHeading
 } from './aboutWords';
 
@@ -79,5 +80,13 @@ describe('the last check', () => {
   it('says whether the daily check is on', () => {
     expect(dailyWords(false)).toEqual({ detail: 'Turn on in Privacy', value: 'Off' });
     expect(dailyWords(true).value).toBe('On');
+  });
+});
+
+describe('sourceLink (U1)', () => {
+  it('is the releases page without its last part', () => {
+    expect(sourceLink('https://github.com/owner/mealwright/releases')).toBe(
+      'https://github.com/owner/mealwright'
+    );
   });
 });

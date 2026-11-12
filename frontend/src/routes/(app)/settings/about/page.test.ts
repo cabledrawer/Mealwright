@@ -187,4 +187,22 @@ describe('Settings → About (X1)', () => {
     const box = row.element().getBoundingClientRect();
     expect(box.height).toBeGreaterThanOrEqual(44);
   });
+  it('Licences and credits show the licence, the source link, the USDA credit and the fonts (U1)', async () => {
+    open({ 'GET /updates': [200, info({ can_check: false })] });
+    await expect
+      .element(page.getByRole('heading', { name: 'Licences and credits', level: 2 }))
+      .toBeVisible();
+    await expect.element(page.getByText('AGPL-3.0', { exact: true })).toBeVisible();
+    const source = page.getByRole('link', { name: /Source code \(AGPL-3\.0\)/ });
+    await expect
+      .element(source)
+      .toHaveAttribute('href', 'https://github.com/placeholder_until_1_0/mealwright');
+    await expect.element(source).toHaveAttribute('rel', 'noopener noreferrer');
+    await expect.element(page.getByText('USDA FoodData Central (public domain)')).toBeVisible();
+    await expect
+      .element(page.getByText('Plus Jakarta Sans · Newsreader · SIL Open Font License 1.1'))
+      .toBeVisible();
+    // Showing them asks only for the About answer; nothing else, and no check.
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['GET /updates']);
+  });
 });
