@@ -484,7 +484,7 @@ def test_a_steps_optional_mark_is_not_part_of_the_schedules_fingerprint() -> Non
     from mealwright.batch_schedule import KitchenIn, RecipeIn, StepIn
 
     kit = KitchenIn(hob_rings=4, pressure_cookers=1, oven=True)
-    step = StepIn(id=1, text="Chop.", hands="on", minutes=5, equipment="none")  # type: ignore[arg-type]
+    step = StepIn(id=1, text="Chop.", hands="hands", minutes=5, equipment="none")
     plain = RecipeIn(id=1, name="Sambar", steps=(step,))
     marked = RecipeIn(id=1, name="Sambar", steps=(replace(step, optional=True),))
     assert basis_of([plain], kit) == basis_of([marked], kit)
