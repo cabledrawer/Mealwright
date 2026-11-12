@@ -222,3 +222,39 @@ def test_another_admins_test_of_someone_elses_identity_proves_nothing(
     off = wren.put(f"{API}/sso/password-sign-in", json={"on": False})
     assert off.status_code == 409 and off.json()["code"] == "passwords_needed"
     assert passwords_work(kitchen)
+
+
+def test_a_waiting_link_does_not_survive_signing_out_and_in_even_if_the_session_id_is_reused(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O1 review r3, L4: the link waits for the session's token, not its row id (SQLite may
+    hand a new session the id of a deleted one)."""
+    from sqlalchemy import update
+
+    from mealwright.models import Session
+
+    idp = home(kitchen, monkeypatch, "id.example.org", off=False)
+    # A second test by the same admin leaves a link waiting ("can" needs an unlinked admin).
+    assert kitchen.delete(f"{API}/sso/link").is_success
+    with cast(Any, kitchen.app).state.sessionmaker() as db:
+        from mealwright.models import Login
+
+        db.execute(
+            update(Login)
+            .where(Login.username == "tess")
+            .values(sso_subject=None, sso_issuer=None)
+        )
+        db.commit()
+    started = kitchen.post(f"{API}/sso/test", headers={"Origin": "https://testserver"})
+    code, state = idp.sign_in(str(started.json()["url"]), sub="mallory", extra=ADMIN_GROUPS)
+    assert kitchen.post(f"{API}/sso/finish", json={"state": state, "code": code}).is_success
+    with cast(Any, kitchen.app).state.sessionmaker() as db:
+        old_id = db.query(Session).one().id
+    assert kitchen.delete(f"{API}/session").status_code == 204
+    again = browser(kitchen)
+    assert again.post(f"{API}/session", json=PASSWORD).status_code == 200
+    with cast(Any, kitchen.app).state.sessionmaker() as db:  # the new session has the old id
+        db.execute(update(Session).values(id=old_id))
+        db.commit()
+    r = again.post(f"{API}/sso/link")
+    assert r.status_code == 409 and r.json()["code"] == "link_gone"

@@ -90,7 +90,8 @@ class WaitingLink:
     Kept in memory only, for as long as a sign-in may take."""
 
     login_id: int
-    session_id: int  # the signed-in session that ran the test
+    session_token_hash: str  # the signed-in session that ran the test (its token's hash, not
+    # its row id: SQLite may give a new session an old id)
     issuer: str
     subject: str
     expires: float
@@ -282,7 +283,7 @@ def _waiting(request: Request, kitchen: Here) -> WaitingLink | None:
     # Only the session that ran the test: not another device of the same admin, nor the same
     # admin after signing out and in (O1 review r2, finding 5).
     here = find_session(kitchen.db, session_token(request))
-    if here is None or here.session.id != found.session_id:
+    if here is None or here.session.token_hash != found.session_token_hash:
         return None
     return found
 
@@ -415,7 +416,7 @@ def _finish_test(
     if link == "can":
         waiting = WaitingLink(
             login_id=login.id,
-            session_id=signed_in.session.id,
+            session_token_hash=signed_in.session.token_hash,
             issuer=identity.issuer,
             subject=identity.subject,
             expires=time.monotonic() + sso.FLOW_FOR,
