@@ -58,6 +58,8 @@
   let busy = $state(false);
   let problem = $state('');
   let done = $state('');
+  /** The server's notice after a save: password sign-in is on again. */
+  let notice = $state('');
   let copied = $state(false);
   let testing = $state(false);
   let testProblem = $state('');
@@ -147,6 +149,7 @@
     busy = true;
     problem = '';
     done = '';
+    notice = '';
     try {
       const setup = await putSsoSetup({
         issuer: issuer.trim(),
@@ -163,7 +166,9 @@
         password_sign_in: passwords
       });
       fill(setup);
-      done = 'Saved.';
+      // "Saved. Password sign-in is on again…" when the save changed who gets in while it was off.
+      if (setup.passwords_back_on && setup.notice) notice = setup.notice;
+      else done = 'Saved.';
     } catch (error) {
       if (cantReach(error)) problem = cantReachWords();
       else if (error instanceof ApiError) problem = error.detail;
@@ -177,6 +182,7 @@
     if (saved) fill(saved);
     problem = '';
     done = '';
+    notice = '';
   }
 
   function wordsFor(error: unknown): string {
@@ -440,6 +446,7 @@
         />
       </div>
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+      {#if notice}<p class="warn" role="status">{notice}</p>{/if}
       <p class="done" role="status">{done}</p>
       <div class="actions">
         <Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</Button>

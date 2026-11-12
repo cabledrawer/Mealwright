@@ -700,6 +700,150 @@ def test_reset_admin_turns_password_sign_in_back_on(admin: TestClient, idp: Fake
     assert browser(admin).get(f"{API}/sign-in-options").json()["password"] is True
 
 
+# O1 review r1 M3: with passwords off, a change that could break single sign-on never leaves
+# every admin locked out.
+
+PASSWORD = {"username": ADMIN["username"], "password": ADMIN["password"]}
+ADMIN_GROUPS = {"groups": ["mealwright-admins"]}
+
+
+@pytest.fixture
+def sso_only(admin: TestClient, idp: FakeProvider) -> TestClient:
+    """The admin is linked, and password sign-in is off."""
+    sign_in(admin, idp, path="/sso/test", sub="k", extra=ADMIN_GROUPS)
+    assert admin.post(f"{API}/sso/link").is_success
+    assert admin.put(f"{API}/sso/password-sign-in", json={"on": False}).is_success
+    assert browser(admin).post(f"{API}/session", json=PASSWORD).status_code == 403
+    return admin
+
+
+def a_way_in(client: TestClient) -> None:
+    assert client.get(f"{API}/sign-in-options").json()["password"] is True
+    assert browser(client).post(f"{API}/session", json=PASSWORD).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        # The reviewer's cases: a mistyped group, a wrong secret, a new issuer.
+        {"group_roles": [{"group": "mealwright-admin", "role": "admin"}]},
+        {"client_secret": "not-the-secret"},
+        {"issuer": "https://id2.example.org"},
+        # And the others that decide who gets in.
+        {"client_id": "mealwright-2"},
+        {"anyone_else": "member"},
+        {"group_claim": "roles"},
+    ],
+    ids=["mistyped-group", "wrong-secret", "new-issuer", "client-id", "anyone-else", "claim"],
+)
+def test_a_change_that_could_break_sso_turns_passwords_back_on_and_says_so(
+    sso_only: TestClient, change: dict[str, Any]
+) -> None:
+    # The setup screen sends the whole form, with password sign-in still off.
+    body = {**SETUP, "client_secret": "", "password_sign_in": False, **change}
+    saved = sso_only.put(f"{API}/sso/settings", json=body)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["password_sign_in"] is True
+    assert saved.json()["passwords_back_on"] is True
+    a_way_in(sso_only)
+
+
+def test_a_lost_key_file_lets_passwords_work_again(sso_only: TestClient, settings: Any) -> None:
+    (Path(settings.data_dir) / "secret.key").unlink()
+    a_way_in(sso_only)
+    # The admin types the secret again: a change, so passwords are on again for good.
+    saved = sso_only.put(f"{API}/sso/settings", json={**SETUP, "password_sign_in": False})
+    assert saved.json()["passwords_back_on"] is True
+    a_way_in(sso_only)
+
+
+def test_a_key_file_that_isnt_mealwrights_lets_passwords_work_again(
+    sso_only: TestClient, settings: Any
+) -> None:
+    (Path(settings.data_dir) / "secret.key").write_bytes(b"")
+    a_way_in(sso_only)
+
+
+def test_a_save_that_changes_nothing_about_who_gets_in_keeps_passwords_off(
+    sso_only: TestClient,
+) -> None:
+    body = {**SETUP, "password_sign_in": False, "button_name": "Our sign-in"}
+    for secret in ("", CLIENT_SECRET):  # blank keeps it; the same one typed again is no change
+        saved = sso_only.put(f"{API}/sso/settings", json={**body, "client_secret": secret})
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["password_sign_in"] is False
+        assert saved.json()["passwords_back_on"] is False
+    assert sso_only.get(f"{API}/sign-in-options").json()["password"] is False
+
+
+def test_passwords_cant_go_off_in_the_same_save_as_such_a_change(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    sign_in(admin, idp, path="/sso/test", sub="k", extra=ADMIN_GROUPS)
+    assert admin.post(f"{API}/sso/link").is_success
+    body = {
+        **SETUP,
+        "client_secret": "",
+        "password_sign_in": False,
+        "group_roles": [{"group": "mealwright-admin", "role": "admin"}],
+    }
+    refused = admin.put(f"{API}/sso/settings", json=body)
+    assert refused.status_code == 409
+    assert refused.json()["code"] == "passwords_needed"
+    a_way_in(admin)
+    # Nothing of that save was kept.
+    assert admin.get(f"{API}/sso/settings").json()["group_roles"] == SETUP["group_roles"]
+
+
+def _add_admin(client: TestClient, username: str) -> int:
+    """Another admin, with a password only. Gives their person's id."""
+    with cast(Any, client.app).state.sessionmaker() as db:
+        login = Login(
+            household_id=1,
+            username=username,
+            name=username.title(),
+            password_hash=hash_password(f"{username}'s own password"),
+            role="admin",
+        )
+        db.add(login)
+        db.commit()
+        return int(login.member_id)
+
+
+def _person(client: TestClient, username: str) -> int:
+    with cast(Any, client.app).state.sessionmaker() as db:
+        login = db.scalars(select(Login).where(Login.username == username)).one()
+        return int(login.member_id)
+
+
+def test_with_passwords_off_only_admins_linked_by_sso_count_as_able_to_sign_in(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    _add_admin(sso_only, "wren")  # an admin, but with a password only: she can't sign in now
+    me = _person(sso_only, "tess")
+    for change in ({"role": "member"}, {"shared": True}):
+        refused = sso_only.patch(f"{API}/people/{me}", json=change)
+        assert refused.status_code == 409, refused.text
+        assert refused.json()["code"] == "last_admin"
+    # Nor do the groups make the only admin who can sign in a Member.
+    answer, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": ["mealwright-users"]})
+    assert answer.json()["me"]["role"] == "admin"
+    # With passwords on again, Wren counts.
+    assert sso_only.put(f"{API}/sso/password-sign-in", json={"on": True}).is_success
+    assert sso_only.patch(f"{API}/people/{me}", json={"role": "member"}).status_code == 200
+
+
+def test_passwords_cant_go_off_while_the_saved_secret_cant_be_read(
+    admin: TestClient, idp: FakeProvider, settings: Any
+) -> None:
+    sign_in(admin, idp, path="/sso/test", sub="k", extra=ADMIN_GROUPS)
+    assert admin.post(f"{API}/sso/link").is_success
+    (Path(settings.data_dir) / "secret.key").unlink()
+    refused = admin.put(f"{API}/sso/password-sign-in", json={"on": False})
+    assert refused.status_code == 409
+    assert refused.json()["code"] == "passwords_needed"
+
+
 # --- Staying signed in --------------------------------------------------------------------
 
 

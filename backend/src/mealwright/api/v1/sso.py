@@ -72,6 +72,10 @@ PASSWORDS_NEEDED = (
     "Password sign-in can only be turned off while an admin can sign in with single "
     "sign-on. Test sign-in first, and keep the Single sign-on switch on."
 )
+PASSWORDS_BACK_ON = (
+    "Saved. Password sign-in is on again, because the single sign-on setup changed. "
+    "Test sign-in, then turn it off again."
+)
 BAD_REDIRECT = (
     "The address to give your sign-in server must be this Mealwright’s own address, "
     "ending in /auth/callback. Open Mealwright at that address and save again."
@@ -122,14 +126,15 @@ class SignInOptions(BaseModel):
 
 
 @router.get("/sign-in-options")
-def sign_in_options(db: Db) -> SignInOptions:
+def sign_in_options(request: Request, db: Db) -> SignInOptions:
     """Public: what the sign-in page offers. The button shows once single sign-on is set up
     and its Privacy switch is on."""
     row = _row(db)
     button = None
     if sso_accounts.usable(row) and row and sso_accounts.switch_on(db, row.household_id):
         button = row.button_name
-    return SignInOptions(password=sso_accounts.password_sign_in_on(db), sso_button=button)
+    data_dir = request.app.state.settings.data_dir
+    return SignInOptions(password=sso_accounts.password_sign_in_on(db, data_dir), sso_button=button)
 
 
 # --- Signing in -----------------------------------------------------------------------------
@@ -386,6 +391,10 @@ class SsoSetupOut(BaseModel):
     admin_linked: bool
     switch_on: bool
     test: TestResult | None
+    # A save turned password sign-in back on (it was off, and the save changed something
+    # that decides who gets in): `notice` says so, to show.
+    passwords_back_on: bool = False
+    notice: str | None = None
 
 
 class SsoSetupIn(BaseModel):
@@ -474,20 +483,40 @@ def _check_redirect(request: Request, value: str) -> str:
     return value
 
 
-def _passwords_off_allowed(kitchen: Here, row: SsoSettings) -> None:
+def _passwords_off_allowed(request: Request, kitchen: Here, row: SsoSettings) -> None:
+    try:
+        sso_accounts.client(row, request.app.state.settings.data_dir)  # the secret opens
+    except sso.SsoFailed:
+        raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED) from None
     if not (
-        sso_accounts.usable(row)
-        and sso_accounts.switch_on(kitchen.db, kitchen.household_id)
+        sso_accounts.switch_on(kitchen.db, kitchen.household_id)
         and sso_accounts.admin_signs_in_with_sso(kitchen.db, row)
     ):
         raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED)
+
+
+def _who_gets_in(row: SsoSettings) -> tuple[object, ...]:
+    """Everything in the setup that decides whether an admin can still sign in with single
+    sign-on, apart from the secret."""
+    return (
+        row.issuer,
+        row.client_id,
+        row.redirect_uri,
+        row.group_claim,
+        row.group_roles,
+        row.anyone_else,
+    )
 
 
 @router.put("/sso/settings")
 def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
     """Admins only. Save the setup. The secret is sealed before it is stored; a blank one
     keeps the saved one. Turning password sign-in off is refused (409 `passwords_needed`)
-    unless an admin can sign in with single sign-on and its switch is on."""
+    unless an admin can sign in with single sign-on and its switch is on, and never in the
+    same save as a change to who gets in (the issuer, client ID, secret, callback address,
+    groups claim, groups or "Anyone else"): that setup hasn't been tested. While password
+    sign-in is off, such a change turns it back on and says so (`passwords_back_on`), so a
+    mistake in the setup can't lock every admin out (O1 review r1 M3)."""
     kitchen.admin_only(Action.SIGN_IN)
     issuer = sso.tidy_issuer(body.issuer)
     if issuer is None:
@@ -497,7 +526,10 @@ def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
     if len({g["group"] for g in groups}) != len(groups):
         raise _bad("same_group", "Each group can be in the list once.")  # proposed
     db = kitchen.db
+    data_dir = request.app.state.settings.data_dir
     row = sso_accounts.settings_row(db, kitchen.household_id)
+    before: tuple[object, ...] | None = None
+    was_off = False
     if row is None:
         if not body.client_secret:
             raise _bad("no_secret", NO_SECRET)
@@ -505,10 +537,28 @@ def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
         db.add(row)
     elif not body.client_secret and not row.client_secret_sealed:
         raise _bad("no_secret", NO_SECRET)
+    else:
+        before = _who_gets_in(row)
+        was_off = not row.password_sign_in
+    new_secret = bool(body.client_secret) and not sso_accounts.same_secret(
+        row, data_dir, body.client_secret
+    )
+    after = (
+        issuer,
+        body.client_id.strip(),
+        redirect_uri,
+        body.group_claim.strip(),
+        groups,
+        body.anyone_else,
+    )
+    changed = before is not None and (new_secret or before != after)
+    if changed and not was_off and not body.password_sign_in:
+        # Turning passwords off together with a change nobody has tested yet.
+        raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED)
     row.issuer = issuer
     row.client_id = body.client_id.strip()
-    if body.client_secret:
-        row.client_secret_sealed = seal(request.app.state.settings.data_dir, body.client_secret)
+    if new_secret:
+        row.client_secret_sealed = seal(data_dir, body.client_secret)
     row.button_name = body.button_name.strip()
     row.redirect_uri = redirect_uri
     row.group_claim = body.group_claim.strip()
@@ -517,14 +567,23 @@ def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
     row.make_accounts = body.make_accounts
     row.updated_at = utcnow()
     db.flush()
-    if not body.password_sign_in and row.password_sign_in:
-        _passwords_off_allowed(kitchen, row)
-    row.password_sign_in = body.password_sign_in
+    back_on = was_off and changed
+    if back_on:
+        row.password_sign_in = True
+    elif not body.password_sign_in and row.password_sign_in:
+        _passwords_off_allowed(request, kitchen, row)
+        row.password_sign_in = False
+    else:
+        row.password_sign_in = body.password_sign_in
     db.commit()
     sso.cache.forget()
     _forget_test(request, kitchen.household_id)  # it was a test of the setup before
     log.info("Single sign-on: setup saved by %s", kitchen.login.username)
-    return _setup(request, kitchen, row)
+    saved = _setup(request, kitchen, row)
+    if back_on:
+        log.warning("Single sign-on: password sign-in is on again, as the setup changed")
+        saved = saved.model_copy(update={"passwords_back_on": True, "notice": PASSWORDS_BACK_ON})
+    return saved
 
 
 class PasswordsIn(BaseModel):
@@ -541,7 +600,7 @@ def put_passwords(body: PasswordsIn, request: Request, kitchen: Here) -> SsoSetu
             return _setup(request, kitchen, None)
         raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED)
     if not body.on and row.password_sign_in:
-        _passwords_off_allowed(kitchen, row)
+        _passwords_off_allowed(request, kitchen, row)
     if row.password_sign_in != body.on:
         row.password_sign_in = body.on
         kitchen.db.commit()

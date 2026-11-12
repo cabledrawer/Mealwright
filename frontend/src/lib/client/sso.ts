@@ -57,6 +57,10 @@ export interface SsoSetup {
   /** The Single sign-on switch in Settings → Privacy. */
   switch_on: boolean;
   test: TestResult | null;
+  /** After a save: password sign-in was off and is on again, because the save changed who
+   *  gets in. `notice` is the server's sentence to show. */
+  passwords_back_on?: boolean;
+  notice?: string | null;
 }
 
 export interface SsoSetupIn {

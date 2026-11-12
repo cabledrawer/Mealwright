@@ -257,6 +257,28 @@ describe('single sign-on setup', () => {
       .not.toBeInTheDocument();
   });
 
+  it('says when a save turned password sign-in back on (O1 review r1 M3)', async () => {
+    const notice =
+      'Saved. Password sign-in is on again, because the single sign-on setup changed. Test sign-in, then turn it off again.';
+    fakeApi({
+      'GET /sso/settings': [200, { ...SAVED, admin_linked: true, password_sign_in: false }],
+      'PUT /sso/settings': [
+        200,
+        { ...SAVED, admin_linked: true, password_sign_in: true, passwords_back_on: true, notice }
+      ]
+    });
+    show();
+    const passwords = page.getByRole('switch', { name: 'Allow password sign-in' });
+    await expect.element(passwords).not.toBeChecked();
+    await userEvent.fill(page.getByLabelText('Issuer address'), 'https://id2.example.org');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect
+      .element(page.getByRole('status').filter({ hasText: 'on again' }))
+      .toHaveTextContent(notice);
+    await expect.element(passwords).toBeChecked();
+    await expect.element(page.getByText('Saved.', { exact: true })).not.toBeInTheDocument();
+  });
+
   it('shows the server’s refusal', async () => {
     fakeApi({
       'GET /sso/settings': [200, SAVED],

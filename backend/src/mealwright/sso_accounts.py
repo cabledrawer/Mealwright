@@ -22,11 +22,13 @@ Nothing here logs a token, the client secret or a claim, only the account's user
 import hashlib
 import logging
 import re
+import secrets
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
 from sqlalchemy import ColumnElement, and_, func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
@@ -34,7 +36,7 @@ from mealwright import sso
 from mealwright.auth import now
 from mealwright.models import Login, Member, Session, SsoSettings
 from mealwright.outbound import Connection, OutboundGate, switches
-from mealwright.people import can_sign_in
+from mealwright.people import admin_can_sign_in
 from mealwright.roles import ADMIN, MEMBER
 from mealwright.secret_box import SecretUnreadable, open_sealed, seal
 from mealwright.sso import Client, Identity, SsoFailed
@@ -61,14 +63,37 @@ def switch_on(db: DbSession, household_id: int) -> bool:
     return switches(db, household_id)[Connection.SINGLE_SIGN_ON]
 
 
-def password_sign_in_on(db: DbSession) -> bool:
-    """Password sign-in works unless an admin turned it off with single sign-on set up and
-    switched on. With the switch off, passwords work again, so nobody is locked out
-    (proposed, for cabledrawer). The reset-admin command turns it back on too."""
-    row = settings_row(db)
-    if row is None or row.password_sign_in or not usable(row):
+def password_sign_in_on(db: DbSession, data_dir: Path) -> bool:
+    """Password sign-in works unless an admin turned it off with single sign-on set up,
+    switched on, and its saved secret readable. With the switch off, passwords work again,
+    so nobody is locked out (proposed, for cabledrawer). The same when single sign-on can't
+    work at all (O1 review r1 M3): the saved client secret can't be opened (the key file
+    `secret.key` is lost or isn't Mealwright's), or the setup can't be read. The reset-admin
+    command turns it back on too."""
+    try:
+        row = settings_row(db)
+        if row is None or row.password_sign_in or not usable(row):
+            return True
+        if not switch_on(db, row.household_id):
+            return True
+        open_sealed(data_dir, str(row.client_secret_sealed))
+    except SecretUnreadable:
         return True
-    return not switch_on(db, row.household_id)
+    except SQLAlchemyError, ValueError, TypeError:
+        db.rollback()
+        return True
+    return False
+
+
+def same_secret(row: SsoSettings, data_dir: Path, typed: str) -> bool:
+    """True when `typed` is the client secret already saved (typed again, not changed)."""
+    if not row.client_secret_sealed:
+        return False
+    try:
+        saved = open_sealed(data_dir, row.client_secret_sealed)
+    except SecretUnreadable:
+        return False
+    return secrets.compare_digest(saved.encode(), typed.encode())
 
 
 def client(row: SsoSettings, data_dir: Path) -> Client:
@@ -104,12 +129,14 @@ def role_for(row: SsoSettings, groups: list[str]) -> str | None:
 
 
 def other_admins(db: DbSession, login: Login) -> int:
-    """Admins of this household who can sign in, apart from `login` (not shared ones)."""
+    """Admins of this household who can sign in, apart from `login` (not shared ones). With
+    password sign-in off, only admins linked by single sign-on count (O1 review r1 M3)."""
     query = (
         select(func.count())
         .select_from(Login)
         .join(Member, Member.id == Login.member_id)
-        .where(Login.household_id == login.household_id, Login.role == ADMIN, can_sign_in())
+        .where(Login.household_id == login.household_id, Login.role == ADMIN)
+        .where(admin_can_sign_in(db, login.household_id))
         .where(Login.shared.is_(False), Login.id != login.id)
     )
     return int(db.scalar(query) or 0)

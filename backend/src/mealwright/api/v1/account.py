@@ -197,7 +197,7 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
     """Sign in with a username and password. Refused (403 `password_off`) while an admin has
     turned password sign-in off for single sign-on (0.9 O1)."""
     needs_https(request, request.app.state.settings)
-    if not password_sign_in_on(db):
+    if not password_sign_in_on(db, request.app.state.settings.data_dir):
         raise Problem(status.HTTP_403_FORBIDDEN, "password_off", PASSWORD_OFF)
     slow: SlowDown = request.app.state.slow_down
     username = _normalise_username(body.username)
