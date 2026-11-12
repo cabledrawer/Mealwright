@@ -51,6 +51,7 @@ from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from mealwright import backups
+from mealwright.events import Broadcaster
 from mealwright.logs import DailyLogFile, tidy_once
 from mealwright.models import Household, utcnow
 from mealwright.outbound import OutboundGate  # at run time: APScheduler reads the job's signature
@@ -129,12 +130,15 @@ def back_up_if_due(factory: sessionmaker[Session], engine: Engine, folder: Path)
 
 
 def check_single_sign_on(
-    gate: OutboundGate, factory: sessionmaker[Session], data_dir: Path
+    gate: OutboundGate,
+    factory: sessionmaker[Session],
+    data_dir: Path,
+    events: Broadcaster | None = None,
 ) -> None:
     from mealwright import sso_accounts  # imported here: it needs the API's models
 
     sso_accounts.fill_memory(gate, factory)  # first: a restart empties the memory
-    ended = sso_accounts.check_sessions(gate, factory, data_dir)
+    ended = sso_accounts.check_sessions(gate, factory, data_dir, events)
     if ended:
         log.info("Single sign-on: %d sign-ins ended by the sign-in server", ended)
 
@@ -145,6 +149,7 @@ def scheduler(
     backups_folder: Path | None = None,
     updates: UpdateChecks | None = None,
     single_sign_on: tuple[OutboundGate, Path] | None = None,
+    events: Broadcaster | None = None,
 ) -> BackgroundScheduler:
     """The app's scheduler, with every job added. Started and stopped with the app."""
     jobs = BackgroundScheduler(
@@ -189,7 +194,7 @@ def scheduler(
         jobs.add_job(
             check_single_sign_on,
             IntervalTrigger(minutes=5, timezone=UTC),
-            args=[single_sign_on[0], factory, single_sign_on[1]],
+            args=[single_sign_on[0], factory, single_sign_on[1], events],
             next_run_time=datetime.now(UTC),  # at start too: a restart empties the memory
             id="single-sign-on",
             name="Check single sign-on sign-ins with the sign-in server",

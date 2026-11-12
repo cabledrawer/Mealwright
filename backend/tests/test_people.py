@@ -761,3 +761,33 @@ def test_the_only_admin_cant_be_made_a_shared_login(kitchen: TestClient) -> None
     ok(kitchen.patch(f"{API}/people/{_id(kitchen, 'Wren')}", json={"role": "admin"}))
     ok(kitchen.patch(f"{API}/people/{me}", json={"shared": True}))
     assert _people(wren)["can_change"] is True
+
+
+def test_removing_a_person_ends_their_open_event_streams(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O2 review r4, finding 4: their sessions go with them, so do their live-update streams.
+    Fails without the call to `events.end_session`."""
+    joss = _add(kitchen)
+    token = _join(kitchen, joss, "joss")
+    joss_client = _fresh(kitchen)
+    assert joss_client.post(
+        f"{API}/join/{token}", json={"password": "joss's own password"}
+    ).is_success
+    signed = joss_client.post(
+        f"{API}/session", json={"username": "joss", "password": "joss's own password"}
+    )
+    assert signed.status_code == 200, signed.text
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        ids = list(
+            db.scalars(
+                select(Session.id)
+                .join(Login, Login.id == Session.login_id)
+                .where(Login.username == "joss")
+            )
+        )
+    assert len(ids) == 1
+    ended: list[int] = []
+    monkeypatch.setattr(kitchen.app.state.events, "end_session", ended.append)  # type: ignore[attr-defined]
+    ok(kitchen.delete(f"{API}/people/{joss}"))
+    assert ended == ids

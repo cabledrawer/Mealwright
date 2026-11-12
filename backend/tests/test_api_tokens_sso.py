@@ -102,3 +102,35 @@ def test_a_token_stopped_by_the_sign_in_server_is_logged_by_number_only(
     said = [r.getMessage() for r in caplog.records if "API tokens stopped" in r.getMessage()]
     assert len(said) == 1 and re.fullmatch(r"Single sign-on: login \d+ signed out.*", said[0])
     assert "tess" not in caplog.text.lower()
+
+
+def test_the_job_ends_the_open_event_stream_of_a_sign_in_the_server_ended(
+    linked: TestClient, idp: FakeProvider
+) -> None:
+    """O2 review r4, finding 4. Fails when the job doesn't tell the event hub."""
+    from mealwright import sso_accounts
+
+    sign_in(browser(linked), idp, sub="k", extra=ADMIN_GROUPS)
+    with cast(Any, linked.app).state.sessionmaker() as db:
+        ids = [s.id for s in db.scalars(select(Session).where(Session.sso.is_(True)))]
+        for session in db.scalars(select(Session).where(Session.sso.is_(True))):
+            session.sso_check_at = now()
+        db.commit()
+    idp.refresh_tokens.clear()
+    ended: list[int] = []
+
+    class Hub:
+        def end_session(self, session_id: int) -> None:
+            ended.append(session_id)
+
+    app = cast(Any, linked.app)
+    assert (
+        sso_accounts.check_sessions(
+            app.state.outbound,
+            app.state.sessionmaker,
+            app.state.settings.data_dir,
+            Hub(),  # type: ignore[arg-type]
+        )
+        == 1
+    )
+    assert ended == ids

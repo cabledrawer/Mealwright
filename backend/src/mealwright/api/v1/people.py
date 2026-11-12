@@ -32,7 +32,7 @@ from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import change_out
 from mealwright.history import as_utc, commit, replayed
 from mealwright.kitchen_changes import key_kept
-from mealwright.models import Change, JoinLink, Login, Member, utcnow
+from mealwright.models import Change, JoinLink, Login, Member, Session, utcnow
 from mealwright.names import one_line
 from mealwright.roles import ADMIN, Action, allowed
 from mealwright.shopping import lock_db
@@ -224,14 +224,28 @@ def change_person(
 
 
 @router.delete("/people/{member_id}")
-def remove_person(member_id: StoredInt, kitchen: Here, response: Response) -> PeopleOut:
+def remove_person(
+    member_id: StoredInt, kitchen: Here, response: Response, request: Request
+) -> PeopleOut:
     """Remove a person: their meals, tubs and history stay, Recent changes shows "Joss
     (removed)", and their login can't sign in. Undo puts them back. Admins only; nobody can
     remove themselves, and the household always keeps an admin."""
     earlier = _start(kitchen, response)
     if earlier is not None:
         return _out(kitchen, earlier)
-    return _finish(kitchen, response, people.remove(kitchen, people.mine(kitchen, member_id)))
+    member = people.mine(kitchen, member_id)
+    # Their sign-ins end with them: so do their open live-update streams (O2 review r4, finding 4).
+    ended = list(
+        kitchen.db.scalars(
+            select(Session.id)
+            .join(Login, Login.id == Session.login_id)
+            .where(Login.member_id == member.id)
+        )
+    )
+    out = _finish(kitchen, response, people.remove(kitchen, member))
+    for session_id in ended:
+        request.app.state.events.end_session(session_id)
+    return out
 
 
 class LoginIn(BaseModel):
