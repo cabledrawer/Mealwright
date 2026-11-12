@@ -4,6 +4,10 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Added (0.9 U1, Settings)
+
+- **Settings in the spec's order, from one list.** Appearance, Amounts, Household, Meal slots, Shops & places, Privacy, Sign-in, Your data, About (with Your kitchen and Recent changes among the kitchen sections), the same on the computer's list and the phone's groups; the phone also has a Mealwright group with About and Report a problem. About gets "Licences and credits": the licence, a plain link to the source (no request is made until you click), the USDA FoodData Central credit and the fonts' licences. A test fails if some part of the code uses an outside connection that Privacy has no switch for.
+
 ### Added (0.9 M1, install docs)
 
 - **Install guide and proxy examples.** `docs/install.md` says plainly why HTTPS is needed (sign-in on other devices, the installable app, offline shopping, keep-screen-awake), to give Mealwright its own host name (HSTS covers every port on a name), and what `MEALWRIGHT_TRUSTED_PROXIES` does and what goes wrong when it's unset or too wide. `docs/proxies/` has a short example each for Caddy, Traefik, nginx and Nginx Proxy Manager, with HTTPS, the three forwarded headers and the matching trusted-proxies value. `scripts/test-proxies.sh` (not part of `./check`) tries nginx, Traefik, Caddy and Nginx Proxy Manager's headers in throwaway containers; Nginx Proxy Manager itself isn't started.
