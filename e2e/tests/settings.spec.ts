@@ -1,4 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
 // Settings (0.8, S1): the section list, Meal slots, Shops & places and Recent changes, against the
@@ -634,5 +636,23 @@ test('F177 (review): a 60-character unbroken name does not push the card sideway
     );
   } finally {
     await page.request.delete(`/api/v1/shops/${id}`, { headers: key() });
+  }
+});
+
+/** Dark screenshots at four widths for the review, only when E2E_SHOTS_DIR is set (by hand). */
+test('screenshots of the Settings list and Amounts, dark (by hand only)', async ({ page }) => {
+  const dir = process.env.E2E_SHOTS_DIR;
+  test.skip(!dir || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+  mkdirSync(dir!, { recursive: true });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  for (const width of [428, 768, 1100, 1300]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/settings');
+    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Amounts/ }).or(page.getByRole('button', { name: 'Amounts', exact: true }))).toBeVisible(); // Amounts shows once the household has answered
+    await page.screenshot({ path: join(dir!, `settings-${width}.png`), fullPage: true });
+    await page.goto('/settings?section=amounts');
+    await expect(page.getByRole('region', { name: 'Amounts', exact: true })).toBeVisible();
+    await page.screenshot({ path: join(dir!, `settings-amounts-${width}.png`), fullPage: true });
   }
 });

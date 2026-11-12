@@ -1,4 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
 // Full Onboarding (0.9 U2), against the real server, signed in as the test admin. This worker's
@@ -157,9 +159,16 @@ test('every step passes the accessibility checks, light and dark', async ({ page
   }
 });
 
-// cabledrawer's review pictures (dark, 428, 768, 1100 and 1300 px), kept in this test's output folder.
+// cabledrawer's review pictures (dark, 428, 768, 1100 and 1300 px), kept in this test's output folder,
+// or in E2E_SHOTS_DIR when that names a folder (by hand).
 test('review pictures of each step, dark', async ({ page }) => {
   test.skip(!test.info().project.name.startsWith('desktop'), 'once, on the computer project');
+  const shots = (name: string) => {
+    const dir = process.env.E2E_SHOTS_DIR;
+    if (!dir) return test.info().outputPath(name);
+    mkdirSync(dir, { recursive: true });
+    return join(dir, name);
+  };
   await setAccountTheme(page, 'dark');
   try {
     for (const width of [428, 768, 1100, 1300]) {
@@ -169,12 +178,12 @@ test('review pictures of each step, dark', async ({ page }) => {
         await expect(page.getByRole('heading', { level: 1, name: STEPS[0] })).toBeVisible();
         for (const [i, title] of STEPS.entries()) {
           if (i) await nextTo(page, title);
-          await page.screenshot({ path: test.info().outputPath(`onboarding-step${i + 2}-${width}.png`) });
+          await page.screenshot({ path: shots(`onboarding-step${i + 2}-${width}.png`) });
         }
       } else {
         await expect(page.getByRole('button', { name: 'Finish setup' })).toBeVisible();
         await page.screenshot({
-          path: test.info().outputPath(`onboarding-${width}.png`),
+          path: shots(`onboarding-${width}.png`),
           fullPage: true,
         });
       }
