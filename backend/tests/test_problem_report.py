@@ -902,3 +902,20 @@ def test_a_quote_straight_after_a_link_is_still_a_quote() -> None:
     kept = scrub("Tess Marsh's list 'plans' failed")
     assert "[name]'s list " in kept, kept
     assert "plans" not in kept, kept
+
+
+def test_a_person_without_a_login_is_removed_too(
+    planted: TestClient, neighbour: TestClient, settings: Settings
+) -> None:
+    """People of the household (0.9 A1) are names too, with or without a login: a child added
+    in Settings → Household never signs in, and must still not be named in a report. Added
+    after the scrubber was built, so it is also built again for a new person."""
+    folder = log_folder(settings)
+    write_log(folder, [error("Sign-in for tess failed")])
+    assert "[name]" in report(neighbour)["errors"][0]  # built and kept
+    added = planted.post(f"{API}/people", json={"name": "Anoushka Quibbleton"})
+    assert added.status_code == 201, added.text
+    write_log(folder, [error("Couldn't save the portion for Anoushka Quibbleton (Anoushka)")])
+    line = report(neighbour)["errors"][-1]
+    assert "anoushka" not in line.lower(), line
+    assert "quibbleton" not in line.lower(), line

@@ -386,6 +386,9 @@ def _phrases(pattern_words: Iterable[str]) -> re.Pattern[str] | None:
 _PEOPLE_COLUMNS: tuple[Any, ...] = (
     models.Login.username,
     models.Login.name,
+    # The household's people (0.9 A1), with or without a login, and whoever added them.
+    models.Member.name,
+    models.Member.created_by_name,
     models.Household.name,
     models.Recipe.source_author,
     # People who have left or been renamed are still named here.
