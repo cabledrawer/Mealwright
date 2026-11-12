@@ -574,7 +574,7 @@ test('after Undo of Cooked it, Cook mode from the same meal ends with Back and C
   await page.goto('/settings?section=recent-changes');
   const undo = page.getByRole('region', { name: 'Recent changes' }).getByRole('button', { name: new RegExp(`^Undo: Cooked ${name} \\(\\d+ portions?\\)`) });
   await undo.click();
-  await expect(page.getByRole('status')).toContainText(`Undone: Cooked ${name}`);
+  await expect(page.getByRole('status').filter({ hasText: `Undone: Cooked ${name}` })).toContainText(`Undone: Cooked ${name}`);
   await page.goto(cookUrl);
   await expect(cook(page)).toBeVisible();
   await expect(next(page)).toBeVisible();
@@ -836,7 +836,7 @@ test('F157: cooking one recipe of a meal cooks only it; the meal is Cooked when 
     // (One Cooked it is one row, the pantry's with the portions; the plan's own line is folded into it.)
     await expect(recent.getByRole('button', { name: new RegExp(`^Undo: Cooked ${khichdi.name} \\(\\d+ portions?\\)`) })).toHaveCount(1);
     await recent.getByRole('button', { name: new RegExp(`^Undo: Cooked ${soup.name} \\(\\d+ portions?\\)`) }).click();
-    await expect(page.getByRole('status')).toContainText(`Undone: Cooked ${soup.name}`);
+    await expect(page.getByRole('status').filter({ hasText: `Undone: Cooked ${soup.name}` })).toContainText(`Undone: Cooked ${soup.name}`);
     expect(await flags()).toEqual({ status: 'planned', cooked: [[first.item_id, true], [second.item_id, false]] });
   } finally {
     // Take back what this test cooked (a cooked recipe can't be removed), then clear the plan.

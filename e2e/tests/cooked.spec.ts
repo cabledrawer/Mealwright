@@ -141,7 +141,7 @@ test('F125: Undo of Cooked it in Settings → Recent changes also undoes the mea
   const undo = recent.getByRole('button', { name: `Undo: Cooked ${name} (4 portions)` });
   await expect(undo).toHaveCount(1);
   await undo.click();
-  await expect(page.getByRole('status')).toContainText(`Undone: Cooked ${name}`);
+  await expect(page.getByRole('status').filter({ hasText: `Undone: Cooked ${name}` })).toContainText(`Undone: Cooked ${name}`);
   await expect.poll(() => have(page, `Moong dal ${s}`)).toBe(800);
 
   // The meal is asked about again, as after the toast's Undo.
