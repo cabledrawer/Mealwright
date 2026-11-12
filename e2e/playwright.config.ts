@@ -230,6 +230,10 @@ export default defineConfig({
     { name: 'phone 0.9 your data', testMatch: 'your-data.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.9 your data', testMatch: 'your-data.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.9 your data', testMatch: 'your-data.spec.ts', use: { ...webkitPhone, storageState: AUTH_FILE } },
+    // Single sign-on: the sign-in button, the callback page and the setup screen (0.9, O1).
+    { name: 'phone 0.9 sso', testMatch: 'sso.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.9 sso', testMatch: 'sso.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.9 sso', testMatch: 'sso.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
 
     { name: 'phone 0.3 live', testMatch: /(^|\/)(live|installable)\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(^|\/)(live|installable)\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },
