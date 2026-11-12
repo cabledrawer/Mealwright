@@ -41,6 +41,14 @@ def _cheap_hashing(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPat
 
 
 @pytest.fixture(autouse=True)
+def _forget_sign_in_servers_addresses() -> None:
+    """What this process remembers of a sign-in server's address is per test."""
+    from mealwright import sso
+
+    sso.forget_remembered()
+
+
+@pytest.fixture(autouse=True)
 def _forget_compiled_statements() -> Iterator[None]:
     """Each test builds its own app and so its own database dialect. SQLAlchemy keeps every
     mapper's compiled statements in a cache keyed by dialect, and the cache holds the dialect

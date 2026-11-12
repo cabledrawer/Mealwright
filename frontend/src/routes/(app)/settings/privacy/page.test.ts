@@ -396,7 +396,7 @@ describe('Settings → Privacy', () => {
 
     it('says so when taking the sign-in server off turned password sign-in back on', async () => {
       const notice =
-        'Removed. Password sign-in is on again, because your sign-in server is no longer on Your own network. Add it back and test sign-in, or turn password sign-in off again later.';
+        "Removed. Passwords work again for now, because single sign-on can't start without that entry: your sign-in server is no longer on Your own network. Add it back and passwords are off again.";
       open({
         'GET /privacy/own-network': list([wiki, lan]),
         'DELETE /privacy/own-network/1': [200, { passwords_back_on: true, notice }]

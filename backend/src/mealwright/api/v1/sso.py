@@ -494,7 +494,10 @@ def _setup(request: Request, kitchen: Here, row: SsoSettings | None) -> SsoSetup
         group_roles=[GroupRole.model_validate(g) for g in row.group_roles or []],
         anyone_else="member" if row.anyone_else == MEMBER else "none",
         make_accounts=row.make_accounts,
-        password_sign_in=row.password_sign_in,
+        # What counts: off only while single sign-on can start (`passwords_off`).
+        password_sign_in=not sso_accounts.passwords_off(
+            kitchen.db, request.app.state.settings.data_dir, kitchen.household_id
+        ),
         admin_linked=sso_accounts.admin_signs_in_with_sso(kitchen.db, row),
         switch_on=switch,
         test=test,
@@ -539,10 +542,12 @@ def _passwords_off_allowed(request: Request, kitchen: Here, row: SsoSettings) ->
         sso_accounts.client(row, request.app.state.settings.data_dir)  # the secret opens
     except sso.SsoFailed:
         raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED) from None
-    if not (
-        sso_accounts.switch_on(kitchen.db, kitchen.household_id)
-        and sso_accounts.admin_signs_in_with_sso(kitchen.db, row)
-    ):
+    # Single sign-on must be able to start now: the switch, the secret and the server's address
+    # on Your own network (O1 review r3), by the one rule `sso_can_start`.
+    can_start = sso_accounts.sso_can_start(
+        kitchen.db, request.app.state.settings.data_dir, kitchen.household_id
+    )
+    if not (can_start and sso_accounts.admin_signs_in_with_sso(kitchen.db, row)):
         raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED)
     if request.app.state.sso_proven.get(row.household_id) != _fingerprint(row):
         raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED)

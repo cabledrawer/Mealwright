@@ -237,6 +237,90 @@ class _Cache:
 cache = _Cache()
 
 
+_seen_lock = threading.Lock()
+_seen: dict[str, list[_Address]] = {}
+
+
+def remember(host: str, addresses: list[_Address]) -> None:
+    """The addresses a sign-in server's name last had (memory only), so "can single sign-on
+    start?" can be answered without a look-up (O1 review r3)."""
+    with _seen_lock:
+        if len(_seen) > 50:
+            _seen.clear()
+        _seen[host.lower()] = list(addresses)
+
+
+def remembered(host: str) -> list[_Address] | None:
+    with _seen_lock:
+        found = _seen.get(host.lower())
+        return list(found) if found is not None else None
+
+
+def forget_remembered() -> None:
+    with _seen_lock:
+        _seen.clear()
+
+
+def _screen(
+    host: str, literal: _Address | None, addresses: list[_Address], listed: OwnNetwork
+) -> None:
+    """Raise SsoFailed unless every address may be reached (always-blocked, or private and not
+    on Your own network)."""
+    name_listed = literal is None and listed.lists_name(host)
+    for address in addresses:
+        if own_network.always_blocked(address):
+            raise SsoFailed("always_blocked")
+        if own_network.needs_listing(address) and not (
+            name_listed or listed.lists_address(address)
+        ):
+            raise SsoFailed("own_network")
+
+
+def _route_refused(
+    scheme: str, host: str, port: int, addresses: list[_Address], listed: OwnNetwork
+) -> SsoFailed | None:
+    """The scheme and port rule of `_send`: plain http, or a port other than the usual two,
+    only to a server on Your own network."""
+    on_list = listed.lists_name(host) or all(listed.lists_address(a) for a in addresses)
+    if scheme != "https" and not on_list:
+        return SsoFailed("not_https")
+    if port not in NORMAL_PORTS and not on_list:
+        return SsoFailed("own_network")
+    return None
+
+
+def issuer_can_be_reached(issuer: str, listed: OwnNetwork) -> bool:
+    """True when a request to the sign-in server would get past `_send`'s checks, decided with
+    no network look-up: from the address it last had, which this process remembers. Anything
+    it can't tell (no address remembered, a bad address, localhost) is False."""
+    try:
+        parts = urlsplit(issuer)
+        host = parts.hostname
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+    except ValueError:
+        return False
+    if parts.scheme not in {"http", "https"} or not host or "%" in host or port == 0:
+        return False
+    try:
+        literal: _Address | None = ipaddress.ip_address(host)
+    except ValueError:
+        literal = None
+    if literal is not None:
+        addresses = [literal]
+    elif own_network.is_localhost(host):
+        return False
+    else:
+        found = remembered(host)
+        if not found:
+            return False
+        addresses = found
+    try:
+        _screen(host, literal, addresses, listed)
+    except SsoFailed:
+        return False
+    return _route_refused(parts.scheme, host, port, addresses, listed) is None
+
+
 def _addresses(
     gate: OutboundGate,
     household_id: int,
@@ -263,36 +347,10 @@ def _addresses(
             raise SsoFailed("unreachable", say_nothing_of_it=failure.busy) from None
         if not addresses:
             raise SsoFailed("unreachable")
-    name_listed = literal is None and listed.lists_name(host)
-    for address in addresses:
-        if own_network.always_blocked(address):
-            raise SsoFailed("always_blocked")
-        if own_network.needs_listing(address) and not (
-            name_listed or listed.lists_address(address)
-        ):
-            raise SsoFailed("own_network")
+    _screen(host, literal, addresses, listed)
+    if literal is None:
+        remember(host, addresses)
     return [own_network.plain(a) for a in addresses]
-
-
-def issuer_off_the_list(
-    gate: OutboundGate, household_id: int, issuer: str, listed: OwnNetwork, seconds: float = 10.0
-) -> bool:
-    """True when the sign-in server's address is one only "Your own network" lets Mealwright
-    reach, and the list no longer has it (so no sign-in would get through). A server that
-    can't be reached or looked up right now is not "off the list"."""
-    try:
-        parts = urlsplit(issuer)
-        host = parts.hostname
-        port = parts.port or (443 if parts.scheme == "https" else 80)
-    except ValueError:
-        return False
-    if not host:
-        return False
-    try:
-        _addresses(gate, household_id, host, port, listed, time.monotonic() + seconds)
-    except SsoFailed as failure:
-        return failure.code in {"own_network", "always_blocked"}
-    return False
 
 
 def _send(
@@ -318,11 +376,9 @@ def _send(
     with gate.sessions() as db:
         listed = own_network.load(db, household_id)
     addresses = _addresses(gate, household_id, host, port, listed, deadline)
-    on_list = listed.lists_name(host) or all(listed.lists_address(a) for a in addresses)
-    if parts.scheme != "https" and not on_list:
-        raise SsoFailed("not_https")
-    if port not in NORMAL_PORTS and not on_list:
-        raise SsoFailed("own_network")
+    refused = _route_refused(parts.scheme, host, port, addresses, listed)
+    if refused is not None:
+        raise refused
     for address in addresses:
         try:
             return gate.get_pinned(

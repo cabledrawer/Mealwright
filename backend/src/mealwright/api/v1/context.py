@@ -4,6 +4,7 @@ the client-made change ID for retries (docs/dev/api-0.2.md section 1.2)."""
 import re
 from dataclasses import dataclass
 from datetime import UTC, timedelta
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, Header, Request, status
@@ -38,6 +39,9 @@ class Kitchen:
     member_id: int | None = None
     # Through an API token, not a signed-in device (PR O2): `roles.TOKENS_NEVER` is refused.
     by_token: bool = False
+    # Where the install's files are, for the one question that reads a sealed secret
+    # ("do passwords count as off?", `sso_accounts.passwords_off`); None where unknown.
+    data_dir: Path | None = None
 
     @property
     def household_id(self) -> int:
@@ -93,6 +97,7 @@ def kitchen(
         request=f"{request.method} {request.url.path}",
         member_id=member_id,
         by_token=signed_in.by_token,
+        data_dir=request.app.state.settings.data_dir,
     )
 
 

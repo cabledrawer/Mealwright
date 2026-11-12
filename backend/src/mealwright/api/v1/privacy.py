@@ -20,7 +20,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
-from mealwright import own_network, sso, sso_accounts
+from mealwright import own_network, sso_accounts
 from mealwright.api.v1.context import Here
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
@@ -34,10 +34,11 @@ from mealwright.shopping import lock_household
 
 log = logging.getLogger(__name__)
 
-# Proposed, for cabledrawer (O1 review r2, finding 2).
+# Proposed, for cabledrawer (O1 review r2, finding 2; r3: worded from `sso_can_start`).
 PASSWORDS_BACK_ON_OWN_NETWORK = (
-    "Removed. Password sign-in is on again, because your sign-in server is no longer on Your "
-    "own network. Add it back and test sign-in, or turn password sign-in off again later."
+    "Removed. Passwords work again for now, because single sign-on can't start without that "
+    "entry: your sign-in server is no longer on Your own network. Add it back and "
+    "passwords are off again."
 )
 
 router = APIRouter(tags=["privacy"], dependencies=[SameOrigin])
@@ -207,35 +208,15 @@ def remove_entry(entry_id: StoredInt, request: Request, kitchen: Here) -> Respon
     sign-in was off and this entry was what let Mealwright reach the sign-in server: passwords
     are on again."""
     kitchen.admin_only(Action.PRIVACY)
+    data_dir = request.app.state.settings.data_dir
+    was_off = sso_accounts.passwords_off(kitchen.db, data_dir, kitchen.household_id)
     if not own_network.remove(kitchen.db, kitchen.household_id, entry_id):
         raise not_found("That entry")
     kitchen.db.commit()
     log.info("Your own network: removed")
-    if _passwords_back_on(request, kitchen):
+    # Passwords count as off only while single sign-on can start (`sso_can_start`, with no
+    # look-up): if this removal ended that, they work again, and the notice says so.
+    if was_off and not sso_accounts.passwords_off(kitchen.db, data_dir, kitchen.household_id):
+        log.warning("Single sign-on: passwords work again, it can't start without that entry")
         return JSONResponse({"passwords_back_on": True, "notice": PASSWORDS_BACK_ON_OWN_NETWORK})
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-def _passwords_back_on(request: Request, kitchen: Here) -> bool:
-    """With password sign-in off, the sign-in server must stay reachable: if this removal made
-    it unreachable (its address is no longer on the list), turn passwords back on, so nobody is
-    locked out. True when it did."""
-    db = kitchen.db
-    row = sso_accounts.settings_row(db, kitchen.household_id)
-    if row is None or row.password_sign_in or not sso_accounts.usable(row):
-        return False
-    if not sso_accounts.switch_on(db, kitchen.household_id):
-        return False  # passwords already work with the switch off
-    household_id, issuer = kitchen.household_id, row.issuer
-    listed = own_network.load(db, household_id)
-    db.rollback()  # the look-up below may wait: hold no database connection meanwhile
-    gate = request.app.state.outbound
-    if not sso.issuer_off_the_list(gate, household_id, issuer, listed):
-        return False
-    row = sso_accounts.settings_row(db, household_id)
-    if row is None or row.password_sign_in or row.issuer != issuer:
-        return False
-    row.password_sign_in = True
-    db.commit()
-    log.warning("Single sign-on: password sign-in is on again, its sign-in server left the list")
-    return True

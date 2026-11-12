@@ -125,13 +125,15 @@ def can_sign_in() -> ColumnElement[bool]:
     )
 
 
-def admin_can_sign_in(db: DbSession, household_id: int) -> ColumnElement[bool]:
+def admin_can_sign_in(
+    db: DbSession, household_id: int, passwords_off: bool = False
+) -> ColumnElement[bool]:
     """Like `can_sign_in`, for counting the admins who can get in. While password sign-in is
     turned off for single sign-on, a password is no way in: only a login linked to the saved
     sign-in server counts (O1 review r1 M3), so the last admin who can really sign in is
     never removed, made a Member or made shared."""
     setup = db.scalar(select(SsoSettings).where(SsoSettings.household_id == household_id))
-    if setup is None or setup.password_sign_in:
+    if setup is None or not passwords_off:
         # A single sign-on identity counts only at the saved sign-in server (O1 review r2, 4):
         # one made at another can't sign in now.
         has_password = and_(
@@ -156,12 +158,15 @@ def admins_left(kitchen: Kitchen, apart_from: int | None = None) -> int:
     whose sign-in link isn't used yet doesn't count: they can't sign in to do admin things.
     A shared login (a kitchen tablet) doesn't count either: cabledrawer 12 Nov. With
     password sign-in off, only admins linked by single sign-on count (`admin_can_sign_in`)."""
+    from mealwright.sso_accounts import passwords_off  # here: sso_accounts imports this module
+
+    off = passwords_off(kitchen.db, kitchen.data_dir, kitchen.household_id)
     query = (
         select(func.count())
         .select_from(Login)
         .join(Member, Member.id == Login.member_id)
         .where(Login.household_id == kitchen.household_id, Login.role == ADMIN)
-        .where(admin_can_sign_in(kitchen.db, kitchen.household_id))
+        .where(admin_can_sign_in(kitchen.db, kitchen.household_id, off))
         .where(Login.shared.is_(False))
     )
     if apart_from is not None:

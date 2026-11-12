@@ -38,7 +38,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
-from mealwright import api_tokens, sso
+from mealwright import api_tokens, own_network, sso
 from mealwright.auth import now
 from mealwright.models import Login, Member, Session, SsoSettings
 from mealwright.outbound import Connection, OutboundGate, switches
@@ -69,26 +69,54 @@ def switch_on(db: DbSession, household_id: int) -> bool:
     return switches(db, household_id)[Connection.SINGLE_SIGN_ON]
 
 
-def password_sign_in_on(db: DbSession, data_dir: Path) -> bool:
-    """Password sign-in works unless an admin turned it off with single sign-on set up,
-    switched on, and its saved secret readable. With the switch off, passwords work again,
-    so nobody is locked out (cabledrawer 12 Nov). The same when single sign-on can't
-    work at all (O1 review r1 M3): the saved client secret can't be opened (the key file
-    `secret.key` is lost or isn't Mealwright's), or the setup can't be read. The reset-admin
-    command turns it back on too."""
+def sso_can_start(db: DbSession, data_dir: Path | None, household_id: int) -> bool:
+    """True when a single sign-on sign-in could start right now: the Privacy switch is on, the
+    setup is there and its secret opens, and the sign-in server's address passes the rule the
+    outbound gate applies (`sso.issuer_can_be_reached`: Your own network, port and scheme),
+    decided with no network look-up. Anything it can't tell is False (O1 review r3)."""
     try:
-        row = settings_row(db)
-        if row is None or row.password_sign_in or not usable(row):
-            return True
-        if not switch_on(db, row.household_id):
-            return True
+        row = settings_row(db, household_id)
+        if row is None or not usable(row) or data_dir is None:
+            return False
+        if not switch_on(db, household_id):
+            return False
         open_sealed(data_dir, str(row.client_secret_sealed))
-    except SecretUnreadable:
-        return True
+        listed = own_network.load(db, household_id)
+        return sso.issuer_can_be_reached(row.issuer, listed)
+    except SecretUnreadable, SsoFailed:
+        return False
     except SQLAlchemyError, ValueError, TypeError:
         db.rollback()
+        return False
+
+
+def passwords_off(db: DbSession, data_dir: Path | None, household_id: int) -> bool:
+    """True only while an admin turned password sign-in off AND single sign-on can start. If it
+    can't (the switch is off, the secret is lost, the sign-in server is off Your own network,
+    an odd port, anything we can't tell), passwords work again and nobody is locked out
+    (cabledrawer 12 Nov; the whole class, O1 review r3; proposed, for cabledrawer). Every place that
+    enforces "passwords off" asks this."""
+    try:
+        row = settings_row(db, household_id)
+    except SQLAlchemyError:
+        db.rollback()
+        return False
+    if row is None or row.password_sign_in:
+        return False
+    return sso_can_start(db, data_dir, household_id)
+
+
+def password_sign_in_on(db: DbSession, data_dir: Path) -> bool:
+    """Password sign-in works unless `passwords_off`. The reset-admin command turns the setting
+    back on too."""
+    try:
+        row = settings_row(db)
+    except SQLAlchemyError:
+        db.rollback()
         return True
-    return False
+    if row is None:
+        return True
+    return not passwords_off(db, data_dir, row.household_id)
 
 
 def same_secret(row: SsoSettings, data_dir: Path, typed: str) -> bool:
@@ -134,15 +162,16 @@ def role_for(row: SsoSettings, groups: list[str]) -> str | None:
     return MEMBER if row.anyone_else == MEMBER else None
 
 
-def other_admins(db: DbSession, login: Login) -> int:
+def other_admins(db: DbSession, login: Login, off: bool) -> int:
     """Admins of this household who can sign in, apart from `login` (not shared ones). With
-    password sign-in off, only admins linked by single sign-on count (O1 review r1 M3)."""
+    password sign-in off (`off`; asked while a single sign-on sign-in is happening, so single
+    sign-on can start), only admins linked by single sign-on count (O1 review r1 M3)."""
     query = (
         select(func.count())
         .select_from(Login)
         .join(Member, Member.id == Login.member_id)
         .where(Login.household_id == login.household_id, Login.role == ADMIN)
-        .where(admin_can_sign_in(db, login.household_id))
+        .where(admin_can_sign_in(db, login.household_id, off))
         .where(Login.shared.is_(False), Login.id != login.id)
     )
     return int(db.scalar(query) or 0)
@@ -218,7 +247,7 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity) -> Login:
     if role is None:
         raise SsoFailed("not_let_in")
     if login.role != role:
-        if login.role == ADMIN and other_admins(db, login) == 0:
+        if login.role == ADMIN and other_admins(db, login, not row.password_sign_in) == 0:
             log.warning(
                 "Single sign-on: %s stays an admin, as the household's last one", login.username
             )
