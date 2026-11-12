@@ -78,7 +78,7 @@
         "frontend/src/lib/start*"
       ],
       "backend": [
-        "test_plan*.py", "test_start_ahead.py", "test_optional.py", "test_batch_counter.py", "test_cook_ahead.py", "test_tub_eating.py",
+        "test_plan*.py", "test_start_ahead.py", "test_optional.py", "test_batch_counter.py", "test_cook_ahead.py", "test_tub_eating.py", "test_tub_after_cook.py",
         "test_release_ids_and_slot_undo.py", "test_batch_suggest.py", "test_batch_sessions.py"
       ],
       "browser": ["batch-cook.spec.ts", "plan.spec.ts", "plan-start.spec.ts", "plan-cards.spec.ts", "plan-cook-once.spec.ts", "plan-month.spec.ts", "plan-portions.spec.ts", "plan-views.spec.ts"]
