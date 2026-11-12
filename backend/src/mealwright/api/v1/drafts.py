@@ -43,7 +43,13 @@ def create_draft(body: DraftIn, kitchen: Here, response: Response) -> DraftOut:
     if earlier is None:
         draft = drafts.create(kitchen, body)
         # Remembers the request's key, so a retry doesn't make a second draft.
-        record(kitchen, "draft_saved", f"Kept the {draft.name} draft", None, {"draft_id": draft.id})
+        record(
+            kitchen,
+            "draft_saved",
+            f"Kept the {draft.name} draft",
+            None,
+            {"draft_id": draft.id, "name": draft.name},
+        )
         earlier = commit(kitchen)
         if earlier is None:
             return drafts.detail(kitchen, draft)

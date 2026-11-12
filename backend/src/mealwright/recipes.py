@@ -379,7 +379,7 @@ def save(
             "recipe_created" if creating else "recipe_saved",
             f"Saved {recipe.name}",
             None,
-            {"recipe_id": recipe.id},
+            {"recipe_id": recipe.id, "name": recipe.name},
         )
 
     before = None if creating else _line_signature(db, recipe.id)
@@ -506,7 +506,13 @@ def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
     db.flush()
     if kitchen.idempotency_key is not None:
         kitchen.key_once = True
-        record(kitchen, "recipe_created", f"Saved {copy.name}", None, {"recipe_id": copy.id})
+        record(
+            kitchen,
+            "recipe_created",
+            f"Saved {copy.name}",
+            None,
+            {"recipe_id": copy.id, "name": copy.name},
+        )
 
     # Both methods are copied, each with its lines and steps (a line or step with no method is
     # in the first).
@@ -956,7 +962,9 @@ def remove(kitchen: Kitchen, recipe: Recipe) -> Change:
         "recipe_removed",
         f"Deleted {recipe.name}",
         None,
-        {"recipe_id": recipe.id},
+        # The name too: the summary says it, and a purge removes the recipe's own row, so the
+        # report scrubber reads the name from here (fix4, review r3).
+        {"recipe_id": recipe.id, "name": recipe.name},
     )
 
 

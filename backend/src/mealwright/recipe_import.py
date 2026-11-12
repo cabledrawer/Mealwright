@@ -1076,8 +1076,10 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
             edit.extra["draft"] = drafts.snapshot(draft, taken)
             drafts.delete_for_good(db, [draft.id])  # it is a recipe now
         edit.extra["recipe_id"] = recipe.id
+        edit.extra["name"] = recipe.name  # the summary says it; a purge removes the row (fix4)
         if section_recipes:
             edit.extra["section_recipe_ids"] = [section.id for section in section_recipes]
+            edit.extra["section_names"] = [section.name for section in section_recipes]
         new_foods = list(made.values())
         change = edit.record(
             "recipe_imported", _summary(recipe, new_foods, learned, section_recipes), None

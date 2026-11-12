@@ -506,7 +506,11 @@ def make_list(act: Act) -> None:
     kitchen.db.flush()
     act.list_id = made.id
     act.out["list"] = made
-    act.done("list_made", f"Made the list {name}", [{"op": "list_made", "list_id": made.id}])
+    act.done(
+        "list_made",
+        f"Made the list {name}",
+        [{"op": "list_made", "list_id": made.id, "name": name}],
+    )
 
 
 def rename_list(act: Act) -> None:

@@ -1603,3 +1603,30 @@ def test_the_list_reads_a_limited_number_of_short_waiting_lines_again(
     assert len(listed(kitchen)) == 3
     assert 0 < len(read) <= 200
     assert all(len(written) <= 200 for written in read)
+
+
+def test_a_deleted_and_purged_drafts_name_is_not_in_a_report(
+    kitchen: TestClient, neighbour: TestClient, pantry: dict[str, Any], web: Web, settings: Any
+) -> None:
+    """Fix4 (review r3): a draft's name stays in its "kept" and "deleted" changes; once the
+    draft is purged it is a name nobody can find in the tables, and must still not be in a
+    report (for the household or a neighbour)."""
+    from test_problem_report import error, log_folder, report, write_log
+
+    shown = review(kitchen, PASTED)
+    draft = kept(kitchen, shown, choices={"name": "Lornabelle secret sambar", "lines": {}})
+    assert draft["name"] == "Lornabelle secret sambar"
+    ok(kitchen.delete(f"{API}/recipes/drafts/{draft['id']}"))
+    age(kitchen, draft["id"], days=30)
+    with db(kitchen) as session:
+        household = session.scalars(select(Household)).first()
+        assert household is not None
+        purge(session, household)
+        session.commit()
+    write_log(
+        log_folder(settings),
+        [error("Couldn't keep Lornabelle secret sambar", ago=timedelta(seconds=-2))],
+    )
+    for client in (kitchen, neighbour):
+        text_ = "\n".join(report(client)["errors"]).lower()
+        assert "lornabelle" not in text_, text_
