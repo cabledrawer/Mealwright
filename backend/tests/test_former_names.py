@@ -5,9 +5,7 @@ long as log lines live, whatever path changed or deleted the row (Report a probl
 from datetime import timedelta
 
 from fastapi.testclient import TestClient
-
-from mealwright.config import Settings
-from tests.test_problem_report import (  # noqa: F401  (the fixtures that set up the household)
+from test_problem_report import (  # noqa: F401  (the fixtures that set up the household)
     API,
     _ok,
     error,
@@ -17,7 +15,9 @@ from tests.test_problem_report import (  # noqa: F401  (the fixtures that set up
     report,
     write_log,
 )
-from tests.test_recipes import save as save_recipe
+from test_recipes import save as save_recipe
+
+from mealwright.config import Settings
 
 
 def _gone_from_both(
@@ -341,7 +341,7 @@ def test_every_kind_the_hook_writes_has_a_replacement() -> None:
 def test_the_nightly_purge_keeps_the_names_it_deletes(kitchen: TestClient) -> None:
     """Real paths: an ingredient and a recipe removed, then purged for good by the job (bulk
     deletes, with names that go with them): the hook keeps them, not only the undo data."""
-    from tests.test_problem_report import _purge_all
+    from test_problem_report import _purge_all
 
     food = _ok(kitchen.post(f"{API}/foods", json={"name": "Aunty Priyamvada chutney"}))["food"]
     recipe = _ok(kitchen.post(f"{API}/recipes", json={"name": "Barnaby biryani"}))
