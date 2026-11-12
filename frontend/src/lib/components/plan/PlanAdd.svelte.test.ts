@@ -133,3 +133,62 @@ describe('the sheet’s title (F127)', () => {
       .toBeVisible();
   });
 });
+
+describe('Use a tub never offers a tub not cooked yet (F230, spec F50)', () => {
+  const tub = (id: number, name: string, cookedOn: string, batch: number) => ({
+    id,
+    batch_id: batch,
+    number: 1,
+    tub_count: 4,
+    recipe_name: name,
+    colour: null,
+    cooked_on: cookedOn,
+    amount_quarters: 4,
+    place_id: null,
+    place_kind: 'fridge',
+    member_id: null,
+    use_by: '2026-11-20'
+  });
+
+  function open(day: string, slotId: number) {
+    const model = {
+      slotsOn: [
+        { id: 1, name: 'Breakfast' },
+        { id: 2, name: 'Dinner' }
+      ],
+      slotName: (id: number) => (id === 1 ? 'Breakfast' : 'Dinner'),
+      tubsLeft: [
+        tub(1, 'Khichdi', '2026-11-14', 10), // cooked on Sat 14, at Breakfast
+        tub(2, 'Dal Tadka', '2026-11-12', 11)
+      ],
+      plan: {
+        meals: [{ id: 50, date: '2026-11-14', slot_id: 1 }],
+        batch_cooks: [{ id: 10, cook_meal_id: 50 }]
+      },
+      today: '2026-11-11',
+      add: async () => ({ ok: true })
+    };
+    const actions = { model, readonly: false } as unknown as PlanActions;
+    component = mount(PlanAdd, {
+      target: document.body,
+      props: { actions, target: { day, slotId }, onclose: () => {} }
+    });
+    flushSync();
+  }
+
+  it('Fri 13 breakfast: only the tub that is already cooked', async () => {
+    open('2026-11-13', 1);
+    await expect.element(page.getByText('Dal Tadka', { exact: false })).toBeVisible();
+    expect(document.body.textContent).not.toContain('Khichdi');
+  });
+
+  it('Sat 14: not at the cooking meal, but at the dinner after it', async () => {
+    open('2026-11-14', 1);
+    await expect.element(page.getByText('Dal Tadka', { exact: false })).toBeVisible();
+    expect(document.body.textContent).not.toContain('Khichdi');
+    unmount(component!);
+    document.body.innerHTML = '';
+    open('2026-11-14', 2);
+    await expect.element(page.getByText('Khichdi', { exact: false })).toBeVisible();
+  });
+});

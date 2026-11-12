@@ -126,8 +126,23 @@
 
   let allTubs = $state(false);
 
-  /** The tubs this day offers: the oldest freezer tub first; fridge tubs past their use-by left out. */
-  const offer = $derived(tubsForDay(model.tubsLeft, target?.day ?? ''));
+  /** The tubs this day offers: the oldest freezer tub first; fridge tubs past their use-by and tubs not cooked yet left out. */
+  const offer = $derived(
+    tubsForDay(
+      model.tubsLeft,
+      target?.day ?? '',
+      slotId === null
+        ? undefined
+        : { slotId, slotIds: model.slotsOn.map((s) => s.id), cookSlotOf: cookSlot }
+    )
+  );
+
+  /** The meal a batch is cooked in, from the plan on screen (null when it isn't there). */
+  function cookSlot(batchId: number): number | null {
+    const plan = model.plan;
+    const mealId = plan?.batch_cooks.find((b) => b.id === batchId)?.cook_meal_id;
+    return plan?.meals.find((m) => m.id === mealId)?.slot_id ?? null;
+  }
   const listed = $derived(tubsListed(offer.tubs, allTubs));
 
   /** Cook once here: the recipe buttons wait while the recipe is being planned (no second plan). */

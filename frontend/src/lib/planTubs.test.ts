@@ -17,6 +17,42 @@ const tub = (id: number, place: TubLeft['place_kind'], useBy: string): TubLeft =
   use_by: useBy
 });
 
+describe('tubsForDay never offers a tub before it is cooked (F230, spec F50)', () => {
+  const batch = (id: number, cookedOn: string): TubLeft => ({
+    ...tub(id, 'fridge', '2026-11-30'),
+    cooked_on: cookedOn
+  });
+  // The Sat 14 batch (Khichdi, Dal Tadka) is not cooked yet on Fri 13.
+  it('leaves out a tub for a day before its cook day', () => {
+    const list = [batch(1, '2026-11-14'), batch(2, '2026-11-12')];
+    expect(tubsForDay(list, '2026-11-13').tubs.map((t) => t.id)).toEqual([2]);
+    expect(tubsForDay(list, '2026-11-14').tubs.map((t) => t.id)).toEqual([1, 2]);
+  });
+
+  it('does not count a tub not cooked yet as "past its use-by"', () => {
+    const early = { ...batch(1, '2026-11-14'), use_by: '2026-11-15' };
+    expect(tubsForDay([early], '2026-11-13').pastUseBy).toBe(0);
+  });
+
+  it('on the cook day offers it only at a meal after the cooking', () => {
+    const list = [batch(1, '2026-11-14')];
+    const at = (slotId: number) =>
+      tubsForDay(list, '2026-11-14', { slotId, slotIds: [1, 2, 3], cookSlotOf: () => 2 }).tubs;
+    expect(at(1)).toEqual([]);
+    expect(at(2)).toEqual([]); // the cooking meal itself
+    expect(at(3).map((t) => t.id)).toEqual([1]);
+  });
+
+  it('offers it on a day after the cook day at any meal, and when the cook meal is not known', () => {
+    const list = [batch(1, '2026-11-14')];
+    const meal = { slotId: 1, slotIds: [1, 2], cookSlotOf: () => 2 };
+    expect(tubsForDay(list, '2026-11-15', meal).tubs).toHaveLength(1);
+    expect(tubsForDay(list, '2026-11-14', { ...meal, cookSlotOf: () => null }).tubs).toHaveLength(
+      1
+    );
+  });
+});
+
 describe('tubsForDay (F52)', () => {
   it('lists the oldest freezer tub first, then the fridge tubs by use-by', () => {
     const offered = tubsForDay(
