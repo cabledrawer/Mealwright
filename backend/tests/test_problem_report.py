@@ -325,6 +325,12 @@ def test_making_the_report_never_connects(
 # --- Personal details are removed ----------------------------------------------------------------
 
 
+# "Tess Marsh" in Tamil, "Tess Sutton" in Hindi and "Bikash Ray" in Bengali.
+TAMIL = "டெஸ்ஸா ரென்"
+HINDI = "टेस्सा सटन"
+BENGALI = "বিকাশ রায়"
+
+
 @pytest.fixture
 def planted(kitchen: TestClient, neighbour: TestClient) -> TestClient:
     """A kitchen with names of every kind, in this household and next door."""
@@ -339,6 +345,17 @@ def planted(kitchen: TestClient, neighbour: TestClient) -> TestClient:
     ok(neighbour.post(f"{API}/foods", json={"name": "Neighbour's sourdough"}))
     ok(kitchen.post(f"{API}/shopping/lists", json={"name": "Diwali party"}))
     ok(kitchen.post(f"{API}/shops", json={"name": "Patel Brothers"}))
+    # Review r2: names with numbers in them, and recipe names that start with a contraction.
+    ok(kitchen.post(f"{API}/shopping/lists", json={"name": "Diwali 2025 party"}))
+    ok(neighbour.post(f"{API}/shopping/lists", json={"name": "Week 2026-11-09 shop"}))
+    for name in [
+        "Christmas 2025 surprise for Granddad",
+        "Ayla birthday cake 1,000 layers",
+        "It's a Wrap",
+        "Today's Special",
+        "Let's Eat",
+    ]:
+        ok(kitchen.post(f"{API}/recipes", json={"name": name}))
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         db.add(FoodName(household_id=1, food_id=food["id"], name="Arhar dal"))
         db.execute(
@@ -369,6 +386,10 @@ def planted(kitchen: TestClient, neighbour: TestClient) -> TestClient:
             (2, "awong", "Amy Wong"),
             (1, "rli", "Raj Li"),
             (2, "amd", "Anne-Marie Dupont"),
+            # Review r2, M1: scripts whose words hold vowel signs and joiners.
+            (1, "tw2", TAMIL),
+            (2, "ts3", HINDI),
+            (1, "bkr", BENGALI),
         ]:
             db.add(
                 Login(
@@ -384,6 +405,13 @@ def planted(kitchen: TestClient, neighbour: TestClient) -> TestClient:
             "Rest an hour, then check and start again",
         ]:
             db.add(Recipe(household_id=1, name=name))
+        db.add(
+            Recipe(
+                household_id=2,
+                name="Plain sponge",
+                description="Bake at 180 degrees for 1 1/2 hours then hide it from Ayla",
+            )
+        )
         db.execute(update(Login).where(Login.username == "tess").values(name="Tess Marsh"))
         db.execute(update(Household).where(Household.id == 1).values(name="The Marshes"))
         db.commit()
@@ -493,6 +521,47 @@ PLANTED = [
     ),
     ("low-high quotes", "Save \u201eAuntie Shanti biryani\u201c now", "Shanti", "[text]"),
     ("guillemets", "Save \u00abAuntie Shanti biryani\u00bb now", "Shanti", "[text]"),
+    # Review r2, M1: a word is its letters with their vowel signs and joiners.
+    ("a Tamil name", f"Sign-in for {TAMIL} failed", TAMIL.split()[0], "[name]"),
+    ("a Tamil family name", f"Sign-in for {TAMIL} failed", TAMIL.split()[1], "[name]"),
+    ("a Tamil name alone", f"Sign-in for {TAMIL.split()[0]} failed", TAMIL.split()[0], "[name]"),
+    ("a Hindi name", f"Sign-in for {HINDI.split()[0]} failed", HINDI.split()[0], "[name]"),
+    ("a Hindi family name", f"{HINDI.split()[1]} is locked out", HINDI.split()[1], "[name]"),
+    ("a Bengali name", f"Sign-in for {BENGALI} failed", BENGALI.split()[0], "[name]"),
+    ("a Bengali family name", f"{BENGALI.split()[1]} again", BENGALI.split()[1][:2], "[name]"),
+    # M2: numbers between the words of a name don't keep it.
+    ("a list with a year", "List Diwali 2025 party refused", "Diwali", "[removed]"),
+    ("a list with a date", "List Week 2026-11-09 shop refused", "Week", "[removed]"),
+    (
+        "a recipe with a year",
+        "Couldn't save Christmas 2025 surprise for Granddad now",
+        "Granddad",
+        "[recipe]",
+    ),
+    ("a recipe with 1,000", "Ayla birthday cake 1,000 layers failed", "birthday", "[recipe]"),
+    (
+        "a description with 1 1/2",
+        "Bake at 180 degrees for 1 1/2 hours then hide it from Ayla",
+        "Ayla",
+        "[recipe]",
+    ),
+    # M5: a word in brackets.
+    ("a username in brackets", "No user [tess] in names=[Marsh]", "tess", "[name]"),
+    ("a name in brackets", "No user [tess] in names=[Marsh]", "Marsh", "[name]"),
+    # M6: a long quote, and a quote that is never closed.
+    (
+        "a long quoted note",
+        "Bad note 'call Ayla on 07700 900123 before " + "the party " * 30 + "starts' given",
+        "07700",
+        "[text]",
+    ),
+    ("an unclosed quote", "Couldn't save 'Auntie Shanti biryani", "Shanti", "[text]"),
+    ("an unclosed double quote", "Couldn't save \"Auntie Shanti biryani", "Shanti", "[text]"),
+    # L8: secrets after a colon, and keys with "api" before them.
+    ("a password after a colon", "login failed password: hunter2secret", "hunter2", "[secret]"),
+    ("an apikey", "Bad apikey=abc123XYZ given", "abc123", "[secret]"),
+    ("an api_key after a colon", "Bad api_key: abc123XYZ given", "abc123", "[secret]"),
+    ("a token after a colon", "Refresh token: abc123XYZ expired", "abc123", "[secret]"),
 ]
 
 
@@ -546,6 +615,8 @@ def test_a_long_message_is_cut(kitchen: TestClient, settings: Settings) -> None:
         "Couldn't thin the history (will try again within the hour)",
         "Job late at 12:41:07 again",
         "sqlite3.OperationalError: database is locked",
+        # Review r2, (a): "It's a Wrap", "Today's Special" and "Let's Eat" name no one.
+        "Couldn't save it; today it failed; let it go",
     ],
 )
 def test_everyday_words_in_unrelated_lines_are_kept(
@@ -662,3 +733,74 @@ def test_the_scrubber_is_kept_between_reports(
     monkeypatch.setattr(problem_report, "_now", lambda: now)
     report(planted)
     assert len(built) == 2
+
+
+def test_a_name_added_since_the_scrubber_was_built_is_removed(
+    planted: TestClient, neighbour: TestClient, settings: Settings
+) -> None:
+    """Review r2, M3: the kept scrubber is built again once a name may have changed, in any
+    household, even within SCRUBBER_KEPT."""
+    folder = log_folder(settings)
+    write_log(folder, [error("Sign-in for tess failed")])
+    assert "[name]" in report(neighbour)["errors"][0]  # built and kept
+    with planted.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.add(
+            Login(
+                household_id=1,
+                username="zebedee",
+                name="Zebedee Quux",
+                password_hash=None,
+                role="member",
+            )
+        )
+        db.commit()
+    assert planted.post(f"{API}/recipes", json={"name": "Zebedee surprise cake"}).status_code == 201
+    write_log(folder, [error("Sign-in for zebedee failed; Zebedee Quux; Zebedee surprise cake")])
+    line = report(neighbour)["errors"][-1]
+    assert "zebedee" not in line.lower(), line
+    assert "quux" not in line.lower(), line
+    # A rename, written straight to the table.
+    with planted.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.execute(update(Login).where(Login.username == "rli").values(name="Raj Wobblesworth"))
+        db.commit()
+    write_log(folder, [error("Wobblesworth is locked out")])
+    line = report(neighbour)["errors"][-1]
+    assert "wobblesworth" not in line.lower(), line
+
+
+def test_one_scrubber_is_built_whatever_the_host(
+    planted: TestClient, settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review r2, M4: the request's host and port are applied to each report, not kept."""
+    monkeypatch.setattr(problem_report, "_kept", {})
+    write_log(log_folder(settings), [error("Bad Host kitchen-box-3 on port 1003 seen")])
+    built: list[object] = []
+    real = Scrubber.__init__
+
+    def counting(self: Scrubber, *args: object) -> None:
+        built.append(self)
+        real(self, *args)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Scrubber, "__init__", counting)
+    for n in range(50):
+        line = report(planted, host=f"kitchen-box-{n}:{1000 + n}")["errors"][0]
+        if n == 3:
+            assert "kitchen-box-3" not in line, line
+            assert "[server]" in line, line
+        else:
+            assert "kitchen-box-3" in line, line
+    assert len(built) == 1
+    assert len(problem_report._kept) == 1
+
+
+def test_a_message_cut_at_the_read_limit_keeps_no_half_word() -> None:
+    """Review r2, L7: a message longer than MESSAGE_READ is cut back to its last space, so no
+    part of a key, address or name is left at the end."""
+    scrub = Scrubber(FakeDB({"Login.name": ["Tess Marsh"]}), NO_SERVER, Path("/data"))  # type: ignore[arg-type]
+    at = datetime(2026, 11, 12, 12, 41, tzinfo=UTC)
+    tail = "sid 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822c x"
+    for cut_in in range(1, len(tail)):
+        size = problem_report.MESSAGE_READ - cut_in
+        pad = "https://e.example/" + "a" * (size - 19) + " "  # one [link]
+        line = error_line(LogError(at, "m.x", pad + tail, None), scrub)
+        assert "9f86" not in line, (cut_in, line)

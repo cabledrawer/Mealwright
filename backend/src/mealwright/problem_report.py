@@ -18,6 +18,7 @@ IP address, link, host name, e-mail address, file path, password, token or key, 
 a log line quotes.
 """
 
+import copy
 import os
 import platform
 import re
@@ -31,7 +32,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from sqlalchemy import select
+from sqlalchemy import event, select
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from mealwright import __version__, models
@@ -194,10 +196,10 @@ _URL = re.compile(
     r"(?<![a-z0-9+.\-])[a-z][a-z0-9+.\-]{0,30}://[^\s<>\"']*|(?<![\w.\-])www\.[^\s<>\"']+",
     re.IGNORECASE,
 )
-# "password=…", "mw_session=…", "api_key=…": the name stays, the value goes.
+# "password=…", "password: …", "mw_session=…", "apikey=…": the name stays, the value goes.
 _SECRET_VALUE = re.compile(
-    r"(?<![a-z])((?:password|passwd|pwd|token|secret|cookie|session|key|auth)[a-z_\-]{0,30})"
-    r"\s{0,3}=\s{0,3}(?:\"[^\"\n]{0,300}\"|'[^'\n]{0,300}'|[^\s,;&)\]]+)",
+    r"(?<![a-z])((?:api[_\-]?)?(?:password|passwd|pwd|token|secret|cookie|session|key|auth)"
+    r"[a-z_\-]{0,30})(\s{0,3}[=:]\s{0,3})(?:\"[^\"\n]{0,300}\"|'[^'\n]{0,300}'|[^\s,;&)\]]+)",
     re.IGNORECASE,
 )
 _BEARER = re.compile(r"(?<![a-z])(bearer|basic)\s{1,3}[\w\-.~+/]+=*", re.IGNORECASE)
@@ -244,27 +246,74 @@ _ANY_PORT = re.compile(r"(?<![a-z])(port)(\s{0,3}[=:]\s{0,3}|\s{1,3})\d{1,5}(?!\
 _LONG_RUN = re.compile(r"(?<![\w+/=\-])[A-Za-z0-9+/_\-]{20,}={0,2}")
 _HEX = frozenset("0123456789abcdefABCDEF-")
 # Quoted words: quote marks that aren't inside a word ("Couldn't" and "Mabel's" aren't quotes),
-# and an apostrophe inside a quote ("'Auntie Shanti's biryani'") doesn't end it.
+# and an apostrophe inside a quote ("'Auntie Shanti's biryani'") doesn't end it. A quote that is
+# never closed runs to the end of the line.
+_Q = MESSAGE_READ
 _QUOTED = re.compile(
-    r"(?<!\w)(?:'(?:[^'\n]|'(?=\w)){0,300}'"
-    r"|\u2018(?:[^\u2019\n]|\u2019(?=\w)){0,300}\u2019"
-    r"|\"[^\"\n]{0,300}\""
-    r"|\u201c[^\u201d\n]{0,300}\u201d"
-    r"|\u201e[^\u201c\u201d\n]{0,300}[\u201c\u201d]"
-    r"|\u00ab[^\u00bb\n]{0,300}\u00bb"
-    r"|\u203a[^\u2039\n]{0,300}\u2039|\u2039[^\u203a\n]{0,300}\u203a"
-    r"|`[^`\n]{0,300}`)(?!\w)"
+    rf"(?<!\w)(?:'(?:[^'\n]|'(?=\w)){{0,{_Q}}}(?:'|(?=\n|\Z))"
+    rf"|\u2018(?:[^\u2019\n]|\u2019(?=\w)){{0,{_Q}}}(?:\u2019|(?=\n|\Z))"
+    rf"|\"[^\"\n]{{0,{_Q}}}(?:\"|(?=\n|\Z))"
+    rf"|\u201c[^\u201d\n]{{0,{_Q}}}(?:\u201d|(?=\n|\Z))"
+    rf"|\u201e[^\u201c\u201d\n]{{0,{_Q}}}(?:[\u201c\u201d]|(?=\n|\Z))"
+    rf"|\u00ab[^\u00bb\n]{{0,{_Q}}}(?:\u00bb|(?=\n|\Z))"
+    rf"|\u203a[^\u2039\n]{{0,{_Q}}}(?:\u2039|(?=\n|\Z))"
+    rf"|\u2039[^\u203a\n]{{0,{_Q}}}(?:\u203a|(?=\n|\Z))"
+    rf"|`[^`\n]{{0,{_Q}}}(?:`|(?=\n|\Z)))(?!\w)"
 )
-# A word: a run of letters (with any combining accents). Anything else is a boundary, so
-# "tess_backup.db", "user_tess" and "tess2" each hold the word "tess".
-_WORD = re.compile(r"(?:[^\W\d_]|[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff])+")
+
+
+def _mark_ranges() -> str:
+    """Every combining mark (Unicode category M: accents, and the vowel signs and viramas of
+    Tamil, Hindi, Bengali and other scripts), as ranges for a character class."""
+    ranges: list[str] = []
+    start = previous = -2
+    for code in (*range(0x20000), *range(0xE0100, 0xE01F0)):
+        if not unicodedata.category(chr(code)).startswith("M"):
+            continue
+        if code != previous + 1:
+            if start >= 0:
+                ranges.append(f"\\U{start:08x}-\\U{previous:08x}")
+            start = code
+        previous = code
+    ranges.append(f"\\U{start:08x}-\\U{previous:08x}")
+    return "".join(ranges)
+
+
+# A word: a run of letters with their combining marks and the zero-width (non-)joiners, so
+# "டெஸ்ஸா" and "टेस्सा" are one word each. Anything else is a boundary, so "tess_backup.db",
+# "user_tess" and "tess2" each hold the word "tess".
+_WORD_CHAR = rf"(?:[^\W\d_]|[{_mark_ranges()}\u200c\u200d])"
+_WORD = re.compile(rf"{_WORD_CHAR}+")
 # "Granny Mabel's lasagne": a capitalised word before 's in a recipe's or ingredient's name is
 # most likely a person's, and is removed on its own like one (proposed, for cabledrawer).
 _POSSESSIVE = re.compile(r"(?<![^\W\d_])([^\W\d_]{2,})['\u2019]s(?![^\W\d_])")
 # Words of household names that are never removed on their own ("The Marshes").
 _JOINING = frozenset({"the", "and", "of"})
-# Between two words of one phrase in a log line: a few characters that aren't letters.
+# Words before 's in a recipe's name that are never a person's ("It's a Wrap", "Today's
+# Special", "Let's Eat").
+_NOT_PEOPLE = frozenset(
+    (
+        *("it", "let", "that", "what", "here", "there", "where", "who", "how", "he", "she"),
+        *("today", "tonight", "tomorrow", "yesterday", "one", "this", "everyone"),
+        *("everybody", "someone", "somebody", "nobody", "anyone", "anybody"),
+    )
+)
+# Between two words of one phrase in a log line: a few characters that aren't letters or
+# digits ("Diwali 2025 party", "Week 2026-11-09 shop": the digits don't count).
 _GAP = 4
+# The scrubber's own words: these are never looked up as names.
+_OWN_WORDS = re.compile(
+    r"\[(?:name|recipe|ingredient|removed|site|link|server|port|address|e-mail|file|secret"
+    r"|text)\]"
+)
+
+
+def _joins(gap: str) -> bool:
+    """Whether the text between two words can be inside one phrase: at most _GAP characters
+    that aren't digits, and no line end or bracket."""
+    if len(gap) > _GAP and len(gap) - sum(char.isdecimal() for char in gap) > _GAP:
+        return False
+    return not any(char in "\n[]" for char in gap)
 
 
 def _ipv6(found: re.Match[str]) -> str:
@@ -297,8 +346,11 @@ def _key(word: str) -> str:
     if word.isascii():
         return word.lower()
     folded = unicodedata.normalize("NFD", word.casefold())
-    return "".join(char for char in folded if not unicodedata.combining(char)).replace(
-        "\u0131", "i"
+    return (
+        "".join(char for char in folded if not unicodedata.combining(char))
+        .replace("\u0131", "i")
+        .replace("\u200c", "")
+        .replace("\u200d", "")
     )
 
 
@@ -423,8 +475,9 @@ class Scrubber:
                         continue
                     if column in _TITLE_COLUMNS:
                         for found in _POSSESSIVE.finditer(unicodedata.normalize("NFC", value)):
-                            if found.group(1)[0].isupper():
-                                self._add_person(found.group(1))
+                            word = found.group(1)
+                            if word[0].isupper() and _key(word) not in _NOT_PEOPLE:
+                                self._add_person(word)
                     self._add_phrase(_keys(value), replacement)
         for options in self._phrases.values():
             options.sort(key=lambda option: len(option[0]), reverse=True)
@@ -436,8 +489,17 @@ class Scrubber:
             host = urlsplit(link or "").hostname
             if host:
                 self._sites.add(host.casefold().removeprefix("www."))
-        own = [entry for entry in db.scalars(select(models.OwnNetworkEntry.value)) if entry]
-        self._server = _phrases([*server.hosts, *own])
+        self._own = [entry for entry in db.scalars(select(models.OwnNetworkEntry.value)) if entry]
+        self._address(server, data_dir)
+
+    def at(self, server: ServerAddress, data_dir: Path) -> Scrubber:
+        """This Scrubber for one request: the same names, with this request's host and port."""
+        scrubber = copy.copy(self)
+        scrubber._address(server, data_dir)
+        return scrubber
+
+    def _address(self, server: ServerAddress, data_dir: Path) -> None:
+        self._server = _phrases([*server.hosts, *self._own])
         ports = sorted({str(port) for port in server.ports})
         self._ports = (
             re.compile(rf"(?:(?<=:)|(?<=\bport ))(?:{'|'.join(ports)})(?!\d)", re.IGNORECASE)
@@ -487,18 +549,16 @@ class Scrubber:
             for found in _WORD.finditer(text)
         ]
         # Whether a word and the next one can be two words of one phrase.
-        joined = [
-            words[n + 1][0] - words[n][1] <= _GAP
-            and not any(c in "\n[]" for c in text[words[n][1] : words[n + 1][0]])
-            for n in range(len(words) - 1)
-        ]
+        joined = [_joins(text[words[n][1] : words[n + 1][0]]) for n in range(len(words) - 1)]
+        # Where the scrubber's own words are ("[link]", "[e-mail]").
+        own = {at for found in _OWN_WORDS.finditer(text) for at in range(*found.span())}
         out: list[str] = []
         done = 0
         n = 0
         while n < len(words):
-            start, end, word, key = words[n]
-            if start > 0 and text[start - 1] == "[" and text[end : end + 1] == "]":
-                n += 1  # one of the replacements ("[link]")
+            start, _, word, key = words[n]
+            if start in own:
+                n += 1
                 continue
             last, replacement = self._phrase_at(words, joined, n)
             if replacement is None:
@@ -547,7 +607,7 @@ class Scrubber:
     def __call__(self, text: str) -> str:
         text = _URL.sub("[link]", text)
         text = _JWT.sub("[secret]", text)
-        text = _SECRET_VALUE.sub(r"\1=[secret]", text)
+        text = _SECRET_VALUE.sub(r"\1\2[secret]", text)
         text = _BEARER.sub(r"\1 [secret]", text)
         text = _EMAIL.sub("[e-mail]", text)
         text = _PATH.sub("[file]", text)
@@ -576,26 +636,79 @@ def _now() -> float:
     return time.monotonic()
 
 
-# Built Scrubbers, kept for SCRUBBER_KEPT seconds: by database, households, address and folder.
-_kept: dict[tuple[object, ...], tuple[float, Scrubber]] = {}
+# The tables that hold a name the Scrubber removes. A write to any of them, in any household,
+# means the kept Scrubber may miss a name, so the next report builds it afresh.
+_NAME_TABLES = frozenset(
+    column.class_.__table__.name
+    for column in (
+        *_PEOPLE_COLUMNS,
+        *(column for _, columns in _PHRASE_COLUMNS for column in columns),
+        models.ImportDraft.site,
+        models.Recipe.source_url,
+        models.OwnNetworkEntry.value,
+    )
+)
+# Read by the next "Report a problem" before it uses a kept Scrubber.
+_writes = 0
+# Statements that never change a row.
+_READ_ONLY = frozenset({"SELECT", "PRAGMA", "SAVEPOINT", "RELEASE", "BEGIN", "COMMIT", "ROLLBACK"})
+
+
+def _changes_names(statement: str, context: Any) -> bool:
+    """Whether a statement may add, change or remove a name the Scrubber removes. When it
+    can't tell (written as plain SQL), any statement that isn't a read counts."""
+    compiled = getattr(context, "compiled", None)
+    if compiled is None or getattr(context, "is_text", False):
+        words = statement.split(None, 1)
+        return not words or words[0].upper() not in _READ_ONLY
+    if context.isddl:
+        return True
+    if not (context.isinsert or context.isupdate or context.isdelete):
+        return False
+    table = getattr(getattr(compiled, "statement", None), "table", None)
+    name = getattr(table, "name", None)
+    return name is None or name in _NAME_TABLES
+
+
+@event.listens_for(Engine, "after_cursor_execute")
+def _note_write(
+    connection: object,
+    cursor: object,
+    statement: str,
+    parameters: object,
+    context: Any,
+    executemany: bool,
+) -> None:
+    global _writes
+    if _changes_names(statement, context):
+        _writes += 1
+
+
+# The built Scrubber of each database, kept for at most SCRUBBER_KEPT seconds and only while no
+# name may have changed: (when built, the write count then, the Scrubber). One for the whole
+# install: it already covers every household, and the request's host and port are added to it
+# for each report (Scrubber.at).
+_kept: dict[str, tuple[float, int, Scrubber]] = {}
 _kept_lock = threading.Lock()
 
 
 def scrubber_for(db: Session, server: ServerAddress, data_dir: Path) -> Scrubber:
-    """A Scrubber for this server, built at most once every SCRUBBER_KEPT seconds (a name
-    added since is removed from the next one built)."""
-    households = tuple(db.scalars(select(models.Household.id).order_by(models.Household.id)))
-    key = (str(getattr(db.get_bind(), "url", "")), households, server, str(data_dir))
+    """A Scrubber for this request. The names in it are built again when any household's names
+    may have changed since (a write to a table that holds one) and at least every
+    SCRUBBER_KEPT seconds; otherwise the kept one is used."""
+    key = str(getattr(db.get_bind(), "url", ""))
     now = _now()
     with _kept_lock:
         kept = _kept.get(key)
-        if kept is not None and now - kept[0] < SCRUBBER_KEPT:
-            return kept[1]
+        if kept is not None and now - kept[0] < SCRUBBER_KEPT and kept[1] == _writes:
+            return kept[2].at(server, data_dir)
+    # Read before building: a write while it is built makes the next report build again.
+    writes = _writes
     scrubber = Scrubber(db, server, data_dir)
     with _kept_lock:
-        for old in [k for k, (at, _) in _kept.items() if now - at >= SCRUBBER_KEPT]:
+        for old in [k for k, (at, _, _) in _kept.items() if now - at >= SCRUBBER_KEPT]:
             del _kept[old]
-        _kept[key] = (now, scrubber)
+        _kept[key] = (now, writes, scrubber)
     return scrubber
 
 
@@ -603,14 +716,14 @@ _MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct",
 
 
 def _read(message: str) -> str:
-    """The start of a message, written one way (NFC), never ending in half a word."""
+    """The start of a message, written one way (NFC), cut back to its last space so it never
+    ends in part of a word, name, address or key."""
     message = unicodedata.normalize("NFC", message)
     if len(message) <= MESSAGE_READ:
         return message
-    start = message[:MESSAGE_READ]
-    if _WORD.match(message, MESSAGE_READ):
-        start = re.sub(r"(?:[^\W\d_]|[\u0300-\u036f])+$", "", start)
-    return start
+    start = message[: MESSAGE_READ + 1]
+    cut = max(start.rfind(space) for space in " \t\n")
+    return start[:cut] if cut >= 0 else ""
 
 
 def error_line(error: LogError, scrub: Scrubber) -> str:
