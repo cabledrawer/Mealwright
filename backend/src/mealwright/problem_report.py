@@ -473,6 +473,63 @@ class ServerAddress:
     ports: tuple[int, ...]
 
 
+# What the undo data of a change may keep of a name that has since changed or gone (review r2).
+# A change's data is plain JSON; names are found by their key, wherever they sit in it:
+#  - "name" holding {"old", "new"}: a household's (`household_renamed`);
+#  - "name" holding a person's state (`person_added`, `person_changed`): a person's;
+#  - any "..._by_name": a person's;
+#  - "shop" or "place" holding {"old", "new"}: a renamed shop's or place's;
+#  - a shopping op "list_name" with "old" and "new": a list's;
+#  - a "name" or "recipe_name" under any other key: a shop's, place's, tag's, draft's or
+#    ingredient's (a removed shop and place keep theirs under "removed"; a merged tag under
+#    "source" and "target"; an ingredient's snapshot under "names" and "fields");
+#  - "fields" keys that end in ":name": an ingredient's.
+# Sizes' words (tin, bunch) are not names and are skipped. A new key that holds a name must
+# be handled here: `test_every_undo_name_is_handled` (tests/test_problem_report.py) fails
+# when one is not.
+UNDO_NAME_KEYS = frozenset({"name", "recipe_name"})
+
+
+def undo_names(data: Any, _under: str = "") -> Iterable[tuple[str, str | None]]:
+    """The names in one change's undo data: (the name, the word that replaces it), where
+    None means a person's (or a household's): every word of it is removed."""
+    if isinstance(data, list):
+        for item in data:
+            yield from undo_names(item, _under)
+        return
+    if not isinstance(data, dict):
+        return
+    if data.get("op") == "list_name":
+        for key in ("old", "new"):
+            if isinstance(data.get(key), str):
+                yield data[key], "[removed]"
+    for key, value in data.items():
+        if key == "sizes":
+            continue
+        if isinstance(value, str):
+            if key.endswith("_by_name") or key == "login_name":
+                yield value, None
+            elif key in UNDO_NAME_KEYS:
+                yield value, "[ingredient]" if _under == "names" else "[removed]"
+            elif _under == "fields" and key.endswith(":name"):
+                yield value, "[ingredient]"
+        elif key == "name" and isinstance(value, dict):
+            # A household's {"old", "new"}, or a person's state ({"name": ...}).
+            for part in ("old", "new"):
+                if isinstance(value.get(part), str):
+                    yield value[part], None
+        elif key in ("shop", "place") and isinstance(value, dict) and "old" in value:
+            for part in ("old", "new"):  # a renamed shop's or place's (`shop_renamed`, ...)
+                if isinstance(value.get(part), str):
+                    yield value[part], "[removed]"
+        elif key == "person" and isinstance(value, dict):
+            for state in (value.get("old"), value.get("new")):
+                if isinstance(state, dict) and isinstance(state.get("name"), str):
+                    yield state["name"], None
+        else:
+            yield from undo_names(value, key)
+
+
 class Scrubber:
     """Removes personal details from one log message."""
 
@@ -485,17 +542,14 @@ class Scrubber:
         for column in _PEOPLE_COLUMNS:
             for value in db.scalars(select(column).distinct()):
                 self._add_person(value)
-        # The names a person had before they were renamed, kept in the undo data of the
-        # changes that added or renamed them (review r1).
-        for data in db.scalars(
-            select(models.Change.undo_data).where(
-                models.Change.kind.in_(("person_added", "person_changed"))
-            )
-        ):
-            person = data.get("person") if isinstance(data, dict) else None
-            for state in (person.get("old"), person.get("new")) if isinstance(person, dict) else ():
-                if isinstance(state, dict) and isinstance(state.get("name"), str):
-                    self._add_person(state["name"])
+        # The names a person, household, shop, place, list, tag or ingredient had before it was
+        # renamed or removed, kept in the undo data of the changes that did it (review r1, r2).
+        for data in db.scalars(select(models.Change.undo_data)):
+            for name, replacement in undo_names(data):
+                if replacement is None:
+                    self._add_person(name)
+                else:
+                    self._add_phrase(_keys(name), replacement)
         for replacement, columns in _PHRASE_COLUMNS:
             for column in columns:
                 for value in db.scalars(select(column)):

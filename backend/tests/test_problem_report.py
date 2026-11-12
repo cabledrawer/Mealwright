@@ -1028,3 +1028,90 @@ def test_errors_from_before_delete_everything_are_not_in_the_report(
     lines = report(kitchen)["errors"]
     assert not any("Old install" in line for line in lines), lines
     assert any("New install" in line for line in lines), lines
+
+
+def test_a_households_old_name_is_removed_after_a_rename(
+    kitchen: TestClient, neighbour: TestClient, settings: Settings
+) -> None:
+    """Review r2 (beta join), M: a rename keeps the old name in the undo data and the summary
+    of its change (`household_renamed`); that name is still a household's, so it is removed
+    from the own household's report and from the neighbour's."""
+    done = kitchen.patch(f"{API}/household", json={"name": "Thistlewick Burrow"})
+    assert done.status_code == 200, done.text
+    write_log(log_folder(settings), [error("Sign-in for tess failed")])
+    assert "[name]" in report(neighbour)["errors"][0]  # built and kept, with the first name
+    done = kitchen.patch(f"{API}/household", json={"name": "Home"})
+    assert done.status_code == 200, done.text
+    write_log(log_folder(settings), [error("Couldn't save for Thistlewick Burrow")])
+    for client in (kitchen, neighbour):
+        line = report(client)["errors"][-1].lower()
+        assert "thistlewick" not in line, line
+        assert "burrow" not in line, line
+
+
+def test_every_undo_name_is_handled() -> None:
+    """A guard (review r2, sweep): every kind of change that keeps a name in its undo data is
+    found by `undo_names`. The shapes below are what the code writes today (each from the
+    function named); a new kind with a "name" key must be added here and handled there."""
+    shapes = {
+        "household_renamed (kitchen_changes)": ({"name": {"old": "Aaa", "new": "Bbb"}}, 2),
+        "person_added / person_changed (people)": (
+            {"person": {"old": {"name": "Aaa"}, "new": {"name": "Bbb"}}},
+            2,
+        ),
+        "tag merge (recipe_tags)": (
+            {"source": {"id": 1, "name": "Aaa"}, "target": {"id": 2, "name": "Bbb"}},
+            2,
+        ),
+        "shop_removed / place_removed (removals)": ({"removed": {"id": 1, "name": "Aaa"}}, 1),
+        "shop_renamed / place_renamed (api/v1/kitchen, kitchen_changes)": (
+            {"shop": {"id": 1, "old": "Aaa", "new": "Bbb"}},
+            2,
+        ),
+        "plan changes (plan): a removed free-text item": (
+            {"plan": [{"op": "remove_item", "item": {"id": 1, "name": "Aaa"}}]},
+            1,
+        ),
+        "list_renamed (shopping)": (
+            {"shopping": [{"op": "list_name", "list_id": 1, "old": "Aaa", "new": "Bbb"}]},
+            2,
+        ),
+        "food changes (history)": (
+            {
+                "fields": {"1:name": "Aaa", "1:aisle": "Bbb"},
+                "names": {"7": {"food_id": 1, "name": "Ccc"}},
+                "sizes": {"3": {"name": "tin"}},
+                "conversions": {"1:cup": {"answered_by_name": "Ddd"}},
+            },
+            3,
+        ),
+        "draft removed (drafts)": ({"draft": {"name": "Aaa", "started_by_name": "Bbb"}}, 2),
+    }
+    for kind, (data, count) in shapes.items():
+        found = list(problem_report.undo_names(data))
+        assert len(found) == count, (kind, found)
+
+
+# The modules that write a Change (`record(` / `Change(`), each checked for names in its undo
+# data in review r2 (every kind listed above comes from one of them). A new module that
+# records changes must be checked the same way and added here.
+_RECORDS_CHANGES = {
+    "api/v1/changes.py", "api/v1/drafts.py", "api/v1/foods.py", "api/v1/kitchen.py",
+    "api/v1/pantry.py", "api/v1/starter_packs.py", "api/v1/stocktake.py", "cooking.py",
+    "drafts.py", "foods.py", "history.py", "kitchen_changes.py", "people.py", "plan.py",
+    "recipe_import.py", "recipe_tags.py", "recipes.py", "removals.py", "shopping.py",
+    "stock.py", "ticks.py",
+}  # fmt: skip
+
+
+def test_every_module_that_records_changes_has_been_checked_for_names() -> None:
+    import re
+
+    root = Path(problem_report.__file__).parent
+    found = {
+        str(path.relative_to(root))
+        for path in root.rglob("*.py")
+        if re.search(r"(?<![\w.])(?:edit\.|self\.)?record\(|\bChange\(", path.read_text())
+    }
+    found.discard("models.py")
+    assert found - _RECORDS_CHANGES == set(), found - _RECORDS_CHANGES
