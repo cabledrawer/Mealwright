@@ -62,7 +62,8 @@ class Ahead:
     step_id: int
     step_text: str
     wait: step_waits.Wait
-    # The recipe's own working time for this way of cooking it (not the wait), or None.
+    # The recipe's own working time for this way of cooking it (not the wait: a saved Time that
+    # already holds the wait has it taken off, F228), or None.
     active_minutes: int | None
 
 
@@ -103,11 +104,17 @@ def eat_instant(household: Household, day: date, slot: MealSlot | None) -> datet
 def of_steps(
     steps: Sequence[RecipeStep], active_minutes: int | None, minimum: int = MIN_AHEAD_MINUTES
 ) -> Ahead | None:
-    """The first step (in order) whose wait is at least `minimum` minutes at its shortest."""
+    """The first step (in order) whose wait is at least `minimum` minutes at its shortest.
+    `active_minutes` is the recipe's saved Time (for the way of cooking it), and is turned into its
+    work: a Time that already holds the recipe's waits (Dosa Batter: 745 min with an 8-12 h
+    ferment) has them taken off, the same rule as `step_waits.active_time` (F228; proposed, for
+    cabledrawer, cabledrawer 12 Nov). Give every step of the way, so that all its waits come off."""
+    waits = [w for w in (step_waits.of_step(step) for step in steps) if w is not None]
+    work = step_waits.active_time(active_minutes, waits)
     for step in steps:
         wait = step_waits.of_step(step)
         if wait is not None and wait.min_minutes >= minimum:
-            return Ahead(step.id, step.text, wait, active_minutes)
+            return Ahead(step.id, step.text, wait, work)
     return None
 
 
@@ -169,7 +176,8 @@ def options(
     if not found:
         begin = _ceil_five(now)
         # Starting at once is offered only when it is still before the meal: a time the save
-        # would refuse ("Pick a time before the meal.") is no option (RF3, H4).
+        # would refuse ("Pick a time before the meal.") is no option (RF3, H4). It is offered
+        # even when it cannot be ready by then, saying when it would be (the sheet warns).
         if begin < eat:
             found.append(Option(begin, begin + timedelta(minutes=low) + active))
     return found

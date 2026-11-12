@@ -570,6 +570,74 @@ def test_nothing_is_sent_or_scheduled() -> None:
         assert not [line for line in imports if word in line], word
 
 
+# --- F228: a saved Time that already includes the wait (cabledrawer 12 Nov) -----------------------
+
+
+def dosa_batter(kitchen: TestClient, time_minutes: int, name: str = "Start batter") -> Any:
+    """The Dosa Batter of the 0.8.0 hand test: Time 745 min, a ferment of 8-12 h."""
+    return make(
+        kitchen,
+        name,
+        time_minutes=time_minutes,
+        steps=[
+            {"text": "Soak the rice and dal, grind to a batter."},
+            {"text": "Cover the bowl and leave it.", "wait": FERMENT},
+            {"text": "Make the dosas."},
+        ],
+    )
+
+
+def test_f228_a_time_that_already_holds_the_wait_is_not_counted_as_work_again(
+    kitchen: TestClient, clock: Callable[[datetime], None]
+) -> None:
+    recipe = dosa_batter(kitchen, 745)  # 25 min of work and a 12 h ferment
+    clock(datetime(2026, 11, 11, 22, 50, tzinfo=UTC))  # Wednesday night, breakfast is at 08:00
+    found = options(kitchen, recipe, date(2026, 11, 12))
+    assert found["active_minutes"] == 25
+    (now, *_) = found["options"]
+    assert (now["day"], now["time"]) == ("2026-11-11", "22:50")
+    assert now["ready_by_day"] == "2026-11-12" and now["ready_by"] == "07:15"  # 8 h + 25 min
+    added = plan_dosa(
+        kitchen, recipe, day=date(2026, 11, 12), start=start_of(date(2026, 11, 11), "22:50")
+    )
+    ahead = item_of(kitchen, added["item_id"], date(2026, 11, 11))["ahead"]
+    assert ahead["active_minutes"] == 25  # Today's "25 min of work", not "12 h 25 min"
+
+
+def test_f228_a_time_between_the_shortest_and_longest_wait_takes_off_the_shortest(
+    kitchen: TestClient,
+) -> None:
+    assert options(kitchen, dosa_batter(kitchen, 600), SAT)["active_minutes"] == 120
+
+
+def test_f228_a_time_shorter_than_the_wait_is_the_work_and_the_wait_is_added(
+    kitchen: TestClient,
+) -> None:
+    assert options(kitchen, dosa_batter(kitchen, 30), SAT)["active_minutes"] == 30
+    assert (
+        options(kitchen, dosa_batter(kitchen, 120, "Start batter two"), SAT)["active_minutes"]
+        == 120
+    )
+
+
+def test_f228_a_recipe_with_no_time_has_no_work_to_add(kitchen: TestClient) -> None:
+    recipe = make(
+        kitchen,
+        "Start no time",
+        steps=[{"text": "Leave it.", "wait": FERMENT}, {"text": "Cook."}],
+    )
+    assert options(kitchen, recipe, SAT)["active_minutes"] is None
+
+
+def test_f228_start_now_that_cannot_be_ready_by_the_meal_says_when_it_is_ready(
+    kitchen: TestClient, clock: Callable[[datetime], None]
+) -> None:
+    recipe = dosa_batter(kitchen, 745)
+    clock(datetime(2026, 11, 12, 5, 0, tzinfo=UTC))  # three hours before breakfast
+    (now,) = options(kitchen, recipe, date(2026, 11, 12))["options"]
+    assert now["ready_by_day"] == "2026-11-12" and now["ready_by"] in ("13:25", "13:30")
+
+
 # --- Round 1 fixes (M3) ----------------------------------------------------------------------
 
 

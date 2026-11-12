@@ -375,19 +375,27 @@ def get_plan(
         }
 
     waits = recipe_service.waits_of(db, recipe_ids)
-    # The long waits to start ahead (M3): the steps that wait four hours or more, by recipe.
-    long_steps: dict[int, list[RecipeStep]] = {}
+    # The steps that wait, by recipe: the long ones are what is started ahead (M3, four hours or
+    # more), and all of them come off a saved Time that already holds them (F228).
+    waited_steps: dict[int, list[RecipeStep]] = {}
     for step in db.scalars(
         select(RecipeStep)
         .where(
             RecipeStep.household_id == household_id,
             RecipeStep.recipe_id.in_(recipe_ids),
             RecipeStep.kind == "step",
-            RecipeStep.wait_min_minutes >= start_ahead.MIN_AHEAD_MINUTES,
+            RecipeStep.wait_min_minutes.is_not(None),
+            RecipeStep.recipe_id.in_(
+                select(RecipeStep.recipe_id).where(
+                    RecipeStep.household_id == household_id,
+                    RecipeStep.recipe_id.in_(recipe_ids),
+                    RecipeStep.wait_min_minutes >= start_ahead.MIN_AHEAD_MINUTES,
+                )
+            ),
         )
         .order_by(RecipeStep.position, RecipeStep.id)
     ):
-        long_steps.setdefault(step.recipe_id, []).append(step)
+        waited_steps.setdefault(step.recipe_id, []).append(step)
     slot_of = {
         s.id: s for s in db.scalars(select(MealSlot).where(MealSlot.household_id == household_id))
     }
@@ -503,13 +511,13 @@ def get_plan(
 
     def ahead_out(i: MealItem, recipe: Recipe | None) -> AheadOut | None:
         """The long wait of a planned recipe, in the way of cooking it the meal uses."""
-        if recipe is None or i.kind != "recipe" or cooked_of(i) or recipe.id not in long_steps:
+        if recipe is None or i.kind != "recipe" or cooked_of(i) or recipe.id not in waited_steps:
             return None
         found = ways.get(recipe.id, [])
         way = methods.named(found, i.method_id)
         minutes = way.time_minutes if way is not None else recipe.time_minutes
         ahead = start_ahead.of_steps(
-            [s for s in long_steps[recipe.id] if methods.in_method(s, found, way)], minutes
+            [s for s in waited_steps[recipe.id] if methods.in_method(s, found, way)], minutes
         )
         if ahead is None:
             return None
@@ -989,6 +997,9 @@ class StartOptionsOut(BaseModel):
     # The wait that is started ahead; null when the recipe has none (nothing to ask).
     wait: StepWaitOut | None
     eats_at: str  # the meal's usual time, "08:00"
+    # The recipe's work in minutes, a saved Time that holds its wait having the wait taken off
+    # (F228); the sheet adds the wait to it to say when a chosen start is ready. Null: no Time.
+    active_minutes: int | None = None
     options: list[StartOptionOut]
 
 
@@ -1046,6 +1057,7 @@ def get_start_options(
             overnight=ahead.wait.overnight,
         ),
         eats_at=start_ahead.clock_words(eats),
+        active_minutes=ahead.active_minutes,
         options=out,
     )
 
