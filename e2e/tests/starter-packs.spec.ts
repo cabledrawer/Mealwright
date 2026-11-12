@@ -86,6 +86,29 @@ test("add a pack, untick two, add: the rest come in, then one Undo takes them al
   expect(scrollWidth).toBeLessThanOrEqual(page.viewportSize()!.width);
 });
 
+test("the dialog's code comes on first opening; Escape closes it, focus goes back to the button, and it opens again", async ({
+  page,
+}) => {
+  // Fetched when first opened (page size limit), so nothing of it is in the page before.
+  await page.goto("/recipes/ingredients");
+  const opener = page.getByRole("button", { name: "Add a starter pack" });
+  await expect(opener).toBeVisible();
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
+  for (let round = 0; round < 2; round++) {
+    await opener.click();
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("heading", { name: "Add a starter pack" }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: /^Japanese/ }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(opener).toBeFocused();
+  }
+});
+
 test("an ingredient already there by its other name shows Already have and is skipped", async ({
   page,
 }) => {

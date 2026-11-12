@@ -11,7 +11,6 @@
   import IngredientSheet from '#lib/components/IngredientSheet.svelte';
   import AskOnce from '#lib/components/AskOnce.svelte';
   import NewIngredient from '#lib/components/NewIngredient.svelte';
-  import StarterPacks from '#lib/components/StarterPacks.svelte';
   import { lastOwnChange } from '#lib/client/changes.js';
   import { settleHousehold } from '#lib/client/household.js';
   import { drafts } from '#lib/drafts.svelte.js';
@@ -27,6 +26,7 @@
   import { updates } from '#lib/updates.svelte.js';
   import { session } from '#lib/session.svelte.js';
   import { shoppingSync } from '#lib/shopping/sync.svelte.js';
+  import { starterPacks } from '#lib/starterPacks.svelte.js';
   import { signInPath } from '#lib/session.svelte.js';
   import { theme } from '#lib/theme.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -203,7 +203,13 @@
     {/await}
   {/if}
   <NewIngredient />
-  <StarterPacks />
+  <!-- "Add a starter pack" (R4); fetched when first opened, then kept so closing it
+       hands focus back as before (size limit). -->
+  {#if starterPacks.wanted}
+    {#await import('#lib/components/StarterPacks.svelte') then { default: StarterPacks }}
+      <StarterPacks />
+    {/await}
+  {/if}
   <Toast />
 {/if}
 

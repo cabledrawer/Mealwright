@@ -3,8 +3,11 @@
 
 class StarterPackDialog {
   open = $state(false);
+  /** Opened at least once: the dialog's code is fetched then, and kept (size limit). */
+  wanted = $state(false);
 
   show(): void {
+    this.wanted = true;
     this.open = true;
   }
 
