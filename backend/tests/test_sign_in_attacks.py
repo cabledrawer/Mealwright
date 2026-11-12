@@ -236,6 +236,40 @@ def test_reset_admins_password_gets_in_while_a_guesser_polls_the_username(
     assert guess(proxied, next(addresses)) == 429
 
 
+def test_thousands_of_guesses_in_the_window_never_break_sign_in(
+    proxied: TestClient, clock: Clock
+) -> None:
+    # A2 review r3: in the new-password window every try is counted, so a guesser with many
+    # addresses can push one username's count past a thousand. The wait must still be worked
+    # out (it used to overflow and answer 500), and the owner's new password still gets in.
+    out = io.StringIO()
+    assert reset_admin(proxied.app.state.settings, "tess", out) == 0  # type: ignore[attr-defined]
+    password = out.getvalue().split("New password for tess: ")[1].split()[0]
+    slow: auth.SlowDown = proxied.app.state.slow_down  # type: ignore[attr-defined]
+    for n in range(1100):  # as if from a few hundred addresses, each under its own limit
+        slow.failed(["user:tess", f"addr:203.0.113.{n % 200}"])
+    clock.at += 1
+    assert guess(proxied, "192.0.2.60") == 429  # a wrong guess: paused, not a 500
+    assert guess(proxied, OWNER, {"username": "tess", "password": password}) == 200
+
+
+def test_the_wait_is_worked_out_however_many_guesses_are_stored() -> None:
+    slow = auth.SlowDown()
+    slow._failures["user:tess"].extend([1000.0] * 5000)
+    slow._failures["addr:192.0.2.70"].extend([1000.0] * 5000)
+    assert slow.wait_seconds(["user:tess"], at=1000.0) == 60
+    assert slow.wait_seconds(["addr:192.0.2.70"], at=1000.0) == 15 * 60
+
+
+def test_each_key_keeps_only_its_newest_guesses() -> None:
+    slow = auth.SlowDown()
+    for n in range(5000):
+        slow.failed(["user:tess"], at=1000.0 + n / 100)
+    kept = slow._failures["user:tess"]
+    assert len(kept) == auth.SlowDown.KEEP and kept[-1] == 1000.0 + 4999 / 100
+    assert slow.wait_seconds(["user:tess"], at=1050.0) == 60
+
+
 def test_the_window_still_has_the_address_limit(proxied: TestClient) -> None:
     # Five wrong from one address pause it, window or not.
     for _ in range(6):

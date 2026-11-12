@@ -34,6 +34,8 @@ docker exec -it mealwright python -m mealwright reset-admin tess
 
 It sets a new random password for that admin, prints it once, and signs that admin out on every device. For ten minutes after, the new password gets in even while someone is guessing at that username. It also forgets the devices that had signed in as that admin before. Sign in with it, then change it in Settings → Sign-in → Change password. It works only for an admin.
 
+**A phone or computer was lost or stolen.** In Settings → Sign-in, sign that device out, then change your password: that also forgets it as a known device, so it can no longer skip the pause after wrong passwords. Signing it out alone leaves it known until the password changes.
+
 **Behind a reverse proxy, everyone is slowed down after one person's wrong passwords.** Mealwright logs "A request came through a reverse proxy…" once after it starts. Set `MEALWRIGHT_TRUSTED_PROXIES` to your proxy's address or network (for example `172.28.10.0/24`) and restart: Mealwright then believes the proxy's `X-Forwarded-For`, `X-Forwarded-Proto` and `X-Forwarded-Host` headers, and nobody else's.
 
 **The proxy must set `X-Forwarded-Host` itself.** Mealwright believes a trusted proxy's `X-Forwarded-Host`, so the proxy must replace any that a visitor sends, not pass it on. Caddy and Traefik do this themselves. In nginx and Nginx Proxy Manager (in the proxy host's Advanced tab), add:

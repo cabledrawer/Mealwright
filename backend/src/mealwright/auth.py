@@ -187,6 +187,11 @@ class SlowDown:
     FIRST_WAIT = 30.0
     MAX_WAIT = 15 * 60.0
     MAX_USERNAME_WAIT = 60.0
+    # Each key keeps only its newest guesses: the wait needs no more than the count up to its
+    # cap and the newest time, and a flood of guesses can't grow the memory (A2 review r3).
+    KEEP = FREE + 64
+    # Past this many doubles every wait is at its cap anyway; a bigger power would overflow.
+    MAX_DOUBLINGS = 30
 
     def _longest(self, key: str) -> float:
         personal = key.startswith(("user:", "dev:", "change:"))
@@ -213,7 +218,8 @@ class SlowDown:
         extra = len(times) - self.FREE
         if extra < 0:
             return 0
-        wait: float = min(self.FIRST_WAIT * 2**extra, self._longest(key))
+        doublings = min(extra, self.MAX_DOUBLINGS)
+        wait: float = min(self.FIRST_WAIT * 2**doublings, self._longest(key))
         return max(0, math.ceil(times[-1] + wait - at))
 
     def wait_seconds(self, keys: list[str], at: float | None = None) -> int:
@@ -229,7 +235,10 @@ class SlowDown:
             del self._failures[stale]
         for key in keys:
             self._recent(key, at)
-            self._failures[key].append(at)
+            times = self._failures[key]
+            times.append(at)
+            while len(times) > self.KEEP:
+                times.popleft()
 
     def failed(self, keys: list[str], at: float | None = None) -> None:
         at = time.monotonic() if at is None else at
