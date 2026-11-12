@@ -163,6 +163,7 @@
     clip-path: inset(50%);
     opacity: 0;
     pointer-events: none;
+    font-size: 1rem; /* never a reason for iOS to zoom */
   }
 
   .problem {
