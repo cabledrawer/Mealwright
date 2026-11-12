@@ -351,3 +351,54 @@ def test_the_api_docs_describe_the_bearer_token(kitchen: TestClient) -> None:
     scheme = spec["components"]["securitySchemes"]["ApiToken"]
     assert scheme["type"] == "http" and scheme["scheme"] == "bearer"
     assert {"ApiToken": []} in spec["paths"][f"{API}/foods"]["get"]["security"]
+
+
+# --- Settings → Your data is never for a token (O2 review r1, finding 1; proposed, for cabledrawer) --
+
+YOUR_DATA_ROUTES = [
+    ("GET", "/backups", None),
+    ("PATCH", "/backups", {"keep": 3}),
+    ("POST", "/backups", None),
+    ("GET", "/export", None),
+    ("POST", "/delete-everything", {"words": "delete everything", "password": "x"}),
+]
+
+
+@pytest.mark.parametrize("scope", ["read", "full"])
+@pytest.mark.parametrize("method,path,body", YOUR_DATA_ROUTES)
+def test_a_token_never_reaches_your_data(
+    kitchen: TestClient, scope: str, method: str, path: str, body: Any
+) -> None:
+    """A read-only token used to read the whole export (every table), and a full one could
+    make backups or Delete everything. Now every Your data route says no to either."""
+    app = _app(kitchen, _make(kitchen, scope))
+    r = app.request(method, f"{API}{path}", json=body)
+    assert r.status_code == 403, r.text
+    if scope == "full" or method == "GET":
+        _refused(r, 403, "not_for_tokens")
+    else:
+        assert r.json()["code"] in {"read_only_token", "not_for_tokens"}
+
+
+def test_a_token_cant_start_a_wrong_password_pause_on_the_admin(kitchen: TestClient) -> None:
+    app = _app(kitchen, _make(kitchen, "full"))
+    for _ in range(6):
+        _refused(
+            app.post(
+                f"{API}/delete-everything",
+                json={"words": "delete everything", "password": "not the password"},
+            ),
+            403,
+            "not_for_tokens",
+        )
+    # The admin's own first wrong try is an ordinary wrong password, not a pause.
+    again = kitchen.post(
+        f"{API}/delete-everything",
+        json={"words": "delete everything", "password": "still not the password"},
+    )
+    _refused(again, 403, "password_wrong")
+
+
+def test_the_export_isnt_readable_with_a_read_only_token(kitchen: TestClient) -> None:
+    assert kitchen.get(f"{API}/export").status_code == 200  # the admin can
+    _refused(_app(kitchen, _make(kitchen, "read")).get(f"{API}/export"), 403, "not_for_tokens")

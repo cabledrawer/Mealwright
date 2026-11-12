@@ -22,6 +22,7 @@ from sqlalchemy import Engine, delete, func, select
 
 from mealwright import backups, export, setup_code
 from mealwright.api.v1.context import Here
+from mealwright.api_tokens import not_for_tokens
 from mealwright.auth import (
     SameOrigin,
     SlowDown,
@@ -86,7 +87,10 @@ def _out(kitchen: Here, folder: Path) -> BackupsOut:
 
 @router.get("/backups")
 def get_backups(kitchen: Here, request: Request) -> BackupsOut:
-    """How often Mealwright backs up, how many it keeps, and how the last backup went."""
+    """How often Mealwright backs up, how many it keeps, and how the last backup went. Not for
+    API tokens: it also names the server's backups folder, which the screen doesn't show."""
+    if kitchen.by_token:
+        raise not_for_tokens()  # O2 review r1, finding 1 (proposed, for cabledrawer)
     return _out(kitchen, _folder(request))
 
 

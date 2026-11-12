@@ -61,8 +61,12 @@ ADMIN_ONLY_KINDS = tuple(ADMIN_KINDS)
 
 
 # What an API token never does, even an admin's full one (PR O2; proposed, for cabledrawer): change
-# the people of the household or their roles, the outside-connection switches, or sign-in.
-TOKENS_NEVER: frozenset[Action] = frozenset({Action.PEOPLE, Action.PRIVACY, Action.SIGN_IN})
+# the people of the household or their roles, the outside-connection switches, or sign-in, and
+# anything in Settings → Your data (the export holds every table, and Delete everything and
+# the wrong-password pause are for the admin at the screen; O2 review r1, finding 1).
+TOKENS_NEVER: frozenset[Action] = frozenset(
+    {Action.PEOPLE, Action.PRIVACY, Action.SIGN_IN, Action.YOUR_DATA}
+)
 
 
 def allowed(role: str, action: Action, by_token: bool = False) -> bool:
