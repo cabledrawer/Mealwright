@@ -289,7 +289,7 @@ class GroupRole(BaseModel):
     role: Literal["admin", "member"]
 
 
-class SetupOut(BaseModel):
+class SsoSetupOut(BaseModel):
     issuer: str
     client_id: str
     # Whether a client secret is saved. The secret itself is never sent back.
@@ -308,7 +308,7 @@ class SetupOut(BaseModel):
     test: TestResult | None
 
 
-class SetupIn(BaseModel):
+class SsoSetupIn(BaseModel):
     issuer: str = Field(max_length=500)
     client_id: str = Field(min_length=1, max_length=255)
     # Blank keeps the saved secret.
@@ -322,11 +322,11 @@ class SetupIn(BaseModel):
     password_sign_in: bool = True
 
 
-def _setup(request: Request, kitchen: Here, row: SsoSettings | None) -> SetupOut:
+def _setup(request: Request, kitchen: Here, row: SsoSettings | None) -> SsoSetupOut:
     switch = sso_accounts.switch_on(kitchen.db, kitchen.household_id)
     test = request.app.state.sso_tests.get(kitchen.household_id)
     if row is None:
-        return SetupOut(
+        return SsoSetupOut(
             issuer="",
             client_id="",
             secret_set=False,
@@ -341,7 +341,7 @@ def _setup(request: Request, kitchen: Here, row: SsoSettings | None) -> SetupOut
             switch_on=switch,
             test=test,
         )
-    return SetupOut(
+    return SsoSetupOut(
         issuer=row.issuer,
         client_id=row.client_id,
         secret_set=bool(row.client_secret_sealed),
@@ -359,7 +359,7 @@ def _setup(request: Request, kitchen: Here, row: SsoSettings | None) -> SetupOut
 
 
 @router.get("/sso/settings")
-def get_setup(request: Request, kitchen: Here) -> SetupOut:
+def get_setup(request: Request, kitchen: Here) -> SsoSetupOut:
     """Admins only. The single sign-on setup, without the secret."""
     kitchen.admin_only(Action.SIGN_IN)
     return _setup(request, kitchen, sso_accounts.settings_row(kitchen.db, kitchen.household_id))
@@ -401,7 +401,7 @@ def _passwords_off_allowed(kitchen: Here, row: SsoSettings) -> None:
 
 
 @router.put("/sso/settings")
-def put_setup(body: SetupIn, request: Request, kitchen: Here) -> SetupOut:
+def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
     """Admins only. Save the setup. The secret is sealed before it is stored; a blank one
     keeps the saved one. Turning password sign-in off is refused (409 `passwords_needed`)
     unless an admin can sign in with single sign-on and its switch is on."""
@@ -448,7 +448,7 @@ class PasswordsIn(BaseModel):
 
 
 @router.put("/sso/password-sign-in")
-def put_passwords(body: PasswordsIn, request: Request, kitchen: Here) -> SetupOut:
+def put_passwords(body: PasswordsIn, request: Request, kitchen: Here) -> SsoSetupOut:
     """Admins only. Settings → Sign-in's "Password sign-in" switch on its own."""
     kitchen.admin_only(Action.SIGN_IN)
     row = sso_accounts.settings_row(kitchen.db, kitchen.household_id)

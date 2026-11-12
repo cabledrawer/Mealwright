@@ -479,6 +479,8 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("AnswerDoubleTick", "question_id"): "attacks",
     ("DismissNote", "note_id"): "attacks",
     ("UndoAction", "undoes"): "attacks",
+    # Single sign-on: the provider's client ID is a name the admin types, not a row's ID.
+    ("SsoSetupIn", "client_id"): "not a row: the sign-in server's name for Mealwright",
 }
 
 

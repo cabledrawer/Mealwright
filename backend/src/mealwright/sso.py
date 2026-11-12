@@ -152,6 +152,8 @@ class Provider:
     # The client secret goes in the Authorization header unless the provider takes only
     # client_secret_post.
     basic_auth: bool = True
+    # The scopes it lists (scopes_supported), or None when it lists none.
+    scopes: frozenset[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -326,6 +328,26 @@ def _endpoint(document: dict[str, Any], name: str, required: bool = True) -> str
     return value
 
 
+def _scopes(document: dict[str, Any]) -> frozenset[str] | None:
+    listed = document.get("scopes_supported")
+    if not isinstance(listed, list):
+        return None
+    return frozenset(str(scope) for scope in listed if isinstance(scope, str))
+
+
+def scope_for(provider: Provider, client: Client) -> str:
+    """What to ask for. `groups` when the groups come from that claim and the provider lists
+    it (or lists nothing); `offline_access` when the provider lists it, as most providers only
+    give a refresh token for it, and the refresh token is how Mealwright learns the sign-in is
+    over there (proposed, for cabledrawer)."""
+    scopes = ["openid", "profile", "email"]
+    if client.group_claim == "groups" and (provider.scopes is None or "groups" in provider.scopes):
+        scopes.append("groups")
+    if provider.scopes is not None and "offline_access" in provider.scopes:
+        scopes.append("offline_access")
+    return " ".join(scopes)
+
+
 def discover(gate: OutboundGate, household_id: int, issuer: str, deadline: float) -> Provider:
     """The provider's endpoints, from `<issuer>/.well-known/openid-configuration`. Its
     issuer must be exactly the one saved (OIDC Discovery 4.3)."""
@@ -354,6 +376,7 @@ def discover(gate: OutboundGate, household_id: int, issuer: str, deadline: float
         jwks_uri=str(_endpoint(document, "jwks_uri")),
         userinfo_endpoint=_endpoint(document, "userinfo_endpoint", required=False),
         basic_auth=basic,
+        scopes=_scopes(document),
     )
     cache.put("discovery", issuer, provider)
     return provider
@@ -526,9 +549,7 @@ def start(
             "response_type": "code",
             "client_id": client.client_id,
             "redirect_uri": client.redirect_uri,
-            "scope": "openid profile email groups"
-            if client.group_claim == "groups"
-            else "openid profile email",
+            "scope": scope_for(provider, client),
             "state": state,
             "nonce": nonce,
             "code_challenge": create_s256_code_challenge(verifier),

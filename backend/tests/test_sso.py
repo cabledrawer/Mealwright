@@ -259,6 +259,28 @@ def test_a_discovery_document_for_another_issuer_is_refused(
     assert caught.value.code == "bad_answer"
 
 
+@pytest.mark.parametrize(
+    ("listed", "asked"),
+    [
+        (None, "openid profile email groups"),
+        (["openid", "profile", "email"], "openid profile email"),
+        (
+            ["openid", "profile", "email", "groups", "offline_access"],
+            "openid profile email groups offline_access",
+        ),
+    ],
+)
+def test_the_scopes_asked_for_follow_what_the_provider_lists(
+    gate: OutboundGate, idp: FakeProvider, listed: list[str] | None, asked: str
+) -> None:
+    """groups only if listed (or nothing is listed); offline_access, for a refresh token, only
+    if listed."""
+    if listed is not None:
+        idp.discovery_extra = {"scopes_supported": listed}
+    started = sso.start(gate, Flows(), client(), mode="sign_in")
+    assert parse_qs(urlsplit(started.url).query)["scope"] == [asked]
+
+
 def test_a_wrong_client_secret_is_refused(gate: OutboundGate, idp: FakeProvider) -> None:
     flows = Flows()
     started = sso.start(gate, flows, client(secret="wrong"), mode="sign_in")

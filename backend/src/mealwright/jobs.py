@@ -43,7 +43,6 @@ nothing here makes a network connection.
 import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -54,10 +53,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from mealwright import backups
 from mealwright.logs import DailyLogFile, tidy_once
 from mealwright.models import Household, utcnow
+from mealwright.outbound import OutboundGate  # at run time: APScheduler reads the job's signature
 from mealwright.updates import UpdateChecks
-
-if TYPE_CHECKING:
-    from mealwright.outbound import OutboundGate
 
 log = logging.getLogger(__name__)
 
