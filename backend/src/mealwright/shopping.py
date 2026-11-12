@@ -746,9 +746,10 @@ def get_size(kitchen: Kitchen, food: Food, size_id: int | None) -> FoodSize | No
 
 
 def matching_line(
-    kitchen: Kitchen, list_id: str, food_id: int, shop_id: int | None
+    kitchen: Kitchen, list_id: str, food_id: int, shop_id: int | None, skip: str | None = None
 ) -> ListItem | None:
-    """The oldest live, unticked line for this ingredient and shop on this list (rule L-12)."""
+    """The oldest live, unticked line for this ingredient and shop on this list (rule L-12),
+    other than `skip` (the line an untick is about to join into it)."""
     query = (
         select(ListItem)
         .where(
@@ -765,6 +766,8 @@ def matching_line(
     query = query.where(
         ListItem.shop_id.is_(None) if shop_id is None else ListItem.shop_id == shop_id
     )
+    if skip is not None:
+        query = query.where(ListItem.id != skip)
     return kitchen.db.scalar(query)
 
 

@@ -301,6 +301,95 @@ def _resplit(act: Act, tick: ListTick) -> None:
     change.undo_data = {**(change.undo_data or {}), "split": {**split, "undone": False}}
 
 
+def _origin(kitchen: Kitchen, tick: ListTick) -> Change | None:
+    """The purchase's first own change: where what an untick did to the list is kept, so its
+    Undo can put it back (no change when nothing went into the pantry)."""
+    return kitchen.db.scalar(
+        select(Change)
+        .where(
+            Change.household_id == kitchen.household_id,
+            Change.tick_id == tick.id,
+            Change.kind.in_(("shopped", "found")),
+        )
+        .order_by(Change.id)
+        .limit(1)
+    )
+
+
+def _join_back(act: Act, item: ListItem, tick: ListTick) -> None:
+    """L1c Sh7 (cabledrawer 12 Nov): an untick that leaves the line with no purchase joins it back
+    into the line still to buy for the same ingredient, list and shop, so there is one row to
+    buy, not two. The unticked line stays as a hidden row that leads to the one it joined (sync
+    protocol 3.2), so a phone that still names it is understood; the amounts add up as a move's
+    join does. No join when the lines are counted in different sizes, or the sum is too big."""
+    kitchen = act.kitchen
+    if item.deleted_at is not None or item.merged_into_id is not None or item.ticked_at:
+        return
+    origin = _origin(kitchen, tick)
+    line = shopping.matching_line(kitchen, item.list_id, item.food_id, item.shop_id, skip=item.id)
+    if origin is None or line is None:
+        return
+    if None not in (item.amount_milli, line.amount_milli) and item.size_id != line.size_id:
+        return
+    old = [line.amount_milli, line.size_id]
+    hand_edited = line.hand_edited
+    if item.amount_milli is not None:
+        if line.amount_milli is None:
+            line.amount_milli, line.size_id = item.amount_milli, item.size_id
+        else:
+            try:
+                line.amount_milli = checked(line.amount_milli + item.amount_milli)
+            except TooBig:
+                return
+    if line.source == "plan":
+        line.hand_edited = True  # typing beside a plan-made line is a hand edit (rule L-5)
+    line.version = act.seq
+    item.merged_into_id = line.id
+    item.version = act.seq
+    origin.undo_data = {
+        **(origin.undo_data or {}),
+        "join": {
+            "into": line.id,
+            "old": old,
+            "new": [line.amount_milli, line.size_id],
+            "hand_edited": hand_edited,
+            "undone": False,
+        },
+    }
+
+
+def _unjoin(act: Act, tick: ListTick) -> None:
+    """The put-back of a purchase whose untick joined its line (Undo of the untick): the line
+    is its own again and the line it joined gets its old amount back, but only while that line
+    is as the join left it. If it was bought, moved, edited or taken off since, it keeps what it
+    has: nothing a person did is rewritten, and more may stay to buy, never less."""
+    kitchen = act.kitchen
+    origin = _origin(kitchen, tick)
+    join = (origin.undo_data or {}).get("join") if origin is not None else None
+    item = kitchen.db.get(ListItem, tick.item_id)
+    if not join or join.get("undone") or origin is None or item is None:
+        return
+    if item.household_id != kitchen.household_id or item.merged_into_id != join["into"]:
+        return
+    item.merged_into_id = None
+    item.version = act.seq
+    line = kitchen.db.get(ListItem, join["into"])
+    if (
+        line is not None
+        and line.household_id == kitchen.household_id
+        and line.deleted_at is None
+        and line.merged_into_id is None
+        and line.ticked_at is None
+        and not shopping.standing_ticks(kitchen, [line.id])
+        and [line.amount_milli, line.size_id] == join["new"]
+        and (line.list_id, line.shop_id) == (item.list_id, item.shop_id)
+    ):
+        line.amount_milli, line.size_id = join["old"]
+        line.hand_edited = join["hand_edited"]
+        line.version = act.seq
+    origin.undo_data = {**(origin.undo_data or {}), "join": {**join, "undone": True}}
+
+
 # --- tick (7.1) ----------------------------------------------------------------------------------
 
 
@@ -374,14 +463,14 @@ def tick(act: Act) -> None:
         # (a "¾" would otherwise be three quarters of one jar, not of the lot).
         one_big = size is not None and len(amounts) == 1 and amounts[0] > size.amount_milli
         put_in(kitchen, edit, food, place, amounts, None if one_big else size, added_at=when)
-        shown = size or usual_size(kitchen, food.id)
-        summary = f"Bought {what_text(food, row.bought_milli, shown)} → {place.name}"
-        if food.counted_as == "count" and row.bought_size_id and shown is not None:
+        in_pack = size or usual_size(kitchen, food.id)
+        summary = f"Bought {what_text(food, row.bought_milli, in_pack)} → {place.name}"
+        if food.counted_as == "count" and row.bought_size_id and in_pack is not None:
             # A counted ingredient bought in a pack says the pack ("1 box Eggs"), not "6 Eggs"
             # (F122, cabledrawer 31 Oct).
-            n, rest = divmod(row.bought_milli, shown.amount_milli)
+            n, rest = divmod(row.bought_milli, in_pack.amount_milli)
             if rest == 0:
-                word = shown.name if n == 1 else shown.plural
+                word = in_pack.name if n == 1 else in_pack.plural
                 summary = f"Bought {n}\u00a0{word} {food.name} → {place.name}"
         data: dict[str, Any] = {"action": act.id}
         if revived:
@@ -703,6 +792,7 @@ def put_back(act: Act, reversal: SyncAction) -> list[ListTick]:
     for tick in back:
         _put_back_one(act, tick, undos.get(tick.id, []))
         _resplit(act, tick)
+        _unjoin(act, tick)
     return back
 
 
@@ -768,6 +858,7 @@ def untick(act: Act) -> None:
     for tick in named:
         done += reverse(act, tick, lambda change: f"Unticked: {change.summary}")
     sync_copy(kitchen, item, act.seq)
+    _join_back(act, item, named[0])
     if done:
         act.change = done[0]
     act.message = partial(done)

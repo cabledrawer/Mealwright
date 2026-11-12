@@ -130,6 +130,7 @@ export function applyLocal(
       case 'untick': {
         const item = itemOf(action.item_id);
         for (const t of item?.ticks ?? []) if (action.tick_ids.includes(t.id)) t.standing = false;
+        if (item) joinBack(item);
         break;
       }
       case 'put_away': {
@@ -215,6 +216,37 @@ export function applyLocal(
       if (line.pack) line.pack = { ...line.pack, alternative: null };
     }
     item.deleted = true;
+  }
+
+  /**
+   * An untick that leaves the line with no purchase joins it into the line still to buy for the
+   * same ingredient, list and shop (L1c Sh7), as the server does: the amounts add up and the
+   * unticked line leads to the one it joined. No join across sizes.
+   */
+  function joinBack(item: ListItem): void {
+    if (item.deleted || item.merged_into_id || item.ticks.some((t) => t.standing)) return;
+    const line = out.items.find(
+      (i) =>
+        i.id !== item.id &&
+        i.list_id === item.list_id &&
+        i.food_id === item.food_id &&
+        i.shop_id === item.shop_id &&
+        !i.deleted &&
+        !i.merged_into_id &&
+        !i.ticks.some((t) => t.standing)
+    );
+    if (!line) return;
+    if (item.amount !== null && line.amount !== null && item.size_id !== line.size_id) return;
+    if (item.amount !== null) {
+      if (line.amount === null) line.size_id = item.size_id;
+      line.amount = (line.amount ?? 0) + item.amount;
+      if (line.source === 'plan') line.hand_edited = true;
+      line.display = localDisplay(line.amount, line.size_id, foodOf(line.food_id));
+      // Its other size was worked out for the old amount (W4c review r2 M1).
+      if (line.pack) line.pack = { ...line.pack, alternative: null };
+    }
+    item.merged_into_id = line.id;
+    alias[item.id] = line.id;
   }
 
   function add(action: Extract<Action, { kind: 'add' }>): void {

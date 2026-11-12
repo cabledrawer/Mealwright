@@ -362,6 +362,66 @@ describe('localDisplay', () => {
   });
 });
 
+describe('applyLocal: untick joins the line back (L1c Sh7)', () => {
+  /** Yoghurt 500 g still to buy, and 200 g bought as its own line. */
+  function boughtYoghurt(): ShoppingCopy {
+    const copy = sampleCopy();
+    copy.items.push(
+      item('i-bought', 3, {
+        amount: 200,
+        display: '200 g',
+        ticks: [tick('t-bought', { bought: { amount: 200, display: '200 g' } })]
+      })
+    );
+    return copy;
+  }
+  const untick = act({ kind: 'untick', item_id: 'i-bought', tick_ids: ['t-bought'] });
+
+  it('adds the amounts up and shows one row to buy', () => {
+    const shown = applyLocal(boughtYoghurt(), [untick], me);
+    expect(row(shown, 'i-yoghurt')).toMatchObject({ amount: 700, display: '700\u00a0g' });
+    expect(row(shown, 'i-bought')!.merged_into_id).toBe('i-yoghurt');
+  });
+
+  it('is not shown joined when the undo of the untick is waiting too', () => {
+    const undo = act({ kind: 'undo', undoes: untick.id });
+    const shown = applyLocal(boughtYoghurt(), [untick, undo], me);
+    expect(row(shown, 'i-yoghurt')).toMatchObject({ amount: 500 });
+    expect(row(shown, 'i-bought')!.merged_into_id).toBeNull();
+    expect(row(shown, 'i-bought')!.ticks[0]!.standing).toBe(true);
+  });
+
+  it('a later change to the unticked line goes to the line it joined', () => {
+    const shown = applyLocal(
+      boughtYoghurt(),
+      [untick, act({ kind: 'set_amount', item_id: 'i-bought', amount: 900 })],
+      me
+    );
+    expect(row(shown, 'i-yoghurt')).toMatchObject({ amount: 900 });
+  });
+
+  it('stays its own line at another shop, in another size, or with another tick standing', () => {
+    const elsewhere = boughtYoghurt();
+    row(elsewhere, 'i-bought')!.shop_id = 2;
+    expect(row(applyLocal(elsewhere, [untick], me), 'i-bought')!.merged_into_id).toBeNull();
+    const sized = boughtYoghurt();
+    row(sized, 'i-bought')!.size_id = 5;
+    expect(row(applyLocal(sized, [untick], me), 'i-bought')!.merged_into_id).toBeNull();
+    const two = boughtYoghurt();
+    row(two, 'i-bought')!.ticks.push(tick('t-other', { by: { login_id: 2, name: 'Wren' } }));
+    expect(row(applyLocal(two, [untick], me), 'i-bought')!.merged_into_id).toBeNull();
+  });
+
+  it('joins nothing when no line is left to buy', () => {
+    const shown = applyLocal(
+      sampleCopy(),
+      [act({ kind: 'untick', item_id: 'i-coriander', tick_ids: ['t-cor'] })],
+      me
+    );
+    expect(row(shown, 'i-coriander')!.merged_into_id).toBeNull();
+  });
+});
+
 describe('applyLocal: a move (sync protocol 6.1)', () => {
   const move = (itemId: string, listId: string, shopId: number | null) =>
     act({ kind: 'move', item_id: itemId, list_id: listId, shop_id: shopId });
