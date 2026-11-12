@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
-from sync_kit import API, db, ok, person
+from sync_kit import API, PHONE_A, action, db, login_id, new_id, ok, person, send
 
 from mealwright import api_tokens, roles
 from mealwright.auth import COOKIE, current_session
@@ -572,3 +572,38 @@ def test_the_token_may_read_routes_are_only_reads_a_token_can_make(kitchen: Test
 def test_a_new_route_in_a_sensitive_area_fails_until_it_is_listed(kitchen: TestClient) -> None:
     kitchen.app.add_api_route(f"{API}/sso/secret-peek", lambda: {}, methods=["GET"])  # type: ignore[attr-defined]
     assert unlisted_routes(kitchen.app) == ["GET /sso/secret-peek"]
+
+
+def test_a_token_cant_undo_a_people_change_through_the_shopping_actions(
+    kitchen: TestClient,
+) -> None:
+    """O2 review r2, finding 4 (`sync.undo`'s own `by_token` check): a hand-made log row of an
+    action that made an admin-only change, undone by `undo {undoes}` through a token, is
+    ignored (`cannot_undo`) and nothing is undone."""
+    from mealwright.models import Change, SyncAction
+
+    ok(kitchen.post(f"{API}/people", json={"name": "Joss"}), 201)
+    with db(kitchen) as session:
+        change = session.scalar(select(Change).where(Change.kind == "person_added"))
+        assert change is not None
+        session.add(
+            SyncAction(
+                household_id=1,
+                id=new_id(),
+                seq=10_000,
+                kind="add",
+                login_name="Tess",
+                payload={},
+                payload_hash="x",
+                status="applied",
+                change_id=change.id,
+            )
+        )
+        session.commit()
+        target = session.scalar(select(SyncAction.id).where(SyncAction.seq == 10_000))
+    app = _app(kitchen, _make(kitchen, "full"))
+    answer = send(app, action("undo", undoes=target), login=login_id(kitchen), device=PHONE_A)
+    result = answer["results"][0]
+    assert (result["status"], result.get("reason")) == ("ignored", "cannot_undo"), result
+    names = {p["name"] for p in ok(kitchen.get(f"{API}/people"))["people"]}
+    assert "Joss" in names
