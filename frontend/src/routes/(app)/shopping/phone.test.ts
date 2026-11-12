@@ -479,7 +479,8 @@ describe('Shopping on the phone', () => {
         await vi.waitFor(async () =>
           expect((await readQueue()).map((e) => e.action.kind)).toEqual(['untick', 'untick'])
         );
-        expect(page.getByRole('checkbox', { name: 'Tick Paneer' }).elements()).toHaveLength(2);
+        // Both lines are back to buy, joined into one row (L1c Sh7).
+        expect(page.getByRole('checkbox', { name: 'Tick Paneer' }).elements()).toHaveLength(1);
         await toast.getByRole('button', { name: 'Undo' }).click();
         await vi.waitFor(async () =>
           expect((await readQueue()).map((e) => e.action.kind)).toEqual([
