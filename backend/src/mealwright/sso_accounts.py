@@ -33,7 +33,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal, NoReturn
 
-from sqlalchemy import ColumnElement, and_, func, select
+from sqlalchemy import ColumnElement, and_, delete, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
@@ -230,22 +230,42 @@ def find_login(db: DbSession, identity: Identity) -> Login | None:
     )
 
 
-def _refused_known(db: DbSession, login: Login, row: SsoSettings, code: str) -> NoReturn:
+def _is_last_way_in(db: DbSession, login: Login, row: SsoSettings, data_dir: Path) -> bool:
+    """True when `login` is an admin who is the household's last one who can sign in, and can
+    still do it with a password while password sign-in really works (the stored setting is on,
+    or single sign-on can't start: `passwords_off` is False). Such an admin stays an admin and
+    keeps their tokens and sign-ins; with passwords off nobody could sign in to delete a token
+    (O2 review r3, finding 1)."""
+    if login.role != ADMIN or not login.password_hash:
+        return False
+    off = passwords_off(db, data_dir, row.household_id)
+    return other_admins(db, login, off) == 0 and not off
+
+
+def _refused_known(
+    db: DbSession, login: Login, row: SsoSettings, code: str, data_dir: Path
+) -> NoReturn:
     """A known login the groups (or the removal) no longer let in: its API tokens are stopped
-    too, and that is committed before the refusal is raised (the caller rolls back on a
-    refusal). The household's last admin who can sign in keeps theirs, as they stay an admin
-    (O2 review r2, finding 1; proposed, for cabledrawer). Every refusal of a known login is here:
-    `removed`, and `not_let_in` (in no mapped group, or the groups no longer name a role)."""
-    if login.role == ADMIN and (
-        other_admins(db, login, not row.password_sign_in) > 0 or not login.password_hash
-    ):
+    and every device it is signed in on is signed out (so a refused admin can't go on, or make
+    a new token, from an old session), and that is committed before the refusal is raised (the
+    caller rolls back on a refusal). The household's last admin who can sign in by password
+    keeps both, as they stay an admin (O2 review r2 finding 1 and r3 findings 1 and 2; proposed,
+    for cabledrawer). Every refusal of a known login is here: `removed`, and `not_let_in` (in no
+    mapped group, or the groups no longer name a role). Ending a session ends its event stream
+    too, which asks for the session again."""
+    if not _is_last_way_in(db, login, row, data_dir):
         api_tokens.stop_for(db, login.id)
+        db.execute(delete(Session).where(Session.login_id == login.id))
         db.commit()
-        log.info("Single sign-on: %s refused (%s); their API tokens stopped", login.username, code)
+        log.info(
+            "Single sign-on: login %d refused (%s); their sign-ins and API tokens stopped",
+            login.id,
+            code,
+        )
     raise SsoFailed(code)
 
 
-def login_for(db: DbSession, row: SsoSettings, identity: Identity) -> Login:
+def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Path) -> Login:
     """The login this identity signs in as, made on first sign-in if allowed, with its role
     from the groups. Raises SsoFailed. Flushes, doesn't commit."""
     role = role_for(row, identity.groups)
@@ -272,11 +292,12 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity) -> Login:
         log.info("Single sign-on: account %s made on first sign-in", login.username)
         return login
     if login.household_id != row.household_id or _removed(db, login):
-        _refused_known(db, login, row, "removed")
+        _refused_known(db, login, row, "removed", data_dir)
     if role is None:
-        _refused_known(db, login, row, "not_let_in")
+        _refused_known(db, login, row, "not_let_in", data_dir)
     if login.role != role:
-        if login.role == ADMIN and other_admins(db, login, not row.password_sign_in) == 0:
+        off = passwords_off(db, data_dir, row.household_id)
+        if login.role == ADMIN and other_admins(db, login, off) == 0:
             log.warning(
                 "Single sign-on: %s stays an admin, as the household's last one", login.username
             )

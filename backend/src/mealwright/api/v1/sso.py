@@ -337,7 +337,7 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
         identity = sso.finish(_gate(request), flow, client, body.code)
         if flow.mode == "test":
             return _finish_test(request, db, row, flow.login_id, identity)
-        login = sso_accounts.login_for(db, row, identity)
+        login = sso_accounts.login_for(db, row, identity, settings.data_dir)
     except sso.SsoFailed as failure:
         db.rollback()
         if failure.code == "offline_refused":
