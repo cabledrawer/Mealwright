@@ -225,7 +225,10 @@ describe('Settings → Privacy', () => {
         'PUT /privacy/switches/update_check': [
           200,
           {
-            switches: [...switches(false, false)[1].switches, { connection: 'update_check', on: true }],
+            switches: [
+              ...switches(false, false)[1].switches,
+              { connection: 'update_check', on: true }
+            ],
             can_change: true
           }
         ]

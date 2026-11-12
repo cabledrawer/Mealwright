@@ -91,7 +91,7 @@ describe('the section list', () => {
     const names = sections()
       .getByRole('button')
       .elements()
-      .map((b) => b.textContent);
+      .map((b) => b.textContent?.trim());
     expect(names).toEqual([
       'Appearance',
       'Amounts',
@@ -791,7 +791,7 @@ describe('Your kitchen (Batch cook, B1; mockup Dark-BatchKit08)', () => {
 });
 
 describe('About and "Update available" (X1)', () => {
-  const UPDATES = (outcome: string | null, canCheck = true) => [
+  const UPDATES = (outcome: string | null, canCheck = true): [number, unknown] => [
     200,
     {
       version: '0.9.0',
@@ -801,7 +801,11 @@ describe('About and "Update available" (X1)', () => {
       daily: canCheck ? true : null,
       last:
         canCheck && outcome
-          ? { outcome, latest: outcome === 'newer' ? 'v0.9.1' : null, checked_at: new Date().toISOString() }
+          ? {
+              outcome,
+              latest: outcome === 'newer' ? 'v0.9.1' : null,
+              checked_at: new Date().toISOString()
+            }
           : null
     }
   ];
@@ -811,8 +815,10 @@ describe('About and "Update available" (X1)', () => {
     await expect
       .element(sections().getByRole('button', { name: 'About Update available' }))
       .toBeVisible();
-    await expect.element(page.getByRole('link', { name: /Version, updates/ })).toHaveTextContent(
-      'Update'
+    await vi.waitFor(() =>
+      expect(page.getByRole('link', { name: /Version, updates/ }).element().textContent).toMatch(
+        /Update\s*$/
+      )
     );
   });
 

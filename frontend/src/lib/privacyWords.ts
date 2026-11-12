@@ -30,7 +30,11 @@ export const SWITCH_WORDS: Record<SwitchName, { label: string; detail: string }>
 };
 
 /** The order they're shown in. */
-export const SWITCH_ORDER: readonly SwitchName[] = ['recipe_import', 'recipe_photos', 'update_check'];
+export const SWITCH_ORDER: readonly SwitchName[] = [
+  'recipe_import',
+  'recipe_photos',
+  'update_check'
+];
 
 /** Why a switch or the list can't be changed just now. */
 export type Locked = 'member' | 'offline' | null;

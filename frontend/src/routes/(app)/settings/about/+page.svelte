@@ -7,7 +7,6 @@
   // (2) Check now, admins only, one plain request to the public release list, made by the
   // server through its outbound gate; (3) the daily check, its own Privacy switch, off at first.
   import { onMount } from 'svelte';
-  import { resolve } from '$app/paths';
   import Icon from '#lib/components/Icon.svelte';
   import Logo from '#lib/components/Logo.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
@@ -43,7 +42,7 @@
   const age = $derived(info ? ageWords(info.released, todayHere()) : null);
   const last = $derived(info?.last ? lastWords(info.last) : null);
   const daily = $derived(dailyWords(info?.daily === true));
-  const privacyHref = `${resolve('/(app)/settings/privacy')}#${OUTSIDE_CONNECTIONS_ANCHOR}`;
+  const privacyHref = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
 </script>
 
 <PageHeader title="About" parent={{ href: '/(app)/settings', label: 'Settings' }} />
@@ -89,11 +88,11 @@
       <h2 class="title" id="updates">{UPDATES_HEADING}</h2>
       <div class="card">
         {#if last}
+          <!-- eslint-disable svelte/no-navigation-without-resolve -- the releases page is another site (the person's own click); Privacy's link carries its #outside-connections anchor -->
           {#if last.outcome === 'newer'}
-            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- another site: the person's own click -->
             <a
-              class="row"
               href={info.releases_page}
+              class="row"
               target="_blank"
               rel="noopener noreferrer"
               data-outcome={last.outcome}
@@ -130,6 +129,7 @@
           <span class="val">{daily.value}</span>
           <span class="chev"><Icon name="back" size={18} stroke={2} /></span>
         </a>
+        <!-- eslint-enable svelte/no-navigation-without-resolve -->
       </div>
       <p class="live" role="status">
         {#if updates.checking}{CHECKING}{:else if last}{last.title}{/if}

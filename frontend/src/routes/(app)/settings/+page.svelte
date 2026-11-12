@@ -475,7 +475,8 @@
               type="button"
               aria-current={current === section.id ? 'true' : undefined}
               onclick={() => void goTo(section.id)}
-              >{section.label}{#if section.id === 'about' && updates.available}<span class="badge"
+              >{section.label}
+              {#if section.id === 'about' && updates.available}<span class="badge"
                   >{UPDATE_AVAILABLE}</span
                 >{/if}</button
             >

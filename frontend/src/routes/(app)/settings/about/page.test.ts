@@ -107,17 +107,23 @@ describe('Settings → About (X1)', () => {
       'POST /updates/check': [200, info({ daily: true, last: last('newer', 'v0.9.1') })]
     });
     await expect
-      .element(page.getByText('One request to GitHub’s public release list; nothing about you is sent'))
+      .element(
+        page.getByText('One request to GitHub’s public release list; nothing about you is sent')
+      )
       .toBeVisible();
     await page.getByRole('button', { name: 'Check now' }).click();
     const row = page.getByRole('link', { name: /Mealwright 0\.9\.1 is out/ });
-    await expect.element(row).toHaveTextContent('Checked just now · see what’s new');
-    await expect.element(row).toHaveTextContent('Update');
+    await vi.waitFor(() =>
+      expect(row.element().textContent).toMatch(/Checked just now · see what’s new/)
+    );
+    await vi.waitFor(() => expect(row.element().textContent).toMatch(/Update\s*$/));
     await expect.element(row).toHaveAttribute('href', PAGE);
     expect(sent('POST', '/updates/check')).toHaveLength(1);
-    await expect
-      .element(page.getByRole('link', { name: /Daily check/ }))
-      .toHaveTextContent('On');
+    await vi.waitFor(() =>
+      expect(page.getByRole('link', { name: /Daily check/ }).element().textContent).toMatch(
+        /On\s*$/
+      )
+    );
   });
 
   it.each([
@@ -133,13 +139,17 @@ describe('Settings → About (X1)', () => {
     open({ 'POST /updates/check': [200, info({ last: last('off') })] });
     await page.getByRole('button', { name: 'Check now' }).click();
     const row = page.getByRole('link', { name: /Update checks are off/ });
-    await expect
-      .element(row)
-      .toHaveTextContent('Turn on “Check for updates daily” in Privacy first.');
+    await vi.waitFor(() =>
+      expect(row.element().textContent).toMatch(
+        /Turn on “Check for updates daily” in Privacy first\.\s*$/
+      )
+    );
     await expect.element(row).toHaveAttribute('href', '/settings/privacy#outside-connections');
-    await expect
-      .element(page.getByRole('link', { name: /Daily check/ }))
-      .toHaveTextContent('Turn on in Privacy');
+    await vi.waitFor(() =>
+      expect(page.getByRole('link', { name: /Daily check/ }).element().textContent).toMatch(
+        /Turn on in Privacy/
+      )
+    );
   });
 
   it('Check now is greyed out offline', async () => {
