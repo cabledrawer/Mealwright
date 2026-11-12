@@ -123,7 +123,7 @@
       ],
       "backend": [
         "test_shopping.py", "test_shop_*.py", "test_buying.py", "test_whole_packs.py", "test_restock.py", "test_pack_*.py",
-        "test_starter_packs.py", "test_one_total.py", "test_tick_*.py", "test_found_less_than_needed.py", "test_sync_ticks.py"
+        "test_starter_packs.py", "test_one_total.py", "test_tick_*.py", "test_found_less_than_needed.py", "test_sync_ticks.py", "test_untick_join.py"
       ],
       "browser": [
         "shopping.spec.ts", "shop-phone.spec.ts", "pack-sizes.spec.ts", "starter-packs.spec.ts",
