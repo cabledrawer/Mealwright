@@ -1500,10 +1500,10 @@ def test_a_tub_in_the_cook_meal_moves_with_it_and_keeps_its_distance_from_the_co
 ) -> None:
     made = make(kitchen, cook["item_id"], tub_count=1, pattern="pick")
     tub = kitchen.get(f"{API}/plan/tubs-left").json()["tubs"][0]
-    put = kitchen.post(
-        f"{API}/plan/tubs/{tub['id']}/place", json={"date": day(0), "slot_id": slots["Dinner"]}
-    )
-    assert put.status_code == 200, put.text
+    # The API no longer puts a tub in its own cook meal (F230), so it is put there directly.
+    with db_of(kitchen) as db:
+        db.add(MealItem(household_id=1, meal_id=cook["meal_id"], position=9, tub_id=tub["id"]))
+        db.commit()
     r = _move_meal(kitchen, cook["meal_id"], day(5), slots["Dinner"])  # past the OLD use-by
     assert r.status_code == 200, r.text
     assert _batch_row(kitchen, made["batch_id"])[0] == D1 + timedelta(days=5)

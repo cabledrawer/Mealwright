@@ -501,6 +501,7 @@ def place_tub(
     tub already in a meal moves there instead: it is in one meal at a time."""
     from mealwright import plan
 
+    plan.check_tub_after_cook(kitchen, tub, day, slot_id)
     existing = item_of_tub(kitchen, tub)
     if existing is not None and only_if_left:
         raise Problem(

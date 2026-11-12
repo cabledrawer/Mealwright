@@ -111,6 +111,24 @@ def check_after_cook(kitchen: Kitchen, cook: Meal, day: date, slot_id: int) -> N
         )
 
 
+def check_tub_after_cook(kitchen: Kitchen, tub: Tub, day: date, slot_id: int) -> None:
+    """A tub never goes to a meal at or before its batch's cook meal (F230, cabledrawer 12 Nov; spec
+    F50). Only the order is checked here: a tub may still go to a past day, as before."""
+    batch = kitchen.db.get(BatchCook, tub.batch_id)
+    cook = kitchen.db.get(Meal, batch.cook_meal_id) if batch and batch.cook_meal_id else None
+    if cook is None or cook.household_id != kitchen.household_id:
+        return
+    here, there = kitchen.db.get(MealSlot, cook.slot_id), kitchen.db.get(MealSlot, slot_id)
+    if here is None or there is None:  # pragma: no cover (find_slot has checked the slot)
+        return
+    if (day, there.position, there.id) <= (cook.day, here.position, here.id):
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "not_after_cook",
+            "Pick a meal after the cooking, today or later.",  # proposed, for cabledrawer
+        )
+
+
 def find_slot(kitchen: Kitchen, slot_id: int, *, on: bool = True) -> MealSlot:
     slot = kitchen.db.get(MealSlot, slot_id)
     if slot is None or slot.household_id != kitchen.household_id:
@@ -1088,6 +1106,8 @@ def move_item(
         )
     if item.tub_id is not None:
         tub = _own(kitchen, Tub, item.tub_id)
+        if tub is not None:
+            check_tub_after_cook(kitchen, tub, day, slot_id)
         if tub is not None and day > tub.use_by:  # a tub is no good past its own use-by
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
