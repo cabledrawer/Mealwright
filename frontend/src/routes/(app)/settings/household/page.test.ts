@@ -160,6 +160,14 @@ describe('Settings → Household', () => {
     await expect
       .element(page.getByText('Only admins can add, change or remove people.', { exact: false }))
       .toBeVisible();
+    // Nothing reads a person's portion yet, so the note doesn't say it decides amounts.
+    await expect
+      .element(
+        page.getByText('Portions are kept for later: the plan and shopping list don’t', {
+          exact: false
+        })
+      )
+      .toBeVisible();
   });
 
   it('says it cannot be loaded, with Try again', async () => {

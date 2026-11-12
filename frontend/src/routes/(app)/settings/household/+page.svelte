@@ -245,8 +245,8 @@
     </section>
 
     <p class="note">
-      Portions decide how much the plan and shopping list allow for each meal. Only admins can add,
-      change or remove people.
+      Portions are kept for later: the plan and shopping list don’t use them yet. Only admins can
+      add, change or remove people.
     </p>
   </div>
 {/if}
