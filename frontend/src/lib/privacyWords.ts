@@ -49,7 +49,10 @@ export const offlineNote = (device: boolean): string =>
     (b) => `This is as it was when you last looked, and it can’t be changed ${b.until}.`
   );
 
-export const LEAD = 'Nothing leaves this server unless you switch it on.';
+// Proposed, for cabledrawer (review r2): Check now in About connects when pressed, whatever the
+// daily switch says, so the line says so.
+export const LEAD =
+  'Nothing leaves this server unless you switch it on, or press Check now in About.';
 export const LEARN_IMPORT_LIMITS =
   'Imports: pages up to 5 MB, web pages only, up to 5 redirects, each address checked again.';
 

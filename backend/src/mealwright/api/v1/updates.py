@@ -5,7 +5,8 @@ and where new versions are listed, so About can say how old it is (level 1, for 
 an admin it adds whether the daily check is on and the last answer (levels 2 and 3).
 
 `POST /updates/check` is Check now (admins only): one request to the public release list
-through the outbound gate, only if the Privacy switch is on (see mealwright.updates). The
+through the outbound gate as a person's press (`pressed=True`), whatever the Privacy switch
+says: the switch controls only the daily check (see mealwright.updates; cabledrawer 12 Nov). The
 version number for Diun and Renovate stays at `GET /version`, unchanged.
 """
 

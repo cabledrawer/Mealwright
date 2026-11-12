@@ -48,7 +48,7 @@ test('Settings leads to Privacy, which starts with everything off, and passes th
     .click();
   await expect(page).toHaveURL('/settings/privacy');
   await expect(page.getByRole('heading', { level: 1, name: 'Privacy' })).toBeVisible();
-  await expect(page.getByText('Nothing leaves this server unless you switch it on.')).toBeVisible();
+  await expect(page.getByText('Nothing leaves this server unless you switch it on, or press Check now in About.')).toBeVisible();
   await expect(page.getByRole('switch', { name: IMPORT })).not.toBeChecked();
   await expect(page.getByRole('switch', { name: PHOTOS })).not.toBeChecked();
   // The empty list.

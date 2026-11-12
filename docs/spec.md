@@ -34,7 +34,7 @@ Hard rules (no exceptions):
 - Companion apps, if any: no analytics or ad SDKs; app store privacy label "Data not collected".
 - No account with the developer — nothing to sign up for.
 
-**Outbound connection rule (settled 17 Oct):** outbound connections happen only when the user triggers or configures them. Each one is clearly labelled and switched off until the user sets it up. The README gets a "Privacy" section listing every possible outbound connection. Settings → Privacy shows the same list, each with its own switch, under "Nothing leaves this server unless you switch it on". Known cases:
+**Outbound connection rule (settled 17 Oct):** outbound connections happen only when the user triggers or configures them. Each one is clearly labelled and switched off until the user sets it up. The README gets a "Privacy" section listing every possible outbound connection. Settings → Privacy shows the same list, each with its own switch, under "Nothing leaves this server unless you switch it on, or press Check now in About." (proposed, for cabledrawer, 12 Nov: Check now connects when pressed) Known cases:
 
 - Recipe URL import: the server fetches the page the user asked for (that site sees the server's IP). User-triggered.
 - Update check (cabledrawer 17 Oct): "Check now" (admin click) or an optional daily check, off by default (the switch controls only the daily check; Check now always works, cabledrawer 12 Nov). One plain request to GitHub's public release list; GitHub sees the server's IP, nothing else is sent.

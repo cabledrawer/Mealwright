@@ -95,7 +95,11 @@ describe('Settings → Privacy', () => {
     open();
     await expect.element(page.getByRole('heading', { name: 'Privacy', level: 1 })).toBeVisible();
     await expect
-      .element(page.getByText('Nothing leaves this server unless you switch it on.'))
+      .element(
+        page.getByText(
+          'Nothing leaves this server unless you switch it on, or press Check now in About.'
+        )
+      )
       .toBeVisible();
     await expect.element(page.getByRole('switch', { name: IMPORT })).not.toBeChecked();
     await expect.element(page.getByRole('switch', { name: PHOTOS })).not.toBeChecked();
@@ -124,7 +128,9 @@ describe('Settings → Privacy', () => {
     const ownCard = listed.closest('.card')!;
     expect(box(listed.querySelector('li')!).left - box(ownCard).left).toBeLessThanOrEqual(24);
     // The banner is as wide as the two cards together.
-    const banner = page.getByText('Nothing leaves this server unless you switch it on.').element();
+    const banner = page
+      .getByText('Nothing leaves this server unless you switch it on, or press Check now in About.')
+      .element();
     expect(Math.abs(box(banner).right - box(ownCard).right)).toBeLessThanOrEqual(1);
     expect(Math.abs(box(banner).left - box(card).left)).toBeLessThanOrEqual(1);
   });
