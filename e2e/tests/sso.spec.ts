@@ -106,6 +106,21 @@ test.describe('signed out', () => {
       'Your sign-in server doesn’t put you in a group Mealwright lets in. Ask your household’s admin.',
     );
   });
+
+  test('screenshots, dark (by hand only)', async ({ page }) => {
+    test.skip(!process.env.E2E_SHOTS_DIR || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+    await signInOptions(page, true);
+    await shots(page, 'sign-in', async () => {
+      await page.goto('/sign-in');
+      await expect(page.getByRole('link', { name: 'Sign in with Authentik' })).toBeVisible();
+    });
+    await page.unroute('**/api/v1/sign-in-options');
+    await signInOptions(page, false);
+    await shots(page, 'sign-in-sso-only', async () => {
+      await page.goto('/sign-in');
+      await expect(page.getByRole('link', { name: 'Sign in with Authentik' })).toBeVisible();
+    });
+  });
 });
 
 test('the callback signs in once and goes on to the app', async ({ page }) => {
@@ -199,19 +214,5 @@ test.describe('the setup screen', () => {
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       await expect(page.getByText(/Set up on a computer|Your sign-in server/).first()).toBeVisible();
     });
-    const context = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin, colorScheme: 'dark' });
-    const out = await context.newPage();
-    await signInOptions(out, true);
-    await shots(out, 'sign-in', async () => {
-      await out.goto('/sign-in');
-      await expect(out.getByRole('link', { name: 'Sign in with Authentik' })).toBeVisible();
-    });
-    await out.unroute('**/api/v1/sign-in-options');
-    await signInOptions(out, false);
-    await shots(out, 'sign-in-sso-only', async () => {
-      await out.goto('/sign-in');
-      await expect(out.getByRole('link', { name: 'Sign in with Authentik' })).toBeVisible();
-    });
-    await context.close();
   });
 });
