@@ -213,6 +213,11 @@ test('Start batch cook on the Plan card opens batch cook mode for that session',
   await card.getByRole('button', { name: 'Start batch cook' }).click();
   await expect(page).toHaveURL(new RegExp(`/batch-cook/session/${s.id}/cook$`));
   await expect(region(page)).toBeVisible();
+  // Back on the Plan the session is under way: the card carries on, it doesn't start again (F234).
+  await page.goto(`/plan?day=${s.day}`);
+  const again = page.getByTestId('batch-card').filter({ hasText: s.sambar });
+  await expect(again.getByRole('button', { name: 'Carry on batch cook' })).toBeVisible();
+  await expect(again.getByRole('button', { name: 'Start batch cook' })).toHaveCount(0);
 });
 
 test('one pressure cooker is never offered twice, and the screen says what is in use', async ({ page }) => {

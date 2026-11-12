@@ -5,6 +5,7 @@
   import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
   import { batchCook } from '#lib/batchCook.svelte.js';
+  import { getSchedule } from '#lib/client/batchMode.js';
   import type { PlanBatch, PlanSession } from '#lib/client/plan.js';
   import Icon from '#lib/components/Icon.svelte';
   import type { PlanActions } from '#lib/planActions.js';
@@ -35,6 +36,26 @@
       parts.push(`from ${day ? `${dayShort(session.start_day!)} ` : ''}${session.start_time}`);
     }
     return parts.join(' · ');
+  });
+
+  /**
+   * Whether batch cook mode has been started for this session and something in it is still to
+   * cook: then the card says "Carry on batch cook", not "Start batch cook" (F234, cabledrawer 12 Nov).
+   * The plan doesn't say, so the schedule is asked for (a 404 means it was never started; any
+   * other trouble, such as being offline, leaves the usual button). Asked again when the plan is.
+   */
+  let underWay = $state(false);
+  $effect(() => {
+    const id = session.id;
+    void actions.model.plan;
+    void getSchedule(id).then(
+      (schedule) => {
+        if (id === session.id) underWay = schedule.recipes.some((r) => !r.left_out);
+      },
+      () => {
+        if (id === session.id) underWay = false;
+      }
+    );
   });
   const tubs = (b: PlanBatch) => `${b.tub_count} ${b.tub_count === 1 ? 'tub' : 'tubs'}`;
 
@@ -95,7 +116,7 @@
         type="button"
         class="go"
         disabled={actions.readonly || batches.length === 0}
-        onclick={start}>Start batch cook</button
+        onclick={start}>{underWay ? 'Carry on batch cook' : 'Start batch cook'}</button
       >
       <button type="button" class="btn" disabled={actions.readonly} onclick={change}>Change</button>
       <button
