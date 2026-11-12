@@ -58,8 +58,9 @@ packages = ["mealwright"]
 mypy_path = "src"
 
 [[tool.mypy.overrides]]
-# APScheduler 3.x ships no type information.
-module = ["apscheduler.*"]
+# APScheduler 3.x and Authlib ship no type information (no stub library added: only Authlib
+# was allowed for single sign-on).
+module = ["apscheduler.*", "authlib.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
