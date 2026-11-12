@@ -28,21 +28,26 @@ Every job is added in `scheduler()`, in one place:
 - **Daily update check** (spec section 7, "Updates"; mealwright.updates): every hour, for each
   household whose Privacy switch "Check for updates daily" is on and whose last answer is
   missing or nearly a day old, one request to the public release list through the outbound
-  gate. Off by default; with the switch off it connects nowhere. This is the only job that
-  connects to anything.
+  gate. Off by default; with the switch off it connects nowhere.
+- **Single sign-on** (0.9 O1): every 5 minutes, each single sign-on sign-in that's due (once
+  an hour) is checked with the sign-in server through the outbound gate, under the Single
+  sign-on switch (`mealwright.sso_accounts.check_sessions`). A sign-in the server has ended is
+  signed out here too. With the switch off nothing is sent and nobody is signed out.
 
 No job has a lateness limit (misfire_grace_time=None): a late run still runs.
 
-Apart from the daily update check (through the outbound gate), nothing here makes a network
-connection.
+Apart from the daily update check and the single sign-on check, both through the outbound gate,
+nothing here makes a network connection.
 """
 
 import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -50,6 +55,9 @@ from mealwright import backups
 from mealwright.logs import DailyLogFile, tidy_once
 from mealwright.models import Household, utcnow
 from mealwright.updates import UpdateChecks
+
+if TYPE_CHECKING:
+    from mealwright.outbound import OutboundGate
 
 log = logging.getLogger(__name__)
 
@@ -123,11 +131,22 @@ def back_up_if_due(factory: sessionmaker[Session], engine: Engine, folder: Path)
     backups.run_if_due(factory, engine, folder)
 
 
+def check_single_sign_on(
+    gate: OutboundGate, factory: sessionmaker[Session], data_dir: Path
+) -> None:
+    from mealwright import sso_accounts  # imported here: it needs the API's models
+
+    ended = sso_accounts.check_sessions(gate, factory, data_dir)
+    if ended:
+        log.info("Single sign-on: %d sign-ins ended by the sign-in server", ended)
+
+
 def scheduler(
     factory: sessionmaker[Session],
     log_file: DailyLogFile | None = None,
     backups_folder: Path | None = None,
     updates: UpdateChecks | None = None,
+    single_sign_on: tuple[OutboundGate, Path] | None = None,
 ) -> BackgroundScheduler:
     """The app's scheduler, with every job added. Started and stopped with the app."""
     jobs = BackgroundScheduler(
@@ -167,6 +186,14 @@ def scheduler(
             args=[factory],
             id="update-check",
             name="Check for updates daily (only while its Privacy switch is on)",
+        )
+    if single_sign_on is not None:
+        jobs.add_job(
+            check_single_sign_on,
+            IntervalTrigger(minutes=5, timezone=UTC),
+            args=[single_sign_on[0], factory, single_sign_on[1]],
+            id="single-sign-on",
+            name="Check single sign-on sign-ins with the sign-in server",
         )
     if log_file is not None:
         jobs.add_job(

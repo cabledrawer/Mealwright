@@ -22,6 +22,7 @@ from mealwright import (
     migrate,
     private_files,
     setup_code,
+    sso,
 )
 from mealwright.api.v1 import router as api_v1
 from mealwright.auth import OldCookieMiddleware, SlowDown
@@ -104,6 +105,7 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
                 log_file,
                 settings.data_dir / backups.FOLDER,
                 app.state.updates,
+                single_sign_on=(app.state.outbound, settings.data_dir),
             )
             background.start()
         yield
@@ -132,6 +134,8 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     app.state.outbound = OutboundGate(app.state.sessionmaker)
     app.state.updates = UpdateChecks(app.state.outbound)
     app.state.slow_down = SlowDown()
+    app.state.sso_flows = sso.Flows()  # single sign-on sign-ins under way (memory only)
+    app.state.sso_tests = {}  # the setup screen's last test, by household (memory only)
     app.state.setup_code = None  # set at start-up on a fresh install
     errors.install(app)
     app.include_router(api_v1)

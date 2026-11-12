@@ -23,6 +23,7 @@ from mealwright.api.v1 import (
     report,
     shopping,
     shopping_plan,
+    sso,
     starter_packs,
     stocktake,
     sync,
@@ -37,6 +38,7 @@ router.include_router(version.router)
 router.include_router(updates.router)
 router.include_router(report.router)
 router.include_router(account.router)
+router.include_router(sso.router)
 router.include_router(my_sign_in.router)
 router.include_router(kitchen.router)
 router.include_router(foods.router)

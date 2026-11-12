@@ -5,7 +5,8 @@ It sets a new random password on that admin's login, prints it once, and signs t
 on every device. For `auth.NEW_PASSWORD_WINDOW` after, the username's pause doesn't stop that
 admin's new password (it goes by the password's date). Only someone who can run commands in the
 container can use it, which is the same person who can read the database. The password is never
-logged or stored as typed.
+logged or stored as typed. If password sign-in was turned off for single sign-on (0.9 O1), it's
+turned back on, so this always works (proposed, for cabledrawer).
 """
 
 import logging
@@ -19,7 +20,7 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright.auth import hash_password, now
 from mealwright.config import Settings
 from mealwright.db import make_engine, make_sessionmaker
-from mealwright.models import JoinLink, Login, Member, Session, utcnow
+from mealwright.models import JoinLink, Login, Member, Session, SsoSettings, utcnow
 
 # Mealwright's own log file (mealwright.logs): who was reset, never the password.
 log = logging.getLogger("mealwright.sign_in")
@@ -84,16 +85,26 @@ def reset_admin(settings: Settings, username: str, out: TextIO = sys.stdout) -> 
             mine = Session.login_id == login.id
             ended = db.scalar(select(func.count()).select_from(Session).where(mine)) or 0
             db.execute(delete(Session).where(mine))
+            # A way back in even with password sign-in turned off for single sign-on (0.9 O1;
+            # proposed, for cabledrawer): it's turned back on for the household.
+            sso = db.get(SsoSettings, login.household_id)
+            turned_on = sso is not None and not sso.password_sign_in
+            if sso is not None:
+                sso.password_sign_in = True
             db.commit()
     finally:
         engine.dispose()
     log.warning(
         "reset-admin: new password set for %s; signed out on %d device(s)", login.username, ended
     )
+    if turned_on:
+        log.warning("reset-admin: password sign-in turned back on")
     print(f"New password for {login.username}: {password}", file=out)
     print(
         "It's shown only this once. Sign in with it, then change it in Settings, Sign-in. "
         f"{login.username} is now signed out everywhere.",
         file=out,
     )
+    if turned_on:
+        print("Password sign-in was off for single sign-on: it's on again.", file=out)
     return 0

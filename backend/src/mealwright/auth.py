@@ -510,23 +510,22 @@ def start_session(
     login: Login,
     remember: bool,
     device: str | None = None,
-) -> None:
+) -> Session:
     token = secrets.token_urlsafe(32)
     started = now()
     expires = started + (REMEMBER_FOR if remember else IDLE_TIMEOUT)
     db.execute(delete(Session).where(Session.expires_at < started))  # tidy up
-    db.add(
-        Session(
-            household_id=login.household_id,
-            login_id=login.id,
-            token_hash=_token_hash(token),
-            remember=remember,
-            created_at=started,
-            last_seen_at=started,
-            expires_at=expires,
-            device=device,
-        )
+    session = Session(
+        household_id=login.household_id,
+        login_id=login.id,
+        token_hash=_token_hash(token),
+        remember=remember,
+        created_at=started,
+        last_seen_at=started,
+        expires_at=expires,
+        device=device,
     )
+    db.add(session)
     login.last_sign_in_at = started
     response.set_cookie(
         cookie_name(settings),
@@ -537,6 +536,7 @@ def start_session(
         samesite="lax",
         path="/",
     )
+    return session
 
 
 def end_session(db: DbSession, request: Request, response: Response, settings: Settings) -> None:

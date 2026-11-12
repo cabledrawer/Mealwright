@@ -39,6 +39,7 @@ from mealwright.models import Household, Login
 from mealwright.names import one_line
 from mealwright.people import removed
 from mealwright.shopping import ensure_main_list, lock_db
+from mealwright.sso_accounts import password_sign_in_on
 
 # Every line here names an account or an address, so it goes to Mealwright's own 14-day
 # log file only, never to the container output (mealwright.logs, cabledrawer 17 Oct).
@@ -48,6 +49,8 @@ router = APIRouter(tags=["account"], dependencies=[SameOrigin])
 
 USERNAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,49}$")
 WRONG = "That username and password don’t match."
+# Proposed, for cabledrawer.
+PASSWORD_OFF = "Password sign-in is off here. Use the single sign-on button."  # noqa: S105
 Theme = Literal["auto", "light", "dark"]
 
 
@@ -191,7 +194,11 @@ class SignIn(BaseModel):
 
 @router.post("/session")
 def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
+    """Sign in with a username and password. Refused (403 `password_off`) while an admin has
+    turned password sign-in off for single sign-on (0.9 O1)."""
     needs_https(request, request.app.state.settings)
+    if not password_sign_in_on(db):
+        raise Problem(status.HTTP_403_FORBIDDEN, "password_off", PASSWORD_OFF)
     slow: SlowDown = request.app.state.slow_down
     username = _normalise_username(body.username)
     address = client_address(request)

@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Any
 
 from fastapi import status
-from sqlalchemy import ColumnElement, and_, delete, func, select, update
+from sqlalchemy import ColumnElement, and_, delete, func, or_, select, update
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.api.v1.context import Kitchen
@@ -104,12 +104,22 @@ def login_of(kitchen: Kitchen, member: Member) -> Login | None:
     return kitchen.db.scalar(select(Login).where(Login.member_id == member.id))
 
 
+def signs_in(login: Login | None) -> bool:
+    """The login has a password or a single sign-on identity (0.9 O1)."""
+    return login is not None and (bool(login.password_hash) or login.sso_subject is not None)
+
+
 def can_sign_in() -> ColumnElement[bool]:
-    """A login (joined to its person) that can sign in: it has a password and its person isn't
-    removed. Single sign-on (0.9 O1) will add "or has a single-sign-on identity" here."""
+    """A login (joined to its person) that can sign in: it has a password or a single sign-on
+    identity (0.9 O1), and its person isn't removed."""
     return and_(
-        Login.password_hash.is_not(None),
-        Login.password_hash != "",  # nosec B105
+        or_(
+            and_(
+                Login.password_hash.is_not(None),
+                Login.password_hash != "",  # nosec B105
+            ),
+            Login.sso_subject.is_not(None),
+        ),
         Member.removed_at.is_(None),
     )
 
@@ -301,7 +311,7 @@ def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tu
     they choose one (cabledrawer 12 Nov). A new link replaces any unused one. Returns the
     link's token (shown once, never stored) and the link."""
     login = login_of(kitchen, member)
-    if login is not None and login.password_hash:
+    if signs_in(login):
         raise _refused(  # cabledrawer 12 Nov
             "signs_in_already", f"{member.name} already signs in."
         )
@@ -353,7 +363,7 @@ def take_back_login(kitchen: Kitchen, member: Member) -> None:
     login = login_of(kitchen, member)
     if login is None:
         return
-    if login.password_hash:
+    if signs_in(login):
         raise _refused(
             "signs_in_already",
             f"{member.name} already signs in. To stop that, remove {member.name}.",
@@ -381,7 +391,7 @@ def find_link(db: DbSession, token: str) -> tuple[JoinLink, Login, Member] | Non
     if link is None or link.used_at is not None or as_utc(link.expires_at) <= utcnow():
         return None
     login = db.get(Login, link.login_id)
-    if login is None or login.password_hash or login.member_id is None:
+    if login is None or signs_in(login) or login.member_id is None:
         return None
     member = db.get(Member, login.member_id)
     if member is None or member.removed_at is not None:
