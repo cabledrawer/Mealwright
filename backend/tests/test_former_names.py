@@ -309,10 +309,11 @@ def test_the_log_tidy_deletes_names_older_than_the_log_files_plus_a_day(
 _NOT_A_NAME: dict[tuple[str, str], str] = {
     ("FoodSize", "name"): "a size word (tin, bunch, packet): an everyday word, not a name",
     ("FormerName", "name"): "this table: the kept names themselves",
-    # The line's O1/O2 columns (f139539f): the admin's own labels for an app and a button
-    # (Home Assistant, Authentik), never a person's name, so a renamed or deleted one needs no
-    # scrubbing from a problem report.
-    ("ApiToken", "name"): "the admin's label for an app (Home Assistant), never a person",
+    # The line's O1/O2 columns (f139539f). A token's name is free text the admin types, so it
+    # could hold a person's name ("Priya's phone"); it needs no keeping only because it is never
+    # logged (tokens.py logs the username), never in a change's undo data and not exported.
+    # Recheck this line if any of that changes.
+    ("ApiToken", "name"): "a label the admin types; never logged, never in changes, not exported",
     ("SsoSettings", "button_name"): "the sign-in button's text (Authentik), the admin's own word",
 }
 
