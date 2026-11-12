@@ -364,14 +364,16 @@ def check_sessions(gate: OutboundGate, factory: sessionmaker[DbSession], data_di
                 continue
             result, new = sso.refresh(gate, setup, token)
             if result == "ended":
-                login = db.get(Login, session.login_id)
-                if login is not None:  # the tokens of an admin signed out there stop (proposed)
-                    api_tokens.stop_for(db, login.id)
+                # The tokens of an admin signed out there stop, even if they are signed in
+                # somewhere else too (safest; proposed, for cabledrawer). The log says so, by the
+                # login's number only, never a name (O2 review r2, finding 3).
+                api_tokens.stop_for(db, session.login_id)
                 db.delete(session)
                 ended += 1
                 log.info(
-                    "Single sign-on: %s signed out, as the sign-in server ended the sign-in",
-                    login.username if login else "someone",
+                    "Single sign-on: login %d signed out, as the sign-in server ended the "
+                    "sign-in; its API tokens stopped",
+                    session.login_id,
                 )
             elif result == "ok":
                 if new:
