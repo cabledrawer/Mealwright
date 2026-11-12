@@ -1,4 +1,4 @@
-// Single sign-on's words (0.9 O1; word list section 72, proposed, for cabledrawer). The sentences
+// Single sign-on's words (0.9 O1; word list section 78, proposed, for cabledrawer). The sentences
 // for the codes are the server's own (backend sso.MESSAGES): the server sends them with a
 // refusal, and these show when it sends a browser back with `?sso=<code>` instead.
 
