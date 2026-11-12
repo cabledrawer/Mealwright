@@ -12,8 +12,9 @@ read without Mealwright or brought into another program. (Spec section 7, "Expor
 - Left out on purpose (cabledrawer 12 Nov): sign-ins (the `session` table, and the
   `join_link` table of sign-in links made for people), passwords (`login.password_hash`),
   API tokens (the `api_token` table; only an admin at the screen makes them, so make them
-  again) and the single sign-on client secret (sealed with `secret.key`; type it again on a
-  new server). Whoever restores from an export sets passwords again (proposed, for cabledrawer,
+  again) the single sign-on client secret (sealed with `secret.key`; type it again on a
+  new server) and `login.sso_refused_at` (this server's own mark of a refused login; proposed,
+  for cabledrawer). Whoever restores from an export sets passwords again (proposed, for cabledrawer,
   O2 review r1, finding 2).
 - Optional password encryption (cabledrawer's decision) is **not built yet**. It comes in a later
   version of this page; an export today is a plain zip, so keep it somewhere safe.

@@ -55,6 +55,9 @@ LEFT_OUT_COLUMNS = {
     # The admin types the client secret again if an export is ever put back (proposed, for
     # cabledrawer; the rest of the single sign-on setup is exported).
     ("sso_settings", "client_secret_sealed"): "the single sign-on client secret",
+    # This server's own sign-in state, not the household's data: without it an admin put back
+    # from an export isn't blocked from making API tokens (O2 fix13; proposed, for cabledrawer).
+    ("login", "sso_refused_at"): "the mark of a login the sign-in server refused",
 }
 
 _PHOTO_FILE = re.compile(r"^[0-9a-f]{32}(-list)?\.jpg$")

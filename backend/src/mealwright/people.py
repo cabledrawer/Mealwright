@@ -269,6 +269,7 @@ def _apply(kitchen: Kitchen, member: Member, login: Login | None, wanted: dict[s
             login.role = wanted["role"]
             if login.role != ADMIN:  # only admins have API tokens (PR O2)
                 api_tokens.stop_for(kitchen.db, login.id)
+                api_tokens.clear_refused(kitchen.db, login)
         if wanted.get("shared") is not None:
             login.shared = wanted["shared"]
     kitchen.db.flush()
@@ -308,6 +309,7 @@ def remove(kitchen: Kitchen, member: Member) -> Change:
         kitchen.db.execute(delete(Session).where(Session.login_id == login.id))
         kitchen.db.execute(delete(JoinLink).where(JoinLink.login_id == login.id))
         api_tokens.stop_for(kitchen.db, login.id)  # for good: Undo doesn't bring them back
+        api_tokens.clear_refused(kitchen.db, login)
     # Nobody is "Who's this?"-picked as them any more.
     kitchen.db.execute(
         update(Session)

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from fastapi import Request, status
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.errors import Problem
@@ -103,6 +103,9 @@ def find(db: DbSession, token: str) -> TokenSignIn | None:
             ApiToken.household_id == Login.household_id,
             Login.role == ADMIN,
             Member.removed_at.is_(None),
+            # A login the sign-in server refused (kept signed in) has no working token made at
+            # or after the refusal (O2 fix13; cabledrawer 12 Nov).
+            or_(Login.sso_refused_at.is_(None), ApiToken.created_at < Login.sso_refused_at),
         )
     ).first()
     if found is None:
@@ -130,6 +133,30 @@ def stop_for(db: DbSession, login_id: int) -> None:
         .where(ApiToken.login_id == login_id, ApiToken.revoked_at.is_(None))
         .values(revoked_at=utcnow())
     )
+
+
+def mark_refused(db: DbSession, login: Login) -> None:
+    """The sign-in server refused this login but they are kept signed in: from now, they can't
+    make API tokens, and tokens made from now on don't work (O2 fix13; cabledrawer 12 Nov)."""
+    if login.sso_refused_at is None:
+        login.sso_refused_at = utcnow()
+
+
+def clear_refused(db: DbSession, login: Login) -> None:
+    """The mark ends (accepted again, or demoted or removed). Tokens made while it stood stop for
+    good: they are deleted now, so ending the mark doesn't bring them back."""
+    if login.sso_refused_at is None:
+        return
+    db.execute(
+        update(ApiToken)
+        .where(
+            ApiToken.login_id == login.id,
+            ApiToken.revoked_at.is_(None),
+            ApiToken.created_at >= login.sso_refused_at,
+        )
+        .values(revoked_at=utcnow())
+    )
+    login.sso_refused_at = None
 
 
 def _as_utc(moment: datetime) -> datetime:

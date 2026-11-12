@@ -117,6 +117,7 @@ def test_no_password_and_no_sign_in_ever_leaves(kitchen: TestClient) -> None:
     }
     assert "login.password_hash" in doc["left_out"]["columns"]
     assert "sso_settings.client_secret_sealed" in doc["left_out"]["columns"]
+    assert "login.sso_refused_at" in doc["left_out"]["columns"]
     assert b"$argon2" not in raw
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         text = archive.read(export.DOCUMENT)

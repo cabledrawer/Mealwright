@@ -290,6 +290,8 @@ def _refused_known(
         if keeps == "":
             ended = list(db.scalars(select(Session.id).where(Session.login_id == login.id)))
             db.execute(delete(Session).where(Session.login_id == login.id))
+        else:
+            api_tokens.mark_refused(db, login)  # kept signed in: no new tokens (fix13)
         db.commit()
         log.info(
             "Single sign-on: login %d refused (%s); %s",
@@ -334,6 +336,7 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Pat
         _refused_known(db, login, row, "removed", data_dir)
     if role is None:
         _refused_known(db, login, row, "not_let_in", data_dir)
+    api_tokens.clear_refused(db, login)  # the sign-in server accepts them again
     if login.role != role:
         off = passwords_off(db, data_dir, row.household_id)
         if login.role == ADMIN and not another_admin_gets_in(db, login, off, again=True):
@@ -483,6 +486,7 @@ def check_sessions(
                 # Its tokens stop, the sign-in stays, a warning is left (cabledrawer 12 Nov;
                 # proposed, for cabledrawer), and it is asked again later.
                 api_tokens.stop_for(db, session.login_id)
+                api_tokens.mark_refused(db, owner)
                 session.sso_check_at = at + sso.RETRY_AFTER
                 _kept[session.household_id] = (owner.id, owner.name, keep)
                 log.info(
@@ -506,6 +510,7 @@ def check_sessions(
             elif result == "ok":
                 if _kept.get(session.household_id, (0, ""))[0] == owner.id:
                     del _kept[session.household_id]  # accepted again: the warning goes
+                api_tokens.clear_refused(db, owner)
                 if new:
                     session.sso_refresh_sealed = seal(data_dir, new)
                 session.sso_check_at = at + sso.CHECK_EVERY

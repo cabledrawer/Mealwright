@@ -126,6 +126,14 @@ def make_token(body: TokenIn, kitchen: Here, signed_in: CurrentSession) -> MadeT
     """Make a token for a script or another app. The answer holds the token itself, this once
     only. It acts as you, and stops if you're removed or made a member. Admins only."""
     _admin(kitchen)
+    if kitchen.login.sso_refused_at is not None:
+        # The sign-in server refused them and Mealwright kept them signed in; a token made now
+        # would outlive that (proposed, for cabledrawer; O2 fix13).
+        raise Problem(
+            status.HTTP_403_FORBIDDEN,
+            "sign_in_refused",
+            "The sign-in server no longer accepts you, so you can’t make API tokens.",
+        )
     lock_db(kitchen.db, kitchen.household)
     expires_at = None
     if body.expires_on is not None:

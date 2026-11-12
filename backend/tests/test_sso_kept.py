@@ -135,3 +135,91 @@ def test_the_only_admin_made_by_single_sign_on_keeps_their_sign_in_with_password
     assert token.get(f"{API}/me").status_code == 401  # the tokens stop
     warning = wren.get(f"{API}/sso/settings").json()["kept_warning"]
     assert warning is not None and warning.endswith("Fix it at the sign-in server.")
+
+
+def _login_row(client: TestClient, subject: str) -> Any:
+    with cast(Any, client.app).state.sessionmaker() as db:
+        row = db.scalar(select(Login).where(Login.sso_subject == subject))
+        db.expunge(row)
+        return row
+
+
+def test_a_kept_refused_admin_cant_make_a_token_that_outlives_the_keep(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """O2 fix13, M (cabledrawer 12 Nov, option A). X, refused but kept, used to make a token, sign
+    out, and keep the token for good. Now the mark stops it: no new token, and one made after
+    the mark doesn't work. The mark is on the login, so sign-out and a restart keep it."""
+    from mealwright.models import ApiToken
+
+    x = browser(sso_only)
+    sign_in(x, idp, sub="x", extra=ADMIN_GROUPS)
+    assert sso_only.delete(f"{API}/session").status_code == 204  # K is signed out: no live sign-in
+    idp.refresh_tokens.clear()
+    _due(sso_only, "x")
+    assert check(sso_only) == 0  # kept
+    made = x.post(f"{API}/api-tokens", json={"name": "HA", "scope": "full"})
+    assert made.status_code == 403 and made.json()["code"] == "sign_in_refused"
+    # A token row made after the mark (by the old rule, or a race) doesn't work either.
+    from mealwright.api_tokens import new_token, token_hash
+
+    secret = new_token("full")
+    with cast(Any, sso_only.app).state.sessionmaker() as db:
+        login = db.scalar(select(Login).where(Login.sso_subject == "x"))
+        assert login is not None and login.sso_refused_at is not None
+        db.add(
+            ApiToken(
+                household_id=1,
+                login_id=login.id,
+                name="late",
+                token_hash=token_hash(secret),
+                scope="full",
+            )
+        )
+        db.commit()
+    late = TestClient(sso_only.app, base_url="https://testserver")
+    late.headers["Authorization"] = f"Bearer {secret}"
+    assert late.get(f"{API}/me").status_code == 401
+    # Sign-out and a restart (nothing in memory) change nothing: the mark is in the database.
+    sso_accounts._kept.clear()
+    assert _login_row(sso_only, "x").sso_refused_at is not None
+    assert late.get(f"{API}/me").status_code == 401
+
+
+def test_the_mark_ends_when_the_sign_in_server_accepts_them_again_and_old_tokens_stay_dead(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    from mealwright.api_tokens import new_token, token_hash
+    from mealwright.models import ApiToken
+
+    x = browser(sso_only)
+    sign_in(x, idp, sub="x", extra=ADMIN_GROUPS)
+    assert sso_only.delete(f"{API}/session").status_code == 204  # nobody else is signed in
+    taken = set(idp.refresh_tokens)
+    idp.refresh_tokens.clear()
+    _due(sso_only, "x")
+    check(sso_only)
+    assert _login_row(sso_only, "x").sso_refused_at is not None
+    secret = new_token("full")
+    with cast(Any, sso_only.app).state.sessionmaker() as db:
+        login = db.scalar(select(Login).where(Login.sso_subject == "x"))
+        assert login is not None
+        db.add(
+            ApiToken(
+                household_id=1,
+                login_id=login.id,
+                name="late",
+                token_hash=token_hash(secret),
+                scope="full",
+            )
+        )
+        db.commit()
+    idp.refresh_tokens.update(taken)  # accepted again: a refresh works
+    _due(sso_only, "x")
+    check(sso_only)
+    assert _login_row(sso_only, "x").sso_refused_at is None
+    again = x.post(f"{API}/api-tokens", json={"name": "HA", "scope": "full"})
+    assert again.status_code == 201
+    late = TestClient(sso_only.app, base_url="https://testserver")
+    late.headers["Authorization"] = f"Bearer {secret}"
+    assert late.get(f"{API}/me").status_code == 401  # made during the mark: stays dead
