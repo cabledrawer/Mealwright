@@ -17,9 +17,7 @@ SCREEN = ROOT / "frontend" / "src" / "routes" / "(app)" / "settings" / "your-dat
 def _doc_commands() -> list[str]:
     text = DOC.read_text(encoding="utf-8")
     blocks = re.findall(r"^ *```bash\n(.*?)^ *```", text, flags=re.MULTILINE | re.DOTALL)
-    return [
-        "\n".join(line.strip() for line in block.strip().splitlines()) for block in blocks
-    ]
+    return ["\n".join(line.strip() for line in block.strip().splitlines()) for block in blocks]
 
 
 def _screen_commands() -> list[str]:
