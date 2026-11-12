@@ -1,13 +1,15 @@
 """A refused known login (O2 review r3, findings 1, 2 and 5): its tokens and sign-ins stop,
 except for the household's last admin who can still sign in by password."""
 
+# ruff: noqa: F811
+
 from typing import Any, cast
 
 from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import ok
-from test_sso_api import ADMIN_GROUPS, API, browser, sign_in
+from test_sso_api import ADMIN_GROUPS, API, admin, browser, idp, sign_in, sso_only  # noqa: F401, F811
 
 from mealwright.models import Session
 
