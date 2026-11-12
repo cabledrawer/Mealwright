@@ -378,3 +378,19 @@ def test_an_undone_move_leaves_no_row(kitchen: TestClient, monkeypatch: pytest.M
     when = datetime(2025, 3, 10, 12, tzinfo=UTC)
     _age(kitchen, {added["change"]["id"]: when, moved: when, undo: when})
     assert _months(kitchen, spinach["id"]) == {("2025-03", "added"): (200_000, 1)}
+
+
+def test_the_single_sign_on_job_first_runs_now(kitchen: TestClient, tmp_path: Path) -> None:
+    """O1 review r5, finding 3: a restart empties the memory of the sign-in server's address,
+    so the job must not wait its 5 minutes. Fails without `next_run_time` on the job."""
+    background = jobs.scheduler(
+        kitchen.app.state.sessionmaker,  # type: ignore[attr-defined]
+        single_sign_on=(kitchen.app.state.outbound, tmp_path),  # type: ignore[attr-defined]
+    )
+    try:
+        background.start(paused=True)  # works out when each job first runs, runs none
+        job = background.get_job("single-sign-on")
+        assert job is not None
+        assert job.next_run_time <= datetime.now(UTC) + timedelta(seconds=5)
+    finally:
+        background.shutdown(wait=False)
