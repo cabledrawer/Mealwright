@@ -149,7 +149,7 @@ def household_renamed(kitchen: Kitchen, old: str, new: str) -> Change:
     return record(
         kitchen,
         "household_renamed",
-        f"Renamed the household to {new} (was {old})",  # proposed, for cabledrawer
+        f"Renamed the household to {new} (was {old})",  # cabledrawer 12 Nov (accepted as built)
         None,
         {"name": {"old": old, "new": new}},
     )

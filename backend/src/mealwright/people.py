@@ -61,8 +61,8 @@ def eaters(kitchen: Kitchen) -> list[Member]:
 
 
 def shown_name(member: Member) -> str:
-    """A person's name as Recent changes shows it: "Joss (removed)" once removed (proposed, for
-    cabledrawer)."""
+    """A person's name as Recent changes shows it: "Joss (removed)" once removed (cabledrawer 12 Nov,
+    accepted as built)."""
     return f"{member.name} (removed)" if member.removed_at is not None else member.name
 
 

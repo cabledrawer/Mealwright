@@ -2,8 +2,8 @@
 
 Everyone in the household can see the people; only an admin can add, change or remove them, give
 one a login or switch "Who's this?" (`mealwright.roles`, Action.PEOPLE). A person gets a login
-with a one-time sign-in link (24 hours) where they choose their own password (proposed, for
-cabledrawer); the link's token is shown once and only its SHA-256 is stored.
+with a one-time sign-in link (24 hours) where they choose their own password (cabledrawer 12 Nov,
+accepted as built); the link's token is shown once and only its SHA-256 is stored.
 """
 
 import logging
