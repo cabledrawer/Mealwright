@@ -257,6 +257,10 @@ class Login(Base):
     # address from the provider.
     sso_issuer: Mapped[str | None] = mapped_column(String(500))
     sso_subject: Mapped[str | None] = mapped_column(String(255))
+    # When single sign-on refused this login but Mealwright kept them signed in because nobody
+    # else could get in (O2 fix13; cabledrawer 12 Nov). While set they can't make API tokens, and
+    # tokens they made at or after it stop. Cleared when the sign-in server accepts them again.
+    sso_refused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (UniqueConstraint("sso_issuer", "sso_subject", name="uq_login_sso"),)
 
