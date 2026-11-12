@@ -7,7 +7,7 @@ from sqlalchemy import Engine, inspect, text
 from mealwright import migrate
 from mealwright.db import make_engine
 
-BEFORE = "b4f8e2a6c917"  # the migration just before (0.9 A2's sign-in device and password date)
+BEFORE = "b2f7c4e8a915"  # the migration just before (0.9 D1: backup settings)
 ONBOARDING = "c7a1e5d3f802"
 
 
