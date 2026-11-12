@@ -205,6 +205,43 @@ describe('This week on Today (F150)', () => {
     expect(rows[3]).toMatchObject({ name: null, count: null, cooks: false });
   });
 
+  it('names only what is eaten after a session’s Cooked it, not the recipes it cooked (F233)', () => {
+    const p = plan([meal(1, '2026-10-26', 3, 'cooked', 'Paneer')]);
+    const [cook] = p.meals[0]!.items;
+    p.meals[0]!.items = [
+      { ...cook!, id: 11, kind: 'tub', recipe: null, tub_id: 9 },
+      { ...cook!, id: 12, cooked: true },
+      { ...cook!, id: 13, cooked: true, recipe: { ...cook!.recipe!, id: 2, name: 'Dal Tadka' } }
+    ];
+    p.batch_cooks = [1, 2].map((recipe_id) => ({
+      id: recipe_id,
+      recipe_id,
+      recipe_name: recipe_id === 1 ? 'Paneer' : 'Dal Tadka',
+      cook_meal_id: 1,
+      cooked_on: '2026-10-26',
+      tub_count: 2,
+      pattern: 'dinners' as const,
+      prep_note: null,
+      colour: 'blue',
+      portions: 3,
+      portions_left: 0,
+      session_id: 4
+    }));
+    p.tubs = [
+      {
+        id: 9,
+        batch_id: 1,
+        amount_quarters: 4,
+        number: 1,
+        place_id: null,
+        place_kind: null,
+        member_id: null,
+        use_by: '2026-10-30'
+      }
+    ];
+    expect(weekRows(p, slots, TODAY)[1]).toMatchObject({ name: 'Paneer', count: 'tub · 1 meal' });
+  });
+
   it('shows a tub as its recipe, with "tub · " before the count', () => {
     const p = plan([meal(1, '2026-10-26', 3, 'planned')]);
     p.meals[0]!.items[0] = { ...p.meals[0]!.items[0]!, kind: 'tub', recipe: null, tub_id: 9 };

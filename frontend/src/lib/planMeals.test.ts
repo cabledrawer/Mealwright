@@ -4,6 +4,7 @@ import {
   afterCook,
   batchColour,
   dayAfterCook,
+  eatenItems,
   colourOfBatch,
   cookBatchOfItem,
   itemName,
@@ -407,5 +408,60 @@ describe('Batch cook sessions on the plan (B2)', () => {
     expect(sessionsOn(plan, '2026-11-15').map((s) => s.id)).toEqual([1]);
     expect(sessionsOn(plan, '2026-11-20')).toEqual([]);
     expect(sessionsOn(null, '2026-11-15')).toEqual([]);
+  });
+});
+
+describe('what is eaten at a meal after a session’s Cooked it (F233)', () => {
+  const batchOf = (recipeId: number, session: number | null): PlanBatch => ({
+    id: recipeId,
+    recipe_id: recipeId,
+    recipe_name: `Dish ${recipeId}`,
+    cook_meal_id: 1,
+    cooked_on: '2026-10-19',
+    tub_count: 2,
+    pattern: 'dinners',
+    prep_note: null,
+    colour: 'blue',
+    portions: 3,
+    portions_left: 0,
+    session_id: session
+  });
+  const planOf = (batches: PlanBatch[]): Plan => ({
+    start: '',
+    end: '',
+    meals: [],
+    batch_cooks: batches,
+    tubs: []
+  });
+  const cooked = (item: PlanItem): PlanItem => ({ ...item, cooked: true });
+  const tub = (): PlanItem => ({ ...recipe(7, 'x'), kind: 'tub', recipe: null, tub_id: 70 });
+
+  it('leaves out the recipes the session cooked, once they are cooked, and keeps the tub', () => {
+    const items = [tub(), cooked(recipe(1, 'Paneer')), cooked(recipe(2, 'Dal'))];
+    const plan = planOf([batchOf(1, 5), batchOf(2, 5)]);
+    expect(eatenItems(meal(items), plan).map((i) => i.id)).toEqual([7]);
+  });
+
+  it('keeps them before Cooked it', () => {
+    const items = [tub(), recipe(1, 'Paneer'), recipe(2, 'Dal')];
+    const plan = planOf([batchOf(1, 5), batchOf(2, 5)]);
+    expect(eatenItems(meal(items), plan)).toHaveLength(3);
+  });
+
+  it('keeps all of them when nothing else is eaten there', () => {
+    const items = [cooked(recipe(1, 'Paneer')), cooked(recipe(2, 'Dal'))];
+    const plan = planOf([batchOf(1, 5), batchOf(2, 5)]);
+    expect(eatenItems(meal(items), plan)).toHaveLength(2);
+  });
+
+  it('keeps a Cook once recipe outside a session', () => {
+    const items = [tub(), cooked(recipe(1, 'Paneer'))];
+    expect(eatenItems(meal(items), planOf([batchOf(1, null)]))).toHaveLength(2);
+  });
+
+  it('keeps a second copy of the same recipe: only the cooking is left out', () => {
+    const items = [cooked(recipe(1, 'Paneer')), recipe(3, 'Paneer'), tub()];
+    items[1]!.recipe = { ...items[1]!.recipe!, id: 1 };
+    expect(eatenItems(meal(items), planOf([batchOf(1, 5)])).map((i) => i.id)).toEqual([3, 7]);
   });
 });

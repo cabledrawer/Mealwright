@@ -25,7 +25,14 @@
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { dayFull, dayShort, dayOfMonth } from '#lib/planDates.js';
-  import { colourOfBatch, itemName, nextFreeMeals, tubOf, whoseTub } from '#lib/planMeals.js';
+  import {
+    colourOfBatch,
+    eatenItems,
+    itemName,
+    nextFreeMeals,
+    tubOf,
+    whoseTub
+  } from '#lib/planMeals.js';
   import { eatLeftover, type Placed } from '#lib/eatLeftover.js';
   import { getHousehold } from '#lib/client/household.js';
   import { cookedUseBy, eatOnUntil, type TubLife } from '#lib/tubUseBy.js';
@@ -262,7 +269,9 @@
             <div class="who">
               <span class="overline">{slot}</span>
               <span class="name"
-                >{meal.items.map((i) => itemName(i, data.plan)).join(' & ') || 'Empty meal'}</span
+                >{eatenItems(meal, data.plan)
+                  .map((i) => itemName(i, data.plan))
+                  .join(' & ') || 'Empty meal'}</span
               >
             </div>
             {#if parts(meal)}

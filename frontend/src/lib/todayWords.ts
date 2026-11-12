@@ -6,7 +6,7 @@ import type { MealSlot, Plan, PlanMeal } from './client/plan';
 import { addDays } from './dates';
 import { dayLong, dayOfMonth, dayShort } from './planDates';
 import { cookDays } from './planCook';
-import { itemName } from './planMeals';
+import { eatenItems, itemName } from './planMeals';
 
 /** The day a meal was planned for, from the card's point of view: "Yesterday", "Fri 23". */
 export function whenWords(day: string, today: string): string {
@@ -102,14 +102,13 @@ export function weekRows(plan: Plan, slots: MealSlot[], today: string): WeekRow[
     const shown =
       meals.find((m) => dinnerSlot !== undefined && m.slot_id === dinnerSlot.id) ?? meals.at(-1);
     if (!shown) return { day, isToday: day === today, name: null, count: null, cooks: false };
-    const tubs = shown.items.map((item) => {
+    const eaten = eatenItems(shown, plan);
+    const tubs = eaten.map((item) => {
       const tub = plan.tubs.find((t) => t.id === item.tub_id);
       return plan.batch_cooks.find((b) => b.id === tub?.batch_id)?.recipe_name ?? null;
     });
     const allTubs = tubs.every((name) => name !== null);
-    const name = shown.items
-      .map((item, i) => (allTubs ? tubs[i]! : itemName(item, plan)))
-      .join(' & ');
+    const name = eaten.map((item, i) => (allTubs ? tubs[i]! : itemName(item, plan))).join(' & ');
     return {
       day,
       isToday: day === today,

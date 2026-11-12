@@ -16,6 +16,25 @@ export function itemName(item: PlanItem, plan: Plan | null = null): string {
   return batch ? `${batch.recipe_name} tub` : 'Tub';
 }
 
+/**
+ * What is eaten at a meal (F233, cabledrawer 12 Nov): once a Batch cook session's Cooked it is done,
+ * the recipes it cooked in its cook-day meal are not part of what is eaten there, so the meal's
+ * name leaves them out (the server leaves their kcal out). A meal with nothing else in it keeps
+ * them. Before Cooked it, and for a Cook once outside a session, every item counts.
+ */
+export function eatenItems(meal: PlanMeal, plan: Plan | null): PlanItem[] {
+  if (!plan) return meal.items;
+  const cooked = new Set<number>();
+  for (const batch of plan.batch_cooks) {
+    if (batch.session_id == null || batch.cook_meal_id !== meal.id) continue;
+    // The cooking is the first copy of the recipe in the meal (as the server picks it).
+    const cooking = meal.items.find((i) => i.kind === 'recipe' && i.recipe?.id === batch.recipe_id);
+    if (cooking?.cooked) cooked.add(cooking.id);
+  }
+  const eaten = meal.items.filter((i) => !cooked.has(i.id));
+  return eaten.length > 0 ? eaten : meal.items;
+}
+
 /** "Tub 2 of 4", for a tub in a meal; null for anything else. */
 export function tubWords(item: PlanItem, plan: Plan): string | null {
   const tub = plan.tubs.find((t) => t.id === item.tub_id);

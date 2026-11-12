@@ -597,8 +597,20 @@ def get_plan(
     ):
         eaters.setdefault(meal_id, []).append(member_id)
     session_rows = _sessions_out(kitchen, [b for b in batches if b.session_id is not None])
+    # F233 (cabledrawer 12 Nov): once a Batch cook session's Cooked it is done, its cook-day meal's
+    # kcal counts only what is eaten at that meal, not the recipes the session cooked. A meal
+    # with nothing else in it still counts them (they are what is eaten).
+    in_session = {b.id for b in batches if b.session_id is not None}
+    session_cooked = {
+        item_id
+        for item_id, made in cook_of.items()
+        if all(b in in_session and b in batch_done for b in made)
+    }
+    eaten_here = {i.meal_id for i in items if i.id not in session_cooked}
     for i in items:
         by_meal.setdefault(i.meal_id, []).append(item_out(i))
+        if i.id in session_cooked and i.meal_id in eaten_here:
+            continue
         kcal = item_kcal(i)
         if kcal is not None:
             kcal_by_meal[i.meal_id] = kcal_by_meal.get(i.meal_id, 0) + kcal
