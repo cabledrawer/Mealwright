@@ -349,10 +349,17 @@ class OutboundGate:
         body: bytes | None = None,
         max_bytes: int = MAX_RESPONSE_BYTES,
         time_limit: float | None = None,
+        pressed: bool = False,
     ) -> OutboundResponse:
         """One request to `url`, only if the connection's switch is on. For a fixed address
         the app itself chose (the update check's release list), not for one a person typed:
         that goes through `look_up()` and `get_pinned()`, which check the address first.
+
+        `pressed=True` is for one person's own press of a button, and only for
+        `Connection.UPDATE_CHECK` ("Check now" in Settings → About: the daily switch only
+        controls the automatic check; cabledrawer 12 Nov): the switch isn't asked for this one
+        request. Every other limit and rule is unchanged. For any other connection it raises
+        ValueError: their switches always apply.
 
         Everything (looking the name up, connecting, the TLS handshake, sending, the headers
         and the whole body) must finish within `time_limit` seconds (REQUEST_TIME_LIMIT if not
@@ -364,7 +371,10 @@ class OutboundGate:
         is cut to it; one that isn't a number of seconds (infinity, NaN) raises ValueError."""
         if time_limit is not None and not math.isfinite(time_limit):
             raise ValueError("the time limit must be a number of seconds")
-        self.check_switch(household_id, connection)
+        if pressed and connection is not Connection.UPDATE_CHECK:
+            raise ValueError("only Check now may be pressed without its switch")
+        if not pressed:
+            self.check_switch(household_id, connection)
         parts = urlsplit(url)
         host = parts.hostname
         if parts.scheme not in {"http", "https"} or not host:

@@ -11,9 +11,10 @@
 3. **The daily check (off by default).** The same request once a day, while the Privacy switch
    "Check for updates daily" is on (`daily_check`, run by the scheduler in mealwright.jobs).
 
-Both 2 and 3 go through the same switch, so with it off nothing connects at all: Check now
-answers "off" and says where to turn it on (the gate's rule that nothing leaves the server
-unless its switch is on; proposed, for cabledrawer).
+Check now always works for an admin when pressed (the note beside it says it asks GitHub's
+release list); the Privacy switch controls only the automatic daily check (cabledrawer 12 Nov).
+Check now asks the gate for that one request as a person's press (`pressed=True`, allowed for
+`Connection.UPDATE_CHECK` only); every other rule of the gate still applies to it.
 
 The last answer is kept in memory, per household, until the server restarts (proposed, for
 cabledrawer: no database change). After a restart the daily check runs again within the hour.
@@ -71,7 +72,7 @@ RECHECK_AFTER = timedelta(minutes=1)
 # doesn't drift later by an hour each day).
 DAILY_AFTER = timedelta(hours=23)
 
-Outcome = Literal["up_to_date", "newer", "failed", "off"]
+Outcome = Literal["up_to_date", "newer", "failed"]
 
 
 @dataclass(frozen=True)
@@ -186,8 +187,8 @@ class UpdateChecks:
             return self._running.setdefault(household_id, threading.Lock())
 
     def check_now(self, household_id: int) -> CheckResult:
-        """An admin's Check now: one request, unless the switch is off (none), another check
-        answered while this one waited for it (that answer), or an answer came within
+        """An admin's Check now: one request (whatever the daily switch says), unless another
+        check answered while this one waited for it (that answer), or an answer came within
         RECHECK_AFTER, failed or not (that answer again)."""
         running = self._one_at_a_time(household_id)
         with self._lock:
@@ -198,16 +199,11 @@ class UpdateChecks:
                 waited = self._answered.get(household_id, 0) != answered
             if last is not None and waited:
                 return last
-            if (
-                last is not None
-                and last.outcome != "off"
-                and self._clock() - last.checked_at < RECHECK_AFTER
-                and self._gate.is_allowed(household_id, Connection.UPDATE_CHECK)
-            ):
+            if last is not None and self._clock() - last.checked_at < RECHECK_AFTER:
                 return last
-            return self._check(household_id)
+            return self._check(household_id, pressed=True)
 
-    def _check(self, household_id: int) -> CheckResult:
+    def _check(self, household_id: int, *, pressed: bool = False) -> CheckResult:
         now = self._clock()
         running = running_key(self._version)
         if running is None:  # a test build's own version text: nothing to compare with
@@ -215,8 +211,6 @@ class UpdateChecks:
             return self._keep(household_id, CheckResult("failed", None, now))
         url = RELEASE_LIST_URL  # read here, so a test can point it at its own list
         if f"/{PLACEHOLDER_OWNER}/" in url:
-            if not self._gate.is_allowed(household_id, Connection.UPDATE_CHECK):
-                return self._keep(household_id, CheckResult("off", None, now))
             log.warning(
                 "Update check: nothing was asked, because Mealwright's public release list "
                 "starts with version 1.0"
@@ -229,13 +223,15 @@ class UpdateChecks:
                 url,
                 max_bytes=MAX_LIST_BYTES,
                 time_limit=CHECK_TIME_LIMIT,
+                pressed=pressed,
             )
         except OutboundFailed as failed:
             log.warning("Update check: couldn't reach the release list (%s)", failed.kind)
             return self._keep(household_id, CheckResult("failed", None, now))
         except OutboundBlocked as blocked:
-            if not self._gate.is_allowed(household_id, Connection.UPDATE_CHECK):
-                return self._keep(household_id, CheckResult("off", None, now))
+            if not pressed and not self._gate.is_allowed(household_id, Connection.UPDATE_CHECK):
+                # The daily switch was turned off just now: nothing was asked, nothing kept.
+                return CheckResult("failed", None, now)
             log.warning("Update check: the answer was refused (%s)", type(blocked).__name__)
             return self._keep(household_id, CheckResult("failed", None, now))
         if response.status != 200:

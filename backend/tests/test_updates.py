@@ -29,6 +29,7 @@ from mealwright.models import Household, Login
 from mealwright.outbound import Connection, OutboundGate, OutboundResponse, set_switch
 from mealwright.updates import (
     DAILY_AFTER,
+    RECHECK_AFTER,
     RELEASE_LIST_URL,
     RELEASED,
     RELEASES_PAGE,
@@ -238,10 +239,17 @@ def test_up_to_date(
     assert checks.last(1) is not None and checks.last(1).outcome == "up_to_date"  # type: ignore[union-attr]
 
 
-def test_with_the_switch_off_nothing_connects(checks: UpdateChecks, release_list: list) -> None:
+def test_check_now_works_with_the_switch_off_and_the_daily_check_does_not(
+    checks: UpdateChecks, sessions: sessionmaker[Session], release_list: list
+) -> None:
+    """cabledrawer 12 Nov: Check now always works for an admin when pressed; the daily switch only
+    controls the automatic check. One request, through the gate, and the answer is shown."""
+    serve([release("v0.9.1")])
+    checks.daily_check(sessions)
+    assert release_list == []  # the automatic check stays off
     result = checks.check_now(1)
-    assert result.outcome == "off"
-    assert release_list == []
+    assert (result.outcome, result.latest) == ("newer", "v0.9.1")
+    assert len(release_list) == 1
 
 
 @pytest.mark.parametrize(
@@ -372,25 +380,29 @@ def test_eight_checks_at_once_ask_once_and_all_get_its_answer(
     assert {(r.outcome, r.checked_at) for r in results} == {("failed", results[0].checked_at)}
 
 
-def test_after_off_turning_the_switch_on_checks_at_once(
-    checks: UpdateChecks, sessions: sessionmaker[Session], release_list: list
+def test_the_switch_makes_no_difference_to_check_now(
+    checks: UpdateChecks, sessions: sessionmaker[Session], release_list: list, clock: Clock
 ) -> None:
-    assert checks.check_now(1).outcome == "off"
-    switch(sessions, True)
     serve([release("v0.9.1")])
     assert checks.check_now(1).outcome == "newer"
-    assert len(release_list) == 1
+    switch(sessions, True)
+    clock.now += RECHECK_AFTER
+    assert checks.check_now(1).outcome == "newer"
+    assert len(release_list) == 2
 
 
-def test_turning_the_switch_off_stops_a_kept_answer(
-    checks: UpdateChecks, sessions: sessionmaker[Session], release_list: list
+def test_turning_the_switch_off_does_not_stop_check_now_or_its_recheck_rule(
+    checks: UpdateChecks, sessions: sessionmaker[Session], release_list: list, clock: Clock
 ) -> None:
     switch(sessions, True)
     serve([release("v0.9.1")])
     checks.check_now(1)
     switch(sessions, False)
-    assert checks.check_now(1).outcome == "off"
+    assert checks.check_now(1).outcome == "newer"  # the answer just had
     assert len(release_list) == 1
+    clock.now += RECHECK_AFTER
+    assert checks.check_now(1).outcome == "newer"  # asked again, switch or not
+    assert len(release_list) == 2
 
 
 def test_each_household_keeps_its_own_answer(
@@ -414,7 +426,8 @@ def test_while_the_release_list_is_the_placeholder_nothing_connects(
     check" (security review r1; proposed, for cabledrawer)."""
     asked: list[object] = []
     monkeypatch.setattr(checks._gate, "request", lambda *args, **options: asked.append(args))
-    assert checks.check_now(1).outcome == "off"  # the switch is still off
+    assert checks.check_now(1).outcome == "failed"  # the switch is off: pressed all the same
+    clock.now += RECHECK_AFTER
     switch(sessions, True)
     with caplog.at_level(logging.INFO, logger="mealwright.updates"):
         assert checks.check_now(1).outcome == "failed"
@@ -542,13 +555,16 @@ def test_an_admin_checks_now(kitchen: TestClient, release_list: list) -> None:
     assert len(release_list) == 1
 
 
-def test_check_now_with_the_switch_off_says_off_and_never_connects(
+def test_check_now_with_the_switch_off_makes_the_one_request(
     kitchen: TestClient, release_list: list
 ) -> None:
+    """cabledrawer 12 Nov: the daily switch only controls the automatic check."""
+    serve([release("v99.0.0")])
+    assert kitchen.get(f"{API}/updates").json()["daily"] is False
     response = kitchen.post(f"{API}/updates/check")
     assert response.status_code == 200
-    assert response.json()["last"]["outcome"] == "off"
-    assert release_list == []
+    assert response.json()["last"]["outcome"] == "newer"
+    assert len(release_list) == 1
 
 
 def test_check_now_needs_the_same_site(kitchen: TestClient, release_list: list) -> None:

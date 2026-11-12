@@ -28,8 +28,8 @@ router = APIRouter(tags=["about"], dependencies=[SameOrigin])
 
 class LastCheckOut(BaseModel):
     # up_to_date: nothing newer; newer: `latest` is out; failed: the list couldn't be had or
-    # read; off: the Privacy switch is off, so nothing was asked.
-    outcome: Literal["up_to_date", "newer", "failed", "off"]
+    # read.
+    outcome: Literal["up_to_date", "newer", "failed"]
     latest: str | None
     checked_at: datetime
 
@@ -77,7 +77,7 @@ def get_updates(kitchen: Here, request: Request) -> UpdatesOut:
 @router.post("/updates/check")
 def check_now(kitchen: Here, request: Request) -> UpdatesOut:
     """Admins only. Ask the public release list once, now, and answer with what it said. With
-    the Privacy switch off nothing is asked, and `last.outcome` is "off"."""
+    the Privacy switch off or on: the switch controls only the daily check (cabledrawer 12 Nov)."""
     kitchen.admin_only(Action.PRIVACY)  # it connects out, as the Privacy switches do
     checks = _checks(request)
     # Read the household before ending the read: after the rollback, `kitchen.household_id`

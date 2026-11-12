@@ -152,6 +152,24 @@ def test_blocked_line_names_only_the_switch(
         assert secret not in str(blocked.value)
 
 
+def test_a_press_skips_the_switch_for_the_update_check_only(
+    gate: OutboundGate, server: str
+) -> None:
+    """cabledrawer 12 Nov: Check now works with the daily switch off. The rest of the request is
+    unchanged (user agent, no cookies); every other connection's switch always applies."""
+    response = gate.request(1, Connection.UPDATE_CHECK, f"{server}/hello", pressed=True)
+    assert (response.status, response.body) == (200, b"hello")
+    assert _Handler.hits[0]["User-Agent"] == USER_AGENT
+    assert "Cookie" not in _Handler.hits[0]
+    assert len(_Handler.hits) == 1
+    with pytest.raises(OutboundBlocked):  # not pressed: the switch is off
+        gate.request(1, Connection.UPDATE_CHECK, f"{server}/hello")
+    for connection in set(Connection) - {Connection.UPDATE_CHECK}:
+        with pytest.raises(ValueError):
+            gate.request(1, connection, f"{server}/hello", pressed=True)
+    assert len(_Handler.hits) == 1
+
+
 def test_every_switch_has_plain_words() -> None:
     assert set(LABELS) == set(Connection)
     assert all("_" not in label for label in LABELS.values())
