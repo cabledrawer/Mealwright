@@ -2,6 +2,12 @@
 
 All notable changes to Mealwright are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the plan in `docs/spec.md` section 8: 0.N.0 per build milestone (not published), then MAJOR.MINOR.PATCH from 1.0.0.
 
+## [Unreleased]
+
+### Added (0.9 M1, install docs)
+
+- **Install guide and proxy examples.** `docs/install.md` says plainly why HTTPS is needed (sign-in on other devices, the installable app, offline shopping, keep-screen-awake), to give Mealwright its own host name (HSTS covers every port on a name), and what `MEALWRIGHT_TRUSTED_PROXIES` does and what goes wrong when it's unset or too wide. `docs/proxies/` has a short example each for Caddy, Traefik, nginx and Nginx Proxy Manager, with HTTPS, the three forwarded headers and the matching trusted-proxies value. `scripts/test-proxies.sh` (not part of `./check`) tries nginx, Traefik, Caddy and Nginx Proxy Manager's headers in throwaway containers; Nginx Proxy Manager itself isn't started.
+
 ## [0.9.0-alpha.1] - 2026-11-12
 
 The first 0.9.0 test version ("What a tester needs"): the household's people and their roles (A1), and harder sign-in (A2), with 0.9's words agreed by cabledrawer (K0). New: people of the household with or without a login, shared logins for a kitchen tablet, "Who's this?", one-time sign-in links an Admin can give a Member; sign-in that counts every try before the slow password check, a waiting room for checks, a 12-character rule for new passwords, known devices that a guesser can't lock out, and a ten-minute window after a new password (proposed, for cabledrawer). Over https the sign-in cookie is now `__Host-` only, so **everyone signs in once more** after updating; plain http keeps today's cookie and shows a "not secure" note.
