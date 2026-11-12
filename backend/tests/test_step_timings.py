@@ -198,3 +198,36 @@ def test_steps_that_differ_only_after_what_is_read_share_one_kept_guess() -> Non
 def test_tidying_the_words_before_keeping_them_changes_no_guess() -> None:
     spaced = "Fry   2 minutes,\n then   simmer 10 minutes"
     assert step_timings.guess(spaced) == step_timings.guess("Fry 2 minutes, then simmer 10 minutes")
+
+
+# F231 (cabledrawer 12 Nov): the Dosa Batter steps that read wrong on the 0.8.0 hand test.
+DOSA_FERMENT = (
+    "During colder season, ferment in the oven with the light on for 12 hours, "
+    "or use the IP yogurt setting 8 hours."
+)
+DOSA_GRIND = (
+    "Drain the soaked rice and dal and grind to a smooth & bubbly batter. "
+    "Transfer to a large bowl or an instant pot steel insert."
+)
+
+
+def test_f231_alternatives_are_not_added_up_and_8_hours_is_8_hours() -> None:
+    assert g(DOSA_FERMENT)[:2] == ("waiting", 720)  # the longer way, not 12 h + 8 h
+    assert g("Use the IP yogurt setting 8 hours.") == ("waiting", 480, "none")
+    assert g("Ferment 8 hours.") == ("waiting", 480, "none")
+    assert g("Rest the dough for 30 minutes or 1 hour.")[1] == 60
+    assert g("Fry for 2 minutes, then simmer for 10 minutes.")[1] == 12  # steps still add up
+
+
+def test_f231_transfer_to_a_container_is_hands_on_and_names_no_appliance() -> None:
+    assert g(DOSA_GRIND) == ("hands", 5, "none")
+    assert g("Transfer the batter to an instant pot steel insert.") == ("hands", 5, "none")
+    assert g("Pour the batter into the instant pot liner.") == ("hands", 5, "none")
+    assert g("Move the dough to the inner pot of the instant pot.") == ("hands", 5, "none")
+    assert g("Transfer the curry to a serving bowl.") == ("hands", 5, "none")
+
+
+def test_f231_the_instant_pot_still_pressure_cooks_when_the_step_uses_it() -> None:
+    assert g("Cook the dal in the instant pot for 15 minutes.")[2] == "pressure"
+    assert g("Pressure cook in the instant pot for 3 whistles.")[2] == "pressure"
+    assert g("Transfer to a pressure cooker and cook for 3 whistles.")[2] == "pressure"

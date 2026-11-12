@@ -26,9 +26,17 @@ MAX_MINUTES = step_waits.MAX_WAIT_MINUTES  # ten days, as a wait
 PER_WHISTLE = 5  # a pressure cooker's whistle is about five minutes of cooking
 
 # What a step does, by its words. Whole words only, any case.
-_PRESSURE = re.compile(
-    r"\bpressure[- ]cook|\bwhistles?\b|\binstant pot\b|\bpressure cooker\b", re.I
+# An "instant pot steel insert" or "the inner pot of the instant pot" is a container, and its
+# yogurt setting is a warm place, not pressure cooking (F231; cabledrawer 12 Nov).
+_POT_CONTAINER = (
+    r"(?:\s+(?:steel|stainless|inner|liner|lined))*\s+(?:insert|liner|inner pot)\b"
+    r"|\s+(?:yog(?:h)?urt|slow[- ]cook|sauté|saute)\b"
 )
+_PRESSURE = re.compile(
+    rf"\bpressure[- ]cook|\bwhistles?\b|\binstant pot\b(?!{_POT_CONTAINER})|\bpressure cooker\b",
+    re.I,
+)
+_POT_INNER = re.compile(r"\binner pot of (?:the |an? )?instant pot\b", re.I)
 _OVEN = re.compile(r"\bbak(?:e|ing)\b|\boven\b|\bpreheat\b|\broast(?:ing)?\b", re.I)
 # "dry roast the cumin in a pan" is a hob job, not the oven.
 _PAN_ROAST = re.compile(
@@ -59,7 +67,7 @@ _HANDS_ON = re.compile(
 _WAIT_WORDS = re.compile(
     r"\bsoak(?:ing)?\b|\bmarinat(?:e|ing)\b|\brest(?:ing)?\b|\bferment|\bchill(?:s|ed|ing)?\b|\brefrigerat"
     r"|\bprov(?:e|ing)\b|\bproof\b|\bsteep|\bcool(?:ing)?\b|\blet (?:it|them) (?:stand|sit|rest)"
-    r"|\bset aside for\b",
+    r"|\bset aside for\b|\byog(?:h)?urt (?:setting|mode|function)\b",
     re.I,
 )
 _NOT_REST = re.compile(r"\bthe\s+rest\b|\brest\s+of\b", re.I)
@@ -73,6 +81,7 @@ _TIME = re.compile(
     rf"(?P<a>{_NUMBER})\s*(?P<au>{_UNIT})?(?:\s*(?:-|–|—|to)\s*(?P<b>{_NUMBER})\s*(?P<bu>{_UNIT}))?",  # noqa: RUF001
     re.I,
 )
+_OR = re.compile(r"\bor\b", re.I)
 _SPACES = re.compile(r"\s+")
 _LONGEST_TEXT = 1_500  # how much of a step's words are read (a step's limit is 5000)
 
@@ -113,13 +122,18 @@ def times_in(text: str) -> int | None:
     text = _HOURS_MINUTES.sub(
         lambda m: f"{int(m[1]) * 60 + int(m[2])} minutes", step_waits.with_fractions(text)
     )
-    total = 0.0
-    for found in _TIME.finditer(text):
-        unit = found.group("bu") or found.group("au")
-        if unit is None:
-            continue  # "2 onions"
-        total += _unit_minutes(found.group("b") or found.group("a"), unit)
-    minutes = round(total)
+    # "12 hours in the oven, or the yogurt setting 8 hours" are two ways to do one thing: the
+    # longest way counts, they are not added up (F231). Steps in a row still are.
+    longest = 0.0
+    for way in _OR.split(text):
+        total = 0.0
+        for found in _TIME.finditer(way):
+            unit = found.group("bu") or found.group("au")
+            if unit is None:
+                continue  # "2 onions"
+            total += _unit_minutes(found.group("b") or found.group("a"), unit)
+        longest = max(longest, total)
+    minutes = round(longest)
     return minutes if minutes > 0 else None
 
 
@@ -135,6 +149,7 @@ def guess(text: str, wait: step_waits.Wait | None = None) -> Guess:
 
 @functools.lru_cache(maxsize=2048)
 def _guess(text: str, wait: step_waits.Wait | None) -> Guess:
+    text = _POT_INNER.sub("the pot", text)
     pan_roast = _PAN_ROAST.search(text) is not None
     if _PRESSURE.search(text):
         equipment: Equipment = "pressure"
