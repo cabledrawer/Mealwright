@@ -146,6 +146,7 @@ def test_undo_when_the_joined_line_was_bought_since_brings_the_bought_one_back(
     one(kitchen, "tick", counter(kitchen), PHONE_A, item_id=to_buy, amount=1100)
     one(kitchen, "undo", counter(kitchen), PHONE_A, undoes=gone["id"])
     assert lines(kitchen, ghee["id"]) == [(300, True), (1100, True)]
+    assert pantry(kitchen, ghee["id"]) == 1400  # the 1100 g bought since and the 300 g put back
 
 
 def test_a_line_at_another_shop_is_not_joined(kitchen: TestClient) -> None:
@@ -232,3 +233,14 @@ def test_an_as_bought_line_with_no_amount_joins_and_comes_back_on_undo(
     assert lines(kitchen, ghee["id"]) == [(800, False)]
     one(kitchen, "undo", counter(kitchen), PHONE_A, undoes=gone["id"])
     assert lines(kitchen, ghee["id"]) == [(None, True), (800, False)]
+
+
+def test_a_staples_bought_line_is_not_joined_because_nothing_went_into_the_pantry(
+    kitchen: TestClient,
+) -> None:
+    salt = food(kitchen, "Salt", staple=True)
+    add(kitchen, salt["id"], 800)
+    bought = add(kitchen, salt["id"], 300, as_bought=True)
+    done = one(kitchen, "tick", counter(kitchen), PHONE_A, item_id=bought, amount=300)
+    untick(kitchen, bought, done)
+    assert lines(kitchen, salt["id"]) == [(300, False), (800, False)]
