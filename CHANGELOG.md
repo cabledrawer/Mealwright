@@ -22,6 +22,14 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - Settings › Amounts: choose **As the recipe says** or **Metric: grams and ml** (admins; in Recent changes with Undo). The choice is kept; grams and millilitres on screen come in a later version, and cups after 1.0.
 - **Back up first:** one database change (`c7a1e5d3f802`: the household's onboarding and amounts choice).
 
+### API tokens (0.9 O2; proposed, for cabledrawer)
+
+- **Database change** (`c3a7e5d1f824`): a new, empty `api_token` table. Back up first. **Going back** removes the table and every token in it; nothing else changes.
+- **Settings → Sign-in → API tokens** (admins only): make a token for another app on your own network, like Home Assistant, that can read, or read and change, the household's data, and that never expires or ends after 30 days, 1 year or on a date you pick (at most 5 years ahead). The token is shown once, with Copy; only its SHA-256 is kept. Delete asks first, and the apps using it stop at once. A household has at most 50 tokens.
+- **Using one:** send `Authorization: Bearer mw_…` to `/api/v1`. The API docs describe it. A read-only token gets 403 on anything that changes data. A token that doesn't work (unknown, deleted, ended, or its admin removed or made a member) always gets the same 401. A token never makes, lists or deletes tokens, never changes passwords or where you're signed in, never answers "Who's this?", and never changes people, roles, the Privacy switches or your own network (403). A request that sends both a token and a sign-in cookie is refused (400). Live updates (`/events`) still need a sign-in.
+- **A token acts as the admin who made it,** and only while they're an admin: made a member or removed, every token they made is deleted at once, and Undo doesn't bring them back.
+- **Logs:** "API token made by tess" and "API token deleted by tess". The token itself is never logged, and using one writes nothing (the log holds errors and sign-ins only).
+
 ## [0.9.0-alpha.1] - 2026-11-12
 
 The first 0.9.0 test version ("What a tester needs"): the household's people and their roles (A1), and harder sign-in (A2), with 0.9's words agreed by cabledrawer (K0). New: people of the household with or without a login, shared logins for a kitchen tablet, "Who's this?", one-time sign-in links an Admin can give a Member; sign-in that counts every try before the slow password check, a waiting room for checks, a 12-character rule for new passwords, known devices that a guesser can't lock out, and a ten-minute window after a new password (proposed, for cabledrawer). Over https the sign-in cookie is now `__Host-` only, so **everyone signs in once more** after updating; plain http keeps today's cookie and shows a "not secure" note.

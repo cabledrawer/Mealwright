@@ -234,6 +234,10 @@ export default defineConfig({
     { name: 'phone 0.9 sso', testMatch: 'sso.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.9 sso', testMatch: 'sso.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.9 sso', testMatch: 'sso.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
+    // Settings → Sign-in → API tokens: make, use from another app, delete (0.9, O2).
+    { name: 'phone 0.9 api tokens', testMatch: 'api-tokens.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.9 api tokens', testMatch: 'api-tokens.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.9 api tokens', testMatch: 'api-tokens.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
 
     { name: 'phone 0.3 live', testMatch: /(^|\/)(live|installable)\.spec\.ts$/, use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.3 live', testMatch: /(^|\/)(live|installable)\.spec\.ts$/, use: { ...desktop, storageState: AUTH_FILE } },
