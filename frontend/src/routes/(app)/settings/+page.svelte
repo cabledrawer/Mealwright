@@ -60,6 +60,12 @@
   /** How amounts are shown (0.9 U2; cabledrawer 12 Nov). Read with the pint. */
   let amountsShown = $state<AmountsShown>('as_written');
   const admin = who?.role === 'admin';
+  /** Whether set-up was finished (null until the server has said). An admin who skipped it sees
+   * the "Finish setup" row until it is done (cabledrawer 12 Nov); nobody is sent back to it. */
+  let onboardingDone = $state<boolean | null>(null);
+  const FINISH_SETUP = 'Finish setup';
+  const FINISH_SETUP_WORDS = 'A few quick things: amounts, household, shops.';
+  const finishSetup = $derived(admin && onboardingDone === false);
 
   /** The two ways Check can look on the phone (F141; words are the mockup's). */
   const CHECK_MODE_CHOICES: { value: CheckMode; label: string; hint: string }[] = [
@@ -116,6 +122,7 @@
     getHousehold().then(
       (household) => {
         pints = household.pints;
+        onboardingDone = household.onboarding_done;
         amountsShown = household.amounts_shown ?? 'as_written';
       },
       () => {} // offline or unreachable: the row stays hidden, the rest of Settings still works
@@ -355,6 +362,14 @@
       const rows = SECTION_ORDER.filter((section) => section.group === group.name)
         .map((section) => rowFor(section.id))
         .filter((row): row is Row => row !== null);
+      if (group.name === 'You' && finishSetup)
+        rows.unshift({
+          id: 'finish-setup',
+          label: FINISH_SETUP,
+          sub: FINISH_SETUP_WORDS,
+          icon: 'finish',
+          href: resolve('/(app)/onboarding')
+        });
       if (group.name === 'Mealwright')
         rows.push({
           id: 'report',
@@ -507,6 +522,13 @@
   {:else if !phone}
     <nav class="list" aria-label="Settings sections">
       <ul>
+        {#if finishSetup}
+          <li>
+            <a class="finish" href={resolve('/(app)/onboarding')}
+              >{FINISH_SETUP}<span class="finish-words">{FINISH_SETUP_WORDS}</span></a
+            >
+          </li>
+        {/if}
         {#each SECTIONS as section (section.id)}
           <li>
             <button
@@ -864,6 +886,24 @@
   .list button[aria-current='true'] {
     background: var(--color-accent-soft);
     color: var(--color-accent-on-soft);
+  }
+
+  /* "Finish setup" at the top of the list, for an admin who skipped set-up (cabledrawer 12 Nov). */
+  .list .finish {
+    display: block;
+    padding: var(--space-3) var(--space-6);
+    border-radius: var(--radius-field);
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    text-decoration: none;
+  }
+
+  .finish-words {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-regular);
   }
 
   /* "Update available" by About, for an admin (X1). */

@@ -15,7 +15,8 @@ export type IconKey =
   | 'your-data'
   | 'sign-in'
   | 'about'
-  | 'report';
+  | 'report'
+  | 'finish';
 
 export const SECTION_ICONS: Record<
   IconKey,
@@ -69,7 +70,9 @@ export const SECTION_ICONS: Record<
     paths: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 8h.01M11 12h1v5h1']
   },
   // A flag (proposed, for cabledrawer).
-  report: { tone: 'quiet', paths: ['M5 21V4', 'M5 4h12l-2.5 4L17 12H5'] }
+  report: { tone: 'quiet', paths: ['M5 21V4', 'M5 4h12l-2.5 4L17 12H5'] },
+  // A tick in a circle (cabledrawer 12 Nov: the Finish setup row).
+  finish: { tone: 'kitchen', paths: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M8 12.5l3 3 5-6'] }
 };
 
 /** One row of the list: where it goes (a section of this page, or `href`) and what it shows now. */
@@ -81,5 +84,7 @@ export type Row = {
   href?: string;
   /** A pill after the label ("Update available"). */
   badge?: string;
+  /** A line under the label (the Finish setup row). */
+  sub?: string;
 };
 export type Group = { name: GroupName; label: string; rows: Row[] };

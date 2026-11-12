@@ -32,7 +32,9 @@
             {#each SECTION_ICONS[row.icon].paths as d (d)}<path {d} />{/each}
           </svg>
         </span>
-        <span class="lbl">{row.label}</span>
+        <span class="lbl"
+          >{row.label}{#if row.sub}<span class="sub">{row.sub}</span>{/if}</span
+        >
         {#if row.badge}<span class="badge">{row.badge}</span>{/if}
         {#if row.value}<span class="val">{row.value}</span>{/if}
         <span class="chev"><Icon name="back" size={18} stroke={2} /></span>
@@ -114,6 +116,13 @@
     min-width: 0;
     font-size: var(--text-lg);
     font-weight: var(--weight-semibold);
+  }
+
+  .sub {
+    display: block;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-regular);
   }
 
   .val {
