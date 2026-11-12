@@ -14,6 +14,7 @@
   together with SameSite=Lax cookies this stops other sites acting as you.
 """
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -25,21 +26,23 @@ import secrets
 import threading
 import time
 from collections import defaultdict, deque
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import urlsplit
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi.concurrency import contextmanager_in_threadpool
 from pydantic import AfterValidator, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from mealwright import db as database
 from mealwright.config import Settings
 from mealwright.errors import Problem
 from mealwright.models import Login, Member, Session, utcnow
@@ -603,12 +606,40 @@ def peek_session(db: DbSession, token: str | None) -> SignedIn | None:
 # --- Request helpers (FastAPI dependencies) -------------------------------------------------
 
 
-def get_db(request: Request) -> Iterator[DbSession]:
-    with request.app.state.sessionmaker() as db:
+def _session(app: Any) -> AbstractContextManager[DbSession]:
+    session: DbSession = app.state.sessionmaker()
+    return session
+
+
+def _turns(app: Any) -> asyncio.Semaphore:
+    """The app's `REQUESTS_AT_ONCE` places, made when first asked for. One set for each event
+    loop: the server has one loop; the tests sometimes run two clients on one app."""
+    loop = asyncio.get_running_loop()
+    turns: asyncio.Semaphore | None = app.state.database_turns.get(loop)
+    if turns is None:
+        turns = app.state.database_turns[loop] = asyncio.Semaphore(database.REQUESTS_AT_ONCE)
+    return turns
+
+
+async def get_db(request: Request) -> AsyncIterator[DbSession]:
+    """The request's database session.
+
+    Only `REQUESTS_AT_ONCE` requests hold one at a time, and the pool has a connection for
+    each of them, so a request that has its session never waits for a connection while it
+    waits for a thread (see `mealwright.db.REQUESTS_AT_ONCE`). A request past the limit
+    waits here, in the order it came, holding no thread and no connection.
+
+    Asked for with `scope="function"` (in `Db`): the session is closed, and the place given
+    up, as soon as the answer is built and before it is sent, so a slow reader or a photo
+    being sent holds neither.
+    """
+    # The session is opened and closed in a thread, as before; the closing thread is never
+    # one of the 40, which may all be busy (FastAPI's own helper sees to that).
+    async with _turns(request.app), contextmanager_in_threadpool(_session(request.app)) as db:
         yield db
 
 
-Db = Annotated[DbSession, Depends(get_db)]
+Db = Annotated[DbSession, Depends(get_db, scope="function")]
 
 
 def same_origin(request: Request) -> None:

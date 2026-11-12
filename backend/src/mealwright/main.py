@@ -126,6 +126,7 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     app.state.settings = settings
     app.state.engine = engine
     app.state.sessionmaker = make_sessionmaker(engine, settings.data_dir / "photos")
+    app.state.database_turns = {}  # filled by auth.get_db: who may use the database now
     app.state.events = Broadcaster()
     events.install(app.state.sessionmaker, app.state.events)
     app.state.outbound = OutboundGate(app.state.sessionmaker)
