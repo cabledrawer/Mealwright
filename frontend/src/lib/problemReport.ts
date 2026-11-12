@@ -55,7 +55,9 @@ export function reportText(doing: string, lines: string[]): string {
 export function issueTitle(doing: string): string {
   const first = doing.trim().split('\n')[0]!.trim();
   if (!first) return 'Problem report';
-  const cut = first.length > 60 ? `${first.slice(0, 59).trimEnd()}…` : first;
+  // Counted and cut by character (code point), so an emoji is never split in half.
+  const chars = Array.from(first);
+  const cut = chars.length > 60 ? `${chars.slice(0, 59).join('').trimEnd()}…` : first;
   return `Problem: ${cut}`;
 }
 
@@ -68,7 +70,7 @@ function linkFor(page: string, title: string, body: string): string {
 
 /**
  * The new-issue link with the title and text filled in. If it would be longer than LINK_LIMIT,
- * the text is cut (at a line end where it can be) and TRIMMED_MARK added; `trimmed` says so.
+ * the text is cut (at a line end where that keeps most of it) and TRIMMED_MARK added; `trimmed` says so.
  */
 export function issueLink(
   page: string,
@@ -95,7 +97,9 @@ function cutAt(body: string, n: number): string {
   // Never split a character made of two code units (an emoji).
   if (/[\uD800-\uDBFF]$/.test(start)) start = start.slice(0, -1);
   const lineEnd = start.lastIndexOf('\n');
-  const kept = lineEnd > 0 ? start.slice(0, lineEnd) : start;
+  // Cut at the last line end, unless that would lose most of what fits (one long paragraph):
+  // then cut mid-line.
+  const kept = lineEnd > 0 && lineEnd >= start.length / 2 ? start.slice(0, lineEnd) : start;
   return `${kept}\n${TRIMMED_MARK}\n`;
 }
 

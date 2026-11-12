@@ -68,6 +68,19 @@ describe('issueTitle', () => {
     expect(title).toBe(`Problem: ${'x'.repeat(59)}…`);
   });
 
+  it('cuts by character, never leaving half an emoji (review r1)', () => {
+    const typed = `${'x'.repeat(58)}🍅🍅 and more`;
+    const title = issueTitle(typed);
+    expect(title).toBe(`Problem: ${'x'.repeat(58)}🍅…`);
+    expect(() => encodeURIComponent(title)).not.toThrow();
+    expect(() => issueLink(PAGE, title, 'x')).not.toThrow();
+  });
+
+  it('counts an emoji as one character when deciding to cut', () => {
+    const typed = `${'x'.repeat(59)}🍅`;
+    expect(issueTitle(typed)).toBe(`Problem: ${typed}`);
+  });
+
   it('has a plain title when nothing was typed', () => {
     expect(issueTitle('  ')).toBe('Problem report');
   });
@@ -105,6 +118,21 @@ describe('issueLink', () => {
     // decodeURIComponent throws on half an emoji.
     expect(() => new URL(href).searchParams.get('body')).not.toThrow();
     expect(new URL(href).searchParams.get('body')).not.toContain('�');
+  });
+});
+
+describe('issueLink with one long paragraph', () => {
+  it('cuts mid-line when cutting at a line end would lose most of what was typed (review r1)', () => {
+    const typed = 'word '.repeat(2000);
+    const body = reportText(typed, ['Mealwright 0.9.0', 'Safari 18 · iPhone']);
+    const { href, trimmed } = issueLink(PAGE, 'Problem: x', body);
+    expect(trimmed).toBe(true);
+    expect(href.length).toBeLessThanOrEqual(LINK_LIMIT);
+    const sent = new URL(href).searchParams.get('body')!;
+    const kept = sent.slice(0, -`\n${TRIMMED_MARK}\n`.length);
+    expect(body.startsWith(kept)).toBe(true);
+    // Most of the room is what they typed, not just the heading.
+    expect(kept.length).toBeGreaterThan(4000);
   });
 });
 
