@@ -38,7 +38,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
-from mealwright import sso
+from mealwright import api_tokens, sso
 from mealwright.auth import now
 from mealwright.models import Login, Member, Session, SsoSettings
 from mealwright.outbound import Connection, OutboundGate, switches
@@ -224,6 +224,8 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity) -> Login:
             )
         else:
             log.info("Single sign-on: %s is now %s, from the groups", login.username, role)
+            if login.role == ADMIN:  # only admins have API tokens (O2 review r1, finding 3)
+                api_tokens.stop_for(db, login.id)
             login.role = role
     return login
 
@@ -311,6 +313,8 @@ def check_sessions(gate: OutboundGate, factory: sessionmaker[DbSession], data_di
             result, new = sso.refresh(gate, setup, token)
             if result == "ended":
                 login = db.get(Login, session.login_id)
+                if login is not None:  # the tokens of an admin signed out there stop (proposed)
+                    api_tokens.stop_for(db, login.id)
                 db.delete(session)
                 ended += 1
                 log.info(
