@@ -417,9 +417,9 @@ NEVER_ROUTES = [
     ("DELETE", "/people/{wren}/login", None),
     ("PUT", "/people/ask-whos-this", {"on": True}),
     # Privacy (and the update check, which connects out)
-    ("PUT", "/privacy/switches/recipe_import", {"on": True}),
+    ("PUT", "/privacy/switches/{switch}", {"on": True}),
     ("POST", "/privacy/own-network", {"value": "wiki.home"}),
-    ("DELETE", "/privacy/own-network/1", None),
+    ("DELETE", "/privacy/own-network/{entry}", None),
     ("POST", "/updates/check", None),
     # Sign-in: single sign-on, in every part (reading the setup too)
     ("GET", "/sso/settings", None),
@@ -450,7 +450,9 @@ NEVER_ROUTES = [
 def _never(app: TestClient, wren: int) -> list[tuple[str, str, Any]]:
     out = []
     for method, path, body in NEVER_ROUTES:
-        r = app.request(method, f"{API}{path.replace('{wren}', str(wren))}", json=body)
+        filled = path.replace("{wren}", str(wren))
+        filled = filled.replace("{switch}", "recipe_import").replace("{entry}", "1")
+        r = app.request(method, f"{API}{filled}", json=body)
         out.append((method, path, r))
     return out
 
@@ -481,28 +483,12 @@ def test_taking_an_action_out_of_tokens_never_is_noticed(
     assert let_through, f"nothing in NEVER_ROUTES notices {action} leaving TOKENS_NEVER"
 
 
-# --- Every signed-in route of the sensitive areas is listed, so a new one can't slip through
-# (O2 review r2, finding 2: how GET /backups was missed in r1). A route in these areas is a
-# token-never route (NEVER_ROUTES), a session-only one (SESSION_ONLY), one a token may read
-# (below, with its reason), or one that needs no sign-in at all. A new route fails the test
-# until it is listed. ---------------------------------------------------------------------------
-
-WALKED = (
-    "/sso",
-    "/privacy",
-    "/people",
-    "/backups",
-    "/export",
-    "/delete-everything",
-    "/import",
-    "/updates",
-    "/me/password",
-    "/me/sessions",
-    "/me/sign-in",
-    "/api-tokens",
-    "/whos-this",
-    "/setup",
-)
+# --- Every route of the app is listed, so a new one can't slip through (O2 review r1 finding 2,
+# r2 finding 2, r3 finding 4: how GET /backups was missed, and why the walk now covers every
+# route and method, matched exactly). A route is token-never (NEVER_ROUTES), session-only
+# (SESSION_ONLY), one a token may read (below, with its reason), one that needs no sign-in, or
+# a kitchen route a token may use (the explicit prefix list below). A route in none of them,
+# or one with no dependants to look at (a plain Starlette route), fails the test. ----------
 
 # Read-only routes a token may use, each with why that is fine.
 A_TOKEN_MAY_READ = {
@@ -518,47 +504,96 @@ NO_SIGN_IN = {
     ("POST", "/setup"): "the first admin, by the setup code",
     ("GET", "/sso/start"): "starts a sign-in at the provider",
     ("POST", "/sso/finish"): "the callback page posts what the provider sent",
+    ("GET", "/sign-in-options"): "which ways of signing in the sign-in page offers",
+    ("GET", "/version"): "the running version, as the sign-in page shows it",
+    ("GET", "/problem-report"): "the text a person copies when something goes wrong",
+    ("POST", "/session"): "signing in",
+    ("DELETE", "/session"): "signing out",
+    ("GET", "/join/{token}"): "a join link, proved by the link itself",
+    ("POST", "/join/{token}"): "a join link, proved by the link itself",
+    ("GET", "/openapi.json"): "the API's own description",
+    ("GET", "/{path:path}"): "the web app's files, for any address that isn't the API",
 }
+
+# The kitchen: every route under these a token may use, as the admin who made it could (a
+# read-only token only reads; household settings are an admin action a token may do).
+TOKEN_KITCHEN_PREFIXES = (
+    "/recipes",
+    "/plan",
+    "/pantry",
+    "/foods",
+    "/shopping",
+    "/stock",
+    "/stocktake",
+    "/batch-cook",
+    "/conversions",
+    "/meal-slots",
+    "/places",
+    "/shops",
+    "/starter-packs",
+    "/units",
+    "/today",
+    "/changes",
+    "/events",
+    "/household",
+    "/me",
+)
+# Routes under /me that aren't kitchen routes: they are in SESSION_ONLY (checked first).
+
+NO_DEPENDANTS_OK = {"/openapi.json", "/docs", "/redoc"}
 
 
 def _all_routes(found: Any) -> Any:
     for route in found:
         if hasattr(route, "effective_candidates"):
             yield from _all_routes(route.effective_candidates())
-        elif hasattr(route, "dependant"):
+        elif hasattr(route, "path") and hasattr(route, "methods"):
             yield route
         elif hasattr(route, "routes"):
             yield from _all_routes(route.routes)
+        else:
+            yield route
 
 
-def _template(path: str) -> re.Pattern[str]:
-    """A route's path with each {name} standing for any one path piece."""
-    pieces = re.split(r"\{[^/}]+\}", path)
-    return re.compile("^" + "[^/]+".join(re.escape(piece) for piece in pieces) + "$")
+def _same(path: str) -> str:
+    """A route's path with every {name} as {}: so a listing matches a route exactly, not by
+    pattern."""
+    return re.sub(r"\{[^}]*\}", "{}", path)
 
 
 def unlisted_routes(app: Any) -> list[str]:
-    """Routes of the walked areas that are in no list."""
-    never = [(m, p.replace("{wren}", "1")) for m, p, _ in NEVER_ROUTES]
-    session_only = {(m, p.removeprefix(API)) for m, p in SESSION_ONLY}
+    """Every route-and-method of the app that is in no list, and every route with no
+    dependants to check (other than the API's own description)."""
+    never = {(m, _same(p)) for m, p, _ in NEVER_ROUTES}
+    session_only = {(m, _same(p.removeprefix(API))) for m, p in SESSION_ONLY}
+    may_read = {(m, _same(p)) for m, p in A_TOKEN_MAY_READ}
+    no_sign_in = {(m, _same(p)) for m, p in NO_SIGN_IN}
     out = []
     for route in _all_routes(app.routes):
-        path = route.path.removeprefix(API)
-        if not path.startswith(WALKED):
+        path = getattr(route, "path", None)
+        methods = getattr(route, "methods", None)
+        if path is None or methods is None:
+            out.append(f"{type(route).__name__} (no path or methods)")
             continue
-        for method in sorted(route.methods - {"HEAD"}):
+        short = _same(path.removeprefix(API))
+        if not hasattr(route, "dependant") and short not in NO_DEPENDANTS_OK:
+            out.append(f"{sorted(methods)} {path} (no dependants)")
+            continue
+        for method in sorted(methods - {"HEAD"}):
+            key = (method, short)
             listed = (
-                (method, path) in session_only
-                or (method, path) in A_TOKEN_MAY_READ
-                or (method, path) in NO_SIGN_IN
-                or any(m == method and _template(path).match(p) for m, p in never)
+                key in session_only
+                or key in may_read
+                or key in no_sign_in
+                or key in never
+                or short.startswith(TOKEN_KITCHEN_PREFIXES)
             )
             if not listed:
-                out.append(f"{method} {path}")
+                out.append(f"{method} {short}")
     return out
 
 
-def test_every_route_of_the_sensitive_areas_is_listed(kitchen: TestClient) -> None:
+def test_every_route_of_the_app_is_listed(kitchen: TestClient) -> None:
     assert unlisted_routes(kitchen.app) == []
 
 
@@ -569,9 +604,25 @@ def test_the_token_may_read_routes_are_only_reads_a_token_can_make(kitchen: Test
         assert app.get(f"{API}{path}").status_code == 200, path
 
 
-def test_a_new_route_in_a_sensitive_area_fails_until_it_is_listed(kitchen: TestClient) -> None:
-    kitchen.app.add_api_route(f"{API}/sso/secret-peek", lambda: {}, methods=["GET"])  # type: ignore[attr-defined]
-    assert unlisted_routes(kitchen.app) == ["GET /sso/secret-peek"]
+def test_a_new_route_fails_the_walk_until_it_is_listed(kitchen: TestClient) -> None:
+    """O2 review r3, finding 4: the reviewer's scratch routes. A route with a new path, a new
+    method on a listed path (PUT /people/{member_id}), a path variable in an area the walk
+    named only by prefix before (GET /sso/{peek}) and a plain Starlette route are all found."""
+    from fastapi import APIRouter
+    from starlette.routing import Route
+
+    app = kitchen.app
+    extra = APIRouter()
+    extra.add_api_route("/sso/secret-peek", lambda: {}, methods=["GET"])
+    extra.add_api_route("/sso/{peek}", lambda peek: {}, methods=["GET"])
+    extra.add_api_route("/people/{member_id}", lambda member_id: {}, methods=["PUT"])
+    app.include_router(extra, prefix=API)  # type: ignore[attr-defined]
+    app.router.routes.append(Route("/api/v1/sso/plain", lambda request: None))  # type: ignore[attr-defined]
+    found = unlisted_routes(app)
+    assert "GET /sso/secret-peek" in found
+    assert "GET /sso/{}" in found
+    assert "PUT /people/{}" in found
+    assert any("/api/v1/sso/plain" in line and "no dependants" in line for line in found), found
 
 
 def test_a_token_cant_undo_a_people_change_through_the_shopping_actions(
