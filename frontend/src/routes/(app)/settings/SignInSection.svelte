@@ -2,7 +2,8 @@
   // Settings → Sign-in, above Sign out (PR A2; the mockup Dark-SignInSettings09): your
   // password ("Change password", with when it last changed), where you're signed in (this
   // device tagged, every other one with its own Sign out) and "Sign out everywhere else".
-  // Single sign-on and API tokens come later (O1, O2). Signing out another device has no
+  // For admins, "For the household": single sign-on (set up on a computer) and the Password
+  // sign-in switch (0.9 O1). API tokens come later (O2). Signing out another device has no
   // "Are you sure?": nothing is lost, it only has to sign in again.
   import { resolve } from '$app/paths';
   import { cantReach, cantReachWords, detailOf, ApiError } from '#lib/api.js';
@@ -17,6 +18,16 @@
     type MySignIn
   } from '#lib/mySignIn.js';
   import { network } from '#lib/network.svelte.js';
+  import { getSsoSetup, putPasswordSignIn, type SsoSetup } from '#lib/client/sso.js';
+  import Switch from '#lib/components/Switch.svelte';
+  import { session } from '#lib/session.svelte.js';
+  import {
+    NOT_SET_UP,
+    PASSWORDS_NOTE,
+    PASSWORD_OFF,
+    PASSWORD_ON,
+    SETUP_ON_COMPUTER
+  } from '#lib/ssoWords.js';
 
   let { device }: { device: 'phone' | 'computer' } = $props();
 
@@ -27,6 +38,40 @@
   let busy = $state(false);
   /** Said after a sign-out here, for screen readers ("Signed out iPad · Safari."). */
   let said = $state('');
+
+  const admin = $derived(session.me?.role === 'admin');
+  let sso = $state<SsoSetup | null>(null);
+  let passwords = $state(true);
+  let ssoProblem = $state('');
+  let switching = $state(false);
+  /** Password sign-in may go off: an admin signs in with single sign-on, and it's switched on. */
+  const passwordsMayGoOff = $derived(!!sso && sso.secret_set && sso.admin_linked && sso.switch_on);
+
+  $effect(() => {
+    void network.backAgain;
+    if (!admin) return;
+    void getSsoSetup()
+      .then((found) => {
+        sso = found;
+        passwords = found.password_sign_in;
+      })
+      .catch(() => undefined); // the rows still show, with "Not set up"
+  });
+
+  async function setPasswords(on: boolean) {
+    if (switching) return;
+    switching = true;
+    ssoProblem = '';
+    try {
+      sso = await putPasswordSignIn(on);
+      passwords = sso.password_sign_in;
+    } catch (error) {
+      passwords = !on;
+      ssoProblem = why(error);
+    } finally {
+      switching = false;
+    }
+  }
 
   const others = $derived(mine ? mine.sessions.filter((s) => !s.this_device) : []);
 
@@ -119,7 +164,49 @@
   >
 {/if}
 
+{#if admin}
+  <h3 class="sub-title">For the household (admins)</h3>
+  <div class="card" data-testid="household-sign-in">
+    <a class="row to" href={resolve('/(app)/settings/sso')}>
+      <span class="who">
+        <span class="label">Single sign-on</span>
+        {#if device === 'phone'}<span class="detail">{SETUP_ON_COMPUTER}</span>{/if}
+      </span>
+      <span class="value">{sso?.secret_set ? sso.button_name : NOT_SET_UP}</span>
+      <Icon name="back" size={18} stroke={2.4} />
+    </a>
+    <div class="row">
+      <span class="who">
+        <span class="label" id="passwords-label">Password sign-in</span>
+        <span class="detail" id="passwords-detail">{passwords ? PASSWORD_ON : PASSWORD_OFF}</span>
+      </span>
+      <Switch
+        bind:checked={passwords}
+        labelledby="passwords-label"
+        describedby="passwords-detail"
+        disabled={switching || network.offline || (passwords && !passwordsMayGoOff)}
+        onchange={(on) => void setPasswords(on)}
+      />
+    </div>
+  </div>
+  {#if ssoProblem}<p class="warning-line" role="alert">{ssoProblem}</p>{/if}
+  <p class="note">{PASSWORDS_NOTE}</p>
+{/if}
+
 <style>
+  .value {
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+    white-space: nowrap;
+  }
+
+  .note {
+    margin: 0 var(--space-2);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    line-height: 1.45;
+  }
+
   .sub-title {
     margin: var(--space-2) 0 0;
     padding: 0 var(--space-3);

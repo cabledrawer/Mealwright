@@ -44,6 +44,8 @@
   import { wipeDevice, wipeIfAnotherLogin } from '#lib/offline/wipe.js';
   import { heardWipe, wipeFailed, wipeState } from '#lib/offline/wipePending.svelte.js';
   import { connection, safeNext, session } from '#lib/session.svelte.js';
+  import { startAddress } from '#lib/client/sso.js';
+  import { OR, signInWith, ssoMessage } from '#lib/ssoWords.js';
   import { theme } from '#lib/theme.svelte.js';
   import type { PageProps } from './$types';
 
@@ -58,6 +60,11 @@
   let problem = $state('');
   /** The problem is a username's wrong-password pause (proposed wording, PR A2). */
   let paused = $state(false);
+
+  // Single sign-on (0.9 O1): its button, and the password form only while password sign-in
+  // is on. A sign-in it couldn't finish comes back here with ?sso=<code>: the sentence shows.
+  const options = $derived(data.options ?? { password: true, sso_button: null });
+  const ssoProblem = ssoMessage(page.url.searchParams.get('sso'));
 
   const secure = $derived(connection(window.isSecureContext, data.setup.plain_http_allowed));
   const device = matchMedia('(max-width: 767px)').matches ? 'phone' : 'computer';
@@ -352,7 +359,11 @@
   <p class="held" role="status">{heldText}</p>
 {/if}
 
-{#if secure !== 'plain-refused'}
+{#if ssoProblem}
+  <p class="problem" role="alert">{ssoProblem}</p>
+{/if}
+
+{#if secure !== 'plain-refused' && options.password}
   <form onsubmit={submit} novalidate class:locked>
     <TextField
       id="username"
@@ -417,6 +428,58 @@
   </form>
 
   <p class="forgot">Forgot your password? Ask your household’s admin to reset it.</p>
+{/if}
+
+{#if secure !== 'plain-refused' && options.sso_button}
+  {#if options.password}
+    <p class="or" aria-hidden="true"><span>{OR}</span></p>
+  {:else}
+    <div class="remember">
+      <span class="remember-text">
+        <span id="remember-label" class="remember-label">Remember this {device}</span>
+        <span id="remember-hint" class="remember-hint">for 30 days</span>
+      </span>
+      <Switch
+        bind:checked={remember}
+        labelledby="remember-label"
+        describedby="remember-hint"
+        disabled={locked}
+      />
+    </div>
+  {/if}
+  {#if locked}
+    <span class="sso disabled" aria-disabled="true"
+      ><svg
+        aria-hidden="true"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        ><circle cx="8" cy="15" r="4" /><path d="M10.8 12.2L19 4M16 7l2 2M14 9l2 2" /></svg
+      >{signInWith(options.sso_button)}</span
+    >
+  {:else}
+    <!-- A link, not a fetch: the server answers with a redirect to the sign-in server. -->
+    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an API address, not a page -->
+    <a class="sso" href={startAddress(remember)} data-sveltekit-reload
+      ><svg
+        aria-hidden="true"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        ><circle cx="8" cy="15" r="4" /><path d="M10.8 12.2L19 4M16 7l2 2M14 9l2 2" /></svg
+      >{signInWith(options.sso_button)}</a
+    >
+  {/if}
 {/if}
 
 <style>
@@ -548,6 +611,41 @@
     font-weight: var(--weight-bold);
     text-decoration: underline;
     cursor: pointer;
+  }
+
+  .or {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .or::before,
+  .or::after {
+    content: '';
+    flex: 1;
+    border-top: 1px solid var(--color-border-strong);
+  }
+
+  .sso {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    min-height: 52px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-button);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-bold);
+    text-decoration: none;
+  }
+
+  .sso.disabled {
+    opacity: 0.55;
   }
 
   .forgot {

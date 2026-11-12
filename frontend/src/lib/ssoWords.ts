@@ -1,0 +1,68 @@
+// Single sign-on's words (0.9 O1; word list section 72, proposed, for cabledrawer). The sentences
+// for the codes are the server's own (backend sso.MESSAGES): the server sends them with a
+// refusal, and these show when it sends a browser back with `?sso=<code>` instead.
+
+export const SSO_MESSAGES: Record<string, string> = {
+  not_set_up: 'Single sign-on isn’t set up. Ask your household’s admin.',
+  switched_off: 'Single sign-on is switched off in Settings → Privacy. Ask your household’s admin.',
+  own_network:
+    'Your sign-in server is on your own network. An admin adds it in Settings → Privacy → Your own network.',
+  always_blocked: 'Mealwright can’t use that address for your sign-in server.',
+  not_https:
+    'Your sign-in server’s address must start with https://, unless it’s on your own network in Settings → Privacy.',
+  unreachable: 'Mealwright couldn’t reach your sign-in server. Try again in a minute.',
+  bad_answer: 'Your sign-in server gave an answer Mealwright couldn’t use.',
+  refused: 'Your sign-in server’s answer couldn’t be checked, so you weren’t signed in.',
+  expired: 'That sign-in took too long or was already used. Try again.',
+  cancelled: 'Signing in was cancelled at your sign-in server.',
+  wrong_address: 'Open Mealwright at the address single sign-on was set up for, then try again.',
+  secret_unreadable:
+    'Mealwright can’t read the saved client secret. An admin enters it again in Settings → Sign-in → Single sign-on.',
+  not_let_in:
+    'Your sign-in server doesn’t put you in a group Mealwright lets in. Ask your household’s admin.',
+  no_account: 'There’s no Mealwright account for you yet. Ask your household’s admin.',
+  clash:
+    'There’s already a Mealwright account with your name here, so it wasn’t used. Ask your household’s admin.',
+  removed: 'That account was removed. Ask your household’s admin.',
+  someone_else:
+    'Your account is linked to someone else at your sign-in server. Sign out there and test again.'
+};
+
+/** The sentence for a code from `?sso=`, or null when there's none. Unknown codes get the
+ *  general one, never the code itself. */
+export function ssoMessage(code: string | null | undefined): string | null {
+  if (!code) return null;
+  return SSO_MESSAGES[code] ?? SSO_MESSAGES.bad_answer ?? null;
+}
+
+export const signInWith = (button: string): string => `Sign in with ${button}`;
+
+export const OR = 'or';
+
+export const SIGNING_IN = 'Signing you in…';
+export const BACK_TO_SIGN_IN = 'Back to sign in';
+export const BACK_TO_SETUP = 'Back to single sign-on';
+export const TEST_TAB_DONE = 'You can close this tab: the setup tab shows the result.';
+
+export const SETUP_ON_COMPUTER = 'Set up on a computer';
+export const SETUP_PHONE_NOTE =
+  'Single sign-on is set up on a computer: there’s a lot to copy between two screens.';
+
+export const NOT_SET_UP = 'Not set up';
+
+export const PASSWORD_ON = 'On';
+export const PASSWORD_OFF = 'Off: everyone uses single sign-on';
+export const PASSWORDS_NOTE =
+  'Password sign-in can only be turned off while an admin can sign in with single sign-on.';
+
+/** "Test passed: signed in as tess, groups mealwright-admins → Admin." */
+export function testPassedText(
+  username: string | null,
+  groups: string[],
+  role: 'admin' | 'member' | null
+): string {
+  const who = username ?? 'someone';
+  const as = role === 'admin' ? 'Admin' : 'Member';
+  const from = groups.length ? `groups ${groups.join(', ')} → ${as}` : `no groups → ${as}`;
+  return `Test passed: signed in as ${who}, ${from}.`;
+}
