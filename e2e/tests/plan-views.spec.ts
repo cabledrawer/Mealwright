@@ -93,7 +93,7 @@ test.afterEach(() => {
  * dinner (3 tubs, so 4 portions: 1 eaten now); two tubs go in Sunday's lunch, the third is spare.
  * The person is ticked as eating the cook-day dinner and owns the two tubs.
  */
-async function seedWeek(page: Page, k: { today: string; slot: Record<string, number>; me: { id: number; name: string } }, day: string) {
+async function seedWeek(page: Page, k: { today: string; slot: Record<string, number>; me: { id: number; name: string; member_id: number } }, day: string) {
   const s = short();
   const pongal = `Pongal ${s}`;
   const biryani = `Biryani ${s}`;
