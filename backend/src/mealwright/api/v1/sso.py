@@ -391,7 +391,14 @@ def _finish_test(
         raise sso.SsoFailed("expired")  # signed out, or someone else, since it started
     login = signed_in.login
     role, link = sso_accounts.outcome_of_test(db, row, login, identity)
-    if role == ADMIN:
+    # Proof only from the tester's own linked identity: another admin's test of someone else's
+    # sign-in proves nothing for the admins who would be left (O1 review r3, finding L3). A
+    # first test is proven when its link is confirmed (`link`).
+    if (
+        role == ADMIN
+        and login.sso_issuer == identity.issuer
+        and login.sso_subject == identity.subject
+    ):
         _proven(request, row)
     result = TestResult(
         passed=role is not None,
@@ -687,6 +694,7 @@ def link(request: Request, kitchen: Here) -> SsoSetupOut:
         kitchen.db.rollback()
         raise Problem(status.HTTP_409_CONFLICT, failure.code, failure.message) from None
     kitchen.db.commit()
+    _proven(request, row)  # the admin's own login is linked to an identity that passed
     request.app.state.sso_links.pop(kitchen.household_id, None)
     result: TestResult | None = request.app.state.sso_tests.get(kitchen.household_id)
     if result is not None:

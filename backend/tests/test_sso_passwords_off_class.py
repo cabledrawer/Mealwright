@@ -194,3 +194,31 @@ def test_nothing_reads_the_stored_password_setting_except_the_one_question() -> 
             ):
                 offenders.append(f"{path.relative_to(SOURCE)}:{number}: {line.strip()}")
     assert not offenders, offenders
+
+
+def test_another_admins_test_of_someone_elses_identity_proves_nothing(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O1 review r3, L3: two admins. The first is linked and proven; the second saves a setup
+    and tests another identity (not linking it): that's no proof for the first."""
+    idp = home(kitchen, monkeypatch, "id.example.org", off=False)
+    _add_admin(kitchen, "wren")
+    wren = browser(kitchen)
+    mine = {"username": "wren", "password": "wren's own password"}
+    assert wren.post(f"{API}/session", json=mine).status_code == 200
+    new = {
+        **SETUP,
+        "client_secret": "",
+        "make_accounts": False,
+        "group_roles": [{"group": "kitchen-admins", "role": "admin"}],
+    }
+    assert wren.put(f"{API}/sso/settings", json=new).is_success
+    started = wren.post(f"{API}/sso/test", headers={"Origin": "https://testserver"})
+    code, state = idp.sign_in(
+        str(started.json()["url"]), sub="r", extra={"groups": ["kitchen-admins"]}
+    )
+    assert wren.post(f"{API}/sso/finish", json={"state": state, "code": code}).is_success
+    assert wren.delete(f"{API}/sso/link").is_success  # Not now: nothing linked
+    off = wren.put(f"{API}/sso/password-sign-in", json={"on": False})
+    assert off.status_code == 409 and off.json()["code"] == "passwords_needed"
+    assert passwords_work(kitchen)
