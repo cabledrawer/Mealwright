@@ -16,8 +16,8 @@ release list); the Privacy switch controls only the automatic daily check (cable
 Check now asks the gate for that one request as a person's press (`pressed=True`, allowed for
 `Connection.UPDATE_CHECK` only); every other rule of the gate still applies to it.
 
-The last answer is kept in memory, per household, until the server restarts (proposed, for
-cabledrawer: no database change). After a restart the daily check runs again within the hour.
+The last answer is kept in memory, per household, until the server restarts (cabledrawer 12 Nov,
+accepted as built: no database change). After a restart the daily check runs again within the hour.
 
 Log lines say what happened in plain words and never the address (as for every connection).
 """
@@ -114,8 +114,8 @@ def tag_key(tag: str) -> Key | None:
 
 def newest(body: bytes, running: Key) -> str | None:
     """The tag of the newest release in GitHub's release list that is newer than `running`,
-    or None. Pre-releases count only while the running version is one too (proposed, for
-    cabledrawer); drafts never. Raises ValueError if the answer isn't a release list."""
+    or None. Pre-releases count only while the running version is one too (cabledrawer 12
+    Nov, accepted as built); drafts never. Raises ValueError if the answer isn't a release list."""
     releases = json.loads(body)
     if not isinstance(releases, list):
         raise ValueError("not a list")
