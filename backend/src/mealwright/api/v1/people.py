@@ -32,7 +32,7 @@ from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import change_out
 from mealwright.history import as_utc, commit, replayed
 from mealwright.kitchen_changes import key_kept
-from mealwright.models import Change, JoinLink, Login, Member
+from mealwright.models import Change, JoinLink, Login, Member, utcnow
 from mealwright.names import one_line
 from mealwright.roles import ADMIN, Action, allowed
 from mealwright.shopping import lock_db
@@ -344,8 +344,11 @@ def pick(body: PickIn, kitchen: Here, signed_in: CurrentLogin) -> WhosThisOut:
     if body.member_id is not None and body.member_id not in {m.id for m in people.eaters(kitchen)}:
         raise not_found("That person")
     signed_in.session.member_id = body.member_id
+    signed_in.session.picked_at = utcnow() if body.member_id is not None else None
     kitchen.db.commit()
-    kitchen.member_id = acting_member(kitchen.db, signed_in.login, body.member_id)
+    kitchen.member_id = acting_member(
+        kitchen.db, signed_in.login, kitchen.household, signed_in.session
+    )
     return _whos_this(kitchen, signed_in)
 
 

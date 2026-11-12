@@ -12,7 +12,8 @@ from sync_kit import API, db, ok, person
 
 from mealwright import people
 from mealwright.api.v1.context import Kitchen
-from mealwright.models import Household, JoinLink, Login, Member, Session
+from mealwright.history import as_utc
+from mealwright.models import Household, JoinLink, Login, Member, Session, utcnow
 
 
 def _people(client: TestClient) -> dict[str, Any]:
@@ -573,6 +574,63 @@ def test_the_picked_person_is_named_in_recent_changes(kitchen: TestClient) -> No
     assert ok(tablet.put(f"{API}/whos-this", json={"member_id": None}))["picked"] is None
     ok(tablet.patch(f"{API}/household", json={"cook_per_step": True}))
     assert _newest(kitchen)["who"]["name"] == "Kitchen tablet"
+
+
+def test_a_pick_counts_only_while_the_household_asks_whos_this(kitchen: TestClient) -> None:
+    """Review r1: with the switch off, a pick made earlier credits nobody."""
+    tablet = _tablet(kitchen)
+    ok(kitchen.put(f"{API}/people/ask-whos-this", json={"on": True}))
+    joss = _add(kitchen)
+    ok(tablet.put(f"{API}/whos-this", json={"member_id": joss}))
+    ok(kitchen.put(f"{API}/people/ask-whos-this", json={"on": False}))
+    ok(tablet.patch(f"{API}/household", json={"cook_per_step": True}))
+    who = _newest(kitchen)["who"]
+    assert who["name"] == "Kitchen tablet" and who["member_id"] is None
+    assert ok(tablet.get(f"{API}/whos-this"))["picked"] is None
+
+
+def _pick_made(kitchen: TestClient, minutes_ago: int) -> None:
+    with db(kitchen) as session:
+        for row in session.scalars(select(Session).where(Session.member_id.is_not(None))):
+            row.picked_at = utcnow() - timedelta(minutes=minutes_ago)
+        session.commit()
+
+
+def test_a_pick_older_than_30_minutes_without_a_change_credits_nobody(
+    kitchen: TestClient,
+) -> None:
+    """Review r1: the server forgets a pick like the browser does (proposed, for cabledrawer); a
+    change made as the person keeps it going."""
+    tablet = _tablet(kitchen)
+    ok(kitchen.put(f"{API}/people/ask-whos-this", json={"on": True}))
+    joss = _add(kitchen)
+    ok(tablet.put(f"{API}/whos-this", json={"member_id": joss}))
+    _pick_made(kitchen, 25)
+    ok(tablet.patch(f"{API}/household", json={"cook_per_step": True}))
+    assert _newest(kitchen)["who"]["member_id"] == joss
+    _pick_made(kitchen, 20)
+    # Reading changes nothing: 20 minutes on from the last change, still Joss.
+    assert ok(tablet.get(f"{API}/whos-this"))["picked"] == joss
+    _pick_made(kitchen, 31)
+    assert ok(tablet.get(f"{API}/whos-this"))["picked"] is None
+    ok(tablet.patch(f"{API}/household", json={"cook_per_step": False}))
+    who = _newest(kitchen)["who"]
+    assert who["name"] == "Kitchen tablet" and who["member_id"] is None
+
+
+def test_a_change_made_as_the_picked_person_keeps_the_pick_going(kitchen: TestClient) -> None:
+    tablet = _tablet(kitchen)
+    ok(kitchen.put(f"{API}/people/ask-whos-this", json={"on": True}))
+    joss = _add(kitchen)
+    ok(tablet.put(f"{API}/whos-this", json={"member_id": joss}))
+    _pick_made(kitchen, 25)
+    ok(tablet.patch(f"{API}/household", json={"cook_per_step": True}))
+    with db(kitchen) as session:
+        picked_at = session.scalars(
+            select(Session.picked_at).where(Session.member_id == joss)
+        ).one()
+    assert picked_at is not None
+    assert utcnow() - as_utc(picked_at) < timedelta(minutes=1)
 
 
 def test_picking_is_for_shared_logins_and_people_of_the_household(kitchen: TestClient) -> None:

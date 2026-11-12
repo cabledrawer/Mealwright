@@ -3,6 +3,7 @@ the client-made change ID for retries (docs/dev/api-0.2.md section 1.2)."""
 
 import re
 from dataclasses import dataclass
+from datetime import UTC, timedelta
 from typing import Annotated
 
 from fastapi import Depends, Header, Request, status
@@ -10,10 +11,15 @@ from sqlalchemy.orm import Session as DbSession
 
 from mealwright.auth import CurrentLogin, Db
 from mealwright.errors import Problem
-from mealwright.models import Household, Login, Member
+from mealwright.models import Household, Login, Member, Session, utcnow
 from mealwright.roles import Action, allowed
 
 _KEY = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
+# A "Who's this?" pick counts for 30 minutes after it was made or after the last change made as
+# that person, like the browser's 30 minutes without use (proposed, for cabledrawer). "Just looking"
+# (an hour without asking) stays in the browser: it records nobody, so the server needn't know.
+PICK_FOR = timedelta(minutes=30)
+SAFE = {"GET", "HEAD", "OPTIONS"}
 
 
 @dataclass
@@ -65,20 +71,32 @@ def kitchen(
     household = db.get(Household, signed_in.login.household_id)
     if household is None:  # pragma: no cover (a login always has a household)
         raise Problem(status.HTTP_401_UNAUTHORIZED, "signed_out", "Please sign in.")
+    member_id = acting_member(db, signed_in.login, household, signed_in.session)
+    if signed_in.login.shared and member_id is not None and request.method not in SAFE:
+        # A change made as the picked person keeps the pick going (saved with the change).
+        signed_in.session.picked_at = utcnow()
     return Kitchen(
         db=db,
         login=signed_in.login,
         household=household,
         idempotency_key=idempotency_key,
         request=f"{request.method} {request.url.path}",
-        member_id=acting_member(db, signed_in.login, signed_in.session.member_id),
+        member_id=member_id,
     )
 
 
-def acting_member(db: DbSession, login: Login, picked: int | None) -> int | None:
+def acting_member(
+    db: DbSession, login: Login, household: Household, session: Session
+) -> int | None:
     """Who a change is recorded for: on a shared login, the person picked on this device (if
-    they're still in the household); otherwise the login's own person."""
-    wanted = picked if login.shared else login.member_id
+    the household still asks "Who's this?", the pick is under 30 minutes old and they're still
+    in the household); otherwise the login's own person."""
+    if not login.shared:
+        wanted = login.member_id
+    elif not household.ask_whos_this or not _fresh_pick(session):
+        return None
+    else:
+        wanted = session.member_id
     if wanted is None:
         return None
     member = db.get(Member, wanted)
@@ -87,6 +105,15 @@ def acting_member(db: DbSession, login: Login, picked: int | None) -> int | None
     if login.shared and member.removed_at is not None:
         return None
     return member.id
+
+
+def _fresh_pick(session: Session) -> bool:
+    picked_at = session.picked_at
+    if session.member_id is None or picked_at is None:
+        return False
+    if picked_at.tzinfo is None:
+        picked_at = picked_at.replace(tzinfo=UTC)
+    return utcnow() - picked_at < PICK_FOR
 
 
 Here = Annotated[Kitchen, Depends(kitchen)]

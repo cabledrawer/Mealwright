@@ -267,7 +267,7 @@ def remove(kitchen: Kitchen, member: Member) -> Change:
     kitchen.db.execute(
         update(Session)
         .where(Session.household_id == kitchen.household_id, Session.member_id == member.id)
-        .values(member_id=None)
+        .values(member_id=None, picked_at=None)
     )
     kitchen.db.flush()
     return record(
