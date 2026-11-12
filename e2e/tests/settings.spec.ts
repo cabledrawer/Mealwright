@@ -265,11 +265,13 @@ test('Shops: add, rename, reorder; removing one sends its ingredients to Any sho
   await expect(rowOf(page, 'Shops', renamed)).toBeVisible();
   // Reorder: the second one goes up, above the first.
   await shops.getByRole('button', { name: `Move ${second} up` }).click();
+  // Ask the server until the move has landed (the row moves on screen before the server has it).
   await expect
-    .poll(async () => ((await (await page.request.get('/api/v1/shops')).json()) as Json[]).map((x) => x.name))
-    .toEqual(expect.arrayContaining([second, renamed]));
-  const order = ((await (await page.request.get('/api/v1/shops')).json()) as Json[]).map((x) => x.name);
-  expect(order.indexOf(second)).toBeLessThan(order.indexOf(renamed));
+    .poll(async () => {
+      const order = ((await (await page.request.get('/api/v1/shops')).json()) as Json[]).map((x) => x.name);
+      return order.includes(renamed) && order.indexOf(second) >= 0 && order.indexOf(second) < order.indexOf(renamed);
+    })
+    .toBe(true);
   await checkPage(page); // before any toast is on screen (a toast can cover a row above)
   // Remove: at once, no "Are you sure?", with Undo.
   await shops.getByRole('button', { name: `Remove ${renamed}` }).click();
