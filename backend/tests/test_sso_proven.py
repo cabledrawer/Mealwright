@@ -157,3 +157,14 @@ def test_a_waiting_link_belongs_to_the_session_that_tested(
     from test_sso_api import subject_of
 
     assert subject_of(admin, "tess") is None
+
+
+def test_with_the_switch_off_passwords_work_whatever_the_setting(
+    linked: TestClient, idp: FakeProvider
+) -> None:
+    """Sweep, O1 review r2 finding 1: the Privacy switch can't leave anyone locked out."""
+    assert linked.put(f"{API}/sso/password-sign-in", json={"on": False}).is_success
+    assert browser(linked).post(f"{API}/session", json=PASSWORD).status_code == 403
+    assert linked.put(f"{API}/privacy/switches/single_sign_on", json={"on": False}).is_success
+    assert linked.get(f"{API}/sign-in-options").json()["password"] is True
+    assert browser(linked).post(f"{API}/session", json=PASSWORD).status_code == 200
