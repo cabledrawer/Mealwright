@@ -258,9 +258,9 @@ describe('single sign-on setup', () => {
       .not.toBeInTheDocument();
   });
 
-  it('warns the admin when the only admin’s sign-in was kept (cabledrawer 12 Nov; proposed)', async () => {
+  it('warns the admin when the only admin’s sign-in was kept (cabledrawer 12 Nov)', async () => {
     const kept_warning =
-      'The sign-in server no longer accepts cabledrawer. Mealwright kept their sign-in on this device because they’re the only admin who can get in. Fix it at the sign-in server, or turn password sign-in back on.';
+      "The sign-in server no longer accepts Tess. Mealwright kept them signed in because they're the only admin who can get in. Fix it at the sign-in server, or turn password sign-in back on.";
     fakeApi({
       'GET /sso/settings': [
         200,

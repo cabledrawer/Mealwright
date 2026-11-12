@@ -420,7 +420,7 @@ _kept: dict[int, tuple[int, str]] = {}
 def kept_warning(db: DbSession, data_dir: Path | None, household_id: int) -> str | None:
     """The sentence Settings shows an admin while it applies: the sign-in server no longer
     accepts the only admin who can get in, and Mealwright kept their sign-in. Gone once a
-    refresh works again or passwords are back on (proposed, for cabledrawer)."""
+    refresh works again or passwords are back on (words: cabledrawer 12 Nov)."""
     found = _kept.get(household_id)
     if found is None:
         return None
@@ -428,9 +428,9 @@ def kept_warning(db: DbSession, data_dir: Path | None, household_id: int) -> str
         _kept.pop(household_id, None)
         return None
     return (
-        f"The sign-in server no longer accepts {found[1]}. Mealwright kept their sign-in on "
-        "this device because they’re the only admin who can get in. Fix it at the sign-in "
-        "server, or turn password sign-in back on."
+        f"The sign-in server no longer accepts {found[1]}. Mealwright kept them signed in "
+        "because they're the only admin who can get in. Fix it at the sign-in server, or turn "
+        "password sign-in back on."
     )
 
 
