@@ -7,6 +7,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 ### People and roles (0.9 A1)
 
 - **Database change** (`b4e8c2a6d917`): people of the household (`member`), each login's own person, shared logins, "Who's this?" (who picked themselves on a device, and when) and one-time sign-in links. Back up first. **Going back** puts whose tub and who's eating back on the logins, and Recent changes' Undo records name each person by their login again (a person without a login is left out of them). A removed person's login loses its password and every device it's signed in on is signed out, so they can't sign in on the older version. What is lost going back: people without a login, removed people's passwords and sessions, colours and portions, shared-login marks, unused sign-in links, and who picked themselves in "Who's this?".
+- A shared login (a kitchen tablet) no longer counts as an admin when the household checks it still has one: it can be an admin, but never the only one, so stepping down, removing or making the last real admin a shared login is refused (proposed, for cabledrawer).
 
 ## [0.8.0] - 2026-11-11
 

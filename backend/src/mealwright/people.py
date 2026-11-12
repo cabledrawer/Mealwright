@@ -116,12 +116,14 @@ def can_sign_in() -> ColumnElement[bool]:
 
 def admins_left(kitchen: Kitchen, apart_from: int | None = None) -> int:
     """How many admins the household has who can sign in, apart from this person. An admin
-    whose sign-in link isn't used yet doesn't count: they can't sign in to do admin things."""
+    whose sign-in link isn't used yet doesn't count: they can't sign in to do admin things.
+    A shared login (a kitchen tablet) doesn't count either: proposed, for cabledrawer."""
     query = (
         select(func.count())
         .select_from(Login)
         .join(Member, Member.id == Login.member_id)
         .where(Login.household_id == kitchen.household_id, Login.role == ADMIN, can_sign_in())
+        .where(Login.shared.is_(False))
     )
     if apart_from is not None:
         query = query.where(Member.id != apart_from)
@@ -196,11 +198,9 @@ def change(kitchen: Kitchen, member: Member, wanted: dict[str, Any]) -> Change |
     old = _state(kitchen, member)
     if "name" in wanted and wanted["name"] != member.name:
         check_name(kitchen, wanted["name"], member.id)
-    if (
-        wanted.get("role") == MEMBER
-        and old["role"] == ADMIN
-        and admins_left(kitchen, member.id) == 0
-    ):
+    steps_down = wanted.get("role") == MEMBER and old["role"] == ADMIN
+    goes_shared = wanted.get("shared") is True and not old["shared"] and old["role"] == ADMIN
+    if (steps_down or goes_shared) and admins_left(kitchen, member.id) == 0:
         raise last_admin(member)
     _apply(kitchen, member, login, wanted)
     new = _state(kitchen, member)
@@ -260,9 +260,7 @@ def remove(kitchen: Kitchen, member: Member) -> Change:
     member.removed_at = utcnow()
     if login is not None:
         kitchen.db.execute(delete(Session).where(Session.login_id == login.id))
-        kitchen.db.execute(
-            delete(JoinLink).where(JoinLink.login_id == login.id, JoinLink.used_at.is_(None))
-        )
+        kitchen.db.execute(delete(JoinLink).where(JoinLink.login_id == login.id))
     # Nobody is "Who's this?"-picked as them any more.
     kitchen.db.execute(
         update(Session)
@@ -326,9 +324,8 @@ def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tu
             raise last_admin(member)  # pragma: no cover (the admin doing it signs in)
         login.username, login.role = username, role
     kitchen.db.flush()
-    kitchen.db.execute(
-        delete(JoinLink).where(JoinLink.login_id == login.id, JoinLink.used_at.is_(None))
-    )
+    # Every link of this login goes, even one a join has claimed and is still hashing for.
+    kitchen.db.execute(delete(JoinLink).where(JoinLink.login_id == login.id))
     token = secrets.token_urlsafe(32)
     made = utcnow()
     link = JoinLink(
@@ -407,11 +404,14 @@ def claim_link(db: DbSession, link: JoinLink) -> bool:
 
 
 def give_back_link(db: DbSession, link: JoinLink) -> None:
-    """Undo `claim_link` when the password couldn't be set: the link works again."""
+    """Undo `claim_link` when the password couldn't be set: the link works again, but only if
+    it still exists and no newer link was made for that login in the meantime."""
+    link_id, login_id = link.id, link.login_id
     db.rollback()
+    newer = select(JoinLink.id).where(JoinLink.login_id == login_id, JoinLink.id > link_id)
     db.execute(
         update(JoinLink)
-        .where(JoinLink.id == link.id)
+        .where(JoinLink.id == link_id, ~newer.exists())
         .values(used_at=None)
         .execution_options(synchronize_session=False)
     )
@@ -479,7 +479,8 @@ def _undo_change(kitchen: Kitchen, member: Member, data: dict[str, Any]) -> None
             raise _cannot_undo(
                 f"That can’t be undone: there’s someone else called {wanted['name']} now."
             ) from None
-    if wanted.get("role") == MEMBER and admins_left(kitchen, member.id) == 0:
+    goes_shared = wanted.get("shared") is True and now["role"] == ADMIN
+    if (wanted.get("role") == MEMBER or goes_shared) and admins_left(kitchen, member.id) == 0:
         raise _cannot_undo(  # proposed, for cabledrawer
             f"That can’t be undone: {member.name} is the household’s only admin now."
         )

@@ -675,3 +675,77 @@ def test_a_member_can_pick_but_not_switch(kitchen: TestClient) -> None:
     tablet = _tablet(kitchen)
     r = tablet.put(f"{API}/people/ask-whos-this", json={"on": True})
     _problem(r, 403, "admins_only")
+
+
+def test_a_link_claimed_while_a_new_one_is_made_stays_gone_when_the_hash_fails(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    joss = _add(kitchen)
+    old = _join(kitchen, joss, "joss")
+    entered, release = threading.Event(), threading.Event()
+
+    def slow_broken(password: str) -> str:
+        entered.set()
+        release.wait(10)
+        raise RuntimeError("hash failed")
+
+    monkeypatch.setattr("mealwright.api.v1.people.hash_password", slow_broken)
+
+    def go() -> None:
+        with pytest.raises(RuntimeError):
+            _fresh(kitchen).post(f"{API}/join/{old}", json={"password": "a long password!!"})
+
+    thread = threading.Thread(target=go)
+    thread.start()
+    assert entered.wait(10)
+    new = _join(kitchen, joss, "joss")  # while the first join is still hashing
+    release.set()
+    thread.join()
+    monkeypatch.undo()
+    _problem(_fresh(kitchen).get(f"{API}/join/{old}"), 404, "link_gone")
+    assert ok(_fresh(kitchen).get(f"{API}/join/{new}"))["username"] == "joss"
+    with db(kitchen) as session:
+        assert len(session.scalars(select(JoinLink)).all()) == 1
+
+
+def test_giving_a_link_back_needs_the_link_to_exist_and_no_newer_one(kitchen: TestClient) -> None:
+    joss = _add(kitchen)
+    old = _join(kitchen, joss, "joss")
+    with db(kitchen) as session:
+        first = session.scalars(select(JoinLink)).one()
+        first.used_at = utcnow()
+        session.commit()
+        session.add(
+            JoinLink(
+                household_id=first.household_id,
+                login_id=first.login_id,
+                token_hash="x" * 64,
+                created_at=utcnow(),
+                expires_at=utcnow() + timedelta(hours=24),
+            )
+        )
+        session.commit()
+        people.give_back_link(session, first)
+        assert session.scalars(select(JoinLink).where(JoinLink.id == first.id)).one().used_at
+    _problem(_fresh(kitchen).get(f"{API}/join/{old}"), 404, "link_gone")
+
+
+def test_a_shared_login_is_not_the_last_admin(kitchen: TestClient) -> None:
+    tablet = person(kitchen, name="Kitchen tablet", username="tablet")
+    me, tid = _id(kitchen, "Tess"), _id(kitchen, "Kitchen tablet")
+    ok(kitchen.patch(f"{API}/people/{tid}", json={"shared": True, "role": "admin"}))
+    detail = _problem(
+        kitchen.patch(f"{API}/people/{me}", json={"role": "member"}), 409, "last_admin"
+    )
+    assert detail == "Tess is the household’s only admin. Make someone else an admin first."
+    assert _people(tablet)["can_change"] is True  # it can still be an admin, just never the last
+    _problem(kitchen.delete(f"{API}/people/{me}"), 409, "remove_yourself")
+
+
+def test_the_only_admin_cant_be_made_a_shared_login(kitchen: TestClient) -> None:
+    me = _id(kitchen, "Tess")
+    _problem(kitchen.patch(f"{API}/people/{me}", json={"shared": True}), 409, "last_admin")
+    wren = person(kitchen)
+    ok(kitchen.patch(f"{API}/people/{_id(kitchen, 'Wren')}", json={"role": "admin"}))
+    ok(kitchen.patch(f"{API}/people/{me}", json={"shared": True}))
+    assert _people(wren)["can_change"] is True
