@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from test_sso_api import ADMIN_GROUPS, API, PASSWORD, SETUP, _add_admin, browser
 
 from mealwright import outbound, sso, sso_accounts
+from mealwright.models import utcnow
 from mealwright.people import admins_left
 
 
@@ -349,3 +350,57 @@ def test_a_members_single_sign_on_sign_in_does_not_prove_the_setup(
     assert done.status_code == 200 and done.json()["me"]["role"] == "member"
     off = kitchen.put(f"{API}/sso/password-sign-in", json={"on": False})
     assert off.status_code == 409 and off.json()["code"] == "passwords_needed"
+
+
+def _sso_only_admin_with_a_token(
+    kitchen: TestClient, idp: FakeProvider
+) -> tuple[TestClient, TestClient]:
+    """Wren: an admin made by their first single sign-on sign-in (no password), with an API
+    token that works."""
+    from sync_kit import ok
+    from test_sso_api import sign_in
+
+    wren = browser(kitchen)
+    done, _ = sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
+    assert done.status_code == 200 and done.json()["me"]["role"] == "admin"
+    made = ok(wren.post(f"{API}/api-tokens", json={"name": "HA", "scope": "full"}), 201)
+    app = TestClient(kitchen.app, base_url="https://testserver")
+    app.headers["Authorization"] = f"Bearer {made['token']}"
+    assert app.get(f"{API}/me").status_code == 200
+    return wren, app
+
+
+def test_an_admin_the_groups_no_longer_let_in_loses_their_api_tokens(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O2 review r2, finding 1, branch `not_let_in`: refused at sign-in, the tokens stop too
+    (committed before the refusal, which rolls back)."""
+    from test_sso_api import sign_in
+
+    idp = home(kitchen, monkeypatch, "id.example.org", off=False)
+    _, app = _sso_only_admin_with_a_token(kitchen, idp)
+    nobody = {**SETUP, "client_secret": "", "group_roles": [], "anyone_else": "none"}
+    assert kitchen.put(f"{API}/sso/settings", json=nobody).is_success
+    refused, _ = sign_in(browser(kitchen), idp, sub="wren", extra={"groups": []})
+    assert refused.status_code == 400 and refused.json()["code"] == "not_let_in"
+    assert app.get(f"{API}/me").status_code == 401
+
+
+def test_an_admin_taken_out_of_the_household_loses_their_api_tokens_at_their_next_sign_in(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Branch `removed`."""
+    from sqlalchemy import update
+    from test_sso_api import sign_in
+
+    from mealwright.models import Login, Member
+
+    idp = home(kitchen, monkeypatch, "id.example.org", off=False)
+    _, app = _sso_only_admin_with_a_token(kitchen, idp)
+    with cast(Any, kitchen.app).state.sessionmaker() as db:
+        member = db.query(Login).filter(Login.sso_subject == "wren").one().member_id
+        db.execute(update(Member).where(Member.id == member).values(removed_at=utcnow()))
+        db.commit()
+    refused, _ = sign_in(browser(kitchen), idp, sub="wren", extra=ADMIN_GROUPS)
+    assert refused.status_code == 400 and refused.json()["code"] == "removed"
+    assert app.get(f"{API}/me").status_code == 401

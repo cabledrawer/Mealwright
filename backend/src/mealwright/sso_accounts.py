@@ -31,7 +31,7 @@ import re
 import secrets
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, NoReturn
 
 from sqlalchemy import ColumnElement, and_, func, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -216,6 +216,21 @@ def find_login(db: DbSession, identity: Identity) -> Login | None:
     )
 
 
+def _refused_known(db: DbSession, login: Login, row: SsoSettings, code: str) -> NoReturn:
+    """A known login the groups (or the removal) no longer let in: its API tokens are stopped
+    too, and that is committed before the refusal is raised (the caller rolls back on a
+    refusal). The household's last admin who can sign in keeps theirs, as they stay an admin
+    (O2 review r2, finding 1; proposed, for cabledrawer). Every refusal of a known login is here:
+    `removed`, and `not_let_in` (in no mapped group, or the groups no longer name a role)."""
+    if login.role == ADMIN and (
+        other_admins(db, login, not row.password_sign_in) > 0 or not login.password_hash
+    ):
+        api_tokens.stop_for(db, login.id)
+        db.commit()
+        log.info("Single sign-on: %s refused (%s); their API tokens stopped", login.username, code)
+    raise SsoFailed(code)
+
+
 def login_for(db: DbSession, row: SsoSettings, identity: Identity) -> Login:
     """The login this identity signs in as, made on first sign-in if allowed, with its role
     from the groups. Raises SsoFailed. Flushes, doesn't commit."""
@@ -243,9 +258,9 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity) -> Login:
         log.info("Single sign-on: account %s made on first sign-in", login.username)
         return login
     if login.household_id != row.household_id or _removed(db, login):
-        raise SsoFailed("removed")
+        _refused_known(db, login, row, "removed")
     if role is None:
-        raise SsoFailed("not_let_in")
+        _refused_known(db, login, row, "not_let_in")
     if login.role != role:
         if login.role == ADMIN and other_admins(db, login, not row.password_sign_in) == 0:
             log.warning(
