@@ -1115,3 +1115,16 @@ def test_every_module_that_records_changes_has_been_checked_for_names() -> None:
     }
     found.discard("models.py")
     assert found - _RECORDS_CHANGES == set(), found - _RECORDS_CHANGES
+
+
+@pytest.mark.parametrize(
+    "column", ["Change.login_name", "ListTick.login_name", "SyncAction.login_name"]
+)
+def test_a_name_kept_only_by_a_change_tick_or_queued_action_is_removed(column: str) -> None:
+    """Review r2, L: the name a person had when they did a change, a tick or a queued action
+    (kept after a rename) may sit nowhere else; each of the three columns is pinned on its
+    own, with that name in no other column."""
+    scrub = Scrubber(FakeDB({column: ["Quentin Thorne"]}), NO_SERVER, Path("/data"))  # type: ignore[arg-type]
+    line = scrub("Couldn't save for Quentin Thorne (Quentin)")
+    assert "quentin" not in line.lower(), line
+    assert "thorne" not in line.lower(), line
