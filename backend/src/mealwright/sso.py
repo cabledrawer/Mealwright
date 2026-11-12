@@ -29,6 +29,7 @@ Nothing here logs a token, a code, the client secret or a claim from the provide
 """
 
 import base64
+import contextlib
 import hashlib
 import ipaddress
 import json
@@ -377,10 +378,9 @@ def look_up_issuer(gate: OutboundGate, household_id: int, issuer: str, listed: O
         pass
     if own_network.is_localhost(host) or remembered(host) is not None:
         return
-    try:
+    # The name is remembered first; any other failure leaves the memory empty.
+    with contextlib.suppress(SsoFailed):
         _addresses(gate, household_id, host, port, listed, time.monotonic() + TIME_LIMIT)
-    except SsoFailed:
-        pass  # it remembered the name first; anything else leaves the memory empty
 
 
 def _send(
