@@ -10,8 +10,15 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
 from mealwright import auth
-from mealwright.api.v1.account import how_long
-from mealwright.auth import COOKIE, IDLE_TIMEOUT, LONGEST_SIGN_IN, PLAIN_COOKIE, SlowDown, now
+from mealwright.auth import (
+    COOKIE,
+    IDLE_TIMEOUT,
+    LONGEST_SIGN_IN,
+    PLAIN_COOKIE,
+    SlowDown,
+    how_long,
+    now,
+)
 from mealwright.models import Login, Session
 
 ADMIN = {
@@ -32,8 +39,10 @@ def sign_in(client: TestClient, password: str = ADMIN["password"], **extra: obje
 
 
 def cookie_header(client: TestClient, path: str = "/api/v1/session") -> str:
+    """The sign-in cookie's Set-Cookie line (the known-device cookie is set beside it)."""
     response = client.post(path, json={"username": "tess", "password": ADMIN["password"]})
-    return response.headers["set-cookie"]
+    (line,) = [h for h in response.headers.get_list("set-cookie") if h.startswith(f"{COOKIE}=")]
+    return line
 
 
 def db(client: TestClient):  # type: ignore[no-untyped-def]
@@ -409,6 +418,7 @@ def test_a_pause_reads_the_same_for_a_made_up_username(client: TestClient) -> No
 
 def test_one_username_paused_leaves_others_signing_in(client: TestClient) -> None:
     set_up(client)
+    client.cookies.clear()  # a browser that hasn't signed in before (not a known device)
     slow = client.app.state.slow_down  # type: ignore[attr-defined]
     for i in range(10):
         slow.failed(["user:tess", f"addr:192.0.2.{i}"])

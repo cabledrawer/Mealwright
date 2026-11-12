@@ -324,6 +324,18 @@ def test_removing_a_person_keeps_their_history_and_ends_their_sign_in(kitchen: T
     assert shown["who"]["name"] == "Wren"
 
 
+def test_a_removed_persons_right_password_counts_like_a_wrong_one(kitchen: TestClient) -> None:
+    """Signing in as a removed person is counted towards the username's pause, so their old
+    password can't be tried for free (0.9 A1 with A2's counted checks)."""
+    person(kitchen)
+    ok(kitchen.delete(f"{API}/people/{_id(kitchen, 'Wren')}"))
+    stranger = _fresh(kitchen)
+    wren = {"username": "wren", "password": "wren's long password"}
+    for _ in range(5):
+        assert stranger.post(f"{API}/session", json=wren).status_code == 401
+    _problem(stranger.post(f"{API}/session", json=wren), 429, "username_paused")
+
+
 def test_removing_an_admin_while_another_stays(kitchen: TestClient) -> None:
     person(kitchen)
     wren = _id(kitchen, "Wren")

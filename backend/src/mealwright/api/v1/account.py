@@ -17,12 +17,17 @@ from mealwright.auth import (
     NewPassword,
     SameOrigin,
     SlowDown,
+    Tries,
+    address_key,
     check_password,
     client_address,
+    counted_check,
     end_session,
     hash_password,
+    known_device,
     needs_https,
     peek_session,
+    remember_device,
     session_token,
     start_session,
 )
@@ -134,9 +139,9 @@ def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
     # Wrong setup codes are slowed down like wrong passwords, per address (PR A2).
     slow: SlowDown = request.app.state.slow_down
     address = client_address(request)
-    refuse_while_paused(slow, "", address, by_username=False)
-    if not setup_code.matches(request.app.state.setup_code, body.setup_code):
-        slow.failed([f"addr:{address}"])
+    tries = Tries(address=address_key(address))
+    expected = request.app.state.setup_code
+    if not counted_check(slow, tries, lambda: setup_code.matches(expected, body.setup_code)):
         log.warning("Set up refused: wrong setup code from %s", address)  # never the code
         raise Problem(
             status.HTTP_403_FORBIDDEN,
@@ -162,10 +167,10 @@ def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
     except IntegrityError:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Mealwright is already set up.") from None
-    start_session(
-        db, response, request.app.state.settings, login, remember=False, device=_device(request)
-    )
+    settings = request.app.state.settings
+    start_session(db, response, settings, login, remember=False, device=_device(request))
     db.commit()
+    remember_device(request, response, settings, login)
     request.app.state.setup_code = None  # used up
     log.info("Set up: admin account %s created", login.username)
     # Setup signs the admin in, so it gets its own "Signed in" line like every sign-in.
@@ -182,70 +187,42 @@ class SignIn(BaseModel):
     remember: bool = False
 
 
-def how_long(seconds: int) -> str:
-    """The wait in plain words, never shorter than the real one.
-
-    Under a minute it's shown in seconds; from a minute on, in whole minutes, rounded up.
-    """
-    if seconds < 60:
-        return f"{seconds} second{'s' if seconds != 1 else ''}"
-    minutes = -(-seconds // 60)
-    return f"{minutes} minute{'s' if minutes != 1 else ''}"
-
-
-def refuse_while_paused(
-    slow: SlowDown, username: str, address: str, *, by_username: bool = True
-) -> None:
-    """Refuse a try while the username or the address is paused after wrong passwords.
-
-    The username's pause (never more than a minute) is named when it's the one that
-    holds things up: it reads the same for a made-up username as for a real one, so it
-    never tells whether an account exists. Otherwise it's the address's pause. With
-    by_username=False (first-run setup's code), only the address counts.
-    """
-    for_username = slow.wait_seconds([f"user:{username}"]) if by_username else 0
-    for_address = slow.wait_seconds([f"addr:{address}"])
-    wait = max(for_username, for_address)
-    if not wait:
-        return
-    if by_username and for_username >= for_address:
-        problem = Problem(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            "username_paused",
-            f"Too many wrong passwords for {username}. Try again in {how_long(wait)}.",
-        )
-    else:
-        problem = Problem(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            "too_many_tries",
-            f"Too many tries. Wait {how_long(wait)}.",
-        )
-    problem.headers = {"Retry-After": str(wait)}
-    raise problem
-
-
 @router.post("/session")
 def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
     needs_https(request, request.app.state.settings)
     slow: SlowDown = request.app.state.slow_down
     username = _normalise_username(body.username)
     address = client_address(request)
-    keys = [f"user:{username}", f"addr:{address}"]
-    # Not logged: refused tries cost nothing, so logging each one would let anyone fill
-    # the disk. The slow-down is logged once, when it starts or doubles (below).
-    refuse_while_paused(slow, username, address)
     login = db.scalar(select(Login).where(Login.username == username))
+    user_key = f"user:{username}"
+    device = None
+    if login is not None:
+        # A new password (Settings, or reset-admin) lifts the username's pause.
+        slow.password_seen(user_key, login.password_changed_at)
+        # A device that has signed in as this login before skips the username's pause and
+        # has its own instead (PR A2).
+        device = known_device(request, login)
+    tries = Tries(name=username, personal=device or user_key, address=address_key(address))
     # Only a real account's name is logged: a password typed into the username box
-    # must never end up in the log.
+    # must never end up in the log. Refused tries (429) aren't logged: they cost nothing,
+    # so logging each one would let anyone fill the disk. The slow-down is logged once,
+    # when it starts or doubles (below).
     who = login.username if login else "unknown user"
-    # A removed person's login can't sign in (0.9 A1), and is told only what anyone is.
-    if not check_password(login, body.password) or login is None or removed(db, login):
-        slow.failed(keys)
+
+    # A removed person's login can't sign in (0.9 A1): it's told only what anyone is, and the
+    # try is counted like a wrong password.
+    def right() -> bool:
+        return check_password(login, body.password) and login is not None and not removed(db, login)
+
+    if not counted_check(slow, tries, right) or not login:
         log.warning("Sign-in failed for %s from %s", who, address)
-        if wait := slow.wait_seconds(keys):
+        if wait := slow.wait_seconds(tries.keys):
             log.warning("Sign-in slowed down for %s from %s (wait %d s)", who, address, wait)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, WRONG)
-    slow.succeeded(keys[0])
+    slow.succeeded(user_key)
+    if device:
+        slow.succeeded(device)
+    remember_device(request, response, request.app.state.settings, login)
     start_session(
         db,
         response,

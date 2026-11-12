@@ -34,6 +34,7 @@ def set_up_household(client: TestClient) -> None:
     body = {**ADMIN, "password": PASSWORD}
     assert client.post("/api/v1/setup", json=body).status_code == 201
     client.delete("/api/v1/session")
+    client.cookies.clear()  # the guessers' browsers aren't the admin's known device
     with client.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         db.add(
             Login(

@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright.api.v1.account import refuse_while_paused
 from mealwright.auth import (
     MAX_PASSWORD,
     CurrentLogin,
@@ -21,9 +20,11 @@ from mealwright.auth import (
     SameOrigin,
     SignedIn,
     SlowDown,
+    Tries,
     _as_utc,
     check_password,
     client_address,
+    counted_check,
     hash_password,
     now,
 )
@@ -115,16 +116,16 @@ def my_sign_in(signed_in: CurrentLogin, db: Db) -> MySignIn:
 def change_password(
     body: PasswordChange, request: Request, signed_in: CurrentLogin, db: Db
 ) -> MySignIn:
-    """Change your password. Needs the current one; wrong ones count towards the same pause
-    as signing in. Signs out your other devices unless `sign_out_others` is false."""
+    """Change your password. Needs the current one; wrong ones have their own pause for this
+    login, apart from signing in, so guessing at the username can't stop you changing it.
+    Signs out your other devices unless `sign_out_others` is false."""
     login = signed_in.login
     if login.password_hash is None:
         raise Problem(status.HTTP_409_CONFLICT, "no_password", NOTHING_TO_CHANGE)
     slow: SlowDown = request.app.state.slow_down
     address = client_address(request)
-    refuse_while_paused(slow, login.username, address)
-    if not check_password(login, body.current_password):
-        slow.failed([f"user:{login.username}", f"addr:{address}"])
+    tries = Tries(name=login.username, personal=f"change:{login.id}")
+    if not counted_check(slow, tries, lambda: check_password(login, body.current_password)):
         log.warning(
             "Password change refused for %s from %s (wrong password)", login.username, address
         )

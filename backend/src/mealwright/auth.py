@@ -5,19 +5,25 @@
   "Remember this device" keeps it for 30 days; otherwise it ends after 12 hours
   without use, and the browser forgets it when closed. Either way a sign-in lasts at
   most 30 days in total (cabledrawer 19 Oct).
-- Repeated wrong guesses for a username, or from one address, slow sign-in down.
+- Repeated wrong guesses for a username, or from one address, slow sign-in down. Each try
+  is counted before its password is checked. A device that has signed in as someone before
+  (the "known device" cookie) skips that username's pause, so guessing at a username can't
+  keep its owner out (PR A2).
 - Requests that change something must come from Mealwright's own pages (Origin check);
   together with SameSite=Lax cookies this stops other sites acting as you.
 """
 
+import base64
 import hashlib
+import hmac
+import ipaddress
 import logging
 import math
 import secrets
 import threading
 import time
 from collections import defaultdict, deque
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -79,20 +85,39 @@ def _as_utc(moment: datetime) -> datetime:
 
 
 # Argon2 takes 64 MiB and a noticeable moment for each hash, so only a few run at a time
-# (review of v0.6.0). Requests beyond that wait a little for a turn, then get a plain "busy"
-# answer instead of piling up memory until the server falls over.
+# (review of v0.6.0). A few more requests may wait a little for a turn (the waiting room);
+# anyone beyond that, or who waits too long, gets a plain "busy" answer at once, instead of
+# piling up memory or holding every worker thread while a flood of sign-ins queues (PR A2).
 HASHES_AT_ONCE = 2
+WAITING_ROOM = 4
 WAIT_FOR_A_TURN = 5.0  # seconds
 BUSY = "Mealwright is busy. Try again in a few seconds."
 _hash_turns = threading.BoundedSemaphore(HASHES_AT_ONCE)
+_waiting = 0
+_waiting_lock = threading.Lock()
+
+
+def _busy() -> HTTPException:
+    log.warning("Sign-in busy: too many passwords being checked at once")
+    return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, BUSY, headers={"Retry-After": "5"})
 
 
 @contextmanager
 def _hash_turn() -> Iterator[None]:
+    global _waiting
     turns = _hash_turns  # read once: the tests swap it
-    if not turns.acquire(timeout=WAIT_FOR_A_TURN):
-        log.warning("Sign-in busy: too many passwords being checked at once")
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, BUSY, headers={"Retry-After": "5"})
+    if not turns.acquire(blocking=False):
+        with _waiting_lock:
+            if _waiting >= WAITING_ROOM:
+                raise _busy()
+            _waiting += 1
+        try:
+            got_one = turns.acquire(timeout=WAIT_FOR_A_TURN)
+        finally:
+            with _waiting_lock:
+                _waiting -= 1
+        if not got_one:
+            raise _busy()
     try:
         yield
     finally:
@@ -136,12 +161,19 @@ NewPassword = Annotated[str, Field(max_length=MAX_PASSWORD), AfterValidator(_lon
 
 
 class SlowDown:
-    """Counts wrong guesses per username and per address over the last 15 minutes.
+    """Counts wrong guesses per key over the last 15 minutes: per username (`user:`), per
+    address (`addr:`), per known device (`dev:`) and per login changing its password
+    (`change:`).
 
     The first FREE wrong guesses cost nothing. After that, each further guess has to
     wait 30 seconds, doubling each time: up to 15 minutes for an address, but never more
-    than a minute for a username (PR A2), so guesses from many addresses can't lock
-    someone out of their own account. A right password clears the username's count.
+    than a minute for a username, a known device or a password change (PR A2), so guesses
+    from many addresses can't lock someone out of their own account. A right password
+    clears the username's count.
+
+    A try is counted when it starts (`begin`), under the lock, before its password is
+    checked, so a burst of tries at once can't all slip in before the first is counted; a
+    right password, or a busy answer, takes it back (`take_back`).
 
     Kept in memory, not in the database: a restart clears it, which is fine for one
     process on a home server, and nothing about wrong guesses is ever written to disk
@@ -155,10 +187,14 @@ class SlowDown:
     MAX_USERNAME_WAIT = 60.0
 
     def _longest(self, key: str) -> float:
-        return self.MAX_USERNAME_WAIT if key.startswith("user:") else self.MAX_WAIT
+        personal = key.startswith(("user:", "dev:", "change:"))
+        return self.MAX_USERNAME_WAIT if personal else self.MAX_WAIT
 
     def __init__(self) -> None:
         self._failures: dict[str, deque[float]] = defaultdict(deque)
+        # When each real login's password last changed, as last seen at sign-in. Only real
+        # logins are kept (a handful), never made-up usernames.
+        self._passwords: dict[str, object] = {}
         self._lock = threading.Lock()
 
     def _recent(self, key: str, at: float) -> deque[float]:
@@ -173,33 +209,162 @@ class SlowDown:
             del self._failures[key]
         return times
 
+    def _wait(self, key: str, at: float) -> int:
+        times = self._recent(key, at)
+        extra = len(times) - self.FREE
+        if extra < 0:
+            return 0
+        wait: float = min(self.FIRST_WAIT * 2**extra, self._longest(key))
+        return max(0, math.ceil(times[-1] + wait - at))
+
     def wait_seconds(self, keys: list[str], at: float | None = None) -> int:
         """How long until another guess is allowed (0 = now)."""
         at = time.monotonic() if at is None else at
-        longest = 0.0
         with self._lock:
-            for key in keys:
-                times = self._recent(key, at)
-                extra = len(times) - self.FREE
-                if extra >= 0:
-                    wait = min(self.FIRST_WAIT * 2**extra, self._longest(key))
-                    longest = max(longest, times[-1] + wait - at)
-        return max(0, math.ceil(longest))
+            return max((self._wait(key, at) for key in keys), default=0)
+
+    def _count(self, keys: list[str], at: float) -> None:
+        # Forget keys whose newest guess is old, so a name typed once (perhaps a
+        # password in the wrong box) isn't kept in memory past the window.
+        for stale in [k for k, t in self._failures.items() if at - t[-1] > self.WINDOW]:
+            del self._failures[stale]
+        for key in keys:
+            self._recent(key, at)
+            self._failures[key].append(at)
 
     def failed(self, keys: list[str], at: float | None = None) -> None:
         at = time.monotonic() if at is None else at
         with self._lock:
-            # Forget keys whose newest guess is old, so a name typed once (perhaps a
-            # password in the wrong box) isn't kept in memory past the window.
-            for stale in [k for k, t in self._failures.items() if at - t[-1] > self.WINDOW]:
-                del self._failures[stale]
+            self._count(keys, at)
+
+    def begin(
+        self, keys: list[str], at: float | None = None
+    ) -> tuple[float | None, dict[str, int]]:
+        """Start a try: if none of the keys is paused, count it now as a wrong guess and give
+        back its moment (for `take_back`); otherwise count nothing and give back each key's
+        wait. Both in one step under the lock."""
+        at = time.monotonic() if at is None else at
+        with self._lock:
+            waits = {key: self._wait(key, at) for key in keys}
+            if any(waits.values()):
+                return None, waits
+            self._count(keys, at)
+            return at, {}
+
+    def take_back(self, keys: list[str], at: float) -> None:
+        """Un-count a try `begin` counted: the password was right, or it was never checked."""
+        with self._lock:
             for key in keys:
-                self._recent(key, at)
-                self._failures[key].append(at)
+                times = self._failures.get(key)
+                if times is not None and at in times:
+                    times.remove(at)
+                    if not times:
+                        del self._failures[key]
 
     def succeeded(self, key: str) -> None:
         with self._lock:
             self._failures.pop(key, None)
+
+    def password_seen(self, key: str, changed: object) -> None:
+        """A real login's password was last changed at `changed`. If that's not what was seen
+        before, its password has been changed (Settings, or `reset-admin` from another
+        process), so the username's pause is lifted."""
+        with self._lock:
+            before = self._passwords.get(key, changed)
+            self._passwords[key] = changed
+            if before != changed:
+                self._failures.pop(key, None)
+
+
+# --- Counting a password check ------------------------------------------------------------
+
+
+def address_key(address: str) -> str:
+    """The address as the slow-down counts it: an IPv6 address by its /64, the block one home
+    or phone usually gets, so stepping through it doesn't give a guesser new free guesses."""
+    try:
+        ip = ipaddress.ip_address(address)
+    except ValueError:
+        return f"addr:{address}"
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped is not None:
+            return f"addr:{ip.ipv4_mapped}"
+        return f"addr:{ipaddress.ip_network(f'{ip}/64', strict=False)}"
+    return f"addr:{ip}"
+
+
+def how_long(seconds: int) -> str:
+    """The wait in plain words, never shorter than the real one.
+
+    Under a minute it's shown in seconds; from a minute on, in whole minutes, rounded up.
+    """
+    if seconds < 60:
+        return f"{seconds} second{'s' if seconds != 1 else ''}"
+    minutes = -(-seconds // 60)
+    return f"{minutes} minute{'s' if minutes != 1 else ''}"
+
+
+@dataclass(frozen=True)
+class Tries:
+    """What a password check's wrong guesses count towards.
+
+    `personal` is the login's own count (`user:<name>`, `dev:<…>` or `change:<id>`, never
+    paused for more than a minute); its pause is told as "Too many wrong passwords for
+    <name>" and reads the same for a made-up username as for a real one. `address` is the
+    address's count (`address_key`), told as "Too many tries".
+    """
+
+    name: str = ""
+    personal: str | None = None
+    address: str | None = None
+
+    @property
+    def keys(self) -> list[str]:
+        return [key for key in (self.personal, self.address) if key]
+
+
+def _paused(tries: Tries, waits: dict[str, int]) -> Problem:
+    for_personal = waits.get(tries.personal, 0) if tries.personal else 0
+    for_address = waits.get(tries.address, 0) if tries.address else 0
+    wait = max(for_personal, for_address)
+    if tries.personal and for_personal >= for_address:
+        problem = Problem(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "username_paused",
+            f"Too many wrong passwords for {tries.name}. Try again in {how_long(wait)}.",
+        )
+    else:
+        problem = Problem(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "too_many_tries",
+            f"Too many tries. Wait {how_long(wait)}.",
+        )
+    problem.headers = {"Retry-After": str(wait)}
+    return problem
+
+
+def counted_check(slow: SlowDown, tries: Tries, check: Callable[[], bool]) -> bool:
+    """Run one password (or setup code) check under the slow-down; every such check goes
+    through here.
+
+    Refused at once (429) while any of the keys is paused. Otherwise the try is counted
+    first, then `check` runs (Argon2 checks take a hash turn, with its waiting room); a right
+    answer, or a busy one (503), takes the try back. Gives back whether it was right; a wrong
+    one stays counted. Refused tries aren't logged: they cost nothing, and a line each would
+    let anyone fill the disk.
+    """
+    keys = tries.keys
+    at, waits = slow.begin(keys)
+    if at is None:
+        raise _paused(tries, waits)
+    try:
+        right = check()
+    except BaseException:
+        slow.take_back(keys, at)
+        raise
+    if right:
+        slow.take_back(keys, at)
+    return right
 
 
 # --- Sessions ------------------------------------------------------------------------------
@@ -216,6 +381,80 @@ def cookie_name(settings: Settings) -> str:
 def session_token(request: Request) -> str | None:
     """The sign-in token this request carries, under this mode's cookie name only."""
     return request.cookies.get(cookie_name(request.app.state.settings))
+
+
+# --- Known devices (PR A2, security review r1) ---------------------------------------------------
+#
+# A device that has signed in as someone before gets a long-lived "known device" cookie, and
+# skips that username's pause next time: guessing at a username from a few addresses then
+# can't keep its owner out. Its own wrong guesses have their own small pause, and the address
+# limit and the hash turns still apply.
+#
+# Nothing is stored for it. Each entry is "<login id>.<random>.<HMAC>", keyed by the login's
+# own password hash, which only the server knows; so it can't be made up, and every known
+# device is forgotten when the password changes (Settings, or reset-admin). Up to five logins
+# per browser (a shared kitchen tablet). Same rules as the sign-in cookie: HttpOnly, SameSite,
+# and Secure with the `__Host-` prefix in https mode.
+DEVICE_COOKIE = "__Host-mealwright_device"
+PLAIN_DEVICE_COOKIE = "mealwright_device"
+KNOWN_FOR = timedelta(days=365)
+KNOWN_LOGINS = 5
+_LONGEST_DEVICE_COOKIE = 1000  # characters; five entries are about 330
+
+
+def device_cookie_name(settings: Settings) -> str:
+    return PLAIN_DEVICE_COOKIE if settings.allow_plain_http else DEVICE_COOKIE
+
+
+def _device_mac(login: Login, nonce: str) -> str | None:
+    if not login.password_hash:
+        return None
+    message = f"mealwright known device {login.id} {nonce}".encode()
+    digest = hmac.new(login.password_hash.encode(), message, hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+
+
+def _device_entries(request: Request) -> list[tuple[str, str, str]]:
+    value = request.cookies.get(device_cookie_name(request.app.state.settings), "")
+    if len(value) > _LONGEST_DEVICE_COOKIE:
+        return []
+    entries = []
+    for entry in value.split("~")[:KNOWN_LOGINS]:
+        parts = entry.split(".")
+        if len(parts) == 3 and all(parts):
+            entries.append((parts[0], parts[1], parts[2]))
+    return entries
+
+
+def known_device(request: Request, login: Login) -> str | None:
+    """This device's own slow-down key if it has signed in as `login` since the password was
+    last set, else None."""
+    for login_id, nonce, mac in _device_entries(request):
+        if login_id != str(login.id):
+            continue
+        want = _device_mac(login, nonce)
+        if want is not None and hmac.compare_digest(want.encode(), mac.encode()):
+            return f"dev:{login.id}:{nonce}"
+    return None
+
+
+def remember_device(request: Request, response: Response, settings: Settings, login: Login) -> None:
+    """After a right password: this device is known for `login` (a new entry each time)."""
+    nonce = secrets.token_urlsafe(16)
+    mac = _device_mac(login, nonce)
+    if mac is None:
+        return
+    others = [e for e in _device_entries(request) if e[0] != str(login.id)]
+    entries = [(str(login.id), nonce, mac), *others][:KNOWN_LOGINS]
+    response.set_cookie(
+        device_cookie_name(settings),
+        "~".join(".".join(entry) for entry in entries),
+        max_age=int(KNOWN_FOR.total_seconds()),
+        httponly=True,
+        secure=not settings.allow_plain_http,
+        samesite="lax",
+        path="/",
+    )
 
 
 def start_session(
