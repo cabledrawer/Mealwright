@@ -27,16 +27,17 @@ import threading
 import time
 from collections import defaultdict, deque
 from collections.abc import AsyncIterator, Callable, Iterator
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 from urllib.parse import urlsplit
 
+import anyio
+import anyio.to_thread
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends, HTTPException, Request, Response, status
-from fastapi.concurrency import contextmanager_in_threadpool
 from pydantic import AfterValidator, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
@@ -606,11 +607,6 @@ def peek_session(db: DbSession, token: str | None) -> SignedIn | None:
 # --- Request helpers (FastAPI dependencies) -------------------------------------------------
 
 
-def _session(app: Any) -> AbstractContextManager[DbSession]:
-    session: DbSession = app.state.sessionmaker()
-    return session
-
-
 def _turns(app: Any) -> asyncio.Semaphore:
     """The app's `REQUESTS_AT_ONCE` places, made when first asked for. One set for each event
     loop: the server has one loop; the tests sometimes run two clients on one app."""
@@ -633,10 +629,17 @@ async def get_db(request: Request) -> AsyncIterator[DbSession]:
     up, as soon as the answer is built and before it is sent, so a slow reader or a photo
     being sent holds neither.
     """
-    # The session is opened and closed in a thread, as before; the closing thread is never
-    # one of the 40, which may all be busy (FastAPI's own helper sees to that).
-    async with _turns(request.app), contextmanager_in_threadpool(_session(request.app)) as db:
-        yield db
+    async with _turns(request.app):
+        db: DbSession = request.app.state.sessionmaker()  # opens nothing yet
+        try:
+            yield db
+        finally:
+            # Closing gives the connection back. Even when the request is cancelled (the
+            # shield), and before the place is given up, so no place is ever free while its
+            # connection is still out. In a thread, since on Postgres closing talks to the
+            # server, and one of its own, never one of the 40, which may all be busy.
+            with anyio.CancelScope(shield=True):
+                await anyio.to_thread.run_sync(db.close, limiter=anyio.CapacityLimiter(1))
 
 
 Db = Annotated[DbSession, Depends(get_db, scope="function")]
