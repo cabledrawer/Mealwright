@@ -5,6 +5,7 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import { playwright } from '@vitest/browser-playwright';
 import { defineConfig } from 'vitest/config';
 import { announcerWithoutInlineStyle } from './src/build/announcer.ts';
+import { BUNDLED_PACKAGES_FILE, bundledPackages } from './src/build/bundledPackages.ts';
 
 /**
  * The SvelteKit and Svelte options (SvelteKit 3 keeps them here, not in svelte.config.js).
@@ -42,7 +43,11 @@ function appVersion(): string {
 
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(appVersion()) },
-  plugins: [announcerWithoutInlineStyle(), sveltekit(svelteOptions)],
+  plugins: [
+    announcerWithoutInlineStyle(),
+    sveltekit(svelteOptions),
+    bundledPackages(BUNDLED_PACKAGES_FILE)
+  ],
   build: {
     // Fonts stay as separate files instead of being inlined into the CSS.
     assetsInlineLimit: 0

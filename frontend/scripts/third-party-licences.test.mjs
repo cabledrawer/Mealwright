@@ -5,17 +5,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build, RUNTIME } from './third-party-licences.mjs';
+import { build, bundledNames } from './third-party-licences.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const own = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+const bundled = bundledNames(ROOT); // needs the build to have run, as ./check does
 const text = build(ROOT);
 
 test('lists every production dependency with its version and licence', () => {
   for (const name of Object.keys(own.dependencies)) {
     assert.match(text, new RegExp(`^${name.replace(/[/.]/g, '\\$&')} \\d+\\.\\d+`, 'm'), name);
   }
-  for (const name of RUNTIME) assert.ok(text.includes(`\n${name} `), name);
+  for (const name of bundled) assert.ok(text.includes(`\n${name} `), `bundled ${name}`);
 });
 
 test('lists the bundled fonts under their OFL-1.1 licence, with its text', () => {
@@ -35,4 +36,19 @@ test('every entry carries a licence text or says it has none', () => {
   const entries = text.split('='.repeat(78)).slice(1);
   assert.ok(entries.length >= Object.keys(own.dependencies).length);
   for (const entry of entries) assert.ok(entry.trim().split('\n').length >= 3, entry.slice(0, 60));
+});
+
+test('every package in the bundle has an entry: the web app carries at least its runtime', () => {
+  for (const name of ['svelte', '@sveltejs/kit', 'clsx', 'devalue']) {
+    assert.ok(bundled.includes(name), `${name} should be in the bundle`);
+  }
+});
+
+test('a bundled package with no entry stops the build', () => {
+  assert.throws(() => build(ROOT, [...bundled, 'no-such-package-here']));
+  const without = build(
+    ROOT,
+    bundled.filter((name) => name !== 'clsx')
+  );
+  assert.ok(!without.includes('\nclsx '), 'sanity: the entry comes from the list');
 });

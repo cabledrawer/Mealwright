@@ -7,8 +7,10 @@
 //   node scripts/third-party-licences.mjs [package folder] [build folder]
 //
 // What is listed: every production dependency in package.json (the bundled fonts and idb), plus
-// the runtime libraries the build bundles into the app's own code (RUNTIME below). Each gets its
-// name, version, the licence its package.json names, and the text of its licence file.
+// every package whose code is in the browser bundle, as the build's own plugin recorded it
+// (src/build/bundledPackages.ts, .svelte-kit/bundled-packages.json; #207 review M1). Each gets
+// its name, version, the licence its package.json names, and the text of its licence file. A
+// package with no licence named, or no list from the build, stops the build.
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,8 +19,16 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(process.argv[2] ?? join(HERE, '..'));
 const BUILD = resolve(process.argv[3] ?? join(ROOT, 'build'));
 
-/** Libraries that are dev dependencies to npm but whose code is bundled into the app. */
-export const RUNTIME = ['svelte', '@sveltejs/kit'];
+export const BUNDLED_LIST = join('.svelte-kit', 'bundled-packages.json');
+
+/** The packages the build put in the browser bundle (it fails if the build left no list). */
+export function bundledNames(root) {
+  const file = join(root, BUNDLED_LIST);
+  if (!existsSync(file)) throw new Error(`No list of bundled packages at ${file}: run the build.`);
+  const names = JSON.parse(readFileSync(file, 'utf8'));
+  if (!Array.isArray(names) || names.length === 0) throw new Error(`${file} lists no packages.`);
+  return names;
+}
 
 const LICENCE_FILE = /^(licen[cs]e|copying|ofl)([-._].*)?(\.txt|\.md)?$/i;
 
@@ -38,9 +48,9 @@ export function noticeFor(root, name) {
   return { name, version: info.version, licence, text };
 }
 
-export function build(root = ROOT) {
+export function build(root = ROOT, bundled = bundledNames(root)) {
   const own = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-  const names = [...Object.keys(own.dependencies ?? {}), ...RUNTIME].sort();
+  const names = [...new Set([...Object.keys(own.dependencies ?? {}), ...bundled])].sort();
   const parts = [
     'Mealwright carries these open-source libraries and fonts in its web app.',
     'Each is listed with its version, its licence and its licence text.',

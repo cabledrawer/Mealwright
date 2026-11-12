@@ -71,7 +71,7 @@ export const SECTION_ICONS: Record<
   },
   // A flag (proposed, for cabledrawer).
   report: { tone: 'quiet', paths: ['M5 21V4', 'M5 4h12l-2.5 4L17 12H5'] },
-  // A tick in a circle (cabledrawer 12 Nov: the Finish setup row).
+  // A tick in a circle (proposed, for cabledrawer).
   finish: { tone: 'kitchen', paths: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M8 12.5l3 3 5-6'] }
 };
 
