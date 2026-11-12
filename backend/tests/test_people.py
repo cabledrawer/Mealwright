@@ -8,7 +8,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import API, db, ok, person
 
-from mealwright.models import JoinLink, Login, Member, Session
+from mealwright import people
+from mealwright.api.v1.context import Kitchen
+from mealwright.models import Household, JoinLink, Login, Member, Session
 
 
 def _people(client: TestClient) -> dict[str, Any]:
@@ -208,6 +210,73 @@ def test_the_only_admin_cant_be_made_a_member_until_there_is_another(kitchen: Te
     # Undoing Wren's promotion would leave no admin: refused, nothing changed.
     r = wren_client.post(f"{API}/changes/{promoted['id']}/undo")
     assert "only admin" in _problem(r, 409, "cannot_undo")
+
+
+def _pending_admin(kitchen: TestClient, name: str = "Joss") -> int:
+    """A person made an admin whose sign-in link isn't used yet: they can't sign in."""
+    member_id = _add(kitchen, name)
+    _join(kitchen, member_id, name.lower(), role="admin")
+    return member_id
+
+
+def test_only_admins_who_can_sign_in_count(kitchen: TestClient) -> None:
+    """Review r1: an admin with no password yet, or removed, is no admin anyone can use."""
+    _pending_admin(kitchen)
+    person(kitchen)
+    wren = _id(kitchen, "Wren")
+    ok(kitchen.patch(f"{API}/people/{wren}", json={"role": "admin"}))
+    ok(kitchen.delete(f"{API}/people/{wren}"))
+    with db(kitchen) as session:
+        me = session.scalars(select(Login).where(Login.username == "tess")).one()
+        household = session.get(Household, me.household_id)
+        assert household is not None
+        here = Kitchen(db=session, login=me, household=household, idempotency_key=None, request="")
+        assert people.admins_left(here) == 1
+        assert people.admins_left(here, me.member_id) == 0
+
+
+def test_an_admin_cant_step_down_when_the_other_admin_cant_sign_in_yet(
+    kitchen: TestClient,
+) -> None:
+    _pending_admin(kitchen)
+    me = _id(kitchen, "Tess")
+    _problem(kitchen.patch(f"{API}/people/{me}", json={"role": "member"}), 409, "last_admin")
+    assert _people(kitchen)["can_change"] is True
+
+
+def test_undo_of_a_promotion_is_refused_when_the_other_admin_cant_sign_in_yet(
+    kitchen: TestClient,
+) -> None:
+    wren_client = person(kitchen)
+    me, wren = _id(kitchen, "Tess"), _id(kitchen, "Wren")
+    ok(kitchen.patch(f"{API}/people/{wren}", json={"role": "admin"}))
+    promoted = _newest(kitchen)
+    _pending_admin(kitchen)
+    ok(wren_client.patch(f"{API}/people/{me}", json={"role": "member"}))
+    r = wren_client.post(f"{API}/changes/{promoted['id']}/undo")
+    assert "only admin" in _problem(r, 409, "cannot_undo")
+    assert _people(wren_client)["can_change"] is True
+
+
+def test_removing_an_admin_counts_only_admins_who_can_sign_in(kitchen: TestClient) -> None:
+    """Whoever removes is an admin who signs in, so removing another admin always leaves one;
+    a pending admin is never needed for that."""
+    person(kitchen)
+    wren = _id(kitchen, "Wren")
+    ok(kitchen.patch(f"{API}/people/{wren}", json={"role": "admin"}))
+    joss = _pending_admin(kitchen)
+    ok(kitchen.delete(f"{API}/people/{wren}"))
+    ok(kitchen.delete(f"{API}/people/{joss}"))
+    assert [p["name"] for p in _people(kitchen)["people"]] == ["Tess"]
+
+
+def test_a_pending_admins_new_link_can_make_them_a_member(kitchen: TestClient) -> None:
+    joss = _pending_admin(kitchen)
+    _join(kitchen, joss, "joss", role="member")
+    with db(kitchen) as session:
+        assert session.scalars(select(Login.role).where(Login.username == "joss")).one() == (
+            "member"
+        )
 
 
 def test_an_admin_cant_remove_themselves(kitchen: TestClient) -> None:

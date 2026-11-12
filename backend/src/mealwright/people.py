@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Any
 
 from fastapi import status
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import ColumnElement, and_, delete, func, select, update
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.api.v1.context import Kitchen
@@ -104,17 +104,24 @@ def login_of(kitchen: Kitchen, member: Member) -> Login | None:
     return kitchen.db.scalar(select(Login).where(Login.member_id == member.id))
 
 
+def can_sign_in() -> ColumnElement[bool]:
+    """A login (joined to its person) that can sign in: it has a password and its person isn't
+    removed. Single sign-on (0.9 O1) will add "or has a single-sign-on identity" here."""
+    return and_(
+        Login.password_hash.is_not(None),
+        Login.password_hash != "",
+        Member.removed_at.is_(None),
+    )
+
+
 def admins_left(kitchen: Kitchen, apart_from: int | None = None) -> int:
-    """How many admins the household has who haven't been removed, apart from this person."""
+    """How many admins the household has who can sign in, apart from this person. An admin
+    whose sign-in link isn't used yet doesn't count: they can't sign in to do admin things."""
     query = (
         select(func.count())
         .select_from(Login)
         .join(Member, Member.id == Login.member_id)
-        .where(
-            Login.household_id == kitchen.household_id,
-            Login.role == ADMIN,
-            Member.removed_at.is_(None),
-        )
+        .where(Login.household_id == kitchen.household_id, Login.role == ADMIN, can_sign_in())
     )
     if apart_from is not None:
         query = query.where(Member.id != apart_from)
@@ -316,9 +323,7 @@ def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tu
         kitchen.db.add(login)
     else:
         if role == MEMBER and login.role == ADMIN and admins_left(kitchen, member.id) == 0:
-            raise last_admin(
-                member
-            )  # pragma: no cover (an admin without a password signs in no way)
+            raise last_admin(member)  # pragma: no cover (the admin doing it signs in)
         login.username, login.role = username, role
     kitchen.db.flush()
     kitchen.db.execute(
