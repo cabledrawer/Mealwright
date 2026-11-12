@@ -73,7 +73,7 @@ def test_a_recipe_renamed_without_a_key_is_removed_by_its_old_name(
 import re  # noqa: E402
 import uuid  # noqa: E402
 from datetime import UTC, datetime  # noqa: E402
-from typing import Any  # noqa: E402
+from typing import Any, cast  # noqa: E402
 
 import pytest  # noqa: E402
 from sqlalchemy import (  # noqa: E402
@@ -82,6 +82,7 @@ from sqlalchemy import (  # noqa: E402
     DateTime,
     Integer,
     String,
+    Table,
     create_engine,
     delete,
     inspect,
@@ -190,6 +191,50 @@ def test_a_name_that_goes_in_a_bulk_delete_or_update_is_kept(
     raw.execute(delete(cls).where(getattr(cls, key) == "Delta"))
     raw.commit()
     assert _kept(raw, "Delta") == [kind]  # a bulk delete
+
+
+def test_a_bulk_update_by_key_list_keeps_the_old_names(raw: Session) -> None:
+    """`execute(update(Model), [{"id": 1, "name": ...}])` (an ORM bulk update by key) keeps the
+    old names, one per row in the list (review r5, L1)."""
+    one = _filled(models.Shop, household_id=1, name="Mercer & Sons")
+    two = _filled(models.Shop, household_id=1, name="Ottoline's")
+    raw.add_all([one, two])
+    raw.commit()
+    ids = (one.id, two.id)
+    raw.execute(update(models.Shop), [{"id": ids[0], "name": "X1"}, {"id": ids[1], "name": "X2"}])
+    raw.commit()
+    assert _kept(raw, "Mercer & Sons") == ["shop"]
+    assert _kept(raw, "Ottoline's") == ["shop"]
+
+
+def test_a_bulk_statement_on_a_bare_table_keeps_the_names(raw: Session) -> None:
+    """`delete(Model.__table__)` and `update(Model.__table__)` are kept as the model's are."""
+    raw.add(_filled(models.Shop, household_id=1, name="Mercer & Sons"))
+    raw.add(_filled(models.Shop, household_id=1, name="Ottoline's"))
+    raw.commit()
+    table = cast(Table, models.Shop.__table__)
+    raw.execute(update(table).where(table.c.name == "Mercer & Sons").values(name="Y"))
+    raw.execute(delete(table).where(table.c.name == "Ottoline's"))
+    raw.commit()
+    assert _kept(raw, "Mercer & Sons") == ["shop"]
+    assert _kept(raw, "Ottoline's") == ["shop"]
+
+
+def test_the_hook_is_registered_by_importing_the_database_module() -> None:
+    """A process that never imports former_names itself still has the hook (review r5, L1)."""
+    import subprocess
+    import sys
+
+    code = (
+        "import sys\n"
+        "import mealwright.db\n"
+        "from sqlalchemy import event\n"
+        "from sqlalchemy.orm import Session\n"
+        "assert 'mealwright.former_names' in sys.modules\n"
+        "assert event.contains(Session, 'do_orm_execute',"
+        " sys.modules['mealwright.former_names']._keep_bulk)\n"
+    )
+    subprocess.run([sys.executable, "-I", "-c", code], check=True)  # noqa: S603
 
 
 def test_a_bulk_update_of_something_else_keeps_no_name(raw: Session) -> None:
@@ -334,6 +379,66 @@ def test_every_bulk_statement_on_a_name_table_goes_through_the_session() -> None
             continue
         text_ = path.read_text()
         assert "connection().execute(delete" not in text_ and "conn.execute(delete" not in text_
+    _assert_no_unhooked_write_forms(root)
+
+
+def _assert_no_unhooked_write_forms(root: Any) -> None:
+    """No `text()` INSERT/UPDATE/DELETE, no `.connection().execute(`, and no
+    `execute(update(X), [` against a name table anywhere in the code (review r5, L1)."""
+    import ast
+
+    tables = {
+        mapper.local_table.name  # type: ignore[attr-defined]
+        for mapper in Base.registry.mappers
+        if former_names._reaches(mapper.local_table.name)  # type: ignore[attr-defined]
+    }
+    for path in root.rglob("*.py"):
+        if "migrations" in path.parts or path.name == "former_names.py":
+            continue
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if isinstance(func, ast.Name) and func.id == "text" and node.args:
+                sql = ast.unparse(node.args[0])
+                if re.search(r"\b(insert|update|delete)\b", sql, re.I):
+                    assert not any(re.search(rf"\b{t}\b", sql) for t in tables), (path.name, sql)
+            if isinstance(func, ast.Attribute) and func.attr == "execute":
+                owner = func.value
+                assert not (
+                    isinstance(owner, ast.Call)
+                    and isinstance(owner.func, ast.Attribute)
+                    and owner.func.attr == "connection"
+                ), f"{path.name}: .connection().execute( bypasses the hook"
+                first = node.args[0] if node.args else None
+                if (
+                    len(node.args) >= 2
+                    and isinstance(first, ast.Call)
+                    and isinstance(first.func, ast.Name)
+                    and first.func.id in ("update", "delete", "insert")
+                    and first.args
+                    and isinstance(first.args[0], ast.Name)
+                    and hasattr(models, first.args[0].id)
+                ):
+                    table = getattr(models, first.args[0].id).__table__.name
+                    assert not former_names._reaches(table), (path.name, ast.unparse(node))
+
+
+def test_the_guard_catches_the_write_forms_it_names(tmp_path: Any) -> None:
+    """The guard itself fails on each form (it is not vacuous)."""
+    forms = [
+        'db.execute(text("UPDATE shop SET name = 1"))',
+        "db.connection().execute(x)",
+        "db.execute(update(Shop), [{'id': 1}])",
+    ]
+    for i, form in enumerate(forms):
+        folder = tmp_path / str(i)
+        folder.mkdir()
+        (folder / "m.py").write_text(
+            "from sqlalchemy import text, update\nfrom mealwright.models import Shop\n" + form
+        )
+        with pytest.raises(AssertionError):
+            _assert_no_unhooked_write_forms(folder)
 
 
 # --- Round 5: the r4 Lows ------------------------------------------------------------------------

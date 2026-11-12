@@ -277,30 +277,60 @@ def _keep_changed_and_deleted(session: Session, flush_context: object, instances
 
 @event.listens_for(Session, "do_orm_execute")
 def _keep_bulk(state: ORMExecuteState) -> None:
-    """A bulk `delete()` or `update()` of rows that hold a name (and of rows whose children do)."""
+    """A bulk `delete()` or `update()` of rows that hold a name (and of rows whose children do):
+    on a model or on its bare table, with a WHERE or, for an update, a list of rows by key."""
     if not (state.is_delete or state.is_update):
         return
-    try:
-        cls = state.statement.entity_description.get("entity")  # type: ignore[attr-defined]
-    except Exception:
-        return
-    table = getattr(cls, "__table__", None)
-    if table is None or cls is models.Household or not _reaches(table.name):
-        return
     statement: Any = state.statement
-    criterion = statement.whereclause
-    if criterion is None:
-        criterion = true()
+    table = getattr(statement, "table", None)
+    if not isinstance(table, Table) or not _reaches(table.name):
+        return
+    cls = next(
+        (
+            m.class_
+            for m in Base.registry.mappers
+            if getattr(m.local_table, "name", None) == table.name
+        ),
+        None,
+    )
+    if cls is models.Household or table.name == models.Household.__tablename__:
+        return
     session = state.session
     connection = session.connection()
+    parameters = state.parameters
+    setting: set[str] | None
+    if isinstance(parameters, list | tuple) and parameters:
+        # `execute(update(X), [{"id": 1, "name": ...}, ...])`: the rows are picked by key.
+        if cls is None:
+            raise RuntimeError(f"a bulk update by key on {table.name} can't keep its names")
+        keys = [column.key for column in inspect(cls).primary_key]
+        picked = []
+        for row in parameters:
+            if not all(key in row for key in keys):
+                raise RuntimeError(f"a bulk update on {table.name} needs every row's key")
+            picked.append(tuple(row[key] for key in keys))
+        columns = list(inspect(cls).primary_key)
+        criterion: ColumnElement[bool] = (
+            columns[0].in_([k[0] for k in picked])
+            if len(columns) == 1
+            else tuple_(*columns).in_(picked)
+        )
+        setting = {key for row in parameters for key in row}
+    else:
+        criterion = statement.whereclause
+        if criterion is None:
+            criterion = true()
+        values = getattr(statement, "_values", None) or {}
+        setting = {getattr(key, "key", key) for key in values}
     rows: list[Row] = []
-    fields = _columns().get(cls)
-    if fields and state.is_update:
-        # Only what the statement sets (a bulk update of anything else keeps no name).
-        setting = {getattr(key, "key", key) for key in (statement._values or {})}
-        if not any(key in setting for key, _ in fields):
-            fields = None
-    if fields:
+    fields = _columns().get(cls) if cls is not None else None
+    if fields is None and table.name in _name_tables():
+        fields = _columns().get(_name_tables()[table.name])
+        cls = _name_tables()[table.name]
+    # Only what the statement sets (a bulk update of anything else keeps no name).
+    if fields and state.is_update and not any(key in setting for key, _ in fields):
+        fields = None
+    if fields and cls is not None:
         rows.extend(_read(connection, cls, criterion))
     if state.is_delete:
         rows.extend(_gather(connection, table, criterion))

@@ -84,3 +84,8 @@ def make_sessionmaker(engine: Engine, photos: Path | None = None) -> sessionmake
 def session_scope(factory: sessionmaker[Session]) -> Iterator[Session]:
     with factory() as session:
         yield session
+
+
+# The session hook that keeps old names (problem reports scrub them): imported here so that any
+# process using the database has it registered. Last, because it imports `Base` from this file.
+from mealwright import former_names  # noqa: E402,F401
