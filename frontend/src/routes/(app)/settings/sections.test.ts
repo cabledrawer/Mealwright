@@ -106,7 +106,11 @@ describe('the section list', () => {
       'About'
     ]);
     // Household, Your data and About are all here now: nothing is left to come in 0.9.
-    expect(sections().getByText(/comes? in 0\.9\./).elements()).toHaveLength(0);
+    expect(
+      sections()
+        .getByText(/comes? in 0\.9\./)
+        .elements()
+    ).toHaveLength(0);
   });
 
   it('goes to a section, and marks it as the current one', async () => {
