@@ -2260,6 +2260,7 @@ def test_members_migration_going_back_keeps_removed_people_out_and_undo_names_th
         )
         assert forward["steps"][0]["member_id"] == 70
         assert forward["steps"][1]["member_ids"] == [70, 1]
-        assert connection.exec_driver_sql(
-            "SELECT name FROM member WHERE id = 70"
-        ).scalar_one() == "Wren"
+        assert (
+            connection.exec_driver_sql("SELECT name FROM member WHERE id = 70").scalar_one()
+            == "Wren"
+        )

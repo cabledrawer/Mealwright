@@ -68,13 +68,14 @@ def _rename(value: Any, forward: bool, login_of: dict[int, int] | None = None) -
     pairs = [(old, new) if forward else (new, old) for old, new in _TUB_KEYS]
     if value.get("op") == "eaters":
         pairs.append(("login_ids", "member_ids") if forward else ("member_ids", "login_ids"))
-    names = dict(pairs)
+    names: dict[str, str] = dict(pairs)
     renamed: dict[str, Any] = {}
     for key, item in value.items():
+        new_key = str(names.get(key, key))
         if key in names and login_of is not None:
-            renamed[names[key]] = _logins_of(item, login_of)
+            renamed[new_key] = _logins_of(item, login_of)
         else:
-            renamed[names.get(key, key)] = _rename(item, forward, login_of)
+            renamed[new_key] = _rename(item, forward, login_of)
     return renamed
 
 
