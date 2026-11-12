@@ -99,13 +99,16 @@
 
   /** The tubs earlier recipes of the session put in this meal: "Dal Tadka · Tubs 2–3 · already placed". */
   function takenBy(day: string, slotId: number): string[] {
-    return (ahead?.before ?? [])
-      .map((e) => ({
-        name: e.name,
-        numbers: e.tubs.filter((t) => t.date === day && t.slot_id === slotId).map((t) => t.number)
-      }))
-      .filter((e) => e.numbers.length > 0)
-      .map((e) => `${e.name} · ${tubNumbers(e.numbers)} · already placed`);
+    return (
+      (ahead?.before ?? [])
+        .map((e) => ({
+          name: e.name,
+          numbers: e.tubs.filter((t) => t.date === day && t.slot_id === slotId).map((t) => t.number)
+        }))
+        .filter((e) => e.numbers.length > 0)
+        // "already placed" is proposed, for cabledrawer (F229).
+        .map((e) => `${e.name} · ${tubNumbers(e.numbers)} · already placed`)
+    );
   }
 
   function put(day: string, slotId: number) {
