@@ -166,13 +166,14 @@
         <span class="val">{LICENCE_VALUE}</span>
       </div>
       {#if info}
-        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the source is another site: the person's own click, no request from the app -->
+        <!-- eslint-disable svelte/no-navigation-without-resolve -- the source is another site: the person's own click, no request from the app -->
         <a
           class="row"
           href={sourceLink(info.releases_page)}
           target="_blank"
           rel="noopener noreferrer"
         >
+          <!-- eslint-enable svelte/no-navigation-without-resolve -->
           <span class="lbl">{SOURCE_LABEL}<small>{SOURCE_DETAIL}</small></span>
           <span class="chev"><Icon name="back" size={18} stroke={2} /></span>
         </a>
