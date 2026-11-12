@@ -24,6 +24,8 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 - **Test tidy (L1d).** The Batch cook test that checks an Optional step doesn't change the schedule's basis uses a real hands value instead of a type ignore.
 
+- **Import, "or more" endings (L1d).** "1 tsp salt or more-to taste" (no space before the dash) no longer offers an ingredient called "more": it reads as salt with "or more, to taste" in the note. "1 tbsp oil + more for frying" (also "+ extra", "plus more") is one line, oil, with "+ more for frying" in the note, instead of a second ingredient "more".
+
 ## [0.9.0-beta.1] - 2026-11-12
 
 The first 0.9.0 test version (alpha.1 was not released; its changes are here too, under "People and roles (0.9 A1)" and "Security (0.9 A2, sign-in hardening)"): the household's people and their roles (A1) and harder sign-in (A2), plus Settings in the spec's order and Licences and credits (U1), onboarding and "Amounts shown" (U2), backups, export, restore and Delete everything (D1), a hardened data folder and compose example (D2), the update check and About's update parts (X1), Report a problem (X2), the install guide and proxy examples (M1), single sign-on (O1), API tokens (O2), the leaving-a-page fixes (T1), the pool fix, and Report a problem's old names. Several lines are marked "proposed, for cabledrawer": they are words or rules I chose that still need your yes.

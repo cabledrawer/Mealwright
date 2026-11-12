@@ -552,6 +552,9 @@ def _second_measure(text: str, start: int) -> _Measure | None:
 
 
 _PLUS_AMOUNT = re.compile(r"\s*(?:\+|plus\b)\s*", re.IGNORECASE)
+# "oil + more for frying", "oil plus extra": a spaced "+" or "plus" that only adds more of the
+# line's own ingredient (the words after it are tested with `_is_amount_talk`).
+_PLUS_TALK = re.compile(r"\s+(?:\+|plus)\s+", re.IGNORECASE)
 _OR_MORE = re.compile(
     r"\s*,?\s*or\s+(?:(?:a\s+(?:little|bit)\s+)?(?:more|less)|fewer)\b", re.IGNORECASE
 )
@@ -887,7 +890,14 @@ def _is_amount_talk(side: str) -> bool:
     if not rest:
         return True
     if rest[0] in "-\u2013\u2014":  # a dash after a space starts a note; "extra-virgin" doesn't
-        return rest != after
+        if rest != after:
+            return True
+        # "or more-to taste": no space, but "more" and "less" are never the start of a
+        # hyphenated name, so a link word (or nothing) after the dash is a note too.
+        if found.group(0).lower() not in {"more", "less", "fewer"}:
+            return False
+        tail = re.match(r"[^\W\d_]+", rest[1:].lstrip())
+        return tail is None or tail.group(0).lower() in _TALK_LINK
     if not rest[0].isalnum():  # "or more.", "or more, as needed", "or more (optional)"
         return True
     first = re.match(r"[^\W\d_]+", rest)
@@ -1060,6 +1070,14 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
     notes: list[str] = []
 
     notes.extend(note for note in (second_note, plus_note, or_more) if note)
+    # "1 tbsp oil + more for frying": what the "+" adds is more of this ingredient, so it is a
+    # note and the name stays "oil" (L1d).
+    plus_more = _PLUS_TALK.search(rest)
+    if plus_more is not None:
+        tail, _, after_tail = rest[plus_more.end() :].partition(",")
+        if _is_amount_talk(tail.strip()):
+            notes.append(f"{rest[plus_more.start() : plus_more.end()].strip()} {tail.strip()}")
+            rest = rest[: plus_more.start()] + ("," + after_tail if after_tail else "")
     rest, inside = _brackets(rest)
     # "((optional))": a bracket that holds only another bracket is that bracket (one pair only).
     inside = [_unwrapped(part) for part in inside]
@@ -1344,7 +1362,12 @@ def split_line(text: str) -> list[str]:
     if not work or len(work) > MAX_LINE_CHARS:
         return [text]
     plus = _PLUS.split(work)
-    if 1 < len(plus) <= 3 and all(_short_side(side) for side in plus):
+    if (
+        1 < len(plus) <= 3
+        and all(_short_side(side) for side in plus)
+        # "1 tbsp oil + more for frying" is one line: the "+ more" is a note, not an ingredient.
+        and not any(_is_amount_talk(side.strip()) for side in plus[1:])
+    ):
         return [side.strip() for side in plus]
     ending = _TASTE_END.search(work)
     if ending is not None:

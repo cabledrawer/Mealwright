@@ -348,6 +348,39 @@ def test_i4_an_ending_about_the_amount_is_a_note_and_not_another_ingredient(
     assert line.name.split()[0] not in ("more", "less", "so", "as", "enough", "according")
 
 
+# L1d: "or more" written with no space before a dash, and "+ more" (an addition of the same
+# ingredient) are notes; neither starts another ingredient called "more".
+@pytest.mark.parametrize(
+    ("text", "note"),
+    [
+        ("1 tsp salt or more-to taste", "or more, to taste"),
+        ("1 tsp salt or less-to taste", "or less, to taste"),
+        ("1 tsp salt or more\u2013to taste", "or more, to taste"),
+        ("1 tbsp oil + more for frying", "+ more for frying"),
+        ("1 tbsp oil + extra for frying", "+ extra for frying"),
+        ("1 tbsp butter + a little more for greasing", "+ a little more for greasing"),
+        ("1 tbsp oil plus more for frying", "plus more for frying"),
+        ("1 tbsp oil + more", "+ more"),
+    ],
+)
+def test_l1d_or_more_and_plus_more_endings_are_notes(text: str, note: str) -> None:
+    lines = read_lines(text)
+    assert len(lines) == 1, [line.name for line in lines]
+    (line,) = lines
+    assert line.alternative is None, text
+    assert line.name in ("salt", "oil", "butter"), (text, line.name)
+    assert line.note is not None and note in line.note, (text, line.note)
+
+
+def test_l1d_a_real_second_ingredient_after_a_plus_or_a_dash_is_still_read() -> None:
+    assert [line.name for line in read_lines("a swish of oil + a sprinkle of salt")] == [
+        "oil",
+        "salt",
+    ]
+    (line,) = read_lines("1 tsp salt or extra-virgin olive oil")
+    assert line.alternative is not None and line.alternative.name == "extra-virgin olive oil"
+
+
 def test_i4_a_real_other_choice_after_or_is_still_an_alternative() -> None:
     for text, other in (
         ("1 tsp salt or pepper", "pepper"),
