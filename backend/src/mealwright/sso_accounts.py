@@ -8,7 +8,9 @@
 - **Which role.** On every sign-in, the groups the provider sends decide: any group mapped to
   Admin gives Admin, else any mapped to Member gives Member, else "Anyone else" (Not let in, the
   default, or Member; cabledrawer 12 Nov). The household's last admin who can sign in is
-  never made a Member this way (cabledrawer 12 Nov).
+  never made a Member this way (cabledrawer 12 Nov); "can sign in" means without the sign-in
+  server's say: a working password or a live sign-in, not just being linked
+  (`another_admin_gets_in`; O2 review r8, proposed, for cabledrawer).
 - **Staying signed in.** A single sign-on sign-in keeps the provider's refresh token when
   it gives one, sealed (`mealwright.secret_box`). `offline_access` is asked for when the
   provider lists it; if the provider refuses the sign-in for that, it is tried once more
@@ -43,7 +45,6 @@ from mealwright.auth import now
 from mealwright.events import Broadcaster
 from mealwright.models import Login, Member, Session, SsoSettings
 from mealwright.outbound import Connection, OutboundGate, switches
-from mealwright.people import admin_can_sign_in
 from mealwright.roles import ADMIN, MEMBER
 from mealwright.secret_box import SecretUnreadable, open_sealed, seal
 from mealwright.sso import Client, Identity, SsoFailed
@@ -175,21 +176,6 @@ def role_for(row: SsoSettings, groups: list[str]) -> str | None:
     if MEMBER in mapped:
         return MEMBER
     return MEMBER if row.anyone_else == MEMBER else None
-
-
-def other_admins(db: DbSession, login: Login, off: bool) -> int:
-    """Admins of this household who can sign in, apart from `login` (not shared ones). With
-    password sign-in off (`off`; asked while a single sign-on sign-in is happening, so single
-    sign-on can start), only admins linked by single sign-on count (O1 review r1 M3)."""
-    query = (
-        select(func.count())
-        .select_from(Login)
-        .join(Member, Member.id == Login.member_id)
-        .where(Login.household_id == login.household_id, Login.role == ADMIN)
-        .where(admin_can_sign_in(db, login.household_id, off))
-        .where(Login.shared.is_(False), Login.id != login.id)
-    )
-    return int(db.scalar(query) or 0)
 
 
 def admin_signs_in_with_sso(db: DbSession, row: SsoSettings) -> bool:
@@ -332,7 +318,7 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Pat
         _refused_known(db, login, row, "not_let_in", data_dir)
     if login.role != role:
         off = passwords_off(db, data_dir, row.household_id)
-        if login.role == ADMIN and other_admins(db, login, off) == 0:
+        if login.role == ADMIN and not another_admin_gets_in(db, login, off):
             log.warning(
                 "Single sign-on: %s stays an admin, as the household's last one", login.username
             )

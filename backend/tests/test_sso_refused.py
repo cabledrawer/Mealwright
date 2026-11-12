@@ -218,3 +218,57 @@ def test_a_sole_admin_with_no_password_keeps_their_sign_ins_with_passwords_on(
     assert refused.status_code != 200
     assert wren.get(f"{API}/sso/settings").status_code == 200
     assert token.get(f"{API}/me").status_code == 401
+
+
+def _admins(db_app: Any) -> list[str]:
+    with db_app.state.sessionmaker() as db:
+        return sorted(db.scalars(select(Login.username).where(Login.role == "admin")))
+
+
+def test_demoting_by_groups_never_leaves_no_admin_tess_first(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """O2 review r8, finding 1. Passwords off, two linked admins signed in. The admin group goes
+    and cabledrawer is in users: he is demoted (Wren can still get in); then Wren, in no group, is
+    refused and stays the admin. Fails when a linked admin counts as a way in."""
+    wren = browser(sso_only)
+    sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
+    demoted, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": ["mealwright-users"]})
+    assert demoted.json()["me"]["role"] == "member"
+    refused, _ = sign_in(browser(sso_only), idp, sub="wren", extra={"groups": []})
+    assert refused.status_code != 200
+    assert len(_admins(sso_only.app)) == 1
+    assert wren.get(f"{API}/sso/settings").status_code == 200
+
+
+def test_demoting_by_groups_never_leaves_no_admin_wren_first(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """The other order: Wren is refused first (Tess is signed in, so she loses hers); then
+    Tess, in users only, would be demoted but nobody else can get in, so he stays admin."""
+    wren = browser(sso_only)
+    sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
+    refused, _ = sign_in(browser(sso_only), idp, sub="wren", extra={"groups": []})
+    assert refused.status_code != 200
+    kept, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": ["mealwright-users"]})
+    assert kept.json()["me"]["role"] == "admin"
+    assert "tess" in _admins(sso_only.app)
+
+
+def test_another_admins_expired_sign_in_is_no_way_in(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """O2 review r8, finding 3. Wren's only sign-in has run out: Tess's refusal leaves his.
+    Fails if `Session.expires_at > now()` is dropped from `another_admin_gets_in`."""
+    from datetime import timedelta
+
+    from mealwright.auth import now
+
+    sign_in(browser(sso_only), idp, sub="wren", extra=ADMIN_GROUPS)
+    with cast(Any, sso_only.app).state.sessionmaker() as db:
+        for session in db.scalars(select(Session).where(Session.login_id != 1)):
+            session.expires_at = now() - timedelta(days=1)
+        db.commit()
+    refused, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": []})
+    assert refused.status_code != 200
+    assert sso_only.get(f"{API}/sso/settings").status_code == 200
