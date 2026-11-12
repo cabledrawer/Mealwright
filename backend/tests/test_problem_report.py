@@ -254,6 +254,25 @@ def test_no_log_folder_is_no_errors(tmp_path: Path) -> None:
 
 
 @pytest.fixture
+def kitchen(kitchen: TestClient) -> TestClient:
+    """The conftest kitchen, set up two days ago: the log's recent errors only count from the
+    set-up (review r1), and these tests write errors from minutes ago."""
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.execute(update(Household).values(created_at=datetime.now(UTC) - timedelta(days=2)))
+        db.commit()
+    return kitchen
+
+
+@pytest.fixture
+def neighbour(neighbour: TestClient) -> TestClient:
+    """The next-door household, set up two days ago too."""
+    with neighbour.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.execute(update(Household).values(created_at=datetime.now(UTC) - timedelta(days=2)))
+        db.commit()
+    return neighbour
+
+
+@pytest.fixture
 def member(kitchen: TestClient) -> Iterator[TestClient]:
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         db.add(
@@ -988,3 +1007,22 @@ def test_every_name_column_is_classified_for_reports() -> None:
     for key in found:
         if key.endswith("_by_name") or key.endswith(".login_name"):
             assert key in people, key
+
+
+def test_errors_from_before_delete_everything_are_not_in_the_report(
+    kitchen: TestClient, settings: Settings
+) -> None:
+    """Review r1 (beta join): Delete everything starts a new install, so a line from the old
+    one must not reach the new one's report; a line from after the new setup does."""
+    from conftest import ADMIN
+
+    folder = log_folder(settings)
+    write_log(folder, [error("Old install broke", ago=timedelta(minutes=5))])
+    assert any("Old install" in line for line in report(kitchen)["errors"])
+    body = {"words": "delete everything", "password": ADMIN["password"]}
+    assert kitchen.post(f"{API}/delete-everything", json=body).status_code == 204
+    assert kitchen.post(f"{API}/setup", json=ADMIN).status_code == 201
+    write_log(folder, [error("New install broke", ago=timedelta(seconds=0))])
+    lines = report(kitchen)["errors"]
+    assert not any("Old install" in line for line in lines), lines
+    assert any("New install" in line for line in lines), lines

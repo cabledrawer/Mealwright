@@ -50,7 +50,7 @@ def problem_report(kitchen: Here, request: Request) -> ProblemReportOut:
     admin = kitchen.login.role == "admin"
     errors: list[str] = []
     if admin:
-        found = recent_errors(settings.data_dir / "logs")
+        found = recent_errors(settings.data_dir / "logs", installed=kitchen.household.created_at)
         if found:
             server = server_address(request.url.hostname, request.url.port, settings.port)
             scrub = scrubber_for(kitchen.db, server, settings.data_dir)

@@ -162,10 +162,18 @@ def _kind(following: list[str]) -> str | None:
     return "error"
 
 
-def recent_errors(folder: Path, now: datetime | None = None) -> list[LogError]:
-    """The last ERRORS_KEPT error lines of the last ERRORS_WITHIN, oldest first."""
+def recent_errors(
+    folder: Path, now: datetime | None = None, installed: datetime | None = None
+) -> list[LogError]:
+    """The last ERRORS_KEPT error lines of the last ERRORS_WITHIN, oldest first. Lines from
+    before `installed` (when this household was set up, so after "Delete everything" the new
+    set-up) are left out: they belong to the install that was deleted."""
     now = now or datetime.now(UTC)
     since = now - ERRORS_WITHIN
+    if installed is not None:
+        if installed.tzinfo is None:
+            installed = installed.replace(tzinfo=UTC)
+        since = max(since, installed.replace(microsecond=0))  # log times are whole seconds
     found: list[LogError] = []
     try:
         paths = [path for path in folder.glob(f"{FILE_NAME}*") if path.is_file()]
