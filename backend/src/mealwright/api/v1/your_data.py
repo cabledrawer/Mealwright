@@ -10,6 +10,7 @@ one exists only in tests). Proposed, for cabledrawer.
 
 import logging
 import shutil
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -32,6 +33,7 @@ router = APIRouter(tags=["your data"], dependencies=[SameOrigin])
 
 # Sign-ins and "Delete everything" go to the log file only (mealwright.logs).
 sign_in_log = logging.getLogger("mealwright.sign_in")
+log = logging.getLogger(__name__)
 
 
 def _folder(request: Request) -> Path:
@@ -157,6 +159,55 @@ class DeleteEverything(BaseModel):
     password: str = Field(max_length=1024, description="The admin's own password.")
 
 
+_ONE_DELETE_AT_A_TIME = threading.Lock()
+
+
+def _sign_out(request: Request, response: Response) -> None:
+    response.delete_cookie(
+        COOKIE,
+        httponly=True,
+        secure=not request.app.state.settings.allow_plain_http,
+        samesite="lax",
+        path="/",
+    )
+
+
+def _remove_photos(folder: Path) -> None:
+    """Delete the household's photo files. The next household gets the same number, so what
+    can't be removed is moved out of `photos/` to `photos-left-over-<UTC time>` beside it,
+    where it is never served or exported (review r1; the name is proposed, for cabledrawer). The
+    log says how many files, never which."""
+    shutil.rmtree(folder, ignore_errors=True)
+    if not folder.exists():
+        return
+    try:
+        left = sum(1 for path in folder.rglob("*") if not path.is_dir())
+    except OSError:
+        left = 0
+    stamp = utcnow().strftime("%Y%m%d-%H%M%S")
+    aside = folder.parent.parent / f"photos-left-over-{stamp}"
+    number = 1
+    while aside.exists():
+        number += 1
+        aside = folder.parent.parent / f"photos-left-over-{stamp}-{number}"
+    try:
+        folder.rename(aside)
+    except OSError as error:
+        log.error(
+            "Delete everything: couldn't remove photo files (%d) or move them aside (%s). "
+            "Remove the household's folder in data/photos by hand.",
+            left,
+            error.strerror or type(error).__name__,
+        )
+        return
+    log.warning(
+        "Delete everything: couldn't remove photo files (%d); moved them out of photos to %s. "
+        "Delete that folder by hand.",
+        left,
+        aside.name,
+    )
+
+
 @router.post("/delete-everything", status_code=status.HTTP_204_NO_CONTENT)
 def delete_everything(
     body: DeleteEverything, kitchen: Here, request: Request, response: Response
@@ -189,33 +240,34 @@ def delete_everything(
     slow.succeeded(keys[0])
 
     engine: Engine = request.app.state.engine
-    try:
-        safety = backups.before_delete_everything(engine, _folder(request))
-    except backups.BackupFailed as error:
-        raise Problem(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            "backup_failed",
-            f"{error} Nothing was deleted.",
-        ) from error
-
     db = kitchen.db
     household_id = kitchen.household_id
     username = login.username
-    sessions = list(db.scalars(select(Session.id).where(Session.household_id == household_id)))
-    photos = household_folder(store_of(db), household_id)
-    # Every table points at the household with ON DELETE CASCADE: one row takes all of it.
-    db.execute(delete(Household).where(Household.id == household_id))
-    db.commit()
-    shutil.rmtree(photos, ignore_errors=True)
+    # One at a time, the safety backup and the delete together: a second request (a double
+    # click, two tabs) waits, then finds nothing left to delete (review r1).
+    with _ONE_DELETE_AT_A_TIME:
+        db.rollback()  # see what the request before this one did
+        if db.scalar(select(Household.id).where(Household.id == household_id)) is None:
+            _sign_out(request, response)
+            return
+        try:
+            safety = backups.before_delete_everything(engine, _folder(request))
+        except backups.BackupFailed as error:
+            raise Problem(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "backup_failed",
+                f"{error} Nothing was deleted.",
+            ) from error
+
+        sessions = list(db.scalars(select(Session.id).where(Session.household_id == household_id)))
+        photos = household_folder(store_of(db), household_id)
+        # Every table points at the household with ON DELETE CASCADE: one row takes all of it.
+        db.execute(delete(Household).where(Household.id == household_id))
+        db.commit()
+        _remove_photos(photos)
     for session_id in sessions:  # open live-update streams end now
         request.app.state.events.end_session(session_id)
-    response.delete_cookie(
-        COOKIE,
-        httponly=True,
-        secure=not request.app.state.settings.allow_plain_http,
-        samesite="lax",
-        path="/",
-    )
+    _sign_out(request, response)
     sign_in_log.warning(
         "Deleted everything (by %s); safety backup %s; everyone signed out",
         username,

@@ -289,3 +289,117 @@ def test_the_partial_file_is_removed_when_the_copy_fails(kitchen: TestClient) ->
     with pytest.raises(sqlite3.Error):
         backups.copy_database(Engine(), folder / "copy.db")  # type: ignore[arg-type]
     assert list(folder.iterdir()) == []
+
+
+# --- Never over another copy (review r1) ------------------------------------------------------
+
+
+def _recipes_in(path: Path) -> list[str]:
+    with sqlite3.connect(path) as copy:
+        return [row[0] for row in copy.execute("SELECT name FROM recipe")]
+
+
+def test_a_copy_never_overwrites_a_file_already_there(kitchen: TestClient) -> None:
+    engine = kitchen.app.state.engine  # type: ignore[attr-defined]
+    folder = _folder(kitchen)
+    backups.make_folder(folder)
+    target = folder / "copy.db"
+    target.write_bytes(b"the good copy")
+    with pytest.raises(FileExistsError):
+        backups.copy_database(engine, target)
+    assert target.read_bytes() == b"the good copy"
+    assert [p.name for p in folder.iterdir()] == ["copy.db"]  # nothing half-written left
+
+
+def test_a_copy_never_overwrites_one_that_appears_while_it_is_written(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine = kitchen.app.state.engine  # type: ignore[attr-defined]
+    folder = _folder(kitchen)
+    backups.make_folder(folder)
+    target = folder / "copy.db"
+    real = sqlite3.connect
+
+    def another_writer_meanwhile(path: object, *args: object, **kwargs: object) -> object:
+        target.write_bytes(b"the good copy")  # made by someone else while this copy is written
+        return real(path, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(backups.sqlite3, "connect", another_writer_meanwhile)
+    with pytest.raises(FileExistsError):
+        backups.copy_database(engine, target)
+    assert target.read_bytes() == b"the good copy"
+    assert [p.name for p in folder.iterdir()] == ["copy.db"]
+
+
+def test_without_hard_links_a_copy_still_never_overwrites(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Some shared folders (a NAS share) can't make hard links: the copy is renamed instead."""
+    _add_recipe(kitchen, "Dal")
+    engine = kitchen.app.state.engine  # type: ignore[attr-defined]
+    folder = _folder(kitchen)
+    backups.make_folder(folder)
+
+    def no_links(*_args: object, **_kwargs: object) -> None:
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(backups.os, "link", no_links)
+    backups.copy_database(engine, folder / "copy.db")
+    assert _recipes_in(folder / "copy.db") == ["Dal"]
+    (folder / "taken.db").write_bytes(b"the good copy")
+    with pytest.raises(FileExistsError):
+        backups.copy_database(engine, folder / "taken.db")
+    assert (folder / "taken.db").read_bytes() == b"the good copy"
+    assert sorted(p.name for p in folder.iterdir()) == ["copy.db", "taken.db"]
+
+
+def test_two_backups_in_the_same_second_the_first_stands(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    engine = kitchen.app.state.engine  # type: ignore[attr-defined]
+    folder = _folder(kitchen)
+    at = datetime(2026, 11, 1, 3, 0, tzinfo=UTC)
+    _add_recipe(kitchen, "In the first")
+    first = backups.back_up(engine, folder, 7, at)
+    _add_recipe(kitchen, "After it")
+    second = backups.back_up(engine, folder, 7, at)
+    assert second.path == first.path
+    assert _recipes_in(first.path) == ["In the first"]
+
+
+def test_a_backup_whose_name_is_taken_while_it_is_made_leaves_the_other_one(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Another Mealwright process (say, one starting up) writes the same name meanwhile."""
+    engine = kitchen.app.state.engine  # type: ignore[attr-defined]
+    folder = _folder(kitchen)
+    at = datetime(2026, 11, 1, 3, 0, tzinfo=UTC)
+    real = backups.copy_database
+
+    def taken_meanwhile(engine: object, target: Path) -> None:
+        target.write_bytes(b"the other process's copy")
+        real(engine, target)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(backups, "copy_database", taken_meanwhile)
+    made = backups.back_up(engine, folder, 7, at)
+    assert made.path.name == "backup-20261101-030000.db"
+    assert made.path.read_bytes() == b"the other process's copy"
+    assert [p.name for p in folder.iterdir()] == [made.path.name]
+
+
+def test_two_safety_backups_in_the_same_second_both_stay(kitchen: TestClient) -> None:
+    engine = kitchen.app.state.engine  # type: ignore[attr-defined]
+    folder = _folder(kitchen)
+    at = datetime(2026, 11, 1, 3, 0, tzinfo=UTC)
+    _add_recipe(kitchen, "Kept")
+    first = backups.before_delete_everything(engine, folder, at)
+    with kitchen.app.state.engine.begin() as connection:  # type: ignore[attr-defined]
+        connection.exec_driver_sql("DELETE FROM recipe")
+    second = backups.before_delete_everything(engine, folder, at)
+    third = backups.before_delete_everything(engine, folder, at)
+    assert first.name == "before-delete-everything-20261101-030000.db"
+    assert second.name == "before-delete-everything-20261101-030000-2.db"
+    assert third.name == "before-delete-everything-20261101-030000-3.db"
+    assert _recipes_in(first) == ["Kept"]  # the good copy is never replaced by an empty one
+    assert _recipes_in(second) == []
+    assert backups.backups(folder) == []  # not Mealwright's own: never trimmed

@@ -19,7 +19,7 @@ from test_households import snapshot
 
 from mealwright import backups
 from mealwright.auth import hash_password
-from mealwright.models import Change, ListItem, ListTick, Login
+from mealwright.models import Change, Household, ListItem, ListTick, Login
 
 API = "/api/v1/delete-everything"
 # Household 1 with something in nearly every table (the households test's own fixture).
@@ -175,3 +175,99 @@ def test_the_other_household_is_untouched(kitchen: TestClient, neighbour: TestCl
     ]
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         assert db.scalar(select(func.count()).select_from(Login)) == 1
+
+
+# --- Review r1 --------------------------------------------------------------------------------
+
+
+def test_two_at_once_the_first_safety_backup_stays_whole(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two Delete everything requests in the same second (a double click, two tabs): the
+    second waits for the first, then finds nothing to delete, and the first's safety backup
+    is never replaced by a copy of the emptied database."""
+    import sqlite3
+    import threading
+    from datetime import UTC, datetime
+
+    from mealwright.api.v1 import your_data
+
+    assert kitchen.post("/api/v1/recipes", json={"name": "Kept in the backup"}).status_code == 201
+    second_client = TestClient(kitchen.app, base_url="https://testserver")
+    body = {"username": ADMIN["username"], "password": ADMIN["password"]}
+    assert second_client.post("/api/v1/session", json=body).status_code == 200
+
+    real = backups.before_delete_everything
+    same_second = datetime(2026, 11, 1, 3, 0, tzinfo=UTC)
+    first_in = threading.Event()
+    first_done = threading.Event()
+    calls: list[str] = []
+
+    def in_the_same_second(engine: object, folder: Path, now: object = None) -> Path:
+        if not calls:
+            calls.append("first")
+            first_in.set()
+            second_in.wait(timeout=2)  # without the lock, the second is let in meanwhile
+        else:
+            calls.append("second")
+            second_in.set()
+            first_done.wait(timeout=5)  # copy only once the first has deleted
+        return real(engine, folder, same_second)  # type: ignore[arg-type]
+
+    second_in = threading.Event()
+    monkeypatch.setattr(your_data.backups, "before_delete_everything", in_the_same_second)
+    statuses: dict[str, int] = {}
+
+    def first() -> None:
+        statuses["first"] = kitchen.post(API, json=RIGHT).status_code
+        first_done.set()
+
+    def second() -> None:
+        first_in.wait(timeout=5)
+        statuses["second"] = second_client.post(API, json=RIGHT).status_code
+
+    threads = [threading.Thread(target=first), threading.Thread(target=second)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+    second_client.close()
+
+    assert statuses == {"first": 204, "second": 204}
+    assert calls == ["first"]  # the second found nothing left to delete
+    folder = _data(kitchen) / backups.FOLDER
+    (safety,) = folder.glob("before-delete-everything-*.db")
+    with sqlite3.connect(safety) as copy:
+        assert copy.execute("SELECT name FROM recipe").fetchall() == [("Kept in the backup",)]
+
+
+def test_a_photo_that_cant_be_removed_is_moved_out_of_reach(
+    kitchen: TestClient, filled: dict[str, Any], caplog: pytest.LogCaptureFixture
+) -> None:
+    """The next household is household 1 again: a photo left in photos/1 would be served
+    and exported as its own. What can't be removed goes aside, out of photos/ (review r1)."""
+    from mealwright import export
+
+    store = _data(kitchen) / "photos"
+    photos = store / "1"
+    stuck = photos / "stuck"
+    stuck.mkdir()
+    (stuck / "left.jpg").write_bytes(b"a photo")
+    stuck.chmod(0o500)  # its file can't be removed
+    try:
+        with caplog.at_level("WARNING"):
+            assert kitchen.post(API, json=RIGHT).status_code == 204
+        assert not photos.exists()
+        (aside,) = _data(kitchen).glob("photos-left-over-*")
+        assert (aside / "stuck" / "left.jpg").read_bytes() == b"a photo"
+        assert "couldn't remove photo files (1); moved them out of photos" in caplog.text
+        assert "left.jpg" not in caplog.text
+        # Start again: the new household is 1 again, and nothing of the old one is its own.
+        assert kitchen.post("/api/v1/setup", json=ADMIN).status_code == 201
+        with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+            assert db.scalars(select(Household.id)).all() == [1]
+        assert export.photo_files(store, 1) == []
+        assert not photos.exists() or not any(photos.rglob("*"))
+    finally:
+        for folder in _data(kitchen).glob("photos-left-over-*/stuck"):
+            folder.chmod(0o700)

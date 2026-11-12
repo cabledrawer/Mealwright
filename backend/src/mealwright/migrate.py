@@ -15,20 +15,21 @@ from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import Connection, Engine
 
-from mealwright.backups import copy_database, make_folder, sqlite_file
+from mealwright.backups import copy_to_free_name, make_folder, sqlite_file
 
 log = logging.getLogger(__name__)
 
 # How many safety copies are kept (spec section 6, "Decided for 0.7.0 and 0.7.1").
 SAFETY_COPIES_KEPT = 3
-# pre-upgrade-<revision>-<UTC date and time>.db, e.g. pre-upgrade-c5f1b8d2a763-20261030-142501.db
-SAFETY_COPY_NAME = re.compile(r"^pre-upgrade-([0-9A-Za-z_]+)-(\d{8}-\d{6})\.db$")
+# pre-upgrade-<revision>-<UTC date and time>.db, e.g. pre-upgrade-c5f1b8d2a763-20261030-142501.db;
+# a second copy in the same second gets -2 (then -3…) before .db, and never replaces the first.
+SAFETY_COPY_NAME = re.compile(r"^pre-upgrade-([0-9A-Za-z_]+)-(\d{8}-\d{6})(?:-(\d+))?\.db$")
 # cabledrawer 31 Oct ("K1's 'upgrade-failed' note: OK"; 0.7 K1 review): while an upgrade hasn't yet
 # worked, this file in the backups folder names the clean copy made before it. A start-up that finds
 # it makes no new copy (on SQLite a failed migration can leave the database half-upgraded, so a new
 # copy could be half-upgraded too), and that clean copy is never trimmed: not while the upgrade
 # keeps failing, and not on the trim after it finally works.
-PART_NAME = re.compile(r"^pre-upgrade-[0-9A-Za-z_]+-\d{8}-\d{6}\.db\.(\d+)\.part$")
+PART_NAME = re.compile(r"^pre-upgrade-[0-9A-Za-z_]+-\d{8}-\d{6}(?:-\d+)?\.db\.(\d+)\.part$")
 UPGRADE_FAILED = "upgrade-failed"
 
 
@@ -100,13 +101,13 @@ def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> P
     if revision is None or revision == head:
         return None
     stamp = (now or datetime.now(UTC)).astimezone(UTC).strftime("%Y%m%d-%H%M%S")
-    target = backups / f"pre-upgrade-{revision}-{stamp}.db"
     # Written under another name first, so a copy cut short never counts as one of the three
     # (with the process ID, so two Mealwrights started at once never write the same file), and
-    # readable by Mealwright's own user only (mealwright.backups).
+    # readable by Mealwright's own user only (mealwright.backups). Never over a copy already
+    # there: a second start in the same second could be copying a half-upgraded database.
     try:
         make_folder(backups)
-        copy_database(engine, target)
+        target = copy_to_free_name(engine, backups, f"pre-upgrade-{revision}-{stamp}")
     except (OSError, sqlite3.Error) as error:
         raise SafetyCopyFailed(
             f"Couldn't make a safety copy of the database in {backups} before upgrading it "
@@ -137,9 +138,9 @@ def _keep_newest(backups: Path, also: str | None = None) -> None:
     for path in backups.iterdir():
         found = SAFETY_COPY_NAME.match(path.name)
         if found and path.is_file() and path.name != also:
-            copies.append((found.group(2), path.name, path))
-    copies.sort(reverse=True)
-    for _stamp, _name, path in copies[SAFETY_COPIES_KEPT:]:
+            copies.append((found.group(2), int(found.group(3) or 1), path))
+    copies.sort(reverse=True)  # newest first: by time, then -2 after the first of that second
+    for _stamp, _number, path in copies[SAFETY_COPIES_KEPT:]:
         path.unlink(missing_ok=True)
 
 

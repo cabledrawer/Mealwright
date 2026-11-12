@@ -329,3 +329,46 @@ def test_the_backups_folder_is_for_the_owner_only(tmp_path: Path) -> None:
     backups = tmp_path / "backups"
     assert migrate.safety_copy(engine, backups) is not None
     assert backups.stat().st_mode & 0o777 == 0o700
+
+
+def test_two_safety_copies_in_the_same_second_never_overwrite_each_other(tmp_path: Path) -> None:
+    """Two Mealwrights started at once: the second copy could be of a half-upgraded database,
+    so it must never replace the clean one (review r1)."""
+    engine = _old_database(tmp_path / "mealwright.db")
+    backups = tmp_path / "backups"
+    at = datetime(2026, 10, 30, 14, 25, 1, tzinfo=UTC)
+    first = migrate.safety_copy(engine, backups, now=at)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("UPDATE household SET name = 'Changed'")
+    second = migrate.safety_copy(engine, backups, now=at)
+    assert first is not None and second is not None
+    assert first.name == f"pre-upgrade-{OLD}-20261030-142501.db"
+    assert second.name == f"pre-upgrade-{OLD}-20261030-142501-2.db"
+    with sqlite3.connect(first) as db:
+        assert db.execute("SELECT name FROM household").fetchall() == [("Home",)]
+    assert migrate.SAFETY_COPY_NAME.match(second.name)
+    assert migrate._made_on(second.name) == " (made on 2026-10-30)"
+
+
+def test_a_same_second_copy_counts_as_newer_in_the_trim(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    names = [
+        "pre-upgrade-d7a4c2e81f56-20261030-090000.db",
+        "pre-upgrade-d7a4c2e81f56-20261031-090000.db",
+        "pre-upgrade-d7a4c2e81f56-20261031-090000-2.db",
+        "pre-upgrade-d7a4c2e81f56-20261031-090000-10.db",
+    ]
+    for name in names:
+        (backups / name).write_bytes(b"x")
+    migrate._keep_newest(backups)
+    assert _copies(backups) == sorted(names[1:])
+
+
+def test_a_same_second_part_file_from_another_process_is_tidied(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    stale = backups / "pre-upgrade-d7a4c2e81f56-20261031-090000-2.db.99999999.part"
+    stale.write_bytes(b"x")
+    migrate._keep_newest(backups)
+    assert not stale.exists()

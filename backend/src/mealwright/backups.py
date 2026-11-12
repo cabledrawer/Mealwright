@@ -17,12 +17,15 @@ backup tools can copy the folder from there.
 - **Names:** `backup-<UTC date>-<UTC time>.db`. Only these are trimmed to the number kept. The
   copies made before a database upgrade (`pre-upgrade-…`, mealwright.migrate) and the one made
   before "Delete everything" (`before-delete-everything-…`) are never touched by the trim.
+  No copy ever replaces another: a second backup in the same second leaves the first one;
+  a second safety copy in the same second gets `-2` (then `-3`…) before `.db`.
 - **Photos** are files in `/data/photos`, not in the database: a copy of the whole data folder
   carries them; Mealwright's own backup is the database (docs/restore.md).
 
 Nothing here makes a network connection.
 """
 
+import errno
 import logging
 import os
 import re
@@ -79,8 +82,12 @@ def make_folder(folder: Path) -> None:
 
 def copy_database(engine: Engine, target: Path) -> None:
     """Copy the database to `target` with SQLite's online backup, as one file readable by its
-    owner only. Written as `<target>.<pid>.part` first and renamed when complete. Raises OSError
-    or sqlite3.Error; a half-written file is removed."""
+    owner only. Written as `<target>.<pid>.part` first and put in place when complete. Never
+    replaces a file already there, even one that appears while the copy is written: raises
+    FileExistsError instead (review r1: a second copy in the same second must never replace a
+    good one). Raises OSError or sqlite3.Error; a half-written file is removed."""
+    if target.exists():
+        raise FileExistsError(errno.EEXIST, "A copy with that name is already there")
     partial = target.with_name(f"{target.name}.{os.getpid()}.part")
     try:
         partial.unlink(missing_ok=True)
@@ -103,11 +110,42 @@ def copy_database(engine: Engine, target: Path) -> None:
         finally:
             raw.close()
         partial.chmod(0o600)
-        partial.replace(target)
+        _put_in_place(partial, target)
     except BaseException:
         with suppress(OSError):
             partial.unlink(missing_ok=True)
         raise
+
+
+def _put_in_place(partial: Path, target: Path) -> None:
+    """Give the finished copy its name, never over a file already there. A hard link fails
+    by itself when the name is taken; a folder that can't make hard links (some network
+    shares) gets a rename after a last look."""
+    try:
+        os.link(partial, target)
+    except FileExistsError:
+        raise
+    except OSError:
+        if target.exists():
+            raise FileExistsError(errno.EEXIST, "A copy with that name is already there") from None
+        partial.replace(target)
+        return
+    partial.unlink()
+
+
+def copy_to_free_name(engine: Engine, folder: Path, stem: str) -> Path:
+    """Copy the database to `<stem>.db` in `folder`, or `<stem>-2.db`, `<stem>-3.db`… when
+    that name is taken (two copies in the same second), so no copy ever replaces another."""
+    for number in range(1, 1000):
+        target = folder / (f"{stem}.db" if number == 1 else f"{stem}-{number}.db")
+        if target.exists():
+            continue
+        try:
+            copy_database(engine, target)
+        except FileExistsError:
+            continue  # taken while this copy was written: try the next name
+        return target
+    raise FileExistsError(errno.EEXIST, "Too many copies with the same time in their name")
 
 
 @dataclass(frozen=True)
@@ -191,7 +229,8 @@ def back_up(engine: Engine, folder: Path, keep: int, now: datetime | None = None
         target = folder / f"backup-{at.strftime(_STAMP)}.db"
         try:
             make_folder(folder)
-            if not target.exists():  # two in the same second: the first one stands
+            # Two in the same second: the first one stands, and is never replaced.
+            with suppress(FileExistsError):
                 copy_database(engine, target)
             size = target.stat().st_size
         except (OSError, sqlite3.Error) as error:
@@ -207,10 +246,9 @@ def before_delete_everything(engine: Engine, folder: Path, now: datetime | None 
         raise BackupFailed("Backups need Mealwright’s own database file.")
     with _ONE_AT_A_TIME:
         at = (now or utcnow()).astimezone(UTC)
-        target = folder / f"{BEFORE_DELETE}-{at.strftime(_STAMP)}.db"
         try:
             make_folder(folder)
-            copy_database(engine, target)
+            target = copy_to_free_name(engine, folder, f"{BEFORE_DELETE}-{at.strftime(_STAMP)}")
         except (OSError, sqlite3.Error) as error:
             raise BackupFailed(_plain(error)) from error
     log.info("Backed up the database before deleting everything: %s", target.name)
