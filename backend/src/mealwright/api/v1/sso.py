@@ -83,7 +83,7 @@ BAD_REDIRECT = (
     "ending in /auth/callback. Open Mealwright at that address and save again."
 )
 BAD_ISSUER = "Enter the issuer address, starting with https://."
-NO_SECRET = "Enter the client secret."  # noqa: S105 (words, not a secret)
+NO_SECRET = "Enter the client secret."  # noqa: S105  # nosec B105 (words, not a secret)
 
 
 @dataclass(frozen=True)

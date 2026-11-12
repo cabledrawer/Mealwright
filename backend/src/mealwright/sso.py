@@ -112,7 +112,7 @@ MESSAGES: dict[str, str] = {
     "wrong_address": (
         "Open Mealwright at the address single sign-on was set up for, then try again."
     ),
-    "secret_unreadable": (
+    "secret_unreadable": (  # nosec B105 (words, not a secret)
         "Mealwright can’t read the saved client secret. An admin enters it again in "
         "Settings → Sign-in → Single sign-on."
     ),

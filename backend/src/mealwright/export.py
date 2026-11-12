@@ -48,7 +48,7 @@ LEFT_OUT_TABLES = {
     "join_link": "sign-in links made for people",
     # O2 review r1, finding 2 (proposed, for cabledrawer): only a token's SHA-256 is kept, but that
     # is all it takes to tell a made-up token from a real one, so it doesn't leave either.
-    "api_token": "API tokens, which only an admin at the screen makes",
+    "api_token": "API tokens, which only an admin at the screen makes",  # nosec B105 (words)
 }
 LEFT_OUT_COLUMNS = {
     ("login", "password_hash"): "passwords, even scrambled",

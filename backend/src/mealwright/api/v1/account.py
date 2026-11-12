@@ -50,7 +50,7 @@ router = APIRouter(tags=["account"], dependencies=[SameOrigin])
 USERNAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,49}$")
 WRONG = "That username and password don’t match."
 # Proposed, for cabledrawer.
-PASSWORD_OFF = "Password sign-in is off here. Use the single sign-on button."  # noqa: S105
+PASSWORD_OFF = "Password sign-in is off here. Use the single sign-on button."  # noqa: S105  # nosec B105 (words, not a password)
 Theme = Literal["auto", "light", "dark"]
 
 
