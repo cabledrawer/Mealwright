@@ -7,7 +7,7 @@ from sqlalchemy import inspect
 from mealwright import migrate
 from mealwright.db import make_engine
 
-BEFORE = "d3a9f1c7e254"  # the line's newest before this (former names)
+BEFORE = "c3a7e5d1f824"  # the line's newest before this (O2 API tokens)
 REFUSED = "e5b3c9a1d742"
 
 

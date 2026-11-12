@@ -1,7 +1,7 @@
 """mark a login the sign-in server has refused
 
 Revision ID: e5b3c9a1d742
-Revises: d3a9f1c7e254
+Revises: c3a7e5d1f824
 Create Date: 2026-11-14 10:00:00
 
 O2 fix13 (cabledrawer 12 Nov): one new, empty column `login.sso_refused_at`. Set when single sign-on
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "e5b3c9a1d742"
-down_revision: str | Sequence[str] | None = "d3a9f1c7e254"
+down_revision: str | Sequence[str] | None = "c3a7e5d1f824"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
