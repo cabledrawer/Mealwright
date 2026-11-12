@@ -109,7 +109,7 @@ def can_sign_in() -> ColumnElement[bool]:
     removed. Single sign-on (0.9 O1) will add "or has a single-sign-on identity" here."""
     return and_(
         Login.password_hash.is_not(None),
-        Login.password_hash != "",
+        Login.password_hash != "",  # nosec B105
         Member.removed_at.is_(None),
     )
 

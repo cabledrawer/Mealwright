@@ -253,9 +253,9 @@ def downgrade() -> None:
         "SELECT login.id FROM login JOIN member ON member.id = login.member_id"
         " WHERE member.removed_at IS NOT NULL"
     )
-    op.execute(f"DELETE FROM session WHERE login_id IN ({removed})")  # noqa: S608
-    op.execute(f"DELETE FROM join_link WHERE login_id IN ({removed})")  # noqa: S608
-    op.execute(f"UPDATE login SET password_hash = NULL WHERE id IN ({removed})")  # noqa: S608
+    op.execute(f"DELETE FROM session WHERE login_id IN ({removed})")  # noqa: S608  # nosec B608
+    op.execute(f"DELETE FROM join_link WHERE login_id IN ({removed})")  # noqa: S608  # nosec B608
+    op.execute(f"UPDATE login SET password_hash = NULL WHERE id IN ({removed})")  # noqa: S608  # nosec B608
 
     _rewrite_undo_records(forward=False)
 
