@@ -8,7 +8,8 @@ for months (cabledrawer 17 Oct). Each day just after midnight (UTC) the file is 
 `mealwright.log.YYYY-MM-DD` and a new one started, and files last written more than 14
 days ago are deleted. This runs as a scheduled job (mealwright.jobs), not when a line is
 written, so on a quiet server sign-in lines still go after 14 days. The file can be read
-by Mealwright's own user only. "Report a problem" (0.8) will read recent errors from it.
+by Mealwright's own user only. "Report a problem" reads recent errors from it
+(mealwright.problem_report).
 Nothing here is ever sent anywhere.
 """
 

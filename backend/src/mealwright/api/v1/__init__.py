@@ -20,6 +20,7 @@ from mealwright.api.v1 import (
     plan,
     privacy,
     recipes,
+    report,
     shopping,
     shopping_plan,
     starter_packs,
@@ -34,6 +35,7 @@ from mealwright.api.v1 import (
 router = APIRouter(prefix="/api/v1")
 router.include_router(version.router)
 router.include_router(updates.router)
+router.include_router(report.router)
 router.include_router(account.router)
 router.include_router(my_sign_in.router)
 router.include_router(kitchen.router)

@@ -201,9 +201,10 @@
         "frontend/src/lib/privacy*", "frontend/src/lib/proxyGap.ts", "frontend/src/lib/client/privacy.ts", "frontend/src/lib/client/settingsLists.ts",
         "frontend/src/lib/client/changes.ts", "frontend/src/lib/allChanges*", "frontend/src/lib/change*", "frontend/src/lib/focusOnMount.ts",
         "backend/src/mealwright/updates.py", "backend/src/mealwright/api/v1/updates.py", "frontend/src/lib/client/updates.ts", "frontend/src/lib/updates*",
-        "frontend/src/lib/aboutWords*", "frontend/src/lib/newVersion*"
+        "frontend/src/lib/aboutWords*", "frontend/src/lib/newVersion*",
+        "backend/src/mealwright/problem_report.py", "backend/src/mealwright/api/v1/report.py", "frontend/src/lib/client/problemReport.ts", "frontend/src/lib/problemReport*"
       ],
-      "backend": ["test_outbound.py", "test_own_network.py", "test_privacy.py", "test_settings_lists.py", "test_changes_press_queries.py", "test_step_timings_api.py", "test_updates.py"],
+      "backend": ["test_outbound.py", "test_own_network.py", "test_privacy.py", "test_settings_lists.py", "test_changes_press_queries.py", "test_step_timings_api.py", "test_updates.py", "test_problem_report.py"],
       "browser": ["settings.spec.ts", "privacy.spec.ts", "about.spec.ts"]
     },
     {
