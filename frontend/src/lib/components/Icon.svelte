@@ -39,7 +39,8 @@
     | 'pan'
     | 'plate'
     | 'play'
-    | 'cog';
+    | 'cog'
+    | 'shield';
 </script>
 
 <script lang="ts">
@@ -124,6 +125,8 @@
   {:else if name === 'photo'}
     <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
     <circle cx="12" cy="13" r="3.5" />
+  {:else if name === 'shield'}
+    <path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" />
   {:else if name === 'info'}
     <circle cx="12" cy="12" r="9" />
     <path d="M12 11v5M12 8h.01" />
