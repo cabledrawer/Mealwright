@@ -18,8 +18,12 @@ Authlib is used for its protocol pieces only, never its HTTP clients: PKCE (S256
 keys, and its issuer, audience, expiry and nonce. Only public-key algorithms are accepted, so
 an unsigned token (`alg: none`) or one "signed" with HS256 using the public key is refused.
 
-Each sign-in has its own random state, nonce and PKCE verifier, kept in memory for
-FLOW_FOR, used once, and bound to the browser that started it by a cookie of its own.
+Each sign-in has its own random state, nonce and PKCE verifier, good for FLOW_FOR and used
+once. They are not kept in a table on the server, which strangers could fill to push other
+people's sign-ins out (O1 review r1 M2): the caller seals them (`Flow.pack`) into a cookie
+for the browser that started, so a sign-in can only be finished by that browser, and nobody
+else's start can touch it. A sign-in server that didn't answer isn't asked again for
+FAIL_FOR, so each start by someone signed out can't hold a worker for TIME_LIMIT.
 
 Nothing here logs a token, a code, the client secret or a claim from the provider.
 """
@@ -32,7 +36,7 @@ import secrets
 import threading
 import time
 from collections import OrderedDict
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import timedelta
 from typing import Any, Literal
 from urllib.parse import quote, urlencode, urlsplit
@@ -54,11 +58,12 @@ from mealwright.own_network import OwnNetwork
 
 CONNECTION = Connection.SINGLE_SIGN_ON
 FLOW_FOR = 10 * 60  # seconds a sign-in may take at the provider (proposed, for cabledrawer)
-MOST_FLOWS = 200  # sign-ins under way at once; the oldest go first
+MOST_USED = 10_000  # used states remembered at once (see Used)
 TIME_LIMIT = 20.0  # seconds for each step's requests to the provider, all together
 MOST_BYTES = 256 * 1024  # the biggest answer read from the provider
 LEEWAY = 60  # seconds of clock difference allowed when checking a token's times
 CACHE_FOR = 5 * 60  # seconds the discovery document and keys are reused
+FAIL_FOR = 60  # seconds a sign-in server that didn't answer isn't asked again
 # How often a single sign-on sign-in is checked with its refresh token (proposed, for cabledrawer).
 CHECK_EVERY = timedelta(hours=1)
 RETRY_AFTER = timedelta(minutes=10)
@@ -194,7 +199,8 @@ def tidy_issuer(text: str) -> str | None:
 
 
 class _Cache:
-    """Discovery documents and key sets, reused for CACHE_FOR (per issuer)."""
+    """Discovery documents and key sets, reused for CACHE_FOR (per issuer), and a failed
+    discovery, for FAIL_FOR."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -207,11 +213,11 @@ class _Cache:
                 return None
             return found[1]
 
-    def put(self, kind: str, key: str, value: Any) -> None:
+    def put(self, kind: str, key: str, value: Any, keep_for: float = CACHE_FOR) -> None:
         with self._lock:
             if len(self._items) > 50:
                 self._items.clear()
-            self._items[(kind, key)] = (time.monotonic() + CACHE_FOR, value)
+            self._items[(kind, key)] = (time.monotonic() + keep_for, value)
 
     def forget(self) -> None:
         with self._lock:
@@ -349,13 +355,36 @@ def scope_for(provider: Provider, client: Client) -> str:
     return " ".join(scopes)
 
 
-def discover(gate: OutboundGate, household_id: int, issuer: str, deadline: float) -> Provider:
+# Failures that mean the sign-in server didn't answer, or not usefully: the slow ones.
+_NO_ANSWER = ("unreachable", "bad_answer")
+
+
+def discover(
+    gate: OutboundGate, household_id: int, issuer: str, deadline: float, fresh: bool = False
+) -> Provider:
     """The provider's endpoints, from `<issuer>/.well-known/openid-configuration`. Its
-    issuer must be exactly the one saved (OIDC Discovery 4.3)."""
+    issuer must be exactly the one saved (OIDC Discovery 4.3). When it didn't answer, it
+    isn't asked again for FAIL_FOR: the same failure is given at once, unless `fresh` (the
+    admin's own test, who may just have mended it)."""
     found = cache.get("discovery", issuer)
     if isinstance(found, Provider):
         check_now(gate, household_id)
         return found
+    failed = None if fresh else cache.get("no_discovery", issuer)
+    if isinstance(failed, str):
+        check_now(gate, household_id)
+        raise SsoFailed(failed)
+    try:
+        provider = _discover(gate, household_id, issuer, deadline)
+    except SsoFailed as failure:
+        if failure.code in _NO_ANSWER:
+            cache.put("no_discovery", issuer, failure.code, FAIL_FOR)
+        raise
+    cache.put("discovery", issuer, provider)
+    return provider
+
+
+def _discover(gate: OutboundGate, household_id: int, issuer: str, deadline: float) -> Provider:
     response = _send(
         gate, household_id, f"{issuer}/.well-known/openid-configuration", deadline=deadline
     )
@@ -370,7 +399,7 @@ def discover(gate: OutboundGate, household_id: int, issuer: str, deadline: float
         and "client_secret_basic" not in methods
         and "client_secret_post" in methods
     )
-    provider = Provider(
+    return Provider(
         issuer=str(document["issuer"]),
         authorization_endpoint=str(_endpoint(document, "authorization_endpoint")),
         token_endpoint=str(_endpoint(document, "token_endpoint")),
@@ -379,8 +408,6 @@ def discover(gate: OutboundGate, household_id: int, issuer: str, deadline: float
         basic_auth=basic,
         scopes=_scopes(document),
     )
-    cache.put("discovery", issuer, provider)
-    return provider
 
 
 def _keys(
@@ -452,98 +479,129 @@ def groups_in(claims: dict[str, Any], claim: str) -> list[str]:
 # --- One sign-in ---------------------------------------------------------------------------
 
 
-@dataclass
+@dataclass(frozen=True)
 class Flow:
-    """A sign-in under way: what the callback must match. Kept in memory only."""
+    """A sign-in under way: what the callback must match. Not kept on the server: sealed
+    into the cookie of the browser that started it (`pack`), and read back from it."""
 
     household_id: int
     mode: Mode
+    state: str
     nonce: str
     verifier: str
-    binding: str  # the SHA-256 of the browser's own cookie value
     issuer: str
     client_id: str
     redirect_uri: str
     remember: bool = False
     login_id: int | None = None  # a test: the admin who started it
-    expires: float = field(default_factory=lambda: time.monotonic() + FLOW_FOR)
+    started: float = field(default_factory=time.time)  # the clock's time, in seconds
+
+    def pack(self) -> str:
+        """As text, for the caller to seal into the browser's cookie."""
+        return json.dumps(asdict(self), separators=(",", ":"))
+
+    @classmethod
+    def unpack(cls, text: str) -> Flow:
+        """What `pack` gave. Raises SsoFailed("expired") for anything else."""
+        try:
+            found = json.loads(text)
+            flow = cls(**found)
+        except ValueError, TypeError:
+            raise SsoFailed("expired") from None
+        texts = (flow.state, flow.nonce, flow.verifier, flow.issuer, flow.client_id)
+        if (
+            flow.mode not in ("sign_in", "test")
+            or not all(isinstance(value, str) and value for value in texts)
+            or not isinstance(flow.redirect_uri, str)
+            or not isinstance(flow.household_id, int)
+            or not isinstance(flow.remember, bool)
+            or not (flow.login_id is None or isinstance(flow.login_id, int))
+            or not isinstance(flow.started, int | float)
+        ):
+            raise SsoFailed("expired")
+        return flow
 
 
 def _hash(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-class Flows:
-    """The sign-ins under way, by state. Each is taken once."""
+class Used:
+    """The states already used, remembered until they would have run out anyway, so each
+    works once. Only a state from a cookie this server sealed gets in here, and at most
+    MOST_USED are remembered: when full, the oldest is forgotten. That can never stop
+    anyone's sign-in (unlike a table of sign-ins under way); a forgotten state could at
+    most be tried a second time by the browser that holds its cookie, where the sign-in
+    server's one-time code still refuses it."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._flows: OrderedDict[str, Flow] = OrderedDict()
+        self._used: OrderedDict[str, float] = OrderedDict()
 
-    def add(self, flow: Flow) -> str:
-        state = secrets.token_urlsafe(32)
+    def once(self, state: str, until: float) -> bool:
+        """True the first time `state` is given, False after."""
+        key = _hash(state)
         with self._lock:
-            at = time.monotonic()
-            for old in [k for k, f in self._flows.items() if f.expires <= at]:
-                del self._flows[old]
-            while len(self._flows) >= MOST_FLOWS:
-                self._flows.popitem(last=False)
-            self._flows[_hash(state)] = flow
-        return state
-
-    def take(self, state: str, binding: str | None) -> Flow:
-        """The flow `state` started, from the browser that started it, and only once.
-        Raises SsoFailed("expired")."""
-        with self._lock:
-            flow = self._flows.pop(_hash(state), None)
-        if (
-            flow is None
-            or flow.expires <= time.monotonic()
-            or not binding
-            or not secrets.compare_digest(flow.binding, _hash(binding))
-        ):
-            raise SsoFailed("expired")
-        return flow
+            at = time.time()
+            for old in [k for k, expires in self._used.items() if expires <= at]:
+                del self._used[old]
+            if key in self._used:
+                return False
+            while len(self._used) >= MOST_USED:
+                self._used.popitem(last=False)
+            self._used[key] = until
+        return True
 
     def __len__(self) -> int:
-        return len(self._flows)
+        return len(self._used)
+
+
+def take(used: Used, packed: str | None, state: str) -> Flow:
+    """The sign-in `state` started, from what the browser's own cookie held (opened by the
+    caller), and only once. Raises SsoFailed("expired")."""
+    if not packed:
+        raise SsoFailed("expired")
+    flow = Flow.unpack(packed)
+    if not secrets.compare_digest(flow.state.encode(), state.encode()):
+        raise SsoFailed("expired")  # another sign-in's state: this one isn't used up by it
+    age = time.time() - flow.started
+    if age > FLOW_FOR or age < -LEEWAY or not used.once(flow.state, flow.started + FLOW_FOR):
+        raise SsoFailed("expired")
+    return flow
 
 
 @dataclass(frozen=True)
 class Started:
     url: str  # the provider's sign-in page, for the browser
-    state: str
-    binding: str  # the browser's cookie value
+    flow: Flow  # for the caller to seal into the browser's cookie
 
 
 def start(
     gate: OutboundGate,
-    flows: Flows,
     client: Client,
     *,
     mode: Mode,
     remember: bool = False,
     login_id: int | None = None,
 ) -> Started:
-    """Begin a sign-in: the provider's address to send the browser to."""
+    """Begin a sign-in: the provider's address to send the browser to, and the sign-in's
+    own state, nonce and verifier for the browser's cookie. Nothing is kept here."""
     deadline = time.monotonic() + TIME_LIMIT
-    provider = discover(gate, client.household_id, client.issuer, deadline)
+    provider = discover(gate, client.household_id, client.issuer, deadline, fresh=mode == "test")
     verifier = secrets.token_urlsafe(48)
     nonce = secrets.token_urlsafe(32)
-    binding = secrets.token_urlsafe(32)
-    state = flows.add(
-        Flow(
-            household_id=client.household_id,
-            mode=mode,
-            nonce=nonce,
-            verifier=verifier,
-            binding=_hash(binding),
-            issuer=client.issuer,
-            client_id=client.client_id,
-            redirect_uri=client.redirect_uri,
-            remember=remember,
-            login_id=login_id,
-        )
+    state = secrets.token_urlsafe(32)
+    flow = Flow(
+        household_id=client.household_id,
+        mode=mode,
+        state=state,
+        nonce=nonce,
+        verifier=verifier,
+        issuer=client.issuer,
+        client_id=client.client_id,
+        redirect_uri=client.redirect_uri,
+        remember=remember,
+        login_id=login_id,
     )
     asked = {
         "response_type": "code",
@@ -561,9 +619,7 @@ def start(
         asked["prompt"] = "login"
     query = urlencode(asked, quote_via=quote)
     joiner = "&" if "?" in provider.authorization_endpoint else "?"
-    return Started(
-        url=f"{provider.authorization_endpoint}{joiner}{query}", state=state, binding=binding
-    )
+    return Started(url=f"{provider.authorization_endpoint}{joiner}{query}", flow=flow)
 
 
 @dataclass(frozen=True)

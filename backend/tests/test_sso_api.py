@@ -318,23 +318,111 @@ def test_the_state_works_once_and_only_in_the_browser_that_started(
 ) -> None:
     phone = browser(admin)
     started = phone.get(f"{API}/sso/start")
+    cookie = phone.cookies.get("__Host-mealwright_sso")
     code, state = idp.sign_in(started.headers["location"])
     other = browser(admin)  # another browser, without the cookie
     stolen = other.post(f"{API}/sso/finish", json={"state": state, "code": code})
     assert stolen.status_code == 400
     assert stolen.json()["code"] == "expired"
-    # Taken once: the right browser can't use it now either.
+    assert logins(admin) == {}
+    # A cookie this server didn't seal is no better than none.
+    other.cookies.set("__Host-mealwright_sso", "made-up")
+    forged = other.post(f"{API}/sso/finish", json={"state": state, "code": code})
+    assert forged.json()["code"] == "expired"
+    # The right browser signs in, once: its cookie put back by hand doesn't work again.
+    assert phone.post(f"{API}/sso/finish", json={"state": state, "code": code}).is_success
+    assert phone.cookies.get("__Host-mealwright_sso") is None
+    phone.cookies.set("__Host-mealwright_sso", str(cookie))
     again = phone.post(f"{API}/sso/finish", json={"state": state, "code": code})
     assert again.json()["code"] == "expired"
-    assert logins(admin) == {}
 
 
-def test_the_binding_cookie_is_http_only_and_short_lived(admin: TestClient) -> None:
+# O1 review r1 M2: someone signed out can't stop other people's sign-ins.
+
+
+def test_strangers_starting_sign_ins_cant_push_out_someone_elses(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    victim = browser(admin)
+    url = begin(victim)
+    for n in range(250):  # more than the 200 that used to wait at once
+        stranger = TestClient(
+            admin.app,
+            base_url="https://testserver",
+            follow_redirects=False,
+            client=(f"203.0.113.{n + 1}", 40000),
+        )
+        begin(stranger)
+    code, state = idp.sign_in(url)
+    answer = victim.post(f"{API}/sso/finish", json={"state": state, "code": code})
+    assert answer.status_code == 200, answer.text
+    assert answer.json()["me"]["username"] == "ayla"
+
+
+def test_a_sign_in_server_that_doesnt_answer_isnt_asked_again_by_every_start(
+    admin: TestClient, idp: FakeProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    idp.port = 8443  # it stopped answering: connections are refused
+    sso.cache.forget()
+    started = browser(admin).get(f"{API}/sso/start")
+    assert started.headers["location"] == "/sign-in?sso=unreachable"
+    tried = len(idp.connections)
+    assert tried >= 1
+    for _ in range(20):
+        started = browser(admin).get(f"{API}/sso/start")
+        assert started.headers["location"] == "/sign-in?sso=unreachable"
+    assert len(idp.connections) == tried  # nobody waited on it again
+    # The admin's own test asks at once: they may just have mended it.
+    idp.port = 443
+    assert admin.post(f"{API}/sso/test").status_code == 200
+    # Everyone else's sign-in asks again after a minute.
+    idp.port = 8443
+    sso.cache.forget()
+    assert browser(admin).get(f"{API}/sso/start").headers["location"].startswith("/sign-in?")
+    tried = len(idp.connections)
+    real = time.monotonic()
+    monkeypatch.setattr(time, "monotonic", lambda: real + 61)
+    idp.port = 443
+    started = browser(admin).get(f"{API}/sso/start")
+    assert started.headers["location"].startswith(f"{ISSUER}/authorize?")
+    assert len(idp.connections) > tried
+
+
+def test_a_state_works_only_with_the_cookie_of_the_sign_in_it_started(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    one, two = browser(admin), browser(admin)
+    url = begin(one)
+    begin(two)  # another browser, with a sign-in of its own under way
+    code, state = idp.sign_in(url)
+    stolen = two.post(f"{API}/sso/finish", json={"state": state, "code": code})
+    assert stolen.status_code == 400
+    assert stolen.json()["code"] == "expired"
+    # The cookie holds nothing readable: the state, nonce and verifier are sealed in it.
+    cookie = one.cookies.get("__Host-mealwright_sso")
+    assert cookie and state not in cookie
+    assert one.post(f"{API}/sso/finish", json={"state": state, "code": code}).status_code == 200
+
+
+def test_a_sign_in_that_took_too_long_is_refused(
+    admin: TestClient, idp: FakeProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    phone = browser(admin)
+    code, state = idp.sign_in(begin(phone))
+    real = time.time()
+    monkeypatch.setattr(sso.time, "time", lambda: real + sso.FLOW_FOR + 1)
+    answer = phone.post(f"{API}/sso/finish", json={"state": state, "code": code})
+    assert answer.status_code == 400
+    assert answer.json()["code"] == "expired"
+
+
+def test_the_sign_ins_cookie_is_http_only_and_short_lived(admin: TestClient) -> None:
     started = browser(admin).get(f"{API}/sso/start")
     cookie = started.headers["set-cookie"]
     assert cookie.startswith("__Host-mealwright_sso=")
     for part in ("HttpOnly", "Secure", "Path=/", "SameSite=lax", f"Max-Age={sso.FLOW_FOR}"):
         assert part in cookie
+    assert len(cookie) < 2000  # well inside what a browser keeps (4096)
 
 
 def test_a_cancelled_sign_in_says_so(admin: TestClient) -> None:

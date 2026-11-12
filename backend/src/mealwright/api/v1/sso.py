@@ -3,14 +3,17 @@
 The sign-in goes start → the sign-in server → the callback → a session:
 
 1. `GET /sso/start` (a link the browser follows) asks the sign-in server's discovery document
-   through the outbound gate, keeps the sign-in's state, nonce and PKCE verifier in memory
-   for 10 minutes, ties them to this browser with a cookie of its own, and sends the browser
-   to the sign-in server.
+   through the outbound gate, seals the sign-in's state, nonce and PKCE verifier into a
+   cookie for this browser (HttpOnly, 10 minutes; `mealwright.secret_box`), and sends the
+   browser to the sign-in server. Nothing is kept on the server, so following the link
+   changes nothing here, and strangers' starts can't push anyone's sign-in out (O1 review r1
+   M2).
 2. The sign-in server sends the browser back to the redirect address the admin saved: the web
    app's `/auth/callback` page. That page posts what came back to `POST /sso/finish`, which
-   takes the state once, from the browser that started it, swaps the code for tokens and
-   checks the ID token (`mealwright.sso`). The account is found by issuer and subject, made
-   on first sign-in if allowed, and its role follows the groups (`mealwright.sso_accounts`).
+   takes the state once, with the cookie of the browser that started it, swaps the code
+   for tokens and checks the ID token (`mealwright.sso`). The account is found by issuer and
+   subject, made on first sign-in if allowed, and its role follows the groups
+   (`mealwright.sso_accounts`).
 3. A session starts like a password sign-in's, with the refresh token sealed.
 
 `POST /sso/test` starts the same for the setup screen's "Test sign-in", signed in as an admin.
@@ -53,7 +56,7 @@ from mealwright.models import SsoSettings, utcnow
 from mealwright.outbound import OutboundGate
 from mealwright.own_network import is_localhost
 from mealwright.roles import ADMIN, MEMBER, Action
-from mealwright.secret_box import seal
+from mealwright.secret_box import SecretUnreadable, open_sealed, seal
 
 log = logging.getLogger("mealwright.sign_in")
 
@@ -155,7 +158,6 @@ def _begin(
         client = sso_accounts.client(row, request.app.state.settings.data_dir)
         return sso.start(
             _gate(request),
-            request.app.state.sso_flows,
             client,
             mode=mode,
             remember=remember,
@@ -167,10 +169,11 @@ def _begin(
 
 
 def _bind(response: Response, settings: Settings, started: sso.Started) -> None:
-    """Tie the sign-in to this browser with a cookie of its own."""
+    """Give the sign-in to this browser, sealed in a cookie of its own: only this server
+    can read or make one, and only this browser can finish with it."""
     response.set_cookie(
         _cookie(settings),
-        started.binding,
+        seal(settings.data_dir, started.flow.pack()),
         max_age=sso.FLOW_FOR,
         httponly=True,
         secure=not settings.allow_plain_http,
@@ -279,12 +282,16 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
     400 with a `code` and a sentence to show."""
     settings: Settings = request.app.state.settings
     needs_https(request, settings)
-    binding = request.cookies.get(_cookie(settings))
+    sealed = request.cookies.get(_cookie(settings))
     response.delete_cookie(
         _cookie(settings), httponly=True, secure=not settings.allow_plain_http, path="/"
     )
     try:
-        flow = request.app.state.sso_flows.take(body.state, binding)
+        try:
+            packed = open_sealed(settings.data_dir, sealed) if sealed else None
+        except SecretUnreadable:
+            packed = None  # not a cookie this server sealed
+        flow = sso.take(request.app.state.sso_used, packed, body.state)
     except sso.SsoFailed as failure:
         raise _refused(failure) from None
     try:

@@ -31,7 +31,7 @@ from mealwright import migrate, sso
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.models import Household, OwnNetworkEntry
 from mealwright.outbound import USER_AGENT, Connection, OutboundGate, set_switch
-from mealwright.sso import Client, Flows, SsoFailed
+from mealwright.sso import Client, SsoFailed, Used
 
 REDIRECT = "https://mealwright.example.com/auth/callback"
 
@@ -94,10 +94,9 @@ def switch(sessions: sessionmaker[Session], on: bool) -> None:
 def sign_in(
     gate: OutboundGate, idp: FakeProvider, **kwargs: Any
 ) -> tuple[sso.Identity, sso.Started]:
-    flows = Flows()
-    started = sso.start(gate, flows, client(), mode="sign_in")
+    started = sso.start(gate, client(), mode="sign_in")
     code, state = idp.sign_in(started.url, **kwargs)
-    flow = flows.take(state, started.binding)
+    flow = sso.take(Used(), started.flow.pack(), state)
     return sso.finish(gate, flow, client(), code), started
 
 
@@ -255,7 +254,7 @@ def test_a_discovery_document_for_another_issuer_is_refused(
 ) -> None:
     idp.discovery_extra = {"issuer": "https://evil.example"}
     with pytest.raises(SsoFailed) as caught:
-        sso.start(gate, Flows(), client(), mode="sign_in")
+        sso.start(gate, client(), mode="sign_in")
     assert caught.value.code == "bad_answer"
 
 
@@ -277,74 +276,121 @@ def test_the_scopes_asked_for_follow_what_the_provider_lists(
     if listed."""
     if listed is not None:
         idp.discovery_extra = {"scopes_supported": listed}
-    started = sso.start(gate, Flows(), client(), mode="sign_in")
+    started = sso.start(gate, client(), mode="sign_in")
     assert parse_qs(urlsplit(started.url).query)["scope"] == [asked]
 
 
 def test_a_wrong_client_secret_is_refused(gate: OutboundGate, idp: FakeProvider) -> None:
-    flows = Flows()
-    started = sso.start(gate, flows, client(secret="wrong"), mode="sign_in")
+    started = sso.start(gate, client(secret="wrong"), mode="sign_in")
     code, state = idp.sign_in(started.url)
+    assert state == started.flow.state
     with pytest.raises(SsoFailed) as caught:
-        sso.finish(gate, flows.take(state, started.binding), client(secret="wrong"), code)
+        sso.finish(gate, started.flow, client(secret="wrong"), code)
     assert caught.value.code == "refused"
 
 
 # --- One-time, short-lived and bound to the browser ---------------------------------------------
 
 
-def test_a_state_is_used_once_and_only_by_the_browser_that_started_it(
+def test_a_state_is_used_once_and_only_with_its_own_sign_in(
     gate: OutboundGate, idp: FakeProvider
 ) -> None:
-    flows = Flows()
-    started = sso.start(gate, flows, client(), mode="sign_in")
+    used = Used()
+    started = sso.start(gate, client(), mode="sign_in")
+    other = sso.start(gate, client(), mode="sign_in")
     _, state = idp.sign_in(started.url)
-    with pytest.raises(SsoFailed) as caught:
-        flows.take(state, "another browser")
-    assert caught.value.code == "expired"
-    # A wrong browser used it up too: nobody can try again with it.
+    # Another browser's sign-in (its cookie) doesn't fit this state, nor does none at all.
+    for packed in (other.flow.pack(), None, "", "not a sign-in", "{}"):
+        with pytest.raises(SsoFailed) as caught:
+            sso.take(used, packed, state)
+        assert caught.value.code == "expired"
+    # Those tries didn't use it up: nobody can spoil someone else's sign-in.
+    assert sso.take(used, started.flow.pack(), state) == started.flow
+    # Once.
     with pytest.raises(SsoFailed):
-        flows.take(state, started.binding)
-    started = sso.start(gate, flows, client(), mode="sign_in")
-    _, state = idp.sign_in(started.url)
-    flows.take(state, started.binding)
-    with pytest.raises(SsoFailed):
-        flows.take(state, started.binding)
-    with pytest.raises(SsoFailed):
-        flows.take(state, None)
+        sso.take(used, started.flow.pack(), state)
+    assert sso.take(used, other.flow.pack(), other.flow.state) == other.flow
 
 
 def test_a_state_runs_out(
     gate: OutboundGate, idp: FakeProvider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    flows = Flows()
-    started = sso.start(gate, flows, client(), mode="sign_in")
+    started = sso.start(gate, client(), mode="sign_in")
     _, state = idp.sign_in(started.url)
-    later = time.monotonic() + sso.FLOW_FOR + 1
-    monkeypatch.setattr(time, "monotonic", lambda: later)
+    later = time.time() + sso.FLOW_FOR + 1
+    monkeypatch.setattr(time, "time", lambda: later)
     with pytest.raises(SsoFailed):
-        flows.take(state, started.binding)
+        sso.take(Used(), started.flow.pack(), state)
 
 
-def test_only_so_many_sign_ins_wait_at_once(gate: OutboundGate, idp: FakeProvider) -> None:
-    flows = Flows()
-    first = sso.start(gate, flows, client(), mode="sign_in")
-    for _ in range(sso.MOST_FLOWS):
-        sso.start(gate, flows, client(), mode="sign_in")
-    assert len(flows) == sso.MOST_FLOWS
-    _, state = idp.sign_in(first.url)
+def test_a_sign_in_from_the_future_or_changed_is_refused(
+    gate: OutboundGate, idp: FakeProvider
+) -> None:
+    started = sso.start(gate, client(), mode="sign_in")
+    packed = json.loads(started.flow.pack())
+    for change in (
+        {"started": time.time() + 3600},
+        {"mode": "admin"},
+        {"nonce": ""},
+        {"login_id": "1"},
+        {"extra": 1},
+    ):
+        with pytest.raises(SsoFailed):
+            sso.take(Used(), json.dumps({**packed, **change}), started.flow.state)
+
+
+def test_starting_keeps_nothing_on_the_server_and_used_states_cant_fill_it(
+    gate: OutboundGate, idp: FakeProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # O1 review r1 M2: there is no table of sign-ins under way for strangers to fill.
+    used = Used()
+    first = sso.start(gate, client(), mode="sign_in")
+    for _ in range(250):
+        sso.start(gate, client(), mode="sign_in")
+    assert len(used) == 0
+    assert sso.take(used, first.flow.pack(), first.flow.state) == first.flow
+    # Used states are remembered only so many at once, and only until they'd have run out.
+    monkeypatch.setattr(sso, "MOST_USED", 3)
+    for n in range(5):
+        assert used.once(f"state-{n}", time.time() + 60)
+    assert len(used) == 3
+    assert not used.once("state-4", time.time() + 60)
+    later = time.time() + 61
+    monkeypatch.setattr(time, "time", lambda: later)
+    assert used.once("state-5", later + 60)
+    assert len(used) == 1
+
+
+def test_a_provider_that_didnt_answer_isnt_asked_again_for_a_minute(
+    gate: OutboundGate, idp: FakeProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    idp.port = 9999  # nothing listens
+    with pytest.raises(SsoFailed) as caught:
+        sso.start(gate, client(), mode="sign_in")
+    assert caught.value.code == "unreachable"
+    tried = len(idp.connections)
+    with pytest.raises(SsoFailed) as caught:
+        sso.start(gate, client(), mode="sign_in")
+    assert caught.value.code == "unreachable"
+    assert len(idp.connections) == tried
+    # The admin's test asks at once.
     with pytest.raises(SsoFailed):
-        flows.take(state, first.binding)
+        sso.start(gate, client(), mode="test", login_id=1)
+    assert len(idp.connections) > tried
+    # A minute on, it is asked again.
+    real = time.monotonic()
+    monkeypatch.setattr(time, "monotonic", lambda: real + sso.FAIL_FOR + 1)
+    idp.port = 443
+    assert sso.start(gate, client(), mode="sign_in").url.startswith(ISSUER)
 
 
 def test_a_code_from_another_sign_in_fails_its_pkce(gate: OutboundGate, idp: FakeProvider) -> None:
-    flows = Flows()
-    one = sso.start(gate, flows, client(), mode="sign_in")
-    two = sso.start(gate, flows, client(), mode="sign_in")
+    one = sso.start(gate, client(), mode="sign_in")
+    two = sso.start(gate, client(), mode="sign_in")
     code_one, _ = idp.sign_in(one.url)
     _, state_two = idp.sign_in(two.url)
     with pytest.raises(SsoFailed):
-        sso.finish(gate, flows.take(state_two, two.binding), client(), code_one)
+        sso.finish(gate, sso.take(Used(), two.flow.pack(), state_two), client(), code_one)
 
 
 # --- The Privacy switch and "Your own network" --------------------------------------------------
@@ -355,7 +401,7 @@ def test_nothing_leaves_while_the_switch_is_off(
 ) -> None:
     switch(sessions, False)
     with pytest.raises(SsoFailed) as caught:
-        sso.start(gate, Flows(), client(), mode="sign_in")
+        sso.start(gate, client(), mode="sign_in")
     assert caught.value.code == "switched_off"
     assert idp.lookups == [] and idp.connections == [] and idp.seen == []
 
@@ -363,13 +409,12 @@ def test_nothing_leaves_while_the_switch_is_off(
 def test_turning_the_switch_off_mid_sign_in_stops_the_rest(
     gate: OutboundGate, idp: FakeProvider, sessions: sessionmaker[Session]
 ) -> None:
-    flows = Flows()
-    started = sso.start(gate, flows, client(), mode="sign_in")
+    started = sso.start(gate, client(), mode="sign_in")
     code, state = idp.sign_in(started.url)
     switch(sessions, False)
     sent = len(idp.seen)
     with pytest.raises(SsoFailed) as caught:
-        sso.finish(gate, flows.take(state, started.binding), client(), code)
+        sso.finish(gate, sso.take(Used(), started.flow.pack(), state), client(), code)
     assert caught.value.code == "switched_off"
     assert len(idp.seen) == sent
 
@@ -387,13 +432,13 @@ def test_a_provider_on_the_own_network_must_be_listed(
 ) -> None:
     idp.address = "192.168.1.20"
     with pytest.raises(SsoFailed) as caught:
-        sso.start(gate, Flows(), client(), mode="sign_in")
+        sso.start(gate, client(), mode="sign_in")
     assert caught.value.code == "own_network"
     assert idp.connections == []
     with sessions() as session:
         session.add(OwnNetworkEntry(household_id=1, kind="name", value="id.example.org"))
         session.commit()
-    sso.start(gate, Flows(), client(), mode="sign_in")
+    sso.start(gate, client(), mode="sign_in")
     assert idp.connections == [("192.168.1.20", 443)]
 
 
@@ -403,17 +448,17 @@ def test_plain_http_and_other_ports_work_only_for_a_listed_place(
     idp.issuer = "http://id.example.org"
     idp.port = 80
     with pytest.raises(SsoFailed) as caught:
-        sso.start(gate, Flows(), client("http://id.example.org"), mode="sign_in")
+        sso.start(gate, client("http://id.example.org"), mode="sign_in")
     assert caught.value.code == "not_https"
     idp.issuer, idp.port = "https://id.example.org:8443", 8443
     with pytest.raises(SsoFailed) as caught:
-        sso.start(gate, Flows(), client("https://id.example.org:8443"), mode="sign_in")
+        sso.start(gate, client("https://id.example.org:8443"), mode="sign_in")
     assert caught.value.code == "own_network"
     assert idp.connections == []
     with sessions() as session:
         session.add(OwnNetworkEntry(household_id=1, kind="address", value=ADDRESS))
         session.commit()
-    sso.start(gate, Flows(), client("https://id.example.org:8443"), mode="sign_in")
+    sso.start(gate, client("https://id.example.org:8443"), mode="sign_in")
     assert idp.connections == [(ADDRESS, 8443)]
 
 
@@ -425,11 +470,11 @@ def test_this_server_itself_is_never_used(
         session.commit()
     for issuer in ("https://localhost", "https://127.0.0.1"):
         with pytest.raises(SsoFailed) as caught:
-            sso.start(gate, Flows(), client(issuer), mode="sign_in")
+            sso.start(gate, client(issuer), mode="sign_in")
         assert caught.value.code == "always_blocked"
     idp.address = "127.0.0.1"
     with pytest.raises(SsoFailed) as caught:
-        sso.start(gate, Flows(), client(), mode="sign_in")
+        sso.start(gate, client(), mode="sign_in")
     assert caught.value.code == "always_blocked"
     assert idp.connections == []
 
