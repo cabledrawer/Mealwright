@@ -162,6 +162,39 @@ class OwnNetworkEntry(Base):
     added_by_name: Mapped[str] = mapped_column(String(100), default="")
 
 
+class SsoSettings(Base):
+    """The household's single sign-on (Settings → Sign-in → Single sign-on; 0.9 O1). No row: not
+    set up. The client secret is stored sealed (`mealwright.secret_box`), never as typed.
+
+    `group_roles` is a list of {"group": ..., "role": "admin"|"member"}, first match wins with
+    Admin before Member. `anyone_else` is what someone in none of those groups gets: "none" (not
+    let in) or "member". `redirect_uri` is the address the admin gave the sign-in server; the
+    sign-in only ever sends that one, never one built from a request's headers.
+    """
+
+    __tablename__ = "sso_settings"
+    __table_args__ = (
+        CheckConstraint("anyone_else IN ('none', 'member')", name="anyone_else_known"),
+    )
+
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), primary_key=True
+    )
+    issuer: Mapped[str] = mapped_column(String(500))
+    client_id: Mapped[str] = mapped_column(String(255))
+    client_secret_sealed: Mapped[str | None] = mapped_column(Text)
+    button_name: Mapped[str] = mapped_column(String(60))
+    redirect_uri: Mapped[str] = mapped_column(String(500))
+    group_claim: Mapped[str] = mapped_column(String(100), default="groups")
+    group_roles: Mapped[list[dict[str, str]]] = mapped_column(JSON, default=list)
+    anyone_else: Mapped[str] = mapped_column(String(10), default="none")
+    make_accounts: Mapped[bool] = mapped_column(Boolean, default=True)
+    password_sign_in: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+
 class Member(Base):
     """A person in the household (spec section 3, "Users and households"; 0.9 A1): a name, a
     colour and how much they eat, with or without a login. Kids, a baby, or two people who share
@@ -219,6 +252,13 @@ class Login(Base):
     # When the password was last set by its owner or reset-admin (PR A2). Empty for one set
     # before then, or at setup.
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Single sign-on (0.9 O1): the identity provider's issuer and subject ("sub") this login
+    # signs in as. A login is found only by these two together, never by a name or email
+    # address from the provider.
+    sso_issuer: Mapped[str | None] = mapped_column(String(500))
+    sso_subject: Mapped[str | None] = mapped_column(String(255))
+
+    __table_args__ = (UniqueConstraint("sso_issuer", "sso_subject", name="uq_login_sso"),)
 
 
 class Session(Base):
@@ -244,6 +284,12 @@ class Session(Base):
     # A short name for the device, such as "iPhone · Safari" (mealwright.devices; PR A2).
     # Only this is kept, never the browser's whole User-Agent. Empty if not recognised.
     device: Mapped[str | None] = mapped_column(String(60))
+    # Signed in with single sign-on (0.9 O1): the provider's refresh token, sealed
+    # (`mealwright.secret_box`), and when it is next used to check the sign-in is still allowed.
+    # Signing out deletes the row, and the token with it.
+    sso: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
+    sso_refresh_sealed: Mapped[str | None] = mapped_column(Text)
+    sso_check_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class JoinLink(Base):
