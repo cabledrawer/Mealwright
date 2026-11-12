@@ -94,3 +94,44 @@ def test_a_member_is_never_shown_the_warning(sso_only: TestClient, idp: FakeProv
     member = browser(sso_only)
     sign_in(member, idp, sub="mem", extra={"groups": ["mealwright-users"]})
     assert member.get(f"{API}/sso/settings").status_code == 403
+
+
+def test_the_warning_goes_when_the_kept_admin_has_no_sign_in_left(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """O2 pass, L: a kept admin who signs out is no longer someone the warning is about."""
+    phone = browser(sso_only)
+    sign_in(phone, idp, sub="k", extra=ADMIN_GROUPS)
+    idp.refresh_tokens.clear()
+    _due(sso_only, "k")
+    check(sso_only)
+    assert _warning(sso_only) is not None
+    with cast(Any, sso_only.app).state.sessionmaker() as db:  # every sign-in of theirs is gone
+        for session in db.scalars(select(Session)):
+            db.delete(session)
+        db.commit()
+    with cast(Any, sso_only.app).state.sessionmaker() as db:
+        data_dir = cast(Any, sso_only.app).state.settings.data_dir
+        assert sso_accounts.kept_warning(db, data_dir, 1) is None
+
+
+def test_the_only_admin_made_by_single_sign_on_keeps_their_sign_in_with_passwords_on(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """O2 pass, L: Wren (no password) is the only admin; the hourly check used to end her
+    sign-in, as only reset-admin gets her back. Passwords are on, so the warning doesn't tell
+    her to turn them on (proposed, for cabledrawer)."""
+    from test_sso_refused import _people
+
+    wren = browser(admin)
+    sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
+    kid = _people(wren)["Tess"]
+    assert wren.patch(f"{API}/people/{kid}", json={"role": "member"}).is_success
+    token = a_token(wren)
+    idp.refresh_tokens.clear()
+    _due(admin, "wren")
+    assert check(admin) == 0
+    assert wren.get(f"{API}/me").status_code == 200  # the sign-in stays
+    assert token.get(f"{API}/me").status_code == 401  # the tokens stop
+    warning = wren.get(f"{API}/sso/settings").json()["kept_warning"]
+    assert warning is not None and warning.endswith("Fix it at the sign-in server.")
