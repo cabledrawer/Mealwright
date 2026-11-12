@@ -219,7 +219,7 @@
     background: var(--color-field);
     color: var(--color-text);
     font: inherit;
-    font-size: 0.9375rem; /* 15px, as the mockup */
+    font-size: 1rem; /* 16px, not the mockup's 15: smaller fields make iOS zoom in */
     font-weight: var(--weight-medium);
     resize: none;
   }
@@ -275,7 +275,7 @@
     background: transparent;
     color: var(--color-text-soft);
     font-family: ui-monospace, Menlo, Consolas, monospace;
-    font-size: var(--text-md);
+    font-size: 1rem; /* 16px, not the mockup's 13: smaller fields make iOS zoom in */
     line-height: 1.4;
     overflow-wrap: anywhere;
     resize: none;
