@@ -27,6 +27,7 @@ This is the only module allowed to import networking modules; a test checks that
 import http.client
 import ipaddress
 import logging
+import math
 import socket
 import ssl
 import threading
@@ -52,6 +53,8 @@ TIMEOUT_SECONDS = 15
 # The longest `OutboundGate.request()` may take altogether, from looking the name up to the last
 # byte of the answer (X1; proposed, for cabledrawer). A caller can ask for less (or more).
 REQUEST_TIME_LIMIT = 30.0
+# The most a caller may ask for; more is cut to this (security review r1; proposed, for cabledrawer).
+MAX_REQUEST_TIME_LIMIT = 120.0
 MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 
 
@@ -357,7 +360,10 @@ class OutboundGate:
         sending a byte every few seconds can't hold it longer. Redirects are handed back, not
         followed; an error status (4xx, 5xx) is an answer like any other. Reading stops past
         `max_bytes` (ResponseTooLarge). A connection that fails raises OutboundFailed, which
-        never carries the library's own message."""
+        never carries the library's own message. A `time_limit` above MAX_REQUEST_TIME_LIMIT
+        is cut to it; one that isn't a number of seconds (infinity, NaN) raises ValueError."""
+        if time_limit is not None and not math.isfinite(time_limit):
+            raise ValueError("the time limit must be a number of seconds")
         self.check_switch(household_id, connection)
         parts = urlsplit(url)
         host = parts.hostname
@@ -369,7 +375,9 @@ class OutboundGate:
             raise OutboundBlocked("the port isn't a number") from None
         if port == 0:
             raise OutboundBlocked("port 0 can't be used")
-        limit = REQUEST_TIME_LIMIT if time_limit is None else time_limit
+        limit = (
+            REQUEST_TIME_LIMIT if time_limit is None else min(time_limit, MAX_REQUEST_TIME_LIMIT)
+        )
         deadline = time.monotonic() + limit
         if limit <= 0:
             raise OutboundFailed("timeout")

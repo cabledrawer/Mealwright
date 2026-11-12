@@ -3,6 +3,7 @@
 import ast
 import asyncio
 import logging
+import math
 import os
 import socket
 import socketserver
@@ -275,6 +276,46 @@ def test_the_default_time_limit_is_used(
 
 def test_the_default_time_limit_is_thirty_seconds() -> None:
     assert outbound.REQUEST_TIME_LIMIT == 30
+
+
+@pytest.mark.parametrize("limit", [math.inf, -math.inf, math.nan])
+def test_a_time_limit_that_isnt_a_number_of_seconds_is_refused(
+    gate: OutboundGate, sessions: sessionmaker[Session], trickle: str, limit: float
+) -> None:
+    """Refused before anything is looked up or sent, never a raw OverflowError (security
+    review r1)."""
+    switch(sessions, Connection.UPDATE_CHECK, True)
+    looked_up: list[str] = []
+    real = outbound._look_up_within
+
+    def looking(household_id: int, host: str, port: int, seconds: float) -> list[str]:
+        looked_up.append(host)
+        return real(household_id, host, port, seconds)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(outbound, "_look_up_within", looking)
+        with pytest.raises(ValueError, match="time limit"):
+            gate.request(1, Connection.UPDATE_CHECK, f"{trickle}/", time_limit=limit)
+    assert looked_up == []
+
+
+def test_a_time_limit_past_the_ceiling_is_cut_to_it(
+    gate: OutboundGate,
+    sessions: sessionmaker[Session],
+    trickle: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(outbound, "MAX_REQUEST_TIME_LIMIT", 0.4)
+    switch(sessions, Connection.UPDATE_CHECK, True)
+    started = time.monotonic()
+    with pytest.raises(OutboundFailed) as failed:
+        gate.request(1, Connection.UPDATE_CHECK, f"{trickle}/", time_limit=1e12)
+    assert failed.value.kind == "timeout"
+    assert time.monotonic() - started < 1.5
+
+
+def test_the_time_limit_ceiling_is_two_minutes() -> None:
+    assert outbound.MAX_REQUEST_TIME_LIMIT == 120
 
 
 def test_a_request_within_its_time_sends_its_method_headers_and_body(
