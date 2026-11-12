@@ -82,6 +82,7 @@ _TIME = re.compile(
     re.I,
 )
 _OR = re.compile(r"\bor\b", re.I)
+_STAGE = re.compile(r"(?<=[.;!?])\s+|\bthen\b|\band then\b", re.I)
 _SPACES = re.compile(r"\s+")
 _LONGEST_TEXT = 1_500  # how much of a step's words are read (a step's limit is 5000)
 
@@ -115,6 +116,16 @@ def _unit_minutes(number: str, unit: str | None) -> float:
     return float(number) * per
 
 
+def _sum_times(text: str) -> float:
+    total = 0.0
+    for found in _TIME.finditer(text):
+        unit = found.group("bu") or found.group("au")
+        if unit is None:
+            continue  # "2 onions"
+        total += _unit_minutes(found.group("b") or found.group("a"), unit)
+    return total
+
+
 def times_in(text: str) -> int | None:
     """The minutes a step's own words give, added together ("fry 2 minutes, then simmer 10
     minutes" is 12; "10-15 minutes" is 15, the longer end so nothing is planned too early), or
@@ -123,17 +134,15 @@ def times_in(text: str) -> int | None:
         lambda m: f"{int(m[1]) * 60 + int(m[2])} minutes", step_waits.with_fractions(text)
     )
     # "12 hours in the oven, or the yogurt setting 8 hours" are two ways to do one thing: the
-    # longest way counts, they are not added up (F231). Steps in a row still are.
-    longest = 0.0
-    for way in _OR.split(text):
-        total = 0.0
-        for found in _TIME.finditer(way):
-            unit = found.group("bu") or found.group("au")
-            if unit is None:
-                continue  # "2 onions"
-            total += _unit_minutes(found.group("b") or found.group("a"), unit)
-        longest = max(longest, total)
-    minutes = round(longest)
+    # longest way counts, they are not added up (F231). That is only so when the "or" has a time
+    # on both sides, and only within one stage: a stage ends at "then" or a sentence's end, so
+    # "cook 20 minutes or until soft, then rest 10 minutes" is 30 (L4). Stages add up.
+    total = 0.0
+    for stage in _STAGE.split(text):
+        ways = [_sum_times(way) for way in _OR.split(stage)]
+        timed = [w for w in ways if w > 0]
+        total += max(timed) if len(timed) > 1 else sum(timed)
+    minutes = round(total)
     return minutes if minutes > 0 else None
 
 

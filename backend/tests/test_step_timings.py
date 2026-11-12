@@ -231,3 +231,24 @@ def test_f231_the_instant_pot_still_pressure_cooks_when_the_step_uses_it() -> No
     assert g("Cook the dal in the instant pot for 15 minutes.")[2] == "pressure"
     assert g("Pressure cook in the instant pot for 3 whistles.")[2] == "pressure"
     assert g("Transfer to a pressure cooker and cook for 3 whistles.")[2] == "pressure"
+
+
+def test_f231_l4_an_or_before_then_does_not_hide_the_next_stage() -> None:
+    assert g("Cook 20 minutes or until soft, then rest 10 minutes.")[1] == 30
+    assert g("Soak 4 h or until soft, then ferment 8 h.")[1] == 12 * 60
+    assert g("Fry 5 minutes or until golden. Then simmer 10 minutes.")[1] == 15
+    assert g("Simmer 10 minutes or until thick; rest 5 minutes.")[1] == 15
+    # Only an "or" with a time on both sides is a choice between two ways.
+    assert g("Rest 10 minutes or 15 minutes, then fry 5 minutes.")[1] == 20
+    assert g("Ferment 12 hours, or use the IP yogurt setting 8 hours.")[1] == 12 * 60
+    assert g("Ferment 8 hours.")[1] == 8 * 60
+
+
+def test_f231_l4_a_long_step_is_read_quickly() -> None:
+    import time
+
+    text = "Cook 5 minutes or " * 900 + "then " * 900
+    started = time.perf_counter()
+    step_timings.guess(text)
+    step_timings.times_in(text[:16000])
+    assert time.perf_counter() - started < 1.0
