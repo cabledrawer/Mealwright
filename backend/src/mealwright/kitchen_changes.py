@@ -205,13 +205,15 @@ def undo(kitchen: Kitchen, change: Change) -> None:
         _undo_kitchen(kitchen, data["kitchen"])
     elif change.kind == "batch_cook_switch":
         household = kitchen.household
-        if (not household.batch_cook_hidden) != data["batch_cook"]["new"]:
+        if (not household.batch_cook_hidden) != data["batch_cook"]["new"] or _made_again(
+            kitchen, change
+        ):
             raise _cannot_undo("That can’t be undone: Batch cook has been switched again.")
         household.batch_cook_hidden = not data["batch_cook"]["old"]
         kitchen.db.flush()
     elif change.kind == "pints_changed":
         household = kitchen.household
-        if household.pints != data["pints"]["new"]:
+        if household.pints != data["pints"]["new"] or _made_again(kitchen, change):
             raise _cannot_undo("That can’t be undone: the pint has been changed again.")
         household.pints = data["pints"]["old"]
         kitchen.db.flush()
@@ -235,6 +237,24 @@ def undo(kitchen: Kitchen, change: Change) -> None:
             raise _cannot_undo("That can’t be undone: the household has been renamed again.")
         household.name = data["name"]["old"]
         kitchen.db.flush()
+
+
+def _made_again(kitchen: Kitchen, change: Change) -> bool:
+    """The same setting was changed after this change and that change still stands (not itself
+    undone), though the value may be the same again (on, off, on): its Undo is refused too."""
+    return (
+        kitchen.db.scalar(
+            select(Change.id)
+            .where(
+                Change.household_id == kitchen.household_id,
+                Change.kind == change.kind,
+                Change.id > change.id,
+                Change.undone_by_change_id.is_(None),
+            )
+            .limit(1)
+        )
+        is not None
+    )
 
 
 def _my_place(kitchen: Kitchen, data: dict[str, Any]) -> Place:

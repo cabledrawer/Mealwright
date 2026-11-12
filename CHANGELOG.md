@@ -26,6 +26,8 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 - **Import, "or more" endings (L1d).** "1 tsp salt or more-to taste" (no space before the dash) no longer offers an ingredient called "more": it reads as salt with "or more, to taste" in the note. "1 tbsp oil + more for frying" (also "+ extra", "plus more") is one line, oil, with "+ more for frying" in the note, instead of a second ingredient "more".
 
+- **Undo of the pint and of the Batch cook switch (L1d).** An Undo of a pint change, or of switching Batch cook on or off, is now refused ("That can't be undone: the pint has been changed again." / "…Batch cook has been switched again.", the words already used) when the same setting was changed again after it and that change still stands, even if the value is the same as it was (UK, US, UK). Before, only the value was compared. A later change that was itself undone doesn't count.
+
 ## [0.9.0-beta.1] - 2026-11-12
 
 The first 0.9.0 test version (alpha.1 was not released; its changes are here too, under "People and roles (0.9 A1)" and "Security (0.9 A2, sign-in hardening)"): the household's people and their roles (A1) and harder sign-in (A2), plus Settings in the spec's order and Licences and credits (U1), onboarding and "Amounts shown" (U2), backups, export, restore and Delete everything (D1), a hardened data folder and compose example (D2), the update check and About's update parts (X1), Report a problem (X2), the install guide and proxy examples (M1), single sign-on (O1), API tokens (O2), the leaving-a-page fixes (T1), the pool fix, and Report a problem's old names. Several lines are marked "proposed, for cabledrawer": they are words or rules I chose that still need your yes.

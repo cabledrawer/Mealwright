@@ -936,6 +936,46 @@ def test_a_stale_pint_cannot_be_undone(kitchen: TestClient) -> None:
     assert ok(kitchen.get(f"{API}/household"))["pints"] == "uk"
 
 
+def test_a_pint_change_cannot_be_undone_after_later_changes_even_back_to_the_same_value(
+    kitchen: TestClient,
+) -> None:
+    # L1d: us, uk, us again: the first change's value is the pint now, but two later changes
+    # were made since, so its Undo is refused.
+    ok(kitchen.patch(f"{API}/household", json={"pints": "us"}))
+    first = latest(kitchen)
+    ok(kitchen.patch(f"{API}/household", json={"pints": "uk"}))
+    ok(kitchen.patch(f"{API}/household", json={"pints": "us"}))
+    refused = undo(kitchen, first)
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert "the pint has been changed again" in refused.json()["detail"]
+    assert ok(kitchen.get(f"{API}/household"))["pints"] == "us"
+
+
+def test_a_pint_change_can_be_undone_when_the_later_change_was_itself_undone(
+    kitchen: TestClient,
+) -> None:
+    ok(kitchen.patch(f"{API}/household", json={"pints": "us"}))
+    first = latest(kitchen)
+    ok(kitchen.patch(f"{API}/household", json={"pints": "uk"}))
+    ok(undo(kitchen, latest(kitchen)))  # the later change put back: the pint is us again
+    assert ok(kitchen.get(f"{API}/household"))["pints"] == "us"
+    assert ok(undo(kitchen, first))["result"] == "done"
+    assert ok(kitchen.get(f"{API}/household"))["pints"] == "uk"
+
+
+def test_a_batch_cook_switch_cannot_be_undone_after_later_switches_back_to_the_same_value(
+    kitchen: TestClient,
+) -> None:
+    ok(kitchen.patch(f"{API}/household", json={"batch_cook": False}))
+    first = latest(kitchen)
+    ok(kitchen.patch(f"{API}/household", json={"batch_cook": True}))
+    ok(kitchen.patch(f"{API}/household", json={"batch_cook": False}))
+    refused = undo(kitchen, first)
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert "Batch cook has been switched again" in refused.json()["detail"]
+    assert ok(kitchen.get(f"{API}/household"))["batch_cook"] is False
+
+
 def test_cook_per_step_is_in_recent_changes_any_person_undoes_it_and_a_stale_one_cannot(
     member: TestClient, kitchen: TestClient
 ) -> None:
