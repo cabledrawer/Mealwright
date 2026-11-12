@@ -67,6 +67,9 @@ export interface SsoSetup {
    *  gets in. `notice` is the server's sentence to show. */
   passwords_back_on?: boolean;
   notice?: string | null;
+  /** The sign-in server no longer accepts the only admin who can get in, and Mealwright kept
+   *  their sign-in (the hourly check). The sentence to show, or null. */
+  kept_warning?: string | null;
 }
 
 export interface SsoSetupIn {

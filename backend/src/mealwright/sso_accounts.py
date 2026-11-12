@@ -244,6 +244,17 @@ def another_admin_gets_in(db: DbSession, login: Login, off: bool, *, again: bool
     return int(db.scalar(query) or 0) > 0
 
 
+def _only_way_in_with_passwords_off(
+    db: DbSession, login: Login, row: SsoSettings, data_dir: Path
+) -> bool:
+    """True for an admin nobody else can stand in for (`another_admin_gets_in`) while password
+    sign-in is off: the household's last way in."""
+    if login.role != ADMIN:
+        return False
+    off = passwords_off(db, data_dir, row.household_id)
+    return off and not another_admin_gets_in(db, login, off)
+
+
 def _last_admin_keeps(db: DbSession, login: Login, row: SsoSettings, data_dir: Path) -> str:
     """What a refused login keeps (proposed, for cabledrawer; O2 review r2 to r5). An admin with no
     other admin who can get in without the sign-in server's say (`another_admin_gets_in`) is the
@@ -399,6 +410,30 @@ def _due(at: datetime) -> ColumnElement[bool]:
     )
 
 
+# The warning the hourly check leaves for a household's admins when the sign-in server no longer
+# accepts the only admin who can get in, and their sign-in was kept (cabledrawer 12 Nov): the
+# household's number to (login number, name). In memory only: the kept sign-in is asked again
+# every few minutes, so a restart brings it back at the next check.
+_kept: dict[int, tuple[int, str]] = {}
+
+
+def kept_warning(db: DbSession, data_dir: Path | None, household_id: int) -> str | None:
+    """The sentence Settings shows an admin while it applies: the sign-in server no longer
+    accepts the only admin who can get in, and Mealwright kept their sign-in. Gone once a
+    refresh works again or passwords are back on (proposed, for cabledrawer)."""
+    found = _kept.get(household_id)
+    if found is None:
+        return None
+    if not passwords_off(db, data_dir, household_id):
+        _kept.pop(household_id, None)
+        return None
+    return (
+        f"The sign-in server no longer accepts {found[1]}. Mealwright kept their sign-in on "
+        "this device because they’re the only admin who can get in. Fix it at the sign-in "
+        "server, or turn password sign-in back on."
+    )
+
+
 def check_sessions(
     gate: OutboundGate,
     factory: sessionmaker[DbSession],
@@ -432,7 +467,19 @@ def check_sessions(
                 session.sso_check_at = at + sso.RETRY_AFTER
                 continue
             result, new = sso.refresh(gate, setup, token)
-            if result == "ended":
+            if result == "ended" and _only_way_in_with_passwords_off(db, owner, row, data_dir):
+                # Passwords are off and nobody else can get in: ending this sign-in would leave
+                # only reset-admin. Its tokens stop, the sign-in stays, a warning is left
+                # (cabledrawer 12 Nov; proposed, for cabledrawer), and it is asked again later.
+                api_tokens.stop_for(db, session.login_id)
+                session.sso_check_at = at + sso.RETRY_AFTER
+                _kept[session.household_id] = (owner.id, owner.name)
+                log.info(
+                    "Single sign-on: the only admin's sign-in kept (login %d); the sign-in "
+                    "server no longer accepts it; its API tokens stopped",
+                    owner.id,
+                )
+            elif result == "ended":
                 # The tokens of an admin signed out there stop, even if they are signed in
                 # somewhere else too (safest; proposed, for cabledrawer). The log says so, by the
                 # login's number only, never a name (O2 review r2, finding 3).
@@ -446,6 +493,8 @@ def check_sessions(
                     session.login_id,
                 )
             elif result == "ok":
+                if _kept.get(session.household_id, (0, ""))[0] == owner.id:
+                    del _kept[session.household_id]  # accepted again: the warning goes
                 if new:
                     session.sso_refresh_sealed = seal(data_dir, new)
                 session.sso_check_at = at + sso.CHECK_EVERY

@@ -201,6 +201,7 @@
     </a>
   </div>
   {#if ssoProblem}<p class="warning-line" role="alert">{ssoProblem}</p>{/if}
+  {#if sso?.kept_warning}<p class="warning-line" role="status">{sso.kept_warning}</p>{/if}
   <p class="note">{PASSWORDS_NOTE}</p>
 {/if}
 

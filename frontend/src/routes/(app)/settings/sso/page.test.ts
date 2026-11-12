@@ -258,6 +258,21 @@ describe('single sign-on setup', () => {
       .not.toBeInTheDocument();
   });
 
+  it('warns the admin when the only admin’s sign-in was kept (cabledrawer 12 Nov; proposed)', async () => {
+    const kept_warning =
+      'The sign-in server no longer accepts cabledrawer. Mealwright kept their sign-in on this device because they’re the only admin who can get in. Fix it at the sign-in server, or turn password sign-in back on.';
+    fakeApi({
+      'GET /sso/settings': [
+        200,
+        { ...SAVED, admin_linked: true, password_sign_in: false, kept_warning }
+      ]
+    });
+    show();
+    await expect
+      .element(page.getByRole('status').filter({ hasText: 'no longer accepts Tess' }))
+      .toHaveTextContent(kept_warning);
+  });
+
   it('says when a save turned password sign-in back on (O1 review r1 M3)', async () => {
     const notice =
       'Saved. Password sign-in is on again, because the single sign-on setup changed. Test sign-in, then turn it off again.';

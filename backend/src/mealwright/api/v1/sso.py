@@ -466,6 +466,9 @@ class SsoSetupOut(BaseModel):
     # that decides who gets in): `notice` says so, to show.
     passwords_back_on: bool = False
     notice: str | None = None
+    # The sign-in server no longer accepts the only admin who can get in, and their sign-in was
+    # kept (cabledrawer 12 Nov; proposed, for cabledrawer). Only an admin is told.
+    kept_warning: str | None = None
 
 
 class SsoSetupIn(BaseModel):
@@ -523,6 +526,9 @@ def _setup(request: Request, kitchen: Here, row: SsoSettings | None) -> SsoSetup
         admin_linked=sso_accounts.admin_signs_in_with_sso(kitchen.db, row),
         switch_on=switch,
         test=test,
+        kept_warning=sso_accounts.kept_warning(
+            kitchen.db, request.app.state.settings.data_dir, kitchen.household_id
+        ),
     )
 
 

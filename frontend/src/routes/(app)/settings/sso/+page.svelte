@@ -251,6 +251,7 @@
     anything that speaks OpenID Connect).
   </p>
   {#if loadProblem}<p class="problem" role="alert">{loadProblem}</p>{/if}
+  {#if saved?.kept_warning}<p class="warn" role="status">{saved.kept_warning}</p>{/if}
   <form class="grid" onsubmit={submit} novalidate>
     <section class="card" aria-labelledby="sso-server">
       <h2 id="sso-server">1 · Your sign-in server</h2>
