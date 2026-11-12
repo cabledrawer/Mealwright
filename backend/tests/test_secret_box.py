@@ -21,6 +21,19 @@ def test_seal_and_open(tmp_path: Path) -> None:
     assert open_sealed(tmp_path, sealed) == "the client secret ✓"
 
 
+def test_a_secret_sealed_by_authlib_1_6_12_still_opens(tmp_path: Path) -> None:
+    # Made with Authlib 1.6.12 (before the 1.9.1 security update) and this fixed key; secrets
+    # already stored must keep opening after a library update.
+    import base64
+
+    (tmp_path / "secret.key").write_bytes(base64.urlsafe_b64encode(bytes(range(32))) + b"\n")
+    sealed = (
+        "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..bX759hgUbBs5cnss."
+        "iHdzwFFEoV7kqFDZbttNfg.Balkcjldd2haja3Gevpr2w"
+    )
+    assert open_sealed(tmp_path, sealed) == "sealed-by-1.6.12"
+
+
 def test_each_seal_is_different(tmp_path: Path) -> None:
     # A fresh nonce each time: two equal secrets don't look equal in the database.
     assert seal(tmp_path, "same") != seal(tmp_path, "same")
