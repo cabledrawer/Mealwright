@@ -22,6 +22,11 @@ export const SWITCH_WORDS: Record<SwitchName, { label: string; detail: string }>
     label: 'Download recipe photos',
     detail: 'The recipe’s main photo, kept on this server. Off: imports come without a photo.'
   },
+  // 0.9 O1, from the mockup Dark-Privacy09-Phone (proposed, for cabledrawer).
+  single_sign_on: {
+    label: 'Single sign-on',
+    detail: 'Talks to your sign-in server when someone signs in'
+  },
   // Mockup Dark-Privacy09-Phone (X1). Only the daily check: Check now in About works either way
   // (cabledrawer 12 Nov).
   update_check: {
@@ -34,6 +39,7 @@ export const SWITCH_WORDS: Record<SwitchName, { label: string; detail: string }>
 export const SWITCH_ORDER: readonly SwitchName[] = [
   'recipe_import',
   'recipe_photos',
+  'single_sign_on',
   'update_check'
 ];
 

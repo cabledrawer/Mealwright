@@ -42,6 +42,7 @@ function loadSentence(error: unknown): string {
 const OFF: Record<SwitchName, boolean> = {
   recipe_import: false,
   recipe_photos: false,
+  single_sign_on: false,
   update_check: false
 };
 
@@ -69,7 +70,12 @@ class Privacy {
   /** What the server last said, per switch. */
   #confirmed: Record<SwitchName, boolean> = { ...OFF };
   /** Goes up with each change to a switch, so only the latest one's answer counts. */
-  #latest: Record<SwitchName, number> = { recipe_import: 0, recipe_photos: 0, update_check: 0 };
+  #latest: Record<SwitchName, number> = {
+    recipe_import: 0,
+    recipe_photos: 0,
+    single_sign_on: 0,
+    update_check: 0
+  };
   #saving = 0;
   /** Goes up each time it's forgotten, so an answer to an earlier login is dropped. */
   #generation = 0;

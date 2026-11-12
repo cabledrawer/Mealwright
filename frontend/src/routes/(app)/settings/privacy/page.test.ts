@@ -390,7 +390,7 @@ describe('Settings → Privacy', () => {
         await expect.element(page.getByRole('alert')).toHaveTextContent(detail);
         await expect.element(box).toHaveValue('something');
         await expect.element(box).toHaveAttribute('aria-invalid', 'true');
-        expect(document.querySelectorAll('li')).toHaveLength(3); // only the three switches
+        expect(document.querySelectorAll('li')).toHaveLength(4); // only the four switches
       }
     );
 
@@ -566,6 +566,7 @@ describe('Settings → Privacy', () => {
     expect(privacy.switches).toEqual({
       recipe_import: false,
       recipe_photos: false,
+      single_sign_on: false,
       update_check: false
     });
     expect(privacy.entries).toEqual([]);

@@ -35,10 +35,15 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["privacy"], dependencies=[SameOrigin])
 
-# The switches that do something in this version. The daily update check arrives with 0.9 (X1);
-# notifications and single sign-on appear here when they arrive.
-SHOWN = (Connection.RECIPE_IMPORT, Connection.RECIPE_PHOTOS, Connection.UPDATE_CHECK)
-Shown = Literal["recipe_import", "recipe_photos", "update_check"]
+# The switches that do something in this version, in the order the Privacy mockup draws them.
+# Notifications appear here when they arrive.
+SHOWN = (
+    Connection.RECIPE_IMPORT,
+    Connection.RECIPE_PHOTOS,
+    Connection.SINGLE_SIGN_ON,
+    Connection.UPDATE_CHECK,
+)
+Shown = Literal["recipe_import", "recipe_photos", "single_sign_on", "update_check"]
 
 
 class SwitchOut(BaseModel):

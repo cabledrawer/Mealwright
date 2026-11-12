@@ -133,6 +133,7 @@
   const switchValues = (a: boolean, b: boolean): Record<SwitchName, boolean> => ({
     recipe_import: a,
     recipe_photos: b,
+    single_sign_on: false,
     update_check: false
   });
   const entry = (

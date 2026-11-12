@@ -4,7 +4,7 @@
 import { api } from '#lib/api.js';
 
 /** The switches that do something in this version. */
-export type SwitchName = 'recipe_import' | 'recipe_photos' | 'update_check';
+export type SwitchName = 'recipe_import' | 'recipe_photos' | 'single_sign_on' | 'update_check';
 
 export interface PrivacySwitches {
   switches: { connection: SwitchName; on: boolean }[];
