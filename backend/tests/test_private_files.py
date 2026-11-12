@@ -94,3 +94,27 @@ def test_the_server_sets_a_private_umask_before_it_makes_anything(
     )
     server.main()
     assert calls == ["umask 77", "logging", "run"]
+
+
+def test_the_warning_names_the_first_path_it_could_not_restrict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    data = tmp_path / "data"
+    (data / "photos").mkdir(parents=True)
+    stuck = data / "photos" / "one.webp"
+    stuck.write_bytes(b"x")
+    stuck.chmod(0o644)
+    real_chmod = Path.chmod
+
+    def refuse(self: Path, mode: int, **kwargs: bool) -> None:
+        if self == stuck:
+            raise PermissionError("not yours")
+        real_chmod(self, mode, **kwargs)
+
+    monkeypatch.setattr(Path, "chmod", refuse)
+    with caplog.at_level("WARNING", logger="mealwright.private_files"):
+        tighten(data)
+    warning = " ".join(record.getMessage() for record in caplog.records)
+    assert "photos/one.webp" in warning
+    assert str(tmp_path) not in warning.replace(str(data), "")
+    assert "docs/hardening.md" in warning
