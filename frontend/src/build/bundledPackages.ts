@@ -4,7 +4,8 @@ import type { Plugin } from 'vite';
 
 /** The package a module of node_modules belongs to ("clsx", "@scope/name"), or null. */
 export function packageOf(id: string): string | null {
-  const path = id.split('?')[0].replaceAll('\\', '/');
+  const [file = ''] = id.split('?');
+  const path = file.replaceAll('\\', '/');
   const at = path.lastIndexOf('/node_modules/');
   if (at < 0) return null;
   const [first, second] = path.slice(at + '/node_modules/'.length).split('/');
