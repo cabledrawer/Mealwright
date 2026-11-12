@@ -65,7 +65,15 @@ export function issueTitle(doing: string): string {
 export const LINK_LIMIT = 8000;
 
 function linkFor(page: string, title: string, body: string): string {
-  return `${page}?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+  return `${page}?title=${encodeURIComponent(wellFormed(title))}&body=${encodeURIComponent(wellFormed(body))}`;
+}
+
+/** Half an emoji (a lone surrogate) becomes "�": encodeURIComponent throws on it. */
+function wellFormed(text: string): string {
+  return text.replace(
+    /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+    '�'
+  );
 }
 
 /**

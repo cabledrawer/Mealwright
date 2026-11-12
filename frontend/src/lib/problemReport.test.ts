@@ -121,6 +121,28 @@ describe('issueLink', () => {
   });
 });
 
+describe('issueLink with half an emoji typed or pasted (review r2, L8)', () => {
+  it('never throws, and sends a replacement character for the lone half', () => {
+    const lone = 'broke at \uD83C here and \uDF45 there';
+    const title = issueTitle(lone);
+    expect(() => issueLink(PAGE, title, lone)).not.toThrow();
+    const url = new URL(issueLink(PAGE, title, lone).href);
+    expect(url.searchParams.get('title')).toBe('Problem: broke at � here and � there');
+    expect(url.searchParams.get('body')).toBe('broke at � here and � there');
+  });
+
+  it('keeps a whole emoji', () => {
+    const { href } = issueLink(PAGE, 'Problem: 🍅', 'a 🍅 b');
+    expect(new URL(href).searchParams.get('body')).toBe('a 🍅 b');
+  });
+
+  it('never throws when the text is too long to fit', () => {
+    const body = `\uD83C ${'x'.repeat(9000)}`;
+    expect(() => issueLink(PAGE, 'Problem: x', body)).not.toThrow();
+    expect(issueLink(PAGE, 'Problem: x', body).trimmed).toBe(true);
+  });
+});
+
 describe('issueLink with one long paragraph', () => {
   it('cuts mid-line when cutting at a line end would lose most of what was typed (review r1)', () => {
     const typed = 'word '.repeat(2000);
