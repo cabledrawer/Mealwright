@@ -3,7 +3,7 @@
   // list, "New token" (name, Read only / Read and change, Expires: Never, 30 days, 1 year or
   // Pick a date) and, once made, the token shown this once with Copy and Done. Deleting asks
   // first: a deleted token can't come back, and the apps using it stop at once (the brief's
-  // "revoke with a confirm"; proposed, for cabledrawer). Every word here is proposed, for cabledrawer.
+  // "revoke with a confirm"; cabledrawer 12 Nov). Every word here is accepted (cabledrawer 12 Nov).
   import { ApiError, cantReach, cantReachWords, detailOf } from '#lib/api.js';
   import {
     ENDS,

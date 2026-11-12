@@ -554,7 +554,7 @@ def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
     redirect_uri = _check_redirect(request, body.redirect_uri)
     groups = [g.model_dump() for g in body.group_roles]
     if len({g["group"] for g in groups}) != len(groups):
-        raise _bad("same_group", "Each group can be in the list once.")  # proposed
+        raise _bad("same_group", "Each group can be in the list once.")  # cabledrawer 12 Nov
     db = kitchen.db
     data_dir = request.app.state.settings.data_dir
     row = sso_accounts.settings_row(db, kitchen.household_id)

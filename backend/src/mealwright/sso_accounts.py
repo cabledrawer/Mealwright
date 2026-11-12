@@ -4,11 +4,11 @@
   (`sub`), never by a user name or email address, so a provider can't take over an existing
   password account by naming it. A new person gets an account on first sign-in when the admin
   allows that; if their user name is taken already, they're refused with a clear message
-  (proposed, for cabledrawer).
+  (cabledrawer 12 Nov).
 - **Which role.** On every sign-in, the groups the provider sends decide: any group mapped to
   Admin gives Admin, else any mapped to Member gives Member, else "Anyone else" (Not let in, the
-  default, or Member; proposed, for cabledrawer). The household's last admin who can sign in is
-  never made a Member this way (proposed, for cabledrawer).
+  default, or Member; cabledrawer 12 Nov). The household's last admin who can sign in is
+  never made a Member this way (cabledrawer 12 Nov).
 - **Staying signed in.** A single sign-on sign-in keeps the provider's refresh token when
   it gives one, sealed (`mealwright.secret_box`). `offline_access` is asked for when the
   provider lists it; if the provider refuses the sign-in for that, it is tried once more
@@ -72,7 +72,7 @@ def switch_on(db: DbSession, household_id: int) -> bool:
 def password_sign_in_on(db: DbSession, data_dir: Path) -> bool:
     """Password sign-in works unless an admin turned it off with single sign-on set up,
     switched on, and its saved secret readable. With the switch off, passwords work again,
-    so nobody is locked out (proposed, for cabledrawer). The same when single sign-on can't
+    so nobody is locked out (cabledrawer 12 Nov). The same when single sign-on can't
     work at all (O1 review r1 M3): the saved client secret can't be opened (the key file
     `secret.key` is lost or isn't Mealwright's), or the setup can't be read. The reset-admin
     command turns it back on too."""
@@ -151,7 +151,7 @@ def other_admins(db: DbSession, login: Login) -> int:
 def admin_signs_in_with_sso(db: DbSession, row: SsoSettings) -> bool:
     """True when an admin of the household has signed in with single sign-on at the saved
     issuer (or passed the setup screen's test), so turning password sign-in off can't lock
-    every admin out (proposed, for cabledrawer)."""
+    every admin out (cabledrawer 12 Nov)."""
     query = (
         select(func.count())
         .select_from(Login)

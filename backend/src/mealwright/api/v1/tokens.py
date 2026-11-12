@@ -1,7 +1,7 @@
 """Settings → Sign-in → API tokens (0.9 O2): make, list and delete the household's tokens.
 
 Admins only, and only from a signed-in device: a token can never make, list or delete tokens
-(proposed, for cabledrawer). The token itself is in the answer to making it, once, and never again.
+(cabledrawer 12 Nov). The token itself is in the answer to making it, once, and never again.
 How a token signs a request in is in `mealwright.api_tokens`.
 """
 

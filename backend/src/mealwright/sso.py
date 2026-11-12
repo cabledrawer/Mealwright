@@ -11,7 +11,7 @@ off nothing is looked up or sent. Each address is checked like a recipe link's
 (`mealwright.page_fetch`): a provider on the household's own network must be on "Your own
 network" in Settings → Privacy, this server itself and cloud metadata addresses never work,
 and a port other than 80 and 443 needs listing. Plain http:// works only for a listed place
-(proposed, for cabledrawer).
+(cabledrawer 12 Nov).
 
 Authlib is used for its protocol pieces only, never its HTTP clients: PKCE (S256), and
 `authlib.jose` / `authlib.oidc.core` to check the ID token's signature against the provider's
@@ -57,14 +57,14 @@ from mealwright.outbound import (
 from mealwright.own_network import OwnNetwork
 
 CONNECTION = Connection.SINGLE_SIGN_ON
-FLOW_FOR = 10 * 60  # seconds a sign-in may take at the provider (proposed, for cabledrawer)
+FLOW_FOR = 10 * 60  # seconds a sign-in may take at the provider (cabledrawer 12 Nov)
 MOST_USED = 10_000  # used states remembered at once (see Used)
 TIME_LIMIT = 20.0  # seconds for each step's requests to the provider, all together
 MOST_BYTES = 256 * 1024  # the biggest answer read from the provider
 LEEWAY = 60  # seconds of clock difference allowed when checking a token's times
 CACHE_FOR = 5 * 60  # seconds the discovery document and keys are reused
 FAIL_FOR = 60  # seconds a sign-in server that didn't answer isn't asked again
-# How often a single sign-on sign-in is checked with its refresh token (proposed, for cabledrawer).
+# How often a single sign-on sign-in is checked with its refresh token (cabledrawer 12 Nov).
 CHECK_EVERY = timedelta(hours=1)
 RETRY_AFTER = timedelta(minutes=10)
 NORMAL_PORTS = (80, 443)
@@ -86,7 +86,7 @@ _jwt = JsonWebToken(ALGORITHMS)
 type Mode = Literal["sign_in", "test"]
 type _Address = ipaddress.IPv4Address | ipaddress.IPv6Address
 
-# What went wrong, said to the person signing in (proposed, for cabledrawer).
+# What went wrong, said to the person signing in (cabledrawer 12 Nov).
 MESSAGES: dict[str, str] = {
     "not_set_up": "Single sign-on isn’t set up. Ask your household’s admin.",
     "switched_off": (
@@ -352,7 +352,7 @@ def scope_for(provider: Provider, client: Client, offline: bool = True) -> str:
     """What to ask for. `groups` when the groups come from that claim and the provider lists
     it (or lists nothing); `offline_access` when the provider lists it (and `offline`), as
     most providers only give a refresh token for it, and the refresh token is how Mealwright
-    learns the account is gone there (proposed, for cabledrawer). A refresh token isn't needed
+    learns the account is gone there (cabledrawer 12 Nov). A refresh token isn't needed
     to sign in: when the provider refuses a sign-in for asking, it is tried once more
     without (`offline` False; O1 review r1 L4)."""
     scopes = ["openid", "profile", "email"]

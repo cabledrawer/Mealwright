@@ -8,10 +8,10 @@ read-only or full access, with an optional expiry date").
   (the secret itself is never compared), and an unknown, deleted, ended or malformed token all
   get the same answer.
 - It acts as the admin who made it, and only while they're still an admin of the household:
-  removed or made a member, their tokens stop at once and for good (proposed, for cabledrawer).
+  removed or made a member, their tokens stop at once and for good (cabledrawer 12 Nov).
 - A read-only token can't change anything. No token can do what `SESSION_ONLY` lists, nor the
-  admin actions in `roles.TOKENS_NEVER` (proposed, for cabledrawer).
-- A request with both a token and a sign-in cookie is refused (proposed, for cabledrawer).
+  admin actions in `roles.TOKENS_NEVER` (cabledrawer 12 Nov).
+- A request with both a token and a sign-in cookie is refused (cabledrawer 12 Nov).
 - The token is never logged, and using one writes nothing to the log: the spec's log keeps
   errors and sign-ins only (cabledrawer 17 Oct), and a token's use is neither.
 """
@@ -40,7 +40,7 @@ LONGEST_NAME = 60
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
-# The answer for every token that doesn't work, whatever the reason (proposed, for cabledrawer).
+# The answer for every token that doesn't work, whatever the reason (cabledrawer 12 Nov).
 DOESNT_WORK = "That API token doesn’t work. Make a new one in Settings, Sign-in."
 READ_ONLY = "This API token can only read. Make one that can read and change."
 NOT_FOR_TOKENS = "API tokens can’t do this. Sign in to Mealwright to do it."

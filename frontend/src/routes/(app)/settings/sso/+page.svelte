@@ -1,13 +1,13 @@
 <script lang="ts">
   // Settings → Sign-in → Single sign-on (0.9 O1; the mockup Dark-SSO09-Desktop). Admins only,
-  // and on a computer: a phone says "Set up on a computer" (proposed, for cabledrawer). The client
+  // and on a computer: a phone says "Set up on a computer" (cabledrawer 12 Nov). The client
   // secret is never shown or sent back: the field is blank, and blank keeps the saved one.
   // "Test sign-in" asks the server to start a test (a POST, never a link) and opens the
   // sign-in server in a new tab; when this tab is looked at again it asks the server for the
   // result. A test links nothing. When the sign-in server makes whoever signed in there an
   // Admin, this screen asks "Link tess to …?" with their name and email address, and only
   // "Link" links them (O1 review r1 H1). Password sign-in can be turned off only once an admin
-  // has signed in with single sign-on and its Privacy switch is on (proposed, for cabledrawer).
+  // has signed in with single sign-on and its Privacy switch is on (cabledrawer 12 Nov).
   import { MediaQuery } from 'svelte/reactivity';
   import { ApiError, cantReach, cantReachWords, detailOf } from '#lib/api.js';
   import {
