@@ -333,3 +333,19 @@ def test_the_hourly_job_skips_a_sign_in_from_another_issuer(
     assert check(kitchen) == 0
     assert app.get(f"{API}/me").status_code == 200
     assert not [s for s in idp.seen if s.method == "POST" and b"refresh_token" in s.body]
+
+
+def test_a_members_single_sign_on_sign_in_does_not_prove_the_setup(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """O1 review r3, L6: only an Admin's sign-in is proof that an admin can still get in."""
+    idp = home(kitchen, monkeypatch, "id.example.org", off=False)
+    changed = {**SETUP, "client_secret": "", "anyone_else": "member"}  # who gets in changed
+    assert kitchen.put(f"{API}/sso/settings", json=changed).is_success
+    member = browser(kitchen)
+    url = str(member.get(f"{API}/sso/start", follow_redirects=False).headers["location"])
+    code, state = idp.sign_in(url, sub="someone", extra={"groups": []})
+    done = member.post(f"{API}/sso/finish", json={"state": state, "code": code})
+    assert done.status_code == 200 and done.json()["me"]["role"] == "member"
+    off = kitchen.put(f"{API}/sso/password-sign-in", json={"on": False})
+    assert off.status_code == 409 and off.json()["code"] == "passwords_needed"
