@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { test, expect, request, testNow, type Page } from "./clock.ts";
 import { ADMIN } from "./servers.ts";
 
@@ -293,4 +295,25 @@ test.describe("Change password", () => {
     );
     await expect(page.getByText(PAUSE_NOTE)).toBeVisible();
   });
+});
+
+/** Dark screenshots at four widths for the review, only when E2E_SHOTS_DIR is set (by hand). */
+test("screenshots, dark (by hand only)", async ({ page }) => {
+  const dir = process.env.E2E_SHOTS_DIR;
+  test.skip(
+    !dir || !test.info().project.name.startsWith("desktop"),
+    "by hand, desktop project",
+  );
+  mkdirSync(dir!, { recursive: true });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await answer(page, THREE);
+  for (const width of [428, 768, 1100, 1300]) {
+    await page.setViewportSize({ width, height: 900 });
+    await openSignIn(page);
+    await expect(places(page)).toContainText("iPhone · Safari");
+    await page.screenshot({
+      path: join(dir!, `my-sign-in-${width}.png`),
+      fullPage: true,
+    });
+  }
 });

@@ -179,6 +179,10 @@ test('screenshots, dark (by hand only)', async ({ page, app }) => {
       await other.dispose();
     }
   }
+  await shot('settings-signin', async () => {
+    await page.goto('/settings?section=sign-in');
+    await expect(page.getByTestId('api-token-count')).toBeVisible();
+  });
   await shot('api-tokens', () => openTokens(page));
   await shot('api-tokens-ask', async () => {
     await openTokens(page);
