@@ -17,6 +17,7 @@ from test_sso_api import (  # noqa: F401
     API,
     PASSWORD,
     SETUP,
+    _person,
     admin,
     browser,
     fresh_cache,
@@ -25,6 +26,7 @@ from test_sso_api import (  # noqa: F401
 )
 
 from mealwright.api.v1.sso import PASSWORDS_NEEDED
+from mealwright.models import Login
 
 
 @pytest.fixture
@@ -112,3 +114,27 @@ def test_after_a_restart_turning_passwords_off_needs_a_fresh_test(
 def test_saving_the_same_setup_again_keeps_what_was_proven(linked: TestClient) -> None:
     assert linked.put(f"{API}/sso/settings", json={**SETUP, "client_secret": ""}).is_success
     assert linked.put(f"{API}/sso/password-sign-in", json={"on": False}).is_success
+
+
+def test_an_admin_linked_at_another_sign_in_server_is_not_counted_as_able_to_sign_in(
+    admin: TestClient,
+) -> None:
+    """O1 review r2, finding 4: with passwords on, an admin who has only a single sign-on
+    identity counts only when it is at the saved sign-in server."""
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        db.add(
+            Login(
+                household_id=1,
+                username="wren",
+                name="Wren",
+                password_hash=None,
+                role="admin",
+                sso_issuer="https://old-id.example.org",
+                sso_subject="wren-at-the-old-server",
+            )
+        )
+        db.commit()
+    mine = _person(admin, "tess")
+    refused = admin.patch(f"{API}/people/{mine}", json={"role": "member"})
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["code"] == "last_admin"

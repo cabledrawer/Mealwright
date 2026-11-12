@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Any
 
 from fastapi import status
-from sqlalchemy import ColumnElement, and_, delete, func, or_, select, update
+from sqlalchemy import ColumnElement, and_, delete, false, func, or_, select, update
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright import api_tokens
@@ -132,7 +132,18 @@ def admin_can_sign_in(db: DbSession, household_id: int) -> ColumnElement[bool]:
     never removed, made a Member or made shared."""
     setup = db.scalar(select(SsoSettings).where(SsoSettings.household_id == household_id))
     if setup is None or setup.password_sign_in:
-        return can_sign_in()
+        # A single sign-on identity counts only at the saved sign-in server (O1 review r2, 4):
+        # one made at another can't sign in now.
+        has_password = and_(
+            Login.password_hash.is_not(None),
+            Login.password_hash != "",  # nosec B105
+        )
+        at_saved_server = (
+            and_(Login.sso_issuer == setup.issuer, Login.sso_subject.is_not(None))
+            if setup is not None
+            else false()
+        )
+        return and_(or_(has_password, at_saved_server), Member.removed_at.is_(None))
     return and_(
         Login.sso_issuer == setup.issuer,
         Login.sso_subject.is_not(None),
