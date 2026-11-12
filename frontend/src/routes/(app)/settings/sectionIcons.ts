@@ -64,7 +64,10 @@ export const SECTION_ICONS: Record<
     tone: 'quiet',
     paths: ['M12 15a4 4 0 1 1-8 0 4 4 0 0 1 8 0z', 'M11 12l9-9M17 6l3 3M15 8l2 2']
   },
-  about: { tone: 'quiet', paths: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 8h.01M11 12h1v5h1'] },
+  about: {
+    tone: 'quiet',
+    paths: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 8h.01M11 12h1v5h1']
+  },
   // A flag (proposed, for cabledrawer).
   report: { tone: 'quiet', paths: ['M5 21V4', 'M5 4h12l-2.5 4L17 12H5'] }
 };

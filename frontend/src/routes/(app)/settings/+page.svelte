@@ -245,7 +245,12 @@
       case 'amounts':
         return pints === null
           ? null
-          : { id, label: 'Amounts', icon: 'amounts', value: pints === 'us' ? 'US pints' : 'UK pints' };
+          : {
+              id,
+              label: 'Amounts',
+              icon: 'amounts',
+              value: pints === 'us' ? 'US pints' : 'UK pints'
+            };
       case 'meal-slots':
         return admin
           ? {
@@ -293,7 +298,12 @@
           value: privacyOn === null ? undefined : privacyOn === 0 ? 'All off' : `${privacyOn} on`
         };
       case 'your-data':
-        return { id, label: 'Your data', icon: 'your-data', href: resolve('/(app)/settings/your-data') };
+        return {
+          id,
+          label: 'Your data',
+          icon: 'your-data',
+          href: resolve('/(app)/settings/your-data')
+        };
       case 'sign-in':
         return { id, label: 'Sign-in', icon: 'sign-in' };
       case 'about':
