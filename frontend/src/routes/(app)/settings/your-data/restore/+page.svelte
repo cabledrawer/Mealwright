@@ -32,6 +32,17 @@
         <code>photos</code>) to another disk or your NAS as well.
       </li>
       <li>
+        <strong>Leave out <code>logs</code>.</strong> It holds the sign-in lines, which Mealwright
+        keeps for 14 days only; a copy would keep them for longer. For example (<code
+          >&lt;another disk&gt;</code
+        >
+        is where the copy goes):
+        <pre><code
+            >sudo tar -C &lt;folder&gt; --exclude=data/logs -czf "&lt;another disk&gt;/mealwright-data-$(date +%Y%m%d-%H%M).tar.gz" data</code
+          ></pre>
+        With<code>rsync</code>, add <code>--exclude=logs/</code>.
+      </li>
+      <li>
         The copies made before an upgrade (<code>pre-upgrade-…</code>) and before Delete everything
         (<code>before-delete-everything-…</code>) restore the same way.
       </li>
@@ -49,8 +60,9 @@ docker compose stop mealwright</code
           ></pre>
       </li>
       <li>
-        Pick the backup. The newest is last:
-        <pre><code>sudo ls -l data/backups/</code></pre>
+        Pick the backup. The newest is first. Pick a <code>backup-…</code> file (or a
+        <code>before-delete-everything-…</code> one, to undo a Delete everything):
+        <pre><code>sudo ls -lt data/backups/</code></pre>
       </li>
       <li>
         Keep the current database aside, with the two files beside it, then put the backup in its
