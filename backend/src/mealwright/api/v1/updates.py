@@ -21,7 +21,7 @@ from mealwright.api.v1.context import Here
 from mealwright.auth import SameOrigin
 from mealwright.outbound import Connection
 from mealwright.outbound import switches as stored_switches
-from mealwright.roles import Action
+from mealwright.roles import Action, allowed
 from mealwright.updates import RELEASED, RELEASES_PAGE, CheckResult, UpdateChecks
 
 router = APIRouter(tags=["about"], dependencies=[SameOrigin])
@@ -39,7 +39,7 @@ class UpdatesOut(BaseModel):
     version: str
     released: date
     releases_page: str
-    # An admin: may use Check now, and sees the two below. A member sees neither.
+    # An admin: sees the two below. can_check: may use Check now (an API token never may).
     can_check: bool
     daily: bool | None
     last: LastCheckOut | None
@@ -58,7 +58,7 @@ def _out(kitchen: Here, checks: UpdateChecks) -> UpdatesOut:
         version=__version__,
         released=RELEASED,
         releases_page=RELEASES_PAGE,
-        can_check=admin,
+        can_check=allowed(kitchen.login.role, Action.PRIVACY, kitchen.by_token),
         daily=daily if admin else None,
         last=(
             LastCheckOut(outcome=last.outcome, latest=last.latest, checked_at=last.checked_at)

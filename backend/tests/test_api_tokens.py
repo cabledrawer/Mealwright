@@ -658,3 +658,12 @@ def test_a_token_cant_undo_a_people_change_through_the_shopping_actions(
     assert (result["status"], result.get("reason")) == ("ignored", "cannot_undo"), result
     names = {p["name"] for p in ok(kitchen.get(f"{API}/people"))["people"]}
     assert "Joss" in names
+
+
+def test_a_token_is_told_it_cant_check_for_updates(kitchen: TestClient) -> None:
+    """O2 review r3, finding 6: `can_check` followed the role, so a token (refused by
+    `POST /updates/check`) was told it could."""
+    assert ok(kitchen.get(f"{API}/updates"))["can_check"] is True
+    for scope in ("read", "full"):
+        body = ok(_app(kitchen, _make(kitchen, scope)).get(f"{API}/updates"))
+        assert body["can_check"] is False
