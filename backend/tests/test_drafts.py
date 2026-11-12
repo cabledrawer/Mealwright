@@ -1605,6 +1605,41 @@ def test_the_list_reads_a_limited_number_of_short_waiting_lines_again(
     assert all(len(written) <= 200 for written in read)
 
 
+def test_the_list_reads_the_households_ingredients_once_for_all_its_drafts(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """L1d (M-fix L1): each draft in the list read the household's ingredients again; the list
+    reads them once per request, however many drafts are waiting."""
+    from mealwright import drafts as drafts_module
+    from mealwright import ingredient_match
+
+    shown = review(kitchen, PASTED)
+    template = next(line for line in shown["lines"] if line["kind"] == "ingredient")
+    line = dict(template)
+    line.update(
+        written="1 cup nomatch thing",
+        words="nomatch",
+        label="needs_you",
+        readable=True,
+        food=None,
+        alternative=None,
+    )
+    shown["lines"] = [line]
+    for _ in range(4):
+        kept(kitchen, shown)
+    calls: list[int] = []
+    real = ingredient_match.kitchen_of
+
+    def counted(*args: Any, **more: Any) -> Any:
+        calls.append(1)
+        return real(*args, **more)
+
+    monkeypatch.setattr(ingredient_match, "kitchen_of", counted)
+    monkeypatch.setattr(drafts_module, "kitchen_of", counted, raising=False)
+    assert len(listed(kitchen)) == 4
+    assert len(calls) == 1, len(calls)
+
+
 def test_a_deleted_and_purged_drafts_name_is_not_in_a_report(
     kitchen: TestClient, neighbour: TestClient, pantry: dict[str, Any], web: Web, settings: Any
 ) -> None:

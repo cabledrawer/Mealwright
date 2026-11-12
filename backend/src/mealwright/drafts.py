@@ -161,10 +161,12 @@ far shorter); opening the draft reads it."""
 
 
 class ReadBudget:
-    """The lines the Drafts list may still read again."""
+    """The lines the Drafts list may still read again, and what it has read once for all its
+    drafts (the household's ingredients and where they are kept: L1d)."""
 
     def __init__(self, lines: int = LIST_READS) -> None:
         self.left = lines
+        self.known: tuple[Any, Any] | None = None
 
     def take(self, written: str) -> bool:
         if self.left <= 0 or len(written) > LIST_READ_CHARS:
@@ -301,7 +303,13 @@ def rematch(
     ]
     if not waiting and not new_choices:
         return review, choices
-    ingredients = kitchen_of(kitchen.db, kitchen.household_id)
+    if budget is not None and budget.known is not None:  # the list: read once for every draft
+        ingredients, places = budget.known
+    else:
+        ingredients = kitchen_of(kitchen.db, kitchen.household_id)
+        places = recipe_import._food_places(kitchen)
+        if budget is not None:
+            budget.known = (ingredients, places)
     lines = list(review.lines)
     kept = dict(choices.lines)
     by_name: dict[str, KitchenFood] = {}
@@ -311,7 +319,6 @@ def rematch(
         owner = by_name.get(fold(kept[index].name or ""))
         if owner is not None:
             kept[index] = DraftChoice(kind="ingredient", food=Ref(id=owner.id, name=owner.name))
-    places = recipe_import._food_places(kitchen)
     pint_ml = PINT_ML[review.pints.reading]
     answers: dict[str, Ref] | None = None
     for index in waiting:

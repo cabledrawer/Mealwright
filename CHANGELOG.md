@@ -30,6 +30,8 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 - **Meal slots, retries (L1d).** A retried "add a meal" with the same Idempotency-Key now answers what the first one did (the new meal) instead of 409 `slot_exists`; no second meal is made. A rename plus hide sent with a key answers a retry with the last change made, as the first answer did (it was the rename's before). A no-op rename kept by its key still answers (not 404) when the meal is gone at the retry (it already did; a test now holds it), and a retried save that changes several fields has its test.
 
+- **Drafts list, faster (L1d).** The Drafts list reads the household's ingredients (and where they are kept) once per request, not once for each draft that has waiting lines.
+
 ## [0.9.0-beta.1] - 2026-11-12
 
 The first 0.9.0 test version (alpha.1 was not released; its changes are here too, under "People and roles (0.9 A1)" and "Security (0.9 A2, sign-in hardening)"): the household's people and their roles (A1) and harder sign-in (A2), plus Settings in the spec's order and Licences and credits (U1), onboarding and "Amounts shown" (U2), backups, export, restore and Delete everything (D1), a hardened data folder and compose example (D2), the update check and About's update parts (X1), Report a problem (X2), the install guide and proxy examples (M1), single sign-on (O1), API tokens (O2), the leaving-a-page fixes (T1), the pool fix, and Report a problem's old names. Several lines are marked "proposed, for cabledrawer": they are words or rules I chose that still need your yes.
