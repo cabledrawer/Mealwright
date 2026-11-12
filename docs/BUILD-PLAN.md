@@ -362,6 +362,7 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
 - **The 1.0 promise (spec section 8):** document and version the export format in `docs/`; add upgrade tests: a saved database from each earlier 0.x tag upgrades cleanly to the latest, with the 0.9 database kept as a fixture for later tests.
 - **Plan for stepping away:** `docs/dev/architecture.md` (how the pieces fit together, in plain words) and `docs/dev/build-and-release.md` (how to build, test, tag and publish), so someone else could carry on or fork cleanly.
 - **README "Not planned" section:** built from spec section 1 non-goals, the ethos hard rules, "Not in v1" and spec section 8.
+- **From the 0.9.0 sign-in work (cabledrawer 12 Nov late):** refuse an admin making themselves a Member when no other admin can get in (#205 edge case b); a live sign-in alone doesn't count as "another admin can get in", only a working password or an accepted single sign-on link (#205 edge case d); the Finish setup row gets an icon that doesn't read as done (the tick stays for 0.9.0-beta.1).
 - **From the review of v0.6.0 (cabledrawer 28 Oct, review of v0.6.0):**
   - A repo safe to make public: homelab names and local paths move out of tracked files into a git-ignored local file, then a `./check` step fails on them.
   - Browser tests in the pinned Playwright image; fonts latin and latin-ext only; a healthcheck that touches the database; no `Server` header; THIRD-PARTY-NOTICES.md.
