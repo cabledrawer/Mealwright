@@ -59,6 +59,8 @@ export function handling(
   if (url.origin !== ownOrigin) return 'network';
   if (isApi(url.pathname)) return 'network';
   if (url.pathname === VERSION_FILE) return 'version';
-  if (request.mode === 'navigate') return 'shell';
+  // A file opened in the browser (the licences text, say) is not a page of the app.
+  if (request.mode === 'navigate' && !/\.[^/]+$/.test(url.pathname)) return 'shell';
+  if (request.mode === 'navigate') return 'network';
   return assets.has(url.pathname) ? 'asset' : 'network';
 }

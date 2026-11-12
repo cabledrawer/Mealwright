@@ -34,6 +34,7 @@ def build(tmp_path: Path) -> Path:
     (folder / "_app/immutable/entry/start.def456.js").write_text("console.log('hi')")
     (folder / "favicon.svg").write_text("<svg/>")
     (folder / "service-worker.js").write_text("self.addEventListener('fetch', () => {})")
+    (folder / "third-party-licences.txt").write_text("newsreader\nLicence: OFL-1.1\n")
     (folder / "manifest.webmanifest").write_text('{"name": "Mealwright"}')
     (tmp_path / "secret.txt").write_text("not for the web")
     return folder
@@ -109,6 +110,14 @@ def test_service_worker_is_always_checked_again(web: TestClient) -> None:
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-cache"
     assert "javascript" in response.headers["content-type"]
+
+
+def test_the_third_party_licence_notices_are_served_as_text(web: TestClient) -> None:
+    """The build writes them beside the app (0.9; cabledrawer 12 Nov); the address shows them."""
+    response = web.get("/third-party-licences.txt")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert "OFL-1.1" in response.text
 
 
 def test_manifest_has_its_own_type_and_is_checked_again(web: TestClient) -> None:

@@ -15,6 +15,12 @@ describe('what the service worker handles', () => {
     expect(handling(get, url('/_app/immutable/entry/start.js'), own, assets)).toBe('asset');
   });
 
+  it('leaves a file opened in the browser to the network, not the app shell', () => {
+    const open = { method: 'GET', mode: 'navigate' };
+    expect(handling(open, url('/third-party-licences.txt'), own, assets)).toBe('network');
+    expect(handling(open, url('/recipes/12'), own, assets)).toBe('shell');
+  });
+
   it('never touches /api, the live stream included', () => {
     for (const path of ['/api', '/api/v1/events', '/api/v1/shopping/changes', '/api/anything']) {
       expect(handling(get, url(path), own, assets)).toBe('network');

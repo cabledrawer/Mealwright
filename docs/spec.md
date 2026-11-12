@@ -30,6 +30,7 @@ Hard rules (no exceptions):
 - No location access, ever. The app never asks for the device's location. Country/units default from the browser/OS language setting or the user's choice — never geolocation.
 - No phoning home: no licence checks, no "news" feed. **No automatic update checks unless the admin switches them on; never sends anything about the install** (rule changed by cabledrawer 17 Oct — see section 7, Updates). Users can also learn of updates via GitHub releases / their own tools (Diun, Renovate).
 - No third-party assets at runtime: all fonts, icons, scripts bundled in the image — no CDNs, no Google Fonts.
+- **Licence notices (cabledrawer 12 Nov):** "Other open-source parts" stays out of Settings → About for 0.9.0 as long as the image carries the other libraries' licence notices. It does: the Python libraries keep theirs in the image's virtual environment (each package's dist-info), and the web build writes `third-party-licences.txt` (every production library and the bundled fonts with their licence texts), served at `/third-party-licences.txt`. A licences screen in About is a 0.9.5 follow-up.
 - Recipe images are downloaded at import and stored locally, never hotlinked (hotlinking would ping the source site every time a recipe is viewed).
 - Companion apps, if any: no analytics or ad SDKs; app store privacy label "Data not collected".
 - No account with the developer — nothing to sign up for.

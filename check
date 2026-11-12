@@ -1179,7 +1179,7 @@ if [[ -f "$ROOT/frontend/package.json" ]]; then
   rm -rf "$ROOT/frontend/build"
   step "frontend: build"         sh -c 'cd frontend && npm run -s build'
   if [[ "$(result_of "frontend: build")" == PASS ]]; then
-    step "frontend: size limit"  sh -c 'cd frontend && node --test scripts/check-size.test.mjs && node scripts/check-size.mjs'
+    step "frontend: size limit"  sh -c 'cd frontend && node --test scripts/check-size.test.mjs scripts/third-party-licences.test.mjs && node scripts/check-size.mjs'
   else
     skip "frontend: size limit" "web build failed"
   fi
