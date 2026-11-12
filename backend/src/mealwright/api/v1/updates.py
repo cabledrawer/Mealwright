@@ -77,7 +77,8 @@ def get_updates(kitchen: Here, request: Request) -> UpdatesOut:
 @router.post("/updates/check")
 def check_now(kitchen: Here, request: Request) -> UpdatesOut:
     """Admins only. Ask the public release list once, now, and answer with what it said. With
-    the Privacy switch off or on: the switch controls only the daily check (cabledrawer 12 Nov)."""
+    the Privacy switch off or on: the switch controls only the daily check."""
+    # cabledrawer 12 Nov: the switch controls only the daily check.
     kitchen.admin_only(Action.PRIVACY)  # it connects out, as the Privacy switches do
     checks = _checks(request)
     # Read the household before ending the read: after the rollback, `kitchen.household_id`
