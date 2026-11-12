@@ -198,6 +198,8 @@ test('Plan this batch goes through Cook once for each recipe, plans one session,
   await sheet.getByRole('button', { name: 'Next recipe' }).click();
   const second = page.getByRole('dialog', { name: /Cook once, eat for… 2 of 2/ });
   await expect(second).toBeVisible();
+  // The first recipe's tubs are in the second one's grid as taken (F229).
+  await expect(second.getByText('already placed').first()).toBeVisible();
   await second.getByRole('button', { name: 'Plan this batch' }).click();
   // It lands on the Plan, on the cook day: one Batch cook card, and the meals say where they came from.
   await expect(page).toHaveURL(/\/plan/);

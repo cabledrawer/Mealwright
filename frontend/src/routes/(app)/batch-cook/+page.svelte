@@ -13,7 +13,7 @@
   import { askPicks, reopenLast, type Flow, type Picked } from '#lib/batchFlow.js';
   import { BatchPickModel, COUNTS } from '#lib/batchPick.svelte.js';
   import { optionalAsk } from '#lib/optionalAsk.svelte.js';
-  import type { BatchBody } from '#lib/client/plan.js';
+  import type { BatchBody, PreviewTub } from '#lib/client/plan.js';
   import { previewSession, type SessionBody } from '#lib/client/batch.js';
   import { getKitchen, type Kitchen } from '#lib/client/household.js';
   import EmptyState from '#lib/components/EmptyState.svelte';
@@ -21,7 +21,7 @@
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import YourKitchen from '#lib/components/YourKitchen.svelte';
-  import type { Ahead } from '#lib/cookOnce.svelte.js';
+  import type { Ahead, Earlier } from '#lib/cookOnce.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { dayShort, dayOfMonth, monthShort } from '#lib/planDates.js';
   import { PlanModel } from '#lib/plan.svelte.js';
@@ -123,6 +123,8 @@
   // --- Plan this batch: one Cook once sheet after another ------------------------------------
   let flow = $state<Flow | null>(null);
   let flowAsked = $state(false);
+  /** What each recipe's sheet placed so far: the later sheets show those meals as taken (F229). */
+  let earlier = $state<Earlier[]>([]);
   // The questions of a recipe are on show (the Cook once sheet comes after them).
   let asking = $state(false);
 
@@ -155,6 +157,7 @@
   function plan_() {
     if (!enough || readonly || !model.cookDay || asking) return;
     flowAsked = true;
+    earlier = [];
     void open(0, [], []);
   }
 
@@ -191,18 +194,23 @@
       slotId: null,
       position: `${at + 1} of ${model.picks.length}`,
       last: at === model.picks.length - 1,
+      before: earlier.slice(0, at),
       preview: (body) => {
         const so_far = sessionBody([...before, body], picked, true);
         if (!so_far) return Promise.reject(new Error('No meal'));
         return previewSession({ ...so_far, recipes: so_far.recipes.slice(0, at + 1) });
       },
-      save: (body) => void next(body)
+      save: (body, tubs) => void next(body, tubs)
     };
   });
 
-  async function next(body: BatchBody) {
+  async function next(body: BatchBody, tubs: PreviewTub[]) {
     if (!flow) return;
     const bodies = [...flow.bodies, body];
+    earlier = [
+      ...earlier.slice(0, bodies.length - 1),
+      { name: model.picks[bodies.length - 1]?.name ?? '', tubs }
+    ];
     const picked = flow.picked;
     if (bodies.length < model.picks.length) {
       flow = null; // the next recipe's questions, then its sheet

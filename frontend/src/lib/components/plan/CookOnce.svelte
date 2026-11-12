@@ -97,6 +97,17 @@
     return meal.items.map((i) => itemName(i, cook?.plan ?? null)).join(' · ');
   }
 
+  /** The tubs earlier recipes of the session put in this meal: "Dal Tadka · Tubs 2–3 · already placed". */
+  function takenBy(day: string, slotId: number): string[] {
+    return (ahead?.before ?? [])
+      .map((e) => ({
+        name: e.name,
+        numbers: e.tubs.filter((t) => t.date === day && t.slot_id === slotId).map((t) => t.number)
+      }))
+      .filter((e) => e.numbers.length > 0)
+      .map((e) => `${e.name} · ${tubNumbers(e.numbers)} · already placed`);
+  }
+
   function put(day: string, slotId: number) {
     if (!cook || actions.readonly) return;
     if (moving !== null) {
@@ -132,7 +143,7 @@
   function save() {
     if (!cook || actions.readonly || !cook.preview) return;
     if (ahead) {
-      ahead.save(cook.body());
+      ahead.save(cook.body(), cook.preview.tubs);
       return;
     }
     if (!target) return;
@@ -287,6 +298,7 @@
                 {#each slotsFor(day) as slot (slot.id)}
                   {@const here = cook.tubsAt(day, slot.id)}
                   {@const planned = existing(day, slot.id)}
+                  {@const taken = takenBy(day, slot.id)}
                   {@const isCook = day === cook.cookDate && slot.id === cookSlot}
                   <div
                     class="cell"
@@ -304,6 +316,9 @@
                       {#if planned && here.length === 0}
                         <span class="has">{planned} · already planned</span>
                       {/if}
+                      {#each taken as line (line)}
+                        <span class="has">{line}</span>
+                      {/each}
                       {#each here as tub (tub.number)}
                         <span
                           class="tub"
@@ -340,13 +355,13 @@
                         disabled={actions.readonly || (moving === null && cook.nextFree === null)}
                         aria-label="{moving !== null
                           ? `Put tub ${moving} in`
-                          : planned || here.length
+                          : planned || here.length || taken.length
                             ? 'Add a tub too to'
                             : 'Add a tub to'} {slot.name} on {dayFull(day)}"
                         onclick={() => put(day, slot.id)}
                         >{moving !== null
                           ? 'Move it here'
-                          : planned || here.length
+                          : planned || here.length || taken.length
                             ? '+ Add a tub too'
                             : '+ Add a tub'}</button
                       >

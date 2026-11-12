@@ -11,6 +11,7 @@ import {
   type Pattern,
   type Person,
   type Plan,
+  type PreviewTub,
   type Spot
 } from './client/plan';
 import { addDays } from './planDates';
@@ -61,6 +62,12 @@ export function timesWords(tubs: number, serves: number | null): string | null {
  * previews it with the recipes before it, and Save hands the choices back (nothing is saved
  * until the last sheet). Cancel stops the whole thing and plans nothing.
  */
+/** The tubs an earlier recipe of the session already placed (F229, cabledrawer 12 Nov). */
+export interface Earlier {
+  name: string;
+  tubs: PreviewTub[];
+}
+
 export interface Ahead {
   name: string;
   day: string;
@@ -70,8 +77,11 @@ export interface Ahead {
   position: string;
   /** The last sheet says "Plan this batch"; the others "Next recipe". */
   last: boolean;
+  /** What the recipes before this one placed, so their meals show as taken. */
+  before?: Earlier[];
   preview: (body: BatchBody) => Promise<BatchPreview>;
-  save: (body: BatchBody) => void;
+  /** The choices and the tubs the preview showed for them (the later sheets show those). */
+  save: (body: BatchBody, tubs: PreviewTub[]) => void;
 }
 
 export class CookOnceModel {
