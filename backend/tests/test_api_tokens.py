@@ -3,6 +3,7 @@ date, for scripts and other apps. Only admins make them; a token never does more
 who made it, and never what `SESSION_ONLY` and `roles.TOKENS_NEVER` list."""
 
 import logging
+import re
 from datetime import date, timedelta
 from typing import Any
 
@@ -478,3 +479,96 @@ def test_taking_an_action_out_of_tokens_never_is_noticed(
         if not (r.status_code == 403 and r.json().get("code") == "not_for_tokens")
     ]
     assert let_through, f"nothing in NEVER_ROUTES notices {action} leaving TOKENS_NEVER"
+
+
+# --- Every signed-in route of the sensitive areas is listed, so a new one can't slip through
+# (O2 review r2, finding 2: how GET /backups was missed in r1). A route in these areas is a
+# token-never route (NEVER_ROUTES), a session-only one (SESSION_ONLY), one a token may read
+# (below, with its reason), or one that needs no sign-in at all. A new route fails the test
+# until it is listed. ---------------------------------------------------------------------------
+
+WALKED = (
+    "/sso",
+    "/privacy",
+    "/people",
+    "/backups",
+    "/export",
+    "/delete-everything",
+    "/import",
+    "/updates",
+    "/me/password",
+    "/me/sessions",
+    "/me/sign-in",
+    "/api-tokens",
+    "/whos-this",
+    "/setup",
+)
+
+# Read-only routes a token may use, each with why that is fine.
+A_TOKEN_MAY_READ = {
+    ("GET", "/people"): "names and roles, no sign-in details: the household's own page shows them",
+    ("GET", "/privacy/own-network"): "the list of names, no secrets; changing it is token-never",
+    ("GET", "/privacy/switches"): "which switches are on; changing one is token-never",
+    ("GET", "/updates"): "the version and the last answer; checking now is token-never",
+}
+
+# Routes that need no sign-in at all (a token or cookie doesn't change what they do).
+NO_SIGN_IN = {
+    ("GET", "/setup"): "is Mealwright set up yet",
+    ("POST", "/setup"): "the first admin, by the setup code",
+    ("GET", "/sso/start"): "starts a sign-in at the provider",
+    ("POST", "/sso/finish"): "the callback page posts what the provider sent",
+}
+
+
+def _all_routes(found: Any) -> Any:
+    for route in found:
+        if hasattr(route, "effective_candidates"):
+            yield from _all_routes(route.effective_candidates())
+        elif hasattr(route, "dependant"):
+            yield route
+        elif hasattr(route, "routes"):
+            yield from _all_routes(route.routes)
+
+
+def _template(path: str) -> re.Pattern[str]:
+    """A route's path with each {name} standing for any one path piece."""
+    pieces = re.split(r"\{[^/}]+\}", path)
+    return re.compile("^" + "[^/]+".join(re.escape(piece) for piece in pieces) + "$")
+
+
+def unlisted_routes(app: Any) -> list[str]:
+    """Routes of the walked areas that are in no list."""
+    never = [(m, p.replace("{wren}", "1")) for m, p, _ in NEVER_ROUTES]
+    session_only = {(m, p.removeprefix(API)) for m, p in SESSION_ONLY}
+    out = []
+    for route in _all_routes(app.routes):
+        path = route.path.removeprefix(API)
+        if not path.startswith(WALKED):
+            continue
+        for method in sorted(route.methods - {"HEAD"}):
+            listed = (
+                (method, path) in session_only
+                or (method, path) in A_TOKEN_MAY_READ
+                or (method, path) in NO_SIGN_IN
+                or any(m == method and _template(path).match(p) for m, p in never)
+            )
+            if not listed:
+                out.append(f"{method} {path}")
+    return out
+
+
+def test_every_route_of_the_sensitive_areas_is_listed(kitchen: TestClient) -> None:
+    assert unlisted_routes(kitchen.app) == []
+
+
+def test_the_token_may_read_routes_are_only_reads_a_token_can_make(kitchen: TestClient) -> None:
+    app = _app(kitchen, _make(kitchen, "read"))
+    for (method, path), why in A_TOKEN_MAY_READ.items():
+        assert method == "GET" and why
+        assert app.get(f"{API}{path}").status_code == 200, path
+
+
+def test_a_new_route_in_a_sensitive_area_fails_until_it_is_listed(kitchen: TestClient) -> None:
+    kitchen.app.add_api_route(f"{API}/sso/secret-peek", lambda: {}, methods=["GET"])  # type: ignore[attr-defined]
+    assert unlisted_routes(kitchen.app) == ["GET /sso/secret-peek"]
