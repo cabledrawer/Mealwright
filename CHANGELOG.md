@@ -2,7 +2,11 @@
 
 All notable changes to Mealwright are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the plan in `docs/spec.md` section 8: 0.N.0 per build milestone (not published), then MAJOR.MINOR.PATCH from 1.0.0.
 
-## [Unreleased]
+## [0.9.0-alpha.1] - 2026-11-12
+
+The first 0.9.0 test version ("What a tester needs"): the household's people and their roles (A1), and harder sign-in (A2), with 0.9's words agreed by cabledrawer (K0). New: people of the household with or without a login, shared logins for a kitchen tablet, "Who's this?", one-time sign-in links an Admin can give a Member; sign-in that counts every try before the slow password check, a waiting room for checks, a 12-character rule for new passwords, known devices that a guesser can't lock out, and a ten-minute window after a new password (proposed, for cabledrawer). Over https the sign-in cookie is now `__Host-` only, so **everyone signs in once more** after updating; plain http keeps today's cookie and shows a "not secure" note.
+
+**Before you install it: back up your data.** This version changes the database twice (people `b4e8c2a6d917`; the device a sign-in came from and the date of each password `b4f8e2a6c917`), and the old version can't read a database the new one has changed. The steps are the same as before (`docs/dev/test-on-homelab.md`, section 4.1): stop the app, make a dated copy of the `data` folder in `backups/` with the old version's number in its name, check it is there and not tiny. To go back, follow section 5 of the same file (restore that backup with the 0.8.0 image; anything changed after the update is lost).
 
 ### People and roles (0.9 A1)
 
