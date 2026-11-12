@@ -50,11 +50,14 @@ log = logging.getLogger(__name__)
 RELEASED = date(2026, 11, 11)
 
 # PLACEHOLDER, for cabledrawer: Mealwright's public home on GitHub doesn't exist until 1.0. Until
-# then these name an owner GitHub can't have (a user name never has an underscore), so the
-# request can only fail ("couldn't check") and never reaches someone else's project. Set both to
-# the real repository at 1.0.
-RELEASES_PAGE = "https://github.com/placeholder_until_1_0/mealwright/releases"
-RELEASE_LIST_URL = "https://api.github.com/repos/placeholder_until_1_0/mealwright/releases"
+# then these name an owner GitHub can't have (a user name never has an underscore), so they can
+# never reach someone else's project, and while the list is still the placeholder no check
+# connects at all: it answers "couldn't check" without asking, as the answer could only be "not
+# found" (security review r1; proposed, for cabledrawer). Set PLACEHOLDER_OWNER's two uses to the
+# real repository at 1.0.
+PLACEHOLDER_OWNER = "placeholder_until_1_0"
+RELEASES_PAGE = f"https://github.com/{PLACEHOLDER_OWNER}/mealwright/releases"
+RELEASE_LIST_URL = f"https://api.github.com/repos/{PLACEHOLDER_OWNER}/mealwright/releases"
 
 # The release list is about 30 releases with their notes; anything bigger isn't read.
 MAX_LIST_BYTES = 2 * 1024 * 1024
@@ -210,11 +213,20 @@ class UpdateChecks:
         if running is None:  # a test build's own version text: nothing to compare with
             log.warning("Update check: this build's version can't be compared")
             return self._keep(household_id, CheckResult("failed", None, now))
+        url = RELEASE_LIST_URL  # read here, so a test can point it at its own list
+        if f"/{PLACEHOLDER_OWNER}/" in url:
+            if not self._gate.is_allowed(household_id, Connection.UPDATE_CHECK):
+                return self._keep(household_id, CheckResult("off", None, now))
+            log.warning(
+                "Update check: nothing was asked, because Mealwright's public release list "
+                "starts with version 1.0"
+            )
+            return self._keep(household_id, CheckResult("failed", None, now))
         try:
             response = self._gate.request(
                 household_id,
                 Connection.UPDATE_CHECK,
-                RELEASE_LIST_URL,
+                url,
                 max_bytes=MAX_LIST_BYTES,
                 time_limit=CHECK_TIME_LIMIT,
             )

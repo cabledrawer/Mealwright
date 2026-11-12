@@ -6,6 +6,7 @@ GET to the public release list through the outbound gate, and only while the Pri
 """
 
 import json
+import logging
 import re
 import socketserver
 import threading
@@ -399,6 +400,30 @@ def test_each_household_keeps_its_own_answer(
     serve([release("v0.9.1")])
     checks.check_now(1)
     assert checks.last(2) is None
+
+
+def test_while_the_release_list_is_the_placeholder_nothing_connects(
+    checks: UpdateChecks,
+    sessions: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    clock: Clock,
+) -> None:
+    """Until 1.0 the release list doesn't exist, so asking for it could only get "not found":
+    with the switch on, Check now and the daily check connect nowhere and say "couldn't
+    check" (security review r1; proposed, for cabledrawer)."""
+    asked: list[object] = []
+    monkeypatch.setattr(checks._gate, "request", lambda *args, **options: asked.append(args))
+    assert checks.check_now(1).outcome == "off"  # the switch is still off
+    switch(sessions, True)
+    with caplog.at_level(logging.INFO, logger="mealwright.updates"):
+        assert checks.check_now(1).outcome == "failed"
+    assert "nothing was asked" in caplog.text
+    assert "github" not in caplog.text.lower()
+    clock.now += timedelta(days=1)
+    checks.daily_check(sessions)
+    assert checks.last(1) is not None and checks.last(1).checked_at == clock.now  # type: ignore[union-attr]
+    assert asked == []
 
 
 def test_a_build_with_an_odd_version_never_connects(
