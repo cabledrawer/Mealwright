@@ -61,7 +61,8 @@ MAX_LIST_BYTES = 2 * 1024 * 1024
 # The longest one check may take, start to finish.
 CHECK_TIME_LIMIT = 20.0
 # Check now again within this long gives the answer just had, without connecting, so a busy
-# finger can't send GitHub a stream of requests (proposed, for cabledrawer).
+# finger can't send GitHub a stream of requests (proposed, for cabledrawer). A failed answer is kept
+# too: otherwise each press after a failure would connect again.
 RECHECK_AFTER = timedelta(minutes=1)
 # The daily check runs when the last answer is at least this old (a little under a day, so it
 # doesn't drift later by an hour each day).
@@ -163,6 +164,9 @@ class UpdateChecks:
         self._lock = threading.Lock()
         # One check at a time per household: a second one waits and gets the first one's answer.
         self._running: dict[int, threading.Lock] = {}
+        # How many checks each household has had answered, so a waiting check can tell that
+        # the one it waited for has answered.
+        self._answered: dict[int, int] = {}
 
     def last(self, household_id: int) -> CheckResult | None:
         with self._lock:
@@ -171,18 +175,29 @@ class UpdateChecks:
     def _keep(self, household_id: int, result: CheckResult) -> CheckResult:
         with self._lock:
             self._results[household_id] = result
+            self._answered[household_id] = self._answered.get(household_id, 0) + 1
         return result
 
-    def check_now(self, household_id: int) -> CheckResult:
-        """An admin's Check now: one request, unless the switch is off (none) or an answer came
-        within RECHECK_AFTER (that answer again)."""
+    def _one_at_a_time(self, household_id: int) -> threading.Lock:
         with self._lock:
-            running = self._running.setdefault(household_id, threading.Lock())
+            return self._running.setdefault(household_id, threading.Lock())
+
+    def check_now(self, household_id: int) -> CheckResult:
+        """An admin's Check now: one request, unless the switch is off (none), another check
+        answered while this one waited for it (that answer), or an answer came within
+        RECHECK_AFTER, failed or not (that answer again)."""
+        running = self._one_at_a_time(household_id)
+        with self._lock:
+            answered = self._answered.get(household_id, 0)
         with running:
-            last = self.last(household_id)
+            with self._lock:
+                last = self._results.get(household_id)
+                waited = self._answered.get(household_id, 0) != answered
+            if last is not None and waited:
+                return last
             if (
                 last is not None
-                and last.outcome in ("up_to_date", "newer")
+                and last.outcome != "off"
                 and self._clock() - last.checked_at < RECHECK_AFTER
                 and self._gate.is_allowed(household_id, Connection.UPDATE_CHECK)
             ):
@@ -239,10 +254,12 @@ class UpdateChecks:
             log.exception("Couldn't start the daily update check (will try again within the hour)")
             return
         for household_id in due:
-            last = self.last(household_id)
-            if last is not None and self._clock() - last.checked_at < DAILY_AFTER:
-                continue
-            try:
-                self._check(household_id)
-            except Exception:
-                log.exception("The daily update check failed (will try again within the hour)")
+            # Not at the same time as a Check now, which would make two requests.
+            with self._one_at_a_time(household_id):
+                last = self.last(household_id)
+                if last is not None and self._clock() - last.checked_at < DAILY_AFTER:
+                    continue
+                try:
+                    self._check(household_id)
+                except Exception:
+                    log.exception("The daily update check failed (will try again within the hour)")

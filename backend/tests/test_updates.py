@@ -9,6 +9,7 @@ import json
 import re
 import socketserver
 import threading
+import time
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -30,6 +31,7 @@ from mealwright.updates import (
     RELEASE_LIST_URL,
     RELEASED,
     RELEASES_PAGE,
+    CheckResult,
     UpdateChecks,
     newest,
     running_key,
@@ -302,15 +304,81 @@ def test_check_now_again_within_a_minute_gives_the_same_answer(
     assert len(release_list) == 2
 
 
-def test_after_couldnt_check_check_now_asks_again(
-    checks: UpdateChecks, sessions: sessionmaker[Session], release_list: list
+def test_after_couldnt_check_check_now_asks_again_after_a_minute(
+    checks: UpdateChecks, sessions: sessionmaker[Session], release_list: list, clock: Clock
 ) -> None:
     switch(sessions, True)
     serve([], 503)
     assert checks.check_now(1).outcome == "failed"
     serve([release("v0.9.1")])
+    clock.now += timedelta(seconds=30)
+    assert checks.check_now(1).outcome == "failed"  # the answer just had, failed included
+    assert len(release_list) == 1
+    clock.now += timedelta(seconds=31)
     assert checks.check_now(1).outcome == "newer"
     assert len(release_list) == 2
+
+
+def test_check_now_25_times_against_a_list_that_isnt_there_asks_once(
+    checks: UpdateChecks, sessions: sessionmaker[Session], release_list: list
+) -> None:
+    """A failed answer is kept for a minute too, so pressing Check now again and again (or a
+    script doing it) can't send the release list a stream of requests (security review r1)."""
+    switch(sessions, True)
+    serve({"message": "Not Found"}, 404)
+    outcomes = {checks.check_now(1).outcome for _ in range(25)}
+    assert outcomes == {"failed"}
+    assert len(release_list) == 1
+
+
+def test_eight_checks_at_once_ask_once_and_all_get_its_answer(
+    checks: UpdateChecks,
+    sessions: sessionmaker[Session],
+    release_list: list,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Checks that wait for one already running get that check's answer, even a failed one,
+    and even when it took longer than the minute an answer is kept (security review r1)."""
+    switch(sessions, True)
+    asked: list[str] = []
+    started, go = threading.Event(), threading.Event()
+
+    def slow(*args: object, **options: object) -> OutboundResponse:
+        asked.append("release list")
+        started.set()
+        assert go.wait(10)
+        clock.now += timedelta(minutes=2)  # past RECHECK_AFTER: only waiting keeps it
+        return OutboundResponse(status=404, headers={}, body=b"", url=updates.RELEASE_LIST_URL)
+
+    monkeypatch.setattr(checks._gate, "request", slow)
+    results: list[CheckResult] = []
+
+    def press() -> None:
+        results.append(checks.check_now(1))
+
+    presses = [threading.Thread(target=press) for _ in range(8)]
+    presses[0].start()
+    assert started.wait(10)
+    for other in presses[1:]:
+        other.start()
+    time.sleep(0.5)  # the other seven are waiting for the first
+    go.set()
+    for each in presses:
+        each.join(10)
+    assert asked == ["release list"]
+    assert len(results) == 8
+    assert {(r.outcome, r.checked_at) for r in results} == {("failed", results[0].checked_at)}
+
+
+def test_after_off_turning_the_switch_on_checks_at_once(
+    checks: UpdateChecks, sessions: sessionmaker[Session], release_list: list
+) -> None:
+    assert checks.check_now(1).outcome == "off"
+    switch(sessions, True)
+    serve([release("v0.9.1")])
+    assert checks.check_now(1).outcome == "newer"
+    assert len(release_list) == 1
 
 
 def test_turning_the_switch_off_stops_a_kept_answer(
