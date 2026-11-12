@@ -138,3 +138,22 @@ def test_an_admin_linked_at_another_sign_in_server_is_not_counted_as_able_to_sig
     refused = admin.patch(f"{API}/people/{mine}", json={"role": "member"})
     assert refused.status_code == 409, refused.text
     assert refused.json()["code"] == "last_admin"
+
+
+def test_a_waiting_link_belongs_to_the_session_that_tested(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """O1 review r2, finding 5: only the signed-in session that ran the test may confirm it,
+    not another session of the same admin, nor the same admin after signing out and in."""
+    sign_in(admin, idp, path="/sso/test", sub="k", extra=ADMIN_GROUPS)
+    other = browser(admin)
+    assert other.post(f"{API}/session", json=PASSWORD).status_code == 200
+    assert other.get(f"{API}/sso/settings").json()["test"]["link"] == "no"
+    assert other.post(f"{API}/sso/link").status_code == 409
+    assert admin.delete(f"{API}/session").status_code == 204
+    again = browser(admin)
+    assert again.post(f"{API}/session", json=PASSWORD).status_code == 200
+    assert again.post(f"{API}/sso/link").status_code == 409
+    from test_sso_api import subject_of
+
+    assert subject_of(admin, "tess") is None
