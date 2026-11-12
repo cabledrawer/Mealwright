@@ -456,6 +456,9 @@ class OutboundGate:
         max_bytes: int = MAX_RESPONSE_BYTES,
         accept: Callable[[str], bool] | None = None,
         deadline: float | None = None,
+        method: str = "GET",
+        headers: dict[str, str] | None = None,
+        body: bytes | None = None,
     ) -> OutboundResponse:
         """GET `url` from exactly `address`, which the caller has already checked. The Host
         header and the TLS name stay the URL's host name. Redirects are handed back, not
@@ -467,8 +470,13 @@ class OutboundGate:
         finish within the gate's time limit, or by `deadline` (a `time.monotonic()` value,
         for a caller's limit across several requests) if that comes first. Otherwise the
         connection is cut and OutboundFailed("timeout") is raised. A connection that fails
-        raises OutboundFailed, which never carries the library's own message."""
+        raises OutboundFailed, which never carries the library's own message.
+
+        Single sign-on (0.9 O1) also POSTs here (`method`, `headers` and `body`): its token
+        endpoint. The user agent is always the gate's own, whatever `headers` say."""
         self.check_switch(household_id, connection)
+        if method not in {"GET", "POST"}:
+            raise OutboundBlocked("only GET and POST are sent")
         parts = urlsplit(url)
         host = parts.hostname
         if parts.scheme not in {"http", "https"} or not host:
@@ -481,9 +489,12 @@ class OutboundGate:
         return self._exchange(
             url,
             str(address),
-            method="GET",
-            headers={"User-Agent": USER_AGENT},
-            body=None,
+            method=method,
+            headers={
+                **{k: v for k, v in (headers or {}).items() if k.lower() != "user-agent"},
+                "User-Agent": USER_AGENT,
+            },
+            body=body,
             max_bytes=max_bytes,
             accept=accept,
             deadline=deadline,

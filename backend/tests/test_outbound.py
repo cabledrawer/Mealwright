@@ -671,3 +671,29 @@ def test_import_check_catches_a_network_import(tmp_path: Path) -> None:
     sample = tmp_path / "sample.py"
     sample.write_text("from urllib import request\nimport httpx.client\n")
     assert {m for m in _imports(sample) if _is_network(m)} == {"urllib.request", "httpx.client"}
+
+
+# --- Authlib, single sign-on's library, in two modules only (spec section 7; 0.9 O1) ----------
+
+# Authlib has HTTP clients of its own (on httpx or requests). Mealwright uses only its protocol
+# pieces (PKCE, JOSE, OIDC claims), in these two modules, and every request goes through the
+# gate; the network guard would refuse the library's own clients anyway.
+AUTHLIB_FILES = {SRC / "sso.py", SRC / "secret_box.py"}
+AUTHLIB_CLIENTS = ("authlib.integrations", "authlib.oauth2.client", "authlib.oauth1.client")
+
+
+def test_only_the_single_sign_on_modules_import_authlib() -> None:
+    offenders = {
+        f"{path.relative_to(SRC.parent.parent)}: {module}"
+        for path in [*SRC.rglob("*.py"), *SCRIPTS.rglob("*.py")]
+        if path not in AUTHLIB_FILES
+        for module in _imports(path)
+        if module == "authlib" or module.startswith("authlib.")
+    }
+    assert not offenders, f"Authlib is for mealwright.sso and secret_box only: {sorted(offenders)}"
+
+
+def test_authlibs_own_http_clients_are_never_imported() -> None:
+    used = {module for path in AUTHLIB_FILES for module in _imports(path)}
+    assert not [m for m in used if m.startswith(AUTHLIB_CLIENTS)]
+    assert not [m for m in used if _is_network(m)]
