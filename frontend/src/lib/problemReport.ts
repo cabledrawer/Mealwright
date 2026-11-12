@@ -1,6 +1,6 @@
 // Settings → About → Report a problem (spec section 7, "Bug reports", cabledrawer 17 Oct; mockup
 // Dark-Report09-Phone; plan row X2). The words from the mockup are the mockup's; every other
-// sentence here is "proposed, for cabledrawer" (docs/dev/words.md section 71).
+// sentence here is "proposed, for cabledrawer" (docs/dev/words.md section 74).
 //
 // The report is built in the browser from what the server sent and what the person kept and
 // typed. Copy, Download and Open on GitHub all use the same text, so what is sent is what was

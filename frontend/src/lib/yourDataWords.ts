@@ -1,6 +1,6 @@
 // The words on Settings → Your data (0.9, D1; mockups Dark-YourData09-Phone and
 // Dark-DeleteAll09-Phone). The mockup's words, and the ones it doesn't show (proposed, for
-// cabledrawer): docs/dev/words.md, section 70.
+// cabledrawer): docs/dev/words.md, section 72.
 
 import type { BackupEvery, Backups } from '#lib/client/yourData.js';
 
