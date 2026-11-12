@@ -30,6 +30,11 @@ test.afterEach(async ({ page }) => {
   await switchOff(page);
 });
 
+// No service worker here: on WebKit, once it controls the page, page.route no longer sees the
+// page's requests, so a second visit would show the real server's answer, not the made-up one
+// (as in import-pints.spec.ts). "New version ready" itself is covered by newVersion.test.ts.
+test.use({ serviceWorkers: 'block' });
+
 /** The server's answer to GET /updates (or POST /updates/check), made up in the browser. */
 function updates(over: Record<string, unknown> = {}) {
   return {
