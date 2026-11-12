@@ -4,8 +4,13 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+### Changed
+
+- Unticking a line in the trolley joins it back into the line still to buy for the same ingredient, list and shop, so there is one row to buy instead of two (L1c, Sh7). Undo of the untick puts both lines back exactly as they were while the line it joined is unchanged; otherwise the unticked line comes back on its own and nothing needed is lost. The phone shows the join at once, offline too. Lines counted in different sizes are not joined.
+
 ### Fixed
 
+- A tick on an ingredient with no pack size kept none of a line that had grown since the phone showed it: the whole line was ticked for the amount the phone showed. The rest now stays to buy, as it already did for an ingredient with a pack size (found while building Sh7).
 - **Plan this batch (F229, cabledrawer 12 Nov).** The second and later recipes' "Where the tubs land" shows the tubs the earlier recipes already placed, as "Paneer Butter Masala · Tub 1 · already placed", so a meal that is taken doesn't look free. "Already placed" is proposed, for cabledrawer. The server's count ("N of M placed") and where the rest go were already worked out after the earlier recipes; only the grid hid them.
 - **Use a tub (F230, cabledrawer 12 Nov).** A tub is never offered for a meal on a day before its batch's cook day, nor, on the cook day, for a meal at or before the cooking (spec F50). The Plan's list leaves them out, and the server refuses such a placement or move (422, "Pick a meal after the cooking, today or later."; proposed, for cabledrawer). A tub may still go to a past day, as before.
 - **The Pantry's Fridge (F230, cabledrawer 12 Nov).** The tubs of a Batch cook session are listed (and counted, and in Use soon) only after that session's Cooked it. A Cook once batch outside a session is listed as before.

@@ -354,7 +354,8 @@ test('F198: Add as bought twice for one ingredient is one trolley row, and untic
   await row.click();
   // Really unticked: no trolley row any more, and the line is back on the list to buy.
   await expect(page.getByRole('checkbox', { name: `Untick ${name}`, exact: true })).toHaveCount(0);
-  await expect(page.getByRole('checkbox', { name: `Tick ${name}`, exact: true }).first()).toBeVisible();
+  // Joined back into one line to buy (L1c Sh7): one row, not two.
+  await expect(page.getByRole('checkbox', { name: `Tick ${name}`, exact: true })).toHaveCount(1);
 });
 
 test('F224: Add as bought is offered for an ingredient already on the list: a separate bought line, the unticked one stays', async ({ page }) => {
@@ -371,6 +372,37 @@ test('F224: Add as bought is offered for an ingredient already on the list: a se
   await expect(page.getByRole('status').filter({ hasText: name })).toBeVisible();
   // The line still to buy stays on the list; the bought one is its own row in the trolley.
   await expect(page.getByRole('checkbox', { name: `Tick ${name}`, exact: true })).toBeVisible();
+  await openTrolleyOf(page);
+  await expect(page.getByRole('checkbox', { name: `Untick ${name}`, exact: true })).toHaveCount(1);
+});
+
+test('L1c Sh7: unticking an as-bought line joins it back into the line to buy, and Undo puts both back', async ({ page }) => {
+  const name = `Lentils ${tag()}`;
+  const id = await onList(page, name, { grams: 800 });
+  await open(page);
+  await page.getByRole('textbox', { name: 'Add an item' }).fill(name);
+  await page.getByRole('button', { name: 'Add as bought' }).click();
+  await expect(page.getByRole('status').filter({ hasText: name })).toBeVisible();
+  const lines = async (): Promise<{ amount: number; ticked: boolean }[]> =>
+    ((await (await page.request.get('/api/v1/shopping/changes')).json()).items as any[])
+      .filter((i) => i.food_id === id && !i.deleted && !i.merged_into_id)
+      .map((i) => ({ amount: i.amount, ticked: i.ticks.some((t: any) => t.standing) }))
+      .sort((x, y) => x.amount - y.amount);
+  await expect.poll(async () => (await lines()).map((l) => l.ticked).sort()).toEqual([false, true]);
+  const before = await lines();
+  const bought = before.find((l) => l.ticked)!.amount;
+  expect(before.find((l) => !l.ticked)!.amount).toBe(800);
+  await openTrolleyOf(page);
+  await page.getByRole('checkbox', { name: `Untick ${name}`, exact: true }).click();
+  // One row to buy, with both amounts; nothing left in the trolley.
+  await expect(page.getByRole('checkbox', { name: `Untick ${name}`, exact: true })).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: `Tick ${name}`, exact: true })).toHaveCount(1);
+  await expect.poll(lines).toEqual([{ amount: 800 + bought, ticked: false }]);
+  // Undo puts both lines back as they were.
+  const toast = page.getByRole('status').filter({ hasText: `${name} unticked` });
+  await toast.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(lines).toEqual(before);
+  await expect(page.getByRole('checkbox', { name: `Tick ${name}`, exact: true })).toHaveCount(1);
   await openTrolleyOf(page);
   await expect(page.getByRole('checkbox', { name: `Untick ${name}`, exact: true })).toHaveCount(1);
 });
