@@ -22,6 +22,12 @@ Run Mealwright behind your own reverse proxy (Caddy, Traefik, nginx, Nginx Proxy
 
 **Installing and offline.** The app can be added to your phone's or computer's home screen, only over HTTPS: browsers don't allow installing or offline use on a plain `http://` address (except `localhost`). Your shopping list works offline: once you've opened it while connected, the device keeps a copy, and what you tick or add with no connection is kept on the device and sent when you're back ("Offline — 3 changes waiting", then "Back online — all saved"). Pantry, Ingredients and Settings still need your server, and say so. Signing out removes the household's data from the device, and warns you first if changes haven't been sent yet. On an iPhone, Safari can clear a website's offline data after about 7 days without use; adding Mealwright to the Home Screen helps. The offline helper (service worker) keeps only the app's own files (its code, fonts and icons); the list copy and the changes waiting are kept in the browser's own storage on the device, never in its web cache.
 
+## Single sign-on
+
+Mealwright can sign people in through your own sign-in server (Settings → Sign-in → Single sign-on, on a computer). Taking an admin out at your sign-in server doesn't stop their API tokens on its own: make them a Member or remove them in Settings → Household.
+
+**Removing someone (cabledrawer 12 Nov):** first make sure another admin can get in (a working password, or their own single sign-on), then remove them in Settings → Household. Disabling them only at the sign-in server isn't enough while they're the only admin: Mealwright keeps the only admin signed in so the household isn't locked out, and that admin keeps every admin power. They can't simply keep an API token that never stops, but they can still change the setup or give someone else an admin login. The real fix is at the sign-in server, or a second admin.
+
 ## Troubleshooting
 
 **Setting up: where's the setup code?** The first time Mealwright starts, before anyone has an account, it prints a setup code in its log, and the first-run page asks for it, so only someone who can read the server's log can create the admin account. Run `docker logs mealwright` (use your container's name) and look for "setup code". A new code is made each time Mealwright restarts until the admin account exists.
