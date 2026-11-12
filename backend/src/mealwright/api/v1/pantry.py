@@ -27,7 +27,7 @@ from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import amount_out, change_out, find, resolve, usual_size
 from mealwright.history import as_utc, commit, replayed
 from mealwright.household import places, today, zone
-from mealwright.models import Change, ChangeLine, Food, FoodSize, Place, StockLot
+from mealwright.models import Change, ChangeLine, CookedRecord, Food, FoodSize, Place, StockLot
 from mealwright.names import fold, search_match
 from mealwright.stock import (
     FREEZER_MONTHS,
@@ -335,9 +335,20 @@ def tub_rows(
     view: Pantry, wanted: Callable[[str], bool] = lambda _: True
 ) -> dict[int, list[TubRow]]:
     """Tubs left (in no meal), one row per batch and place, soonest first, keyed by place.
-    A tub with no known place is shown in the first fridge. `wanted` keeps the recipe names
-    a search finds."""
+    A tub of a session not cooked yet is left out. A tub with no known place is shown in the
+    first fridge. `wanted` keeps the recipe names a search finds."""
     found, _ = batches.tubs_left(view.kitchen, 1000)
+    # A Batch cook session's tubs are listed only once its Cooked it is done (F230, cabledrawer 12
+    # Nov): until then the food isn't cooked. A Cook once batch outside a session shows as before.
+    cooked_ids = set(
+        view.kitchen.db.scalars(
+            select(CookedRecord.batch_id).where(
+                CookedRecord.household_id == view.kitchen.household_id,
+                CookedRecord.batch_id.is_not(None),
+            )
+        )
+    )
+    found = [t for t in found if t.batch.session_id is None or t.batch.id in cooked_ids]
     fridge = next((p for p in view.places.values() if p.kind == "fridge"), None)
     fallback = fridge or next(iter(view.places.values()), None)
     by_row: dict[tuple[int, int], list[Any]] = defaultdict(list)
