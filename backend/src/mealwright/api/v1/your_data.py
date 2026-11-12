@@ -15,14 +15,21 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine, delete, func, select
 
 from mealwright import backups, export, setup_code
 from mealwright.api.v1.context import Here
-from mealwright.auth import SameOrigin, SlowDown, check_password, cookie_name, how_long
+from mealwright.auth import (
+    SameOrigin,
+    SlowDown,
+    Tries,
+    check_password,
+    cookie_name,
+    counted_check,
+)
 from mealwright.errors import Problem
 from mealwright.household import today
 from mealwright.models import Household, Login, Session, utcnow
@@ -225,20 +232,16 @@ def delete_everything(
             "words_wrong",
             f"Type “{WORDS}” to confirm.",
         )
+    # The admin's own password, checked as Change password checks it (0.9 A2): through
+    # counted_check, on this login's own count ("change:<id>", shared with Change password
+    # and apart from sign-in's), so each try is counted before its hash, wrong ones pause
+    # the same way, and guessing at the username at sign-in can't hold the admin up.
     slow: SlowDown = request.app.state.slow_down
     login = kitchen.login
-    keys = [f"user:{login.username}"]
-    if wait := slow.wait_seconds(keys):
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            f"Too many tries. Wait {how_long(wait)}.",
-            headers={"Retry-After": str(wait)},
-        )
-    if not check_password(login, body.password):
-        slow.failed(keys)
+    tries = Tries(name=login.username, personal=f"change:{login.id}")
+    if not counted_check(slow, tries, lambda: check_password(login, body.password)):
         sign_in_log.warning("Delete everything: wrong password for %s", login.username)
         raise Problem(status.HTTP_403_FORBIDDEN, "password_wrong", "That password isn’t right.")
-    slow.succeeded(keys[0])
 
     engine: Engine = request.app.state.engine
     db = kitchen.db

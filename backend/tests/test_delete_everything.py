@@ -19,6 +19,7 @@ from sqlalchemy import func, select, update
 from test_households import snapshot
 
 from mealwright import backups
+from mealwright.api.v1 import your_data
 from mealwright.auth import COOKIE, hash_password
 from mealwright.models import Change, Household, ListItem, ListTick, Login
 
@@ -158,6 +159,77 @@ def test_a_wrong_password_deletes_nothing_and_is_slowed_down(kitchen: TestClient
     assert kitchen.post(API, json=RIGHT).status_code == 429  # even the right one, for now
     assert _rows(kitchen) == rows
     assert kitchen.get("/api/v1/me").status_code == 200  # still signed in
+
+
+# --- The password check counts wrong tries like sign-in and Change password (counted_check) ---
+
+
+def _sign_in(kitchen: TestClient, password: str) -> int:
+    with TestClient(kitchen.app, base_url="https://testserver") as other:
+        body = {"username": ADMIN["username"], "password": password}
+        return other.post("/api/v1/session", json=body).status_code
+
+
+def test_wrong_passwords_are_paused_in_sign_ins_words(kitchen: TestClient) -> None:
+    wrong = {"words": "delete everything", "password": "not the password"}
+    for _ in range(5):
+        assert kitchen.post(API, json=wrong).status_code == 403
+    paused = kitchen.post(API, json=RIGHT)
+    assert paused.status_code == 429
+    assert paused.json()["code"] == "username_paused"
+    assert paused.json()["detail"].startswith("Too many wrong passwords for tess. Try again in")
+    assert int(paused.headers["retry-after"]) > 0
+
+
+def test_guessing_at_sign_in_doesnt_stop_the_admin_deleting(kitchen: TestClient) -> None:
+    """As for Change password (0.9 A2): this check has the login's own count, apart from
+    sign-in's, so someone guessing at the username can't hold the signed-in admin up."""
+    for _ in range(6):
+        _sign_in(kitchen, "a wrong guess")
+    kitchen.app.state.slow_down.succeeded("addr:testclient")  # type: ignore[attr-defined]
+    assert _sign_in(kitchen, ADMIN["password"]) == 429  # the username is paused at sign-in
+    assert kitchen.post(API, json=RIGHT).status_code == 204
+
+
+def test_wrong_passwords_here_dont_pause_signing_in(kitchen: TestClient) -> None:
+    wrong = {"words": "delete everything", "password": "not the password"}
+    for _ in range(5):
+        assert kitchen.post(API, json=wrong).status_code == 403
+    assert kitchen.post(API, json=wrong).status_code == 429
+    assert _sign_in(kitchen, ADMIN["password"]) == 200
+
+
+def test_wrong_passwords_here_and_in_change_password_are_one_count(kitchen: TestClient) -> None:
+    wrong = {"words": "delete everything", "password": "not the password"}
+    change = {"current_password": "not the password", "new_password": "a brand new password"}
+    for _ in range(3):
+        assert kitchen.post(API, json=wrong).status_code == 403
+    for _ in range(2):
+        assert kitchen.put("/api/v1/me/password", json=change).status_code == 422
+    assert kitchen.post(API, json=RIGHT).status_code == 429
+    assert kitchen.put("/api/v1/me/password", json=change).status_code == 429
+
+
+def test_a_try_is_counted_before_its_password_is_hashed(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Counted first, so tries sent at once can't all be checked before any of them counts."""
+    slow = kitchen.app.state.slow_down  # type: ignore[attr-defined]
+    counted_at_the_hash: list[int] = []
+    real = your_data.check_password
+
+    def check(login: Login | None, password: str) -> bool:
+        counted_at_the_hash.append(sum(len(times) for times in slow._failures.values()))
+        return real(login, password)
+
+    monkeypatch.setattr(your_data, "check_password", check)
+    wrong = {"words": "delete everything", "password": "not the password"}
+    assert kitchen.post(API, json=wrong).status_code == 403
+    assert counted_at_the_hash == [1]
+    # A right password takes its try back.
+    assert kitchen.post(API, json=RIGHT).status_code == 204
+    assert counted_at_the_hash == [1, 2]
+    assert sum(len(times) for times in slow._failures.values()) == 1
 
 
 def test_a_member_cannot_even_with_the_admins_password(member: TestClient) -> None:
