@@ -633,6 +633,19 @@ def test_a_change_made_as_the_picked_person_keeps_the_pick_going(kitchen: TestCl
     assert utcnow() - as_utc(picked_at) < timedelta(minutes=1)
 
 
+def test_the_shopping_list_is_synced_only_with_people_who_sign_in(kitchen: TestClient) -> None:
+    """Review r1: "Synced with ..." leaves out a removed person, a person whose sign-in link
+    isn't used yet and a shared login (a device, not a person)."""
+    person(kitchen)
+    _tablet(kitchen)
+    person(kitchen, name="Sam", username="sam")
+    ok(kitchen.delete(f"{API}/people/{_id(kitchen, 'Sam')}"))
+    _join(kitchen, _add(kitchen), "joss")
+    ok(kitchen.patch(f"{API}/people/{_id(kitchen, 'Wren')}", json={"name": "Ram"}))
+    names = [p["name"] for p in ok(kitchen.get(f"{API}/shopping/changes"))["people"]]
+    assert names == ["Tess", "Ram"]
+
+
 def test_picking_is_for_shared_logins_and_people_of_the_household(kitchen: TestClient) -> None:
     tablet = _tablet(kitchen)
     joss = _add(kitchen)

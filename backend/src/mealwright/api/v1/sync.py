@@ -31,11 +31,13 @@ from mealwright.models import (
     ListNote,
     ListTick,
     Login,
+    Member,
     Place,
     Shop,
     ShoppingList,
     SyncAction,
 )
+from mealwright.people import can_sign_in
 from mealwright.shopping import OTHER_PHONE
 
 router = APIRouter(tags=["shopping"], dependencies=[SameOrigin])
@@ -491,9 +493,16 @@ def changes_since(kitchen: Kitchen, since: int, device_id: str | None = None) ->
             select(Place).where(Place.household_id == hid).order_by(Place.position, Place.id)
         )
     ]
+    # Who the list is shared with ("Synced with Wren"): the people who sign in, not removed, not
+    # waiting for their sign-in link, and not a shared login (it is a device, not a person).
     people = [
-        Person(login_id=login.id, name=login.name)
-        for login in db.scalars(select(Login).where(Login.household_id == hid).order_by(Login.id))
+        Person(login_id=login.id, name=member.name)
+        for login, member in db.execute(
+            select(Login, Member)
+            .join(Member, Member.id == Login.member_id)
+            .where(Login.household_id == hid, Login.shared.is_(False), can_sign_in())
+            .order_by(Login.id)
+        ).tuples()
     ]
     return ChangesOut(
         cursor=household.list_seq,
