@@ -200,6 +200,8 @@ test('a shared login asks “Who’s this?” when the switch is on; the pick is
   browser,
   app,
 }) => {
+  // Two browsers, two sign-ins and a page check: more than the usual 30 s on a slow phone run.
+  test.slow();
   const m = mark();
   const eater = `Joss ${m}`;
   const tablet = `Tablet ${m}`;
@@ -209,7 +211,12 @@ test('a shared login asks “Who’s this?” when the switch is on; the pick is
 
   // The switch, on the Household screen.
   await page.goto('/settings/household');
+  // The switch turns on at once; wait for the server to have it before asking the server.
+  const saved = page.waitForResponse(
+    (r) => r.url().endsWith('/api/v1/people/ask-whos-this') && r.request().method() === 'PUT',
+  );
   await page.getByRole('switch', { name: 'Ask “Who’s this?”' }).click();
+  expect((await saved).status()).toBe(200);
   await expect(page.getByRole('switch', { name: 'Ask “Who’s this?”' })).toHaveAttribute('aria-checked', 'true');
   expect(((await (await page.request.get('/api/v1/people')).json()) as Json).ask_whos_this).toBe(true);
 
