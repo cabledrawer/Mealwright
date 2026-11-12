@@ -5,11 +5,13 @@ Each kind of personal detail is planted in the log and must not come back.
 """
 
 import os
+import re
 import time
 import unicodedata
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -1146,3 +1148,345 @@ def test_a_line_in_the_same_second_as_the_new_set_up_is_left_out(tmp_path: Path)
     )
     found = recent_errors(tmp_path, now, installed=set_up)
     assert [error.message for error in found] == ["After it"]
+
+
+# --- Every change that renames or removes something with a name (fix4, review r3) ------------
+#
+# Each scenario writes the real rows through the API, renames, removes, merges or purges, and
+# returns the OLD names. The test then logs an error that holds them and builds the report for
+# the household and for a neighbour: none may be there.
+
+
+def _ok(response: Any, *codes: int) -> Any:
+    assert response.status_code in (codes or (200, 201, 204)), response.text
+    return response.json() if response.content else None
+
+
+def _purge_all(client: TestClient) -> None:
+    """Everything that was removed, purged for good (the nightly job, run a month on)."""
+    from mealwright.jobs import purge_removed_ingredients
+
+    purge_removed_ingredients(
+        client.app.state.sessionmaker,  # type: ignore[attr-defined]
+        datetime.now(UTC) + timedelta(days=60),
+    )
+
+
+def _person(k: TestClient, name: str) -> int:
+    made = _ok(k.post(f"{API}/people", json={"name": name}))
+    return int(next(p["id"] for p in made["people"] if p["name"] == name))
+
+
+def _s_person_renamed(k: TestClient) -> list[str]:
+    _ok(k.patch(f"{API}/people/{_person(k, 'Anoushka Quibbleton')}", json={"name": "Joss"}))
+    return ["Anoushka Quibbleton"]
+
+
+def _s_person_removed(k: TestClient) -> list[str]:
+    _ok(k.delete(f"{API}/people/{_person(k, 'Zebediah Fairweather')}"))
+    return ["Zebediah Fairweather"]
+
+
+def _s_household_renamed(k: TestClient) -> list[str]:
+    _ok(k.patch(f"{API}/household", json={"name": "Thistlewick Burrow"}))
+    _ok(k.patch(f"{API}/household", json={"name": "Home"}))
+    return ["Thistlewick Burrow"]
+
+
+def _s_food_renamed(k: TestClient) -> list[str]:
+    food = _ok(k.post(f"{API}/foods", json={"name": "Aunty Priyamvada chutney"}))["food"]
+    _ok(k.patch(f"{API}/foods/{food['id']}", json={"name": "Chutney"}))
+    return ["Aunty Priyamvada chutney"]
+
+
+def _s_food_merged(k: TestClient) -> list[str]:
+    a = _ok(k.post(f"{API}/foods", json={"name": "Ottolenghi tahini"}))["food"]
+    b = _ok(k.post(f"{API}/foods", json={"name": "Tahini"}))["food"]
+    _ok(k.post(f"{API}/foods/{a['id']}/merge", json={"into_id": b["id"]}))
+    _purge_all(k)
+    return ["Ottolenghi tahini"]
+
+
+def _s_food_removed_and_purged(k: TestClient) -> list[str]:
+    food = _ok(k.post(f"{API}/foods", json={"name": "Gooseberry fool powder"}))["food"]
+    _ok(k.delete(f"{API}/foods/{food['id']}"))
+    _purge_all(k)
+    return ["Gooseberry fool powder"]
+
+
+def _s_recipe_deleted_and_purged(k: TestClient) -> list[str]:
+    made = _ok(k.post(f"{API}/recipes", json={"name": "Hortensia's rhubarb crumble"}))
+    _ok(k.delete(f"{API}/recipes/{made['id']}"))
+    _purge_all(k)
+    return ["Hortensia's rhubarb crumble"]
+
+
+def _s_slot_renamed(k: TestClient) -> list[str]:
+    slots = _ok(k.get(f"{API}/meal-slots"))
+    first = (slots if isinstance(slots, list) else slots["slots"])[0]["id"]
+    _ok(k.patch(f"{API}/meal-slots/{first}", json={"name": "Ravindra tiffin box"}))
+    _ok(k.patch(f"{API}/meal-slots/{first}", json={"name": "Brekkie"}))
+    return ["Ravindra tiffin box"]
+
+
+def _s_list_renamed(k: TestClient) -> list[str]:
+    made = _ok(k.post(f"{API}/shopping/lists", json={"name": "Wilhelmina's feast"}))
+    _ok(k.patch(f"{API}/shopping/lists/{made['shopping_list']['id']}", json={"name": "Weekly"}))
+    return ["Wilhelmina's feast"]
+
+
+def _s_list_removed(k: TestClient) -> list[str]:
+    made = _ok(k.post(f"{API}/shopping/lists", json={"name": "Bartholomew banquet"}))
+    _ok(k.delete(f"{API}/shopping/lists/{made['shopping_list']['id']}"))
+    return ["Bartholomew banquet"]
+
+
+def _s_shop_renamed(k: TestClient) -> list[str]:
+    made = _ok(k.post(f"{API}/shops", json={"name": "Mrs Pemberley's emporium"}))
+    _ok(k.patch(f"{API}/shops/{made['id']}", json={"name": "Corner shop"}))
+    return ["Mrs Pemberley's emporium"]
+
+
+def _s_shop_removed(k: TestClient) -> list[str]:
+    made = _ok(k.post(f"{API}/shops", json={"name": "Ignatius greengrocer"}))
+    _ok(k.delete(f"{API}/shops/{made['id']}"))
+    return ["Ignatius greengrocer"]
+
+
+def _s_place_renamed(k: TestClient) -> list[str]:
+    made = _ok(k.post(f"{API}/places", json={"name": "Cornelius cellar", "kind": "cupboard"}))
+    _ok(k.patch(f"{API}/places/{made['id']}", json={"name": "Cellar"}))
+    return ["Cornelius cellar"]
+
+
+def _s_place_removed(k: TestClient) -> list[str]:
+    made = _ok(k.post(f"{API}/places", json={"name": "Fenella larder", "kind": "cupboard"}))
+    _ok(k.delete(f"{API}/places/{made['id']}"))
+    return ["Fenella larder"]
+
+
+def _s_tag_merged(k: TestClient) -> list[str]:
+    _ok(k.post(f"{API}/recipes", json={"name": "Plain one", "tags": ["Gwendolyn favourites"]}))
+    _ok(k.post(f"{API}/recipes", json={"name": "Plain two", "tags": ["Keepers"]}))
+    tags = {t["name"]: t["id"] for t in _ok(k.get(f"{API}/recipes/tags"))["tags"]}
+    _ok(
+        k.post(
+            f"{API}/recipes/tags/{tags['Gwendolyn favourites']}/merge",
+            json={"into": tags["Keepers"]},
+        )
+    )
+    return ["Gwendolyn favourites"]
+
+
+def _s_plan_note_removed(k: TestClient) -> list[str]:
+    from datetime import date
+
+    slots = _ok(k.get(f"{API}/meal-slots"))
+    slot = (slots if isinstance(slots, list) else slots["slots"])[0]["id"]
+    day = (date.today() + timedelta(days=3)).isoformat()
+    made = _ok(
+        k.post(
+            f"{API}/plan/items",
+            json={"date": day, "slot_id": slot, "note": "Dinner at Wilkinson's"},
+        )
+    )
+    plan = _ok(k.get(f"{API}/plan", params={"from": day, "to": day}))
+    item = plan["meals"][0]["items"][0]["id"]
+    _ok(k.delete(f"{API}/plan/items/{item}"))
+    assert made
+    return ["Dinner at Wilkinson's"]
+
+
+# Change kind -> the scenario that writes a real row of it and then makes its name old.
+_SCENARIOS: dict[str, Any] = {
+    "person_added": _s_person_renamed,
+    "person_changed": _s_person_renamed,
+    "person_removed": _s_person_removed,
+    "household_renamed": _s_household_renamed,
+    "food_created": _s_food_removed_and_purged,
+    "food_edited": _s_food_renamed,
+    "food_removed": _s_food_removed_and_purged,
+    "merged": _s_food_merged,
+    "recipe_created": _s_recipe_deleted_and_purged,
+    "recipe_removed": _s_recipe_deleted_and_purged,
+    "plan_slot": _s_slot_renamed,
+    "plan_removed": _s_plan_note_removed,
+    "list_made": _s_list_removed,
+    "list_renamed": _s_list_renamed,
+    "list_removed": _s_list_removed,
+    "shop_added": _s_shop_removed,
+    "shop_renamed": _s_shop_renamed,
+    "shop_removed": _s_shop_removed,
+    "place_added": _s_place_removed,
+    "place_renamed": _s_place_renamed,
+    "place_removed": _s_place_removed,
+    "tags_merged": _s_tag_merged,
+    # in tests/test_drafts.py::test_a_deleted_and_purged_drafts_name_is_not_in_a_report
+    "draft_saved": "test_drafts",
+    "draft_removed": "test_drafts",
+}
+# Kinds that keep no name, and why. The names of ingredients are kept in the snapshots of
+# the changes that made, renamed, merged or removed them (the kinds above); the others name
+# an ingredient or a plan item only by ID.
+_KEEPS_NO_NAME: dict[str, str] = {
+    "amounts_shown_changed": "a setting: two words from a fixed list",
+    "batch_cook_switch": "a setting: on or off",
+    "cook_step_changed": "a setting: on or off",
+    "kitchen_changed": "numbers of hob rings and cookers, and whether there is an oven",
+    "pints_changed": "a setting: uk or us",
+    "setting_kept": "keeps only the request's key",
+    "whos_this_switch": "a setting: on or off",
+    "undo": "its message and summary repeat the undone change's, whose own data holds the name",
+    "split": "an ingredient made its own again: its name is in the snapshot of its other changes",
+    "stocktake": "names an ingredient by ID; its name is in its own created change",
+    "food_back": "names an ingredient by ID",
+    "used": "names an ingredient by ID",
+    "added": "names an ingredient by ID",
+    "binned": "names an ingredient by ID",
+    "set_left": "names an ingredient by ID",
+    "use_by": "names an ingredient by ID",
+    "to_freezer": "names an ingredient by ID",
+    "moved": "names an ingredient by ID",
+    "found": "names an ingredient by ID",
+    "shopped": "names an ingredient by ID",
+    "repacked": "names an ingredient by ID",
+    "cooked": "names recipes by ID; their names are in the recipe's own changes",
+    "item_added": "a list line, by ID and ingredient ID",
+    "item_amount": "a list line, by ID",
+    "item_deleted": "a list line, by ID",
+    "item_moved": "a list line, by ID",
+    "item_place": "a list line, by ID",
+    "recipe_saved": "its name is in recipe_created's data: the same code writes both",
+    "recipe_imported": "the recipe's name and its sections' names are kept under name and"
+    " section_names (undo_names reads every string), checked in the shape test",
+    "plan_added": "an item by ID",
+    "plan_batch": "a batch by ID; its recipe_name is read by undo_names",
+    "plan_batch_removed": "recipe_name is read by undo_names (shape test)",
+    "plan_batch_session": "recipes by ID",
+    "plan_batch_session_changed": "recipe_name is read by undo_names (shape test)",
+    "plan_batch_session_removed": "recipe_name is read by undo_names (shape test)",
+    "plan_cooked": "meals by ID",
+    "plan_copied": "days by date",
+    "plan_didnt": "meals by ID",
+    "plan_eaters": "people by ID",
+    "plan_leftovers": "meals by ID",
+    "plan_method": "a method by ID",
+    "plan_moved": "meals by ID and dates",
+    "plan_moveit": "meals by ID and dates",
+    "plan_optional": "an item by ID",
+    "plan_servings": "an item by ID and a number",
+    "plan_start": "an item by ID and a time",
+    "plan_started": "an item by ID and a time",
+    "plan_tub": "a tub by ID",
+}
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    sorted({f for f in _SCENARIOS.values() if callable(f)}, key=lambda f: f.__name__),
+)
+def test_no_old_name_reaches_a_report(
+    scenario: Any, kitchen: TestClient, neighbour: TestClient, settings: Settings
+) -> None:
+    """Review r3 (fix4): a name that was changed, removed, merged or purged is still a name.
+    For each real change, the old names are logged in an error and must not be in the report
+    of the household or of a neighbour."""
+    write_log(log_folder(settings), [error("Sign-in for tess failed")])
+    assert "[name]" in report(neighbour)["errors"][0]  # a Scrubber was built and kept first
+    olds = scenario(kitchen)
+    write_log(
+        log_folder(settings),
+        [error(f"Couldn't save {old}", ago=timedelta(seconds=-2)) for old in olds],
+    )
+    for client in (kitchen, neighbour):
+        text = "\n".join(report(client)["errors"]).lower()
+        for old in olds:
+            for word in re.findall(r"[a-z]{4,}", old.lower()):
+                assert word not in text.replace("couldn't save", ""), (scenario.__name__, text)
+
+
+def test_every_kind_of_change_is_covered() -> None:
+    """A guard: every kind of change the code writes is either run through the API above (or
+    in test_drafts.py) with its old names logged and checked, or listed as keeping no name,
+    with the reason. The kinds are read from the code (a kind written as a string where a
+    change is recorded); the places that pass a kind in a variable are counted, so a new one
+    fails here and is looked at."""
+    import ast
+
+    root = Path(problem_report.__file__).parent
+    static: set[str] = set()
+    dynamic: set[str] = set()
+    for path in root.rglob("*.py"):
+        if "migrations" in path.parts:
+            continue
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            name = func.id if isinstance(func, ast.Name) else getattr(func, "attr", "")
+            if name in ("record", "record_back", "done", "_finish") and node.args:
+                is_edit = isinstance(func, ast.Attribute) and name in ("record", "done")
+                where = 0 if is_edit or name in ("done", "_finish") else 1
+                if name == "_finish":
+                    where = 1
+                if len(node.args) <= where:
+                    continue
+                arg = node.args[where]
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                    static.add(arg.value)
+                else:
+                    dynamic.add(f"{path.relative_to(root)}:{name}")
+    known = set(_SCENARIOS) | set(_KEEPS_NO_NAME)
+    assert static - known == set(), static - known
+    assert set(_SCENARIOS) & set(_KEEPS_NO_NAME) == set()
+    # Where a kind is passed in a variable (the kinds are among those above, found by
+    # running the suite): a new such place must be looked at.
+    assert dynamic == _DYNAMIC_KINDS, dynamic ^ _DYNAMIC_KINDS
+    for kind, reason in _KEEPS_NO_NAME.items():
+        assert reason, kind
+
+
+# The places that pass the kind on in a variable or by another position (their kinds are among
+# those in the two tables above; checked by running the suite and listing the kinds it wrote).
+_DYNAMIC_KINDS: set[str] = {
+    "api/v1/changes.py:record_back",
+    "api/v1/pantry.py:record",
+    "api/v1/people.py:_finish",
+    "batches.py:_finish",
+    "history.py:record",
+    "kitchen_changes.py:record",
+    "people.py:record",
+    "plan.py:_finish",
+    "plan.py:record",
+    "recipe_tags.py:record",
+    "recipes.py:record",
+    "shopping.py:record",
+    "shopping.py:record_back",
+    "stock.py:record",
+    "ticks.py:record",
+}
+
+
+def test_an_old_household_name_is_removed_as_a_whole_not_word_by_word(
+    kitchen: TestClient, neighbour: TestClient, settings: Settings
+) -> None:
+    """Review r3 (fix4), L: a household once called "Our Kitchen" is removed as that phrase
+    ([household]); "Kitchen" alone, as in "Kitchen timer failed", stays. A one-word old name
+    is still a word."""
+    _ok(kitchen.patch(f"{API}/household", json={"name": "Our Kitchen"}))
+    _ok(kitchen.patch(f"{API}/household", json={"name": "Burrow"}))
+    _ok(kitchen.patch(f"{API}/household", json={"name": "Home"}))
+    write_log(
+        log_folder(settings),
+        [
+            error("Kitchen timer failed", ago=timedelta(seconds=-2)),
+            error("Couldn't save Our Kitchen", ago=timedelta(seconds=-2)),
+            error("Couldn't save Burrow", ago=timedelta(seconds=-2)),
+        ],
+    )
+    for client in (kitchen, neighbour):
+        lines = report(client)["errors"]
+        text = "\n".join(lines)
+        assert "Kitchen timer failed" in text, lines
+        assert "Couldn't save [household]" in text, lines
+        assert "burrow" not in text.lower(), lines

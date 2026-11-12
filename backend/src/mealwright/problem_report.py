@@ -479,61 +479,116 @@ class ServerAddress:
     ports: tuple[int, ...]
 
 
-# What the undo data of a change may keep of a name that has since changed or gone (review r2).
-# A change's data is plain JSON; names are found by their key, wherever they sit in it:
-#  - "name" holding {"old", "new"}: a household's (`household_renamed`);
-#  - "name" holding a person's state (`person_added`, `person_changed`): a person's;
-#  - any "..._by_name": a person's;
-#  - "shop" or "place" holding {"old", "new"}: a renamed shop's or place's;
-#  - a shopping op "list_name" with "old" and "new": a list's;
-#  - a "name" or "recipe_name" under any other key: a shop's, place's, tag's, draft's or
-#    ingredient's (a removed shop and place keep theirs under "removed"; a merged tag under
-#    "source" and "target"; an ingredient's snapshot under "names" and "fields");
-#  - "fields" keys that end in ":name": an ingredient's.
-# Sizes' words (tin, bunch) are not names and are skipped. A new key that holds a name must
-# be handled here: `test_every_undo_name_is_handled` (tests/test_problem_report.py) fails
-# when one is not.
-UNDO_NAME_KEYS = frozenset({"name", "recipe_name"})
+# What the undo data of a change keeps (review r2 and r3). It is plain JSON, and a name that
+# has since changed, merged or gone can sit anywhere in it, under any key a future change adds.
+# So it is deny-by-default: EVERY string in it is a name to remove, unless its key is listed
+# here as one that never holds a name, with the reason. A new kind with a new name key is then
+# removed without anyone remembering to list it; a new key that holds a code or a plain word
+# (so that removing it would blank that word everywhere) must be listed, or the report loses
+# that word (tests/test_problem_report.py::test_every_kind_of_change_is_covered).
+UNDO_NOT_NAMES: dict[str, str] = {
+    "op": "the kind of step (add_item, move_meal, list_name…)",
+    "kind": "a kind of change, place, row or step (fridge, step, tub…)",
+    "undoes_kind": "a kind of change",
+    "result": "done or nothing",
+    "action": "an action's ID",
+    "id": "an ID",
+    "status": "a state word (planned, cooked…)",
+    "state": "a state word (downloaded, none…)",
+    "label": "a state word (matched, staple…)",
+    "pattern": "a batch cook pattern word (pick, dinners)",
+    "equipment": "hob, oven or pressure",
+    "hands": "hands or waiting",
+    "colour": "a colour word",
+    "unit": "a unit (cup, tsp, g)",
+    "counted_as": "weight, volume or count",
+    "aisle": "an aisle word (dairy, spices…)",
+    "date_kind": "use_by or best_before",
+    "household": "the pint word (uk, us)",
+    "reading": "a reading word (uk, us)",
+    "source_kind": "link or text",
+    "from": "a state or a date",
+    "to": "a state or a date",
+    "amount_text": "an amount (a number or fraction)",
+    "count_word": "a size word (bunch, tin): everyday words, not names",
+    "count_word_plural": "a size word (bunches, tins)",
+    "plural": "a size word (packets, boxes)",
+    "text": "a recipe's own method text, not a name",
+    "title": "a method step's own text, not a name",
+    "note": "a recipe line's own note (sliced, to taste), not a name",
+    "heading": "a recipe's own section heading (Tips), not a name",
+    "description": "a recipe's own prose, not a name",
+    "written": "a recipe line as written, not a name",
+    "source_text": "text a person pasted, kept as a draft, not a name",
+    "url": "a link or a path: removed as a link anyway",
+    "list_url": "a path",
+}
+# Keys that end like these hold an ID, a time or a day.
+_NOT_NAME_ENDINGS = ("_id", "_ids", "_at", "_day", "_on", "_from", "_to", "_url", "_made_at")
+# A string that is only an ID, a time, a day, a number or a hash is never a name.
+_CODE = re.compile(
+    r"^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"  # a UUID
+    r"|[0-9a-f]{32,}"  # a hash
+    r"|\d{4}-\d\d-\d\d(?:[T ][\d:.+Z-]*)?"  # a day or a time
+    r"|[\d.,/:+\-\s]+"  # numbers
+    r"|/.*)$",  # a path
+    re.IGNORECASE,
+)
+# A longer string is a sentence or a text, not a name; it would never match a log line anyway.
+_LONGEST_UNDO_NAME = 20  # words
 
 
-def undo_names(data: Any, _under: str = "") -> Iterable[tuple[str, str | None]]:
-    """The names in one change's undo data: (the name, the word that replaces it), where
-    None means a person's (or a household's): every word of it is removed."""
+def _undo_label(path: tuple[str, ...], key: str, op: object) -> str | None:
+    """The word that replaces a name found in undo data, from where it sits; None means a
+    person's or a one-word household's (every word of it is removed)."""
+    if key.endswith("_by_name") or key == "login_name" or "person" in path:
+        return None
+    if op == "slot_name":
+        return "[meal]"
+    if key.endswith(":name") or "names" in path or "fields" in path or "foods" in path:
+        return "[ingredient]"
+    if key in ("recipe_name", "words", "matched_by", "learn_name", "tags", "author"):
+        return "[recipe]" if key != "author" else None
+    for step in reversed(path):
+        if step in ("shop", "place"):
+            return f"[{step}]"
+        if step in ("source", "target", "tag"):
+            return "[recipe]"
+    return "[removed]"
+
+
+def undo_names(data: Any, _path: tuple[str, ...] = ()) -> Iterable[tuple[str, str | None]]:
+    """The names in one change's undo data: (the name, the word that replaces it), where None
+    means a person's: every word of it is removed. Everything that is a string and is not on
+    the list of keys that never hold a name is a name. A household's old and new names (a
+    "name" holding {"old", "new"}) come out as ("...", "[household]")."""
     if isinstance(data, list):
         for item in data:
-            yield from undo_names(item, _under)
+            yield from undo_names(item, _path)
         return
     if not isinstance(data, dict):
         return
-    if data.get("op") == "list_name":
-        for key in ("old", "new"):
-            if isinstance(data.get(key), str):
-                yield data[key], "[removed]"
+    op = data.get("op")
     for key, value in data.items():
         if key == "sizes":
+            continue  # a size's words (tin, bunch) are not names
+        field = key.rsplit(":", 1)[-1]  # an ingredient's snapshot: "12:aisle"
+        if field in UNDO_NOT_NAMES or field.endswith(_NOT_NAME_ENDINGS):
             continue
-        if isinstance(value, str):
-            if key.endswith("_by_name") or key == "login_name":
-                yield value, None
-            elif key in UNDO_NAME_KEYS:
-                yield value, "[ingredient]" if _under == "names" else "[removed]"
-            elif _under == "fields" and key.endswith(":name"):
-                yield value, "[ingredient]"
-        elif key == "name" and isinstance(value, dict):
-            # A household's {"old", "new"}, or a person's state ({"name": ...}).
-            for part in ("old", "new"):
-                if isinstance(value.get(part), str):
-                    yield value[part], None
-        elif key in ("shop", "place") and isinstance(value, dict) and "old" in value:
-            for part in ("old", "new"):  # a renamed shop's or place's (`shop_renamed`, ...)
-                if isinstance(value.get(part), str):
-                    yield value[part], "[removed]"
-        elif key == "person" and isinstance(value, dict):
-            for state in (value.get("old"), value.get("new")):
-                if isinstance(state, dict) and isinstance(state.get("name"), str):
-                    yield state["name"], None
+        if isinstance(value, str | list):
+            # A string, or a list of them ("Old", "New" as ["Old", "New"], or [None, "New"]).
+            for part in value if isinstance(value, list) else [value]:
+                if isinstance(part, str):
+                    if not _CODE.match(part) and len(part.split()) <= _LONGEST_UNDO_NAME:
+                        yield part, _undo_label(_path, key, op)
+                elif isinstance(part, dict | list):
+                    yield from undo_names(part, (*_path, key))
+        elif key == "name" and isinstance(value, dict) and set(value) <= {"old", "new"}:
+            for part in value.values():
+                if isinstance(part, str):
+                    yield part, "[household]"
         else:
-            yield from undo_names(value, key)
+            yield from undo_names(value, (*_path, key))
 
 
 class Scrubber:
@@ -548,14 +603,6 @@ class Scrubber:
         for column in _PEOPLE_COLUMNS:
             for value in db.scalars(select(column).distinct()):
                 self._add_person(value)
-        # The names a person, household, shop, place, list, tag or ingredient had before it was
-        # renamed or removed, kept in the undo data of the changes that did it (review r1, r2).
-        for data in db.scalars(select(models.Change.undo_data)):
-            for name, replacement in undo_names(data):
-                if replacement is None:
-                    self._add_person(name)
-                else:
-                    self._add_phrase(_keys(name), replacement)
         for replacement, columns in _PHRASE_COLUMNS:
             for column in columns:
                 for value in db.scalars(select(column)):
@@ -567,6 +614,17 @@ class Scrubber:
                             if word[0].isupper() and _key(word) not in _NOT_PEOPLE:
                                 self._add_person(word)
                     self._add_phrase(_keys(value), replacement)
+        # The names a person, household, shop, place, list, tag, meal or ingredient had before it
+        # was renamed, merged or removed, kept in the undo data of the changes that did it
+        # (review r1, r2, r3). After the columns, so a name that is also in a column keeps that
+        # column's word.
+        for data in db.scalars(select(models.Change.undo_data)):
+            for name, replacement in undo_names(data):
+                keys = _keys(name)
+                if replacement is None or (replacement == "[household]" and len(keys) == 1):
+                    self._add_person(name)  # a person's every word; a one-word household
+                else:
+                    self._add_phrase(keys, replacement)
         for options in self._phrases.values():
             options.sort(key=lambda option: len(option[0]), reverse=True)
         self._sites: set[str] = set()
