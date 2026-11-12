@@ -124,3 +124,51 @@ def test_the_command_line(kitchen: TestClient) -> None:
     )
     assert usage.returncode == 2
     assert "username" in usage.stderr
+
+
+def _admin_person(kitchen: TestClient, name: str, username: str, join: bool) -> int:
+    """An admin person of the household; with `join`, they have chosen their password."""
+    api = "/api/v1"
+    assert kitchen.post(f"{api}/people", json={"name": name}).status_code == 201
+    people = kitchen.get(f"{api}/people").json()["people"]
+    member_id = int(next(p["id"] for p in people if p["name"] == name))
+    link = kitchen.post(
+        f"{api}/people/{member_id}/login", json={"username": username, "role": "admin"}
+    )
+    assert link.status_code == 201, link.text
+    if join:
+        token = link.json()["path"].removeprefix("/join/")
+        fresh = TestClient(kitchen.app, base_url="https://testserver")
+        r = fresh.post(f"{api}/join/{token}", json={"password": "joss's long password"})
+        assert r.status_code == 204, r.text
+    return member_id
+
+
+def test_refuses_a_removed_admin_and_lists_only_admins_who_can_sign_in(
+    kitchen: TestClient, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A removed admin can't sign in, so a new password would only look like a way back in
+    (0.9.0-alpha.1 security pass). The list names admins who can sign in, and an admin whose
+    sign-in link isn't used yet, marked."""
+    joss = _admin_person(kitchen, "Joss", "joss", join=True)
+    _admin_person(kitchen, "Pia", "pia", join=False)
+    _admin_person(kitchen, "Ola", "ola", join=True)
+    assert kitchen.delete(f"/api/v1/people/{joss}").status_code == 200
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        before = db.scalars(select(Login.password_hash).where(Login.username == "joss")).one()
+    settings = kitchen.app.state.settings  # type: ignore[attr-defined]
+    status, printed = _reset(settings, "joss")
+    assert status == 1
+    assert printed == ""
+    assert capsys.readouterr().err == (
+        "The login 'joss' can't be reset: Joss has been removed from the household. "
+        "Admins: ola, pia (sign-in link not used yet), tess.\n"
+    )
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        after = db.scalars(select(Login.password_hash).where(Login.username == "joss")).one()
+    assert after == before
+    # The same list when the name is wrong: never the removed admin.
+    assert _reset(settings, "nobody")[0] == 1
+    assert capsys.readouterr().err == (
+        "The login 'nobody' doesn't exist. Admins: ola, pia (sign-in link not used yet), tess.\n"
+    )
