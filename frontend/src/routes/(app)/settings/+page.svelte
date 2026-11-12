@@ -40,7 +40,8 @@
   import RecentSection from './RecentSection.svelte';
   import ShopsPlaces from './ShopsPlaces.svelte';
   import SignInSection from './SignInSection.svelte';
-  import type { Group } from './sectionIcons.js';
+  import type { Group, Row } from './sectionIcons.js';
+  import { GROUPS, SECTION_ORDER, type SectionId } from './sectionOrder.js';
 
   // Who is shown stays put while signing out (session.me goes first).
   const who = untrack(() => session.me);
@@ -154,21 +155,20 @@
   // --- The section list (cabledrawer 7 Nov): computer, a list on the left; phone, a list at the top.
   // The sections follow one another in one scroll (spec: "phone: one grouped list"); choosing
   // one in the list goes to it. Meal slots are for admins only: hidden for everyone else.
-  const SECTIONS = $derived(
-    [
-      { id: 'appearance', label: 'Appearance', show: true },
-      { id: 'amounts', label: 'Amounts', show: pints !== null },
-      { id: 'meal-slots', label: 'Meal slots', show: admin },
-      { id: 'shops-places', label: 'Shops & places', show: true },
-      { id: 'your-kitchen', label: 'Your kitchen', show: kitchenNow !== null },
-      { id: 'recent-changes', label: 'Recent changes', show: true },
-      { id: 'household', label: 'Household', show: true },
-      { id: 'privacy', label: 'Privacy', show: true },
-      { id: 'your-data', label: 'Your data', show: true },
-      { id: 'sign-in', label: 'Sign-in', show: true },
-      { id: 'about', label: 'About', show: true }
-    ].filter((section) => section.show)
-  );
+  const visible = $derived<Record<SectionId, boolean>>({
+    appearance: true,
+    amounts: pints !== null,
+    household: true,
+    'meal-slots': admin,
+    'shops-places': true,
+    'your-kitchen': kitchenNow !== null,
+    'recent-changes': true,
+    privacy: true,
+    'sign-in': true,
+    'your-data': true,
+    about: true
+  });
+  const SECTIONS = $derived(SECTION_ORDER.filter((section) => visible[section.id]));
   let current = $state('appearance');
 
   // --- The phone (F193, cabledrawer 9 Nov, option B; mockups Dark-Settings08-Phone and
@@ -232,101 +232,100 @@
     if (phone && only === null) untrack(readRowValues);
   });
 
-  const groups: Group[] = $derived([
-    {
-      name: 'You',
-      label: 'Your settings',
-      rows: [
-        {
-          id: 'appearance',
+  /** One row of the phone's list for a section, or none when this person doesn't see it. */
+  function rowFor(id: SectionId): Row | null {
+    switch (id) {
+      case 'appearance':
+        return {
+          id,
           label: 'Appearance',
           icon: 'appearance',
           value: THEME_LABELS[theme.choice]
-        },
-        ...(pints !== null
-          ? [
-              {
-                id: 'amounts',
-                label: 'Amounts',
-                icon: 'amounts' as const,
-                value: pints === 'us' ? 'US pints' : 'UK pints'
-              }
-            ]
-          : [])
-      ]
-    },
-    {
-      name: 'Kitchen',
-      label: 'Kitchen settings',
-      rows: [
-        ...(admin
-          ? [
-              {
-                id: 'meal-slots',
-                label: 'Meal slots',
-                icon: 'meal-slots' as const,
-                value: slotsOn === null ? undefined : `${slotsOn} on`
-              }
-            ]
-          : []),
-        {
-          id: 'shops-places',
+        };
+      case 'amounts':
+        return pints === null
+          ? null
+          : { id, label: 'Amounts', icon: 'amounts', value: pints === 'us' ? 'US pints' : 'UK pints' };
+      case 'meal-slots':
+        return admin
+          ? {
+              id,
+              label: 'Meal slots',
+              icon: 'meal-slots',
+              value: slotsOn === null ? undefined : `${slotsOn} on`
+            }
+          : null;
+      case 'shops-places':
+        return {
+          id,
           label: 'Shops & places',
           icon: 'shops-places',
           value:
             shopsCount === null || placesCount === null
               ? undefined
               : `${plural(shopsCount, 'shop', 'shops')} · ${plural(placesCount, 'place', 'places')}`
-        },
-        ...(kitchenNow !== null
-          ? [
-              {
-                id: 'your-kitchen',
-                label: 'Your kitchen',
-                icon: 'your-kitchen' as const,
-                value: `${kitchenNow.hob_rings} hob ${kitchenNow.hob_rings === 1 ? 'ring' : 'rings'}`
-              }
-            ]
-          : []),
-        { id: 'recent-changes', label: 'Recent changes', icon: 'recent-changes' }
-      ]
-    },
-    {
-      name: 'Household',
-      label: 'Household settings',
-      rows: [
-        {
-          id: 'household',
+        };
+      case 'your-kitchen':
+        return kitchenNow === null
+          ? null
+          : {
+              id,
+              label: 'Your kitchen',
+              icon: 'your-kitchen',
+              value: `${kitchenNow.hob_rings} hob ${kitchenNow.hob_rings === 1 ? 'ring' : 'rings'}`
+            };
+      case 'recent-changes':
+        return { id, label: 'Recent changes', icon: 'recent-changes' };
+      case 'household':
+        return {
+          id,
           label: 'Household',
           icon: 'household',
           href: resolve('/(app)/settings/household'),
           value: peopleCount === null ? undefined : plural(peopleCount, 'person', 'people')
-        },
-        {
-          id: 'privacy',
+        };
+      case 'privacy':
+        return {
+          id,
           label: 'Privacy',
           icon: 'privacy',
           href: resolve('/(app)/settings/privacy'),
           value: privacyOn === null ? undefined : privacyOn === 0 ? 'All off' : `${privacyOn} on`
-        },
-        {
-          id: 'your-data',
-          label: 'Your data',
-          icon: 'your-data',
-          href: resolve('/(app)/settings/your-data')
-        },
-        { id: 'sign-in', label: 'Sign-in', icon: 'sign-in' },
-        {
-          id: 'about',
+        };
+      case 'your-data':
+        return { id, label: 'Your data', icon: 'your-data', href: resolve('/(app)/settings/your-data') };
+      case 'sign-in':
+        return { id, label: 'Sign-in', icon: 'sign-in' };
+      case 'about':
+        return {
+          id,
           label: 'About',
           icon: 'about',
           href: resolve('/(app)/settings/about'),
           // An admin, when the last check found a newer version (spec "Updates", level 3).
           badge: updates.available ? UPDATE_AVAILABLE : undefined
-        }
-      ]
+        };
     }
-  ]);
+  }
+
+  // The phone's groups: each section's group is named in sectionOrder.ts, and the rows follow
+  // that array's order. "Report a problem" (mockup Dark-Settings09-Phone; proposed, for
+  // cabledrawer) is a row of its own after About, for everyone.
+  const groups: Group[] = $derived(
+    GROUPS.map((group) => {
+      const rows = SECTION_ORDER.filter((section) => section.group === group.name)
+        .map((section) => rowFor(section.id))
+        .filter((row): row is Row => row !== null);
+      if (group.name === 'Mealwright')
+        rows.push({
+          id: 'report',
+          label: 'Report a problem',
+          icon: 'report',
+          href: resolve('/(app)/settings/about/report')
+        });
+      return { ...group, rows };
+    })
+  );
 
   async function goTo(id: string) {
     current = id;
@@ -557,6 +556,21 @@
       </section>
     {/if}
 
+    {#if showing('household')}
+      <section class="section" aria-labelledby="household">
+        <h2 class="title" id="household" tabindex="-1">Household</h2>
+        <div class="card">
+          <a class="row to" href={resolve('/(app)/settings/household')}>
+            <span class="who">
+              <span class="label">People</span>
+              <span class="detail">Who eats here, their portions and who signs in</span>
+            </span>
+            <Icon name="back" size={18} stroke={2.4} />
+          </a>
+        </div>
+      </section>
+    {/if}
+
     {#if admin && showing('meal-slots')}
       <section class="section" aria-labelledby="meal-slots">
         <h2 class="title" id="meal-slots" tabindex="-1">Meal slots</h2>
@@ -629,21 +643,6 @@
       </section>
     {/if}
 
-    {#if showing('household')}
-      <section class="section" aria-labelledby="household">
-        <h2 class="title" id="household" tabindex="-1">Household</h2>
-        <div class="card">
-          <a class="row to" href={resolve('/(app)/settings/household')}>
-            <span class="who">
-              <span class="label">People</span>
-              <span class="detail">Who eats here, their portions and who signs in</span>
-            </span>
-            <Icon name="back" size={18} stroke={2.4} />
-          </a>
-        </div>
-      </section>
-    {/if}
-
     {#if showing('privacy')}
       <section class="section" aria-labelledby="privacy">
         <h2 class="title" id="privacy" tabindex="-1">Privacy</h2>
@@ -654,21 +653,6 @@
               <span class="detail"
                 >Recipe import, recipe photos, update check and your own network</span
               >
-            </span>
-            <Icon name="back" size={18} stroke={2.4} />
-          </a>
-        </div>
-      </section>
-    {/if}
-
-    {#if showing('your-data')}
-      <section class="section" aria-labelledby="your-data">
-        <h2 class="title" id="your-data" tabindex="-1">Your data</h2>
-        <div class="card">
-          <a class="row to" href={resolve('/(app)/settings/your-data')}>
-            <span class="who">
-              <span class="label">Backups, export and starting again</span>
-              <span class="detail">How often Mealwright backs up, and how to restore</span>
             </span>
             <Icon name="back" size={18} stroke={2.4} />
           </a>
@@ -723,6 +707,21 @@
             >
           </div>
         {/if}
+      </section>
+    {/if}
+
+    {#if showing('your-data')}
+      <section class="section" aria-labelledby="your-data">
+        <h2 class="title" id="your-data" tabindex="-1">Your data</h2>
+        <div class="card">
+          <a class="row to" href={resolve('/(app)/settings/your-data')}>
+            <span class="who">
+              <span class="label">Backups, export and starting again</span>
+              <span class="detail">How often Mealwright backs up, and how to restore</span>
+            </span>
+            <Icon name="back" size={18} stroke={2.4} />
+          </a>
+        </div>
       </section>
     {/if}
 

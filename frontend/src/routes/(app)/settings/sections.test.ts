@@ -95,14 +95,14 @@ describe('the section list', () => {
     expect(names).toEqual([
       'Appearance',
       'Amounts',
+      'Household',
       'Meal slots',
       'Shops & places',
       'Your kitchen',
       'Recent changes',
-      'Household',
       'Privacy',
-      'Your data',
       'Sign-in',
+      'Your data',
       'About'
     ]);
     // Household, Your data and About are all here now: nothing is left to come in 0.9.
@@ -140,9 +140,10 @@ describe('the section list', () => {
     const group = (name: string) => page.getByRole('navigation', { name });
     await expect.element(group('Your settings')).toBeVisible();
     for (const [name, rows] of [
-      ['Your settings', ['Appearance', 'Amounts']],
+      ['Your settings', ['Appearance', 'Amounts', 'Sign-in']],
       ['Kitchen settings', ['Meal slots', 'Shops & places', 'Your kitchen', 'Recent changes']],
-      ['Household settings', ['Household', 'Privacy', 'Your data', 'Sign-in', 'About']]
+      ['Household settings', ['Household', 'Privacy', 'Your data']],
+      ['Mealwright', ['About', 'Report a problem']]
     ] as const) {
       const links = group(name).getByRole('link');
       await vi.waitFor(() => expect(links.elements().length).toBe(rows.length));

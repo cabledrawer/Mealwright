@@ -66,17 +66,23 @@ test('the section list shows every section, goes to one, and the page passes the
   await expect(list.getByRole('button')).toHaveText([
     'Appearance',
     'Amounts',
+    'Household',
     'Meal slots',
     'Shops & places',
     'Your kitchen',
     'Recent changes',
-    'Household',
     'Privacy',
-    'Your data',
     'Sign-in',
+    'Your data',
     'About',
   ]);
   await expect(list.getByText(/comes? in 0\.9\./)).toHaveCount(0); // Household, Your data and About are all here now
+  // The sections follow one another down the page in the same order (U1).
+  const tops: number[] = [];
+  for (const name of ['Appearance', 'Amounts', 'Household', 'Meal slots', 'Shops & places', 'Privacy', 'Sign-in', 'Your data', 'About']) {
+    tops.push((await page.getByRole('heading', { name, level: 2, exact: true }).first().boundingBox())!.y);
+  }
+  expect(tops).toEqual([...tops].sort((a, b) => a - b));
   for (const button of await list.getByRole('button').all()) {
     expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
@@ -100,9 +106,10 @@ test('F193: the phone lists Settings in three groups, each row opens its section
   await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
   // The groups, in order, with their rows (Amounts shows once the household has answered).
   for (const [group, rows] of [
-    ['Your settings', ['Appearance', 'Amounts']],
+    ['Your settings', ['Appearance', 'Amounts', 'Sign-in']],
     ['Kitchen settings', ['Meal slots', 'Shops & places', 'Your kitchen', 'Recent changes']],
-    ['Household settings', ['Household', 'Privacy', 'Your data', 'Sign-in', 'About']],
+    ['Household settings', ['Household', 'Privacy', 'Your data']],
+    ['Mealwright', ['About', 'Report a problem']],
   ] as const) {
     const links = page.getByRole('navigation', { name: group }).getByRole('link');
     await expect(links).toHaveCount(rows.length);
