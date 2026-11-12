@@ -523,6 +523,8 @@ UNDO_NOT_NAMES: dict[str, str] = {
     "source_text": "text a person pasted, kept as a draft, not a name",
     "url": "a link or a path: removed as a link anyway",
     "list_url": "a path",
+    "role": "a person's role (admin, member): everyday words, not names",
+    "lot_amounts": "a stock lot's amounts and units, not a name",
 }
 # Keys that end like these hold an ID, a time or a day.
 _NOT_NAME_ENDINGS = ("_id", "_ids", "_at", "_day", "_on", "_from", "_to", "_url", "_made_at")
@@ -535,15 +537,19 @@ _CODE = re.compile(
     r"|/.*)$",  # a path
     re.IGNORECASE,
 )
-# A longer string is a sentence or a text, not a name; it would never match a log line anyway.
-_LONGEST_UNDO_NAME = 20  # words
 
 
-def _undo_label(path: tuple[str, ...], key: str, op: object) -> str | None:
-    """The word that replaces a name found in undo data, from where it sits; None means a
-    person's or a one-word household's (every word of it is removed)."""
+def _undo_label(path: tuple[str, ...], key: str, op: object, kind: str = "") -> str | None:
+    """The word that replaces a name found in undo data, from where it sits and from the kind of
+    change that kept it; None means a person's or a one-word household's (every word of it is
+    removed)."""
     if key.endswith("_by_name") or key == "login_name" or "person" in path:
         return None
+    if not path and key == "name":  # a change's own name: a recipe, a draft or a list
+        if "recipe" in kind or "draft" in kind:
+            return "[recipe]"
+        if "list" in kind:
+            return "[removed]"
     if op == "slot_name":
         return "[meal]"
     if key.endswith(":name") or "names" in path or "fields" in path or "foods" in path:
@@ -558,14 +564,16 @@ def _undo_label(path: tuple[str, ...], key: str, op: object) -> str | None:
     return "[removed]"
 
 
-def undo_names(data: Any, _path: tuple[str, ...] = ()) -> Iterable[tuple[str, str | None]]:
+def undo_names(
+    data: Any, _path: tuple[str, ...] = (), kind: str = ""
+) -> Iterable[tuple[str, str | None]]:
     """The names in one change's undo data: (the name, the word that replaces it), where None
     means a person's: every word of it is removed. Everything that is a string and is not on
     the list of keys that never hold a name is a name. A household's old and new names (a
     "name" holding {"old", "new"}) come out as ("...", "[household]")."""
     if isinstance(data, list):
         for item in data:
-            yield from undo_names(item, _path)
+            yield from undo_names(item, _path, kind)
         return
     if not isinstance(data, dict):
         return
@@ -580,16 +588,21 @@ def undo_names(data: Any, _path: tuple[str, ...] = ()) -> Iterable[tuple[str, st
             # A string, or a list of them ("Old", "New" as ["Old", "New"], or [None, "New"]).
             for part in value if isinstance(value, list) else [value]:
                 if isinstance(part, str):
-                    if not _CODE.match(part) and len(part.split()) <= _LONGEST_UNDO_NAME:
-                        yield part, _undo_label(_path, key, op)
+                    if (
+                        not _CODE.match(part)
+                        and len(part.split()) <= _LONGEST_PHRASE
+                        # A one-word message ("Undone.") is an everyday word, not a name.
+                        and not (field == "message" and len(part.split()) < 2)
+                    ):
+                        yield part, _undo_label(_path, key, op, kind)
                 elif isinstance(part, dict | list):
-                    yield from undo_names(part, (*_path, key))
+                    yield from undo_names(part, (*_path, key), kind)
         elif key == "name" and isinstance(value, dict) and set(value) <= {"old", "new"}:
             for part in value.values():
                 if isinstance(part, str):
                     yield part, "[household]"
         else:
-            yield from undo_names(value, (*_path, key))
+            yield from undo_names(value, (*_path, key), kind)
 
 
 class Scrubber:
@@ -603,7 +616,10 @@ class Scrubber:
         self._phrases: dict[tuple[str, str], list[tuple[tuple[str, ...], str]]] = {}
         for column in _PEOPLE_COLUMNS:
             for value in db.scalars(select(column).distinct()):
-                self._add_person(value)
+                if column is models.Household.name and value:
+                    self._add_former("household", value)  # a whole phrase, like an old name
+                else:
+                    self._add_person(value)
         for replacement, columns in _PHRASE_COLUMNS:
             for column in columns:
                 for value in db.scalars(select(column)):
@@ -619,8 +635,8 @@ class Scrubber:
         # was renamed, merged or removed, kept in the undo data of the changes that did it
         # (review r1, r2, r3). After the columns, so a name that is also in a column keeps that
         # column's word.
-        for data in db.scalars(select(models.Change.undo_data)):
-            for name, label in undo_names(data):
+        for data, change_kind in db.execute(select(models.Change.undo_data, models.Change.kind)):
+            for name, label in undo_names(data, kind=change_kind):
                 keys = _keys(name)
                 if label is None or (label == "[household]" and len(keys) == 1):
                     self._add_person(name)  # a person's every word; a one-word household
@@ -674,7 +690,9 @@ class Scrubber:
                 word = found.group(1)
                 if word[0].isupper() and _key(word) not in _NOT_PEOPLE:
                     self._add_person(word)
-        if replacement is None or (kind == "household" and len(keys) == 1):
+        # A one-word household ("The Marshes" is one) is a word like a person's.
+        one_word = len([key for key in keys if key not in _JOINING]) <= 1
+        if replacement is None or (kind == "household" and one_word):
             self._add_person(name)  # a person's every word; a one-word household
         else:
             self._add_phrase(keys, replacement)

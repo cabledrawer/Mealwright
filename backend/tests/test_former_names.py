@@ -334,3 +334,99 @@ def test_every_bulk_statement_on_a_name_table_goes_through_the_session() -> None
             continue
         text_ = path.read_text()
         assert "connection().execute(delete" not in text_ and "conn.execute(delete" not in text_
+
+
+# --- Round 5: the r4 Lows ------------------------------------------------------------------------
+
+
+def test_l1_a_long_name_in_undo_data_is_still_a_name() -> None:
+    """Review r4, L1: a name of more than 20 words was skipped; any that can be matched is a
+    name (problem_report._LONGEST_PHRASE)."""
+    from mealwright import problem_report
+
+    name = " ".join(f"word{chr(97 + i)}" for i in range(25))
+    found = list(problem_report.undo_names({"recipe_id": 1, "name": name}))
+    assert [n for n, _ in found] == [name]
+    too_long = " ".join(["word"] * (problem_report._LONGEST_PHRASE + 1))
+    assert list(problem_report.undo_names({"name": too_long})) == []  # can't be matched
+
+
+def test_l2_role_lot_amounts_and_one_word_messages_are_not_names() -> None:
+    """Review r4, L2: "admin" and "member" (person roles), a lot's amounts and "Undone." are
+    everyday words, not names."""
+    from mealwright import problem_report
+
+    data = {
+        "person": {"role": ["member", "admin"]},
+        "lot_amounts": ["kitchen", "stock"],
+        "message": "Undone.",
+    }
+    assert list(problem_report.undo_names(data)) == []
+    long_message = {"message": "Lentil soup is back, on the recipes that had it."}
+    assert [n for n, _ in problem_report.undo_names(long_message)] == [long_message["message"]]
+    for key in ("role", "lot_amounts"):
+        assert problem_report.UNDO_NOT_NAMES[key]
+
+
+def test_l2_a_role_change_keeps_the_word_admin_in_the_report(
+    kitchen: TestClient, neighbour: TestClient, settings: Settings
+) -> None:
+    from mealwright.models import Change
+
+    _ok(kitchen.patch(f"{API}/household", json={"name": "Brightwell"}))  # makes a change to copy
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        first = db.scalars(select(Change)).first()
+        assert first is not None
+        db.add(
+            Change(
+                household_id=first.household_id,
+                kind="person_changed",
+                summary="Changed a role",
+                at=first.at,
+                login_id=first.login_id,
+                login_name=first.login_name,
+                undo_data={"person": {"role": ["member", "admin"]}, "message": "Undone."},
+            )
+        )
+        db.commit()
+    write_log(
+        log_folder(settings),
+        [error("Only an admin can change the backup schedule", ago=timedelta(seconds=-2))],
+    )
+    for client in (kitchen, neighbour):
+        assert "Only an admin can change the backup schedule" in report(client)["errors"][-1]
+
+
+def test_l3_a_name_is_labelled_by_the_kind_of_change_that_kept_it() -> None:
+    from mealwright import problem_report
+
+    for kind, label in (
+        ("recipe_deleted", "[recipe]"),
+        ("recipe_saved", "[recipe]"),
+        ("draft_kept", "[recipe]"),
+        ("list_made", "[removed]"),
+        ("list_renamed", "[removed]"),
+    ):
+        found = list(
+            problem_report.undo_names({"recipe_id": 1, "name": "Barnaby biryani"}, kind=kind)
+        )
+        assert found == [("Barnaby biryani", label)], kind
+
+
+def test_l3_the_current_household_name_is_a_whole_phrase_too(
+    kitchen: TestClient, neighbour: TestClient, settings: Settings
+) -> None:
+    """Review r4, L3: a household now called "Our Kitchen" removes that phrase, and keeps
+    "Kitchen timer failed" (it was removed word by word)."""
+    _ok(kitchen.patch(f"{API}/household", json={"name": "Our Kitchen"}))
+    write_log(
+        log_folder(settings),
+        [
+            error("Kitchen timer failed", ago=timedelta(seconds=-2)),
+            error("Couldn't save Our Kitchen", ago=timedelta(seconds=-2)),
+        ],
+    )
+    for client in (kitchen, neighbour):
+        text = "\n".join(report(client)["errors"])
+        assert "Kitchen timer failed" in text, text
+        assert "Couldn't save [household]" in text, text
