@@ -475,6 +475,16 @@ def test_picking_is_for_shared_logins_and_people_of_the_household(kitchen: TestC
     _problem(tablet.put(f"{API}/whos-this", json={"member_id": joss}), 404, "not_found")
 
 
+def test_a_shared_login_cant_pick_a_neighbours_person(
+    kitchen: TestClient, neighbour: TestClient
+) -> None:
+    tablet = _tablet(kitchen)
+    ok(kitchen.put(f"{API}/people/ask-whos-this", json={"on": True}))
+    theirs = _people(neighbour)["people"][0]["id"]
+    _problem(tablet.put(f"{API}/whos-this", json={"member_id": theirs}), 404, "not_found")
+    assert ok(tablet.get(f"{API}/whos-this"))["picked"] is None
+
+
 def test_a_member_can_pick_but_not_switch(kitchen: TestClient) -> None:
     tablet = _tablet(kitchen)
     r = tablet.put(f"{API}/people/ask-whos-this", json={"on": True})

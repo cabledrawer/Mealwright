@@ -433,6 +433,8 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("TubEditIn", "member_id"): "test_plan_batches",
     # Portions and who's eating (0.7 P1): test_plan_portions.py, test_plan_serves.py.
     ("EatersIn", "member_ids"): "test_plan_serves",
+    # People and roles (0.9 A1): test_people.py, test_a_shared_login_cant_pick_a_neighbours_person.
+    ("PickIn", "member_id"): "test_people",
     # Today (0.6 PR 6): test_today.py, test_another_households_ids_get_404_and_nothing_changes.
     ("MovedIn", "slot_id"): "test_today",
     ("LeftoversIn", "item_id"): "test_today",

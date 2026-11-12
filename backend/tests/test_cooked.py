@@ -126,7 +126,7 @@ def test_a_meal_items_record_is_read_back(kitchen: TestClient) -> None:
     assert found["id"] == record_id
     assert (found["meal_item_id"], found["batch_id"]) == (item_id, None)
     assert (found["recipe_id"], found["portions"]) == (recipe["id"], 2)
-    assert found["cooked_by"] == {"login_id": 1, "name": "Tess"}
+    assert found["cooked_by"] == {"login_id": 1, "name": "Tess", "member_id": None}
     assert found["change_id"] is not None
     _same(found["snapshot"])
     assert found["snapshot"]["lines"][0]["food_id"] == recipe["lines"][0]["food"]["id"]

@@ -330,7 +330,7 @@ def whos_this(kitchen: Here, signed_in: CurrentLogin) -> WhosThisOut:
 
 class PickIn(BaseModel):
     # Null: "Just looking", nobody picked.
-    member_id: int | None
+    member_id: StoredInt | None
 
 
 @router.put("/whos-this")

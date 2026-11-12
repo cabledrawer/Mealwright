@@ -142,7 +142,7 @@ def test_results_and_changes_come_back_together(kitchen: TestClient) -> None:
     row = item_row(got, item)
     assert row["amount"] == 3000 and row["display"] == "3\u00a0L" and row["hand_edited"] is True
     assert row["version"] == start + 2 and row["ticks"] == []
-    assert row["added_by"] == {"login_id": login_id(kitchen), "name": "Tess"}
+    assert row["added_by"] == {"login_id": login_id(kitchen), "name": "Tess", "member_id": None}
 
 
 def test_sy17_a_lost_answer_resent_is_all_repeats(kitchen: TestClient) -> None:
