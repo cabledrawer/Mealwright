@@ -44,8 +44,16 @@ PHOTOS = "photos/"
 LEFT_OUT_TABLES = {
     "session": "who is signed in where (sign-in cookies)",
     "join_link": "sign-in links made for people",
+    # O2 review r1, finding 2 (proposed, for cabledrawer): only a token's SHA-256 is kept, but that
+    # is all it takes to tell a made-up token from a real one, so it doesn't leave either.
+    "api_token": "API tokens, which only an admin at the screen makes",
 }
-LEFT_OUT_COLUMNS = {("login", "password_hash"): "passwords, even scrambled"}
+LEFT_OUT_COLUMNS = {
+    ("login", "password_hash"): "passwords, even scrambled",
+    # The admin types the client secret again if an export is ever put back (proposed, for
+    # cabledrawer; the rest of the single sign-on setup is exported).
+    ("sso_settings", "client_secret_sealed"): "the single sign-on client secret",
+}
 
 _PHOTO_FILE = re.compile(r"^[0-9a-f]{32}(-list)?\.jpg$")
 _CHUNK = 64 * 1024

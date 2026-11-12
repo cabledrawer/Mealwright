@@ -12,6 +12,7 @@ is `/data` inside the container).
 
 - **The database**: every recipe, plan, list, pantry item, person, login and setting. One file,
   `data/backups/backup-<date>-<time>.db` (the date and time in UTC).
+- **The single sign-on client secret opens only with `data/secret.key`** (proposed, for cabledrawer). A backup keeps the secret sealed; on a new server without that key file, Mealwright can't open it, password sign-in works again, and an admin types the secret again in Settings → Sign-in → Single sign-on. An export leaves the secret out altogether, and API tokens too: make new ones.
 - **Not the photos.** Recipe photos are files in `data/photos`. A restore leaves them where they
   are. If the disk itself is lost, the photos come back only from a copy of the whole data
   folder, so copy the data folder (or at least `backups` and `photos`) to another disk or your

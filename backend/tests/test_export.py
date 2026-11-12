@@ -71,8 +71,9 @@ def test_the_round_trip_brings_back_rows_and_photos(kitchen: TestClient) -> None
     assert doc["version"] == 1
     assert doc["household_id"] == 1
     assert doc["database_revision"]
-    # Every household table is there (even when empty), except the sign-ins and sign-in links.
-    expected = {t.name for t in Base.metadata.sorted_tables} - {"session", "join_link"}
+    # Every household table is there (even when empty), except the sign-ins, sign-in links
+    # and API tokens.
+    expected = {t.name for t in Base.metadata.sorted_tables} - {"session", "join_link", "api_token"}
     assert set(doc["tables"]) == expected
     names = [row["name"] for row in doc["tables"]["recipe"]]
     assert names == ["Dal with ümlauts and ½ tsp"]
@@ -112,8 +113,10 @@ def test_no_password_and_no_sign_in_ever_leaves(kitchen: TestClient) -> None:
     assert doc["left_out"]["tables"] == {
         "session": "who is signed in where (sign-in cookies)",
         "join_link": "sign-in links made for people",
+        "api_token": "API tokens, which only an admin at the screen makes",
     }
     assert "login.password_hash" in doc["left_out"]["columns"]
+    assert "sso_settings.client_secret_sealed" in doc["left_out"]["columns"]
     assert b"$argon2" not in raw
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         text = archive.read(export.DOCUMENT)
@@ -177,3 +180,42 @@ def test_only_photo_files_are_taken(tmp_path: Path) -> None:
         (folder / name).write_bytes(b"x")
     assert [p.name for p in export.photo_files(tmp_path, 1)] == sorted(keep)
     assert export.photo_files(tmp_path, 9) == []
+
+
+def test_no_token_and_no_single_sign_on_secret_ever_leaves(kitchen: TestClient) -> None:
+    """O2 review r1, finding 2 (proposed, for cabledrawer): the export leaves out API tokens (their
+    SHA-256 is as good as the token to anyone who could guess its form) and the single sign-on
+    client secret (the admin types it again if this is ever put back)."""
+    from mealwright import api_tokens
+    from mealwright.models import SsoSettings
+
+    made = kitchen.post("/api/v1/api-tokens", json={"name": "Home Assistant", "scope": "read"})
+    assert made.status_code == 201, made.text
+    token = made.json()["token"]
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.add(
+            SsoSettings(
+                household_id=1,
+                issuer="https://id.example.org",
+                client_id="mealwright",
+                client_secret_sealed="sealed-secret-blob",
+                button_name="Authentik",
+                redirect_uri="https://testserver/auth/callback",
+                group_claim="groups",
+                group_roles=[],
+                anyone_else="none",
+                make_accounts=True,
+                password_sign_in=True,
+            )
+        )
+        db.commit()
+    doc, _, raw = _export(kitchen)
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        text = archive.read(export.DOCUMENT).decode()
+    assert "api_token" not in doc["tables"]
+    assert api_tokens.token_hash(token) not in text
+    assert token not in text
+    assert "sealed-secret-blob" not in text
+    [row] = doc["tables"]["sso_settings"]  # the rest of the setup is exported
+    assert row["issuer"] == "https://id.example.org"
+    assert "client_secret_sealed" not in row
