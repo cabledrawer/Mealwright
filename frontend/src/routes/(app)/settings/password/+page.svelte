@@ -14,9 +14,12 @@
     getMySignIn,
     lengthHint,
     othersText,
+    passwordChangedText,
+    tokensStopText,
     type MySignIn
   } from '#lib/mySignIn.js';
   import { network } from '#lib/network.svelte.js';
+  import { session } from '#lib/session.svelte.js';
 
   let mine = $state<MySignIn | null>(null);
   let current = $state('');
@@ -30,7 +33,9 @@
   let paused = $state(false);
   let done = $state('');
 
+  const admin = $derived(session.me?.role === 'admin');
   const others = $derived(mine ? othersText(mine) : '');
+  const othersLine = $derived(admin && others ? `${others}.${tokensStopText(true)}` : others);
   const errors = $derived({
     current: current ? undefined : 'Type your current password.',
     next: [...next].length >= MIN_PASSWORD ? undefined : `Use at least ${MIN_PASSWORD} characters.`,
@@ -65,9 +70,7 @@
       next = '';
       again = '';
       checked = false;
-      done = signingOut
-        ? 'Password changed. Your other devices are signed out.'
-        : 'Password changed.';
+      done = passwordChangedText(signingOut, admin);
     } catch (error) {
       if (cantReach(error)) problem = cantReachWords();
       else if (error instanceof ApiError) {
@@ -114,7 +117,7 @@
       <div class="switch-row">
         <span class="who">
           <span class="label" id="others-label">Sign out my other devices</span>
-          <span class="detail" id="others-detail">{others}</span>
+          <span class="detail" id="others-detail">{othersLine}</span>
         </span>
         <Switch
           bind:checked={signOutOthers}

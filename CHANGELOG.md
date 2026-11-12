@@ -31,6 +31,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Settings → Your data is never for a token (O2 review r1; proposed, for cabledrawer):** a token, even a full one, can't read the export, see the backups' settings, make a backup or use Delete everything, and can't use the screen's wrong-password pause against the admin. Reading the backups' settings is refused too, because it names the server's backups folder, which the screen doesn't show.
 - **The export leaves out API tokens and the single sign-on client secret (O2 review r1; proposed, for cabledrawer):** the rest of the single sign-on setup is exported; the secret is typed again if an export is ever put back.
 - **Single sign-on ends tokens too (O2 review r1; proposed, for cabledrawer):** when the groups make an admin a Member at their sign-in, or the sign-in server ends their sign-in, the tokens they made stop for good (they don't come back if the groups make them an admin again).
+- **Signing out other devices ends tokens too (O2 review r1; proposed, for cabledrawer):** "Sign out my other devices" on a password change, "Sign out everywhere else" and the reset-admin command also stop the API tokens that login made, and say so (to admins).
 - **Logs:** "API token made by tess" and "API token deleted by tess". The token itself is never logged, and using one writes nothing (the log holds errors and sign-ins only).
 
 ## [0.9.0-alpha.1] - 2026-11-12

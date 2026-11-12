@@ -17,6 +17,7 @@ from typing import TextIO
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session as DbSession
 
+from mealwright import api_tokens
 from mealwright.auth import hash_password, now
 from mealwright.config import Settings
 from mealwright.db import make_engine, make_sessionmaker
@@ -85,6 +86,7 @@ def reset_admin(settings: Settings, username: str, out: TextIO = sys.stdout) -> 
             mine = Session.login_id == login.id
             ended = db.scalar(select(func.count()).select_from(Session).where(mine)) or 0
             db.execute(delete(Session).where(mine))
+            api_tokens.stop_for(db, login.id)  # a token is a sign-in too (O2 review r1, finding 5)
             # A way back in even with password sign-in turned off for single sign-on (0.9 O1;
             # proposed, for cabledrawer): it's turned back on for the household.
             sso = db.get(SsoSettings, login.household_id)
@@ -102,7 +104,8 @@ def reset_admin(settings: Settings, username: str, out: TextIO = sys.stdout) -> 
     print(f"New password for {login.username}: {password}", file=out)
     print(
         "It's shown only this once. Sign in with it, then change it in Settings, Sign-in. "
-        f"{login.username} is now signed out everywhere.",
+        f"{login.username} is now signed out everywhere, "
+        "and the API tokens they made have stopped.",
         file=out,
     )
     if turned_on:

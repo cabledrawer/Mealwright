@@ -5,6 +5,9 @@ import {
   lastUsedText,
   lengthHint,
   othersText,
+  passwordChangedText,
+  signedOutElseText,
+  tokensStopText,
   placeDetail,
   type MySignIn,
   type SignInPlace
@@ -82,5 +85,26 @@ describe('the words around the password', () => {
     );
     expect(lengthHint('🍅🍅🍅🍅🍅🍅🍅🍅🍅🍅🍅')).toMatch(/^11 of 12/);
     expect(lengthHint('a long sentence')).toBe('Long enough.');
+  });
+});
+
+describe('what happens to an admin’s API tokens (proposed, for cabledrawer)', () => {
+  it('says so to admins only', () => {
+    expect(tokensStopText(true)).toBe(' Your API tokens stop too.');
+    expect(tokensStopText(false)).toBe('');
+  });
+
+  it('adds it to what a password change and Sign out everywhere else say', () => {
+    expect(passwordChangedText(true, false)).toBe(
+      'Password changed. Your other devices are signed out.'
+    );
+    expect(passwordChangedText(true, true)).toBe(
+      'Password changed. Your other devices are signed out. Your API tokens have stopped.'
+    );
+    expect(passwordChangedText(false, true)).toBe('Password changed.');
+    expect(signedOutElseText(false)).toBe('Signed out everywhere else.');
+    expect(signedOutElseText(true)).toBe(
+      'Signed out everywhere else. Your API tokens have stopped.'
+    );
   });
 });

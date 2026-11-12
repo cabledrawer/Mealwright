@@ -16,6 +16,7 @@
     placeDetail,
     signOutDevice,
     signOutEverywhereElse,
+    signedOutElseText,
     type MySignIn
   } from '#lib/mySignIn.js';
   import { network } from '#lib/network.svelte.js';
@@ -164,7 +165,7 @@
     type="button"
     class="everywhere"
     disabled={busy || network.offline}
-    onclick={() => void run(signOutEverywhereElse, 'Signed out everywhere else.')}
+    onclick={() => void run(signOutEverywhereElse, signedOutElseText(admin))}
     >Sign out everywhere else</button
   >
 {/if}

@@ -84,6 +84,23 @@ export function othersText(signIn: MySignIn): string {
   return `${list} will need the new password`;
 }
 
+/**
+ * An admin's API tokens end with "sign out my other devices", "Sign out everywhere else" and a
+ * password reset: a token is a sign-in too (O2 review r1; proposed, for cabledrawer).
+ */
+export const tokensStopText = (admin: boolean): string =>
+  admin ? ' Your API tokens stop too.' : '';
+
+/** What shows after Change password: the other devices, and an admin's tokens, when signed out. */
+export function passwordChangedText(signedOutOthers: boolean, admin: boolean): string {
+  if (!signedOutOthers) return 'Password changed.';
+  return `Password changed. Your other devices are signed out.${admin ? ' Your API tokens have stopped.' : ''}`;
+}
+
+/** What shows after Sign out everywhere else. */
+export const signedOutElseText = (admin: boolean): string =>
+  `Signed out everywhere else.${admin ? ' Your API tokens have stopped.' : ''}`;
+
 /** The live hint under New password: "8 of 12 characters. A short sentence…". */
 export function lengthHint(typed: string): string {
   const count = [...typed].length;

@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
 
+from mealwright import api_tokens
 from mealwright.auth import (
     MAX_PASSWORD,
     CurrentSession,
@@ -89,7 +90,8 @@ def _my_sign_in(db: DbSession, signed_in: SignedIn) -> MySignIn:
 
 
 def _end_others(request: Request, db: DbSession, signed_in: SignedIn) -> list[int]:
-    """End every other session of this login; their live-update streams end at once."""
+    """End every other session of this login, and the API tokens it made; their live-update
+    streams end at once."""
     ended = list(
         db.scalars(
             select(Session.id).where(
@@ -99,6 +101,9 @@ def _end_others(request: Request, db: DbSession, signed_in: SignedIn) -> list[in
     )
     if ended:
         db.execute(delete(Session).where(Session.id.in_(ended)))
+    # A token is a sign-in too: signing everything else out stops the tokens this login made
+    # (O2 review r1, finding 5; proposed, for cabledrawer).
+    api_tokens.stop_for(db, signed_in.login.id)
     return ended
 
 
