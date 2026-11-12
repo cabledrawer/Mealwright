@@ -6,7 +6,9 @@ MEALWRIGHT_TRUSTED_PROXIES. This adds the two things it doesn't do:
 - X-Forwarded-Host from a trusted proxy becomes the request's Host, so the same-site checks
   compare the browser's Origin with the address the browser used, when a proxy passes its own
   upstream name as Host. Only a plain host name or address, with an optional port, is taken;
-  anything else is ignored.
+  anything else is ignored. The proxy must set this header itself, replacing any a visitor
+  sent (the README gives nginx's line). The Host is used only for that check: Mealwright
+  never builds links from it.
 - X-Forwarded-For from an address that isn't trusted (the usual case: a proxy in front and
   MEALWRIGHT_TRUSTED_PROXIES not set) logs one warning per process, saying how to set it.
   Without it, every visitor looks like the proxy, and the sign-in slow-down counts them together.

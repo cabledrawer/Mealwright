@@ -32,9 +32,17 @@ Run Mealwright behind your own reverse proxy (Caddy, Traefik, nginx, Nginx Proxy
 docker exec -it mealwright python -m mealwright reset-admin tess
 ```
 
-It sets a new random password for that admin, prints it once, and signs that admin out on every device. Sign in with it, then change it in Settings → Sign-in → Change password. It works only for an admin.
+It sets a new random password for that admin, prints it once, and signs that admin out on every device. It also lifts the pause on that username after wrong passwords, and forgets the devices that had signed in as that admin before. Sign in with it, then change it in Settings → Sign-in → Change password. It works only for an admin.
 
 **Behind a reverse proxy, everyone is slowed down after one person's wrong passwords.** Mealwright logs "A request came through a reverse proxy…" once after it starts. Set `MEALWRIGHT_TRUSTED_PROXIES` to your proxy's address or network (for example `172.28.10.0/24`) and restart: Mealwright then believes the proxy's `X-Forwarded-For`, `X-Forwarded-Proto` and `X-Forwarded-Host` headers, and nobody else's.
+
+**The proxy must set `X-Forwarded-Host` itself.** Mealwright believes a trusted proxy's `X-Forwarded-Host`, so the proxy must replace any that a visitor sends, not pass it on. Caddy and Traefik do this themselves. In nginx and Nginx Proxy Manager (in the proxy host's Advanced tab), add:
+
+```
+proxy_set_header X-Forwarded-Host $host;
+```
+
+Mealwright uses the host name only to check that a request came from its own pages; it never builds links from it.
 
 **The sign-in page says the phone couldn't delete its offline copy, and Try again doesn't help.** First close any other Mealwright tabs and restart the browser, then press Try again. If it still won't go, clear this site's data in the browser's settings. That removes the offline copy of the household and anything still waiting to be sent on that phone (nothing on the server is touched). Then sign in again.
 
