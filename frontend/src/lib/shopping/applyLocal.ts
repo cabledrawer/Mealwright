@@ -14,6 +14,9 @@ import type { Action } from './actions';
 import { baseText } from './format';
 import type { FoodSize, ListItem, Person, ShopFood, ShoppingCopy } from './types';
 
+/** The biggest amount a line may hold (the server's MAX_AMOUNT). */
+const MAX_AMOUNT = 1_000_000;
+
 export interface LocalHints {
   /** Who is signed in: what this phone ticks and adds is theirs. */
   me: Person | null;
@@ -130,7 +133,7 @@ export function applyLocal(
       case 'untick': {
         const item = itemOf(action.item_id);
         for (const t of item?.ticks ?? []) if (action.tick_ids.includes(t.id)) t.standing = false;
-        if (item) joinBack(item);
+        if (item) joinBack(item, action.tick_ids);
         break;
       }
       case 'put_away': {
@@ -223,7 +226,7 @@ export function applyLocal(
    * same ingredient, list and shop (L1c Sh7), as the server does: the amounts add up and the
    * unticked line leads to the one it joined. No join across sizes.
    */
-  function joinBack(item: ListItem): void {
+  function joinBack(item: ListItem, tickIds: readonly string[]): void {
     if (item.deleted || item.merged_into_id || item.ticks.some((t) => t.standing)) return;
     const line = out.items.find(
       (i) =>
@@ -236,7 +239,13 @@ export function applyLocal(
         !i.ticks.some((t) => t.standing)
     );
     if (!line) return;
-    if (item.amount !== null && line.amount !== null && item.size_id !== line.size_id) return;
+    // As the server: a line with an amount joins only if its purchase put stock in (a staple or
+    // an ingredient counted another way has no bought amount); sizes must agree; not too big.
+    const first = item.ticks.find((t) => tickIds.includes(t.id));
+    if (item.amount !== null && !first?.bought) return;
+    if (item.amount !== null && line.amount !== null) {
+      if (item.size_id !== line.size_id || item.amount + line.amount > MAX_AMOUNT) return;
+    }
     if (item.amount !== null) {
       if (line.amount === null) line.size_id = item.size_id;
       line.amount = (line.amount ?? 0) + item.amount;

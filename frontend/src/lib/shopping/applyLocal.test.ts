@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { food, item, tess, sampleCopy, tick } from '#lib/testing/fakeShopping.js';
 import type { Action, ActionFields } from './actions';
 import { applyLocal, localDisplay } from './applyLocal';
-import type { ShoppingCopy } from './types';
+import type { ListItem, ShoppingCopy } from './types';
 
 let n = 0;
 const act = <F extends ActionFields>(fields: F) =>
@@ -410,6 +410,53 @@ describe('applyLocal: untick joins the line back (L1c Sh7)', () => {
     const two = boughtYoghurt();
     row(two, 'i-bought')!.ticks.push(tick('t-other', { by: { login_id: 2, name: 'Wren' } }));
     expect(row(applyLocal(two, [untick], me), 'i-bought')!.merged_into_id).toBeNull();
+  });
+
+  it('does not join a line with an amount when its purchase put nothing in the pantry', () => {
+    // A staple (or a counted-another-way ingredient): the tick has no bought amount.
+    const copy = boughtYoghurt();
+    row(copy, 'i-bought')!.ticks[0]!.bought = null;
+    const shown = applyLocal(copy, [untick], me);
+    expect(row(shown, 'i-bought')!.merged_into_id).toBeNull();
+    expect(row(shown, 'i-yoghurt')).toMatchObject({ amount: 500 });
+  });
+
+  it('joins a line with no amount even when its purchase put nothing in', () => {
+    const copy = boughtYoghurt();
+    Object.assign(row(copy, 'i-bought')!, { amount: null, display: null });
+    row(copy, 'i-bought')!.ticks[0]!.bought = null;
+    const shown = applyLocal(copy, [untick], me);
+    expect(row(shown, 'i-bought')!.merged_into_id).toBe('i-yoghurt');
+    expect(row(shown, 'i-yoghurt')).toMatchObject({ amount: 500 });
+  });
+
+  it('does not join when the amounts added are over the limit', () => {
+    const copy = boughtYoghurt();
+    row(copy, 'i-yoghurt')!.amount = 999_900;
+    const shown = applyLocal(copy, [untick], me);
+    expect(row(shown, 'i-bought')!.merged_into_id).toBeNull();
+    expect(row(shown, 'i-yoghurt')).toMatchObject({ amount: 999_900 });
+  });
+
+  it('does not join into a line that is removed, joined away or ticked', () => {
+    for (const change of [
+      (i: ListItem) => (i.deleted = true),
+      (i: ListItem) => (i.merged_into_id = 'elsewhere'),
+      (i: ListItem) => i.ticks.push(tick('t-y'))
+    ]) {
+      const copy = boughtYoghurt();
+      change(row(copy, 'i-yoghurt')!);
+      expect(row(applyLocal(copy, [untick], me), 'i-bought')!.merged_into_id).toBeNull();
+    }
+  });
+
+  it('does not join a removed line, nor another list', () => {
+    const gone = boughtYoghurt();
+    row(gone, 'i-bought')!.deleted = true;
+    expect(row(applyLocal(gone, [untick], me), 'i-bought')!.merged_into_id).toBeNull();
+    const party = boughtYoghurt();
+    row(party, 'i-bought')!.list_id = 'party';
+    expect(row(applyLocal(party, [untick], me), 'i-bought')!.merged_into_id).toBeNull();
   });
 
   it('joins nothing when no line is left to buy', () => {
