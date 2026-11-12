@@ -5,12 +5,15 @@ or changes another's, and a change reaches the outbound gate at once.
 """
 
 import logging
+import re
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+import mealwright
 from mealwright import own_network
 from mealwright.auth import hash_password
 from mealwright.household import add_default_places
@@ -422,3 +425,19 @@ def test_the_day_added_is_the_households_own_day(kitchen: TestClient) -> None:
         )
         db.commit()
     assert kitchen.get(LIST).json()["entries"][0]["added_on"] == "2026-10-23"
+
+
+def test_every_connection_the_code_uses_has_a_switch_on_privacy(kitchen: TestClient) -> None:
+    """The sweep (U1): a connection some module names (`Connection.X`) must be on the Privacy
+    screen, so a future connection without its switch fails here. Notifications and single
+    sign-on have no code yet; the test makes the PR that adds one add its row."""
+    source = Path(mealwright.__file__).parent
+    used: set[str] = set()
+    for path in source.rglob("*.py"):
+        if path.name in {"outbound.py", "privacy.py"} or "migrations" in path.parts:
+            continue
+        used |= set(re.findall(r"Connection\.([A-Z_]+)", path.read_text()))
+    shown = {item["connection"] for item in kitchen.get(SWITCHES).json()["switches"]}
+    assert {Connection[name].value for name in used} <= shown
+    # And nothing is shown that the gate doesn't know.
+    assert shown <= {c.value for c in Connection}
