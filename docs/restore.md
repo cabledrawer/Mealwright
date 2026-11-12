@@ -67,7 +67,7 @@ is `/data` inside the container).
    ```
 
    Sign in with the password you had **when the backup was made**. Everything is as it was at
-   that time; whatever changed after it is gone. API tokens deleted since the backup work
+   that time; whatever changed after it is gone. API tokens deleted or stopped since the backup work
    again: delete them again (proposed, for cabledrawer). Once all is well, you can delete the
    `data/before-restore-…` folder.
 

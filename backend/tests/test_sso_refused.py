@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sync_kit import ok
 from test_sso_api import ADMIN_GROUPS, API, admin, browser, idp, sign_in, sso_only  # noqa: F401, F811
 
-from mealwright.models import Session
+from mealwright.models import Login, Session
 
 
 def a_token(client: TestClient) -> TestClient:
@@ -59,3 +59,21 @@ def test_a_refused_admin_is_signed_out_everywhere_and_cannot_make_a_new_token(
     assert wren.post(f"{API}/api-tokens", json={"name": "HA2", "scope": "full"}).status_code == 401
     with cast(Any, admin.app).state.sessionmaker() as db:
         assert db.scalars(select(Session).where(Session.sso.is_(True))).all() == []
+
+
+def test_the_refusal_is_logged_with_the_login_number_never_a_name(
+    admin: TestClient, idp: FakeProvider, caplog: Any
+) -> None:
+    """Review r3, finding 6: the log line gives the login's number, as the hourly job's does."""
+    import logging
+
+    wren = browser(admin)
+    sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        number = db.scalar(select(Login.id).where(Login.sso_subject == "wren"))
+    with caplog.at_level(logging.INFO, logger="mealwright"):
+        sign_in(browser(admin), idp, sub="wren", extra={"groups": []})
+    lines = [r.getMessage() for r in caplog.records if "login" in r.getMessage() and "refused" in r.getMessage()]
+    assert lines == [
+        f"Single sign-on: login {number} refused (not_let_in); their sign-ins and API tokens stopped"
+    ]
