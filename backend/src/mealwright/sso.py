@@ -47,6 +47,7 @@ from authlib.jose import JsonWebKey, JsonWebToken
 from authlib.jose.errors import JoseError
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from authlib.oidc.core import CodeIDToken
+from joserfc.errors import JoseError as JoserfcError
 
 from mealwright import own_network
 from mealwright.outbound import (
@@ -702,7 +703,7 @@ def _fetch_keys(gate: OutboundGate, household_id: int, provider: Provider, deadl
         raise SsoFailed("unreachable" if response.status >= 500 else "bad_answer")
     try:
         keys = JsonWebKey.import_key_set(_json(response))
-    except JoseError, ValueError, TypeError, KeyError:
+    except JoseError, JoserfcError, ValueError, TypeError, KeyError:
         raise SsoFailed("bad_answer") from None
     cache.put("jwks", provider.jwks_uri, keys)
     return keys
@@ -732,7 +733,7 @@ def check_id_token(
             claims_params={"nonce": nonce, "client_id": client_id},
         )
         claims.validate(now=int(now if now is not None else time.time()), leeway=LEEWAY)
-    except JoseError, ValueError, TypeError, KeyError:
+    except JoseError, JoserfcError, ValueError, TypeError, KeyError:
         raise SsoFailed("refused") from None
     found = dict(claims)
     subject = found.get("sub")
