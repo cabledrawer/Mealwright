@@ -777,6 +777,7 @@ METHOD_TABLES = {"recipe_method"}
 SESSION_TABLES = {"batch_session", "batch_task_progress"}  # Batch cook (0.8 wave 6, B2 and B3)
 MEMBER_TABLES = {"member", "join_link"}  # People and roles (0.9 A1)
 SSO_TABLES = {"sso_settings"}  # Single sign-on (0.9 O1)
+TOKEN_TABLES = {"api_token"}  # API tokens (0.9 O2)
 
 
 def _row_counts(engine: Engine, skip: set[str]) -> dict[str, int]:
@@ -802,6 +803,7 @@ def test_plan_migration_keeps_everything_adds_slots_and_goes_back_and_forward(
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         *PLAN_TABLES,
         "staple_check",
         *K1_TABLES,
@@ -856,6 +858,7 @@ def test_staple_check_migration_adds_one_table_and_goes_back_and_forward(tmp_pat
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "staple_check",
         *K1_TABLES,
         "alembic_version",
@@ -905,6 +908,7 @@ def test_household_pints_migration_adds_one_column_and_goes_back_and_forward(
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         *K1_TABLES,
         "alembic_version",
     }
@@ -969,6 +973,7 @@ def test_restock_date_migration_marks_old_staple_ticks_and_goes_back_and_forward
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         *K1_TABLES,
         "alembic_version",
     }
@@ -1008,6 +1013,7 @@ def test_step_links_migration_adds_one_table_and_goes_back_and_forward(tmp_path:
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "recipe_step_line",
         "cooked_record",
         "meal_eater",
@@ -1073,6 +1079,7 @@ def test_cooked_records_migration_adds_one_table_and_goes_back_and_forward(
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "cooked_record",
         "meal_eater",
         "alembic_version",
@@ -1148,6 +1155,7 @@ def test_note_migration_changes_one_rule_and_goes_back_and_forward(tmp_path: Pat
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "meal_eater",
         "alembic_version",
     }
@@ -1215,6 +1223,7 @@ def test_meal_eaters_migration_adds_one_table_and_goes_back_and_forward(tmp_path
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "meal_eater",
         "alembic_version",
     }
@@ -1273,6 +1282,7 @@ def test_cook_per_step_migration_adds_one_column_and_goes_back_and_forward(
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "alembic_version",
     }
     before = _row_counts(engine, skip)
@@ -1316,6 +1326,7 @@ def test_restock_typed_at_migration_adds_one_column_and_goes_back_and_forward(
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "alembic_version",
     }
     before = _row_counts(engine, skip)
@@ -1374,6 +1385,7 @@ def test_date_kind_migration_adds_one_empty_column_and_goes_back_and_forward(
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "alembic_version",
     }
     before = _row_counts(engine, skip)
@@ -1428,6 +1440,7 @@ def test_stocktake_migration_adds_two_empty_tables_and_goes_back_and_forward(
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
     }
     before = _row_counts(engine, skip)
     tables = STOCKTAKE_TABLES
@@ -1487,6 +1500,7 @@ def test_place_and_shop_ids_migration_keeps_rows_and_never_reuses_an_id(tmp_path
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "alembic_version",
     }
     before = _row_counts(engine, skip)
@@ -1545,6 +1559,7 @@ def test_optional_migration_adds_empty_columns_and_goes_back_and_forward(tmp_pat
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "alembic_version",
     }
 
@@ -1631,6 +1646,7 @@ def test_step_wait_migration_adds_empty_columns_and_goes_back_and_forward(tmp_pa
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "alembic_version",
     }
     names = {"wait_kind", "wait_min_minutes", "wait_max_minutes", "wait_overnight"}
@@ -1701,6 +1717,7 @@ def test_methods_migration_gives_every_recipe_one_method_and_goes_back_and_forwa
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "alembic_version",
     }
     assert "household_id" in {c["name"] for c in inspect(engine).get_columns("recipe_method")}
@@ -1861,6 +1878,7 @@ def test_start_times_migration_adds_two_empty_columns_keeps_every_row_and_goes_b
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "alembic_version",
     }
     migrate.downgrade(engine, METHODS_MIGRATION)
@@ -1936,6 +1954,7 @@ def test_step_timings_migration_adds_empty_columns_and_a_default_kitchen_and_goe
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "alembic_version",
     }
     step_names = {"timing_hands", "timing_minutes", "timing_equipment"}
@@ -2023,6 +2042,7 @@ def test_batch_session_migration_adds_a_table_and_two_columns_and_goes_back_and_
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "alembic_version",
     }
 
@@ -2085,6 +2105,7 @@ def test_batch_schedule_migration_adds_columns_and_a_table_and_goes_back_and_for
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "alembic_version",
     }
 
@@ -2156,6 +2177,7 @@ def test_members_migration_gives_each_login_a_person_moves_tubs_and_eaters_and_g
         *SESSION_TABLES,
         *MEMBER_TABLES,
         *SSO_TABLES,
+        *TOKEN_TABLES,
         "alembic_version",
     }
 

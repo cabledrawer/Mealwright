@@ -292,6 +292,37 @@ class Session(Base):
     sso_check_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+TOKEN_SCOPES = ("read", "full")
+
+
+class ApiToken(Base):
+    """An API token for a script or another app (0.9 O2; spec section 7, cabledrawer 17 Oct): read
+    only or full, with an optional end date. Only an admin makes one, and it works only while
+    the admin who made it is still an admin of the household (proposed, for cabledrawer). The token
+    itself (`mw_…`) is shown once and never stored: only its SHA-256, like a session's. Deleting
+    one sets `revoked_at`; it then never works again."""
+
+    __tablename__ = "api_token"
+    __table_args__ = (
+        CheckConstraint("scope IN ('read', 'full')", name="scope_known"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    login_id: Mapped[int] = mapped_column(ForeignKey("login.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(60))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    scope: Mapped[str] = mapped_column(String(4))  # "read" or "full"
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Written at most once a minute, like a session's last_seen_at.
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # None: never
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class JoinLink(Base):
     """A one-time sign-in link an admin made for a person (0.9 A1; cabledrawer 12 Nov): it
     works once, for 24 hours, and the person picks their own password with it. Only the token's
