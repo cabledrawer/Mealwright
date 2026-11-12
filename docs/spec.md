@@ -957,6 +957,8 @@ A login the sign-in server has refused is marked (`sso_refused_at`) until it acc
 2. The person sees the whole report first, with personal details already removed (no names, recipes, pantry contents or server address), and can edit or delete any line.
 3. They choose how to send it: **Open on GitHub** (a pre-filled new-issue page in their own browser; needs a GitHub account), **Copy**, or **Download as a file**.
 
+**Old names in a report (beta fix5; proposed, for cabledrawer):** a log line can outlive the name in it, so the names are kept where they are written. A table, `former_name` (household, kind, name, when), is filled by one hook on every database change: when a person, household, recipe, ingredient, tag, shop, place, list or meal changes its name, the old name is kept; when it is deleted, its current name is kept; a bulk delete or update, and rows that go with a parent, are covered too. "Report a problem" removes them like current names, for every household (a log line is server-wide). The nightly log tidy deletes those older than the log files plus a day (15 days), in the same run. They are left out of the export. **Delete everything** takes the household's kept names with it and writes none; the report also leaves out every log line from before the new set-up. The undo data of Recent changes stays as a second net for history older than this change. Nothing here is sent anywhere.
+
 No automatic crash reporting. Not in the Privacy list, because the server makes no connection for it. **Settings mockups:** add "Report a problem" to About.
 
 **Updates (decided, cabledrawer 17 Oct)** — three levels, all built:

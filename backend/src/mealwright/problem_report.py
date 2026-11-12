@@ -38,6 +38,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import Pool
 
 from mealwright import __version__, models
+from mealwright.former_names import REPLACEMENTS, TITLE_KINDS
 from mealwright.logs import FILE_NAME
 from mealwright.updates import RELEASES_PAGE
 
@@ -619,12 +620,20 @@ class Scrubber:
         # (review r1, r2, r3). After the columns, so a name that is also in a column keeps that
         # column's word.
         for data in db.scalars(select(models.Change.undo_data)):
-            for name, replacement in undo_names(data):
+            for name, label in undo_names(data):
                 keys = _keys(name)
-                if replacement is None or (replacement == "[household]" and len(keys) == 1):
+                if label is None or (label == "[household]" and len(keys) == 1):
                     self._add_person(name)  # a person's every word; a one-word household
                 else:
-                    self._add_phrase(keys, replacement)
+                    self._add_phrase(keys, label)
+        # Names kept by the session hook (mealwright.former_names) whenever a row's name changed
+        # or the row was deleted, whatever path did it, for as long as log lines live. Every
+        # household's, like the columns above: a line is server-wide. The second net, for what
+        # happened before the hook existed (fix4).
+        for former_kind, former_name in db.execute(
+            select(models.FormerName.kind, models.FormerName.name)
+        ):
+            self._add_former(former_kind, former_name)
         for options in self._phrases.values():
             options.sort(key=lambda option: len(option[0]), reverse=True)
         self._sites: set[str] = set()
@@ -656,6 +665,19 @@ class Scrubber:
         folders = sorted({str(data_dir).rstrip("/") or "/data", "/data"}, key=len, reverse=True)
         roots = "|".join(re.escape(folder) for folder in folders)
         self._files = re.compile(rf"(?<![\w/])(?:{roots})(?:/[^\s'\":,;)\]]*)?(?!\w)")
+
+    def _add_former(self, kind: str, name: str) -> None:
+        replacement = REPLACEMENTS.get(kind, "[removed]")
+        keys = _keys(name)
+        if kind in TITLE_KINDS:
+            for found in _POSSESSIVE.finditer(unicodedata.normalize("NFC", name)):
+                word = found.group(1)
+                if word[0].isupper() and _key(word) not in _NOT_PEOPLE:
+                    self._add_person(word)
+        if replacement is None or (kind == "household" and len(keys) == 1):
+            self._add_person(name)  # a person's every word; a one-word household
+        else:
+            self._add_phrase(keys, replacement)
 
     def _add_person(self, name: str | None) -> None:
         for key in _keys(name or ""):
@@ -794,6 +816,7 @@ _NAME_TABLES = frozenset(
         models.ImportDraft.site,
         models.Recipe.source_url,
         models.OwnNetworkEntry.value,
+        models.FormerName.name,
     )
 )
 # Read by the next "Report a problem" before it uses a kept Scrubber.

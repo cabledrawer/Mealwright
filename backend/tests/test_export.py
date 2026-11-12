@@ -71,9 +71,14 @@ def test_the_round_trip_brings_back_rows_and_photos(kitchen: TestClient) -> None
     assert doc["version"] == 1
     assert doc["household_id"] == 1
     assert doc["database_revision"]
-    # Every household table is there (even when empty), except the sign-ins, sign-in links
-    # and API tokens.
-    expected = {t.name for t in Base.metadata.sorted_tables} - {"session", "join_link", "api_token"}
+    # Every household table is there (even when empty), except the sign-ins, sign-in links,
+    # API tokens and the kept old names.
+    expected = {t.name for t in Base.metadata.sorted_tables} - {
+        "session",
+        "join_link",
+        "api_token",
+        "former_name",
+    }
     assert set(doc["tables"]) == expected
     names = [row["name"] for row in doc["tables"]["recipe"]]
     assert names == ["Dal with ümlauts and ½ tsp"]
@@ -114,6 +119,7 @@ def test_no_password_and_no_sign_in_ever_leaves(kitchen: TestClient) -> None:
         "session": "who is signed in where (sign-in cookies)",
         "join_link": "sign-in links made for people",
         "api_token": "API tokens, which only an admin at the screen makes",
+        "former_name": "old names kept for 14 days so Report a problem can remove them (proposed)",
     }
     assert "login.password_hash" in doc["left_out"]["columns"]
     assert "sso_settings.client_secret_sealed" in doc["left_out"]["columns"]

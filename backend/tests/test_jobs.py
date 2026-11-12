@@ -257,6 +257,36 @@ def test_tidy_logs_puts_yesterday_aside(tmp_path: Path) -> None:
         handler.close()
 
 
+def test_the_log_tidy_job_also_removes_old_kept_names(kitchen: TestClient, tmp_path: Path) -> None:
+    """Beta fix5: in the same run that deletes old log files, kept names older than those
+    files plus a day go too (mealwright.former_names)."""
+    from sqlalchemy import select
+
+    from mealwright.models import FormerName
+
+    folder = tmp_path / "logs"
+    folder.mkdir()
+    handler = DailyLogFile(folder)
+    now = datetime(2026, 10, 18, 0, 0, 1, tzinfo=UTC)
+    factory = kitchen.app.state.sessionmaker  # type: ignore[attr-defined]
+    try:
+        with factory() as db:
+            for days, name in ((13, "Kept"), (16, "Gone")):
+                db.add(
+                    FormerName(
+                        household_id=1, kind="person", name=name, at=now - timedelta(days=days)
+                    )
+                )
+            db.commit()
+        jobs.tidy_logs(handler, now=now, factory=factory)
+        with factory() as db:
+            assert list(db.scalars(select(FormerName.name))) == ["Kept"]
+        job = {j.id: j for j in jobs.scheduler(factory, log_file=handler).get_jobs()}["log-tidy"]
+        assert job.kwargs == {"factory": factory}
+    finally:
+        handler.close()
+
+
 def test_app_starts_and_stops_the_scheduler(tmp_path: Path) -> None:
     from mealwright.config import Settings
     from mealwright.main import create_app

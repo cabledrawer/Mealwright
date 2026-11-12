@@ -234,10 +234,11 @@ def test_the_repair_leaves_a_healthy_database_alone(tmp_path: Path) -> None:
     settings.data_dir.mkdir()
     _kitchen_with_removals(settings)
     engine = make_engine(f"sqlite:///{settings.data_dir / 'mealwright.db'}")
-    healthy = _counters(engine)
+    # `former_name` (beta fix5) is newer than the repair: going back drops it, and its counter.
+    healthy = {k: v for k, v in _counters(engine).items() if k != "former_name"}
     migrate.downgrade(engine, BEFORE_REPAIR)
     migrate.upgrade(engine)
-    assert _counters(engine) == healthy
+    assert {k: v for k, v in _counters(engine).items() if k != "former_name"} == healthy
     engine.dispose()
 
 

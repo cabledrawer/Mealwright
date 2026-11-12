@@ -781,7 +781,8 @@ TOKEN_TABLES = {"api_token"}  # API tokens (0.9 O2)
 
 
 def _row_counts(engine: Engine, skip: set[str]) -> dict[str, int]:
-    names = [n for n in inspect(engine).get_table_names() if n not in skip]
+    # `former_name` (beta fix5) is made by a migration newer than every one these tests go back to.
+    names = [n for n in inspect(engine).get_table_names() if n not in skip | {"former_name"}]
     with engine.connect() as connection:
         return {
             n: connection.exec_driver_sql(f'SELECT count(*) FROM "{n}"').scalar_one()  # noqa: S608

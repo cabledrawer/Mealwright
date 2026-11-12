@@ -690,6 +690,9 @@ class FakeDB:
         column = statement.column_descriptions[0]  # type: ignore[attr-defined]
         return self.values.get(f"{column['entity'].__name__}.{column['name']}", [])
 
+    def execute(self, statement: object) -> list[tuple[str, str]]:
+        return []  # no kept old names (mealwright.former_names)
+
     def get_bind(self) -> object:
         return self
 
@@ -988,6 +991,7 @@ _NOT_A_PERSON: dict[str, str] = {
     "food_size.name": "a size word of an ingredient (tin, bunch)",
     "api_token.name": "the admin's label for an app (Home Assistant), never a person",
     "sso_settings.button_name": "the sign-in button's text (Authentik), the admin's own word",
+    "former_name.name": "the kept old names themselves: the Scrubber reads them as a list",
 }
 
 

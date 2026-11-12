@@ -52,6 +52,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from mealwright import backups
 from mealwright.events import Broadcaster
+from mealwright.former_names import remove_expired
 from mealwright.logs import DailyLogFile, tidy_once
 from mealwright.models import Household, utcnow
 from mealwright.outbound import OutboundGate  # at run time: APScheduler reads the job's signature
@@ -60,10 +61,21 @@ from mealwright.updates import UpdateChecks
 log = logging.getLogger(__name__)
 
 
-def tidy_logs(handler: DailyLogFile, now: datetime | None = None) -> None:
-    """Put yesterday's (UTC) log file aside and remove old ones."""
+def tidy_logs(
+    handler: DailyLogFile,
+    now: datetime | None = None,
+    factory: sessionmaker[Session] | None = None,
+) -> None:
+    """Put yesterday's (UTC) log file aside and remove old ones, and with them the old names
+    kept for them (mealwright.former_names): those older than the log files plus a day."""
     now = now or datetime.now(UTC)
     tidy_once(handler, (now - timedelta(days=1)).date().isoformat())
+    if factory is not None:
+        try:
+            with factory() as db:
+                remove_expired(db, now)
+        except Exception:
+            log.exception("Couldn't remove old kept names")
 
 
 def thin_history(factory: sessionmaker[Session], now: datetime | None = None) -> None:
@@ -203,6 +215,7 @@ def scheduler(
             tidy_logs,
             CronTrigger(hour=0, minute=0, second=1, timezone=UTC),
             args=[log_file],
+            kwargs={"factory": factory},
             id="log-tidy",
             name="Tidy the log folder",
         )

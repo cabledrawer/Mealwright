@@ -49,6 +49,7 @@ LEFT_OUT_TABLES = {
     # O2 review r1, finding 2 (proposed, for cabledrawer): only a token's SHA-256 is kept, but that
     # is all it takes to tell a made-up token from a real one, so it doesn't leave either.
     "api_token": "API tokens, which only an admin at the screen makes",  # nosec B105 (words)
+    "former_name": "old names kept for 14 days so Report a problem can remove them (proposed)",
 }
 LEFT_OUT_COLUMNS = {
     ("login", "password_hash"): "passwords, even scrambled",

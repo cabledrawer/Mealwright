@@ -346,6 +346,29 @@ class JoinLink(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class FormerName(Base):
+    """A name a row once held, kept while log lines that may hold it still live (beta fix5,
+    proposed, for cabledrawer): "Report a problem" removes it from the lines. A session hook
+    (mealwright.former_names) writes one whenever a row's name changes or the row is deleted,
+    whatever path did it; the nightly log tidy deletes those older than the log files plus a
+    day. "Delete everything" takes them with the household."""
+
+    __tablename__ = "former_name"
+    __table_args__ = (
+        Index("ix_former_name_household_id_kind_name", "household_id", "kind", "name"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    # What it was: person, household, recipe, ingredient, tag, meal, shop, place or list.
+    kind: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(500))
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
 # --- Places and shops ------------------------------------------------------------------------
 
 
