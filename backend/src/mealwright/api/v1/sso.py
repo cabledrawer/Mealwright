@@ -340,6 +340,8 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
         login = sso_accounts.login_for(db, row, identity, settings.data_dir)
     except sso.SsoFailed as failure:
         db.rollback()
+        for session_id in failure.ended_sessions:  # a refused login's open streams end now
+            request.app.state.events.end_session(session_id)
         if failure.code == "offline_refused":
             try:
                 return _again(request, response, db, flow)

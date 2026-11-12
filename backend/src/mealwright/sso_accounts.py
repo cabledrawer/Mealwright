@@ -40,6 +40,7 @@ from sqlalchemy.orm import sessionmaker
 
 from mealwright import api_tokens, own_network, sso
 from mealwright.auth import now
+from mealwright.events import Broadcaster
 from mealwright.models import Login, Member, Session, SsoSettings
 from mealwright.outbound import Connection, OutboundGate, switches
 from mealwright.people import admin_can_sign_in
@@ -230,16 +231,23 @@ def find_login(db: DbSession, identity: Identity) -> Login | None:
     )
 
 
-def _is_last_way_in(db: DbSession, login: Login, row: SsoSettings, data_dir: Path) -> bool:
-    """True when `login` is an admin who is the household's last one who can sign in, and can
-    still do it with a password while password sign-in really works (the stored setting is on,
-    or single sign-on can't start: `passwords_off` is False). Such an admin stays an admin and
-    keeps their tokens and sign-ins; with passwords off nobody could sign in to delete a token
-    (O2 review r3, finding 1)."""
-    if login.role != ADMIN or not login.password_hash:
-        return False
+def _last_admin_keeps(db: DbSession, login: Login, row: SsoSettings, data_dir: Path) -> str:
+    """What a refused login keeps. "all": an admin who is the household's last one who can sign
+    in, and can still do it with a password while password sign-in really works (the stored
+    setting is on, or single sign-on can't start): they stay an admin and keep their tokens and
+    sign-ins (O2 review r3, findings 1 and 2). "sign-ins": the last admin who can sign in while
+    passwords are off: their tokens stop (nobody could sign in to delete one) but their sign-ins
+    stay, so they can still reach Settings and turn passwords back on; a refusal can't lock the
+    household out (O2 review r4, finding 1; lead's choice, proposed, for cabledrawer). "": anyone
+    else: tokens and sign-ins both end."""
+    if login.role != ADMIN:
+        return ""
     off = passwords_off(db, data_dir, row.household_id)
-    return other_admins(db, login, off) == 0 and not off
+    if other_admins(db, login, off) != 0:
+        return ""
+    if not off:
+        return "all" if login.password_hash else ""
+    return "sign-ins"
 
 
 def _refused_known(
@@ -248,21 +256,30 @@ def _refused_known(
     """A known login the groups (or the removal) no longer let in: its API tokens are stopped
     and every device it is signed in on is signed out (so a refused admin can't go on, or make
     a new token, from an old session), and that is committed before the refusal is raised (the
-    caller rolls back on a refusal). The household's last admin who can sign in by password
-    keeps both, as they stay an admin (O2 review r2 finding 1 and r3 findings 1 and 2; proposed,
-    for cabledrawer). Every refusal of a known login is here: `removed`, and `not_let_in` (in no
-    mapped group, or the groups no longer name a role). Ending a session ends its event stream
-    too, which asks for the session again."""
-    if not _is_last_way_in(db, login, row, data_dir):
+    caller rolls back on a refusal). The household's last admin who can sign in keeps what
+    `_last_admin_keeps` says (O2 review r2 finding 1, r3 findings 1 and 2, r4 findings 1 and 4;
+    proposed, for cabledrawer). Every refusal of a known login is here: `removed`, and `not_let_in`
+    (in no mapped group, or the groups no longer name a role). The ids of the sessions ended
+    are on the raised `SsoFailed`, so their live-update streams end at once."""
+    keeps = _last_admin_keeps(db, login, row, data_dir)
+    ended: list[int] = []
+    if keeps != "all":
         api_tokens.stop_for(db, login.id)
-        db.execute(delete(Session).where(Session.login_id == login.id))
+        if keeps == "":
+            ended = list(db.scalars(select(Session.id).where(Session.login_id == login.id)))
+            db.execute(delete(Session).where(Session.login_id == login.id))
         db.commit()
         log.info(
-            "Single sign-on: login %d refused (%s); their sign-ins and API tokens stopped",
+            "Single sign-on: login %d refused (%s); %s",
             login.id,
             code,
+            "their API tokens stopped; their sign-ins kept, as the last admin who can sign in"
+            if keeps
+            else "their sign-ins and API tokens stopped",
         )
-    raise SsoFailed(code)
+    failure = SsoFailed(code)
+    failure.ended_sessions = ended
+    raise failure
 
 
 def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Path) -> Login:
@@ -371,10 +388,16 @@ def _due(at: datetime) -> ColumnElement[bool]:
     )
 
 
-def check_sessions(gate: OutboundGate, factory: sessionmaker[DbSession], data_dir: Path) -> int:
+def check_sessions(
+    gate: OutboundGate,
+    factory: sessionmaker[DbSession],
+    data_dir: Path,
+    events: Broadcaster | None = None,
+) -> int:
     """The job: ask the provider about each single sign-on sign-in that's due. Gives how many
-    were signed out."""
+    were signed out; their open live-update streams end now (`events`: O2 review r4, finding 4)."""
     ended = 0
+    ended_ids: list[int] = []
     at = now()
     with factory() as db:
         due = db.scalars(select(Session).where(_due(at)).limit(200)).all()
@@ -403,6 +426,7 @@ def check_sessions(gate: OutboundGate, factory: sessionmaker[DbSession], data_di
                 # somewhere else too (safest; proposed, for cabledrawer). The log says so, by the
                 # login's number only, never a name (O2 review r2, finding 3).
                 api_tokens.stop_for(db, session.login_id)
+                ended_ids.append(session.id)
                 db.delete(session)
                 ended += 1
                 log.info(
@@ -417,4 +441,7 @@ def check_sessions(gate: OutboundGate, factory: sessionmaker[DbSession], data_di
             else:
                 session.sso_check_at = at + sso.RETRY_AFTER
         db.commit()
+    for session_id in ended_ids:
+        if events is not None:
+            events.end_session(session_id)
     return ended

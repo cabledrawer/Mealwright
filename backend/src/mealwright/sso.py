@@ -148,6 +148,9 @@ class SsoFailed(Exception):
         # True when the failure is Mealwright's own (no free place for a look-up), not the
         # sign-in server's: it is never remembered as the server not answering.
         self.say_nothing_of_it = say_nothing_of_it
+        # The sign-ins a refusal ended (their open live-update streams are ended by the caller,
+        # which has the app's event hub: O2 review r4, finding 4).
+        self.ended_sessions: list[int] = []
 
     @property
     def message(self) -> str:
