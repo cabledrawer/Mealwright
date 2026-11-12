@@ -24,6 +24,7 @@
     value = $bindable(''),
     problem = null,
     removeProblem = null,
+    removeNotice = null,
     adding = false,
     anchor = OWN_NETWORK_ANCHOR,
     onadd,
@@ -37,6 +38,8 @@
     problem?: string | null;
     /** Taking one off didn't work: why. */
     removeProblem?: string | null;
+    /** Taking one off had a side effect to tell (password sign-in came back on). */
+    removeNotice?: string | null;
     adding?: boolean;
     /** The heading's id, which links can go to. Only the gallery changes it. */
     anchor?: string;
@@ -90,6 +93,9 @@
 
     {#if removeProblem}
       <p class="problem" role="alert">{removeProblem}</p>
+    {/if}
+    {#if removeNotice}
+      <p class="notice" role="status">{removeNotice}</p>
     {/if}
 
     {#if locked !== 'member'}
@@ -327,6 +333,12 @@
     color: var(--color-warning-text);
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
+    line-height: 1.4;
+  }
+
+  .notice {
+    color: var(--color-text);
+    font-size: var(--text-md);
     line-height: 1.4;
   }
 

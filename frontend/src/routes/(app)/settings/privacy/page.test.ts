@@ -394,6 +394,20 @@ describe('Settings → Privacy', () => {
       }
     );
 
+    it('says so when taking the sign-in server off turned password sign-in back on', async () => {
+      const notice =
+        'Removed. Password sign-in is on again, because your sign-in server is no longer on Your own network. Add it back and test sign-in, or turn password sign-in off again later.';
+      open({
+        'GET /privacy/own-network': list([wiki, lan]),
+        'DELETE /privacy/own-network/1': [200, { passwords_back_on: true, notice }]
+      });
+      await page.getByRole('button', { name: 'Remove wiki.home.example' }).click();
+      await expect.element(page.getByRole('status').filter({ hasText: notice })).toBeVisible();
+      // The next change clears it.
+      await page.getByRole('button', { name: 'Remove 192.168.1.0/24' }).click();
+      await expect.element(page.getByText(notice)).not.toBeInTheDocument();
+    });
+
     it('takes an entry off at once, with Undo that puts it back', async () => {
       open({
         'GET /privacy/own-network': list([wiki, lan]),

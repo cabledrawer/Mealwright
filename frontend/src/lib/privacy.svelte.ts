@@ -66,6 +66,8 @@ class Privacy {
   adding = $state(false);
   /** Taking off the list didn't work: the reason. */
   removeProblem = $state<string | null>(null);
+  /** Taking an entry off turned password sign-in back on: the server's sentence saying so. */
+  removeNotice = $state<string | null>(null);
 
   /** What the server last said, per switch. */
   #confirmed: Record<SwitchName, boolean> = { ...OFF };
@@ -133,6 +135,7 @@ class Privacy {
     this.addProblem = null;
     this.adding = false;
     this.removeProblem = null;
+    this.removeNotice = null;
     this.#saving = 0;
   }
 
@@ -175,7 +178,9 @@ class Privacy {
         needsServer: true,
         undo: async () => {
           try {
-            await removeEntry(entry.id);
+            const answer = await removeEntry(entry.id);
+            if (answer?.notice && this.#generation === generation)
+              this.removeNotice = answer.notice;
           } catch (error) {
             // Already gone (taken off on another device): that's what Undo wanted.
             if (!(error instanceof ApiError && error.status === 404)) throw error;
@@ -204,9 +209,11 @@ class Privacy {
     const at = this.entries.findIndex((e) => e.id === entry.id);
     if (at === -1) return;
     this.removeProblem = null;
+    this.removeNotice = null;
     this.entries = this.entries.filter((e) => e.id !== entry.id);
+    let answer;
     try {
-      await removeEntry(entry.id);
+      answer = await removeEntry(entry.id);
     } catch (error) {
       if (generation !== this.#generation) return;
       // Already gone (an admin on another device took it off): nothing to put back.
@@ -218,6 +225,7 @@ class Privacy {
       return;
     }
     if (generation !== this.#generation) return;
+    if (answer?.notice) this.removeNotice = answer.notice;
     undoHistory.record({
       label: `Removed ${entry.value} from Your own network`,
       needsServer: true,

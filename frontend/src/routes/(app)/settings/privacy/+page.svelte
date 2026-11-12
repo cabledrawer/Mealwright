@@ -89,6 +89,7 @@
         bind:value={text}
         problem={privacy.addProblem}
         removeProblem={privacy.removeProblem}
+        removeNotice={privacy.removeNotice}
         adding={privacy.adding}
         onadd={() => void add()}
         onremove={(entry) => void privacy.remove(entry)}

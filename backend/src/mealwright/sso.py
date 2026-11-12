@@ -270,6 +270,27 @@ def _addresses(
     return [own_network.plain(a) for a in addresses]
 
 
+def issuer_off_the_list(
+    gate: OutboundGate, household_id: int, issuer: str, listed: OwnNetwork, seconds: float = 10.0
+) -> bool:
+    """True when the sign-in server's address is one only "Your own network" lets Mealwright
+    reach, and the list no longer has it (so no sign-in would get through). A server that
+    can't be reached or looked up right now is not "off the list"."""
+    try:
+        parts = urlsplit(issuer)
+        host = parts.hostname
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+    except ValueError:
+        return False
+    if not host:
+        return False
+    try:
+        _addresses(gate, household_id, host, port, listed, time.monotonic() + seconds)
+    except SsoFailed as failure:
+        return failure.code in {"own_network", "always_blocked"}
+    return False
+
+
 def _send(
     gate: OutboundGate,
     household_id: int,
