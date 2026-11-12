@@ -55,6 +55,7 @@ from mealwright.models import (
     StocktakePlace,
     utcnow,
 )
+from mealwright.removals import mark_earlier_stocktake
 from mealwright.stock import StockEdit, lot_amounts, lots_of, put_in, take
 
 router = APIRouter(tags=["stocktake"], dependencies=[SameOrigin])
@@ -721,6 +722,7 @@ def restart(kitchen: Here) -> StocktakeOut:
     kitchen.db.execute(
         delete(StocktakePlace).where(StocktakePlace.household_id == kitchen.household_id)
     )
+    mark_earlier_stocktake(kitchen.db, kitchen.household_id)
     note_pantry(kitchen.db, kitchen.household_id)
     kitchen.db.commit()
     return stocktake(kitchen)

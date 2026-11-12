@@ -238,6 +238,9 @@ def _stocktake_of(db: DbSession, household_id: int, place_id: int) -> dict[str, 
     others = _progress_rows(db, household_id, but=place_id)
     return {
         "removed_at": utcnow().isoformat(),
+        # L1c: "Start a new stocktake" sets `earlier` on every removal record that has this, so
+        # Undo knows which stocktake the answers came from (records without it use the guess).
+        "marked": True,
         "others": others,
         "finished_at": as_utc(done.finished_at).isoformat() if done else None,
         "entries": [
@@ -279,10 +282,31 @@ def _same_stocktake(db: DbSession, household_id: int, data: dict[str, Any]) -> b
     have no `removed_at`: they put the progress back as before."""
     if "removed_at" not in data:
         return True
+    if data.get("marked"):
+        return not data.get("earlier")
     removed_at = datetime.fromisoformat(data["removed_at"])
     if data.get("others"):
         return _progress_rows(db, household_id, until=removed_at) > 0
     return _progress_rows(db, household_id) == 0
+
+
+def mark_earlier_stocktake(db: DbSession, household_id: int) -> None:
+    """ "Start a new stocktake" (L1c): every place removal that can still be undone is from an
+    earlier stocktake now, so its Undo puts the place back without the old answers."""
+    for change in db.scalars(
+        select(Change).where(
+            Change.household_id == household_id,
+            Change.kind == "place_removed",
+            Change.undone_by_change_id.is_(None),
+        )
+    ):
+        data = change.undo_data or {}
+        stocktake = (data.get("removed") or {}).get("stocktake")
+        if stocktake and stocktake.get("marked"):
+            change.undo_data = {
+                **data,
+                "removed": {**data["removed"], "stocktake": {**stocktake, "earlier": True}},
+            }
 
 
 def _put_back_stocktake(kitchen: Kitchen, place_id: int, data: dict[str, Any]) -> None:
