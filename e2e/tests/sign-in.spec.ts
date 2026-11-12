@@ -136,7 +136,9 @@ test.describe('signing in', () => {
     await expect(page.getByText('Stay signed in')).toHaveCount(0);
     await signIn(page);
     await expect(heading(page)).toHaveText('Today');
-    const [cookie] = await context.cookies();
+    // The sign-in cookie, not the known-device one set beside it.
+    const cookies = await context.cookies();
+    const cookie = cookies.find((c) => c.name.endsWith('mealwright_session'));
     const days = (cookie!.expires - Date.now() / 1000) / 86400;
     expect(days).toBeGreaterThan(29);
     expect(cookie).toMatchObject({ httpOnly: true, sameSite: 'Lax' });
@@ -147,7 +149,9 @@ test.describe('signing in', () => {
     await page.getByRole('switch', { name: 'Remember this computer' }).click();
     await signIn(page);
     await expect(heading(page)).toHaveText('Today');
-    const [cookie] = await context.cookies();
+    // The sign-in cookie, not the known-device one set beside it.
+    const cookies = await context.cookies();
+    const cookie = cookies.find((c) => c.name.endsWith('mealwright_session'));
     expect(cookie!.expires).toBe(-1);
   });
 
