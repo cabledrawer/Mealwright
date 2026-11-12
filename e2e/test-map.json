@@ -148,7 +148,7 @@
         "frontend/src/lib/placesAndShops*", "frontend/src/lib/freshness*"
       ],
       "backend": [
-        "test_pantry.py", "test_stock*.py", "test_foods.py", "test_food_back.py", "test_amounts.py", "test_conversions.py",
+        "test_pantry.py", "test_pantry_batch_tubs.py", "test_stock*.py", "test_foods.py", "test_food_back.py", "test_amounts.py", "test_conversions.py",
         "test_ingredient_match.py", "test_big_numbers.py", "test_long_amounts.py", "test_kitchen.py"
       ],
       "browser": ["pantry.spec.ts", "pantry-list.spec.ts", "pantry-use-soon.spec.ts", "ingredients.spec.ts", "ingredients-recipes.spec.ts", "stocktake.spec.ts", "undo.spec.ts"]
