@@ -281,6 +281,16 @@ def _waiting(request: Request, kitchen: Here) -> WaitingLink | None:
     return found
 
 
+def _fingerprint(row: SsoSettings) -> tuple[object, ...]:
+    """The setup as an Admin would have to have proven it: who gets in, and the secret."""
+    return (*_who_gets_in(row), row.client_secret_sealed)
+
+
+def _proven(request: Request, row: SsoSettings) -> None:
+    """An Admin passed Test sign-in, or signed in with single sign-on, under this setup."""
+    request.app.state.sso_proven[row.household_id] = _fingerprint(row)
+
+
 def _forget_test(request: Request, household_id: int) -> None:
     request.app.state.sso_tests.pop(household_id, None)
     request.app.state.sso_links.pop(household_id, None)
@@ -340,6 +350,8 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
     )
     sso_accounts.keep(db, settings.data_dir, session, identity)
     db.commit()
+    if login.role == ADMIN:
+        _proven(request, row)
     log.info("Signed in with single sign-on: %s from %s", login.username, client_address(request))
     return FinishOut(done="signed_in", me=_me(login))
 
@@ -373,6 +385,8 @@ def _finish_test(
         raise sso.SsoFailed("expired")  # signed out, or someone else, since it started
     login = signed_in.login
     role, link = sso_accounts.outcome_of_test(db, row, login, identity)
+    if role == ADMIN:
+        _proven(request, row)
     result = TestResult(
         passed=role is not None,
         username=identity.username or sso_accounts.new_username(identity),
@@ -522,6 +536,8 @@ def _passwords_off_allowed(request: Request, kitchen: Here, row: SsoSettings) ->
         sso_accounts.switch_on(kitchen.db, kitchen.household_id)
         and sso_accounts.admin_signs_in_with_sso(kitchen.db, row)
     ):
+        raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED)
+    if request.app.state.sso_proven.get(row.household_id) != _fingerprint(row):
         raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED)
 
 

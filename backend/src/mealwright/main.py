@@ -137,6 +137,9 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     app.state.sso_used = sso.Used()  # single sign-on states already used (memory only)
     app.state.sso_tests = {}  # the setup screen's last test, by household (memory only)
     app.state.sso_links = {}  # a test's link waiting for its admin's OK (memory only)
+    # The setup an Admin has proven works for them, by household (memory only; proposed, for
+    # cabledrawer): passwords go off only over it, and a restart forgets it.
+    app.state.sso_proven = {}
     app.state.setup_code = None  # set at start-up on a fresh install
     errors.install(app)
     app.include_router(api_v1)
