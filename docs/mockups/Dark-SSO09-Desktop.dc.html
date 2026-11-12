@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop dark – Settings › Sign-in › Single sign-on setup (0.9, proposed)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.h2{margin:0 4px;font-size:13px;font-weight:700;color:#A3AFA8;text-transform:uppercase;letter-spacing:0.06em}
+.card{background:#1B221F;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;flex:none}
+.pad{padding:14px 16px;gap:8px}
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:12px 14px;box-sizing:border-box;flex:none;border-top:1px solid #26302B;text-decoration:none;color:#E9EEEB}
+.row:first-child{border-top:none}
+.lbl{flex:1;min-width:0;font-size:16px;font-weight:600;display:flex;flex-direction:column;gap:2px}
+.lbl small{font-size:13px;font-weight:500;color:#A3AFA8;line-height:1.4}
+.val{font-size:14px;color:#A3AFA8;white-space:nowrap}
+.chev{color:#A3AFA8;flex:none}
+.sub{margin:0;font-size:13px;color:#A3AFA8;line-height:1.45}
+.note{margin:0 4px;font-size:13px;color:#A3AFA8;line-height:1.45}
+.av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:14px;flex:none}
+.btn{border:none;background:#E9EEEB;color:#111614;border-radius:14px;min-height:48px;padding:0 18px;font:700 15px 'Plus Jakarta Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.btn2{border:1px solid #39433D;background:#1B221F;color:#E9EEEB;border-radius:14px;min-height:48px;padding:0 16px;font:700 15px 'Plus Jakarta Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.sm{min-height:36px;padding:0 12px;font-size:13px;border-radius:10px}
+.danger{border:1px solid #6B2D28;background:#2A1715;color:#FFB4AB}
+.add{border:1px dashed #4A554E;background:transparent;color:#6FCF9E;border-radius:12px;min-height:44px;padding:0 14px;font:700 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.sw{width:46px;height:28px;border:none;border-radius:14px;background:#39433D;position:relative;padding:0;flex:none;cursor:pointer}
+.sw span{position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:12px;background:#C5CEC8}
+.sw[aria-checked="true"]{background:#2E7D5B}
+.sw[aria-checked="true"] span{left:20px;background:#FFFFFF}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:#C9D2CD}
+.fld input,.fld textarea{border:1px solid #39433D;border-radius:12px;min-height:46px;padding:0 12px;font:500 15px 'Plus Jakarta Sans',sans-serif;color:#E9EEEB;background:#111614;box-sizing:border-box;width:100%}
+.fld textarea{padding:10px 12px;min-height:84px;resize:none}
+.hint{font-size:12px;font-weight:500;color:#A3AFA8}
+.seg{display:flex;background:#111614;border:1px solid #39433D;border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:none;background:transparent;color:#C5CEC8;border-radius:9px;min-height:38px;font:700 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.seg button[aria-pressed="true"]{background:#1F3A2D;color:#8FE0B5}
+.chip{border:1px solid #39433D;background:#111614;color:#C5CEC8;border-radius:999px;min-height:36px;padding:0 12px;font:700 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip[aria-pressed="true"]{border-color:#2E7D5B;background:#1F3A2D;color:#8FE0B5}
+.tag{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:800;letter-spacing:0.02em}
+.warn{background:#33281A;border:1px solid #5C4520;color:#F5CD86;border-radius:14px;padding:12px 14px;font-size:13px;line-height:1.45;display:flex;gap:10px}
+.ok{background:#173326;border:1px solid #2E5E45;color:#A9E8C6;border-radius:14px;padding:12px 14px;font-size:13px;line-height:1.45;display:flex;gap:10px}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+html,body{margin:0;overflow-x:hidden;background:#111614}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:#E9EEEB;font-size:15px;font-weight:600;text-decoration:none}
+.sec{display:flex;flex-direction:column;gap:2px}
+.sec button{display:flex;align-items:center;border:none;background:transparent;border-radius:12px;padding:0 14px;min-height:44px;font:600 15px 'Plus Jakarta Sans',sans-serif;color:#E9EEEB;text-align:left;cursor:pointer}
+.sec button[aria-current="true"]{background:#1F3A2D;color:#8FE0B5;font-weight:700}
+.dcard{background:#1B221F;border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.dcard h2{margin:0;font-size:17px;font-weight:800}
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-size:12px;font-weight:700;color:#A3AFA8;text-transform:uppercase;letter-spacing:0.05em;padding:8px 10px;border-bottom:1px solid #26302B}
+td{padding:10px;border-bottom:1px solid #26302B;font-size:14px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex">
+<aside style="width: 232px; flex: none; background: #161C19; border-right: 1px solid #2A332E; padding: 24px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; padding: 0 8px">Mealwright</div>
+<nav class="nav" aria-label="Main" style="display: flex; flex-direction: column; gap: 2px"><a href="Dark-Today.dc.html">Today</a><a href="Dark-Plan.dc.html">Plan</a><a href="Dark-ShopPlan08-Desktop.dc.html">Shopping</a><a href="Dark-Pantry08-Desktop.dc.html">Pantry</a><a href="Dark-Recipe.dc.html">Recipes</a><a href="Dark-IngredientsPack08-Desktop.dc.html">Ingredients</a></nav>
+<a href="Dark-Settings09-Desktop.dc.html" aria-current="page" style="margin-top: auto; padding: 10px 12px; border-radius: 12px; background: #1F3A2D; color: #8FE0B5; text-decoration: none; font-size: 14px; font-weight: 700">Tess · Settings</a>
+</aside>
+<main style="flex: 1; min-width: 0; padding: 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px">
+<a href="Dark-Settings09-Desktop.dc.html" style="display: inline-flex; align-items: center; gap: 2px; font-size: 15px; font-weight: 700; text-decoration: none"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>Settings › Sign-in</a>
+<h1 style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.02em">Single sign-on</h1>
+<p class="sub" style="max-width: 760px; font-size: 14px">Let people sign in with your own sign-in server (Authentik, Authelia, Keycloak, Pocket ID… anything that speaks OpenID Connect).</p>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; max-width: 1100px; align-items: start">
+<section class="dcard"><h2>1 · Your sign-in server</h2>
+<label class="fld">Name on the button<input type="text" value="your sign-in server"><span class="hint">"Sign in with your sign-in server"</span></label>
+<label class="fld">Issuer address<input type="text" value="https://auth.example.com/application/o/mealwright/" class="mono"></label>
+<label class="fld">Client ID<input type="text" value="mealwright" class="mono"></label>
+<label class="fld">Client secret<input type="password" value="secret-secret"><span class="hint">Stored encrypted on the server. Leave blank to keep the saved one.</span></label>
+<div class="fld">Give this to your sign-in server<div style="display: flex; gap: 8px; align-items: center"><span class="mono" style="flex: 1; background: #111614; border: 1px solid #39433D; border-radius: 10px; padding: 10px 12px">https://mealwright.example.com/auth/callback</span><button class="btn2 sm" type="button">Copy</button></div></div>
+<div class="warn"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M11 12h1v5h1"></path></svg><span>On your home network? Add <span class="mono">auth.example.com</span> to Privacy › Your own network, and turn on the Single sign-on switch there.</span></div>
+</section>
+<section class="dcard"><h2>2 · Who gets in, and as what</h2>
+<label class="fld">Groups come from<input type="text" value="groups" class="mono" style="max-width: 220px"></label>
+<table><thead><tr><th>Group</th><th>Becomes</th><th></th></tr></thead><tbody><tr><td><input type="text" value="mealwright-admins" aria-label="Group" class="mono" style="border: 1px solid #39433D; border-radius: 10px; min-height: 40px; padding: 0 10px; background: #111614; color: #E9EEEB; width: 100%; box-sizing: border-box"></td><td><div class="seg" style="max-width: 220px"><button type="button" aria-pressed="true">Admin</button><button type="button" aria-pressed="false">Member</button></div></td><td style="text-align: right"><button class="btn2 sm" type="button" aria-label="Remove this group">✕</button></td></tr><tr><td><input type="text" value="mealwright" aria-label="Group" class="mono" style="border: 1px solid #39433D; border-radius: 10px; min-height: 40px; padding: 0 10px; background: #111614; color: #E9EEEB; width: 100%; box-sizing: border-box"></td><td><div class="seg" style="max-width: 220px"><button type="button" aria-pressed="false">Admin</button><button type="button" aria-pressed="true">Member</button></div></td><td style="text-align: right"><button class="btn2 sm" type="button" aria-label="Remove this group">✕</button></td></tr></tbody></table>
+<button class="add" type="button" style="align-self: flex-start">+ Add a group</button>
+<div class="fld">Anyone else<div class="seg" style="max-width: 320px"><button type="button" aria-pressed="true">Not let in</button><button type="button" aria-pressed="false">Member</button></div></div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 56px; border-top: 1px solid #26302B"><span class="lbl">Make an account on first sign-in<small>Otherwise an admin links each person in Household first</small></span><button type="button" class="sw" role="switch" aria-checked="true" aria-label="Make an account on first sign-in"><span></span></button></div>
+</section>
+<section class="dcard" style="grid-column: 1 / -1"><h2>3 · Try it, then decide about passwords</h2>
+<div style="display: flex; gap: 10px; align-items: center"><button class="btn sm" type="button">Test sign-in</button><span class="sub">Opens your sign-in server in a new tab and comes back here.</span></div>
+<div class="ok"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"></path></svg><span>Test passed: signed in as <strong>tess</strong>, groups mealwright-admins → Admin.</span></div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 56px; border-top: 1px solid #26302B"><span class="lbl">Allow password sign-in<small>Turn off to show only the "Sign in with your sign-in server" button. Allowed only after an admin has signed in with single sign-on. The <span class="mono">reset-admin</span> command on the server always works.</small></span><button type="button" class="sw" role="switch" aria-checked="true" aria-label="Allow password sign-in"><span></span></button></div>
+<div style="display: flex; gap: 10px"><button class="btn" type="button">Save</button><button class="btn2" type="button">Cancel</button></div>
+</section>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1440, "height": 900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
