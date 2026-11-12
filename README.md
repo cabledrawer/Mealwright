@@ -32,7 +32,7 @@ Run Mealwright behind your own reverse proxy (Caddy, Traefik, nginx, Nginx Proxy
 docker exec -it mealwright python -m mealwright reset-admin tess
 ```
 
-It sets a new random password for that admin, prints it once, and signs that admin out on every device. It also lifts the pause on that username after wrong passwords, and forgets the devices that had signed in as that admin before. Sign in with it, then change it in Settings → Sign-in → Change password. It works only for an admin.
+It sets a new random password for that admin, prints it once, and signs that admin out on every device. For ten minutes after, the new password gets in even while someone is guessing at that username. It also forgets the devices that had signed in as that admin before. Sign in with it, then change it in Settings → Sign-in → Change password. It works only for an admin.
 
 **Behind a reverse proxy, everyone is slowed down after one person's wrong passwords.** Mealwright logs "A request came through a reverse proxy…" once after it starts. Set `MEALWRIGHT_TRUSTED_PROXIES` to your proxy's address or network (for example `172.28.10.0/24`) and restart: Mealwright then believes the proxy's `X-Forwarded-For`, `X-Forwarded-Proto` and `X-Forwarded-Host` headers, and nobody else's.
 

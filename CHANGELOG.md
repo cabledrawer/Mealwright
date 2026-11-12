@@ -9,6 +9,11 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Database change** (`b4e8c2a6d917`): people of the household (`member`), each login's own person, shared logins, "Who's this?" (who picked themselves on a device, and when) and one-time sign-in links. Back up first. **Going back** puts whose tub and who's eating back on the logins, and Recent changes' Undo records name each person by their login again (a person without a login is left out of them). A removed person's login loses its password and every device it's signed in on is signed out, so they can't sign in on the older version. What is lost going back: people without a login, removed people's passwords and sessions, colours and portions, shared-login marks, unused sign-in links, and who picked themselves in "Who's this?".
 - A shared login (a kitchen tablet) no longer counts as an admin when the household checks it still has one: it can be an admin, but never the only one, so stepping down, removing or making the last real admin a shared login is refused (proposed, for cabledrawer).
 
+### Security (0.9 A2, sign-in hardening)
+
+- **Known devices.** A device that has signed in as someone gets a "known device" cookie for a year, and isn't held up when someone else's wrong guesses pause that username (its own wrong passwords give it the same pause). Changing the password forgets every known device except the one that changed it; Sign out everywhere else doesn't forget them. A planted device cookie with odd entries is read strictly: the odd entries are dropped.
+- **Just after a new password.** For ten minutes after a password is changed (Settings, or reset-admin), the username's pause doesn't stop its owner's right password; wrong ones still count, still meet the address limit and get the same words.
+
 ## [0.8.0] - 2026-11-11
 
 The end of the 0.8 milestone: Batch cook (Experimental, from the step timings to batch cook mode and one Cooked it for a whole session), the fixes from cabledrawer's look at 0.8.0-beta.1 (10 Nov), and the fixes from the whole-0.8 review (11 Nov), which are all of its findings. Batch cook, planned for 0.8.5 in the beta.1 notes, is in 0.8.0 (cabledrawer 11 Nov).
