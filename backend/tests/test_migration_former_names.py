@@ -7,7 +7,7 @@ from sqlalchemy import inspect
 from mealwright import migrate
 from mealwright.db import make_engine
 
-BEFORE = "c3a7e5d1f824"  # the line's newest before this (O2 API tokens)
+BEFORE = "e5b3c9a1d742"  # the line's newest before this (O2 fix13, the refused-login mark)
 FORMER_NAMES = "d3a9f1c7e254"
 
 

@@ -1,7 +1,7 @@
 """keep the names rows used to have, for as long as log lines live
 
 Revision ID: d3a9f1c7e254
-Revises: c3a7e5d1f824
+Revises: e5b3c9a1d742
 Create Date: 2026-11-14 09:00:00
 
 Beta fix5 (proposed, for cabledrawer): "Report a problem" removes a name from the log lines also
@@ -20,7 +20,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "d3a9f1c7e254"
-down_revision: str | Sequence[str] | None = "c3a7e5d1f824"
+down_revision: str | Sequence[str] | None = "e5b3c9a1d742"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
