@@ -106,9 +106,11 @@ test('F193: the phone lists Settings in three groups, each row opens its section
   test.skip(!isPhone(page), 'the phone’s layout');
   await page.goto('/settings');
   await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+  // An admin whose household hasn't finished set-up has "Finish setup" first (cabledrawer 12 Nov).
+  const unfinished = (await (await page.request.get('/api/v1/household')).json()).onboarding_done === false;
   // The groups, in order, with their rows (Amounts shows once the household has answered).
   for (const [group, rows] of [
-    ['Your settings', ['Appearance', 'Amounts', 'Sign-in']],
+    ['Your settings', [...(unfinished ? ['Finish setup'] : []), 'Appearance', 'Amounts', 'Sign-in']],
     ['Kitchen settings', ['Meal slots', 'Shops & places', 'Your kitchen', 'Recent changes']],
     ['Household settings', ['Household', 'Privacy', 'Your data']],
     ['Mealwright', ['About', 'Report a problem']],
@@ -637,6 +639,27 @@ test('F177 (review): a 60-character unbroken name does not push the card sideway
   } finally {
     await page.request.delete(`/api/v1/shops/${id}`, { headers: key() });
   }
+});
+
+test('Finish setup: an admin who did not finish set-up is not sent to it, and Settings has the row at the top, opening onboarding (cabledrawer 12 Nov)', async ({
+  page,
+}) => {
+  const household = await (await page.request.get('/api/v1/household')).json();
+  test.skip(household.onboarding_done !== false, 'this household finished set-up already');
+  // Not sent back: the home page stays the home page.
+  await page.goto('/');
+  await expect(page).not.toHaveURL(/\/onboarding/);
+  await page.goto('/settings');
+  await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+  const row = isPhone(page)
+    ? page.getByRole('navigation', { name: 'Your settings' }).getByRole('link').first()
+    : page.getByRole('navigation', { name: 'Settings sections' }).getByRole('link').first();
+  await expect(row).toContainText('Finish setup');
+  await expect(row).toContainText('A few quick things: amounts, household, shops.');
+  expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await checkPage(page);
+  await row.click();
+  await expect(page).toHaveURL('/onboarding');
 });
 
 /** Dark screenshots at four widths for the review, only when E2E_SHOTS_DIR is set (by hand). */
