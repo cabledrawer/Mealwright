@@ -252,6 +252,9 @@ function startKeycloak() {
     firstName: first,
     lastName: 'Test',
     credentials: [{ type: 'password', value: password, temporary: false }],
+    // Imported users don't get the realm's default roles, so give them offline_access: Mealwright
+    // asks for it when the server lists it (to keep checking the account while no one signs in).
+    realmRoles: ['offline_access'],
     groups,
   });
   const realm = {

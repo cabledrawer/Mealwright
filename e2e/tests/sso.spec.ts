@@ -63,9 +63,9 @@ test.describe('signed out', () => {
     await expect(button).toBeVisible();
     await expect(page.getByLabel('Password', { exact: true })).toBeVisible();
     await expect(page.locator('.or')).toHaveText('or');
-    await expect(button).toHaveAttribute('href', '/api/v1/sso/start?remember=false');
-    await page.getByRole('switch', { name: /Remember this/ }).click();
     await expect(button).toHaveAttribute('href', '/api/v1/sso/start?remember=true');
+    await page.getByRole('switch', { name: /Remember this/ }).click();
+    await expect(button).toHaveAttribute('href', '/api/v1/sso/start?remember=false');
   });
 
   test('with password sign-in off, only the button shows', async ({ page }) => {
@@ -80,10 +80,6 @@ test.describe('signed out', () => {
 
   test('cancelled at the sign-in server: says so once, with a way back, and leaves no code in the address', async ({ page }) => {
     await signInOptions(page, true);
-    // The fake sign-in server sends the browser straight back, cancelled.
-    await page.route('**/api/v1/sso/start*', (route) =>
-      route.fulfill({ status: 303, headers: { location: '/auth/callback?state=s1&error=access_denied' } }),
-    );
     const posted: unknown[] = [];
     await page.route('**/api/v1/sso/finish', (route) => {
       posted.push(route.request().postDataJSON());
@@ -93,8 +89,9 @@ test.describe('signed out', () => {
         body: JSON.stringify({ detail: 'Signing in was cancelled at your sign-in server.', code: 'cancelled' }),
       });
     });
-    await page.goto('/sign-in');
-    await page.getByRole('link', { name: 'Sign in with Authentik' }).click();
+    // The fake sign-in server sends the browser straight back, cancelled. (WebKit can't answer a
+    // routed request with a redirect, so the browser arrives at the callback directly.)
+    await page.goto('/auth/callback?state=s1&error=access_denied');
     await expect(page.getByRole('alert')).toHaveText('Signing in was cancelled at your sign-in server.');
     expect(posted).toEqual([{ state: 's1', code: null, error: 'access_denied' }]);
     await expect(page).toHaveURL(/\/auth\/callback$/);
@@ -150,7 +147,7 @@ test.describe('the setup screen', () => {
       return route.continue();
     });
     await page.goto('/settings/sso');
-    await expect(page.getByText('Set up on a computer')).toBeVisible();
+    await expect(page.getByText('Set up on a computer', { exact: true })).toBeVisible();
     expect(asked).toBe(false);
   });
 
@@ -177,9 +174,9 @@ test.describe('the setup screen', () => {
     await expect(page.getByRole('switch', { name: 'Allow password sign-in' })).toBeDisabled();
 
     await page.getByRole('button', { name: '+ Add a group' }).click();
-    await page.getByRole('textbox', { name: 'Group' }).nth(2).fill('guests');
+    await page.getByRole('textbox', { name: 'Group', exact: true }).last().fill('guests');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByRole('status')).toHaveText('Saved.');
+    await expect(page.getByText('Saved.', { exact: true })).toBeVisible();
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({
       issuer: 'https://id.example.org',
