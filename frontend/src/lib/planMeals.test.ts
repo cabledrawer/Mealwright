@@ -442,6 +442,13 @@ describe('what is eaten at a meal after a session’s Cooked it (F233)', () => {
     expect(eatenItems(meal(items), plan).map((i) => i.id)).toEqual([7]);
   });
 
+  it('the Plan’s "N things" counts only what is eaten there, with the server’s kcal', () => {
+    const items = [tub(), cooked(recipe(1, 'Paneer')), cooked(recipe(2, 'Dal'))];
+    const plan = planOf([batchOf(1, 5), batchOf(2, 5)]);
+    expect(mealTotals(meal(items, 400), plan)).toBe('1 thing · 400 kcal each');
+    expect(mealTotals(meal(items, 1600))).toBe('3 things · 1600 kcal each'); // no plan: as before
+  });
+
   it('keeps them before Cooked it', () => {
     const items = [tub(), recipe(1, 'Paneer'), recipe(2, 'Dal')];
     const plan = planOf([batchOf(1, 5), batchOf(2, 5)]);

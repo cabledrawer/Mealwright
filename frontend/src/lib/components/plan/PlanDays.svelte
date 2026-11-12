@@ -77,7 +77,7 @@
                   >
                   {#if batchLine(meal)}<span class="totals">{batchLine(meal)}</span>{/if}
                   {#if meal.items.length > 1 || meal.kcal !== null}
-                    <span class="totals">{mealTotals(meal)}</span>
+                    <span class="totals">{mealTotals(meal, model.plan)}</span>
                   {/if}
                 </span>
                 {#if sessionTagOfMeal(model.plan, meal)}

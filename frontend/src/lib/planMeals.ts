@@ -57,9 +57,11 @@ export function recipeMeta(item: PlanItem): string {
 }
 
 /** "2 recipes · 590 kcal each", "1 ingredient", "3 things · 80 kcal each". Proposed, for cabledrawer. */
-export function mealTotals(meal: PlanMeal): string {
-  const n = meal.items.length;
-  const all = (kind: PlanItem['kind']) => meal.items.every((i) => i.kind === kind);
+export function mealTotals(meal: PlanMeal, plan: Plan | null = null): string {
+  // Only what is eaten at the meal counts (F233, Plan; proposed, for cabledrawer), as on Today.
+  const items = eatenItems(meal, plan);
+  const n = items.length;
+  const all = (kind: PlanItem['kind']) => items.every((i) => i.kind === kind);
   const noun = all('recipe')
     ? n === 1
       ? 'recipe'

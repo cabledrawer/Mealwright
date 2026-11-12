@@ -150,7 +150,8 @@
             carry: can ? () => actions.carryMeal(meal) : null,
             open: () => actions.openMeal(meal)
           }}
-          aria-label="{mealTotals(meal)}, {where}. Open menu">{mealTotals(meal)}</button
+          aria-label="{mealTotals(meal, model.plan)}, {where}. Open menu"
+          >{mealTotals(meal, model.plan)}</button
         >
         <button
           type="button"
