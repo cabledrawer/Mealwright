@@ -12,7 +12,7 @@ read without Mealwright or brought into another program. (Spec section 7, "Expor
 - Left out on purpose (cabledrawer 12 Nov): sign-ins (the `session` table, and the
   `join_link` table of sign-in links made for people), passwords (`login.password_hash`),
   API tokens (the `api_token` table; only an admin at the screen makes them, so make them
-  again) the single sign-on client secret (sealed with `secret.key`; type it again on a
+  again), the single sign-on client secret (sealed with `secret.key`; type it again on a
   new server) and `login.sso_refused_at` (this server's own mark of a refused login; proposed,
   for cabledrawer), and the `former_name` table (old names kept for 15 days so Report a problem
   can remove them; proposed, for cabledrawer). Whoever restores from an export sets passwords
