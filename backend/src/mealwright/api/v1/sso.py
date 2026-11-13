@@ -269,6 +269,20 @@ def _refused(failure: sso.SsoFailed) -> Problem:
     return Problem(status.HTTP_400_BAD_REQUEST, failure.code, failure.message)
 
 
+def _still_testing(request: Request, db: Db, household_id: int, login_id: int | None) -> bool:
+    """Whether the admin who started a test is still signed in here as an admin of that
+    household. A test that comes back after Delete everything (which signs everyone out)
+    leaves nothing in memory under a household number the next setup reuses (v0.9.0 release
+    security pass, review of the L2 fix)."""
+    signed_in = find_session(db, session_token(request))
+    return (
+        signed_in is not None
+        and signed_in.login.id == login_id
+        and signed_in.login.role == ADMIN
+        and signed_in.login.household_id == household_id
+    )
+
+
 def _tested(
     request: Request, household_id: int, result: TestResult, waiting: WaitingLink | None = None
 ) -> FinishOut:
@@ -353,7 +367,7 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
             except sso.SsoFailed as second:
                 failure = second
         log.warning("Single sign-on refused (%s) from %s", failure.code, client_address(request))
-        if flow.mode == "test":
+        if flow.mode == "test" and _still_testing(request, db, flow.household_id, flow.login_id):
             _tested(
                 request,
                 flow.household_id,
