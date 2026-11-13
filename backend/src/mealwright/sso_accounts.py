@@ -450,6 +450,103 @@ def kept_warning(db: DbSession, data_dir: Path | None, household_id: int) -> str
     return f"{sentence}, or {ending}." if ending else f"{sentence}."
 
 
+def _prepare(
+    factory: sessionmaker[DbSession], data_dir: Path, session_id: int, at: datetime
+) -> tuple[Client, str] | None:
+    """What to ask the sign-in server for one due sign-in, or None when there is nothing to ask.
+    Its own short transaction, ended before the question goes out."""
+    with factory() as db:
+        session = db.get(Session, session_id)
+        if session is None or not db.scalar(
+            select(Session.id).where(_due(at), Session.id == session_id)
+        ):
+            return None
+        row = settings_row(db, session.household_id)
+        if row is None or not usable(row):
+            session.sso_check_at = None  # nothing to ask any more
+            db.commit()
+            return None
+        owner = db.get(Login, session.login_id)
+        if owner is None or owner.sso_issuer != row.issuer:
+            # Signed in at another sign-in server than the saved one (the admin moved to
+            # a new one): its token isn't this server's to be asked about (O1 review r3,
+            # L5). Not asked, not ended, and so no API token is stopped by it.
+            session.sso_refresh_sealed = None
+            session.sso_check_at = None
+            db.commit()
+            return None
+        try:
+            setup = client(row, data_dir)
+            token = open_sealed(data_dir, str(session.sso_refresh_sealed))
+        except SsoFailed, SecretUnreadable:
+            session.sso_check_at = at + sso.RETRY_AFTER
+            db.commit()
+            return None
+        return setup, token
+
+
+def _apply(
+    factory: sessionmaker[DbSession],
+    data_dir: Path,
+    session_id: int,
+    at: datetime,
+    result: sso.Refreshed,
+    new: str | None,
+) -> bool:
+    """Write what the sign-in server answered for one sign-in, and commit it. True when that
+    sign-in ended."""
+    with factory() as db:
+        session = db.get(Session, session_id)
+        if session is None:
+            return False  # signed out meanwhile
+        row = settings_row(db, session.household_id)
+        owner = db.get(Login, session.login_id)
+        if row is None or owner is None:
+            return False
+        keep = _hourly_keeps(db, owner, row, data_dir) if result == "ended" else None
+        ended = False
+        if keep is not None:
+            # Nobody else can get in and they have no password that works (passwords are
+            # off, or they have none): ending this sign-in would leave only reset-admin.
+            # Its tokens stop, the sign-in stays, a warning is left (cabledrawer 12 Nov;
+            # proposed, for cabledrawer), and it is asked again later.
+            api_tokens.stop_for(db, session.login_id)
+            api_tokens.mark_refused(db, owner)
+            session.sso_check_at = at + sso.RETRY_AFTER
+            _kept[session.household_id] = (owner.id, owner.name, keep)
+            log.info(
+                "Single sign-on: the only admin's sign-in kept (login %d); the sign-in "
+                "server no longer accepts it; its API tokens stopped",
+                owner.id,
+            )
+        elif result == "ended":
+            # The tokens of an admin signed out there stop, even if they are signed in
+            # somewhere else too (safest; proposed, for cabledrawer). The log says so, by the
+            # login's number only, never a name (O2 review r2, finding 3).
+            api_tokens.stop_for(db, session.login_id)
+            db.delete(session)
+            ended = True
+            log.info(
+                "Single sign-on: login %d signed out, as the sign-in server ended the "
+                "sign-in; its API tokens stopped",
+                session.login_id,
+            )
+        elif result == "ok":
+            # A working refresh doesn't end the mark (groups aren't asked on a refresh), so
+            # the warning stays with it (fix13 review; proposed, for cabledrawer).
+            if owner.sso_refused_at is None and (
+                _kept.get(session.household_id, (0, ""))[0] == owner.id
+            ):
+                del _kept[session.household_id]
+            if new:
+                session.sso_refresh_sealed = seal(data_dir, new)
+            session.sso_check_at = at + sso.CHECK_EVERY
+        else:
+            session.sso_check_at = at + sso.RETRY_AFTER
+        db.commit()
+        return ended
+
+
 def check_sessions(
     gate: OutboundGate,
     factory: sessionmaker[DbSession],
@@ -462,68 +559,18 @@ def check_sessions(
     ended_ids: list[int] = []
     at = now()
     with factory() as db:
-        due = db.scalars(select(Session).where(_due(at)).limit(200)).all()
-        for session in due:
-            row = settings_row(db, session.household_id)
-            if row is None or not usable(row):
-                session.sso_check_at = None  # nothing to ask any more
-                continue
-            owner = db.get(Login, session.login_id)
-            if owner is None or owner.sso_issuer != row.issuer:
-                # Signed in at another sign-in server than the saved one (the admin moved to
-                # a new one): its token isn't this server's to be asked about (O1 review r3,
-                # L5). Not asked, not ended, and so no API token is stopped by it.
-                session.sso_refresh_sealed = None
-                session.sso_check_at = None
-                continue
-            try:
-                setup = client(row, data_dir)
-                token = open_sealed(data_dir, str(session.sso_refresh_sealed))
-            except SsoFailed, SecretUnreadable:
-                session.sso_check_at = at + sso.RETRY_AFTER
-                continue
-            result, new = sso.refresh(gate, setup, token)
-            keep = _hourly_keeps(db, owner, row, data_dir) if result == "ended" else None
-            if keep is not None:
-                # Nobody else can get in and they have no password that works (passwords are
-                # off, or they have none): ending this sign-in would leave only reset-admin.
-                # Its tokens stop, the sign-in stays, a warning is left (cabledrawer 12 Nov;
-                # proposed, for cabledrawer), and it is asked again later.
-                api_tokens.stop_for(db, session.login_id)
-                api_tokens.mark_refused(db, owner)
-                session.sso_check_at = at + sso.RETRY_AFTER
-                _kept[session.household_id] = (owner.id, owner.name, keep)
-                log.info(
-                    "Single sign-on: the only admin's sign-in kept (login %d); the sign-in "
-                    "server no longer accepts it; its API tokens stopped",
-                    owner.id,
-                )
-            elif result == "ended":
-                # The tokens of an admin signed out there stop, even if they are signed in
-                # somewhere else too (safest; proposed, for cabledrawer). The log says so, by the
-                # login's number only, never a name (O2 review r2, finding 3).
-                api_tokens.stop_for(db, session.login_id)
-                ended_ids.append(session.id)
-                db.delete(session)
-                ended += 1
-                log.info(
-                    "Single sign-on: login %d signed out, as the sign-in server ended the "
-                    "sign-in; its API tokens stopped",
-                    session.login_id,
-                )
-            elif result == "ok":
-                # A working refresh doesn't end the mark (groups aren't asked on a refresh), so
-                # the warning stays with it (fix13 review; proposed, for cabledrawer).
-                if owner.sso_refused_at is None and (
-                    _kept.get(session.household_id, (0, ""))[0] == owner.id
-                ):
-                    del _kept[session.household_id]
-                if new:
-                    session.sso_refresh_sealed = seal(data_dir, new)
-                session.sso_check_at = at + sso.CHECK_EVERY
-            else:
-                session.sso_check_at = at + sso.RETRY_AFTER
-        db.commit()
+        due_ids = list(db.scalars(select(Session.id).where(_due(at)).limit(200)))
+    # One sign-in at a time, and no database transaction open while the sign-in server is asked
+    # (a slow server must not make other saves wait; a stop half-way keeps what was learnt:
+    # whole-0.9 review, S1 and S2).
+    for session_id in due_ids:
+        asked = _prepare(factory, data_dir, session_id, at)
+        if asked is None:
+            continue
+        result, new = sso.refresh(gate, *asked)
+        if _apply(factory, data_dir, session_id, at, result, new):
+            ended_ids.append(session_id)
+            ended += 1
     for session_id in ended_ids:
         events.end_session(session_id)
     return ended
