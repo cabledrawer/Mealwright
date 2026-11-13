@@ -52,7 +52,7 @@ has none of the app's outbound switches on, and the results stay in this file.
   ```
   (Run it on the PC, in the container with `docker exec mw-perf python -c ...`, and on the Pi.)
 - **Phone:** Chromium (Playwright's) at 428 x 926, touch, device scale 2; CDP CPU throttling rate 4;
-  network as used here: latency 562.5 ms, download 1.6 Mbit/s x 0.9 (180000 bytes/s), upload
+  network as used here (proposed, for cabledrawer; not checked against Chrome's current preset): latency 562.5 ms, download 1.6 Mbit/s x 0.9 (180000 bytes/s), upload
   750 kbit/s x 0.9 (84375 bytes/s). These are the numbers I put in for "slow 4G"; I did not check them
   against the current Chrome preset. (The older `slow-phone.spec.ts` test uses 300 ms and 400 kbit/s.)
 - **Desktop:** Chromium at 1440 x 900, no throttling, against the same slowed server over loopback.
@@ -158,8 +158,8 @@ Facts from the tables above, not a to-do list.
    browser while other calls ran; the direct call takes 270 to 290 ms). **Today's** `/today` call is the next
    slowest alone (about 200 ms), then the shopping list (120 ms).
 4. **Shopping list first load is 2.7 s on the desktop** with the slowest wait on `/shopping/changes` (1.7 s).
-5. **Sign in takes 2.3 to 2.8 s on the desktop** (8.2 s on the phone); the `/session` call waited up to 0.9 s.
-6. **A plan page makes about ten calls on its first load** (`/setup`, `/me`, `/household`, `/recipes/drafts`,
+5. **Sign in takes 2.8 s on the desktop (median; slowest 2.8 s)** (8.2 s on the phone); the `/session` call waited up to 0.9 s.
+6. **A plan page makes many calls on its first load** (at least `/setup`, `/me`, `/household`, `/recipes/drafts`,
    `/recipes/tags`, `/recipes`, `/meal-slots`, `/plan` ...); on the phone each waits at least the 562 ms delay.
 7. **Recipe search on the phone shows its result in 1.3 s** (desktop 0.28 s); adding to the plan 1.3 s; saving a stocktake place 2.0 s.
 8. **Quick:** ticking a line shows at once (32 ms desktop, 53 ms phone) and the server calls on the other pages

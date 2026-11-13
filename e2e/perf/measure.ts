@@ -33,8 +33,8 @@ const state = JSON.parse(readFileSync(values.state!, 'utf8')) as {
 };
 const BASE = state.base;
 
-/** The two profiles. Phone: 428 px wide, CPU 4x slower and Chrome's "Slow 4G" network (the
- *  DevTools preset: 1.6 Mbit/s down x 0.9, 750 kbit/s up x 0.9, 562.5 ms added delay). */
+/** The two profiles. Phone: 428 px wide, CPU 4x slower and Chrome's "Slow 4G" network, as used here
+ *  (not checked against the current DevTools preset): 1.6 Mbit/s down x 0.9, 750 kbit/s up x 0.9, 562.5 ms added delay). */
 const PROFILES = {
   phone: {
     context: { viewport: { width: 428, height: 926 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
