@@ -18,7 +18,8 @@ permissions:
 
 concurrency:
   group: check-${{ github.ref }}
-  cancel-in-progress: true
+  # A newer push to a pull request stops the older run; runs on main always finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -32,7 +33,7 @@ jobs:
           # ./check compares with origin/main to decide whether the scanners run.
           fetch-depth: 0
           persist-credentials: false
-      - uses: astral-sh/setup-uv@v5  # TODO(cabledrawer): pin SHA
+      - uses: astral-sh/setup-uv@v5.4.2  # TODO(cabledrawer): pin SHA (version from memory: check it exists)
       - uses: actions/setup-node@v4.1.0  # TODO(cabledrawer): pin SHA
         with:
           node-version: 24

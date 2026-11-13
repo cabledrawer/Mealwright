@@ -69,10 +69,13 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
-            VERSION=${{ github.ref_name }}
+            # 1.2.3, without the tag's "v" (the image's version label).
+            VERSION=${{ steps.meta.outputs.version }}
             REVISION=${{ github.sha }}
 
   github-release:
+    # Only once both images are pushed: a failed build makes no release.
+    needs: image
     if: github.server_url == 'https://github.com'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
