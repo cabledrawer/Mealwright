@@ -72,6 +72,7 @@ def test_everyone_sees_the_people_and_only_an_admin_can_change_them(kitchen: Tes
         "role": "admin",
         "shared": False,
         "has_password": True,
+        "signs_in": True,
         "link_pending": False,
     }
     assert me["portion_quarters"] == 4
@@ -395,6 +396,7 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
         "role": "member",
         "shared": False,
         "has_password": False,
+        "signs_in": False,
         "link_pending": True,
     }
     note = _newest(kitchen)
