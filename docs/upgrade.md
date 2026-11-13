@@ -1,0 +1,85 @@
+# Upgrading Mealwright
+
+Upgrading means: back up, change the version in your compose file, pull the new image, restart. Mealwright updates its own database when it starts. This page also says how to go back.
+
+Below, `<folder>` is the folder holding `compose.yaml` and the `data` folder (the data folder is `/data` inside the container).
+
+## Before you start
+
+1. **Read the CHANGELOG** for the version you are moving to (`CHANGELOG.md` in the project). It says what changed and whether anything needs your attention.
+2. **Back up first.** See [backups.md](backups.md). The short way: stop Mealwright and copy the whole data folder, photos included.
+
+   ```bash
+   cd <folder>
+   docker compose stop mealwright
+   sudo tar -C <folder> --exclude=data/logs -czf "<another disk>/mealwright-data-$(date +%Y%m%d-%H%M).tar.gz" data
+   ```
+
+   `<another disk>` is where the copy goes. Name the file after your current version too, so you know which version it belongs to.
+
+   **Why stop it first:** while Mealwright runs, the database keeps recent changes in a second file beside it (`mealwright.db-wal`). A copy of a running data folder can miss them.
+
+## Upgrade
+
+1. Change the `image:` line in `compose.yaml` to the new version. Always use an exact version, never `latest`:
+
+   ```yaml
+   image: <registry>/<owner>/mealwright:<new version>
+   ```
+
+   `<registry>/<owner>` is where you get the image: GHCR (`ghcr.io/<owner>/mealwright`) or Docker Hub (`docker.io/<owner>/mealwright`). Both carry the same versions.
+
+   TODO(cabledrawer): the real image names are not known until 1.0.0. Fill them in here and in `compose.example.yaml` then.
+
+2. Pull the new image and start it:
+
+   ```bash
+   cd <folder>
+   docker compose pull
+   docker compose up -d
+   docker compose logs -f
+   ```
+
+3. Check it. Open Settings → About: it shows the version. The address `/api/v1/version` on your Mealwright also answers with the version, for tools that watch for updates.
+
+## What happens when it starts
+
+- **Mealwright upgrades its own database.** On every start it applies any database changes the new version needs. You do nothing.
+- **It makes a safety copy first.** Before it changes the database, it copies it to `data/backups/pre-upgrade-<revision>-<date>-<time>.db` (the date and time in UTC). Once the upgrade has worked, it keeps the newest three of these. A new install, or a start with nothing to upgrade, makes no copy.
+- **If the copy can't be made** (a full disk, a folder it can't write), Mealwright doesn't upgrade and doesn't start. The log says why. Fix that, then start it again.
+- **If the upgrade itself fails,** Mealwright doesn't start. The log says "Database upgrade failed. Your data from before is safe in …" and names the clean copy. The file `data/backups/upgrade-failed` also names it. While an upgrade keeps failing, no new copy is made and none is deleted, so the clean one stays safe.
+- **The safety copy holds only the database,** not the photos. That is why you back up the whole data folder yourself as well.
+- **Mealwright runs as one worker.** An upgrade doesn't change that. See [install.md](install.md).
+
+## Going back
+
+An older version can't read a database a newer version has changed, and Mealwright has no downgrade command. Going back means putting back the backup you took before upgrading, **together with the old image**. Anything you changed after upgrading is lost.
+
+1. Stop it:
+
+   ```bash
+   cd <folder>
+   docker compose stop mealwright
+   ```
+
+2. Keep the new data aside, then put the backup back (use the file you made before upgrading):
+
+   ```bash
+   sudo mv data "data-after-upgrade-$(date +%Y%m%d-%H%M)"
+   sudo tar -C <folder> -xzf "<another disk>/mealwright-data-<date>.tar.gz"
+   sudo chown -R 10001:10001 data
+   ```
+
+3. Set the `image:` line in `compose.yaml` back to the **old** version, then start it:
+
+   ```bash
+   docker compose pull
+   docker compose up -d
+   docker compose logs -f
+   ```
+
+**If you have no backup of the whole folder,** Mealwright's own copies hold the database only. Follow [restore.md](restore.md): it says how to put one of the `pre-upgrade-…` or `backup-…` files in place. The photos stay where they are. Then set the old version in `compose.yaml` as above.
+
+**If the upgrade failed and Mealwright won't start,** the data is still the old version's, with a clean copy beside it. Set the old version in `compose.yaml` and start it. If it still won't start, use the copy the log names, as in [restore.md](restore.md).
+
+TODO(cabledrawer): check this last paragraph. The code says a failed upgrade can leave an SQLite database half-upgraded (`backend/src/mealwright/migrate.py`, comment on `PART_NAME`), so the safe way back may always be the clean copy, not the data as it stands.
