@@ -6,12 +6,12 @@ One zip file with everything a household keeps:
   read in one database snapshot, so it is consistent even while people keep using Mealwright.
 - `photos/<name>.jpg`: the household's recipe photo files, as stored (large and list copies).
 
-Some things are left out on purpose (cabledrawer 12 Nov; API tokens and the secret proposed, for
-cabledrawer), and the document says so in `left_out`: the `session` table (who is signed in where: a
-stolen copy must never sign anyone in), the `join_link` table (sign-in links made for people,
-0.9 A1), `login.password_hash` (a copy of the file must not let anyone try passwords offline),
-the `api_token` table (0.9 O2) and `sso_settings.client_secret_sealed` (the single sign-on
-client secret; the admin types it again), and (cabledrawer 13 Nov) `login.sso_refused_at` and the
+Some things are left out on purpose (cabledrawer 12 Nov; API tokens and the secret cabledrawer 13 Nov),
+and the document says so in `left_out`: the `session` table (who is signed in where: a stolen
+copy must never sign anyone in), the `join_link` table (sign-in links made for people, 0.9 A1),
+`login.password_hash` (a copy of the file must not let anyone try passwords offline), the
+`api_token` table (0.9 O2) and `sso_settings.client_secret_sealed` (the single sign-on client
+secret; the admin types it again), and (cabledrawer 13 Nov) `login.sso_refused_at` and the
 `former_name` table.
 
 The zip is written as it is sent (streamed), never kept on the server. Nothing here makes a
@@ -47,15 +47,15 @@ PHOTOS = "photos/"
 LEFT_OUT_TABLES = {
     "session": "who is signed in where (sign-in cookies)",
     "join_link": "sign-in links made for people",
-    # O2 review r1, finding 2 (proposed, for cabledrawer): only a token's SHA-256 is kept, but that
+    # O2 review r1, finding 2 (cabledrawer 13 Nov): only a token's SHA-256 is kept, but that
     # is all it takes to tell a made-up token from a real one, so it doesn't leave either.
     "api_token": "API tokens, which only an admin at the screen makes",  # nosec B105 (words)
     "former_name": "old names kept for 15 days so Report a problem can remove them",
 }
 LEFT_OUT_COLUMNS = {
     ("login", "password_hash"): "passwords, even scrambled",
-    # The admin types the client secret again if an export is ever put back (proposed, for
-    # cabledrawer; the rest of the single sign-on setup is exported).
+    # The admin types the client secret again if an export is ever put back (cabledrawer
+    # 13 Nov; the rest of the single sign-on setup is exported).
     ("sso_settings", "client_secret_sealed"): "the single sign-on client secret",
     # This server's own sign-in state, not the household's data: without it an admin put back
     # from an export isn't blocked from making API tokens (O2 fix13; cabledrawer 13 Nov).

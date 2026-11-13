@@ -190,7 +190,7 @@ def test_only_photo_files_are_taken(tmp_path: Path) -> None:
 
 
 def test_no_token_and_no_single_sign_on_secret_ever_leaves(kitchen: TestClient) -> None:
-    """O2 review r1, finding 2 (proposed, for cabledrawer): the export leaves out API tokens (their
+    """O2 review r1, finding 2 (cabledrawer 13 Nov): the export leaves out API tokens (their
     SHA-256 is as good as the token to anyone who could guess its form) and the single sign-on
     client secret (the admin types it again if this is ever put back)."""
     from mealwright import api_tokens
