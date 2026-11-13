@@ -412,9 +412,11 @@ def test_move_it_undo_removes_the_meal_it_made(
 
 
 def test_move_it_takes_a_tub_with_it(
-    kitchen: TestClient, yesterday: dict[str, Any], slots: dict[str, int]
+    kitchen: TestClient, sambar: int, slots: dict[str, int]
 ) -> None:
-    meal = yesterday["meal_id"]
+    # Cooked three days ago: the tub can then sit at a meal two days ago (after the cooking, F230)
+    # and that meal is long past, so it can be moved at any hour.
+    meal = plan_recipe(kitchen, sambar, ago(kitchen, 3), slots["Dinner"])["meal_id"]
     answer(kitchen, meal, "cooked", {"leftovers": {"count": 1}})  # a tub exists (and meal locked)
     tub_id = tubs_left(kitchen)[0]["id"]
     other = plan_recipe(kitchen, new_recipe(kitchen, "Dosa"), ago(kitchen, 2), slots["Lunch"])
