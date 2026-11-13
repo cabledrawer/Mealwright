@@ -451,7 +451,7 @@
           oneaton={(tub) => (eatingTub = tub)}
         />
       {/if}
-      {#if pantry.counts.items === 0}
+      {#if pantry.counts.items === 0 && pantry.counts.tubs === 0}
         <div class="card first">
           <h2>Nothing in the pantry yet</h2>
           <p class="hint">Add what’s in your fridge and cupboards, and Mealwright keeps count.</p>

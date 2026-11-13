@@ -10,6 +10,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Fixed
 
+- On a phone, a Pantry that holds only leftover tubs shows them in their place instead of "Nothing in the pantry yet" (found while taking the 0.9 screenshots).
 - A person made at first single sign-on sign-in with a long name is cut at 100 characters like any other name (never in the middle of a flag), and when "Name (username)" is taken too, a number is added: "Name (username) 2".
 - "Delete everything" forgets the wrong-password counts of the deleted household's people only; the counts of another household on the same install stay.
 - The hourly sign-in check ignores an answer from the sign-in server when the single sign-on settings (the issuer or the client) were changed while the server was being asked, so an answer meant for the old setup can no longer sign people out, stop their API tokens or seal a new token for it.

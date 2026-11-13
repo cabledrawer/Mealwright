@@ -345,6 +345,32 @@ describe('the Pantry page', () => {
     );
   });
 
+  it('phone: a pantry holding only leftover tubs shows them, not "Nothing in the pantry yet"', async () => {
+    // After a batch cook's Cooked it, the Fridge may hold only tubs (F230): the computer showed
+    // them, the phone said the pantry was empty.
+    const tub = {
+      batch_id: 5,
+      tub_id: 51,
+      recipe_name: 'Sambar',
+      colour: null,
+      tubs: 2,
+      words: '2 tubs',
+      use_by: '2026-10-19',
+      days_left: 2,
+      use_soon: false
+    };
+    sample.pantry.counts = { items: 0, tubs: 2, use_soon: 0, running_low: 0 };
+    sample.pantry.places = sample.pantry.places.map((place) =>
+      place.name === 'Fridge'
+        ? { ...place, items: 0, groups: [], tubs: [tub] }
+        : { ...place, items: 0, groups: [], tubs: [] }
+    );
+    await render(390);
+    await expect.element(page.getByRole('heading', { name: 'Fridge', level: 2 })).toBeVisible();
+    await expect.element(page.getByText('Sambar')).toBeVisible();
+    expect(document.body.textContent).not.toContain('Nothing in the pantry yet');
+  });
+
   it('phone: there are no place tabs; every place has a card or a folded line, and every non-empty place a chip', async () => {
     // Two more places, as a household can add: one with an ingredient, one empty.
     const cupboard = sample.pantry.places.find((p) => p.name === 'Cupboard')!;
