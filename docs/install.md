@@ -2,6 +2,21 @@
 
 Mealwright is meant to sit behind your own reverse proxy, which provides HTTPS. This page says why, what to set, and where the short, tested examples are.
 
+## Get it running
+
+1. Make a folder, and copy `compose.example.yaml` into it as `compose.yaml`.
+2. In `compose.yaml`, set the `image:` line to an exact version: `<registry>/<owner>/mealwright:<version>`. The image is on GHCR (`ghcr.io/<owner>/mealwright`) and Docker Hub (`docker.io/<owner>/mealwright`), with the same versions on both. TODO(cabledrawer): the real image names are not known until 1.0.0.
+3. Make the data folder, owned by the user Mealwright runs as (UID 10001):
+
+   ```bash
+   sudo mkdir -p ./data && sudo chown 10001:10001 ./data
+   ```
+
+4. Start it: `docker compose up -d`.
+5. Put your reverse proxy in front (below), open Mealwright at its `https://` address, and make the first account. The first time it starts, it prints a setup code in its log (`docker compose logs mealwright`, look for "setup code"). The first-run page asks for it.
+
+Next: [upgrade.md](upgrade.md) for updates, [backups.md](backups.md) for backing up, [environment.md](environment.md) for every setting.
+
 ## Why HTTPS is needed
 
 A web page on a plain `http://` address (anything not `localhost`) can be read and changed by anyone on the network path. Browsers therefore switch off the features that matter most here:
@@ -35,6 +50,14 @@ Mealwright believes these only from the proxies you list in `MEALWRIGHT_TRUSTED_
 - **Too wide (`*`, or a range that includes machines other than your proxy):** anyone who can reach Mealwright directly can claim to be any address and dodge the sign-in slow-down. Keep it to the proxy. Don't publish Mealwright's own port (8080) on the network; let only the proxy reach it.
 
 The proxy must set `X-Forwarded-Host` itself, replacing any a visitor sent. Caddy and Traefik do. nginx and Nginx Proxy Manager need the line shown in their examples.
+
+## Run one worker only
+
+Mealwright must run as **one worker**: one server process, started the way the image does, with `python -m mealwright`. Don't start it with `--workers`, `--reload` or a process manager such as gunicorn that forks several workers, and don't set `WEB_CONCURRENCY` to anything but `1`.
+
+The live updates, the sign-in slow-down and the background jobs (backups and the rest) live in that one process's memory, and the database takes one writer. Mealwright can't see processes a server like gunicorn forks, and it keeps no lock file between them. So it refuses to start instead of half-working: the log says "Mealwright runs as one worker."
+
+If you use the image as it comes (see `compose.example.yaml`), you don't need to do anything.
 
 ## Examples
 

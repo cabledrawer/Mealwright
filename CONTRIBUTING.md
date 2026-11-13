@@ -71,4 +71,11 @@ You need:
 - Node.js 24 LTS
 - Docker, to build and run the image
 
-Setup steps will be added here as the backend and frontend land during 0.1.
+Run `./check` from the top of the project before every pull request. It runs the lint, type checks, tests, the outbound-gate test, the licence check and, when a library or the Dockerfile changed, the security scanners. It prints only failures; its summary is in `.check/summary.md`, and the whole run is in `.check/check.log`. `./check --fast` is a quicker run for while you work: it is not valid for a pull request.
+
+## In short
+
+- **Issues:** bugs go in issues, one problem each, with the Mealwright version and the steps to reproduce. Ideas go in Discussions.
+- **Licence:** Mealwright is AGPL-3.0, and by contributing you agree your change is under it.
+- **Sign-off:** every commit has `git commit -s`.
+- **Checks:** `./check` must pass, and its summary goes in the pull request.

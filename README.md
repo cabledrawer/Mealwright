@@ -8,6 +8,16 @@ Recipe → plan → shopping list → pantry → cook. Plan meals and batch cook
 
 Early development. Versions 0.x are not published: there is no public image or release yet. The first public release will be 1.0.0.
 
+## Guides
+
+- [Install, HTTPS and the reverse proxy](docs/install.md)
+- [Upgrade](docs/upgrade.md)
+- [Back up](docs/backups.md) and [restore](docs/restore.md)
+- [Single sign-on](docs/sso.md)
+- [Environment variables](docs/environment.md)
+- [The API](docs/api.md)
+- [Hardening](docs/hardening.md)
+
 ## Privacy
 
 Mealwright collects nothing. No telemetry, analytics or crash reporting, not even opt-in. It never asks for your location. It has no account with the developer and never phones home.
@@ -47,7 +57,7 @@ Run Mealwright behind your own reverse proxy (Caddy, Traefik, nginx, Nginx Proxy
 
 ## Single sign-on
 
-Mealwright can sign people in through your own sign-in server (Settings → Sign-in → Single sign-on, on a computer). Taking an admin out at your sign-in server doesn't stop their API tokens on its own: make them a Member or remove them in Settings → Household.
+Mealwright can sign people in through your own sign-in server (Settings → Sign-in → Single sign-on, on a computer; see [docs/sso.md](docs/sso.md)). Taking an admin out at your sign-in server doesn't stop their API tokens on its own: make them a Member or remove them in Settings → Household.
 
 **Removing someone (cabledrawer 12 Nov):** first make sure another admin can get in (a working password, or their own single sign-on), then remove them in Settings → Household. Disabling them only at the sign-in server isn't enough while they're the only admin: Mealwright keeps the only admin signed in so the household isn't locked out, and that admin keeps every admin power. They can't simply keep an API token that never stops, but they can still change the setup or give someone else an admin login. The real fix is at the sign-in server, or a second admin.
 
