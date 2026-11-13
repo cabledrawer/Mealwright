@@ -1,0 +1,76 @@
+"""Delete everything also empties what Mealwright keeps in memory about the old household."""
+
+# ruff: noqa: F811, F401
+from typing import Any, cast
+
+from conftest import ADMIN, SETUP_CODE
+from fake_idp import FakeProvider
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+from test_sso_api import API, admin, browser, fresh_cache, idp, sign_in
+
+from mealwright import sso_accounts
+from mealwright.auth import now
+from mealwright.models import Household
+from mealwright.updates import CheckResult
+
+
+def _delete(admin: TestClient) -> None:
+    gone = admin.post(
+        f"{API}/delete-everything",
+        json={"words": "delete everything", "password": ADMIN["password"]},
+    )
+    assert gone.status_code == 204, gone.text
+
+
+def test_delete_everything_forgets_the_last_single_sign_on_test_and_link_and_proof(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    answer, _ = sign_in(
+        admin,
+        idp,
+        path="/sso/test",
+        sub="tess-at-idp",
+        extra={
+            "preferred_username": "tess.old",
+            "name": "Tess Oldhousehold",
+            "email": "tess@oldhousehold.example",
+            "groups": ["mealwright-admins", "family-oldhousehold"],
+        },
+    )
+    assert answer.status_code == 200, answer.text
+    state = cast(Any, admin.app).state
+    state.sso_links[1] = object()
+    state.sso_proven[1] = "a fingerprint"
+    _delete(admin)
+    assert state.sso_tests == {}
+    assert state.sso_links == {}
+    assert state.sso_proven == {}
+    fresh = TestClient(admin.app, base_url="https://testserver")
+    new_admin = {
+        "name": "Someone New",
+        "username": "newperson",
+        "password": "a new long password",
+        "setup_code": SETUP_CODE,
+    }
+    assert fresh.post(f"{API}/setup", json=new_admin).status_code == 201
+    setup = fresh.get(f"{API}/sso/settings")
+    assert setup.status_code == 200, setup.text
+    assert setup.json()["test"] is None
+
+
+def test_delete_everything_forgets_the_kept_warning_the_update_answer_and_wrong_passwords(
+    admin: TestClient,
+) -> None:
+    app = cast(Any, admin.app)
+    with app.state.sessionmaker() as db:
+        household_id = db.scalar(select(Household.id))
+    sso_accounts._kept[household_id] = (1, "Tess", True)
+    app.state.updates._results[household_id] = CheckResult("failed", None, now())
+    wrong = ["user:somebody", "change:99", "dev:abc"]
+    for _ in range(6):
+        app.state.slow_down.failed(wrong)
+    _delete(admin)
+    assert sso_accounts._kept == {}
+    assert app.state.updates.last(household_id) is None
+    assert app.state.slow_down.wait_seconds(wrong) == 0, "paused still"

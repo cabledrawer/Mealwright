@@ -176,6 +176,12 @@ class UpdateChecks:
         with self._lock:
             return self._results.get(household_id)
 
+    def forget(self, household_id: int) -> None:
+        """Drop a deleted household's last answer (and its counters)."""
+        with self._lock:
+            self._results.pop(household_id, None)
+            self._answered.pop(household_id, None)
+
     def _keep(self, household_id: int, result: CheckResult) -> CheckResult:
         with self._lock:
             self._results[household_id] = result

@@ -20,7 +20,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine, delete, func, select
 
-from mealwright import backups, export, setup_code
+from mealwright import backups, export, setup_code, sso_accounts
 from mealwright.api.v1.context import Here
 from mealwright.api_tokens import not_for_tokens
 from mealwright.auth import (
@@ -220,6 +220,21 @@ def _remove_photos(folder: Path) -> None:
     )
 
 
+def _forget_in_memory(request: Request, household_id: int) -> None:
+    """Everything kept in memory about the deleted household goes too, so the next household
+    (which may get the same number) never sees it (whole-0.9 S3, D1). Left alone on purpose:
+    counts of wrong guesses by address, look-up and download counters (they only count what is
+    running now), the address look-up cache and the built report scrubber (it rebuilds when
+    a name table is written to)."""
+    state = request.app.state
+    state.sso_tests.pop(household_id, None)
+    state.sso_links.pop(household_id, None)
+    state.sso_proven.pop(household_id, None)
+    sso_accounts.forget_kept(household_id)
+    state.updates.forget(household_id)
+    state.slow_down.forget_people()
+
+
 @router.post("/delete-everything", status_code=status.HTTP_204_NO_CONTENT)
 def delete_everything(
     body: DeleteEverything, kitchen: Here, request: Request, response: Response
@@ -279,6 +294,7 @@ def delete_everything(
             request.app.state.setup_code = setup_code.new_code()
             setup_code.announce(request.app.state.setup_code)
         _remove_photos(photos)
+        _forget_in_memory(request, household_id)
     for session_id in sessions:  # open live-update streams end now
         request.app.state.events.end_session(session_id)
     _sign_out(request, response)

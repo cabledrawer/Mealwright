@@ -248,6 +248,14 @@ class SlowDown:
             while len(times) > self.KEEP:
                 times.popleft()
 
+    def forget_people(self) -> None:
+        """Drop every count kept for a username, a device or a password change (Delete
+        everything: they belong to the people who are gone). Counts by address stay: they say
+        who is guessing, not who lived here."""
+        with self._lock:
+            for key in [k for k in self._failures if k.startswith(("user:", "dev:", "change:"))]:
+                del self._failures[key]
+
     def failed(self, keys: list[str], at: float | None = None) -> None:
         at = time.monotonic() if at is None else at
         with self._lock:

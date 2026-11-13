@@ -424,6 +424,11 @@ def _due(at: datetime) -> ColumnElement[bool]:
 _kept: dict[int, tuple[int, str, bool]] = {}  # household: (login number, name, passwords off)
 
 
+def forget_kept(household_id: int) -> None:
+    """Drop the kept-sign-in warning of a household that was deleted."""
+    _kept.pop(household_id, None)
+
+
 def kept_warning(db: DbSession, data_dir: Path | None, household_id: int) -> str | None:
     """The sentence Settings shows an admin while it applies: the sign-in server no longer
     accepts the only admin who can get in, and Mealwright kept their sign-in. Gone once a

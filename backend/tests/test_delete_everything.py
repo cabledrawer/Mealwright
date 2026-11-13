@@ -229,7 +229,8 @@ def test_a_try_is_counted_before_its_password_is_hashed(
     # A right password takes its try back.
     assert kitchen.post(API, json=RIGHT).status_code == 204
     assert counted_at_the_hash == [1, 2]
-    assert sum(len(times) for times in slow._failures.values()) == 1
+    # And the wrong try before it, counted for a person who is now gone, goes with them.
+    assert sum(len(times) for times in slow._failures.values()) == 0
 
 
 def test_a_member_cannot_even_with_the_admins_password(member: TestClient) -> None:
