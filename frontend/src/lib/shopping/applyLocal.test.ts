@@ -412,6 +412,22 @@ describe('applyLocal: untick joins the line back (L1c Sh7)', () => {
     expect(row(applyLocal(two, [untick], me), 'i-bought')!.merged_into_id).toBeNull();
   });
 
+  it('two plan-made lines nobody edited join without becoming hand-edited (L2)', () => {
+    const copy = boughtYoghurt();
+    row(copy, 'i-yoghurt')!.source = 'plan';
+    row(copy, 'i-bought')!.source = 'plan';
+    expect(row(applyLocal(copy, [untick], me), 'i-yoghurt')).toMatchObject({
+      amount: 700,
+      hand_edited: false
+    });
+  });
+
+  it('a typed line joining a plan-made line still makes it hand-edited (L-5)', () => {
+    const copy = boughtYoghurt();
+    row(copy, 'i-yoghurt')!.source = 'plan';
+    expect(row(applyLocal(copy, [untick], me), 'i-yoghurt')).toMatchObject({ hand_edited: true });
+  });
+
   it('does not join a line with an amount when its purchase put nothing in the pantry', () => {
     // A staple (or a counted-another-way ingredient): the tick has no bought amount.
     const copy = boughtYoghurt();

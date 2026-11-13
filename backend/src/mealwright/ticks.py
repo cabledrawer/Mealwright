@@ -341,8 +341,12 @@ def _join_back(act: Act, item: ListItem, tick: ListTick) -> None:
                 line.amount_milli = checked(line.amount_milli + item.amount_milli)
             except TooBig:
                 return
-    if line.source == "plan":
-        line.hand_edited = True  # typing beside a plan-made line is a hand edit (rule L-5)
+    if line.source == "plan" and not (
+        item.source == "plan" and not item.hand_edited and not line.hand_edited
+    ):
+        # Typing beside a plan-made line is a hand edit (rule L-5); two plan-made lines nobody
+        # edited just join, and the plan goes on setting the one line (L2).
+        line.hand_edited = True
     line.version = act.seq
     item.merged_into_id = line.id
     item.version = act.seq

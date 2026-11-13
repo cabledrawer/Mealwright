@@ -249,7 +249,10 @@ export function applyLocal(
     if (item.amount !== null) {
       if (line.amount === null) line.size_id = item.size_id;
       line.amount = (line.amount ?? 0) + item.amount;
-      if (line.source === 'plan') line.hand_edited = true;
+      // Two plan-made lines nobody edited just join; anything else typed beside a plan line is a
+      // hand edit (L-5, L2).
+      if (line.source === 'plan' && !(item.source === 'plan' && !item.hand_edited && !line.hand_edited))
+        line.hand_edited = true;
       line.display = localDisplay(line.amount, line.size_id, foodOf(line.food_id));
       // Its other size was worked out for the old amount (W4c review r2 M1).
       if (line.pack) line.pack = { ...line.pack, alternative: null };
