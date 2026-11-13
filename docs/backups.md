@@ -21,11 +21,11 @@ Only the user Mealwright runs as (UID 10001) can read these files. See [hardenin
 Settings → Your data shows it. An admin can change how often and how many.
 
 - **How often:** daily at 03:00 (the default), twice a day (03:00 and 15:00) or weekly (Mondays, 03:00). The time is the household's own.
-- **How many:** the last 7 by default. An admin can choose 1 to 30. Older ones are deleted.
+- **Keep:** "Last 7" by default. An admin can choose from the last 1 to the last 30. Older ones are deleted.
 - **Back up now** makes one straight away.
 - **Where:** `data/backups/backup-<date>-<time>.db` (the date and time in UTC). Each is one whole file that opens on its own, made while Mealwright is running and safe to copy.
 - **A server that was off at 03:00** backs up when it starts. After a failed backup it tries again an hour later, and Settings → Your data says the last one failed.
-- Mealwright also keeps other copies in the same folder, which the "How many" setting never deletes: `pre-upgrade-….db` (made before a version changes the database; the newest three are kept, see [upgrade.md](upgrade.md)) and `before-delete-everything-….db` (made before Delete everything).
+- Mealwright also keeps other copies in the same folder, which the "Keep" setting never deletes: `pre-upgrade-….db` (made before a version changes the database; the newest three are kept, see [upgrade.md](upgrade.md)) and `before-delete-everything-….db` (made before Delete everything).
 
 **These cover the database only.** Photos are files in `data/photos`, so they are in no backup file.
 

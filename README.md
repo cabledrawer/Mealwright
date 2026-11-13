@@ -68,7 +68,7 @@ Mealwright can sign people in through your own sign-in server (Settings → Sign
 **The only admin forgot their password.** Another admin can't see passwords, so run this on the server (use your container's name and the admin's username):
 
 ```
-docker exec -it mealwright python -m mealwright reset-admin tess
+docker exec -it mealwright python -m mealwright reset-admin <username>
 ```
 
 It sets a new random password for that admin, prints it once, and signs that admin out on every device. For ten minutes after, the new password gets in even while someone is guessing at that username. It also forgets the devices that had signed in as that admin before. Sign in with it, then change it in Settings → Sign-in → Change password. It works only for an admin.
