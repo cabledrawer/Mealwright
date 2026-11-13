@@ -2,7 +2,11 @@
 
 All notable changes to Mealwright are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the plan in `docs/spec.md` section 8: 0.N.0 per build milestone (not published), then MAJOR.MINOR.PATCH from 1.0.0.
 
-## [Unreleased]
+## [0.9.0] - 2026-11-13
+
+0.9.0 is "What a tester needs": the household's people and roles, single sign-on, API tokens, onboarding, Settings in the spec's order, backups, export, restore, updates and Report a problem, all first listed under 0.9.0-beta.1 below. What is new since beta.1 is the 0.8 leftovers, the fixes from cabledrawer's hand test (F227 to F234, Sh7) and the fixes from the whole-0.9 review.
+
+**Database: no change since 0.9.0-beta.1. From 0.8.0 it does change (eight times, listed under 0.9.0-beta.1), so back up first.** Stop the app, make a dated copy of the `data` folder in `backups/` with the old version's number in its name (it leaves out the logs), check it is there and not tiny; `data/secret.key` is inside that copy, and if you back up some other way, take it too. The steps are in `docs/dev/test-on-homelab.md`, section 4.1; to go back, follow section 5 of the same file (restore that backup with the 0.8.0 image; anything changed after the update is lost).
 
 ### Changed
 
@@ -38,8 +42,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - **Batch cook (F227):** Start timer, Skip wait and End timer on each recipe of the session sit in one row of same-size buttons, which stays in the row on a phone.
 - **Start times (F228):** a recipe whose saved Time already includes its wait (Dosa Batter: 745 min with an 8–12 h ferment) no longer counts the wait again as work: its work is 25 min, not 12 h 25 min, so "When will you start it?" offers starts that are ready by the meal, and Today's work time follows. The sheet says so, with the earliest ready time, when the start you pick (offered or Another time) can't be ready by the meal. The rule is proposed, for cabledrawer (spec, "The plan works backwards"). `GET /plan/start-options` gains `active_minutes`.
 - **Guessed step timings (F231):** "8 hours" and "12 hours or the yogurt setting 8 hours" give the longer way, not the two added up; moving the batter to a bowl or an instant pot steel insert is hands-on, not a wait; an instant pot insert or the yogurt setting no longer names the pressure cooker.
-- **Batch cook, late replies (L1d).** A slow reply from the server no longer overwrites a newer copy of the schedule on the Batch cook page: an older ask is dropped when a later one (or a mark on this phone) has happened since. The page also waits a moment after another person's change and asks once, like the Plan page.
-- **Batch cook, opening and Plan again (L1d).** A slow open of the Batch cook page, or a slow Plan again, no longer overwrites a newer copy of the schedule (a refresh, or a mark on this phone, made meanwhile): the older reply is dropped.
+- **Batch cook, late replies, opening and Plan again (L1d).** A slow reply from the server no longer overwrites a newer copy of the schedule on the Batch cook page, whether it came from a refresh, from opening the page or from Plan again: an older ask is dropped when a later one (or a mark on this phone) has happened since. The page also waits a moment after another person's change and asks once, like the Plan page.
 - **Test tidy (L1d).** The Batch cook test that checks an Optional step doesn't change the schedule's basis uses a real hands value instead of a type ignore.
 - **Import, "or more" endings (L1d).** "1 tsp salt or more-to taste" (no space before the dash) no longer offers an ingredient called "more": it reads as salt with "or more, to taste" in the note. "1 tbsp oil + more for frying" (also "+ extra", "plus more") is one line, oil, with "+ more for frying" in the note, instead of a second ingredient "more".
 - **Undo of the pint and of the Batch cook switch (L1d).** An Undo of a pint change, or of switching Batch cook on or off, is now refused ("That can't be undone: the pint has been changed again." / "…Batch cook has been switched again.", the words already used) when the same setting was changed again after it and that change still stands, even if the value is the same as it was (UK, US, UK). Before, only the value was compared. A later change that was itself undone doesn't count.
