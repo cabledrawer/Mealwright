@@ -273,3 +273,29 @@ def test_signing_in_as_a_member_by_the_setup_does_not_end_the_mark(
     sign_in(browser(admin), idp, sub="wren", extra={"groups": []})  # now a Member by the setup
     assert _login_row(admin, "wren").sso_refused_at is not None  # still the kept admin: marked
     assert wren.post(f"{API}/api-tokens", json={"name": "HA", "scope": "full"}).status_code == 403
+
+
+def test_the_warning_is_left_only_once_the_job_has_saved(
+    sso_only: TestClient, idp: FakeProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fails when the warning goes into memory before the job's save: if Delete everything
+    removes the household while the sign-in server is being asked, the save fails, and the
+    old admin's name stayed in memory under a household number the next setup reuses
+    (v0.9.0 release security pass, L2)."""
+    phone = browser(sso_only)
+    sign_in(phone, idp, sub="k", extra=ADMIN_GROUPS)
+    idp.refresh_tokens.clear()  # the sign-in server no longer accepts it
+    _due(sso_only, "k")
+    real = sso_accounts._hourly_keeps
+
+    def keeps_then_save_fails(db: Any, *args: Any, **kwargs: Any) -> Any:
+        def gone() -> None:
+            raise RuntimeError("the household was deleted meanwhile")
+
+        monkeypatch.setattr(db, "commit", gone)
+        return real(db, *args, **kwargs)
+
+    monkeypatch.setattr(sso_accounts, "_hourly_keeps", keeps_then_save_fails)
+    with pytest.raises(RuntimeError):
+        check(sso_only)
+    assert sso_accounts._kept == {}

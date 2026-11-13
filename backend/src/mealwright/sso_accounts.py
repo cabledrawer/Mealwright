@@ -556,6 +556,11 @@ def _apply(
             return False
         keep = _hourly_keeps(db, owner, row, data_dir) if result == "ended" else None
         ended = False
+        # The in-memory warning changes only once the save has worked: if Delete everything
+        # removed the household meanwhile, the save fails and nothing about the old admin
+        # stays under a household number the next setup reuses (release security pass, L2).
+        warning: tuple[int, str, bool] | None = None
+        drop_warning = False
         if keep is not None:
             # Nobody else can get in and they have no password that works (passwords are
             # off, or they have none): ending this sign-in would leave only reset-admin.
@@ -564,7 +569,7 @@ def _apply(
             api_tokens.stop_for(db, session.login_id)
             api_tokens.mark_refused(db, owner)
             session.sso_check_at = at + sso.RETRY_AFTER
-            _kept[session.household_id] = (owner.id, owner.name, keep)
+            warning = (owner.id, owner.name, keep)
             log.info(
                 "Single sign-on: the only admin's sign-in kept (login %d); the sign-in "
                 "server no longer accepts it; its API tokens stopped",
@@ -588,13 +593,18 @@ def _apply(
             if owner.sso_refused_at is None and (
                 _kept.get(session.household_id, (0, ""))[0] == owner.id
             ):
-                del _kept[session.household_id]
+                drop_warning = True
             if new:
                 session.sso_refresh_sealed = seal(data_dir, new)
             session.sso_check_at = at + sso.CHECK_EVERY
         else:
             session.sso_check_at = at + sso.RETRY_AFTER
+        household_id = session.household_id
         db.commit()
+        if warning is not None:
+            _kept[household_id] = warning
+        elif drop_warning:
+            _kept.pop(household_id, None)
         return ended
 
 
