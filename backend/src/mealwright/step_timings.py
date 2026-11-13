@@ -46,6 +46,7 @@ _HOB_HANDS = re.compile(
     r"|\btoast\b|\bsear\b|\bbrown\b",
     re.I,
 )
+_SLOW_COOK = re.compile(r"\bslow[- ]cook", re.I)
 _HOB_WAIT = re.compile(r"\bsimmer(?:ing)?\b|\bboil(?:ing)?\b|\bstew\b|\bsteam(?:ing)?\b", re.I)
 # Heat, a kadai or the stove is the hob even with "add" beside it ("Heat oil and add the onions");
 # "cook" on its own words, too ("Add the tomatoes and cook until soft"; B1 review r1 M2). Not
@@ -196,7 +197,10 @@ def _guess(text: str, wait: step_waits.Wait | None) -> Guess:
         and equipment == "pressure"
         and not _PRESSURE_WORDS.search(text)
         and _HOB_HANDS.search(text) is not None
-    )  # sauté in the instant pot: the cooker, but hands-on (L5)
+        and not _SLOW_COOK.search(text)
+        and not _HOB_WAIT.search(text)
+        and not _WAIT_WORDS.search(text)
+    )  # sauté in the instant pot: the cooker, but hands-on, unless the step also waits (L5)
     hands: Hands
     if pot_hands:
         hands, kind = "hands", "hob_hands"

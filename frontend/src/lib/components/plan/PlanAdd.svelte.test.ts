@@ -150,14 +150,14 @@ describe('Use a tub never offers a tub not cooked yet (F230, spec F50)', () => {
     use_by: '2026-11-20'
   });
 
-  function open(day: string, slotId: number) {
+  function open(day: string, slotId: number, tubsLeft?: ReturnType<typeof tub>[]) {
     const model = {
       slotsOn: [
         { id: 1, name: 'Breakfast' },
         { id: 2, name: 'Dinner' }
       ],
       slotName: (id: number) => (id === 1 ? 'Breakfast' : 'Dinner'),
-      tubsLeft: [
+      tubsLeft: tubsLeft ?? [
         tub(1, 'Khichdi', '2026-11-14', 10), // cooked on Sat 14, at Breakfast
         tub(2, 'Dal Tadka', '2026-11-12', 11)
       ],
@@ -189,6 +189,13 @@ describe('Use a tub never offers a tub not cooked yet (F230, spec F50)', () => {
     unmount(component!);
     document.body.innerHTML = '';
     open('2026-11-14', 2);
+    await expect.element(page.getByText('Khichdi', { exact: false })).toBeVisible();
+  });
+
+  it('a batch really cooked a day before its planned meal has no cook meal to come after (L1)', async () => {
+    // Planned for Sat 14 breakfast, cooked ahead on Fri 13: on Fri 13 at breakfast the tub is
+    // offered, because the meal on Sat 14 is not the day the tub was cooked.
+    open('2026-11-13', 1, [tub(1, 'Khichdi', '2026-11-13', 10)]);
     await expect.element(page.getByText('Khichdi', { exact: false })).toBeVisible();
   });
 });

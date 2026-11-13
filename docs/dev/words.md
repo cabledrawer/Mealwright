@@ -1191,3 +1191,4 @@ All cabledrawer 12 Nov.
 
 - **A meal an earlier recipe of the batch already put a tub in (F229; proposed, for cabledrawer):** in "Where the tubs land" the meal says **Paneer Butter Masala · Tub 1 · already placed** (or **· Tubs 2–3 ·**), and its button says **+ Add a tub too**.
 - **The Plan's Batch cook card while the session is under way (F234; proposed, for cabledrawer):** the button says **Carry on batch cook** instead of **Start batch cook**.
+- **Recent changes, a delete from a phone that was behind (L3; proposed, for cabledrawer):** **Took part of Ghee off the list** (the ingredient's name) when a phone that had not heard that a bought row joined a line takes that row off: only the row's part goes, the rest stays to buy. Its amount change reads **Changed Ghee on the list**.

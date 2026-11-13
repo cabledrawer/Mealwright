@@ -267,6 +267,13 @@ def test_l4_an_or_is_a_choice_only_when_a_time_follows_it_directly(text: str, mi
 def test_l5_an_instant_pot_slow_cook_or_saute_is_still_the_cooker() -> None:
     assert g("Instant pot slow cook for 4 hours.") == ("waiting", 240, "pressure")
     assert g("In the instant pot saute the onions for 5 minutes.") == ("hands", 5, "pressure")
+    # Hands-on first, then waiting: the step waits (the sauté is not the whole step).
+    sautes_then_slow = (
+        "In the instant pot, saute the onions for 5 minutes, then slow cook for 4 hours."
+    )
+    assert g(sautes_then_slow) == ("waiting", 245, "pressure")
+    brown_then_slow = "Brown the meat, then instant pot slow cook for 4 hours."
+    assert g(brown_then_slow)[0] == "waiting"
     # Only a container, or the yogurt setting, is not the cooker at work.
     assert g("Put the instant pot insert back on the counter.")[2] == "none"
     assert g("Use the instant pot yogurt setting for 8 hours.")[2] == "none"
