@@ -58,19 +58,32 @@
     });
   }
 
-  async function add(event: SubmitEvent) {
-    event.preventDefault();
+  /** Adds the typed shop; false if it couldn't be (the problem is shown and the name kept). */
+  async function addTyped(): Promise<boolean> {
     const name = newShop.trim();
-    if (!name) return;
+    if (!name) return false;
     problem = null;
     try {
       const shop = await placesAndShops.addShop(name);
       if (!shops.some((s) => s.id === shop.id)) shops = [...shops, shop];
       newShop = '';
       adding = false;
+      return true;
     } catch (error) {
       problem = wordsOf(error);
+      return false;
     }
+  }
+
+  async function add(event: SubmitEvent) {
+    event.preventDefault();
+    await addTyped();
+  }
+
+  /** For Next, Skip and Finish setup: a shop typed but not added is added first (M3). True when
+   *  there is nothing left over, so the caller can go on; false when it couldn't be added. */
+  export async function addTypedShop(): Promise<boolean> {
+    return newShop.trim() ? addTyped() : true;
   }
 </script>
 

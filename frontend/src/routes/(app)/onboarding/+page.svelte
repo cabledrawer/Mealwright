@@ -33,6 +33,8 @@
   let finishing = $state(false);
   let finishProblem = $state<string | null>(null);
   let heading = $state<HTMLHeadingElement>();
+  let peopleStep = $state<PeopleStep>();
+  let shopsStep = $state<ShopsStep>();
 
   const TITLES: Record<number, string> = {
     2: 'How do you measure?',
@@ -91,7 +93,19 @@
   /** The phone's Skip passes over this step (nothing more is saved); the last step with a Skip
    *  (5) finishes setup, as Finish does (cabledrawer 12 Nov). */
   function skip() {
-    return step < 5 ? go(step + 1) : finish();
+    return step < 5 ? next(step + 1) : finish();
+  }
+
+  /** A name or shop that was typed but not added is added before Next, Skip or Finish setup moves
+   *  on (M3); if it can't be added, its step says why and we stay. */
+  async function typedAdded(): Promise<boolean> {
+    const people = (await peopleStep?.addTypedName()) ?? true;
+    const shops = (await shopsStep?.addTypedShop()) ?? true;
+    return people && shops;
+  }
+
+  async function next(to: number) {
+    if (await typedAdded()) await go(to);
   }
 
   /** Finish setup, Go to Today and the last Skip: done for the household, then Today. */
@@ -100,6 +114,7 @@
     finishing = true;
     finishProblem = null;
     try {
+      if (!(await typedAdded())) return;
       await finishOnboarding();
       await toToday();
     } catch (error) {
@@ -148,9 +163,9 @@
           {@render amountsBody()}
           <p class="note">Change it any time in Settings › Amounts.</p>
         {:else if step === 3}
-          <PeopleStep />
+          <PeopleStep bind:this={peopleStep} />
         {:else if step === 4}
-          <ShopsStep />
+          <ShopsStep bind:this={shopsStep} />
         {:else if step === 5}
           <PacksStep />
         {:else}
@@ -185,7 +200,7 @@
             {#if step > 2}
               <button type="button" class="second" onclick={() => void go(step - 1)}>Back</button>
             {/if}
-            <button type="button" class="main" onclick={() => void go(step + 1)}>Next</button>
+            <button type="button" class="main" onclick={() => void next(step + 1)}>Next</button>
           {/if}
         </div>
       </div>
@@ -224,11 +239,11 @@
           </section>
           <section class="card" aria-labelledby="ob-shops">
             <h2 id="ob-shops">3 · Shops</h2>
-            <ShopsStep />
+            <ShopsStep bind:this={shopsStep} />
           </section>
           <section class="card" aria-labelledby="ob-people">
             <h2 id="ob-people">4 · Who eats here?</h2>
-            <PeopleStep />
+            <PeopleStep bind:this={peopleStep} />
           </section>
           <section class="card wide" aria-labelledby="ob-packs">
             <h2 id="ob-packs">5 · Start with common ingredients?</h2>

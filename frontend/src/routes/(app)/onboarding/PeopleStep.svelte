@@ -17,18 +17,31 @@
     if (!household.loaded) void household.load();
   });
 
-  async function add(event: SubmitEvent) {
-    event.preventDefault();
-    if (household.busy || !newName.trim()) return;
+  /** Adds the typed name; false if it couldn't be (the problem is shown and the name kept). */
+  async function addTyped(): Promise<boolean> {
+    if (household.busy || !newName.trim()) return false;
     problem = null;
     try {
       // 4 quarters: one portion, as Settings → Household adds a person.
-      if (!(await household.add(newName, null, 4))) return;
+      if (!(await household.add(newName, null, 4))) return false;
       newName = '';
       adding = false;
+      return true;
     } catch (error) {
       problem = sentence(error);
+      return false;
     }
+  }
+
+  async function add(event: SubmitEvent) {
+    event.preventDefault();
+    await addTyped();
+  }
+
+  /** For Next, Skip and Finish setup: a name typed but not added is added first (M3). True when
+   *  there is nothing left over, so the caller can go on; false when it couldn't be added. */
+  export async function addTypedName(): Promise<boolean> {
+    return newName.trim() ? addTyped() : true;
   }
 </script>
 

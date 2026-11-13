@@ -166,6 +166,45 @@ describe('on the phone', () => {
     );
   });
 
+  it('Next adds a name that was typed but not added, then moves on', async () => {
+    const wren = person(4, 'Wren');
+    open({ 'POST /people': [201, peopleList([TESS, wren])] });
+    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: '+ Add a person' }).click();
+    await userEvent.keyboard('Wren');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect.element(page.getByText('Step 4 of 6')).toBeVisible();
+    expect(requests.find((r) => r.method === 'POST' && r.path === '/people')?.body).toMatchObject({
+      name: 'Wren'
+    });
+  });
+
+  it('Skip also adds a typed shop first; a shop that can’t be added keeps you on the step', async () => {
+    open({
+      'POST /shops': [201, { id: 2, name: 'Indian grocer' }]
+    });
+    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: '+ Add a shop' }).click();
+    await userEvent.keyboard('Indian grocer');
+    await page.getByRole('button', { name: 'Skip' }).click();
+    await expect.element(page.getByText('Step 5 of 6')).toBeVisible();
+    expect(requests.find((r) => r.method === 'POST' && r.path === '/shops')?.body).toEqual({
+      name: 'Indian grocer'
+    });
+  });
+
+  it('stays on the step and says so when the typed shop can’t be added', async () => {
+    open({ 'POST /shops': [400, { detail: 'That shop is already there.' }] });
+    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: '+ Add a shop' }).click();
+    await userEvent.keyboard('Aldi');
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect.element(page.getByRole('alert')).toHaveTextContent('That shop is already there.');
+    await expect.element(page.getByText('Step 4 of 6')).toBeVisible();
+  });
+
   it('opens the same starter-pack picker as Ingredients', async () => {
     open();
     for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Next' }).click();
@@ -207,6 +246,22 @@ describe('on a computer', () => {
     await page.getByRole('button', { name: 'Finish setup' }).click();
     await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/', { replace: true }));
     expect(patches()).toEqual([{ onboarding_done: true }]);
+  });
+
+  it('Finish setup adds a typed name and a typed shop first', async () => {
+    const wren = person(4, 'Wren');
+    open({
+      'POST /people': [201, peopleList([TESS, wren])],
+      'POST /shops': [201, { id: 2, name: 'Aldi' }]
+    });
+    await page.getByRole('button', { name: '+ Add a shop' }).click();
+    await userEvent.keyboard('Aldi');
+    await page.getByRole('button', { name: '+ Add a person' }).click();
+    await userEvent.keyboard('Wren');
+    await page.getByRole('button', { name: 'Finish setup' }).click();
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/', { replace: true }));
+    expect(requests.some((r) => r.method === 'POST' && r.path === '/shops')).toBe(true);
+    expect(requests.some((r) => r.method === 'POST' && r.path === '/people')).toBe(true);
   });
 });
 
