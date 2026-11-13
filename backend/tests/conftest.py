@@ -93,7 +93,9 @@ def upgraded_09_db(tmp_path: Path, _upgraded_09_template: Path) -> Path:
     an admin (sam / "correct horse battery"), a second person, ingredients, stock, recipes,
     a plan with tubs, a shopping list with ticked lines and a batch-cook session. Start the app
     on it with `Settings(data_dir=upgraded_09_db.parent, run_jobs=False)`. For a later
-    release's tests that need a real old install to upgrade from."""
+    release's tests that need a real old install to upgrade from. Its dates are fixed at the
+    day it was made, 2026-11-13 (plan days, use-by dates): never assume they are relative to
+    today."""
     data_dir = tmp_path / "data"
     data_dir.mkdir()
     shutil.copyfile(_upgraded_09_template, data_dir / "mealwright.db")

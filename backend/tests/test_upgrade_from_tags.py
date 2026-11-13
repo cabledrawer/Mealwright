@@ -18,10 +18,9 @@ from upgrade_kit import ADMIN, TAGS, copy_of, settings_for, upgrade_copy
 from mealwright import migrate
 from mealwright.main import create_app
 
-# What a person made, as tables, and the first release that had it. The counts before and
-# after must match; a database from a release that had the table must hold something in it
-# (so a database that came out empty can't make the test pass for nothing).
-THEIR_THINGS = {
+# The first release that had each table whose rows must never come out empty (so a database
+# that was saved empty can't make the test pass for nothing).
+MUST_HOLD_ROWS = {
     "household": "v0.1.0",
     "login": "v0.1.0",
     "food": "v0.2.0",
@@ -38,6 +37,21 @@ THEIR_THINGS = {
     "batch_session": "v0.8.0",
     "member": "v0.9.0-beta.1",
 }
+# The migration each saved database starts at (read from that release's own migrations).
+EXPECTED = {
+    "v0.1.0": "d60b64f1e4ff",
+    "v0.1.1": "d60b64f1e4ff",
+    "v0.2.0": "b4391aaf7695",
+    "v0.2.1": "a7c3e51d9b02",
+    "v0.3.0": "f509d7a1c609",
+    "v0.4.0": "97d61f9dd082",
+    "v0.5.0": "d7a4c2e81f56",
+    "v0.5.1": "d7a4c2e81f56",
+    "v0.6.0": "c5f1b8d2a763",
+    "v0.7.0": "5fbd6d33c434",
+    "v0.8.0": "a9d3f6b2c481",
+    "v0.9.0-beta.1": "d3a9f1c7e254",
+}
 
 
 def _order(tag: str) -> int:
@@ -52,6 +66,39 @@ def _tables(path: Path) -> list[str]:
                 "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
             )
         ]
+
+
+def _rows(path: Path) -> dict[str, tuple[list[str], list[tuple[object, ...]]]]:
+    """Every table: its columns and all its rows (sorted, so the order doesn't matter)."""
+    out = {}
+    with sqlite3.connect(path) as db:
+        for table in _tables(path):
+            if table == "alembic_version":
+                continue
+            columns = [row[1] for row in db.execute(f"PRAGMA table_info({table})")]
+            names = ", ".join(f'"{name}"' for name in columns)
+            rows = db.execute(f"SELECT {names} FROM {table}").fetchall()  # noqa: S608
+            out[table] = (columns, sorted(rows, key=repr))
+    return out
+
+
+def _same_values(
+    before: dict[str, tuple[list[str], list[tuple[object, ...]]]], after: Path
+) -> list[str]:
+    """What differs, for every table and column that was there before and still is."""
+    later = _rows(after)
+    problems = []
+    for table, (columns, rows) in before.items():
+        if table not in later:
+            continue
+        kept = [name for name in columns if name in later[table][0]]
+        pick_before = [columns.index(name) for name in kept]
+        pick_after = [later[table][0].index(name) for name in kept]
+        old = sorted((tuple(row[i] for i in pick_before) for row in rows), key=repr)
+        new = sorted((tuple(row[i] for i in pick_after) for row in later[table][1]), key=repr)
+        if old != new:
+            problems.append(f"{table} ({len(old)} rows before, {len(new)} after)")
+    return problems
 
 
 def _count(path: Path, table: str) -> int:
@@ -81,15 +128,13 @@ def test_there_is_a_database_for_every_earlier_release() -> None:
 def test_database_from_release_upgrades_cleanly(tag: str, tmp_path: Path) -> None:
     data_dir = tmp_path / "data"
     before = copy_of(tag, data_dir)
-    tables_before = _tables(before)
-    counts_before = {
-        table: _count(before, table) for table in THEIR_THINGS if table in tables_before
-    }
-    for table, first in THEIR_THINGS.items():
+    rows_before = _rows(before)
+    for table, first in MUST_HOLD_ROWS.items():
         if _order(tag) >= _order(first):
-            assert counts_before.get(table, 0) > 0, f"{tag}'s saved database has no {table} rows"
+            assert rows_before[table][1], f"{tag}'s saved database has no {table} rows"
     with sqlite3.connect(before) as db:
         was_at = db.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+    assert was_at == EXPECTED[tag], f"{tag}'s saved database starts at {was_at}"
     before.unlink()
 
     path = upgrade_copy(tag, data_dir)
@@ -108,8 +153,9 @@ def test_database_from_release_upgrades_cleanly(tag: str, tmp_path: Path) -> Non
                 f"SELECT count(*) FROM {table} WHERE household_id IS NULL"  # noqa: S608
             ).fetchone()[0]
             assert empty == 0, f"{tag}: {table} has {empty} rows with no household_id"
-    for table, count in counts_before.items():
-        assert _count(path, table) == count, f"{tag}: {table} rows changed in the upgrade"
+    assert not (changed := _same_values(rows_before, path)), (
+        f"{tag}: changed in the upgrade: {changed}"
+    )
     # A start-up copies the database aside before it changes anything.
     assert (data_dir / "backups").is_dir() == (was_at != head), f"{tag}: safety copy"
 
