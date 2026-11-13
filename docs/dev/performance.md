@@ -216,7 +216,7 @@ mostly the phone's own CPU and cache); desktop first loads go from 0.9 to 2.8 s 
 (pantry 4.8 s, sign in 4.5 s). The server's own call times roughly double (`/pantry` 270 to 500 ms,
 `/today` 210 to 360 ms, `/shopping/lists/{id}` 120 to 240 ms).
 
-Notes on the actions:
+Notes on the actions (both settings):
 - *Tick a shopping line*: the time to show the line ticked. Its answer from the server comes later (the phone's
   `/shopping/actions` call waited 585 ms for its first byte) and does not hold the screen up.
 - *Add a recipe to the plan*: from typing in the Add box to the dialog closing with the recipe in its meal. The
