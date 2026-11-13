@@ -128,9 +128,7 @@ def _answered_on(kitchen: Kitchen, batch: BatchCook) -> date | None:
         data = change.undo_data or {}
         if data.get("meal_id") == batch.cook_meal_id:
             if tub_ids is None:
-                tub_ids = set(
-                    kitchen.db.scalars(select(Tub.id).where(Tub.batch_id == batch.id))
-                )
+                tub_ids = set(kitchen.db.scalars(select(Tub.id).where(Tub.batch_id == batch.id)))
             if not _cooks_batch(data.get("plan") or [], batch.id, tub_ids):
                 continue  # an answer for another recipe of the meal: this batch is not cooked
             day = as_utc(change.at).astimezone(zone(kitchen.household)).date()

@@ -260,7 +260,12 @@ def test_cooking_the_other_recipe_ahead_does_not_cook_the_khichdi_tubs(
             ok(
                 kitchen.post(
                     f"{API}/plan/items",
-                    json={"date": day, "slot_id": s["Dinner"], "recipe_id": recipe["id"], "servings": 2},
+                    json={
+                        "date": day,
+                        "slot_id": s["Dinner"],
+                        "recipe_id": recipe["id"],
+                        "servings": 2,
+                    },
                 ),
                 201,
             )
