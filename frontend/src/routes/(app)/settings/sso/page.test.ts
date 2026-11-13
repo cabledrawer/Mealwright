@@ -5,6 +5,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import type { SsoSetup } from '#lib/client/sso.js';
+import { toasts } from '#lib/toast.svelte.js';
 import { session } from '#lib/session.svelte.js';
 import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
 import Setup from './+page.svelte';
@@ -77,6 +78,49 @@ describe('single sign-on setup', () => {
     expect(document.querySelector('.warn')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
       'On your home network? Add id.example.org to Privacy › Your own network, and turn on the Single sign-on switch there.'
     );
+  });
+
+  it('Copy says so, as the other Copy buttons do, when the browser has no clipboard (L8)', async () => {
+    fakeApi({ 'GET /sso/settings': [200, SAVED] });
+    vi.stubGlobal('navigator', { ...navigator, clipboard: undefined });
+    toasts.dismiss();
+    show();
+    await expect
+      .element(page.getByLabelText('Issuer address'))
+      .toHaveValue('https://id.example.org');
+    await page.getByRole('button', { name: 'Copy' }).click();
+    await vi.waitFor(() =>
+      expect(toasts.current?.message).toBe('Couldn’t copy. Select the address and copy it.')
+    );
+    expect(toasts.current?.tone).toBe('problem');
+    toasts.dismiss();
+  });
+
+  it('Copy copies the address and the button says Copied', async () => {
+    fakeApi({ 'GET /sso/settings': [200, SAVED] });
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    show();
+    await expect
+      .element(page.getByLabelText('Issuer address'))
+      .toHaveValue('https://id.example.org');
+    await page.getByRole('button', { name: 'Copy' }).click();
+    await expect.element(page.getByRole('button', { name: 'Copied' })).toBeVisible();
+    expect(writeText).toHaveBeenCalledWith(`${location.origin}/auth/callback`);
+  });
+
+  it('a resize to a phone width and back keeps what was typed (L13)', async () => {
+    fakeApi({ 'GET /sso/settings': [200, SAVED] });
+    show();
+    const issuer = page.getByLabelText('Issuer address');
+    await expect.element(issuer).toHaveValue('https://id.example.org');
+    await userEvent.fill(issuer, 'https://typed.example.org');
+    await page.viewport(390, 800);
+    await expect.element(page.getByText('Set up on a computer')).toBeVisible();
+    await page.viewport(1300, 900);
+    await expect
+      .element(page.getByLabelText('Issuer address'))
+      .toHaveValue('https://typed.example.org');
   });
 
   it('saves groups and roles; a blank secret keeps the saved one', async () => {

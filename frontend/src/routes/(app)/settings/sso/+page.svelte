@@ -27,6 +27,7 @@
   import TextField from '#lib/components/TextField.svelte';
   import { radioKeys } from '#lib/radioKeys.js';
   import { session } from '#lib/session.svelte.js';
+  import { toasts } from '#lib/toast.svelte.js';
   import {
     LINK,
     NOT_LINKED_MEMBER,
@@ -108,9 +109,14 @@
     }
   }
 
+  /** The form is filled from the saved setup once; a resize to a phone and back doesn't refill it
+   *  over what was typed (L13). */
+  let filledOnce = false;
+
   $effect(() => {
     if (!admin || phone.current) return;
-    void load(true);
+    void load(!filledOnce);
+    filledOnce = true;
     // Back from the test's tab: the result is on the server.
     const again = () => {
       if (document.visibilityState === 'visible') void load(false);
@@ -137,6 +143,7 @@
       copied = true;
     } catch {
       copied = false;
+      toasts.show('Couldn’t copy. Select the address and copy it.', { tone: 'problem' });
     }
   }
 
