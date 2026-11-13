@@ -4,7 +4,7 @@ How to build Mealwright, run its checks, and make a release, without asking anyo
 
 ## What you need
 
-Linux (the project is built in WSL on Windows), Git, Docker, Python 3.14 with [uv](https://docs.astral.sh/uv/), and Node 24 with npm. These are the versions the `Dockerfile` and `backend/pyproject.toml` use. TODO(cabledrawer): a list of the exact tool versions on the development machine, if you want one here.
+Linux (WSL on Windows works), Git, Docker, Python 3.14 with [uv](https://docs.astral.sh/uv/), and Node 24 with npm. These are the versions the `Dockerfile` and `backend/pyproject.toml` use. TODO(cabledrawer): a list of the exact tool versions on the development machine, if you want one here.
 
 ## Build and run on your computer
 
@@ -94,7 +94,7 @@ Rules for running it:
 - **While building (0.x):** one `0.N.0` per milestone. Test builds before it are tagged `v0.N.0-alpha.M` and `v0.N.0-beta.M` (see the headings in `CHANGELOG.md`). Every 0.x tag is a pre-release.
 - **From 1.0.0:** plain MAJOR.MINOR.PATCH ([spec.md](../spec.md) section 8). 1.0.0 to 2.0.0 is major new functionality; 1.0.0 to 1.1.0 is a smaller feature upgrade; 1.0.0 to 1.0.1 is security fixes and tiny updates. Anything that makes a person act before updating (a manual database step, a removed or renamed setting) goes to the next major version, with the steps in the release notes. 1.x versions upgrade in place with no manual steps. After 1.0, new features come in minor releases about once a month at most; security fixes go out whenever needed.
 - **Where the version lives:** `version = "..."` in `backend/pyproject.toml`, only there. `/api/v1/version`, the About screen and the sidebar read it (the web app gets it at build time through `frontend/vite.config.ts`). `backend/uv.lock` also carries one version line for the project; `uv lock --offline` in `backend/` updates it.
-- **Pre-release spelling:** the CHANGELOG and tags say `0.9.0-beta.1`. TODO(cabledrawer): what exact spelling must `pyproject.toml` use for a pre-release (Python's own form is `0.9.0b1`)? The lead's notes say `0.8.0a1`; this page does not guess.
+- **Pre-release spelling:** the CHANGELOG and tags say `0.9.0-beta.1`; `backend/pyproject.toml` uses Python's own form, `0.9.0b1` (as in the v0.9.0-beta.1 release; `0.8.0a1` for an alpha).
 - **CHANGELOG.md** is "Keep a Changelog" style, newest first, appended to and never rewritten whole. Each version has a `## [x.y.z] - <date>` heading and an opening plain-English line (what the release is, and whether the database changes, with the backup steps). Then **Added**, **Changed**, **Fixed**, **Security**, **Tests** as needed. Every line must match the code or a test. Feature PRs may add lines under the coming version; the release PR tidies them. `scripts/changelog-section.sh <version>` prints one version's section (the GitHub release notes use it).
 
 ## The release PR
