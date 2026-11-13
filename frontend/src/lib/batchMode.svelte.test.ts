@@ -260,6 +260,24 @@ describe('Batch cook mode model', () => {
     expect(model.worked?.now?.id).toBe('t2');
   });
 
+  it('a slow load does not overwrite a newer refresh', async () => {
+    calls.start.mockResolvedValueOnce(two());
+    const model = new BatchModeModel(7);
+    await model.load();
+    const newer = two();
+    newer.tasks[0] = { ...newer.tasks[0]!, done_at: new Date().toISOString() };
+    let answerLoad: (value: Schedule) => void = () => {};
+    calls.start.mockReturnValueOnce(new Promise<Schedule>((resolve) => (answerLoad = resolve)));
+    const loading = model.load();
+    calls.get.mockResolvedValue(newer);
+    await model.refresh();
+    expect(model.worked?.now?.id).toBe('t2');
+    answerLoad(two()); // the older copy, from before the refresh
+    await loading;
+    expect(model.worked?.now?.id).toBe('t2');
+    expect(model.loading).toBe(false);
+  });
+
   it('a reply to an ask made before a mark on this phone does not undo the mark', async () => {
     calls.start.mockResolvedValue(two());
     const model = new BatchModeModel(7);

@@ -224,10 +224,12 @@ export class BatchModeModel {
   async load(planAgain = false): Promise<void> {
     this.loading = true;
     try {
-      this.#asked++;
+      const asked = ++this.#asked;
       if (planAgain) this.pending = [];
       else if (!this.pending.length) this.pending = this.#keptPending();
-      this.#take(await startSchedule(this.id, planAgain));
+      const started = await startSchedule(this.id, planAgain);
+      // A refresh or a mark made while this was on its way has a newer copy: keep that one.
+      if (asked === this.#asked) this.#take(started);
       this.problem = null;
       void this.flush();
     } catch (error) {
