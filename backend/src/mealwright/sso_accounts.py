@@ -33,7 +33,7 @@ import re
 import secrets
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, NoReturn
+from typing import Literal, NamedTuple, NoReturn
 
 from sqlalchemy import ColumnElement, and_, delete, exists, func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -475,11 +475,20 @@ def kept_warning(db: DbSession, data_dir: Path | None, household_id: int) -> str
     return f"{sentence}, or {ending}." if ending else f"{sentence}."
 
 
+class _Asked(NamedTuple):
+    client: Client
+    token: str
+    sealed: str  # the sealed refresh token the session held when it was asked
+    issuer: str
+    client_id: str
+
+
 def _prepare(
     factory: sessionmaker[DbSession], data_dir: Path, session_id: int, at: datetime
-) -> tuple[Client, str] | None:
+) -> _Asked | None:
     """What to ask the sign-in server for one due sign-in, or None when there is nothing to ask.
-    Its own short transaction, ended before the question goes out."""
+    Its own short transaction, ended before the question goes out. It also gives back what the
+    answer must still match when it comes (the sealed token read, the issuer and the client)."""
     with factory() as db:
         session = db.get(Session, session_id)
         if session is None or not db.scalar(
@@ -507,7 +516,7 @@ def _prepare(
             session.sso_check_at = at + sso.RETRY_AFTER
             db.commit()
             return None
-        return setup, token
+        return _Asked(setup, token, str(session.sso_refresh_sealed), row.issuer, row.client_id)
 
 
 def _apply(
@@ -517,16 +526,26 @@ def _apply(
     at: datetime,
     result: sso.Refreshed,
     new: str | None,
+    asked: _Asked,
 ) -> bool:
     """Write what the sign-in server answered for one sign-in, and commit it. True when that
-    sign-in ended."""
+    sign-in ended. The answer is dropped when things changed while the server was being asked:
+    the session holds another sealed token (or none), the issuer or client changed, or the
+    setup is no longer usable (an answer for the old setup must not end sign-ins, stop API
+    tokens or seal a token for it: whole-0.9 fix A review, finding 1)."""
     with factory() as db:
         session = db.get(Session, session_id)
         if session is None:
             return False  # signed out meanwhile
         row = settings_row(db, session.household_id)
         owner = db.get(Login, session.login_id)
-        if row is None or owner is None:
+        if row is None or owner is None or not usable(row):
+            return False
+        if (
+            session.sso_refresh_sealed != asked.sealed
+            or row.issuer != asked.issuer
+            or row.client_id != asked.client_id
+        ):
             return False
         keep = _hourly_keeps(db, owner, row, data_dir) if result == "ended" else None
         ended = False
@@ -592,8 +611,8 @@ def check_sessions(
         asked = _prepare(factory, data_dir, session_id, at)
         if asked is None:
             continue
-        result, new = sso.refresh(gate, *asked)
-        if _apply(factory, data_dir, session_id, at, result, new):
+        result, new = sso.refresh(gate, asked.client, asked.token)
+        if _apply(factory, data_dir, session_id, at, result, new, asked):
             ended_ids.append(session_id)
             ended += 1
     for session_id in ended_ids:

@@ -10,6 +10,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Fixed
 
+- The hourly sign-in check ignores an answer from the sign-in server when the single sign-on settings (the issuer or the client) were changed while the server was being asked, so an answer meant for the old setup can no longer sign people out, stop their API tokens or seal a new token for it.
 - Undo of a removed place puts its stocktake answers back only into the stocktake they came from, in every order of events: "Start a new stocktake" marks the removals that can still be undone as from an earlier stocktake. Before, a few orders left the old answers out, and a restart with nothing answered since could bring them into the new stocktake (L1c). Removals made before this version keep the earlier check.
 - A tick on an ingredient with no pack size kept none of a line that had grown since the phone showed it: the whole line was ticked for the amount the phone showed. The rest now stays to buy, as it already did for an ingredient with a pack size (found while building Sh7).
 - **Plan this batch (F229, cabledrawer 12 Nov).** The second and later recipes' "Where the tubs land" shows the tubs the earlier recipes already placed, as "Paneer Butter Masala · Tub 1 · already placed", so a meal that is taken doesn't look free. "Already placed" is proposed, for cabledrawer. The server's count ("N of M placed") and where the rest go were already worked out after the earlier recipes; only the grid hid them.

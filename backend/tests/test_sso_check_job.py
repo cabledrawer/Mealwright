@@ -146,3 +146,57 @@ def test_a_check_that_stops_half_way_keeps_the_earlier_new_refresh_tokens(
     _check(admin)  # the next run, an hour later
     assert laptop.get(f"{API}/me").status_code == 200
     assert script.get(f"{API}/me", headers=token).status_code == 200
+
+
+def test_a_client_change_while_the_server_is_asked_is_not_undone_by_the_answer(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """The admin saves a new client while the sign-in server is answering: the old answer is
+    dropped, so the new refresh token isn't sealed, nobody is signed out, no API token stops."""
+    from test_sso_api import SETUP
+
+    from mealwright.models import ApiToken
+
+    laptop = browser(admin)
+    answer, _ = sign_in(
+        laptop, idp, sub="k-at-idp", extra={"preferred_username": "k", "groups": ["mealwright-admins"]}
+    )
+    assert answer.status_code == 200, answer.text
+    assert admin.post(f"{API}/api-tokens", json={"name": "Home Assistant", "scope": "read"}).status_code == 201
+    assert _all_due(admin) == 1
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        before = db.scalar(select(Session.sso_refresh_sealed).where(Session.sso.is_(True)))
+
+    def token(form: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        moved = admin.put(f"{API}/sso/settings", json={**SETUP, "client_id": "new-client"})
+        assert moved.status_code == 200, moved.text
+        return 400, {"error": "invalid_grant"}
+
+    idp.token_override = token
+    assert _check(admin) == 0
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        revoked = db.scalars(select(ApiToken.revoked_at)).all()
+        sessions = list(db.scalars(select(Session).where(Session.sso.is_(True))))
+    assert revoked == [None]
+    assert len(sessions) == 1 and sessions[0].sso_refresh_sealed in (None, before)
+
+
+def test_a_new_refresh_token_for_the_old_client_is_not_sealed(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    from test_sso_api import SETUP
+
+    phone = browser(admin)
+    answer, _ = sign_in(phone, idp, sub="u1", extra={"preferred_username": "p1"})
+    assert answer.status_code == 200, answer.text
+    assert _all_due(admin) == 1
+
+    def token(form: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        admin.put(f"{API}/sso/settings", json={**SETUP, "client_id": "new-client"})
+        return 200, {"access_token": "at", "refresh_token": "rt-new", "token_type": "Bearer"}
+
+    idp.token_override = token
+    _check(admin)
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        sealed = list(db.scalars(select(Session.sso_refresh_sealed).where(Session.sso.is_(True))))
+    assert all(not s for s in sealed), sealed
