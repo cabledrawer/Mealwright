@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright dark – Drafts: Mealie recipes to check (0.9.5, proposed)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+html,body{margin:0;overflow:hidden;background:#111614}
+*{scrollbar-width:none}
+::-webkit-scrollbar{display:none}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.scr{width:390px;height:844px;background:#111614;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#E9EEEB;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.top{padding:12px 16px;border-bottom:1px solid #2A332E;display:flex;align-items:center;gap:10px;flex:none}
+.x{width:44px;height:44px;border-radius:22px;background:#252E29;color:#E9EEEB;display:flex;align-items:center;justify-content:center;flex:none;border:none}
+.body{flex:1;min-height:0;overflow:hidden;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.body>*{flex:none}
+.h2{margin:0 2px;font-size:12px;font-weight:800;color:#A3AFA8;letter-spacing:0.05em;text-transform:uppercase}
+.card{background:#1B221F;border-radius:18px;padding:2px 14px;display:flex;flex-direction:column}
+.r{display:flex;align-items:center;gap:12px;min-height:56px;border-bottom:1px solid #26302B;padding:8px 0;box-sizing:border-box}
+.r:last-child{border-bottom:none}
+.rn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rn b{font-size:15px;font-weight:700}
+.rn span{font-size:13px;color:#A3AFA8;line-height:1.4}
+.num{font-size:20px;font-weight:800;min-width:44px;text-align:right}
+.sub{margin:0;font-size:14px;color:#C5CEC8;line-height:1.5}
+.small{font-size:12px;color:#A3AFA8;line-height:1.45}
+.ic{width:36px;height:36px;border-radius:12px;background:#252E29;display:grid;place-items:center;flex:none;color:#C5CEC8}
+.yes{color:#8FE0B5}
+.need{font-size:12px;font-weight:700;color:#FF9B76;white-space:nowrap}
+.btnw{border:none;background:#E9EEEB;color:#111614;border-radius:999px;min-height:52px;font:800 15px 'Plus Jakarta Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;padding:0 18px}
+.btno{border:1px solid #39433D;background:transparent;color:#E9EEEB;border-radius:999px;min-height:52px;font:700 15px 'Plus Jakarta Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;padding:0 18px}
+.btn{border:1px solid #39433D;background:transparent;color:#E9EEEB;border-radius:10px;min-height:44px;padding:0 12px;font:600 13px 'Plus Jakarta Sans',sans-serif;white-space:nowrap}
+.foot{border-top:1px solid #2A332E;background:#151B18;padding:10px 16px 26px;display:flex;gap:10px;flex:none}
+.note{background:#1E2A33;border:1px solid #2E4352;color:#BFD9EA;border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.45;display:flex;gap:10px}
+.ok{background:#173326;border:1px solid #2E5E45;color:#A9E8C6;border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.45;display:flex;gap:10px;align-items:flex-start}
+.warn{background:#33281A;border:1px solid #5C4520;color:#F5CD86;border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.45;display:flex;gap:10px}
+.file{display:flex;align-items:center;gap:10px;background:#1B221F;border:1px solid #2A332E;border-radius:14px;padding:10px 12px}
+.sw{width:46px;height:28px;border:none;border-radius:14px;background:#39433D;position:relative;padding:0;flex:none}
+.sw span{position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:12px;background:#C5CEC8}
+.sw[aria-checked="true"]{background:#2E7D5B}
+.sw[aria-checked="true"] span{left:20px;background:#FFFFFF}
+.bar{height:10px;border-radius:5px;background:#252E29;overflow:hidden}
+.bar span{display:block;height:100%;background:#2E9E6E;border-radius:5px}
+.chip{border:1px solid #39433D;background:#1B221F;color:#E9EEEB;border-radius:999px;padding:0 12px;min-height:36px;font:600 13px 'Plus Jakarta Sans',sans-serif;white-space:nowrap;flex:none}
+.chip.on{border:none;background:#E9EEEB;color:#111614;font-weight:700}
+.step{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #26302B}
+.step:last-child{border-bottom:none}
+.n{width:26px;height:26px;border-radius:13px;background:#252E29;color:#E9EEEB;font-size:13px;font-weight:800;display:grid;place-items:center;flex:none}
+.from{font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;background:#2E2640;color:#CDBBFF;white-space:nowrap}
+</style>
+</helmet>
+<div class="scr">
+<div class="top"><a href="Dark-MealieDone095-Phone.dc.html" class="x" aria-label="Back" style="text-decoration:none"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></a><span style="flex:1;font-size:16px;font-weight:800">Drafts</span></div>
+<div class="body">
+<div style="display:flex;gap:8px"><button class="chip" type="button" aria-pressed="false">All 33</button><button class="chip on" type="button" aria-pressed="true">From Mealie 31</button><button class="chip" type="button" aria-pressed="false">Links 2</button></div>
+<p class="small" style="margin:0 2px">Open one to check its lines, the same check as any import. Or save them all now: lines Mealwright couldn't read stay as plain text, and nothing is added to the shopping list for them.</p>
+<div class="card"><a class="r" href="#" style="text-decoration:none;color:inherit"><span class="rn"><b>Chicken chettinad</b><span>"1 tin coconut milk (optional)", "salt to taste"</span></span><span class="need">2 lines</span><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#A3AFA8"><path d="M9 6l6 6-6 6"></path></svg></a><a class="r" href="#" style="text-decoration:none;color:inherit"><span class="rn"><b>Thai green curry</b><span>"a thumb of galangal"</span></span><span class="need">1 line</span><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#A3AFA8"><path d="M9 6l6 6-6 6"></path></svg></a><a class="r" href="#" style="text-decoration:none;color:inherit"><span class="rn"><b>Shakshuka</b><span>"2 tins tomatoes or 6 fresh", …</span></span><span class="need">3 lines</span><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#A3AFA8"><path d="M9 6l6 6-6 6"></path></svg></a><a class="r" href="#" style="text-decoration:none;color:inherit"><span class="rn"><b>Paneer butter masala</b><span>"kasuri methi, a pinch"</span></span><span class="need">1 line</span><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#A3AFA8"><path d="M9 6l6 6-6 6"></path></svg></a><a class="r" href="#" style="text-decoration:none;color:inherit"><span class="rn"><b>Sourdough loaf</b><span>"levain (see note)", …</span></span><span class="need">4 lines</span><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#A3AFA8"><path d="M9 6l6 6-6 6"></path></svg></a><a class="r" href="#" style="text-decoration:none;color:inherit"><span class="rn"><b>Mutton biryani</b><span>"1 packet biryani masala", …</span></span><span class="need">2 lines</span><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;color:#A3AFA8"><path d="M9 6l6 6-6 6"></path></svg></a></div>
+<p class="small" style="margin:0 2px;text-align:center">25 more</p>
+</div>
+<div class="foot"><button class="btno" type="button" style="flex:1">Save all 31 as they are</button></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

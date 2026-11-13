@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright desktop dark – Settings › Your data › Import from Mealie (0.9.5, proposed)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.h2{margin:0 4px;font-size:13px;font-weight:700;color:#A3AFA8;text-transform:uppercase;letter-spacing:0.06em}
+.card{background:#1B221F;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;flex:none}
+.pad{padding:14px 16px;gap:8px}
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:12px 14px;box-sizing:border-box;flex:none;border-top:1px solid #26302B;text-decoration:none;color:#E9EEEB}
+.row:first-child{border-top:none}
+.lbl{flex:1;min-width:0;font-size:16px;font-weight:600;display:flex;flex-direction:column;gap:2px}
+.lbl small{font-size:13px;font-weight:500;color:#A3AFA8;line-height:1.4}
+.val{font-size:14px;color:#A3AFA8;white-space:nowrap}
+.chev{color:#A3AFA8;flex:none}
+.sub{margin:0;font-size:13px;color:#A3AFA8;line-height:1.45}
+.note{margin:0 4px;font-size:13px;color:#A3AFA8;line-height:1.45}
+.av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:14px;flex:none}
+.btn{border:none;background:#E9EEEB;color:#111614;border-radius:14px;min-height:48px;padding:0 18px;font:700 15px 'Plus Jakarta Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.btn2{border:1px solid #39433D;background:#1B221F;color:#E9EEEB;border-radius:14px;min-height:48px;padding:0 16px;font:700 15px 'Plus Jakarta Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.sm{min-height:36px;padding:0 12px;font-size:13px;border-radius:10px}
+.danger{border:1px solid #6B2D28;background:#2A1715;color:#FFB4AB}
+.add{border:1px dashed #4A554E;background:transparent;color:#6FCF9E;border-radius:12px;min-height:44px;padding:0 14px;font:700 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.sw{width:46px;height:28px;border:none;border-radius:14px;background:#39433D;position:relative;padding:0;flex:none;cursor:pointer}
+.sw span{position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:12px;background:#C5CEC8}
+.sw[aria-checked="true"]{background:#2E7D5B}
+.sw[aria-checked="true"] span{left:20px;background:#FFFFFF}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:#C9D2CD}
+.fld input,.fld textarea{border:1px solid #39433D;border-radius:12px;min-height:46px;padding:0 12px;font:500 15px 'Plus Jakarta Sans',sans-serif;color:#E9EEEB;background:#111614;box-sizing:border-box;width:100%}
+.fld textarea{padding:10px 12px;min-height:84px;resize:none}
+.hint{font-size:12px;font-weight:500;color:#A3AFA8}
+.seg{display:flex;background:#111614;border:1px solid #39433D;border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:none;background:transparent;color:#C5CEC8;border-radius:9px;min-height:38px;font:700 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.seg button[aria-pressed="true"]{background:#1F3A2D;color:#8FE0B5}
+.chip{border:1px solid #39433D;background:#111614;color:#C5CEC8;border-radius:999px;min-height:36px;padding:0 12px;font:700 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip[aria-pressed="true"]{border-color:#2E7D5B;background:#1F3A2D;color:#8FE0B5}
+.tag{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:800;letter-spacing:0.02em}
+.warn{background:#33281A;border:1px solid #5C4520;color:#F5CD86;border-radius:14px;padding:12px 14px;font-size:13px;line-height:1.45;display:flex;gap:10px}
+.ok{background:#173326;border:1px solid #2E5E45;color:#A9E8C6;border-radius:14px;padding:12px 14px;font-size:13px;line-height:1.45;display:flex;gap:10px}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+html,body{margin:0;overflow-x:hidden;background:#111614}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:#E9EEEB;font-size:15px;font-weight:600;text-decoration:none}
+.sec{display:flex;flex-direction:column;gap:2px}
+.sec button{display:flex;align-items:center;border:none;background:transparent;border-radius:12px;padding:0 14px;min-height:44px;font:600 15px 'Plus Jakarta Sans',sans-serif;color:#E9EEEB;text-align:left;cursor:pointer}
+.sec button[aria-current="true"]{background:#1F3A2D;color:#8FE0B5;font-weight:700}
+.dcard{background:#1B221F;border-radius:18px;padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.dcard h2{margin:0;font-size:17px;font-weight:800}
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-size:12px;font-weight:700;color:#A3AFA8;text-transform:uppercase;letter-spacing:0.05em;padding:8px 10px;border-bottom:1px solid #26302B}
+td{padding:10px;border-bottom:1px solid #26302B;font-size:14px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+</style>
+<style>
+.drop{border:2px dashed #39433D;border-radius:18px;padding:36px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;background:#151B18}
+.num{font-size:28px;font-weight:800;letter-spacing:-0.02em}
+.stat{background:#111614;border:1px solid #26302B;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.stat span{font-size:13px;color:#A3AFA8;line-height:1.4}
+.need{font-size:12px;font-weight:700;color:#FF9B76;white-space:nowrap}
+.bar{height:10px;border-radius:5px;background:#252E29;overflow:hidden}
+.bar span{display:block;height:100%;background:#2E9E6E;border-radius:5px}
+.steps{display:flex;gap:10px;align-items:center;font-size:13px;font-weight:700;color:#7E8A83}
+.steps .on{color:#8FE0B5}
+.info{background:#1E2A33;border:1px solid #2E4352;color:#BFD9EA;border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.45;display:flex;gap:10px}
+td input[type=checkbox]{width:18px;height:18px;accent-color:#2E7D5B}
+.dim{color:#A3AFA8}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex">
+<aside style="width: 232px; flex: none; background: #161C19; border-right: 1px solid #2A332E; padding: 24px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; padding: 0 8px">Mealwright</div>
+<nav class="nav" aria-label="Main" style="display: flex; flex-direction: column; gap: 2px"><a href="Dark-Today.dc.html">Today</a><a href="Dark-Plan.dc.html">Plan</a><a href="Dark-ShopPlan08-Desktop.dc.html">Shopping</a><a href="Dark-Pantry08-Desktop.dc.html">Pantry</a><a href="Dark-Recipe.dc.html">Recipes</a><a href="Dark-IngredientsPack08-Desktop.dc.html">Ingredients</a></nav>
+<a href="Dark-Settings09-Desktop.dc.html" aria-current="page" style="margin-top: auto; padding: 10px 12px; border-radius: 12px; background: #1F3A2D; color: #8FE0B5; text-decoration: none; font-size: 14px; font-weight: 700">Sam · Settings</a>
+</aside>
+<main style="flex: 1; min-width: 0; padding: 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px">
+<h1 style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -0.02em">Settings</h1>
+<div style="display: grid; grid-template-columns: 240px minmax(0, 900px); gap: 28px; align-items: start">
+<nav class="sec" aria-label="Settings sections"><button type="button">Appearance</button><button type="button">Amounts</button><button type="button">Household</button><button type="button">Meal slots</button><button type="button">Shops &amp; places</button><button type="button">Privacy</button><button type="button">Sign-in</button><button type="button" aria-current="true">Your data</button><button type="button">About</button></nav>
+<div style="display: flex; flex-direction: column; gap: 16px">
+<div style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700"><a href="Dark-Settings09-Desktop.dc.html">Your data</a><span class="dim">›</span><span>Import from Mealie</span></div>
+<sc-if value="{{ s_pick }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;gap:16px"><div class="steps"><span class="on">1 Choose the file</span><span aria-hidden="true">›</span><span class="">2 Look it over</span><span aria-hidden="true">›</span><span class="">3 Bring in</span><span aria-hidden="true">›</span><span class="">4 Done</span></div>
+<section class="dcard" style="gap:14px"><h2>Import from Mealie</h2><p class="sub">Bring your recipes and foods across from Mealie in one go. Your Mealwright recipes stay as they are, and nothing is added until you've looked it over.</p>
+<div class="drop"><svg aria-hidden="true" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#A3AFA8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5"></path><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"></path></svg><strong style="font-size:17px">Drop the Mealie backup (.zip) here</strong><span class="sub">or</span><button class="btn sm" type="button" onClick="{{ go_preview }}">Choose file…</button></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+<div style="display:flex;flex-direction:column;gap:6px"><strong style="font-size:14px">Getting the file from Mealie</strong><span class="sub">In Mealie: Settings › Backups › Create backup, then download it. You get one .zip file.</span></div>
+<div style="display:flex;flex-direction:column;gap:6px"><strong style="font-size:14px">What comes across</strong><span class="sub">Recipes (steps, ingredients, nutrition, tags, photos) and foods. Not meal plans, shopping lists, users or cookbooks.</span></div>
+</div>
+<div class="info"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M11 12h1v5h1"></path></svg><span>Mealwright only reads the file you choose. It never connects to Mealie or to the internet.</span></div>
+</section></div></sc-if>
+<sc-if value="{{ s_preview }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:16px"><div class="steps"><span class="">1 Choose the file</span><span aria-hidden="true">›</span><span class="on">2 Look it over</span><span aria-hidden="true">›</span><span class="">3 Bring in</span><span aria-hidden="true">›</span><span class="">4 Done</span></div>
+<section class="dcard" style="gap:14px"><div style="display:flex;align-items:center;gap:12px"><h2 style="flex:1">mealie_2026.11.10.zip <span class="sub" style="font-weight:500">· 48 MB · read just now</span></h2><button class="btn2 sm" type="button" onClick="{{ go_pick }}">Choose another file</button></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+<div class="stat"><span class="num">202</span><span>new recipes, 187 with a photo</span></div>
+<div class="stat"><span class="num dim">12</span><span>you already have: left out</span></div>
+<div class="stat"><span class="num">301</span><span>foods match your ingredients</span></div>
+<div class="stat"><span class="num">85</span><span>new ingredients, marked "from Mealie"</span></div>
+</div>
+<div style="display:flex;gap:8px;align-items:center"><button class="chip" type="button" aria-pressed="true">All 214</button><button class="chip" type="button" aria-pressed="false">New 202</button><button class="chip" type="button" aria-pressed="false">Already here 12</button><span style="flex:1"></span><label class="fld" style="flex-direction:row;align-items:center;gap:8px;font-weight:600"><input type="search" placeholder="Find a recipe" style="width:220px;min-height:38px"></label></div>
+<table><thead><tr><th style="width:36px"><span style="position:absolute;left:-9999px">Bring in</span></th><th>Recipe</th><th>Mealie tags</th><th>Photo</th><th>Status</th></tr></thead><tbody><tr><td><input type="checkbox" aria-label="Bring in Vatha kuzhambu" checked></td><td><strong>Vatha kuzhambu</strong></td><td class="dim">Soups &amp; curries</td><td class="dim">Yes</td><td>New</td></tr><tr><td><input type="checkbox" aria-label="Bring in Chicken chettinad" checked></td><td><strong>Chicken chettinad</strong></td><td class="dim">Curries</td><td class="dim">Yes</td><td>New</td></tr><tr><td><input type="checkbox" aria-label="Bring in Lemon rice" checked></td><td><strong>Lemon rice</strong></td><td class="dim">Rice</td><td class="dim">Yes</td><td>New</td></tr><tr><td><input type="checkbox" aria-label="Bring in Shakshuka" checked></td><td><strong>Shakshuka</strong></td><td class="dim">Breakfast</td><td class="dim">Yes</td><td>New</td></tr><tr><td><input type="checkbox" aria-label="Bring in Banana bread" checked></td><td><strong>Banana bread</strong></td><td class="dim">Baking</td><td class="dim">Yes</td><td>New</td></tr><tr><td><input type="checkbox" aria-label="Bring in Masala dosa" disabled></td><td><strong class=dim>Masala dosa</strong></td><td class="dim">Breakfast</td><td class="dim">Yes</td><td><span class=dim>You already have it</span></td></tr><tr><td><input type="checkbox" aria-label="Bring in Thai green curry" checked></td><td><strong>Thai green curry</strong></td><td class="dim">Curries</td><td class="dim">No</td><td>New</td></tr><tr><td><input type="checkbox" aria-label="Bring in Mutton biryani" checked></td><td><strong>Mutton biryani</strong></td><td class="dim">Rice</td><td class="dim">Yes</td><td>New</td></tr></tbody></table>
+<span class="sub">Showing 8 of 214. Untick any you don't want.</span>
+<div style="display:flex;align-items:center;gap:12px;border-top:1px solid #26302B;padding-top:12px"><span class="lbl">Bring in photos<small>About 41 MB more on your server</small></span><button type="button" class="sw" role="switch" aria-checked="true" aria-label="Bring in photos"><span></span></button></div>
+<p class="sub">Not brought in: 6 meal plans, 2 shopping lists, 3 users, 4 cookbooks.</p>
+<div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn2" type="button" onClick="{{ go_pick }}">Cancel</button><button class="btn" type="button" onClick="{{ go_run }}">Bring in 202 recipes</button></div>
+</section></div></sc-if>
+<sc-if value="{{ s_run }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:16px"><div class="steps"><span class="">1 Choose the file</span><span aria-hidden="true">›</span><span class="">2 Look it over</span><span aria-hidden="true">›</span><span class="on">3 Bring in</span><span aria-hidden="true">›</span><span class="">4 Done</span></div>
+<section class="dcard" style="gap:14px"><h2>Bringing in recipes… 118 of 202</h2><div class="bar" role="progressbar" aria-label="Recipes brought in" aria-valuemin="0" aria-valuemax="202" aria-valuenow="118"><span style="width:58%"></span></div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"><div class="stat"><span class="num">97</span><span>ready</span></div><div class="stat"><span class="num" style="color:#FF9B76">21</span><span>with lines to check</span></div><div class="stat"><span class="num dim">84</span><span>still to go</span></div></div>
+<div class="info"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M11 12h1v5h1"></path></svg><span>It runs on your server, so you can close this tab or carry on elsewhere. Today shows a note when it's done.</span></div>
+<div style="display:flex;justify-content:flex-end"><button class="btn" type="button" onClick="{{ go_done }}">Show when done</button></div>
+</section></div></sc-if>
+<sc-if value="{{ s_done }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:16px"><div class="steps"><span class="">1 Choose the file</span><span aria-hidden="true">›</span><span class="">2 Look it over</span><span aria-hidden="true">›</span><span class="">3 Bring in</span><span aria-hidden="true">›</span><span class="on">4 Done</span></div>
+<div class="ok" style="font-size:15px"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M5 12l5 5 9-10"></path></svg><span><strong>202 recipes brought in</strong> from mealie_2026.11.10.zip, today 21:40.</span></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+<a class="stat" href="#" style="text-decoration:none;color:inherit"><span class="num">171</span><span>ready to cook, in Recipes</span></a>
+<div class="stat" style="border-color:#5C3A2A"><span class="num" style="color:#FF9B76">31</span><span>have lines to check, in Drafts</span></div>
+<a class="stat" href="#" style="text-decoration:none;color:inherit"><span class="num">85</span><span>new ingredients</span></a>
+<div class="stat"><span class="num dim">12</span><span>left out, already here</span></div>
+</div>
+<section class="dcard" style="gap:12px"><div style="display:flex;align-items:center;gap:12px"><h2 style="flex:1">31 recipes to check</h2><button class="btn2 sm" type="button">Save all as they are</button></div>
+<p class="sub">Mealwright couldn't read some ingredient lines. Check opens the usual import check. Save all keeps those lines as plain text; they don't go on the shopping list.</p>
+<table><thead><tr><th>Recipe</th><th>Lines it couldn't read</th><th></th><th></th></tr></thead><tbody><tr><td><strong>Chicken chettinad</strong></td><td class="dim">"1 tin coconut milk (optional)", "salt to taste"</td><td><span class="need">2 lines</span></td><td style="text-align:right"><a class="btn2 sm" href="#">Check</a></td></tr><tr><td><strong>Thai green curry</strong></td><td class="dim">"a thumb of galangal"</td><td><span class="need">1 line</span></td><td style="text-align:right"><a class="btn2 sm" href="#">Check</a></td></tr><tr><td><strong>Shakshuka</strong></td><td class="dim">"2 tins tomatoes or 6 fresh", and 2 more</td><td><span class="need">3 lines</span></td><td style="text-align:right"><a class="btn2 sm" href="#">Check</a></td></tr><tr><td><strong>Paneer butter masala</strong></td><td class="dim">"kasuri methi, a pinch"</td><td><span class="need">1 line</span></td><td style="text-align:right"><a class="btn2 sm" href="#">Check</a></td></tr><tr><td><strong>Sourdough loaf</strong></td><td class="dim">"levain (see note)", and 3 more</td><td><span class="need">4 lines</span></td><td style="text-align:right"><a class="btn2 sm" href="#">Check</a></td></tr><tr><td><strong>Mutton biryani</strong></td><td class="dim">"1 packet biryani masala", and 1 more</td><td><span class="need">2 lines</span></td><td style="text-align:right"><a class="btn2 sm" href="#">Check</a></td></tr></tbody></table><span class="sub">25 more</span></section>
+<section class="dcard"><div style="display:flex;align-items:center;gap:12px"><span class="lbl">Undo this import<small>Takes out the 202 recipes and 85 new ingredients. Works for 7 days; recipes you've changed or cooked since are kept.</small></span><button class="btn2 sm" type="button" onClick="{{ go_pick }}">Undo</button></div></section>
+</div></sc-if>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1440, "height": 900}}'>
+class Component extends DCLogic {
+renderVals() {
+const cur = (this.state && this.state.st) || 'pick';
+const o = {};
+['pick', 'preview', 'run', 'done'].forEach((k) => { o['s_' + k] = cur === k; o['go_' + k] = () => this.setState({ st: k }); });
+return o;
+}
+}
+</script>
+</body>
+</html>
