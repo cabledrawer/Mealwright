@@ -119,7 +119,7 @@ def test_no_password_and_no_sign_in_ever_leaves(kitchen: TestClient) -> None:
         "session": "who is signed in where (sign-in cookies)",
         "join_link": "sign-in links made for people",
         "api_token": "API tokens, which only an admin at the screen makes",
-        "former_name": "old names kept for 15 days so Report a problem can remove them (proposed)",
+        "former_name": "old names kept for 15 days so Report a problem can remove them",
     }
     assert "login.password_hash" in doc["left_out"]["columns"]
     assert "sso_settings.client_secret_sealed" in doc["left_out"]["columns"]

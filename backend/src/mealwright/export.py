@@ -49,7 +49,7 @@ LEFT_OUT_TABLES = {
     # O2 review r1, finding 2 (proposed, for cabledrawer): only a token's SHA-256 is kept, but that
     # is all it takes to tell a made-up token from a real one, so it doesn't leave either.
     "api_token": "API tokens, which only an admin at the screen makes",  # nosec B105 (words)
-    "former_name": "old names kept for 15 days so Report a problem can remove them (proposed)",
+    "former_name": "old names kept for 15 days so Report a problem can remove them",
 }
 LEFT_OUT_COLUMNS = {
     ("login", "password_hash"): "passwords, even scrambled",
@@ -57,7 +57,7 @@ LEFT_OUT_COLUMNS = {
     # cabledrawer; the rest of the single sign-on setup is exported).
     ("sso_settings", "client_secret_sealed"): "the single sign-on client secret",
     # This server's own sign-in state, not the household's data: without it an admin put back
-    # from an export isn't blocked from making API tokens (O2 fix13; proposed, for cabledrawer).
+    # from an export isn't blocked from making API tokens (O2 fix13; cabledrawer 14 Nov).
     ("login", "sso_refused_at"): "the mark of a login the sign-in server refused",
 }
 

@@ -933,6 +933,7 @@ Plain-language list of every kind of record, grouped. Every record belongs to th
 - **Recipe links on your own network:** imports from private and internal addresses (router, other homelab services, the server itself) are blocked by default to prevent SSRF; the admin can add an allow list (e.g. a home wiki). **0.5 (cabledrawer 21 and 22 Oct):** the checks run after the address is looked up and again on every redirect; entries are a host name, one address or a range; `localhost` and cloud "metadata" addresses stay blocked even if listed; the list is stored with the household and becomes a server-level setting if several households per install ever arrive. See section 6, "Recipe import, decided for 0.5".
 - **Signing out on a phone** wipes that device's offline copy (shopping list, cached recipes, waiting changes), with a warning first if changes haven't been sent yet.
 - **Export everything** offers an optional password that encrypts the file; it is offered but not required.
+- **What the export leaves out (cabledrawer 12 Nov; the last three cabledrawer 14 Nov):** sign-ins and sign-in links, passwords, API tokens and the single sign-on client secret; also this server's mark of a login the sign-in server refused, and the old names kept for Report a problem. Whoever restores from an export sets passwords again. The format is in `docs/export-format.md`. The optional password is not built yet: it is a 0.9.5 step (cabledrawer 14 Nov).
 
 **Decided after the 0.4 security audit (cabledrawer 19 Oct, "Accept all six"):**
 
