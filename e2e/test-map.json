@@ -61,7 +61,7 @@
       "test_api.py", "test_licences.py", "test_telemetry.py", "test_wording.py", "test_outbound.py",
       "test_frontend.py", "test_shutdown.py", "test_start_refusals.py", "test_test_clock.py",
       "test_tmp_cleanup.py", "test_logs.py", "test_log_content.py", "test_jobs.py", "test_purge.py", "test_db.py",
-      "test_migrations.py", "test_migration_counters.py", "test_place_removal_household.py", "test_undo_review_fixes.py", "test_stocktake_undo_rounds.py", "test_safety_copy.py", "test_request_size.py", "test_security_headers.py", "test_private_files.py", "test_cancelled_requests.py", "test_many_at_once.py", "test_slow_uploads.py"
+      "test_migrations.py", "test_migration_counters.py", "test_upgrade_from_tags.py", "test_place_removal_household.py", "test_undo_review_fixes.py", "test_stocktake_undo_rounds.py", "test_safety_copy.py", "test_request_size.py", "test_security_headers.py", "test_private_files.py", "test_cancelled_requests.py", "test_many_at_once.py", "test_slow_uploads.py"
     ]
   },
   "areas": [
