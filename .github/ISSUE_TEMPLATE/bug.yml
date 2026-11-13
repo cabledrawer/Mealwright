@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in Mealwright doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the report. Mealwright is a spare-time project, so a reply can take about a week.
+
+        **Never paste passwords, API tokens, single sign-on secrets, backup files, or logs you haven't read through.** Logs can hold addresses and names. Cut out anything private first. Security problems do not go here: use Security, then Report a vulnerability. Ideas for new features go in Discussions.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to repeat it
+      placeholder: "1. Open ...\n2. Press ..."
+  - type: input
+    id: version
+    attributes:
+      label: Mealwright version
+      description: The version number shown in the app (or the image tag you run).
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where did it happen?
+      options:
+        - On a phone
+        - On a computer
+        - On the server (the container)
+        - Not sure
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Short, cleaned-up log lines or a screenshot with private details covered.

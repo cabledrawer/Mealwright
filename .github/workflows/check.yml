@@ -1,0 +1,77 @@
+# The same checks as ./check, run by GitHub on every pull request and every push to main.
+# Written in 0.9.5, unused until the code moves to GitHub at 1.0 (docs/dev/move-to-github.md).
+#
+# Kept off Forgejo: every job starts with `if: github.server_url == 'https://github.com'`,
+# so on Forgejo each job is skipped and needs no runner (see docs/dev/move-to-github.md).
+#
+# Nothing here sends anything about an install anywhere. It runs ./check, which only
+# downloads dependencies and vulnerability databases (see its header).
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # Proposed, for cabledrawer: skip on any server that is not GitHub itself.
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-24.04  # amd64
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4.2.2  # TODO(cabledrawer): pin SHA
+        with:
+          # ./check compares with origin/main to decide whether the scanners run.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v5  # TODO(cabledrawer): pin SHA
+      - uses: actions/setup-node@v4.1.0  # TODO(cabledrawer): pin SHA
+        with:
+          node-version: 24
+      - name: Run ./check with the scanners on
+        env:
+          CHECK_SCANNERS: "1"
+        run: ./check
+      - name: Show the summary (the same text ./check tells you to paste into a pull request)
+        if: always()
+        run: |
+          if [ -f .check/summary.md ]; then
+            cat .check/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Keep the full log
+        if: always()
+        uses: actions/upload-artifact@v4.4.3  # TODO(cabledrawer): pin SHA
+        with:
+          name: check-log
+          path: .check/check.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Build only, both architectures. Nothing is pushed or logged in to a registry.
+  image:
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4.2.2  # TODO(cabledrawer): pin SHA
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@v3.2.0  # TODO(cabledrawer): pin SHA
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@v3.7.1  # TODO(cabledrawer): pin SHA
+      - uses: docker/build-push-action@v6.10.0  # TODO(cabledrawer): pin SHA
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
