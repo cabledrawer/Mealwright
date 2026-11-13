@@ -10,6 +10,7 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Fixed
 
+- A person made at first single sign-on sign-in with a long name is cut at 100 characters like any other name (never in the middle of a flag), and when "Name (username)" is taken too, a number is added: "Name (username) 2".
 - "Delete everything" forgets the wrong-password counts of the deleted household's people only; the counts of another household on the same install stay.
 - The hourly sign-in check ignores an answer from the sign-in server when the single sign-on settings (the issuer or the client) were changed while the server was being asked, so an answer meant for the old setup can no longer sign people out, stop their API tokens or seal a new token for it.
 - Undo of a removed place puts its stocktake answers back only into the stocktake they came from, in every order of events: "Start a new stocktake" marks the removals that can still be undone as from an earlier stocktake. Before, a few orders left the old answers out, and a restart with nothing answered since could bring them into the new stocktake (L1c). Removals made before this version keep the earlier check.

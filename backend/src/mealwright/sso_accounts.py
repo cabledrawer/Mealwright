@@ -44,7 +44,7 @@ from mealwright import api_tokens, own_network, sso
 from mealwright.auth import now
 from mealwright.events import Broadcaster
 from mealwright.models import Login, Member, Session, SsoSettings
-from mealwright.names import fold, tidy_one_line
+from mealwright.names import cut_text, fold, tidy_one_line
 from mealwright.outbound import Connection, OutboundGate, switches
 from mealwright.people import admin_can_sign_in
 from mealwright.roles import ADMIN, MEMBER
@@ -311,7 +311,7 @@ def _member_name(db: DbSession, household_id: int, name: str | None, username: s
     """The name of a new person made at first sign-in. Tidied as a typed name is, and, when
     someone of the household already has that name (Settings → Household refuses two the same),
     "<name> (<username>)" (whole-0.9 S4)."""
-    tidy = tidy_one_line(name or "")[:100] or username
+    tidy = cut_text(tidy_one_line(name or ""), 100) or username
     taken = {
         fold(other)
         for other in db.scalars(
@@ -323,7 +323,14 @@ def _member_name(db: DbSession, household_id: int, name: str | None, username: s
     if fold(tidy) not in taken:
         return tidy
     suffix = f" ({username})"
-    return tidy[: 100 - len(suffix)].rstrip() + suffix
+    number = 1
+    while True:
+        # A number too when "<name> (<username>)" is taken as well (proposed, for cabledrawer).
+        ending = suffix if number == 1 else f"{suffix} {number}"
+        candidate = cut_text(tidy, 100 - len(ending)).rstrip() + ending
+        if fold(candidate) not in taken:
+            return candidate
+        number += 1
 
 
 def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Path) -> Login:
