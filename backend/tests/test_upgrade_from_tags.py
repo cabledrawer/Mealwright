@@ -96,7 +96,7 @@ def _same_values(
     """What differs or went missing, for every table and column that was there before.
 
     Every old value must come through unchanged: no migration so far rewrites old data. One that
-    does (a backfill of an existing column) needs its column in GONE_ON_PURPOSE or its own check.
+    does (a backfill of an existing column) will fail here and needs its own check for that column.
     """
     later = _rows(after)
     problems = []
