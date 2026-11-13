@@ -50,6 +50,7 @@ from authlib.oidc.core import CodeIDToken
 from joserfc.errors import JoseError as JoserfcError
 
 from mealwright import own_network
+from mealwright.names import tidy_one_line
 from mealwright.outbound import (
     Connection,
     OutboundBlocked,
@@ -1023,7 +1024,7 @@ def finish(gate: OutboundGate, flow: Flow, client: Client, code: str) -> Identit
         subject=str(claims["sub"]),
         username=text("preferred_username"),
         email=text("email"),
-        name=text("name"),
+        name=tidy_one_line(text("name") or "") or None,
         groups=groups_in(claims, client.group_claim),
         refresh_token=refresh if isinstance(refresh, str) and refresh else None,
     )

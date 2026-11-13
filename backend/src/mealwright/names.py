@@ -214,6 +214,13 @@ def one_line(value: str) -> str:
     return value
 
 
+def tidy_one_line(value: str) -> str:
+    """A name that came from elsewhere (the sign-in server), tidied as a typed name is: hidden
+    and direction characters out, any run of white space one space, and the ends trimmed.
+    Where a typed name is refused, this one can only be cleaned."""
+    return " ".join(without_hidden(value).split())
+
+
 def text_block(value: str) -> str:
     """The shared check for text that may run over several lines (a method step): line
     breaks are fine (a Windows line break becomes a plain one), other hidden characters

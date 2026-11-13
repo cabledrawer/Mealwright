@@ -44,6 +44,7 @@ from mealwright import api_tokens, own_network, sso
 from mealwright.auth import now
 from mealwright.events import Broadcaster
 from mealwright.models import Login, Member, Session, SsoSettings
+from mealwright.names import fold, tidy_one_line
 from mealwright.outbound import Connection, OutboundGate, switches
 from mealwright.people import admin_can_sign_in
 from mealwright.roles import ADMIN, MEMBER
@@ -306,6 +307,25 @@ def _refused_known(
     raise failure
 
 
+def _member_name(db: DbSession, household_id: int, name: str | None, username: str) -> str:
+    """The name of a new person made at first sign-in. Tidied as a typed name is, and, when
+    someone of the household already has that name (Settings → Household refuses two the same),
+    "<name> (<username>)" (whole-0.9 S4)."""
+    tidy = tidy_one_line(name or "")[:100] or username
+    taken = {
+        fold(other)
+        for other in db.scalars(
+            select(Member.name).where(
+                Member.household_id == household_id, Member.removed_at.is_(None)
+            )
+        )
+    }
+    if fold(tidy) not in taken:
+        return tidy
+    suffix = f" ({username})"
+    return tidy[: 100 - len(suffix)].rstrip() + suffix
+
+
 def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Path) -> Login:
     """The login this identity signs in as, made on first sign-in if allowed, with its role
     from the groups. Raises SsoFailed. Flushes, doesn't commit."""
@@ -322,7 +342,7 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Pat
         login = Login(
             household_id=row.household_id,
             username=username,
-            name=(identity.name or username)[:100],
+            name=_member_name(db, row.household_id, identity.name, username),
             password_hash=None,
             role=role,
             sso_issuer=identity.issuer,
