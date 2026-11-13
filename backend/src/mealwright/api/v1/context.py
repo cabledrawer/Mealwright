@@ -3,7 +3,7 @@ the client-made change ID for retries (docs/dev/api-0.2.md section 1.2)."""
 
 import re
 from dataclasses import dataclass
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
@@ -11,7 +11,7 @@ from fastapi import Depends, Header, Request, status
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.api_tokens import not_for_tokens
-from mealwright.auth import CurrentLogin, Db
+from mealwright.auth import SEEN_EVERY, CurrentLogin, Db
 from mealwright.errors import Problem
 from mealwright.models import Household, Login, Member, Session, utcnow
 from mealwright.roles import Action, allowed
@@ -81,14 +81,21 @@ def kitchen(
     if household is None:  # pragma: no cover (a login always has a household)
         raise Problem(status.HTTP_401_UNAUTHORIZED, "signed_out", "Please sign in.")
     member_id = acting_member(db, signed_in.login, household, signed_in.session)
-    if (
-        signed_in.session is not None
-        and signed_in.login.shared
-        and member_id is not None
-        and request.method not in SAFE
-    ):
-        # A change made as the picked person keeps the pick going (saved with the change).
-        signed_in.session.picked_at = utcnow()
+    if signed_in.session is not None and signed_in.login.shared and member_id is not None:
+        # Any request from the device keeps the pick going, as `last_seen_at` does for the
+        # sign-in: reading a recipe or the plan for half an hour is still using the tablet
+        # (whole-0.9 Pe5). A change made as the picked person saves it with the change; a
+        # request that only looks writes it at most once a minute.
+        picked_at = signed_in.session.picked_at
+        if request.method not in SAFE:
+            signed_in.session.picked_at = utcnow()
+        elif (
+            picked_at is None
+            or utcnow() - (picked_at if picked_at.tzinfo else picked_at.replace(tzinfo=UTC))
+            >= SEEN_EVERY
+        ):
+            signed_in.session.picked_at = utcnow()
+            db.commit()
     return Kitchen(
         db=db,
         login=signed_in.login,
@@ -124,13 +131,15 @@ def acting_member(
     return member.id
 
 
+def _utc(moment: datetime) -> datetime:
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+
+
 def _fresh_pick(session: Session) -> bool:
     picked_at = session.picked_at
     if session.member_id is None or picked_at is None:
         return False
-    if picked_at.tzinfo is None:
-        picked_at = picked_at.replace(tzinfo=UTC)
-    return utcnow() - picked_at < PICK_FOR
+    return utcnow() - _utc(picked_at) < PICK_FOR
 
 
 Here = Annotated[Kitchen, Depends(kitchen)]
