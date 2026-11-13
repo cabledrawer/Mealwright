@@ -109,7 +109,7 @@ try {
       const t0 = performance.now();
       await page.goto('/sign-in');
       await page.getByLabel('Username').fill(state.admin.username);
-      await page.getByLabel('Password').fill(state.admin.password);
+      await page.getByLabel('Password', { exact: true }).fill(state.admin.password);
       await page.getByRole('button', { name: 'Sign in', exact: true }).click();
       await h1('Today')(page);
       results.first['Sign in']!.push({ ms: ms(t0), api: calls });
@@ -199,22 +199,22 @@ try {
     await context.close();
   }
 
-  // Tick a shopping line: from the tap until the line shows ticked.
+  // Tick a shopping line: from the tap until the line no longer shows as still to buy (it is ticked, or moved to the trolley).
   await action('Tick a shopping line', '/shopping', PAGES[4]!.ready, async (page) => {
     const box = page.getByRole('checkbox', { checked: false }).first();
     const label = await box.getAttribute('aria-label');
     await box.click();
-    await page.getByRole('checkbox', { name: label ?? undefined, checked: true }).first().waitFor();
+    await page.getByRole('checkbox', { name: label ?? undefined, checked: false }).first().waitFor({ state: 'hidden' });
   });
 
-  // Search recipes: from typing the word until the count line (or the rows) have changed.
+  // Search recipes: from typing a recipe's name until the list has shrunk to the matches.
+  const rows = (page: Page) => page.locator('main li');
   await action('Search recipes', '/recipes', PAGES[1]!.ready, async (page) => {
-    const before = await page.getByText(/^\d+ recipes?$/).first().innerText();
-    await page.getByRole('searchbox', { name: 'Search recipes' }).fill('garlic');
-    await expect(page.getByText(/^\d+ recipes?$/).first()).not.toHaveText(before);
+    await page.getByRole('searchbox', { name: 'Search recipes' }).fill(someRecipe.name);
+    await expect(rows(page)).toHaveCount(1);
   }, async (page) => {
     await page.getByRole('searchbox', { name: 'Search recipes' }).fill('');
-    await expect(page.getByText(/^\d+ recipes?$/).first()).toHaveText(/^2\d\d recipes?$/);
+    await expect.poll(() => rows(page).count()).toBeGreaterThan(10);
   });
 
   // Add a recipe to the plan: open an empty meal's Add, search, pick the first recipe, until the plan says "Planned".
@@ -223,17 +223,21 @@ try {
     await page.getByRole('list', { name: 'Results' }).getByRole('button').first().click();
     await page.getByRole('status').filter({ hasText: /^Planned/ }).first().waitFor();
   }, async (page) => {
-    await page.getByRole('button', { name: /Add/ }).filter({ hasText: /Add/ }).first().click();
+    // Wait for the last run's "Planned" message to go, so it cannot be mistaken for this run's.
+    await expect(page.getByRole('status').filter({ hasText: /^Planned/ })).toHaveCount(0, { timeout: 30_000 });
+    await page.getByRole('button', { name: /^Add to (?!the plan)/ }).first().click();
     await page.getByRole('dialog', { name: 'Add to the plan' }).waitFor();
   });
 
   // Stocktake save: leave the first place (its answers are saved), until the next place is drawn.
+  // Each run starts a new stocktake first, so it is always the first place that is saved.
   await action('Pantry stocktake save', '/pantry/stocktake', async (p) => { await p.getByRole('heading', { name: /^Stocktake · / }).waitFor(); }, async (page) => {
     const heading = await page.getByRole('heading', { name: /^Stocktake · / }).innerText();
     await page.getByRole('button', { name: /^(Next: .* →|Finish)$/ }).click();
     await expect(page.getByRole('heading', { name: /^Stocktake · |^Stocktake finished/ })).not.toHaveText(heading);
-  }, async (page, i) => {
-    if (i > 0) await page.getByRole('button', { name: /← / }).first().click().catch(() => undefined);
+  }, async (page) => {
+    await page.request.post('/api/v1/stocktake/restart', { headers: { 'Idempotency-Key': crypto.randomUUID() } });
+    await page.goto('/pantry/stocktake');
     await page.getByRole('heading', { name: /^Stocktake · / }).waitFor();
   });
 } finally {
