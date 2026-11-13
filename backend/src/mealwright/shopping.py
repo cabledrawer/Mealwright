@@ -1158,6 +1158,54 @@ def _edit_against_delete(act: Act, item: ListItem, food: Food) -> None:
     )
 
 
+def _stale_join_edit(act: Act, *, delete: bool) -> bool:
+    """L3 (Sh7): a delete or an amount change that names a row an untick joined into another
+    line after the phone last heard from the server touches only what that row added to the
+    line, the rest stays to buy (as a stale tick does). True when it handled the action. When
+    the line has no more than the row added (or the amount is of another size), the action
+    goes on as it always did."""
+    from mealwright.ticks import stale_join  # ticks.py imports this module
+
+    kitchen, payload = act.kitchen, act.payload
+    found = stale_join(act, payload["item_id"])
+    if found is None:
+        return False
+    row, line, added = found
+    if line.amount_milli is None or added <= 0 or line.amount_milli <= added:
+        return False
+    food = kitchen.db.get(Food, line.food_id)
+    if food is None:  # pragma: no cover (an ingredient's items go with it)
+        return False
+    new_milli = 0
+    if not delete:
+        size = get_size(kitchen, food, payload.get("size_id"))
+        if (size.id if size else None) != line.size_id:
+            return False
+        new_milli = milli_of(payload["amount"]) or 0
+    try:
+        total = checked(line.amount_milli - added + new_milli)
+    except TooBig as err:
+        raise Refused("too_big", "That amount is too big.") from err
+    act.item_id, act.list_id, act.food_id = line.id, line.list_id, line.food_id
+    act.out["item"] = line
+    if total == line.amount_milli:
+        act.ignore("no_change")
+        return True
+    before = _amount_state(line)
+    line.amount_milli = total
+    if not delete:
+        line.hand_edited = True
+    line.version = act.seq
+    act.done(
+        "item_amount",
+        f"{'Took part of' if delete else 'Changed'} {food.name} {'off ' if delete else 'on '}"
+        "the list",
+        [{"op": "item_amount", "item_id": line.id, "old": before, "new": _amount_state(line)}],
+        food.id,
+    )
+    return True
+
+
 def set_amount(act: Act) -> None:
     """Change the amount to buy (the last one received wins). Sets `hand_edited`, so the
     plan (0.6) never overwrites it. On a ticked item it changes only the list, never the
@@ -1165,6 +1213,8 @@ def set_amount(act: Act) -> None:
     from mealwright.foods import amount_out
 
     kitchen, payload = act.kitchen, act.payload
+    if _stale_join_edit(act, delete=False):
+        return
     item = get_item(kitchen, payload["item_id"])
     if item is None:
         act.ignore("gone")
@@ -1282,6 +1332,8 @@ def _lost_to_delete(act: Act, item: ListItem, food: Food) -> None:
 def delete_item(act: Act) -> None:
     """Take an item off the list, leaving a tombstone so an old queue can't bring it back."""
     kitchen = act.kitchen
+    if _stale_join_edit(act, delete=True):
+        return
     item = get_item(kitchen, act.payload["item_id"])
     if item is None:
         act.ignore("gone")

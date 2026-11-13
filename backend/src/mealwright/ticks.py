@@ -360,8 +360,40 @@ def _join_back(act: Act, item: ListItem, tick: ListTick) -> None:
             "new": [line.amount_milli, line.size_id],
             "hand_edited": hand_edited,
             "undone": False,
+            "action": act.id,
         },
     }
+
+
+def stale_join(act: Act, item_id: str) -> tuple[ListItem, ListItem, int] | None:
+    """L3: a phone names a row that an untick joined into another line after the phone last
+    heard from the server. Gives the row, the line it joined and what the join added to that
+    line (milli); None when the phone had heard of the join or there is no such join."""
+    kitchen = act.kitchen
+    row = kitchen.db.get(ListItem, item_id)
+    if row is None or row.household_id != kitchen.household_id or row.merged_into_id is None:
+        return None
+    changes = kitchen.db.scalars(
+        select(Change).where(
+            Change.household_id == kitchen.household_id,
+            Change.kind.in_(("shopped", "found")),
+            Change.tick_id.in_(select(ListTick.id).where(ListTick.item_id == row.id)),
+        )
+    )
+    for change in changes:
+        join = (change.undo_data or {}).get("join")
+        if not join or join.get("undone") or join.get("into") != row.merged_into_id:
+            continue
+        if not shopping.unseen(act, shopping.action_row(kitchen, join.get("action"))):
+            continue
+        line = kitchen.db.get(ListItem, join["into"])
+        if line is None or line.household_id != kitchen.household_id:
+            continue
+        if line.deleted_at is not None or line.merged_into_id is not None:
+            continue
+        old, new = join["old"][0], join["new"][0]
+        return row, line, new - (old or 0)
+    return None
 
 
 def _unjoin(act: Act, tick: ListTick) -> None:
