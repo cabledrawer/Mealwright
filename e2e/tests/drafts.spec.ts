@@ -31,7 +31,7 @@ async function openImport(page: Page) {
 /** Leave the review for the Recipes list: the browser's Back on a phone, which asks "Save as draft?";
  *  Back to drafts on a computer asks the same. */
 async function leaveCheck(page: Page) {
-  if (isPhone(page)) await page.goBack();
+  if (isPhone(page)) await backWhenReady(page);
   else await page.getByRole('button', { name: 'Back to drafts', exact: true }).last().click();
 }
 
@@ -55,6 +55,24 @@ async function keepDraft(page: Page) {
 async function draftsNamed(page: Page, title: string): Promise<Json[]> {
   const list = (await (await page.request.get('/api/v1/recipes/drafts')).json()) as Json;
   return list.drafts.filter((d: Json) => d.name === title);
+}
+
+/** The server's drafts with this name come to `count`, waited for: the screen changes at once
+ *  (Delete, Undo, Discard) and the server's answer may come a moment later, more so under load. */
+async function expectDrafts(page: Page, title: string, count: number) {
+  await expect.poll(async () => (await draftsNamed(page, title)).length, { message: `drafts named ${title}` }).toBe(count);
+}
+
+/** The browser's Back on a phone, once the screen is drawn in full (its heading and its own Back
+ *  to drafts, which come with the screen's leave question), so Back reaches the screen that asks.
+ *  Back must then stay on the screen: one that left without asking fails here, by name, rather
+ *  than as a wait for a question that never comes. */
+async function backWhenReady(page: Page) {
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Back to drafts/ }).last()).toBeEnabled();
+  const here = page.url();
+  await page.goBack();
+  await expect(page, 'Back left without asking').toHaveURL(here);
 }
 
 async function deleteDrafts(page: Page, title: string) {
@@ -120,7 +138,7 @@ test('Discard leaves without keeping anything', async ({ page }) => {
   await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Discard', exact: true }).click();
   // A computer left through Back to drafts, so Discard lands on Drafts; the phone went back to Recipes.
   await expect(page).toHaveURL(isPhone(page) ? /\/recipes$/ : /\/recipes\/drafts$/);
-  expect(await draftsNamed(page, title)).toHaveLength(0);
+  await expectDrafts(page, title, 0);
 });
 
 test('carry on opens the review with the choices made, and Save makes the recipe and removes the draft', async ({ page }) => {
@@ -155,14 +173,14 @@ test('carry on opens the review with the choices made, and Save makes the recipe
   await page.getByRole('button', { name: 'Save recipe' }).click();
   await expect(page).toHaveURL(/\/recipes\/\d+$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${title} (mine)`);
-  expect(await draftsNamed(page, `${title} (mine)`)).toHaveLength(0);
+  await expectDrafts(page, `${title} (mine)`, 0);
   // The recipe's Undo takes the recipe and its new ingredients back, as for any import, and
   // because it was saved from a draft, the draft comes back too (spec section 6, question 36).
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText(/^Undone/)).toBeVisible();
   await page.goto('/recipes/drafts');
   await expect(page.getByRole('link', { name: `Carry on ${title} (mine)` })).toBeVisible();
-  expect(await draftsNamed(page, `${title} (mine)`)).toHaveLength(1);
+  await expectDrafts(page, `${title} (mine)`, 1);
   await deleteDrafts(page, `${title} (mine)`);
 });
 
@@ -172,7 +190,7 @@ test('changing a draft and leaving asks to save the draft over; the days start a
   await keepDraft(page);
   await page.getByRole('link', { name: `Carry on ${title}` }).click();
   await page.getByLabel('Serves').fill('6');
-  if (isPhone(page)) await page.goBack();
+  if (isPhone(page)) await backWhenReady(page);
   else await page.getByRole('link', { name: 'Drafts', exact: true }).first().click();
   const dialog = page.getByRole('dialog', { name: 'Save your changes?' });
   await expect(dialog).toBeVisible();
@@ -180,6 +198,7 @@ test('changing a draft and leaving asks to save the draft over; the days start a
   await checkPage(page);
   await dialog.getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
+  await expectDrafts(page, title, 1);
   const [draft] = await draftsNamed(page, title);
   const kept = (await (await page.request.get(`/api/v1/recipes/drafts/${draft!.id}`)).json()) as Json;
   expect(kept.choices.serves).toBe('6');
@@ -197,10 +216,10 @@ test('Delete hides the draft at once and a toast offers Undo; Undo and Ctrl+Z br
   await page.getByText(`Deleted the ${title} draft`).hover();
   await checkPage(page);
   await page.mouse.move(0, 0);
-  expect(await draftsNamed(page, title)).toHaveLength(0);
+  await expectDrafts(page, title, 0);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText(title, { exact: true })).toBeVisible();
-  expect(await draftsNamed(page, title)).toHaveLength(1);
+  await expectDrafts(page, title, 1);
   if (!isPhone(page)) {
     await page.getByRole('button', { name: `Delete ${title}` }).click();
     await expect(page.getByText(title, { exact: true })).toHaveCount(0);
@@ -370,15 +389,15 @@ test('Discard draft on Check asks once, deletes the draft, and Undo brings it ba
   // Keep checking changes nothing.
   await dialog.getByRole('button', { name: 'Keep checking' }).click();
   await expect(dialog).toBeHidden();
-  expect(await draftsNamed(page, title)).toHaveLength(1);
+  await expectDrafts(page, title, 1);
   await page.getByRole('button', { name: 'Discard draft', exact: true }).click();
   await dialog.getByRole('button', { name: 'Discard draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
-  expect(await draftsNamed(page, title)).toHaveLength(0);
+  await expectDrafts(page, title, 0);
   await expect(page.getByText(`Deleted the ${title} draft`)).toBeVisible();
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByRole('link', { name: `Carry on ${title}` })).toBeVisible();
-  expect(await draftsNamed(page, title)).toHaveLength(1);
+  await expectDrafts(page, title, 1);
   await deleteDrafts(page, title);
 });
 
