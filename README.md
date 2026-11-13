@@ -14,7 +14,30 @@ Mealwright collects nothing. No telemetry, analytics or crash reporting, not eve
 
 The built-in telemetry of the libraries Mealwright uses is switched off (FastAPI's OpenTelemetry support included), and the tests check that no telemetry exporter is installed, in the code and in the Docker image.
 
-Outbound connections happen only when you switch them on in Settings → Privacy. Every one of them goes through a single gate in the code, which checks its switch first, and while Mealwright runs any other attempt to connect out, or even to look up an address, is refused. The full list of every possible outbound connection will be written here before 1.0.0.
+Outbound connections happen only when you switch them on in Settings → Privacy. Every one of them goes through a single gate in the code, which checks its switch first, and while Mealwright runs any other attempt to connect out, or even to look up an address, is refused.
+
+### Every possible outbound connection
+
+There are four in this version. Each one is a switch in Settings → Privacy, and an admin changes them. All four are **off by default**. The list comes from the gate's own list of connection kinds in `backend/src/mealwright/outbound.py`; a test fails if any other code connects out.
+
+| What it is for | Switch in Settings → Privacy | Off by default? | What is sent, and where |
+| --- | --- | --- | --- |
+| Reading a recipe from a web page | Recipe import from links | Yes | One request for the page whose link you pasted, and for each redirect it follows. Only when someone imports a recipe. |
+| Keeping that recipe's main photo | Download recipe photos | Yes | One request for the photo named on that page, which is then stored on your server and never hotlinked. Only during an import. Off: imports come without a photo. |
+| Signing in with your own sign-in server | Single sign-on | Yes | Requests to the sign-in server you set up (its sign-in settings, its keys, its token and user-info addresses), when someone signs in and about once an hour to check a sign-in is still wanted. Nothing goes anywhere until an admin sets it up and switches it on. |
+| Looking for a new version | Check for updates daily | Yes | One request a day to the public release list of Mealwright's project on GitHub: no cookies, no query, and the only thing sent that Mealwright chooses is the name "Mealwright". Nothing about you, this server or its version is sent. |
+
+**Check now in Settings → About.** An admin pressing Check now makes the same single request to the release list, even with the daily switch off. It happens only when they press it. The switch controls only the automatic daily check.
+
+TODO(cabledrawer): until 1.0.0 the release list's address is a placeholder (`PLACEHOLDER_OWNER` in `backend/src/mealwright/updates.py`), and while it is a placeholder, no update check connects at all. Change this paragraph when the real address goes in.
+
+A few more things to know:
+
+- **Your own network is blocked.** Recipe import and single sign-on refuse addresses on your own network (your router, other home servers, this server) unless an admin lists them in Settings → Privacy → Your own network. This server itself and cloud "metadata" addresses never work.
+- **Every address is checked before it is used,** and the connection goes to exactly the address that was checked.
+- **Your browser is separate.** Mealwright never connects for a link you click. When you sign in with single sign-on, your browser is sent to your sign-in server and back: that is your browser connecting, not Mealwright.
+- **Nothing else.** No telemetry, no crash reports, no fonts or scripts from other sites. The app's own fonts, icons and scripts are bundled. While Mealwright runs, any attempt to connect out, or to look up an address, outside the gate is refused.
+- **Notifications are not built yet.** The gate has a place for a Notifications switch, but this version has no notifications and shows no such switch.
 
 ## HTTPS required
 
