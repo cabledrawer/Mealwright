@@ -267,8 +267,13 @@ describe('Batch cook mode model', () => {
     let answer: (value: Schedule) => void = () => {};
     calls.get.mockReturnValue(new Promise<Schedule>((resolve) => (answer = resolve)));
     const asking = model.refresh();
-    calls.done.mockRejectedValue(offline());
+    const after = two();
+    after.tasks[0] = { ...after.tasks[0]!, done_at: new Date().toISOString() };
+    calls.done.mockResolvedValue(after);
     model.mark('done', 't1');
+    // The send succeeds and the mark is cleared before the old ask's reply lands.
+    await vi.waitFor(() => expect(model.pending).toEqual([]));
+    expect(model.worked?.now?.id).toBe('t2');
     answer(two()); // the server's copy from before the mark
     await asking;
     expect(model.worked?.now?.id).toBe('t2');
