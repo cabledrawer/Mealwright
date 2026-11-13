@@ -217,15 +217,19 @@ try {
     await expect.poll(() => rows(page).count()).toBeGreaterThan(10);
   });
 
-  // Add a recipe to the plan: open an empty meal's Add, search, pick the first recipe, until the plan says "Planned".
+  // Add a recipe to the plan: open an empty meal's Add (some weeks on), search, pick the first recipe, until the plan says "Planned".
   await action('Add a recipe to the plan', '/plan', PAGES[3]!.ready, async (page) => {
     await page.getByRole('dialog', { name: 'Add to the plan' }).getByRole('searchbox', { name: 'Find a recipe or an ingredient' }).fill('curry');
-    await page.getByRole('list', { name: 'Results' }).getByRole('button').first().click();
-    await page.getByRole('status').filter({ hasText: /^Planned/ }).first().waitFor();
-  }, async (page) => {
-    // Wait for the last run's "Planned" message to go, so it cannot be mistaken for this run's.
-    await expect(page.getByRole('status').filter({ hasText: /^Planned/ })).toHaveCount(0, { timeout: 30_000 });
-    await page.getByRole('button', { name: /^Add to (?!the plan)/ }).first().click();
+    const first = page.getByRole('list', { name: 'Results' }).getByRole('button').first();
+    await first.waitFor();
+    const name = ((await first.innerText()).split('\n')[0] ?? '').trim();
+    const before = await page.getByText(name).count();
+    await first.click();
+    await expect.poll(() => page.getByText(name).count(), { intervals: [20] }).toBeGreaterThan(before);
+  }, async (page, i) => {
+    // The month is fully planned, so go on to the weeks after it: empty meals to add to.
+    if (i === 0) for (let w = 0; w < 6; w++) await page.getByRole('button', { name: 'Next week' }).click();
+    await page.getByRole('button', { name: /^(\+ Add \w+|Add to (?!the plan).*)$/ }).first().click();
     await page.getByRole('dialog', { name: 'Add to the plan' }).waitFor();
   });
 
