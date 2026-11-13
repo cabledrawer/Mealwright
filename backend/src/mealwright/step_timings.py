@@ -27,15 +27,14 @@ PER_WHISTLE = 5  # a pressure cooker's whistle is about five minutes of cooking
 
 # What a step does, by its words. Whole words only, any case.
 # An "instant pot steel insert" or "the inner pot of the instant pot" is a container, and its
-# yogurt setting is a warm place, not pressure cooking (F231; cabledrawer 12 Nov).
+# yogurt setting is a warm place, not pressure cooking (F231; cabledrawer 12 Nov). Its slow cook and
+# sauté are the cooker at work (L5).
 _POT_CONTAINER = (
     r"(?:\s+(?:steel|stainless|inner|liner|lined))*\s+(?:insert|liner|inner pot)\b"
-    r"|\s+(?:yog(?:h)?urt|slow[- ]cook|sauté|saute)\b"
+    r"|\s+yog(?:h)?urt\b"
 )
-_PRESSURE = re.compile(
-    rf"\bpressure[- ]cook|\bwhistles?\b|\binstant pot\b(?!{_POT_CONTAINER})|\bpressure cooker\b",
-    re.I,
-)
+_PRESSURE_WORDS = re.compile(r"\bpressure[- ]cook|\bwhistles?\b|\bpressure cooker\b", re.I)
+_PRESSURE = re.compile(rf"{_PRESSURE_WORDS.pattern}|\binstant pot\b(?!{_POT_CONTAINER})", re.I)
 _POT_INNER = re.compile(r"\binner pot of (?:the |an? )?instant pot\b", re.I)
 _OVEN = re.compile(r"\bbak(?:e|ing)\b|\boven\b|\bpreheat\b|\broast(?:ing)?\b", re.I)
 # "dry roast the cumin in a pan" is a hob job, not the oven.
@@ -82,6 +81,7 @@ _TIME = re.compile(
     re.I,
 )
 _OR = re.compile(r"\bor\b", re.I)
+_CLAUSE_END = re.compile(r",|\band\b", re.I)
 _STAGE = re.compile(r"(?<=[.;!?])\s+|\bthen\b|\band then\b", re.I)
 _SPACES = re.compile(r"\s+")
 _LONGEST_TEXT = 1_500  # how much of a step's words are read (a step's limit is 5000)
@@ -126,6 +126,20 @@ def _sum_times(text: str) -> float:
     return total
 
 
+def _ways(stage: str) -> list[float]:
+    """The minutes of each way a stage can be done. An "or" is a choice between two ways only
+    when a time follows it directly (before the next comma or "and"): "or the yogurt setting 8
+    hours" is, "add garlic or ginger and fry 2 minutes" is not, and its minutes add up (L4)."""
+    parts = _OR.split(stage)
+    ways = [parts[0]]
+    for part in parts[1:]:
+        if _sum_times(_CLAUSE_END.split(part, maxsplit=1)[0]) > 0:
+            ways.append(part)
+        else:
+            ways[-1] += " or " + part
+    return [_sum_times(way) for way in ways]
+
+
 def times_in(text: str) -> int | None:
     """The minutes a step's own words give, added together ("fry 2 minutes, then simmer 10
     minutes" is 12; "10-15 minutes" is 15, the longer end so nothing is planned too early), or
@@ -134,13 +148,12 @@ def times_in(text: str) -> int | None:
         lambda m: f"{int(m[1]) * 60 + int(m[2])} minutes", step_waits.with_fractions(text)
     )
     # "12 hours in the oven, or the yogurt setting 8 hours" are two ways to do one thing: the
-    # longest way counts, they are not added up (F231). That is only so when the "or" has a time
-    # on both sides, and only within one stage: a stage ends at "then" or a sentence's end, so
+    # longest way counts, they are not added up (F231). That is only so when a time follows the "or"
+    # directly (L4), and only within one stage: a stage ends at "then" or a sentence's end, so
     # "cook 20 minutes or until soft, then rest 10 minutes" is 30 (L4). Stages add up.
     total = 0.0
     for stage in _STAGE.split(text):
-        ways = [_sum_times(way) for way in _OR.split(stage)]
-        timed = [w for w in ways if w > 0]
+        timed = [w for w in _ways(stage) if w > 0]
         total += max(timed) if len(timed) > 1 else sum(timed)
     minutes = round(total)
     return minutes if minutes > 0 else None
@@ -178,8 +191,17 @@ def _guess(text: str, wait: step_waits.Wait | None) -> Guess:
     rest_word = _WAIT_WORDS.search(text)
     if rest_word and rest_word.group(0).lower().startswith("rest") and _NOT_REST.search(text):
         rest_word = None
-    if wait is not None or equipment in ("pressure", "oven"):
-        hands: Hands = "waiting"
+    pot_hands = (
+        wait is None
+        and equipment == "pressure"
+        and not _PRESSURE_WORDS.search(text)
+        and _HOB_HANDS.search(text) is not None
+    )  # sauté in the instant pot: the cooker, but hands-on (L5)
+    hands: Hands
+    if pot_hands:
+        hands, kind = "hands", "hob_hands"
+    elif wait is not None or equipment in ("pressure", "oven"):
+        hands = "waiting"
         kind = "pressure" if equipment == "pressure" else "oven" if equipment == "oven" else "wait"
     elif _HOB_HANDS.search(text) and not _HOB_WAIT.search(text):
         hands, kind = "hands", "hob_hands"

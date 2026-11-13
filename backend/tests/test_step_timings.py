@@ -244,6 +244,34 @@ def test_f231_l4_an_or_before_then_does_not_hide_the_next_stage() -> None:
     assert g("Ferment 8 hours.")[1] == 8 * 60
 
 
+@pytest.mark.parametrize(
+    ("text", "minutes"),
+    [
+        (
+            "Fry the onions for 5 minutes, add garlic or ginger and fry 2 minutes, "
+            "add tomatoes and cook 10 minutes",
+            17,
+        ),
+        ("Simmer 20 minutes, adding water or stock if needed, and rest 5 minutes", 25),
+        ("Bake for 25 minutes, turning once or twice, and rest 10 minutes or so", 35),
+        ("Boil the potatoes 15 minutes, drain, mash with butter or oil and bake 20 minutes", 35),
+        ("12 hours in the oven, or the yogurt setting 8 hours", 12 * 60),
+        ("Cook on high for 10 minutes or on low for 4 hours", 4 * 60),
+        ("Marinate 30 minutes or overnight", 30),
+    ],
+)
+def test_l4_an_or_is_a_choice_only_when_a_time_follows_it_directly(text: str, minutes: int) -> None:
+    assert step_timings.times_in(text) == minutes
+
+
+def test_l5_an_instant_pot_slow_cook_or_saute_is_still_the_cooker() -> None:
+    assert g("Instant pot slow cook for 4 hours.") == ("waiting", 240, "pressure")
+    assert g("In the instant pot saute the onions for 5 minutes.") == ("hands", 5, "pressure")
+    # Only a container, or the yogurt setting, is not the cooker at work.
+    assert g("Put the instant pot insert back on the counter.")[2] == "none"
+    assert g("Use the instant pot yogurt setting for 8 hours.")[2] == "none"
+
+
 def test_f231_l4_a_long_step_is_read_quickly() -> None:
     import time
 
