@@ -677,3 +677,55 @@ How the reader now reads "each" lines, "or" lines, a pinch and a bracket word af
 - **Several links:** pressing Read the recipes again reads only the links not read yet (a ready row whose draft is still in Drafts is kept); a failed row has its own Try again (`ImportLinks.retry`).
 - **Reader (`ingredient_reader.py`, `docs/dev/ingredient-reader.md`):** what follows "or" is another food only when it is not talk about the amount (`_AMOUNT_TALK`: more, less, so, as much as needed, enough to cover, according to taste, a little more, to your liking, whatever you like…); "100 g or more cheese" notes "or more". "each" lines: a trailing "or to taste" goes to every food's note, a trailing "each" is read like a leading one, up to 24 foods, and "each" is never left in a name. "500g/1lb 2oz" is 500 g with "1lb 2oz" in the note. "1 tbsp + 1 tsp sugar" and "1 cup plus 2 tbsp flour" keep the first amount and note "plus 1 tsp" (proposed, for cabledrawer). "a generous pinch of salt" is a pinch of salt, note "generous". A slash with an amount and a name on both sides ("2 tbsp ghee / 2 tbsp oil") is read as an "or" line; a slash between names alone stays other names.
 - **Small:** `optional_step` and the recipe-name label patterns take a long run of spaces in time proportional to its length (the "(optional)" and "Recipe" end-of-line searches used to take the square of it; names and ingredient lines are also tidied to single spaces before they run); Serves over 99 and a time over 14,400 minutes in pasted text are left out of the boxes (the line is not read as a fact); a typed 10/3 is ten thirds (Check, the amount box, Add an item); two sections can't make recipes with one name (the sheet says so).
+
+## Import from Mealie (0.9.5; cabledrawer 13 Nov: file only, never a network fetch)
+
+Code: `backend/src/mealwright/mealie_file.py` (the reader). Tests: `tests/test_mealie_file.py`.
+
+**The layout we read (proposed, for cabledrawer: written from Mealie's own export code for its
+1.x and 2.x backups; nobody has tried a real file yet, so cabledrawer's helper may test one).**
+Mealie's backup (Settings › Admin Settings › Backups › Create Backup) is one `.zip`:
+
+- `database.json` at the top of the zip: an object with one key per database table, each a
+  list of rows (column name → value). A `database.json` anywhere else is not taken.
+- Photos at `data/recipes/<recipe id>/images/original.webp` (or `.jpg`, `.jpeg`, `.png`).
+  Mealie keeps smaller copies beside it (`min-original`, `tiny-original`); only `original`
+  is read, and cleaned like an upload.
+
+Tables and columns used (anything else is ignored; a row or value of the wrong type is
+skipped, never an error):
+
+| Table | Columns |
+|---|---|
+| `recipes` (must be there) | `id`, `name`, `description`, `total_time`, `prep_time`, `perform_time` (or `cook_time`), `recipe_yield`, `recipe_yield_quantity`, `recipe_servings`, `org_url` |
+| `recipes_ingredients` | `recipe_id`, `position`, `title` (a heading before the line), `quantity`, `unit_id`, `food_id`, `note`, `original_text` |
+| `recipe_instructions` | `recipe_id`, `position`, `title` (a heading), `text` |
+| `ingredient_foods` | `id`, `name` |
+| `ingredient_units` | `id`, `name`, `abbreviation`, `use_abbreviation` |
+| `recipe_nutrition` | `recipe_id`, `calories`, `protein_content`, `carbohydrate_content`, `fat_content`, `fiber_content` |
+| `tags`, `recipes_to_tags` | `id`, `name`; `recipe_id`, `tag_id` |
+| `group_meal_plans`, `shopping_lists`, `users`, `cookbooks` | counted only, for "Not brought in" |
+
+What we assumed (all proposed, for cabledrawer):
+
+- Ids are compared lower case without dashes (Mealie writes them either way).
+- An ingredient line with a food or unit is put together as "quantity unit food, note"
+  ("200 g Red lentils, rinsed"); one without is its note, or else the text it was first
+  typed as. A unit uses its abbreviation when Mealie is set to show it.
+- Times are typed in by hand in Mealie: "PT1H30M", "45", "1 hour 30 minutes" and "1h 30m"
+  are read; anything else is left empty. Total time, or else prep plus cook.
+- Serves: Mealie 2's `recipe_servings` when it's a whole number from 1 to 99, else read from
+  the yield text like a page's; a yield that isn't servings ("12 cookies") is Makes.
+- Tags come across; Mealie's categories don't (cabledrawer's list says tags). Mealie's user who
+  added a recipe is never brought in, so the author is left empty.
+- Only the foods some recipe uses are offered.
+
+**Hostile files.** Nothing is ever unpacked to disk and no name from the zip is used as a
+path. Limits (proposed, for cabledrawer; no real file measured yet): the upload at most 1 GiB;
+at most 50,000 members and 4 GiB unpacked in all (as the zip says); `database.json` at most
+32 MiB unpacked and nested at most 16 deep; each photo at most 15 MB (the photo upload's
+limit); at most 5,000 recipes. Every read stops at its limit whatever the zip claims, so a
+zip bomb is cut off. Only stored and deflated members are read, never encrypted ones. The
+zip's index and `database.json` are read in a child process with its own budget (60 s of
+processor time, 90 s by the clock, 768 MB of memory, the network guard on), the same way
+as a recipe page (`page_budget`), one file at a time for the whole server.
