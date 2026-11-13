@@ -101,7 +101,8 @@
     if (!person) return '';
     const at = new Date(person.created_at);
     const day = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
-    return `Added ${dayMonthWords(day)} by ${person.created_by_name}`;
+    const by = person.created_by_name.trim();
+    return by ? `Added ${dayMonthWords(day)} by ${by}` : `Added ${dayMonthWords(day)}`;
   });
 
   const linkUrl = $derived(link ? `${location.origin}${link}` : '');
