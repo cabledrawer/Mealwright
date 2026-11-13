@@ -10,11 +10,11 @@ from typing import Any, cast
 from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from test_sso_api import API, admin, browser, fresh_cache, idp, sign_in
+from test_sso_api import API, SETUP, admin, browser, fresh_cache, idp, sign_in
 
 from mealwright import sso_accounts
 from mealwright.auth import now
-from mealwright.models import Session
+from mealwright.models import ApiToken, Session
 
 
 def _check(client: TestClient) -> int:
@@ -208,3 +208,68 @@ def test_a_new_refresh_token_for_the_old_client_is_not_sealed(
     with cast(Any, admin.app).state.sessionmaker() as db:
         sealed = list(db.scalars(select(Session.sso_refresh_sealed).where(Session.sso.is_(True))))
     assert all(not s for s in sealed), sealed
+
+
+def test_a_client_moved_away_and_back_while_the_server_is_asked_seals_nothing(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """The saves in between end the stored token, so the answer about it is for nothing, even
+    though the client is the same again (whole-0.9 join review, finding 1)."""
+    phone = browser(admin)
+    answer, _ = sign_in(phone, idp, sub="u1", extra={"preferred_username": "p1"})
+    assert answer.status_code == 200, answer.text
+    assert _all_due(admin) == 1
+
+    def token(form: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        other = {**SETUP, "client_id": "new-client"}
+        assert admin.put(f"{API}/sso/settings", json=other).status_code == 200
+        assert admin.put(f"{API}/sso/settings", json=SETUP).status_code == 200
+        return 200, {"access_token": "at", "refresh_token": "rt-new", "token_type": "Bearer"}
+
+    idp.token_override = token
+    _check(admin)
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        sealed = list(db.scalars(select(Session.sso_refresh_sealed).where(Session.sso.is_(True))))
+    assert sealed and all(not each for each in sealed), sealed
+
+
+def test_a_session_id_handed_out_again_is_not_ended_by_the_old_answer(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """While one person's token is asked about they sign out and another signs in and gets the
+    same session id: the old "invalid_grant" must not end the new sign-in or stop its API
+    tokens (whole-0.9 join review, finding 1)."""
+    phone = browser(admin)
+    answer, _ = sign_in(phone, idp, sub="u1", extra={"preferred_username": "p1"})
+    assert answer.status_code == 200, answer.text
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        first_id = db.scalar(select(Session.id).where(Session.sso.is_(True)))
+    assert _all_due(admin) == 1
+    tablet = browser(admin)
+    seen: list[Any] = []
+
+    def token(form: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        idp.token_override = None
+        assert phone.delete(f"{API}/session").status_code == 204
+        again, _ = sign_in(
+            tablet,
+            idp,
+            sub="u2",
+            extra={"preferred_username": "p2", "groups": ["mealwright-admins"]},
+        )
+        assert again.status_code == 200, again.text
+        made = tablet.post(f"{API}/api-tokens", json={"name": "Script", "scope": "read"})
+        seen.append(made.status_code)
+        with cast(Any, admin.app).state.sessionmaker() as db:
+            seen.append(db.scalar(select(Session.id).where(Session.sso.is_(True))))
+        return 400, {"error": "invalid_grant"}
+
+    idp.token_override = token
+    ended = _check(admin)
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        revoked = db.scalars(select(ApiToken.revoked_at)).all()
+    assert seen[1] == first_id  # the id really was handed out again
+    assert seen[0] == 201
+    assert ended == 0
+    assert tablet.get(f"{API}/me").status_code == 200
+    assert revoked == [None]
