@@ -116,7 +116,7 @@ def check_tub_after_cook(kitchen: Kitchen, tub: Tub, day: date, slot_id: int) ->
     F50). Only the order is checked here: a tub may still go to a past day, as before."""
     batch = kitchen.db.get(BatchCook, tub.batch_id)
     cook = kitchen.db.get(Meal, batch.cook_meal_id) if batch and batch.cook_meal_id else None
-    if cook is None or cook.household_id != kitchen.household_id:
+    if batch is None or cook is None or cook.household_id != kitchen.household_id:
         return
     from mealwright import batches
 

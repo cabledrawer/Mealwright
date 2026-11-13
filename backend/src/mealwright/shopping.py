@@ -1170,7 +1170,7 @@ def _stale_join_edit(act: Act, *, delete: bool) -> bool:
     found = stale_join(act, payload["item_id"])
     if found is None:
         return False
-    row, line, added = found
+    _row, line, added = found
     if line.amount_milli is None or added <= 0 or line.amount_milli <= added:
         return False
     food = kitchen.db.get(Food, line.food_id)
