@@ -17,6 +17,10 @@ is `/data` inside the container).
   are. If the disk itself is lost, the photos come back only from a copy of the whole data
   folder, so copy the data folder (or at least `backups` and `photos`) to another disk or your
   NAS as well. Backups on the same disk as Mealwright go when the disk goes.
+- **Mealwright's own backups are the safe copy of the database.** A copy of the data folder
+  taken while Mealwright runs can catch `mealwright.db` and its `-wal` and `-shm` files at
+  different moments. The files in `backups` are whole and complete, so a restore uses the newest
+  of those, not the copied `mealwright.db`.
 - **Leave out `logs`.** `data/logs` holds the sign-in lines, which Mealwright keeps for 14 days
   only; a copy would keep them for longer. For example (`<another disk>` is where the copy goes):
 
@@ -75,9 +79,11 @@ is `/data` inside the container).
 
 1. Install Mealwright as in `docs/dev/test-on-homelab.md` (section 4), with the **same
    version or a newer one**, but don't start it yet.
-2. Copy your copy of the data folder into `<folder>/data`. If you have only a backup file, make
-   `<folder>/data` with the backup in it as `mealwright.db`, and your copy of `photos` beside
-   it.
+2. Copy your copy of the data folder into `<folder>/data`. Then put the newest
+   `data/backups/backup-….db` in as `mealwright.db`, and delete any copied `mealwright.db-wal`
+   and `mealwright.db-shm` (a copy of the database taken while Mealwright was running may be
+   half-written; the backup file is not). If you have only a backup file, make `<folder>/data`
+   with the backup in it as `mealwright.db`, and your copy of `photos` beside it.
 3. Give it to Mealwright's user:
 
    ```bash
