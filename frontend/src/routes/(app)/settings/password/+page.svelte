@@ -89,68 +89,75 @@
   parent={{ href: '/(app)/settings', label: 'Sign-in', section: 'sign-in' }}
 />
 
-<form class="page" onsubmit={submit} novalidate>
-  <div class="card">
-    <TextField
-      id="current-password"
-      label="Current password"
-      type="password"
-      bind:value={current}
-      autocomplete="current-password"
-      error={checked ? errors.current : undefined}
-    />
-    <TextField
-      id="new-password"
-      label="New password"
-      type="password"
-      bind:value={next}
-      autocomplete="new-password"
-      hint={lengthHint(next)}
-      error={checked ? errors.next : undefined}
-    />
-    <TextField
-      id="new-password-again"
-      label="New password again"
-      type="password"
-      bind:value={again}
-      autocomplete="new-password"
-      error={checked ? errors.again : undefined}
-    />
-    {#if others}
-      <div class="switch-row">
-        <span class="who">
-          <span class="label" id="others-label">Sign out my other devices</span>
-          <span class="detail" id="others-detail">{othersLine}</span>
-        </span>
-        <Switch
-          bind:checked={signOutOthers}
-          labelledby="others-label"
-          describedby="others-detail"
-        />
-      </div>
-    {/if}
+{#if mine && !mine.has_password}
+  <!-- A login made by single sign-on has no password (cabledrawer 12 Nov): say so, in place of the form. -->
+  <div class="page">
+    <p class="card">This login has no password to change: it signs in with single sign-on.</p>
   </div>
-  {#if problem}
-    <p class="problem" role="alert">{problem}</p>
-    {#if paused}
-      <p class="note">
-        Only one wrong-password pause per username, never longer than a minute. Other people can
-        still sign in.
-      </p>
+{:else}
+  <form class="page" onsubmit={submit} novalidate>
+    <div class="card">
+      <TextField
+        id="current-password"
+        label="Current password"
+        type="password"
+        bind:value={current}
+        autocomplete="current-password"
+        error={checked ? errors.current : undefined}
+      />
+      <TextField
+        id="new-password"
+        label="New password"
+        type="password"
+        bind:value={next}
+        autocomplete="new-password"
+        hint={lengthHint(next)}
+        error={checked ? errors.next : undefined}
+      />
+      <TextField
+        id="new-password-again"
+        label="New password again"
+        type="password"
+        bind:value={again}
+        autocomplete="new-password"
+        error={checked ? errors.again : undefined}
+      />
+      {#if others}
+        <div class="switch-row">
+          <span class="who">
+            <span class="label" id="others-label">Sign out my other devices</span>
+            <span class="detail" id="others-detail">{othersLine}</span>
+          </span>
+          <Switch
+            bind:checked={signOutOthers}
+            labelledby="others-label"
+            describedby="others-detail"
+          />
+        </div>
+      {/if}
+    </div>
+    {#if problem}
+      <p class="problem" role="alert">{problem}</p>
+      {#if paused}
+        <p class="note">
+          Only one wrong-password pause per username, never longer than a minute. Other people can
+          still sign in.
+        </p>
+      {/if}
     {/if}
-  {/if}
-  <p class="done" role="status">{done}</p>
-  <Button type="submit" disabled={busy || network.offline}
-    >{busy ? 'Changing…' : 'Change password'}</Button
-  >
-  <p class="note">
-    New passwords need at least {MIN_PASSWORD} characters. Passwords you already have keep working.
-  </p>
-  <p class="note">
-    Forgot it? Ask an admin in your household. The only admin? Run <code>reset-admin</code> on the server
-    (see the docs).
-  </p>
-</form>
+    <p class="done" role="status">{done}</p>
+    <Button type="submit" disabled={busy || network.offline}
+      >{busy ? 'Changing…' : 'Change password'}</Button
+    >
+    <p class="note">
+      New passwords need at least {MIN_PASSWORD} characters. Passwords you already have keep working.
+    </p>
+    <p class="note">
+      Forgot it? Ask an admin in your household. The only admin? Run <code>reset-admin</code> on the server
+      (see the docs).
+    </p>
+  </form>
+{/if}
 
 <style>
   .page {

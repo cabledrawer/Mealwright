@@ -119,16 +119,19 @@
   }
 </script>
 
-<h3 class="sub-title">Your password</h3>
-<div class="card">
-  <a class="row to" href={resolve('/(app)/settings/password')}>
-    <span class="who">
-      <span class="label">Change password</span>
-      {#if mine && changedText(mine)}<span class="detail">{changedText(mine)}</span>{/if}
-    </span>
-    <Icon name="back" size={18} stroke={2.4} />
-  </a>
-</div>
+<!-- A login made by single sign-on has no password to change (L7): leave the row out. -->
+{#if !mine || mine.has_password}
+  <h3 class="sub-title">Your password</h3>
+  <div class="card">
+    <a class="row to" href={resolve('/(app)/settings/password')}>
+      <span class="who">
+        <span class="label">Change password</span>
+        {#if mine && changedText(mine)}<span class="detail">{changedText(mine)}</span>{/if}
+      </span>
+      <Icon name="back" size={18} stroke={2.4} />
+    </a>
+  </div>
+{/if}
 
 <h3 class="sub-title">Where you’re signed in</h3>
 <div class="card" data-testid="signed-in-places">
