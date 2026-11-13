@@ -206,4 +206,15 @@ describe('Settings → Sign-in → API tokens', () => {
     await expect.element(page.getByRole('alert')).toHaveTextContent('Only an admin can do this.');
     await expect.element(page.getByRole('button', { name: 'Make token' })).not.toBeInTheDocument();
   });
+
+  it('pads the card’s words from its edge, for a member as for a loading list (L10)', async () => {
+    open({
+      'GET /api-tokens': [403, { detail: 'Only an admin can do this.', code: 'admins_only' }]
+    });
+    await expect.element(page.getByRole('alert')).toBeVisible();
+    const words = page.getByRole('alert').element() as HTMLElement;
+    const style = getComputedStyle(words);
+    expect(parseFloat(style.paddingLeft)).toBeGreaterThanOrEqual(12);
+    expect(parseFloat(style.paddingRight)).toBeGreaterThanOrEqual(12);
+  });
 });

@@ -332,6 +332,12 @@
     padding: var(--space-5) 0;
   }
 
+  /* A card that is only a line of words (loading, or a member who can't see the list): the row's
+     "no side padding" would put the words on the card's edge (L10). */
+  .card.row {
+    padding: var(--space-5) var(--space-7);
+  }
+
   .row + .row {
     border-top: 1px solid var(--color-border);
   }
