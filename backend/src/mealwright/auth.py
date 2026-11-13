@@ -27,7 +27,7 @@ import secrets
 import threading
 import time
 from collections import defaultdict, deque
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -248,12 +248,20 @@ class SlowDown:
             while len(times) > self.KEEP:
                 times.popleft()
 
-    def forget_people(self) -> None:
-        """Drop every count kept for a username, a device or a password change (Delete
-        everything: they belong to the people who are gone). Counts by address stay: they say
-        who is guessing, not who lived here."""
+    def forget_people(self, usernames: Iterable[str], login_ids: Iterable[int]) -> None:
+        """Drop the counts kept for these people: a username, a device of a login or a password
+        change by it (Delete everything: they belong to the people who are gone, and only
+        theirs; another household's stay). Counts by address stay: they say who is guessing,
+        not who lived here."""
+        users = {f"user:{name}" for name in usernames}
+        changes = {f"change:{n}" for n in login_ids}
+        devices = tuple(f"dev:{n}:" for n in login_ids)
         with self._lock:
-            for key in [k for k in self._failures if k.startswith(("user:", "dev:", "change:"))]:
+            for key in [
+                k
+                for k in self._failures
+                if k in users or k in changes or (devices and k.startswith(devices))
+            ]:
                 del self._failures[key]
 
     def failed(self, keys: list[str], at: float | None = None) -> None:

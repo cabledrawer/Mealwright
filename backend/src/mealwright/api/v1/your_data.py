@@ -220,7 +220,9 @@ def _remove_photos(folder: Path) -> None:
     )
 
 
-def _forget_in_memory(request: Request, household_id: int) -> None:
+def _forget_in_memory(
+    request: Request, household_id: int, people: list[tuple[int, str]]
+) -> None:
     """Everything kept in memory about the deleted household goes too, so the next household
     (which may get the same number) never sees it (whole-0.9 S3, D1). Left alone on purpose:
     counts of wrong guesses by address, look-up and download counters (they only count what is
@@ -232,7 +234,7 @@ def _forget_in_memory(request: Request, household_id: int) -> None:
     state.sso_proven.pop(household_id, None)
     sso_accounts.forget_kept(household_id)
     state.updates.forget(household_id)
-    state.slow_down.forget_people()
+    state.slow_down.forget_people([name for _, name in people], [n for n, _ in people])
 
 
 @router.post("/delete-everything", status_code=status.HTTP_204_NO_CONTENT)
@@ -283,6 +285,12 @@ def delete_everything(
             ) from error
 
         sessions = list(db.scalars(select(Session.id).where(Session.household_id == household_id)))
+        people = [
+            (n, name)
+            for n, name in db.execute(
+                select(Login.id, Login.username).where(Login.household_id == household_id)
+            )
+        ]
         photos = household_folder(store_of(db), household_id)
         # Every table points at the household with ON DELETE CASCADE: one row takes all of it.
         db.execute(delete(Household).where(Household.id == household_id))
@@ -294,7 +302,7 @@ def delete_everything(
             request.app.state.setup_code = setup_code.new_code()
             setup_code.announce(request.app.state.setup_code)
         _remove_photos(photos)
-        _forget_in_memory(request, household_id)
+        _forget_in_memory(request, household_id, people)
     for session_id in sessions:  # open live-update streams end now
         request.app.state.events.end_session(session_id)
     _sign_out(request, response)

@@ -361,3 +361,18 @@ def test_a_photo_that_cant_be_removed_is_moved_out_of_reach(
     finally:
         for folder in _data(kitchen).glob("photos-left-over-*/stuck"):
             folder.chmod(0o700)
+
+
+def test_deleting_one_household_forgets_only_its_own_wrong_password_counts(
+    kitchen: TestClient, neighbour: TestClient
+) -> None:
+    """Whole-0.9 fix A review, finding 3: the other household's counts stay."""
+    slow = kitchen.app.state.slow_down  # type: ignore[attr-defined]
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        mine = db.scalar(select(Login.id).where(Login.username == ADMIN["username"]))
+        theirs = db.scalar(select(Login.id).where(Login.username == "neighbour"))
+    ours = [f"user:{ADMIN['username']}", f"dev:{mine}:abc", f"change:{mine}"]
+    others = ["user:neighbour", f"dev:{theirs}:abc", f"change:{theirs}", "addr:1.2.3.4"]
+    slow.failed(ours + others)
+    assert kitchen.post(API, json=RIGHT).status_code == 204
+    assert sorted(slow._failures) == sorted(others)
