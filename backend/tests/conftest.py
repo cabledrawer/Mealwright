@@ -79,6 +79,27 @@ def migrated_database(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return path
 
 
+@pytest.fixture(scope="session")
+def _upgraded_09_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    from upgrade_kit import FIXTURE_09, upgrade_copy
+
+    return upgrade_copy(FIXTURE_09, tmp_path_factory.mktemp("upgraded09") / "data")
+
+
+@pytest.fixture
+def upgraded_09_db(tmp_path: Path, _upgraded_09_template: Path) -> Path:
+    """A database from a real 0.9.0-beta.1 install (saved in tests/upgrade/databases), brought
+    up to the newest layout, as this test's own copy: `<data folder>/mealwright.db`. It holds
+    an admin (sam / "correct horse battery"), a second person, ingredients, stock, recipes,
+    a plan with tubs, a shopping list with ticked lines and a batch-cook session. Start the app
+    on it with `Settings(data_dir=upgraded_09_db.parent, run_jobs=False)`. For a later
+    release's tests that need a real old install to upgrade from."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    shutil.copyfile(_upgraded_09_template, data_dir / "mealwright.db")
+    return data_dir / "mealwright.db"
+
+
 @pytest.fixture
 def settings(tmp_path: Path, migrated_database: Path) -> Settings:
     data_dir = tmp_path / "data"
