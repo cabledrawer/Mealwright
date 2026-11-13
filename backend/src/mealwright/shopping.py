@@ -1160,50 +1160,81 @@ def _edit_against_delete(act: Act, item: ListItem, food: Food) -> None:
 
 def _stale_join_edit(act: Act, *, delete: bool) -> bool:
     """L3 (Sh7): a delete or an amount change that names a row an untick joined into another
-    line after the phone last heard from the server touches only what that row added to the
-    line, the rest stays to buy (as a stale tick does). True when it handled the action. When
-    the line has no more than the row added (or the amount is of another size), the action
-    goes on as it always did."""
+    line after the phone last heard from the server touches only what that row still has in
+    the line (its part, kept in the join record), the rest stays to buy (as a stale tick does).
+    A delete of a line that had no amount before the join puts it back to no amount. True when
+    it handled the action. When the line has no more than the row's part (or the amount is of
+    another size), the action goes on as it always did."""
     from mealwright.ticks import stale_join  # ticks.py imports this module
 
     kitchen, payload = act.kitchen, act.payload
     found = stale_join(act, payload["item_id"])
     if found is None:
         return False
-    _row, line, added = found
-    if line.amount_milli is None or added <= 0 or line.amount_milli <= added:
-        return False
+    _row, line, part, origin = found
+    join = (origin.undo_data or {})["join"]
     food = kitchen.db.get(Food, line.food_id)
     if food is None:  # pragma: no cover (an ingredient's items go with it)
         return False
+    if line.amount_milli is None:
+        return False
+    old_amount, old_size = join["old"]
+    if delete and part <= 0 and "part" in join:
+        act.item_id, act.list_id, act.food_id = line.id, line.list_id, line.food_id
+        act.out["item"] = line
+        act.ignore("gone")  # another phone has taken this row's part off already
+        return True
     new_milli = 0
     if not delete:
         size = get_size(kitchen, food, payload.get("size_id"))
         if (size.id if size else None) != line.size_id:
             return False
         new_milli = milli_of(payload["amount"]) or 0
-    try:
-        total = checked(line.amount_milli - added + new_milli)
-    except TooBig as err:
-        raise Refused("too_big", "That amount is too big.") from err
+    if part <= 0:
+        return False
+    restore = line.amount_milli <= part
+    if restore and (not delete or old_amount is not None or line.amount_milli != part):
+        return False
     act.item_id, act.list_id, act.food_id = line.id, line.list_id, line.food_id
     act.out["item"] = line
-    if total == line.amount_milli:
-        act.ignore("no_change")
-        return True
     before = _amount_state(line)
-    line.amount_milli = total
+    if restore:
+        line.amount_milli, line.size_id = None, old_size  # "buy ghee" had no amount
+    else:
+        try:
+            total = checked(line.amount_milli - part + new_milli)
+        except TooBig as err:
+            raise Refused("too_big", "That amount is too big.") from err
+        if total == line.amount_milli:
+            act.ignore("no_change")
+            return True
+        line.amount_milli = total
     if not delete:
         line.hand_edited = True
     line.version = act.seq
+    _keep_join_part(origin, new_milli)
     act.done(
         "item_amount",
         f"{'Took part of' if delete else 'Changed'} {food.name} {'off ' if delete else 'on '}"
         "the list",
-        [{"op": "item_amount", "item_id": line.id, "old": before, "new": _amount_state(line)}],
+        [
+            {
+                "op": "item_amount",
+                "item_id": line.id,
+                "old": before,
+                "new": _amount_state(line),
+                "join_part": {"change": origin.id, "old": part, "new": new_milli},
+            }
+        ],
         food.id,
     )
     return True
+
+
+def _keep_join_part(origin: Change, part: int) -> None:
+    """Remember what the bought row still has in the line it joined (L3)."""
+    data = origin.undo_data or {}
+    origin.undo_data = {**data, "join": {**data["join"], "part": part}}
 
 
 def set_amount(act: Act) -> None:
@@ -1650,6 +1681,10 @@ def undo_shopping(kitchen: Kitchen, change: Change, tally: Tally, batch: Batch, 
             if _amount_state(item) == op["new"]:
                 item.amount_milli, item.size_id = op["old"]
                 item.version = seq
+                kept = op.get("join_part")
+                origin = db.get(Change, kept["change"]) if kept else None
+                if origin is not None and origin.household_id == kitchen.household_id:
+                    _keep_join_part(origin, kept["old"])  # the row's part comes back too
                 tally.done += 1
             elif _amount_state(item) == op["old"]:
                 tally.done += 1

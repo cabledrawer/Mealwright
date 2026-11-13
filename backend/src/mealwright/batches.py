@@ -101,9 +101,38 @@ def really_cooked_on(kitchen: Kitchen, batch: BatchCook) -> date:
     """The day a batch's tubs count from: its cook day, or the earlier day it was really cooked
     on (cooked ahead, F159)."""
     record = cooked.for_batch(kitchen.db, kitchen.household_id, batch.id)
-    if record is None:
-        return batch.cooked_on
-    return min(batch.cooked_on, today(kitchen.household, as_utc(record.cooked_at)))
+    if record is not None:
+        return min(batch.cooked_on, today(kitchen.household, as_utc(record.cooked_at)))
+    return _answered_on(kitchen, batch) or batch.cooked_on
+
+
+def _answered_on(kitchen: Kitchen, batch: BatchCook) -> date | None:
+    """The day the "Cooked it" answer that made this batch (the tubs of "Any left over?") was
+    given, when that was before the planned day. Looked up only for a batch made before its
+    planned day, so reading tubs stays cheap."""
+    if (
+        batch.cook_meal_id is None
+        or today(kitchen.household, as_utc(batch.created_at)) >= batch.cooked_on
+    ):
+        return None
+    for change in kitchen.db.scalars(
+        select(Change)
+        .where(
+            Change.household_id == kitchen.household_id,
+            Change.kind == "plan_cooked",
+            Change.undone_by_change_id.is_(None),
+        )
+        .order_by(Change.id)
+    ):
+        data = change.undo_data or {}
+        if data.get("meal_id") != batch.cook_meal_id:
+            continue
+        if any(
+            s.get("op") == "new_batch" and s.get("batch") == batch.id for s in data.get("plan", [])
+        ):
+            day = today(kitchen.household, as_utc(change.at))
+            return day if day < batch.cooked_on else None
+    return None
 
 
 def tubs_early(

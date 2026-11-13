@@ -1,6 +1,7 @@
 // F65, "Eat it on…" in "Any left over?" (on the Plan and on Today): after "Cooked it" made the
 // tubs, the first of them goes on the meal that was picked. The answer doesn't name the tubs, so
-// they are the newest of that recipe cooked that day.
+// they are the newest of that recipe cooked on the meal's day or before it (a meal cooked
+// ahead has tubs that count from the day it was really cooked).
 //
 // It is part of "Cooked it": no toast of its own, and the Undo of "Cooked it" takes the placement
 // back first (a tub in a meal can't be taken back until it is out of it), then the cook.
@@ -20,14 +21,14 @@ export interface Placed {
 export async function eatLeftover(
   placed: Placed,
   recipeName: string,
-  cookedOn: string,
+  cookedOn: string, // the meal's planned day
   count: number,
   to: { day: string; slotId: number }
 ): Promise<void> {
   try {
     const left = await getTubsLeft();
     const made = left.tubs
-      .filter((t) => t.recipe_name === recipeName && t.cooked_on === cookedOn)
+      .filter((t) => t.recipe_name === recipeName && t.cooked_on <= cookedOn)
       .sort((a, b) => b.id - a.id)
       .slice(0, count);
     const tub = made.at(-1);

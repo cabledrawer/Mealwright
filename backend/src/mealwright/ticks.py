@@ -365,10 +365,12 @@ def _join_back(act: Act, item: ListItem, tick: ListTick) -> None:
     }
 
 
-def stale_join(act: Act, item_id: str) -> tuple[ListItem, ListItem, int] | None:
+def stale_join(act: Act, item_id: str) -> tuple[ListItem, ListItem, int, Change] | None:
     """L3: a phone names a row that an untick joined into another line after the phone last
-    heard from the server. Gives the row, the line it joined and what the join added to that
-    line (milli); None when the phone had heard of the join or there is no such join."""
+    heard from the server. Gives the row, the line it joined, what the row still has in that
+    line (milli: what the join added, then what the stale edits since have made of it) and the
+    purchase's change that holds the join; None when the phone had heard of the join or there is
+    no such join."""
     kitchen = act.kitchen
     row = kitchen.db.get(ListItem, item_id)
     if row is None or row.household_id != kitchen.household_id or row.merged_into_id is None:
@@ -392,7 +394,7 @@ def stale_join(act: Act, item_id: str) -> tuple[ListItem, ListItem, int] | None:
         if line.deleted_at is not None or line.merged_into_id is not None:
             continue
         old, new = join["old"][0], join["new"][0]
-        return row, line, new - (old or 0)
+        return row, line, join.get("part", new - (old or 0)), change
     return None
 
 

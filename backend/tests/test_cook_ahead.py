@@ -188,3 +188,29 @@ def test_a_meal_with_no_cooked_record_counts_as_cooked_long_ago(kitchen: TestCli
         asked = db.get(Meal, meal)
         assert asked is not None
         assert _last_cooked_at(here, asked) < datetime(2000, 1, 1, tzinfo=UTC)
+
+
+def test_leftovers_of_a_meal_cooked_ahead_can_be_eaten_the_next_day(kitchen: TestClient) -> None:
+    """The tub counts from the day the meal was really cooked, so it may go to a meal after
+    that day, not only after the planned day (whole-0.9 fix B, round 2)."""
+    from test_plan_writes import plan_recipe
+    from test_today import ahead, answer, new_recipe, tubs_left
+
+    sambar = new_recipe(kitchen, "Sambar")
+    meal = plan_recipe(kitchen, sambar, ahead(kitchen, 3), slot_ids(kitchen)["Dinner"])["meal_id"]
+    answer(kitchen, meal, "cooked", {"leftovers": {"count": 1, "place_kind": "fridge"}})
+    (tub,) = tubs_left(kitchen)
+    assert tub["cooked_on"] == date.today().isoformat()  # not the planned day, 3 days on
+    placed = kitchen.post(
+        f"{API}/plan/tubs/{tub['id']}/place",
+        json={"date": ahead(kitchen, 1).isoformat(), "slot_id": slot_ids(kitchen)["Lunch"]},
+    )
+    assert placed.status_code == 200, placed.text
+    before = kitchen.post(
+        f"{API}/plan/tubs/{tub['id']}/place",
+        json={
+            "date": (ahead(kitchen, 0) - timedelta(days=1)).isoformat(),
+            "slot_id": slot_ids(kitchen)["Lunch"],
+        },
+    )
+    assert before.status_code == 422  # never before it was cooked

@@ -35,4 +35,18 @@ describe('"Eat it on…" refused after Cooked it was saved (F128)', () => {
       'Cooked it is saved, but the tub isn’t planned. That is after the use-by date of this batch. It stays in Tubs left.'
     );
   });
+
+  it('places the tub of a meal cooked ahead, whose tubs count from the day it was really cooked', async () => {
+    const requests = fakeApi({
+      'GET /plan/tubs-left': [200, { tubs: [{ ...TUB, cooked_on: '2026-11-01' }], more: false }],
+      'POST /plan/tubs/41/place': [200, { change: { id: 9, can_undo: true } }]
+    });
+    const placed: Placed = { undo: null };
+    // The meal is planned for 2026-11-02, but was cooked on 2026-11-01.
+    await eatLeftover(placed, 'Banana bread', '2026-11-02', 1, { day: '2026-11-03', slotId: 3 });
+    expect(requests.some((r) => r.method === 'POST' && r.path === '/plan/tubs/41/place')).toBe(
+      true
+    );
+    expect(placed.undo).not.toBeNull();
+  });
 });
