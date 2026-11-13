@@ -352,7 +352,7 @@ def get_tubs_left(kitchen: Here, limit: Annotated[int, Query(ge=1, le=200)] = 10
                 tub_count=t.batch.tub_count,
                 recipe_name=t.batch.recipe_name,
                 colour=t.batch.colour,
-                cooked_on=t.batch.cooked_on,
+                cooked_on=batches.really_cooked_on(kitchen, t.batch),
                 amount_quarters=t.tub.amount_quarters,
                 place_id=t.tub.place_id,
                 place_kind=t.place_kind,  # type: ignore[arg-type]

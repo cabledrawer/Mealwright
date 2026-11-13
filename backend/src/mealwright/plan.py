@@ -118,6 +118,19 @@ def check_tub_after_cook(kitchen: Kitchen, tub: Tub, day: date, slot_id: int) ->
     cook = kitchen.db.get(Meal, batch.cook_meal_id) if batch and batch.cook_meal_id else None
     if cook is None or cook.household_id != kitchen.household_id:
         return
+    from mealwright import batches
+
+    really = batches.really_cooked_on(kitchen, batch)
+    if really < cook.day:
+        # Cooked ahead of its planned day (F159): the tubs exist from the day they were really
+        # cooked, so there is no cook meal left to come after.
+        if day < really:
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "not_after_cook",
+                "Pick a meal after the cooking, today or later.",  # proposed, for cabledrawer
+            )
+        return
     here, there = kitchen.db.get(MealSlot, cook.slot_id), kitchen.db.get(MealSlot, slot_id)
     if here is None or there is None:  # pragma: no cover (find_slot has checked the slot)
         return

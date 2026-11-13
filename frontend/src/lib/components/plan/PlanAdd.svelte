@@ -137,11 +137,14 @@
     )
   );
 
-  /** The meal a batch is cooked in, from the plan on screen (null when it isn't there). */
-  function cookSlot(batchId: number): number | null {
+  /** The meal a batch is cooked in, from the plan on screen (null when it isn't there, or when
+   * the batch was really cooked on an earlier day than that meal: then no meal is left to come
+   * after, L1). */
+  function cookSlot(batchId: number, cookedOn: string): number | null {
     const plan = model.plan;
     const mealId = plan?.batch_cooks.find((b) => b.id === batchId)?.cook_meal_id;
-    return plan?.meals.find((m) => m.id === mealId)?.slot_id ?? null;
+    const meal = plan?.meals.find((m) => m.id === mealId);
+    return meal && meal.date === cookedOn ? meal.slot_id : null;
   }
   const listed = $derived(tubsListed(offer.tubs, allTubs));
 

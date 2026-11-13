@@ -12,11 +12,12 @@ export interface TubOffer {
 }
 
 /** The meal the tubs are for, so a tub is never offered before it is cooked: the meals that are
- * on (in order), and the meal each batch is cooked in (null when it is not known). */
+ * on (in order), and the meal each batch is cooked in on the day its tubs count from (null when it
+ * is not known, or when the batch was cooked on an earlier day than that meal). */
 export interface ForMeal {
   slotId: number;
   slotIds: readonly number[];
-  cookSlotOf: (batchId: number) => number | null;
+  cookSlotOf: (batchId: number, cookedOn: string) => number | null;
 }
 
 /** Whether a tub of a batch cooked on `cookedOn` may be eaten at this day (and meal): never
@@ -25,7 +26,7 @@ export interface ForMeal {
 function afterCooking(t: TubLeft, day: string, meal: ForMeal | undefined): boolean {
   if (day < t.cooked_on) return false;
   if (day > t.cooked_on || !meal) return true;
-  const cook = meal.cookSlotOf(t.batch_id);
+  const cook = meal.cookSlotOf(t.batch_id, t.cooked_on);
   if (cook === null) return true;
   const [at, cookAt] = [meal.slotIds.indexOf(meal.slotId), meal.slotIds.indexOf(cook)];
   return at < 0 || cookAt < 0 || at > cookAt;

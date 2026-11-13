@@ -51,6 +51,20 @@ describe('tubsForDay never offers a tub before it is cooked (F230, spec F50)', (
       1
     );
   });
+
+  it('asks for the cook meal on the day the tub counts from (a batch cooked early has none)', () => {
+    const asked: string[] = [];
+    const meal = {
+      slotId: 1,
+      slotIds: [1, 2],
+      cookSlotOf: (_batch: number, on: string) => {
+        asked.push(on);
+        return null;
+      }
+    };
+    expect(tubsForDay([batch(1, '2026-11-12')], '2026-11-12', meal).tubs).toHaveLength(1);
+    expect(asked).toEqual(['2026-11-12']);
+  });
 });
 
 describe('tubsForDay (F52)', () => {
