@@ -21,6 +21,7 @@ const login = (extra: Partial<NonNullable<Person['login']>> = {}) => ({
   role: 'member' as const,
   shared: false,
   has_password: true,
+  signs_in: true,
   link_pending: false,
   ...extra
 });
@@ -39,13 +40,20 @@ describe('portionWords', () => {
 describe('personLine', () => {
   it('says profile only, a pending link, signing in and a shared login', () => {
     expect(personLine(joss())).toBe('Profile only · ½ portion');
-    expect(personLine(joss({ login: login({ has_password: false, link_pending: true }) }))).toBe(
+    expect(personLine(joss({ login: login({ has_password: false, signs_in: false, link_pending: true }) }))).toBe(
       'Member · sign-in link sent · ½ portion'
     );
     expect(personLine(joss({ portion_quarters: 4, login: login({ role: 'admin' }) }))).toBe(
       'Admin · signs in · 1 portion'
     );
     expect(personLine(joss({ login: login({ shared: true }) }))).toBe('Shared login · Member');
+  });
+
+  it('says signs in for a single sign-on login too, which has no password', () => {
+    const sso = login({ has_password: false, signs_in: true });
+    expect(personLine(joss({ portion_quarters: 4, login: sso }))).toBe(
+      'Member · signs in · 1 portion'
+    );
   });
 });
 

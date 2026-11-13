@@ -16,6 +16,8 @@ export interface PersonLogin {
   shared: boolean;
   /** False until the person has used their sign-in link. */
   has_password: boolean;
+  /** Signs in, by password or by single sign-on: false only while a sign-in link waits or has run out. */
+  signs_in: boolean;
   /** An unused sign-in link that hasn't run out. */
   link_pending: boolean;
 }
@@ -129,6 +131,6 @@ export function personLine(person: Person): string {
   if (!login) return `Profile only · ${portion}`;
   const role = login.role === 'admin' ? 'Admin' : 'Member';
   if (login.shared) return `Shared login · ${role}`;
-  if (!login.has_password) return `${role} · sign-in link sent · ${portion}`;
+  if (!login.signs_in) return `${role} · sign-in link sent · ${portion}`;
   return `${role} · signs in · ${portion}`;
 }

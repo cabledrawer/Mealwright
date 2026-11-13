@@ -38,7 +38,22 @@ const pendingJoss = {
     role: 'member' as const,
     shared: false,
     has_password: false,
+    signs_in: false,
     link_pending: true
+  }
+};
+
+// Someone single sign-on made: no password, no link, and they sign in.
+const ssoJoss = {
+  ...JOSS,
+  created_by_name: '',
+  login: {
+    username: 'joss',
+    role: 'member' as const,
+    shared: false,
+    has_password: false,
+    signs_in: true,
+    link_pending: false
   }
 };
 
@@ -188,6 +203,13 @@ describe('Settings → Household → a person', () => {
     await expect
       .element(page.getByRole('button', { name: 'Profile only' }))
       .toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('a single sign-on person signs in: no "link has run out", and the shared switch shows', async () => {
+    open({ 'GET /people': [200, people([TESS, ssoJoss])] });
+    await expect.element(page.getByText('Shared login', { exact: true })).toBeVisible();
+    expect(page.getByText('sign-in link has run out', { exact: false }).query()).toBeNull();
+    expect(page.getByRole('button', { name: 'Make a new link' }).query()).toBeNull();
   });
 
   it('you cannot remove yourself or change your own role', async () => {

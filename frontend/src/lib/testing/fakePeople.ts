@@ -24,6 +24,7 @@ export const TESS = person(1, 'Tess', {
     role: 'admin',
     shared: false,
     has_password: true,
+    signs_in: true,
     link_pending: false
   }
 });

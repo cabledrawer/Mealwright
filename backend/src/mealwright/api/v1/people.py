@@ -71,6 +71,9 @@ class LoginOut(BaseModel):
     shared: bool
     # False while the person hasn't used their sign-in link yet.
     has_password: bool
+    # Signs in, by password or by single sign-on (0.9 O1): false only while a sign-in link
+    # waits or has run out.
+    signs_in: bool
     # An unused sign-in link that hasn't run out.
     link_pending: bool
 
@@ -111,6 +114,7 @@ def _person(kitchen: Here, member: Member) -> HouseholdPerson:
             role="admin" if login.role == ADMIN else "member",
             shared=login.shared,
             has_password=bool(login.password_hash),
+            signs_in=people.signs_in(login),
             link_pending=people.link_pending(kitchen, login),
         ),
         is_me=member.id == kitchen.login.member_id,

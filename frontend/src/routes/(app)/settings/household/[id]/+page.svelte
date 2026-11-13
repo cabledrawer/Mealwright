@@ -83,7 +83,7 @@
 
   const login = $derived(person?.login ?? null);
   /** Profile only, or a login whose link is still unused (or ran out): the choice shows. */
-  const canChoose = $derived(!login || !login.has_password);
+  const canChoose = $derived(!login || !login.signs_in);
   const signsIn = $derived(giving || !!login);
 
   const changes: PersonChange = $derived.by(() => {
@@ -93,7 +93,7 @@
     if (colour !== person.colour) out.colour = colour;
     if (portion !== person.portion_quarters) out.portion_quarters = portion;
     if (login && role !== login.role) out.role = role;
-    if (login?.has_password && shared !== login.shared) out.shared = shared;
+    if (login?.signs_in && shared !== login.shared) out.shared = shared;
     return out;
   });
 
@@ -305,7 +305,7 @@
           >
         </fieldset>
 
-        {#if login?.has_password && !person.is_me}
+        {#if login?.signs_in && !person.is_me}
           <div class="switch-row">
             <span class="words">
               <span class="label" id="shared-label">Shared login</span>
@@ -337,7 +337,7 @@
             disabled={locked || !username.trim()}
             onclick={() => void makeLink()}>Make the sign-in link</button
           >
-        {:else if !login.has_password}
+        {:else if !login.signs_in}
           <p class="sub">
             {login.link_pending
               ? `${person.name} hasn’t used the sign-in link yet.`
