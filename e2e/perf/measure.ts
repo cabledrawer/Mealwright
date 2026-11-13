@@ -225,7 +225,10 @@ try {
     const name = ((await first.innerText()).split('\n')[0] ?? '').trim();
     const before = await page.getByText(name).count();
     await first.click();
-    await expect.poll(() => page.getByText(name).count(), { intervals: [20] }).toBeGreaterThan(before);
+    // Done when the dialog has closed and the recipe's name is drawn in the meal (the dialog's own
+    // result row held one copy of the name before, so the count is the same afterwards).
+    await page.getByRole('dialog', { name: 'Add to the plan' }).waitFor({ state: 'hidden' });
+    await expect.poll(() => page.getByText(name).count(), { intervals: [20] }).toBeGreaterThanOrEqual(before);
   }, async (page, i) => {
     // The month is fully planned, so go on to the weeks after it: empty meals to add to.
     if (i === 0) for (let w = 0; w < 6; w++) await page.getByRole('button', { name: 'Next week' }).click();

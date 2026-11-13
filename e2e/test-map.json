@@ -47,6 +47,7 @@
   ],
   "ignore_paths": [
     "docs/**",
+    "e2e/perf/**",
     "**/*.md",
     ".claude/**",
     ".gitignore",
