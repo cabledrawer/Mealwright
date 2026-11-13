@@ -107,9 +107,9 @@ def really_cooked_on(kitchen: Kitchen, batch: BatchCook) -> date:
 
 
 def _answered_on(kitchen: Kitchen, batch: BatchCook) -> date | None:
-    """The day the "Cooked it" answer that made this batch (the tubs of "Any left over?") was
-    given, when that was before the planned day. Looked up only for a batch made before its
-    planned day, so reading tubs stays cheap."""
+    """The day the "Cooked it" answer for the batch's cook meal was given, when that was before
+    the planned day (its tubs made by "Any left over?", or by "Leftovers on…" before). Looked up
+    only for a batch made before its planned day, so reading tubs stays cheap."""
     if (
         batch.cook_meal_id is None
         or as_utc(batch.created_at).astimezone(zone(kitchen.household)).date() >= batch.cooked_on
@@ -122,16 +122,13 @@ def _answered_on(kitchen: Kitchen, batch: BatchCook) -> date | None:
             Change.kind == "plan_cooked",
             Change.undone_by_change_id.is_(None),
         )
-        .order_by(Change.id)
+        .order_by(Change.id.desc())
     ):
         data = change.undo_data or {}
-        if data.get("meal_id") != batch.cook_meal_id:
-            continue
-        if any(
-            s.get("op") == "new_batch" and s.get("batch") == batch.id for s in data.get("plan", [])
-        ):
+        if data.get("meal_id") == batch.cook_meal_id:
             day = as_utc(change.at).astimezone(zone(kitchen.household)).date()
-            return day if day < batch.cooked_on else None
+            if day < batch.cooked_on:
+                return day  # newest first: the answer that stands
     return None
 
 

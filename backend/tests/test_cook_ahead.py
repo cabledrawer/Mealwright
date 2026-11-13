@@ -214,3 +214,31 @@ def test_leftovers_of_a_meal_cooked_ahead_can_be_eaten_the_next_day(kitchen: Tes
         },
     )
     assert before.status_code == 422  # never before it was cooked
+
+
+def test_leftovers_on_a_batch_made_before_cooking_ahead_count_from_the_cook_day(
+    kitchen: TestClient,
+) -> None:
+    """A "Leftovers on…" batch made first, then the meal cooked ahead with "Any left over?":
+    the new tubs count from the day it was really cooked (whole-0.9 fix B, round 3)."""
+    from test_plan_writes import plan_recipe
+    from test_today import ahead, answer, new_recipe, tubs_left
+
+    s = slot_ids(kitchen)
+    sambar = new_recipe(kitchen, "Sambar")
+    planned = plan_recipe(kitchen, sambar, ahead(kitchen, 3), s["Dinner"])
+    made = kitchen.post(
+        f"{API}/plan/items/{planned['item_id']}/leftovers",
+        json={"meals": [{"date": ahead(kitchen, 4).isoformat(), "slot_id": s["Lunch"]}]},
+    )
+    assert made.status_code in (200, 201), made.text
+    answer(
+        kitchen, planned["meal_id"], "cooked", {"leftovers": {"count": 1, "place_kind": "fridge"}}
+    )
+    tub = tubs_left(kitchen)[0]
+    assert tub["cooked_on"] == date.today().isoformat()
+    place = f"{API}/plan/tubs/{tub['id']}/place"
+    tomorrow = {"date": ahead(kitchen, 1).isoformat(), "slot_id": s["Lunch"]}
+    assert kitchen.post(place, json=tomorrow).status_code == 200
+    yesterday = {"date": ahead(kitchen, -1).isoformat(), "slot_id": s["Lunch"]}
+    assert kitchen.post(place, json=yesterday).status_code == 422
