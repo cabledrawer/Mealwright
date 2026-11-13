@@ -3,21 +3,27 @@
   // Settings → Household, and sends them this link. Here they choose their own password; the
   // link then stops working, and they sign in like anyone else (so the sign-in page's checks
   // for changes waiting on this device apply to them too). Works once, for 24 hours.
+  // Link hardening (cabledrawer 13 Nov): the secret follows a `#` and is taken from the address
+  // before anything else; nobody is named before the password is set, the username only after.
   import { resolve } from '$app/paths';
-  import { page } from '$app/state';
   import { ApiError, cantReach } from '#lib/api.js';
   import Button from '#lib/components/Button.svelte';
   import ConnectionNotice from '#lib/components/ConnectionNotice.svelte';
   import TextField from '#lib/components/TextField.svelte';
   import { getJoinLink, join, type JoinLink } from '#lib/client/people.js';
   import { cantReachWords } from '#lib/api.js';
+  import { takeLinkSecret } from '#lib/linkSecret.js';
   import { connection } from '#lib/session.svelte.js';
-  import type { PageProps } from './$types';
 
-  let { data }: PageProps = $props();
+  /** The server's words for a link that doesn't work (cabledrawer 12 Nov). */
+  const GONE =
+    'This sign-in link has been used or has run out. Ask your household’s admin for a new one.';
 
-  const secure = $derived(connection(window.isSecureContext, data.setup.plain_http_allowed));
-  const token = $derived(page.params.token ?? '');
+  let { plainHttpAllowed }: { plainHttpAllowed: boolean } = $props();
+
+  // First of all: the secret out of the address bar.
+  const token = takeLinkSecret();
+  const secure = $derived(connection(window.isSecureContext, plainHttpAllowed));
 
   let link = $state<JoinLink | null>(null);
   /** Why the link can't be used: run out, used, or the server can't be reached. */
@@ -25,11 +31,16 @@
   let password = $state('');
   let problem = $state('');
   let busy = $state(false);
-  let done = $state(false);
+  /** The username, once the password is saved. */
+  let username = $state('');
 
   async function look() {
     gone = '';
     try {
+      if (!token) {
+        gone = GONE; // an address without its secret: nothing to ask the server
+        return;
+      }
       link = await getJoinLink(token);
     } catch (error) {
       gone = cantReach(error)
@@ -54,8 +65,7 @@
     }
     busy = true;
     try {
-      await join(token, password);
-      done = true;
+      username = (await join(token, password)).username;
       password = '';
     } catch (error) {
       problem = cantReach(error)
@@ -73,15 +83,15 @@
   <title>Choose your password · Mealwright</title>
 </svelte:head>
 
-{#if done && link}
+{#if username}
   <div class="heading">
     <h1>You’re all set</h1>
-    <p>Your password is saved. Sign in as <strong>{link.username}</strong>.</p>
+    <p>Your password is saved. Sign in as <strong>{username}</strong>.</p>
   </div>
   <a class="go" href={resolve('/(auth)/sign-in')}>Sign in</a>
 {:else if link}
   <div class="heading">
-    <h1>Welcome, {link.name}</h1>
+    <h1>Welcome</h1>
     <p>Choose a password for your household’s kitchen.</p>
   </div>
 
@@ -89,18 +99,6 @@
 
   {#if secure !== 'plain-refused'}
     <form onsubmit={submit} novalidate>
-      <p class="username">Username: <strong>{link.username}</strong></p>
-      <!-- For password managers: the username this password belongs to. -->
-      <input
-        class="hidden"
-        type="text"
-        name="username"
-        autocomplete="username"
-        value={link.username}
-        readonly
-        tabindex="-1"
-        aria-hidden="true"
-      />
       <TextField
         id="password"
         label="Password"
@@ -151,20 +149,7 @@
     gap: var(--space-6);
   }
 
-  .username {
-    font-size: var(--text-lg);
-  }
 
-  .hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    opacity: 0;
-    pointer-events: none;
-    font-size: 1rem; /* never a reason for iOS to zoom */
-  }
 
   .problem {
     padding: var(--space-5) 14px;

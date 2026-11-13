@@ -174,7 +174,7 @@ describe('Settings → Household → a person', () => {
       'POST /people/3/login': (r) => {
         given = true;
         expect(r.body).toEqual({ username: 'joss', role: 'member' });
-        return [201, { path: '/join/secret-token', expires_at: '2026-11-12T10:00:00Z' }];
+        return [201, { path: '/join#secret-token', expires_at: '2026-11-12T10:00:00Z' }];
       }
     });
     await page.getByRole('button', { name: 'Give a login' }).click();
@@ -183,7 +183,7 @@ describe('Settings → Household → a person', () => {
     await expect
       .element(page.getByText('Sign-in link made. It works once, for 24 hours', { exact: false }))
       .toBeVisible();
-    await expect.element(page.getByText(`${location.origin}/join/secret-token`)).toBeVisible();
+    await expect.element(page.getByText(`${location.origin}/join#secret-token`)).toBeVisible();
     await expect.element(page.getByRole('button', { name: 'Copy the link' })).toBeVisible();
   });
 

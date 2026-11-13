@@ -34,9 +34,10 @@ ALLOWED: dict[tuple[str, str], str] = {
     ("GET", f"{API}/sso/start"): "starting a single sign-on sign-in (0.9 O1)",
     ("POST", f"{API}/sso/finish"): "finishing a single sign-on sign-in (0.9 O1)",
     # 0.9 A1: a person given a login opens their one-time sign-in link before they can sign in.
-    # Without a link that works, both answer 404 and change nothing.
-    ("GET", f"{API}/join/{{token}}"): "whose sign-in link this is",
-    ("POST", f"{API}/join/{{token}}"): "choosing a password with a sign-in link",
+    # Without a link that works, both answer 404 and change nothing. The link's secret is in
+    # the body, never the address (cabledrawer 13 Nov).
+    ("POST", f"{API}/join/look"): "whether a sign-in link still works (no names)",
+    ("POST", f"{API}/join"): "choosing a password with a sign-in link",
 }
 
 

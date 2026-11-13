@@ -263,7 +263,8 @@ class LoginIn(BaseModel):
 
 
 class LinkOut(BaseModel):
-    # The path of the sign-in link, "/join/<token>": shown once, never stored.
+    # The path of the sign-in link, "/join#<token>": shown once, never stored. The secret
+    # follows a `#`, so opening the link never sends it to the server (cabledrawer 13 Nov).
     path: str
     expires_at: datetime
 
@@ -279,7 +280,7 @@ def give_login(member_id: StoredInt, body: LoginIn, kitchen: Here) -> LinkOut:
     kitchen.idempotency_key = None  # a retry makes a new link: the token is never stored
     kitchen.db.commit()
     log.info("Sign-in link made for %s", body.username)
-    return LinkOut(path=f"/join/{token}", expires_at=as_utc(link.expires_at))
+    return LinkOut(path=f"/join#{token}", expires_at=as_utc(link.expires_at))
 
 
 @router.delete("/people/{member_id}/login", status_code=status.HTTP_204_NO_CONTENT)
@@ -371,11 +372,20 @@ def pick(body: PickIn, kitchen: Here, signed_in: CurrentSession) -> WhosThisOut:
 
 
 # --- The sign-in link -------------------------------------------------------------------------
+#
+# The link is "/join#<secret>" (link hardening, cabledrawer 13 Nov): what follows a `#` never leaves
+# the browser, so the secret is never in a request line, a reverse proxy's access log or a
+# Referer. The page reads it, clears it from the address bar, and posts it in the body, both to
+# look at the link and to use it. Neither answer names anyone before the password is set: only
+# the answer to choosing a password gives the username, to sign in with.
+
+
+class LinkSecretIn(BaseModel):
+    # Checked by `_link`: one longer than any real secret is simply "used or run out".
+    token: Annotated[str, Field(max_length=1000)]
 
 
 class JoinOut(BaseModel):
-    name: str
-    username: str
     expires_at: datetime
     min_password: int
 
@@ -390,29 +400,31 @@ def _link(db: Db, token: str) -> tuple[JoinLink, Login, Member]:
     return found
 
 
-@router.get("/join/{token}")
-def join_link(token: str, db: Db) -> JoinOut:
-    """What the sign-in link page shows: whose link it is. Needs no sign-in."""
-    link, login, member = _link(db, token)
-    return JoinOut(
-        name=member.name,
-        username=login.username,
-        expires_at=as_utc(link.expires_at),
-        min_password=JOIN_MIN_PASSWORD,
-    )
+@router.post("/join/look")
+def join_link(body: LinkSecretIn, db: Db) -> JoinOut:
+    """What the sign-in link page needs before the password is chosen: whether the link still
+    works, and until when. No name or username. Needs no sign-in."""
+    # No names before the password is set: cabledrawer 13 Nov.
+    link, _login, _member = _link(db, body.token)
+    return JoinOut(expires_at=as_utc(link.expires_at), min_password=JOIN_MIN_PASSWORD)
 
 
-class JoinIn(BaseModel):
+class JoinIn(LinkSecretIn):
     password: str = Field(min_length=JOIN_MIN_PASSWORD, max_length=MAX_PASSWORD)
 
 
-@router.post("/join/{token}", status_code=status.HTTP_204_NO_CONTENT)
-def join(token: str, body: JoinIn, request: Request, db: Db) -> None:
+class JoinDone(BaseModel):
+    # The username to sign in with: named only now the password is set (cabledrawer 13 Nov).
+    username: str
+
+
+@router.post("/join")
+def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
     """Choose a password with a sign-in link. The link works once."""
     # The person then signs in on the sign-in page like anyone else, so a phone holding
     # someone else's waiting changes warns first there (cabledrawer 12 Nov).
     needs_https(request, request.app.state.settings)
-    link, login, _member = _link(db, token)
+    link, login, _member = _link(db, body.token)
     # Claim the link first, so of two requests at once only one sets a password.
     if not people.claim_link(db, link):
         raise Problem(status.HTTP_404_NOT_FOUND, "link_gone", GONE)
@@ -423,3 +435,4 @@ def join(token: str, body: JoinIn, request: Request, db: Db) -> None:
         people.give_back_link(db, link)
         raise
     log.info("Joined with a sign-in link: %s from %s", login.username, client_address(request))
+    return JoinDone(username=login.username)

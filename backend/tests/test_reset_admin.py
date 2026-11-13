@@ -137,10 +137,10 @@ def _admin_person(kitchen: TestClient, name: str, username: str, join: bool) -> 
     )
     assert link.status_code == 201, link.text
     if join:
-        token = link.json()["path"].removeprefix("/join/")
+        token = link.json()["path"].removeprefix("/join#")
         fresh = TestClient(kitchen.app, base_url="https://testserver")
-        r = fresh.post(f"{api}/join/{token}", json={"password": "joss's long password"})
-        assert r.status_code == 204, r.text
+        r = fresh.post(f"{api}/join", json={"token": token, "password": "joss's long password"})
+        assert r.status_code == 200, r.text
     return member_id
 
 

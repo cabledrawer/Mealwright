@@ -54,7 +54,8 @@ export interface PersonChange {
 }
 
 export interface SignInLink {
-  /** "/join/<secret>": shown once, never stored on the server. */
+  /** "/join#<secret>": shown once, never stored on the server. The secret follows a `#`, so
+   *  opening the link never sends it to the server (cabledrawer 13 Nov). */
   path: string;
   expires_at: string;
 }
@@ -73,11 +74,15 @@ export interface WhosThis {
   people: Pickable[];
 }
 
+/** What the link page learns before the password is set: no name or username (cabledrawer 13 Nov). */
 export interface JoinLink {
-  name: string;
-  username: string;
   expires_at: string;
   min_password: number;
+}
+
+/** After the password is set: the username to sign in with. */
+export interface Joined {
+  username: string;
 }
 
 export const getPeople = () => api<People>('GET', '/people');
@@ -103,11 +108,12 @@ export const getWhosThis = () => api<WhosThis>('GET', '/whos-this');
 export const pickWho = (member_id: number | null) =>
   api<WhosThis>('PUT', '/whos-this', { member_id });
 
+// The link's secret goes in the body, never in an address (cabledrawer 13 Nov).
 export const getJoinLink = (token: string) =>
-  api<JoinLink>('GET', `/join/${encodeURIComponent(token)}`, undefined, { signingIn: true });
+  api<JoinLink>('POST', '/join/look', { token }, { signingIn: true });
 
 export const join = (token: string, password: string) =>
-  api<void>('POST', `/join/${encodeURIComponent(token)}`, { password }, { signingIn: true });
+  api<Joined>('POST', '/join', { token, password }, { signingIn: true });
 
 /** "½ portion", "1 portion", "1½ portions" (cabledrawer 12 Nov). */
 export function portionWords(quarters: number): string {

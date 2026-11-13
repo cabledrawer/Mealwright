@@ -509,8 +509,8 @@ NO_SIGN_IN = {
     ("GET", "/problem-report"): "the text a person copies when something goes wrong",
     ("POST", "/session"): "signing in",
     ("DELETE", "/session"): "signing out",
-    ("GET", "/join/{token}"): "a join link, proved by the link itself",
-    ("POST", "/join/{token}"): "a join link, proved by the link itself",
+    ("POST", "/join/look"): "a join link, proved by the link itself",
+    ("POST", "/join"): "a join link, proved by the link itself",
     ("GET", "/openapi.json"): "the API's own description",
     ("GET", "/{path:path}"): "the web app's files, for any address that isn't the API",
 }

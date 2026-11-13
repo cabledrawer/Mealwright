@@ -347,10 +347,6 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
 # household; what it adds goes into the signed-in household only (test_starter_packs.py).
 NAMED_NOT_NUMBERED = {
     ("PUT", "/api/v1/privacy/switches/{connection}"),
-    # A sign-in link's secret, not an id: it names one link of one household, and works signed
-    # out (test_people.py tries used, run-out, replaced and made-up links).
-    ("GET", "/api/v1/join/{token}"),
-    ("POST", "/api/v1/join/{token}"),
     ("POST", "/api/v1/starter-packs/{pack_id}/add"),
 }
 

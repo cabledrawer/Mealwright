@@ -30,8 +30,9 @@ async function personWhoSignsIn(page: Page, name: string, username: string, extr
   });
   expect(link.status(), await link.text()).toBe(201);
   const path = ((await link.json()) as Json).path as string;
-  const joined = await page.request.post(`/api/v1${path}`, { data: { password: PASSWORD } });
-  expect(joined.status(), await joined.text()).toBe(204);
+  const token = path.replace(/^\/join#/, '');
+  const joined = await page.request.post('/api/v1/join', { data: { token, password: PASSWORD } });
+  expect(joined.status(), await joined.text()).toBe(200);
   if (Object.keys(extra).length) {
     const changed = await page.request.patch(`/api/v1/people/${made.id}`, { data: extra, headers: key() });
     expect(changed.status(), await changed.text()).toBe(200);
@@ -146,15 +147,23 @@ test('give a login: the sign-in link opens "Choose a password", which then lets 
   await expect(page.getByRole('button', { name: 'Copy the link' })).toBeVisible();
   await checkPage(page);
   const link = (await made_.locator('.mono').textContent())!.trim();
-  expect(link).toMatch(/\/join\/[\w-]+$/);
-  const path = new URL(link).pathname;
+  // The secret follows a `#`: a browser never sends it to the server (cabledrawer 13 Nov).
+  expect(link).toMatch(/\/join#[\w-]+$/);
+  const path = new URL(link).pathname + new URL(link).hash;
 
   const theirs = await anotherBrowser(browser, app.url);
   try {
     const them = await theirs.newPage();
+    const asked: string[] = [];
+    them.on('request', (request) => asked.push(request.url()));
     await them.goto(path);
-    await expect(them.getByRole('heading', { level: 1, name: `Welcome, ${name}` })).toBeVisible();
-    await expect(them.getByText(`Username: ${username}`)).toBeVisible();
+    await expect(them.getByRole('heading', { level: 1, name: 'Welcome' })).toBeVisible();
+    // The address bar has lost the secret, and no request carried it in its address.
+    expect(them.url()).not.toContain('#');
+    expect(asked.filter((url) => url.includes(path.split('#')[1]!))).toEqual([]);
+    // Nobody is named before the password is set.
+    await expect(them.getByText(username)).toHaveCount(0);
+    await expect(them.getByText(name)).toHaveCount(0);
     await checkPage(them);
     await them.getByLabel('Password', { exact: true }).fill('too short');
     await them.getByRole('button', { name: 'Save my password' }).click();
@@ -162,6 +171,7 @@ test('give a login: the sign-in link opens "Choose a password", which then lets 
     await them.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await them.getByRole('button', { name: 'Save my password' }).click();
     await expect(them.getByRole('heading', { level: 1, name: 'You’re all set' })).toBeVisible();
+    await expect(them.getByText(`Your password is saved. Sign in as ${username}.`)).toBeVisible();
     await them.getByRole('link', { name: 'Sign in' }).click();
     await signIn(them, username);
     // The link works once.

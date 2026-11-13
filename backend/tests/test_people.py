@@ -44,8 +44,13 @@ def _join(client: TestClient, member_id: int, username: str, role: str = "member
         client.post(f"{API}/people/{member_id}/login", json={"username": username, "role": role}),
         201,
     )
-    assert link["path"].startswith("/join/")
-    return str(link["path"].removeprefix("/join/"))
+    assert link["path"].startswith("/join#")
+    return str(link["path"].removeprefix("/join#"))
+
+
+def _look(client: TestClient, token: str) -> Any:
+    """What the link page asks before the password is chosen (the secret in the body)."""
+    return client.post(f"{API}/join/look", json={"token": token})
 
 
 def _fresh(kitchen: TestClient) -> TestClient:
@@ -409,17 +414,19 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
     blank = _fresh(kitchen).post(f"{API}/session", json={"username": "joss", "password": ""})
     assert blank.status_code == 401
     joss_client = _fresh(kitchen)
-    page = ok(joss_client.get(f"{API}/join/{token}"))
-    assert page["name"] == "Joss" and page["username"] == "joss" and page["min_password"] == 12
-    short = joss_client.post(f"{API}/join/{token}", json={"password": "eleven char"})
+    page = ok(_look(joss_client, token))
+    # Nobody is named before the password is set (cabledrawer 13 Nov).
+    assert set(page) == {"expires_at", "min_password"} and page["min_password"] == 12
+    short = joss_client.post(f"{API}/join", json={"token": token, "password": "eleven char"})
     assert short.status_code == 422
-    joined = joss_client.post(f"{API}/join/{token}", json={"password": "joss's own password"})
-    assert joined.status_code == 204, joined.text
+    joined = joss_client.post(f"{API}/join", json={"token": token, "password": "joss's own password"})
+    # Only now is the username given, to sign in with.
+    assert joined.status_code == 200 and joined.json() == {"username": "joss"}, joined.text
     # Joining sets the password only: she signs in on the sign-in page like anyone else.
     assert joss_client.get(f"{API}/me").status_code == 401
     # The link works once.
-    _problem(_fresh(kitchen).get(f"{API}/join/{token}"), 404, "link_gone")
-    again = _fresh(kitchen).post(f"{API}/join/{token}", json={"password": "someone else's pw"})
+    _problem(_look(_fresh(kitchen), token), 404, "link_gone")
+    again = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": "someone else's pw"})
     _problem(again, 404, "link_gone")
     # She signs in with her own password from now on; a second link is refused.
     signed = _fresh(kitchen).post(
@@ -443,7 +450,7 @@ def test_a_link_works_once_even_for_requests_at_the_same_time(kitchen: TestClien
     def join(i: int) -> None:
         client = _fresh(kitchen)
         start.wait()
-        r = client.post(f"{API}/join/{token}", json={"password": f"password number {i}!!"})
+        r = client.post(f"{API}/join", json={"token": token, "password": f"password number {i}!!"})
         results[i] = r.status_code
 
     threads = [threading.Thread(target=join, args=(i,)) for i in range(4)]
@@ -451,8 +458,8 @@ def test_a_link_works_once_even_for_requests_at_the_same_time(kitchen: TestClien
         thread.start()
     for thread in threads:
         thread.join()
-    assert sorted(results.values()) == [204, 404, 404, 404]
-    winner = next(i for i, code in results.items() if code == 204)
+    assert sorted(results.values()) == [200, 404, 404, 404]
+    winner = next(i for i, code in results.items() if code == 200)
     for i in range(4):
         r = _fresh(kitchen).post(
             f"{API}/session", json={"username": "joss", "password": f"password number {i}!!"}
@@ -470,11 +477,11 @@ def test_a_link_works_again_when_the_password_couldnt_be_set(
 
     monkeypatch.setattr("mealwright.api.v1.people.hash_password", broken)
     with pytest.raises(RuntimeError):
-        _fresh(kitchen).post(f"{API}/join/{token}", json={"password": "a long password!!"})
+        _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": "a long password!!"})
     monkeypatch.undo()
-    assert ok(_fresh(kitchen).get(f"{API}/join/{token}"))["username"] == "joss"
-    r = _fresh(kitchen).post(f"{API}/join/{token}", json={"password": "a long password!!"})
-    assert r.status_code == 204, r.text
+    assert ok(_look(_fresh(kitchen), token))["min_password"] == 12
+    r = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": "a long password!!"})
+    assert r.status_code == 200, r.text
 
 
 def test_a_link_runs_out_after_24_hours(kitchen: TestClient) -> None:
@@ -485,7 +492,7 @@ def test_a_link_runs_out_after_24_hours(kitchen: TestClient) -> None:
         assert link.expires_at - link.created_at == timedelta(hours=24)
         link.expires_at = link.created_at - timedelta(seconds=1)
         session.commit()
-    detail = _problem(_fresh(kitchen).get(f"{API}/join/{token}"), 404, "link_gone")
+    detail = _problem(_look(_fresh(kitchen), token), 404, "link_gone")
     assert detail.startswith("This sign-in link has been used or has run out.")
 
 
@@ -495,11 +502,11 @@ def test_a_new_link_replaces_the_old_one_and_profile_only_takes_it_back(
     joss = _add(kitchen)
     first = _join(kitchen, joss, "joss")
     second = _join(kitchen, joss, "joss2", role="admin")
-    _problem(_fresh(kitchen).get(f"{API}/join/{first}"), 404, "link_gone")
-    assert ok(_fresh(kitchen).get(f"{API}/join/{second}"))["username"] == "joss2"
+    _problem(_look(_fresh(kitchen), first), 404, "link_gone")
+    ok(_look(_fresh(kitchen), second))
     ok_status = kitchen.delete(f"{API}/people/{joss}/login")
     assert ok_status.status_code == 204
-    _problem(_fresh(kitchen).get(f"{API}/join/{second}"), 404, "link_gone")
+    _problem(_look(_fresh(kitchen), second), 404, "link_gone")
     assert next(p for p in _people(kitchen)["people"] if p["id"] == joss)["login"] is None
 
 
@@ -521,24 +528,37 @@ def test_a_removed_persons_link_stops_working(kitchen: TestClient) -> None:
     joss = _add(kitchen)
     token = _join(kitchen, joss, "joss")
     ok(kitchen.delete(f"{API}/people/{joss}"))
-    _problem(_fresh(kitchen).get(f"{API}/join/{token}"), 404, "link_gone")
+    _problem(_look(_fresh(kitchen), token), 404, "link_gone")
 
 
 def test_joining_needs_https_like_signing_in(kitchen: TestClient) -> None:
     joss = _add(kitchen)
     token = _join(kitchen, joss, "joss")
-    r = _fresh(kitchen).post(
-        f"{API}/join/{token}",
-        json={"password": "joss's own password"},
+    r = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": "joss's own password"},
         headers={"Origin": "http://192.0.2.5"},
     )
     assert r.status_code in (400, 403), r.text
-    assert ok(_fresh(kitchen).get(f"{API}/join/{token}"))["name"] == "Joss"  # still unused
+    ok(_look(_fresh(kitchen), token))  # still unused
 
 
 def test_a_wrong_token_is_link_gone(kitchen: TestClient) -> None:
-    _problem(_fresh(kitchen).get(f"{API}/join/nonsense"), 404, "link_gone")
-    _problem(_fresh(kitchen).get(f"{API}/join/{'x' * 300}"), 404, "link_gone")
+    _problem(_look(_fresh(kitchen), "nonsense"), 404, "link_gone")
+    _problem(_look(_fresh(kitchen), "x" * 300), 404, "link_gone")
+    use = {"token": "x" * 300, "password": "a long password!!"}
+    _problem(_fresh(kitchen).post(f"{API}/join", json=use), 404, "link_gone")
+
+
+def test_the_link_secret_is_never_in_an_address(kitchen: TestClient) -> None:
+    """Link hardening (cabledrawer 13 Nov): the secret follows a `#`, which a browser never sends;
+    the old addresses with the secret in the path are gone."""
+    token = _join(kitchen, _add(kitchen, "Sam"), "sam")
+    assert "/" not in token and "#" not in token
+    assert _fresh(kitchen).get(f"{API}/join/{token}").status_code in (404, 405)
+    old = _fresh(kitchen).post(f"{API}/join/{token}", json={"password": "a long password!!"})
+    assert old.status_code in (404, 405)
+    ok(_look(_fresh(kitchen), token))  # still unused
+    paths = kitchen.get(f"{API}/openapi.json").json()["paths"]
+    assert not [path for path in paths if "{token}" in path]
 
 
 # --- "Who's this?" -------------------------------------------------------------------------------
@@ -707,7 +727,7 @@ def test_a_link_claimed_while_a_new_one_is_made_stays_gone_when_the_hash_fails(
 
     def go() -> None:
         with pytest.raises(RuntimeError):
-            _fresh(kitchen).post(f"{API}/join/{old}", json={"password": "a long password!!"})
+            _fresh(kitchen).post(f"{API}/join", json={"token": old, "password": "a long password!!"})
 
     thread = threading.Thread(target=go)
     thread.start()
@@ -716,8 +736,8 @@ def test_a_link_claimed_while_a_new_one_is_made_stays_gone_when_the_hash_fails(
     release.set()
     thread.join()
     monkeypatch.undo()
-    _problem(_fresh(kitchen).get(f"{API}/join/{old}"), 404, "link_gone")
-    assert ok(_fresh(kitchen).get(f"{API}/join/{new}"))["username"] == "joss"
+    _problem(_look(_fresh(kitchen), old), 404, "link_gone")
+    ok(_look(_fresh(kitchen), new))
     with db(kitchen) as session:
         assert len(session.scalars(select(JoinLink)).all()) == 1
 
@@ -741,7 +761,7 @@ def test_giving_a_link_back_needs_the_link_to_exist_and_no_newer_one(kitchen: Te
         session.commit()
         people.give_back_link(session, first)
         assert session.scalars(select(JoinLink).where(JoinLink.id == first.id)).one().used_at
-    _problem(_fresh(kitchen).get(f"{API}/join/{old}"), 404, "link_gone")
+    _problem(_look(_fresh(kitchen), old), 404, "link_gone")
 
 
 def test_a_shared_login_is_not_the_last_admin(kitchen: TestClient) -> None:
@@ -773,8 +793,7 @@ def test_removing_a_person_ends_their_open_event_streams(
     joss = _add(kitchen)
     token = _join(kitchen, joss, "joss")
     joss_client = _fresh(kitchen)
-    assert joss_client.post(
-        f"{API}/join/{token}", json={"password": "joss's own password"}
+    assert joss_client.post(f"{API}/join", json={"token": token, "password": "joss's own password"}
     ).is_success
     signed = joss_client.post(
         f"{API}/session", json={"username": "joss", "password": "joss's own password"}
