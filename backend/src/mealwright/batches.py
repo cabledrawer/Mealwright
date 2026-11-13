@@ -20,7 +20,7 @@ from mealwright.amounts import quarters_text
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, not_found
 from mealwright.history import as_utc
-from mealwright.household import meal_slots, today
+from mealwright.household import meal_slots, today, zone
 from mealwright.models import (
     SPREAD_PATTERNS,
     BatchCook,
@@ -112,7 +112,7 @@ def _answered_on(kitchen: Kitchen, batch: BatchCook) -> date | None:
     planned day, so reading tubs stays cheap."""
     if (
         batch.cook_meal_id is None
-        or today(kitchen.household, as_utc(batch.created_at)) >= batch.cooked_on
+        or as_utc(batch.created_at).astimezone(zone(kitchen.household)).date() >= batch.cooked_on
     ):
         return None
     for change in kitchen.db.scalars(
@@ -130,7 +130,7 @@ def _answered_on(kitchen: Kitchen, batch: BatchCook) -> date | None:
         if any(
             s.get("op") == "new_batch" and s.get("batch") == batch.id for s in data.get("plan", [])
         ):
-            day = today(kitchen.household, as_utc(change.at))
+            day = as_utc(change.at).astimezone(zone(kitchen.household)).date()
             return day if day < batch.cooked_on else None
     return None
 
