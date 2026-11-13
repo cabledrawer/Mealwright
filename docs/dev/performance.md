@@ -42,6 +42,10 @@ has none of the app's outbound switches on, and the results stay in this file.
   container against 0.24 s on the PC, about 3 times slower, not 8 to 10. So the server numbers here are
   probably **better than a real Pi 4 would give**. To tune it, run the loop on the real Pi, and
   set `PERF_CPUS` (0.25 gives about 6 times slower) until the container's time matches.
+- **Both settings measured (cabledrawer 13 Nov):** the tables below are at 0.5 core (`PERF_CPUS=0.5`, the
+  first run) and at 0.25 core (`PERF_CPUS=0.25`, the second run, same data and script). At 0.25 the loop
+  took 1.54 s in the container against 0.24 s on the PC, about 6.4 times slower, closer to the 8 to 10
+  estimated for a Pi 4. Which one matches a real Pi 4 is still the open question above.
 
   ```
   python3 -c "
@@ -74,7 +78,7 @@ has none of the app's outbound switches on, and the results stay in this file.
 
 Tables from `node perf/table.ts` (times in ms, median / slowest of 5 runs).
 
-### phone: median / slowest, in ms, of 5 runs
+### phone at 0.5 core: median / slowest, in ms, of 5 runs
 
 | What | First load | Repeat load | Slowest API wait seen (first load) |
 |---|---|---|---|
@@ -106,7 +110,7 @@ Tables from `node perf/table.ts` (times in ms, median / slowest of 5 runs).
 | GET /pantry | 271 / 280 |
 | GET /stocktake | 11 / 20 |
 
-### desktop: median / slowest, in ms, of 5 runs
+### desktop at 0.5 core: median / slowest, in ms, of 5 runs
 
 | What | First load | Repeat load | Slowest API wait seen (first load) |
 |---|---|---|---|
@@ -138,6 +142,80 @@ Tables from `node perf/table.ts` (times in ms, median / slowest of 5 runs).
 | GET /pantry | 288 / 391 |
 | GET /stocktake | 13 / 18 |
 
+### At 0.25 core (second run, 13 Nov)
+
+Same script, data and phone and desktop settings; only the server's share of the CPU is halved.
+
+#### phone at 0.25 core: median / slowest, in ms, of 5 runs
+
+| What | First load | Repeat load | Slowest API wait seen (first load) |
+|---|---|---|---|
+| Sign in | 10699 / 10829 | n/a | 1448 (/session) |
+| Today | 10861 / 10892 | 988 / 1030 | 579 (/setup) |
+| Recipe list | 11210 / 11300 | 1816 / 1918 | 588 (/recipes/drafts) |
+| One recipe | 11852 / 12333 | 1479 / 1518 | 592 (/recipes/8) |
+| Plan (week) | 12216 / 12758 | 2765 / 2816 | 600 (/recipes) |
+| Shopping list | 13734 / 14158 | 1021 / 1085 | 2552 (/shopping/changes) |
+| Pantry | 12726 / 13213 | 2273 / 2345 | 1942 (/pantry) |
+| Plan (month) | 12768 / 12785 | 3828 / 3844 | 602 (/recipes) |
+
+| Action | Time to show | Slowest API wait |
+|---|---|---|
+| Tick a shopping line | 107 / 160 | none |
+| Search recipes | 835 / 1333 | 583 (/recipes/photos/30/list) |
+| Add a recipe to the plan | 1742 / 2100 | 593 (/plan) |
+| Pantry stocktake save | 1961 / 1999 | 585 (/stocktake/places/1/finish) |
+
+| API call (no slowing, on the container) | ms |
+|---|---|
+| GET /today | 359 / 361 |
+| GET /recipes (first 50) | 129 / 149 |
+| GET /recipes?q=garlic | 149 / 241 |
+| GET /recipes/{id} | 30 / 39 |
+| GET /plan (7 days) | 50 / 60 |
+| GET /plan (42 days) | 79 / 80 |
+| GET /shopping/lists/{id} | 241 / 800 |
+| GET /pantry | 500 / 510 |
+| GET /stocktake | 31 / 41 |
+
+#### desktop at 0.25 core: median / slowest, in ms, of 5 runs
+
+| What | First load | Repeat load | Slowest API wait seen (first load) |
+|---|---|---|---|
+| Sign in | 4519 / 5205 | n/a | 1632 (/session) |
+| Today | 3192 / 3420 | 308 / 819 | 293 (/household) |
+| Recipe list | 2255 / 3536 | 424 / 915 | 479 (/recipes) |
+| One recipe | 3645 / 3779 | 879 / 1336 | 799 (/recipes) |
+| Plan (week) | 2245 / 2780 | 901 / 922 | 968 (/recipes) |
+| Shopping list | 4393 / 4957 | 346 / 831 | 3016 (/shopping/changes) |
+| Pantry | 4833 / 5040 | 1408 / 1444 | 3147 (/pantry) |
+| Plan (month) | 2252 / 2267 | 1099 / 1170 | 433 (/recipes) |
+
+| Action | Time to show | Slowest API wait |
+|---|---|---|
+| Tick a shopping line | 32 / 32 | 188 (/shopping/changes) |
+| Search recipes | 786 / 786 | 403 (/recipes) |
+| Add a recipe to the plan | 912 / 1198 | 703 (/recipes) |
+| Pantry stocktake save | 828 / 1338 | 954 (/stocktake/places/1/finish) |
+
+| API call (no slowing, on the container) | ms |
+|---|---|
+| GET /today | 369 / 370 |
+| GET /recipes (first 50) | 130 / 140 |
+| GET /recipes?q=garlic | 150 / 150 |
+| GET /recipes/{id} | 30 / 40 |
+| GET /plan (7 days) | 51 / 59 |
+| GET /plan (42 days) | 70 / 79 |
+| GET /shopping/lists/{id} | 239 / 249 |
+| GET /pantry | 490 / 492 |
+| GET /stocktake | 31 / 42 |
+
+**0.5 against 0.25 core, in short:** phone first loads go from 7.4 to 10.7 s up to 10.7 to 13.7 s
+(shopping list 13.7 s is the slowest); phone repeat loads hardly change (1.0 to 3.8 s: they are
+mostly the phone's own CPU and cache); desktop first loads go from 0.9 to 2.8 s up to 2.2 to 4.8 s
+(pantry 4.8 s, sign in 4.5 s). The server's own call times roughly double (`/pantry` 270 to 500 ms,
+`/today` 210 to 360 ms, `/shopping/lists/{id}` 120 to 240 ms).
+
 Notes on the actions:
 - *Tick a shopping line*: the time to show the line ticked. Its answer from the server comes later (the phone's
   `/shopping/actions` call waited 585 ms for its first byte) and does not hold the screen up.
@@ -164,6 +242,10 @@ Facts from the tables above, not a to-do list.
 7. **Recipe search on the phone shows its result in 1.3 s** (desktop 0.28 s); adding to the plan 1.3 s; saving a stocktake place 2.0 s.
 8. **Quick:** ticking a line shows at once (32 ms desktop, 53 ms phone) and the server calls on the other pages
    are 10 to 40 ms (`/recipes/{id}`, `/plan`, `/stocktake`).
+
+9. **At 0.25 core** the same order holds and the server-bound steps grow most: phone shopping list first load
+   13.7 s, phone pantry 12.7 s, desktop pantry 4.8 s, desktop sign in 4.5 s; the `/shopping/changes` and
+   `/pantry` waits reach 2.5 to 3.1 s in the browser.
 
 Limits of this baseline: one PC; the server slowing is an estimate (see above); the photos are synthetic; the
 tick, add and stocktake steps were tuned against the current screens, so a change to those screens means
