@@ -456,6 +456,7 @@ _PHRASE_COLUMNS: tuple[tuple[str, tuple[Any, ...]], ...] = (
             models.Place.name,
             models.ShoppingList.name,
             models.MealSlot.name,
+            models.ApiToken.name,  # a script's or app's name, as an admin typed it (0.9 O2)
         ),
     ),
 )
@@ -650,8 +651,6 @@ class Scrubber:
             select(models.FormerName.kind, models.FormerName.name)
         ):
             self._add_former(former_kind, former_name)
-        for options in self._phrases.values():
-            options.sort(key=lambda option: len(option[0]), reverse=True)
         self._sites: set[str] = set()
         for site in db.scalars(select(models.ImportDraft.site)):
             if site:
@@ -661,6 +660,20 @@ class Scrubber:
             if host:
                 self._sites.add(host.casefold().removeprefix("www."))
         self._own = [entry for entry in db.scalars(select(models.OwnNetworkEntry.value)) if entry]
+        # The sign-in server's host, like the Own network's, and the names of its groups (0.9 O1;
+        # whole-0.9 S6): both are the household's own words.
+        for issuer, group_roles in db.execute(
+            select(models.SsoSettings.issuer, models.SsoSettings.group_roles)
+        ):
+            host = urlsplit(issuer or "").hostname
+            if host:
+                self._own.append(host)
+            for entry in group_roles or []:
+                group = entry.get("group") if isinstance(entry, dict) else None
+                if group:
+                    self._add_phrase(_keys(group), "[removed]")
+        for options in self._phrases.values():
+            options.sort(key=lambda option: len(option[0]), reverse=True)
         self._address(server, data_dir)
 
     def at(self, server: ServerAddress, data_dir: Path) -> Scrubber:
@@ -835,6 +848,7 @@ _NAME_TABLES = frozenset(
         models.Recipe.source_url,
         models.OwnNetworkEntry.value,
         models.FormerName.name,
+        models.SsoSettings.issuer,  # and its group names
     )
 )
 # Read by the next "Report a problem" before it uses a kept Scrubber.
