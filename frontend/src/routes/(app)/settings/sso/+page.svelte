@@ -236,7 +236,10 @@
   <title>Single sign-on · Mealwright</title>
 </svelte:head>
 
-<PageHeader title="Single sign-on" parent={{ href: '/(app)/settings', label: 'Sign-in' }} />
+<PageHeader
+  title="Single sign-on"
+  parent={{ href: '/(app)/settings', label: 'Sign-in', section: 'sign-in' }}
+/>
 
 {#if !admin}
   <p class="sub">Only an admin can set up single sign-on.</p>

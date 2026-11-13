@@ -84,7 +84,10 @@
   }
 </script>
 
-<PageHeader title="Change password" parent={{ href: '/(app)/settings', label: 'Sign-in' }} />
+<PageHeader
+  title="Change password"
+  parent={{ href: '/(app)/settings', label: 'Sign-in', section: 'sign-in' }}
+/>
 
 <form class="page" onsubmit={submit} novalidate>
   <div class="card">

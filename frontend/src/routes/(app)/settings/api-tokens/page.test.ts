@@ -77,6 +77,13 @@ describe('Settings → Sign-in → API tokens', () => {
       .toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('the back link ‹ Sign-in lands on Settings’ Sign-in section (L5)', async () => {
+    open();
+    await expect
+      .element(page.getByRole('link', { name: 'Sign-in' }).first())
+      .toHaveAttribute('href', '/settings?section=sign-in');
+  });
+
   it('makes a token, shows it once with Copy, and Done hides it for good', async () => {
     const writeText = vi.fn(async () => undefined);
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });

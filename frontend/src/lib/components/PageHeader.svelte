@@ -39,6 +39,8 @@
         | '/(app)/settings/your-data'
         | '/(app)/settings/about';
       label: string;
+      /** A section of the parent (Settings' "sign-in"): the link lands there (L5). */
+      section?: string;
     };
     /** The page's main button(s), beside the title ("+ Add to pantry"). */
     actions?: Snippet;
@@ -48,6 +50,11 @@
      */
     dropActions?: boolean;
   } = $props();
+
+  // resolve()'s answer for the parent, plus its own ?section= (as Settings' phone list does).
+  const parentHref = $derived(
+    parent ? resolve(parent.href) + (parent.section ? `?section=${parent.section}` : '') : ''
+  );
 </script>
 
 <svelte:head>
@@ -57,11 +64,13 @@
 <header class="page-header" class:has-count={!!count} class:drop={dropActions}>
   <div class="titles">
     {#if parent}
-      <a class="back" href={resolve(parent.href)}>
+      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve()'s answer, plus the parent's own ?section= -->
+      <a class="back" href={parentHref}>
         <Icon name="back" size={18} stroke={2.4} />{parent.label}
       </a>
       <nav class="crumbs" aria-label="Breadcrumb">
-        <a href={resolve(parent.href)}>{parent.label}</a>
+        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- as above -->
+        <a href={parentHref}>{parent.label}</a>
         <span class="sep" aria-hidden="true">›</span>
         <span aria-current="page">{title}</span>
       </nav>

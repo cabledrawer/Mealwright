@@ -139,7 +139,10 @@
   }
 </script>
 
-<PageHeader title="API tokens" parent={{ href: '/(app)/settings', label: 'Sign-in' }} />
+<PageHeader
+  title="API tokens"
+  parent={{ href: '/(app)/settings', label: 'Sign-in', section: 'sign-in' }}
+/>
 
 <div class="page">
   <p class="sub">
