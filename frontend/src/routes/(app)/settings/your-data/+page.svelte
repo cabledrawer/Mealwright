@@ -192,8 +192,13 @@
       <div class="card pad">
         <p class="sub">{EXPORT_LEAD}</p>
         {#if admin}
-          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a file from the API, not a page -->
-          <a class="export" href={EXPORT_PATH} download>Export</a>
+          {#if network.offline}
+            <!-- Offline a download can only fail in the browser's own words: off, as the page's other buttons. -->
+            <button type="button" class="export" disabled>Export</button>
+          {:else}
+            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a file from the API, not a page -->
+            <a class="export" href={EXPORT_PATH} download>Export</a>
+          {/if}
         {/if}
       </div>
     </section>
@@ -397,8 +402,15 @@
   }
 
   .export {
+    border: none;
     background: var(--color-inverse);
     color: var(--color-inverse-text);
+    font-family: inherit;
+  }
+
+  .export:disabled {
+    opacity: 0.55;
+    cursor: default;
   }
 
   .danger {

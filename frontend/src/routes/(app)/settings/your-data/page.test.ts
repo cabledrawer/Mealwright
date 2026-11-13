@@ -68,6 +68,16 @@ describe('Settings → Your data', () => {
     session.me = null;
   });
 
+  it('Export is a button that is off while offline, like the page’s other buttons (L11)', async () => {
+    open(YourData);
+    await expect.element(page.getByRole('link', { name: 'Export' })).toBeVisible();
+    network.offline = true;
+    await expect.element(page.getByRole('button', { name: 'Export' })).toBeDisabled();
+    expect(page.getByRole('link', { name: 'Export' }).elements()).toEqual([]);
+    network.offline = false;
+    await expect.element(page.getByRole('link', { name: 'Export' })).toBeVisible();
+  });
+
   it('shows the backups, the same-disk warning, export, history and Start again to an admin', async () => {
     open(YourData);
     await expect.element(page.getByRole('heading', { level: 1, name: 'Your data' })).toBeVisible();
