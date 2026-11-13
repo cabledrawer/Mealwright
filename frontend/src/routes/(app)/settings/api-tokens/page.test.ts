@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import type { ApiToken, ApiTokens } from '#lib/apiTokens.js';
 import { network } from '#lib/network.svelte.js';
+import { contrastOf } from '#lib/testing/contrast.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
 import Tokens from './+page.svelte';
@@ -83,6 +84,26 @@ describe('Settings → Sign-in → API tokens', () => {
       .element(page.getByRole('link', { name: 'Sign-in' }).first())
       .toHaveAttribute('href', '/settings?section=sign-in');
   });
+
+  it.each(['light', 'dark'])(
+    'Delete and an error line reach 4.5:1 on their background in the %s theme (L6)',
+    async (theme) => {
+      document.documentElement.setAttribute('data-theme', theme);
+      try {
+        open();
+        await expect.element(page.getByText('Home Assistant')).toBeVisible();
+        const del = (await page
+          .getByRole('button', { name: 'Delete Home Assistant token' })
+          .element()) as HTMLElement;
+        expect(contrastOf(del)).toBeGreaterThanOrEqual(4.5);
+        await userEvent.click(page.getByRole('button', { name: 'Make token' }));
+        const error = (await page.getByText('Give the token a name.').element()) as HTMLElement;
+        expect(contrastOf(error)).toBeGreaterThanOrEqual(4.5);
+      } finally {
+        document.documentElement.removeAttribute('data-theme');
+      }
+    }
+  );
 
   it('makes a token, shows it once with Copy, and Done hides it for good', async () => {
     const writeText = vi.fn(async () => undefined);

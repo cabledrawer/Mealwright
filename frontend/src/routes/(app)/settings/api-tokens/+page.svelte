@@ -382,7 +382,7 @@
   }
 
   .error {
-    color: var(--color-danger);
+    color: var(--color-warning-text);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
   }
@@ -464,8 +464,10 @@
     font-size: var(--text-sm);
   }
 
+  /* Red words on a card: the lighter red that passes 4.5:1 in both themes, as "Remove from list" (the
+     solid --color-danger is for a button's fill). */
   .danger {
-    color: var(--color-danger);
+    color: var(--color-warning-text);
   }
 
   .main.danger-fill {

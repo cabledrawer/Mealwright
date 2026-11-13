@@ -7,6 +7,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { goto } from '$app/navigation';
+import { contrastOf } from '#lib/testing/contrast.js';
 import { network } from '#lib/network.svelte.js';
 import { household as people } from '#lib/people.svelte.js';
 import { session } from '#lib/session.svelte.js';
@@ -221,6 +222,24 @@ describe('on the phone', () => {
       .toHaveTextContent('Only the household’s admin can change this.');
     expect(goto).not.toHaveBeenCalled();
   });
+
+  it.each(['light', 'dark'])(
+    'says a problem in words that reach 4.5:1 in the %s theme',
+    async (theme) => {
+      document.documentElement.setAttribute('data-theme', theme);
+      try {
+        open({
+          'PATCH /household': [403, { detail: 'Only the household’s admin can change this.' }]
+        });
+        for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Next' }).click();
+        await page.getByRole('button', { name: 'Skip' }).click();
+        const alert = await page.getByRole('alert').element();
+        expect(contrastOf(alert)).toBeGreaterThanOrEqual(4.5);
+      } finally {
+        document.documentElement.removeAttribute('data-theme');
+      }
+    }
+  );
 });
 
 describe('on a computer', () => {

@@ -414,7 +414,7 @@
 
   .onboarding :global(.problem) {
     margin: 0;
-    color: var(--color-danger-text);
+    color: var(--color-warning-text);
     font-size: var(--text-sm);
   }
 
