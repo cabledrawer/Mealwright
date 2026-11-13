@@ -11,7 +11,7 @@ from test_sso_api import API, admin, browser, fresh_cache, idp, sign_in
 
 from mealwright import sso_accounts
 from mealwright.auth import now
-from mealwright.models import Household
+from mealwright.models import Household, Login
 from mealwright.updates import CheckResult
 
 
@@ -65,12 +65,16 @@ def test_delete_everything_forgets_the_kept_warning_the_update_answer_and_wrong_
     app = cast(Any, admin.app)
     with app.state.sessionmaker() as db:
         household_id = db.scalar(select(Household.id))
+        mine = db.scalar(select(Login.id).where(Login.household_id == household_id))
+        name = db.scalar(select(Login.username).where(Login.household_id == household_id))
     sso_accounts._kept[household_id] = (1, "Tess", True)
     app.state.updates._results[household_id] = CheckResult("failed", None, now())
-    wrong = ["user:somebody", "change:99", "dev:abc"]
+    wrong = [f"user:{name}", f"change:{mine}", f"dev:{mine}:abc"]
     for _ in range(6):
-        app.state.slow_down.failed(wrong)
+        app.state.slow_down.failed(wrong[::2])  # paused
+    app.state.slow_down.failed([wrong[1]])  # change:<id> below its pause, or the delete is refused
     _delete(admin)
     assert sso_accounts._kept == {}
     assert app.state.updates.last(household_id) is None
     assert app.state.slow_down.wait_seconds(wrong) == 0, "paused still"
+    assert not set(wrong) & set(app.state.slow_down._failures)

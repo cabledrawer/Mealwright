@@ -220,9 +220,7 @@ def _remove_photos(folder: Path) -> None:
     )
 
 
-def _forget_in_memory(
-    request: Request, household_id: int, people: list[tuple[int, str]]
-) -> None:
+def _forget_in_memory(request: Request, household_id: int, people: list[tuple[int, str]]) -> None:
     """Everything kept in memory about the deleted household goes too, so the next household
     (which may get the same number) never sees it (whole-0.9 S3, D1). Left alone on purpose:
     counts of wrong guesses by address, look-up and download counters (they only count what is

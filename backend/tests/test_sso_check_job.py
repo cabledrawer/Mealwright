@@ -159,10 +159,18 @@ def test_a_client_change_while_the_server_is_asked_is_not_undone_by_the_answer(
 
     laptop = browser(admin)
     answer, _ = sign_in(
-        laptop, idp, sub="k-at-idp", extra={"preferred_username": "k", "groups": ["mealwright-admins"]}
+        laptop,
+        idp,
+        sub="k-at-idp",
+        extra={"preferred_username": "k", "groups": ["mealwright-admins"]},
     )
     assert answer.status_code == 200, answer.text
-    assert admin.post(f"{API}/api-tokens", json={"name": "Home Assistant", "scope": "read"}).status_code == 201
+    assert (
+        admin.post(
+            f"{API}/api-tokens", json={"name": "Home Assistant", "scope": "read"}
+        ).status_code
+        == 201
+    )
     assert _all_due(admin) == 1
     with cast(Any, admin.app).state.sessionmaker() as db:
         before = db.scalar(select(Session.sso_refresh_sealed).where(Session.sso.is_(True)))
