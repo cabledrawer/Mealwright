@@ -242,3 +242,41 @@ def test_leftovers_on_a_batch_made_before_cooking_ahead_count_from_the_cook_day(
     assert kitchen.post(place, json=tomorrow).status_code == 200
     yesterday = {"date": ahead(kitchen, -1).isoformat(), "slot_id": s["Lunch"]}
     assert kitchen.post(place, json=yesterday).status_code == 422
+
+
+def test_cooking_the_other_recipe_ahead_does_not_cook_the_khichdi_tubs(
+    kitchen: TestClient,
+) -> None:
+    """Two recipes in one meal: only the soup is cooked ahead, so the khichdi's "Leftovers on…"
+    tubs are not cooked yet and cannot be eaten before their cook day (whole-0.9 join review)."""
+    dal = food(kitchen, "Zorba dal")
+    stock(kitchen, dal["id"], 900, "g")
+    day = (date.today() + timedelta(days=3)).isoformat()
+    s = slot_ids(kitchen)
+    items = []
+    for name in ("Zorba khichdi", "Zorba soup"):
+        recipe = make(kitchen, name, serves=2, lines=[line(dal["id"], 100, "g")])
+        items.append(
+            ok(
+                kitchen.post(
+                    f"{API}/plan/items",
+                    json={"date": day, "slot_id": s["Dinner"], "recipe_id": recipe["id"], "servings": 2},
+                ),
+                201,
+            )
+        )
+    khichdi, soup = items
+    later = (date.today() + timedelta(days=4)).isoformat()
+    made = kitchen.post(
+        f"{API}/plan/items/{khichdi['item_id']}/leftovers",
+        json={"meals": [{"date": later, "slot_id": s["Lunch"]}]},
+    )
+    assert made.status_code in (200, 201), made.text
+    ok(cook(kitchen, soup["item_id"]), 201)  # only the soup is cooked, today
+    answer_cooked(kitchen, soup["meal_id"])
+    with db_of(kitchen) as db:
+        tub = db.scalars(select(Tub).order_by(Tub.id)).first()
+        assert tub is not None
+        tub_id = tub.id
+    tomorrow = {"date": (date.today() + timedelta(days=1)).isoformat(), "slot_id": s["Lunch"]}
+    assert kitchen.post(f"{API}/plan/tubs/{tub_id}/place", json=tomorrow).status_code == 422

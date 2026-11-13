@@ -115,6 +115,7 @@ def _answered_on(kitchen: Kitchen, batch: BatchCook) -> date | None:
         or as_utc(batch.created_at).astimezone(zone(kitchen.household)).date() >= batch.cooked_on
     ):
         return None
+    tub_ids: set[int] | None = None
     for change in kitchen.db.scalars(
         select(Change)
         .where(
@@ -126,10 +127,32 @@ def _answered_on(kitchen: Kitchen, batch: BatchCook) -> date | None:
     ):
         data = change.undo_data or {}
         if data.get("meal_id") == batch.cook_meal_id:
+            if tub_ids is None:
+                tub_ids = set(
+                    kitchen.db.scalars(select(Tub.id).where(Tub.batch_id == batch.id))
+                )
+            if not _cooks_batch(data.get("plan") or [], batch.id, tub_ids):
+                continue  # an answer for another recipe of the meal: this batch is not cooked
             day = as_utc(change.at).astimezone(zone(kitchen.household)).date()
             if day < batch.cooked_on:
                 return day  # newest first: the answer that stands
     return None
+
+
+def _cooks_batch(steps: list[Any], batch_id: int, tub_ids: set[int]) -> bool:
+    """Whether an answer's steps cooked this batch: they cook the whole meal, make the batch or
+    tubs of it, or bring forward the use-by of its tubs."""
+    for step in steps:
+        op = step.get("op")
+        if op == "status" and step.get("to") == "cooked":
+            return True
+        if op == "new_batch" and step.get("batch") == batch_id:
+            return True
+        if op == "new_tub" and step.get("tub") in tub_ids:
+            return True
+        if op == "tub_early" and any(t[0] in tub_ids for t in step.get("tubs") or []):
+            return True
+    return False
 
 
 def tubs_early(
