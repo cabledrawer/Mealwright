@@ -82,18 +82,38 @@ def _rows(path: Path) -> dict[str, tuple[list[str], list[tuple[object, ...]]]]:
     return out
 
 
+# Columns a migration renames on purpose ("table.old": "new"): their values are compared under
+# the new name. 0.9's people migration points tubs and eaters at people, with the same numbers.
+RENAMED = {"tub.member_login_id": "member_id", "meal_eater.login_id": "member_id"}
+# Tables ("table") and columns ("table.column") a migration removes on purpose. None so far.
+# Anything else that is there before the upgrade and gone after is a failure.
+GONE_ON_PURPOSE: frozenset[str] = frozenset()
+
+
 def _same_values(
     before: dict[str, tuple[list[str], list[tuple[object, ...]]]], after: Path
 ) -> list[str]:
-    """What differs, for every table and column that was there before and still is."""
+    """What differs or went missing, for every table and column that was there before.
+
+    Every old value must come through unchanged: no migration so far rewrites old data. One that
+    does (a backfill of an existing column) needs its column in GONE_ON_PURPOSE or its own check.
+    """
     later = _rows(after)
     problems = []
     for table, (columns, rows) in before.items():
         if table not in later:
+            if table not in GONE_ON_PURPOSE:
+                problems.append(f"{table} is gone")
             continue
-        kept = [name for name in columns if name in later[table][0]]
+        now = {name: RENAMED.get(f"{table}.{name}", name) for name in columns}
+        problems += [
+            f"{table}.{name} is gone"
+            for name in columns
+            if now[name] not in later[table][0] and f"{table}.{name}" not in GONE_ON_PURPOSE
+        ]
+        kept = [name for name in columns if now[name] in later[table][0]]
         pick_before = [columns.index(name) for name in kept]
-        pick_after = [later[table][0].index(name) for name in kept]
+        pick_after = [later[table][0].index(now[name]) for name in kept]
         old = sorted((tuple(row[i] for i in pick_before) for row in rows), key=repr)
         new = sorted((tuple(row[i] for i in pick_after) for row in later[table][1]), key=repr)
         if old != new:
