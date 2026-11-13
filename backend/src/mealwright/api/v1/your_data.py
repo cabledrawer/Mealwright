@@ -141,7 +141,7 @@ def back_up_now(kitchen: Here, request: Request) -> BackupsOut:
 )
 def export_everything(kitchen: Here) -> StreamingResponse:
     """Export everything (Admins only): one zip file with every recipe, plan, list, pantry
-    item, person and setting of the household, and its photos (docs/dev/export-format.md,
+    item, person and setting of the household, and its photos (docs/export-format.md,
     version 1). Sign-ins and passwords are left out. Written as it is sent."""
     kitchen.admin_only(Action.YOUR_DATA)
     household_id = kitchen.household_id

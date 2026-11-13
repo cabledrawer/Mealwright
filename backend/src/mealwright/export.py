@@ -1,4 +1,4 @@
-"""Export everything (spec section 7; the format: docs/dev/export-format.md, version 1).
+"""Export everything (spec section 7; the format: docs/export-format.md, version 1).
 
 One zip file with everything a household keeps:
 

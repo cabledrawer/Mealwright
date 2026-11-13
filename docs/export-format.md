@@ -14,8 +14,9 @@ read without Mealwright or brought into another program. (Spec section 7, "Expor
   API tokens (the `api_token` table; only an admin at the screen makes them, so make them
   again) the single sign-on client secret (sealed with `secret.key`; type it again on a
   new server) and `login.sso_refused_at` (this server's own mark of a refused login; proposed,
-  for cabledrawer). Whoever restores from an export sets passwords again (proposed, for cabledrawer,
-  O2 review r1, finding 2).
+  for cabledrawer), and the `former_name` table (old names kept for 15 days so Report a problem
+  can remove them; proposed, for cabledrawer). Whoever restores from an export sets passwords
+  again (proposed, for cabledrawer).
 - Optional password encryption (cabledrawer's decision) is **not built yet**. It comes in a later
   version of this page; an export today is a plain zip, so keep it somewhere safe.
 - A full copy for disaster recovery is a backup, not an export: see `docs/restore.md`.
@@ -44,16 +45,18 @@ A photo's name is the `file_key` of its row in the `recipe_photo` table.
     "tables": {
       "session": "who is signed in where (sign-in cookies)",
       "join_link": "sign-in links made for people",
-      "api_token": "API tokens, which only an admin at the screen makes"
+      "api_token": "API tokens, which only an admin at the screen makes",
+      "former_name": "old names kept for 15 days so Report a problem can remove them (proposed)"
     },
     "columns": {
       "login.password_hash": "passwords, even scrambled",
-      "sso_settings.client_secret_sealed": "the single sign-on client secret"
+      "sso_settings.client_secret_sealed": "the single sign-on client secret",
+      "login.sso_refused_at": "the mark of a login the sign-in server refused"
     }
   },
   "tables": {
     "household": [{"id": 1, "name": "Home", "...": "..."}],
-    "login": [{"id": 1, "household_id": 1, "username": "tess", "...": "..."}],
+    "login": [{"id": 1, "household_id": 1, "username": "sam", "...": "..."}],
     "recipe": []
   }
 }

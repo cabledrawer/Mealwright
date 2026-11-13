@@ -52,7 +52,7 @@ Either way, leave out `logs`, and keep at least the last three copies. A copy th
 
 ## Export is not a backup
 
-Settings → Your data → Export everything gives a zip of your recipes, plans, lists, pantry, people and settings, with the photos, so you can read your data without Mealwright. It leaves out passwords, API tokens, who is signed in where, and the single sign-on secret. It is made for taking your data away, not for restoring a server. The format is in `docs/dev/export-format.md`.
+Settings → Your data → Export everything gives a zip of your recipes, plans, lists, pantry, people and settings, with the photos, so you can read your data without Mealwright. It leaves out passwords, API tokens, who is signed in where, and the single sign-on secret. It is made for taking your data away, not for restoring a server. The format is in `docs/export-format.md`.
 
 TODO(cabledrawer): I found no screen or command in the code that loads an export back into Mealwright. Is that right for 0.9.5? If so, say it here in your own words.
 
