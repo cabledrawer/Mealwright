@@ -7,7 +7,7 @@ Set it up on a computer, in Settings → Sign-in → Single sign-on. You need to
 ## Before you start
 
 - **Switch on the Privacy switch.** Mealwright talks to your sign-in server only while Settings → Privacy → Single sign-on is on. It is off by default. With it off, nothing is looked up or sent, and the setup screen says so.
-- **Home network?** If your sign-in server is on your own network (an address like `192.168.1.5`, or a name that points there), Mealwright blocks it unless you add it in Settings → Privacy → Your own network. The setup screen shows the name to add. A server on the open internet needs nothing added.
+- **Home network?** If your sign-in server is on your own network (an address like `192.0.2.5`, or a name that points there), Mealwright blocks it unless you add it in Settings → Privacy → Your own network. The setup screen shows the name to add. A server on the open internet needs nothing added.
 - **https://.** The sign-in server's address must start with `https://`, unless it is a place you listed in Your own network. A port other than 80 or 443 also needs listing there.
 - **Open Mealwright at the address people will use.** The redirect address (below) is made from the address in your browser's address bar. If you set it up at one address and someone signs in at another, they are told to open Mealwright at the address single sign-on was set up for.
 - **Keep a way in.** Keep your password sign-in working until you have tested single sign-on (see "Try it").
@@ -43,7 +43,7 @@ The issuer address is the web address where `/.well-known/openid-configuration` 
 
 **3 · Try it, then decide about passwords**
 
-- Save, then press **Test sign-in**. It opens your sign-in server in a new tab, signs in, and shows the result on the setup screen, for example "Test passed: signed in as tess, groups mealwright-admins → Admin." The test changes nothing.
+- Save, then press **Test sign-in**. It opens your sign-in server in a new tab, signs in, and shows the result on the setup screen, for example "Test passed: signed in as alex, groups mealwright-admins → Admin." The test changes nothing.
 - If the test shows someone who would be an Admin, Mealwright asks "Link *you* to *them*?". Link only if it really is you: from then on, whoever signs in there as that person is you here, an admin.
 - **Allow password sign-in:** it can be turned off only after an admin has signed in with single sign-on, so you can't lock yourself out. Off shows only the single sign-on button. If single sign-on can't start for any reason (the Privacy switch is off, the secret is lost, the server isn't on Your own network), passwords work again by themselves. On the server, the `reset-admin` command always works too ([README](../README.md), Troubleshooting).
 
