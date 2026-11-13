@@ -11,7 +11,7 @@ cabledrawer), and the document says so in `left_out`: the `session` table (who i
 stolen copy must never sign anyone in), the `join_link` table (sign-in links made for people,
 0.9 A1), `login.password_hash` (a copy of the file must not let anyone try passwords offline),
 the `api_token` table (0.9 O2) and `sso_settings.client_secret_sealed` (the single sign-on
-client secret; the admin types it again), and (cabledrawer 14 Nov) `login.sso_refused_at` and the
+client secret; the admin types it again), and (cabledrawer 13 Nov) `login.sso_refused_at` and the
 `former_name` table.
 
 The zip is written as it is sent (streamed), never kept on the server. Nothing here makes a
@@ -58,7 +58,7 @@ LEFT_OUT_COLUMNS = {
     # cabledrawer; the rest of the single sign-on setup is exported).
     ("sso_settings", "client_secret_sealed"): "the single sign-on client secret",
     # This server's own sign-in state, not the household's data: without it an admin put back
-    # from an export isn't blocked from making API tokens (O2 fix13; cabledrawer 14 Nov).
+    # from an export isn't blocked from making API tokens (O2 fix13; cabledrawer 13 Nov).
     ("login", "sso_refused_at"): "the mark of a login the sign-in server refused",
 }
 
