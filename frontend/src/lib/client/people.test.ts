@@ -40,9 +40,11 @@ describe('portionWords', () => {
 describe('personLine', () => {
   it('says profile only, a pending link, signing in and a shared login', () => {
     expect(personLine(joss())).toBe('Profile only · ½ portion');
-    expect(personLine(joss({ login: login({ has_password: false, signs_in: false, link_pending: true }) }))).toBe(
-      'Member · sign-in link sent · ½ portion'
-    );
+    expect(
+      personLine(
+        joss({ login: login({ has_password: false, signs_in: false, link_pending: true }) })
+      )
+    ).toBe('Member · sign-in link sent · ½ portion');
     expect(personLine(joss({ portion_quarters: 4, login: login({ role: 'admin' }) }))).toBe(
       'Admin · signs in · 1 portion'
     );
