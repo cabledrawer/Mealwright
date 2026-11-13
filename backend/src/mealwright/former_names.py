@@ -73,6 +73,7 @@ _KINDS: dict[tuple[str, str], str] = {
     ("Shop", "name"): "shop",
     ("Place", "name"): "place",
     ("ShoppingList", "name"): "list",
+    ("ApiToken", "name"): "list",
     ("MealSlot", "name"): "meal",
 }
 
