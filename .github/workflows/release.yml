@@ -68,8 +68,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          # VERSION is 1.2.3, without the tag's "v" (the image's version label).
           build-args: |
-            # 1.2.3, without the tag's "v" (the image's version label).
             VERSION=${{ steps.meta.outputs.version }}
             REVISION=${{ github.sha }}
 
