@@ -3,11 +3,11 @@
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sync_kit import API, db, ok, person
 
 from mealwright import sso_accounts
-from mealwright.models import SsoSettings
+from mealwright.models import JoinLink, Login, SsoSettings
 from mealwright.sso import Identity
 
 ISSUER = "https://auth.example.test"
@@ -45,6 +45,10 @@ def test_a_login_by_password_or_by_single_sign_on_signs_in_and_a_waiting_link_do
                 password_sign_in=True,
             )
         )
+        # Her sign-in link is not used: a live one would keep the automatic link away (round 2),
+        # so it is taken back, as if it had run out.
+        noor_login = select(Login.id).where(Login.username == "noor")
+        session.execute(delete(JoinLink).where(JoinLink.login_id.in_(noor_login)))
         session.commit()
         row = session.scalar(select(SsoSettings))
         identity = Identity(
