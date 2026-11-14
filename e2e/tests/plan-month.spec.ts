@@ -230,6 +230,10 @@ async function openDay(page: Page, today: string, day: string, meal: string) {
   }
   const where = page.getByTestId(`day-${day}`);
   await expect(where).toBeVisible();
+  // Hovering waits until the day has stopped moving (the month draws its days, then fills them),
+  // so the box read next is where the day stays: a box read while the grid was still settling put
+  // the click on a neighbour (F53's rare failure on a computer).
+  await where.hover();
   const box = (await where.boundingBox())!;
   await page.mouse.click(box.x + box.width - 5, box.y + box.height - 5); // the corner: no number, no chip
   const add = page.getByRole('dialog', { name: 'Add to the plan' });
