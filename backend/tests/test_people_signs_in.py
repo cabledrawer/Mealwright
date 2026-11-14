@@ -22,12 +22,12 @@ def test_a_login_by_password_or_by_single_sign_on_signs_in_and_a_waiting_link_do
     kitchen: TestClient,
 ) -> None:
     person(kitchen)  # Wren, with a password
-    # Asha, given a login "asha" here; her sign-in server account of that username links to it.
-    ok(kitchen.post(f"{API}/people", json={"name": "Asha"}), 201)
-    asha_id = next(p for p in ok(kitchen.get(f"{API}/people"))["people"] if p["name"] == "Asha")
+    # Noor, given a login "noor" here; her sign-in server account of that username links to it.
+    ok(kitchen.post(f"{API}/people", json={"name": "Noor"}), 201)
+    noor_id = next(p for p in ok(kitchen.get(f"{API}/people"))["people"] if p["name"] == "Noor")
     ok(
         kitchen.post(
-            f"{API}/people/{asha_id['id']}/login", json={"username": "asha", "role": "member"}
+            f"{API}/people/{noor_id['id']}/login", json={"username": "noor", "role": "member"}
         ),
         201,
     )
@@ -49,10 +49,10 @@ def test_a_login_by_password_or_by_single_sign_on_signs_in_and_a_waiting_link_do
         row = session.scalar(select(SsoSettings))
         identity = Identity(
             issuer=ISSUER,
-            subject="sub-asha",
-            username="asha",
+            subject="sub-noor",
+            username="noor",
             email=None,
-            name="Asha",
+            name="Noor",
             groups=[],
             refresh_token=None,
         )
@@ -67,8 +67,8 @@ def test_a_login_by_password_or_by_single_sign_on_signs_in_and_a_waiting_link_do
         201,
     )
     assert _login_of(kitchen, "Wren")["signs_in"] is True
-    asha = _login_of(kitchen, "Asha")
-    assert asha["signs_in"] is True
-    assert asha["has_password"] is False
+    noor = _login_of(kitchen, "Noor")
+    assert noor["signs_in"] is True
+    assert noor["has_password"] is False
     waiting = _login_of(kitchen, "Child")
     assert waiting["signs_in"] is False and waiting["link_pending"] is True

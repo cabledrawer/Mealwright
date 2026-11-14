@@ -183,7 +183,7 @@ def test_a_new_person_is_named_as_the_sign_in_server_names_them(
 def test_a_username_mealwright_doesnt_allow_gets_one_made_for_it(
     admin: TestClient, idp: FakeProvider
 ) -> None:
-    account = _wait(admin, idp, preferred_username="Lorna Sutton")
+    account = _wait(admin, idp, preferred_username="Lorna Stone")
     answer = admin.post(f"{API}/people/sso-accounts/{account}/link", json={"member_id": None})
     assert answer.status_code == 200, answer.text
     with cast(Any, admin.app).state.sessionmaker() as db:

@@ -103,10 +103,10 @@ def test_the_migration_keeps_every_login_and_link_and_goes_back(tmp_path: Path) 
         connection.exec_driver_sql("DELETE FROM login WHERE id = 3")
         connection.exec_driver_sql(
             "INSERT INTO login (household_id, username, name, role, theme, created_at)"
-            " VALUES (1, 'asha', 'Asha', 'member', 'auto', '2026-11-17')"
+            " VALUES (1, 'noor', 'Noor', 'member', 'auto', '2026-11-17')"
         )
         assert (
-            connection.exec_driver_sql("SELECT id FROM login WHERE username = 'asha'").scalar_one()
+            connection.exec_driver_sql("SELECT id FROM login WHERE username = 'noor'").scalar_one()
             == 4
         )
 
@@ -115,6 +115,6 @@ def test_the_migration_keeps_every_login_and_link_and_goes_back(tmp_path: Path) 
     assert _shape(engine) == shape
     with engine.connect() as connection:
         names = connection.exec_driver_sql("SELECT username FROM login ORDER BY id").scalars()
-        assert list(names) == ["sam", "lorna", "asha"]
+        assert list(names) == ["sam", "lorna", "noor"]
     migrate.upgrade(engine, LOGIN_IDS)
     assert "AUTOINCREMENT" in _login_sql(engine).upper()

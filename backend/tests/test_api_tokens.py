@@ -427,7 +427,7 @@ NEVER_ROUTES = [
     # "Who is this?" and the Person page's single sign-on row (0.9.5 Pe3/M2)
     ("POST", "/people/sso-accounts/{someone}/link", {"member_id": None}),
     ("POST", "/people/sso-accounts/{someone}/refuse", None),
-    ("DELETE", "/people/{wren}/sso", None),
+    ("DELETE", "/people/{person}/sso", None),
     # Privacy (and the update check, which connects out)
     ("PUT", "/privacy/switches/{switch}", {"on": True}),
     ("POST", "/privacy/own-network", {"value": "wiki.home"}),
@@ -467,6 +467,7 @@ def _never(app: TestClient, wren: int) -> list[tuple[str, str, Any]]:
     for method, path, body in NEVER_ROUTES:
         filled = path.replace("{wren}", str(wren))
         filled = filled.replace("{switch}", "recipe_import").replace("{entry}", "1")
+        filled = filled.replace("{person}", str(wren))
         filled = filled.replace("{someone}", "1")  # any id: a token is refused before a person
         r = app.request(method, f"{API}{filled}", json=body)
         out.append((method, path, r))
