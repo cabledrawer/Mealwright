@@ -11,6 +11,7 @@ from mealwright.api.v1 import (
     drafts,
     events,
     foods,
+    health,
     imports,
     kitchen,
     mealie,
@@ -37,6 +38,7 @@ from mealwright.api.v1 import (
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(version.router)
+router.include_router(health.router)
 router.include_router(updates.router)
 router.include_router(report.router)
 router.include_router(account.router)
