@@ -648,7 +648,7 @@
     border-radius: var(--radius-field);
     background: var(--color-field);
     color: var(--color-text);
-    font: var(--weight-medium) var(--text-base) var(--font-ui);
+    font: var(--weight-medium) 1rem var(--font-ui); /* 16px: iOS zooms in on smaller fields */
   }
 
   table {

@@ -149,7 +149,9 @@ test('the file is shown before anything is added; Cancel adds nothing', async ({
   const before = await page.request.get(`/api/v1/recipes?q=${encodeURIComponent(tag)}`);
   expect(JSON.stringify(await before.json())).not.toContain(tag);
   await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.getByRole('button', { name: 'Choose the Mealie file (.zip)' })).toBeVisible();
+  // Back on the start screen (the computer's drop area says "Choose file…").
+  const again = isPhone(page) ? 'Choose the Mealie file (.zip)' : 'Choose file…';
+  await expect(page.getByRole('button', { name: again })).toBeVisible();
 });
 
 test('Bring in runs on the server; Done leads to the draft to check; Undo takes it all out', async ({ page }) => {
@@ -159,7 +161,7 @@ test('Bring in runs on the server; Done leads to the draft to check; Undo takes 
   await choose(page, tag);
   await page.getByRole('button', { name: 'Bring in 3 recipes' }).click();
   await expect(page.getByText('3 recipes brought in')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/^From mealie_2026\.11\.10\.zip, today/)).toBeVisible();
+  await expect(page.getByText(/From mealie_2026\.11\.10\.zip, today \d\d:\d\d/)).toBeVisible();
   await checkPage(page);
 
   await page.getByRole('link', { name: 'Check the 1' }).click();
