@@ -254,7 +254,10 @@ describe('Settings → Your data', () => {
     it('a member has no box at all', async () => {
       session.me = { ...ME, role: 'member' };
       open(YourData);
+      // A member sees the value, not a choice: the label has no control to find by label.
       await expect.element(page.getByText('How often')).toBeVisible();
+      await expect.element(page.getByText('Daily, 03:00')).toBeVisible();
+      expect(document.querySelector('select')).toBeNull();
       expect(document.querySelector('input[type="password"]')).toBeNull();
       // Nothing points at a field that isn't there (a label with a dead `for`).
       for (const label of document.querySelectorAll('label[for]'))
@@ -302,7 +305,7 @@ describe('Settings → Your data', () => {
         .toBeVisible();
       await expect
         .element(page.getByTestId('last-backup'))
-        .toHaveTextContent(`${WHEN} · 412.1\u00a0MB with photos · all fine`);
+        .toHaveTextContent(`${WHEN} · 412.1 MB with photos · all fine`); // the matcher reads a no-break space as a plain one
     });
 
     it('is saved as it is picked, and nothing else is sent', async () => {
@@ -339,6 +342,7 @@ describe('Settings → Your data', () => {
 
     it('is off while offline, and a member sees it but cannot switch it', async () => {
       open(YourData);
+      await expect.element(photos()).toBeEnabled(); // the page has loaded
       network.offline = true;
       await expect.element(photos()).toBeDisabled();
       network.offline = false;
