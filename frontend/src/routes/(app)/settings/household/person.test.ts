@@ -77,6 +77,9 @@ const passwordJoss = (extra: Partial<NonNullable<(typeof JOSS)['login']>> = {}) 
   }
 });
 
+// A household in this device's own time zone, so the device's clock is the household's.
+const HERE = { ...HOUSEHOLD, time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+
 const clock = (at: Date) =>
   `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
 
@@ -315,21 +318,35 @@ describe('Settings → Household → a person', () => {
   it('says when a link was used: "Link used today 21:40" (cabledrawer 13 Nov)', async () => {
     const now = new Date();
     open({
+      'GET /household': [200, HERE],
       'GET /people': [200, people([TESS, passwordJoss({ link_used_at: now.toISOString() })])]
     });
     await expect.element(page.getByText(`Link used today ${clock(now)}`)).toBeVisible();
   });
 
   it('an older use says the day: "Link used 12 Nov 21:40"', async () => {
-    // Ten days ago at 21:40, in this device's time: older than a week, so the date shows.
+    // Ten days ago at 21:40, in this device's (and so the household's) time: older than a week, so the date shows.
     const at = new Date();
     at.setDate(at.getDate() - 10);
     at.setHours(21, 40, 0, 0);
     const month = at.toLocaleString('en-GB', { month: 'short' }).slice(0, 3);
     open({
+      'GET /household': [200, HERE],
       'GET /people': [200, people([TESS, passwordJoss({ link_used_at: at.toISOString() })])]
     });
     await expect.element(page.getByText(`Link used ${at.getDate()} ${month} 21:40`)).toBeVisible();
+  });
+
+  it('"Link used" is in the household’s time zone, not the device’s (16b review R-L4)', async () => {
+    // 08:40 UTC is 22:40 the same day at UTC+14 (no summer time there), whatever this device's.
+    open({
+      'GET /household': [200, { ...HOUSEHOLD, time_zone: 'Pacific/Kiritimati' }],
+      'GET /people': [
+        200,
+        people([TESS, passwordJoss({ link_used_at: '2020-01-02T08:40:00Z' })])
+      ]
+    });
+    await expect.element(page.getByText('Link used 2 Jan 22:40')).toBeVisible();
   });
 
   it('no Reset password on your own page; the only admin learns about reset-admin', async () => {

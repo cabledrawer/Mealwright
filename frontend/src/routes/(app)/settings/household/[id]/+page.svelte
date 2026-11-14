@@ -114,11 +114,15 @@
   const linkUrl = $derived(link ? `${location.origin}${link}` : '');
   const resetUrl = $derived(resetLink ? `${location.origin}${resetLink}` : '');
 
-  /** "Link used today 21:40" (cabledrawer 13 Nov): an admin can spot a link someone else used. */
+  /**
+   * "Link used today 21:40" (cabledrawer 13 Nov): an admin can spot a link someone else used. In the
+   * household's time zone, like every date in the app (16b review R-L4).
+   */
   const linkUsed = $derived.by(() => {
     if (!login?.link_used_at) return null;
-    const when = whenWords(login.link_used_at).replace(/^(Today|Yesterday) /, (w) =>
-      w.toLowerCase()
+    const when = whenWords(login.link_used_at, new Date(), household.zone).replace(
+      /^(Today|Yesterday) /,
+      (w) => w.toLowerCase()
     );
     return `Link used ${when}`;
   });

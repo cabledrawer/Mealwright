@@ -37,6 +37,8 @@ class Household_ {
   canChange = $state(false);
   askWhosThis = $state(false);
   name = $state('');
+  /** The household's time zone, for times on the Person page (null: this device's own). */
+  zone = $state<string | null>(null);
   /** How long a removal can be undone (the household's own setting). */
   undoDays = $state(7);
   /** A change is on its way to the server. */
@@ -51,6 +53,7 @@ class Household_ {
     this.canChange = false;
     this.askWhosThis = false;
     this.name = '';
+    this.zone = null;
     this.busy = false;
   }
 
@@ -67,6 +70,7 @@ class Household_ {
       if (generation !== this.#generation) return;
       this.#put(found);
       this.name = household.name;
+      this.zone = household.time_zone;
       this.undoDays = household.undo_days;
       this.problem = null;
       this.loaded = true;

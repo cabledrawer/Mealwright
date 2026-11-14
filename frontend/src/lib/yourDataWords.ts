@@ -25,19 +25,46 @@ export function sizeWords(bytes: number): string {
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+/** A moment's calendar day (as a number of days) and clock, in `zone`, or this device's own
+ * time when it has none (or one this browser doesn't know). */
+function dayAndClock(at: Date, zone?: string | null): { day: number; clock: string } {
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hourCycle: 'h23'
+  };
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat(
+      'en-GB',
+      zone ? { ...options, timeZone: zone } : options
+    ).formatToParts(at);
+  } catch {
+    parts = new Intl.DateTimeFormat('en-GB', options).formatToParts(at);
+  }
+  const of = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return {
+    day: Date.UTC(of('year'), of('month') - 1, of('day')) / 86_400_000,
+    clock: `${String(of('hour')).padStart(2, '0')}:${String(of('minute')).padStart(2, '0')}`
+  };
+}
+
 /**
  * When, the way the rest of the app says it: "Today 03:00", "Yesterday 15:00", a weekday for
- * the last 6 days ("Mon 03:00"), then "12 Nov 03:00". In this device's own time.
+ * the last 6 days ("Mon 03:00"), then "12 Nov 03:00". In `zone` (the household's time zone, for
+ * "Link used"; 16b review R-L4), or this device's own time without one (Your data).
  */
-export function whenWords(iso: string, now: Date = new Date()): string {
-  const at = new Date(iso);
-  const clock = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
-  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const daysAgo = Math.round((day(now) - day(at)) / 86_400_000);
-  if (daysAgo === 0) return `Today ${clock}`;
-  if (daysAgo === 1) return `Yesterday ${clock}`;
-  if (daysAgo > 1 && daysAgo < 7) return `${DAYS[at.getDay()]} ${clock}`;
-  return `${at.getDate()} ${MONTHS[at.getMonth()]} ${clock}`;
+export function whenWords(iso: string, now: Date = new Date(), zone?: string | null): string {
+  const at = dayAndClock(new Date(iso), zone);
+  const daysAgo = dayAndClock(now, zone).day - at.day;
+  const date = new Date(at.day * 86_400_000);
+  if (daysAgo === 0) return `Today ${at.clock}`;
+  if (daysAgo === 1) return `Yesterday ${at.clock}`;
+  if (daysAgo > 1 && daysAgo < 7) return `${DAYS[date.getUTCDay()]} ${at.clock}`;
+  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${at.clock}`;
 }
 
 /** The "Last backup" row's line: "Today 03:00 · 2.1 MB · all fine". */
