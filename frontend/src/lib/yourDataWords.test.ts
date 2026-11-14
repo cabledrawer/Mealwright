@@ -38,6 +38,12 @@ describe('Your data words', () => {
     );
   });
 
+  it('tells a member no sizes', () => {
+    expect(includePhotosWords(null, null)).toBe(
+      'Without them, photos can’t be restored from a backup.'
+    );
+  });
+
   it('says "with photos" on the last backup only when it holds them', () => {
     const withPhotos = backups({ last: { at: at(13, 3), size: 412_140_000, photos: true } });
     expect(lastBackupWords(withPhotos, NOW)).toBe(

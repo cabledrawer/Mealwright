@@ -95,7 +95,11 @@ export const SAFETY_COPY_NOTE = 'The safety copy made before each upgrade follow
 /** The Include photos row's small line: the mockup's "Recipe photos, 410 MB. Without them a
  * backup is about 2 MB, but photos can't be restored from it." With no photo yet, "No recipe
  * photos yet." in place of the first sentence (proposed, for cabledrawer). */
-export function includePhotosWords(photosSize: number, databaseSize: number): string {
+export function includePhotosWords(photosSize: number | null, databaseSize: number | null): string {
+  // A member is told no sizes (only an admin is): the line says only what matters
+  // (proposed, for cabledrawer).
+  if (photosSize === null || databaseSize === null)
+    return 'Without them, photos can’t be restored from a backup.';
   const first =
     photosSize > 0 ? `Recipe photos, ${sizeWords(photosSize)}.` : 'No recipe photos yet.';
   return `${first} Without them a backup is about ${sizeWords(databaseSize)}, but photos can’t be restored from it.`;

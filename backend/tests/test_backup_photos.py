@@ -697,3 +697,20 @@ def test_a_photo_swapped_for_a_link_after_the_listing_is_left_out(
     monkeypatch.setattr(os, "link", no_links)
     made = backups.back_up(_engine(kitchen), _folder(kitchen), 7, photos=_store(kitchen))
     assert made.photos is False  # nothing of the link's target was copied
+
+
+def test_a_member_is_told_no_sizes_and_an_admin_only_their_own_households_photos(
+    kitchen: TestClient, member: TestClient
+) -> None:
+    _photo(_store(kitchen), "a", b"x" * 1000)
+    _photo(_store(kitchen), "b", b"y" * 7000, household=2)  # another household's: not counted
+    assert kitchen.post(API).status_code == 200
+    (backup,) = backups.backups(_folder(kitchen))
+    body = kitchen.get(API).json()
+    assert body["photos_size"] == 1000
+    assert body["last"]["size"] == backup.size + 8000  # the backup holds both households'
+    seen = member.get(API).json()
+    assert seen["photos_size"] is None
+    assert seen["database_size"] is None
+    assert seen["last"]["size"] == backup.size  # as a member saw it before 0.9.5
+    assert seen["last"]["photos"] is True

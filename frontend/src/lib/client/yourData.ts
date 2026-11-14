@@ -12,10 +12,10 @@ export interface Backups {
   keep: number;
   /** Include the recipe photos in backups and the safety copy before an upgrade (D2, 0.9.5). */
   photos: boolean;
-  /** What the recipe photos on the server come to, in bytes. */
-  photos_size: number;
-  /** The database's own size, in bytes: about what a backup without photos comes to. */
-  database_size: number;
+  /** What this household's recipe photos come to, in bytes. Null for a member. */
+  photos_size: number | null;
+  /** The database's own size, in bytes: about what a backup without photos comes to. Null for a member. */
+  database_size: number | null;
   /**
    * The newest backup: when (ISO, UTC), how big in bytes (its photos counted when it has
    * them) and whether it holds the photos. Null when there's none yet.

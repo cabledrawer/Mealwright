@@ -259,7 +259,7 @@ Plans after 1.0 are kept outside the repo.
 
 **Users and households (decided 17 Oct):**
 
-- One household per install; everything shared within it (recipes, pantry, plan, lists); per-user settings only (display units, notifications, theme, sidebar collapsed)
+- One household per install (D2, 0.9.5: the Include photos switch, and the scheduled job and safety copies that follow it, read the first household's settings and assume this; a second household would need its own); everything shared within it (recipes, pantry, plan, lists); per-user settings only (display units, notifications, theme, sidebar collapsed)
 - Two roles only: Admin and Member (cabledrawer 17 Oct; no Shopper role)
 - Household members are separate from login accounts: a member profile (name, optional colour/avatar) can exist without a login — kids, a baby, or two people sharing one "family" login — and is what batch portions are assigned to. A login account can optionally be linked to a member profile.
 - OIDC: optional auto-create on first login, IdP group → role mapping, option to turn off password logins

@@ -67,13 +67,13 @@ class BackupsOut(BaseModel):
         description="Include the recipe photos in backups and in the safety copy made before "
         "an upgrade (on by default; D2, 0.9.5)."
     )
-    photos_size: int = Field(
-        description="What the recipe photos on the server come to, in bytes: what including "
-        "them adds to a backup."
+    photos_size: int | None = Field(
+        description="What this household's recipe photos come to, in bytes: what including them "
+        "adds to a backup. Null for a member (only an admin is told sizes of the server)."
     )
-    database_size: int = Field(
+    database_size: int | None = Field(
         description="The database's own size on the server, in bytes: about what a backup "
-        "without photos comes to."
+        "without photos comes to. Null for a member."
     )
     last: BackupOut | None = Field(description="The newest backup, or null when there's none.")
     problem: str | None = Field(
@@ -84,9 +84,9 @@ class BackupsOut(BaseModel):
     folder: str = Field(description="Where the backups are, on the server.")
 
 
-def _last(newest: backups.Backup) -> BackupOut:
-    size = newest.size
-    if newest.photos:
+def _last(newest: backups.Backup, admin: bool) -> BackupOut:
+    size = newest.size  # a member sees the database file's size, as before 0.9.5
+    if newest.photos and admin:
         size += backups.photos_size(backups.photos_beside(newest.path))
     return BackupOut(at=newest.made_at, size=size, photos=newest.photos)
 
@@ -102,15 +102,18 @@ def _database_size(request: Request) -> int:
 def _out(kitchen: Here, request: Request) -> BackupsOut:
     folder = _folder(request)
     household = kitchen.household
+    admin = kitchen.login.role == "admin"
     found = backups.backups(folder)
     every = household.backup_every if household.backup_every in backups.EVERY else "daily"
     return BackupsOut(
         every=every,  # type: ignore[arg-type]
         keep=household.backup_keep,
         photos=household.backup_photos,
-        photos_size=backups.photos_size(backups.photo_store(folder)),
-        database_size=_database_size(request),
-        last=_last(found[0]) if found else None,
+        photos_size=(
+            backups.photos_size(backups.photo_store(folder), household.id) if admin else None
+        ),
+        database_size=_database_size(request) if admin else None,
+        last=_last(found[0], admin) if found else None,
         problem=household.backup_problem,
         problem_at=household.backup_problem_at,
         count=len(found),

@@ -129,12 +129,18 @@ def photos_beside(copy: Path) -> Path:
     return copy.with_name(copy.name.removesuffix(".db") + PHOTOS_SUFFIX)
 
 
-def photo_files(store: Path) -> list[Path]:
-    """Every photo file under `store` (`<household id>/<file>`), as paths relative to it."""
+def photo_files(store: Path, household_id: int | None = None) -> list[Path]:
+    """Every photo file under `store` (`<household id>/<file>`), as paths relative to it; with
+    `household_id`, only that household's."""
     found = []
     try:
         households = [
-            p for p in store.iterdir() if p.name.isdigit() and p.is_dir() and not p.is_symlink()
+            p
+            for p in store.iterdir()
+            if p.name.isdigit()
+            and (household_id is None or int(p.name) == household_id)
+            and p.is_dir()
+            and not p.is_symlink()
         ]
     except OSError:  # no photos yet
         return []
@@ -149,11 +155,12 @@ def photo_files(store: Path) -> list[Path]:
     return found
 
 
-def photos_size(folder: Path) -> int:
+def photos_size(folder: Path, household_id: int | None = None) -> int:
     """The bytes of the photo files in `folder` (a store or a backup's photo folder), as their
-    sizes say: a hard link counts in full, so this is what a copy of them would take."""
+    sizes say: a hard link counts in full, so this is what a copy of them would take. With
+    `household_id`, only that household's."""
     total = 0
-    for relative in photo_files(folder):
+    for relative in photo_files(folder, household_id):
         try:
             total += (folder / relative).stat().st_size
         except OSError:
