@@ -13,6 +13,7 @@
   import Icon from '#lib/components/Icon.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
+  import Switch from '#lib/components/Switch.svelte';
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
   import { getHousehold } from '#lib/client/household.js';
   import {
@@ -37,9 +38,10 @@
     EXPORT_PASSWORD_LENGTH,
     EXPORT_PASSWORD_RULE,
     exportPasswordOk,
-    PHOTOS_NOTE,
+    SAFETY_COPY_NOTE,
     SAME_DISK,
     UNDO_REACH,
+    includePhotosWords,
     keepWords,
     lastBackupWords,
     problemWords
@@ -73,7 +75,7 @@
 
   onMount(() => void load());
 
-  async function change(what: { every?: BackupEvery; keep?: number }) {
+  async function change(what: { every?: BackupEvery; keep?: number; photos?: boolean }) {
     if (!backups) return;
     const before = backups;
     backups = { ...backups, ...what };
@@ -209,6 +211,20 @@
         </div>
         <div class="row">
           <span class="lbl"
+            >Include photos<small id="include-photos-words"
+              >{includePhotosWords(backups.photos_size, backups.database_size)}</small
+            ></span
+          >
+          <Switch
+            checked={backups.photos}
+            disabled={locked}
+            label="Include photos in backups"
+            describedby="include-photos-words"
+            onchange={(on) => void change({ photos: on })}
+          />
+        </div>
+        <div class="row">
+          <span class="lbl"
             >Last backup<small data-testid="last-backup">{lastBackupWords(backups, now)}</small
             ></span
           >
@@ -228,11 +244,11 @@
       {#if problem}
         <p class="problem" role="alert">{problem}</p>
       {/if}
+      <p class="note">{SAFETY_COPY_NOTE}</p>
       <div class="disk">
         <Icon name="alert" size={18} stroke={2.2} />
         <p>{SAME_DISK}</p>
       </div>
-      <p class="note">{PHOTOS_NOTE}</p>
       <a class="card row to" href={resolve('/(app)/settings/your-data/restore')}>
         <span class="lbl">How to restore<small>Step by step</small></span>
         <Icon name="back" size={18} stroke={2.4} />

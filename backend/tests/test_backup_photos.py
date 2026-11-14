@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from photo_kit import uploaded
 from sqlalchemy import Engine
 
 from mealwright import backups, migrate
@@ -126,6 +127,7 @@ def test_the_size_counts_the_photos(kitchen: TestClient) -> None:
     body = kitchen.post(API).json()
     (backup,) = backups.backups(_folder(kitchen))
     assert body["photos_size"] == 5000
+    assert body["database_size"] > 0
     assert body["last"]["photos"] is True
     assert body["last"]["size"] == backup.size + 5000
 
@@ -498,3 +500,25 @@ def test_the_safety_copies_are_trimmed_with_their_photo_folders(tmp_path: Path) 
     dirs = [n for n in names if n.endswith("-photos")]
     assert len(dbs) == migrate.SAFETY_COPIES_KEPT
     assert dirs == [n.removesuffix(".db") + "-photos" for n in dbs]
+
+
+def test_a_real_photo_comes_back_from_the_backup_and_a_missing_one_is_only_a_404(
+    kitchen: TestClient,
+) -> None:
+    """With photos in the backup, copying the folder back brings the photo; without them (the
+    switch off) the restored database still points to it, the file answers 404, and the recipe
+    and everything else carry on (what the app really does, D2)."""
+    photo = uploaded(kitchen)
+    made = kitchen.post("/api/v1/recipes", json={"name": "Sambar", "photo_id": photo["id"]})
+    assert made.status_code == 201, made.text
+    recipe_id = made.json()["id"]
+    url = made.json()["photo"]["url"]
+    assert kitchen.get(url).status_code == 200
+    assert kitchen.post(API).status_code == 200
+    (backup,) = backups.backups(_folder(kitchen))
+    shutil.rmtree(_store(kitchen))  # a new server: the database is back, the photo files aren't
+    assert kitchen.get(url).status_code == 404  # no photos in the restore: a plain "not found"
+    assert kitchen.get(f"/api/v1/recipes/{recipe_id}").status_code == 200
+    assert kitchen.get("/api/v1/recipes").status_code == 200
+    shutil.copytree(backups.photos_beside(backup.path), _store(kitchen))  # cp -a, as the docs say
+    assert kitchen.get(url).status_code == 200

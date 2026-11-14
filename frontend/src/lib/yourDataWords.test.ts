@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Backups } from '#lib/client/yourData.js';
 import {
   EVERY_WORDS,
+  includePhotosWords,
   keepWords,
   lastBackupWords,
   problemWords,
@@ -16,7 +17,10 @@ const at = (day: number, hour: number) => new Date(2026, 10, day, hour, 0).toISO
 const backups = (extra: Partial<Backups> = {}): Backups => ({
   every: 'daily',
   keep: 7,
-  last: { at: at(13, 3), size: 2_140_000 },
+  photos: true,
+  photos_size: 410_000_000,
+  database_size: 2_140_000,
+  last: { at: at(13, 3), size: 2_140_000, photos: false },
   problem: null,
   problem_at: null,
   count: 3,
@@ -25,6 +29,23 @@ const backups = (extra: Partial<Backups> = {}): Backups => ({
 });
 
 describe('Your data words', () => {
+  it('says what the photos add, with the mockup’s words', () => {
+    expect(includePhotosWords(410_000_000, 2_140_000)).toBe(
+      'Recipe photos, 410.0\u00a0MB. Without them a backup is about 2.1\u00a0MB, but photos can’t be restored from it.'
+    );
+    expect(includePhotosWords(0, 640_400)).toBe(
+      'No recipe photos yet. Without them a backup is about 640\u00a0KB, but photos can’t be restored from it.'
+    );
+  });
+
+  it('says "with photos" on the last backup only when it holds them', () => {
+    const withPhotos = backups({ last: { at: at(13, 3), size: 412_140_000, photos: true } });
+    expect(lastBackupWords(withPhotos, NOW)).toBe(
+      'Today 03:00 · 412.1\u00a0MB with photos · all fine'
+    );
+    expect(lastBackupWords(backups(), NOW)).toBe('Today 03:00 · 2.1\u00a0MB · all fine');
+  });
+
   it('says how often as the mockup does', () => {
     expect(EVERY_WORDS.daily).toBe('Daily, 03:00');
     expect(keepWords(7)).toBe('Last 7');

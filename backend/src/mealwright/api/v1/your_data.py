@@ -71,6 +71,10 @@ class BackupsOut(BaseModel):
         description="What the recipe photos on the server come to, in bytes: what including "
         "them adds to a backup."
     )
+    database_size: int = Field(
+        description="The database's own size on the server, in bytes: about what a backup "
+        "without photos comes to."
+    )
     last: BackupOut | None = Field(description="The newest backup, or null when there's none.")
     problem: str | None = Field(
         description="Why the last try failed, in plain words, or null when backups work."
@@ -87,7 +91,16 @@ def _last(newest: backups.Backup) -> BackupOut:
     return BackupOut(at=newest.made_at, size=size, photos=newest.photos)
 
 
-def _out(kitchen: Here, folder: Path) -> BackupsOut:
+def _database_size(request: Request) -> int:
+    file = backups.sqlite_file(request.app.state.engine)
+    try:
+        return file.stat().st_size if file else 0
+    except OSError:
+        return 0
+
+
+def _out(kitchen: Here, request: Request) -> BackupsOut:
+    folder = _folder(request)
     household = kitchen.household
     found = backups.backups(folder)
     every = household.backup_every if household.backup_every in backups.EVERY else "daily"
@@ -96,6 +109,7 @@ def _out(kitchen: Here, folder: Path) -> BackupsOut:
         keep=household.backup_keep,
         photos=household.backup_photos,
         photos_size=backups.photos_size(backups.photo_store(folder)),
+        database_size=_database_size(request),
         last=_last(found[0]) if found else None,
         problem=household.backup_problem,
         problem_at=household.backup_problem_at,
@@ -110,7 +124,7 @@ def get_backups(kitchen: Here, request: Request) -> BackupsOut:
     API tokens: it also names the server's backups folder, which the screen doesn't show."""
     if kitchen.by_token:
         raise not_for_tokens()  # O2 review r1, finding 1 (proposed, for cabledrawer)
-    return _out(kitchen, _folder(request))
+    return _out(kitchen, request)
 
 
 class BackupsChange(BaseModel):
@@ -137,7 +151,7 @@ def change_backups(body: BackupsChange, kitchen: Here, request: Request) -> Back
     kitchen.db.commit()
     if body.keep is not None:
         backups.trim(folder, body.keep)
-    return _out(kitchen, folder)
+    return _out(kitchen, request)
 
 
 def _photos(kitchen: Here, folder: Path) -> Path | None:
@@ -161,7 +175,7 @@ def back_up_now(kitchen: Here, request: Request) -> BackupsOut:
         backups.note_problem(kitchen.db, kitchen.household, str(error), now)
     else:
         backups.note_problem(kitchen.db, kitchen.household, None, now)
-    return _out(kitchen, folder)
+    return _out(kitchen, request)
 
 
 @router.get(

@@ -70,7 +70,11 @@ export function whenWords(iso: string, now: Date = new Date(), zone?: string | n
 /** The "Last backup" row's line: "Today 03:00 · 2.1 MB · all fine". */
 export function lastBackupWords(backups: Backups, now: Date = new Date()): string {
   if (!backups.last) return backups.problem ? 'None yet' : 'None yet · the first is made soon';
-  const parts = [whenWords(backups.last.at, now), sizeWords(backups.last.size)];
+  const size = sizeWords(backups.last.size);
+  const parts = [
+    whenWords(backups.last.at, now),
+    backups.last.photos ? `${size} with photos` : size
+  ];
   if (!backups.problem) parts.push('all fine');
   return parts.join(' · ');
 }
@@ -85,8 +89,17 @@ export function problemWords(backups: Backups, now: Date = new Date()): string |
 export const SAME_DISK =
   'Backups sit on the same disk as Mealwright. If that disk dies, they go too: copy the backups folder somewhere else as well (another disk, your NAS).';
 
-export const PHOTOS_NOTE =
-  'A backup holds the database: every recipe, plan, list, pantry item and setting. Recipe photos are files beside it, in the photos folder; copy that folder too.';
+/** Under the card (mockup Dark-YourData095-Phone). */
+export const SAFETY_COPY_NOTE = 'The safety copy made before each upgrade follows the same choice.';
+
+/** The Include photos row's small line: the mockup's "Recipe photos, 410 MB. Without them a
+ * backup is about 2 MB, but photos can't be restored from it." With no photo yet, "No recipe
+ * photos yet." in place of the first sentence (proposed, for cabledrawer). */
+export function includePhotosWords(photosSize: number, databaseSize: number): string {
+  const first =
+    photosSize > 0 ? `Recipe photos, ${sizeWords(photosSize)}.` : 'No recipe photos yet.';
+  return `${first} Without them a backup is about ${sizeWords(databaseSize)}, but photos can’t be restored from it.`;
+}
 
 export const EXPORT_LEAD = 'One file with all recipes, plans, lists, pantry, people and settings.';
 

@@ -10,8 +10,17 @@ export interface Backups {
   every: BackupEvery;
   /** How many of its own backups are kept, 1 to 30. */
   keep: number;
-  /** The newest backup: when (ISO, UTC) and how big, in bytes. Null when there's none yet. */
-  last: { at: string; size: number } | null;
+  /** Include the recipe photos in backups and the safety copy before an upgrade (D2, 0.9.5). */
+  photos: boolean;
+  /** What the recipe photos on the server come to, in bytes. */
+  photos_size: number;
+  /** The database's own size, in bytes: about what a backup without photos comes to. */
+  database_size: number;
+  /**
+   * The newest backup: when (ISO, UTC), how big in bytes (its photos counted when it has
+   * them) and whether it holds the photos. Null when there's none yet.
+   */
+  last: { at: string; size: number; photos: boolean } | null;
   /** Why the last try failed, in plain words; null when backups work. */
   problem: string | null;
   problem_at: string | null;
@@ -24,7 +33,7 @@ export const KEEP_MOST = 30;
 
 export const getBackups = () => api<Backups>('GET', '/backups');
 
-export const changeBackups = (change: { every?: BackupEvery; keep?: number }) =>
+export const changeBackups = (change: { every?: BackupEvery; keep?: number; photos?: boolean }) =>
   api<Backups>('PATCH', '/backups', change);
 
 /** "Back up now". A backup that fails comes back as the settings with `problem` set. */

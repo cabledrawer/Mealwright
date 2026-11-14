@@ -33,7 +33,10 @@ vi.mock('#lib/client/sso.js', async (original) => ({
 const BACKUPS: Backups = {
   every: 'daily',
   keep: 7,
-  last: { at: new Date().toISOString(), size: 2_140_000 },
+  photos: true,
+  photos_size: 410_000_000,
+  database_size: 2_140_000,
+  last: { at: new Date().toISOString(), size: 2_140_000, photos: false },
   problem: null,
   problem_at: null,
   count: 3,
@@ -100,7 +103,9 @@ describe('Settings → Your data', () => {
     await expect
       .element(page.getByText(/^Backups sit on the same disk as Mealwright/))
       .toBeVisible();
-    await expect.element(page.getByText(/Recipe photos are files beside it/)).toBeVisible();
+    await expect
+      .element(page.getByText('The safety copy made before each upgrade follows the same choice.'))
+      .toBeVisible();
     await expect
       .element(page.getByRole('link', { name: /How to restore/ }))
       .toHaveAttribute('href', '/settings/your-data/restore');
@@ -275,6 +280,79 @@ describe('Settings → Your data', () => {
       ])
     );
     await expect.element(page.getByLabelText('Keep')).toHaveValue('14');
+  });
+
+  describe('Include photos', () => {
+    const photos = () => page.getByRole('switch', { name: 'Include photos in backups' });
+
+    it('is on, with the mockup’s words, and the last backup says when it holds photos', async () => {
+      open(YourData, {
+        'GET /backups': [
+          200,
+          { ...BACKUPS, last: { ...BACKUPS.last!, size: 412_140_000, photos: true } }
+        ]
+      });
+      await expect.element(photos()).toBeChecked();
+      await expect
+        .element(
+          page.getByText(
+            'Recipe photos, 410.0\u00a0MB. Without them a backup is about 2.1\u00a0MB, but photos can’t be restored from it.'
+          )
+        )
+        .toBeVisible();
+      await expect
+        .element(page.getByTestId('last-backup'))
+        .toHaveTextContent(`${WHEN} · 412.1\u00a0MB with photos · all fine`);
+    });
+
+    it('is saved as it is picked, and nothing else is sent', async () => {
+      open(YourData, {
+        'PATCH /backups': (request) => [200, { ...BACKUPS, ...(request.body as object) }]
+      });
+      await photos().click();
+      await vi.waitFor(() =>
+        expect(requests.filter((r) => r.method === 'PATCH').map((r) => r.body)).toEqual([
+          { photos: false }
+        ])
+      );
+      await expect.element(photos()).not.toBeChecked();
+      await photos().click();
+      await vi.waitFor(() =>
+        expect(requests.filter((r) => r.method === 'PATCH').map((r) => r.body)).toEqual([
+          { photos: false },
+          { photos: true }
+        ])
+      );
+      await expect.element(photos()).toBeChecked();
+    });
+
+    it('goes back, and says why, when the server refuses', async () => {
+      open(YourData, {
+        'PATCH /backups': [403, { detail: 'Only the household’s admin can change this.' }]
+      });
+      await photos().click();
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent('Only the household’s admin can change this.');
+      await expect.element(photos()).toBeChecked();
+    });
+
+    it('is off while offline, and a member sees it but cannot switch it', async () => {
+      open(YourData);
+      network.offline = true;
+      await expect.element(photos()).toBeDisabled();
+      network.offline = false;
+      session.me = { ...ME, role: 'member' };
+      document.body.innerHTML = '';
+      open(YourData);
+      await expect.element(photos()).toBeChecked();
+      await expect.element(photos()).toBeDisabled();
+    });
+
+    it('says plainly when there are no photos yet', async () => {
+      open(YourData, { 'GET /backups': [200, { ...BACKUPS, photos_size: 0 }] });
+      await expect.element(page.getByText(/^No recipe photos yet\./)).toBeVisible();
+    });
   });
 
   it('a change the server refuses goes back, and says why', async () => {
