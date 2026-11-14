@@ -324,18 +324,19 @@ def test_nobody_is_ever_made_on_a_first_sign_in(admin: TestClient, idp: FakeProv
 def test_an_admins_login_links_only_when_the_groups_make_them_an_admin_too(
     admin: TestClient, idp: FakeProvider
 ) -> None:
+    person_here(admin, "sam", role="admin")  # an admin who has never signed in
     # A Member at the sign-in server of the admin's username never takes over the admin.
-    answer, _ = sign_in(browser(admin), idp, extra={"preferred_username": "tess"})
+    answer, _ = sign_in(browser(admin), idp, extra={"preferred_username": "sam"})
     assert waits(answer)
-    assert subject_of(admin, "tess") is None
+    assert subject_of(admin, "sam") is None
     answer, _ = sign_in(
         browser(admin),
         idp,
-        extra={"preferred_username": "tess", "groups": ["mealwright-admins"]},
+        extra={"preferred_username": "sam", "groups": ["mealwright-admins"]},
     )
     assert answer.status_code == 200, answer.text
-    assert answer.json()["me"]["username"] == "tess"
-    assert subject_of(admin, "tess") == "user-1"
+    assert answer.json()["me"]["username"] == "sam"
+    assert subject_of(admin, "sam") == "user-1"
 
 
 @pytest.mark.parametrize(

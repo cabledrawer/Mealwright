@@ -390,11 +390,26 @@ def same_username(identity: Identity) -> str | None:
     return value or None
 
 
+def never_signed_in(login: Login) -> bool:
+    """A login nobody has used: no password, no single sign-on link now, no sign-in link used
+    and never signed in (which also covers one unlinked since). The sign-in server's username is
+    only its own word for who someone is (a stranger's account named " lorna " would take over
+    Lorna's login), so an exact match links automatically only for a login with nothing to
+    take over; any other waits in "Who is this?" for an admin."""
+    return (
+        not login.password_hash
+        and login.sso_subject is None
+        and login.last_sign_in_at is None
+        and login.link_used_at is None
+    )
+
+
 def _match(db: DbSession, row: SsoSettings, identity: Identity, role: str) -> Login | None:
     """The login of this household this identity is linked to automatically on its first
     sign-in, or None (it waits for an admin). Only an exact username match (`same_username`)
     of a login that can take the link: not shared (a kitchen tablet is nobody's), its person
-    not removed, and not linked to someone else at this sign-in server. An admin's login only
+    not removed, and one that has never signed in any way (`never_signed_in`: security pass
+    finding, fix round 1; proposed, for cabledrawer). An admin's login only
     when the groups make the newcomer an Admin too, as the setup test's link (proposed, for
     cabledrawer): a same-named account at the sign-in server that the groups make a Member never
     takes over an admin."""
@@ -406,7 +421,7 @@ def _match(db: DbSession, row: SsoSettings, identity: Identity, role: str) -> Lo
     )
     if login is None or login.shared or _removed(db, login):
         return None
-    if login.sso_subject is not None and login.sso_issuer == identity.issuer:
+    if not never_signed_in(login):
         return None
     if login.role == ADMIN and role != ADMIN:
         return None
