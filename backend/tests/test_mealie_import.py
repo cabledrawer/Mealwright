@@ -23,6 +23,7 @@ from test_plan import add_recipe, slot_ids
 
 from mealwright import drafts, mealie_file, mealie_import
 from mealwright.api.v1 import mealie as mealie_api
+from mealwright.errors import Problem
 from mealwright.mealie_file import MealieFileProblem
 from mealwright.models import (
     BatchCook,
@@ -964,8 +965,9 @@ def test_a_nameless_recipe_is_not_doubled_by_a_second_import(
     kitchen: TestClient, tmp_path: Path
 ) -> None:
     data = database()
-    data["recipes"].append(recipe("4" * 32, "   "))
-    data["recipes"].append(recipe("5" * 32, ""))
+    # With a source: a nameless recipe is "already here" only by its source.
+    data["recipes"].append(recipe("4" * 32, "   ", "https://kitchen.example/four"))
+    data["recipes"].append(recipe("5" * 32, "", "https://kitchen.example/five"))
     data["recipes_ingredients"].append(line("5" * 32, 0, "a pinch of Noor's secret"))
     raw = zipped(tmp_path / "nameless.zip", data, photo=False)
     first = bring_in(kitchen, raw)
@@ -1003,6 +1005,57 @@ def test_only_the_ingredients_of_the_kept_lines_are_counted_and_added(
     raw = zipped(tmp_path / "long.zip", data, photo=False)
     assert upload(kitchen, raw).json()["preview"]["foods_new"] == 200
     assert bring_in(kitchen, raw)["counts"]["new_foods"] == 200
+
+
+def test_a_client_that_drops_mid_upload_leaves_no_file_and_no_traceback(
+    kitchen: TestClient, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    import asyncio
+    from types import SimpleNamespace
+
+    from starlette.requests import ClientDisconnect
+
+    async def stream() -> Any:
+        yield b"PK\x03\x04 half a file"
+        raise ClientDisconnect
+
+    request = SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path))),
+        stream=stream,
+    )
+
+    async def drop() -> None:
+        files = mealie_api._mealie_file(request, 1)  # type: ignore[arg-type]
+        await files.__anext__()
+
+    with caplog.at_level("INFO"), pytest.raises(Problem) as dropped:
+        asyncio.run(drop())
+    assert dropped.value.code == "mealie_dropped"
+    assert list(tmp_path.rglob("*.part")) == []
+    assert set() == mealie_api._UPLOADING
+    assert all(r.exc_info is None for r in caplog.records)
+
+
+def test_a_nameless_recipe_with_no_source_is_never_already_here(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    # Security round 3: file 2's different nameless recipe was swallowed as "already here".
+    def file(key: str, step: str) -> bytes:
+        data = database()
+        data["recipes"] = [recipe(key, "  ")]
+        data["recipes_ingredients"] = [line(key, 0, "", LENTILS, 100)]
+        data["recipe_instructions"] = [{"recipe_id": key, "position": 0, "title": "", "text": step}]
+        return zipped(tmp_path / f"{key}.zip", data, photo=False)
+
+    first = bring_in(kitchen, file("4" * 32, "Boil Noor's lentils."))
+    assert first["counts"]["saved"] == 1
+    second = upload(kitchen, file("5" * 32, "Fry Lorna's onions.")).json()["preview"]
+    assert second["new"] == 1 and second["already"] == 0
+    # A person's own "Untitled recipe" with no source doesn't hide it either.
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        assert db.scalars(select(Recipe).where(Recipe.name == drafts.NO_NAME)).first()
+    again = upload(kitchen, file("4" * 32, "Boil Noor's lentils.")).json()["preview"]
+    assert again["new"] == 1 and again["already"] == 0  # no source: never matched
 
 
 def test_odd_names_come_in_tidied_and_match_what_is_here(

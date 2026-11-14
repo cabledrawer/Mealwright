@@ -7,6 +7,7 @@ before a byte of it is read), and refuse API tokens, as Your data does. Anyone i
 may look (the import screen's state, Today's note, Drafts).
 """
 
+import logging
 import secrets
 import threading
 from collections.abc import AsyncIterator
@@ -17,6 +18,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from starlette.requests import ClientDisconnect
 
 from mealwright import mealie_import
 from mealwright.api.v1.context import Here, Kitchen
@@ -34,6 +36,8 @@ router = APIRouter(tags=["recipes"], dependencies=[SameOrigin])
 CHUNK = 1024 * 1024
 # The words are proposed, for cabledrawer (words.md section 81).
 UPLOAD_BUSY = "Another Mealie file is being sent. Try again in a moment."
+log = logging.getLogger(__name__)
+
 NO_FILE = "Choose the Mealie file (.zip)."
 ADMINS_ONLY = "Only the household’s admin can change this."  # as Kitchen.admin_only says
 
@@ -222,6 +226,11 @@ async def _mealie_file(
                             MEALIE_TOO_BIG,
                         )
                     file.write(chunk)
+        except ClientDisconnect:
+            # The sender went away mid-file: nothing to answer, so no traceback (round 2).
+            path.unlink(missing_ok=True)
+            log.info("A Mealie upload was dropped part-way (ClientDisconnect)")
+            raise Problem(status.HTTP_400_BAD_REQUEST, "mealie_dropped", NO_FILE) from None
         except BaseException:
             path.unlink(missing_ok=True)
             raise

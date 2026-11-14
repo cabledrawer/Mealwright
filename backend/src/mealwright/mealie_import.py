@@ -196,9 +196,14 @@ def _known(names: set[str], food_name: str) -> bool:
 
 def _same(have: set[tuple[str, str | None]], recipe: MealieRecipe) -> bool:
     """Already here: same name and same source (no source on both counts as the same). A
-    recipe with no name is matched under the name it is given, "Untitled recipe", so the same
-    file twice adds nothing new the second time (round 2, review 2)."""
-    return (fold(_name(recipe) or drafts.NO_NAME), _source(recipe.source)) in have
+    recipe with no name is matched under the name it is given, "Untitled recipe", only when it
+    has a source and that source matches: with no source it is never already here, so a
+    different nameless recipe, or a person's own "Untitled recipe", can't swallow it (round 2,
+    security round 3)."""
+    name, source = _name(recipe), _source(recipe.source)
+    if not name and source is None:
+        return False
+    return (fold(name or drafts.NO_NAME), source) in have
 
 
 # --- 1. The preview ---------------------------------------------------------------------------
