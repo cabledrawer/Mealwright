@@ -55,7 +55,7 @@ Same shape as 0.1, plus a machine-readable `code` where the client must react:
 | 422 | `bad_number` | an ID, cursor or version bigger than the database can hold (over 2^63 − 1, or under −2^63; security audit, 0.4), in the path, the query or the body. Each is refused where the request is read; any other number overflow is a server error (500). In a sync action, IDs and `seen` over 2^53 − 1 are refused `bad_action` instead |
 | 422 | `one_field` | a food PATCH with more or less than one field |
 | 422 | `bad_key` | an `Idempotency-Key` that isn't 1 to 64 letters, digits, `.`, `-`, `_` or `:` |
-| 409 | `key_reused` | an `Idempotency-Key` was reused for a different request |
+| 409 | `key_reused` | an `Idempotency-Key` was reused for a different request: another method or path, or (0.9.5, proposed, for cabledrawer) the same route with a different body |
 | 410 | `too_old` | Undo after the undo window |
 | 413 | `body_too_big` | a request body over 4 MiB, on any endpoint, signed in or not (security audit, 0.4) |
 | 422 | — | validation: a list of `{type, loc, msg}` (FastAPI's list form without `input` and `ctx`, so a mistake never repeats what was sent, and a lone surrogate such as `"\ud800"` is a 422, not a 500; 0.5). The web app's `detailOf` reads `msg` only |
@@ -65,7 +65,7 @@ Same shape as 0.1, plus a machine-readable `code` where the client must react:
 ### 1.2 Optimistic changes and retries
 
 - Every request that changes something may carry an **`Idempotency-Key`** header: a UUID the client makes before it shows the change on screen. The web app always sends one.
-- The server stores the key on the change it records (unique per household, kept as long as the change). If the same key arrives again with the same method and path, nothing is applied twice: the server answers `200` with the original `change` and the **current** state of what it touched, plus the header `Idempotent-Replayed: true`. Same key, different method or path → `409 key_reused`.
+- The server stores the key on the change it records (unique per household, kept as long as the change). If the same key arrives again with the same method and path, nothing is applied twice: the server answers `200` with the original `change` and the **current** state of what it touched, plus the header `Idempotent-Replayed: true`. Same key, different method or path → `409 key_reused`. **Same key, same route, different body → `409 key_reused` too, and nothing is applied (0.9.5, proposed, for cabledrawer).** The server keeps a SHA-256 of the body with the change (`change.body_hash`): JSON is hashed with its keys sorted and no spaces (the same helper as the sync's `payload_hash`), so the same JSON with keys in another order is the same body; a request with no body is the hash of empty bytes. A change recorded before 0.9.5 has no hash and is checked by method and path only, as before.
 - A request that failed (4xx) stores nothing, so the client may retry with the same key (this is how "ask once" answers are sent, section 4.4).
 - From 0.3 the sync queue sends the same IDs in the request body instead; the server accepts either.
 - Writes are applied in the order the server receives them. No version numbers or conflict checks in 0.2: per-field saves make "last one wins" acceptable. The full offline queue (action IDs in the body, server counter, replay) is 0.3 and will reuse the same keys.
