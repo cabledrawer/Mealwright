@@ -6,6 +6,8 @@
   // until they are known; Privacy opens its own page.
   import { resolve } from '$app/paths';
   import Icon from '#lib/components/Icon.svelte';
+  import FinishRing from './FinishRing.svelte';
+  import { ringWords } from './finishRing.js';
   import { SECTION_ICONS, type Group } from './sectionIcons.js';
 
   let { groups }: { groups: Group[] } = $props();
@@ -17,26 +19,31 @@
     {#each group.rows as row (row.id)}
       <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve()'s answer, plus this page's own ?section= -->
       <a class="row" href={row.href ?? `${resolve('/(app)/settings')}?section=${row.id}`}>
-        <span class="ico {SECTION_ICONS[row.icon].tone}">
-          <svg
-            aria-hidden="true"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            {#each SECTION_ICONS[row.icon].paths as d (d)}<path {d} />{/each}
-          </svg>
-        </span>
+        {#if row.ring}
+          <span class="ico ring"><FinishRing done={row.ring.done} of={row.ring.of} /></span>
+        {:else if row.icon}
+          <span class="ico {SECTION_ICONS[row.icon].tone}">
+            <svg
+              aria-hidden="true"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              {#each SECTION_ICONS[row.icon].paths as d (d)}<path {d} />{/each}
+            </svg>
+          </span>
+        {/if}
         <span class="lbl"
           >{row.label}{#if row.sub}<span class="sub">{row.sub}</span>{/if}</span
         >
         {#if row.badge}<span class="badge">{row.badge}</span>{/if}
-        {#if row.value}<span class="val">{row.value}</span>{/if}
+        {#if row.ring}<span class="val">{ringWords(row.ring.done, row.ring.of)}</span
+          >{:else if row.value}<span class="val">{row.value}</span>{/if}
         <span class="chev"><Icon name="back" size={18} stroke={2} /></span>
       </a>
     {/each}
@@ -104,6 +111,15 @@
   .ico.kitchen {
     background: var(--color-accent-soft);
     color: var(--color-accent-on-soft);
+  }
+
+  /* The Finish setup ring (mockup Dark-FinishSetup095-Phone): 36px tile, amber. */
+  .ico.ring {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    background: var(--color-caution);
+    color: var(--color-caution-text);
   }
 
   .ico.quiet {

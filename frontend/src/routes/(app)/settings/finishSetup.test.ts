@@ -23,13 +23,19 @@ const WORDS = 'A few quick things: amounts, household, shops.';
 let mounted: ReturnType<typeof mount> | null = null;
 let requests: FakeRequest[] = [];
 
+const finishRow = () => document.querySelector('a[href*="onboarding"]')!;
+
 /** The household has been read and the page has had time to draw what it said. */
 async function householdRead() {
   await vi.waitFor(() => expect(requests.some((r) => r.path.endsWith('/household'))).toBe(true));
   await new Promise((done) => setTimeout(done, 300));
 }
 
-function open(done: boolean, role: 'admin' | 'member' = 'admin') {
+function open(
+  done: boolean,
+  role: 'admin' | 'member' = 'admin',
+  counts: { people: number; shops: number } = { people: 1, shops: 0 }
+) {
   session.me = { ...ME, role };
   requests = fakeApi({
     'GET /household': [200, { name: 'Home', pints: 'uk', onboarding_done: done }],
@@ -38,10 +44,20 @@ function open(done: boolean, role: 'admin' | 'member' = 'admin') {
       { hob_rings: 4, pressure_cookers: 1, oven: true, asked: false }
     ],
     'GET /meal-slots': [200, []],
-    'GET /shops': [200, []],
+    'GET /shops': [
+      200,
+      Array.from({ length: counts.shops }, (_, i) => ({ id: i + 1, name: `Shop ${i + 1}` }))
+    ],
     'GET /places': [200, PLACES],
     'GET /changes': [200, { changes: [], next: null }],
-    'GET /people': [200, { people: [{ id: 1 }], can_change: true, ask_whos_this: false }]
+    'GET /people': [
+      200,
+      {
+        people: Array.from({ length: counts.people }, (_, i) => ({ id: i + 1 })),
+        can_change: true,
+        ask_whos_this: false
+      }
+    ]
   });
   mounted = mount(Settings, { target: document.body.appendChild(document.createElement('div')) });
   flushSync();
@@ -77,6 +93,29 @@ for (const [name, width] of [
       await expect.element(row).toBeVisible();
       await expect.element(row).toHaveAttribute('href', expect.stringContaining('/onboarding'));
       await expect.element(page.getByText(WORDS)).toBeVisible();
+    });
+
+    it('draws a part-filled amber ring and "N of 5" from what is done, not a tick (cabledrawer 13 Nov)', async () => {
+      open(false, 'admin', { people: 2, shops: 1 });
+      const row = page.getByRole('link', { name: /Finish setup/ });
+      await expect.element(row).toBeVisible();
+      await vi.waitFor(() => expect(finishRow().textContent).toContain('3 of 5'));
+      const svg = document.querySelector('a[href*="onboarding"] svg')!;
+      expect(svg.getAttribute('aria-hidden')).toBe('true');
+      expect(svg.getAttribute('data-ring')).toBe('part');
+      expect(svg.querySelectorAll('circle')).toHaveLength(1);
+      // The arc, and no tick: one path, an arc that starts at the top.
+      const paths = [...svg.querySelectorAll('path')];
+      expect(paths).toHaveLength(1);
+      expect(paths[0]!.getAttribute('d')).toMatch(/^M12 3\.5A8\.5 8\.5 0 /);
+      expect(document.body.innerHTML).not.toContain('M8 12.5l3 3 5-6');
+    });
+
+    it('says 1 of 5 when only the account is there, and the ring follows the count', async () => {
+      open(false, 'admin', { people: 1, shops: 0 });
+      await vi.waitFor(() => expect(finishRow().textContent).toContain('1 of 5'));
+      const arc = document.querySelector('a[href*="onboarding"] svg path')!.getAttribute('d');
+      expect(arc).toBe('M12 3.5A8.5 8.5 0 0 1 20.08 9.37');
     });
 
     it('is gone once set-up is done', async () => {

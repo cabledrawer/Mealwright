@@ -47,6 +47,8 @@
   import RecentSection from './RecentSection.svelte';
   import ShopsPlaces from './ShopsPlaces.svelte';
   import SignInSection from './SignInSection.svelte';
+  import FinishRing from './FinishRing.svelte';
+  import { ringWords, SETUP_STEPS, stepsDone } from './finishRing.js';
   import type { Group, Row } from './sectionIcons.js';
   import { GROUPS, SECTION_ORDER, type SectionId } from './sectionOrder.js';
 
@@ -235,6 +237,8 @@
   let shopsCount = $state<number | null>(null);
   let placesCount = $state<number | null>(null);
   let peopleCount = $state<number | null>(null);
+  /** Steps of set-up done, for the Finish setup row's ring (`stepsDone` says how it is counted). */
+  const finishDone = $derived(stepsDone({ people: peopleCount, shops: shopsCount }));
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const privacyOn = $derived(
     privacy.loaded && privacy.problem === null
@@ -265,7 +269,7 @@
   }
   // Each time the list is shown (first, and coming back to it from a section): read the values.
   $effect(() => {
-    if (phone && only === null) untrack(readRowValues);
+    if (phone ? only === null : finishSetup) untrack(readRowValues);
   });
 
   /** One row of the phone's list for a section, or none when this person doesn't see it. */
@@ -367,7 +371,7 @@
           id: 'finish-setup',
           label: FINISH_SETUP,
           sub: FINISH_SETUP_WORDS,
-          icon: 'finish',
+          ring: { done: finishDone, of: SETUP_STEPS.length },
           href: resolve('/(app)/onboarding')
         });
       if (group.name === 'Mealwright')
@@ -525,7 +529,10 @@
         {#if finishSetup}
           <li>
             <a class="finish" href={resolve('/(app)/onboarding')}
-              >{FINISH_SETUP}<span class="finish-words">{FINISH_SETUP_WORDS}</span></a
+              ><span class="finish-ring"><FinishRing done={finishDone} /></span><span
+                class="finish-text"
+                >{FINISH_SETUP}<span class="finish-words">{FINISH_SETUP_WORDS}</span></span
+              ><span class="finish-count">{ringWords(finishDone)}</span></a
             >
           </li>
         {/if}
@@ -890,7 +897,9 @@
 
   /* "Finish setup" at the top of the list, for an admin who skipped set-up (cabledrawer 12 Nov). */
   .list .finish {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
     padding: var(--space-3) var(--space-6);
     border-radius: var(--radius-field);
     background: var(--color-accent-soft);
@@ -898,6 +907,29 @@
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
     text-decoration: none;
+  }
+
+  .finish-ring {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    background: var(--color-caution);
+    color: var(--color-caution-text);
+  }
+
+  .finish-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .finish-count {
+    flex: none;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-regular);
+    white-space: nowrap;
   }
 
   .finish-words {
