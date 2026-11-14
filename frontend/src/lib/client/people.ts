@@ -20,6 +20,8 @@ export interface PersonLogin {
   signs_in: boolean;
   /** An unused sign-in link that hasn't run out. */
   link_pending: boolean;
+  /** When a sign-in or Reset password link last set the password (UTC), or null. */
+  link_used_at: string | null;
 }
 
 export interface Person {

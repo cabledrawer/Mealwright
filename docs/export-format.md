@@ -15,7 +15,8 @@ read without Mealwright or brought into another program. (Spec section 7, "Expor
   again) and the single sign-on client secret (sealed with `secret.key`; type it again on a
   new server; these two cabledrawer 13 Nov), and (cabledrawer 13 Nov) `login.sso_refused_at`
   (this server's own mark of a refused login) and the `former_name` table (old names kept for 15 days so Report a problem
-  can remove them). Whoever restores from an export sets passwords again (cabledrawer 13 Nov).
+  can remove them), and (0.9.5) `login.link_used_at` (when a sign-in or Reset password link
+  was last used). Whoever restores from an export sets passwords again (cabledrawer 13 Nov).
 - Optional password encryption (cabledrawer's decision) is **not built yet**. It comes in a later
   version of this page; an export today is a plain zip, so keep it somewhere safe.
 - A full copy for disaster recovery is a backup, not an export: see `docs/restore.md`.
@@ -50,7 +51,8 @@ A photo's name is the `file_key` of its row in the `recipe_photo` table.
     "columns": {
       "login.password_hash": "passwords, even scrambled",
       "sso_settings.client_secret_sealed": "the single sign-on client secret",
-      "login.sso_refused_at": "the mark of a login the sign-in server refused"
+      "login.sso_refused_at": "the mark of a login the sign-in server refused",
+      "login.link_used_at": "when a sign-in or reset link was last used"
     }
   },
   "tables": {

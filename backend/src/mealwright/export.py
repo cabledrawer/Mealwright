@@ -12,7 +12,7 @@ copy must never sign anyone in), the `join_link` table (sign-in links made for p
 `login.password_hash` (a copy of the file must not let anyone try passwords offline), the
 `api_token` table (0.9 O2) and `sso_settings.client_secret_sealed` (the single sign-on client
 secret; the admin types it again), and (cabledrawer 13 Nov) `login.sso_refused_at` and the
-`former_name` table.
+`former_name` table, and (0.9.5, cabledrawer 13 Nov) `login.link_used_at`.
 
 The zip is written as it is sent (streamed), never kept on the server. Nothing here makes a
 network connection.
@@ -60,6 +60,9 @@ LEFT_OUT_COLUMNS = {
     # This server's own sign-in state, not the household's data: without it an admin put back
     # from an export isn't blocked from making API tokens (O2 fix13; cabledrawer 13 Nov).
     ("login", "sso_refused_at"): "the mark of a login the sign-in server refused",
+    # Sign-in data like the links themselves (0.9.5): when a sign-in or Reset password link
+    # last set the password.
+    ("login", "link_used_at"): "when a sign-in or reset link was last used",
 }
 
 _PHOTO_FILE = re.compile(r"^[0-9a-f]{32}(-list)?\.jpg$")

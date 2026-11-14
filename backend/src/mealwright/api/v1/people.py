@@ -76,6 +76,9 @@ class LoginOut(BaseModel):
     signs_in: bool
     # An unused sign-in link that hasn't run out.
     link_pending: bool
+    # When a sign-in or Reset password link last set this password (0.9.5; cabledrawer 13 Nov:
+    # "Link used today 21:40", so an admin can spot a link someone else used).
+    link_used_at: datetime | None
 
 
 class HouseholdPerson(BaseModel):
@@ -116,6 +119,7 @@ def _person(kitchen: Here, member: Member) -> HouseholdPerson:
             has_password=bool(login.password_hash),
             signs_in=people.signs_in(login),
             link_pending=people.link_pending(kitchen, login),
+            link_used_at=as_utc(login.link_used_at) if login.link_used_at else None,
         ),
         is_me=member.id == kitchen.login.member_id,
         created_at=member.created_at,
@@ -430,6 +434,7 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
         raise Problem(status.HTTP_404_NOT_FOUND, "link_gone", GONE)
     try:
         login.password_hash = hash_password(body.password)
+        login.link_used_at = utcnow()
         db.commit()
     except Exception:
         people.give_back_link(db, link)

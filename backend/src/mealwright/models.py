@@ -252,6 +252,10 @@ class Login(Base):
     # When the password was last set by its owner or reset-admin (PR A2). Empty for one set
     # before then, or at setup.
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When a sign-in or Reset password link last set this password (0.9.5, cabledrawer 13 Nov), so
+    # the Person page can show "Link used today 21:40" and an admin can spot a link someone else
+    # used. Left out of the export, like the rest of the sign-in data.
+    link_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Single sign-on (0.9 O1): the identity provider's issuer and subject ("sub") this login
     # signs in as. A login is found only by these two together, never by a name or email
     # address from the provider.
@@ -340,6 +344,9 @@ class JoinLink(Base):
         ForeignKey("household.id", ondelete="CASCADE"), index=True
     )
     login_id: Mapped[int] = mapped_column(ForeignKey("login.id", ondelete="CASCADE"), index=True)
+    # "join": a sign-in link, for a login with no password yet. "reset": a Reset password link
+    # (0.9.5, cabledrawer 13 Nov), for a login that has one.
+    kind: Mapped[str] = mapped_column(String(10), default="join", server_default="join")
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -23,6 +23,7 @@ const login = (extra: Partial<NonNullable<Person['login']>> = {}) => ({
   has_password: true,
   signs_in: true,
   link_pending: false,
+  link_used_at: null,
   ...extra
 });
 

@@ -25,7 +25,8 @@ export const TESS = person(1, 'Tess', {
     shared: false,
     has_password: true,
     signs_in: true,
-    link_pending: false
+    link_pending: false,
+    link_used_at: null
   }
 });
 

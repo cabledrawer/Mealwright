@@ -124,6 +124,9 @@ def test_no_password_and_no_sign_in_ever_leaves(kitchen: TestClient) -> None:
     assert "login.password_hash" in doc["left_out"]["columns"]
     assert "sso_settings.client_secret_sealed" in doc["left_out"]["columns"]
     assert "login.sso_refused_at" in doc["left_out"]["columns"]
+    # When a sign-in or reset link was used is sign-in data too (0.9.5).
+    assert "login.link_used_at" in doc["left_out"]["columns"]
+    assert all("link_used_at" not in login for login in logins)
     assert b"$argon2" not in raw
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
         text = archive.read(export.DOCUMENT)

@@ -2,7 +2,7 @@
 one-time sign-in link, removing with Undo, and "Who's this?" on a shared login."""
 
 import threading
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -79,6 +79,7 @@ def test_everyone_sees_the_people_and_only_an_admin_can_change_them(kitchen: Tes
         "has_password": True,
         "signs_in": True,
         "link_pending": False,
+        "link_used_at": None,
     }
     assert me["portion_quarters"] == 4
     assert other["name"] == "Wren" and other["is_me"] is False
@@ -403,6 +404,7 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
         "has_password": False,
         "signs_in": False,
         "link_pending": True,
+        "link_used_at": None,
     }
     note = _newest(kitchen)
     assert note["summary"] == "Made a sign-in link for Joss" and note["can_undo"] is False
@@ -419,14 +421,18 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
     assert set(page) == {"expires_at", "min_password"} and page["min_password"] == 12
     short = joss_client.post(f"{API}/join", json={"token": token, "password": "eleven char"})
     assert short.status_code == 422
-    joined = joss_client.post(f"{API}/join", json={"token": token, "password": "joss's own password"})
+    joined = joss_client.post(
+        f"{API}/join", json={"token": token, "password": "joss's own password"}
+    )
     # Only now is the username given, to sign in with.
     assert joined.status_code == 200 and joined.json() == {"username": "joss"}, joined.text
     # Joining sets the password only: she signs in on the sign-in page like anyone else.
     assert joss_client.get(f"{API}/me").status_code == 401
     # The link works once.
     _problem(_look(_fresh(kitchen), token), 404, "link_gone")
-    again = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": "someone else's pw"})
+    again = _fresh(kitchen).post(
+        f"{API}/join", json={"token": token, "password": "someone else's pw"}
+    )
     _problem(again, 404, "link_gone")
     # She signs in with her own password from now on; a second link is refused.
     signed = _fresh(kitchen).post(
@@ -438,6 +444,10 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
     _problem(r, 409, "signs_in_already")
     after = next(p for p in _people(kitchen)["people"] if p["id"] == joss)["login"]
     assert after["has_password"] is True and after["link_pending"] is False
+    # The Person page says when the link was used (cabledrawer 13 Nov), so an admin can spot a link
+    # someone else used.
+    used = datetime.fromisoformat(after["link_used_at"])
+    assert timedelta(0) <= datetime.now(UTC) - used < timedelta(minutes=1)
 
 
 def test_a_link_works_once_even_for_requests_at_the_same_time(kitchen: TestClient) -> None:
@@ -479,6 +489,9 @@ def test_a_link_works_again_when_the_password_couldnt_be_set(
     with pytest.raises(RuntimeError):
         _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": "a long password!!"})
     monkeypatch.undo()
+    assert all(
+        p["login"] is None or p["login"]["link_used_at"] is None for p in _people(kitchen)["people"]
+    )
     assert ok(_look(_fresh(kitchen), token))["min_password"] == 12
     r = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": "a long password!!"})
     assert r.status_code == 200, r.text
@@ -534,7 +547,9 @@ def test_a_removed_persons_link_stops_working(kitchen: TestClient) -> None:
 def test_joining_needs_https_like_signing_in(kitchen: TestClient) -> None:
     joss = _add(kitchen)
     token = _join(kitchen, joss, "joss")
-    r = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": "joss's own password"},
+    r = _fresh(kitchen).post(
+        f"{API}/join",
+        json={"token": token, "password": "joss's own password"},
         headers={"Origin": "http://192.0.2.5"},
     )
     assert r.status_code in (400, 403), r.text
@@ -727,7 +742,9 @@ def test_a_link_claimed_while_a_new_one_is_made_stays_gone_when_the_hash_fails(
 
     def go() -> None:
         with pytest.raises(RuntimeError):
-            _fresh(kitchen).post(f"{API}/join", json={"token": old, "password": "a long password!!"})
+            _fresh(kitchen).post(
+                f"{API}/join", json={"token": old, "password": "a long password!!"}
+            )
 
     thread = threading.Thread(target=go)
     thread.start()
@@ -793,7 +810,8 @@ def test_removing_a_person_ends_their_open_event_streams(
     joss = _add(kitchen)
     token = _join(kitchen, joss, "joss")
     joss_client = _fresh(kitchen)
-    assert joss_client.post(f"{API}/join", json={"token": token, "password": "joss's own password"}
+    assert joss_client.post(
+        f"{API}/join", json={"token": token, "password": "joss's own password"}
     ).is_success
     signed = joss_client.post(
         f"{API}/session", json={"username": "joss", "password": "joss's own password"}
