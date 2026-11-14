@@ -342,3 +342,39 @@ def test_the_password_is_nowhere_in_the_database(kitchen: TestClient) -> None:
         for table in Base.metadata.sorted_tables:
             rows = db.execute(text(f'SELECT * FROM "{table.name}"')).all()  # noqa: S608
             assert SEALED_PASSWORD not in repr(rows), table.name
+
+
+def test_a_second_encrypted_export_at_once_gets_429_and_the_place_comes_back(
+    kitchen: TestClient,
+) -> None:
+    held = export_crypto.OneAtATime()  # an export already being made
+    try:
+        busy = kitchen.post(API, json={"password": SEALED_PASSWORD})
+        assert busy.status_code == 429
+        assert busy.json()["code"] == "export_busy"
+        assert busy.json()["detail"] == "An export is being made. Try again in a moment."
+        assert SEALED_PASSWORD not in busy.text
+        assert kitchen.get(API).status_code == 200  # the plain export has no such limit
+    finally:
+        held.release()
+    ok = kitchen.post(API, json={"password": SEALED_PASSWORD})
+    assert ok.status_code == 200  # given back, so the next one goes
+    assert kitchen.post(API, json={"password": SEALED_PASSWORD}).status_code == 200
+
+
+def test_a_refused_password_does_not_keep_the_place(kitchen: TestClient) -> None:
+    assert kitchen.post(API, json={"password": "short"}).status_code == 422
+    assert kitchen.post(API, json={"password": SEALED_PASSWORD}).status_code == 200
+
+
+def test_an_error_while_building_does_not_keep_the_place(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*_a: object, **_k: object) -> None:
+        raise RuntimeError("no snapshot")
+
+    monkeypatch.setattr(export, "document", boom)
+    with pytest.raises(RuntimeError):
+        kitchen.post(API, json={"password": SEALED_PASSWORD})
+    monkeypatch.undo()
+    assert kitchen.post(API, json={"password": SEALED_PASSWORD}).status_code == 200

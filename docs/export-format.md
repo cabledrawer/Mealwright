@@ -169,9 +169,12 @@ def open_export(source_path, zip_path, password):
     with open(source_path, "rb") as source:
         header = source.read(head.size)
         magic, version, kdf, cipher, t, m, p, salt, chunk = head.unpack(header)
-        assert (magic, version, kdf, cipher) == (b"MWEXPORT", 1, 1, 1), "not an encrypted export"
-        assert 1 <= t <= 10 and 8192 <= m <= 262144 and 1 <= p <= 4, "costs out of range"
-        assert 1024 <= chunk <= 1048576, "chunk size out of range"
+        if (magic, version, kdf, cipher) != (b"MWEXPORT", 1, 1, 1):
+            raise ValueError("not an encrypted export")
+        if not (1 <= t <= 10 and 8192 <= m <= 262144 and 1 <= p <= 4):
+            raise ValueError("costs out of range")
+        if not 1024 <= chunk <= 1048576:
+            raise ValueError("chunk size out of range")
         secret = unicodedata.normalize("NFC", password).encode("utf-8")
         key = Argon2id(salt=salt, length=32, iterations=t, lanes=p, memory_cost=m).derive(secret)
         aes = AESGCM(key)
@@ -186,7 +189,9 @@ def open_export(source_path, zip_path, password):
             return header + n.to_bytes(8, "big") + (b"\x01" if last else b"\x00")
 
         # Chunk 0: the key check (a wrong password fails here).
-        assert aes.decrypt(nonce(0), read_chunk(17 + 16), aad(0, False)) == b"mealwright export"
+        check = aes.decrypt(nonce(0), read_chunk(17 + 16), aad(0, False))
+        if check != b"mealwright export":
+            raise ValueError("wrong password")
         # The rest: a chunk is the last one when nothing follows it.
         with open(zip_path, "wb") as out:
             n, current = 1, read_chunk(chunk + 16)

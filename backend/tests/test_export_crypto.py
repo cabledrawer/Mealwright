@@ -6,11 +6,15 @@ checked to be what the page says."""
 import io
 import re
 import struct
+import subprocess
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from argon2.low_level import Type, hash_secret_raw
 from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from mealwright import export_crypto as xc
 
@@ -61,9 +65,23 @@ def test_two_files_of_the_same_data_and_password_differ() -> None:
     assert _seal(b"same") != _seal(b"same")
 
 
-def test_no_nonce_repeats_in_one_file() -> None:
+def test_every_chunk_was_sealed_under_its_own_nonce() -> None:
+    """Read from the real output, not from the code's own helper: each chunk opens under the
+    nonce for its position (4 zero bytes, then its number), and under no other chunk's."""
     blob = _seal(b"x" * 10_000)
-    assert len({xc._nonce(i) for i in range(len(_chunks(blob)))}) == len(_chunks(blob))
+    header = blob[: xc.HEADER_BYTES]
+    key = hash_secret_raw(
+        xc.secret_bytes(PASSWORD), header[23:39], 1, xc.MIN_MEMORY_KIB, 1, 32, Type.ID
+    )
+    aes = AESGCM(key)
+    chunks = _chunks(blob)
+    assert len(chunks) > 3
+    for number, chunk in enumerate(chunks):
+        last = b"\x01" if number == len(chunks) - 1 else b"\x00"
+        data = header + number.to_bytes(8, "big") + last
+        aes.decrypt(b"\x00" * 4 + number.to_bytes(8, "big"), chunk, data)  # raises if not
+        with pytest.raises(InvalidTag):
+            aes.decrypt(b"\x00" * 4 + (number + 1).to_bytes(8, "big"), chunk, data)
 
 
 def test_a_wrong_password_says_so_and_gives_nothing() -> None:
@@ -222,7 +240,7 @@ def _snippet() -> str:
     page = (Path(__file__).parents[2] / "docs" / "export-format.md").read_text(encoding="utf-8")
     found = re.findall(r"```python\n(.*?)```", page, flags=re.S)
     assert len(found) == 1
-    return found[0]
+    return str(found[0])
 
 
 def _by_hand(blob: bytes, password: str, tmp_path: Path) -> bytes:
@@ -247,3 +265,92 @@ def test_the_page_snippet_refuses_a_wrong_password_and_a_cut_file(tmp_path: Path
         _by_hand(blob, "wrong one entirely", tmp_path)
     with pytest.raises(InvalidTag):
         _by_hand(blob[:-30], PASSWORD, tmp_path)
+
+
+def test_the_page_snippet_has_no_assert_and_works_under_python_O(tmp_path: Path) -> None:
+    """With -O every `assert` is dropped: a good file must still open and a hostile header must
+    still be refused (so no check may be an assert)."""
+    assert "assert" not in _snippet()
+    blob = b"".join(xc.encrypt([b"recipes for Sam" * 5000], PASSWORD, **FAST))  # type: ignore[arg-type]
+    hostile = bytearray(blob)
+    hostile[15:19] = (64 * 1024 * 1024).to_bytes(4, "big")  # 64 GiB of memory asked for
+    (tmp_path / "good.mwenc").write_bytes(blob)
+    (tmp_path / "hostile.mwenc").write_bytes(bytes(hostile))
+    (tmp_path / "snippet.py").write_text(_snippet(), encoding="utf-8")
+    runner = tmp_path / "run.py"
+    runner.write_text(
+        "import sys\n"
+        "exec(open(sys.argv[1]).read())\n"
+        "open_export(sys.argv[2], sys.argv[3], sys.argv[4])\n",
+        encoding="utf-8",
+    )
+
+    def run(name: str, password: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(  # noqa: S603
+            [
+                sys.executable,
+                "-O",
+                "-I",
+                str(runner),
+                str(tmp_path / "snippet.py"),
+                str(tmp_path / name),
+                str(tmp_path / "out.zip"),
+                password,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    assert run("good.mwenc", PASSWORD).returncode == 0
+    assert (tmp_path / "out.zip").read_bytes() == b"recipes for Sam" * 5000
+    bad = run("hostile.mwenc", PASSWORD)
+    assert bad.returncode != 0
+    assert "costs out of range" in bad.stderr
+    assert run("good.mwenc", "wrong password").returncode != 0
+
+
+# --- One encrypted export at a time (each takes 64 MiB for its key) ------------------------
+
+
+def test_the_second_export_at_once_is_told_to_wait_and_the_place_is_given_back() -> None:
+    first = xc.OneAtATime()
+    with pytest.raises(xc.Busy):
+        xc.OneAtATime()
+    first.release()
+    first.release()  # twice is harmless
+    again = xc.OneAtATime()
+    again.release()
+
+
+def test_the_place_is_given_back_after_the_stream_ends() -> None:
+    place = xc.OneAtATime()
+    assert b"".join(place.stream(xc.encrypt([b"data"], PASSWORD, **FAST)))  # type: ignore[arg-type]
+    xc.OneAtATime().release()
+
+
+def test_the_place_is_given_back_after_an_error() -> None:
+    def broken() -> Iterator[bytes]:
+        yield b"x"
+        raise OSError("disk went away")
+
+    place = xc.OneAtATime()
+    stream = place.stream(broken())
+    next(stream)
+    with pytest.raises(OSError, match="disk"):
+        next(stream)
+    xc.OneAtATime().release()
+
+
+def test_the_place_is_given_back_when_the_client_drops_even_before_the_first_piece() -> None:
+    place = xc.OneAtATime()
+    stream = place.stream(xc.encrypt([b"d" * 9000], PASSWORD, **FAST))  # type: ignore[arg-type]
+    stream.close()  # type: ignore[attr-defined]
+    xc.OneAtATime().release()
+    place = xc.OneAtATime()
+    place.stream(iter([b"never read"]))
+    del place  # dropped without a close: still freed
+    import gc
+
+    gc.collect()
+    xc.OneAtATime().release()

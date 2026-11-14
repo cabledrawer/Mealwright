@@ -8,7 +8,7 @@
   // browser saves it. The password is kept nowhere (not in the page's storage, not in the
   // address) and the box is emptied once the file is on its way. Offline it says so, as
   // Privacy does.
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { resolve } from '$app/paths';
   import Icon from '#lib/components/Icon.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
@@ -103,6 +103,9 @@
   let exporting = $state(false);
   let exportProblem = $state<string | null>(null);
   let plainLink = $state<HTMLAnchorElement | null>(null);
+  // Leaving the page stops a download still on its way (and says nothing about it).
+  const leaving = new AbortController();
+  onDestroy(() => leaving.abort());
 
   /** Export (Enter in the box too): no password, the plain file; a password, the encrypted one. */
   async function exportFile(event: SubmitEvent) {
@@ -119,10 +122,10 @@
     }
     exporting = true;
     try {
-      await exportWithPassword(exportPassword);
+      await exportWithPassword(exportPassword, leaving.signal);
       exportPassword = '';
     } catch (error) {
-      exportProblem = failed(error);
+      if (!leaving.signal.aborted) exportProblem = failed(error);
     } finally {
       exporting = false;
     }

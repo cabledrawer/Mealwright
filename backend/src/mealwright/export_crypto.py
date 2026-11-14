@@ -6,7 +6,8 @@ held in memory. Without one nothing here runs and the file stays a plain zip.
 
 - Key: Argon2id (`argon2-cffi`'s low-level call) from the password and a random 16-byte salt;
   the cost goes in the file's header, so a later version can raise it. 64 MiB, 3 passes,
-  1 lane: about 0.2 s on a desktop, about 1 to 2 s on a Raspberry Pi 4 (docs/export-format.md).
+  1 lane: about 0.2 s on a desktop (measured); on a Raspberry Pi 4 about 1 to 2 s (estimated, not
+  measured; docs/export-format.md).
 - Cipher: AES-256-GCM (`cryptography`). The nonce of each chunk is its position (a counter), so
   none repeats under one key, and the key is new for every file (new salt). Each chunk's
   additional authenticated data is the whole header, its position and a "last chunk" byte, so
@@ -22,6 +23,7 @@ cost numbers are capped there, so a hostile file can't ask for gigabytes or hour
 
 import secrets
 import struct
+import threading
 import unicodedata
 from collections.abc import Iterable, Iterator
 from typing import BinaryIO
@@ -92,6 +94,73 @@ def _nonce(index: int) -> bytes:
 
 def _aad(header: bytes, index: int, last: bool) -> bytes:
     return header + index.to_bytes(8, "big") + (b"\x01" if last else b"\x00")
+
+
+BUSY = "An export is being made. Try again in a moment."
+
+
+class Busy(Exception):
+    """An encrypted export is already being made (the key costs 64 MiB of memory each)."""
+
+
+_ONE_AT_A_TIME = threading.Lock()
+
+
+class OneAtATime:
+    """Holds the one place for an encrypted export. Taken with `take()` (which raises `Busy`
+    at once rather than wait) before the export is built; given back by `release()`, which may
+    be called any number of times, by whichever of these happens first: the stream ends, it
+    fails, it is closed (the client went away), or it is dropped."""
+
+    def __init__(self) -> None:
+        self._held = False  # first, so a refused one has nothing to give back
+        self._mine = threading.Lock()
+        if not _ONE_AT_A_TIME.acquire(blocking=False):
+            raise Busy(BUSY)
+        self._held = True
+
+    def release(self) -> None:
+        with self._mine:
+            if not self._held:
+                return
+            self._held = False
+        _ONE_AT_A_TIME.release()
+
+    def __del__(self) -> None:
+        self.release()
+
+    def stream(self, pieces: Iterator[bytes]) -> Iterator[bytes]:
+        return _Held(self, pieces)
+
+
+class _Held:
+    """The stream, which gives the place back as it ends, fails or is closed or dropped (a
+    generator that never started would never run its own `finally`, so this is a class)."""
+
+    def __init__(self, guard: OneAtATime, pieces: Iterator[bytes]) -> None:
+        self._guard = guard
+        self._pieces = pieces
+
+    def __iter__(self) -> _Held:
+        return self
+
+    def __next__(self) -> bytes:
+        try:
+            return next(self._pieces)
+        except BaseException:  # the end, or a failure: either way the place is free
+            self.close()
+            raise
+
+    def close(self) -> None:
+        close = getattr(self._pieces, "close", None)
+        try:
+            if close:
+                close()
+        finally:
+            self._guard.release()
+
+    def __del__(self) -> None:
+        self._guard.release()
 
 
 def encrypt(

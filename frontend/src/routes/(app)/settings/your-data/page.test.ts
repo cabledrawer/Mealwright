@@ -154,6 +154,32 @@ describe('Settings → Your data', () => {
       made.mockRestore();
     });
 
+    it('leaving the page stops the download and saves nothing', async () => {
+      const made = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:made');
+      let signal: AbortSignal | null | undefined;
+      vi.stubGlobal('fetch', (input: string, init: RequestInit = {}) => {
+        if (init.method === 'POST') {
+          signal = init.signal;
+          return new Promise((_resolve, reject) =>
+            init.signal?.addEventListener('abort', () => reject(new DOMException('', 'AbortError')))
+          );
+        }
+        const body = String(input).endsWith('/backups') ? BACKUPS : HOUSEHOLD;
+        return Promise.resolve(new Response(JSON.stringify(body)));
+      });
+      component = mount(YourData, { target: document.body });
+      flushSync();
+      await userEvent.fill(box(), 'lorna and noor');
+      await userEvent.click(page.getByRole('button', { name: 'Export' }));
+      await vi.waitFor(() => expect(signal).toBeTruthy());
+      expect(signal!.aborted).toBe(false);
+      unmount(component);
+      component = null;
+      expect(signal!.aborted).toBe(true);
+      expect(made).not.toHaveBeenCalled();
+      made.mockRestore();
+    });
+
     it('Enter in the box exports too', async () => {
       const made = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:made');
       open(YourData, { 'POST /export': [200, {}] });

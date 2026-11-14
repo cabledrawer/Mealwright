@@ -19,6 +19,7 @@ from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine, delete, func, select
+from starlette.background import BackgroundTask
 
 from mealwright import backups, export, export_crypto, setup_code, sso_accounts
 from mealwright.api.v1 import sso as sso_api
@@ -197,18 +198,30 @@ def export_everything_with_password(body: ExportWithPassword, kitchen: Here) -> 
             f"Use a password of {export_crypto.PASSWORD_LEAST} to "
             f"{export_crypto.PASSWORD_MOST:,} characters.",
         )
-    household_id = kitchen.household_id
-    doc = export.document(kitchen.db, household_id)
-    kitchen.db.rollback()
-    photos = export.photo_files(store_of(kitchen.db), household_id)
-    name = export.file_name(today(kitchen.household)) + export_crypto.SUFFIX
+    try:
+        place = export_crypto.OneAtATime()
+    except export_crypto.Busy:
+        raise Problem(
+            status.HTTP_429_TOO_MANY_REQUESTS, "export_busy", export_crypto.BUSY
+        ) from None
+    try:
+        household_id = kitchen.household_id
+        doc = export.document(kitchen.db, household_id)
+        kitchen.db.rollback()
+        photos = export.photo_files(store_of(kitchen.db), household_id)
+        name = export.file_name(today(kitchen.household)) + export_crypto.SUFFIX
+        stream = place.stream(export_crypto.encrypt(export.zip_stream(doc, photos), body.password))
+    except BaseException:
+        place.release()
+        raise
     return StreamingResponse(
-        export_crypto.encrypt(export.zip_stream(doc, photos), body.password),
+        stream,
         media_type="application/octet-stream",
         headers={
             "Content-Disposition": f'attachment; filename="{name}"',
             "Cache-Control": "no-store",
         },
+        background=BackgroundTask(place.release),
     )
 
 

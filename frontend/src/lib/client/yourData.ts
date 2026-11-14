@@ -55,9 +55,12 @@ export const getHowToConfirm = () => api<HowToConfirm>('GET', '/delete-everythin
 /**
  * Export with a password: the file comes back encrypted (docs/export-format.md). The password
  * goes in the request body only, and is kept nowhere. The file is saved by the browser as the
- * download it is; it is held in memory until then (an export is megabytes, not gigabytes).
+ * download it is; it is held in memory until then (a household's recipes and photos, so it can be large; a
+ * form that streams it to disk instead is a later choice). `leave` stops the download, as when
+ * the person goes to another page.
  */
-export async function exportWithPassword(password: string): Promise<void> {
+export async function exportWithPassword(password: string, leave?: AbortSignal): Promise<void> {
+  const timeout = AbortSignal.timeout(600_000);
   let response: Response;
   try {
     response = await fetch(EXPORT_PATH, {
@@ -65,7 +68,7 @@ export async function exportWithPassword(password: string): Promise<void> {
       credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ password }),
-      signal: AbortSignal.timeout(600_000)
+      signal: leave ? AbortSignal.any([leave, timeout]) : timeout
     });
   } catch {
     throw new ApiError(0, cantReachWords());
@@ -80,7 +83,13 @@ export async function exportWithPassword(password: string): Promise<void> {
     }
     throw new ApiError(response.status, detailOf(data), codeOf(data), data);
   }
-  const blob = await response.blob();
+  let blob: Blob;
+  try {
+    blob = await response.blob();
+  } catch {
+    throw new ApiError(0, cantReachWords());
+  }
+  if (leave?.aborted) return; // left the page meanwhile: nothing is saved
   const named = /filename="([^"]+)"/.exec(response.headers.get('content-disposition') ?? '');
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
