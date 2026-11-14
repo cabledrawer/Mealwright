@@ -7,11 +7,13 @@ import io
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sync_kit import API, db, ok, person
 from test_people import _add, _fresh, _id, _join, _look, _newest, _people, _problem
 
+from mealwright.api.v1 import people as api_people
 from mealwright.history import as_utc
 from mealwright.models import ApiToken, JoinLink, Login, Session
 from mealwright.reset_admin import reset_admin
@@ -287,3 +289,38 @@ def test_you_can_cancel_a_reset_link_made_for_you(kitchen: TestClient) -> None:
     assert _fresh(kitchen).delete(f"{API}/me/reset-link").status_code == 401
     paths = kitchen.get(f"{API}/openapi.json").json()["paths"]
     assert "delete" in paths[f"{API}/me/reset-link"]
+
+
+@pytest.mark.parametrize("kind", ["reset", "join"])
+def test_a_link_cancelled_while_the_password_is_hashed_sets_nothing(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    """16b security pass S-L2: the link is checked again, in the same write as the password, so
+    a link cancelled while the slow hash runs sets no password."""
+    if kind == "reset":
+        lorna = _lorna(kitchen)
+        token = _token(_reset(kitchen, lorna))
+    else:
+        lorna = _add(kitchen, "Lorna")
+        token = _join(kitchen, lorna, "lorna")
+    with db(kitchen) as session:
+        before = session.scalars(select(Login).where(Login.username == "lorna")).one()
+        used_before = before.link_used_at
+    real = api_people.hash_password
+
+    def slow_hash(password: str) -> str:
+        hashed = real(password)
+        with db(kitchen) as session:  # meanwhile, the link is cancelled
+            session.execute(delete(JoinLink))
+            session.commit()
+        return hashed
+
+    monkeypatch.setattr(api_people, "hash_password", slow_hash)
+    r = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": NEW})
+    _problem(r, 404, "link_gone")
+    assert not _signs_in(kitchen, NEW)
+    with db(kitchen) as session:
+        login = session.scalars(select(Login).where(Login.username == "lorna")).one()
+        assert login.link_used_at == used_before
+    if kind == "reset":
+        assert _signs_in(kitchen, FIRST)

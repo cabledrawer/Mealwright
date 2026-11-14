@@ -476,6 +476,7 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
     needs_https(request, request.app.state.settings)
     _nobody_signed_in(request, db)
     link, login, _member = _link(db, body.token)
+    link_id = link.id
     # Claim the link first, so of two requests at once only one sets a password.
     if not people.claim_link(db, link):
         raise Problem(status.HTTP_404_NOT_FOUND, "link_gone", GONE)
@@ -490,10 +491,21 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
             login.password_changed_at = login.link_used_at
             db.execute(delete(Session).where(Session.login_id == login.id))
             api_tokens.stop_for(db, login.id)
-        db.commit()
+        # The hash is slow: the link may have been cancelled meanwhile (a new link, a password
+        # change, an admin made a member...). Checked again after the writes, which hold the
+        # database's write lock until the commit, so nothing can cancel it in between; a link
+        # gone sets no password (16b security pass S-L2).
+        db.flush()
+        still = db.scalar(select(JoinLink.id).where(JoinLink.id == link_id).with_for_update())
+        if still is None:
+            db.rollback()
+        else:
+            db.commit()
     except Exception:
         people.give_back_link(db, link)
         raise
+    if still is None:
+        raise Problem(status.HTTP_404_NOT_FOUND, "link_gone", GONE)
     how = (
         "Password reset with a reset link"
         if link.kind == people.RESET
