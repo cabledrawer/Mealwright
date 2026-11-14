@@ -23,7 +23,7 @@
 # frontend unit tests, the outbound-gate / no-telemetry test and the licence allow
 # list. It skips the slow steps: the Docker image build and image checks, the
 # vulnerability scanners (pip-audit, Bandit, osv-scanner, Trivy) and the browser
-# (Playwright) tests. Installs are re-used while the lock file is unchanged and done again
+# (Playwright) tests, and hadolint, compose config, shellcheck and the image smoke run (0.9.5). Installs are re-used while the lock file is unchanged and done again
 # when a library changed (the same fingerprint as the full run). Its summary says FAST RUN at
 # the top and bottom and is NOT valid for a pull request. Only a full ./check is.
 #
@@ -222,6 +222,11 @@ PIP_AUDIT="pip-audit==2.10.1"
 BANDIT="bandit==1.9.4"
 OSV_SCANNER="ghcr.io/google/osv-scanner@sha256:afd838850ac1a0fcc15ff4a041dc9ba11123c3f0d2666217a5f0fcf9222b55fa"   # v2.6.0
 TRIVY="aquasec/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa"                     # 0.75.0
+# The check's own linters (cabledrawer 13 Nov, Q5: GPL-3.0, in the check only, never shipped). Run from
+# pinned images by digest, like the scanners: nothing is installed here or in the app's image, and
+# a digest is a checksum, so a changed image is refused. Both are the multi-architecture lists.
+HADOLINT="hadolint/hadolint@sha256:27086352fd5e1907ea2b934eb1023f217c5ae087992eb59fde121dce9c9ff21e"       # v2.14.0, built 22 Sep 2025
+SHELLCHECK="koalaman/shellcheck@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d"   # v0.11.0, built 4 Aug 2025
 rm -rf "$ROOT/.check" && mkdir -p "$LOGS"
 
 # Everything printed goes to the full log; show() also puts a line on the screen (fd 3).
@@ -1291,6 +1296,59 @@ else
 fi
 }
 
+# --- Dockerfile, compose and shell script checks (0.9.5, cabledrawer 13 Nov Q5) --------------------
+# What each one covers is found by looking at the repo's files, so a new Dockerfile, compose example
+# or shell script is covered the day it is added.
+repo_files() { git -C "$ROOT" ls-files --cached --others --exclude-standard "$@"; }
+dockerfiles() { repo_files | grep -E '(^|/)(Dockerfile[^/]*|[^/]*\.Dockerfile)$'; }
+compose_files() { repo_files | grep -E '(^|/)(docker-)?compose[^/]*\.ya?ml$'; }
+# Shell scripts: every *.sh, and every executable file whose first line names sh, bash, dash or ksh.
+shell_scripts() {
+  local mode f
+  { repo_files '*.sh'
+    git -C "$ROOT" ls-files -s | while read -r mode _ _ f; do [[ "$mode" == 100755 ]] && echo "$f"; done
+  } | sort -u | while read -r f; do
+    [[ -f "$ROOT/$f" ]] || continue
+    case "$f" in *.sh) echo "$f" ;; *) head -n 1 "$ROOT/$f" | grep -qE '^#!.*[/ ](ba|da|k)?sh( |$)' && echo "$f" ;; esac
+  done
+}
+hadolint_run() {
+  local files; mapfile -t files < <(dockerfiles)
+  ((${#files[@]})) || { echo "No Dockerfile found."; return 1; }
+  docker run --rm -v "$ROOT:/src:ro" -w /src "$HADOLINT" /bin/hadolint "${files[@]}"
+}
+compose_config_run() {
+  local f files; mapfile -t files < <(compose_files)
+  ((${#files[@]})) || { echo "No compose example found."; return 1; }
+  for f in "${files[@]}"; do echo "docker compose config: $f"; docker compose -f "$f" config -q || return 1; done
+}
+shellcheck_run() {
+  local files; mapfile -t files < <(shell_scripts)
+  ((${#files[@]})) || { echo "No shell script found."; return 1; }
+  printf 'shellcheck: %s\n' "${files[@]}"
+  docker run --rm -v "$ROOT:/mnt:ro" -w /mnt "$SHELLCHECK" "${files[@]}"
+}
+# The image that ships holds neither linter (they only ever run from their own images).
+no_lint_tools_in_image() {
+  docker run --rm --entrypoint sh "$IMAGE" -c '
+    for tool in hadolint shellcheck; do
+      if command -v "$tool" >/dev/null 2>&1; then echo "$tool is in the image"; exit 1; fi
+    done'
+}
+extra_steps() {
+if ((FAST)); then
+  skip "docker: hadolint" "fast run"
+  skip "docker: compose config" "fast run"
+  skip "shell: shellcheck" "fast run"
+elif need docker; then
+  step "docker: hadolint"        hadolint_run
+  step "docker: compose config"  compose_config_run
+  step "shell: shellcheck"       shellcheck_run
+else
+  record "docker: hadolint, compose config, shellcheck" FAIL "docker is not installed" "-"
+fi
+}
+
 image_steps() {
 if ((FAST)); then
   skip "image" "fast run"
@@ -1302,7 +1360,7 @@ elif [[ -f "$ROOT/Dockerfile" ]]; then
   fi
   if [[ "$(result_of "image: build")" != PASS ]]; then
     # Never check an old image left by an earlier run (cabledrawer 8 Nov, T2).
-    for img_step in "image: no telemetry" "image: no gallery" "image: notices" "image: export" "image: trivy"; do
+    for img_step in "image: no telemetry" "image: no gallery" "image: notices" "image: no lint tools" "image: smoke run" "image: export" "image: trivy"; do
       [[ "$MODE" == scan && "$img_step" == "image: no "* ]] || skip "$img_step" "image build failed"
     done
   else
@@ -1313,6 +1371,10 @@ elif [[ -f "$ROOT/Dockerfile" ]]; then
     # item 3): its marker text must not be anywhere in the web app inside the image.
     step "image: no gallery"     no_gallery_in_image
     step "image: notices"        notices_in_image
+    step "image: no lint tools"  no_lint_tools_in_image
+    # The built image starts on an empty data folder, becomes healthy, answers the sign-in page and
+    # the health endpoint, and logs no error; its own container name and port, always removed.
+    step "image: smoke run"      scripts/smoke-image.sh "$IMAGE"
   fi
   # Trivy reads an exported copy of the image and gets no access to Docker itself.
   if [[ -z "$SCANNERS_WHY" ]]; then
@@ -1336,7 +1398,7 @@ fi
 case "$MODE" in
   scan)         scanner_steps; image_steps ;;
   files|rerun)  targeted_run ;;
-  *)            tests_steps; scanner_steps; image_steps ;;
+  *)            tests_steps; extra_steps; scanner_steps; image_steps ;;
 esac
 
 # --- Summary -----------------------------------------------------------------
