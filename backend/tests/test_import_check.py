@@ -464,9 +464,14 @@ def test_the_command_stops_on_an_empty_list(
     assert "no addresses" in capsys.readouterr().err
 
 
-def test_the_defaults_are_outside_the_repo() -> None:
-    assert str(check.DEFAULT_LIST).startswith("<drive>/")
-    assert str(check.DEFAULT_REPORT).startswith("<drive>/")
+def test_the_defaults_are_in_the_sync_folder_outside_the_repo(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MEALWRIGHT_SYNC_DIR", "/sync-folder")
+    assert check.default_paths() == (
+        Path("/sync-folder/import-check/urls.md"),
+        Path("/sync-folder/import-check-0.5.md"),
+    )
+    monkeypatch.delenv("MEALWRIGHT_SYNC_DIR")
+    assert check.default_paths()[0] == Path("repo-sync/import-check/urls.md")
     assert check.GAP_SECONDS == 5.0
 
 

@@ -7,7 +7,8 @@ no pass mark. Spec section 6, "Real-recipe test" and "The 80 real recipes".
     cd backend
     uv run python scripts/import_check.py [--list URLS.md] [--report REPORT.md]
 
-The list (default `<sync>/import-check/urls.md`, outside the repo):
+The list (default `import-check/urls.md` in the sync folder, outside the repo; the folder is
+`$MEALWRIGHT_SYNC_DIR`, or `repo-sync` in the current folder):
 
     ## BBC Good Food            <- a heading starts a group (a site)
     - https://... — tomato soup  <- an address, then " — " and a note
@@ -27,6 +28,7 @@ ingredient lines the reader couldn't read. All network use is in `page_fetch` (t
 """
 
 import argparse
+import os
 import re
 import sys
 import tempfile
@@ -52,8 +54,14 @@ from mealwright.outbound import Connection, OutboundGate, install_network_guard,
 from mealwright.page_fetch import FetchedPage, FetchRefused, Problem, fetch_page
 from mealwright.page_reader import PageRecipe
 
-DEFAULT_LIST = Path("<sync>/import-check/urls.md")
-DEFAULT_REPORT = Path("<sync>/import-check-0.5.md")
+
+
+def default_paths() -> tuple[Path, Path]:
+    """The list and the report, in the sync folder (outside the repo): $MEALWRIGHT_SYNC_DIR, else ./repo-sync."""
+    sync = Path(os.environ.get("MEALWRIGHT_SYNC_DIR", "repo-sync"))
+    return sync / "import-check" / "urls.md", sync / "import-check-0.5.md"
+
+
 # At most one request every this many seconds to one site.
 GAP_SECONDS = 5.0
 TITLE_CHARS = 40
@@ -427,9 +435,10 @@ def real_fetcher() -> Iterator[Fetcher]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    default_list, default_report = default_paths()
     parser = argparse.ArgumentParser(description="Check the recipe reader on real pages.")
-    parser.add_argument("--list", type=Path, default=DEFAULT_LIST, help="the markdown list")
-    parser.add_argument("--report", type=Path, default=DEFAULT_REPORT, help="where to write")
+    parser.add_argument("--list", type=Path, default=default_list, help="the markdown list")
+    parser.add_argument("--report", type=Path, default=default_report, help="where to write")
     args = parser.parse_args(argv)
 
     parsed = parse_list(args.list.read_text(encoding="utf-8"))
