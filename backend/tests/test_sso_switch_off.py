@@ -188,3 +188,35 @@ def test_saving_another_client_is_allowed_with_a_password(
             login.password_hash = hash_password("a long enough password")
         db.commit()
     assert _save(kitchen, client_id="another-client").status_code == 200
+
+
+# A restart empties the memory of the sign-in server's address: the refusal doesn't read it
+# (round 2 security pass F1).
+
+
+def test_after_a_restart_the_three_ways_are_still_refused(
+    kitchen: TestClient, link_only: FakeProvider
+) -> None:
+    from mealwright import sso
+
+    sso.forget_remembered()
+    assert _off(kitchen).status_code == 409
+    assert _save(kitchen, client_id="another-client").status_code == 409
+    removed = kitchen.delete(f"{API}/privacy/own-network/{entry_id(kitchen)}")
+    assert removed.status_code == 409, removed.text
+    assert removed.json()["detail"] == SENTENCE
+    assert _on(kitchen)
+    assert len(kitchen.get(f"{API}/privacy/own-network").json()["entries"]) == 1
+
+
+def test_after_a_restart_an_admin_with_a_password_is_still_allowed(
+    kitchen: TestClient, link_only: FakeProvider
+) -> None:
+    from mealwright import sso
+
+    with cast(Any, kitchen.app).state.sessionmaker() as db:
+        for login in db.scalars(select(Login)):
+            login.password_hash = hash_password("a long enough password")
+        db.commit()
+    sso.forget_remembered()
+    assert _off(kitchen).status_code == 200

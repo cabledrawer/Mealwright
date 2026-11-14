@@ -227,7 +227,9 @@ def remove_entry(entry_id: StoredInt, request: Request, kitchen: Here) -> Respon
     if not own_network.remove(kitchen.db, kitchen.household_id, entry_id):
         raise not_found("That entry")
     if locks_out and not sso_accounts.sso_can_start(kitchen.db, data_dir, kitchen.household_id):
-        kitchen.db.rollback()  # this entry was what let single sign-on reach the sign-in server
+        # This entry may be what let single sign-on reach the sign-in server: it can't start
+        # without it, or can't be told (after a restart the memory of the address is empty).
+        kitchen.db.rollback()
         raise _locked_out()
     kitchen.db.commit()
     log.info("Your own network: removed")

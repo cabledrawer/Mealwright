@@ -279,12 +279,14 @@ def would_lock_out(db: DbSession, data_dir: Path | None, login: Login) -> bool:
     admin's, because every link ends with single sign-on and ending it turns password sign-in
     back on (cabledrawer 14 Nov: "first add another admin who signs in with a password"; so are the
     own-network entry, the saved issuer or client ID and "only a password counts"). It is
-    `another_admin_gets_in` with passwords counted and links not: the household's one rule."""
+    `another_admin_gets_in` with passwords counted and links not: the household's one rule.
+    Decided on what is stored (the switch on and a usable saved setup), never on whether single
+    sign-on can start this moment: that reads the memory of the sign-in server's address, which a
+    restart empties (round 2 security pass F1; proposed, for cabledrawer)."""
     if login.role != ADMIN or login.shared or login.password_hash or login.sso_subject is None:
         return False
-    off = passwords_off(db, data_dir, login.household_id)
-    if not (off or sso_can_start(db, data_dir, login.household_id)):
-        return False  # it can't start now: nothing to end
+    if not (usable(settings_row(db, login.household_id)) and switch_on(db, login.household_id)):
+        return False  # single sign-on isn't set up and on: nothing to end
     return not another_admin_gets_in(db, login, False, links=False, sso_on=False)
 
 
