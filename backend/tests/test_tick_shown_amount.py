@@ -252,3 +252,35 @@ def test_a_rest_line_moved_to_another_shop_is_not_bought_twice_when_the_plan_gro
     plan(kitchen, recipe(kitchen, "Pilau", line(ghee["id"], 100, "g")), 3)
     from_plan(kitchen)
     assert sorted(lines(kitchen, ghee["id"])) == [(120, False), (120, True)]
+
+
+# --- 0.9.5 L7 (cabledrawer 13 Nov): follow the 11 Nov rule -------------------------------------
+
+
+def test_untick_of_a_split_tick_whose_rest_was_changed_comes_back_on_its_own(
+    kitchen: TestClient,
+) -> None:
+    # The rest line was edited since: the untick leaves both lines as they are (11 Nov rule), so
+    # the unticked line is not joined into the edited one.
+    ghee, row, done = split_tick(kitchen)
+    rest = next(
+        i for i in changes(kitchen)["items"] if i["food_id"] == ghee["id"] and not i["ticks"]
+    )
+    one(kitchen, "set_amount", counter(kitchen), PHONE_A, item_id=rest["id"], amount=250)
+    one(kitchen, "untick", counter(kitchen), PHONE_B, item_id=row["id"], tick_ids=[done["id"]])
+    assert pantry(kitchen, ghee["id"]) == 0
+    assert sorted(lines(kitchen, ghee["id"])) == [(120, False), (250, False)]
+
+
+def test_the_same_untick_replayed_offline_leaves_the_edited_rest_alone(
+    kitchen: TestClient,
+) -> None:
+    ghee, row, done = split_tick(kitchen)
+    rest = next(
+        i for i in changes(kitchen)["items"] if i["food_id"] == ghee["id"] and not i["ticks"]
+    )
+    one(kitchen, "set_amount", counter(kitchen), PHONE_A, item_id=rest["id"], amount=250)
+    again = action("untick", counter(kitchen), item_id=row["id"], tick_ids=[done["id"]])
+    send(kitchen, again)
+    send(kitchen, again)
+    assert sorted(lines(kitchen, ghee["id"])) == [(120, False), (250, False)]

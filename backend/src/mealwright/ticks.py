@@ -276,6 +276,14 @@ def _unsplit(act: Act, tick: ListTick) -> None:
     change.undo_data = {**(change.undo_data or {}), "split": {**split, "undone": True}}
 
 
+def _split_left_alone(kitchen: Kitchen, tick: ListTick) -> bool:
+    """L7 (cabledrawer 13 Nov, the 11 Nov rule): a tick that split its line, taken back while the
+    rest line was changed since, left both lines as they are; the unticked line is then not
+    joined into the changed rest, it comes back on its own."""
+    found = _split_of(kitchen, tick)
+    return found is not None and not found[1].get("undone")
+
+
 def _resplit(act: Act, tick: ListTick) -> None:
     """The put-back of a purchase that was unsplit (Undo of an untick): split the line again."""
     kitchen = act.kitchen
@@ -905,7 +913,8 @@ def untick(act: Act) -> None:
     for tick in named:
         done += reverse(act, tick, lambda change: f"Unticked: {change.summary}")
     sync_copy(kitchen, item, act.seq)
-    _join_back(act, item, named[0])
+    if not _split_left_alone(kitchen, named[0]):
+        _join_back(act, item, named[0])
     if done:
         act.change = done[0]
     act.message = partial(done)
