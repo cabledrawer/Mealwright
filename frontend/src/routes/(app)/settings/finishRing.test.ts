@@ -1,7 +1,7 @@
 // The Finish setup ring (cabledrawer 13 Nov, option A): filled in proportion to the steps done.
 
 import { describe, expect, it } from 'vitest';
-import { ringArc, ringWords, SETUP_STEPS, stepsDone } from './finishRing.js';
+import { peopleWhoCount, ringArc, ringWords, SETUP_STEPS, stepsDone } from './finishRing.js';
 
 describe('the Finish setup ring', () => {
   it('has five steps, and says "N of 5" from the count', () => {
@@ -37,5 +37,14 @@ describe('the Finish setup ring', () => {
     expect(stepsDone({ people: 3, shops: 0 })).toBe(2);
     expect(stepsDone({ people: 1, shops: 2 })).toBe(2);
     expect(stepsDone({ people: 2, shops: 1 })).toBe(3);
+  });
+
+  it('does not count a shared login as a person who eats', () => {
+    const lorna = { login: { shared: false } };
+    const tablet = { login: { shared: true } };
+    const sam = { login: null };
+    expect(peopleWhoCount([lorna, tablet])).toBe(1);
+    expect(peopleWhoCount([lorna, sam, tablet])).toBe(2);
+    expect(stepsDone({ people: peopleWhoCount([lorna, tablet]), shops: 0 })).toBe(1);
   });
 });

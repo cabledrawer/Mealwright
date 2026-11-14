@@ -48,7 +48,7 @@
   import ShopsPlaces from './ShopsPlaces.svelte';
   import SignInSection from './SignInSection.svelte';
   import FinishRing from './FinishRing.svelte';
-  import { ringWords, SETUP_STEPS, stepsDone } from './finishRing.js';
+  import { peopleWhoCount, ringWords, SETUP_STEPS, stepsDone } from './finishRing.js';
   import type { Group, Row } from './sectionIcons.js';
   import { GROUPS, SECTION_ORDER, type SectionId } from './sectionOrder.js';
 
@@ -237,8 +237,10 @@
   let shopsCount = $state<number | null>(null);
   let placesCount = $state<number | null>(null);
   let peopleCount = $state<number | null>(null);
+  /** The same, without shared logins: what the Finish setup ring counts. */
+  let eatersCount = $state<number | null>(null);
   /** Steps of set-up done, for the Finish setup row's ring (`stepsDone` says how it is counted). */
-  const finishDone = $derived(stepsDone({ people: peopleCount, shops: shopsCount }));
+  const finishDone = $derived(stepsDone({ people: eatersCount, shops: shopsCount }));
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const privacyOn = $derived(
     privacy.loaded && privacy.problem === null
@@ -262,7 +264,10 @@
     );
     void privacy.load().catch(() => {});
     getPeople().then(
-      (found) => (peopleCount = found.people.length),
+      (found) => {
+        peopleCount = found.people.length;
+        eatersCount = peopleWhoCount(found.people);
+      },
       () => {}
     );
     if (admin) void updates.load();

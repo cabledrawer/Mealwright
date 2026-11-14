@@ -18,6 +18,11 @@ export function stepsDone(known: { people: number | null; shops: number | null }
   return done;
 }
 
+/** People who count towards "a household of more than one": not a shared login (a kitchen
+ * tablet isn't someone who eats; cabledrawer 13 Nov). */
+export const peopleWhoCount = (people: { login?: { shared?: boolean } | null }[]): number =>
+  people.filter((person) => person.login?.shared !== true).length;
+
 /** The words after the label, "2 of 5". */
 export const ringWords = (done: number, of: number = SETUP_STEPS.length) => `${done} of ${of}`;
 
