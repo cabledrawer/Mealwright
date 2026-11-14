@@ -33,6 +33,35 @@ def _due(client: TestClient, subject: str) -> None:
         db.commit()
 
 
+def _unlink_first_admin(client: TestClient) -> None:
+    """The set-up admin's single sign-on link goes (passwords are off), so they are no way in."""
+    with cast(Any, client.app).state.sessionmaker() as db:
+        login = db.get(Login, 1)
+        assert login is not None
+        login.sso_issuer = login.sso_subject = None
+        db.commit()
+
+
+def _live_only_admin(client: TestClient) -> None:
+    """Sam: an admin with no password and no link, signed in right now."""
+    from datetime import timedelta
+
+    with cast(Any, client.app).state.sessionmaker() as db:
+        login = Login(household_id=1, username="sam", name="Sam", role="admin")
+        db.add(login)
+        db.flush()
+        db.add(
+            Session(
+                household_id=1,
+                login_id=login.id,
+                token_hash="b" * 64,
+                remember=False,
+                expires_at=now() + timedelta(days=1),
+            )
+        )
+        db.commit()
+
+
 def _warning(client: TestClient) -> str | None:
     return cast("str | None", client.get(f"{API}/sso/settings").json()["kept_warning"])
 
@@ -78,13 +107,30 @@ def test_the_warning_goes_when_passwords_are_back_on(
     assert _warning(sso_only) is None
 
 
+def test_with_another_admin_who_can_get_in_the_sign_in_ends_as_before(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """Lorna is linked and not refused: she is a way in that lasts, so Sam's refused sign-in
+    ends (it was a live sign-in that counted before 0.9.5; now the accepted link does)."""
+    lorna = browser(sso_only)
+    sign_in(lorna, idp, sub="lorna", extra=ADMIN_GROUPS)
+    sam = browser(sso_only)
+    sign_in(sam, idp, sub="k", extra=ADMIN_GROUPS)
+    idp.refresh_tokens.clear()
+    _due(sso_only, "k")
+    assert check(sso_only) == 1
+    assert sam.get(f"{API}/me").status_code == 401
+    assert _warning(sso_only) is None
+    # And Lorna can still get in: she is not marked.
+    assert lorna.get(f"{API}/me").status_code == 200
+
+
 def test_another_admins_live_sign_in_is_no_way_in_so_the_sign_in_is_kept(
     sso_only: TestClient, idp: FakeProvider
 ) -> None:
-    """#205 (d), cabledrawer 12 Nov late: Wren is signed in, but a sign-in that ends is not a way in,
-    so cabledrawer's, refused, is kept (it was ended while a live sign-in counted)."""
-    wren = browser(sso_only)
-    sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
+    """#205 (d), cabledrawer 12 Nov late: Sam is signed in but has no password and no link, so a
+    sign-in that will end is no way in: the set-up admin's refused sign-in is kept."""
+    _live_only_admin(sso_only)
     phone = browser(sso_only)
     sign_in(phone, idp, sub="k", extra=ADMIN_GROUPS)
     idp.refresh_tokens.clear()
@@ -94,13 +140,30 @@ def test_another_admins_live_sign_in_is_no_way_in_so_the_sign_in_is_kept(
     assert _warning(sso_only) is not None
 
 
+def test_two_admins_taken_out_together_leave_one_who_can_get_in(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """Both linked admins are refused by the hourly check: the first one's sign-in ends and is
+    marked, so the second is the last way in and is kept. Never none."""
+    lorna, sam = browser(sso_only), browser(sso_only)
+    sign_in(lorna, idp, sub="lorna", extra=ADMIN_GROUPS)
+    sign_in(sam, idp, sub="sam", extra={**ADMIN_GROUPS, "preferred_username": "sam"})
+    _unlink_first_admin(sso_only)
+    idp.refresh_tokens.clear()
+    _due(sso_only, "lorna")
+    _due(sso_only, "sam")
+    assert check(sso_only) == 1
+    alive = [c.get(f"{API}/me").status_code for c in (lorna, sam)]
+    assert sorted(alive) == [200, 401]
+
+
 def test_with_another_admin_who_has_a_password_the_sign_in_ends_as_before(
     admin: TestClient, idp: FakeProvider
 ) -> None:
-    """Passwords work and Joss has one: she is a way in, so cabledrawer's refused sign-in ends."""
+    """Passwords work and Sam has one: he is a way in, so the other admin's refused sign-in ends."""
     from test_sso_api import _add_admin
 
-    _add_admin(admin, "joss")
+    _add_admin(admin, "sam")
     phone = browser(admin)
     sign_in(phone, idp, sub="k", extra=ADMIN_GROUPS)
     idp.refresh_tokens.clear()
@@ -175,7 +238,8 @@ def test_a_kept_refused_admin_cant_make_a_token_that_outlives_the_keep(
 
     x = browser(sso_only)
     sign_in(x, idp, sub="x", extra=ADMIN_GROUPS)
-    assert sso_only.delete(f"{API}/session").status_code == 204  # K is signed out: no live sign-in
+    assert sso_only.delete(f"{API}/session").status_code == 204  # K is signed out
+    _unlink_first_admin(sso_only)  # and not linked any more: X is the only way in
     idp.refresh_tokens.clear()
     _due(sso_only, "x")
     assert check(sso_only) == 0  # kept
@@ -216,6 +280,7 @@ def test_the_mark_ends_when_the_sign_in_server_accepts_them_again_and_old_tokens
     x = browser(sso_only)
     sign_in(x, idp, sub="x", extra=ADMIN_GROUPS)
     assert sso_only.delete(f"{API}/session").status_code == 204  # nobody else is signed in
+    _unlink_first_admin(sso_only)  # nor linked: X is the only way in
     taken = set(idp.refresh_tokens)
     idp.refresh_tokens.clear()
     _due(sso_only, "x")
@@ -260,6 +325,7 @@ def test_a_working_refresh_does_not_end_the_mark_and_the_warning_stays(
     x = browser(sso_only)
     sign_in(x, idp, sub="x", extra=ADMIN_GROUPS)
     assert sso_only.delete(f"{API}/session").status_code == 204  # nobody else is signed in
+    _unlink_first_admin(sso_only)  # nor linked: X is the only way in
     refused, _ = sign_in(browser(sso_only), idp, sub="x", extra={"groups": []})
     assert refused.status_code != 200
     assert _login_row(sso_only, "x").sso_refused_at is not None

@@ -219,53 +219,63 @@ def find_login(db: DbSession, identity: Identity) -> Login | None:
     )
 
 
-def another_admin_gets_in(db: DbSession, login: Login, off: bool, *, again: bool = False) -> bool:
-    """True when another admin of this household can get in without the sign-in server's say:
-    they have a password and password sign-in isn't off (`off`). Being linked to the sign-in
-    server is not enough, since the same groups that refuse `login` may refuse them (O2 review
-    r5, findings 1, 2 and 3), and a sign-in that is open now is no way in either (#205 (d),
-    cabledrawer 12 Nov late; it ends, and then nothing lets them back). Not shared logins, not
-    removed people. This is the one answer to "is someone else a way in?" when the sign-in
-    server is the one refusing. `again` (for a group demotion, which lasts): they must also be
-    able to sign in again by the household's one rule (`admin_can_sign_in`)."""
+def another_admin_gets_in(
+    db: DbSession, login: Login, off: bool, *, links: bool = False, sso_on: bool = False
+) -> bool:
+    """True when another admin of this household can get in. Not shared logins, not removed
+    people, and never because of a sign-in that is open now, an API token or a link not used
+    yet (#205 (d), cabledrawer 12 Nov late). By default, for the refusal of a known login at sign-in
+    (O2 review r5, findings 1 to 3, accepted as built): without the sign-in server's say, so
+    only a password that works (password sign-in isn't `off`); being linked is not enough, since
+    the same groups that refuse `login` may refuse them. With `links`, for answers that last (a
+    group demotion, the hourly check's "ended"; proposed, for cabledrawer): the household's one rule
+    `admin_can_sign_in` too, so an accepted single sign-on link that the sign-in server hasn't
+    refused counts while single sign-on can start (`sso_on`)."""
     has_password = and_(Login.password_hash.is_not(None), Login.password_hash != "")  # nosec B105
+    way = (
+        admin_can_sign_in(db, login.household_id, off, sso_on)
+        if links
+        else (false() if off else has_password)
+    )
     query = (
         select(func.count())
         .select_from(Login)
         .join(Member, Member.id == Login.member_id)
         .where(Login.household_id == login.household_id, Login.role == ADMIN)
         .where(Login.shared.is_(False), Login.id != login.id, Member.removed_at.is_(None))
-        .where(false() if off else has_password)
+        .where(way)
     )
-    if again:
-        query = query.where(admin_can_sign_in(db, login.household_id, off, off))
     return int(db.scalar(query) or 0) > 0
 
 
 def _hourly_keeps(db: DbSession, login: Login, row: SsoSettings, data_dir: Path) -> bool | None:
     """For the hourly check's "ended" answer: None to end the sign-in as before; else True or
     False (passwords are off) to keep it, as the refusal path does for the household's last way
-    in who would be locked out: passwords off, or an admin made by single sign-on with no
-    password of their own (`_last_admin_keeps` says "sign-ins"). An admin with a password while
-    passwords work is not locked out, so it ends as before."""
-    if _last_admin_keeps(db, login, row, data_dir) != "sign-ins":
+    in who would be locked out: no other admin has a password that works or an accepted,
+    unrefused single sign-on link, and passwords are off or this admin has none (`_last_admin_keeps`
+    says "sign-ins"). An admin with a password while passwords work is not locked out, so it ends
+    as before."""
+    if _last_admin_keeps(db, login, row, data_dir, links=True) != "sign-ins":
         return None
     return passwords_off(db, data_dir, row.household_id)
 
 
-def _last_admin_keeps(db: DbSession, login: Login, row: SsoSettings, data_dir: Path) -> str:
+def _last_admin_keeps(
+    db: DbSession, login: Login, row: SsoSettings, data_dir: Path, *, links: bool = False
+) -> str:
     """What a refused login keeps (proposed, for cabledrawer; O2 review r2 to r5). An admin with no
-    other admin who can get in without the sign-in server's say (`another_admin_gets_in`) is the
-    household's last way in. "all": they can still sign in with a password while password
-    sign-in really works (the stored setting is on, or single sign-on can't start): they stay
-    an admin and keep their tokens and sign-ins. "sign-ins": any other last way in (passwords
-    off, or no password of their own): their tokens stop (nobody could sign in to delete one) but
-    their sign-ins stay, so they can still reach Settings; a refusal can't lock the household
-    out. "": anyone else: tokens and sign-ins both end."""
+    other admin who can get in (`another_admin_gets_in`; with `links` an accepted link counts
+    too) is the household's last way in. "all": they can still sign in with a password while
+    password sign-in really works (the stored setting is on, or single sign-on can't start):
+    they stay an admin and keep their tokens and sign-ins. "sign-ins": any other last way in
+    (passwords off, or no password of their own): their tokens stop (nobody could sign in to
+    delete one) but their sign-ins stay, so they can still reach Settings; a refusal can't lock
+    the household out. "": anyone else: tokens and sign-ins both end."""
     if login.role != ADMIN:
         return ""
     off = passwords_off(db, data_dir, row.household_id)
-    if another_admin_gets_in(db, login, off):
+    sso_on = off or sso_can_start(db, data_dir, row.household_id)
+    if another_admin_gets_in(db, login, off, links=links, sso_on=sso_on):
         return ""
     return "all" if login.password_hash and not off else "sign-ins"
 
@@ -368,7 +378,10 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Pat
             del _kept[login.household_id]  # and so does the warning
     if login.role != role:
         off = passwords_off(db, data_dir, row.household_id)
-        if login.role == ADMIN and not another_admin_gets_in(db, login, off, again=True):
+        sso_on = off or sso_can_start(db, data_dir, row.household_id)
+        if login.role == ADMIN and not another_admin_gets_in(
+            db, login, off, links=True, sso_on=sso_on
+        ):
             log.warning(
                 "Single sign-on: %s stays an admin, as the household's last one", login.username
             )
@@ -582,6 +595,10 @@ def _apply(
             # somewhere else too (safest; proposed, for cabledrawer). The log says so, by the
             # login's number only, never a name (O2 review r2, finding 3).
             api_tokens.stop_for(db, session.login_id)
+            if owner.role == ADMIN:
+                # Marked, so a second admin refused at the same time can't count on this one
+                # being a way in: the household never ends with none (proposed, for cabledrawer).
+                api_tokens.mark_refused(db, owner)
             db.delete(session)
             ended = True
             log.info(

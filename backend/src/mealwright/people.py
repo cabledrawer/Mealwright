@@ -133,7 +133,8 @@ def admin_can_sign_in(
 ) -> ColumnElement[bool]:
     """The one rule for "this admin can get in" (#205 (d), cabledrawer 12 Nov late): a password that
     works now (password sign-in isn't off), or a single sign-on link accepted at the saved
-    sign-in server while single sign-on can start (`sso_on`). A sign-in that is open now, an API
+    sign-in server while single sign-on can start (`sso_on`) and the sign-in server hasn't refused
+    them (not marked). A sign-in that is open now, an API
     token, an unused sign-in or join link and a link not accepted yet are no way in. While
     password sign-in is turned off, a password is no way in (O1 review r1 M3), so the last admin
     who can really sign in is never removed, made a Member or made shared."""
@@ -144,8 +145,14 @@ def admin_can_sign_in(
     )
     # A single sign-on identity counts only at the saved sign-in server (O1 review r2, 4), and
     # only while single sign-on can start: with its switch off nobody gets in that way.
+    # A login the sign-in server refused (marked, `sso_refused_at`) is no way in either: the
+    # server may refuse it at the next sign-in too.
     at_saved_server = (
-        and_(Login.sso_issuer == setup.issuer, Login.sso_subject.is_not(None))
+        and_(
+            Login.sso_issuer == setup.issuer,
+            Login.sso_subject.is_not(None),
+            Login.sso_refused_at.is_(None),
+        )
         if setup is not None and (sso_on or passwords_off)
         else false()
     )

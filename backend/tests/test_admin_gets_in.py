@@ -119,8 +119,51 @@ def test_the_refusal_is_the_same_one_the_other_last_admin_refusals_give(
     """(b): the words are the existing ones, and nothing changed."""
     _live_only(admin, idp)
     refused = admin.patch(f"{API}/people/{_me(admin)}", json={"role": "member"})
-    assert refused.json()["detail"] == (
-        "Tess is the household’s only admin. Make someone else an admin first."
-    )
     mine = admin.get(f"{API}/people").json()["people"][0]
+    assert refused.json()["detail"] == (
+        f"{mine['name']} is the household’s only admin. Make someone else an admin first."
+    )
     assert mine["login"]["role"] == "admin"
+
+
+def test_a_link_the_sign_in_server_refused_is_no_way_in(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """Noor is linked but marked refused (kept signed in after the sign-in server refused her):
+    she may be refused again, so she is no way in; once accepted again (the mark ends) she is."""
+    sign_in(
+        browser(sso_only),
+        idp,
+        sub="noor",
+        extra={**ADMIN_GROUPS, "preferred_username": "noor"},
+    )
+    with cast(Any, sso_only.app).state.sessionmaker() as db:
+        noor = db.scalars(select(Login).where(Login.username == "noor")).one()
+        noor.sso_refused_at = now()
+        db.commit()
+    me = _me(sso_only)
+    refused = sso_only.patch(f"{API}/people/{me}", json={"role": "member"})
+    assert refused.status_code == 409 and refused.json()["code"] == "last_admin"
+    with cast(Any, sso_only.app).state.sessionmaker() as db:
+        noor = db.scalars(select(Login).where(Login.username == "noor")).one()
+        noor.sso_refused_at = None
+        db.commit()
+    assert sso_only.patch(f"{API}/people/{me}", json={"role": "member"}).status_code == 200
+
+
+def test_the_live_only_admin_is_a_way_in_once_given_a_password(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """Shows the live-only tests aren't vacuous: Sam is a real admin with a person row, and
+    the only thing keeping him from counting is that he has no password."""
+    from mealwright.auth import hash_password
+
+    _live_only(admin, idp)
+    me = _me(admin)
+    assert admin.patch(f"{API}/people/{me}", json={"role": "member"}).status_code == 409
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        sam = db.scalars(select(Login).where(Login.username == "sam")).one()
+        assert sam.member_id is not None and sam.role == "admin"
+        sam.password_hash = hash_password("sam's own password")
+        db.commit()
+    assert admin.patch(f"{API}/people/{me}", json={"role": "member"}).status_code == 200

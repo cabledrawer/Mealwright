@@ -177,25 +177,26 @@ def test_a_refused_admin_is_signed_out_only_while_another_admin_can_get_in(
     sso_only: TestClient, idp: FakeProvider
 ) -> None:
     """O2 review r5, findings 1 and 3, and #205 (d). Two linked admins, passwords off, the groups
-    drop both. Wren is signed in, but a live sign-in is no way in (and being linked isn't
-    enough), so cabledrawer's refusal leaves his sign-ins, and so does Wren's."""
-    wren = browser(sso_only)
-    sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
+    drop both. At sign-in the sign-in server is the one refusing, so being linked is no way in
+    (nor is a live sign-in): the first refusal leaves that admin's sign-ins, and so does the
+    second's."""
+    lorna = browser(sso_only)
+    sign_in(lorna, idp, sub="lorna", extra=ADMIN_GROUPS)
     first, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": []})
     assert first.status_code != 200
-    assert sso_only.get(f"{API}/sso/settings").status_code == 200  # cabledrawer: kept
-    second, _ = sign_in(browser(sso_only), idp, sub="wren", extra={"groups": []})
+    assert sso_only.get(f"{API}/sso/settings").status_code == 200  # the first: kept
+    second, _ = sign_in(browser(sso_only), idp, sub="lorna", extra={"groups": []})
     assert second.status_code != 200
-    assert wren.get(f"{API}/sso/settings").status_code == 200  # Wren: kept too
+    assert lorna.get(f"{API}/sso/settings").status_code == 200  # the second: kept too
 
 
 def test_a_refused_admin_is_signed_out_when_another_admin_has_a_working_password(
     admin: TestClient, idp: FakeProvider
 ) -> None:
-    """#205 (d): the other way in that does count. Joss has a password and passwords work."""
+    """#205 (d): the other way in that does count. Sam has a password and passwords work."""
     from test_sso_api import _add_admin
 
-    _add_admin(admin, "joss")
+    _add_admin(admin, "sam")
     sign_in(admin, idp, path="/sso/test", sub="k", extra=ADMIN_GROUPS)
     assert admin.post(f"{API}/sso/link").is_success
     first, _ = sign_in(browser(admin), idp, sub="k", extra={"groups": []})
@@ -243,17 +244,46 @@ def _admins(db_app: Any) -> list[str]:
 def test_demoting_by_groups_never_leaves_no_admin_tess_first(
     sso_only: TestClient, idp: FakeProvider
 ) -> None:
-    """O2 review r8, finding 1, and #205 (d). Passwords off, two linked admins signed in. The
-    admin group goes and cabledrawer is in users: Wren is signed in but that is no way in, so he stays
-    the admin; then Wren, in no group, is refused and stays one too."""
+    """O2 review r8, finding 1. Passwords off, two linked admins signed in. The admin group goes
+    and the first admin is in users: he is demoted (the other admin's accepted link is a way in that
+    lasts); then the other, in no group, is refused and stays the admin."""
     wren = browser(sso_only)
     sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
-    kept, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": ["mealwright-users"]})
-    assert kept.json()["me"]["role"] == "admin"
+    sam = browser(sso_only)
+    demoted, _ = sign_in(sam, idp, sub="k", extra={"groups": ["mealwright-users"]})
+    assert demoted.json()["me"]["role"] == "member"
+    # A Member makes no API token.
+    assert sam.post(f"{API}/api-tokens", json={"name": "HA", "scope": "full"}).status_code == 403
     refused, _ = sign_in(browser(sso_only), idp, sub="wren", extra={"groups": []})
     assert refused.status_code != 200
-    assert len(_admins(sso_only.app)) == 2
+    assert len(_admins(sso_only.app)) == 1
     assert wren.get(f"{API}/sso/settings").status_code == 200
+
+
+def test_a_demotion_by_groups_waits_when_the_other_admin_has_only_a_live_sign_in(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """#205 (d): Sam is signed in but has no password and no link: no way in that lasts."""
+    from datetime import timedelta
+
+    from mealwright.auth import now
+
+    with cast(Any, sso_only.app).state.sessionmaker() as db:
+        sam = Login(household_id=1, username="sam", name="Sam", role="admin")
+        db.add(sam)
+        db.flush()
+        db.add(
+            Session(
+                household_id=1,
+                login_id=sam.id,
+                token_hash="c" * 64,
+                remember=False,
+                expires_at=now() + timedelta(days=1),
+            )
+        )
+        db.commit()
+    kept, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": ["mealwright-users"]})
+    assert kept.json()["me"]["role"] == "admin"
 
 
 def test_demoting_by_groups_never_leaves_no_admin_wren_first(
