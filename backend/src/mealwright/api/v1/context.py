@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright.api_tokens import not_for_tokens
 from mealwright.auth import SEEN_EVERY, CurrentLogin, Db
 from mealwright.errors import Problem
+from mealwright.limits import body_hash
 from mealwright.models import Household, Login, Member, Session, utcnow
 from mealwright.roles import Action, allowed
 
@@ -31,6 +32,9 @@ class Kitchen:
     household: Household
     idempotency_key: str | None
     request: str  # "POST /api/v1/foods/7/sizes", to spot a key reused for something else
+    # SHA-256 of this request's body (limits.BodyLimitMiddleware), to spot a key reused with
+    # another body; None where unknown (then only `request` is compared).
+    body_hash: str | None = None
     # Set while a shopping action is applied: only its first change carries the key (the
     # action ID), any further changes it makes carry none (sync protocol 4.4).
     key_once: bool = False
@@ -102,6 +106,8 @@ def kitchen(
         household=household,
         idempotency_key=idempotency_key,
         request=f"{request.method} {request.url.path}",
+        # A route that takes no body never reads one, so the middleware saw none: the hash of empty.
+        body_hash=getattr(request.state, "body_hash", None) or body_hash(b""),
         member_id=member_id,
         by_token=signed_in.by_token,
         data_dir=request.app.state.settings.data_dir,

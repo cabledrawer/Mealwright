@@ -74,7 +74,15 @@ def replayed(kitchen: Kitchen) -> Change | None:
             Change.idempotency_key == kitchen.idempotency_key,
         )
     )
-    if change is not None and change.request != kitchen.request:
+    if change is not None and (
+        change.request != kitchen.request
+        # Same route, another body: the client's mistake (rows from before carry no hash).
+        or (
+            change.body_hash is not None
+            and kitchen.body_hash is not None
+            and change.body_hash != kitchen.body_hash
+        )
+    ):
         raise Problem(
             status.HTTP_409_CONFLICT,
             "key_reused",
@@ -124,6 +132,7 @@ def record(
         household_id=kitchen.household_id,
         idempotency_key=key,
         request=kitchen.request[:200],
+        body_hash=kitchen.body_hash,
         kind=kind,
         login_id=kitchen.login.id,
         login_name=kitchen.login.name,

@@ -1258,6 +1258,7 @@ def change_meal_slot(
         if change is not None:
             # The answer carries the last change made, and so does a retry's.
             change.idempotency_key = key
+            change.body_hash = kitchen.body_hash
         return change
 
     return _run(kitchen, response, make, keep_key=True)

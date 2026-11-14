@@ -331,8 +331,10 @@ def run(act: Act, handler: Callable[[Act], None]) -> dict[str, Any]:
     before = db.scalar(select(func.max(Change.id)).where(Change.household_id == hid)) or 0
     savepoint = db.begin_nested()
     act.seq = act.batch.take()
-    old_key, old_once = kitchen.idempotency_key, kitchen.key_once
+    old_key, old_once, old_hash = kitchen.idempotency_key, kitchen.key_once, kitchen.body_hash
     kitchen.idempotency_key, kitchen.key_once = act.id, True
+    if not act.plain:
+        kitchen.body_hash = None  # a batch's body is not this action's: payload_hash covers it
     try:
         handler(act)
         db.flush()
@@ -402,7 +404,7 @@ def run(act: Act, handler: Callable[[Act], None]) -> dict[str, Any]:
             raise
         return refused(act.id, "bad_action", problem.detail)
     finally:
-        kitchen.idempotency_key, kitchen.key_once = old_key, old_once
+        kitchen.idempotency_key, kitchen.key_once, kitchen.body_hash = old_key, old_once, old_hash
 
 
 def plain(

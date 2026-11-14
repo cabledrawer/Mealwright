@@ -637,6 +637,9 @@ class Change(Base):
     # The client-made ID (Idempotency-Key), so a retried request isn't applied twice.
     idempotency_key: Mapped[str | None] = mapped_column(String(64))
     request: Mapped[str] = mapped_column(String(200), default="")  # "POST /api/v1/foods"
+    # SHA-256 of the request body (limits.body_hash), so the same key with another body is
+    # refused (0.9.5). Null on rows from before, which are checked by `request` alone.
+    body_hash: Mapped[str | None] = mapped_column(String(64))
     kind: Mapped[str] = mapped_column(String(20))
     login_id: Mapped[int | None] = mapped_column(ForeignKey("login.id", ondelete="SET NULL"))
     login_name: Mapped[str] = mapped_column(String(100))

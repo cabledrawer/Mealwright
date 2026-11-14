@@ -29,6 +29,24 @@ BIGGER = {
 }
 
 
+def body_hash(raw: bytes) -> str:
+    """The hash of a request body, kept with its change (0.9.5, proposed, for cabledrawer). JSON is
+    hashed the way the shopping sync hashes an action's payload (`shopping.payload_hash`: keys
+    sorted, no spaces), so the same JSON with its keys in another order is the same body; no
+    body, or a body that isn't JSON, is the SHA-256 of its bytes."""
+    import hashlib
+    import json
+
+    from mealwright import shopping
+
+    if raw.strip():
+        try:
+            return shopping.payload_hash(json.loads(raw))
+        except ValueError:
+            pass
+    return hashlib.sha256(raw).hexdigest()
+
+
 def _over(value: bytes, limit: int) -> bool:
     """Whether a Content-Length of ASCII digits is above the limit. Very long digit strings are
     over without being turned into a number (Python refuses an int of thousands of digits)."""
@@ -67,6 +85,10 @@ class BodyLimitMiddleware:
                 return
         received = 0
         started = False
+        # With an Idempotency-Key the body is hashed as it arrives, for the route to compare a
+        # key sent again (`body_hash`). Only keyed requests are held, up to the limit.
+        keyed = any(name == b"idempotency-key" for name, _ in scope.get("headers", []))
+        chunks: list[bytes] = []
 
         async def counted() -> Message:
             nonlocal received
@@ -75,6 +97,10 @@ class BodyLimitMiddleware:
                 received += len(message.get("body", b""))
                 if received > limit:
                     raise BodyTooBig(detail, code)
+                if keyed:
+                    chunks.append(message.get("body", b""))
+                    if not message.get("more_body", False):
+                        scope.setdefault("state", {})["body_hash"] = body_hash(b"".join(chunks))
             return message
 
         async def watched(message: Message) -> None:
