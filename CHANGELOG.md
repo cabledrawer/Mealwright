@@ -18,6 +18,11 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - Spec: how recipe scaling is "roughly right" is written down (rounding, times and steps not scaled, Makes without Serves, stock marks) (proposed, for cabledrawer).
 - Settings → About: the Source code row shows a note ("The code is not on GitHub yet; the link comes with 1.0.0") instead of a link to nowhere, until the releases address is a real one; then it links to the source at this version's tag. The app asks for nothing: the link is the person's own click.
 - The GitHub workflows (`check.yml`, `release.yml`) pin every action to a full commit hash, with the version in a comment; `docs/dev/move-to-github.md` says how to move a pin. They are unused until 1.0.
+- The bundled fonts ship only their latin and latin-ext files (the cyrillic and vietnamese ones are gone: 165 KB to 143 KB). No word in the app uses a letter from them. A `./check` step fails if another script's font file comes back.
+- The container's health check asks a new address, `GET /api/v1/health`, which answers only when the database answers a trivial query (503 otherwise), with no sign-in and nothing else in the answer. `GET /api/v1/version` is unchanged.
+- No answer carries a `Server` header any more (pages, the API, static files, errors).
+- `THIRD-PARTY-NOTICES.md` lists every library and font the image ships with its version, licence and licence text, written from the lock files by `backend/scripts/third_party_notices.py`; a `./check` step fails when it is out of date.
+- A test holds the browser tests' Playwright to one exact version in `e2e/` and `frontend/` and fails if a Playwright image without a digest is ever named. (No image is named today and the version was already exact, so nothing changed.)
 
 ### Fixed
 
