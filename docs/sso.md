@@ -47,6 +47,18 @@ The issuer address is the web address where `/.well-known/openid-configuration` 
 - If the test shows someone who would be an Admin, Mealwright asks "Link *you* to *them*?". Link only if it really is you: from then on, whoever signs in there as that person is you here, an admin.
 - **Allow password sign-in:** it can be turned off only after an admin has signed in with single sign-on, so you can't lock yourself out. Off shows only the single sign-on button. If single sign-on can't start for any reason (the Privacy switch is off, the secret is lost, the server isn't on Your own network), passwords work again by themselves. On the server, the `reset-admin` command always works too ([README](../README.md), Troubleshooting).
 
+## "Who is this?"
+
+When someone signs in with single sign-on and matches nobody here, Mealwright lets them in to nothing. They see "Almost there": an admin needs to say who they are. No person is made.
+
+An admin sees "1 sign-in waiting" at the top of **Settings → Household**, with **Who is this?**. It offers:
+
+- **A person of the household:** their login is linked to that account (a person with no login gets one, with no password, made an Admin or a Member as your groups say). An admin is offered only when your groups make the newcomer an Admin too. A shared login, or someone linked to another account already, isn't offered.
+- **A new person:** named as your sign-in server names them, with a login linked to that account.
+- **Not someone I know: refuse:** that account can't sign in here, and isn't listed again, until an admin links it after all.
+
+After a link, the person signs in with single sign-on again to get in. Only the 20 newest waiting sign-ins are kept. Only an admin of the household sees or answers them, and only those from the sign-in server saved now.
+
 ## How long a sign-in lasts
 
 When your sign-in server gives a refresh token, Mealwright checks it about once an hour. If the server says no (the account was removed or disabled there), Mealwright signs that person out too. If the server can't be reached, it tries again later. Mealwright's own limits still apply: signed out after 12 hours idle, or 30 days with "Remember".

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, StrictBool, field_validator
 from sqlalchemy import delete, select
 from sqlalchemy.orm.exc import StaleDataError
 
-from mealwright import api_tokens, people
+from mealwright import api_tokens, people, sso_people
 from mealwright.api.v1.account import USERNAME
 from mealwright.api.v1.context import Here, acting_member
 from mealwright.api.v1.schemas import ChangeOut
@@ -84,6 +84,10 @@ class LoginOut(BaseModel):
     link_used_at: datetime | None
     # An unused Reset password link that hasn't run out (Pe1).
     reset_pending: bool
+    # Linked to an account at the household's saved sign-in server (0.9.5 Pe3).
+    sso_linked: bool = False
+    # That account's username at the sign-in server, once it has signed in here.
+    sso_username: str | None = None
 
 
 class HouseholdPerson(BaseModel):
@@ -98,6 +102,18 @@ class HouseholdPerson(BaseModel):
     created_by_name: str
 
 
+class WaitingSignIn(BaseModel):
+    """A single sign-on sign-in that matches nobody and waits for an admin (0.9.5 Pe3/M2)."""
+
+    id: int
+    # Its username at the sign-in server, as sent.
+    username: str
+    # Its last sign-in here.
+    signed_in_at: datetime
+    # What the sign-in server's groups made it: an admin's login is offered only for "admin".
+    role: Role
+
+
 class PeopleOut(BaseModel):
     people: list[HouseholdPerson]
     # False for a member: they see the people and can't change them.
@@ -106,10 +122,14 @@ class PeopleOut(BaseModel):
     ask_whos_this: bool
     # After a change: the change, for its Undo.
     change: ChangeOut | None = None
+    # "Who is this?" (0.9.5 Pe3/M2): single sign-on sign-ins waiting for an admin, newest
+    # first. Empty for a member.
+    waiting: list[WaitingSignIn] = []
 
 
-def _person(kitchen: Here, member: Member) -> HouseholdPerson:
+def _person(kitchen: Here, member: Member, issuer: str | None) -> HouseholdPerson:
     login = people.login_of(kitchen, member)
+    account = sso_people.account_of(kitchen, login, issuer) if login is not None else None
     return HouseholdPerson(
         id=member.id,
         name=member.name,
@@ -126,6 +146,8 @@ def _person(kitchen: Here, member: Member) -> HouseholdPerson:
             link_pending=people.link_pending(kitchen, login),
             reset_pending=people.link_pending(kitchen, login, people.RESET),
             link_used_at=as_utc(login.link_used_at) if login.link_used_at else None,
+            sso_linked=sso_people.linked_here(kitchen, login, issuer),
+            sso_username=account.username if account is not None else None,
         ),
         is_me=member.id == kitchen.login.member_id,
         created_at=member.created_at,
@@ -139,10 +161,23 @@ def _people(kitchen: Here) -> PeopleOut:
         .where(Member.household_id == kitchen.household_id, Member.removed_at.is_(None))
         .order_by(Member.id)
     )
+    issuer = sso_people.saved_issuer(kitchen)
+    can_change = allowed(kitchen.login.role, Action.PEOPLE, kitchen.by_token)
     return PeopleOut(
-        people=[_person(kitchen, m) for m in members],
-        can_change=allowed(kitchen.login.role, Action.PEOPLE, kitchen.by_token),
+        people=[_person(kitchen, m, issuer) for m in members],
+        can_change=can_change,
         ask_whos_this=kitchen.household.ask_whos_this,
+        waiting=[
+            WaitingSignIn(
+                id=account.id,
+                username=account.username,
+                signed_in_at=as_utc(account.seen_at),
+                role="admin" if account.role == ADMIN else "member",
+            )
+            for account in sso_people.waiting(kitchen)
+        ]
+        if can_change
+        else [],
     )
 
 
@@ -318,6 +353,44 @@ def take_back_login(member_id: StoredInt, kitchen: Here) -> None:
     lock_db(kitchen.db, kitchen.household)
     people.take_back_login(kitchen, people.mine(kitchen, member_id))
     kitchen.db.commit()
+
+
+class SsoLinkIn(BaseModel):
+    # The person to link the account to; null: "A new person".
+    member_id: StoredInt | None
+
+
+@router.post("/people/sso-accounts/{account_id}/link")
+def link_sso_account(
+    account_id: StoredInt, body: SsoLinkIn, kitchen: Here, response: Response
+) -> PeopleOut:
+    """ "Who is this?": link a single sign-on account that is linked to nobody to a person of
+    the household, or to a new person (`member_id` null). The person signs in with single
+    sign-on again to get in. Admins only."""
+    # 0.9.5 Pe3/M2, cabledrawer 13 Nov. Not in the docstring: that is the public API description.
+    earlier = _start(kitchen, response)
+    if earlier is not None:
+        return _out(kitchen, earlier)
+    account = sso_people.unlinked(kitchen, account_id)
+    if body.member_id is None:
+        made = sso_people.new_person(kitchen, account)
+    else:
+        made = sso_people.link_to(kitchen, account, body.member_id)
+    log.info("Single sign-on: %s linked by an admin", account.username)
+    return _finish(kitchen, response, made)
+
+
+@router.post("/people/sso-accounts/{account_id}/refuse")
+def refuse_sso_account(account_id: StoredInt, kitchen: Here, response: Response) -> PeopleOut:
+    """ "Not someone I know: refuse": the single sign-on account can't sign in until an admin
+    links it after all. Admins only."""
+    earlier = _start(kitchen, response)
+    if earlier is not None:
+        return _out(kitchen, earlier)
+    account = sso_people.unlinked(kitchen, account_id)
+    made = sso_people.refuse(kitchen, account)
+    log.info("Single sign-on: %s refused by an admin", account.username)
+    return _finish(kitchen, response, made)
 
 
 class SwitchIn(BaseModel):

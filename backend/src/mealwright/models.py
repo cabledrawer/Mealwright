@@ -271,6 +271,47 @@ class Login(Base):
     __table_args__ = (UniqueConstraint("sso_issuer", "sso_subject", name="uq_login_sso"),)
 
 
+class SsoAccount(Base):
+    """An account at the household's sign-in server that the groups let in and that has signed
+    in here (0.9.5 Pe3/M2, cabledrawer 13 Nov). Kept so that someone whose username matches nobody
+    can wait for an admin ("Who is this?" on Settings → Household) instead of being made a
+    person, and so a refusal or an Unlink lasts: an account that was refused or unlinked by hand
+    is never linked automatically again.
+
+    Found by issuer and subject, as a login is; the username and name are only what the
+    sign-in server last sent, shown to the admin and used for "A new person". Left out of the
+    export, like the rest of the sign-in data (proposed, for cabledrawer)."""
+
+    __tablename__ = "sso_account"
+    __table_args__ = (
+        UniqueConstraint("household_id", "issuer", "subject", name="uq_sso_account"),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    issuer: Mapped[str] = mapped_column(String(500))
+    subject: Mapped[str] = mapped_column(String(255))
+    # The sign-in server's username (`preferred_username`), as sent, else Mealwright's own
+    # made-up one (`sso_accounts.new_username`).
+    username: Mapped[str] = mapped_column(String(255))
+    # The sign-in server's name for them: a new person's name.
+    name: Mapped[str | None] = mapped_column(String(100))
+    # What the groups made them at their last sign-in: "admin" or "member".
+    role: Mapped[str] = mapped_column(String(10))
+    # Their last sign-in here.
+    seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Signed in matching nobody, and waiting for an admin since then. Empty once linked or
+    # refused.
+    waiting_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # "Not someone I know: refuse": they can't sign in until an admin links them.
+    refused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Unlinked by hand on the Person page: never linked automatically again.
+    unlinked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Session(Base):
     """A signed-in device. The cookie holds a random token; only its SHA-256 is stored,
     so a copy of the database can't be used to sign in."""

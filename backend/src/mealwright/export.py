@@ -12,7 +12,8 @@ copy must never sign anyone in), the `join_link` table (sign-in links made for p
 `login.password_hash` (a copy of the file must not let anyone try passwords offline), the
 `api_token` table (0.9 O2) and `sso_settings.client_secret_sealed` (the single sign-on client
 secret; the admin types it again), and (cabledrawer 13 Nov) `login.sso_refused_at` and the
-`former_name` table, and (0.9.5, cabledrawer 13 Nov) `login.link_used_at`.
+`former_name` table, and (0.9.5, cabledrawer 13 Nov) `login.link_used_at`, and (0.9.5, proposed, for
+cabledrawer) the `sso_account` table.
 
 The zip is written as it is sent (streamed), never kept on the server. Nothing here makes a
 network connection.
@@ -51,6 +52,8 @@ LEFT_OUT_TABLES = {
     # is all it takes to tell a made-up token from a real one, so it doesn't leave either.
     "api_token": "API tokens, which only an admin at the screen makes",  # nosec B105 (words)
     "former_name": "old names kept for 15 days so Report a problem can remove them",
+    # 0.9.5 Pe3/M2 (proposed, for cabledrawer): sign-in data, like the sign-in links.
+    "sso_account": "single sign-on sign-ins waiting for an admin, refused or unlinked",
 }
 LEFT_OUT_COLUMNS = {
     ("login", "password_hash"): "passwords, even scrambled",

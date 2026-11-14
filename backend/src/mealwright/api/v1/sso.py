@@ -12,9 +12,10 @@ The sign-in goes start → the sign-in server → the callback → a session:
    app's `/auth/callback` page. That page posts what came back to `POST /sso/finish`, which
    takes the state once, with the cookie of the browser that started it, swaps the code
    for tokens and checks the ID token (`mealwright.sso`). The account is found by issuer and
-   subject, made on first sign-in if allowed, and its role follows the groups
-   (`mealwright.sso_accounts`).
-3. A session starts like a password sign-in's, with the refresh token sealed.
+   subject, linked on its first sign-in only to the person with exactly its username, and its
+   role follows the groups (`mealwright.sso_accounts`).
+3. A session starts like a password sign-in's, with the refresh token sealed. An account linked
+   to nobody gets no session: it waits for an admin ("waiting"; Pe3/M2).
 
 `POST /sso/test` starts the same for the setup screen's "Test sign-in", signed in as an admin.
 It is a POST from this site only (a link or a form on another site starts nothing), and it
@@ -259,10 +260,14 @@ class FinishOut(BaseModel):
     # "again": the sign-in server refused this sign-in for asking to stay signed in while
     # away (offline_access); the callback page sends the browser to `url`, to try once
     # more without.
-    done: Literal["signed_in", "tested", "again"]
+    # "waiting" (0.9.5 Pe3/M2): signed in at the sign-in server, but linked to nobody here; no
+    # session starts, and the page says "Almost there" with `username`.
+    done: Literal["signed_in", "tested", "again", "waiting"]
     me: Me | None = None
     test: TestResult | None = None
     url: str | None = None
+    # For "waiting": the username the sign-in server gave, as the admin will see it.
+    username: str | None = None
 
 
 def _refused(failure: sso.SsoFailed) -> Problem:
@@ -357,6 +362,13 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
         if flow.mode == "test":
             return _finish_test(request, db, row, flow.login_id, identity)
         login = sso_accounts.login_for(db, row, identity, settings.data_dir)
+    except sso_accounts.Waiting as waiting:
+        username = waiting.account.username
+        db.commit()  # the account waits for an admin; nobody is signed in
+        log.info(
+            "Single sign-on: %s waits for an admin, from %s", username, client_address(request)
+        )
+        return FinishOut(done="waiting", username=username)
     except sso.SsoFailed as failure:
         db.rollback()
         for session_id in failure.ended_sessions:  # a refused login's open streams end now

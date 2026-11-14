@@ -121,6 +121,15 @@ def sign_in(
     return answer, state
 
 
+def waits(answer: Any) -> bool:
+    """The sign-in matched nobody: it waits for an admin, with no session (Pe3/M2)."""
+    assert answer.status_code == 200, answer.text
+    assert answer.json()["done"] == "waiting", answer.text
+    assert answer.json()["me"] is None
+    assert "mealwright_session" not in answer.headers.get("set-cookie", "")
+    return True
+
+
 def subject_of(client: TestClient, username: str) -> str | None:
     with cast(Any, client.app).state.sessionmaker() as db:
         login = db.scalars(select(Login).where(Login.username == username)).one()
@@ -303,7 +312,7 @@ def test_someone_in_no_mapped_group_is_not_let_in_unless_anyone_else_is_a_member
 def test_nobody_is_ever_made_on_a_first_sign_in(admin: TestClient, idp: FakeProvider) -> None:
     # Pe3/M2 (cabledrawer 13 Nov): only an exact username match links; nobody is made.
     answer, _ = sign_in(browser(admin), idp, person=False)
-    assert answer.json()["code"] == "no_account"
+    assert waits(answer)
     assert logins(admin) == {}
     with cast(Any, admin.app).state.sessionmaker() as db:
         assert db.scalar(select(Login).where(Login.username == "ayla")) is None
@@ -317,7 +326,7 @@ def test_an_admins_login_links_only_when_the_groups_make_them_an_admin_too(
 ) -> None:
     # A Member at the sign-in server of the admin's username never takes over the admin.
     answer, _ = sign_in(browser(admin), idp, extra={"preferred_username": "tess"})
-    assert answer.json()["code"] == "no_account"
+    assert waits(answer)
     assert subject_of(admin, "tess") is None
     answer, _ = sign_in(
         browser(admin),
@@ -353,7 +362,7 @@ def test_a_first_sign_in_links_only_on_exactly_the_same_username(
         assert answer.status_code == 200, answer.text
         assert subject_of(admin, "lorna") == "user-1"
     else:
-        assert answer.json()["code"] == "no_account"
+        assert waits(answer)
         assert logins(admin) == {}
 
 
@@ -367,7 +376,7 @@ def test_only_the_username_links_never_the_email_or_the_name(
         person=False,
         extra={"preferred_username": "ls", "email": "lorna@example.org", "name": "lorna"},
     )
-    assert answer.json()["code"] == "no_account"
+    assert waits(answer)
     assert logins(admin) == {}
 
 
@@ -386,7 +395,7 @@ def test_no_link_to_a_shared_login_a_removed_person_or_another_household(
         answer, _ = sign_in(
             browser(admin), idp, sub=f"u{n}", person=False, extra={"preferred_username": name}
         )
-        assert answer.json()["code"] == "no_account", name
+        assert waits(answer), name
     assert logins(admin) == {}
 
 
@@ -399,7 +408,7 @@ def test_the_same_subject_at_the_same_issuer_is_the_same_account(
     assert logins(admin) == {"ayla": "member"}
     # Another subject with the same user name is someone else: never linked to ayla.
     answer, _ = sign_in(browser(admin), idp, sub="user-2")
-    assert answer.json()["code"] == "no_account"
+    assert waits(answer)
     assert subject_of(admin, "ayla") == "user-1"
 
 

@@ -368,6 +368,13 @@ async function run() {
   const options = await mealwright(new Browser(), 'GET', '/sign-in-options');
   check('Sign-in page shows "Sign in with Dex"', options.data?.sso_button === 'Dex');
 
+  // Dex: someone who matches nobody here waits, with no session, for an admin ("Who is this?",
+  // Pe3/M2); once a person of the same username is here, their next sign-in links to them.
+  const early = await signInWith(new Browser(), '/sso/start?remember=false');
+  check('Dex: matching nobody, the sign-in waits with no session', early.status === 200 && early.data?.done === 'waiting' && early.data.me === null, `${early.status} ${early.data?.done ?? early.data?.code ?? ''}`);
+  const waitingNow = await mealwright(admin, 'GET', '/people');
+  check('Dex: the admin sees it waiting', waitingNow.data?.waiting?.length === 1 && waitingNow.data.waiting[0].username === early.data?.username, JSON.stringify(waitingNow.data?.waiting));
+
   // Dex: a person here with the same username is linked, a Member from the group "authors".
   await addPerson(admin, 'Kilgore', 'kilgore');
   const kilgore = new Browser();

@@ -16,7 +16,7 @@ def _names_for(admin: TestClient, taken: list[str], name: str, username: str) ->
         for other in taken:
             db.add(Member(household_id=1, name=other))
         db.commit()
-        return sso_accounts._member_name(db, 1, name, username)
+        return sso_accounts.member_name(db, 1, name, username)
 
 
 def test_a_long_name_ending_in_a_flag_is_cut_clean(admin: TestClient) -> None:

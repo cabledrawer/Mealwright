@@ -435,6 +435,9 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("EatersIn", "member_ids"): "test_plan_serves",
     # People and roles (0.9 A1): test_people.py, test_a_shared_login_cant_pick_a_neighbours_person.
     ("PickIn", "member_id"): "test_people",
+    # "Who is this?" (0.9.5 Pe3/M2): test_sso_waiting.py,
+    # test_it_cant_be_linked_to_another_households_person.
+    ("SsoLinkIn", "member_id"): "test_sso_waiting",
     # Today (0.6 PR 6): test_today.py, test_another_households_ids_get_404_and_nothing_changes.
     ("MovedIn", "slot_id"): "test_today",
     ("LeftoversIn", "item_id"): "test_today",

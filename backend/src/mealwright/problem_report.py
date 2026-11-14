@@ -401,6 +401,9 @@ def _phrases(pattern_words: Iterable[str]) -> re.Pattern[str] | None:
 _PEOPLE_COLUMNS: tuple[Any, ...] = (
     models.Login.username,
     models.Login.name,
+    # Single sign-on accounts waiting for an admin, or refused (0.9.5 Pe3/M2).
+    models.SsoAccount.username,
+    models.SsoAccount.name,
     # The household's people (0.9 A1), with or without a login, and whoever added them.
     models.Member.name,
     models.Member.created_by_name,

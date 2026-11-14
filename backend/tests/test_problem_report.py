@@ -1145,7 +1145,7 @@ _RECORDS_CHANGES = {
     "api/v1/pantry.py", "api/v1/starter_packs.py", "api/v1/stocktake.py", "cooking.py",
     "drafts.py", "foods.py", "history.py", "kitchen_changes.py", "people.py", "plan.py",
     "recipe_import.py", "recipe_tags.py", "recipes.py", "removals.py", "shopping.py",
-    "stock.py", "ticks.py",
+    "sso_people.py", "stock.py", "ticks.py",
 }  # fmt: skip
 
 
@@ -1504,6 +1504,7 @@ _DYNAMIC_KINDS: set[str] = {
     "recipes.py:record",
     "shopping.py:record",
     "shopping.py:record_back",
+    "sso_people.py:record",  # LINK_KIND, with no undo data (0.9.5 "Who is this?")
     "stock.py:record",
     "ticks.py:record",
 }

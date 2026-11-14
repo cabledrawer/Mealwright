@@ -16,7 +16,8 @@ read without Mealwright or brought into another program. (Spec section 7, "Expor
   new server; these two cabledrawer 13 Nov), and (cabledrawer 13 Nov) `login.sso_refused_at`
   (this server's own mark of a refused login) and the `former_name` table (old names kept for 15 days so Report a problem
   can remove them), and (0.9.5) `login.link_used_at` (when a sign-in or Reset password link
-  was last used). Whoever restores from an export sets passwords again (cabledrawer 13 Nov).
+  was last used) and the `sso_account` table (single sign-on sign-ins waiting for an admin,
+  refused or unlinked; proposed, for cabledrawer). Whoever restores from an export sets passwords again (cabledrawer 13 Nov).
 - Optional password encryption (cabledrawer's decision) is **not built yet**. It comes in a later
   version of this page; an export today is a plain zip, so keep it somewhere safe.
 - A full copy for disaster recovery is a backup, not an export: see `docs/restore.md`.
@@ -46,7 +47,8 @@ A photo's name is the `file_key` of its row in the `recipe_photo` table.
       "session": "who is signed in where (sign-in cookies)",
       "join_link": "sign-in links made for people",
       "api_token": "API tokens, which only an admin at the screen makes",
-      "former_name": "old names kept for 15 days so Report a problem can remove them"
+      "former_name": "old names kept for 15 days so Report a problem can remove them",
+      "sso_account": "single sign-on sign-ins waiting for an admin, refused or unlinked"
     },
     "columns": {
       "login.password_hash": "passwords, even scrambled",

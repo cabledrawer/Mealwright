@@ -24,6 +24,10 @@ export interface PersonLogin {
   link_used_at: string | null;
   /** An unused Reset password link that hasn't run out. */
   reset_pending: boolean;
+  /** Linked to an account at the household's sign-in server (0.9.5 Pe3/M2). */
+  sso_linked?: boolean;
+  /** That account's username at the sign-in server, once it has signed in here. */
+  sso_username?: string | null;
 }
 
 export interface Person {
@@ -47,6 +51,20 @@ export interface People {
   ask_whos_this: boolean;
   /** The change just made (for its Undo); null when nothing changed or on a plain look. */
   change?: Change | null;
+  /** "Who is this?" (0.9.5 Pe3/M2): single sign-on sign-ins that match nobody, newest first.
+   *  Empty for a member. */
+  waiting?: WaitingSignIn[];
+}
+
+/** A single sign-on sign-in waiting for an admin to say who it is. */
+export interface WaitingSignIn {
+  id: number;
+  /** Its username at the sign-in server. */
+  username: string;
+  /** Its last sign-in here (UTC). */
+  signed_in_at: string;
+  /** What the sign-in server's groups made it: only an "admin" one can be linked to an admin. */
+  role: Role;
 }
 
 export interface PersonChange {
@@ -114,6 +132,13 @@ export const resetPassword = (id: number) =>
 export const cancelMyResetLink = () => api<void>('DELETE', '/me/reset-link');
 
 export const setAskWhosThis = (on: boolean) => api<People>('PUT', '/people/ask-whos-this', { on });
+
+/** "Who is this?": link a waiting sign-in to a person, or to a new person (null). */
+export const linkSignIn = (id: number, member_id: number | null) =>
+  api<People>('POST', `/people/sso-accounts/${id}/link`, { member_id });
+
+/** "Not someone I know: refuse": it can't sign in until an admin links it after all. */
+export const refuseSignIn = (id: number) => api<People>('POST', `/people/sso-accounts/${id}/refuse`);
 
 export const getWhosThis = () => api<WhosThis>('GET', '/whos-this');
 

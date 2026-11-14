@@ -10,7 +10,7 @@ the same afterwards.
 """
 
 from collections.abc import Iterator
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +24,7 @@ from test_mealie_import import zipped as mealie_zipped
 from mealwright.auth import hash_password
 from mealwright.db import Base
 from mealwright.household import add_default_places
-from mealwright.models import Household, Login
+from mealwright.models import Household, Login, SsoAccount
 
 API = "/api/v1"
 NEIGHBOUR = {"username": "neighbour", "password": "next door's own password"}
@@ -166,7 +166,21 @@ def mine(kitchen: TestClient, tmp_path: Path) -> dict[str, Any]:
     token = ok(
         kitchen.post(f"{API}/api-tokens", json={"name": "Home Assistant", "scope": "read"}), 201
     )["made"]
+    # A single sign-on account waiting for an admin of household 1 ("Who is this?").
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        account = SsoAccount(
+            household_id=1,
+            issuer="https://id.example.org",
+            subject="noor-1",
+            username="noor",
+            role="member",
+            waiting_since=datetime.now(UTC),
+        )
+        db.add(account)
+        db.commit()
+        account_id = account.id
     return {
+        "account_id": account_id,
         "token_id": token["id"],
         "member_id": joss["id"],
         "sign_in_id": sign_in,
@@ -346,6 +360,10 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("DELETE", "/api/v1/people/{member_id}/login"): None,
     # Reset password (0.9.5 Pe1). Also tried in test_reset_password.py.
     ("POST", "/api/v1/people/{member_id}/reset-password"): None,
+    # "Who is this?" and the Person page's single sign-on row (0.9.5 Pe3/M2). Also tried in
+    # test_sso_waiting.py and test_sso_unlink.py.
+    ("POST", "/api/v1/people/sso-accounts/{account_id}/link"): {"member_id": None},
+    ("POST", "/api/v1/people/sso-accounts/{account_id}/refuse"): None,
     # Signing out one device (0.9 A2): another household's sign-in is "not found".
     ("DELETE", "/api/v1/me/sessions/{sign_in_id}"): None,
     # Deleting an API token (0.9 O2): another household's token is "not found".

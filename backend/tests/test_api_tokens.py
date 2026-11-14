@@ -421,6 +421,9 @@ NEVER_ROUTES = [
     ("DELETE", "/people/{wren}/login", None),
     ("POST", "/people/{someone}/reset-password", None),
     ("PUT", "/people/ask-whos-this", {"on": True}),
+    # "Who is this?" and the Person page's single sign-on row (0.9.5 Pe3/M2)
+    ("POST", "/people/sso-accounts/{someone}/link", {"member_id": None}),
+    ("POST", "/people/sso-accounts/{someone}/refuse", None),
     # Privacy (and the update check, which connects out)
     ("PUT", "/privacy/switches/{switch}", {"on": True}),
     ("POST", "/privacy/own-network", {"value": "wiki.home"}),

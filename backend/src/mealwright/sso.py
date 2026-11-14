@@ -122,6 +122,11 @@ MESSAGES: dict[str, str] = {
         "household’s admin."
     ),
     "no_account": "There’s no Mealwright account for you yet. Ask your household’s admin.",
+    # 0.9.5 Pe3/M2 (proposed, for cabledrawer): an admin chose "Not someone I know: refuse".
+    "not_known": (
+        "Your household’s admin doesn’t know this account, so it can’t sign in here. Ask them "
+        "if that’s a mistake."
+    ),
     "removed": "That account was removed. Ask your household’s admin.",
     "someone_else": (
         "Your account is linked to someone else at your sign-in server. Sign out there and "

@@ -2,7 +2,8 @@
   // Settings → Household (0.9 A1, mockup Dark-Household09-Phone): the household's name, its
   // people (each opens their Person screen), "+ Add a person", and the "Who's this?" switch for
   // shared logins. Everyone in the household sees it; only an admin changes it. Offline it shows
-  // what was last loaded and can't be changed.
+  // what was last loaded and can't be changed. An admin sees single sign-on sign-ins that match
+  // nobody, and says who each is ("Who is this?", 0.9.5 Pe3/M2, Dark-HouseholdWaiting095-Phone).
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { onMount, tick } from 'svelte';
@@ -10,9 +11,11 @@
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
   import PersonAvatar from '#lib/components/people/PersonAvatar.svelte';
+  import WhoIsThis from '#lib/components/people/WhoIsThis.svelte';
   import { personLine } from '#lib/client/people.js';
   import { network } from '#lib/network.svelte.js';
   import { household, sentence } from '#lib/people.svelte.js';
+  import { waitingLine, waitingTitle } from '#lib/ssoWaitingWords.js';
 
   const locked = $derived(!household.canChange || network.offline);
 
@@ -23,6 +26,11 @@
   let addError = $state<string | undefined>();
   let switchProblem = $state<string | null>(null);
   let addField = $state<HTMLInputElement>();
+  /** The waiting sign-in whose "Who is this?" sheet is open. */
+  let whoId = $state<number | null>(null);
+  const who = $derived(household.waiting.find((w) => w.id === whoId) ?? null);
+  // The newest waits first: one "Who is this?" at a time.
+  const nextWaiting = $derived(household.waiting[0] ?? null);
 
   onMount(() => {
     void household.load().then(() => (name = household.name));
@@ -82,6 +90,16 @@
     }
   }
 
+  async function linkWho(memberId: number | null) {
+    if (whoId === null) return;
+    if (await household.link(whoId, memberId)) whoId = null;
+  }
+
+  async function refuseWho() {
+    if (whoId === null) return;
+    if (await household.refuse(whoId)) whoId = null;
+  }
+
   async function ask(on: boolean) {
     switchProblem = null;
     household.askWhosThis = on;
@@ -118,6 +136,37 @@
         {household.problem}
         <button type="button" class="link" onclick={() => void household.load()}>Try again</button>
       </p>
+    {/if}
+
+    {#if household.canChange && nextWaiting}
+      <div class="waiting">
+        <div class="warn" role="status">
+          <svg
+            aria-hidden="true"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5v.5"></path></svg
+          >
+          <span class="warn-words">
+            <strong>{waitingTitle(household.waiting.length)}</strong>
+            {#each household.waiting as waiting (waiting.id)}
+              <span>{waitingLine(waiting, new Date(), household.zone)}</span>
+            {/each}
+          </span>
+        </div>
+        <button
+          class="who"
+          type="button"
+          disabled={network.offline}
+          onclick={() => (whoId = nextWaiting?.id ?? null)}>Who is this?</button
+        >
+      </div>
     {/if}
 
     <div class="field">
@@ -244,6 +293,17 @@
       {/if}
     </section>
 
+    <WhoIsThis
+      waiting={who}
+      people={household.people}
+      zone={household.zone}
+      busy={household.busy}
+      offline={network.offline}
+      onlink={linkWho}
+      onrefuse={refuseWho}
+      onclose={() => (whoId = null)}
+    />
+
     <p class="note">
       Portions are kept for later: the plan and shopping list don’t use them yet. Only admins can
       add, change or remove people.
@@ -257,6 +317,51 @@
     flex-direction: column;
     gap: var(--space-8);
     max-width: 640px;
+  }
+
+  .waiting {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .warn {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-5);
+    padding: var(--space-6) 14px;
+    border: 1px solid var(--color-caution-border);
+    border-radius: var(--radius-xl);
+    background: var(--color-caution);
+    color: var(--color-caution-text);
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    line-height: 1.45;
+  }
+
+  .warn svg {
+    flex: none;
+    margin-top: 1px;
+  }
+
+  .warn-words {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .who {
+    align-self: stretch;
+    min-height: 52px;
+    border: none;
+    border-radius: var(--radius-button);
+    background: var(--color-inverse);
+    color: var(--color-inverse-text);
+    font-size: 1rem;
+    font-weight: var(--weight-extrabold);
+    cursor: pointer;
   }
 
   .section {

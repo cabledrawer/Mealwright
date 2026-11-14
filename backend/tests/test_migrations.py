@@ -781,9 +781,9 @@ TOKEN_TABLES = {"api_token"}  # API tokens (0.9 O2)
 
 
 def _row_counts(engine: Engine, skip: set[str]) -> dict[str, int]:
-    # `former_name` (beta fix5) and `mealie_import` (0.9.5) are made by migrations newer than
-    # every one these tests go back to.
-    newer = {"former_name", "mealie_import"}
+    # `former_name` (beta fix5), `mealie_import` (0.9.5) and `sso_account` (0.9.5 Pe3/M2) are made
+    # by migrations newer than every one these tests go back to.
+    newer = {"former_name", "mealie_import", "sso_account"}
     names = [n for n in inspect(engine).get_table_names() if n not in skip | newer]
     with engine.connect() as connection:
         return {

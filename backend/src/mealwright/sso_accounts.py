@@ -1,10 +1,11 @@
 """Single sign-on's accounts and sign-ins (0.9 O1): the database side of `mealwright.sso`.
 
 - **Which login.** A login is found only by the provider's issuer and subject together
-  (`sub`), never by a user name or email address, so a provider can't take over an existing
-  password account by naming it. A new person gets an account on first sign-in when the admin
-  allows that; if their user name is taken already, they're refused with a clear message
-  (cabledrawer 12 Nov).
+  (`sub`). On an account's first sign-in it is linked automatically only to the login whose
+  username is exactly its username at the sign-in server (Pe3/M2, cabledrawer 13 Nov:
+  `same_username`); nobody is ever made at a sign-in. Anyone else waits (`Waiting`, the
+  `sso_account` table) until an admin links them to a person, makes them a new person, or
+  refuses them ("Who is this?" on Settings → Household).
 - **Which role.** On every sign-in, the groups the provider sends decide: any group mapped to
   Admin gives Admin, else any mapped to Member gives Member, else "Anyone else" (Not let in, the
   default, or Member; cabledrawer 12 Nov). The household's last admin who can sign in is
@@ -43,7 +44,7 @@ from sqlalchemy.orm import sessionmaker
 from mealwright import api_tokens, own_network, sso
 from mealwright.auth import now
 from mealwright.events import Broadcaster
-from mealwright.models import Login, Member, Session, SsoSettings
+from mealwright.models import Login, Member, Session, SsoAccount, SsoSettings
 from mealwright.names import cut_text, fold, tidy_one_line
 from mealwright.outbound import Connection, OutboundGate, switches
 from mealwright.people import admin_can_sign_in, drop_admin_links
@@ -319,7 +320,7 @@ def _refused_known(
     raise failure
 
 
-def _member_name(db: DbSession, household_id: int, name: str | None, username: str) -> str:
+def member_name(db: DbSession, household_id: int, name: str | None, username: str) -> str:
     """The name of a new person made at first sign-in. Tidied as a typed name is, and, when
     someone of the household already has that name (Settings → Household refuses two the same),
     "<name> (<username>)" (whole-0.9 S4)."""
@@ -378,19 +379,90 @@ def _match(db: DbSession, row: SsoSettings, identity: Identity, role: str) -> Lo
     return login
 
 
+# At most this many sign-ins wait for an admin in a household: an older one stops waiting (it
+# waits again at its next sign-in), so a sign-in server can't fill the list (proposed, for
+# cabledrawer).
+MOST_WAITING = 20
+
+
+class Waiting(Exception):
+    """An account the groups let in that is linked to nobody: it waits for an admin ("Who is
+    this?"). Its row is flushed; the caller commits it and starts no session."""
+
+    def __init__(self, account: SsoAccount) -> None:
+        super().__init__("waiting")
+        self.account = account
+
+
+def shown_username(identity: Identity) -> str:
+    """The username an admin sees for this account: the sign-in server's own, as sent, else
+    Mealwright's made-up one."""
+    return cut_text(same_username(identity) or new_username(identity), 255)
+
+
+def seen(db: DbSession, row: SsoSettings, identity: Identity, role: str) -> SsoAccount:
+    """This household's row for the account, made or brought up to date with what the sign-in
+    server sent now. Flushes."""
+    account = db.scalar(
+        select(SsoAccount).where(
+            SsoAccount.household_id == row.household_id,
+            SsoAccount.issuer == identity.issuer,
+            SsoAccount.subject == identity.subject,
+        )
+    )
+    if account is None:
+        account = SsoAccount(
+            household_id=row.household_id, issuer=identity.issuer, subject=identity.subject
+        )
+        db.add(account)
+    account.username = shown_username(identity)
+    account.name = cut_text(tidy_one_line(identity.name or ""), 100) or None
+    account.role = role
+    account.seen_at = now()
+    db.flush()
+    return account
+
+
+def _wait(db: DbSession, account: SsoAccount) -> NoReturn:
+    """Put the account on the household's "Who is this?" list, keeping the list short."""
+    if account.waiting_since is None:
+        account.waiting_since = now()
+    db.flush()
+    older = db.scalars(
+        select(SsoAccount)
+        .where(
+            SsoAccount.household_id == account.household_id,
+            SsoAccount.waiting_since.is_not(None),
+        )
+        .order_by(SsoAccount.seen_at.desc(), SsoAccount.id.desc())
+        .offset(MOST_WAITING)
+    )
+    for stale in older:
+        stale.waiting_since = None
+    db.flush()
+    log.info("Single sign-on: %s waits for an admin", account.username)
+    raise Waiting(account)
+
+
 def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Path) -> Login:
     """The login this identity signs in as, with its role from the groups. On its first
-    sign-in it is linked automatically only to the login with exactly its username (`_match`);
-    nobody is ever made here. Raises SsoFailed. Flushes, doesn't commit."""
+    sign-in it is linked automatically only to the login with exactly its username (`_match`),
+    and never once an admin refused or unlinked it; nobody is ever made here. Raises SsoFailed,
+    or Waiting for an account linked to nobody. Flushes, doesn't commit."""
     role = role_for(row, identity.groups)
     login = find_login(db, identity)
     if login is None:
         if role is None:
             raise SsoFailed("not_let_in")
-        login = _match(db, row, identity, role)
+        account = seen(db, row, identity, role)
+        if account.refused_at is not None:
+            raise SsoFailed("not_known")
+        if account.unlinked_at is None:
+            login = _match(db, row, identity, role)
         if login is None:
-            raise SsoFailed("no_account")
+            _wait(db, account)
         login.sso_issuer, login.sso_subject = identity.issuer, identity.subject
+        account.waiting_since = None
         db.flush()
         log.info("Single sign-on: %s linked on first sign-in, same username", login.username)
     if login.household_id != row.household_id or _removed(db, login):
@@ -419,6 +491,7 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Pat
                 drop_admin_links(db, login.household_id)
             login.role = role
             api_tokens.clear_refused(db, login)  # a Member makes no tokens: the mark ends
+    seen(db, row, identity, role)
     return login
 
 

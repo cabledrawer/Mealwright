@@ -131,4 +131,29 @@ describe('the single sign-on callback', () => {
       .toHaveTextContent('That sign-in took too long or was already used. Try again.');
     expect(requests).toEqual([]);
   });
+
+  it('waits for an admin with no session: "Almost there" (Pe3/M2)', async () => {
+    requests = fakeApi({
+      'POST /sso/finish': [200, { done: 'waiting', me: null, test: null, username: 'lorna.s' }]
+    });
+    show('?state=s1&code=c1');
+    await expect.element(page.getByRole('heading', { name: 'Almost there' })).toBeVisible();
+    await expect
+      .element(page.getByText(/You signed in with single sign-on as lorna\.s, but this kitchen/))
+      .toBeVisible();
+    await expect
+      .element(page.getByRole('status'))
+      .toHaveTextContent(
+        'Nothing in Mealwright is open to you until then. Once they’ve linked you, sign in again.'
+      );
+    await expect
+      .element(page.getByRole('link', { name: 'Sign in again' }))
+      .toHaveAttribute('href', '/api/v1/sso/start?remember=false');
+    await expect
+      .element(page.getByRole('link', { name: 'Sign out' }))
+      .toHaveAttribute('href', '/sign-in');
+    expect(session.me).toBeNull();
+    expect(navigation.goto).not.toHaveBeenCalled();
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /sso/finish']);
+  });
 });

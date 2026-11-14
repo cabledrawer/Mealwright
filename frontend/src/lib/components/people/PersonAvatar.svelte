@@ -10,7 +10,7 @@
     name,
     colour,
     size = 36
-  }: { id: number; name: string; colour: Colour | null; size?: 36 | 52 | 56 } = $props();
+  }: { id: number; name: string; colour: Colour | null; size?: 32 | 36 | 52 | 56 } = $props();
 
   const shown: Colour = $derived(colour ?? COLOURS[Math.abs(id) % COLOURS.length] ?? 'green');
 </script>

@@ -21,6 +21,9 @@ export const SSO_MESSAGES: Record<string, string> = {
   not_let_in:
     'Your sign-in server doesn’t put you in a group Mealwright lets in. Ask your household’s admin.',
   no_account: 'There’s no Mealwright account for you yet. Ask your household’s admin.',
+  // 0.9.5 Pe3/M2 (proposed, for cabledrawer): an admin chose "Not someone I know: refuse".
+  not_known:
+    'Your household’s admin doesn’t know this account, so it can’t sign in here. Ask them if that’s a mistake.',
   removed: 'That account was removed. Ask your household’s admin.',
   someone_else:
     'Your account is linked to someone else at your sign-in server. Sign out there and test again.',
@@ -40,6 +43,18 @@ export const OR = 'or';
 
 export const SIGNING_IN = 'Signing you in…';
 export const BACK_TO_SIGN_IN = 'Back to sign in';
+
+// "Almost there" (0.9.5 Pe3/M2, mockup Dark-SsoWaiting095-Phone): a single sign-on sign-in
+// that matches nobody waits, with no session, until an admin says who it is.
+export const ALMOST_THERE = 'Almost there';
+/** Before and after the username, which is shown in bold between them. */
+export const WAITING_BEFORE = 'You signed in with single sign-on as';
+export const WAITING_AFTER =
+  ', but this kitchen doesn’t know that name yet. An admin needs to say who you are: ask them to open Settings › Household.';
+export const WAITING_NOTE =
+  'Nothing in Mealwright is open to you until then. Once they’ve linked you, sign in again.';
+export const SIGN_IN_AGAIN = 'Sign in again';
+export const SIGN_OUT = 'Sign out';
 export const BACK_TO_SETUP = 'Back to single sign-on';
 export const TEST_TAB_DONE = 'You can close this tab: the setup tab shows the result.';
 

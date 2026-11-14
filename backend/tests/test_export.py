@@ -72,12 +72,13 @@ def test_the_round_trip_brings_back_rows_and_photos(kitchen: TestClient) -> None
     assert doc["household_id"] == 1
     assert doc["database_revision"]
     # Every household table is there (even when empty), except the sign-ins, sign-in links,
-    # API tokens and the kept old names.
+    # API tokens, the kept old names and the single sign-on accounts.
     expected = {t.name for t in Base.metadata.sorted_tables} - {
         "session",
         "join_link",
         "api_token",
         "former_name",
+        "sso_account",
     }
     assert set(doc["tables"]) == expected
     names = [row["name"] for row in doc["tables"]["recipe"]]
@@ -120,7 +121,9 @@ def test_no_password_and_no_sign_in_ever_leaves(kitchen: TestClient) -> None:
         "join_link": "sign-in links made for people",
         "api_token": "API tokens, which only an admin at the screen makes",
         "former_name": "old names kept for 15 days so Report a problem can remove them",
+        "sso_account": "single sign-on sign-ins waiting for an admin, refused or unlinked",
     }
+    assert "sso_account" not in doc["tables"]  # single sign-on sign-ins (0.9.5) too
     assert "login.password_hash" in doc["left_out"]["columns"]
     assert "sso_settings.client_secret_sealed" in doc["left_out"]["columns"]
     assert "login.sso_refused_at" in doc["left_out"]["columns"]

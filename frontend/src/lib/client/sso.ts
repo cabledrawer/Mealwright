@@ -31,11 +31,15 @@ export interface TestResult {
 
 export interface FinishOut {
   /** 'again': the sign-in server refused the sign-in for asking to stay signed in while
-   *  away; the browser goes to `url` to try once more without (the server allows one). */
-  done: 'signed_in' | 'tested' | 'again';
+   *  away; the browser goes to `url` to try once more without (the server allows one).
+   *  'waiting': it matched nobody, and waits for an admin ("Almost there"). */
+  done: 'signed_in' | 'tested' | 'again' | 'waiting';
   me: Me | null;
   test: TestResult | null;
   url?: string | null;
+  /** 'waiting' (0.9.5 Pe3/M2): the username at the sign-in server, which matched nobody here;
+   *  there is no session until an admin says who it is. */
+  username?: string | null;
 }
 
 export interface GroupRole {

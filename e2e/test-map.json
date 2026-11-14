@@ -256,7 +256,7 @@
         "backend/src/mealwright/api/v1/my_sign_in.py", "backend/src/mealwright/devices.py", "frontend/src/lib/mySignIn*",
         "frontend/src/routes/(app)/settings/SignInSection.svelte", "frontend/src/routes/(app)/settings/password/**",
         "backend/src/mealwright/setup_code.py", "backend/src/mealwright/reset_admin.py", "backend/src/mealwright/forwarded.py",
-        "backend/src/mealwright/sso.py", "backend/src/mealwright/sso_accounts.py", "backend/src/mealwright/secret_box.py",
+        "backend/src/mealwright/sso.py", "backend/src/mealwright/sso_accounts.py", "backend/src/mealwright/sso_people.py", "frontend/src/lib/ssoWaitingWords*", "backend/src/mealwright/secret_box.py",
         "backend/src/mealwright/api/v1/sso.py", "frontend/src/routes/auth/**", "frontend/src/lib/client/sso.ts", "frontend/src/lib/ssoWords.ts",
         "backend/src/mealwright/api_tokens.py", "backend/src/mealwright/api/v1/tokens.py", "frontend/src/lib/apiTokens*",
         "frontend/src/routes/(app)/settings/api-tokens/**", "frontend/src/routes/(app)/settings/signInTokens.test.ts"
@@ -270,7 +270,7 @@
         "test_sso_proven.py", "test_sso_own_network.py", "test_sso_look_up_cap.py", "test_sso_guards.py",
         "test_api_tokens_sso.py", "test_api_tokens_sign_out.py", "test_api_tokens_guards.py",
         "test_sso_passwords_off_class.py", "test_sso_refused.py", "test_sso_restart.py",
-        "test_sso_slow_provider.py", "test_sso_kept.py"
+        "test_sso_slow_provider.py", "test_sso_kept.py", "test_sso_waiting.py", "test_migration_sso_accounts.py"
       ],
       "browser": ["sign-in.spec.ts", "csp.spec.ts", "my-sign-in.spec.ts", "sso.spec.ts", "api-tokens.spec.ts"]
     },

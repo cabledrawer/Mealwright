@@ -81,6 +81,8 @@ def test_everyone_sees_the_people_and_only_an_admin_can_change_them(kitchen: Tes
         "link_pending": False,
         "link_used_at": None,
         "reset_pending": False,
+        "sso_linked": False,
+        "sso_username": None,
     }
     assert me["portion_quarters"] == 4
     assert other["name"] == "Wren" and other["is_me"] is False
@@ -407,6 +409,8 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
         "link_pending": True,
         "link_used_at": None,
         "reset_pending": False,
+        "sso_linked": False,
+        "sso_username": None,
     }
     note = _newest(kitchen)
     assert note["summary"] == "Made a sign-in link for Sam" and note["can_undo"] is False

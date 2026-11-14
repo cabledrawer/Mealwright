@@ -6,6 +6,8 @@
   //   holds starts clean, but never over changes still waiting here: then the new session is
   //   ended again and the sign-in page says whose changes are waiting.
   // - a setup test: the result, and the setup tab shows it too (it looks again on focus).
+  // - waiting (0.9.5 Pe3/M2): the sign-in matched nobody here and waits, with no session, until
+  //   an admin says who it is: "Almost there" (mockup Dark-SsoWaiting095-Phone).
   // - refused: the server's sentence, and a way back.
   // - again: the sign-in server refused the sign-in for one thing Mealwright asked for and
   //   can do without; the server has begun a second try, and the browser goes there.
@@ -14,16 +16,27 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
-  import { finishSignIn, goToSignInServer, type TestResult } from '#lib/client/sso.js';
+  import {
+    finishSignIn,
+    goToSignInServer,
+    startAddress,
+    type TestResult
+  } from '#lib/client/sso.js';
   import Logo from '#lib/components/Logo.svelte';
   import { endSession } from '#lib/offline/signOut.js';
   import { signOutState } from '#lib/offline/unfinished.svelte.js';
   import { wipeIfAnotherLogin } from '#lib/offline/wipe.js';
   import { session } from '#lib/session.svelte.js';
   import {
+    ALMOST_THERE,
     BACK_TO_SETUP,
     BACK_TO_SIGN_IN,
+    SIGN_IN_AGAIN,
+    SIGN_OUT,
     SIGNING_IN,
+    WAITING_AFTER,
+    WAITING_BEFORE,
+    WAITING_NOTE,
     TEST_TAB_DONE,
     ssoMessage,
     testPassedText
@@ -38,6 +51,8 @@
 
   let problem = $state('');
   let tested = $state<TestResult | null>(null);
+  /** "Almost there": the username at the sign-in server that waits for an admin. */
+  let waitingAs = $state<string | null>(null);
   /** Where "Back" goes: the setup screen for a test. */
   let back = $state<'sign-in' | 'setup'>('sign-in');
 
@@ -50,6 +65,10 @@
       const out = await finishSignIn(flowState, code, error);
       if (out.done === 'again' && out.url) {
         goToSignInServer(out.url);
+        return;
+      }
+      if (out.done === 'waiting') {
+        waitingAs = out.username ?? '';
         return;
       }
       if (out.done === 'tested') {
@@ -86,7 +105,16 @@
 <div class="page">
   <Logo size={56} />
   <main class="card">
-    {#if tested}
+    {#if waitingAs !== null}
+      <h1 class="title">{ALMOST_THERE}</h1>
+      <p class="lead">{WAITING_BEFORE} <strong>{waitingAs}</strong>{WAITING_AFTER}</p>
+      <p class="info" role="status">{WAITING_NOTE}</p>
+      <div class="buttons">
+        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an API address, not a page -->
+        <a class="primary" href={startAddress(false)} data-sveltekit-reload>{SIGN_IN_AGAIN}</a>
+        <a class="secondary" href={resolve('/(auth)/sign-in')}>{SIGN_OUT}</a>
+      </div>
+    {:else if tested}
       {#if tested.passed}
         <p class="ok" role="status">
           {testPassedText(tested.username, tested.groups, tested.role)}
@@ -126,6 +154,63 @@
     gap: 18px;
     width: 100%;
     max-width: 440px;
+  }
+
+  .title {
+    margin: 0;
+    font-size: 26px;
+    font-weight: var(--weight-extrabold);
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+  }
+
+  .lead {
+    color: var(--color-text-soft);
+    font-size: 1rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  .lead strong {
+    color: var(--color-text);
+  }
+
+  .info {
+    padding: var(--space-5) 14px;
+    border-radius: var(--radius-field);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-base);
+    line-height: 1.45;
+  }
+
+  .buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .primary,
+  .secondary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    border-radius: 14px;
+    font-size: var(--text-lg);
+    font-weight: var(--weight-bold);
+    text-decoration: none;
+  }
+
+  .primary {
+    background: var(--color-inverse);
+    color: var(--color-inverse-text);
+  }
+
+  .secondary {
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface);
+    color: var(--color-text);
   }
 
   .wait,

@@ -9,11 +9,14 @@ import {
   addPerson,
   changePerson,
   getPeople,
+  linkSignIn,
+  refuseSignIn,
   removePerson,
   setAskWhosThis,
   type Colour,
   type People,
-  type PersonChange
+  type PersonChange,
+  type WaitingSignIn
 } from './client/people';
 import { nothingChanged } from './downWords';
 import { network } from './network.svelte';
@@ -36,6 +39,8 @@ class Household_ {
   people = $state<People['people']>([]);
   canChange = $state(false);
   askWhosThis = $state(false);
+  /** "Who is this?" (0.9.5 Pe3/M2): single sign-on sign-ins waiting for an admin. */
+  waiting = $state<WaitingSignIn[]>([]);
   name = $state('');
   /** The household's time zone, for times on the Person page (null: this device's own). */
   zone = $state<string | null>(null);
@@ -52,6 +57,7 @@ class Household_ {
     this.people = [];
     this.canChange = false;
     this.askWhosThis = false;
+    this.waiting = [];
     this.name = '';
     this.zone = null;
     this.busy = false;
@@ -61,6 +67,7 @@ class Household_ {
     this.people = found.people;
     this.canChange = found.can_change;
     this.askWhosThis = found.ask_whos_this;
+    this.waiting = found.waiting ?? [];
   }
 
   async load(): Promise<void> {
@@ -111,6 +118,16 @@ class Household_ {
 
   remove(id: number) {
     return this.#write(removePerson(id));
+  }
+
+  /** Link a waiting sign-in to a person, or to a new person (null). */
+  link(id: number, memberId: number | null) {
+    return this.#write(linkSignIn(id, memberId));
+  }
+
+  /** "Not someone I know: refuse". */
+  refuse(id: number) {
+    return this.#write(refuseSignIn(id));
   }
 
   ask(on: boolean) {
