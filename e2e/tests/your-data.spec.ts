@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
@@ -93,4 +95,54 @@ test('Delete everything waits for the words, and a wrong password deletes nothin
   // Nothing was deleted: still signed in, and Settings still opens.
   await page.goto('/settings/your-data');
   await expect(page.getByRole('heading', { level: 1, name: 'Your data' })).toBeVisible();
+});
+
+// An admin who signs in only with single sign-on (0.9.5 D3): no password to type, so they
+// confirm at the sign-in server. The answer that says so is made here (page.route); the
+// server's side, with a real fresh sign-in, is in backend/tests/test_sso_confirm_delete.py.
+const SSO_WAY = { confirm_with: 'single_sign_on', confirmed: false };
+
+function confirmWith(page: Page, answer: object) {
+  return page.route('**/api/v1/delete-everything', (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answer) })
+      : route.continue(),
+  );
+}
+
+test('Delete everything for a single sign-on admin asks to confirm at the sign-in server, not for a password', async ({ page }) => {
+  await confirmWith(page, SSO_WAY);
+  await page.goto('/settings/your-data/delete');
+  await expect(page.getByRole('heading', { level: 1, name: 'Delete everything?' })).toBeVisible();
+  await expect(page.getByLabel('Your password')).toHaveCount(0);
+  await expect(page.getByText(/^You sign in with single sign-on, so confirm at your sign-in server/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Confirm at your sign-in server' })).toBeVisible();
+  await page.getByLabel(/to confirm/).fill('delete everything');
+  // The words alone aren't enough: the confirmation at the sign-in server comes first.
+  await expect(page.getByRole('button', { name: 'Delete everything', exact: true })).toBeDisabled();
+  await checkPage(page);
+});
+
+test('once confirmed at the sign-in server, the words are all that is left', async ({ page }) => {
+  await confirmWith(page, { ...SSO_WAY, confirmed: true });
+  await page.goto('/settings/your-data/delete');
+  await expect(page.getByRole('status').filter({ hasText: 'Confirmed at your sign-in server. Delete within 10 minutes.' })).toBeVisible();
+  const button = page.getByRole('button', { name: 'Delete everything', exact: true });
+  await expect(button).toBeDisabled();
+  await page.getByLabel(/to confirm/).fill('delete everything');
+  await expect(button).toBeEnabled();
+});
+
+test('screenshots, dark (by hand only)', async ({ page }) => {
+  test.skip(!process.env.E2E_SHOTS_DIR || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+  const dir = process.env.E2E_SHOTS_DIR!;
+  mkdirSync(dir, { recursive: true });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await confirmWith(page, SSO_WAY);
+  for (const width of [428, 768, 1100, 1300]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/settings/your-data/delete');
+    await expect(page.getByRole('button', { name: 'Confirm at your sign-in server' })).toBeVisible();
+    await page.screenshot({ path: join(dir, `delete-everything-sso-${width}.png`), fullPage: true });
+  }
 });

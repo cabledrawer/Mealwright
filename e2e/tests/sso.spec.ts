@@ -135,6 +135,91 @@ test('the callback signs in once and goes on to the app', async ({ page }) => {
   expect(posts).toBe(1);
 });
 
+test.describe('Almost there: a sign-in that matches nobody waits', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  const WAITING_ANSWER = { done: 'waiting', me: null, username: 'lorna.s', test: null };
+
+  async function arrive(page: Page) {
+    await signInOptions(page, true);
+    await answer(page, '/sso/finish', WAITING_ANSWER);
+    await page.goto('/auth/callback?state=s3&code=c3');
+    await expect(page.getByRole('heading', { level: 1, name: 'Almost there' })).toBeVisible();
+  }
+
+  test('says who signed in and that an admin must say who they are; nothing opens, and Sign in again goes back to the sign-in server', async ({ page }) => {
+    await arrive(page);
+    await expect(page.getByText('lorna.s', { exact: true })).toBeVisible();
+    await expect(page.getByText(/ask them to open Settings › Household\./)).toBeVisible();
+    await expect(page.getByRole('status')).toContainText('Nothing in Mealwright is open to you until then.');
+    await expect(page.getByRole('link', { name: 'Sign in again' })).toHaveAttribute('href', '/api/v1/sso/start?remember=false');
+    // No session: the app's pages send this browser to sign in.
+    await expect(page).toHaveURL(/\/auth\/callback/);
+    expect((await page.request.get('/api/v1/me')).status()).toBe(401);
+  });
+
+  test('Sign out ends the waiting and goes to the sign-in page', async ({ page }) => {
+    await arrive(page);
+    await page.route('**/api/v1/session', (route) =>
+      route.request().method() === 'DELETE' ? route.fulfill({ status: 204 }) : route.continue(),
+    );
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await expect(page).toHaveURL(/\/sign-in/);
+  });
+
+  test('screenshots, dark (by hand only)', async ({ page }) => {
+    test.skip(!process.env.E2E_SHOTS_DIR || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+    await shots(page, 'almost-there', () => arrive(page));
+  });
+});
+
+test.describe('turning single sign-on off with only a link', () => {
+  const LOCKED = 'You’d be locked out: set a password or add another admin first.';
+
+  test('the switch stays on and says why when the server refuses', async ({ page }) => {
+    await answer(page, '/privacy/switches', {
+      switches: [{ connection: 'single_sign_on', on: true }],
+      can_change: true,
+    });
+    await page.route('**/api/v1/privacy/switches/single_sign_on', (route) =>
+      route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: LOCKED, code: 'locked_out' }),
+      }),
+    );
+    await page.goto('/settings/privacy');
+    const toggle = page.getByRole('switch', { name: 'Single sign-on' });
+    await expect(toggle).toBeChecked();
+    await toggle.click();
+    await expect(page.getByRole('alert')).toHaveText(LOCKED);
+    await expect(toggle).toBeChecked();
+  });
+
+  test('screenshots, dark (by hand only)', async ({ page }) => {
+    test.skip(!process.env.E2E_SHOTS_DIR || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+    await answer(page, '/privacy/switches', {
+      switches: [{ connection: 'single_sign_on', on: true }],
+      can_change: true,
+    });
+    await page.route('**/api/v1/privacy/switches/single_sign_on', (route) =>
+      route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: LOCKED, code: 'locked_out' }),
+      }),
+    );
+    await shots(page, 'locked-out', async () => {
+      await page.goto('/settings/privacy');
+      const toggle = page.getByRole('switch', { name: 'Single sign-on' });
+      await expect(toggle).toBeVisible();
+      if (!(await toggle.isChecked())) await toggle.click();
+      await toggle.click();
+      await expect(page.getByRole('alert')).toHaveText(LOCKED);
+    });
+  });
+});
+
 test('Settings › Sign-in: the Single sign-on row, and password sign-in can’t go off yet', async ({ page }) => {
   await page.goto('/settings?section=sign-in');
   const row = page.getByRole('link', { name: /Single sign-on/ });

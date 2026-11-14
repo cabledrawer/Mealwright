@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { test, expect, request, type Browser, type Page } from './clock.ts';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
@@ -353,4 +355,121 @@ test('a shared login asks “Who’s this?” when the switch is on; the pick is
   } finally {
     await theirs.close();
   }
+});
+
+// --- Single sign-on: "Who is this?" and the Person page (0.9.5 Pe3/M2) ---------------------------
+// The sign-in server's side is in the backend tests; here the page's own answers are the real
+// ones with the single sign-on parts added (page.route), so nothing in the worker's server changes.
+
+const WAITING = { id: 7, username: 'lorna.s', signed_in_at: new Date().toISOString(), role: 'member' };
+
+/** GET /people as the server answers it, with single sign-on set up, `waiting` sign-ins, and
+ *  `linked` (a name → the sign-in server's username) for the people it links. */
+async function withSso(page: Page, waiting: Json[], linked: Record<string, string> = {}) {
+  await page.route('**/api/v1/people', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const real = await route.fetch();
+    const body = (await real.json()) as Json;
+    body.single_sign_on = true;
+    body.waiting = waiting;
+    for (const person of body.people as Json[]) {
+      const username = linked[person.name as string];
+      if (username && person.login) Object.assign(person.login, { sso_linked: true, sso_username: username });
+    }
+    return route.fulfill({ response: real, json: body });
+  });
+}
+
+test('Who is this? lists a waiting sign-in and links it to the person picked', async ({ page, app }) => {
+  const lorna = `Lorna ${mark()}`;
+  const made = await personWhoSignsIn(page, app.url, lorna, `lorna${mark()}`);
+  await withSso(page, [WAITING]);
+  const linked: Json[] = [];
+  await page.route('**/api/v1/people/sso-accounts/7/link', (route) => {
+    linked.push(route.request().postDataJSON());
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ people: [], waiting: [] }) });
+  });
+  await page.goto('/settings/household');
+  await expect(page.getByText('1 sign-in waiting')).toBeVisible();
+  await expect(page.getByText(/^lorna\.s signed in with single sign-on .* and doesn’t match anyone here\.$/)).toBeVisible();
+  await page.getByRole('button', { name: 'Who is this?' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Who is lorna.s?' });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Not someone I know: refuse' })).toBeVisible();
+  await expect(sheet.getByRole('radio', { name: 'A new person' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Choose who it is' })).toBeDisabled();
+  await checkPage(page);
+  await sheet.getByRole('radio', { name: new RegExp(lorna) }).click();
+  await sheet.getByRole('button', { name: `Link to ${lorna}` }).click();
+  await expect.poll(() => linked).toEqual([{ member_id: made.id }]);
+});
+
+test('the Person page says who a linked person is, Unlink unlinks them, and Link… offers the waiting sign-ins', async ({ page, app }) => {
+  const lorna = `Lorna ${mark()}`;
+  const made = await personWhoSignsIn(page, app.url, lorna, `lorna${mark()}`);
+  await withSso(page, [WAITING], { [lorna]: 'lorna.s' });
+  const unlinked: string[] = [];
+  await page.route(`**/api/v1/people/${made.id}/sso`, (route) => {
+    unlinked.push(route.request().method());
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ people: [], waiting: [] }) });
+  });
+  await page.goto(`/settings/household/${made.id}`);
+  await expect(page.getByText('Single sign-on', { exact: true })).toBeVisible();
+  await expect(page.getByText('Linked to lorna.s on your sign-in server')).toBeVisible();
+  await checkPage(page);
+  await page.getByRole('button', { name: 'Unlink' }).click();
+  await expect.poll(() => unlinked).toEqual(['DELETE']);
+});
+
+test('an unlinked person shows how they get linked, and Link… opens the waiting sign-ins', async ({ page, app }) => {
+  const lorna = `Lorna ${mark()}`;
+  const made = await personWhoSignsIn(page, app.url, lorna, `lorna${mark()}`);
+  await withSso(page, [WAITING]);
+  await page.goto(`/settings/household/${made.id}`);
+  await expect(page.getByText(/^Not linked\. Linked automatically when the sign-in server’s username is the same as here/)).toBeVisible();
+  await page.getByRole('button', { name: 'Link…' }).click();
+  const sheet = page.getByRole('dialog', { name: `Link ${lorna} to a sign-in` });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole('radio', { name: /lorna\.s/ })).toBeVisible();
+  await checkPage(page);
+  await page.keyboard.press('Escape');
+  await expect(sheet).toBeHidden();
+});
+
+test('screenshots, dark (by hand only)', async ({ page, app }) => {
+  test.skip(!process.env.E2E_SHOTS_DIR || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+  const dir = process.env.E2E_SHOTS_DIR!;
+  mkdirSync(dir, { recursive: true });
+  const lorna = `Lorna ${mark()}`;
+  const made = await personWhoSignsIn(page, app.url, lorna, `lorna${mark()}`);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  const shoot = async (screen: string, open: () => Promise<void>) => {
+    for (const width of [428, 768, 1100, 1300]) {
+      await page.setViewportSize({ width, height: 900 });
+      await open();
+      await page.screenshot({ path: join(dir, `${screen}-${width}.png`), fullPage: true });
+    }
+  };
+  await withSso(page, [WAITING]);
+  await shoot('household-who-is-this', async () => {
+    await page.goto('/settings/household');
+    await expect(page.getByText('1 sign-in waiting')).toBeVisible();
+    await page.getByRole('button', { name: 'Who is this?' }).click();
+    await expect(page.getByRole('dialog', { name: 'Who is lorna.s?' })).toBeVisible();
+  });
+  await shoot('person-unlinked', async () => {
+    await page.goto(`/settings/household/${made.id}`);
+    await expect(page.getByRole('button', { name: 'Link…' })).toBeVisible();
+  });
+  await shoot('person-link-sheet', async () => {
+    await page.goto(`/settings/household/${made.id}`);
+    await page.getByRole('button', { name: 'Link…' }).click();
+    await expect(page.getByRole('dialog', { name: `Link ${lorna} to a sign-in` })).toBeVisible();
+  });
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+  await withSso(page, [], { [lorna]: 'lorna.s' });
+  await shoot('person-linked', async () => {
+    await page.goto(`/settings/household/${made.id}`);
+    await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible();
+  });
 });
