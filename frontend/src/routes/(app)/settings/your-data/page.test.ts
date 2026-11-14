@@ -180,6 +180,22 @@ describe('Settings → Your data', () => {
       made.mockRestore();
     });
 
+    it('works in a browser without AbortSignal.any, and leaving still stops it', async () => {
+      vi.stubGlobal('AbortSignal', {
+        timeout: AbortSignal.timeout.bind(AbortSignal),
+        abort: AbortSignal.abort.bind(AbortSignal)
+      }); // no `any`
+      expect((AbortSignal as unknown as { any?: unknown }).any).toBeUndefined();
+      const made = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:made');
+      open(YourData, { 'POST /export': [200, { fine: true }] });
+      await userEvent.fill(box(), 'lorna and noor');
+      await userEvent.click(page.getByRole('button', { name: 'Export' }));
+      await vi.waitFor(() => expect(made).toHaveBeenCalled());
+      await expect.element(box()).toHaveValue('');
+      expect(document.querySelector('[role="alert"]')).toBeNull();
+      made.mockRestore();
+    });
+
     it('Enter in the box exports too', async () => {
       const made = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:made');
       open(YourData, { 'POST /export': [200, {}] });

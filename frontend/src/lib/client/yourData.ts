@@ -60,7 +60,22 @@ export const getHowToConfirm = () => api<HowToConfirm>('GET', '/delete-everythin
  * the person goes to another page.
  */
 export async function exportWithPassword(password: string, leave?: AbortSignal): Promise<void> {
-  const timeout = AbortSignal.timeout(600_000);
+  // One controller that both leaving the page and the time limit stop (no AbortSignal.any:
+  // older browsers lack it, and every encrypted export would fail there).
+  const stop = new AbortController();
+  const onLeave = () => stop.abort();
+  if (leave?.aborted) return;
+  leave?.addEventListener('abort', onLeave);
+  const timer = setTimeout(onLeave, 600_000);
+  try {
+    await download(password, stop.signal);
+  } finally {
+    clearTimeout(timer);
+    leave?.removeEventListener('abort', onLeave);
+  }
+}
+
+async function download(password: string, signal: AbortSignal): Promise<void> {
   let response: Response;
   try {
     response = await fetch(EXPORT_PATH, {
@@ -68,7 +83,7 @@ export async function exportWithPassword(password: string, leave?: AbortSignal):
       credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ password }),
-      signal: leave ? AbortSignal.any([leave, timeout]) : timeout
+      signal
     });
   } catch {
     throw new ApiError(0, cantReachWords());
@@ -89,7 +104,7 @@ export async function exportWithPassword(password: string, leave?: AbortSignal):
   } catch {
     throw new ApiError(0, cantReachWords());
   }
-  if (leave?.aborted) return; // left the page meanwhile: nothing is saved
+  if (signal.aborted) return; // left the page (or ran out of time) meanwhile: nothing is saved
   const named = /filename="([^"]+)"/.exec(response.headers.get('content-disposition') ?? '');
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
