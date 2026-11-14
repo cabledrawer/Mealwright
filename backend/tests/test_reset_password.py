@@ -149,3 +149,13 @@ def test_a_reset_link_stops_when_its_login_has_no_password_any_more(kitchen: Tes
         login.password_hash = None
         session.commit()
     _problem(_look(_fresh(kitchen), token), 404, "link_gone")
+
+
+def test_a_reset_link_opened_where_someone_is_signed_in_is_refused(kitchen: TestClient) -> None:
+    """Pe2 (cabledrawer 13 Nov), for Reset password links too: the link stays unused."""
+    token = _token(_reset(kitchen, _lorna(kitchen)))
+    _problem(_look(kitchen, token), 409, "signed_in_here")
+    r = kitchen.post(f"{API}/join", json={"token": token, "password": NEW})
+    _problem(r, 409, "signed_in_here")
+    assert _signs_in(kitchen, FIRST)
+    ok(_look(_fresh(kitchen), token))

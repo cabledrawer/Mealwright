@@ -5,10 +5,14 @@
   // for changes waiting on this device apply to them too). Works once, for 24 hours.
   // Link hardening (cabledrawer 13 Nov): the secret follows a `#` and is taken from the address
   // before anything else; nobody is named before the password is set, the username only after.
+  // A Reset password link ("/reset#<secret>", Pe1) is the same page: the server says which kind.
+  // Opened where someone is already signed in (Pe2, cabledrawer 13 Nov), it simply refuses: no
+  // names, no sign-out, and the link stays unused (the server refuses too).
   import { resolve } from '$app/paths';
   import { ApiError, cantReach } from '#lib/api.js';
   import Button from '#lib/components/Button.svelte';
   import ConnectionNotice from '#lib/components/ConnectionNotice.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   import TextField from '#lib/components/TextField.svelte';
   import { getJoinLink, join, type JoinLink } from '#lib/client/people.js';
   import { cantReachWords } from '#lib/api.js';
@@ -19,7 +23,7 @@
   const GONE =
     'This sign-in link has been used or has run out. Ask your household’s admin for a new one.';
 
-  let { plainHttpAllowed }: { plainHttpAllowed: boolean } = $props();
+  let { plainHttpAllowed, signedIn }: { plainHttpAllowed: boolean; signedIn: boolean } = $props();
 
   // First of all: the secret out of the address bar.
   const token = takeLinkSecret();
@@ -33,9 +37,20 @@
   let busy = $state(false);
   /** The username, once the password is saved. */
   let username = $state('');
+  /** The server found someone signed in on this device after all. */
+  let refusedThere = $state(false);
+  const refused = $derived(signedIn || refusedThere);
+  const reset = $derived(link?.kind === 'reset');
+
+  /** Someone is signed in here: the page refuses, and the link stays unused (Pe2). */
+  function signedInHere(error: unknown): boolean {
+    if (error instanceof ApiError && error.code === 'signed_in_here') refusedThere = true;
+    return refusedThere;
+  }
 
   async function look() {
     gone = '';
+    if (refused) return; // nothing is asked: the link stays as it is
     try {
       if (!token) {
         gone = GONE; // an address without its secret: nothing to ask the server
@@ -43,6 +58,7 @@
       }
       link = await getJoinLink(token);
     } catch (error) {
+      if (signedInHere(error)) return;
       gone = cantReach(error)
         ? cantReachWords()
         : error instanceof ApiError
@@ -68,6 +84,7 @@
       username = (await join(token, password)).username;
       password = '';
     } catch (error) {
+      if (signedInHere(error)) return;
       problem = cantReach(error)
         ? cantReachWords()
         : error instanceof ApiError
@@ -83,7 +100,24 @@
   <title>Choose your password · Mealwright</title>
 </svelte:head>
 
-{#if username}
+{#if refused}
+  <!-- words.md section 81, word for word (cabledrawer 13 Nov). -->
+  <div class="heading">
+    <h1>This link can't be used here</h1>
+    <p>
+      Someone is already signed in on this device. Sign-in links only work where nobody is signed
+      in.
+    </p>
+  </div>
+  <p class="info">
+    <Icon name="info" size={18} />
+    <span>
+      The link hasn't been used. Open it on another device, or sign out here first and then open
+      it again.
+    </span>
+  </p>
+  <a class="go" href={resolve('/(app)')}>Go to Today</a>
+{:else if username}
   <div class="heading">
     <h1>You’re all set</h1>
     <p>Your password is saved. Sign in as <strong>{username}</strong>.</p>
@@ -91,8 +125,14 @@
   <a class="go" href={resolve('/(auth)/sign-in')}>Sign in</a>
 {:else if link}
   <div class="heading">
-    <h1>Welcome</h1>
-    <p>Choose a password for your household’s kitchen.</p>
+    {#if reset}
+      <!-- proposed, for cabledrawer -->
+      <h1>Choose a new password</h1>
+      <p>Your recipes, plans and history stay as they are.</p>
+    {:else}
+      <h1>Welcome</h1>
+      <p>Choose a password for your household’s kitchen.</p>
+    {/if}
   </div>
 
   <ConnectionNotice kind={secure} />
@@ -149,7 +189,21 @@
     gap: var(--space-6);
   }
 
+  /* The mockup's info box (Dark-LinkSignedIn095-Phone). */
+  .info {
+    display: flex;
+    gap: 10px;
+    padding: var(--space-5) 14px;
+    border-radius: var(--radius-xl);
+    background: var(--color-info);
+    color: var(--color-info-text);
+    font-size: var(--text-md);
+    line-height: 1.45;
+  }
 
+  .info :global(svg) {
+    flex: none;
+  }
 
   .problem {
     padding: var(--space-5) 14px;

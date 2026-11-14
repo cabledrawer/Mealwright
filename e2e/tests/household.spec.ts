@@ -57,7 +57,8 @@ async function tidy(page: Page) {
 async function anotherBrowser(browser: Browser, baseURL: string) {
   const use = test.info().project.use;
   // Signed out: a context made here would otherwise start with the project's saved
-  // sign-in (the admin's), and /join and /sign-in send a signed-in browser straight on.
+  // sign-in (the admin's): /sign-in sends a signed-in browser straight on, and a link page
+  // refuses (Pe2).
   return browser.newContext({
     baseURL,
     storageState: { cookies: [], origins: [] },
@@ -150,6 +151,16 @@ test('give a login: the sign-in link opens "Choose a password", which then lets 
   // The secret follows a `#`: a browser never sends it to the server (cabledrawer 13 Nov).
   expect(link).toMatch(/\/join#[\w-]+$/);
   const path = new URL(link).pathname + new URL(link).hash;
+
+  // Opened here, where the admin is signed in, the link refuses and stays unused (Pe2).
+  await page.goto(path);
+  await expect(page.getByRole('heading', { level: 1, name: "This link can't be used here" })).toBeVisible();
+  await expect(page.getByText('The link hasn\'t been used.', { exact: false })).toBeVisible();
+  expect(page.url()).not.toContain('#');
+  await expect(page.getByText(name)).toHaveCount(0);
+  await checkPage(page);
+  await page.getByRole('link', { name: 'Go to Today' }).click();
+  await expect(page).toHaveURL('/');
 
   const theirs = await anotherBrowser(browser, app.url);
   try {

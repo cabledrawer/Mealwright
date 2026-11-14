@@ -6,4 +6,4 @@
   let { data }: PageProps = $props();
 </script>
 
-<LinkPage plainHttpAllowed={data.setup.plain_http_allowed} />
+<LinkPage plainHttpAllowed={data.setup.plain_http_allowed} signedIn={data.signedIn} />

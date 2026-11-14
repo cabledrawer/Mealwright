@@ -27,6 +27,8 @@ from mealwright.auth import (
     client_address,
     hash_password,
     needs_https,
+    peek_session,
+    session_token,
 )
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.foods import change_out
@@ -419,6 +421,21 @@ class JoinOut(BaseModel):
 GONE = "This sign-in link has been used or has run out. Ask your household’s admin for a new one."
 
 
+# Pe2 (cabledrawer 13 Nov): a link opened where someone is already signed in simply refuses, with
+# no names and no sign-out, and the link stays unused. The words are words.md section 81's.
+SIGNED_IN_HERE = (
+    "Someone is already signed in on this device. Sign-in links only work where nobody is "
+    "signed in."
+)
+
+
+def _nobody_signed_in(request: Request, db: Db) -> None:
+    """Refuse (409 `signed_in_here`) while the request carries a live session cookie. Checked
+    before the link is even looked up, so the link stays as it was."""
+    if peek_session(db, session_token(request)) is not None:
+        raise Problem(status.HTTP_409_CONFLICT, "signed_in_here", SIGNED_IN_HERE)
+
+
 def _link(db: Db, token: str) -> tuple[JoinLink, Login, Member]:
     found = people.find_link(db, token) if len(token) <= 100 else None
     if found is None:
@@ -427,10 +444,12 @@ def _link(db: Db, token: str) -> tuple[JoinLink, Login, Member]:
 
 
 @router.post("/join/look")
-def join_link(body: LinkSecretIn, db: Db) -> JoinOut:
+def join_link(body: LinkSecretIn, request: Request, db: Db) -> JoinOut:
     """What the sign-in link page needs before the password is chosen: whether the link still
-    works, and until when. No name or username. Needs no sign-in."""
+    works, and until when. No name or username. Needs no sign-in, and is refused where someone
+    is signed in."""
     # No names before the password is set: cabledrawer 13 Nov.
+    _nobody_signed_in(request, db)
     link, _login, _member = _link(db, body.token)
     return JoinOut(
         kind="reset" if link.kind == people.RESET else "join",
@@ -450,10 +469,12 @@ class JoinDone(BaseModel):
 
 @router.post("/join")
 def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
-    """Choose a password with a sign-in link. The link works once."""
+    """Choose a password with a sign-in or Reset password link. The link works once. Refused
+    where someone is signed in."""
     # The person then signs in on the sign-in page like anyone else, so a phone holding
     # someone else's waiting changes warns first there (cabledrawer 12 Nov).
     needs_https(request, request.app.state.settings)
+    _nobody_signed_in(request, db)
     link, login, _member = _link(db, body.token)
     # Claim the link first, so of two requests at once only one sets a password.
     if not people.claim_link(db, link):

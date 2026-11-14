@@ -833,3 +833,35 @@ def test_removing_a_person_ends_their_open_event_streams(
     monkeypatch.setattr(kitchen.app.state.events, "end_session", ended.append)  # type: ignore[attr-defined]
     ok(kitchen.delete(f"{API}/people/{joss}"))
     assert ended == ids
+
+
+def test_a_link_opened_where_someone_is_signed_in_is_refused_and_stays_unused(
+    kitchen: TestClient,
+) -> None:
+    """Pe2 (cabledrawer 13 Nov): no names, no sign-out, and the link stays unused."""
+    token = _join(kitchen, _add(kitchen), "joss")
+    # The admin's own browser is signed in: looking and using are both refused.
+    looked = _look(kitchen, token)
+    detail = _problem(looked, 409, "signed_in_here")
+    assert detail == (
+        "Someone is already signed in on this device. Sign-in links only work where nobody is "
+        "signed in."
+    )
+    assert "joss" not in looked.text.lower()  # no names
+    used = kitchen.post(f"{API}/join", json={"token": token, "password": "joss's own password"})
+    _problem(used, 409, "signed_in_here")
+    # A wrong secret is refused the same way: nothing is told about any link.
+    _problem(_look(kitchen, "x" * 43), 409, "signed_in_here")
+    with db(kitchen) as session:
+        assert session.scalars(select(JoinLink.used_at)).one() is None
+    assert next(p for p in _people(kitchen)["people"] if p["name"] == "Joss")["login"][
+        "link_pending"
+    ]
+    # A cookie that is no live sign-in doesn't count, and the link still works elsewhere.
+    stale = _fresh(kitchen)
+    stale.cookies.set("__Host-mealwright_session", "not-a-session")
+    ok(_look(stale, token))
+    joined = _fresh(kitchen).post(
+        f"{API}/join", json={"token": token, "password": "joss's own pw!"}
+    )
+    assert joined.status_code == 200, joined.text
