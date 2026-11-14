@@ -54,6 +54,8 @@ export interface People {
   /** "Who is this?" (0.9.5 Pe3/M2): single sign-on sign-ins that match nobody, newest first.
    *  Empty for a member. */
   waiting?: WaitingSignIn[];
+  /** Single sign-on is set up: the Person page shows who is linked. False for a member. */
+  single_sign_on?: boolean;
 }
 
 /** A single sign-on sign-in waiting for an admin to say who it is. */
@@ -137,8 +139,13 @@ export const setAskWhosThis = (on: boolean) => api<People>('PUT', '/people/ask-w
 export const linkSignIn = (id: number, member_id: number | null) =>
   api<People>('POST', `/people/sso-accounts/${id}/link`, { member_id });
 
+/** Unlink a person from their account at the sign-in server: it waits for an admin next time. */
+export const unlinkSignIn = (member_id: number) =>
+  api<People>('DELETE', `/people/${member_id}/sso`);
+
 /** "Not someone I know: refuse": it can't sign in until an admin links it after all. */
-export const refuseSignIn = (id: number) => api<People>('POST', `/people/sso-accounts/${id}/refuse`);
+export const refuseSignIn = (id: number) =>
+  api<People>('POST', `/people/sso-accounts/${id}/refuse`);
 
 export const getWhosThis = () => api<WhosThis>('GET', '/whos-this');
 

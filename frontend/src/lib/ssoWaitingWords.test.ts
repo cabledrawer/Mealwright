@@ -5,8 +5,12 @@ import { person } from '#lib/testing/fakePeople.js';
 import {
   atWords,
   linkButton,
+  linkToButton,
   linkable,
+  linkedParts,
   pickDetail,
+  signInsFor,
+  signedInDetail,
   waitingLine,
   waitingTitle,
   whoLine,
@@ -71,5 +75,38 @@ describe('"Who is this?" words', () => {
     expect(linkButton(person(2, 'Lorna'))).toBe('Link to Lorna');
     expect(linkButton('new')).toBe('Add a new person');
     expect(linkButton(null)).toBe('Choose who it is');
+  });
+});
+
+describe('The Person page’s single sign-on words', () => {
+  it('says who they are linked to, as the mockup does', () => {
+    expect(linkedParts('lorna.s')).toEqual(['Linked to ', 'lorna.s', ' on your sign-in server']);
+    expect(linkedParts(null).join('')).toBe('Linked to an account on your sign-in server');
+  });
+
+  it('offers an admin only sign-ins the groups make an admin', () => {
+    const member = person(2, 'Noor', {
+      login: {
+        username: 'noor',
+        role: 'member',
+        shared: false,
+        has_password: false,
+        signs_in: true,
+        link_pending: false,
+        link_used_at: null,
+        reset_pending: false
+      }
+    });
+    const admin: Person = { ...member, login: { ...member.login!, role: 'admin' } };
+    const asAdmin: WaitingSignIn = { ...LORNA_S, id: 8, role: 'admin' };
+    expect(signInsFor(member, [LORNA_S, asAdmin])).toEqual([LORNA_S, asAdmin]);
+    expect(signInsFor(admin, [LORNA_S, asAdmin])).toEqual([asAdmin]);
+    expect(signInsFor(person(3, 'Sam'), [LORNA_S])).toEqual([LORNA_S]);
+  });
+
+  it('says when each signed in, and the button follows the pick', () => {
+    expect(signedInDetail(LORNA_S, NOW, 'UTC')).toBe('signed in today at 20:10');
+    expect(linkToButton(null)).toBe('Choose a sign-in');
+    expect(linkToButton(LORNA_S)).toBe('Link to lorna.s');
   });
 });

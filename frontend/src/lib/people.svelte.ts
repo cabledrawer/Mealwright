@@ -12,6 +12,7 @@ import {
   linkSignIn,
   refuseSignIn,
   removePerson,
+  unlinkSignIn,
   setAskWhosThis,
   type Colour,
   type People,
@@ -41,6 +42,8 @@ class Household_ {
   askWhosThis = $state(false);
   /** "Who is this?" (0.9.5 Pe3/M2): single sign-on sign-ins waiting for an admin. */
   waiting = $state<WaitingSignIn[]>([]);
+  /** Single sign-on is set up (admins only): the Person page shows who is linked. */
+  singleSignOn = $state(false);
   name = $state('');
   /** The household's time zone, for times on the Person page (null: this device's own). */
   zone = $state<string | null>(null);
@@ -58,6 +61,7 @@ class Household_ {
     this.canChange = false;
     this.askWhosThis = false;
     this.waiting = [];
+    this.singleSignOn = false;
     this.name = '';
     this.zone = null;
     this.busy = false;
@@ -68,6 +72,7 @@ class Household_ {
     this.canChange = found.can_change;
     this.askWhosThis = found.ask_whos_this;
     this.waiting = found.waiting ?? [];
+    this.singleSignOn = found.single_sign_on ?? false;
   }
 
   async load(): Promise<void> {
@@ -123,6 +128,11 @@ class Household_ {
   /** Link a waiting sign-in to a person, or to a new person (null). */
   link(id: number, memberId: number | null) {
     return this.#write(linkSignIn(id, memberId));
+  }
+
+  /** Unlink a person from their account at the sign-in server. */
+  unlink(memberId: number) {
+    return this.#write(unlinkSignIn(memberId));
   }
 
   /** "Not someone I know: refuse". */

@@ -64,3 +64,44 @@ export function linkButton(picked: Person | 'new' | null): string {
   if (picked === 'new') return 'Add a new person';
   return `Link to ${picked.name}`;
 }
+
+// The Person page's "Single sign-on" row (mockup Dark-Person095-Phone), for an admin while
+// single sign-on is set up.
+
+export const SSO_ROW = 'Single sign-on';
+export const UNLINK = 'Unlink';
+export const LINK_BY_HAND = 'Link…';
+export const NOT_LINKED_LINE =
+  'Not linked. Linked automatically when the sign-in server’s username is the same as here; otherwise link by hand.';
+
+/** "Linked to lorna.s on your sign-in server", the username in bold. Linked before Mealwright
+ *  kept the sign-in server's username (proposed, for cabledrawer): "Linked to an account on your
+ *  sign-in server". */
+export function linkedParts(username: string | null | undefined): [string, string | null, string] {
+  return username
+    ? ['Linked to ', username, ' on your sign-in server']
+    : ['Linked to an account on your sign-in server', null, ''];
+}
+
+/** The sheet Link… opens (proposed, for cabledrawer): the sign-ins waiting, to pick this person's. */
+export const linkSheetTitle = (name: string): string => `Link ${name} to a sign-in`;
+export const linkSheetLine = (name: string): string =>
+  `These sign-ins with single sign-on are waiting for an admin. Pick the one that is ${name}.`;
+export const nobodyWaiting = (name: string): string =>
+  `Nobody is waiting. Ask ${name} to sign in with single sign-on: their sign-in then waits here for you to link it.`;
+
+/** The waiting sign-ins this person can be linked to: an admin only to one the sign-in
+ *  server's groups make an admin (the server says the same). */
+export function signInsFor(person: Person, waiting: WaitingSignIn[]): WaitingSignIn[] {
+  return waiting.filter((w) => linkable([person], w).length === 1);
+}
+
+/** "signed in today at 20:10", at the right of each sign-in to pick. */
+export const signedInDetail = (waiting: WaitingSignIn, now: Date, zone: string | null): string =>
+  `signed in ${atWords(waiting.signed_in_at, now, zone)}`;
+
+/** The sheet's main button: "Link to lorna.s", or "Choose a sign-in" before a pick. */
+export const linkToButton = (picked: WaitingSignIn | null): string =>
+  picked ? `Link to ${picked.username}` : 'Choose a sign-in';
+
+export const CLOSE = 'Close';

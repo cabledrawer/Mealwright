@@ -10,6 +10,7 @@
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
+  import LinkSignIn from '#lib/components/people/LinkSignIn.svelte';
   import PersonAvatar from '#lib/components/people/PersonAvatar.svelte';
   import {
     COLOURS,
@@ -27,6 +28,13 @@
   import { dayMonthWords } from '#lib/dates.js';
   import { network } from '#lib/network.svelte.js';
   import { household, sentence } from '#lib/people.svelte.js';
+  import {
+    LINK_BY_HAND,
+    NOT_LINKED_LINE,
+    SSO_ROW,
+    UNLINK,
+    linkedParts
+  } from '#lib/ssoWaitingWords.js';
   import { toasts } from '#lib/toast.svelte.js';
   import { whenWords } from '#lib/yourDataWords.js';
 
@@ -138,6 +146,29 @@
     household.canChange &&
       household.people.filter((p) => p.login?.role === 'admin' && p.login.signs_in).length === 1
   );
+
+  /**
+   * Single sign-on (0.9.5 Pe3/M2): for an admin while it is set up, whether this person is linked
+   * to an account at the sign-in server, with Unlink or Link…. Never for a shared login.
+   */
+  const showSso = $derived(household.canChange && household.singleSignOn && !login?.shared);
+  /** The Link… sheet is open. */
+  let linking = $state(false);
+
+  async function unlink() {
+    if (!person || locked || household.busy) return;
+    loginProblem = null;
+    try {
+      await household.unlink(person.id);
+    } catch (error) {
+      loginProblem = sentence(error);
+    }
+  }
+
+  async function linkTo(accountId: number) {
+    if (!person) return;
+    if (await household.link(accountId, person.id)) linking = false;
+  }
 
   async function back() {
     await goto(resolve('/(app)/settings/household'));
@@ -453,10 +484,50 @@
           >
         {/if}
       {/if}
+      {#if showSso}
+        <div class="switch-row sso">
+          <span class="words">
+            <span class="label">{SSO_ROW}</span>
+            {#if login?.sso_linked}
+              {@const [before, username, after] = linkedParts(login.sso_username)}
+              <span class="hint"
+                >{before}{#if username}<strong>{username}</strong>{/if}{after}</span
+              >
+            {:else}
+              <span class="hint">{NOT_LINKED_LINE}</span>
+            {/if}
+          </span>
+          {#if login?.sso_linked}
+            <button class="quiet sm" type="button" disabled={locked} onclick={() => void unlink()}
+              >{UNLINK}</button
+            >
+          {:else}
+            <button
+              class="quiet sm"
+              type="button"
+              disabled={locked}
+              onclick={() => (linking = true)}>{LINK_BY_HAND}</button
+            >
+          {/if}
+        </div>
+      {/if}
       {#if loginProblem}
         <p class="problem" role="alert">{loginProblem}</p>
       {/if}
     </div>
+
+    {#if showSso}
+      <LinkSignIn
+        {person}
+        open={linking}
+        waiting={household.waiting}
+        zone={household.zone}
+        busy={household.busy}
+        offline={network.offline}
+        onlink={linkTo}
+        onclose={() => (linking = false)}
+      />
+    {/if}
 
     {#if onlyAdmin && login?.has_password && (person.is_me || resetLink)}
       <p class="note">
