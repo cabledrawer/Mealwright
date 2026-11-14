@@ -36,6 +36,7 @@ ADMIN_ROUTES: list[tuple[str, str, dict[str, Any] | None, Action]] = [
     ("PATCH", "/backups", {"keep": 3}, Action.YOUR_DATA),
     ("POST", "/backups", None, Action.YOUR_DATA),
     ("GET", "/export", None, Action.YOUR_DATA),
+    ("POST", "/export", {"password": "a long enough one"}, Action.YOUR_DATA),
     (
         "POST",
         "/delete-everything",

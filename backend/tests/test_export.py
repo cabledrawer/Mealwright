@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 from photo_kit import jpeg, uploaded
 
-from mealwright import export
+from mealwright import export, export_crypto
 from mealwright.auth import COOKIE, hash_password
 from mealwright.db import Base
 from mealwright.models import Login
@@ -232,3 +232,113 @@ def test_no_token_and_no_single_sign_on_secret_ever_leaves(kitchen: TestClient) 
     [row] = doc["tables"]["sso_settings"]  # the rest of the setup is exported
     assert row["issuer"] == "https://id.example.org"
     assert "client_secret_sealed" not in row
+
+
+# --- The optional password (0.9.5, cabledrawer 13 Nov; docs/export-format.md, "The encrypted file") --
+
+SEALED_PASSWORD = "lorna and noor's passphrase"
+
+
+def _open_sealed(content: bytes, password: str = SEALED_PASSWORD) -> bytes:
+    return b"".join(export_crypto.decrypt(io.BytesIO(content), password))
+
+
+def test_with_a_password_the_file_is_encrypted_and_opens_to_the_same_export(
+    kitchen: TestClient,
+) -> None:
+    store = _photo_store(kitchen)
+    folder = household_folder(store, 1)
+    folder.mkdir(parents=True)
+    (folder / ("a" * 32 + ".jpg")).write_bytes(jpeg())
+    sealed = kitchen.post(API, json={"password": SEALED_PASSWORD})
+    assert sealed.status_code == 200, sealed.text
+    assert sealed.headers["content-type"] == "application/octet-stream"
+    assert sealed.headers["cache-control"] == "no-store"
+    assert sealed.headers["content-disposition"].startswith(
+        'attachment; filename="mealwright-export-'
+    )
+    assert sealed.headers["content-disposition"].endswith('.zip.mwenc"')
+    body = sealed.content
+    assert body.startswith(export_crypto.MAGIC)
+    assert b"mealwright-export.json" not in body  # no zip entry name in the clear
+    assert b"PK\x03\x04" not in body
+    doc, photos = export.read(io.BytesIO(_open_sealed(body)))
+    assert doc["format"] == "mealwright-export"
+    assert photos == {"a" * 32 + ".jpg": jpeg()}
+
+
+def test_without_a_password_the_export_is_exactly_the_plain_zip(kitchen: TestClient) -> None:
+    _doc, _photos, raw = _export(kitchen)
+    assert raw.startswith(b"PK\x03\x04")
+    assert not raw.startswith(export_crypto.MAGIC)
+
+
+def test_a_wrong_password_does_not_open_it(kitchen: TestClient) -> None:
+    body = kitchen.post(API, json={"password": SEALED_PASSWORD}).content
+    with pytest.raises(export_crypto.CantOpen) as error:
+        _open_sealed(body, "some other passphrase")
+    assert str(error.value) == export_crypto.WRONG_WORDS
+
+
+@pytest.mark.parametrize("password", ["", "short", "1234567", "é" * 3 + "x"])
+def test_a_password_that_is_too_short_is_refused_without_echoing_it(
+    kitchen: TestClient, password: str
+) -> None:
+    response = kitchen.post(API, json={"password": password})
+    assert response.status_code == 422
+    assert response.json()["code"] == "password_length"
+    assert "8 to 1,024 characters" in response.json()["detail"]
+    assert password not in response.text or password == ""
+
+
+def test_the_longest_password_is_accepted_and_one_more_is_refused(kitchen: TestClient) -> None:
+    longest = "p" * 1024
+    ok = kitchen.post(API, json={"password": longest})
+    assert ok.status_code == 200
+    assert b"".join(export_crypto.decrypt(io.BytesIO(ok.content), longest))
+    assert kitchen.post(API, json={"password": longest + "p"}).status_code == 422
+    huge = kitchen.post(API, json={"password": "p" * 10_000})
+    assert huge.status_code == 422
+    assert "pppp" not in huge.text
+
+
+def test_a_lone_surrogate_in_the_password_is_a_plain_refusal(kitchen: TestClient) -> None:
+    response = kitchen.post(
+        API,
+        content='{"password": "\\ud800 and more letters"}',
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 422
+
+
+def test_a_missing_or_null_password_is_refused_not_exported_in_the_clear(
+    kitchen: TestClient,
+) -> None:
+    assert kitchen.post(API, json={}).status_code == 422
+    assert kitchen.post(API, json={"password": None}).status_code == 422
+
+
+def test_the_password_in_the_address_is_not_taken(kitchen: TestClient) -> None:
+    response = kitchen.post(f"{API}?password={SEALED_PASSWORD}", json={})
+    assert response.status_code == 422
+    assert SEALED_PASSWORD not in response.text
+
+
+def test_a_member_cannot_export_with_a_password(member: TestClient) -> None:
+    response = member.post(API, json={"password": SEALED_PASSWORD})
+    assert response.status_code == 403
+    assert SEALED_PASSWORD not in response.text
+
+
+def test_signed_out_cannot_export_with_a_password(client: TestClient) -> None:
+    assert client.post(API, json={"password": SEALED_PASSWORD}).status_code == 401
+
+
+def test_the_password_is_nowhere_in_the_database(kitchen: TestClient) -> None:
+    kitchen.post(API, json={"password": SEALED_PASSWORD})
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        from sqlalchemy import text
+
+        for table in Base.metadata.sorted_tables:
+            rows = db.execute(text(f'SELECT * FROM "{table.name}"')).all()  # noqa: S608
+            assert SEALED_PASSWORD not in repr(rows), table.name

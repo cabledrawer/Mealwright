@@ -24,10 +24,14 @@ LIST = "Surprise party list 3302"
 INGREDIENT = "Hidden pistachio 4410"
 NOTE = "for Grandma's birthday 8857"
 SITE = "secret-recipes-site.example"
+EXPORT_PASSWORD = "Export-passphrase-8841"
+SHORT_EXPORT_TRY = "Sh0rt-3"
 
 NEVER = [
     PASSWORD,
     NEW_PASSWORD_TRY,
+    EXPORT_PASSWORD,
+    SHORT_EXPORT_TRY,
     TYPED_IN_USERNAME_BOX,
     RECIPE,
     STEP,
@@ -108,6 +112,11 @@ def test_no_password_and_nothing_people_cook_or_buy_reaches_the_log(
         # wrong password, then for real.
         ok(client.post(f"{API}/backups"))
         assert client.get(f"{API}/export").status_code == 200
+        # The export with a password, and a password that is too short.
+        sealed = client.post(f"{API}/export", json={"password": EXPORT_PASSWORD})
+        assert sealed.status_code == 200
+        short = client.post(f"{API}/export", json={"password": SHORT_EXPORT_TRY})
+        assert short.status_code == 422
         everything = f"{API}/delete-everything"
         wrong_words = {"words": RECIPE, "password": PASSWORD}
         assert client.post(everything, json=wrong_words).status_code == 422

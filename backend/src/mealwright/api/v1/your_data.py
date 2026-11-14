@@ -20,7 +20,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine, delete, func, select
 
-from mealwright import backups, export, setup_code, sso_accounts
+from mealwright import backups, export, export_crypto, setup_code, sso_accounts
 from mealwright.api.v1 import sso as sso_api
 from mealwright.api.v1.context import Here
 from mealwright.api_tokens import not_for_tokens
@@ -154,6 +154,57 @@ def export_everything(kitchen: Here) -> StreamingResponse:
     return StreamingResponse(
         export.zip_stream(doc, photos),
         media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+class ExportWithPassword(BaseModel):
+    password: str = Field(
+        max_length=export_crypto.PASSWORD_MOST * 4,  # a cap on what is read; the rule is below
+        description="Encrypts the file (docs/export-format.md, encrypted file). "
+        f"{export_crypto.PASSWORD_LEAST} to {export_crypto.PASSWORD_MOST:,} characters. "
+        "Kept nowhere and written to no log: if it is lost the file can't be opened.",
+    )
+
+
+@router.post(
+    "/export",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "content": {"application/octet-stream": {}},
+            "description": "The export file, encrypted with the password.",
+        }
+    },
+)
+def export_everything_with_password(body: ExportWithPassword, kitchen: Here) -> StreamingResponse:
+    """Export everything with a password (Admins only): the same file as the plain export,
+    encrypted (docs/export-format.md, "The encrypted file"). The password travels in the body
+    only; it is never stored, logged or put in an answer, and it can't be recovered."""
+    kitchen.admin_only(Action.YOUR_DATA)
+    try:
+        export_crypto.secret_bytes(body.password)  # a lone surrogate can't be written as UTF-8
+        length = len(export_crypto.secret_text(body.password))
+    except UnicodeEncodeError:
+        length = 0
+    if not export_crypto.PASSWORD_LEAST <= length <= export_crypto.PASSWORD_MOST:
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "password_length",
+            f"Use a password of {export_crypto.PASSWORD_LEAST} to "
+            f"{export_crypto.PASSWORD_MOST:,} characters.",
+        )
+    household_id = kitchen.household_id
+    doc = export.document(kitchen.db, household_id)
+    kitchen.db.rollback()
+    photos = export.photo_files(store_of(kitchen.db), household_id)
+    name = export.file_name(today(kitchen.household)) + export_crypto.SUFFIX
+    return StreamingResponse(
+        export_crypto.encrypt(export.zip_stream(doc, photos), body.password),
+        media_type="application/octet-stream",
         headers={
             "Content-Disposition": f'attachment; filename="{name}"',
             "Cache-Control": "no-store",

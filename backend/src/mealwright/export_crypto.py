@@ -68,10 +68,18 @@ class CantOpen(ValueError):
     insides or the password."""
 
 
+SUFFIX = ".mwenc"  # the encrypted file's name: mealwright-export-<day>.zip.mwenc
+
+
+def secret_text(password: str) -> str:
+    """The password in Unicode NFC, so the same typed letters give the same key whichever way a
+    keyboard made them (and its length is counted the same way)."""
+    return unicodedata.normalize("NFC", password)
+
+
 def secret_bytes(password: str) -> bytes:
-    """The password as bytes: Unicode NFC, then UTF-8, so the same typed letters give the same
-    key whichever way a keyboard made them."""
-    return unicodedata.normalize("NFC", password).encode("utf-8")
+    """The password as the bytes the key is made from: NFC, then UTF-8."""
+    return secret_text(password).encode("utf-8")
 
 
 def _key(password: bytes, salt: bytes, time_cost: int, memory_kib: int, lanes: int) -> bytes:

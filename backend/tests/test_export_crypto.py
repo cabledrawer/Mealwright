@@ -5,6 +5,7 @@ checked to be what the page says."""
 
 import io
 import struct
+from collections.abc import Iterator
 
 import pytest
 
@@ -198,7 +199,7 @@ def test_what_a_new_file_asks_for_is_what_the_page_says() -> None:
 def test_it_streams_in_pieces_and_never_holds_the_whole_file() -> None:
     made = 0
 
-    def pieces():  # type: ignore[no-untyped-def]
+    def pieces() -> Iterator[bytes]:
         nonlocal made
         for _ in range(100):
             made += 1
