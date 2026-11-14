@@ -16,6 +16,7 @@ import type { ShoppingCopy } from '#lib/shopping/types.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import { notHereText } from '#lib/shopping/store.svelte.js';
+import { printing } from '#lib/printing.svelte.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { shoppingSync } from '#lib/shopping/sync.svelte.js';
 import Shopping from './+page.svelte';
@@ -67,6 +68,26 @@ describe('the Shopping page', () => {
     for (const component of mounted.splice(0)) unmount(component);
     document.body.innerHTML = '';
     vi.unstubAllGlobals();
+  });
+
+  it('on paper: the sheet once the list is here, never before (no half-drawn list)', async () => {
+    server = fakeShopping(copy, {});
+    await page.viewport(1000, 1000);
+    try {
+      mountShopping();
+      // The page follows the browser's print state when it starts; this is the browser saying so.
+      printing.on = true;
+      flushSync();
+      // Not loaded yet: the page's own "Loading…", and no sheet.
+      expect(document.querySelector('[data-print-sheet]')).toBeNull();
+      await expect.element(page.getByText('Loading…')).toBeInTheDocument();
+      await expect.poll(() => document.querySelector('[data-print-sheet]')).not.toBeNull();
+      expect(document.querySelector('[data-print-sheet] h1')?.textContent).toContain(
+        'Shopping list'
+      );
+    } finally {
+      printing.on = false;
+    }
   });
 
   it('splits by shop and aisle with the spec’s names, Any shop last', async () => {
