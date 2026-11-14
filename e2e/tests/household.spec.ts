@@ -1,4 +1,4 @@
-import { test, expect, type Browser, type Page } from './clock.ts';
+import { test, expect, request, type Browser, type Page } from './clock.ts';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
 // Settings → Household (0.9 A1): the household's people, the Person screen, giving someone a
@@ -21,8 +21,11 @@ async function addPerson(page: Page, name: string, extra: Json = {}) {
   return found.people.find((p: Json) => p.name === name) as Json;
 }
 
-/** A person with a login and their own password, as if they had used their sign-in link. */
-async function personWhoSignsIn(page: Page, name: string, username: string, extra: Json = {}) {
+/**
+ * A person with a login and their own password, as if they had used their sign-in link. The link
+ * is used signed out (`baseURL`, with no cookies): where the admin is signed in, it refuses (Pe2).
+ */
+async function personWhoSignsIn(page: Page, baseURL: string, name: string, username: string, extra: Json = {}) {
   const made = await addPerson(page, name);
   const link = await page.request.post(`/api/v1/people/${made.id}/login`, {
     data: { username, role: 'member' },
@@ -31,8 +34,19 @@ async function personWhoSignsIn(page: Page, name: string, username: string, extr
   expect(link.status(), await link.text()).toBe(201);
   const path = ((await link.json()) as Json).path as string;
   const token = path.replace(/^\/join#/, '');
-  const joined = await page.request.post('/api/v1/join', { data: { token, password: PASSWORD } });
-  expect(joined.status(), await joined.text()).toBe(200);
+  // Signed out: inside a test, a new context would otherwise start with the project's saved
+  // sign-in (the admin's).
+  const signedOut = await request.newContext({
+    baseURL,
+    storageState: { cookies: [], origins: [] },
+    ignoreHTTPSErrors: test.info().project.use.ignoreHTTPSErrors,
+  });
+  try {
+    const joined = await signedOut.post('/api/v1/join', { data: { token, password: PASSWORD } });
+    expect(joined.status(), await joined.text()).toBe(200);
+  } finally {
+    await signedOut.dispose();
+  }
   if (Object.keys(extra).length) {
     const changed = await page.request.patch(`/api/v1/people/${made.id}`, { data: extra, headers: key() });
     expect(changed.status(), await changed.text()).toBe(200);
@@ -208,7 +222,7 @@ test('Reset password: a one-time link where they choose a new password; the Pers
   const name = `Lorna ${m}`;
   const username = `lorna.${m}`;
   const NEW_PASSWORD = 'a-new-kitchen-password';
-  const made = await personWhoSignsIn(page, name, username);
+  const made = await personWhoSignsIn(page, app.url, name, username);
   await page.goto(`/settings/household/${made.id}`);
   // Their sign-in link was used just now: an admin can spot a link someone else used.
   await expect(page.getByText(/^Link used today \d{2}:\d{2}$/)).toBeVisible();
@@ -290,7 +304,7 @@ test('a shared login asks “Who’s this?” when the switch is on; the pick is
   const tablet = `Tablet ${m}`;
   const username = `tablet.${m}`;
   await addPerson(page, eater, { colour: 'amber' });
-  await personWhoSignsIn(page, tablet, username, { shared: true });
+  await personWhoSignsIn(page, app.url, tablet, username, { shared: true });
 
   // The switch, on the Household screen.
   await page.goto('/settings/household');
