@@ -110,6 +110,9 @@ export const takeBackLogin = (id: number) => api<void>('DELETE', `/people/${id}/
 export const resetPassword = (id: number) =>
   api<SignInLink>('POST', `/people/${id}/reset-password`);
 
+/** Cancel a Reset password link someone made for you: your password stays as it is. */
+export const cancelMyResetLink = () => api<void>('DELETE', '/me/reset-link');
+
 export const setAskWhosThis = (on: boolean) => api<People>('PUT', '/people/ask-whos-this', { on });
 
 export const getWhosThis = () => api<WhosThis>('GET', '/whos-this');

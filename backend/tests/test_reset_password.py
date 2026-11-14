@@ -262,3 +262,28 @@ def test_a_member_removed_leaves_other_reset_links(kitchen: TestClient) -> None:
     _join(kitchen, sam, "sam")
     ok(kitchen.delete(f"{API}/people/{sam}"))
     ok(_look(_fresh(kitchen), token))
+
+
+def test_you_can_cancel_a_reset_link_made_for_you(kitchen: TestClient) -> None:
+    """16b security pass S-M1 e (proposed, for cabledrawer): your own pending reset link shows on
+    your Person page, admin or not, and you can cancel it. Only your own."""
+    lorna, hers = _lorna_signed_in(kitchen)
+    token = _token(_reset(kitchen, lorna))
+    noor = _add(kitchen, "Noor")
+    ok(
+        _fresh(kitchen).post(
+            f"{API}/join", json={"token": _join(kitchen, noor, "noor"), "password": FIRST}
+        )
+    )
+    nours = _token(_reset(kitchen, noor))
+    mine = next(p for p in _people(hers)["people"] if p["is_me"])
+    assert mine["login"]["reset_pending"] is True
+    assert hers.delete(f"{API}/me/reset-link").status_code == 204
+    _problem(_look(_fresh(kitchen), token), 404, "link_gone")
+    assert _login(kitchen, lorna)["reset_pending"] is False
+    assert _signs_in(kitchen, FIRST)  # her password stays as it is
+    ok(_look(_fresh(kitchen), nours))  # someone else's link stays
+    assert hers.delete(f"{API}/me/reset-link").status_code == 204  # nothing left: fine
+    assert _fresh(kitchen).delete(f"{API}/me/reset-link").status_code == 401
+    paths = kitchen.get(f"{API}/openapi.json").json()["paths"]
+    assert "delete" in paths[f"{API}/me/reset-link"]

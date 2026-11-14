@@ -14,6 +14,7 @@
   import {
     COLOURS,
     PORTION_CHOICES,
+    cancelMyResetLink,
     giveLogin,
     portionWords,
     resetPassword,
@@ -195,6 +196,22 @@
       const made = await resetPassword(person.id);
       resetLink = made.path;
       await household.load();
+    } catch (error) {
+      loginProblem = sentence(error);
+    }
+  }
+
+  /**
+   * Your own pending reset link (16b security pass S-M1 e): you can cancel it, admin or not, if
+   * you didn't ask for one. Your password stays as it is.
+   */
+  async function cancelReset() {
+    if (network.offline) return;
+    loginProblem = null;
+    try {
+      await cancelMyResetLink();
+      await household.load();
+      toasts.show('Reset link cancelled');
     } catch (error) {
       loginProblem = sentence(error);
     }
@@ -387,6 +404,18 @@
             >
           {:else if login.reset_pending && canReset}
             <p class="sub">{person.name} hasn’t used the reset link yet.</p>
+          {:else if login.reset_pending && person.is_me}
+            <!-- proposed, for cabledrawer -->
+            <p class="sub">
+              Someone made a reset link for your password, and it hasn’t been used yet. If you
+              didn’t ask for one, cancel it.
+            </p>
+            <button
+              class="quiet"
+              type="button"
+              disabled={network.offline}
+              onclick={() => void cancelReset()}>Cancel the link</button
+            >
           {/if}
         {:else if linkUsed}
           <p class="hint">{linkUsed}</p>

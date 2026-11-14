@@ -289,6 +289,29 @@ describe('Settings → Household → a person', () => {
     await expect.element(page.getByText('Joss hasn’t used the reset link yet.')).toBeVisible();
   });
 
+  it('your own unused reset link shows, admin or not, and you can cancel it', async () => {
+    // 16b security pass S-M1 e (proposed, for cabledrawer): Joss is a member, on her own page.
+    let pending = true;
+    const me = () => ({ ...passwordJoss({ reset_pending: pending }), is_me: true });
+    open({
+      'GET /people': () => [
+        200,
+        people([{ ...TESS, is_me: false }, me()], { can_change: false })
+      ],
+      'DELETE /me/reset-link': () => {
+        pending = false;
+        return [204, null];
+      }
+    });
+    const line = page.getByText('Someone made a reset link for your password', { exact: false });
+    await expect.element(line).toBeVisible();
+    expect(page.getByText('Joss hasn’t used the reset link yet.').query()).toBeNull();
+    await page.getByRole('button', { name: 'Cancel the link' }).click();
+    await vi.waitFor(() => expect(sent('DELETE', '/me/reset-link')).toHaveLength(1));
+    await vi.waitFor(() => expect(line.query()).toBeNull());
+    expect(toasts.current?.message).toBe('Reset link cancelled');
+  });
+
   it('says when a link was used: "Link used today 21:40" (cabledrawer 13 Nov)', async () => {
     const now = new Date();
     open({

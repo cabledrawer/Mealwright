@@ -31,7 +31,7 @@ from mealwright.auth import (
     remember_device,
 )
 from mealwright.errors import Problem, StoredInt
-from mealwright.models import Session
+from mealwright.models import JoinLink, Session
 
 # These lines name an account or an address: Mealwright's own log file only (mealwright.logs).
 log = logging.getLogger("mealwright.sign_in")
@@ -164,6 +164,20 @@ def sign_out_everywhere_else(request: Request, signed_in: CurrentSession, db: Db
     _tell_streams(request, ended)
     log.info("Signed out everywhere else: %s (%d device(s))", signed_in.login.username, len(ended))
     return _my_sign_in(db, signed_in)
+
+
+@router.delete("/me/reset-link", status_code=status.HTTP_204_NO_CONTENT)
+def cancel_my_reset_link(signed_in: CurrentSession, db: Db) -> None:
+    """Cancel a Reset password link an admin made for you: it stops working, and your
+    password stays as it is. Only your own login's; nothing to cancel is fine too. Admin or
+    not (16b security pass S-M1 e; proposed, for cabledrawer)."""
+    db.execute(
+        delete(JoinLink).where(
+            JoinLink.login_id == signed_in.login.id, JoinLink.kind == people.RESET
+        )
+    )
+    db.commit()
+    log.info("Reset link cancelled by %s", signed_in.login.username)
 
 
 @router.delete("/me/sessions/{sign_in_id}")
