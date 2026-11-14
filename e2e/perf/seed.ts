@@ -4,6 +4,12 @@
 //   cd e2e
 //   node perf/seed.ts --base http://127.0.0.1:7795 --setup-code ABCD-EFGH-JKMN
 //
+// Against a server that is already running somewhere else (the test box), no docker, no address
+// in any file: put them in the environment and the sign-in is kept outside the repo:
+//   PERF_BASE=<the box's address> PERF_SETUP_CODE=<code from the box's log> node perf/seed.ts
+//   (PERF_INSECURE_TLS=1 only if the box's certificate is self-signed; the service worker then
+//   does not run, so use a real certificate for measuring.)
+//
 // It sets the admin up (the setup code is in `docker logs <container>`), then adds:
 //   about 150 pantry items, about 200 recipes with photos, a month of plan (breakfast, lunch and
 //   dinner on each of 31 days), and a shopping list of about 60 lines.
@@ -12,20 +18,23 @@ import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { deflateSync, crc32 } from 'node:zlib';
 import { parseArgs } from 'node:util';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { request, type APIRequestContext } from '@playwright/test';
 import { Api, type Json } from '../review/seed-pantry.ts';
 
 const { values } = parseArgs({
   options: {
-    base: { type: 'string', default: 'http://127.0.0.1:7795' },
-    'setup-code': { type: 'string' },
-    state: { type: 'string', default: 'perf/.state.json' },
+    base: { type: 'string', default: process.env.PERF_BASE ?? 'http://127.0.0.1:7795' },
+    'setup-code': { type: 'string', default: process.env.PERF_SETUP_CODE },
+    // With PERF_BASE set (a remote box) the sign-in is kept in the temp folder, never in the repo.
+    state: { type: 'string', default: process.env.PERF_BASE ? join(process.env.TMPDIR ?? tmpdir(), 'perf-box-state.json') : 'perf/.state.json' },
     recipes: { type: 'string', default: '200' },
     pantry: { type: 'string', default: '150' },
     list: { type: 'string', default: '60' },
   },
 });
-if (!values['setup-code']) throw new Error('Give --setup-code (it is in `docker logs <container>`).');
+if (!values['setup-code']) throw new Error('Give --setup-code or PERF_SETUP_CODE (it is in the server log).');
 
 export const ADMIN = { name: 'Perf', username: 'perf', password: 'kitchen-secret-2026' };
 
@@ -94,7 +103,7 @@ const day = (iso: string, plus: number) => {
 const t0 = Date.now();
 const say = (s: string) => console.log(`[${((Date.now() - t0) / 1000).toFixed(0)}s] ${s}`);
 
-const ctx: APIRequestContext = await request.newContext({ baseURL: values.base! });
+const ctx: APIRequestContext = await request.newContext({ baseURL: values.base!, ignoreHTTPSErrors: process.env.PERF_INSECURE_TLS === '1' });
 const made = await ctx.post('/api/v1/setup', { data: { ...ADMIN, setup_code: values['setup-code'] } });
 if (made.status() !== 201) throw new Error(`Setup → ${made.status()} ${await made.text()}`);
 const api = new Api(ctx);

@@ -10,6 +10,8 @@
 // A page's time is from asking for it until its own "ready" signal is drawn (a heading, a list, a
 // recipe name): never `networkidle`, because the live updates connection keeps the network busy.
 import { writeFileSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { chromium, expect, request, type Browser, type BrowserContext, type BrowserContextOptions, type Page } from '@playwright/test';
 
@@ -17,7 +19,8 @@ const { values } = parseArgs({
   options: {
     profile: { type: 'string', default: 'phone' },
     runs: { type: 'string', default: '5' },
-    state: { type: 'string', default: 'perf/.state.json' },
+    // With PERF_BASE set (a server already running elsewhere, no docker) the sign-in lives outside the repo.
+    state: { type: 'string', default: process.env.PERF_BASE ? join(process.env.TMPDIR ?? tmpdir(), 'perf-box-state.json') : 'perf/.state.json' },
     out: { type: 'string', default: 'perf/results.json' },
     only: { type: 'string' }, // a comma-separated list of step names, to re-run a few
   },
@@ -31,7 +34,11 @@ const state = JSON.parse(readFileSync(values.state!, 'utf8')) as {
   list: string;
   storage: NonNullable<BrowserContextOptions['storageState']>;
 };
-const BASE = state.base;
+// PERF_BASE (the address of a server already running) wins over the address the seed saved.
+const BASE = process.env.PERF_BASE ?? state.base;
+const TLS = { ignoreHTTPSErrors: process.env.PERF_INSECURE_TLS === '1' };
+// What the results say about the machine, never its address: PERF_LABEL, e.g. "test box, 0.25 core, 1 GB".
+const LABEL = process.env.PERF_LABEL ?? (process.env.PERF_BASE ? 'remote server' : 'local container');
 
 /** The two profiles. Phone: 428 px wide, CPU 4x slower and Chrome's "Slow 4G" network, as used here
  *  (not checked against the current DevTools preset): 1.6 Mbit/s down x 0.9, 750 kbit/s up x 0.9, 562.5 ms added delay. */
@@ -56,7 +63,7 @@ async function slowDown(page: Page) {
 }
 
 // --- The signed-in names the ready signals use -------------------------------------------------------
-const api = await request.newContext({ baseURL: BASE, storageState: state.storage });
+const api = await request.newContext({ baseURL: BASE, storageState: state.storage, ...TLS });
 const get = async (path: string) => (await api.get(`/api/v1${path}`)).json();
 const someRecipe = (await get(`/recipes/${state.recipeIds[7]}`)) as { id: number; name: string };
 const todayPlan = (await get(`/plan?from=${state.today}&to=${state.today}`)) as { meals: { items: { name?: string; recipe_name?: string }[] }[] };
@@ -89,7 +96,7 @@ function watchApi(page: Page) {
 }
 
 async function newPage(browser: Browser, signedIn = true): Promise<{ context: BrowserContext; page: Page }> {
-  const context = await browser.newContext({ baseURL: BASE, ...profile.context, ...(signedIn ? { storageState: state.storage } : {}) });
+  const context = await browser.newContext({ baseURL: BASE, ...TLS, ...profile.context, ...(signedIn ? { storageState: state.storage } : {}) });
   const page = await context.newPage();
   await slowDown(page);
   return { context, page };
@@ -276,5 +283,5 @@ for (const [name, path] of API) {
   }
 }
 await api.dispose();
-writeFileSync(values.out!, JSON.stringify({ profile: values.profile, runs: RUNS, when: new Date().toISOString().slice(0, 10), results, server }, null, 1));
+writeFileSync(values.out!, JSON.stringify({ box: LABEL, serverPass: process.env.PERF_BASE ? 'over the network from the measuring PC, no phone slowing' : 'loopback, no slowing', profile: values.profile, runs: RUNS, when: new Date().toISOString().slice(0, 10), results, server }, null, 1));
 console.log(`written ${values.out}`);
