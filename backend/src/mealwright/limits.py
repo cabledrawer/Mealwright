@@ -11,6 +11,8 @@ route, and only for that method. Mealie's backup file may be up to 1 GB (0.9.5, 
 cabledrawer): it is streamed to a file, never held in memory.
 """
 
+from typing import Any
+
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -29,11 +31,24 @@ BIGGER = {
 }
 
 
+def _without_answers(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {k: _without_answers(v) for k, v in value.items() if k != "answers"}
+    if isinstance(value, list):
+        return [_without_answers(v) for v in value]
+    return value
+
+
 def body_hash(raw: bytes) -> str:
     """The hash of a request body, kept with its change (0.9.5, proposed, for cabledrawer). JSON is
     hashed the way the shopping sync hashes an action's payload (`shopping.payload_hash`: keys
     sorted, no spaces), so the same JSON with its keys in another order is the same body; no
-    body, or a body that isn't JSON, is the SHA-256 of its bytes."""
+    body, or a body that isn't JSON, is the SHA-256 of its bytes.
+
+    Every `answers` key, at any depth, is left out first: the answers to an "ask once" question
+    are sent only on the attempt that follows the question, and the app's "Try again" or an
+    older queued copy of the change may send the same change without them. The change was saved
+    once with them, so that is the same change, not another one (0.9.5 fix round 1)."""
     import hashlib
     import json
 
@@ -41,7 +56,7 @@ def body_hash(raw: bytes) -> str:
 
     if raw.strip():
         try:
-            return shopping.payload_hash(json.loads(raw))
+            return shopping.payload_hash(_without_answers(json.loads(raw)))
         except ValueError:
             pass
     return hashlib.sha256(raw).hexdigest()
@@ -87,7 +102,10 @@ class BodyLimitMiddleware:
         started = False
         # With an Idempotency-Key the body is hashed as it arrives, for the route to compare a
         # key sent again (`body_hash`). Only keyed requests are held, up to the limit.
-        keyed = any(name == b"idempotency-key" for name, _ in scope.get("headers", []))
+        # The photo upload takes no key and may be 15 MB: its body is never held here.
+        keyed = (scope.get("method", ""), scope.get("path", "")) not in BIGGER and any(
+            name == b"idempotency-key" for name, _ in scope.get("headers", [])
+        )
         chunks: list[bytes] = []
 
         async def counted() -> Message:

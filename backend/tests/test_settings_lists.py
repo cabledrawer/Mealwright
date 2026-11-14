@@ -804,6 +804,25 @@ def test_a_place_added_at_the_same_moment_with_one_key_answers_with_the_first_on
     assert names(ok(kitchen.get(f"{API}/places"))).count("Garage") == 1
 
 
+def test_a_place_added_at_the_same_moment_with_one_key_and_another_body_is_refused(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 0.9.5: the race's loser finds the first change at commit and checks the body too.
+    headers = {"Idempotency-Key": "place-race-2"}
+    ok(
+        kitchen.post(f"{API}/places", json={"name": "Garage", "kind": "cupboard"}, headers=headers),
+        201,
+    )
+    _first_replay_check_misses(monkeypatch)
+    second = kitchen.post(
+        f"{API}/places", json={"name": "Shed", "kind": "cupboard"}, headers=headers
+    )
+    assert second.status_code == 409, second.text
+    assert second.json()["code"] == "key_reused"
+    listed = names(ok(kitchen.get(f"{API}/places")))
+    assert "Shed" not in listed and listed.count("Garage") == 1
+
+
 def test_a_place_renamed_at_the_same_moment_with_one_key_answers_with_the_first_name(
     kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

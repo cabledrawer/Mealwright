@@ -82,3 +82,39 @@ def test_two_households_using_the_same_key_do_not_meet(
     other: Any = neighbour.post(f"{API}/foods", json={"name": "Moong dal"}, headers=KEY)
     assert other.status_code == 201
     assert "Idempotent-Replayed" not in other.headers
+
+
+def test_try_again_without_the_answers_after_an_ask_once_save_is_the_same_change(
+    kitchen: TestClient,
+) -> None:
+    """The app's "Try again" after a lost answer sends the change ID without the answers the
+    saved attempt carried: same change, so a replay (200), applied once (fix round 1)."""
+    food = ok(kitchen.post(f"{API}/foods", json={"name": "Toor dal"}), 201)["food"]
+    kitchen.post(f"{API}/foods/{food['id']}/sizes", json={"name": "packet", "amount": 500})
+    url = f"{API}/foods/{food['id']}"
+    key = {"Idempotency-Key": "ask-once-1"}
+    asked = kitchen.patch(url, json={"counted_as": "volume"}, headers=key)
+    assert asked.status_code == 409 and asked.json()["code"] == "ask_once"
+    answer = {"kind": "weight_per_ml", "food_id": food["id"], "grams": 200, "remember": True}
+    saved = kitchen.patch(url, json={"counted_as": "volume", "answers": [answer]}, headers=key)
+    assert saved.status_code == 200
+    again = kitchen.patch(url, json={"counted_as": "volume"}, headers=key)
+    assert again.status_code == 200, again.text
+    assert again.headers["Idempotent-Replayed"] == "true"
+    assert again.json()["change"]["id"] == saved.json()["change"]["id"]
+    with kitchen.app.state.sessionmaker() as db:
+        assert (
+            len(list(db.scalars(select(Change).where(Change.idempotency_key == "ask-once-1")))) == 1
+        )
+
+
+def test_answers_are_left_out_of_the_hash_at_any_depth() -> None:
+    from mealwright.limits import body_hash
+
+    plain = b'{"running_low_at": {"amount": 1, "unit": "cup"}}'
+    nested = (
+        b'{"running_low_at": {"amount": 1, "unit": "cup", "answers": [{"grams": 3}]},'
+        b' "answers": []}'
+    )
+    assert body_hash(plain) == body_hash(nested)
+    assert body_hash(plain) != body_hash(b'{"running_low_at": {"amount": 2, "unit": "cup"}}')
