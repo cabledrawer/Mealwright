@@ -25,7 +25,7 @@ from test_sso_api import (
 )
 
 from mealwright.auth import hash_password
-from mealwright.models import Login, SsoAccount
+from mealwright.models import Login, Session, SsoAccount
 
 ADMINS = ["mealwright-admins"]
 
@@ -211,3 +211,18 @@ def test_a_live_sign_in_of_another_admin_doesnt_count(admin: TestClient, idp: Fa
     refused = _unlink(admin, _member_id(admin, ADMIN["name"]))
     assert refused.status_code == 409
     assert refused.json()["code"] == "last_admin"
+
+
+def test_unlinking_ends_the_open_live_update_streams_of_their_sign_ins(
+    admin: TestClient, idp: FakeProvider, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Like removing a person: a stream open on a deleted sign-in would go on until it times out
+    (fix round 1). Fails without the call to `events.end_session`."""
+    _lorna_signed_in(admin, idp)
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        ids = list(db.scalars(select(Session.id).where(Session.sso.is_(True))))
+    assert len(ids) == 1
+    ended: list[int] = []
+    monkeypatch.setattr(cast(Any, admin.app).state.events, "end_session", ended.append)
+    assert _unlink(admin, _member_id(admin, "Lorna")).status_code == 200
+    assert ended == ids

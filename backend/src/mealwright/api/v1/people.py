@@ -398,7 +398,9 @@ def refuse_sso_account(account_id: StoredInt, kitchen: Here, response: Response)
 
 
 @router.delete("/people/{member_id}/sso")
-def unlink_sso(member_id: StoredInt, kitchen: Here, response: Response) -> PeopleOut:
+def unlink_sso(
+    member_id: StoredInt, request: Request, kitchen: Here, response: Response
+) -> PeopleOut:
     """Unlink a person from their account at the sign-in server (0.9.5 Pe3/M2, Person page). The
     account waits for an admin at its next sign-in, and the person's single sign-on sign-ins end.
     Never the household's last admin who can sign in, when single sign-on is their only way in
@@ -406,9 +408,23 @@ def unlink_sso(member_id: StoredInt, kitchen: Here, response: Response) -> Peopl
     earlier = _start(kitchen, response)
     if earlier is not None:
         return _out(kitchen, earlier)
+    ended = list(
+        kitchen.db.scalars(
+            select(Session.id)
+            .join(Login, Login.id == Session.login_id)
+            .where(
+                Login.member_id == member_id,
+                Login.household_id == kitchen.household_id,
+                Session.sso.is_(True),
+            )
+        )
+    )
     made = sso_people.unlink(kitchen, member_id)
     log.info("Single sign-on: a person unlinked by an admin")
-    return _finish(kitchen, response, made)
+    answer = _finish(kitchen, response, made)
+    for session_id in ended:  # their open live-update streams end with their sign-ins
+        request.app.state.events.end_session(session_id)
+    return answer
 
 
 class SwitchIn(BaseModel):

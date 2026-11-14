@@ -128,7 +128,6 @@ def free_username(kitchen: Kitchen, account: SsoAccount) -> str:
 
 def _done(kitchen: Kitchen, account: SsoAccount, login: Login) -> None:
     login.sso_issuer, login.sso_subject = account.issuer, account.subject
-    login.sso_refused_at = None
     drop_join_links(kitchen.db, login)  # an unused sign-in link must not work again after Unlink
     account.waiting_since = None
     account.refused_at = None

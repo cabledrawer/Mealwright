@@ -24,7 +24,7 @@ from test_sso_api import (
 )
 
 from mealwright.auth import hash_password
-from mealwright.models import Login, Member, SsoAccount
+from mealwright.models import Login, Member, SsoAccount, utcnow
 from mealwright.sso_accounts import MOST_WAITING
 
 
@@ -290,3 +290,23 @@ def test_an_earlier_sign_in_servers_sign_ins_are_never_listed(
     assert admin.get(f"{API}/people").json()["waiting"] == []
     link = f"{API}/people/sso-accounts/{account}/link"
     assert admin.post(link, json={"member_id": None}).status_code == 404
+
+
+def test_linking_by_hand_leaves_the_refusal_mark_alone(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """The mark ends only when the sign-in server accepts them as an Admin again, or an admin
+    makes them a Member or removes them (spec section 7), not by being linked by hand."""
+    person_here(admin, "lorna")
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        login = db.scalars(select(Login).where(Login.username == "lorna")).one()
+        login.sso_refused_at = utcnow()
+        db.commit()
+    account = _wait(admin, idp)
+    linked = admin.post(
+        f"{API}/people/sso-accounts/{account}/link", json={"member_id": _member_id(admin, "Lorna")}
+    )
+    assert linked.status_code == 200, linked.text
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        login = db.scalars(select(Login).where(Login.username == "lorna")).one()
+        assert login.sso_subject == "lorna-1" and login.sso_refused_at is not None
