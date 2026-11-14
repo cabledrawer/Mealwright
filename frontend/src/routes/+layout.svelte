@@ -1,6 +1,5 @@
 <script lang="ts">
-  import '@fontsource-variable/plus-jakarta-sans';
-  import '@fontsource-variable/newsreader';
+  import '#lib/styles/fonts.css';
   import '#lib/styles/tokens.css';
   import '#lib/styles/base.css';
 

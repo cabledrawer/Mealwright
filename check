@@ -1180,8 +1180,11 @@ if [[ -f "$ROOT/frontend/package.json" ]]; then
   step "frontend: build"         sh -c 'cd frontend && npm run -s build'
   if [[ "$(result_of "frontend: build")" == PASS ]]; then
     step "frontend: size limit"  sh -c 'cd frontend && node --test scripts/check-size.test.mjs scripts/third-party-licences.test.mjs && node scripts/check-size.mjs'
+    # Only latin and latin-ext font files in the build (0.9.5; the test of the script is in the same step).
+    step "frontend: fonts"       sh -c 'cd frontend && node --test scripts/check-fonts.test.mjs && node scripts/check-fonts.mjs'
   else
     skip "frontend: size limit" "web build failed"
+    skip "frontend: fonts" "web build failed"
   fi
   step "frontend: licences"      backend uv run --frozen python -I scripts/check_licences.py --npm ../frontend
 else
