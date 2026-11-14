@@ -9,7 +9,7 @@
   Admin gives Admin, else any mapped to Member gives Member, else "Anyone else" (Not let in, the
   default, or Member; cabledrawer 12 Nov). The household's last admin who can sign in is
   never made a Member this way (cabledrawer 12 Nov); "can sign in" means without the sign-in
-  server's say: a working password or a live sign-in, not just being linked
+  server's say: a working password, not a live sign-in and not just being linked
   (`another_admin_gets_in`; O2 review r8, proposed, for cabledrawer).
 - **Staying signed in.** A single sign-on sign-in keeps the provider's refresh token when
   it gives one, sealed (`mealwright.secret_box`). `offline_access` is asked for when the
@@ -35,7 +35,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal, NamedTuple, NoReturn
 
-from sqlalchemy import ColumnElement, and_, delete, exists, func, or_, select
+from sqlalchemy import ColumnElement, and_, delete, false, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
@@ -221,27 +221,24 @@ def find_login(db: DbSession, identity: Identity) -> Login | None:
 
 def another_admin_gets_in(db: DbSession, login: Login, off: bool, *, again: bool = False) -> bool:
     """True when another admin of this household can get in without the sign-in server's say:
-    they have a password and password sign-in isn't off (`off`), or they have a sign-in that
-    hasn't run out. Being linked to the sign-in server is not enough: the same groups that
-    refuse `login` may refuse them (O2 review r5, findings 1, 2 and 3). Not shared logins, not
-    removed people. This is the one answer to "is someone else a way in?". `again` (for a group
-    demotion, which lasts): they must also be able to sign in again once their sign-in runs out
-    (`admin_can_sign_in`: with passwords off, linked to the saved sign-in server), not only be
-    signed in from before passwords went off (O2 review r9, finding 1). A refusal is temporary,
-    so it keeps the plain meaning."""
+    they have a password and password sign-in isn't off (`off`). Being linked to the sign-in
+    server is not enough, since the same groups that refuse `login` may refuse them (O2 review
+    r5, findings 1, 2 and 3), and a sign-in that is open now is no way in either (#205 (d),
+    cabledrawer 12 Nov late; it ends, and then nothing lets them back). Not shared logins, not
+    removed people. This is the one answer to "is someone else a way in?" when the sign-in
+    server is the one refusing. `again` (for a group demotion, which lasts): they must also be
+    able to sign in again by the household's one rule (`admin_can_sign_in`)."""
     has_password = and_(Login.password_hash.is_not(None), Login.password_hash != "")  # nosec B105
-    live = exists().where(Session.login_id == Login.id, Session.expires_at > now())
-    ways = live if off else or_(has_password, live)
     query = (
         select(func.count())
         .select_from(Login)
         .join(Member, Member.id == Login.member_id)
         .where(Login.household_id == login.household_id, Login.role == ADMIN)
         .where(Login.shared.is_(False), Login.id != login.id, Member.removed_at.is_(None))
-        .where(ways)
+        .where(false() if off else has_password)
     )
     if again:
-        query = query.where(admin_can_sign_in(db, login.household_id, off))
+        query = query.where(admin_can_sign_in(db, login.household_id, off, off))
     return int(db.scalar(query) or 0) > 0
 
 

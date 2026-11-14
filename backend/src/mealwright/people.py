@@ -129,47 +129,48 @@ def can_sign_in() -> ColumnElement[bool]:
 
 
 def admin_can_sign_in(
-    db: DbSession, household_id: int, passwords_off: bool = False
+    db: DbSession, household_id: int, passwords_off: bool = False, sso_on: bool = False
 ) -> ColumnElement[bool]:
-    """Like `can_sign_in`, for counting the admins who can get in. While password sign-in is
-    turned off for single sign-on, a password is no way in: only a login linked to the saved
-    sign-in server counts (O1 review r1 M3), so the last admin who can really sign in is
-    never removed, made a Member or made shared."""
+    """The one rule for "this admin can get in" (#205 (d), cabledrawer 12 Nov late): a password that
+    works now (password sign-in isn't off), or a single sign-on link accepted at the saved
+    sign-in server while single sign-on can start (`sso_on`). A sign-in that is open now, an API
+    token, an unused sign-in or join link and a link not accepted yet are no way in. While
+    password sign-in is turned off, a password is no way in (O1 review r1 M3), so the last admin
+    who can really sign in is never removed, made a Member or made shared."""
     setup = db.scalar(select(SsoSettings).where(SsoSettings.household_id == household_id))
-    if setup is None or not passwords_off:
-        # A single sign-on identity counts only at the saved sign-in server (O1 review r2, 4):
-        # one made at another can't sign in now.
-        has_password = and_(
-            Login.password_hash.is_not(None),
-            Login.password_hash != "",  # nosec B105
-        )
-        at_saved_server = (
-            and_(Login.sso_issuer == setup.issuer, Login.sso_subject.is_not(None))
-            if setup is not None
-            else false()
-        )
-        return and_(or_(has_password, at_saved_server), Member.removed_at.is_(None))
-    return and_(
-        Login.sso_issuer == setup.issuer,
-        Login.sso_subject.is_not(None),
-        Member.removed_at.is_(None),
+    has_password = and_(
+        Login.password_hash.is_not(None),
+        Login.password_hash != "",  # nosec B105
     )
+    # A single sign-on identity counts only at the saved sign-in server (O1 review r2, 4), and
+    # only while single sign-on can start: with its switch off nobody gets in that way.
+    at_saved_server = (
+        and_(Login.sso_issuer == setup.issuer, Login.sso_subject.is_not(None))
+        if setup is not None and (sso_on or passwords_off)
+        else false()
+    )
+    ways = at_saved_server if passwords_off else or_(has_password, at_saved_server)
+    return and_(ways, Member.removed_at.is_(None))
 
 
 def admins_left(kitchen: Kitchen, apart_from: int | None = None) -> int:
-    """How many admins the household has who can sign in, apart from this person. An admin
-    whose sign-in link isn't used yet doesn't count: they can't sign in to do admin things.
-    A shared login (a kitchen tablet) doesn't count either: cabledrawer 12 Nov. With
-    password sign-in off, only admins linked by single sign-on count (`admin_can_sign_in`)."""
-    from mealwright.sso_accounts import passwords_off  # here: sso_accounts imports this module
+    """How many admins the household has who can get in, apart from this person, by the one
+    rule `admin_can_sign_in` (a working password or an accepted single sign-on link; a sign-in
+    that is open now doesn't count). An admin whose sign-in link isn't used yet doesn't count.
+    A shared login (a kitchen tablet) doesn't count either: cabledrawer 12 Nov."""
+    from mealwright.sso_accounts import (  # here: sso_accounts imports this module
+        passwords_off,
+        sso_can_start,
+    )
 
     off = passwords_off(kitchen.db, kitchen.data_dir, kitchen.household_id)
+    sso_on = off or sso_can_start(kitchen.db, kitchen.data_dir, kitchen.household_id)
     query = (
         select(func.count())
         .select_from(Login)
         .join(Member, Member.id == Login.member_id)
         .where(Login.household_id == kitchen.household_id, Login.role == ADMIN)
-        .where(admin_can_sign_in(kitchen.db, kitchen.household_id, off))
+        .where(admin_can_sign_in(kitchen.db, kitchen.household_id, off, sso_on))
         .where(Login.shared.is_(False))
     )
     if apart_from is not None:

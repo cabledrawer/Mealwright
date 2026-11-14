@@ -78,18 +78,35 @@ def test_the_warning_goes_when_passwords_are_back_on(
     assert _warning(sso_only) is None
 
 
-def test_with_another_admin_who_can_get_in_the_sign_in_ends_as_before(
+def test_another_admins_live_sign_in_is_no_way_in_so_the_sign_in_is_kept(
     sso_only: TestClient, idp: FakeProvider
 ) -> None:
+    """#205 (d), cabledrawer 12 Nov late: Wren is signed in, but a sign-in that ends is not a way in,
+    so cabledrawer's, refused, is kept (it was ended while a live sign-in counted)."""
     wren = browser(sso_only)
-    sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)  # a live sign-in: a way in
+    sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
     phone = browser(sso_only)
     sign_in(phone, idp, sub="k", extra=ADMIN_GROUPS)
     idp.refresh_tokens.clear()
     _due(sso_only, "k")
-    assert check(sso_only) == 1
+    assert check(sso_only) == 0
+    assert phone.get(f"{API}/me").status_code == 200
+    assert _warning(sso_only) is not None
+
+
+def test_with_another_admin_who_has_a_password_the_sign_in_ends_as_before(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """Passwords work and Joss has one: she is a way in, so cabledrawer's refused sign-in ends."""
+    from test_sso_api import _add_admin
+
+    _add_admin(admin, "joss")
+    phone = browser(admin)
+    sign_in(phone, idp, sub="k", extra=ADMIN_GROUPS)
+    idp.refresh_tokens.clear()
+    _due(admin, "k")
+    assert check(admin) == 1
     assert phone.get(f"{API}/me").status_code == 401
-    assert _warning(sso_only) is None
 
 
 def test_a_member_is_never_shown_the_warning(sso_only: TestClient, idp: FakeProvider) -> None:

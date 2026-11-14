@@ -176,17 +176,31 @@ def _people(client: TestClient) -> dict[str, int]:
 def test_a_refused_admin_is_signed_out_only_while_another_admin_can_get_in(
     sso_only: TestClient, idp: FakeProvider
 ) -> None:
-    """O2 review r5, findings 1 and 3. Two linked admins, passwords off, the groups drop both.
-    Wren has a live sign-in, so cabledrawer's refusal ends his; then Wren is the only way in and
-    keeps hers. Fails when a linked admin counts as a way in only because they are linked."""
+    """O2 review r5, findings 1 and 3, and #205 (d). Two linked admins, passwords off, the groups
+    drop both. Wren is signed in, but a live sign-in is no way in (and being linked isn't
+    enough), so cabledrawer's refusal leaves his sign-ins, and so does Wren's."""
     wren = browser(sso_only)
     sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
     first, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": []})
     assert first.status_code != 200
-    assert sso_only.get(f"{API}/me").status_code == 401  # cabledrawer: Wren can still get in
+    assert sso_only.get(f"{API}/sso/settings").status_code == 200  # cabledrawer: kept
     second, _ = sign_in(browser(sso_only), idp, sub="wren", extra={"groups": []})
     assert second.status_code != 200
-    assert wren.get(f"{API}/sso/settings").status_code == 200  # Wren: nobody else can
+    assert wren.get(f"{API}/sso/settings").status_code == 200  # Wren: kept too
+
+
+def test_a_refused_admin_is_signed_out_when_another_admin_has_a_working_password(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """#205 (d): the other way in that does count. Joss has a password and passwords work."""
+    from test_sso_api import _add_admin
+
+    _add_admin(admin, "joss")
+    sign_in(admin, idp, path="/sso/test", sub="k", extra=ADMIN_GROUPS)
+    assert admin.post(f"{API}/sso/link").is_success
+    first, _ = sign_in(browser(admin), idp, sub="k", extra={"groups": []})
+    assert first.status_code != 200
+    assert admin.get(f"{API}/me").status_code == 401
 
 
 def test_a_linked_admin_with_no_live_sign_in_is_no_way_in(
@@ -229,16 +243,16 @@ def _admins(db_app: Any) -> list[str]:
 def test_demoting_by_groups_never_leaves_no_admin_tess_first(
     sso_only: TestClient, idp: FakeProvider
 ) -> None:
-    """O2 review r8, finding 1. Passwords off, two linked admins signed in. The admin group goes
-    and cabledrawer is in users: he is demoted (Wren can still get in); then Wren, in no group, is
-    refused and stays the admin. Fails when a linked admin counts as a way in."""
+    """O2 review r8, finding 1, and #205 (d). Passwords off, two linked admins signed in. The
+    admin group goes and cabledrawer is in users: Wren is signed in but that is no way in, so he stays
+    the admin; then Wren, in no group, is refused and stays one too."""
     wren = browser(sso_only)
     sign_in(wren, idp, sub="wren", extra=ADMIN_GROUPS)
-    demoted, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": ["mealwright-users"]})
-    assert demoted.json()["me"]["role"] == "member"
+    kept, _ = sign_in(browser(sso_only), idp, sub="k", extra={"groups": ["mealwright-users"]})
+    assert kept.json()["me"]["role"] == "admin"
     refused, _ = sign_in(browser(sso_only), idp, sub="wren", extra={"groups": []})
     assert refused.status_code != 200
-    assert len(_admins(sso_only.app)) == 1
+    assert len(_admins(sso_only.app)) == 2
     assert wren.get(f"{API}/sso/settings").status_code == 200
 
 
