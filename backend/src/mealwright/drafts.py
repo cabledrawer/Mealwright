@@ -54,6 +54,7 @@ from mealwright.models import (
     Household,
     ImportDraft,
     Login,
+    MealieImport,
     Recipe,
     RecipePhoto,
     utcnow,
@@ -117,16 +118,28 @@ def find(kitchen: Kitchen, draft_id: int) -> ImportDraft:
 
 
 def count(db: DbSession, household_id: int, now: datetime | None = None) -> int:
-    """The drafts that count towards the 50: an Import from Mealie's own drafts don't (it can
-    make hundreds; proposed, for cabledrawer)."""
+    """The drafts that count towards the 50: every one but those the server's Import from
+    Mealie made (it can make hundreds; proposed, for cabledrawer). Told by the import they belong
+    to, which only the server sets, never by the kind a client sends (round 1, S-M4)."""
     return (
         db.scalar(
             select(func.count())
             .select_from(ImportDraft)
-            .where(*live(household_id, now or utcnow()), ImportDraft.source_kind != "mealie")
+            .where(*live(household_id, now or utcnow()), ImportDraft.mealie_import_id.is_(None))
         )
         or 0
     )
+
+
+def _not_mealie(body: DraftIn, draft: ImportDraft | None = None) -> None:
+    """Only the server's Import from Mealie makes Mealie drafts: a client can't say a draft
+    came from Mealie (round 1, S-M4). A Mealie draft saved again keeps its kind."""
+    if body.review.source.kind == "mealie" and (draft is None or draft.mealie_import_id is None):
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "mealie_draft",
+            "Only an import from Mealie makes drafts from Mealie.",
+        )
 
 
 def _too_many() -> Problem:
@@ -585,6 +598,7 @@ def fill(kitchen: Kitchen, draft: ImportDraft, body: DraftIn) -> None:
 def create(kitchen: Kitchen, body: DraftIn) -> ImportDraft:
     """Keep a review as a draft. The caller holds the household's lock and commits. At 50
     drafts it refuses (never deleting an old one to make room)."""
+    _not_mealie(body)
     now = utcnow()
     if count(kitchen.db, kitchen.household_id, now) >= MAX_DRAFTS:
         raise _too_many()
@@ -610,6 +624,7 @@ def create(kitchen: Kitchen, body: DraftIn) -> ImportDraft:
 def update(kitchen: Kitchen, draft: ImportDraft, body: DraftIn) -> None:
     """Replace what a draft keeps (the last save wins). It counts as a change: the 15 days
     start again."""
+    _not_mealie(body, draft)
     fill(kitchen, draft, body)
     kitchen.db.flush()
 
@@ -676,7 +691,17 @@ def snapshot(draft: ImportDraft, photo_id: int | None) -> dict[str, Any]:
         "started_by_name": draft.started_by_name,
         "created_at": as_utc(draft.created_at).isoformat(),
         "photo_id": photo_id,
+        "mealie_import_id": draft.mealie_import_id,
     }
+
+
+def _import_of(kitchen: Kitchen, import_id: Any) -> int | None:
+    """A Mealie draft brought back stays its import's, while that import is still this
+    household's (else it counts as any draft)."""
+    if not isinstance(import_id, int):
+        return None
+    row = kitchen.db.get(MealieImport, import_id)
+    return row.id if row is not None and row.household_id == kitchen.household_id else None
 
 
 def make_room(kitchen: Kitchen) -> None:
@@ -723,6 +748,7 @@ def bring_back(kitchen: Kitchen, recipe_id: int, saved: dict[str, Any]) -> str:
         started_by_name=saved.get("started_by_name", ""),
         created_at=datetime.fromisoformat(saved["created_at"]),
         updated_at=utcnow(),
+        mealie_import_id=_import_of(kitchen, saved.get("mealie_import_id")),
     )
     db.add(draft)
     db.flush()

@@ -162,7 +162,7 @@ def _have(db: Session, household_id: int) -> set[tuple[str, str | None]]:
     url = ImportDraft.review[("source", "url")].as_string()
     for name, source in db.execute(
         select(ImportDraft.name, url).where(
-            ImportDraft.household_id == household_id, ImportDraft.source_kind == "mealie"
+            ImportDraft.household_id == household_id, ImportDraft.mealie_import_id.is_not(None)
         )
     ):
         have.add((fold(name), source or None))
@@ -1073,7 +1073,9 @@ def mealie_drafts(kitchen: Kitchen) -> list[ImportDraft]:
     return list(
         kitchen.db.scalars(
             select(ImportDraft)
-            .where(*drafts.live(kitchen.household_id, now), ImportDraft.source_kind == "mealie")
+            .where(
+                *drafts.live(kitchen.household_id, now), ImportDraft.mealie_import_id.is_not(None)
+            )
             .order_by(ImportDraft.id)
         )
     )
@@ -1127,7 +1129,7 @@ def save_all_drafts(kitchen: Kitchen) -> int:
                 select(ImportDraft).where(
                     ImportDraft.id == ids[at],
                     *drafts.live(kitchen.household_id, utcnow()),
-                    ImportDraft.source_kind == "mealie",
+                    ImportDraft.mealie_import_id.is_not(None),
                 )
             )
             at += 1
@@ -1201,7 +1203,7 @@ def mealie_draft_count(db: Session, household_id: int) -> int:
         db.scalar(
             select(func.count())
             .select_from(ImportDraft)
-            .where(*drafts.live(household_id, utcnow()), ImportDraft.source_kind == "mealie")
+            .where(*drafts.live(household_id, utcnow()), ImportDraft.mealie_import_id.is_not(None))
         )
         or 0
     )

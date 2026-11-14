@@ -561,6 +561,31 @@ def test_at_50_drafts_the_51st_says_so_and_no_old_draft_is_deleted(
     assert keep(kitchen, shown).status_code == 201
 
 
+def test_a_client_cannot_say_a_draft_came_from_mealie_to_skip_the_50(
+    kitchen: TestClient, pantry: dict[str, Any], web: Web
+) -> None:
+    # Round 1, S-M4: drafts said to come from Mealie didn't count towards the 50, and any
+    # client could say so.
+    shown = review(kitchen, PASTED)
+    mealie = {**shown, "source": {**shown["source"], "kind": "mealie"}}
+    answers = [keep(kitchen, mealie) for _ in range(60)]
+    assert {answer.status_code for answer in answers} == {422}
+    assert answers[50].json()["code"] == "mealie_draft"
+    assert listed(kitchen) == []
+    # Nor can a draft kept as pasted text be changed into one.
+    mine = kept(kitchen, shown)
+    assert put(kitchen, mine["id"], mealie).status_code == 422
+    # A draft is left out of the 50 only when the server's import made it, not by its kind.
+    ids = [mine["id"]] + [kept(kitchen, shown)["id"] for _ in range(49)]
+    with db(kitchen) as session:
+        session.execute(
+            update(ImportDraft).where(ImportDraft.id.in_(ids)).values(source_kind="mealie")
+        )
+        session.commit()
+    refused = keep(kitchen, shown)
+    assert refused.status_code == 409 and refused.json()["code"] == "too_many_drafts"
+
+
 def test_a_second_household_has_its_own_50(
     kitchen: TestClient, pantry: dict[str, Any], web: Web
 ) -> None:

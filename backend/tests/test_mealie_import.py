@@ -680,3 +680,21 @@ def test_one_import_adds_at_most_5000_new_ingredients(
     assert job["counts"]["saved"] == 5 and job["counts"]["drafts"] == 3
     with factory() as db:
         assert len(db.scalars(select(Food).where(Food.mealie_import_id == import_id)).all()) == 5
+
+
+def test_a_mealie_draft_can_be_kept_again_and_comes_back_still_from_mealie(
+    kitchen: TestClient, raw: bytes
+) -> None:
+    # Round 1, S-M4: only the server's import makes Mealie drafts, but one it made can be
+    # opened and kept again, and an Undo of its delete brings it back as the import's.
+    done = bring_in(kitchen, raw)
+    (draft,) = kitchen.get(f"{API}/recipes/drafts").json()["drafts"]
+    opened = kitchen.get(f"{API}/recipes/drafts/{draft['id']}").json()
+    body = {"text": opened["text"], "review": opened["review"], "choices": opened["choices"]}
+    assert kitchen.put(f"{API}/recipes/drafts/{draft['id']}", json=body).status_code == 200
+    change = kitchen.delete(f"{API}/recipes/drafts/{draft['id']}").json()["change"]
+    assert kitchen.post(f"{API}/changes/{change['id']}/undo").status_code == 200
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        back = db.get(ImportDraft, draft["id"])
+        assert back is not None and back.mealie_import_id == done["id"]
+        assert drafts.count(db, 1) == 0

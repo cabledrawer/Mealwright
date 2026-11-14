@@ -508,7 +508,7 @@ is a plain 404):
 | | |
 | --- | --- |
 | `GET /recipes/drafts` | the household's drafts, the one changed last first: name, where from, who started it, `days_left`, `lines_total`, `lines_checked` |
-| `POST /recipes/drafts` | keep a review as a draft (`text`, `review`, `choices`); 201. At 50 drafts: 409 `too_many_drafts`, "You have 50 drafts. Finish or delete one first." A retry with the same `Idempotency-Key` makes no second draft |
+| `POST /recipes/drafts` | keep a review as a draft (`text`, `review`, `choices`); 201. At 50 drafts: 409 `too_many_drafts`, "You have 50 drafts. Finish or delete one first." A retry with the same `Idempotency-Key` makes no second draft. A review whose source kind is `mealie`: 422 `mealie_draft` (here and on `PUT`, unless the draft is one the import made; round 1) |
 | `GET /recipes/drafts/{id}` | carry on: the text, the review and the choices. Opening changes nothing |
 | `PUT /recipes/drafts/{id}` | replace what it keeps (the same body); counts as a change |
 | `DELETE /recipes/drafts/{id}` | hide it at once; the answer has the change whose Undo (`POST /changes/{id}/undo`) brings it back |
@@ -748,7 +748,7 @@ The choices below are proposed, for cabledrawer:
 - **Read:** a recipe is saved when every ingredient line is matched or a staple. New Mealie
   foods become ingredients first, marked by the import (`food.mealie_import_id`), so a line
   that names a Mealie food is read. Waits the reader suggests aren't added; the file's own
-  times are used. Mealie drafts don't count towards the 50-draft limit; the 15 days still
+  times are used. Mealie drafts don't count towards the 50-draft limit (told by their `mealie_import_id`, which only the server sets, never by the kind a client sends; round 1, S-M4); the 15 days still
   apply.
 - **The job:** one thread per import. It holds the database's write lock only in short
   stretches (about half a second, `HOLD_SECONDS`, then the lock is left free for a tenth of a
