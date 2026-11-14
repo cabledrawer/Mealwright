@@ -28,7 +28,7 @@ Settings → Your data shows it. An admin can change how often and how many.
 - **A server that was off at 03:00** backs up when it starts. After a failed backup it tries again an hour later, and Settings → Your data says the last one failed.
 - Mealwright also keeps other copies in the same folder, which the "Keep" setting never deletes: `pre-upgrade-….db` (made before a version changes the database; the newest three are kept, see [upgrade.md](upgrade.md)) and `before-delete-everything-….db` (made before Delete everything).
 
-**The photos are in a folder beside the backup, not in the `.db` file.** With Include photos on (the usual) every backup, and the safety copies before an upgrade and before Delete everything, has one. With it off, a backup holds everything but the photos, and restoring it keeps the photos already on the server; a recipe whose photo file is missing just shows no photo.
+**The photos are in a folder beside the backup, not in the `.db` file.** With Include photos on (the usual) every backup and the safety copy before an upgrade has one; the copy before Delete everything always has one, whatever the switch says (proposed, for cabledrawer), because Delete everything removes the photos for good. With it off, a backup holds everything but the photos, and restoring it keeps the photos already on the server; a recipe whose photo file is missing just shows no photo.
 
 One tiny gap (proposed, for cabledrawer): a photo saved and deleted again within the few milliseconds a backup takes to copy the database can be missing from that backup's folder; restoring shows it as a missing photo. Symbolic links in the photos folder are skipped, never followed.
 

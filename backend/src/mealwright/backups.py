@@ -473,7 +473,9 @@ def before_delete_everything(
     engine: Engine, folder: Path, now: datetime | None = None, photos: Path | None = None
 ) -> Path:
     """The safety backup made before "Delete everything" (cabledrawer 12 Nov), with the photos when
-    `photos` is given (D2, 0.9.5), so a restore brings them back. Never trimmed."""
+    `photos` is given (D2, 0.9.5), so a restore brings them back. The caller always gives them,
+    whatever the Include photos switch says (proposed, for cabledrawer): Delete everything removes the
+    photos for good, so this copy is the only way back. Never trimmed."""
     if sqlite_file(engine) is None:
         raise BackupFailed("Backups need Mealwright’s own database file.")
     with _ONE_AT_A_TIME:

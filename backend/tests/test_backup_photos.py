@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from conftest import ADMIN
 from fastapi.testclient import TestClient
 from photo_kit import uploaded
 from sqlalchemy import Engine
@@ -714,3 +715,19 @@ def test_a_member_is_told_no_sizes_and_an_admin_only_their_own_households_photos
     assert seen["database_size"] is None
     assert seen["last"]["size"] == backup.size  # as a member saw it before 0.9.5
     assert seen["last"]["photos"] is True
+
+
+def test_delete_everything_always_keeps_the_photos_in_its_safety_copy(
+    kitchen: TestClient,
+) -> None:
+    """Whatever the switch says (proposed, for cabledrawer): the photos are removed for good, so this
+    copy is the only way back. The ordinary backup and the safety copy before an upgrade follow
+    the switch (test_the_safety_copy_with_the_switch_off_has_no_photo_folder, above)."""
+    _photo(_store(kitchen), "a", b"sambar")
+    assert kitchen.patch(API, json={"photos": False}).json()["photos"] is False
+    assert kitchen.post(API).json()["last"]["photos"] is False  # the ordinary one: left out
+    body = {"words": "delete everything", "password": ADMIN["password"]}
+    assert kitchen.post("/api/v1/delete-everything", json=body).status_code == 204
+    (safety,) = _folder(kitchen).glob("before-delete-everything-*.db")
+    assert _files(backups.photos_beside(safety)) == {f"1/{'a' * 32}.jpg": b"sambar"}
+    assert not _store(kitchen).joinpath("1").exists()  # and the live ones are gone

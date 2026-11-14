@@ -420,7 +420,7 @@ def delete_everything(
             return
         try:
             safety = backups.before_delete_everything(
-                engine, _folder(request), photos=_photos(kitchen, _folder(request))
+                engine, _folder(request), photos=backups.photo_store(_folder(request))
             )
         except backups.BackupFailed as error:
             raise Problem(

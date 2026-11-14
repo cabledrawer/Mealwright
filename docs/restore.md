@@ -43,9 +43,10 @@ is `/data` inside the container).
   With `rsync`, add `--exclude=logs/`.
 - Other copies in the same folder: `pre-upgrade-….db` (made before a version upgrades the
   database) and `before-delete-everything-….db` (made before Delete everything). They restore
-  the same way, with their own `-photos` folders (they follow the same "Include photos" choice).
-  A `before-delete-everything-…` copy is the way to bring back the photos Delete everything
-  removed, as long as "Include photos" was on.
+  the same way, with their own `-photos` folders (the safety copy before an upgrade follows the "Include photos" choice; the one before Delete everything always has them).
+  A `before-delete-everything-…` copy always has its photos folder, whatever "Include photos"
+  says (proposed, for cabledrawer), because Delete everything removes the photos for good: it is the
+  way to bring them back.
 
 ## Restore on the same server
 
