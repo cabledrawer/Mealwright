@@ -140,21 +140,99 @@ def test_another_admins_live_sign_in_is_no_way_in_so_the_sign_in_is_kept(
     assert _warning(sso_only) is not None
 
 
+SAM = {**ADMIN_GROUPS, "preferred_username": "sam"}
+
+
+@pytest.mark.parametrize("first", ["lorna", "sam"])
 def test_two_admins_taken_out_together_leave_one_who_can_get_in(
-    sso_only: TestClient, idp: FakeProvider
+    sso_only: TestClient, idp: FakeProvider, first: str
 ) -> None:
-    """Both linked admins are refused by the hourly check: the first one's sign-in ends and is
-    marked, so the second is the last way in and is kept. Never none."""
-    lorna, sam = browser(sso_only), browser(sso_only)
-    sign_in(lorna, idp, sub="lorna", extra=ADMIN_GROUPS)
-    sign_in(sam, idp, sub="sam", extra={**ADMIN_GROUPS, "preferred_username": "sam"})
+    """Both linked admins are signed in and both are taken out at the sign-in server. Each counts
+    the other (a link and a sign-in open now), so the first one's check ends, and that ends its
+    sign-in: the other has nobody left and is kept. Exactly one stays, in either order, and
+    nothing flips over later runs."""
+    devices: dict[str, TestClient] = {}
+    for who in (first, "sam" if first == "lorna" else "lorna"):
+        devices[who] = browser(sso_only)
+        sign_in(devices[who], idp, sub=who, extra=SAM if who == "sam" else ADMIN_GROUPS)
     _unlink_first_admin(sso_only)
     idp.refresh_tokens.clear()
+    for _ in range(3):
+        _due(sso_only, "lorna")
+        _due(sso_only, "sam")
+        check(sso_only)
+        alive = sorted(c.get(f"{API}/me").status_code for c in devices.values())
+        assert alive == [200, 401]
+
+
+def test_a_signed_out_admin_with_a_link_is_no_way_in_that_lasts(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """#205 (c), as built before 0.9.5: Lorna is linked but signed out, so Sam, taken out at the
+    sign-in server, is kept; and a demotion by the groups waits."""
+    lorna, sam = browser(sso_only), browser(sso_only)
+    sign_in(lorna, idp, sub="lorna", extra=ADMIN_GROUPS)
+    sign_in(sam, idp, sub="sam", extra=SAM)
+    assert lorna.delete(f"{API}/session").status_code == 204
+    _unlink_first_admin(sso_only)
+    idp.refresh_tokens.clear()
+    _due(sso_only, "sam")
+    assert check(sso_only) == 0
+    assert sam.get(f"{API}/me").status_code == 200
+    again, _ = sign_in(browser(sso_only), idp, sub="sam", extra={"groups": ["mealwright-users"]})
+    assert again.json()["me"]["role"] == "admin"
+
+
+def test_an_idle_sign_in_running_out_doesnt_mark_a_good_admin(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """One of Lorna's two devices has its token run out by itself: she isn't marked, so she is
+    still a way in. Sam, then taken out at the sign-in server, has his sign-in ended, and Lorna
+    can make him a Member or remove him."""
+    lorna_phone, lorna_tablet, sam = browser(sso_only), browser(sso_only), browser(sso_only)
+    seen = set(idp.refresh_tokens)
+    sign_in(lorna_phone, idp, sub="lorna", extra=ADMIN_GROUPS)
+    phone_token = (set(idp.refresh_tokens) - seen).pop()
+    sign_in(lorna_tablet, idp, sub="lorna", extra=ADMIN_GROUPS)
+    seen = set(idp.refresh_tokens)
+    sign_in(sam, idp, sub="sam", extra=SAM)
+    sam_token = (set(idp.refresh_tokens) - seen).pop()
+    _unlink_first_admin(sso_only)
+    idp.refresh_tokens.discard(phone_token)  # one device's sign-in runs out by itself
     _due(sso_only, "lorna")
+    check(sso_only)
+    assert _login_row(sso_only, "lorna").sso_refused_at is None
+    assert lorna_tablet.get(f"{API}/me").status_code == 200
+    idp.refresh_tokens.discard(sam_token)  # Sam is disabled at the sign-in server
     _due(sso_only, "sam")
     assert check(sso_only) == 1
-    alive = [c.get(f"{API}/me").status_code for c in (lorna, sam)]
-    assert sorted(alive) == [200, 401]
+    assert sam.get(f"{API}/me").status_code == 401
+    assert _login_row(sso_only, "lorna").sso_refused_at is None
+    people = lorna_tablet.get(f"{API}/people").json()["people"]
+    sam_id = next(p["id"] for p in people if p["login"] and p["login"]["username"] == "sam")
+    assert lorna_tablet.patch(f"{API}/people/{sam_id}", json={"role": "member"}).status_code == 200
+    assert lorna_tablet.delete(f"{API}/people/{sam_id}").status_code == 200
+
+
+def test_a_password_admin_whose_sso_sign_in_runs_out_isnt_marked(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """Passwords on. The set-up admin has a password; one of her single sign-on sign-ins runs
+    out: not marked, she still makes API tokens, and she can step down once Sam has a password."""
+    from test_sso_api import _add_admin
+
+    sign_in(admin, idp, path="/sso/test", sub="k", extra=ADMIN_GROUPS)
+    assert admin.post(f"{API}/sso/link").is_success
+    phone = browser(admin)
+    sign_in(phone, idp, sub="k", extra=ADMIN_GROUPS)
+    idp.refresh_tokens.clear()
+    _due(admin, "k")
+    assert check(admin) == 1
+    assert _login_row(admin, "k").sso_refused_at is None
+    assert admin.post(f"{API}/api-tokens", json={"name": "HA", "scope": "full"}).status_code == 201
+    _add_admin(admin, "sam")
+    me = next(p["id"] for p in admin.get(f"{API}/people").json()["people"] if p["is_me"])
+    assert admin.patch(f"{API}/people/{me}", json={"role": "member"}).status_code == 200
 
 
 def test_with_another_admin_who_has_a_password_the_sign_in_ends_as_before(

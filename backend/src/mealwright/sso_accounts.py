@@ -35,7 +35,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal, NamedTuple, NoReturn
 
-from sqlalchemy import ColumnElement, and_, delete, false, func, select
+from sqlalchemy import ColumnElement, and_, delete, exists, false, func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
@@ -223,20 +223,23 @@ def another_admin_gets_in(
     db: DbSession, login: Login, off: bool, *, links: bool = False, sso_on: bool = False
 ) -> bool:
     """True when another admin of this household can get in. Not shared logins, not removed
-    people, and never because of a sign-in that is open now, an API token or a link not used
-    yet (#205 (d), cabledrawer 12 Nov late). By default, for the refusal of a known login at sign-in
-    (O2 review r5, findings 1 to 3, accepted as built): without the sign-in server's say, so
-    only a password that works (password sign-in isn't `off`); being linked is not enough, since
-    the same groups that refuse `login` may refuse them. With `links`, for answers that last (a
-    group demotion, the hourly check's "ended"; proposed, for cabledrawer): the household's one rule
-    `admin_can_sign_in` too, so an accepted single sign-on link that the sign-in server hasn't
-    refused counts while single sign-on can start (`sso_on`)."""
+    people, and never because of a sign-in that is open now alone, an API token or a link not
+    used yet (#205 (d), cabledrawer 12 Nov late). By default, for the refusal of a known login at
+    sign-in (O2 review r5, findings 1 to 3, accepted as built): without the sign-in server's
+    say, so only a password that works (password sign-in isn't `off`); being linked is not
+    enough, since the same groups that refuse `login` may refuse them. With `links`, for
+    answers that last (a group demotion, the hourly check's "ended"; proposed, for cabledrawer):
+    a working password, or the household's one rule `admin_can_sign_in` with a sign-in that is
+    open right now (a link accepted at the saved sign-in server, not marked refused, while
+    single sign-on can start (`sso_on`)). A link while signed out doesn't count, so a demotion
+    waits for them (#205 (c), accepted as built)."""
     has_password = and_(Login.password_hash.is_not(None), Login.password_hash != "")  # nosec B105
-    way = (
-        admin_can_sign_in(db, login.household_id, off, sso_on)
-        if links
-        else (false() if off else has_password)
-    )
+    password = false() if off else has_password
+    if links:
+        live = exists().where(Session.login_id == Login.id, Session.expires_at > now())
+        way = or_(password, and_(admin_can_sign_in(db, login.household_id, off, sso_on), live))
+    else:
+        way = password
     query = (
         select(func.count())
         .select_from(Login)
@@ -251,10 +254,10 @@ def another_admin_gets_in(
 def _hourly_keeps(db: DbSession, login: Login, row: SsoSettings, data_dir: Path) -> bool | None:
     """For the hourly check's "ended" answer: None to end the sign-in as before; else True or
     False (passwords are off) to keep it, as the refusal path does for the household's last way
-    in who would be locked out: no other admin has a password that works or an accepted,
-    unrefused single sign-on link, and passwords are off or this admin has none (`_last_admin_keeps`
-    says "sign-ins"). An admin with a password while passwords work is not locked out, so it ends
-    as before."""
+    in who would be locked out: no other admin has a password that works, or an accepted,
+    unrefused single sign-on link and a sign-in open now, and passwords are off or this admin has
+    none (`_last_admin_keeps` says "sign-ins"). An admin with a password while passwords work is
+    not locked out, so it ends as before."""
     if _last_admin_keeps(db, login, row, data_dir, links=True) != "sign-ins":
         return None
     return passwords_off(db, data_dir, row.household_id)
@@ -595,10 +598,6 @@ def _apply(
             # somewhere else too (safest; proposed, for cabledrawer). The log says so, by the
             # login's number only, never a name (O2 review r2, finding 3).
             api_tokens.stop_for(db, session.login_id)
-            if owner.role == ADMIN:
-                # Marked, so a second admin refused at the same time can't count on this one
-                # being a way in: the household never ends with none (proposed, for cabledrawer).
-                api_tokens.mark_refused(db, owner)
             db.delete(session)
             ended = True
             log.info(
