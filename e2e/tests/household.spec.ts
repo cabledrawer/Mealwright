@@ -105,7 +105,7 @@ test.afterEach(async ({ page }) => {
   await tidy(page);
 });
 
-test('the Settings row opens Household; add a person, who opens to choose their colour and portion; Save shows them in the list', async ({
+test('the Settings row opens Household; add a person, who opens to choose their colour and portion, saved as they are picked; Save goes back to the list', async ({
   page,
 }) => {
   const name = `Joss ${mark()}`;
@@ -136,6 +136,12 @@ test('the Settings row opens Household; add a person, who opens to choose their 
   await expect(page.getByRole('button', { name: 'Violet' })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: '½ portion', exact: true }).click();
   await expect(page.getByRole('button', { name: '½ portion', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  // The colour and the portion are saved as they are picked, before Save is pressed (hunt L4).
+  await expect
+    .poll(async () =>
+      ((await (await page.request.get('/api/v1/people')).json()) as Json).people.find((p: Json) => p.name === name),
+    )
+    .toMatchObject({ colour: 'violet', portion_quarters: 2 });
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page).toHaveURL('/settings/household');
   const row = peopleList(page).getByRole('link', { name: new RegExp(name) });

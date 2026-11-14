@@ -185,6 +185,34 @@
     }
   }
 
+  /**
+   * Colour and portion save as you pick them (cabledrawer 13 Nov, hunt L4): no Save press. A refusal
+   * or a lost connection says so and puts the person's old value back. While offline the pickers
+   * are off, like every other control on this page.
+   */
+  async function saveNow(change: PersonChange, back: () => void) {
+    if (!person || locked) return;
+    problem = null;
+    try {
+      await household.change(person.id, change);
+    } catch (error) {
+      back();
+      problem = sentence(error);
+    }
+  }
+
+  function pickColour(one: Colour) {
+    if (!person || one === colour) return;
+    colour = one;
+    void saveNow({ colour: one }, () => (colour = person.colour));
+  }
+
+  function pickPortion(quarters: number) {
+    if (!person || quarters === portion) return;
+    portion = quarters;
+    void saveNow({ portion_quarters: quarters }, () => (portion = person.portion_quarters));
+  }
+
   async function remove() {
     if (!person || locked || household.busy) return;
     problem = null;
@@ -313,7 +341,7 @@
               aria-label={one[0]?.toUpperCase() + one.slice(1)}
               aria-pressed={colour === one}
               style:background="var(--person-{one}-swatch)"
-              onclick={() => (colour = one)}
+              onclick={() => pickColour(one)}
             ></button>
           {/each}
         </div>
@@ -328,7 +356,7 @@
               class="chip"
               aria-pressed={portion === quarters}
               aria-label={portionWords(quarters)}
-              onclick={() => (portion = quarters)}
+              onclick={() => pickPortion(quarters)}
               >{portion === quarters && quarters < 4
                 ? portionWords(quarters)
                 : portionWords(quarters).split(' ')[0]}</button

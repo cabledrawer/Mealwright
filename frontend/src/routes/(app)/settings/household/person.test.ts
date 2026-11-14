@@ -167,21 +167,67 @@ describe('Settings → Household → a person', () => {
       .toBeVisible();
   });
 
-  it('Save sends only what changed, then goes back, with Undo', async () => {
+  it('a colour and a portion save as you pick them, each with its own Undo (hunt L4)', async () => {
     open({
       'PATCH /people/3': [
         200,
         people([TESS, { ...JOSS, colour: 'blue', portion_quarters: 6 }], {
-          change: CHANGE(60, 'person_changed', 'Changed Joss: colour, portion')
+          change: CHANGE(60, 'person_changed', 'Changed Joss: colour blue')
         })
       ]
     });
     await page.getByRole('button', { name: 'Blue' }).click();
+    await vi.waitFor(() => expect(sent('PATCH', '/people/3')).toHaveLength(1));
+    expect(sent('PATCH', '/people/3')[0]!.body).toEqual({ colour: 'blue' });
     await page.getByRole('button', { name: '1½ portions' }).click();
+    await vi.waitFor(() => expect(sent('PATCH', '/people/3')).toHaveLength(2));
+    expect(sent('PATCH', '/people/3')[1]!.body).toEqual({ portion_quarters: 6 });
+    expect(goto).not.toHaveBeenCalled(); // still on the page, nothing to press
+    expect(toasts.current?.message).toBe('Changed Joss: colour blue');
+  });
+
+  it('leaving with the back link keeps a colour and a portion already picked', async () => {
+    open({
+      'PATCH /people/3': [200, people([TESS, { ...JOSS, colour: 'violet' }])]
+    });
+    await page.getByRole('button', { name: 'Violet' }).click();
+    await vi.waitFor(() => expect(sent('PATCH', '/people/3')).toHaveLength(1));
+    // Nothing is left to save: Save goes back without a second request.
     await page.getByRole('button', { name: 'Save' }).click();
     await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/household'));
-    expect(sent('PATCH', '/people/3')[0]!.body).toEqual({ colour: 'blue', portion_quarters: 6 });
-    expect(toasts.current?.message).toBe('Changed Joss: colour, portion');
+    expect(sent('PATCH', '/people/3')).toHaveLength(1);
+  });
+
+  it('a colour that could not be saved says so and puts the old one back', async () => {
+    open({ 'PATCH /people/3': [500, { detail: 'Couldn’t save. Try again.' }] });
+    await expect
+      .element(page.getByRole('button', { name: 'Amber' }))
+      .toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Blue' }).click();
+    await expect.element(page.getByRole('alert')).toHaveTextContent('Couldn’t save. Try again.');
+    await expect
+      .element(page.getByRole('button', { name: 'Amber' }))
+      .toHaveAttribute('aria-pressed', 'true');
+    await expect
+      .element(page.getByRole('button', { name: 'Blue' }))
+      .toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('a portion that could not be saved says so and puts the old one back', async () => {
+    open({ 'PATCH /people/3': [500, { detail: 'Couldn’t save. Try again.' }] });
+    await page.getByRole('button', { name: '1½ portions' }).click();
+    await expect.element(page.getByRole('alert')).toHaveTextContent('Couldn’t save. Try again.');
+    await expect
+      .element(page.getByRole('button', { name: '1½ portions' }))
+      .toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('offline the colours and portions are off, like the rest of the page', async () => {
+    open();
+    await expect.element(page.getByRole('button', { name: 'Blue' })).toBeEnabled();
+    network.offline = true;
+    flushSync();
+    await expect.element(page.getByRole('button', { name: 'Blue' })).toBeDisabled();
   });
 
   it('shows the refusal when the last admin who can get in would be made a Member (#205)', async () => {
