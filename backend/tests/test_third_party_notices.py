@@ -67,3 +67,15 @@ def test_render_gives_each_package_a_heading_licence_and_text(notices: ModuleTyp
     assert "### alpha 1.0\n\nLicence: MIT\n\n```text\nAlpha licence text\n```" in text
     assert "### beta 2.0\n\nLicence: ISC\n\n(This package ships no licence file" in text
     assert text.endswith("\n") and not text.endswith("\n\n")
+
+
+def test_the_image_carries_the_notices_and_the_check_proves_it() -> None:
+    repo = NOTICES.parent
+    assert (
+        "COPY THIRD-PARTY-NOTICES.md /app/THIRD-PARTY-NOTICES.md"
+        in (repo / "Dockerfile").read_text()
+    )
+    assert "!THIRD-PARTY-NOTICES.md" in (repo / ".dockerignore").read_text().splitlines()
+    check = (repo / "check").read_text()
+    assert 'step "image: notices"        notices_in_image' in check
+    assert "/app/THIRD-PARTY-NOTICES.md | cmp -s - THIRD-PARTY-NOTICES.md" in check

@@ -1050,6 +1050,12 @@ no_gallery_in_image() {
     grep -rqF -- "$1" /app/frontend; [ $? -eq 1 ]' _ "$marker"
 }
 
+# THIRD-PARTY-NOTICES.md is in the image at /app/THIRD-PARTY-NOTICES.md, the same text as the repo's file (0.9.5).
+notices_in_image() {
+  docker run --rm --entrypoint cat "$IMAGE" /app/THIRD-PARTY-NOTICES.md | cmp -s - THIRD-PARTY-NOTICES.md ||
+    { echo "THIRD-PARTY-NOTICES.md is missing from the image, or differs from the repo's file"; return 1; }
+}
+
 # choose_fast_tests: for the fast run, which backend test files to run (cabledrawer 8 Nov, T2b). Sets
 # FAST_CHOICE to all (everything: --all, a shared or unknown file changed, or the map can't be read),
 # some (the files in `chosen`, as tests/test_x.py for pytest) or none, and says which and why. The
@@ -1296,7 +1302,7 @@ elif [[ -f "$ROOT/Dockerfile" ]]; then
   fi
   if [[ "$(result_of "image: build")" != PASS ]]; then
     # Never check an old image left by an earlier run (cabledrawer 8 Nov, T2).
-    for img_step in "image: no telemetry" "image: no gallery" "image: export" "image: trivy"; do
+    for img_step in "image: no telemetry" "image: no gallery" "image: notices" "image: export" "image: trivy"; do
       [[ "$MODE" == scan && "$img_step" == "image: no "* ]] || skip "$img_step" "image build failed"
     done
   else
@@ -1306,6 +1312,7 @@ elif [[ -f "$ROOT/Dockerfile" ]]; then
     # The component gallery is for development builds only (spec "Keeping the UI good",
     # item 3): its marker text must not be anywhere in the web app inside the image.
     step "image: no gallery"     no_gallery_in_image
+    step "image: notices"        notices_in_image
   fi
   # Trivy reads an exported copy of the image and gets no access to Docker itself.
   if [[ -z "$SCANNERS_WHY" ]]; then

@@ -2,6 +2,7 @@
 *
 !backend/
 !frontend/
+!THIRD-PARTY-NOTICES.md
 backend/.venv
 backend/.mypy_cache
 backend/.pytest_cache

@@ -48,6 +48,8 @@ RUN python -m pip uninstall --yes --quiet pip \
  && mkdir /data && chown mealwright:mealwright /data
 COPY --from=api /app/backend/.venv /app/backend/.venv
 COPY --from=web /src/frontend/build /app/frontend
+# The licence notices of every library and font in the image (0.9.5), for anyone who has the image.
+COPY THIRD-PARTY-NOTICES.md /app/THIRD-PARTY-NOTICES.md
 ENV PATH=/app/backend/.venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
