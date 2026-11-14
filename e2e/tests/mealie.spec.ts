@@ -1,5 +1,5 @@
 import { deflateRawSync, crc32 } from 'node:zlib';
-import { test, expect, request, type Page } from './clock.ts';
+import { test, expect, request, testNow, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 
 // Import from Mealie (0.9.5, cabledrawer 13 Nov), against the real server, signed in as the test
@@ -273,6 +273,8 @@ test('a member sees the import and Drafts without the admin’s buttons', async 
       userAgent: use.userAgent,
       deviceScaleFactor: use.deviceScaleFactor,
     });
+    // The tests' clock, as the server's (a second browser doesn't get it by itself).
+    await theirs.clock.install({ time: testNow() });
     try {
       const them = await theirs.newPage();
       await them.goto('/sign-in');
@@ -296,7 +298,7 @@ test('a member sees the import and Drafts without the admin’s buttons', async 
       await them.goto('/recipes/drafts?from=mealie');
       await expect(them.getByText(`Lorna’s soup ${tag}`)).toBeVisible();
       await expect(them.getByRole('button', { name: /^Save all/ })).toHaveCount(0);
-      await them.getByText(`Lorna’s soup ${tag}`).click();
+      await them.getByRole('link', { name: new RegExp(`Lorna’s soup ${tag}`) }).click();
       await expect(them).toHaveURL(/\/recipes\/drafts\/\d+/);
     } finally {
       await theirs.close();
