@@ -364,6 +364,7 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     # test_sso_waiting.py and test_sso_unlink.py.
     ("POST", "/api/v1/people/sso-accounts/{account_id}/link"): {"member_id": None},
     ("POST", "/api/v1/people/sso-accounts/{account_id}/refuse"): None,
+    ("DELETE", "/api/v1/people/{member_id}/sso"): None,
     # Signing out one device (0.9 A2): another household's sign-in is "not found".
     ("DELETE", "/api/v1/me/sessions/{sign_in_id}"): None,
     # Deleting an API token (0.9 O2): another household's token is "not found".

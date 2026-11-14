@@ -13,16 +13,16 @@ listed or linked. Recent changes says what was done, with no Undo of its own (`L
 import hashlib
 
 from fastapi import status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from mealwright.api.v1.context import Kitchen
 from mealwright.auth import now
 from mealwright.errors import Problem, not_found
 from mealwright.history import record
-from mealwright.models import Change, Login, Member, SsoAccount, utcnow
-from mealwright.people import LINK_KIND, login_of, mine
+from mealwright.models import Change, Login, Member, Session, SsoAccount, utcnow
+from mealwright.people import LINK_KIND, admins_left, login_of, mine
 from mealwright.roles import ADMIN, MEMBER
-from mealwright.sso_accounts import USERNAME, member_name, settings_row
+from mealwright.sso_accounts import USERNAME, member_name, passwords_off, settings_row
 
 # Proposed, for cabledrawer (the refusals aren't in the mockups).
 SHARED = "A shared login isn’t one person, so it can’t be linked to single sign-on."
@@ -34,6 +34,11 @@ NEEDS_ADMIN = (
     "admin. Link it to someone else, or change the groups first."
 )
 GONE = "That sign-in"
+NOT_LINKED = "{name} isn’t linked to an account at your sign-in server."
+LAST_WAY_IN = (
+    "{name} is the household’s only admin who can sign in, and only with single sign-on. "
+    "Make someone else an admin first, or set a password for {name}."
+)
 
 
 def _refused(code: str, detail: str) -> Problem:
@@ -208,6 +213,53 @@ def refuse(kitchen: Kitchen, account: SsoAccount) -> Change:
         kitchen,
         LINK_KIND,
         f"Refused {account.username} at your sign-in server",  # proposed, for cabledrawer
+        None,
+        None,
+    )
+
+
+def unlink(kitchen: Kitchen, member_id: int) -> Change:
+    """Unlink a person's login from its account at the saved sign-in server (0.9.5 Pe3/M2,
+    Person page). The account is never linked automatically again: at its next sign-in it waits
+    for an admin ("Who is this?"). The person's sign-ins made with single sign-on end. The last
+    admin who can sign in is never unlinked when single sign-on is their only way in (#205 b/d:
+    only a working password or an accepted link counts, never a live sign-in alone)."""
+    member = mine(kitchen, member_id)
+    login = login_of(kitchen, member)
+    issuer = saved_issuer(kitchen)
+    if login is None or issuer is None or login.sso_subject is None:
+        raise _refused("not_linked", NOT_LINKED.format(name=member.name))
+    if not linked_here(kitchen, login, issuer):
+        raise _refused("not_linked", NOT_LINKED.format(name=member.name))
+    if login.role == ADMIN and not login.shared:
+        off = passwords_off(kitchen.db, kitchen.data_dir, kitchen.household_id)
+        keeps_a_way_in = bool(login.password_hash) and not off
+        if not keeps_a_way_in and admins_left(kitchen, apart_from=member.id) == 0:
+            raise _refused("last_admin", LAST_WAY_IN.format(name=member.name))
+    account = account_of(kitchen, login, issuer)
+    if account is None:
+        # Linked before 0.9.5 kept its accounts, or by the setup test: kept from now on, so it
+        # is never linked automatically again.
+        account = SsoAccount(
+            household_id=kitchen.household_id,
+            issuer=issuer,
+            subject=login.sso_subject,
+            username=login.username,
+            name=member.name,
+            role=login.role,
+            seen_at=now(),
+        )
+        kitchen.db.add(account)
+    account.unlinked_at = now()
+    account.waiting_since = None
+    login.sso_issuer = None
+    login.sso_subject = None
+    kitchen.db.execute(delete(Session).where(Session.login_id == login.id, Session.sso.is_(True)))
+    kitchen.db.flush()
+    return record(
+        kitchen,
+        LINK_KIND,
+        f"Unlinked {member.name} from {account.username} at your sign-in server",  # proposed
         None,
         None,
     )
