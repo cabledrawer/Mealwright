@@ -41,7 +41,7 @@ What the full run does (step names from the script):
 
 1. Installs the libraries and builds the web app.
 2. Backend: `ruff format`, `ruff check`, `mypy`, the pytest suite, the licence allow list (`backend/scripts/check_licences.py`), the no-telemetry test (`backend/scripts/check_no_telemetry.py`).
-3. Web app: svelte-check, ESLint and Prettier, Vitest unit tests, the licence check.
+3. Web app: svelte-check, ESLint and Prettier, Vitest unit tests, the build, the size limit, the fonts (only latin and latin-ext files in the build), the licence check, and `THIRD-PARTY-NOTICES.md` being up to date. After a library changes, run the web build, then `cd backend && uv run --frozen python -I scripts/third_party_notices.py` to write the file again.
 4. Browser tests (Playwright, three streams side by side: desktop, phone, WebKit), plus the e2e type check and the scripts' own tests.
 5. Scanners (pip-audit, Bandit, osv-scanner, then Trivy on the image), only when the branch changes a library, a lock file, the Dockerfile, the scanner settings or `./check` itself, and always on a release PR. `CHECK_SCANNERS=1` forces them.
 6. The Docker image: build it, check it holds no telemetry and no component gallery, save it for Trivy.

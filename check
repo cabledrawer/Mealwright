@@ -1187,6 +1187,12 @@ if [[ -f "$ROOT/frontend/package.json" ]]; then
     skip "frontend: fonts" "web build failed"
   fi
   step "frontend: licences"      backend uv run --frozen python -I scripts/check_licences.py --npm ../frontend
+  # THIRD-PARTY-NOTICES.md must match the lock files and the web build's list of bundled libraries (0.9.5).
+  if [[ "$(result_of "frontend: build")" == PASS ]]; then
+    step "notices: up to date"   backend uv run --frozen python -I scripts/third_party_notices.py --check
+  else
+    skip "notices: up to date" "web build failed"
+  fi
 else
   skip "frontend" "no frontend yet"
 fi
