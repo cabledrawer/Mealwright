@@ -21,8 +21,6 @@ export const SSO_MESSAGES: Record<string, string> = {
   not_let_in:
     'Your sign-in server doesn’t put you in a group Mealwright lets in. Ask your household’s admin.',
   no_account: 'There’s no Mealwright account for you yet. Ask your household’s admin.',
-  clash:
-    'There’s already a Mealwright account with your name here, so it wasn’t used. Ask your household’s admin.',
   removed: 'That account was removed. Ask your household’s admin.',
   someone_else:
     'Your account is linked to someone else at your sign-in server. Sign out there and test again.',
@@ -85,3 +83,9 @@ export function testPassedText(
   const from = groups.length ? `groups ${groups.join(', ')} → ${as}` : `no groups → ${as}`;
   return `Test passed: signed in as ${who}, ${from}.`;
 }
+
+/** Under "Anyone else" on the setup screen, where the "Make an account on first sign-in" switch
+ *  was (Pe3/M2, cabledrawer 13 Nov: nobody is made at first sign-in; the words proposed, for
+ *  cabledrawer). */
+export const SSO_WHO_LINKS =
+  'Someone whose username at your sign-in server is the same as here is linked to them at their first sign-in. Anyone else waits until an admin says who they are in Settings › Household.';

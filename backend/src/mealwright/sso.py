@@ -122,10 +122,6 @@ MESSAGES: dict[str, str] = {
         "household’s admin."
     ),
     "no_account": "There’s no Mealwright account for you yet. Ask your household’s admin.",
-    "clash": (
-        "There’s already a Mealwright account with your name here, so it wasn’t used. Ask "
-        "your household’s admin."
-    ),
     "removed": "That account was removed. Ask your household’s admin.",
     "someone_else": (
         "Your account is linked to someone else at your sign-in server. Sign out there and "

@@ -466,7 +466,6 @@ class SsoSetupOut(BaseModel):
     group_claim: str
     group_roles: list[GroupRole]
     anyone_else: Literal["none", "member"]
-    make_accounts: bool
     password_sign_in: bool
     # What an admin chose, stored as it is. It differs from `password_sign_in` (what counts now)
     # while single sign-on can't start and passwords work again; a save sends it back so the
@@ -495,7 +494,6 @@ class SsoSetupIn(BaseModel):
     group_claim: str = Field(default="groups", min_length=1, max_length=100)
     group_roles: list[GroupRole] = Field(default=[], max_length=MOST_GROUPS)
     anyone_else: Literal["none", "member"] = "none"
-    make_accounts: bool = True
     password_sign_in: bool = True
 
 
@@ -515,7 +513,6 @@ def _setup(request: Request, kitchen: Here, row: SsoSettings | None) -> SsoSetup
             group_claim="groups",
             group_roles=[],
             anyone_else="none",
-            make_accounts=True,
             password_sign_in=True,
             password_sign_in_stored=True,
             admin_linked=False,
@@ -531,7 +528,6 @@ def _setup(request: Request, kitchen: Here, row: SsoSettings | None) -> SsoSetup
         group_claim=row.group_claim,
         group_roles=[GroupRole.model_validate(g) for g in row.group_roles or []],
         anyone_else="member" if row.anyone_else == MEMBER else "none",
-        make_accounts=row.make_accounts,
         # What counts: off only while single sign-on can start (`passwords_off`).
         password_sign_in=not sso_accounts.passwords_off(
             kitchen.db, request.app.state.settings.data_dir, kitchen.household_id
@@ -672,7 +668,6 @@ def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
     row.group_claim = body.group_claim.strip()
     row.group_roles = groups
     row.anyone_else = body.anyone_else
-    row.make_accounts = body.make_accounts
     row.updated_at = utcnow()
     db.flush()
     back_on = was_off and changed

@@ -182,6 +182,17 @@ async function mealwright(browser, method, path, json) {
   return { status: res.status, data, location: res.headers.get('location') };
 }
 
+/** A person of the household with a login of this username and no password yet, as an admin
+ *  adds one in Settings › Household: the sign-in server's account of the same username is linked
+ *  to them on its first sign-in (Pe3/M2, cabledrawer 13 Nov). */
+async function addPerson(admin, name, username) {
+  const added = await mealwright(admin, 'POST', '/people', { name });
+  if (added.status !== 201) throw new Error(`adding ${name} answered ${added.status}`);
+  const id = added.data.people.find((person) => person.name === name).id;
+  const login = await mealwright(admin, 'POST', `/people/${id}/login`, { username, role: 'member' });
+  if (login.status !== 201) throw new Error(`a login for ${name} answered ${login.status}`);
+}
+
 /** Start (a link for a sign-in, a POST for the setup screen's test), sign in at the sign-in
  *  server, and post what comes back. */
 async function signInWith(browser, path) {
@@ -217,7 +228,6 @@ function setup(issuer, secret, buttonName, groupRoles) {
     group_claim: 'groups',
     group_roles: groupRoles,
     anyone_else: 'none',
-    make_accounts: true,
     password_sign_in: true,
   };
 }
@@ -358,10 +368,11 @@ async function run() {
   const options = await mealwright(new Browser(), 'GET', '/sign-in-options');
   check('Sign-in page shows "Sign in with Dex"', options.data?.sso_button === 'Dex');
 
-  // Dex: a new person gets an account, a Member from the group "authors".
+  // Dex: a person here with the same username is linked, a Member from the group "authors".
+  await addPerson(admin, 'Kilgore', 'kilgore');
   const kilgore = new Browser();
   const dex = await signInWith(kilgore, '/sso/start?remember=false');
-  check('Dex: signed in, account made on first sign-in', dex.status === 200 && dex.data.done === 'signed_in', `${dex.status} ${dex.data?.me?.username ?? dex.data?.code ?? ''}`);
+  check('Dex: signed in, linked by the same username on first sign-in', dex.status === 200 && dex.data.done === 'signed_in', `${dex.status} ${dex.data?.me?.username ?? dex.data?.code ?? ''}`);
   check('Dex: role from the group "authors" is Member', dex.data?.me?.role === 'member', dex.data?.me?.role);
   const me = await mealwright(kilgore, 'GET', '/me');
   check('Dex: the session works', me.status === 200 && me.data.username === dex.data?.me?.username);
@@ -381,10 +392,11 @@ async function run() {
     ]),
   );
   check('Keycloak: setup saved', saved.status === 200);
+  await addPerson(admin, 'Trout', 'trout');
   const trout = new Browser();
   trout.user = { username: 'trout', password: KEYCLOAK_USERS.trout };
   const kc = await signInWith(trout, '/sso/start?remember=true');
-  check('Keycloak: signed in through its form, account made', kc.data?.done === 'signed_in', `${kc.status} ${kc.data?.me?.username ?? kc.data?.code ?? ''}`);
+  check('Keycloak: signed in through its form, linked by the same username', kc.data?.done === 'signed_in', `${kc.status} ${kc.data?.me?.username ?? kc.data?.code ?? ''}`);
   check('Keycloak: role from the group "family" is Member', kc.data?.me?.role === 'member', kc.data?.me?.role);
   check('Keycloak: without the offline_access role, signed in on the second try, without it', kc.offline && kc.tries === 2, `asked ${kc.offline}, tries ${kc.tries}`);
 

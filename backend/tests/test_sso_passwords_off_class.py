@@ -210,7 +210,6 @@ def test_another_admins_test_of_someone_elses_identity_proves_nothing(
     new = {
         **SETUP,
         "client_secret": "",
-        "make_accounts": False,
         "group_roles": [{"group": "kitchen-admins", "role": "admin"}],
     }
     assert wren.put(f"{API}/sso/settings", json=new).is_success
@@ -343,6 +342,9 @@ def test_a_members_single_sign_on_sign_in_does_not_prove_the_setup(
     idp = home(kitchen, monkeypatch, "id.example.org", off=False)
     changed = {**SETUP, "client_secret": "", "anyone_else": "member"}  # who gets in changed
     assert kitchen.put(f"{API}/sso/settings", json=changed).is_success
+    from test_sso_api import person_here
+
+    person_here(kitchen, "ayla")  # their person, with the same username (Pe3/M2)
     member = browser(kitchen)
     url = str(member.get(f"{API}/sso/start", follow_redirects=False).headers["location"])
     code, state = idp.sign_in(url, sub="someone", extra={"groups": []})

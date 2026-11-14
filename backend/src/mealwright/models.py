@@ -188,6 +188,8 @@ class SsoSettings(Base):
     group_claim: Mapped[str] = mapped_column(String(100), default="groups")
     group_roles: Mapped[list[dict[str, str]]] = mapped_column(JSON, default=list)
     anyone_else: Mapped[str] = mapped_column(String(10), default="none")
+    # Unused since 0.9.5 (Pe3/M2, cabledrawer 13 Nov: nobody is made at first sign-in any more);
+    # the column stays so a downgrade finds it.
     make_accounts: Mapped[bool] = mapped_column(Boolean, default=True)
     password_sign_in: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime] = mapped_column(

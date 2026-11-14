@@ -37,7 +37,6 @@ SETUP = {
         {"group": "mealwright-users", "role": "member"},
     ],
     "anyone_else": "none",
-    "make_accounts": True,
     "password_sign_in": True,
 }
 
@@ -81,10 +80,40 @@ def begin(client: TestClient, path: str = "/sso/start") -> str:
     return str(started.headers["location"])
 
 
+def person_here(
+    client: TestClient, username: str, role: str = "member", household_id: int = 1
+) -> None:
+    """A person of the household with a login of this username and no password, as an admin
+    makes one: someone the sign-in server's account of the same username is linked to on its
+    first sign-in (Pe3/M2). Nothing when the username is taken already."""
+    with cast(Any, client.app).state.sessionmaker() as db:
+        if db.scalar(select(Login.id).where(Login.username == username)) is None:
+            db.add(
+                Login(
+                    household_id=household_id,
+                    username=username,
+                    name=username.capitalize(),
+                    password_hash=None,
+                    role=role,
+                )
+            )
+            db.commit()
+
+
 def sign_in(
-    client: TestClient, idp: FakeProvider, path: str = "/sso/start", **claims: Any
+    client: TestClient,
+    idp: FakeProvider,
+    path: str = "/sso/start",
+    *,
+    person: bool = True,
+    **claims: Any,
 ) -> tuple[Any, str]:
-    """Start, sign in at the provider, and post the callback: (the answer, the state)."""
+    """Start, sign in at the provider, and post the callback: (the answer, the state). With
+    `person`, a sign-in (not a test) has its person here already, with its username
+    (`person_here`), so its first sign-in links to them."""
+    username = (claims.get("extra") or {}).get("preferred_username", "ayla")
+    if person and path == "/sso/start" and isinstance(username, str) and username.strip():
+        person_here(client, username.strip())
     url = begin(client, path)
     assert url.startswith(f"{ISSUER}/authorize?")
     code, state = idp.sign_in(url, **claims)
@@ -248,7 +277,7 @@ def test_a_first_sign_in_makes_an_account_with_its_groups_role(
         assert session.sso_refresh_sealed and "rt-1" not in session.sso_refresh_sealed
         assert session.sso_check_at is not None
     assert "rt-1" not in caplog.text and CLIENT_SECRET not in caplog.text
-    assert "account asha made on first sign-in" in caplog.text
+    assert "ayla linked on first sign-in, same username" in caplog.text
 
 
 def test_the_role_follows_the_groups_on_every_sign_in(admin: TestClient, idp: FakeProvider) -> None:
@@ -271,24 +300,94 @@ def test_someone_in_no_mapped_group_is_not_let_in_unless_anyone_else_is_a_member
     assert logins(admin) == {"ayla": "member"}
 
 
-def test_no_account_is_made_when_the_admin_turned_that_off(
+def test_nobody_is_ever_made_on_a_first_sign_in(admin: TestClient, idp: FakeProvider) -> None:
+    # Pe3/M2 (cabledrawer 13 Nov): only an exact username match links; nobody is made.
+    answer, _ = sign_in(browser(admin), idp, person=False)
+    assert answer.json()["code"] == "no_account"
+    assert logins(admin) == {}
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        assert db.scalar(select(Login).where(Login.username == "ayla")) is None
+        assert db.scalar(select(Member).where(Member.name == "Ayla")) is None
+    # The setup no longer has the "Make an account on first sign-in" switch.
+    assert "make_accounts" not in admin.get(f"{API}/sso/settings").json()
+
+
+def test_an_admins_login_links_only_when_the_groups_make_them_an_admin_too(
     admin: TestClient, idp: FakeProvider
 ) -> None:
-    admin.put(f"{API}/sso/settings", json={**SETUP, "client_secret": "", "make_accounts": False})
-    answer, _ = sign_in(browser(admin), idp)
+    # A Member at the sign-in server of the admin's username never takes over the admin.
+    answer, _ = sign_in(browser(admin), idp, extra={"preferred_username": "tess"})
+    assert answer.json()["code"] == "no_account"
+    assert subject_of(admin, "tess") is None
+    answer, _ = sign_in(
+        browser(admin),
+        idp,
+        extra={"preferred_username": "tess", "groups": ["mealwright-admins"]},
+    )
+    assert answer.status_code == 200, answer.text
+    assert answer.json()["me"]["username"] == "tess"
+    assert subject_of(admin, "tess") == "user-1"
+
+
+@pytest.mark.parametrize(
+    ("sent", "links"),
+    [
+        ("lorna", True),
+        ("  lorna ", True),  # spaces around it are taken off
+        ("Lorna", False),  # case counts: Mealwright usernames are lowercase
+        ("LORNA", False),
+        ("lorna.s", False),
+        ("leel", False),
+        ("lorna ", True),
+        ("", False),
+        (None, False),
+    ],
+)
+def test_a_first_sign_in_links_only_on_exactly_the_same_username(
+    admin: TestClient, idp: FakeProvider, sent: str | None, links: bool
+) -> None:
+    person_here(admin, "lorna")
+    claims: dict[str, Any] = {"preferred_username": sent, "email": "lorna@example.org"}
+    answer, _ = sign_in(browser(admin), idp, person=False, extra=claims)
+    if links:
+        assert answer.status_code == 200, answer.text
+        assert subject_of(admin, "lorna") == "user-1"
+    else:
+        assert answer.json()["code"] == "no_account"
+        assert logins(admin) == {}
+
+
+def test_only_the_username_links_never_the_email_or_the_name(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    person_here(admin, "lorna")
+    answer, _ = sign_in(
+        browser(admin),
+        idp,
+        person=False,
+        extra={"preferred_username": "ls", "email": "lorna@example.org", "name": "lorna"},
+    )
     assert answer.json()["code"] == "no_account"
     assert logins(admin) == {}
 
 
-def test_a_name_clash_with_a_password_account_is_refused_never_linked(
-    admin: TestClient, idp: FakeProvider
+def test_no_link_to_a_shared_login_a_removed_person_or_another_household(
+    admin: TestClient, idp: FakeProvider, neighbour: TestClient
 ) -> None:
-    answer, _ = sign_in(browser(admin), idp, extra={"preferred_username": "tess"})
-    assert answer.status_code == 400
-    assert answer.json()["code"] == "clash"
+    person_here(admin, "tablet")
+    person_here(admin, "noor")
+    person_here(admin, "sam", household_id=2)
     with cast(Any, admin.app).state.sessionmaker() as db:
-        tess = db.scalars(select(Login).where(Login.username == "tess")).one()
-        assert tess.sso_subject is None
+        db.scalars(select(Login).where(Login.username == "tablet")).one().shared = True
+        noor = db.scalars(select(Login).where(Login.username == "noor")).one()
+        db.get(Member, noor.member_id).removed_at = now()
+        db.commit()
+    for n, name in enumerate(["tablet", "noor", "sam"]):
+        answer, _ = sign_in(
+            browser(admin), idp, sub=f"u{n}", person=False, extra={"preferred_username": name}
+        )
+        assert answer.json()["code"] == "no_account", name
+    assert logins(admin) == {}
 
 
 def test_the_same_subject_at_the_same_issuer_is_the_same_account(
@@ -298,9 +397,10 @@ def test_the_same_subject_at_the_same_issuer_is_the_same_account(
     # The provider now calls them something else: still the same login, found by sub.
     sign_in(browser(admin), idp, extra={"preferred_username": "ayla2"})
     assert logins(admin) == {"ayla": "member"}
-    # Another subject with the same user name is someone else, and clashes.
+    # Another subject with the same user name is someone else: never linked to ayla.
     answer, _ = sign_in(browser(admin), idp, sub="user-2")
-    assert answer.json()["code"] == "clash"
+    assert answer.json()["code"] == "no_account"
+    assert subject_of(admin, "ayla") == "user-1"
 
 
 def test_a_removed_persons_sign_in_is_refused(admin: TestClient, idp: FakeProvider) -> None:
@@ -316,6 +416,7 @@ def test_a_removed_persons_sign_in_is_refused(admin: TestClient, idp: FakeProvid
 def test_the_state_works_once_and_only_in_the_browser_that_started(
     admin: TestClient, idp: FakeProvider
 ) -> None:
+    person_here(admin, "ayla")
     phone = browser(admin)
     started = phone.get(f"{API}/sso/start")
     cookie = phone.cookies.get("__Host-mealwright_sso")
@@ -343,6 +444,7 @@ def test_the_state_works_once_and_only_in_the_browser_that_started(
 def test_strangers_starting_sign_ins_cant_push_out_someone_elses(
     admin: TestClient, idp: FakeProvider
 ) -> None:
+    person_here(admin, "ayla")
     victim = browser(admin)
     url = begin(victim)
     for n in range(250):  # more than the 200 that used to wait at once
@@ -391,6 +493,7 @@ def test_a_sign_in_server_that_doesnt_answer_isnt_asked_again_by_every_start(
 def test_a_state_works_only_with_the_cookie_of_the_sign_in_it_started(
     admin: TestClient, idp: FakeProvider
 ) -> None:
+    person_here(admin, "ayla")
     one, two = browser(admin), browser(admin)
     url = begin(one)
     begin(two)  # another browser, with a sign-in of its own under way
@@ -493,6 +596,7 @@ def test_a_listed_offline_access_is_asked_for_and_its_refresh_token_kept(
 def test_a_sign_in_refused_for_offline_access_is_tried_once_more_without_it(
     admin: TestClient, idp: FakeProvider, where: str
 ) -> None:
+    person_here(admin, "ayla")
     idp.refuse_offline = where
     sso.cache.forget()
     phone = browser(admin)

@@ -37,8 +37,8 @@ The issuer address is the web address where `/.well-known/openid-configuration` 
 - **Groups come from:** the claim that holds the groups (default `groups`).
 - **Group → Admin or Member:** add a row for each group you want to let in, and say whether it becomes Admin or Member. If someone is in more than one group, Admin wins.
 - **Anyone else:** "Not let in" (the default) or "Member". Someone in none of your groups is treated this way.
-- **Make an account on first sign-in:** on, the first time someone from your sign-in server signs in, Mealwright makes their account. Off, an admin first links each person in Settings → Household. If the new person's user name is already taken here, they are refused with a message instead.
-- Mealwright finds a person by the sign-in server and its own ID for them (the `sub` claim), never by user name or email, so a sign-in server can't take over a password account by using its name.
+- **Who is linked to whom:** Mealwright never makes an account at a first sign-in. The first time someone signs in with single sign-on, they are linked to the person here whose Mealwright username is exactly their username at your sign-in server (the `preferred_username` claim; spaces around it are ignored, but capitals count, and Mealwright usernames are all lowercase). Never by email address or name. An admin's account is linked this way only when your groups make the newcomer an Admin too. Anyone else waits until an admin says who they are (see "Who is this?" below).
+- After that first sign-in, Mealwright finds the person by the sign-in server and its own ID for them (the `sub` claim), so a later change of user name there changes nothing here.
 - Their role follows the groups at every sign-in. The household's last admin who can sign in is never made a Member this way.
 
 **3 · Try it, then decide about passwords**

@@ -53,7 +53,6 @@ export interface SsoSetup {
   group_claim: string;
   group_roles: GroupRole[];
   anyone_else: 'none' | 'member';
-  make_accounts: boolean;
   password_sign_in: boolean;
   /** What an admin chose, stored as it is; differs from `password_sign_in` while single sign-on
    *  can't start and passwords work again. A save sends it back unless the switch was moved. */
@@ -82,7 +81,6 @@ export interface SsoSetupIn {
   group_claim: string;
   group_roles: GroupRole[];
   anyone_else: 'none' | 'member';
-  make_accounts: boolean;
   password_sign_in: boolean;
 }
 

@@ -34,6 +34,7 @@
     NOT_NOW,
     SETUP_ON_COMPUTER,
     SETUP_PHONE_NOTE,
+    SSO_WHO_LINKS,
     linkNote,
     linkQuestion,
     linkWho,
@@ -55,7 +56,6 @@
   let groupClaim = $state('groups');
   let groups = $state<GroupRole[]>([]);
   let anyoneElse = $state<'none' | 'member'>('none');
-  let makeAccounts = $state(true);
   let passwords = $state(true);
   let busy = $state(false);
   let problem = $state('');
@@ -93,7 +93,6 @@
     groupClaim = setup.group_claim;
     groups = setup.group_roles.map((g) => ({ ...g }));
     anyoneElse = setup.anyone_else;
-    makeAccounts = setup.make_accounts;
     passwords = setup.password_sign_in;
   }
 
@@ -170,7 +169,6 @@
           .map((g) => ({ group: g.group.trim(), role: g.role }))
           .filter((g) => g.group),
         anyone_else: anyoneElse,
-        make_accounts: makeAccounts,
         // The stored choice goes back unless the admin moved the switch: while single sign-on
         // can't start the screen shows passwords on, and saving that must not store it.
         password_sign_in:
@@ -380,15 +378,8 @@
           >
         </div>
       </div>
-      <div class="switch-row">
-        <span class="who">
-          <span class="label" id="sso-make">Make an account on first sign-in</span>
-          <span class="detail" id="sso-make-detail"
-            >Otherwise an admin links each person in Household first</span
-          >
-        </span>
-        <Switch bind:checked={makeAccounts} labelledby="sso-make" describedby="sso-make-detail" />
-      </div>
+      <!-- Pe3/M2 (cabledrawer 13 Nov): nobody is made at first sign-in; the words proposed. -->
+      <p class="hint">{SSO_WHO_LINKS}</p>
     </section>
 
     <section class="card full" aria-labelledby="sso-try">

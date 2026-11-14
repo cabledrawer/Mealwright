@@ -22,6 +22,15 @@ def test_a_login_by_password_or_by_single_sign_on_signs_in_and_a_waiting_link_do
     kitchen: TestClient,
 ) -> None:
     person(kitchen)  # Wren, with a password
+    # Asha, given a login "asha" here; her sign-in server account of that username links to it.
+    ok(kitchen.post(f"{API}/people", json={"name": "Asha"}), 201)
+    asha_id = next(p for p in ok(kitchen.get(f"{API}/people"))["people"] if p["name"] == "Asha")
+    ok(
+        kitchen.post(
+            f"{API}/people/{asha_id['id']}/login", json={"username": "asha", "role": "member"}
+        ),
+        201,
+    )
     with db(kitchen) as session:
         session.add(
             SsoSettings(
@@ -33,7 +42,6 @@ def test_a_login_by_password_or_by_single_sign_on_signs_in_and_a_waiting_link_do
                 redirect_uri="https://testserver/auth/callback",
                 group_roles=[],
                 anyone_else="member",
-                make_accounts=True,
                 password_sign_in=True,
             )
         )

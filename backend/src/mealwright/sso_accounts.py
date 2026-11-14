@@ -345,32 +345,54 @@ def _member_name(db: DbSession, household_id: int, name: str | None, username: s
         number += 1
 
 
+def same_username(identity: Identity) -> str | None:
+    """The sign-in server's username as Mealwright compares it (Pe3/M2, cabledrawer 13 Nov: linked
+    automatically only when it is exactly the person's Mealwright username): the
+    `preferred_username` claim with spaces around it taken off, nothing else changed. No change
+    of case (every Mealwright username is lowercase, so "Lorna" never matches "lorna"), never
+    the email address, the name or the subject. None when the server sends none."""
+    value = (identity.username or "").strip()
+    return value or None
+
+
+def _match(db: DbSession, row: SsoSettings, identity: Identity, role: str) -> Login | None:
+    """The login of this household this identity is linked to automatically on its first
+    sign-in, or None (it waits for an admin). Only an exact username match (`same_username`)
+    of a login that can take the link: not shared (a kitchen tablet is nobody's), its person
+    not removed, and not linked to someone else at this sign-in server. An admin's login only
+    when the groups make the newcomer an Admin too, as the setup test's link (proposed, for
+    cabledrawer): a same-named account at the sign-in server that the groups make a Member never
+    takes over an admin."""
+    username = same_username(identity)
+    if username is None:
+        return None
+    login = db.scalar(
+        select(Login).where(Login.household_id == row.household_id, Login.username == username)
+    )
+    if login is None or login.shared or _removed(db, login):
+        return None
+    if login.sso_subject is not None and login.sso_issuer == identity.issuer:
+        return None
+    if login.role == ADMIN and role != ADMIN:
+        return None
+    return login
+
+
 def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Path) -> Login:
-    """The login this identity signs in as, made on first sign-in if allowed, with its role
-    from the groups. Raises SsoFailed. Flushes, doesn't commit."""
+    """The login this identity signs in as, with its role from the groups. On its first
+    sign-in it is linked automatically only to the login with exactly its username (`_match`);
+    nobody is ever made here. Raises SsoFailed. Flushes, doesn't commit."""
     role = role_for(row, identity.groups)
     login = find_login(db, identity)
     if login is None:
         if role is None:
             raise SsoFailed("not_let_in")
-        if not row.make_accounts:
+        login = _match(db, row, identity, role)
+        if login is None:
             raise SsoFailed("no_account")
-        username = new_username(identity)
-        if db.scalar(select(Login.id).where(Login.username == username)) is not None:
-            raise SsoFailed("clash")
-        login = Login(
-            household_id=row.household_id,
-            username=username,
-            name=_member_name(db, row.household_id, identity.name, username),
-            password_hash=None,
-            role=role,
-            sso_issuer=identity.issuer,
-            sso_subject=identity.subject,
-        )
-        db.add(login)
+        login.sso_issuer, login.sso_subject = identity.issuer, identity.subject
         db.flush()
-        log.info("Single sign-on: account %s made on first sign-in", login.username)
-        return login
+        log.info("Single sign-on: %s linked on first sign-in, same username", login.username)
     if login.household_id != row.household_id or _removed(db, login):
         _refused_known(db, login, row, "removed", data_dir)
     if role is None:

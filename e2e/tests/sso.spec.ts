@@ -23,7 +23,6 @@ const SETUP = {
     { group: 'family', role: 'member' },
   ],
   anyone_else: 'none',
-  make_accounts: true,
   password_sign_in: true,
   admin_linked: false,
   switch_on: true,

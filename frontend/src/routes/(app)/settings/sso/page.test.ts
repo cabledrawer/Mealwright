@@ -25,7 +25,6 @@ const SAVED: SsoSetup = {
   group_claim: 'groups',
   group_roles: [{ group: 'mealwright-admins', role: 'admin' }],
   anyone_else: 'none',
-  make_accounts: true,
   password_sign_in: true,
   password_sign_in_stored: true,
   admin_linked: false,
@@ -148,6 +147,29 @@ describe('single sign-on setup', () => {
       anyone_else: 'member',
       password_sign_in: true
     });
+  });
+
+  it('makes nobody at first sign-in: no such switch, and says who is linked (Pe3/M2)', async () => {
+    requests = fakeApi({
+      'GET /sso/settings': [200, SAVED],
+      'PUT /sso/settings': (request) => [200, { ...SAVED, ...(request.body as object) }]
+    });
+    show();
+    await expect
+      .element(page.getByLabelText('Issuer address'))
+      .toHaveValue('https://id.example.org');
+    expect(document.body.textContent).not.toContain('Make an account');
+    await expect
+      .element(
+        page.getByText(
+          'Someone whose username at your sign-in server is the same as here is linked to them at their first sign-in. Anyone else waits until an admin says who they are in Settings › Household.'
+        )
+      )
+      .toBeVisible();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect.element(page.getByText('Saved.')).toBeVisible();
+    const put = requests.find((r) => r.method === 'PUT')!;
+    expect(put.body).not.toHaveProperty('make_accounts');
   });
 
   it('keeps password sign-in on until an admin has signed in with single sign-on', async () => {
