@@ -388,6 +388,32 @@ def test_no_admins_sign_in_link_outlives_the_owner_taking_the_household_back(
     ok(_look(_fresh(kitchen), lornas))
 
 
+@pytest.mark.parametrize("recovery", ["noor removed", "password changed"])
+def test_an_admins_sign_in_link_being_hashed_ends_when_the_owner_takes_the_household_back(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch, recovery: str
+) -> None:
+    """16b security re-check S3-L1 (proposed, for cabledrawer): Noor uses the sign-in link she made
+    for Sam, an admin, and the owner takes the household back while the password is still
+    being hashed. The claimed link goes too, so the link page is told it's gone (404) and
+    nobody signs in as Sam."""
+    noor, hers = _noor_admin(kitchen)
+    sam = _add(hers, "Sam")
+    sams = _join(hers, sam, "sam", role="admin")
+    real = api_people.hash_password
+
+    def slow_hash(password: str) -> str:
+        hashed = real(password)
+        RECOVERIES[recovery](kitchen, noor)  # meanwhile
+        return hashed
+
+    monkeypatch.setattr(api_people, "hash_password", slow_hash)
+    r = _fresh(kitchen).post(f"{API}/join", json={"token": sams, "password": "Sam's new pass"})
+    _problem(r, 404, "link_gone")
+    monkeypatch.setattr(api_people, "hash_password", real)
+    tried = {"username": "sam", "password": "Sam's new pass"}
+    assert _fresh(kitchen).post(f"{API}/session", json=tried).status_code != 200
+
+
 def test_profile_only_while_the_password_is_hashed_says_the_link_is_gone(
     kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

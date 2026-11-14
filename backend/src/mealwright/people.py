@@ -471,21 +471,19 @@ def drop_links(db: DbSession, login: Login) -> None:
 
 def drop_admin_links(db: DbSession, household_id: int) -> None:
     """Every link in the household that leads to an admin goes: every Reset password link,
-    used or not, and every unused sign-in link for an admin's login. Called when an admin is
-    removed or stops being one, and when an admin takes the household back (`drop_links`), so
-    no link a hostile admin made or kept outlives them (16b security pass S-M1 and re-check
-    S2-M1; proposed, for cabledrawer). Sign-in links for Members stay."""
+    and every sign-in link for an admin's login, used or not, so one a request has claimed and
+    is still hashing for ends too (S3-L1). Called when an admin is removed or stops being one,
+    and when an admin takes the household back (`drop_links`), so no link a hostile admin made
+    or kept outlives them (16b security pass S-M1 and re-checks S2-M1, S3-L1; proposed, for
+    cabledrawer). Sign-in links for Members stay. A used sign-in link is read nowhere ("Link used"
+    comes from `login.link_used_at`), so nothing is lost."""
     admins = select(Login.id).where(Login.household_id == household_id, Login.role == ADMIN)
     db.execute(
         delete(JoinLink).where(
             JoinLink.household_id == household_id,
             or_(
                 JoinLink.kind == RESET,
-                and_(
-                    JoinLink.kind == JOIN,
-                    JoinLink.used_at.is_(None),
-                    JoinLink.login_id.in_(admins),
-                ),
+                and_(JoinLink.kind == JOIN, JoinLink.login_id.in_(admins)),
             ),
         )
     )
