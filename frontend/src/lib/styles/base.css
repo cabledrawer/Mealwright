@@ -140,9 +140,7 @@ svg {
   }
   .sidebar-slot,
   .tabbar-slot,
-  .skip,
-  [role='status'],
-  [role='alert'] {
+  .skip {
     display: none !important;
   }
   .shell {
@@ -168,6 +166,10 @@ svg {
   }
   .panes .row > :not(.reading),
   .panes > .offline {
+    display: none !important;
+  }
+  /* What is hidden stays hidden (the row while the connection note stands in for it). */
+  .panes .row[hidden] {
     display: none !important;
   }
 }

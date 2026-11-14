@@ -166,4 +166,11 @@
       background: CanvasText;
     }
   }
+
+  /* Not on paper. */
+  @media print {
+    .status {
+      display: none;
+    }
+  }
 </style>

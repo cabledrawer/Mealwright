@@ -174,4 +174,11 @@
       border: 1px solid CanvasText;
     }
   }
+
+  /* Not on paper. */
+  @media print {
+    .region {
+      display: none;
+    }
+  }
 </style>
