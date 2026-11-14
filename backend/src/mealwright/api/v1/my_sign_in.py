@@ -170,7 +170,8 @@ def sign_out_everywhere_else(request: Request, signed_in: CurrentSession, db: Db
 def cancel_my_reset_link(signed_in: CurrentSession, db: Db) -> None:
     """Cancel a Reset password link an admin made for you: it stops working, and your
     password stays as it is. Only your own login's; nothing to cancel is fine too. Admin or
-    not (16b security pass S-M1 e; proposed, for cabledrawer)."""
+    not. Needs a sign-in, not an API token."""
+    # 16b security pass S-M1 e; proposed (the docstring above is in the OpenAPI document).
     db.execute(
         delete(JoinLink).where(
             JoinLink.login_id == signed_in.login.id, JoinLink.kind == people.RESET

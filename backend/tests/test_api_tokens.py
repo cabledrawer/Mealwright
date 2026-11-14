@@ -17,8 +17,8 @@ from mealwright.auth import COOKIE, current_session
 from mealwright.models import ApiToken, Login, Member, utcnow
 
 # Every endpoint a token can never use, whatever it may do otherwise (proposed, for cabledrawer):
-# making, listing and deleting tokens, your own password and where you're signed in, and
-# "Who's this?" on a shared device.
+# making, listing and deleting tokens, your own password, where you’re signed in and a reset
+# link made for you (16b S-M1 e), and "Who's this?" on a shared device.
 SESSION_ONLY = {
     ("GET", f"{API}/api-tokens"),
     ("POST", f"{API}/api-tokens"),
@@ -26,6 +26,7 @@ SESSION_ONLY = {
     ("GET", f"{API}/me/sign-in"),
     ("PUT", f"{API}/me/password"),
     ("DELETE", f"{API}/me/sessions/others"),
+    ("DELETE", f"{API}/me/reset-link"),
     ("DELETE", f"{API}/me/sessions/{{sign_in_id}}"),
     ("GET", f"{API}/whos-this"),
     ("PUT", f"{API}/whos-this"),
