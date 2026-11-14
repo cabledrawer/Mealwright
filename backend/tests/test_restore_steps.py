@@ -86,14 +86,14 @@ def test_the_documented_photo_command_works_over_files_that_are_the_same_file(
     (live / "kept.jpg").hardlink_to(backup / "kept.jpg")
     (live / "newer.jpg").write_bytes(b"newer, not in the backup")
 
-    plain = subprocess.run(  # noqa: S603, S607
-        ["cp", "-a", f"{backup.parent}/.", f"{live.parent}/"], capture_output=True
+    plain = subprocess.run(  # noqa: S603
+        ["/usr/bin/cp", "-a", f"{backup.parent}/.", f"{live.parent}/"], capture_output=True
     )
     assert plain.returncode != 0  # why the documented command is not `cp -a`
     (live / "missing.jpg").unlink(missing_ok=True)
 
-    done = subprocess.run(  # noqa: S603, S607
-        ["bash", "-ec", script], cwd=tmp_path, capture_output=True
+    done = subprocess.run(  # noqa: S603
+        ["/usr/bin/bash", "-ec", script], cwd=tmp_path, capture_output=True
     )
     assert done.returncode == 0, done.stderr
     assert (live / "missing.jpg").read_bytes() == b"missing"
