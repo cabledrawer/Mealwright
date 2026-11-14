@@ -740,22 +740,23 @@ or stalled upload holds up only its own household (round 1, review 2 and 12, S-L
 in the file before anything is added; recipes with every line read are saved straight away,
 only ones with unread lines go to Drafts ("From Mealie"); "Save all as they are"; it runs on
 the server; one Undo for the whole import (7 days; recipes changed or cooked since are kept).
-The choices below are proposed, for cabledrawer:
+The choices below are proposed, for cabledrawer, except the five he answered on 14 Nov (who, the cap, one upload at a time, "ingredients", "Untitled recipe"; each marked):
 
-- **Who (round 1, proposed, for cabledrawer):** the household's admin, like the other Your data
+- **Who (cabledrawer 14 Nov):** the household's admin, like the other Your data
   actions: sending the file (checked before a byte is read), Bring in, Cancel, Undo and Save
   all answer a member 403 `admins_only` and an API token 403 `not_for_tokens`. A member
   doesn't see the row in Your data; anyone in the household may look (the import's state,
   Today's note, Drafts). `POST /api/v1/mealie-imports` takes the `.zip` itself as
   the body (at most 1 GB, this route only; streamed to a file in the data folder, one upload
-  at a time for each household). Signed-out uploads are refused before a byte is read.
+  at a time for each household; cabledrawer 14 Nov). Signed-out uploads are refused before a byte is read.
 - **The preview** is kept with the file until "Bring in" or Cancel; sending another file
   lets the earlier one go, and a file nobody brings in is deleted after a day. One import
   runs at a time in a household (409 `mealie_busy`).
 - **Already here:** same name (folded) and same source link; no link on both counts as the
   same. A Mealie draft still waiting counts too, so the same file twice makes no second draft;
-  a deleted draft doesn't (round 1, review 5). A recipe with no name is never already here
-  and comes in as "Untitled recipe" (`drafts.NO_NAME`), never dropped (review 6).
+  a deleted draft doesn't (round 1, review 5). A recipe with no name comes in as "Untitled
+  recipe" (`drafts.NO_NAME`, cabledrawer 14 Nov), never dropped, and is matched under that name
+  and its source, so the same file twice adds nothing the second time (round 2).
 - **Ingredients counted and added** only for the recipes coming in: a recipe unticked or
   already here adds none, and the preview's counts say the same (round 1, review 1). A
   Mealie food's name is cut to 100 characters (at a word, with "…") when the file is read,
@@ -776,8 +777,7 @@ The choices below are proposed, for cabledrawer:
   the recipe's words); the import never stops half-way for one bad recipe. The file is
   deleted when it ends. Progress is asked for every few seconds (`GET /mealie-imports/{id}`),
   not sent as a live event. Today shows a note for a day after it finishes.
-- **At most 5,000 new ingredients per import** (`MAX_NEW_FOODS`, proposed, for cabledrawer;
-  round 1): the rest aren't added, so their lines aren't read and those recipes wait in Drafts.
+- **At most 5,000 new ingredients per import** (`MAX_NEW_FOODS`, cabledrawer 14 Nov): the rest aren't added, so their lines aren't read and those recipes wait in Drafts.
   The preview's `foods_left_out` says how many; a restart counts the ones already made.
 - **Cancel while it runs** (`DELETE /mealie-imports/{id}`, proposed, for cabledrawer; no button
   for it yet): it stops between two stretches; what came in stays, with the import's Undo

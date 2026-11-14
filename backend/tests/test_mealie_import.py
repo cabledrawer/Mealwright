@@ -800,7 +800,7 @@ def mealie_writes(import_id: int) -> list[tuple[str, str]]:
 
 
 def test_only_the_households_admin_may_import(kitchen: TestClient, raw: bytes) -> None:
-    # Round 1, review 9 (proposed, for cabledrawer): like the other Your data actions.
+    # Round 1, review 9 (cabledrawer 14 Nov): like the other Your data actions.
     noor = person(kitchen, name="Noor", username="noor")
     sent = upload(noor, raw)
     assert sent.status_code == 403 and sent.json()["code"] == "admins_only"

@@ -10,6 +10,7 @@
   import { ADMINS_ONLY } from '#lib/yourDataWords.js';
   import {
     LEAD_WIDE,
+    count,
     NOTE_FAILED,
     NOTE_FAILED_LINE,
     READS_ONLY,
@@ -179,18 +180,22 @@
       </div>
       <div class="stats four">
         <div class="stat">
-          <span class="num">{preview.new}</span><span
-            >new recipes, {preview.with_photo} with a photo</span
+          <span class="num">{count(preview.new)}</span><span
+            >new recipes, {count(preview.with_photo)} with a photo</span
           >
         </div>
         <div class="stat">
-          <span class="num dim">{preview.already}</span><span>you already have: left out</span>
+          <span class="num dim">{count(preview.already)}</span><span
+            >you already have: left out</span
+          >
         </div>
         <div class="stat">
-          <span class="num">{preview.foods_matching}</span><span>ingredients you already have</span>
+          <span class="num">{count(preview.foods_matching)}</span><span
+            >ingredients you already have</span
+          >
         </div>
         <div class="stat">
-          <span class="num">{preview.foods_new}</span><span
+          <span class="num">{count(preview.foods_new)}</span><span
             >new ingredients, marked “from Mealie”</span
           >
         </div>
@@ -201,20 +206,20 @@
             type="button"
             class="chip"
             aria-pressed={show === 'all'}
-            onclick={() => ((show = 'all'), (limit = PAGE))}>All {recipes.length}</button
+            onclick={() => ((show = 'all'), (limit = PAGE))}>All {count(recipes.length)}</button
           >
           <button
             type="button"
             class="chip"
             aria-pressed={show === 'new'}
-            onclick={() => ((show = 'new'), (limit = PAGE))}>New {preview.new}</button
+            onclick={() => ((show = 'new'), (limit = PAGE))}>New {count(preview.new)}</button
           >
           <button
             type="button"
             class="chip"
             aria-pressed={show === 'already'}
             onclick={() => ((show = 'already'), (limit = PAGE))}
-            >Already here {preview.already}</button
+            >Already here {count(preview.already)}</button
           >
         </div>
         <input
@@ -305,7 +310,7 @@
     </section>
   {:else if flow.step === 'running' && job}
     <section class="dcard">
-      <h2>Bringing in recipes… {job.done} of {job.total}</h2>
+      <h2>Bringing in recipes… {count(job.done)} of {count(job.total)}</h2>
       <div
         class="bar"
         role="progressbar"
@@ -317,12 +322,14 @@
         <span style:width="{share}%"></span>
       </div>
       <div class="stats three">
-        <div class="stat"><span class="num">{job.counts.saved}</span><span>ready</span></div>
+        <div class="stat"><span class="num">{count(job.counts.saved)}</span><span>ready</span></div>
         <div class="stat">
-          <span class="num need">{job.counts.drafts}</span><span>with lines to check</span>
+          <span class="num need">{count(job.counts.drafts)}</span><span>with lines to check</span>
         </div>
         <div class="stat">
-          <span class="num dim">{Math.max(0, job.total - job.done)}</span><span>still to go</span>
+          <span class="num dim">{count(Math.max(0, job.total - job.done))}</span><span
+            >still to go</span
+          >
         </div>
       </div>
       <div class="info">
@@ -348,22 +355,22 @@
     {/if}
     <div class="stats four">
       <a class="stat" href={resolve('/(app)/recipes')}>
-        <span class="num">{job.counts.saved}</span><span>ready to cook, in Recipes</span>
+        <span class="num">{count(job.counts.saved)}</span><span>ready to cook, in Recipes</span>
       </a>
       <a
         class="stat"
         class:needs={job.counts.drafts}
         href="{resolve('/(app)/recipes/drafts')}?from=mealie"
       >
-        <span class="num" class:need={job.counts.drafts}>{job.counts.drafts}</span><span
+        <span class="num" class:need={job.counts.drafts}>{count(job.counts.drafts)}</span><span
           >have lines to check, in Drafts</span
         >
       </a>
       <a class="stat" href={resolve('/(app)/recipes/ingredients')}>
-        <span class="num">{job.counts.new_foods}</span><span>new ingredients</span>
+        <span class="num">{count(job.counts.new_foods)}</span><span>new ingredients</span>
       </a>
       <div class="stat">
-        <span class="num dim">{job.counts.already}</span><span>left out, already here</span>
+        <span class="num dim">{count(job.counts.already)}</span><span>left out, already here</span>
       </div>
     </div>
     {#if job.counts.drafts}

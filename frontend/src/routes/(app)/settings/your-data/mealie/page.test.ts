@@ -238,6 +238,17 @@ describe('Import from Mealie', () => {
       expect(sent('POST', '/mealie-imports/7/start')).toEqual([]);
     });
 
+    it('writes counts over a thousand with their comma, as the computer does', async () => {
+      await open({
+        'GET /mealie-imports/current': [
+          200,
+          { current: { ...READY, preview: { ...READY.preview!, new: 5250, foods_new: 5250 } } }
+        ]
+      });
+      await expect.element(page.getByText('5,250', { exact: true }).first()).toBeVisible();
+      await expect.element(page.getByText('5250', { exact: true })).not.toBeInTheDocument();
+    });
+
     it('says why the server refused the file, and stays on the start', async () => {
       await open({
         'GET /mealie-imports/current': [200, { current: null }],

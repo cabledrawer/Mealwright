@@ -70,7 +70,7 @@ TOO_MANY = "You have 50 drafts. Finish or delete one first."
 # The photo was a waiting upload that has since been deleted (it waits 24 hours), or isn't this
 # household's: the draft is kept without it. Proposed, for cabledrawer.
 PHOTO_GONE = "The photo wasn’t kept."
-NO_NAME = "Untitled recipe"  # proposed, for cabledrawer: a draft whose Name box is empty
+NO_NAME = "Untitled recipe"  # cabledrawer 14 Nov: a recipe or draft with no name
 
 
 # --- Finding ----------------------------------------------------------------------------------

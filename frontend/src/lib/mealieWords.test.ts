@@ -10,6 +10,7 @@ import {
   chosenCount,
   fileWords,
   fromFileWords,
+  moreWords,
   newIngredientsWords,
   alreadyWords,
   notBroughtIn,
@@ -115,6 +116,20 @@ describe('Import from Mealie words', () => {
     expect(tooManyIngredientsWords({ foods_new: 6240, foods_left_out: 1240 })).toBe(
       'Only the first 5,000 new ingredients are added. Recipes that use the other 1,240 wait in Drafts for you to check.'
     );
+  });
+
+  it('says the one left over in the singular', () => {
+    expect(tooManyIngredientsWords({ foods_new: 5001, foods_left_out: 1 })).toBe(
+      'Only the first 5,000 new ingredients are added. Recipes that use the other ingredient wait in Drafts for you to check.'
+    );
+  });
+
+  it('writes a count over a thousand with its comma, as both screens do', () => {
+    expect(bringInWords(5250)).toBe('Bring in 5,250 recipes');
+    expect(saveAllWords(1240)).toBe('Save all 1,240 as they are');
+    expect(noteCheckWords(2500)).toBe('2,500 have lines to check');
+    expect(moreWords(1500)).toBe('1,500 more');
+    expect(showingWords(100, 5250)).toBe('Showing 100 of 5,250. Untick any you don’t want.');
   });
 
   it('says how each recipe went while it runs', () => {

@@ -9,6 +9,7 @@
   import { ADMINS_ONLY } from '#lib/yourDataWords.js';
   import {
     LEAD,
+    count,
     MENU_PATH,
     NOTE_FAILED,
     NOTE_FAILED_LINE,
@@ -152,12 +153,14 @@
     <h2>In this file</h2>
     <ul class="card">
       <li class="r">
-        <span class="num">{preview.new}</span>
-        <span class="rn"><b>New recipes</b><span>{preview.with_photo} with a photo</span></span>
+        <span class="num">{count(preview.new)}</span>
+        <span class="rn"
+          ><b>New recipes</b><span>{count(preview.with_photo)} with a photo</span></span
+        >
       </li>
       {#if preview.already}
         <li class="r">
-          <span class="num dim">{preview.already}</span>
+          <span class="num dim">{count(preview.already)}</span>
           <span class="rn"
             ><b>You already have these</b><span>Same name and source: left out</span></span
           >
@@ -177,13 +180,13 @@
         {/if}
       {/if}
       <li class="r">
-        <span class="num">{preview.foods_matching}</span>
+        <span class="num">{count(preview.foods_matching)}</span>
         <span class="rn"
           ><b>Ingredients you already have</b><span>Linked, nothing new added</span></span
         >
       </li>
       <li class="r">
-        <span class="num">{preview.foods_new}</span>
+        <span class="num">{count(preview.foods_new)}</span>
         <span class="rn"
           ><b>New ingredients</b><span>Added to Ingredients, marked “from Mealie”</span></span
         >
@@ -236,7 +239,7 @@
   {:else if flow.step === 'running' && job}
     <div class="running">
       <span class="big">Bringing in recipes…</span>
-      <span class="of">{job.done} of {job.total}</span>
+      <span class="of">{count(job.done)} of {count(job.total)}</span>
       <div
         class="bar"
         role="progressbar"
@@ -284,14 +287,14 @@
     {/if}
     <div class="card">
       <a class="r to" href={resolve('/(app)/recipes')}>
-        <span class="num">{job.counts.saved}</span>
+        <span class="num">{count(job.counts.saved)}</span>
         <span class="rn"
           ><b>Ready to cook</b><span>In Recipes, tagged as they were in Mealie</span></span
         >
       </a>
       {#if job.counts.drafts}
         <a class="r to" href="{resolve('/(app)/recipes/drafts')}?from=mealie">
-          <span class="num need-num">{job.counts.drafts}</span>
+          <span class="num need-num">{count(job.counts.drafts)}</span>
           <span class="rn"
             ><b>Have lines to check</b><span
               >Mealwright couldn’t read some ingredient lines. They wait in Drafts.</span
@@ -301,7 +304,7 @@
       {/if}
       {#if job.counts.new_foods}
         <a class="r to" href={resolve('/(app)/recipes/ingredients')}>
-          <span class="num">{job.counts.new_foods}</span>
+          <span class="num">{count(job.counts.new_foods)}</span>
           <span class="rn"
             ><b>New ingredients</b><span>In Ingredients, marked “from Mealie”</span></span
           >
@@ -309,7 +312,7 @@
       {/if}
       {#if job.counts.already}
         <div class="r">
-          <span class="num dim">{job.counts.already}</span>
+          <span class="num dim">{count(job.counts.already)}</span>
           <span class="rn"><b>Left out</b><span>You already had them</span></span>
         </div>
       {/if}
@@ -337,7 +340,7 @@
       <a class="outline grow" href={resolve('/(app)/recipes')}>Go to Recipes</a>
       {#if job.counts.drafts}
         <a class="primary grow" href="{resolve('/(app)/recipes/drafts')}?from=mealie"
-          >Check the {job.counts.drafts}</a
+          >Check the {count(job.counts.drafts)}</a
         >
       {/if}
     </div>

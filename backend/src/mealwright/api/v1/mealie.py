@@ -1,7 +1,7 @@
 """Import from Mealie (0.9.5): upload the backup file, look it over, bring it in, Undo, and Save
 all as they are (`mealwright.mealie_import`; docs/dev/recipe-import.md, "Import from Mealie").
 
-Who may (round 1, proposed, for cabledrawer): the household's admin, like the other Your data
+Who may (cabledrawer 14 Nov): the household's admin, like the other Your data
 actions. Sending the file, Bring in, Cancel, Undo and Save all check the role (sending the file
 before a byte of it is read), and refuse API tokens, as Your data does. Anyone in the household
 may look (the import screen's state, Today's note, Drafts).
@@ -36,7 +36,8 @@ UPLOAD_BUSY = "Another Mealie file is being sent. Try again in a moment."
 NO_FILE = "Choose the Mealie file (.zip)."
 ADMINS_ONLY = "Only the household’s admin can change this."  # as Kitchen.admin_only says
 
-# One upload at a time in this one server process: a 1 GB file is plenty to be writing.
+# One upload at a time (cabledrawer 14 Nov) in this one server process: a 1 GB file is plenty to be
+# writing.
 # The households sending a file now: one file at a time for each household, so a slow or
 # stalled upload holds up only its own household, never the others (round 1, review 12, S-L8).
 _UPLOADING: set[int] = set()

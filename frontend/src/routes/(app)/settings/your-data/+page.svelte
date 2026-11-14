@@ -187,7 +187,7 @@
       </a>
     </section>
 
-    <!-- 0.9.5 round 1 (proposed, for cabledrawer): only the household's admin imports, like the
+    <!-- 0.9.5 (cabledrawer 14 Nov): only the household's admin imports, like the
          other Your data actions (the server refuses a member), so a member doesn't see the row. -->
     {#if admin}
       <section class="part" aria-labelledby="import">

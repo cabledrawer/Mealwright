@@ -27,7 +27,10 @@ export const DRAFTS_LEAD =
   'Open one to check its lines, the same check as any import. Or save them all now: lines Mealwright couldn’t read stay as plain text, and nothing is added to the shopping list for them.';
 export const STEPS = ['1 Choose the file', '2 Look it over', '3 Bring in', '4 Done'] as const;
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** A count the way both screens show it: 5,250 (round 2; the phone said 5250). */
+export const count = (n: number): string => n.toLocaleString('en-GB');
+
+const plural = (n: number, one: string, many = `${one}s`) => `${count(n)} ${n === 1 ? one : many}`;
 
 /** "202 recipes", "1 recipe". */
 export const recipesWords = (n: number): string => plural(n, 'recipe');
@@ -40,7 +43,7 @@ export const bringInWords = (n: number): string => `Bring in ${recipesWords(n)}`
 
 /** "Save all 31 as they are" (Drafts); the computer's Done says "Save all as they are". */
 export const saveAllWords = (n: number | null = null): string =>
-  n === null ? 'Save all as they are' : `Save all ${n} as they are`;
+  n === null ? 'Save all as they are' : `Save all ${count(n)} as they are`;
 
 const LEFT_OUT: [key: string, one: string, many: string][] = [
   ['meal_plans', 'meal plan', 'meal plans'],
@@ -96,7 +99,7 @@ export function fromFileWords(
 export function undoWords(job: Pick<MealieImport, 'counts'>): string {
   const recipes = `the ${recipesWords(broughtIn(job))}`;
   const foods = job.counts.new_foods
-    ? ` and the ${job.counts.new_foods} new ${job.counts.new_foods === 1 ? 'ingredient' : 'ingredients'}`
+    ? ` and the ${count(job.counts.new_foods)} new ${job.counts.new_foods === 1 ? 'ingredient' : 'ingredients'}`
     : '';
   return `Takes out ${recipes}${foods}. Works for 7 days; recipes you’ve changed or cooked since are kept.`;
 }
@@ -106,7 +109,7 @@ export function undoWords(job: Pick<MealieImport, 'counts'>): string {
 export function undoneWords(done: MealieUndone): string {
   let words = `Took out ${recipesWords(done.recipes + done.drafts)}`;
   if (done.foods) words += ` and ${plural(done.foods, 'ingredient')}`;
-  if (done.kept) words += `; kept ${done.kept} you’d changed or cooked`;
+  if (done.kept) words += `; kept ${count(done.kept)} you’d changed or cooked`;
   return `${words}.`;
 }
 
@@ -126,21 +129,21 @@ export function resultWords(result: Pick<MealieResult, 'state' | 'unread_count'>
 
 /** The lines it couldn't read, quoted: '"1 tin coconut milk (optional)", "salt to taste"'.
  *  More than shown: the phone adds ", …", the computer ", and 2 more". */
-export function unreadWords(lines: string[], count: number, wide = false, shown = 2): string {
+export function unreadWords(lines: string[], total: number, wide = false, shown = 2): string {
   const quoted = lines.slice(0, shown).map((line) => `“${line}”`);
-  const more = count - quoted.length;
-  if (more > 0) quoted.push(wide ? `and ${more} more` : '…');
+  const more = total - quoted.length;
+  if (more > 0) quoted.push(wide ? `and ${count(more)} more` : '…');
   return quoted.join(', ');
 }
 
 /** "25 more", under a list that shows only the first few. */
-export const moreWords = (n: number): string => `${n} more`;
+export const moreWords = (n: number): string => `${count(n)} more`;
 
 /** The preview's "See" under New ingredients (proposed, for cabledrawer): their names A to Z, and how
  *  many more when the file has more than the preview lists. */
-export function newIngredientsWords(names: string[], count: number): string {
-  const more = count - names.length;
-  return more > 0 ? `${names.join(', ')} and ${more} more` : names.join(', ');
+export function newIngredientsWords(names: string[], total: number): string {
+  const more = total - names.length;
+  return more > 0 ? `${names.join(', ')} and ${count(more)} more` : names.join(', ');
 }
 
 /** The most names the phone's "See which" under You already have these lists. */
@@ -151,26 +154,28 @@ export const SEE_WHICH_AT_MOST = 200;
 export const alreadyWords = (names: string[]): string =>
   newIngredientsWords(names.slice(0, SEE_WHICH_AT_MOST), names.length);
 
-/** When the file has more new ingredients than one import adds (5,000; proposed, for
+/** When the file has more new ingredients than one import adds (5,000: cabledrawer 14 Nov; the sentence is proposed, for
  *  cabledrawer): what happens to the rest. Null when it hasn't. */
 export function tooManyIngredientsWords(
   preview: Pick<MealiePreview, 'foods_new' | 'foods_left_out'>
 ): string | null {
   const over = preview.foods_left_out ?? 0;
   if (over <= 0) return null;
-  const added = (preview.foods_new - over).toLocaleString('en-GB');
-  return `Only the first ${added} new ingredients are added. Recipes that use the other ${over.toLocaleString('en-GB')} wait in Drafts for you to check.`;
+  const added = count(preview.foods_new - over);
+  // Only one left over: "the other ingredient" (round 2; proposed, for cabledrawer, words.md §81).
+  const rest = over === 1 ? 'the other ingredient wait' : `the other ${count(over)} wait`;
+  return `Only the first ${added} new ingredients are added. Recipes that use ${rest} in Drafts for you to check.`;
 }
 
 /** "Showing 8 of 214. Untick any you don't want." */
 export const showingWords = (shown: number, all: number): string =>
-  `Showing ${shown} of ${all}. Untick any you don’t want.`;
+  `Showing ${count(shown)} of ${count(all)}. Untick any you don’t want.`;
 
 /** Today's note (proposed, for cabledrawer). */
 export const noteWords = (recipes: number): string =>
   `${recipesWords(recipes)} brought in from Mealie`;
 export const noteCheckWords = (n: number): string =>
-  `${n} ${n === 1 ? 'has' : 'have'} lines to check`;
+  `${count(n)} ${n === 1 ? 'has' : 'have'} lines to check`;
 export const NOTE_FAILED = 'The import from Mealie stopped';
 export const NOTE_FAILED_LINE = 'Recipes brought in before it stopped are kept.';
 export const UNDONE = 'Import undone';

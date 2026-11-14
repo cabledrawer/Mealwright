@@ -439,7 +439,7 @@ def _recipe(
     units: dict[str, str],
     photo: tuple[str, int] | None,
 ) -> MealieRecipe:
-    # A recipe with no name is still brought in: it waits in Drafts as "Recipe with no name"
+    # A recipe with no name is still brought in: it waits in Drafts as "Untitled recipe"
     # (drafts.NO_NAME), never dropped without a word (round 1, review 6).
     name = _text(row.get("name"), page_reader.MAX_NAME)
     ingredients: list[PageLine] = []

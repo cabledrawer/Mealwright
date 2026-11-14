@@ -81,7 +81,7 @@ MAX_FILE_NAME = 200
 PREVIEW_TAGS = 3  # the computer's table shows the first few Mealie tags
 # The new ingredients' names the preview lists under "See" (the rest are counted).
 PREVIEW_NEW_FOODS = 200
-# At most this many new ingredients come from one import (proposed, for cabledrawer; round 1):
+# At most this many new ingredients come from one import (cabledrawer 14 Nov):
 # the rest aren't added, so the lines that name them aren't read and their recipes wait in
 # Drafts, to be checked like any import. The preview says so.
 MAX_NEW_FOODS = 5_000
