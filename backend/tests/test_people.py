@@ -395,11 +395,11 @@ def test_an_admin_renames_the_household_and_can_undo_it(kitchen: TestClient) -> 
 
 
 def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> None:
-    joss = _add(kitchen)
-    token = _join(kitchen, joss, " Joss ")
-    shown = next(p for p in _people(kitchen)["people"] if p["id"] == joss)
+    sam = _add(kitchen, "Sam")
+    token = _join(kitchen, sam, " Sam ")
+    shown = next(p for p in _people(kitchen)["people"] if p["id"] == sam)
     assert shown["login"] == {
-        "username": "joss",
+        "username": "sam",
         "role": "member",
         "shared": False,
         "has_password": False,
@@ -409,43 +409,41 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
         "reset_pending": False,
     }
     note = _newest(kitchen)
-    assert note["summary"] == "Made a sign-in link for Joss" and note["can_undo"] is False
+    assert note["summary"] == "Made a sign-in link for Sam" and note["can_undo"] is False
     # Only the token's SHA-256 is stored.
     with db(kitchen) as session:
         stored = session.scalars(select(JoinLink.token_hash)).all()
         assert token not in stored and len(stored) == 1 and len(stored[0]) == 64
-    # Nobody can sign in as Joss before she picks a password.
-    blank = _fresh(kitchen).post(f"{API}/session", json={"username": "joss", "password": ""})
+    # Nobody can sign in as Sam before they pick a password.
+    blank = _fresh(kitchen).post(f"{API}/session", json={"username": "sam", "password": ""})
     assert blank.status_code == 401
-    joss_client = _fresh(kitchen)
-    page = ok(_look(joss_client, token))
+    sams = _fresh(kitchen)
+    page = ok(_look(sams, token))
     # Nobody is named before the password is set (cabledrawer 13 Nov).
     assert set(page) == {"kind", "expires_at", "min_password"} and page["min_password"] == 12
     assert page["kind"] == "join"
-    short = joss_client.post(f"{API}/join", json={"token": token, "password": "eleven char"})
+    short = sams.post(f"{API}/join", json={"token": token, "password": "eleven char"})
     assert short.status_code == 422
-    joined = joss_client.post(
-        f"{API}/join", json={"token": token, "password": "joss's own password"}
-    )
+    joined = sams.post(f"{API}/join", json={"token": token, "password": "sam's own password"})
     # Only now is the username given, to sign in with.
-    assert joined.status_code == 200 and joined.json() == {"username": "joss"}, joined.text
-    # Joining sets the password only: she signs in on the sign-in page like anyone else.
-    assert joss_client.get(f"{API}/me").status_code == 401
+    assert joined.status_code == 200 and joined.json() == {"username": "sam"}, joined.text
+    # Joining sets the password only: they sign in on the sign-in page like anyone else.
+    assert sams.get(f"{API}/me").status_code == 401
     # The link works once.
     _problem(_look(_fresh(kitchen), token), 404, "link_gone")
     again = _fresh(kitchen).post(
         f"{API}/join", json={"token": token, "password": "someone else's pw"}
     )
     _problem(again, 404, "link_gone")
-    # She signs in with her own password from now on; a second link is refused.
+    # They sign in with their own password from now on; a second link is refused.
     signed = _fresh(kitchen).post(
-        f"{API}/session", json={"username": "joss", "password": "joss's own password"}
+        f"{API}/session", json={"username": "sam", "password": "sam's own password"}
     )
     assert signed.status_code == 200
-    assert signed.json()["member_id"] == joss and signed.json()["role"] == "member"
-    r = kitchen.post(f"{API}/people/{joss}/login", json={"username": "joss"})
+    assert signed.json()["member_id"] == sam and signed.json()["role"] == "member"
+    r = kitchen.post(f"{API}/people/{sam}/login", json={"username": "sam"})
     _problem(r, 409, "signs_in_already")
-    after = next(p for p in _people(kitchen)["people"] if p["id"] == joss)["login"]
+    after = next(p for p in _people(kitchen)["people"] if p["id"] == sam)["login"]
     assert after["has_password"] is True and after["link_pending"] is False
     # The Person page says when the link was used (cabledrawer 13 Nov), so an admin can spot a link
     # someone else used.
@@ -552,7 +550,7 @@ def test_joining_needs_https_like_signing_in(kitchen: TestClient) -> None:
     token = _join(kitchen, joss, "joss")
     r = _fresh(kitchen).post(
         f"{API}/join",
-        json={"token": token, "password": "joss's own password"},
+        json={"token": token, "password": "a long own password"},
         headers={"Origin": "http://192.0.2.5"},
     )
     assert r.status_code in (400, 403), r.text
@@ -810,28 +808,26 @@ def test_removing_a_person_ends_their_open_event_streams(
 ) -> None:
     """O2 review r4, finding 4: their sessions go with them, so do their live-update streams.
     Fails without the call to `events.end_session`."""
-    joss = _add(kitchen)
-    token = _join(kitchen, joss, "joss")
-    joss_client = _fresh(kitchen)
-    assert joss_client.post(
-        f"{API}/join", json={"token": token, "password": "joss's own password"}
+    sam = _add(kitchen, "Sam")
+    token = _join(kitchen, sam, "sam")
+    sams = _fresh(kitchen)
+    assert sams.post(
+        f"{API}/join", json={"token": token, "password": "sam's own password"}
     ).is_success
-    signed = joss_client.post(
-        f"{API}/session", json={"username": "joss", "password": "joss's own password"}
-    )
+    signed = sams.post(f"{API}/session", json={"username": "sam", "password": "sam's own password"})
     assert signed.status_code == 200, signed.text
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         ids = list(
             db.scalars(
                 select(Session.id)
                 .join(Login, Login.id == Session.login_id)
-                .where(Login.username == "joss")
+                .where(Login.username == "sam")
             )
         )
     assert len(ids) == 1
     ended: list[int] = []
     monkeypatch.setattr(kitchen.app.state.events, "end_session", ended.append)  # type: ignore[attr-defined]
-    ok(kitchen.delete(f"{API}/people/{joss}"))
+    ok(kitchen.delete(f"{API}/people/{sam}"))
     assert ended == ids
 
 
@@ -839,7 +835,7 @@ def test_a_link_opened_where_someone_is_signed_in_is_refused_and_stays_unused(
     kitchen: TestClient,
 ) -> None:
     """Pe2 (cabledrawer 13 Nov): no names, no sign-out, and the link stays unused."""
-    token = _join(kitchen, _add(kitchen), "joss")
+    token = _join(kitchen, _add(kitchen, "Sam"), "sam")
     # The admin's own browser is signed in: looking and using are both refused.
     looked = _look(kitchen, token)
     detail = _problem(looked, 409, "signed_in_here")
@@ -847,21 +843,19 @@ def test_a_link_opened_where_someone_is_signed_in_is_refused_and_stays_unused(
         "Someone is already signed in on this device. Sign-in links only work where nobody is "
         "signed in."
     )
-    assert "joss" not in looked.text.lower()  # no names
-    used = kitchen.post(f"{API}/join", json={"token": token, "password": "joss's own password"})
+    assert "sam" not in looked.text.lower()  # no names
+    used = kitchen.post(f"{API}/join", json={"token": token, "password": "sam's own password"})
     _problem(used, 409, "signed_in_here")
     # A wrong secret is refused the same way: nothing is told about any link.
     _problem(_look(kitchen, "x" * 43), 409, "signed_in_here")
     with db(kitchen) as session:
         assert session.scalars(select(JoinLink.used_at)).one() is None
-    assert next(p for p in _people(kitchen)["people"] if p["name"] == "Joss")["login"][
+    assert next(p for p in _people(kitchen)["people"] if p["name"] == "Sam")["login"][
         "link_pending"
     ]
     # A cookie that is no live sign-in doesn't count, and the link still works elsewhere.
     stale = _fresh(kitchen)
     stale.cookies.set("__Host-mealwright_session", "not-a-session")
     ok(_look(stale, token))
-    joined = _fresh(kitchen).post(
-        f"{API}/join", json={"token": token, "password": "joss's own pw!"}
-    )
+    joined = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": "sam's own pw!"})
     assert joined.status_code == 200, joined.text

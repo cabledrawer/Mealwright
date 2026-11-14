@@ -11,6 +11,7 @@ import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
 import { JOSS, HOUSEHOLD, TESS, people } from '#lib/testing/fakePeople.js';
+import { person } from '#lib/testing/fakePeople.js';
 import PersonPage from './[id]/+page.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
@@ -61,11 +62,29 @@ const ssoJoss = {
   }
 };
 
-// Someone who chose their password with a sign-in link (Pe1, link hardening).
-const passwordJoss = (extra: Partial<NonNullable<(typeof JOSS)['login']>> = {}) => ({
-  ...JOSS,
+// Made-up people for the tests added in 0.9.5 (privacy rule): Lorna, the admin on this device,
+// and Sam, a member who chose their password with a sign-in link (Pe1, link hardening).
+const LORNA = person(1, 'Lorna', {
+  colour: 'green',
+  is_me: true,
+  created_by_name: '',
   login: {
-    username: 'joss',
+    username: 'lorna',
+    role: 'admin',
+    shared: false,
+    has_password: true,
+    signs_in: true,
+    link_pending: false,
+    link_used_at: null,
+    reset_pending: false
+  }
+});
+const SAM = person(3, 'Sam', { colour: 'amber', portion_quarters: 2, created_by_name: 'Lorna' });
+
+const passwordSam = (extra: Partial<NonNullable<(typeof LORNA)['login']>> = {}) => ({
+  ...SAM,
+  login: {
+    username: 'sam',
     role: 'member' as const,
     shared: false,
     has_password: true,
@@ -234,9 +253,9 @@ describe('Settings → Household → a person', () => {
   it('a link that has run out or was cancelled says only that it no longer works', async () => {
     // 16b security re-check S2-M1: an admin's sign-in link can now be cancelled when another
     // admin goes, so "has run out" isn't always true (proposed, for cabledrawer).
-    const gone = { ...pendingJoss, login: { ...pendingJoss.login, link_pending: false } };
-    open({ 'GET /people': [200, people([TESS, gone])] });
-    await expect.element(page.getByText('Joss’s sign-in link no longer works.')).toBeVisible();
+    const gone = passwordSam({ has_password: false, signs_in: false });
+    open({ 'GET /people': [200, people([LORNA, gone])] });
+    await expect.element(page.getByText('Sam’s sign-in link no longer works.')).toBeVisible();
     await expect.element(page.getByRole('button', { name: 'Make a new link' })).toBeVisible();
   });
 
@@ -271,7 +290,7 @@ describe('Settings → Household → a person', () => {
   it('Reset password makes a one-time link to copy, and the data stays (Pe1)', async () => {
     let made = false;
     open({
-      'GET /people': () => [200, people([TESS, passwordJoss({ reset_pending: made })])],
+      'GET /people': () => [200, people([LORNA, passwordSam({ reset_pending: made })])],
       'POST /people/3/reset-password': () => {
         made = true;
         return [201, { path: '/reset#reset-secret', expires_at: '2026-11-15T10:00:00Z' }];
@@ -284,7 +303,7 @@ describe('Settings → Household → a person', () => {
     await expect
       .element(panel)
       .toHaveTextContent(
-        'Reset link made. It works once, for 24 hours. Send it to Joss: they pick a new password, and their recipes, plans and history stay as they are. ' +
+        'Reset link made. It works once, for 24 hours. Send it to Sam: they pick a new password, and their recipes, plans and history stay as they are. ' +
           `${location.origin}/reset#reset-secret`
       );
     await expect.element(page.getByText(`${location.origin}/reset#reset-secret`)).toBeVisible();
@@ -297,19 +316,16 @@ describe('Settings → Household → a person', () => {
   });
 
   it('an unused reset link says so', async () => {
-    open({ 'GET /people': [200, people([TESS, passwordJoss({ reset_pending: true })])] });
-    await expect.element(page.getByText('Joss hasn’t used the reset link yet.')).toBeVisible();
+    open({ 'GET /people': [200, people([LORNA, passwordSam({ reset_pending: true })])] });
+    await expect.element(page.getByText('Sam hasn’t used the reset link yet.')).toBeVisible();
   });
 
   it('your own unused reset link shows, admin or not, and you can cancel it', async () => {
-    // 16b security pass S-M1 e (proposed, for cabledrawer): Joss is a member, on her own page.
+    // 16b security pass S-M1 e (proposed, for cabledrawer): Sam is a member, on their own page.
     let pending = true;
-    const me = () => ({ ...passwordJoss({ reset_pending: pending }), is_me: true });
+    const me = () => ({ ...passwordSam({ reset_pending: pending }), is_me: true });
     open({
-      'GET /people': () => [
-        200,
-        people([{ ...TESS, is_me: false }, me()], { can_change: false })
-      ],
+      'GET /people': () => [200, people([{ ...LORNA, is_me: false }, me()], { can_change: false })],
       'DELETE /me/reset-link': () => {
         pending = false;
         return [204, null];
@@ -317,7 +333,7 @@ describe('Settings → Household → a person', () => {
     });
     const line = page.getByText('Someone made a reset link for your password', { exact: false });
     await expect.element(line).toBeVisible();
-    expect(page.getByText('Joss hasn’t used the reset link yet.').query()).toBeNull();
+    expect(page.getByText('Sam hasn’t used the reset link yet.').query()).toBeNull();
     await page.getByRole('button', { name: 'Cancel the link' }).click();
     await vi.waitFor(() => expect(sent('DELETE', '/me/reset-link')).toHaveLength(1));
     await vi.waitFor(() => expect(line.query()).toBeNull());
@@ -328,7 +344,7 @@ describe('Settings → Household → a person', () => {
     const now = new Date();
     open({
       'GET /household': [200, HERE],
-      'GET /people': [200, people([TESS, passwordJoss({ link_used_at: now.toISOString() })])]
+      'GET /people': [200, people([LORNA, passwordSam({ link_used_at: now.toISOString() })])]
     });
     await expect.element(page.getByText(`Link used today ${clock(now)}`)).toBeVisible();
   });
@@ -341,7 +357,7 @@ describe('Settings → Household → a person', () => {
     const month = at.toLocaleString('en-GB', { month: 'short' }).slice(0, 3);
     open({
       'GET /household': [200, HERE],
-      'GET /people': [200, people([TESS, passwordJoss({ link_used_at: at.toISOString() })])]
+      'GET /people': [200, people([LORNA, passwordSam({ link_used_at: at.toISOString() })])]
     });
     await expect.element(page.getByText(`Link used ${at.getDate()} ${month} 21:40`)).toBeVisible();
   });
@@ -350,18 +366,15 @@ describe('Settings → Household → a person', () => {
     // 08:40 UTC is 22:40 the same day at UTC+14 (no summer time there), whatever this device's.
     open({
       'GET /household': [200, { ...HOUSEHOLD, time_zone: 'Pacific/Kiritimati' }],
-      'GET /people': [
-        200,
-        people([TESS, passwordJoss({ link_used_at: '2020-01-02T08:40:00Z' })])
-      ]
+      'GET /people': [200, people([LORNA, passwordSam({ link_used_at: '2020-01-02T08:40:00Z' })])]
     });
     await expect.element(page.getByText('Link used 2 Jan 22:40')).toBeVisible();
   });
 
   it('no Reset password on your own page; the only admin learns about reset-admin', async () => {
     params.id = '1';
-    open();
-    await expect.element(page.getByRole('heading', { name: 'Tess', level: 1 })).toBeVisible();
+    open({ 'GET /people': [200, people([LORNA, SAM])] });
+    await expect.element(page.getByRole('heading', { name: 'Lorna', level: 1 })).toBeVisible();
     expect(page.getByRole('button', { name: 'Reset password' }).query()).toBeNull();
     await expect
       .element(
@@ -372,7 +385,7 @@ describe('Settings → Household → a person', () => {
 
   it('a member cannot reset anyone’s password', async () => {
     open({
-      'GET /people': [200, people([TESS, passwordJoss()], { can_change: false })]
+      'GET /people': [200, people([LORNA, passwordSam()], { can_change: false })]
     });
     await expect.element(page.getByText('Password', { exact: true })).toBeVisible();
     expect(page.getByRole('button', { name: 'Reset password' }).query()).toBeNull();

@@ -139,7 +139,7 @@ def _admin_person(kitchen: TestClient, name: str, username: str, join: bool) -> 
     if join:
         token = link.json()["path"].removeprefix("/join#")
         fresh = TestClient(kitchen.app, base_url="https://testserver")
-        r = fresh.post(f"{api}/join", json={"token": token, "password": "joss's long password"})
+        r = fresh.post(f"{api}/join", json={"token": token, "password": "a long own password"})
         assert r.status_code == 200, r.text
     return member_id
 
@@ -151,11 +151,17 @@ def test_refuses_a_removed_admin_and_lists_only_admins_who_can_sign_in(
     (0.9.0-alpha.1 security pass). The list names admins who can sign in, and an admin whose
     sign-in link isn't used yet, marked."""
     joss = _admin_person(kitchen, "Joss", "joss", join=True)
+    _admin_person(kitchen, "Pia", "pia", join=False)
     _admin_person(kitchen, "Ola", "ola", join=True)
     assert kitchen.delete(f"/api/v1/people/{joss}").status_code == 200
-    # Pia's link is made after: removing an admin ends every admin's unused sign-in link
-    # (16b security re-check S2-M1; proposed, for cabledrawer).
-    _admin_person(kitchen, "Pia", "pia", join=False)
+    # Removing an admin ends every admin's unused sign-in link (16b security re-check S2-M1;
+    # proposed): the admin who hasn't joined yet is given a new one.
+    for someone in kitchen.get("/api/v1/people").json()["people"]:
+        login = someone["login"]
+        if login and login["role"] == "admin" and not login["signs_in"]:
+            body = {"username": login["username"], "role": "admin"}
+            again = kitchen.post(f"/api/v1/people/{someone['id']}/login", json=body)
+            assert again.status_code == 201, again.text
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         before = db.scalars(select(Login.password_hash).where(Login.username == "joss")).one()
     settings = kitchen.app.state.settings  # type: ignore[attr-defined]

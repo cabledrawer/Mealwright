@@ -11,8 +11,8 @@ import pytest
 from conftest import ADMIN
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
-from sync_kit import API, db, ok, person
-from test_people import _add, _fresh, _id, _join, _look, _newest, _people, _problem
+from sync_kit import API, db, ok
+from test_people import _add, _fresh, _join, _look, _newest, _people, _problem
 
 from mealwright.api.v1 import people as api_people
 from mealwright.history import as_utc
@@ -122,9 +122,13 @@ def test_a_reset_link_runs_out_after_24_hours(kitchen: TestClient) -> None:
 
 def test_only_an_admin_resets_and_never_their_own_password(kitchen: TestClient) -> None:
     lorna = _lorna(kitchen)
-    wren = person(kitchen)  # a member
-    assert _reset(wren, lorna).status_code == 403
-    assert _reset(wren, _id(kitchen, "Wren")).status_code == 403
+    sam = _add(kitchen, "Sam")  # a member, signed in
+    joined = {"token": _join(kitchen, sam, "sam"), "password": FIRST}
+    ok(_fresh(kitchen).post(f"{API}/join", json=joined))
+    sams = _fresh(kitchen)
+    ok(sams.post(f"{API}/session", json={"username": "sam", "password": FIRST}))
+    assert _reset(sams, lorna).status_code == 403
+    assert _reset(sams, sam).status_code == 403
     me = next(p["id"] for p in _people(kitchen)["people"] if p["is_me"])
     detail = _problem(_reset(kitchen, me), 409, "own_password")
     assert detail == "To change your own password, use Settings → Sign-in."

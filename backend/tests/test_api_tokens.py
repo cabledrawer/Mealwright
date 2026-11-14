@@ -191,13 +191,15 @@ def test_a_token_never_changes_people_roles_privacy_or_sign_in(kitchen: TestClie
     person(kitchen)
     app = _app(kitchen, _make(kitchen, "full"))
     wren = _people_ids(kitchen)["Wren"]
+    ok(kitchen.post(f"{API}/people", json={"name": "Sam"}), 201)
+    sam = _people_ids(kitchen)["Sam"]
     refused = [
         app.post(f"{API}/people", json={"name": "Joss"}),
         app.patch(f"{API}/people/{wren}", json={"role": "admin"}),
         app.delete(f"{API}/people/{wren}"),
         app.post(f"{API}/people/{wren}/login", json={"username": "wren2"}),
         app.delete(f"{API}/people/{wren}/login"),
-        app.post(f"{API}/people/{wren}/reset-password"),
+        app.post(f"{API}/people/{sam}/reset-password"),
         app.put(f"{API}/people/ask-whos-this", json={"on": True}),
         app.put(f"{API}/privacy/switches/recipe_import", json={"on": True}),
         app.post(f"{API}/privacy/own-network", json={"value": "wiki.home"}),
@@ -417,7 +419,7 @@ NEVER_ROUTES = [
     ("DELETE", "/people/{wren}", None),
     ("POST", "/people/{wren}/login", {"username": "wren2"}),
     ("DELETE", "/people/{wren}/login", None),
-    ("POST", "/people/{wren}/reset-password", None),
+    ("POST", "/people/{someone}/reset-password", None),
     ("PUT", "/people/ask-whos-this", {"on": True}),
     # Privacy (and the update check, which connects out)
     ("PUT", "/privacy/switches/{switch}", {"on": True}),
@@ -455,6 +457,7 @@ def _never(app: TestClient, wren: int) -> list[tuple[str, str, Any]]:
     for method, path, body in NEVER_ROUTES:
         filled = path.replace("{wren}", str(wren))
         filled = filled.replace("{switch}", "recipe_import").replace("{entry}", "1")
+        filled = filled.replace("{someone}", "1")  # any id: a token is refused before a person
         r = app.request(method, f"{API}{filled}", json=body)
         out.append((method, path, r))
     return out
