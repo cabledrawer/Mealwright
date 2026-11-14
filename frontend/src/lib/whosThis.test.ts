@@ -100,6 +100,19 @@ describe('whosThis', () => {
     expect(whosThis.open).toBe(true);
   });
 
+  it('"Just looking" lasts the whole hour, even with 30 minutes without use (Pe11)', async () => {
+    await whosThis.check();
+    await whosThis.pick(null);
+    const sent = requests.length;
+    now += IDLE_MS + 1; // idle for over 30 minutes, still inside the hour
+    whosThis.used();
+    await vi.waitFor(() => expect(whosThis.open).toBe(false));
+    expect(requests.length).toBe(sent); // not asked, nothing sent
+    now += LOOKING_MS; // the hour is over
+    whosThis.used();
+    await vi.waitFor(() => expect(whosThis.open).toBe(true));
+  });
+
   it('after 30 minutes without use, clears the pick and asks again', async () => {
     await whosThis.check();
     await whosThis.pick(3);

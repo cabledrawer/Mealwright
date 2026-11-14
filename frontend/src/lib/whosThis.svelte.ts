@@ -74,13 +74,16 @@ class WhosThis_ {
     }
   }
 
-  /** Someone touched or typed: after 30 minutes without use, clear the pick and ask again. */
+  /** Someone touched or typed: after 30 minutes without use, clear the pick and ask again
+   *  (not while "Just looking" still has its hour). */
   used(): void {
     if (!this.#shared) return;
     const now = this.#now();
     const idle = now - this.#lastUse;
     this.#lastUse = now;
     if (idle < IDLE_MS || this.open) return;
+    // "Just looking" holds for its whole hour, however long the tablet sits idle (Pe11).
+    if (now < this.#lookingUntil) return;
     void this.#askAgain();
   }
 
