@@ -303,8 +303,9 @@ def start(
 )
 def cancel(import_id: StoredInt, kitchen: Here) -> Response:
     """Cancel on the preview: the file is deleted and nothing was added. Cancel while it runs:
-    it stops between two short stretches of work; what came in stays, with the import's Undo
-    (proposed, for cabledrawer)."""
+    it stops between two short stretches of work; what came in stays, with the import's Undo."""
+    # Cancel while it runs is proposed, for cabledrawer (round 1). Not in the docstring: that is
+    # the public API page, which names nobody.
     kitchen.admin_only(Action.YOUR_DATA)
     mealie_import.cancel(kitchen, mealie_import.find(kitchen, import_id))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
