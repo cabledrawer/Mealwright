@@ -171,7 +171,7 @@
         "test_recipe*.py", "test_photos.py", "test_pints.py", "test_step_links.py", "test_step_waits.py", "test_step_timings.py", "test_step_timings_api.py", "test_recipes_isolation.py"
       ],
       "browser": [
-        "recipes.spec.ts", "recipe-page.spec.ts", "recipe-photos.spec.ts", "recipes-panes.spec.ts", "recipe-editor.spec.ts",
+        "recipes.spec.ts", "recipe-page.spec.ts", "recipe-photos.spec.ts", "recipes-panes.spec.ts", "print.spec.ts", "recipe-editor.spec.ts",
         "paper-cuts.spec.ts"
       ]
     },

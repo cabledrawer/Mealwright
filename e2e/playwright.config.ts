@@ -134,6 +134,10 @@ export default defineConfig({
     { name: 'phone 0.4 recipe page', testMatch: 'recipe-page.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.4 recipe page', testMatch: 'recipe-page.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Recipe photos on All recipes and the recipe page (0.4).
+    // The print layouts (0.9.5 step 12): the shopping list and a recipe on A4.
+    { name: 'phone 0.9.5 print', testMatch: 'print.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop 0.9.5 print', testMatch: 'print.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    { name: 'webkit 0.9.5 print', testMatch: 'print.spec.ts', use: { ...webkitPhone, storageState: AUTH_FILE } },
     { name: 'phone 0.4 photos', testMatch: 'recipe-photos.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.4 photos', testMatch: 'recipe-photos.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Leaving a page while its requests are on their way is not an error (0.9, T1).
