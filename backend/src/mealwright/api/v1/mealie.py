@@ -50,6 +50,8 @@ class MealiePreview(BaseModel):
     photo_bytes: int  # those photos' size in the file
     foods_matching: int  # Mealie foods the recipes use that match an ingredient
     foods_new: int  # the ones that will be new ingredients, marked "from Mealie"
+    # Their names, A to Z, the first 200 (empty in a preview read before 0.9.5's "See").
+    foods_new_names: list[str] = []
     # Never brought in: "meal_plans", "shopping_lists", "users", "cookbooks" → how many.
     left_out: dict[str, int]
     recipes: list[PreviewRecipe]  # every recipe in the file, in its order (not once started)

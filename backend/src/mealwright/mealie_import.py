@@ -77,6 +77,8 @@ NOTE_HOURS = 24  # Today's note shows for a day after it finished (proposed, for
 FOLDER = "mealie"
 MAX_FILE_NAME = 200
 PREVIEW_TAGS = 3  # the computer's table shows the first few Mealie tags
+# The new ingredients' names the preview lists under "See" (the rest are counted).
+PREVIEW_NEW_FOODS = 200
 
 # The words are proposed, for cabledrawer (words.md section 81).
 BUSY = "An import from Mealie is already running. Wait for it to finish first."
@@ -180,13 +182,15 @@ def _preview(kitchen: Kitchen, book: MealieBook) -> dict[str, Any]:
             }
         )
     matching = 0
-    new_names: set[str] = set()
+    # The new ingredients, once each (folded), with the name they will be shown with.
+    new_names: dict[str, str] = {}
     for food in book.foods:
         if name_owner(kitchen, food.name) is not None:
             matching += 1
         else:
-            new_names.add(fold(tidy_ingredient_name(food.name)))
-    new_names.discard("")
+            shown = tidy_ingredient_name(food.name)
+            new_names.setdefault(fold(shown), shown)
+    new_names.pop("", None)
     return {
         "recipes": rows,
         "new": new,
@@ -195,6 +199,7 @@ def _preview(kitchen: Kitchen, book: MealieBook) -> dict[str, Any]:
         "photo_bytes": photo_bytes,
         "foods_matching": matching,
         "foods_new": len(new_names),
+        "foods_new_names": sorted(new_names.values(), key=fold)[:PREVIEW_NEW_FOODS],
         "left_out": dict(book.left_out),
     }
 

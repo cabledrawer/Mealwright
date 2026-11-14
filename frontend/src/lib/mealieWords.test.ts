@@ -10,6 +10,7 @@ import {
   chosenCount,
   fileWords,
   fromFileWords,
+  newIngredientsWords,
   notBroughtIn,
   noteCheckWords,
   noteWords,
@@ -88,6 +89,13 @@ describe('Import from Mealie words', () => {
     );
     expect(unreadWords(['levain (see note)', 'a', 'b'], 4, true, 1)).toBe(
       '“levain (see note)”, and 3 more'
+    );
+  });
+
+  it('lists the new ingredients under See, and how many more the preview left off', () => {
+    expect(newIngredientsWords(['Asafoetida', 'Tamarind'], 2)).toBe('Asafoetida, Tamarind');
+    expect(newIngredientsWords(['Asafoetida', 'Tamarind'], 207)).toBe(
+      'Asafoetida, Tamarind and 205 more'
     );
   });
 

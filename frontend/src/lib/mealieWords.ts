@@ -136,6 +136,13 @@ export function unreadWords(lines: string[], count: number, wide = false, shown 
 /** "25 more", under a list that shows only the first few. */
 export const moreWords = (n: number): string => `${n} more`;
 
+/** The preview's "See" under New ingredients (proposed, for cabledrawer): their names A to Z, and how
+ *  many more when the file has more than the preview lists. */
+export function newIngredientsWords(names: string[], count: number): string {
+  const more = count - names.length;
+  return more > 0 ? `${names.join(', ')} and ${more} more` : names.join(', ');
+}
+
 /** "Showing 8 of 214. Untick any you don't want." */
 export const showingWords = (shown: number, all: number): string =>
   `Showing ${shown} of ${all}. Untick any you don’t want.`;

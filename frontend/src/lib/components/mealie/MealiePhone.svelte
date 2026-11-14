@@ -18,6 +18,7 @@
     broughtInWords,
     fileWords,
     fromFileWords,
+    newIngredientsWords,
     notBroughtIn,
     photosWords,
     resultWords,
@@ -29,6 +30,7 @@
 
   let picker = $state<HTMLInputElement | null>(null);
   let seeWhich = $state(false);
+  let seeNew = $state(false);
 
   function picked(event: Event) {
     const input = event.currentTarget as HTMLInputElement;
@@ -40,6 +42,7 @@
   const job = $derived(flow.job);
   const preview = $derived(job?.preview);
   const already = $derived(preview?.recipes.filter((r) => r.already) ?? []);
+  const newNames = $derived(preview?.foods_new_names ?? []);
   const leftOut = $derived(preview ? notBroughtIn(preview.left_out) : null);
   const share = $derived(job && job.total ? Math.round((job.done / job.total) * 100) : 0);
   const offline = $derived(network.offline);
@@ -174,7 +177,20 @@
         <span class="rn"
           ><b>New ingredients</b><span>Added to Ingredients, marked “from Mealie”</span></span
         >
+        {#if newNames.length}
+          <button
+            type="button"
+            class="link"
+            aria-expanded={seeNew}
+            onclick={() => (seeNew = !seeNew)}>See</button
+          >
+        {/if}
       </li>
+      {#if seeNew && preview}
+        <li class="which" aria-label="New ingredients">
+          {newIngredientsWords(newNames, preview.foods_new)}
+        </li>
+      {/if}
     </ul>
     {#if preview.with_photo}
       <div class="card">

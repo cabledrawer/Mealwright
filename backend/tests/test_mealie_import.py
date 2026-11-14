@@ -149,6 +149,7 @@ def test_the_preview_says_what_is_in_the_file_and_adds_nothing(
     assert preview["new"] == 3 and preview["already"] == 0
     assert preview["with_photo"] == 1 and preview["photo_bytes"] > 0
     assert preview["foods_new"] == 2 and preview["foods_matching"] == 0
+    assert preview["foods_new_names"] == ["Red lentils", "Vegetable stock"]
     assert preview["left_out"] == {"meal_plans": 2, "shopping_lists": 1, "users": 1, "cookbooks": 0}
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         assert db.scalars(select(Recipe)).all() == []
@@ -162,6 +163,31 @@ def test_the_preview_finds_recipes_already_here(kitchen: TestClient, raw: bytes)
     assert again["new"] == 0 and again["already"] == 3
     assert all(r["already"] for r in again["recipes"])
     assert again["foods_matching"] == 2 and again["foods_new"] == 0
+    assert again["foods_new_names"] == []
+
+
+def test_the_preview_names_the_new_ingredients_a_to_z_once_each_and_at_most_200(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    """The phone's "See" under New ingredients lists them: A to Z, a name written twice in
+    Mealie once, and the first 200 of a long list (the count says how many in all)."""
+    data = database()
+    foods = [{"id": f"f{n:03d}", "name": f"Spice {n:03d}"} for n in range(205)]
+    foods.append({"id": "twice", "name": "red lentils"})  # Red lentils again, in small letters
+    data["ingredient_foods"] += foods
+    for at in range(0, len(foods), 5):
+        key = f"r{at:03d}"
+        data["recipes"].append(recipe(key, f"Spice mix {at}"))
+        data["recipes_ingredients"] += [
+            line(key, n, "", food["id"], 10) for n, food in enumerate(foods[at : at + 5])
+        ]
+    preview = upload(kitchen, zipped(tmp_path / "many.zip", data)).json()["preview"]
+    assert preview["foods_new"] == 207  # Red lentils, Vegetable stock and the 205 spices
+    names = preview["foods_new_names"]
+    assert len(names) == 200
+    assert names[0] == "Red lentils" and names[1:3] == ["Spice 000", "Spice 001"]
+    assert names[-1] == "Spice 198"  # Red lentils, then Spice 000 to 198
+    assert len({name.casefold() for name in names}) == 200
 
 
 def test_a_file_that_is_not_mealies_is_refused_and_deleted(

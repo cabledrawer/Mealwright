@@ -23,6 +23,8 @@ export interface MealiePreview {
   photo_bytes: number;
   foods_matching: number;
   foods_new: number;
+  /** Their names, A to Z, the first 200 (missing from a preview read before 0.9.5's "See"). */
+  foods_new_names?: string[];
   /** Never brought in: meal_plans, shopping_lists, users, cookbooks → how many. */
   left_out: Record<string, number>;
   /** Every recipe in the file, in its order (empty once started). */

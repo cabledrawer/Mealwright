@@ -44,6 +44,7 @@ const READY: MealieImport = {
     photo_bytes: 41_200_000,
     foods_matching: 120,
     foods_new: 85,
+    foods_new_names: ['Asafoetida', 'Curry leaves', 'Tamarind'],
     left_out: { meal_plans: 6, shopping_lists: 2, users: 3, cookbooks: 4 },
     recipes: RECIPES
   },
@@ -175,6 +176,11 @@ describe('Import from Mealie', () => {
       await expect
         .element(page.getByRole('listitem', { name: 'You already have these' }))
         .toHaveTextContent('Dal makhani');
+      // "See" under New ingredients lists them, and how many more the file has.
+      await page.getByRole('button', { name: 'See', exact: true }).click();
+      await expect
+        .element(page.getByRole('listitem', { name: 'New ingredients' }))
+        .toHaveTextContent('Asafoetida, Curry leaves, Tamarind and 82 more');
       await expect
         .element(
           page.getByText('Not brought in: 6 meal plans, 2 shopping lists, 3 users, 4 cookbooks.')
@@ -201,6 +207,17 @@ describe('Import from Mealie', () => {
       await expect
         .element(page.getByRole('button', { name: /Choose the Mealie file/ }))
         .toBeVisible();
+    });
+
+    it('a preview without the new ingredients’ names (read before 0.9.5) has no See', async () => {
+      const older = { ...READY.preview };
+      delete older.foods_new_names;
+      await open({
+        'GET /mealie-imports/current': [200, { current: { ...READY, preview: older } }]
+      });
+      await expect.element(page.getByText('New ingredients', { exact: true })).toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'See which' })).toBeVisible();
+      expect(page.getByRole('button', { name: 'See', exact: true }).elements()).toHaveLength(0);
     });
 
     it('Bring in, without photos when switched off, then shows how far it has got', async () => {
