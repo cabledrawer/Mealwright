@@ -40,3 +40,17 @@ def test_the_image_healthcheck_asks_the_health_endpoint() -> None:
     check = dockerfile[dockerfile.index("HEALTHCHECK") :]
     assert "/api/v1/health" in check
     assert "/api/v1/version" not in check
+
+
+def test_both_health_answers_are_never_kept(client: TestClient, tmp_path: Path) -> None:
+    assert client.get("/api/v1/health").headers["cache-control"] == "no-store"
+    broken = create_engine(f"sqlite:///{tmp_path}")
+    original = client.app.state.sessionmaker  # type: ignore[attr-defined]
+    client.app.state.sessionmaker = sessionmaker(broken)  # type: ignore[attr-defined]
+    try:
+        response = client.get("/api/v1/health")
+    finally:
+        client.app.state.sessionmaker = original  # type: ignore[attr-defined]
+        broken.dispose()
+    assert response.status_code == 503
+    assert response.headers["cache-control"] == "no-store"
