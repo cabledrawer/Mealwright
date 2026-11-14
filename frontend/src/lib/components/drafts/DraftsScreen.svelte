@@ -94,12 +94,19 @@
     await goto(resolve('/(app)/recipes/[id]', { id: String(done.recipeId) }));
   }
 
-  /** All drafts, or only those from Mealie (the chips show only when there are some). */
+  /** All drafts, only those from Mealie, or only those from a link (the chips show only when
+   *  some came from Mealie; Links only when some came from a link: mockup
+   *  Dark-MealieCheck095-Phone). A draft from pasted text is under All. */
   // svelte-ignore state_referenced_locally
-  let only = $state<'all' | 'mealie'>(fromMealie ? 'mealie' : 'all');
+  let only = $state<'all' | 'mealie' | 'link'>(fromMealie ? 'mealie' : 'all');
   const mealie = $derived(drafts.drafts.filter((draft) => draft.source.kind === 'mealie'));
-  const showing = $derived(only === 'mealie' && mealie.length ? 'mealie' : 'all');
-  const listed = $derived(showing === 'mealie' ? mealie : drafts.drafts);
+  const links = $derived(drafts.drafts.filter((draft) => draft.source.kind === 'link'));
+  const showing = $derived(
+    only === 'mealie' && mealie.length ? 'mealie' : only === 'link' && links.length ? 'link' : 'all'
+  );
+  const listed = $derived(
+    showing === 'mealie' ? mealie : showing === 'link' ? links : drafts.drafts
+  );
   const mealieLine = (draft: DraftBrief) =>
     unreadWords(draft.waiting ?? [], needYou(draft), !phone);
 
@@ -185,7 +192,8 @@
       label="Show"
       options={[
         { value: 'all', label: `All ${drafts.drafts.length}` },
-        { value: 'mealie', label: `From Mealie ${mealie.length}` }
+        { value: 'mealie', label: `From Mealie ${mealie.length}` },
+        ...(links.length ? [{ value: 'link' as const, label: `Links ${links.length}` }] : [])
       ]}
       selected={showing}
       onselect={(value) => (only = value)}

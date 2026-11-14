@@ -507,6 +507,30 @@ describe('the Drafts screen', () => {
         .not.toBeInTheDocument();
     });
 
+    it('Links shows only the drafts from a link (mockup Dark-MealieCheck095-Phone)', async () => {
+      await open({ 'GET /recipes/drafts': list([...THREE, ...MEALIE]) });
+      await expect.element(page.getByRole('button', { name: 'All 5' })).toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'From Mealie 2' })).toBeVisible();
+      await page.getByRole('button', { name: 'Links 2' }).click();
+      await expect
+        .element(page.getByRole('button', { name: 'Links 2' }))
+        .toHaveAttribute('aria-pressed', 'true');
+      await expect.element(page.getByText('Chettinad kuzhambu')).toBeVisible();
+      await expect.element(page.getByText('Aloo paratha')).toBeVisible();
+      // Pasted text and Mealie drafts are under All, not Links.
+      await expect.element(page.getByText('Rava dosa')).not.toBeInTheDocument();
+      await expect.element(page.getByText('Green curry')).not.toBeInTheDocument();
+      await expect
+        .element(page.getByRole('button', { name: 'Save all 2 as they are' }))
+        .not.toBeInTheDocument();
+    });
+
+    it('has no Links chip when no draft came from a link', async () => {
+      await open({ 'GET /recipes/drafts': list(MEALIE) });
+      await expect.element(page.getByRole('button', { name: 'From Mealie 2' })).toBeVisible();
+      expect(page.getByRole('button', { name: /^Links/ }).elements()).toEqual([]);
+    });
+
     it('Save all saves them on the server, then shows what is left', async () => {
       let saved = false;
       const requests = await open(
