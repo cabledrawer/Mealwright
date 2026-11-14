@@ -8,7 +8,6 @@ good; the lines of other recipes that used it keep their words meanwhile, marked
 removed", and Undo brings the link back by itself.
 """
 
-import shutil
 from collections import deque
 from datetime import datetime
 from decimal import Decimal
@@ -70,6 +69,7 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.names import fold
+from mealwright.photos import copy_file as photos_copy_file
 from mealwright.photos import delete_after_commit, delete_quietly, new_key, store_of
 from mealwright.photos import log as photos_log
 from mealwright.photos import paths as photo_paths
@@ -607,7 +607,7 @@ def _copy_photo(kitchen: Kitchen, source: Recipe, copy: Recipe) -> None:
         for before, after in ((from_large, to_large), (from_small, to_small)):
             # Listed before copying, so a copy that fails halfway leaves no part-written file.
             copied.append(after)
-            shutil.copyfile(before, after)
+            photos_copy_file(before, after)
     except OSError as e:
         for path in copied:
             delete_quietly(path)

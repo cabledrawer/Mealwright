@@ -36,6 +36,10 @@ backup tools can copy the folder from there.
   write lock is never held while photos are copied. The folder is made under another name and
   renamed first; the `.db` is put in place last, and it is what makes a backup count: a failure
   (a full disk, say) removes everything made so far and leaves the older backups alone.
+  **The one gap:** a photo saved and then deleted again within the few milliseconds between the
+  first look and the second, while the database copy that points to it is made, can be in that
+  database and not in the folder; restoring shows it as a missing photo, as any lost file.
+  Symbolic links in the photo folder are never followed (skipped, as `photos.sweep_files` does).
 
 Nothing here makes a network connection.
 """
@@ -129,13 +133,16 @@ def photo_files(store: Path) -> list[Path]:
     """Every photo file under `store` (`<household id>/<file>`), as paths relative to it."""
     found = []
     try:
-        households = [p for p in store.iterdir() if p.name.isdigit() and p.is_dir()]
+        households = [
+            p for p in store.iterdir() if p.name.isdigit() and p.is_dir() and not p.is_symlink()
+        ]
     except OSError:  # no photos yet
         return []
     for household in households:
         try:
             for path in household.iterdir():
-                if _PHOTO_FILE.match(path.name) and path.is_file():
+                # Never a symbolic link (as `photos.sweep_files`): its target could be any file.
+                if _PHOTO_FILE.match(path.name) and path.is_file() and not path.is_symlink():
                     found.append(path.relative_to(store))
         except OSError:
             continue
@@ -164,7 +171,7 @@ def _add_photos(store: Path, into: Path, have: set[Path]) -> None:
         target = into / relative
         target.parent.mkdir(mode=0o700, exist_ok=True)
         try:
-            os.link(store / relative, target)
+            os.link(store / relative, target, follow_symlinks=False)
         except FileNotFoundError:
             continue
         except FileExistsError:
@@ -173,12 +180,28 @@ def _add_photos(store: Path, into: Path, have: set[Path]) -> None:
             if error.errno in (errno.ENOSPC, errno.EDQUOT):
                 raise
             try:
-                shutil.copyfile(store / relative, target)
-                target.chmod(0o600)
+                _copy_file(store / relative, target)
             except FileNotFoundError:
                 target.unlink(missing_ok=True)
                 continue
+            except OSError as again:
+                target.unlink(missing_ok=True)
+                if again.errno == errno.ELOOP:  # became a symbolic link meanwhile: left out
+                    continue
+                raise
+        if target.is_symlink():  # a link put there meanwhile, and linked as it is: left out
+            target.unlink(missing_ok=True)
+            continue
         have.add(relative)
+
+
+def _copy_file(source: Path, target: Path) -> None:
+    """Copy a photo file to `target` (0600), never following a symbolic link: a link put in
+    place of the file meanwhile is refused (ELOOP), not copied."""
+    descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as reading, open(target, "xb") as writing:
+        shutil.copyfileobj(reading, writing)
+    target.chmod(0o600)
 
 
 def _drop(path: Path) -> None:
@@ -255,7 +278,7 @@ def copy_database(engine: Engine, target: Path, photos: Path | None = None) -> N
         partial.unlink(missing_ok=True)
         _drop(photos_part)
         have: set[Path] = set()
-        if photos is not None and photo_files(photos):
+        if photos is not None:
             photos_part.mkdir(mode=0o700)
             _add_photos(photos, photos_part, have)  # before the database copy: see the note
         # Made empty and owner-only first: SQLite takes an empty file as a new database, and
@@ -277,9 +300,12 @@ def copy_database(engine: Engine, target: Path, photos: Path | None = None) -> N
         finally:
             raw.close()
         partial.chmod(0o600)
-        if photos_part.is_dir():
+        if photos is not None:
             # A photo added while the database was copied: the copy may point to it.
-            _add_photos(photos, photos_part, have)  # type: ignore[arg-type]
+            _add_photos(photos, photos_part, have)
+        if photos_part.is_dir() and not any(p.is_file() for p in photos_part.rglob("*")):
+            _drop(photos_part)  # no photos at all: no folder
+        if photos_part.is_dir():
             if final_photos.exists():  # another copy's, or one left unfinished: not ours to take
                 raise FileExistsError(errno.EEXIST, "A copy with that name is already there")
             photos_part.rename(final_photos)

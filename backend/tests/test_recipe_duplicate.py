@@ -144,17 +144,17 @@ def test_a_photo_copy_that_fails_halfway_leaves_no_file_and_a_whole_recipe(
     mine = make(kitchen)
     photo = kit.uploaded(kitchen)
     mine = ok(save(kitchen, mine, photo_id=photo["id"]))
-    real = shutil.copyfile
+    real = shutil.copyfileobj
     calls = []
 
-    def half(before: Path, after: Path) -> None:
+    def half(before: Any, after: Any, *rest: Any) -> None:
         calls.append(after)
         if len(calls) == 2:  # the small file: a few bytes written, then the disk fails
-            Path(after).write_bytes(b"part")
+            after.write(b"part")
             raise OSError("disk full")
-        real(before, after)
+        real(before, after, *rest)
 
-    monkeypatch.setattr(shutil, "copyfile", half)
+    monkeypatch.setattr(shutil, "copyfileobj", half)
     copy = ok(duplicate(kitchen, mine["id"]), 201)
     assert copy["photo"] is None and copy["name"] == mine["name"] + " (copy)"
     folder = Path(kitchen.app.state.settings.data_dir) / "photos" / "1"  # type: ignore[attr-defined]

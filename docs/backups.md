@@ -30,6 +30,8 @@ Settings → Your data shows it. An admin can change how often and how many.
 
 **The photos are in a folder beside the backup, not in the `.db` file.** With Include photos on (the usual) every backup, and the safety copies before an upgrade and before Delete everything, has one. With it off, a backup holds everything but the photos, and restoring it keeps the photos already on the server; a recipe whose photo file is missing just shows no photo.
 
+One tiny gap (proposed, for cabledrawer): a photo saved and deleted again within the few milliseconds a backup takes to copy the database can be missing from that backup's folder; restoring shows it as a missing photo. Symbolic links in the photos folder are skipped, never followed.
+
 **What a backup costs in room** (proposed, for cabledrawer). The photo folders are made with hard links: a photo file is never changed once saved, so a backup's folder points at the same file on the disk, and a photo that hasn't changed takes no extra room however many backups hold it. A photo you delete stays on the disk until the last backup that holds it is trimmed. Where a link can't be made (the backups folder is on another disk or a share that can't), the photo is copied instead, and each backup then takes the full size of the photos. If the disk is too full, the backup fails with one plain line on the screen and the log, nothing half-made is left, and the older backups stay.
 
 **They sit on the same disk as Mealwright.** If that disk dies, they go too. Copy them somewhere else.

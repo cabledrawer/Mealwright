@@ -335,7 +335,7 @@ def test_a_full_disk_while_a_photo_is_copied_leaves_nothing_either(
             no_links() if "-photos" in str(target) else real(source, target, *a, **k)
         ),
     )
-    monkeypatch.setattr(shutil, "copyfile", disk_full)
+    monkeypatch.setattr(shutil, "copyfileobj", disk_full)
     with pytest.raises(backups.BackupFailed, match="No space left on device"):
         backups.back_up(_engine(kitchen), folder, 7, photos=_store(kitchen))
     assert list(folder.iterdir()) == []
@@ -591,3 +591,109 @@ def test_trim_waits_for_a_backup_under_way_and_a_backup_can_trim_itself(
     # And the real route: a Keep change while nothing runs, and a backup that trims.
     assert kitchen.patch(API, json={"keep": 1}).status_code == 200
     assert kitchen.post(API).status_code == 200
+
+
+def test_the_first_photo_saved_while_the_database_is_copied_is_in_the_backup(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No photo at the first look, one by the second: the folder is made anyway."""
+    real = sqlite3.connect
+
+    def the_first_photo_arrives(path: object, *args: object, **kwargs: object) -> object:
+        _photo(_store(kitchen), "a", b"the very first")
+        return real(path, *args, **kwargs)  # type: ignore[call-overload]
+
+    monkeypatch.setattr(sqlite3, "connect", the_first_photo_arrives)
+    made = backups.back_up(_engine(kitchen), _folder(kitchen), 7, photos=_store(kitchen))
+    assert _files(backups.photos_beside(made.path)) == {f"1/{'a' * 32}.jpg": b"the very first"}
+
+
+def test_no_photo_folder_is_left_when_there_were_none_at_either_look(kitchen: TestClient) -> None:
+    made = backups.back_up(_engine(kitchen), _folder(kitchen), 7, photos=_store(kitchen))
+    assert made.photos is False
+    assert [p.name for p in _folder(kitchen).iterdir()] == [made.path.name]
+
+
+def test_a_copied_photo_is_never_under_its_final_name_until_it_is_whole(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Duplicate recipe copies a photo file: a backup looking at the folder meanwhile must not
+    link a half-written one (written to a temporary name, then renamed, as an upload is)."""
+    from mealwright import photos
+
+    source = tmp_path / "from.jpg"
+    source.write_bytes(b"whole photo")
+    target = tmp_path / ("b" * 32 + ".jpg")
+    seen: list[list[str]] = []
+    real = shutil.copyfileobj
+
+    def look_meanwhile(reading: object, writing: object, *args: object) -> None:
+        seen.append(sorted(p.name for p in tmp_path.iterdir() if p.name != "from.jpg"))
+        real(reading, writing, *args)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(photos.shutil, "copyfileobj", look_meanwhile)
+    photos.copy_file(source, target)
+    assert target.read_bytes() == b"whole photo"
+    (during,) = seen
+    assert target.name not in during
+    assert [n for n in during if n.startswith(".upload-")]  # under a temporary name
+    assert sorted(p.name for p in tmp_path.iterdir()) == sorted(
+        ["from.jpg", target.name]
+    )  # no temp
+
+
+def test_symbolic_links_in_the_photo_folder_are_not_followed(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    secret = _data(kitchen).parent / "outside-the-data-folder.txt"
+    secret.write_bytes(b"not a photo, and not in the data folder")
+    _photo(_store(kitchen), "a", b"a real photo")
+    (_store(kitchen) / "1" / f"{'c' * 32}.jpg").symlink_to(secret)
+    (_store(kitchen) / "1" / f"{'d' * 32}-list.jpg").symlink_to(secret)
+    elsewhere = _data(kitchen).parent / "another-folder"
+    elsewhere.mkdir()
+    (elsewhere / f"{'e' * 32}.jpg").write_bytes(b"in a folder that is linked to")
+    (_store(kitchen) / "2").symlink_to(elsewhere)
+    for copying in (False, True):  # by hard link, then where links can't be made
+        if copying:
+
+            def no_links(*_a: object, **_k: object) -> None:
+                raise PermissionError(errno.EPERM, "Operation not permitted")
+
+            monkeypatch.setattr(os, "link", no_links)
+        made = backups.back_up(
+            _engine(kitchen),
+            _folder(kitchen),
+            7,
+            datetime(2026, 11, 1 + copying, 3, tzinfo=UTC),
+            _store(kitchen),
+        )
+        beside = backups.photos_beside(made.path)
+        assert list(_files(beside)) == [f"1/{'a' * 32}.jpg"]
+        assert not any(p.is_symlink() for p in beside.rglob("*"))
+        assert b"not a photo" not in b"".join(_files(beside).values())
+    assert backups.photos_size(_store(kitchen)) == len(b"a real photo")
+
+
+def test_a_photo_swapped_for_a_link_after_the_listing_is_left_out(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    secret = _data(kitchen).parent / "outside.txt"
+    secret.write_bytes(b"secret")
+    live = _photo(_store(kitchen), "a")
+    real = backups.photo_files
+
+    def swapped_after_listing(store: Path) -> list[Path]:
+        found = real(store)
+        live.unlink()
+        live.symlink_to(secret)
+        return found
+
+    monkeypatch.setattr(backups, "photo_files", swapped_after_listing)
+
+    def no_links(*_a: object, **_k: object) -> None:
+        raise PermissionError(errno.EPERM, "Operation not permitted")
+
+    monkeypatch.setattr(os, "link", no_links)
+    made = backups.back_up(_engine(kitchen), _folder(kitchen), 7, photos=_store(kitchen))
+    assert made.photos is False  # nothing of the link's target was copied

@@ -29,6 +29,7 @@ import logging
 import os
 import re
 import secrets
+import shutil
 import tempfile
 import threading
 import time
@@ -261,6 +262,22 @@ def _write_one(folder: Path, path: Path, data: bytes) -> None:
     try:
         with os.fdopen(handle, "wb") as out:
             out.write(data)
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(temp, path)
+    except BaseException:
+        delete_quietly(Path(temp))
+        raise
+
+
+def copy_file(source: Path, path: Path) -> None:
+    """Copy a photo file to `path` the way `write` makes one: to a temporary name first, then
+    renamed, so a backup looking at the folder never sees a half-written photo under its
+    final name (0.9.5 step 16f). Raises OSError; nothing is left behind."""
+    handle, temp = tempfile.mkstemp(prefix=_TEMP_PREFIX, dir=path.parent)
+    try:
+        with os.fdopen(handle, "wb") as out, open(source, "rb") as reading:
+            shutil.copyfileobj(reading, out)
             out.flush()
             os.fsync(out.fileno())
         os.replace(temp, path)
