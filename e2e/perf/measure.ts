@@ -13,7 +13,10 @@ import { writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { chromium, expect, request, type Browser, type BrowserContext, type BrowserContextOptions, type Page } from '@playwright/test';
+import { chromium, expect as baseExpect, request, type Browser, type BrowserContext, type BrowserContextOptions, type Page } from '@playwright/test';
+
+// 30 s, not the 5 s default: on a slow box a step's answer can take longer than that (a timeout here would lose the whole run).
+const expect = baseExpect.configure({ timeout: 30_000 });
 
 const { values } = parseArgs({
   options: {
@@ -256,6 +259,8 @@ try {
   });
 } finally {
   await browser.close();
+  // Whatever was measured before a failure is kept, so a long run is never lost whole.
+  writeFileSync(`${values.out}.partial`, JSON.stringify({ box: LABEL, profile: values.profile, runs: RUNS, results }, null, 1));
 }
 
 // --- The server's own answer time: loopback, no slowing, 5 calls each -----------------------------------
