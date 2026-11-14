@@ -197,3 +197,32 @@ test('A long recipe flows on to a second page; no step is split', async ({ page,
   const breaks = await page.locator('.method li').evaluateAll((li) => li.map((e) => getComputedStyle(e).breakInside));
   expect(new Set(breaks)).toEqual(new Set(['avoid']));
 });
+
+for (const path of ['/plan', '/pantry', '/recipes']) {
+  test(`${path} printed from the dark theme has dark text on white (every page, not only the two layouts)`, async ({ page }) => {
+    await setAccountTheme(page, 'dark');
+    await page.goto(path);
+    await expect(page.locator('main')).toBeVisible();
+    await toPrint(page);
+    const seen = await page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement);
+      const heading = document.querySelector('main h1, main h2') as HTMLElement | null;
+      return {
+        paper: getComputedStyle(document.body).backgroundColor,
+        text: root.getPropertyValue('--color-text').trim(),
+        ground: root.getPropertyValue('--color-ground').trim(),
+        heading: heading ? getComputedStyle(heading).color : null
+      };
+    });
+    expect(seen.paper).toBe('rgb(255, 255, 255)');
+    // The light theme's colours, though the screen is dark.
+    expect(seen.text).toBe('#17201c');
+    expect(seen.ground).toBe('#f5f6f4');
+    if (seen.heading) {
+      const [r, g, b] = seen.heading.match(/\d+/g)!.map(Number);
+      expect(r! + g! + b!).toBeLessThan(300);
+    }
+    await expect(page.locator('.sidebar-slot')).toBeHidden();
+    await expect(page.locator('.tabbar-slot')).toBeHidden();
+  });
+}
