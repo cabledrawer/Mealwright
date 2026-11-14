@@ -239,6 +239,16 @@
       "browser": ["your-data.spec.ts"]
     },
     {
+      "name": "Import from Mealie",
+      "paths": [
+        "backend/src/mealwright/mealie_file.py", "backend/src/mealwright/mealie_import.py", "backend/src/mealwright/api/v1/mealie.py",
+        "frontend/src/routes/(app)/settings/your-data/mealie/**", "frontend/src/lib/components/mealie/**", "frontend/src/lib/client/mealie.ts",
+        "frontend/src/lib/mealie*", "frontend/src/lib/components/today/MealieNote*"
+      ],
+      "backend": ["test_mealie_file.py", "test_mealie_import.py", "test_migration_mealie_import.py"],
+      "browser": ["mealie.spec.ts"]
+    },
+    {
       "name": "Sign-in, households and security",
       "paths": [
         "backend/src/mealwright/auth.py", "backend/src/mealwright/security.py", "backend/src/mealwright/household.py",
