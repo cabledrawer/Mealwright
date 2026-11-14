@@ -326,6 +326,44 @@ def test_too_many_recipes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     assert problem(make_zip(tmp_path / "x.zip", tables())) == "too_many"
 
 
+def named_over_and_over(recipes: int, lines: int, name: str) -> dict[str, object]:
+    """A small file that names one ingredient on every line of every recipe (made up)."""
+    keys = [f"{i:032x}" for i in range(recipes)]
+    return tables(
+        recipes=[{"id": key, "name": f"Lorna's pot {i}"} for i, key in enumerate(keys)],
+        recipes_ingredients=[
+            {"recipe_id": key, "position": j, "food_id": FLOUR, "quantity": 1}
+            for key in keys
+            for j in range(lines)
+        ],
+        recipe_instructions=[],
+        recipe_nutrition=[],
+        recipes_to_tags=[],
+        ingredient_foods=[{"id": FLOUR, "name": name}],
+    )
+
+
+def test_what_the_reader_hands_back_has_a_limit_on_its_text(tmp_path: Path) -> None:
+    # Round 1, S-M5: 130,000 lines of a 200-character name are 26 million characters for the
+    # server to keep, from a file of a few hundred KB.
+    assert mealie_file.MAX_BOOK_TEXT == 24_000_000
+    database = named_over_and_over(1_300, 100, "Noor's " + "q" * 193)
+    path = make_zip(tmp_path / "x.zip", database)
+    assert path.stat().st_size < 1_000_000
+    assert problem(path) == "too_big"
+
+
+def test_what_the_reader_hands_back_has_a_limit_on_its_lines(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert mealie_file.MAX_BOOK_LINES == 250_000
+    monkeypatch.setattr(mealie_file, "MAX_BOOK_LINES", 30)
+    assert (
+        len(read_now(make_zip(tmp_path / "x.zip", named_over_and_over(3, 10, "Salt"))).recipes) == 3
+    )
+    assert problem(make_zip(tmp_path / "y.zip", named_over_and_over(4, 10, "Salt"))) == "too_big"
+
+
 def test_too_deep_json(tmp_path: Path) -> None:
     deep: object = 1
     for _ in range(mealie_file.MAX_JSON_DEPTH):

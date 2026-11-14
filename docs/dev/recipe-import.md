@@ -724,7 +724,10 @@ What we assumed (all proposed, for cabledrawer):
 path. Limits (proposed, for cabledrawer; no real file measured yet): the upload at most 1 GiB;
 at most 50,000 members and 4 GiB unpacked in all (as the zip says); `database.json` at most
 32 MiB unpacked and nested at most 16 deep; each photo at most 15 MB (the photo upload's
-limit); at most 5,000 recipes. Every read stops at its limit whatever the zip claims, so a
+limit); at most 5,000 recipes; and what the reader hands back, all recipes together, at most
+250,000 lines and 24 million characters (`MAX_BOOK_LINES`, `MAX_BOOK_TEXT`; round 1, S-M5:
+the server keeps that copy for the whole import, outside the reader's budget), else
+`too_big`. Every read stops at its limit whatever the zip claims, so a
 zip bomb is cut off. Only stored and deflated members are read, never encrypted ones. The
 zip's index and `database.json` are read in a child process with its own budget (60 s of
 processor time, 90 s by the clock, 768 MB of memory, the network guard on), the same way

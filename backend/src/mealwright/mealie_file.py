@@ -61,6 +61,12 @@ MAX_PHOTO_BYTES = 15 * 1024 * 1024  # one photo: the photo upload's own limit (l
 MAX_JSON_DEPTH = 16  # a Mealie row is 3 deep (file, table, row) plus a few for JSON columns
 MAX_RECIPES = 5_000
 MAX_FOODS = 20_000
+# All the recipes together, as the reader hands them back (proposed, for cabledrawer; round 1,
+# S-M5): the reader's own memory limit doesn't cover the copy the server keeps for the whole
+# import, so a small file that names one long ingredient a million times is refused instead.
+# A big real Mealie backup (5,000 recipes of 15 lines and 10 steps) is about 125,000 lines.
+MAX_BOOK_LINES = 250_000
+MAX_BOOK_TEXT = 24_000_000  # characters
 MAX_TAGS = page_reader.MAX_TAGS
 
 # The child's budget. Reading database.json for a few hundred recipes is well under a second
@@ -381,6 +387,7 @@ def _book(tables: dict[str, object], photos: dict[str, tuple[str, int]]) -> Meal
     recipes: list[MealieRecipe] = []
     used: set[str] = set()
     seen: set[str] = set()
+    lines_left, text_left = MAX_BOOK_LINES, MAX_BOOK_TEXT
     for row in recipe_rows:
         key = _key(row.get("id"))
         if key is None or key in seen:
@@ -391,6 +398,17 @@ def _book(tables: dict[str, object], photos: dict[str, tuple[str, int]]) -> Meal
             tagged.get(key, []), foods, units, photos.get(key),
         )  # fmt: skip
         if recipe is not None:
+            page = recipe.page
+            lines_left -= len(page.ingredients) + len(page.steps)
+            text_left -= (
+                len(page.name)
+                + len(page.description or "")
+                + sum(len(line.text) for line in (*page.ingredients, *page.steps))
+                + sum(len(tag) for tag in page.tags)
+                + len(recipe.source or "")
+            )
+            if lines_left < 0 or text_left < 0:
+                raise MealieFileProblem("too_big")
             used.update(recipe.foods)
             recipes.append(recipe)
     left_out = {
