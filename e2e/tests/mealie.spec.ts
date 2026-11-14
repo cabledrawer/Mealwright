@@ -1,5 +1,5 @@
 import { deflateRawSync, crc32 } from 'node:zlib';
-import { test, expect, type Page } from './clock.ts';
+import { test, expect, request, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 
 // Import from Mealie (0.9.5, cabledrawer 13 Nov), against the real server, signed in as the test
@@ -214,4 +214,94 @@ test('on a computer: an unticked recipe is left out, Save all, then Undo', async
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByText('Import undone')).toBeVisible();
   await expect(page.getByText(/Took out 2 recipes/)).toBeVisible();
+});
+
+// Round 2 (review 2): a member sees the import and the Today note, and can open and check a
+// draft, but has none of the admin's buttons (the server refuses them anyway).
+test('a member sees the import and Drafts without the admin’s buttons', async ({ page, browser, app }) => {
+  const tag = run();
+  const key = () => ({ 'idempotency-key': crypto.randomUUID() });
+  const name = `Sam ${tag}`;
+  const username = `sam${tag}`;
+  const password = 'a-long-kitchen-password';
+  const added = await page.request.post('/api/v1/people', { data: { name }, headers: key() });
+  expect(added.status(), await added.text()).toBe(201);
+  const person = (await added.json()).people.find((p: { name: string }) => p.name === name);
+  try {
+    const link = await page.request.post(`/api/v1/people/${person.id}/login`, {
+      data: { username, role: 'member' },
+      headers: key(),
+    });
+    expect(link.status(), await link.text()).toBe(201);
+    const token = ((await link.json()).path as string).replace(/^\/join#/, '');
+    const signedOut = await request.newContext({
+      baseURL: app.url,
+      storageState: { cookies: [], origins: [] },
+      ignoreHTTPSErrors: test.info().project.use.ignoreHTTPSErrors,
+    });
+    try {
+      const joined = await signedOut.post('/api/v1/join', { data: { token, password } });
+      expect(joined.status(), await joined.text()).toBe(200);
+    } finally {
+      await signedOut.dispose();
+    }
+
+    // The admin brings an import in (through the API), so there is a Done and a draft.
+    const sent = await page.request.post('/api/v1/mealie-imports?file_name=mealie_2026.11.10.zip', {
+      data: backup(tag),
+      headers: { 'content-type': 'application/zip' },
+    });
+    expect(sent.status(), await sent.text()).toBe(201);
+    const job = await sent.json();
+    const start = await page.request.post(`/api/v1/mealie-imports/${job.id}/start`, {
+      data: { leave_out: [], photos: false },
+    });
+    expect(start.status(), await start.text()).toBe(202);
+    await expect
+      .poll(async () => (await (await page.request.get(`/api/v1/mealie-imports/${job.id}`)).json()).state, {
+        timeout: 30_000,
+      })
+      .toBe('done');
+
+    const use = test.info().project.use;
+    const theirs = await browser.newContext({
+      baseURL: app.url,
+      storageState: { cookies: [], origins: [] },
+      viewport: use.viewport,
+      hasTouch: use.hasTouch,
+      isMobile: use.browserName === 'chromium' ? use.isMobile : undefined,
+      userAgent: use.userAgent,
+      deviceScaleFactor: use.deviceScaleFactor,
+    });
+    try {
+      const them = await theirs.newPage();
+      await them.goto('/sign-in');
+      await them.getByLabel('Username').fill(username);
+      await them.getByLabel('Password', { exact: true }).fill(password);
+      await them.getByRole('button', { name: 'Sign in' }).click();
+      await expect(them).not.toHaveURL(/\/sign-in/);
+
+      // Today: the note, with the way to the drafts but no arrow to the import.
+      await them.goto('/');
+      const note = them.getByTestId('today-mealie');
+      await expect(note).toContainText('3 recipes brought in from Mealie');
+      await expect(note.getByRole('link', { name: 'Check them' })).toBeVisible();
+
+      // The import screen: what came in, and no button that changes anything.
+      await them.goto('/settings/your-data/mealie');
+      await expect(them.getByText('3 recipes brought in')).toBeVisible();
+      await expect(them.getByRole('button', { name: /Undo|Save all|Import another/ })).toHaveCount(0);
+
+      // Drafts: the draft opens, with no Save all.
+      await them.goto('/recipes/drafts?from=mealie');
+      await expect(them.getByText(`Lorna’s soup ${tag}`)).toBeVisible();
+      await expect(them.getByRole('button', { name: /^Save all/ })).toHaveCount(0);
+      await them.getByText(`Lorna’s soup ${tag}`).click();
+      await expect(them).toHaveURL(/\/recipes\/drafts\/\d+/);
+    } finally {
+      await theirs.close();
+    }
+  } finally {
+    await page.request.delete(`/api/v1/people/${person.id}`, { headers: key() });
+  }
 });

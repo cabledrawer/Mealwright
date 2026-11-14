@@ -893,6 +893,30 @@ def test_a_recipe_with_no_name_is_brought_in_not_dropped(
     assert rows["5" * 32]["state"] == "draft" and rows["5" * 32]["name"] == drafts.NO_NAME
 
 
+def test_a_nameless_recipe_is_not_doubled_by_a_second_import(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    data = database()
+    data["recipes"].append(recipe("4" * 32, "   "))
+    data["recipes"].append(recipe("5" * 32, ""))
+    data["recipes_ingredients"].append(line("5" * 32, 0, "a pinch of Noor's secret"))
+    raw = zipped(tmp_path / "nameless.zip", data, photo=False)
+    first = bring_in(kitchen, raw)
+    assert first["counts"]["saved"] + first["counts"]["drafts"] == 5
+    preview = upload(kitchen, raw).json()["preview"]
+    assert preview["new"] == 0 and preview["already"] == 5
+    again = bring_in(kitchen, raw)
+    assert again["counts"]["saved"] == 0 and again["counts"]["drafts"] == 0
+    assert again["counts"]["already"] == 5
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        untitled = Recipe.name == drafts.NO_NAME
+        assert len(db.scalars(select(Recipe).where(untitled)).all()) == 1
+        assert (
+            len(db.scalars(select(ImportDraft).where(ImportDraft.name == drafts.NO_NAME)).all())
+            == 1
+        )
+
+
 def test_odd_names_come_in_tidied_and_match_what_is_here(
     kitchen: TestClient, tmp_path: Path
 ) -> None:

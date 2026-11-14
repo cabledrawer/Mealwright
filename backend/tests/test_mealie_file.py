@@ -373,14 +373,19 @@ def named_over_and_over(
     )
 
 
-def test_what_the_reader_hands_back_has_a_limit_on_its_text(tmp_path: Path) -> None:
+def test_what_the_reader_hands_back_has_a_limit_on_its_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Round 1, S-M5: 190,000 lines of a 100-character name (the most an ingredient's name
     # keeps) and a 30-character unit are 25 million characters for the server to keep, from a
-    # file of a few hundred KB.
+    # file of a few hundred KB. Round 2: the limit is lowered here and the file is small, as in
+    # the lines test, so this fails on a reader that has no text limit.
     assert mealie_file.MAX_BOOK_TEXT == 24_000_000
-    database = named_over_and_over(1_900, 100, "Noor's " + "q" * 193, "Lorna's " + "u" * 40)
-    path = make_zip(tmp_path / "x.zip", database)
-    assert path.stat().st_size < 1_000_000
+    monkeypatch.setattr(mealie_file, "MAX_BOOK_TEXT", 250)
+    small = named_over_and_over(3, 10, "Salt")
+    assert len(read_now(make_zip(tmp_path / "x.zip", small)).recipes) == 3
+    path = make_zip(tmp_path / "y.zip", named_over_and_over(4, 10, "Salt"))
+    assert path.stat().st_size < 10_000
     assert problem(path) == "too_big"
 
 
