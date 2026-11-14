@@ -268,7 +268,11 @@ class Login(Base):
     # tokens they made at or after it stop. Cleared when the sign-in server accepts them again.
     sso_refused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    __table_args__ = (UniqueConstraint("sso_issuer", "sso_subject", name="uq_login_sso"),)
+    __table_args__ = (
+        UniqueConstraint("sso_issuer", "sso_subject", name="uq_login_sso"),
+        # A login's number is never handed out again, not even after Delete everything (D1/S5).
+        {"sqlite_autoincrement": True},
+    )
 
 
 class SsoAccount(Base):
