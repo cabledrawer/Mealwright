@@ -79,6 +79,7 @@ class MealieImportOut(BaseModel):
     id: int
     state: Literal["ready", "running", "done", "failed", "undone"]
     file_name: str
+    file_bytes: int | None  # the file's size while it's kept (until it ends)
     started_by: str
     created_at: datetime
     started_at: datetime | None
@@ -134,10 +135,16 @@ def out(kitchen: Kitchen, row: MealieImport) -> MealieImportOut:
         {**row.preview, "recipes": row.preview.get("recipes", []) if row.state == "ready" else []}
     )
     until = mealie_import.undo_until(row)
+    path = mealie_import.file_path(kitchen.db, row)
+    try:
+        size = path.stat().st_size if path is not None else None
+    except OSError:
+        size = None
     return MealieImportOut(
         id=row.id,
         state=row.state,  # type: ignore[arg-type]
         file_name=row.file_name,
+        file_bytes=size,
         started_by=row.started_by_name,
         created_at=as_utc(row.created_at),
         started_at=as_utc(row.started_at) if row.started_at else None,

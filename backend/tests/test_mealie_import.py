@@ -137,6 +137,7 @@ def test_the_preview_says_what_is_in_the_file_and_adds_nothing(
     body = answer.json()
     assert body["state"] == "ready"
     assert body["file_name"] == "mealie_backup.zip"
+    assert body["file_bytes"] == len(raw)
     preview = body["preview"]
     assert [r["name"] for r in preview["recipes"]] == [
         "Red lentil dal",
