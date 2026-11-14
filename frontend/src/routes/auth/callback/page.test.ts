@@ -1,9 +1,11 @@
 // Back from the sign-in server (0.9 O1): posts what came back once, signs in, shows a test's
-// result, or says why not. The code leaves the address bar at once.
+// result, or says why not. The code leaves the address bar at once. D3: back to Delete
+// everything once confirmed there. S7: "Sign out" on "Almost there" tells the server.
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
+import { markConfirming } from '#lib/client/sso.js';
 import { dropPhone, freshPhone } from '#lib/testing/phone.js';
 import { session } from '#lib/session.svelte.js';
 import Callback from './+page.svelte';
@@ -41,6 +43,7 @@ describe('the single sign-on callback', () => {
     navigation.goto.mockClear();
     leave.goToSignInServer.mockClear();
     session.me = null;
+    sessionStorage.clear();
     await page.viewport(390, 800);
   });
 
@@ -149,11 +152,55 @@ describe('the single sign-on callback', () => {
     await expect
       .element(page.getByRole('link', { name: 'Sign in again' }))
       .toHaveAttribute('href', '/api/v1/sso/start?remember=false');
-    await expect
-      .element(page.getByRole('link', { name: 'Sign out' }))
-      .toHaveAttribute('href', '/sign-in');
     expect(session.me).toBeNull();
     expect(navigation.goto).not.toHaveBeenCalled();
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /sso/finish']);
+  });
+
+  it('"Sign out" on "Almost there" tells the server, then goes to sign in (S7)', async () => {
+    requests = fakeApi({
+      'POST /sso/finish': [200, { done: 'waiting', me: null, test: null, username: 'lorna.s' }],
+      'DELETE /session': [204, null]
+    });
+    show('?state=s1&code=c1');
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
+      'POST /sso/finish',
+      'DELETE /session'
+    ]);
+    expect(navigation.goto.mock.calls[0]).toEqual(['/sign-in', { replace: true }]);
+  });
+
+  it('goes back to Delete everything once an admin has confirmed it there (D3)', async () => {
+    markConfirming(true);
+    requests = fakeApi({ 'POST /sso/finish': [200, { done: 'confirmed', me: null, test: null }] });
+    show('?state=s1&code=c1');
+    await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+    expect(navigation.goto.mock.calls[0]).toEqual([
+      '/settings/your-data/delete',
+      { replace: true }
+    ]);
+    expect(sessionStorage.length).toBe(0);
+    expect(session.me).toBeNull();
+  });
+
+  it('when confirming Delete everything is refused, the way back goes there (D3)', async () => {
+    markConfirming(true);
+    const detail =
+      'That was another account at your sign-in server, not the one linked to you here. Delete everything wasn’t confirmed.';
+    fakeApi({ 'POST /sso/finish': [400, { detail, code: 'not_you' }] });
+    show('?state=s1&code=c1');
+    await expect.element(page.getByRole('alert')).toHaveTextContent(detail);
+    await expect
+      .element(page.getByRole('link', { name: 'Back to Delete everything' }))
+      .toHaveAttribute('href', '/settings/your-data/delete');
+  });
+
+  it('a confirming given up on long ago doesn’t change a later way back', async () => {
+    markConfirming(true, Date.now() - 11 * 60_000);
+    fakeApi({ 'POST /sso/finish': [400, { detail: 'Try again.', code: 'expired' }] });
+    show('?state=s1&code=c1');
+    await expect.element(page.getByRole('link', { name: 'Back to sign in' })).toBeVisible();
   });
 });

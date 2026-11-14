@@ -142,6 +142,8 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     # The setup an Admin has proven works for them, by household (memory only; proposed, for
     # cabledrawer): passwords go off only over it, and a restart forgets it.
     app.state.sso_proven = {}
+    # An SSO-only admin's fresh confirmation of Delete everything (D3; memory only, 10 minutes).
+    app.state.sso_confirmed = {}
     app.state.setup_code = None  # set at start-up on a fresh install
     # Imports from Mealie run on the server, one thread each (0.9.5).
     app.state.mealie = MealieRunner(app.state.sessionmaker)

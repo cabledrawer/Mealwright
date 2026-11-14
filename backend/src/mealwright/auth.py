@@ -67,6 +67,9 @@ IDLE_TIMEOUT = timedelta(hours=12)
 # The longest any sign-in lasts, however often it's used: the same as "Remember this
 # device" (cabledrawer 19 Oct, security audit ASVS 3.3.2).
 LONGEST_SIGN_IN = REMEMBER_FOR
+# A single sign-on sign-in with no refresh token can't be checked with the sign-in server, so it
+# lasts at most a day, then goes back through the sign-in server (S8, cabledrawer 13 Nov).
+SSO_UNCHECKED_FOR = timedelta(days=1)
 SEEN_EVERY = timedelta(minutes=1)  # don't write last_seen_at on every request
 
 # New passwords (setup, change, reset) need at least 12 characters; passwords people already
@@ -436,6 +439,44 @@ def cookie_name(settings: Settings) -> str:
     return PLAIN_COOKIE if settings.allow_plain_http else COOKIE
 
 
+# Signed out here on purpose (S7, cabledrawer 13 Nov): the next "Sign in with …" in this browser asks
+# the sign-in server to ask for the login again (`prompt=login`), so whoever uses the device next
+# isn't let in as the person who just signed out. Holds nothing but "1"; gone once someone signs
+# in with single sign-on here.
+SIGNED_OUT_COOKIE = "__Host-mealwright_signed_out"
+PLAIN_SIGNED_OUT_COOKIE = "mealwright_signed_out"
+
+
+def _signed_out_name(settings: Settings) -> str:
+    return PLAIN_SIGNED_OUT_COOKIE if settings.allow_plain_http else SIGNED_OUT_COOKIE
+
+
+def mark_signed_out(response: Response, settings: Settings) -> None:
+    response.set_cookie(
+        _signed_out_name(settings),
+        "1",
+        max_age=int(REMEMBER_FOR.total_seconds()),
+        httponly=True,
+        secure=not settings.allow_plain_http,
+        samesite="lax",
+        path="/",
+    )
+
+
+def signed_out_here(request: Request) -> bool:
+    return request.cookies.get(_signed_out_name(request.app.state.settings)) == "1"
+
+
+def forget_signed_out(response: Response, settings: Settings) -> None:
+    response.delete_cookie(
+        _signed_out_name(settings),
+        httponly=True,
+        secure=not settings.allow_plain_http,
+        samesite="lax",
+        path="/",
+    )
+
+
 def session_token(request: Request) -> str | None:
     """The sign-in token this request carries, under this mode's cookie name only."""
     return request.cookies.get(cookie_name(request.app.state.settings))
@@ -591,6 +632,20 @@ def _session_and_login(db: DbSession, token: str) -> tuple[Session, Login] | Non
     return None if found is None else (found[0], found[1])
 
 
+def longest(session: Session) -> timedelta:
+    """How long after it started a sign-in ends, however busy: a day for a single sign-on one
+    with no refresh token (S8), else LONGEST_SIGN_IN."""
+    if session.sso and session.sso_refresh_sealed is None:
+        return SSO_UNCHECKED_FOR
+    return LONGEST_SIGN_IN
+
+
+def _ended(session: Session, at: datetime) -> bool:
+    """Run out: idle too long, or past its longest (a refresh token dropped since it started
+    counts at once, S8)."""
+    return _as_utc(session.expires_at) <= at or _as_utc(session.created_at) + longest(session) <= at
+
+
 def find_session(db: DbSession, token: str | None) -> SignedIn | None:
     if not token:
         return None
@@ -599,14 +654,14 @@ def find_session(db: DbSession, token: str | None) -> SignedIn | None:
         return None
     session, login = found
     at = now()
-    if _as_utc(session.expires_at) <= at:
+    if _ended(session, at):
         db.delete(session)
         db.commit()
         return None
     if at - _as_utc(session.last_seen_at) >= SEEN_EVERY:
         session.last_seen_at = at
         if not session.remember:
-            ends_by = _as_utc(session.created_at) + LONGEST_SIGN_IN
+            ends_by = _as_utc(session.created_at) + longest(session)
             session.expires_at = min(at + IDLE_TIMEOUT, ends_by)
         db.commit()
     return SignedIn(login=login, session=session)
@@ -619,7 +674,7 @@ def peek_session(db: DbSession, token: str | None) -> SignedIn | None:
     if not token:
         return None
     found = _session_and_login(db, token)
-    if found is None or _as_utc(found[0].expires_at) <= now():
+    if found is None or _ended(found[0], now()):
         return None
     return SignedIn(login=found[1], session=found[0])
 

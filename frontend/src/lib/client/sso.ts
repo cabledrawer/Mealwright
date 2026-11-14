@@ -32,8 +32,9 @@ export interface TestResult {
 export interface FinishOut {
   /** 'again': the sign-in server refused the sign-in for asking to stay signed in while
    *  away; the browser goes to `url` to try once more without (the server allows one).
-   *  'waiting': it matched nobody, and waits for an admin ("Almost there"). */
-  done: 'signed_in' | 'tested' | 'again' | 'waiting';
+   *  'waiting': it matched nobody, and waits for an admin ("Almost there").
+   *  'confirmed' (D3): an admin confirmed Delete everything; back to that page. */
+  done: 'signed_in' | 'tested' | 'again' | 'waiting' | 'confirmed';
   me: Me | null;
   test: TestResult | null;
   url?: string | null;
@@ -100,6 +101,34 @@ export const startAddress = (remember: boolean): string =>
 
 /** "Test sign-in": the sign-in server's address, to open in a new tab. */
 export const startTest = () => api<{ url: string }>('POST', '/sso/test');
+
+/** D3: begin confirming Delete everything with a fresh single sign-on sign-in; the sign-in
+ *  server's page, for this tab to go to. */
+export const startConfirm = () => api<{ url: string }>('POST', '/sso/confirm');
+
+/** Set while this tab is away confirming Delete everything, so the callback page offers the way
+ *  back there if the sign-in server's answer is refused. When it was set, so a confirming given
+ *  up on doesn't change a later sign-in's way back: it counts for as long as the flow lasts. */
+const CONFIRMING = 'mealwright.sso-confirming';
+const CONFIRMING_FOR_MS = 10 * 60_000;
+
+export function markConfirming(on: boolean, now = Date.now()): void {
+  try {
+    if (on) sessionStorage.setItem(CONFIRMING, String(now));
+    else sessionStorage.removeItem(CONFIRMING);
+  } catch {
+    // Storage blocked: the way back is then Back to sign in, which still works.
+  }
+}
+
+export function wasConfirming(now = Date.now()): boolean {
+  try {
+    const since = Number(sessionStorage.getItem(CONFIRMING));
+    return since > 0 && now - since >= 0 && now - since < CONFIRMING_FOR_MS;
+  } catch {
+    return false;
+  }
+}
 
 /** "Link tess to …?", confirmed: links the admin's own login to who the test found. */
 export const linkTested = () => api<SsoSetup>('POST', '/sso/link');

@@ -25,6 +25,7 @@ from mealwright.auth import (
     end_session,
     hash_password,
     known_device,
+    mark_signed_out,
     needs_https,
     new_password,
     peek_session,
@@ -263,6 +264,8 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
 def sign_out(request: Request, response: Response, db: Db) -> None:
     signed_in = peek_session(db, session_token(request))
     end_session(db, request, response, request.app.state.settings)
+    # S7: this browser's next single sign-on sign-in asks for the login again.
+    mark_signed_out(response, request.app.state.settings)
     db.commit()
     if signed_in is not None:  # its open live-update streams end now
         request.app.state.events.end_session(signed_in.session.id)

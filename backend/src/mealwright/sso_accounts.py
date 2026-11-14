@@ -42,7 +42,7 @@ from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
 from mealwright import api_tokens, own_network, sso
-from mealwright.auth import now
+from mealwright.auth import SSO_UNCHECKED_FOR, now
 from mealwright.events import Broadcaster
 from mealwright.models import Login, Member, Session, SsoAccount, SsoSettings
 from mealwright.names import cut_text, fold, tidy_one_line
@@ -123,6 +123,21 @@ def passwords_off(db: DbSession, data_dir: Path | None, household_id: int) -> bo
     if row is None or row.password_sign_in:
         return False
     return sso_can_start(db, data_dir, household_id)
+
+
+def confirms_with_sso(db: DbSession, data_dir: Path | None, login: Login) -> bool:
+    """D3 (cabledrawer 13 Nov): this login confirms Delete everything with a fresh single sign-on
+    sign-in instead of its password, because it signs in only with single sign-on: it has no
+    password, or password sign-in is off, and it is linked at the sign-in server saved now."""
+    if login.password_hash is not None and not passwords_off(db, data_dir, login.household_id):
+        return False
+    row = settings_row(db, login.household_id)
+    return (
+        usable(row)
+        and row is not None
+        and login.sso_issuer == row.issuer
+        and login.sso_subject is not None
+    )
 
 
 def password_sign_in_on(db: DbSession, data_dir: Path) -> bool:
@@ -541,11 +556,15 @@ def link(db: DbSession, row: SsoSettings, login: Login, issuer: str, subject: st
 
 
 def keep(db: DbSession, data_dir: Path, session: Session, identity: Identity) -> None:
-    """Mark a new session as single sign-on's, with its refresh token sealed."""
+    """Mark a new session as single sign-on's, with its refresh token sealed; with none, it
+    lasts a day at most (S8)."""
     session.sso = True
     if identity.refresh_token:
         session.sso_refresh_sealed = seal(data_dir, identity.refresh_token)
         session.sso_check_at = now() + sso.CHECK_EVERY
+    else:
+        # Nothing to check it with: a day at most, "Remember" or not (S8, cabledrawer 13 Nov).
+        session.expires_at = min(session.expires_at, session.created_at + SSO_UNCHECKED_FOR)
 
 
 def _due(at: datetime) -> ColumnElement[bool]:

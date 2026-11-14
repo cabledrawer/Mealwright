@@ -68,9 +68,23 @@ An admin also sees **Single sign-on** on each person's page in Settings → Hous
 
 When your sign-in server gives a refresh token, Mealwright checks it about once an hour. If the server says no (the account was removed or disabled there), Mealwright signs that person out too. If the server can't be reached, it tries again later. Mealwright's own limits still apply: signed out after 12 hours idle, or 30 days with "Remember".
 
+When your sign-in server gives no refresh token, Mealwright can't check, so a single sign-on sign-in lasts at most one day, "Remember" or not (cabledrawer 13 Nov). After that, the person goes through your sign-in server again. A password sign-in isn't affected.
+
+**Signing out:** after someone presses **Sign out** in Mealwright, the next "Sign in with …" on that browser asks your sign-in server to ask for the login again (`prompt=login`), so the next person on a shared computer isn't signed in as the last one (cabledrawer 13 Nov). Once someone has signed in with single sign-on on that browser, it no longer asks. Other browsers aren't affected.
+
 Signing out at your sign-in server does not by itself end a Mealwright sign-in. Removing the person in Settings → Household does, at once.
 
 **Taking an admin out at your sign-in server doesn't stop their API tokens on its own.** Make them a Member or remove them in Settings → Household. See [api.md](api.md).
+
+## Delete everything without a password
+
+An admin who signs in only with single sign-on (no Mealwright password, or password sign-in turned off) has no password to type on Settings → Your data → Delete everything. They press **Confirm at your sign-in server** instead (cabledrawer 13 Nov): Mealwright sends them there with `prompt=login` and `max_age=0`, so the server asks them to sign in again and says when they did (the `auth_time` claim). Mealwright accepts it only if:
+
+- it is the same account at your sign-in server that this admin is linked to,
+- your groups still make them an Admin,
+- `auth_time` says they signed in after pressing the button (a minute's leeway for clocks).
+
+They then have 10 minutes, in the same browser, to type the words and delete. The confirming is used once. If your sign-in server doesn't send `auth_time`, this can't be confirmed: give the admin a password (or turn password sign-in on) for this.
 
 ## Notes for particular servers
 

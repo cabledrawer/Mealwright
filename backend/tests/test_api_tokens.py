@@ -365,7 +365,10 @@ YOUR_DATA_ROUTES = [
     ("PATCH", "/backups", {"keep": 3}),
     ("POST", "/backups", None),
     ("GET", "/export", None),
+    ("GET", "/delete-everything", None),
     ("POST", "/delete-everything", {"words": "delete everything", "password": "x"}),
+    # D3: confirming Delete everything with single sign-on is a Your data action too
+    ("POST", "/sso/confirm", None),
 ]
 
 
@@ -452,7 +455,10 @@ NEVER_ROUTES = [
     ("PATCH", "/backups", {"keep": 3}),
     ("POST", "/backups", None),
     ("GET", "/export", None),
+    ("GET", "/delete-everything", None),
     ("POST", "/delete-everything", {"words": "delete everything", "password": "x"}),
+    # D3: confirming Delete everything with single sign-on is a Your data action too
+    ("POST", "/sso/confirm", None),
 ]
 
 

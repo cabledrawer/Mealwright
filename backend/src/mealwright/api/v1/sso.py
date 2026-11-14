@@ -48,8 +48,10 @@ from mealwright.auth import (
     SameOrigin,
     client_address,
     find_session,
+    forget_signed_out,
     needs_https,
     session_token,
+    signed_out_here,
     start_session,
     without_place,
 )
@@ -85,6 +87,17 @@ BAD_REDIRECT = (
 )
 BAD_ISSUER = "Enter the issuer address, starting with https://."
 NO_SECRET = "Enter the client secret."  # noqa: S105  # nosec B105 (words, not a secret)
+
+
+@dataclass(frozen=True)
+class Confirmed:
+    """D3: an admin who signs in only with single sign-on proved, just now, that it is them, for
+    Delete everything. Kept in memory only, for this signed-in session, for FLOW_FOR seconds,
+    and used once."""
+
+    login_id: int
+    session_token_hash: str
+    expires: float
 
 
 @dataclass(frozen=True)
@@ -177,6 +190,7 @@ def _begin(
                 remember=remember,
                 login_id=login_id,
                 retried=retried,
+                ask_login=mode == "sign_in" and signed_out_here(request),
             )
     except sso.SsoFailed as failure:
         log.warning("Single sign-on couldn’t start: %s", failure.code)
@@ -232,6 +246,51 @@ def test(request: Request, response: Response, kitchen: Here) -> TestStarted:
     return TestStarted(url=started.url)
 
 
+@router.post("/sso/confirm")
+def confirm(request: Request, response: Response, kitchen: Here) -> TestStarted:
+    """Admins who sign in only with single sign-on: begin confirming Delete everything with a
+    fresh sign-in (D3). The sign-in server is asked to ask for the login again (`prompt=login`)
+    and to say when it was given (`max_age=0`). A POST from this site only, like a test. The
+    browser goes to `url` in the same tab; the callback page brings it back to Delete
+    everything."""
+    kitchen.admin_only(Action.YOUR_DATA)
+    settings: Settings = request.app.state.settings
+    needs_https(request, settings)
+    if not sso_accounts.confirms_with_sso(kitchen.db, settings.data_dir, kitchen.login):
+        raise Problem(
+            status.HTTP_409_CONFLICT,
+            "use_password",
+            "Confirm Delete everything with your password.",
+        )
+    try:
+        started = _begin(request, kitchen.db, mode="confirm", login_id=kitchen.login.id)
+    except sso.SsoFailed as failure:
+        raise _refused(failure) from None
+    _bind(response, settings, started)
+    return TestStarted(url=started.url)
+
+
+def take_confirmed(request: Request, kitchen: Here) -> bool:
+    """Use this admin's fresh confirmation (D3), once: True when there is one, made by this
+    signed-in session, not yet run out."""
+    if not has_confirmed(request, kitchen):
+        return False
+    request.app.state.sso_confirmed.pop(kitchen.household_id, None)
+    return True
+
+
+def has_confirmed(request: Request, kitchen: Here) -> bool:
+    found: Confirmed | None = request.app.state.sso_confirmed.get(kitchen.household_id)
+    return found is not None and _confirmed_here(request, kitchen, found)
+
+
+def _confirmed_here(request: Request, kitchen: Here, found: Confirmed) -> bool:
+    if found.login_id != kitchen.login.id or found.expires <= time.monotonic():
+        return False
+    here = find_session(kitchen.db, session_token(request))
+    return here is not None and here.session.token_hash == found.session_token_hash
+
+
 class FinishIn(BaseModel):
     state: str = Field(max_length=200)
     code: str | None = Field(default=None, max_length=4000)
@@ -262,7 +321,8 @@ class FinishOut(BaseModel):
     # more without.
     # "waiting" (0.9.5 Pe3/M2): signed in at the sign-in server, but linked to nobody here; no
     # session starts, and the page says "Almost there" with `username`.
-    done: Literal["signed_in", "tested", "again", "waiting"]
+    # "confirmed" (D3): an admin confirmed Delete everything; the callback page goes back there.
+    done: Literal["signed_in", "tested", "again", "waiting", "confirmed"]
     me: Me | None = None
     test: TestResult | None = None
     url: str | None = None
@@ -361,6 +421,8 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
             identity = sso.finish(_gate(request), flow, client, body.code)
         if flow.mode == "test":
             return _finish_test(request, db, row, flow.login_id, identity)
+        if flow.mode == "confirm":
+            return _finish_confirm(request, db, row, flow, identity)
         login = sso_accounts.login_for(db, row, identity, settings.data_dir)
     except sso_accounts.Waiting as waiting:
         username = waiting.account.username
@@ -391,10 +453,40 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
     )
     sso_accounts.keep(db, settings.data_dir, session, identity)
     db.commit()
+    forget_signed_out(response, settings)  # S7: asked for the login once is enough
     if login.role == ADMIN:
         _proven(request, row)
     log.info("Signed in with single sign-on: %s from %s", login.username, client_address(request))
     return FinishOut(done="signed_in", me=_me(login))
+
+
+def _finish_confirm(
+    request: Request, db: Db, row: SsoSettings, flow: sso.Flow, identity: sso.Identity
+) -> FinishOut:
+    """D3: the admin who started it, still signed in here in the same session, signed in again
+    at the sign-in server just now, as the account linked to them, and the groups still make
+    them an Admin. Changes nothing but the confirmation kept in memory."""
+    signed_in = find_session(db, session_token(request))
+    if (
+        signed_in is None
+        or signed_in.login.id != flow.login_id
+        or signed_in.login.role != ADMIN
+        or signed_in.login.household_id != flow.household_id
+    ):
+        raise sso.SsoFailed("expired")  # signed out, or someone else, since it started
+    login = signed_in.login
+    if login.sso_issuer != identity.issuer or login.sso_subject != identity.subject:
+        raise sso.SsoFailed("not_you")
+    if sso_accounts.role_for(row, identity.groups) != ADMIN:
+        raise sso.SsoFailed("not_let_in")
+    sso.confirm_fresh(flow, identity)
+    request.app.state.sso_confirmed[flow.household_id] = Confirmed(
+        login_id=login.id,
+        session_token_hash=signed_in.session.token_hash,
+        expires=time.monotonic() + sso.FLOW_FOR,
+    )
+    log.info("Delete everything confirmed with single sign-on by %s", login.username)
+    return FinishOut(done="confirmed")
 
 
 def _again(request: Request, response: Response, db: Db, flow: sso.Flow) -> FinishOut:

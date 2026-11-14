@@ -75,6 +75,10 @@ class FakeProvider:
     userinfo: dict[str, Any] | None = None
     token_override: Callable[[dict[str, Any]], tuple[int, dict[str, Any]]] | None = None
     secret_post_only: bool = False
+    # Gives no refresh token at all (a server that gives one only for offline_access, unasked).
+    no_refresh_token: bool = False
+    # Asked for max_age, says nothing of when the person signed in (no `auth_time`).
+    no_auth_time: bool = False
     # Lists offline_access but refuses a sign-in that asks for it: "authorize" sends the
     # browser back with error=invalid_scope; "token" refuses the code (as Keycloak does for
     # a user without its offline_access role).
@@ -126,6 +130,8 @@ class FakeProvider:
             "name": "Ayla",
             "email": "ayla@example.org",
             "groups": ["mealwright-users"],
+            # Asked how fresh the sign-in is (max_age): when it was, as OIDC Core 2 says.
+            **({"auth_time": now} if "max_age" in query and not self.no_auth_time else {}),
             **(extra or {}),
         }
         self.scopes_asked.append(query["scope"])
@@ -171,15 +177,17 @@ class FakeProvider:
         if create_s256_code_challenge(form.get("code_verifier", "")) != issued["challenge"]:
             return 400, {"error": "invalid_grant"}
         make = issued["id_token"] or sign
-        refresh = f"rt-{len(self.refresh_tokens) + 1}"
-        self.refresh_tokens.add(refresh)
-        return 200, {
+        answer = {
             "access_token": "at-1",
             "token_type": "Bearer",
             "id_token": make(issued["claims"]),
-            "refresh_token": refresh,
             "expires_in": 300,
         }
+        if not self.no_refresh_token:
+            refresh = f"rt-{len(self.refresh_tokens) + 1}"
+            self.refresh_tokens.add(refresh)
+            answer["refresh_token"] = refresh
+        return 200, answer
 
     def answer(self, seen: Seen) -> tuple[int, dict[str, Any]]:
         path = urlsplit(seen.path).path

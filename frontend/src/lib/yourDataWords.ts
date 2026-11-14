@@ -100,3 +100,11 @@ export const DELETE_WORDS = 'delete everything';
 /** Typed the words, give or take capitals and spaces (the server reads them the same way). */
 export const wordsMatch = (typed: string): boolean =>
   typed.split(/\s+/).filter(Boolean).join(' ').toLowerCase() === DELETE_WORDS;
+
+// D3 (cabledrawer 13 Nov): an admin who signs in only with single sign-on confirms Delete everything
+// with a fresh sign-in at the sign-in server instead of a password. Proposed, for cabledrawer.
+export const CONFIRM_SSO_LINE =
+  'You sign in with single sign-on, so confirm at your sign-in server instead of with a password. It asks you to sign in again.';
+export const CONFIRM_SSO_BUTTON = 'Confirm at your sign-in server';
+export const CONFIRMING_SSO = 'Going to your sign-in server…';
+export const CONFIRMED_SSO = 'Confirmed at your sign-in server. Delete within 10 minutes.';

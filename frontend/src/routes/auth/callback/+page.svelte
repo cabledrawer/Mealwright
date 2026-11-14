@@ -8,18 +8,25 @@
   // - a setup test: the result, and the setup tab shows it too (it looks again on focus).
   // - waiting (0.9.5 Pe3/M2): the sign-in matched nobody here and waits, with no session, until
   //   an admin says who it is: "Almost there" (mockup Dark-SsoWaiting095-Phone).
-  // - refused: the server's sentence, and a way back.
+  // - confirmed (D3): an admin who signs in only with single sign-on confirmed Delete
+  //   everything with a fresh sign-in; back to that page, which now asks for the words only.
+  // - refused: the server's sentence, and a way back (to Delete everything, when that is where
+  //   this tab came from).
+  // "Sign out" on "Almost there" (S7) tells the server, so the next "Sign in with …" on this
+  // browser asks the sign-in server to ask who it is.
   // - again: the sign-in server refused the sign-in for one thing Mealwright asked for and
   //   can do without; the server has begun a second try, and the browser goes there.
   // The address bar loses the code at once, so it's never left in the history.
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
+  import { ApiError, cantReach, cantReachWords, signOut } from '#lib/api.js';
   import {
     finishSignIn,
     goToSignInServer,
+    markConfirming,
     startAddress,
+    wasConfirming,
     type TestResult
   } from '#lib/client/sso.js';
   import Logo from '#lib/components/Logo.svelte';
@@ -29,6 +36,7 @@
   import { session } from '#lib/session.svelte.js';
   import {
     ALMOST_THERE,
+    BACK_TO_DELETE,
     BACK_TO_SETUP,
     BACK_TO_SIGN_IN,
     SIGN_IN_AGAIN,
@@ -53,8 +61,20 @@
   let tested = $state<TestResult | null>(null);
   /** "Almost there": the username at the sign-in server that waits for an admin. */
   let waitingAs = $state<string | null>(null);
-  /** Where "Back" goes: the setup screen for a test. */
-  let back = $state<'sign-in' | 'setup'>('sign-in');
+  /** Where "Back" goes: the setup screen for a test, Delete everything for its confirming. */
+  let back = $state<'sign-in' | 'setup' | 'delete'>(wasConfirming() ? 'delete' : 'sign-in');
+  let signingOut = $state(false);
+
+  async function signOutWaiting() {
+    signingOut = true;
+    try {
+      await signOut();
+    } catch {
+      // Not reached: there is no sign-in here to end, so go on; only the next sign-in's
+      // "ask who it is" is lost.
+    }
+    await goto(resolve('/(auth)/sign-in'), { replace: true });
+  }
 
   async function finish() {
     if (!flowState) {
@@ -69,6 +89,11 @@
       }
       if (out.done === 'waiting') {
         waitingAs = out.username ?? '';
+        return;
+      }
+      if (out.done === 'confirmed') {
+        markConfirming(false);
+        await goto(resolve('/(app)/settings/your-data/delete'), { replace: true });
         return;
       }
       if (out.done === 'tested') {
@@ -112,7 +137,12 @@
       <div class="buttons">
         <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an API address, not a page -->
         <a class="primary" href={startAddress(false)} data-sveltekit-reload>{SIGN_IN_AGAIN}</a>
-        <a class="secondary" href={resolve('/(auth)/sign-in')}>{SIGN_OUT}</a>
+        <button
+          class="secondary"
+          type="button"
+          disabled={signingOut}
+          onclick={() => void signOutWaiting()}>{SIGN_OUT}</button
+        >
       </div>
     {:else if tested}
       {#if tested.passed}
@@ -128,6 +158,8 @@
       <p class="problem" role="alert">{problem}</p>
       {#if back === 'setup'}
         <a class="back" href={resolve('/(app)/settings/sso')}>{BACK_TO_SETUP}</a>
+      {:else if back === 'delete'}
+        <a class="back" href={resolve('/(app)/settings/your-data/delete')}>{BACK_TO_DELETE}</a>
       {:else}
         <a class="back" href={resolve('/(auth)/sign-in')}>{BACK_TO_SIGN_IN}</a>
       {/if}
@@ -211,6 +243,16 @@
     border: 1px solid var(--color-border-strong);
     background: var(--color-surface);
     color: var(--color-text);
+  }
+
+  button.secondary {
+    font-family: var(--font-ui);
+    cursor: pointer;
+  }
+
+  button.secondary:disabled {
+    opacity: 0.55;
+    cursor: default;
   }
 
   .wait,

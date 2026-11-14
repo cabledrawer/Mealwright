@@ -87,7 +87,9 @@ ALGORITHMS = [
 ]
 _jwt = JsonWebToken(ALGORITHMS)
 
-type Mode = Literal["sign_in", "test"]
+# "confirm" (D3, cabledrawer 13 Nov): an admin who signs in only with single sign-on proves it is
+# still them, just now, before Delete everything (`confirm_fresh`).
+type Mode = Literal["sign_in", "test", "confirm"]
 type _Address = ipaddress.IPv4Address | ipaddress.IPv6Address
 
 # What went wrong, said to the person signing in (cabledrawer 12 Nov).
@@ -134,6 +136,16 @@ MESSAGES: dict[str, str] = {
     ),
     # Proposed, for cabledrawer (not among his 12 Nov words above; O1 review r1 H1, r2 note 8):
     "link_gone": "There’s no test waiting to be linked. Test sign-in again.",
+    # D3, Delete everything confirmed with single sign-on (proposed, for cabledrawer):
+    "not_fresh": (
+        "Your sign-in server didn’t say you signed in just now, so Delete everything wasn’t "
+        "confirmed. Try again; if it happens every time, your sign-in server may not support "
+        "this."
+    ),
+    "not_you": (
+        "That was another account at your sign-in server, not the one linked to you here. "
+        "Delete everything wasn’t confirmed."
+    ),
 }
 
 
@@ -798,7 +810,7 @@ class Flow:
             raise SsoFailed("expired") from None
         texts = (flow.state, flow.nonce, flow.verifier, flow.issuer, flow.client_id)
         if (
-            flow.mode not in ("sign_in", "test")
+            flow.mode not in ("sign_in", "test", "confirm")
             or not all(isinstance(value, str) and value for value in texts)
             or not isinstance(flow.redirect_uri, str)
             or not isinstance(flow.household_id, int)
@@ -874,10 +886,12 @@ def start(
     remember: bool = False,
     login_id: int | None = None,
     retried: bool = False,
+    ask_login: bool = False,
 ) -> Started:
     """Begin a sign-in: the provider's address to send the browser to, and the sign-in's
     own state, nonce and verifier for the browser's cookie. Nothing is kept here.
-    `retried`: the second try, without offline_access."""
+    `retried`: the second try, without offline_access. `ask_login`: the sign-in server asks
+    for the login again, whoever is signed in there (after an explicit Sign out, S7)."""
     deadline = time.monotonic() + TIME_LIMIT
     provider = discover(gate, client.household_id, client.issuer, deadline, fresh=mode == "test")
     verifier = secrets.token_urlsafe(48)
@@ -908,10 +922,15 @@ def start(
         "code_challenge": create_s256_code_challenge(verifier),
         "code_challenge_method": "S256",
     }
-    if mode == "test":
+    if mode != "sign_in" or ask_login:
         # A test asks the sign-in server to ask who this is, whoever is signed in there
         # already: the admin sees which account they are testing (O1 review r1 H1).
         asked["prompt"] = "login"
+    if mode == "confirm":
+        # And the sign-in must be a new one: max_age=0 makes the sign-in server put when the
+        # person signed in there (`auth_time`) in the ID token (OIDC Core 3.1.2.1), and
+        # `confirm_fresh` checks it is after this started.
+        asked["max_age"] = "0"
     query = urlencode(asked, quote_via=quote)
     joiner = "&" if "?" in provider.authorization_endpoint else "?"
     return Started(url=f"{provider.authorization_endpoint}{joiner}{query}", flow=flow)
@@ -928,6 +947,8 @@ class Identity:
     name: str | None
     groups: list[str]
     refresh_token: str | None
+    # When the person signed in at the sign-in server (seconds since 1970), if it said.
+    auth_time: int | None = None
 
 
 def _client_auth(
@@ -1028,7 +1049,24 @@ def finish(gate: OutboundGate, flow: Flow, client: Client, code: str) -> Identit
         name=tidy_one_line(text("name") or "") or None,
         groups=groups_in(claims, client.group_claim),
         refresh_token=refresh if isinstance(refresh, str) and refresh else None,
+        auth_time=_whole_seconds(claims.get("auth_time")),
     )
+
+
+def _whole_seconds(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    return int(value)
+
+
+def confirm_fresh(flow: Flow, identity: Identity) -> None:
+    """D3: a confirmation counts only when the sign-in server says the person signed in there
+    after it started (`auth_time`, asked for with max_age=0; LEEWAY for the two clocks). A
+    sign-in server that doesn't say when is refused: there is no other way to tell a fresh
+    sign-in from one it remembered. Raises SsoFailed("not_fresh")."""
+    at = identity.auth_time
+    if at is None or at < flow.started - LEEWAY or at > time.time() + LEEWAY:
+        raise SsoFailed("not_fresh")
 
 
 def _with_userinfo(

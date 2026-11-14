@@ -1,5 +1,6 @@
 // Settings → Your data (0.9, D1): an admin changes the backups and backs up now; a member only
 // looks; Delete everything waits for the words and the password, and says why it was refused.
+// D3: an admin who signs in only with single sign-on confirms at the sign-in server instead.
 
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,6 +10,7 @@ import { network } from '#lib/network.svelte.js';
 import { session } from '#lib/session.svelte.js';
 import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
 import { ME } from '#lib/testing/fakeShopping.js';
+import { wasConfirming } from '#lib/client/sso.js';
 import { whenWords } from '#lib/yourDataWords.js';
 import YourData from './+page.svelte';
 import DeleteEverything from './delete/+page.svelte';
@@ -20,6 +22,13 @@ const navigation = vi.hoisted(() => ({
   goto: vi.fn<(to: string, options?: object) => Promise<void>>(async () => {})
 }));
 vi.mock('$app/navigation', () => navigation);
+const leave = vi.hoisted(() => ({
+  goToSignInServer: vi.fn<(url: string, keepHistory?: boolean) => void>()
+}));
+vi.mock('#lib/client/sso.js', async (original) => ({
+  ...(await original<typeof import('#lib/client/sso.js')>()),
+  goToSignInServer: leave.goToSignInServer
+}));
 
 const BACKUPS: Backups = {
   every: 'daily',
@@ -57,6 +66,8 @@ describe('Settings → Your data', () => {
     network.reset();
     session.me = { ...ME };
     navigation.goto.mockClear();
+    leave.goToSignInServer.mockClear();
+    sessionStorage.clear();
   });
 
   afterEach(() => {
@@ -220,7 +231,8 @@ describe('Settings → Your data', () => {
       await button().click();
       await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
       expect(navigation.goto.mock.calls[0]![0]).toBe('/setup');
-      expect(requests.find((r) => r.path === '/delete-everything')?.body).toEqual({
+      const sent = requests.find((r) => r.method === 'POST' && r.path === '/delete-everything');
+      expect(sent?.body).toEqual({
         words: 'Delete everything',
         password: 'secret'
       });
@@ -246,6 +258,71 @@ describe('Settings → Your data', () => {
       await expect
         .element(page.getByRole('status'))
         .toHaveTextContent(`Backed up: ${WHEN} · 2.1 MB · all fine`);
+    });
+
+    const SSO_ONLY = { confirm_with: 'single_sign_on', confirmed: false };
+    const CONFIRM_LINE =
+      'You sign in with single sign-on, so confirm at your sign-in server instead of with a password. It asks you to sign in again.';
+
+    it('asks the password when the server says so', async () => {
+      open(DeleteEverything, {
+        'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+      });
+      await expect.element(page.getByLabelText('Your password')).toBeVisible();
+      await expect.element(page.getByText(CONFIRM_LINE)).not.toBeInTheDocument();
+    });
+
+    it('an admin with single sign-on only confirms at the sign-in server, not with a password (D3)', async () => {
+      open(DeleteEverything, {
+        'GET /delete-everything': [200, SSO_ONLY],
+        'POST /sso/confirm': [200, { url: 'https://id.example.org/authorize?x=1' }]
+      });
+      await expect.element(page.getByText(CONFIRM_LINE)).toBeVisible();
+      await expect.element(page.getByLabelText('Your password')).not.toBeInTheDocument();
+      await userEvent.fill(page.getByLabelText(/to confirm/), 'Delete everything');
+      await expect.element(button()).toBeDisabled();
+      await page.getByRole('button', { name: 'Confirm at your sign-in server' }).click();
+      await vi.waitFor(() => expect(leave.goToSignInServer).toHaveBeenCalled());
+      expect(leave.goToSignInServer.mock.calls[0]).toEqual([
+        'https://id.example.org/authorize?x=1',
+        true
+      ]);
+      expect(wasConfirming()).toBe(true);
+      expect(requests.some((r) => r.path === '/delete-everything' && r.method === 'POST')).toBe(
+        false
+      );
+    });
+
+    it('once confirmed there, the words alone delete (D3)', async () => {
+      open(DeleteEverything, {
+        'GET /delete-everything': [200, { ...SSO_ONLY, confirmed: true }],
+        'POST /delete-everything': [204, null],
+        'DELETE /session': [401, {}]
+      });
+      await expect
+        .element(page.getByRole('status'))
+        .toHaveTextContent('Confirmed at your sign-in server. Delete within 10 minutes.');
+      await expect.element(button()).toBeDisabled();
+      await userEvent.fill(page.getByLabelText(/to confirm/), 'Delete everything');
+      await button().click();
+      await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+      const sent = requests.find((r) => r.method === 'POST' && r.path === '/delete-everything');
+      expect(sent?.body).toEqual({ words: 'Delete everything' });
+    });
+
+    it('when the confirming has run out, it asks for it again (D3)', async () => {
+      const detail = 'Confirm with your sign-in server first, then delete within 10 minutes.';
+      open(DeleteEverything, {
+        'GET /delete-everything': [200, { ...SSO_ONLY, confirmed: true }],
+        'POST /delete-everything': [403, { detail, code: 'confirm_first' }]
+      });
+      await userEvent.fill(page.getByLabelText(/to confirm/), 'Delete everything');
+      await button().click();
+      await expect.element(page.getByRole('alert')).toHaveTextContent(detail);
+      await expect
+        .element(page.getByRole('button', { name: 'Confirm at your sign-in server' }))
+        .toBeVisible();
+      expect(navigation.goto).not.toHaveBeenCalled();
     });
 
     it('a member is told only the admin can, with no form', async () => {

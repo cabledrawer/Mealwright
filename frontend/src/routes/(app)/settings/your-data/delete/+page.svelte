@@ -4,15 +4,33 @@
   // The server makes a safety backup first and deletes nothing if it can't; the backups folder
   // is kept; everyone is signed out. This browser's own copy is wiped too, as signing out does,
   // and Mealwright then shows first-run setup.
+  // D3 (cabledrawer 13 Nov): an admin who signs in only with single sign-on has no password to
+  // type, so they confirm with a fresh sign-in at the sign-in server instead; the server keeps
+  // that proof for this session for 10 minutes, and this page then asks for the words only.
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
-  import { backUpNow, deleteEverything } from '#lib/client/yourData.js';
+  import { markConfirming, startConfirm, goToSignInServer } from '#lib/client/sso.js';
+  import {
+    backUpNow,
+    deleteEverything,
+    getHowToConfirm,
+    type HowToConfirm
+  } from '#lib/client/yourData.js';
   import { network } from '#lib/network.svelte.js';
   import { signOutHere } from '#lib/offline/signOut.js';
   import { session } from '#lib/session.svelte.js';
-  import { DELETE_WORDS, lastBackupWords, wordsMatch } from '#lib/yourDataWords.js';
+  import {
+    CONFIRMED_SSO,
+    CONFIRMING_SSO,
+    CONFIRM_SSO_BUTTON,
+    CONFIRM_SSO_LINE,
+    DELETE_WORDS,
+    lastBackupWords,
+    wordsMatch
+  } from '#lib/yourDataWords.js';
 
   const admin = $derived(session.me?.role === 'admin');
 
@@ -22,8 +40,36 @@
   let backingUp = $state(false);
   let backedUp = $state<string | null>(null);
   let problem = $state<string | null>(null);
+  let how = $state<HowToConfirm | null>(null);
+  let confirming = $state(false);
 
-  const ready = $derived(wordsMatch(words) && password.length > 0 && !busy && !network.offline);
+  const withSso = $derived(how?.confirm_with === 'single_sign_on');
+  const confirmed = $derived(withSso ? how?.confirmed === true : password.length > 0);
+  const ready = $derived(wordsMatch(words) && confirmed && !busy && !network.offline);
+
+  onMount(() => {
+    // Back from the sign-in server (or never left): the way back is done with.
+    markConfirming(false);
+    if (!admin) return;
+    getHowToConfirm().then(
+      (answer) => (how = answer),
+      // Can't tell: the password field, as before 0.9.5; the server still decides.
+      () => (how = { confirm_with: 'password', confirmed: false })
+    );
+  });
+
+  async function confirmAtServer() {
+    confirming = true;
+    problem = null;
+    try {
+      const { url } = await startConfirm();
+      markConfirming(true);
+      goToSignInServer(url, true);
+    } catch (error) {
+      confirming = false;
+      problem = failed(error);
+    }
+  }
 
   const failed = (error: unknown) =>
     error instanceof ApiError && !cantReach(error) ? error.detail : cantReachWords();
@@ -49,11 +95,14 @@
     busy = true;
     problem = null;
     try {
-      await deleteEverything(words, password);
+      await deleteEverything(words, withSso ? undefined : password);
     } catch (error) {
       busy = false;
       password = '';
       problem = failed(error);
+      // The proof ran out, or was another session's: ask for a fresh one.
+      if (withSso && error instanceof ApiError && error.code === 'confirm_first' && how)
+        how = { ...how, confirmed: false };
       return;
     }
     // Everything is gone on the server, and this browser's session with it: wipe its copy
@@ -102,10 +151,25 @@
           spellcheck="false"
         />
       </label>
-      <label class="fld">
-        Your password
-        <input type="password" bind:value={password} autocomplete="current-password" />
-      </label>
+      {#if withSso}
+        {#if how?.confirmed}
+          <p class="done" role="status">{CONFIRMED_SSO}</p>
+        {:else}
+          <p class="note">{CONFIRM_SSO_LINE}</p>
+          <button
+            type="button"
+            class="quiet"
+            disabled={confirming || busy || network.offline}
+            onclick={() => void confirmAtServer()}
+            >{confirming ? CONFIRMING_SSO : CONFIRM_SSO_BUTTON}</button
+          >
+        {/if}
+      {:else if how}
+        <label class="fld">
+          Your password
+          <input type="password" bind:value={password} autocomplete="current-password" />
+        </label>
+      {/if}
       {#if problem}
         <p class="problem" role="alert">{problem}</p>
       {/if}

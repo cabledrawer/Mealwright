@@ -33,6 +33,21 @@ export const backUpNow = () => api<Backups>('POST', '/backups', undefined, { tim
 /** Where "Export" downloads the file from (a plain link: the browser saves what it streams). */
 export const EXPORT_PATH = '/api/v1/export';
 
-/** Delete everything: the typed words and the admin's own password. */
-export const deleteEverything = (words: string, password: string) =>
-  api<void>('POST', '/delete-everything', { words, password }, { timeoutMs: 120_000 });
+/** Delete everything: the typed words and the admin's own password, or, for an admin who
+ *  confirmed with single sign-on (D3), the words only. */
+export const deleteEverything = (words: string, password?: string) =>
+  api<void>(
+    'POST',
+    '/delete-everything',
+    password === undefined ? { words } : { words, password },
+    { timeoutMs: 120_000 }
+  );
+
+/** How this admin confirms Delete everything (D3): their password, or a fresh single sign-on
+ *  sign-in (`confirmed`: this session did, in the last 10 minutes). */
+export interface HowToConfirm {
+  confirm_with: 'password' | 'single_sign_on';
+  confirmed: boolean;
+}
+
+export const getHowToConfirm = () => api<HowToConfirm>('GET', '/delete-everything');
