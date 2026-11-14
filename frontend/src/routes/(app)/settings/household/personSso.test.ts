@@ -48,7 +48,7 @@ const WAITING: WaitingSignIn = {
 };
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const NOT_LINKED =
-  'Not linked. Linked automatically when the sign-in server’s username is the same as here; otherwise link by hand.';
+  'Not linked. Linked automatically only if they have never signed in and the sign-in server’s username is the same as here; otherwise link by hand.';
 
 describe('Single sign-on on the Person page', () => {
   let component: ReturnType<typeof mount> | null = null;

@@ -50,7 +50,7 @@ export const ALMOST_THERE = 'Almost there';
 /** Before and after the username, which is shown in bold between them. */
 export const WAITING_BEFORE = 'You signed in with single sign-on as';
 export const WAITING_AFTER =
-  ', but this kitchen doesn’t know that name yet. An admin needs to say who you are: ask them to open Settings › Household.';
+  ', but this kitchen hasn’t linked that name to a person yet. An admin needs to say who you are: ask them to open Settings › Household.';
 export const WAITING_NOTE =
   'Nothing in Mealwright is open to you until then. Once they’ve linked you, sign in again.';
 export const SIGN_IN_AGAIN = 'Sign in again';
@@ -105,4 +105,4 @@ export function testPassedText(
  *  was (Pe3/M2, cabledrawer 13 Nov: nobody is made at first sign-in; the words proposed, for
  *  cabledrawer). */
 export const SSO_WHO_LINKS =
-  'Someone whose username at your sign-in server is the same as here is linked to them at their first sign-in. Anyone else waits until an admin says who they are in Settings › Household.';
+  'Someone whose username at your sign-in server is the same as a person here who has never signed in is linked to them at their first sign-in. Anyone else waits until an admin says who they are in Settings › Household.';

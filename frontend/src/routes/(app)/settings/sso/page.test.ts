@@ -162,7 +162,7 @@ describe('single sign-on setup', () => {
     await expect
       .element(
         page.getByText(
-          'Someone whose username at your sign-in server is the same as here is linked to them at their first sign-in. Anyone else waits until an admin says who they are in Settings › Household.'
+          'Someone whose username at your sign-in server is the same as a person here who has never signed in is linked to them at their first sign-in. Anyone else waits until an admin says who they are in Settings › Household.'
         )
       )
       .toBeVisible();

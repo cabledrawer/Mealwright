@@ -426,7 +426,7 @@ test('an unlinked person shows how they get linked, and Link… opens the waitin
   const made = await personWhoSignsIn(page, app.url, lorna, `lorna${mark()}`);
   await withSso(page, [WAITING]);
   await page.goto(`/settings/household/${made.id}`);
-  await expect(page.getByText(/^Not linked\. Linked automatically when the sign-in server’s username is the same as here/)).toBeVisible();
+  await expect(page.getByText(/^Not linked\. Linked automatically only if they have never signed in and the sign-in server’s username is the same as here/)).toBeVisible();
   await page.getByRole('button', { name: 'Link…' }).click();
   const sheet = page.getByRole('dialog', { name: `Link ${lorna} to a sign-in` });
   await expect(sheet).toBeVisible();

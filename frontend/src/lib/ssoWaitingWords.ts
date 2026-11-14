@@ -72,7 +72,7 @@ export const SSO_ROW = 'Single sign-on';
 export const UNLINK = 'Unlink';
 export const LINK_BY_HAND = 'Link…';
 export const NOT_LINKED_LINE =
-  'Not linked. Linked automatically when the sign-in server’s username is the same as here; otherwise link by hand.';
+  'Not linked. Linked automatically only if they have never signed in and the sign-in server’s username is the same as here; otherwise link by hand.';
 
 /** "Linked to lorna.s on your sign-in server", the username in bold. Linked before Mealwright
  *  kept the sign-in server's username (proposed, for cabledrawer): "Linked to an account on your
