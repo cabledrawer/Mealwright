@@ -624,6 +624,7 @@
   }
 
   .link {
+    min-width: var(--touch-target);
     min-height: var(--touch-target);
     padding: 0 var(--space-2);
     border: none;
