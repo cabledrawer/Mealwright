@@ -324,3 +324,20 @@ def test_a_link_cancelled_while_the_password_is_hashed_sets_nothing(
         assert login.link_used_at == used_before
     if kind == "reset":
         assert _signs_in(kitchen, FIRST)
+
+
+def test_a_reset_ends_the_logins_live_updates(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """16b security pass S-L3: like removing a person, the signed-out devices' open
+    live-update streams end at once."""
+    lorna, _hers = _lorna_signed_in(kitchen)
+    with db(kitchen) as session:
+        login = session.scalars(select(Login).where(Login.username == "lorna")).one()
+        theirs = sorted(session.scalars(select(Session.id).where(Session.login_id == login.id)))
+    assert theirs
+    ended: list[int] = []
+    monkeypatch.setattr(kitchen.app.state.events, "end_session", ended.append)  # type: ignore[attr-defined]
+    token = _token(_reset(kitchen, lorna))
+    ok(_fresh(kitchen).post(f"{API}/join", json={"token": token, "password": NEW}))
+    assert sorted(ended) == theirs

@@ -480,6 +480,7 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
     # Claim the link first, so of two requests at once only one sets a password.
     if not people.claim_link(db, link):
         raise Problem(status.HTTP_404_NOT_FOUND, "link_gone", GONE)
+    ended: list[int] = []
     try:
         login.password_hash = hash_password(body.password)
         login.link_used_at = utcnow()
@@ -489,6 +490,8 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
             # signed out everywhere and its API tokens stop (proposed, for cabledrawer): someone who
             # used a link meant for this person loses the login when they reset again.
             login.password_changed_at = login.link_used_at
+            # Their open live-update streams end too, as when a person is removed (S-L3).
+            ended = list(db.scalars(select(Session.id).where(Session.login_id == login.id)))
             db.execute(delete(Session).where(Session.login_id == login.id))
             api_tokens.stop_for(db, login.id)
         # The hash is slow: the link may have been cancelled meanwhile (a new link, a password
@@ -506,6 +509,8 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
         raise
     if still is None:
         raise Problem(status.HTTP_404_NOT_FOUND, "link_gone", GONE)
+    for session_id in ended:
+        request.app.state.events.end_session(session_id)
     how = (
         "Password reset with a reset link"
         if link.kind == people.RESET
