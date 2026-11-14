@@ -4,10 +4,12 @@
   // cabledrawer (words.md section 81). Fetched only when there is one.
   import { resolve } from '$app/paths';
   import Icon from '../Icon.svelte';
+  import { session } from '#lib/session.svelte.js';
   import type { MealieNote } from '#lib/client/today.js';
   import { NOTE_FAILED, NOTE_FAILED_LINE, noteCheckWords, noteWords } from '#lib/mealieWords.js';
 
   let { note }: { note: MealieNote } = $props();
+  const admin = $derived(session.me?.role === 'admin');
 </script>
 
 <section class="note" class:failed={note.state === 'failed'} data-testid="today-mealie">
@@ -23,7 +25,8 @@
   </div>
   {#if note.state === 'done' && note.to_check}
     <a href="{resolve('/(app)/recipes/drafts')}?from=mealie">Check them</a>
-  {:else}
+  {:else if admin}
+    <!-- The import screen's buttons are the admin's; a member gets no arrow to it (round 2). -->
     <a href={resolve('/(app)/settings/your-data/mealie')} aria-label="Open Import from Mealie"
       ><Icon name="back" size={18} stroke={2.4} /></a
     >

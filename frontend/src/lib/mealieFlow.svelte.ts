@@ -17,6 +17,7 @@ import {
   type MealieUndone
 } from './client/mealie';
 import { chosenCount } from './mealieWords';
+import { session } from './session.svelte';
 
 export type Step = 'start' | 'preview' | 'running' | 'done';
 
@@ -56,6 +57,12 @@ export class MealieFlow {
 
   #timer: ReturnType<typeof setTimeout> | null = null;
   #stopped = false;
+
+  /** Only the household's admin sends, starts, cancels, undoes or saves all (the server refuses
+   *  anyone else); a member sees where the import is, without the buttons. */
+  get admin(): boolean {
+    return session.me?.role === 'admin';
+  }
 
   get step(): Step {
     return this.again ? 'start' : stepOf(this.job);

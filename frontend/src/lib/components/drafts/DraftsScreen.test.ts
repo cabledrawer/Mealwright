@@ -4,7 +4,9 @@ import { page } from 'vitest/browser';
 import type { DraftBrief, DraftOut } from '#lib/client/drafts.js';
 import { drafts } from '#lib/drafts.svelte.js';
 import { network } from '#lib/network.svelte.js';
+import { session } from '#lib/session.svelte.js';
 import { fakeApi, changeOf } from '#lib/testing/fakeApi.js';
+import { ME } from '#lib/testing/fakeShopping.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import DraftsScreen from './DraftsScreen.svelte';
@@ -66,6 +68,7 @@ describe('the Drafts screen', () => {
   }
 
   beforeEach(() => {
+    session.me = { ...ME, role: 'admin' };
     network.reset();
     drafts.forget();
     undoHistory.clear();
@@ -74,6 +77,7 @@ describe('the Drafts screen', () => {
   });
 
   afterEach(() => {
+    session.me = null;
     if (component) unmount(component);
     component = null;
     document.body.innerHTML = '';
@@ -505,6 +509,14 @@ describe('the Drafts screen', () => {
       await expect
         .element(page.getByRole('button', { name: 'Save all 2 as they are' }))
         .not.toBeInTheDocument();
+    });
+
+    it('From Mealie gives a member no Save all (the server refuses them), but the drafts open', async () => {
+      session.me = { ...ME, role: 'member' };
+      await open({ 'GET /recipes/drafts': list([...THREE, ...MEALIE]) }, 390, true);
+      await expect.element(page.getByText('Green curry')).toBeVisible();
+      await expect.element(page.getByText(/Open one to check its lines/)).toBeVisible();
+      expect(page.getByRole('button', { name: /^Save all/ }).elements()).toEqual([]);
     });
 
     it('Links shows only the drafts from a link (mockup Dark-MealieCheck095-Phone)', async () => {

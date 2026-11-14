@@ -34,7 +34,7 @@
   import { kitchen } from '#lib/freshness.svelte.js';
   import { nextDraft } from '#lib/nextDraft.svelte.js';
   import { saveFromDraft } from '#lib/import.draftSave.js';
-  import { initial } from '#lib/session.svelte.js';
+  import { initial, session } from '#lib/session.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import type { Side } from '#lib/swipe.js';
   import EmptyState from '../EmptyState.svelte';
@@ -202,12 +202,15 @@
   {#if showing === 'mealie'}
     <div class="mealie">
       <p class="lead">{DRAFTS_LEAD}</p>
-      <button
-        type="button"
-        class="save-all"
-        disabled={savingAll || network.offline}
-        onclick={() => void saveAll()}>{savingAll ? 'Saving…' : saveAllWords(mealie.length)}</button
-      >
+      {#if session.me?.role === 'admin'}
+        <button
+          type="button"
+          class="save-all"
+          disabled={savingAll || network.offline}
+          onclick={() => void saveAll()}
+          >{savingAll ? 'Saving…' : saveAllWords(mealie.length)}</button
+        >
+      {/if}
       {#if saveAllProblem}<p class="failed-line" role="alert">{saveAllProblem}</p>{/if}
     </div>
   {/if}

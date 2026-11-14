@@ -2,8 +2,10 @@
 // with lines to check, or that it stopped.
 
 import { flushSync, mount, unmount } from 'svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { page } from 'vitest/browser';
+import { session } from '#lib/session.svelte.js';
+import { ME } from '#lib/testing/fakeShopping.js';
 import type { MealieNote as Note } from '#lib/client/today.js';
 import MealieNote from './MealieNote.svelte';
 import '#lib/styles/tokens.css';
@@ -17,7 +19,12 @@ describe('Today’s note from Mealie', () => {
     flushSync();
   }
 
+  beforeEach(() => {
+    session.me = { ...ME, role: 'admin' };
+  });
+
   afterEach(() => {
+    session.me = null;
     if (component) unmount(component);
     component = null;
     document.body.innerHTML = '';
@@ -45,5 +52,22 @@ describe('Today’s note from Mealie', () => {
     await expect
       .element(page.getByText('Recipes brought in before it stopped are kept.'))
       .toBeVisible();
+  });
+
+  it('gives a member no arrow to the import screen (its buttons are the admin’s)', async () => {
+    session.me = { ...ME, role: 'member' };
+    show({ id: 4, state: 'done', recipes: 1, to_check: 0 });
+    await expect.element(page.getByText('1 recipe brought in from Mealie')).toBeVisible();
+    expect(page.getByRole('link').elements()).toEqual([]);
+    unmount(component!);
+    show({ id: 4, state: 'failed', recipes: 40, to_check: 0 });
+    await expect.element(page.getByText('The import from Mealie stopped')).toBeVisible();
+    expect(page.getByRole('link').elements()).toEqual([]);
+  });
+
+  it('still gives a member the way to check the drafts', async () => {
+    session.me = { ...ME, role: 'member' };
+    show({ id: 4, state: 'done', recipes: 202, to_check: 31 });
+    await expect.element(page.getByRole('link', { name: 'Check them' })).toBeVisible();
   });
 });

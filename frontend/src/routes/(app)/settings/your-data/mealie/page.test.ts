@@ -118,7 +118,7 @@ describe('Import from Mealie', () => {
 
   beforeEach(() => {
     network.reset();
-    session.me = { ...ME, role: 'member' };
+    session.me = { ...ME, role: 'admin' };
   });
 
   afterEach(() => {
@@ -129,6 +129,52 @@ describe('Import from Mealie', () => {
     vi.unstubAllGlobals();
     network.reset();
     session.me = null;
+  });
+
+  // Round 2 (review 2): a member sees where the import is, without any button that calls an
+  // admin-only route (the server refuses them anyway).
+  describe('a member', () => {
+    const buttons = () =>
+      page
+        .getByRole('button')
+        .elements()
+        .map((b) => b.textContent?.trim());
+
+    beforeEach(() => {
+      session.me = { ...ME, role: 'member' };
+    });
+
+    for (const [name, width] of [
+      ['on a phone', 390],
+      ['on a computer', 1300]
+    ] as const) {
+      it(`start ${name}: says only the admin does it, no way to choose a file`, async () => {
+        await open({ 'GET /mealie-imports/current': [200, { current: null }] }, width);
+        await expect.element(page.getByTestId('mealie-admins-only')).toBeVisible();
+        expect(buttons().join('|')).not.toMatch(/Choose/);
+      });
+
+      it(`preview ${name}: shows what is in the file, with no Cancel, Bring in or Change`, async () => {
+        await open({ 'GET /mealie-imports/current': [200, { current: READY }] }, width);
+        await expect.element(page.getByTestId('mealie-admins-only')).toBeVisible();
+        expect(buttons().join('|')).not.toMatch(/Cancel|Bring in \d|Change|Choose/);
+      });
+
+      it(`done ${name}: shows what came in, with no Undo, Save all or Import another`, async () => {
+        await open({ 'GET /mealie-imports/current': [200, { current: DONE() }] }, width);
+        await expect.element(page.getByText('3 recipes brought in')).toBeVisible();
+        expect(buttons().join('|')).not.toMatch(/Undo|Save all|Import another/);
+      });
+    }
+
+    it('on a computer the table’s tick boxes and the photos switch are off', async () => {
+      await open({ 'GET /mealie-imports/current': [200, { current: READY }] }, 1300);
+      await expect.element(page.getByRole('table')).toBeVisible();
+      for (const box of page.getByRole('checkbox').elements()) {
+        expect((box as HTMLInputElement).disabled).toBe(true);
+      }
+      await expect.element(page.getByRole('switch', { name: 'Bring in photos' })).toBeDisabled();
+    });
   });
 
   describe('on a phone', () => {

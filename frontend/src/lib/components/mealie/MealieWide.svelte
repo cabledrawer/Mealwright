@@ -7,6 +7,7 @@
   import Switch from '../Switch.svelte';
   import type { MealieFlow, Step } from '#lib/mealieFlow.svelte.js';
   import { network } from '#lib/network.svelte.js';
+  import { ADMINS_ONLY } from '#lib/yourDataWords.js';
   import {
     LEAD_WIDE,
     NOTE_FAILED,
@@ -55,7 +56,7 @@
     event.preventDefault();
     dragging = false;
     const file = event.dataTransfer?.files?.[0];
-    if (file && !flow.busy && !network.offline) void flow.send(file);
+    if (file && flow.admin && !flow.busy && !network.offline) void flow.send(file);
   }
 
   /** Lower case, no accents: "Pâté" finds "pate" (as Recipes' own search). */
@@ -114,28 +115,32 @@
     <section class="dcard">
       <h2>Import from Mealie</h2>
       <p class="sub">{LEAD_WIDE}</p>
-      <div
-        class="drop"
-        class:dragging
-        role="group"
-        aria-label="Drop the Mealie backup here"
-        ondragover={(event) => {
-          event.preventDefault();
-          dragging = true;
-        }}
-        ondragleave={() => (dragging = false)}
-        ondrop={dropped}
-      >
-        <strong>Drop the Mealie backup (.zip) here</strong>
-        <span class="sub">or</span>
-        <button
-          type="button"
-          class="btn"
-          disabled={flow.busy || offline}
-          onclick={() => picker?.click()}
-          >{flow.sending ? 'Reading the file…' : 'Choose file…'}</button
+      {#if flow.admin}
+        <div
+          class="drop"
+          class:dragging
+          role="group"
+          aria-label="Drop the Mealie backup here"
+          ondragover={(event) => {
+            event.preventDefault();
+            dragging = true;
+          }}
+          ondragleave={() => (dragging = false)}
+          ondrop={dropped}
         >
-      </div>
+          <strong>Drop the Mealie backup (.zip) here</strong>
+          <span class="sub">or</span>
+          <button
+            type="button"
+            class="btn"
+            disabled={flow.busy || offline}
+            onclick={() => picker?.click()}
+            >{flow.sending ? 'Reading the file…' : 'Choose file…'}</button
+          >
+        </div>
+      {:else}
+        <p class="sub" data-testid="mealie-admins-only">{ADMINS_ONLY}</p>
+      {/if}
       {@render problem()}
       <div class="two">
         <div>
@@ -162,13 +167,15 @@
     <section class="dcard">
       <div class="head">
         <h2>{job.file_name} <span class="sub light">· {fileWords(job)}</span></h2>
-        <button
-          type="button"
-          class="btn2"
-          disabled={flow.busy || offline}
-          onclick={() => picker?.click()}
-          >{flow.sending ? 'Reading the file…' : 'Choose another file'}</button
-        >
+        {#if flow.admin}
+          <button
+            type="button"
+            class="btn2"
+            disabled={flow.busy || offline}
+            onclick={() => picker?.click()}
+            >{flow.sending ? 'Reading the file…' : 'Choose another file'}</button
+          >
+        {/if}
       </div>
       <div class="stats four">
         <div class="stat">
@@ -239,7 +246,7 @@
                     type="checkbox"
                     aria-label="Bring in {recipe.name}"
                     checked={!recipe.already && !flow.leaveOut.has(recipe.key)}
-                    disabled={recipe.already || flow.busy}
+                    disabled={recipe.already || flow.busy || !flow.admin}
                     onchange={(event) => flow.toggle(recipe.key, event.currentTarget.checked)}
                   />
                 </label>
@@ -267,26 +274,34 @@
               >{photosWords(preview)}</small
             ></span
           >
-          <Switch bind:checked={flow.photos} labelledby="mealie-photos-wide" />
+          <Switch
+            bind:checked={flow.photos}
+            labelledby="mealie-photos-wide"
+            disabled={!flow.admin}
+          />
         </div>
       {/if}
       {#if tooMany}<p class="sub" data-testid="mealie-too-many">{tooMany}</p>{/if}
       {#if leftOut}<p class="sub">{leftOut}</p>{/if}
       {@render problem()}
-      <div class="buttons">
-        <button
-          type="button"
-          class="btn2"
-          disabled={flow.busy || offline}
-          onclick={() => void flow.cancel()}>Cancel</button
-        >
-        <button
-          type="button"
-          class="btn"
-          disabled={flow.busy || offline || flow.chosen === 0}
-          onclick={() => void flow.start()}>{bringInWords(flow.chosen)}</button
-        >
-      </div>
+      {#if flow.admin}
+        <div class="buttons">
+          <button
+            type="button"
+            class="btn2"
+            disabled={flow.busy || offline}
+            onclick={() => void flow.cancel()}>Cancel</button
+          >
+          <button
+            type="button"
+            class="btn"
+            disabled={flow.busy || offline || flow.chosen === 0}
+            onclick={() => void flow.start()}>{bringInWords(flow.chosen)}</button
+          >
+        </div>
+      {:else}
+        <p class="sub" data-testid="mealie-admins-only">{ADMINS_ONLY}</p>
+      {/if}
     </section>
   {:else if flow.step === 'running' && job}
     <section class="dcard">
@@ -355,12 +370,14 @@
       <section class="dcard">
         <div class="head">
           <h2>{recipesWords(job.counts.drafts)} to check</h2>
-          <button
-            type="button"
-            class="btn2"
-            disabled={flow.busy || offline}
-            onclick={() => void flow.saveAll()}>{saveAllWords()}</button
-          >
+          {#if flow.admin}
+            <button
+              type="button"
+              class="btn2"
+              disabled={flow.busy || offline}
+              onclick={() => void flow.saveAll()}>{saveAllWords()}</button
+            >
+          {/if}
         </div>
         <p class="sub">{UNREAD_LEAD}</p>
         <table>
@@ -396,19 +413,23 @@
         {/if}
       </section>
     {/if}
-    <section class="dcard">
-      <div class="row">
-        <span class="lbl">Undo this import<small>{undoWords(job)}</small></span>
-        <button
-          type="button"
-          class="btn2"
-          disabled={flow.busy || offline}
-          onclick={() => void flow.undo()}>Undo</button
-        >
-      </div>
-    </section>
+    {#if flow.admin}
+      <section class="dcard">
+        <div class="row">
+          <span class="lbl">Undo this import<small>{undoWords(job)}</small></span>
+          <button
+            type="button"
+            class="btn2"
+            disabled={flow.busy || offline}
+            onclick={() => void flow.undo()}>Undo</button
+          >
+        </div>
+      </section>
+    {/if}
     {@render problem()}
-    <button type="button" class="link" onclick={() => flow.another()}>Import another file</button>
+    {#if flow.admin}
+      <button type="button" class="link" onclick={() => flow.another()}>Import another file</button>
+    {/if}
   {/if}
 </div>
 

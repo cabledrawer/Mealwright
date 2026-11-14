@@ -6,6 +6,7 @@
   import Switch from '../Switch.svelte';
   import type { MealieFlow } from '#lib/mealieFlow.svelte.js';
   import { network } from '#lib/network.svelte.js';
+  import { ADMINS_ONLY } from '#lib/yourDataWords.js';
   import {
     LEAD,
     MENU_PATH,
@@ -122,25 +123,31 @@
       <span>{READS_ONLY}</span>
     </div>
     {@render problem()}
-    <div class="foot">
-      <button
-        type="button"
-        class="primary"
-        disabled={flow.busy || offline}
-        onclick={() => picker?.click()}
-        >{flow.sending ? 'Reading the file…' : 'Choose the Mealie file (.zip)'}</button
-      >
-    </div>
+    {#if flow.admin}
+      <div class="foot">
+        <button
+          type="button"
+          class="primary"
+          disabled={flow.busy || offline}
+          onclick={() => picker?.click()}
+          >{flow.sending ? 'Reading the file…' : 'Choose the Mealie file (.zip)'}</button
+        >
+      </div>
+    {:else}
+      <p class="fine" data-testid="mealie-admins-only">{ADMINS_ONLY}</p>
+    {/if}
   {:else if flow.step === 'preview' && job && preview}
     <div class="file">
       <span class="ic"><Icon name="note" size={18} stroke={2.2} /></span>
       <span class="rn"><b>{job.file_name}</b><span>{fileWords(job)}</span></span>
-      <button
-        type="button"
-        class="small"
-        disabled={flow.busy || offline}
-        onclick={() => picker?.click()}>{flow.sending ? 'Reading…' : 'Change'}</button
-      >
+      {#if flow.admin}
+        <button
+          type="button"
+          class="small"
+          disabled={flow.busy || offline}
+          onclick={() => picker?.click()}>{flow.sending ? 'Reading…' : 'Change'}</button
+        >
+      {/if}
     </div>
     <h2>In this file</h2>
     <ul class="card">
@@ -201,27 +208,31 @@
           <span class="rn"
             ><b id="mealie-photos">Bring in photos</b><span>{photosWords(preview)}</span></span
           >
-          <Switch bind:checked={flow.photos} labelledby="mealie-photos" />
+          <Switch bind:checked={flow.photos} labelledby="mealie-photos" disabled={!flow.admin} />
         </div>
       </div>
     {/if}
     {#if tooMany}<p class="fine" data-testid="mealie-too-many">{tooMany}</p>{/if}
     {#if leftOut}<p class="fine">{leftOut}</p>{/if}
     {@render problem()}
-    <div class="foot">
-      <button
-        type="button"
-        class="outline"
-        disabled={flow.busy || offline}
-        onclick={() => void flow.cancel()}>Cancel</button
-      >
-      <button
-        type="button"
-        class="primary grow"
-        disabled={flow.busy || offline || flow.chosen === 0}
-        onclick={() => void flow.start()}>{bringInWords(flow.chosen)}</button
-      >
-    </div>
+    {#if flow.admin}
+      <div class="foot">
+        <button
+          type="button"
+          class="outline"
+          disabled={flow.busy || offline}
+          onclick={() => void flow.cancel()}>Cancel</button
+        >
+        <button
+          type="button"
+          class="primary grow"
+          disabled={flow.busy || offline || flow.chosen === 0}
+          onclick={() => void flow.start()}>{bringInWords(flow.chosen)}</button
+        >
+      </div>
+    {:else}
+      <p class="fine" data-testid="mealie-admins-only">{ADMINS_ONLY}</p>
+    {/if}
   {:else if flow.step === 'running' && job}
     <div class="running">
       <span class="big">Bringing in recipes…</span>
@@ -303,21 +314,25 @@
         </div>
       {/if}
     </div>
-    <div class="card">
-      <div class="r">
-        <span class="rn"><b>Undo this import</b><span>{undoWords(job)}</span></span>
-        <button
-          type="button"
-          class="small"
-          disabled={flow.busy || offline}
-          onclick={() => void flow.undo()}>Undo</button
-        >
+    {#if flow.admin}
+      <div class="card">
+        <div class="r">
+          <span class="rn"><b>Undo this import</b><span>{undoWords(job)}</span></span>
+          <button
+            type="button"
+            class="small"
+            disabled={flow.busy || offline}
+            onclick={() => void flow.undo()}>Undo</button
+          >
+        </div>
       </div>
-    </div>
+    {/if}
     {@render problem()}
-    <button type="button" class="link another" onclick={() => flow.another()}
-      >Import another file</button
-    >
+    {#if flow.admin}
+      <button type="button" class="link another" onclick={() => flow.another()}
+        >Import another file</button
+      >
+    {/if}
     <div class="foot">
       <a class="outline grow" href={resolve('/(app)/recipes')}>Go to Recipes</a>
       {#if job.counts.drafts}
