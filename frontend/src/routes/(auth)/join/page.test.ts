@@ -13,7 +13,7 @@ import '#lib/styles/base.css';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), beforeNavigate: vi.fn() }));
 
-const LINK = { expires_at: '2026-11-12T10:00:00Z', min_password: 12 };
+const LINK = { kind: 'join', expires_at: '2026-11-12T10:00:00Z', min_password: 12 };
 const SECRET = 'Xp4secret-token_9';
 
 describe('Join with a sign-in link', () => {

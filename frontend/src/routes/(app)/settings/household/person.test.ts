@@ -40,7 +40,8 @@ const pendingJoss = {
     has_password: false,
     signs_in: false,
     link_pending: true,
-    link_used_at: null
+    link_used_at: null,
+    reset_pending: false
   }
 };
 
@@ -55,7 +56,8 @@ const ssoJoss = {
     has_password: false,
     signs_in: true,
     link_pending: false,
-    link_used_at: null
+    link_used_at: null,
+    reset_pending: false
   }
 };
 

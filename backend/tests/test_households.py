@@ -334,6 +334,8 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("DELETE", "/api/v1/people/{member_id}"): None,
     ("POST", "/api/v1/people/{member_id}/login"): {"username": "joss"},
     ("DELETE", "/api/v1/people/{member_id}/login"): None,
+    # Reset password (0.9.5 Pe1). Also tried in test_reset_password.py.
+    ("POST", "/api/v1/people/{member_id}/reset-password"): None,
     # Signing out one device (0.9 A2): another household's sign-in is "not found".
     ("DELETE", "/api/v1/me/sessions/{sign_in_id}"): None,
     # Deleting an API token (0.9 O2): another household's token is "not found".

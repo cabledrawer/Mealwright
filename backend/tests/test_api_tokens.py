@@ -196,6 +196,7 @@ def test_a_token_never_changes_people_roles_privacy_or_sign_in(kitchen: TestClie
         app.delete(f"{API}/people/{wren}"),
         app.post(f"{API}/people/{wren}/login", json={"username": "wren2"}),
         app.delete(f"{API}/people/{wren}/login"),
+        app.post(f"{API}/people/{wren}/reset-password"),
         app.put(f"{API}/people/ask-whos-this", json={"on": True}),
         app.put(f"{API}/privacy/switches/recipe_import", json={"on": True}),
         app.post(f"{API}/privacy/own-network", json={"value": "wiki.home"}),
@@ -415,6 +416,7 @@ NEVER_ROUTES = [
     ("DELETE", "/people/{wren}", None),
     ("POST", "/people/{wren}/login", {"username": "wren2"}),
     ("DELETE", "/people/{wren}/login", None),
+    ("POST", "/people/{wren}/reset-password", None),
     ("PUT", "/people/ask-whos-this", {"on": True}),
     # Privacy (and the update check, which connects out)
     ("PUT", "/privacy/switches/{switch}", {"on": True}),

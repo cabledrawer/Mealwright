@@ -80,6 +80,7 @@ def test_everyone_sees_the_people_and_only_an_admin_can_change_them(kitchen: Tes
         "signs_in": True,
         "link_pending": False,
         "link_used_at": None,
+        "reset_pending": False,
     }
     assert me["portion_quarters"] == 4
     assert other["name"] == "Wren" and other["is_me"] is False
@@ -405,6 +406,7 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
         "signs_in": False,
         "link_pending": True,
         "link_used_at": None,
+        "reset_pending": False,
     }
     note = _newest(kitchen)
     assert note["summary"] == "Made a sign-in link for Joss" and note["can_undo"] is False
@@ -418,7 +420,8 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
     joss_client = _fresh(kitchen)
     page = ok(_look(joss_client, token))
     # Nobody is named before the password is set (cabledrawer 13 Nov).
-    assert set(page) == {"expires_at", "min_password"} and page["min_password"] == 12
+    assert set(page) == {"kind", "expires_at", "min_password"} and page["min_password"] == 12
+    assert page["kind"] == "join"
     short = joss_client.post(f"{API}/join", json={"token": token, "password": "eleven char"})
     assert short.status_code == 422
     joined = joss_client.post(

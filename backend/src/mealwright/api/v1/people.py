@@ -79,6 +79,8 @@ class LoginOut(BaseModel):
     # When a sign-in or Reset password link last set this password (0.9.5; cabledrawer 13 Nov:
     # "Link used today 21:40", so an admin can spot a link someone else used).
     link_used_at: datetime | None
+    # An unused Reset password link that hasn't run out (Pe1).
+    reset_pending: bool
 
 
 class HouseholdPerson(BaseModel):
@@ -119,6 +121,7 @@ def _person(kitchen: Here, member: Member) -> HouseholdPerson:
             has_password=bool(login.password_hash),
             signs_in=people.signs_in(login),
             link_pending=people.link_pending(kitchen, login),
+            reset_pending=people.link_pending(kitchen, login, people.RESET),
             link_used_at=as_utc(login.link_used_at) if login.link_used_at else None,
         ),
         is_me=member.id == kitchen.login.member_id,
@@ -267,8 +270,8 @@ class LoginIn(BaseModel):
 
 
 class LinkOut(BaseModel):
-    # The path of the sign-in link, "/join#<token>": shown once, never stored. The secret
-    # follows a `#`, so opening the link never sends it to the server (cabledrawer 13 Nov).
+    # The path of the link, "/join#<token>" or "/reset#<token>": shown once, never stored. The
+    # secret follows a `#`, so opening the link never sends it to the server (cabledrawer 13 Nov).
     path: str
     expires_at: datetime
 
@@ -285,6 +288,23 @@ def give_login(member_id: StoredInt, body: LoginIn, kitchen: Here) -> LinkOut:
     kitchen.db.commit()
     log.info("Sign-in link made for %s", body.username)
     return LinkOut(path=f"/join#{token}", expires_at=as_utc(link.expires_at))
+
+
+@router.post("/people/{member_id}/reset-password", status_code=status.HTTP_201_CREATED)
+def reset_password(member_id: StoredInt, kitchen: Here) -> LinkOut:
+    """Reset password: a one-time link, for 24 hours, where the person chooses a new password;
+    their recipes, plans and history stay as they are. Asking again makes a new link and the old
+    one stops working, as does any unused sign-in link. Not for your own password. Admins
+    only."""
+    # Pe1, cabledrawer 13 Nov.
+    kitchen.admin_only(Action.PEOPLE)
+    lock_db(kitchen.db, kitchen.household)
+    member = people.mine(kitchen, member_id)
+    token, link = people.give_reset_link(kitchen, member)
+    kitchen.idempotency_key = None  # a retry makes a new link: the token is never stored
+    kitchen.db.commit()
+    log.info("Reset link made for %s", member.name)
+    return LinkOut(path=f"/reset#{token}", expires_at=as_utc(link.expires_at))
 
 
 @router.delete("/people/{member_id}/login", status_code=status.HTTP_204_NO_CONTENT)
@@ -390,6 +410,8 @@ class LinkSecretIn(BaseModel):
 
 
 class JoinOut(BaseModel):
+    # "join": a sign-in link, choosing a first password; "reset": a Reset password link.
+    kind: Literal["join", "reset"]
     expires_at: datetime
     min_password: int
 
@@ -410,7 +432,11 @@ def join_link(body: LinkSecretIn, db: Db) -> JoinOut:
     works, and until when. No name or username. Needs no sign-in."""
     # No names before the password is set: cabledrawer 13 Nov.
     link, _login, _member = _link(db, body.token)
-    return JoinOut(expires_at=as_utc(link.expires_at), min_password=JOIN_MIN_PASSWORD)
+    return JoinOut(
+        kind="reset" if link.kind == people.RESET else "join",
+        expires_at=as_utc(link.expires_at),
+        min_password=JOIN_MIN_PASSWORD,
+    )
 
 
 class JoinIn(LinkSecretIn):
@@ -435,9 +461,19 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
     try:
         login.password_hash = hash_password(body.password)
         login.link_used_at = utcnow()
+        if link.kind == people.RESET:
+            # Like a password changed in Settings: the Person page's "Set" date, and the
+            # username's pause doesn't keep them out of it. Their sessions stay as they are
+            # (proposed, for cabledrawer): an admin who suspects someone else removes the person.
+            login.password_changed_at = login.link_used_at
         db.commit()
     except Exception:
         people.give_back_link(db, link)
         raise
-    log.info("Joined with a sign-in link: %s from %s", login.username, client_address(request))
+    how = (
+        "Password reset with a reset link"
+        if link.kind == people.RESET
+        else "Joined with a sign-in link"
+    )
+    log.info("%s: %s from %s", how, login.username, client_address(request))
     return JoinDone(username=login.username)

@@ -83,6 +83,9 @@ KINDS = ("person_added", "person_changed", "person_removed", "whos_this_switch")
 # A sign-in link was made: only there to be read in Recent changes, with no Undo of its own.
 LINK_KIND = "person_login"
 JOIN_FOR = timedelta(hours=24)  # cabledrawer 12 Nov
+# The two kinds of link (JoinLink.kind): a sign-in link sets a new login's first password; a
+# Reset password link (Pe1, cabledrawer 13 Nov) sets a new one for a login that has one.
+JOIN, RESET = "join", "reset"
 
 
 def _refused(code: str, detail: str) -> Problem:
@@ -373,7 +376,20 @@ def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tu
             raise last_admin(member)  # pragma: no cover (the admin doing it signs in)
         login.username, login.role = username, role
     kitchen.db.flush()
-    # Every link of this login goes, even one a join has claimed and is still hashing for.
+    token, link = _new_link(kitchen, login, JOIN)
+    record(
+        kitchen,
+        LINK_KIND,
+        f"Made a sign-in link for {member.name}",  # cabledrawer 12 Nov
+        None,
+        None,
+    )
+    return token, link
+
+
+def _new_link(kitchen: Kitchen, login: Login, kind: str) -> tuple[str, JoinLink]:
+    """A new one-time link for this login, for 24 hours. Every other link of the login goes,
+    of either kind, even one a request has claimed and is still hashing for."""
     kitchen.db.execute(delete(JoinLink).where(JoinLink.login_id == login.id))
     token = secrets.token_urlsafe(32)
     made = utcnow()
@@ -383,13 +399,39 @@ def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tu
         token_hash=_token_hash(token),
         created_at=made,
         expires_at=made + JOIN_FOR,
+        kind=kind,
     )
     kitchen.db.add(link)
     kitchen.db.flush()
+    return token, link
+
+
+def give_reset_link(kitchen: Kitchen, member: Member) -> tuple[str, JoinLink]:
+    """Reset password (Pe1, cabledrawer 13 Nov): a one-time link, for 24 hours, where the person
+    chooses a new password. Their recipes, plans and history stay as they are. A new link
+    cancels the old one, and any unused sign-in link. Returns the link's token (shown once,
+    never stored) and the link."""
+    login = login_of(kitchen, member)
+    if login is None:
+        raise _refused("no_login", f"{member.name} doesn’t sign in.")  # proposed, for cabledrawer
+    if login.id == kitchen.login.id:
+        # Never for yourself (proposed, for cabledrawer): you change your own password in Settings,
+        # and the only admin who has forgotten theirs uses reset-admin on the server.
+        raise _refused("own_password", "To change your own password, use Settings → Sign-in.")
+    if not login.password_hash:
+        # Someone who hasn't chosen a password yet gets a new sign-in link instead, and someone
+        # who only uses single sign-on has none here (proposed, for cabledrawer).
+        raise _refused(
+            "no_password",
+            f"{member.name} has no password here to reset."
+            if signs_in(login)
+            else f"{member.name} hasn’t chosen a password yet. Make a new link instead.",
+        )
+    token, link = _new_link(kitchen, login, RESET)
     record(
         kitchen,
         LINK_KIND,
-        f"Made a sign-in link for {member.name}",  # cabledrawer 12 Nov
+        f"Made a reset link for {member.name}",  # proposed, for cabledrawer
         None,
         None,
     )
@@ -411,11 +453,13 @@ def take_back_login(kitchen: Kitchen, member: Member) -> None:
     kitchen.db.flush()
 
 
-def link_pending(kitchen: Kitchen, login: Login) -> bool:
+def link_pending(kitchen: Kitchen, login: Login, kind: str = JOIN) -> bool:
+    """An unused link of this kind for the login that hasn't run out."""
     return (
         kitchen.db.scalar(
             select(JoinLink.id).where(
                 JoinLink.login_id == login.id,
+                JoinLink.kind == kind,
                 JoinLink.used_at.is_(None),
                 JoinLink.expires_at > utcnow(),
             )
@@ -425,12 +469,16 @@ def link_pending(kitchen: Kitchen, login: Login) -> bool:
 
 
 def find_link(db: DbSession, token: str) -> tuple[JoinLink, Login, Member] | None:
-    """The unused, unexpired link with this token, its login and its person (not removed)."""
+    """The unused, unexpired link with this token, its login and its person (not removed). A
+    sign-in link is only for a login that doesn't sign in yet; a Reset password link only for
+    one that has a password."""
     link = db.scalar(select(JoinLink).where(JoinLink.token_hash == _token_hash(token)))
     if link is None or link.used_at is not None or as_utc(link.expires_at) <= utcnow():
         return None
     login = db.get(Login, link.login_id)
-    if login is None or signs_in(login) or login.member_id is None:
+    if login is None or login.member_id is None:
+        return None
+    if (link.kind == RESET and not login.password_hash) or (link.kind != RESET and signs_in(login)):
         return None
     member = db.get(Member, login.member_id)
     if member is None or member.removed_at is not None:

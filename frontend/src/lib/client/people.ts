@@ -22,6 +22,8 @@ export interface PersonLogin {
   link_pending: boolean;
   /** When a sign-in or Reset password link last set the password (UTC), or null. */
   link_used_at: string | null;
+  /** An unused Reset password link that hasn't run out. */
+  reset_pending: boolean;
 }
 
 export interface Person {
@@ -78,6 +80,8 @@ export interface WhosThis {
 
 /** What the link page learns before the password is set: no name or username (cabledrawer 13 Nov). */
 export interface JoinLink {
+  /** "join": a sign-in link (a first password); "reset": a Reset password link. */
+  kind: 'join' | 'reset';
   expires_at: string;
   min_password: number;
 }
@@ -101,6 +105,9 @@ export const giveLogin = (id: number, username: string, role: Role) =>
   api<SignInLink>('POST', `/people/${id}/login`, { username, role });
 
 export const takeBackLogin = (id: number) => api<void>('DELETE', `/people/${id}/login`);
+
+/** Reset password (Pe1): a one-time link, for 24 hours, where the person chooses a new one. */
+export const resetPassword = (id: number) => api<SignInLink>('POST', `/people/${id}/reset-password`);
 
 export const setAskWhosThis = (on: boolean) => api<People>('PUT', '/people/ask-whos-this', { on });
 
