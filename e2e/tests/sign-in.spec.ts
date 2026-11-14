@@ -107,8 +107,18 @@ test.describe('first run', () => {
     });
     expect(link.status(), await link.text()).toBe(201);
     const path = ((await link.json()) as { path: string }).path;
-    const joined = await page.request.post(`/api/v1${path}`, { data: { password: ADMIN.password } });
-    expect(joined.status(), await joined.text()).toBe(204);
+    // A link is used signed out, with its secret in the body (Pe2, 0.9.5).
+    const token = path.replace(/^\/join#/, '');
+    const signedOut = await request.newContext({
+      baseURL: local(PORTS.fresh),
+      storageState: { cookies: [], origins: [] },
+    });
+    try {
+      const joined = await signedOut.post('/api/v1/join', { data: { token, password: ADMIN.password } });
+      expect(joined.status(), await joined.text()).toBe(200);
+    } finally {
+      await signedOut.dispose();
+    }
 
     const other = await browser.newContext({
       baseURL: local(PORTS.fresh),
