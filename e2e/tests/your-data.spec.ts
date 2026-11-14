@@ -70,6 +70,33 @@ test('Export downloads everything as one file', async ({ page }) => {
   expect((await download).suggestedFilename()).toMatch(/^mealwright-export-\d{4}-\d\d-\d\d\.zip$/);
 });
 
+test('Export with a password saves an encrypted file, under the page\'s own security rules', async ({ page }) => {
+  const refused: string[] = [];
+  page.on('console', (message) => {
+    if (/content security policy|refused to/i.test(message.text())) refused.push(message.text());
+  });
+  await page.goto('/settings/your-data');
+  await page.getByLabel('Password (optional)').fill('noor and lorna 2026');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export' }).click();
+  const saved = await download;
+  expect(saved.suggestedFilename()).toMatch(/^mealwright-export-\d{4}-\d\d-\d\d\.zip\.mwenc$/);
+  const path = await saved.path();
+  const { readFileSync } = await import('node:fs');
+  const bytes = readFileSync(path);
+  expect(bytes.subarray(0, 8).toString('latin1')).toBe('MWEXPORT');
+  expect(bytes.includes(Buffer.from('mealwright-export.json'))).toBe(false);
+  await expect(page.getByLabel('Password (optional)')).toHaveValue('');
+  expect(refused).toEqual([]);
+});
+
+test('a password that is too short is refused on the page and nothing is saved', async ({ page }) => {
+  await page.goto('/settings/your-data');
+  await page.getByLabel('Password (optional)').fill('short');
+  await page.getByRole('button', { name: 'Export' }).click();
+  await expect(page.getByRole('alert')).toHaveText('Use a password of 8 to 1,024 characters.');
+});
+
 test('How to restore has the steps, and goes back to Your data', async ({ page }) => {
   await page.goto('/settings/your-data');
   await page.getByRole('link', { name: /How to restore/ }).click();
@@ -144,5 +171,23 @@ test('screenshots, dark (by hand only)', async ({ page }) => {
     await page.goto('/settings/your-data/delete');
     await expect(page.getByRole('button', { name: 'Confirm at your sign-in server' })).toBeVisible();
     await page.screenshot({ path: join(dir, `delete-everything-sso-${width}.png`), fullPage: true });
+  }
+});
+
+test('screenshots of the export password, dark (by hand only)', async ({ page }) => {
+  test.skip(!process.env.E2E_SHOTS_DIR || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+  const dir = process.env.E2E_SHOTS_DIR!;
+  mkdirSync(dir, { recursive: true });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  for (const width of [428, 768, 1100, 1300]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/settings/your-data');
+    await page.getByLabel('Password (optional)').fill('noor and lorna');
+    await page.locator('#export').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(dir, `your-data-export-${width}.png`), fullPage: true });
+    await page.getByLabel('Password (optional)').fill('short');
+    await page.getByRole('button', { name: 'Export' }).click();
+    await expect(page.getByRole('alert')).toBeVisible();
+    await page.screenshot({ path: join(dir, `your-data-export-too-short-${width}.png`), fullPage: true });
   }
 });
