@@ -48,12 +48,14 @@ Below, `<folder>` is the folder holding `compose.yaml` and the `data` folder (th
 - **It makes a safety copy first.** Before it changes the database, it copies it to `data/backups/pre-upgrade-<revision>-<date>-<time>.db` (the date and time in UTC). Once the upgrade has worked, it keeps the newest three of these. A new install, or a start with nothing to upgrade, makes no copy.
 - **If the copy can't be made** (a full disk, a folder it can't write), Mealwright doesn't upgrade and doesn't start. The log says why. Fix that, then start it again.
 - **If the upgrade itself fails,** Mealwright doesn't start. The log says "Database upgrade failed. Your data from before is safe in …" and names the clean copy. The file `data/backups/upgrade-failed` also names it. While an upgrade keeps failing, no new copy is made and none is deleted, so the clean one stays safe.
-- **The safety copy holds only the database,** not the photos. That is why you back up the whole data folder yourself as well.
+- **The safety copy holds the photos too,** unless an admin switched "Include photos" off in Settings → Your data (it is on by default). They are in a folder beside the copy, `data/backups/pre-upgrade-<revision>-<date>-<time>-photos`, made with hard links, so they take almost no extra room. The copy is not a replacement for a copy of the whole data folder on another disk, which is the only protection if the disk is lost.
 - **Mealwright runs as one worker.** An upgrade doesn't change that. See [install.md](install.md).
 
 ## Going back
 
 An older version can't read a database a newer version has changed, and Mealwright has no downgrade command. Going back means putting back the backup you took before upgrading, **together with the old image**. Anything you changed after upgrading is lost. One thing to know: if you go back to 0.9.0 and then upgrade again, a login number from before can be used again, because 0.9.0 doesn't remember the ones it used.
+
+**After going back to 0.8, Undo of 0.9 people changes does nothing** (cabledrawer 13 Nov). If the 0.9 changes to people (added, removed, a sign-in link made) are still in Recent changes because the data wasn't put back from a backup, 0.8 shows an Undo for them, says "Undone." and changes nothing. Going back from a backup avoids this: the changes are not there at all.
 
 1. Stop it:
 
@@ -78,7 +80,7 @@ An older version can't read a database a newer version has changed, and Mealwrig
    docker compose logs -f
    ```
 
-**If you have no backup of the whole folder,** Mealwright's own copies hold the database only. Follow [restore.md](restore.md): it says how to put one of the `pre-upgrade-…` or `backup-…` files in place. The photos stay where they are. Then set the old version in `compose.yaml` as above.
+**If you have no backup of the whole folder,** Mealwright's own copies hold the database, and the photos too when "Include photos" was on. Follow [restore.md](restore.md): it says how to put one of the `pre-upgrade-…` or `backup-…` files in place, and its photos folder with it. Without a photos folder, the photos stay where they are. Then set the old version in `compose.yaml` as above.
 
 **If the upgrade failed and Mealwright won't start,** the data is still the old version's, with a clean copy beside it. Set the old version in `compose.yaml` and start it. If it still won't start, use the copy the log names, as in [restore.md](restore.md).
 
