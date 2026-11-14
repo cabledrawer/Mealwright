@@ -949,6 +949,10 @@ class Identity:
     refresh_token: str | None
     # When the person signed in at the sign-in server (seconds since 1970), if it said.
     auth_time: int | None = None
+    # The username as the sign-in server sent it, with only the outer spaces trimmed: what the
+    # automatic link compares (`username` is tidied for display, storing and logs). None where
+    # not given (then `username` is all there is).
+    raw_username: str | None = None
 
 
 def _client_auth(
@@ -1048,6 +1052,7 @@ def finish(gate: OutboundGate, flow: Flow, client: Client, code: str) -> Identit
         # a line break in a username forged a log line and reached "Who is this?" and Recent
         # changes (security pass, fix round 1).
         username=tidy_one_line(text("preferred_username") or "") or None,
+        raw_username=text("preferred_username"),
         email=tidy_one_line(text("email") or "") or None,
         name=tidy_one_line(text("name") or "") or None,
         groups=groups_in(claims, client.group_claim),

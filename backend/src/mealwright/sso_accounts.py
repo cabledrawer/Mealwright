@@ -44,10 +44,19 @@ from sqlalchemy.orm import sessionmaker
 from mealwright import api_tokens, own_network, sso
 from mealwright.auth import SSO_UNCHECKED_FOR, now
 from mealwright.events import Broadcaster
-from mealwright.models import Login, Member, Session, SsoAccount, SsoSettings
+from mealwright.models import (
+    Change,
+    JoinLink,
+    Login,
+    Member,
+    Session,
+    SsoAccount,
+    SsoSettings,
+    utcnow,
+)
 from mealwright.names import cut_text, fold, tidy_one_line
 from mealwright.outbound import Connection, OutboundGate, switches
-from mealwright.people import admin_can_sign_in, drop_admin_links, drop_join_links
+from mealwright.people import LINK_KIND, admin_can_sign_in, drop_admin_links, drop_join_links
 from mealwright.roles import ADMIN, MEMBER
 from mealwright.secret_box import SecretUnreadable, open_sealed, seal
 from mealwright.sso import Client, Identity, SsoFailed
@@ -394,18 +403,46 @@ def same_username(identity: Identity) -> str | None:
     return value or None
 
 
-def never_signed_in(login: Login) -> bool:
+def has_live_link(db: DbSession, login: Login) -> bool:
+    """A sign-in or Reset password link of this login that is unused and hasn't run out."""
+    return (
+        db.scalar(
+            select(JoinLink.id).where(
+                JoinLink.login_id == login.id,
+                JoinLink.used_at.is_(None),
+                JoinLink.expires_at > utcnow(),
+            )
+        )
+        is not None
+    )
+
+
+def never_signed_in(db: DbSession, login: Login) -> bool:
     """A login nobody has used: no password, no single sign-on link now, no sign-in link used
     and never signed in (which also covers one unlinked since). The sign-in server's username is
     only its own word for who someone is (a stranger's account named " lorna " would take over
     Lorna's login), so an exact match links automatically only for a login with nothing to
-    take over; any other waits in "Who is this?" for an admin."""
+    take over; any other waits in "Who is this?" for an admin. A sign-in or Reset link that is
+    open now counts as in use: someone holds it (round 2 security pass F3)."""
     return (
         not login.password_hash
         and login.sso_subject is None
         and login.last_sign_in_at is None
         and login.link_used_at is None
+        and not has_live_link(db, login)
     )
+
+
+def matching_username(identity: Identity) -> str | None:
+    """The username the automatic link compares: the sign-in server's own, with only the outer
+    spaces taken off, and only when tidying it (hidden and direction characters, line breaks,
+    runs of spaces) would change nothing: "lor<zero-width space>na" is not "lorna" (round 2
+    security pass F2). None otherwise."""
+    raw = identity.raw_username if identity.raw_username is not None else identity.username
+    value = (raw or "").strip()
+    if not value or value != same_username(identity):
+        return None
+    return value
 
 
 def _match(db: DbSession, row: SsoSettings, identity: Identity, role: str) -> Login | None:
@@ -417,7 +454,7 @@ def _match(db: DbSession, row: SsoSettings, identity: Identity, role: str) -> Lo
     when the groups make the newcomer an Admin too, as the setup test's link (proposed, for
     cabledrawer): a same-named account at the sign-in server that the groups make a Member never
     takes over an admin."""
-    username = same_username(identity)
+    username = matching_username(identity)
     if username is None:
         return None
     login = db.scalar(
@@ -425,7 +462,7 @@ def _match(db: DbSession, row: SsoSettings, identity: Identity, role: str) -> Lo
     )
     if login is None or login.shared or _removed(db, login):
         return None
-    if not never_signed_in(login):
+    if not never_signed_in(db, login):
         return None
     if login.role == ADMIN and role != ADMIN:
         return None
@@ -497,6 +534,28 @@ def _wait(db: DbSession, account: SsoAccount) -> NoReturn:
     raise Waiting(account)
 
 
+def _note_auto_link(db: DbSession, login: Login, account: SsoAccount) -> None:
+    """A line in Recent changes, as a link by hand writes one (proposed, for cabledrawer; round 2
+    security pass F3): nobody was asked, so it is the one place to see it happened."""
+    member = db.get(Member, login.member_id) if login.member_id is not None else None
+    name = member.name if member is not None else login.name
+    db.add(
+        Change(
+            household_id=login.household_id,
+            request="SSO first sign-in",
+            kind=LINK_KIND,
+            login_id=login.id,
+            login_name=login.name,
+            member_id=login.member_id,
+            at=utcnow(),
+            summary=f"Linked {name} to {account.username} at your sign-in server, automatically"[
+                :300
+            ],
+        )
+    )
+    db.flush()
+
+
 def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Path) -> Login:
     """The login this identity signs in as, with its role from the groups. On its first
     sign-in it is linked automatically only to the login with exactly its username (`_match`),
@@ -519,6 +578,7 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Pat
         account.waiting_since = None
         db.flush()
         log.info("Single sign-on: %s linked on first sign-in, same username", login.username)
+        _note_auto_link(db, login, account)
     if login.household_id != row.household_id or _removed(db, login):
         _refused_known(db, login, row, "removed", data_dir)
     if role is None:

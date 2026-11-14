@@ -3,6 +3,7 @@ doesn't work again when an admin unlinks them (0.9.5 Pe3/M2, open point A): "a n
 the old" holds for a link made by hand, an automatic link and a link an admin makes."""
 
 # ruff: noqa: F811, F401
+from datetime import timedelta
 from typing import Any
 
 from fake_idp import FakeProvider
@@ -11,7 +12,7 @@ from sqlalchemy import select
 from test_sso_api import API, admin, browser, fresh_cache, idp, sign_in
 from test_sso_unlink import _member_id, _unlink
 
-from mealwright.models import JoinLink
+from mealwright.models import JoinLink, utcnow
 
 
 def _lorna_with_a_sign_in_link(admin: TestClient) -> str:
@@ -32,16 +33,21 @@ def _link_works(admin: TestClient, token: str) -> bool:
     return answer.status_code == 200
 
 
-def test_an_automatic_link_ends_the_persons_unused_sign_in_link(
+def test_an_automatic_link_ends_the_persons_run_out_sign_in_link(
     admin: TestClient, idp: FakeProvider
 ) -> None:
+    """A live link now keeps the automatic link away (test_sso_auto_link.py); a link that ran
+    out doesn't, and the link goes, so Unlink can't bring anything back."""
     token = _lorna_with_a_sign_in_link(admin)
-    assert _link_works(admin, token)
+    with admin.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        for link in db.scalars(select(JoinLink)):
+            link.expires_at = utcnow() - timedelta(hours=1)
+        db.commit()
+    assert not _link_works(admin, token)
     answer, _ = sign_in(browser(admin), idp, sub="lorna-1", extra={"preferred_username": "lorna"})
     assert answer.status_code == 200, answer.text
     with admin.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         assert db.scalars(select(JoinLink)).all() == []
-    # Unlinked, she must not be able to use the old link to choose a password.
     assert _unlink(admin, _member_id(admin, "Lorna")).status_code == 200
     assert not _link_works(admin, token)
     joined = TestClient(admin.app, base_url="https://testserver").post(

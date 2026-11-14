@@ -1,5 +1,5 @@
 """The automatic link trusts the sign-in server's username only for a login nobody has used
-(security pass finding, fix round 1; proposed, for cabledrawer): an exact username match links at
+(security pass finding; cabledrawer 14 Nov): an exact username match links at
 first sign-in only when that login has no password, no link now, never signed in and used no
 sign-in link. Any other waits in "Who is this?" for an admin."""
 
@@ -94,3 +94,75 @@ def test_the_setup_tests_link_for_the_admin_still_works(
     """The admin has a password; the setup test and the admin's own confirmation link them."""
     _admin_linked(admin, idp)
     assert subject_of(admin, "tess") == "admin-1"
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "hidden",
+    ["lor​na", "lor­na", "﻿lorna", "lee\x00la", "lorna‮", "lor‎na"],
+    ids=["zero-width space", "soft hyphen", "BOM", "NUL", "right-to-left", "left-to-right mark"],
+)
+def test_a_username_with_a_hidden_character_is_not_the_exact_username(
+    admin: TestClient, idp: FakeProvider, hidden: str
+) -> None:
+    """Tidying for display must not widen "exact" (round 2 security pass F2)."""
+    person_here(admin, "lorna")
+    answer, _ = sign_in(browser(admin), idp, person=False, extra=_claims(hidden))
+    assert waits(answer)
+    assert subject_of(admin, "lorna") is None
+
+
+def test_a_login_with_a_live_sign_in_link_waits_and_the_link_still_works(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """Someone holds the link: a same-named account must not take the login and kill it (round 2
+    security pass F3)."""
+    assert admin.post(f"{API}/people", json={"name": "Lorna"}).status_code == 201
+    made = admin.post(
+        f"{API}/people/{_member_id(admin, 'Lorna')}/login",
+        json={"username": "lorna", "role": "member"},
+    )
+    token = made.json()["path"].removeprefix("/join#")
+    answer, _ = sign_in(browser(admin), idp, person=False, extra=_claims())
+    assert waits(answer)
+    assert subject_of(admin, "lorna") is None
+    other = TestClient(admin.app, base_url="https://testserver")
+    assert other.post(f"{API}/join/look", json={"token": token}).status_code == 200
+
+
+def test_a_live_reset_link_counts_too(admin: TestClient, idp: FakeProvider) -> None:
+    from datetime import timedelta
+
+    from mealwright.models import JoinLink, utcnow
+
+    person_here(admin, "lorna")
+    _change(admin, "lorna", password_hash=hash_password("x" * 12), last_sign_in_at=None)
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        login = db.scalars(select(Login).where(Login.username == "lorna")).one()
+        db.add(
+            JoinLink(
+                household_id=1,
+                login_id=login.id,
+                token_hash="r" * 64,
+                created_at=utcnow(),
+                expires_at=utcnow() + timedelta(hours=5),
+                kind="reset",
+            )
+        )
+        login.password_hash = None  # only the live link makes it "in use"
+        db.commit()
+    answer, _ = sign_in(browser(admin), idp, person=False, extra=_claims())
+    assert waits(answer)
+
+
+def test_an_automatic_link_writes_a_recent_changes_line(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    person_here(admin, "lorna")
+    answer, _ = sign_in(browser(admin), idp, extra=_claims())
+    assert answer.status_code == 200, answer.text
+    changes = admin.get(f"{API}/changes").json()["changes"]
+    assert changes[0]["summary"] == "Linked Lorna to lorna at your sign-in server, automatically"
+    assert changes[0]["can_undo"] is False
