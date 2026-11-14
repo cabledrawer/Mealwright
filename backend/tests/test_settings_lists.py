@@ -795,12 +795,13 @@ def test_a_place_added_at_the_same_moment_with_one_key_answers_with_the_first_on
         201,
     )
     _first_replay_check_misses(monkeypatch)
+    # The same body again: a race is one request twice (a different body is refused, 0.9.5).
     second = kitchen.post(
-        f"{API}/places", json={"name": "Shed", "kind": "cupboard"}, headers=headers
+        f"{API}/places", json={"name": "Garage", "kind": "cupboard"}, headers=headers
     )
     assert second.status_code == 200, second.text
     assert second.json() == first
-    assert "Shed" not in names(ok(kitchen.get(f"{API}/places")))
+    assert names(ok(kitchen.get(f"{API}/places"))).count("Garage") == 1
 
 
 def test_a_place_renamed_at_the_same_moment_with_one_key_answers_with_the_first_name(
@@ -810,10 +811,11 @@ def test_a_place_renamed_at_the_same_moment_with_one_key_answers_with_the_first_
     headers = {"Idempotency-Key": "rename-race"}
     first = ok(kitchen.patch(f"{API}/places/{spice}", json={"name": "Larder"}, headers=headers))
     _first_replay_check_misses(monkeypatch)
-    second = kitchen.patch(f"{API}/places/{spice}", json={"name": "Shed"}, headers=headers)
+    # The same body again: a race is one request twice (a different body is refused, 0.9.5).
+    second = kitchen.patch(f"{API}/places/{spice}", json={"name": "Larder"}, headers=headers)
     assert second.status_code == 200, second.text
     assert second.json() == first
-    assert "Shed" not in names(ok(kitchen.get(f"{API}/places")))
+    assert names(ok(kitchen.get(f"{API}/places"))).count("Larder") == 1
 
 
 def test_a_retried_kitchen_key_after_another_change_changes_nothing(kitchen: TestClient) -> None:
