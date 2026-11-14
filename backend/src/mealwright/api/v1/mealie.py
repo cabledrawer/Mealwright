@@ -9,6 +9,7 @@ may look (the import screen's state, Today's note, Drafts).
 
 import secrets
 import threading
+from collections.abc import AsyncIterator
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -194,9 +195,13 @@ def _signed_in(request: Request) -> int:
         return caller.login.household_id
 
 
-async def _mealie_file(request: Request, household_id: Annotated[int, Depends(_signed_in)]) -> Path:
+async def _mealie_file(
+    request: Request, household_id: Annotated[int, Depends(_signed_in)]
+) -> AsyncIterator[Path]:
     """The uploaded file, streamed to a temporary file in the data folder (never held in
-    memory). The body limit (1 GB on this route only) is checked as it arrives."""
+    memory). The body limit (1 GB on this route only) is checked as it arrives. The household's
+    upload guard is held until the route has read the file and made its preview (round 2, S1),
+    so a second upload from the household is refused meanwhile."""
     with _UPLOADING_LOCK:
         if household_id in _UPLOADING:
             raise Problem(status.HTTP_503_SERVICE_UNAVAILABLE, "mealie_upload_busy", UPLOAD_BUSY)
@@ -223,7 +228,7 @@ async def _mealie_file(request: Request, household_id: Annotated[int, Depends(_s
         if size == 0:
             path.unlink(missing_ok=True)
             raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "mealie_no_file", NO_FILE)
-        return path
+        yield path
     finally:
         with _UPLOADING_LOCK:
             _UPLOADING.discard(household_id)

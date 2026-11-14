@@ -284,7 +284,9 @@ def create(kitchen: Kitchen, upload: Path, file_name: str) -> MealieImport:
         upload.unlink(missing_ok=True)
         raise Problem(status.HTTP_409_CONFLICT, "mealie_busy", BUSY)
     try:
-        book = mealie_file.read_file(upload)
+        # Never wait for the server's one reader from a request: a busy reader answers 503 at
+        # once, so no worker thread is held (round 2, S1; the job's own tries wait).
+        book = mealie_file.read_file(upload, wait_seconds=0)
     except MealieFileProblem as problem:
         upload.unlink(missing_ok=True)
         raise _refused(problem) from None

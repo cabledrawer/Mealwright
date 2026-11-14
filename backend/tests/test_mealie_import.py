@@ -735,6 +735,56 @@ def test_a_file_being_sent_holds_up_only_its_own_household(
     assert set() == mealie_api._UPLOADING
 
 
+class _TimedReader:
+    """The server's one reader, held by someone else; it notes how long a caller would wait."""
+
+    def __init__(self) -> None:
+        self.waits: list[float | None] = []
+
+    def acquire(self, blocking: bool = True, timeout: float | None = None) -> bool:
+        self.waits.append(timeout)
+        return False
+
+    def release(self) -> None:  # never reached: nobody gets it
+        raise AssertionError("released a reader nobody held")
+
+
+def test_an_upload_never_waits_for_a_busy_reader(
+    kitchen: TestClient, neighbour: TestClient, raw: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Round 2, S1: 45 small uploads each waited up to 60 s for the reader in a worker thread,
+    # and all 40 threads were busy. Now a request answers 503 at once, with no wait.
+    held = _TimedReader()
+    monkeypatch.setattr(mealie_file, "_one_at_a_time", held)
+    for client in (kitchen, neighbour):
+        busy = upload(client, raw)
+        assert busy.status_code == 503 and busy.json()["code"] == "mealie_busy"
+    assert held.waits == [0.0, 0.0]
+    # Nobody else's ordinary request is held up, and the guard is let go each time.
+    assert kitchen.get(f"{API}/mealie-imports/current").status_code == 200
+    assert set() == mealie_api._UPLOADING
+    monkeypatch.undo()
+    assert upload(kitchen, raw).status_code == 201
+
+
+def test_a_household_s_upload_is_guarded_while_its_file_is_read(
+    kitchen: TestClient, raw: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Round 2, S1: the guard covered only the sending; now also the reading and the preview.
+    read = mealie_file.read_file
+    seen: list[Any] = []
+
+    def second_upload_meanwhile(path: Path, **kwargs: Any) -> Any:
+        again = upload(kitchen, raw)
+        seen.append((again.status_code, again.json()["code"]))
+        return read(path, **kwargs)
+
+    monkeypatch.setattr(mealie_file, "read_file", second_upload_meanwhile)
+    assert upload(kitchen, raw).status_code == 201
+    assert seen == [(503, "mealie_upload_busy")]
+    assert set() == mealie_api._UPLOADING
+
+
 def test_the_job_waits_while_the_file_reader_is_busy(
     kitchen: TestClient, raw: bytes, monkeypatch: pytest.MonkeyPatch
 ) -> None:
