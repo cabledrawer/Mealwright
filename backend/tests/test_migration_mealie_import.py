@@ -14,14 +14,14 @@ BEFORE = "d3a9f1c7e254"  # the line's newest before this (beta fix5, former name
 MEALIE = "b6e2d8f4a913"
 
 
-def _draft(kind: str, mealie: str = "NULL") -> str:
-    return (
-        "INSERT INTO import_draft (household_id, source_kind, source_text, name, review,"
-        " choices, lines_total, lines_checked, started_by_name, created_at, updated_at"
-        + (", mealie_import_id" if mealie != "NULL" else "")
-        + f") VALUES (1, '{kind}', '', 'Dal', '{{}}', '{{}}', 0, 0, 'Sam', '2026-11-01',"
-        " '2026-11-01'" + (f", {mealie}" if mealie != "NULL" else "") + ")"
-    )
+DRAFT = (
+    "INSERT INTO import_draft (household_id, source_kind, source_text, name, review, choices,"
+    " lines_total, lines_checked, started_by_name, created_at, updated_at{link})"
+    " VALUES (1, ?, '', 'Dal', '{{}}', '{{}}', 0, 0, 'Sam', '2026-11-01', '2026-11-01'{value})"
+)
+# Before the migration the draft has no link to an import; after it, a draft may name one.
+OLD_DRAFT = DRAFT.format(link="", value="")
+NEW_DRAFT = DRAFT.format(link=", mealie_import_id", value=", ?")
 
 
 def test_mealie_import_comes_and_goes_with_the_migration(tmp_path: Path) -> None:
@@ -31,9 +31,9 @@ def test_mealie_import_comes_and_goes_with_the_migration(tmp_path: Path) -> None
         connection.exec_driver_sql(
             "INSERT INTO household (id, name, created_at) VALUES (1, 'Home', '2026-10-01')"
         )
-        connection.exec_driver_sql(_draft("link"))
+        connection.exec_driver_sql(OLD_DRAFT, ("link",))
         with pytest.raises(IntegrityError), connection.begin_nested():
-            connection.exec_driver_sql(_draft("mealie"))
+            connection.exec_driver_sql(OLD_DRAFT, ("mealie",))
     migrate.upgrade(engine, MEALIE)
     look = inspect(engine)
     assert "mealie_import" in look.get_table_names()
@@ -45,9 +45,9 @@ def test_mealie_import_comes_and_goes_with_the_migration(tmp_path: Path) -> None
             " total, done, results, started_by_name, created_at)"
             " VALUES (1, 1, 'done', 'mealie.zip', '{}', '{}', 0, 0, '[]', 'Sam', '2026-11-01')"
         )
-        connection.exec_driver_sql(_draft("mealie", "1"))
+        connection.exec_driver_sql(NEW_DRAFT, ("mealie", 1))
         with pytest.raises(IntegrityError), connection.begin_nested():
-            connection.exec_driver_sql(_draft("paper"))
+            connection.exec_driver_sql(NEW_DRAFT, ("paper", None))
         with pytest.raises(IntegrityError), connection.begin_nested():
             connection.exec_driver_sql(
                 "INSERT INTO mealie_import (household_id, state, file_name, preview, choices,"
