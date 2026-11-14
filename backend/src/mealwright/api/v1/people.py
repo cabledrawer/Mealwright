@@ -13,6 +13,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel, Field, StrictBool, field_validator
 from sqlalchemy import delete, select
+from sqlalchemy.orm.exc import StaleDataError
 
 from mealwright import api_tokens, people
 from mealwright.api.v1.account import USERNAME
@@ -498,8 +499,14 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
         # change, an admin made a member...). Checked again after the writes, which hold the
         # database's write lock until the commit, so nothing can cancel it in between; a link
         # gone sets no password (16b security pass S-L2).
-        db.flush()
-        still = db.scalar(select(JoinLink.id).where(JoinLink.id == link_id).with_for_update())
+        # The login itself may have gone too ("Profile only"): then the write matches no row,
+        # and the link has gone with it (16b security re-check note).
+        try:
+            db.flush()
+        except StaleDataError:
+            still = None
+        else:
+            still = db.scalar(select(JoinLink.id).where(JoinLink.id == link_id).with_for_update())
         if still is None:
             db.rollback()
         else:

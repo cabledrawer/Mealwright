@@ -382,3 +382,26 @@ def test_no_admins_sign_in_link_outlives_the_owner_taking_the_household_back(
     RECOVERIES[recovery](kitchen, noor)
     _problem(_look(_fresh(kitchen), sams), 404, "link_gone")
     ok(_look(_fresh(kitchen), lornas))
+
+
+def test_profile_only_while_the_password_is_hashed_says_the_link_is_gone(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """16b security re-check (a note): an admin chooses "Profile only" for Lorna while her
+    sign-in link's password is still being hashed. Her login is gone, so the link page is told
+    the link is gone (404), not that something went wrong (500)."""
+    lorna = _add(kitchen, "Lorna")
+    token = _join(kitchen, lorna, "lorna")
+    real = api_people.hash_password
+
+    def slow_hash(password: str) -> str:
+        hashed = real(password)
+        assert kitchen.delete(f"{API}/people/{lorna}/login").status_code == 204  # meanwhile
+        return hashed
+
+    monkeypatch.setattr(api_people, "hash_password", slow_hash)
+    fresh = TestClient(kitchen.app, base_url="https://testserver", raise_server_exceptions=False)
+    r = fresh.post(f"{API}/join", json={"token": token, "password": NEW})
+    _problem(r, 404, "link_gone")
+    with db(kitchen) as session:
+        assert session.scalars(select(Login).where(Login.username == "lorna")).all() == []
