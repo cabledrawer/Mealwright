@@ -1171,3 +1171,73 @@ def test_a_no_op_meal_order_keeps_its_key(kitchen: TestClient) -> None:
     retry = kitchen.put(url, json={"ids": ids}, headers=key)
     _replayed(retry)
     assert [s["id"] for s in slots(kitchen)] == ids[::-1]
+
+
+# --- 0.9.5 L1d L3 (cabledrawer 13 Nov): four more Undo kinds refuse after on-off-on ---------------
+
+
+def _refused_after_back_to_the_same(
+    kitchen: TestClient, call: Any, first: Any, second: Any, words: str
+) -> None:
+    """A, B, A again: the first change's value is the value now, but two later changes were made
+    since, so its Undo is refused, as for the pint and Batch cook."""
+    call(first)
+    top = latest(kitchen)
+    call(second)
+    call(first)
+    refused = undo(kitchen, top)
+    assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
+    assert words in refused.json()["detail"]
+
+
+def test_cook_per_step_cannot_be_undone_after_later_changes_back_to_the_same_value(
+    kitchen: TestClient,
+) -> None:
+    def call(on: bool) -> None:
+        ok(kitchen.patch(f"{API}/household", json={"cook_per_step": on}))
+
+    _refused_after_back_to_the_same(
+        kitchen, call, True, False, "Ingredients for each step has been switched again"
+    )
+    assert ok(kitchen.get(f"{API}/household"))["cook_per_step"] is True
+
+
+def test_amounts_shown_cannot_be_undone_after_later_changes_back_to_the_same_value(
+    kitchen: TestClient,
+) -> None:
+    def call(shown: str) -> None:
+        ok(kitchen.patch(f"{API}/household", json={"amounts_shown": shown}))
+
+    _refused_after_back_to_the_same(kitchen, call, "metric", "as_written", "amounts have been")
+    assert ok(kitchen.get(f"{API}/household"))["amounts_shown"] == "metric"
+
+
+def test_the_household_name_cannot_be_undone_after_later_changes_back_to_the_same_name(
+    kitchen: TestClient,
+) -> None:
+    def call(name: str) -> None:
+        ok(kitchen.patch(f"{API}/household", json={"name": name}))
+
+    _refused_after_back_to_the_same(kitchen, call, "Lorna's", "Noor's", "renamed again")
+    assert ok(kitchen.get(f"{API}/household"))["name"] == "Lorna's"
+
+
+def test_ask_whos_this_cannot_be_undone_after_later_switches_back_to_the_same_value(
+    kitchen: TestClient,
+) -> None:
+    def call(on: bool) -> None:
+        ok(kitchen.put(f"{API}/people/ask-whos-this", json={"on": on}))
+
+    _refused_after_back_to_the_same(kitchen, call, True, False, "has been switched again")
+    assert ok(kitchen.get(f"{API}/people"))["ask_whos_this"] is True
+
+
+def test_cook_per_step_can_be_undone_when_the_later_change_was_itself_undone(
+    kitchen: TestClient,
+) -> None:
+    ok(kitchen.patch(f"{API}/household", json={"cook_per_step": True}))
+    first = latest(kitchen)
+    ok(kitchen.patch(f"{API}/household", json={"cook_per_step": False}))
+    ok(undo(kitchen, latest(kitchen)))
+    assert ok(undo(kitchen, first))["result"] == "done"
+    assert ok(kitchen.get(f"{API}/household"))["cook_per_step"] is False

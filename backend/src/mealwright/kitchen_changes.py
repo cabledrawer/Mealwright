@@ -208,7 +208,7 @@ def undo(kitchen: Kitchen, change: Change) -> None:
         _undo_kitchen(kitchen, data["kitchen"])
     elif change.kind == "batch_cook_switch":
         household = kitchen.household
-        if (not household.batch_cook_hidden) != data["batch_cook"]["new"] or _made_again(
+        if (not household.batch_cook_hidden) != data["batch_cook"]["new"] or made_again(
             kitchen, change
         ):
             raise _cannot_undo("That can’t be undone: Batch cook has been switched again.")
@@ -216,13 +216,13 @@ def undo(kitchen: Kitchen, change: Change) -> None:
         kitchen.db.flush()
     elif change.kind == "pints_changed":
         household = kitchen.household
-        if household.pints != data["pints"]["new"] or _made_again(kitchen, change):
+        if household.pints != data["pints"]["new"] or made_again(kitchen, change):
             raise _cannot_undo("That can’t be undone: the pint has been changed again.")
         household.pints = data["pints"]["old"]
         kitchen.db.flush()
     elif change.kind == "cook_step_changed":
         household = kitchen.household
-        if household.cook_per_step != data["cook_per_step"]["new"]:
+        if household.cook_per_step != data["cook_per_step"]["new"] or made_again(kitchen, change):
             raise _cannot_undo(
                 "That can’t be undone: Ingredients for each step has been switched again."
             )
@@ -230,19 +230,19 @@ def undo(kitchen: Kitchen, change: Change) -> None:
         kitchen.db.flush()
     elif change.kind == "amounts_shown_changed":
         household = kitchen.household
-        if household.amounts_shown != data["amounts_shown"]["new"]:
+        if household.amounts_shown != data["amounts_shown"]["new"] or made_again(kitchen, change):
             raise _cannot_undo("That can’t be undone: amounts have been changed again.")
         household.amounts_shown = data["amounts_shown"]["old"]
         kitchen.db.flush()
     elif change.kind == "household_renamed":
         household = kitchen.household
-        if household.name != data["name"]["new"]:
+        if household.name != data["name"]["new"] or made_again(kitchen, change):
             raise _cannot_undo("That can’t be undone: the household has been renamed again.")
         household.name = data["name"]["old"]
         kitchen.db.flush()
 
 
-def _made_again(kitchen: Kitchen, change: Change) -> bool:
+def made_again(kitchen: Kitchen, change: Change) -> bool:
     """The same setting was changed after this change and that change still stands (not itself
     undone), though the value may be the same again (on, off, on): its Undo is refused too."""
     return (

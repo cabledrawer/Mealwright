@@ -9,7 +9,7 @@ from fastapi import status
 from sqlalchemy import ColumnElement, and_, delete, false, func, or_, select, update
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import api_tokens, events
+from mealwright import api_tokens, events, kitchen_changes
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Who
 from mealwright.errors import Problem, not_found
@@ -625,7 +625,9 @@ def undo(kitchen: Kitchen, change: Change) -> None:
     data = change.undo_data or {}
     if change.kind == "whos_this_switch":
         household = kitchen.household
-        if household.ask_whos_this != data["whos_this"]["new"]:
+        if household.ask_whos_this != data["whos_this"]["new"] or kitchen_changes.made_again(
+            kitchen, change
+        ):
             raise _cannot_undo("That can’t be undone: Ask “Who’s this?” has been switched again.")
         household.ask_whos_this = data["whos_this"]["old"]
         kitchen.db.flush()
