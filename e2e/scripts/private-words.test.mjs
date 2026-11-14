@@ -55,7 +55,7 @@ function run(args) {
 test("a home-folder path, a drive mount, a Windows path and a private address each fail, with file:line", () => {
   const dir = repo({
     "notes.md": `fine\nsee ${HOME}project/x\n`,
-    "a/b.txt": `copy from ${MNT}Stuff\nand ${DRIVE}\\here\n`,
+    "a/b.txt": `copy from ${MNT}Stuff\nand ${DRIVE}\n`,
     "net.py": `HOST = "${LAN}"\nOTHER = "${TEN}"\nV6 = "${ULA}"\n`,
   });
   const { code, out } = run([
@@ -99,6 +99,82 @@ test("documentation ranges, public addresses and version numbers are fine; an al
   assert.ok(!out.includes("ok.md"), out);
   assert.ok(out.includes(`ex.md:1: a private IPv4 address: ${EX2}`), out);
   assert.ok(!out.includes(`address: ${EX}\n`), out);
+});
+
+test("each pattern also catches its other forms: a lower-case drive, C:/ paths, any-case mounts, a Mac's home folder, a share, file:// forms", () => {
+  const forms = {
+    "a Windows drive path": [
+      "c:" + "\\" + "Stuff",
+      "C:" + "/Stuff",
+      "d:" + "\\\\" + "Stuff",
+    ],
+    "a drive mount": ["/MN" + "T/X/stuff", "file://" + "/mn" + "t/x/stuff"],
+    "a home-folder path": [
+      "/Us" + "ers/jo/stuff",
+      "file://" + "/ho" + "me/jo/stuff",
+      "/HO" + "ME/jo/stuff",
+    ],
+    "a network share path": [
+      "\\\\" + "host" + "\\" + "share",
+      "\\\\\\\\" + "host" + "\\\\" + "share",
+      "file://" + "host/share/x",
+    ],
+  };
+  const files = {};
+  const wanted = [];
+  Object.entries(forms).forEach(([kind, list], i) =>
+    list.forEach((text, j) => {
+      files[`f${i}-${j}.txt`] = `x ${text} y\n`;
+      wanted.push(`f${i}-${j}.txt:1: ${kind}`);
+    }),
+  );
+  const dir = repo(files);
+  const { code, out } = run([
+    "--builtin",
+    "--root",
+    dir,
+    "--allow",
+    `${dir}/none`,
+  ]);
+  assert.equal(code, 1);
+  for (const want of wanted)
+    assert.ok(out.includes(want), `missing "${want}" in:\n${out}`);
+});
+
+test("everyday text is not mistaken for a path: times, web addresses, escapes, version numbers", () => {
+  const dir = repo({
+    "ok.txt":
+      "Time 12:30 and https://example.org/a and key:\\nvalue and a:b and ratio 3:1 and c:d\n",
+  });
+  const { code, out } = run([
+    "--builtin",
+    "--root",
+    dir,
+    "--allow",
+    `${dir}/none`,
+  ]);
+  assert.equal(code, 0, out);
+});
+
+test("an allow entry that starts with a path and a TAB holds only in the files matching that path", () => {
+  const dir = repo({
+    "examples/a.md": `see ${HOME}x\n`,
+    "other/b.md": `see ${HOME}x\n`,
+  });
+  writeFileSync(
+    `${dir}/allow.txt`,
+    `examples/*.md\t${HOME.replaceAll(".", "\\.")}\n`,
+  );
+  const { code, out } = run([
+    "--builtin",
+    "--root",
+    dir,
+    "--allow",
+    `${dir}/allow.txt`,
+  ]);
+  assert.equal(code, 1);
+  assert.ok(out.includes("other/b.md:1: a home-folder path"), out);
+  assert.ok(!out.includes("examples/a.md"), out);
 });
 
 test("a word on the private list fails, case-insensitively, with file:line; comments and blank lines are ignored", () => {

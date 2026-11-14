@@ -30,3 +30,20 @@ Both print `file:line: what matched` for each hit, and nothing else. The log sta
 (their names are still checked). Run one by hand from `e2e/`: `node scripts/private-words.mjs --builtin`, or
 `node scripts/private-words.mjs --words ../.private-words`.
 Only files are searched, not the commit history.
+
+## Three things to know
+
+- **`CLAUDE.local.md` lives only in the main checkout.** A helper working in another worktree does not see it, so the
+  lead's brief gives helpers the full paths they need.
+- **A failed step's output and log hold the matched private text.** Never paste them into a pull request, a review or
+  a commit message; say only the file and line.
+- **Binary files are checked by name only.** A file counts as binary when a zero byte is in its first 8000 bytes; its
+  contents are not searched.
+
+## What the built-in patterns cover
+
+Home folders (`/home/<name>/` and a Mac's `/Users/<name>/`, any case), drive mounts (`/mnt/<letter>/`, any case),
+Windows drive paths (a letter in either case with a backslash, a doubled backslash as written in code, or a slash),
+network shares (a name after two backslashes, and a `file://` address that names a host), private IPv4 addresses and `fd00::/8` addresses. A `file:///...`
+path is caught by the folder pattern it holds. One false alarm to know: a single letter, a colon and an escape (for example a one-letter word before `:` and `\n` in a string) reads as a drive path, so write it another way.
+An entry in `scripts/public-safe-allow.txt` may start with a path and a TAB to hold only in the files matching it.

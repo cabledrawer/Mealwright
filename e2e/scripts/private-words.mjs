@@ -14,13 +14,20 @@ import { fileURLToPath } from "node:url";
 /** The patterns that need no private list. A match must also be allowed by nothing in the allow list to count. */
 export const BUILTIN = [
   {
+    // Linux /home/<name>/ and a Mac's /Users/<name>/, any case.
     kind: "a home-folder path",
-    re: /(?<![A-Za-z0-9_.])\/home\/[A-Za-z0-9._][A-Za-z0-9._-]*\//g,
+    re: /(?<![A-Za-z0-9_.])\/(?:home|users)\/[A-Za-z0-9._][A-Za-z0-9._-]*\//gi,
   },
-  { kind: "a drive mount", re: /(?<![A-Za-z0-9_.])\/mnt\/[a-z]\//g },
+  { kind: "a drive mount", re: /(?<![A-Za-z0-9_.])\/mnt\/[a-z]\//gi },
   {
+    // A drive letter (either case) then a backslash (or two, as written in code) or one slash, then a letter.
     kind: "a Windows drive path",
-    re: /(?<![A-Za-z0-9\\])[A-Z]:\\{1,2}[A-Za-z]/g,
+    re: /(?<![A-Za-z0-9\\])[A-Za-z]:(?:\\{1,2}|\/(?!\/))[A-Za-z]/g,
+  },
+  {
+    // A UNC path (two backslashes, or four as written in code) and a file:// address that names a host.
+    kind: "a network share path",
+    re: /(?<![\\\w:])(?:\\{2}|\\{4})[A-Za-z][\w.-]*[A-Za-z0-9]\\{1,2}[A-Za-z$][\w$.-]*|file:\/\/(?!\/)[^\s/'"`)]+\//gi,
   },
   {
     kind: "a private IPv4 address",
@@ -67,9 +74,39 @@ function looksBinary(buffer) {
   return buffer.subarray(0, 8000).includes(0);
 }
 
-/** "[0-9]+" style allow entries must match the whole hit; a hit inside a longer allowed text is not enough. */
-function allowed(allow, hit) {
-  return allow.some((re) => {
+/** An allow entry is "regex", or "path glob<TAB>regex" to allow it in the matching files only (* stays in a folder, ** crosses folders). */
+export function compileAllow(text, what) {
+  return listLines(text).map(({ text: line, line: n }) => {
+    const tab = line.indexOf("\t");
+    const glob = tab === -1 ? null : line.slice(0, tab).trim();
+    const source = tab === -1 ? line : line.slice(tab + 1).trim();
+    try {
+      const globRe = glob
+        ? new RegExp(
+            `^${glob
+              .split("**")
+              .map((part) =>
+                part
+                  .split("*")
+                  .map((x) => x.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
+                  .join("[^/]*"),
+              )
+              .join(".*")}$`,
+          )
+        : null;
+      return { re: new RegExp(source, "gi"), globRe };
+    } catch (error) {
+      throw new Error(
+        `${what}, line ${n}: not a valid entry (${error.message})`,
+      );
+    }
+  });
+}
+
+/** Allow entries must match the whole hit; a hit inside a longer allowed text is not enough. */
+function allowed(allow, hit, file) {
+  return allow.some(({ re, globRe }) => {
+    if (globRe && !globRe.test(file)) return false;
     re.lastIndex = 0;
     const m = re.exec(hit);
     return m !== null && m[0] === hit;
@@ -113,7 +150,7 @@ export function scan({
     lines.forEach((text, i) => {
       for (const { kind, re } of checks) {
         for (const m of text.matchAll(re)) {
-          if (allowed(allow, m[0])) continue;
+          if (allowed(allow, m[0], file)) continue;
           hits.push({ file, line: i + 1, kind, match: m[0] });
         }
       }
@@ -140,7 +177,7 @@ function main(args) {
     const allowFile =
       option(args, "--allow") || `${root}/scripts/public-safe-allow.txt`;
     const allow = existsSync(allowFile)
-      ? compileList(readFileSync(allowFile, "utf8"), allowFile)
+      ? compileAllow(readFileSync(allowFile, "utf8"), allowFile)
       : [];
     hits = scan({ root, checks: BUILTIN, allow });
   } else if (args.includes("--words")) {
