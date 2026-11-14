@@ -1145,7 +1145,7 @@ _RECORDS_CHANGES = {
     "api/v1/pantry.py", "api/v1/starter_packs.py", "api/v1/stocktake.py", "cooking.py",
     "drafts.py", "foods.py", "history.py", "kitchen_changes.py", "people.py", "plan.py",
     "recipe_import.py", "recipe_tags.py", "recipes.py", "removals.py", "shopping.py",
-    "sso_people.py", "stock.py", "ticks.py",
+    "sso_accounts.py", "sso_people.py", "stock.py", "ticks.py",
 }  # fmt: skip
 
 
