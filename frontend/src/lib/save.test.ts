@@ -227,6 +227,27 @@ describe('ask once', () => {
     ]);
   });
 
+  it('Try again after a lost answer sends the same ID with the answers already given', async () => {
+    const calls: { id: string; answers: unknown[] }[] = [];
+    const state = { place: 'Cupboard' };
+    const done = save(
+      placeChange(state, 'Fridge', async (id, answers) => {
+        calls.push({ id, answers: [...answers] });
+        if (!answers.length) throw askError();
+        if (calls.length === 2) throw new ApiError(503, 'busy'); // saved, but the reply was lost
+        return 'ok';
+      })
+    );
+    await vi.waitFor(() => expect(askOnce.current).not.toBeNull());
+    askOnce.answer(180, true);
+    await done;
+    toasts.act(); // Try again
+    await vi.waitFor(() => expect(calls).toHaveLength(3));
+    expect(calls[2]!.id).toBe(calls[0]!.id);
+    expect(calls[2]!.answers).toEqual(calls[1]!.answers);
+    expect(calls[2]!.answers).toHaveLength(1);
+  });
+
   it('puts things back quietly when the person chooses not to answer', async () => {
     const state = { place: 'Cupboard' };
     const done = save(

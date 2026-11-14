@@ -12,7 +12,6 @@ export interface CacheLike {
   match(key: string): Promise<Response | undefined>;
   put(key: string, response: Response): Promise<void>;
   delete(key: string): Promise<boolean>;
-  addAll(requests: Request[]): Promise<void>;
 }
 
 /** The part of `caches` the worker uses. */
@@ -21,9 +20,19 @@ export interface StorageLike {
   delete(name: string): Promise<boolean>;
 }
 
-/** A copy worth keeping or serving: a plain 200 from our own server, not an error page. */
+/**
+ * A copy worth keeping or serving: a plain, whole 200 from our own server. Not an error page,
+ * not a redirect that was followed (a sign-in page standing in for a file), not an opaque or
+ * error type, not a partial (206) answer.
+ */
 export function usable(response: Response | undefined | null): response is Response {
-  return !!response && response.ok && response.status === 200 && response.type !== 'error';
+  return (
+    !!response &&
+    response.ok &&
+    response.status === 200 &&
+    !response.redirected &&
+    (response.type === 'basic' || response.type === 'default')
+  );
 }
 
 /**
@@ -61,12 +70,19 @@ export async function answer(
 export async function install(
   storage: StorageLike,
   name: string,
-  requests: Request[]
+  requests: Request[],
+  fetchFresh: (request: Request) => Promise<Response> = (request) => fetch(request)
 ): Promise<void> {
   await storage.delete(name).catch(() => false);
   try {
     const cache = await storage.open(name);
-    await cache.addAll(requests);
+    // Not `cache.addAll`: it keeps a redirected or partial answer too. Each file is checked
+    // by the same rule as every later write (usable) before it is kept.
+    for (const request of requests) {
+      const response = await fetchFresh(request);
+      if (!usable(response)) throw new Error(`Could not fetch ${request.url}`);
+      await cache.put(request.url, response);
+    }
   } catch (error) {
     await storage.delete(name).catch(() => false);
     throw error;

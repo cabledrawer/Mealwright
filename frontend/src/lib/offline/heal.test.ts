@@ -4,7 +4,7 @@ import { answer, install, usable, type CacheLike, type StorageLike } from './hea
 /** A cache kept in a map; `broken` makes reading it fail, `failPut` makes keeping fail. */
 function fakeStorage(start: Record<string, Record<string, Response>> = {}) {
   const store = new Map(Object.entries(start).map(([n, f]) => [n, new Map(Object.entries(f))]));
-  const flags = { brokenOpen: false, failAdd: false, failPut: false };
+  const flags = { brokenOpen: false, failPut: false };
   const cacheOf = (name: string): CacheLike => {
     const files = store.get(name) ?? new Map<string, Response>();
     store.set(name, files);
@@ -12,15 +12,9 @@ function fakeStorage(start: Record<string, Record<string, Response>> = {}) {
       match: async (key) => files.get(key)?.clone(),
       put: async (key, response) => {
         if (flags.failPut) throw new Error('quota');
-        files.set(key, response);
+        files.set(new URL(key, 'http://x').pathname, response);
       },
-      delete: async (key) => files.delete(key),
-      addAll: async (requests) => {
-        for (const request of requests) {
-          files.set(new URL(request.url, 'http://x').pathname, new Response('new'));
-          if (flags.failAdd) throw new Error('network');
-        }
-      }
+      delete: async (key) => files.delete(key)
     };
   };
   const storage: StorageLike = {
@@ -103,14 +97,45 @@ describe('the service worker cache heals itself', () => {
 
   it('an install starts clean over a half-written cache of the same name', async () => {
     const { storage, store } = fakeStorage({ v1: { '/stale.js': new Response('half') } });
-    await install(storage, 'v1', [new Request('http://x/a.js')]);
+    await install(storage, 'v1', [new Request('http://x/a.js')], async () => new Response('new'));
     expect([...(store.get('v1')?.keys() ?? [])]).toEqual(['/a.js']);
   });
 
   it('a failed install leaves no half-filled cache behind and passes the failure on', async () => {
-    const { storage, store, flags } = fakeStorage();
-    flags.failAdd = true;
-    await expect(install(storage, 'v1', [new Request('http://x/a.js')])).rejects.toThrow('network');
+    const { storage, store } = fakeStorage();
+    await expect(install(storage, 'v1', [new Request('http://x/a.js')], noNetwork)).rejects.toThrow(
+      'Failed to fetch'
+    );
     expect(store.has('v1')).toBe(false);
+  });
+
+  it('refuses a redirected, partial, opaque or error answer', () => {
+    const redirected = new Response('login page');
+    Object.defineProperty(redirected, 'redirected', { value: true });
+    expect(usable(redirected)).toBe(false);
+    expect(usable(new Response('part', { status: 206 }))).toBe(false);
+    const opaque = new Response('x');
+    Object.defineProperty(opaque, 'type', { value: 'opaque' });
+    expect(usable(opaque)).toBe(false);
+    expect(usable(Response.error())).toBe(false);
+  });
+
+  it('an install stops, and keeps nothing, when a file comes back redirected', async () => {
+    const { storage, store } = fakeStorage();
+    const bad = new Response('login page');
+    Object.defineProperty(bad, 'redirected', { value: true });
+    await expect(
+      install(storage, 'v1', [new Request('http://x/a.js')], async () => bad)
+    ).rejects.toThrow('Could not fetch');
+    expect(store.has('v1')).toBe(false);
+  });
+
+  it('never keeps a redirected answer from the network', async () => {
+    const { storage, store } = fakeStorage({ v1: {} });
+    const bad = new Response('login page');
+    Object.defineProperty(bad, 'redirected', { value: true });
+    const got = await answer(storage, 'v1', '/a.js', async () => bad);
+    expect(await got.text()).toBe('login page');
+    expect(store.get('v1')?.has('/a.js')).toBe(false);
   });
 });

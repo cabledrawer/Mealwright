@@ -12,8 +12,8 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 
 ### Changed
 
-- The service worker's cache heals itself: a file missing from the cache, or a bad copy of one (not a plain 200), is dropped and fetched fresh from the app's own server and kept; a cache left half-written by a failed install is cleared. A good cache still opens the app with no connection. Nothing from `/api` is cached.
-- A change sent again with the same `Idempotency-Key` but a different body is refused (`409 key_reused`, "That change ID was already used for something else.") and nothing is applied (proposed, for cabledrawer). The same body answers as before; changes from before this version are checked by method and path only. **Database: one new nullable column, `change.body_hash`, no backfill.**
+- The service worker's cache heals itself: a file missing from the cache, or a bad copy of one (not a plain 200), is dropped and fetched fresh from the app's own server and kept; a cache left half-written by a failed install is cleared. A redirected, partial or opaque answer is never kept (the install checks each file itself instead of `addAll`). A good cache still opens the app with no connection. Nothing from `/api` is cached.
+- A change sent again with the same `Idempotency-Key` but a different body is refused (`409 key_reused`, "That change ID was already used for something else.") and nothing is applied (proposed, for cabledrawer). The same body answers as before (the answers to an "ask once" question are not compared; the app's Try again sends them again, and an edited import review gets a new change ID); changes from before this version are checked by method and path only. **Database: one new nullable column, `change.body_hash`, no backfill.**
 - The All recipes list works out its stock hints only for the recipes on the page shown (every match when Can cook now or Use soon decides who is kept). Same answers; with 500 recipes the hints took about 14 ms a call and now about 2 ms.
 - Spec: how recipe scaling is "roughly right" is written down (rounding, times and steps not scaled, Makes without Serves, stock marks) (proposed, for cabledrawer).
 

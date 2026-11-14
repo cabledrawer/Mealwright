@@ -23,7 +23,7 @@ import {
   type SaveOwnRecipe
 } from './client/imports';
 import type { CountedAs, FoodRow, Pints, Ref } from './client/types';
-import { newChangeId } from './changeId';
+import { SendKey } from './sendKey';
 import { toasts } from './toast.svelte';
 import { undoHistory, type UndoEntry } from './undo.svelte';
 import { renamedLine } from './importRename';
@@ -159,8 +159,9 @@ export class ImportFlow {
   /** F13: the steps as they were before any split, so the split can be put back. */
   stepsBefore = $state<ImportReview['steps'] | null>(null);
 
-  #saveKey = newChangeId();
-  #draftKey = newChangeId();
+  /** The change IDs for Save and Keep as draft: unchanged while the body is, new once it changed. */
+  #saveKey = new SendKey();
+  #draftKey = new SendKey();
   /** The boxes and choices as they were when the draft was last kept or opened. */
   #kept = '';
 
@@ -244,8 +245,8 @@ export class ImportFlow {
     this.saveProblem = null;
     this.draftId = null;
     this.draftProblem = null;
-    this.#saveKey = newChangeId();
-    this.#draftKey = newChangeId();
+    this.#saveKey.reset();
+    this.#draftKey.reset();
     this.phase = 'review';
   }
 
@@ -322,7 +323,7 @@ export class ImportFlow {
     try {
       const kept =
         this.draftId === null
-          ? await keepDraft(body, this.#draftKey)
+          ? await keepDraft(body, this.#draftKey.for(body))
           : await changeDraft(this.draftId, body);
       this.draftId = kept.id;
       this.#kept = this.#state();
@@ -1132,7 +1133,7 @@ export class ImportFlow {
     this.saving = true;
     this.saveProblem = null;
     try {
-      this.saved = await saveImport(body, this.#saveKey);
+      this.saved = await saveImport(body, this.#saveKey.for(body));
       if (this.draftId !== null) void drafts.load(); // the draft is a recipe now
       return this.saved;
     } catch (error) {

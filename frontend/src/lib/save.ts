@@ -89,9 +89,14 @@ function askOf(error: unknown): Ask | null {
 
 /**
  * Make a change: apply it at once, send it, and roll it back if it fails.
- * Pass `changeId` only to retry a change that was already sent once.
+ * Pass `changeId` only to retry a change that was already sent once, with the `given` answers
+ * the first try had (a retry is then the same request as the one that may have been saved).
  */
-export function save<T>(change: Change<T>, changeId: string = newChangeId()): Promise<Outcome<T>> {
+export function save<T>(
+  change: Change<T>,
+  changeId: string = newChangeId(),
+  given: Answer[] = []
+): Promise<Outcome<T>> {
   // A menu or sheet that was already open when the server stopped answering: nothing is shown,
   // sent or remembered for Undo. The usual words say why, and the caller gets a quiet
   // "cancelled" (status 0 is "can't reach", so no second "Couldn't save" toast follows).
@@ -127,7 +132,7 @@ export function save<T>(change: Change<T>, changeId: string = newChangeId()): Pr
   return outcome;
 
   async function attempt(): Promise<Outcome<T>> {
-    const answers: Answer[] = [];
+    const answers: Answer[] = [...given];
     for (;;) {
       try {
         const value = await sender({ changeId, send: change.send, answers });
@@ -167,7 +172,7 @@ export function save<T>(change: Change<T>, changeId: string = newChangeId()): Pr
         }
         change.rollback();
         if (entry) undoHistory.forget(entry);
-        tellProblem(error, change, () => void save(change, changeId));
+        tellProblem(error, change, () => void save(change, changeId, answers));
         return { ok: false, error };
       }
     }
