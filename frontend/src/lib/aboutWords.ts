@@ -131,8 +131,11 @@ export const FONTS_DETAIL = `${FONTS.join(' · ')} · SIL Open Font License 1.1`
 /** Where the source lives: the releases page without its last part. */
 export const sourceLink = (releasesPage: string): string => releasesPage.replace(/\/releases$/, '');
 
-/** The owner in the releases address until the code is on GitHub (the server's PLACEHOLDER_OWNER:
- *  a name GitHub cannot give out, so it can never reach someone else's project). */
+/** The owner in the releases address until the code is on GitHub: the same text as the server's
+ *  PLACEHOLDER_OWNER in backend/src/mealwright/updates.py (a name GitHub cannot give out, so it can
+ *  never reach someone else's project). backend/tests/test_updates.py checks the two agree. At 1.0
+ *  the real owner replaces it in both places (and this check changes with it): then this is no
+ *  longer the placeholder, so the source row becomes the link. */
 const PLACEHOLDER_OWNER = 'placeholder_until_1_0';
 
 /** "The code isn't on GitHub yet", shown where the link will be (proposed, for cabledrawer; spec section 8 "Leftovers"). */

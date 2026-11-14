@@ -29,6 +29,7 @@ from mealwright.models import Household, Login
 from mealwright.outbound import Connection, OutboundGate, OutboundResponse, set_switch
 from mealwright.updates import (
     DAILY_AFTER,
+    PLACEHOLDER_OWNER,
     RECHECK_AFTER,
     RELEASE_LIST_URL,
     RELEASED,
@@ -154,6 +155,15 @@ def test_the_release_list_is_a_plain_address_on_githubs_public_api() -> None:
     assert (page.scheme, page.netloc) == ("https", "github.com")
     # Until 1.0 both are placeholders naming an owner GitHub can't have (for cabledrawer).
     assert parts.path.split("/")[2] == page.path.split("/")[1] == "placeholder_until_1_0"
+
+
+def test_the_web_app_knows_the_same_placeholder_owner_as_the_server() -> None:
+    # About shows a note instead of a link while the owner is the placeholder; if the two texts
+    # drifted apart the row would link to nowhere. Both change together at 1.0.
+    words = Path(__file__).resolve().parents[2] / "frontend" / "src" / "lib" / "aboutWords.ts"
+    found = re.search(r"const PLACEHOLDER_OWNER = '([^']+)'", words.read_text())
+    assert found is not None
+    assert found.group(1) == PLACEHOLDER_OWNER
 
 
 # --- Reading the release list ----------------------------------------------------------------

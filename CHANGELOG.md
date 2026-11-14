@@ -16,11 +16,14 @@ All notable changes to Mealwright are listed here. The format follows [Keep a Ch
 - A change sent again with the same `Idempotency-Key` but a different body is refused (`409 key_reused`, "That change ID was already used for something else.") and nothing is applied (proposed, for cabledrawer). The same body answers as before (the answers to an "ask once" question are not compared; the app's Try again sends them again, and an edited import review gets a new change ID); changes from before this version are checked by method and path only. **Database: one new nullable column, `change.body_hash`, no backfill.**
 - The All recipes list works out its stock hints only for the recipes on the page shown (every match when Can cook now or Use soon decides who is kept). Same answers; with 500 recipes the hints took about 14 ms a call and now about 2 ms.
 - Spec: how recipe scaling is "roughly right" is written down (rounding, times and steps not scaled, Makes without Serves, stock marks) (proposed, for cabledrawer).
+- Settings → About: the Source code row shows a note ("The code is not on GitHub yet; the link comes with 1.0.0") instead of a link to nowhere, until the releases address is a real one; then it links to the source at this version's tag. The app asks for nothing: the link is the person's own click.
+- The GitHub workflows (`check.yml`, `release.yml`) pin every action to a full commit hash, with the version in a comment; `docs/dev/move-to-github.md` says how to move a pin. They are unused until 1.0.
 
 ### Fixed
 
 - Unticking a purchase that had split its line leaves both lines as they are when either line (the ticked one or the rest) was changed since, as the 11 Nov rule says: the unticked line comes back on its own and is not joined into the changed one, whichever purchase is named first (L7, cabledrawer 13 Nov; the words "either line was changed since" are proposed, for cabledrawer).
 - Undo of Ingredients for each step, of how amounts are shown, of renaming the household and of Ask "Who's this?" is refused when the same setting was changed again since, even back to the same value, like the pint and Batch cook (L1d L3, cabledrawer 13 Nov).
+- A rare failure of the browser test "a click anywhere in a day opens it" on a computer (F53): it now waits for the day to stop moving before it clicks.
 
 ## [0.9.0] - 2026-11-13
 

@@ -195,7 +195,8 @@ describe('Settings → About (X1)', () => {
     await expect.element(page.getByText('AGPL-3.0', { exact: true })).toBeVisible();
     // The code is not on GitHub yet (the placeholder address): a note, not a dead link.
     expect(page.getByRole('link', { name: /Source code/ }).elements()).toHaveLength(0);
-    await expect.element(page.getByText('Source code (AGPL-3.0)')).toBeVisible();
+    // The label's row holds the label and the note: match the label inside it, the note on its own.
+    await expect.element(page.getByText('Source code (AGPL-3.0)', { exact: false })).toBeVisible();
     await expect
       .element(page.getByText('The code is not on GitHub yet; the link comes with 1.0.0'))
       .toBeVisible();
