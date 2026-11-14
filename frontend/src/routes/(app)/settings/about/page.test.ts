@@ -193,16 +193,36 @@ describe('Settings → About (X1)', () => {
       .element(page.getByRole('heading', { name: 'Licences and credits', level: 2 }))
       .toBeVisible();
     await expect.element(page.getByText('AGPL-3.0', { exact: true })).toBeVisible();
-    const source = page.getByRole('link', { name: /Source code \(AGPL-3\.0\)/ });
+    // The code is not on GitHub yet (the placeholder address): a note, not a dead link.
+    expect(page.getByRole('link', { name: /Source code/ }).elements()).toHaveLength(0);
+    await expect.element(page.getByText('Source code (AGPL-3.0)')).toBeVisible();
     await expect
-      .element(source)
-      .toHaveAttribute('href', 'https://github.com/placeholder_until_1_0/mealwright');
-    await expect.element(source).toHaveAttribute('rel', 'noopener noreferrer');
+      .element(page.getByText('The code is not on GitHub yet; the link comes with 1.0.0'))
+      .toBeVisible();
     await expect.element(page.getByText('USDA FoodData Central (public domain)')).toBeVisible();
     await expect
       .element(page.getByText('Plus Jakarta Sans · Newsreader · SIL Open Font License 1.1'))
       .toBeVisible();
     // Showing them asks only for the About answer; nothing else, and no check.
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['GET /updates']);
+  });
+  it('the source row links to the source at this version once there is a real address (16g)', async () => {
+    open({
+      'GET /updates': [
+        200,
+        info({
+          version: '0.9.5',
+          can_check: false,
+          releases_page: 'https://github.com/sam-kitchen/mealwright/releases'
+        })
+      ]
+    });
+    const source = page.getByRole('link', { name: /Source code \(AGPL-3\.0\)/ });
+    await expect
+      .element(source)
+      .toHaveAttribute('href', 'https://github.com/sam-kitchen/mealwright/tree/v0.9.5');
+    await expect.element(source).toHaveAttribute('rel', 'noopener noreferrer');
+    await expect.element(page.getByText('The exact code of this version')).toBeVisible();
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['GET /updates']);
   });
 });

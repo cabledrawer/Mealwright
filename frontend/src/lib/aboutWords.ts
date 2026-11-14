@@ -130,3 +130,20 @@ export const FONTS_DETAIL = `${FONTS.join(' · ')} · SIL Open Font License 1.1`
 
 /** Where the source lives: the releases page without its last part. */
 export const sourceLink = (releasesPage: string): string => releasesPage.replace(/\/releases$/, '');
+
+/** The owner in the releases address until the code is on GitHub (the server's PLACEHOLDER_OWNER:
+ *  a name GitHub cannot give out, so it can never reach someone else's project). */
+const PLACEHOLDER_OWNER = 'placeholder_until_1_0';
+
+/** "The code isn't on GitHub yet", shown where the link will be (proposed, for cabledrawer; spec section 8 "Leftovers"). */
+export const SOURCE_NOTE = 'The code is not on GitHub yet; the link comes with 1.0.0';
+
+/**
+ * The source at this version's tag (`.../tree/v0.9.5`), or null while the releases address is still
+ * the placeholder: a note is shown then, not a link that goes nowhere. A plain link the person may
+ * click; the app asks for nothing.
+ */
+export function sourceAtVersion(releasesPage: string, version: string): string | null {
+  if (releasesPage.includes(`/${PLACEHOLDER_OWNER}/`)) return null;
+  return `${sourceLink(releasesPage)}/tree/${tagForm(version)}`;
+}

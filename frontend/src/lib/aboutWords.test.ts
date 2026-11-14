@@ -10,6 +10,7 @@ import {
   monthsBetween,
   releasedWords,
   shortLink,
+  sourceAtVersion,
   sourceLink,
   versionHeading
 } from './aboutWords';
@@ -88,5 +89,22 @@ describe('sourceLink (U1)', () => {
     expect(sourceLink('https://github.com/owner/mealwright/releases')).toBe(
       'https://github.com/owner/mealwright'
     );
+  });
+});
+
+describe('sourceAtVersion (16g)', () => {
+  it('is the source at the version tag, in tag form', () => {
+    const page = 'https://github.com/sam-kitchen/mealwright/releases';
+    expect(sourceAtVersion(page, '0.9.5')).toBe(
+      'https://github.com/sam-kitchen/mealwright/tree/v0.9.5'
+    );
+    expect(sourceAtVersion(page, '0.9.0b1')).toBe(
+      'https://github.com/sam-kitchen/mealwright/tree/v0.9.0-beta.1'
+    );
+  });
+  it('is nothing while the address is the placeholder', () => {
+    expect(
+      sourceAtVersion('https://github.com/placeholder_until_1_0/mealwright/releases', '0.9.5')
+    ).toBeNull();
   });
 });

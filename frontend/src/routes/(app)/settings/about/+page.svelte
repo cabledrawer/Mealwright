@@ -37,7 +37,8 @@
     shortLink,
     SOURCE_DETAIL,
     SOURCE_LABEL,
-    sourceLink,
+    SOURCE_NOTE,
+    sourceAtVersion,
     todayHere,
     versionHeading
   } from '#lib/aboutWords.js';
@@ -57,6 +58,7 @@
   const age = $derived(info ? ageWords(info.released, todayHere()) : null);
   const last = $derived(info?.last ? lastWords(info.last) : null);
   const daily = $derived(dailyWords(info?.daily === true));
+  const source = $derived(info ? sourceAtVersion(info.releases_page, info.version) : null);
   const privacyHref = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
 </script>
 
@@ -165,21 +167,16 @@
         <span class="lbl">{LICENCE_LABEL}</span>
         <span class="val">{LICENCE_VALUE}</span>
       </div>
-      {#if info}
+      {#if source}
         <!-- eslint-disable svelte/no-navigation-without-resolve -- the source is another site: the person's own click, no request from the app -->
-        <a
-          class="row"
-          href={sourceLink(info.releases_page)}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a class="row" href={source} target="_blank" rel="noopener noreferrer">
           <!-- eslint-enable svelte/no-navigation-without-resolve -->
           <span class="lbl">{SOURCE_LABEL}<small>{SOURCE_DETAIL}</small></span>
           <span class="chev"><Icon name="back" size={18} stroke={2} /></span>
         </a>
       {:else}
         <div class="row">
-          <span class="lbl">{SOURCE_LABEL}<small>{SOURCE_DETAIL}</small></span>
+          <span class="lbl">{SOURCE_LABEL}<small>{info ? SOURCE_NOTE : SOURCE_DETAIL}</small></span>
         </div>
       {/if}
       <div class="row">
