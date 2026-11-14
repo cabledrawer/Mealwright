@@ -2,8 +2,37 @@
 person made from a waiting single sign-on sign-in ("Who is this?", Pe3/M2)."""
 
 # ruff: noqa: F811, F401
+import logging
+
+import pytest
+from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
-from test_sso_api import admin, fresh_cache, idp
+from test_sso_api import API, admin, browser, fresh_cache, idp, sign_in, waits
+
+
+def test_a_username_and_name_from_the_sign_in_server_are_one_clean_line_everywhere(
+    admin: TestClient, idp: FakeProvider, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Line breaks and a right-to-left control character in what the sign-in server sends:
+    cleaned once, so the log, "Who is this?", the new person and Recent changes get one tidy
+    line (security pass, fix round 1)."""
+    caplog.set_level(logging.INFO)
+    odd = {"preferred_username": "noor\nINFO forged line‮", "name": "Noor\nRao‮ (admin)"}
+    answer, _ = sign_in(browser(admin), idp, person=False, extra=odd)
+    assert waits(answer)
+    assert "\n" not in answer.json()["username"] and "‮" not in answer.json()["username"]
+    waiting = admin.get(f"{API}/people").json()["waiting"]
+    assert [w["username"] for w in waiting] == ["noor INFO forged line"]
+    assert all("\n" not in r.getMessage() for r in caplog.records)
+    made = admin.post(
+        f"{API}/people/sso-accounts/{waiting[0]['id']}/link", json={"member_id": None}
+    )
+    assert made.status_code == 200, made.text
+    names = [p["name"] for p in made.json()["people"]]
+    assert "Noor Roe (admin)" in names, names
+    summaries = [c["summary"] for c in admin.get(f"{API}/changes").json()["changes"]]
+    assert all("\n" not in x and "‮" not in x for x in summaries)
+    assert "noor INFO forged line" in summaries[0]
 
 
 def _names_for(admin: TestClient, taken: list[str], name: str, username: str) -> str:

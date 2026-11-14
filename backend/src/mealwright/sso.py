@@ -1044,8 +1044,11 @@ def finish(gate: OutboundGate, flow: Flow, client: Client, code: str) -> Identit
     return Identity(
         issuer=client.issuer,
         subject=str(claims["sub"]),
-        username=text("preferred_username"),
-        email=text("email"),
+        # Everything the sign-in server says about a person is tidied to one line here, once:
+        # a line break in a username forged a log line and reached "Who is this?" and Recent
+        # changes (security pass, fix round 1).
+        username=tidy_one_line(text("preferred_username") or "") or None,
+        email=tidy_one_line(text("email") or "") or None,
         name=tidy_one_line(text("name") or "") or None,
         groups=groups_in(claims, client.group_claim),
         refresh_token=refresh if isinstance(refresh, str) and refresh else None,
