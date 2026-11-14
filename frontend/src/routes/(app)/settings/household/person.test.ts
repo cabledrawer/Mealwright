@@ -289,6 +289,14 @@ describe('Settings → Household → a person', () => {
     expect(page.getByRole('button', { name: 'Make a new link' }).query()).toBeNull();
   });
 
+  it('says under the Shared login switch that a shared login is not counted as someone who eats', async () => {
+    // Pe7 (cabledrawer 13 Nov).
+    open({ 'GET /people': [200, people([TESS, ssoJoss])] });
+    await expect
+      .element(page.getByText('A shared login isn’t counted as someone who eats.'))
+      .toBeVisible();
+  });
+
   it('says only when a person was added, when nobody is named as having added them', async () => {
     open({ 'GET /people': [200, people([TESS, ssoJoss])] });
     await expect.element(page.getByText('Added 3 Nov', { exact: true })).toBeVisible();

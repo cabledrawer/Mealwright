@@ -404,11 +404,14 @@
               <span class="hint" id="shared-detail"
                 >A kitchen tablet everyone uses: it can ask “Who’s this?”</span
               >
+              <span class="hint" id="shared-eats"
+                >A shared login isn’t counted as someone who eats.</span
+              >
             </span>
             <Switch
               bind:checked={shared}
               labelledby="shared-label"
-              describedby="shared-detail"
+              describedby="shared-detail shared-eats"
               disabled={locked}
             />
           </div>
