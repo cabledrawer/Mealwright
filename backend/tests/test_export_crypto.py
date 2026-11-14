@@ -10,6 +10,7 @@ import subprocess
 import sys
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from argon2.low_level import Type, hash_secret_raw
@@ -25,7 +26,7 @@ PASSWORD = "lorna's long passphrase"
 def _seal(data: bytes, password: str = PASSWORD, **more: object) -> bytes:
     options = {**FAST, **more}
     pieces = [data[i : i + 700] for i in range(0, len(data), 700)]
-    return b"".join(xc.encrypt(pieces, password, **options))  # type: ignore[arg-type]
+    return b"".join(xc.encrypt(pieces, password, **options))
 
 
 def _open(blob: bytes, password: str = PASSWORD) -> bytes:
@@ -226,7 +227,7 @@ def test_it_streams_in_pieces_and_never_holds_the_whole_file() -> None:
             made += 1
             yield b"\x07" * 1024
 
-    out = xc.encrypt(pieces(), PASSWORD, **FAST)  # type: ignore[arg-type]
+    out = xc.encrypt(pieces(), PASSWORD, **FAST)
     next(out)  # the header
     next(out)  # the key check
     next(out)  # the first data chunk
@@ -271,7 +272,7 @@ def test_the_page_snippet_has_no_assert_and_works_under_python_O(tmp_path: Path)
     """With -O every `assert` is dropped: a good file must still open and a hostile header must
     still be refused (so no check may be an assert)."""
     assert "assert" not in _snippet()
-    blob = b"".join(xc.encrypt([b"recipes for Sam" * 5000], PASSWORD, **FAST))  # type: ignore[arg-type]
+    blob = b"".join(xc.encrypt([b"recipes for Sam" * 5000], PASSWORD, **FAST))
     hostile = bytearray(blob)
     hostile[15:19] = (64 * 1024 * 1024).to_bytes(4, "big")  # 64 GiB of memory asked for
     (tmp_path / "good.mwenc").write_bytes(blob)
@@ -310,47 +311,83 @@ def test_the_page_snippet_has_no_assert_and_works_under_python_O(tmp_path: Path)
     assert run("good.mwenc", "wrong password").returncode != 0
 
 
-# --- One encrypted export at a time (each takes 64 MiB for its key) ------------------------
+KEY: dict[str, Any] = {"time_cost": 1, "memory_kib": xc.MIN_MEMORY_KIB}
 
 
-def test_the_second_export_at_once_is_told_to_wait_and_the_place_is_given_back() -> None:
-    first = xc.OneAtATime()
-    with pytest.raises(xc.Busy):
-        xc.OneAtATime()
-    first.release()
-    first.release()  # twice is harmless
-    again = xc.OneAtATime()
-    again.release()
+# --- One key being made at a time (each takes 64 MiB while it is made) --------------------
 
 
-def test_the_place_is_given_back_after_the_stream_ends() -> None:
-    place = xc.OneAtATime()
-    assert b"".join(place.stream(xc.encrypt([b"data"], PASSWORD, **FAST)))  # type: ignore[arg-type]
-    xc.OneAtATime().release()
+def test_two_keys_are_never_made_at_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    import threading
+    import time
+
+    inside = 0
+    most = 0
+    count = threading.Lock()
+    real = xc._key
+
+    def slow(*args: object) -> bytes:
+        nonlocal inside, most
+        with count:
+            inside += 1
+            most = max(most, inside)
+        time.sleep(0.3)
+        with count:
+            inside -= 1
+        return real(*args)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(xc, "_key", slow)
+    answers: list[str] = []
+
+    def one() -> None:
+        try:
+            xc.make_key(PASSWORD, one_at_a_time=True, **KEY)
+            answers.append("made")
+        except xc.Busy:
+            answers.append("busy")
+
+    threads = [threading.Thread(target=one) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert most == 1
+    assert answers.count("made") >= 1
+    assert answers.count("made") + answers.count("busy") == 6
+    xc.make_key(PASSWORD, one_at_a_time=True, **KEY)  # free again
 
 
-def test_the_place_is_given_back_after_an_error() -> None:
-    def broken() -> Iterator[bytes]:
-        yield b"x"
-        raise OSError("disk went away")
+def test_a_busy_refusal_does_no_key_work(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[int] = []
 
-    place = xc.OneAtATime()
-    stream = place.stream(broken())
-    next(stream)
-    with pytest.raises(OSError, match="disk"):
-        next(stream)
-    xc.OneAtATime().release()
+    def counted(*_args: object) -> bytes:
+        calls.append(1)
+        return b"k" * 32
+
+    monkeypatch.setattr(xc, "_key", counted)
+    assert xc._MAKING_A_KEY.acquire(blocking=False)
+    try:
+        with pytest.raises(xc.Busy):
+            xc.make_key(PASSWORD, one_at_a_time=True)
+    finally:
+        xc._MAKING_A_KEY.release()
+    assert calls == []
 
 
-def test_the_place_is_given_back_when_the_client_drops_even_before_the_first_piece() -> None:
-    place = xc.OneAtATime()
-    stream = place.stream(xc.encrypt([b"d" * 9000], PASSWORD, **FAST))  # type: ignore[arg-type]
-    stream.close()  # type: ignore[attr-defined]
-    xc.OneAtATime().release()
-    place = xc.OneAtATime()
-    place.stream(iter([b"never read"]))
-    del place  # dropped without a close: still freed
-    import gc
+def test_the_place_is_given_back_when_making_the_key_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def broken(*_args: object) -> bytes:
+        raise MemoryError("no room")
 
-    gc.collect()
-    xc.OneAtATime().release()
+    with monkeypatch.context() as patch:
+        patch.setattr(xc, "_key", broken)
+        with pytest.raises(MemoryError):
+            xc.make_key(PASSWORD, one_at_a_time=True)
+    xc.make_key(PASSWORD, one_at_a_time=True, **KEY)
+
+
+def test_a_file_made_in_two_steps_opens_like_one_made_in_one() -> None:
+    sealing = xc.make_key(PASSWORD, **KEY)
+    blob = b"".join(xc.encrypt_with([b"in two steps"], sealing, chunk=xc.MIN_CHUNK))
+    assert _open(blob) == b"in two steps"

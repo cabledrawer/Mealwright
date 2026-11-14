@@ -19,7 +19,6 @@ from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine, delete, func, select
-from starlette.background import BackgroundTask
 
 from mealwright import backups, export, export_crypto, setup_code, sso_accounts
 from mealwright.api.v1 import sso as sso_api
@@ -199,29 +198,26 @@ def export_everything_with_password(body: ExportWithPassword, kitchen: Here) -> 
             f"{export_crypto.PASSWORD_MOST:,} characters.",
         )
     try:
-        place = export_crypto.OneAtATime()
+        # Only the key-making (64 MiB of work) is one at a time, and it comes first: a busy
+        # answer costs nothing. The download itself holds no place, so a slow client can't
+        # keep anyone else out.
+        sealing = export_crypto.make_key(body.password, one_at_a_time=True)
     except export_crypto.Busy:
         raise Problem(
             status.HTTP_429_TOO_MANY_REQUESTS, "export_busy", export_crypto.BUSY
         ) from None
-    try:
-        household_id = kitchen.household_id
-        doc = export.document(kitchen.db, household_id)
-        kitchen.db.rollback()
-        photos = export.photo_files(store_of(kitchen.db), household_id)
-        name = export.file_name(today(kitchen.household)) + export_crypto.SUFFIX
-        stream = place.stream(export_crypto.encrypt(export.zip_stream(doc, photos), body.password))
-    except BaseException:
-        place.release()
-        raise
+    household_id = kitchen.household_id
+    doc = export.document(kitchen.db, household_id)
+    kitchen.db.rollback()
+    photos = export.photo_files(store_of(kitchen.db), household_id)
+    name = export.file_name(today(kitchen.household)) + export_crypto.SUFFIX
     return StreamingResponse(
-        stream,
+        export_crypto.encrypt_with(export.zip_stream(doc, photos), sealing),
         media_type="application/octet-stream",
         headers={
             "Content-Disposition": f'attachment; filename="{name}"',
             "Cache-Control": "no-store",
         },
-        background=BackgroundTask(place.release),
     )
 
 

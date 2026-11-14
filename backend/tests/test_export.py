@@ -344,22 +344,38 @@ def test_the_password_is_nowhere_in_the_database(kitchen: TestClient) -> None:
             assert SEALED_PASSWORD not in repr(rows), table.name
 
 
-def test_a_second_encrypted_export_at_once_gets_429_and_the_place_comes_back(
-    kitchen: TestClient,
+def test_a_second_export_while_a_key_is_being_made_gets_429_before_any_key_work(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    held = export_crypto.OneAtATime()  # an export already being made
+    calls: list[int] = []
+    real = export_crypto._key
+
+    def counted(*args: object) -> bytes:
+        calls.append(1)
+        return real(*args)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(export_crypto, "_key", counted)
+    assert export_crypto._MAKING_A_KEY.acquire(blocking=False)  # a key is being made
     try:
         busy = kitchen.post(API, json={"password": SEALED_PASSWORD})
         assert busy.status_code == 429
         assert busy.json()["code"] == "export_busy"
         assert busy.json()["detail"] == "An export is being made. Try again in a moment."
         assert SEALED_PASSWORD not in busy.text
+        assert calls == []
         assert kitchen.get(API).status_code == 200  # the plain export has no such limit
     finally:
-        held.release()
-    ok = kitchen.post(API, json={"password": SEALED_PASSWORD})
-    assert ok.status_code == 200  # given back, so the next one goes
+        export_crypto._MAKING_A_KEY.release()
     assert kitchen.post(API, json={"password": SEALED_PASSWORD}).status_code == 200
+
+
+def test_a_stalled_download_does_not_keep_anyone_else_out(kitchen: TestClient) -> None:
+    """A client that reads a little and stops holds nothing but its own stream."""
+    with kitchen.stream("POST", API, json={"password": SEALED_PASSWORD}) as slow:
+        assert slow.status_code == 200
+        next(slow.iter_bytes(chunk_size=16))  # reads a little and stalls, still open
+        second = kitchen.post(API, json={"password": SEALED_PASSWORD})
+        assert second.status_code == 200
 
 
 def test_a_refused_password_does_not_keep_the_place(kitchen: TestClient) -> None:
@@ -367,14 +383,14 @@ def test_a_refused_password_does_not_keep_the_place(kitchen: TestClient) -> None
     assert kitchen.post(API, json={"password": SEALED_PASSWORD}).status_code == 200
 
 
-def test_an_error_while_building_does_not_keep_the_place(
+def test_an_error_while_making_the_key_does_not_keep_the_place(
     kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def boom(*_a: object, **_k: object) -> None:
-        raise RuntimeError("no snapshot")
+    def boom(*_a: object) -> bytes:
+        raise MemoryError("no room")
 
-    monkeypatch.setattr(export, "document", boom)
-    with pytest.raises(RuntimeError):
-        kitchen.post(API, json={"password": SEALED_PASSWORD})
-    monkeypatch.undo()
+    with monkeypatch.context() as patch:
+        patch.setattr(export_crypto, "_key", boom)
+        with pytest.raises(MemoryError):
+            kitchen.post(API, json={"password": SEALED_PASSWORD})
     assert kitchen.post(API, json={"password": SEALED_PASSWORD}).status_code == 200

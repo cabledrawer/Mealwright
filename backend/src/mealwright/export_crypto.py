@@ -26,7 +26,7 @@ import struct
 import threading
 import unicodedata
 from collections.abc import Iterable, Iterator
-from typing import BinaryIO
+from typing import Any, BinaryIO
 
 from argon2.low_level import Type, hash_secret_raw
 from cryptography.exceptions import InvalidTag
@@ -100,86 +100,73 @@ BUSY = "An export is being made. Try again in a moment."
 
 
 class Busy(Exception):
-    """An encrypted export is already being made (the key costs 64 MiB of memory each)."""
+    """Another key is being made right now (the key costs 64 MiB of memory while it is made)."""
 
 
-_ONE_AT_A_TIME = threading.Lock()
+# Only the making of the key (the 64 MiB of Argon2 work) is limited to one at a time. The
+# download itself holds nothing: a slow or stalled client can't keep anyone else out.
+_MAKING_A_KEY = threading.Lock()
 
 
-class OneAtATime:
-    """Holds the one place for an encrypted export. Taken with `take()` (which raises `Busy`
-    at once rather than wait) before the export is built; given back by `release()`, which may
-    be called any number of times, by whichever of these happens first: the stream ends, it
-    fails, it is closed (the client went away), or it is dropped."""
+class Sealing:
+    """What an encrypted file needs: the key for this password and a new salt, and the cost
+    that went into it. Holds the key only as long as the one export that asked for it."""
 
-    def __init__(self) -> None:
-        self._held = False  # first, so a refused one has nothing to give back
-        self._mine = threading.Lock()
-        if not _ONE_AT_A_TIME.acquire(blocking=False):
-            raise Busy(BUSY)
-        self._held = True
-
-    def release(self) -> None:
-        with self._mine:
-            if not self._held:
-                return
-            self._held = False
-        _ONE_AT_A_TIME.release()
-
-    def __del__(self) -> None:
-        self.release()
-
-    def stream(self, pieces: Iterator[bytes]) -> Iterator[bytes]:
-        return _Held(self, pieces)
+    def __init__(self, key: bytes, salt: bytes, time_cost: int, memory_kib: int, lanes: int):
+        self.key = key
+        self.salt = salt
+        self.time_cost = time_cost
+        self.memory_kib = memory_kib
+        self.lanes = lanes
 
 
-class _Held:
-    """The stream, which gives the place back as it ends, fails or is closed or dropped (a
-    generator that never started would never run its own `finally`, so this is a class)."""
-
-    def __init__(self, guard: OneAtATime, pieces: Iterator[bytes]) -> None:
-        self._guard = guard
-        self._pieces = pieces
-
-    def __iter__(self) -> _Held:
-        return self
-
-    def __next__(self) -> bytes:
-        try:
-            return next(self._pieces)
-        except BaseException:  # the end, or a failure: either way the place is free
-            self.close()
-            raise
-
-    def close(self) -> None:
-        close = getattr(self._pieces, "close", None)
-        try:
-            if close:
-                close()
-        finally:
-            self._guard.release()
-
-    def __del__(self) -> None:
-        self._guard.release()
-
-
-def encrypt(
-    pieces: Iterable[bytes],
+def make_key(
     password: str,
     *,
+    one_at_a_time: bool = False,
     time_cost: int = TIME_COST,
     memory_kib: int = MEMORY_KIB,
     lanes: int = LANES,
-    chunk: int = CHUNK,
     salt: bytes | None = None,
+) -> Sealing:
+    """The key for a new file. With `one_at_a_time` it raises `Busy` at once, with no key work
+    done, when another key is being made, and gives its place back as soon as the key is made
+    or fails."""
+    if one_at_a_time and not _MAKING_A_KEY.acquire(blocking=False):
+        raise Busy(BUSY)
+    try:
+        salt = salt if salt is not None else secrets.token_bytes(SALT_BYTES)
+        key = _key(secret_bytes(password), salt, time_cost, memory_kib, lanes)
+        return Sealing(key, salt, time_cost, memory_kib, lanes)
+    finally:
+        if one_at_a_time:
+            _MAKING_A_KEY.release()
+
+
+def encrypt(pieces: Iterable[bytes], password: str, **options: Any) -> Iterator[bytes]:
+    """`make_key` then `encrypt_with`, for a caller (the tests) that has no use for the pause
+    in between. `options` are `make_key`'s and `chunk`."""
+    chunk = options.pop("chunk", CHUNK)
+    return encrypt_with(pieces, make_key(password, **options), chunk=chunk)
+
+
+def encrypt_with(
+    pieces: Iterable[bytes], sealing: Sealing, *, chunk: int = CHUNK
 ) -> Iterator[bytes]:
     """The encrypted file, piece by piece, from the plain pieces (any sizes). At most two
-    chunks are held at a time. (The cost, chunk size and salt are parameters for the tests.)"""
-    salt = salt if salt is not None else secrets.token_bytes(SALT_BYTES)
+    chunks are held at a time."""
     header = _HEADER.pack(
-        MAGIC, VERSION, KDF_ARGON2ID, CIPHER_AES_256_GCM, time_cost, memory_kib, lanes, salt, chunk
+        MAGIC,
+        VERSION,
+        KDF_ARGON2ID,
+        CIPHER_AES_256_GCM,
+        sealing.time_cost,
+        sealing.memory_kib,
+        sealing.lanes,
+        sealing.salt,
+        chunk,
     )
-    cipher = AESGCM(_key(secret_bytes(password), salt, time_cost, memory_kib, lanes))
+    cipher = AESGCM(sealing.key)
     yield header
     yield cipher.encrypt(_nonce(0), _KEY_CHECK, _aad(header, 0, False))
     index = 1
