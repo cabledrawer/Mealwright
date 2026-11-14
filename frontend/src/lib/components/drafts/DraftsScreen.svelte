@@ -8,16 +8,23 @@
   // no asking); each is shown as a button first, and the card's own buttons do the same. A phone
   // has cards, a computer a table (no swipes).
   // Online only: drafts are kept on the server.
+  // 0.9.5 (Import from Mealie, cabledrawer 13 Nov): when some drafts came from Mealie, chips show
+  // All or From Mealie; From Mealie says the lines each still waits on, and "Save all N as they
+  // are" saves them all (unread lines kept as plain text, nothing on the shopping list).
   import { offlineNote } from '#lib/privacyWords.js';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
   import type { DraftBrief } from '#lib/client/drafts.js';
+  import { saveAllMealieDrafts } from '#lib/client/mealie.js';
+  import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
+  import { DRAFTS_LEAD, linesWords, saveAllWords, unreadWords } from '#lib/mealieWords.js';
   import {
     RUNNING_OUT,
     allChecked,
     daysWords,
     fromWords,
+    needYou,
     phoneSource,
     progressShare,
     progressWords,
@@ -31,9 +38,12 @@
   import { network } from '#lib/network.svelte.js';
   import type { Side } from '#lib/swipe.js';
   import EmptyState from '../EmptyState.svelte';
+  import FilterChips from '../FilterChips.svelte';
   import OfflineNote from '../OfflineNote.svelte';
   import PageHeader from '../PageHeader.svelte';
   import SwipeRow from '../SwipeRow.svelte';
+
+  let { fromMealie = false }: { fromMealie?: boolean } = $props();
 
   let phone = $state(matchMedia('(max-width: 767px)').matches);
   $effect(() => {
@@ -82,6 +92,34 @@
     void drafts.load();
     nextDraft.mark(done.recipeId, draft.id);
     await goto(resolve('/(app)/recipes/[id]', { id: String(done.recipeId) }));
+  }
+
+  /** All drafts, or only those from Mealie (the chips show only when there are some). */
+  // svelte-ignore state_referenced_locally
+  let only = $state<'all' | 'mealie'>(fromMealie ? 'mealie' : 'all');
+  const mealie = $derived(drafts.drafts.filter((draft) => draft.source.kind === 'mealie'));
+  const showing = $derived(only === 'mealie' && mealie.length ? 'mealie' : 'all');
+  const listed = $derived(showing === 'mealie' ? mealie : drafts.drafts);
+  const mealieLine = (draft: DraftBrief) =>
+    unreadWords(draft.waiting ?? [], needYou(draft), !phone);
+
+  let savingAll = $state(false);
+  let saveAllProblem = $state<string | null>(null);
+
+  async function saveAll() {
+    if (savingAll) return;
+    savingAll = true;
+    saveAllProblem = null;
+    try {
+      await saveAllMealieDrafts();
+      only = 'all';
+    } catch (error) {
+      saveAllProblem =
+        error instanceof ApiError && !cantReach(error) ? error.detail : cantReachWords();
+    } finally {
+      savingAll = false;
+    }
+    void drafts.load();
   }
 
   /** Which cards are swiped open, and to which side. */
@@ -142,13 +180,36 @@
   {#if drafts.deleteProblem}
     <p class="failed-line" role="alert">{drafts.deleteProblem}</p>
   {/if}
+  {#if mealie.length}
+    <FilterChips
+      label="Show"
+      options={[
+        { value: 'all', label: `All ${drafts.drafts.length}` },
+        { value: 'mealie', label: `From Mealie ${mealie.length}` }
+      ]}
+      selected={showing}
+      onselect={(value) => (only = value)}
+    />
+  {/if}
+  {#if showing === 'mealie'}
+    <div class="mealie">
+      <p class="lead">{DRAFTS_LEAD}</p>
+      <button
+        type="button"
+        class="save-all"
+        disabled={savingAll || network.offline}
+        onclick={() => void saveAll()}>{savingAll ? 'Saving…' : saveAllWords(mealie.length)}</button
+      >
+      {#if saveAllProblem}<p class="failed-line" role="alert">{saveAllProblem}</p>{/if}
+    </div>
+  {/if}
   {#if drafts.drafts.length === 0}
     <EmptyState title="No drafts">
       When you import a recipe and leave before saving it, it waits here for 15 days.
     </EmptyState>
   {:else if phone}
     <ul class="cards" aria-label="Drafts">
-      {#each drafts.drafts as draft (draft.id)}
+      {#each listed as draft (draft.id)}
         <li>
           <SwipeRow
             bind:open={() => swiped[draft.id] ?? null, (side) => (swiped[draft.id] = side)}
@@ -173,7 +234,11 @@
               <div class="head">
                 <span class="what">
                   <span class="name">{draft.name}</span>
-                  <span class="source">{phoneSource(draft)}</span>
+                  {#if draft.source.kind === 'mealie' && draft.waiting?.length}
+                    <span class="source">{mealieLine(draft)}</span>
+                  {:else}
+                    <span class="source">{phoneSource(draft)}</span>
+                  {/if}
                 </span>
                 <span class="left" class:running-out={draft.days_left <= RUNNING_OUT}
                   >{daysWords(draft.days_left)}</span
@@ -211,10 +276,14 @@
         </tr>
       </thead>
       <tbody>
-        {#each drafts.drafts as draft (draft.id)}
+        {#each listed as draft (draft.id)}
           <tr>
             <th scope="row" class="name">{draft.name}</th>
-            <td class="from">{fromWords(draft)}</td>
+            <td class="from"
+              >{fromWords(draft)}{#if draft.source.kind === 'mealie' && draft.waiting?.length}<span
+                  class="waiting">{mealieLine(draft)} · {linesWords(needYou(draft))}</span
+                >{/if}</td
+            >
             <td
               ><span class="who"
                 ><span class="avatar" aria-hidden="true">{initial(draft.started_by)}</span
@@ -294,6 +363,41 @@
 
   .failed p {
     color: var(--color-text-muted);
+  }
+
+  .mealie {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+    max-width: 860px;
+  }
+
+  .lead,
+  .waiting {
+    color: var(--color-text-muted);
+    font-size: var(--text-md);
+    line-height: 1.45;
+  }
+
+  .waiting {
+    display: block;
+  }
+
+  .save-all {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-8);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-text);
+    font: var(--weight-bold) var(--text-base) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .save-all:disabled {
+    opacity: 0.55;
+    cursor: default;
   }
 
   .failed-line {

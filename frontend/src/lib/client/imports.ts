@@ -87,7 +87,7 @@ export interface ReviewPhoto {
 }
 
 export interface ImportReview {
-  source: { kind: 'link' | 'text'; url: string | null; site: string | null };
+  source: { kind: 'link' | 'text' | 'mealie'; url: string | null; site: string | null };
   name: string;
   description: string | null;
   author: string | null;

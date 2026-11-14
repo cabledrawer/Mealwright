@@ -235,6 +235,13 @@
       />
     {/if}
 
+    <!-- Import from Mealie finished (0.9.5): a note for a day; loaded when there is one. -->
+    {#if data.mealie}
+      {#await import('#lib/components/today/MealieNote.svelte') then { default: MealieNote }}
+        {#if data.mealie}<MealieNote note={data.mealie} />{/if}
+      {/await}
+    {/if}
+
     <!-- Start tonight (M3): a recipe with a long wait whose start is today; loaded when there is one. -->
     {#each starts as entry (entry.key)}
       {#await import('#lib/components/today/StartTonight.svelte') then { default: StartTonight }}

@@ -40,6 +40,8 @@ export interface TodayData {
   /** One row per batch and place, the same rows as the Pantry's Use soon (F203). */
   use_soon_tubs: UseSoonTub[];
   next_cook: NextCook | null;
+  /** An import from Mealie that finished in the last day (0.9.5). */
+  mealie?: MealieNote | null;
 }
 
 export interface Leftovers {
@@ -69,3 +71,12 @@ export const moveIt = (
   },
   key: string
 ) => api<PlanWrite>('POST', `/plan/meals/${mealId}/moved`, to, { idempotencyKey: key });
+
+/** Today's note for an import from Mealie that finished in the last day. */
+export interface MealieNote {
+  id: number;
+  state: 'done' | 'failed';
+  /** Recipes brought in (ready, and waiting in Drafts). */
+  recipes: number;
+  to_check: number;
+}

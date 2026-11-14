@@ -4,9 +4,10 @@
 
 import type { DraftBrief } from './client/drafts';
 
-/** "bbcgoodfood.com", or "Pasted text". */
+/** "bbcgoodfood.com", "Pasted text", or "Mealie" (0.9.5: Import from Mealie). */
 export function fromWords(draft: Pick<DraftBrief, 'source'>): string {
   if (draft.source.kind === 'text') return 'Pasted text';
+  if (draft.source.kind === 'mealie') return 'Mealie';
   return draft.source.site ?? 'A link';
 }
 

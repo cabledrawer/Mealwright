@@ -187,6 +187,17 @@
       </a>
     </section>
 
+    <!-- 0.9.5 (cabledrawer 13 Nov): anyone in the household may import (the server lets any member). -->
+    <section class="part" aria-labelledby="import">
+      <h2 id="import">Import</h2>
+      <a class="card row to" href={resolve('/(app)/settings/your-data/mealie')}>
+        <span class="lbl"
+          >Import from Mealie<small>Recipes and foods from a Mealie backup file</small></span
+        >
+        <Icon name="back" size={18} stroke={2.4} />
+      </a>
+    </section>
+
     <section class="part" aria-labelledby="export">
       <h2 id="export">Export everything</h2>
       <div class="card pad">

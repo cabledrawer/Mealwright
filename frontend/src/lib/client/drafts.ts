@@ -29,7 +29,7 @@ export interface DraftChoices {
 export interface DraftBrief {
   id: number;
   name: string;
-  source: { kind: 'link' | 'text'; site: string | null };
+  source: { kind: 'link' | 'text' | 'mealie'; site: string | null };
   started_by: string;
   started_at: string;
   updated_at: string;
@@ -39,6 +39,8 @@ export interface DraftBrief {
   /** Ingredient lines, and how many are tied to an ingredient (matched, or chosen). */
   lines_total: number;
   lines_checked: number;
+  /** The first few lines still to check, as written (0.9.5: shown for a draft from Mealie). */
+  waiting?: string[];
 }
 
 export interface DraftList {

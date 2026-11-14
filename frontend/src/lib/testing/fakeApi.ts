@@ -25,7 +25,13 @@ export function fakeApi(routes: Record<string, Reply>) {
       method,
       path,
       url,
-      body: init.body ? JSON.parse(String(init.body)) : undefined,
+      // A file is sent as it is (Import from Mealie's upload); everything else as JSON.
+      body:
+        init.body instanceof Blob
+          ? init.body
+          : init.body
+            ? JSON.parse(String(init.body))
+            : undefined,
       headers: (init.headers as Record<string, string>) ?? {}
     };
     requests.push(request);
