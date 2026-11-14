@@ -755,13 +755,21 @@ def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
     if changed and not was_off and not body.password_sign_in:
         # Turning passwords off together with a change nobody has tested yet.
         raise Problem(status.HTTP_409_CONFLICT, "passwords_needed", PASSWORDS_NEEDED)
-    if before is not None and (row.issuer, row.client_id) != (issuer, body.client_id.strip()):
+    moved = before is not None and (row.issuer, row.client_id) != (issuer, body.client_id.strip())
+    if moved and sso_accounts.would_lock_out(db, data_dir, kitchen.login):
+        # Another sign-in server or client orphans every link: the last admin with only a link
+        # would be locked out (fix round 1; cabledrawer 14 Nov).
+        raise Problem(status.HTTP_409_CONFLICT, "locked_out", sso_accounts.LOCKED_OUT)
+    if moved:
         # A refresh token belongs to the server and client that gave it: drop them all (the
         # people stay signed in; they just aren't asked about again), O1 review r3, L5.
         db.execute(
             update(Session)
-            .where(Session.household_id == kitchen.household_id)
-            .values(sso_refresh_sealed=None, sso_check_at=None)
+            .where(
+                Session.household_id == kitchen.household_id,
+                Session.sso_refresh_sealed.is_not(None),
+            )
+            .values(sso_refresh_sealed=None, sso_check_at=utcnow())  # the day runs from now (S8)
         )
     row.issuer = issuer
     row.client_id = body.client_id.strip()

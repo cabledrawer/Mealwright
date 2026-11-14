@@ -271,19 +271,19 @@ LOCKED_OUT = "You’d be locked out: set a password or add another admin first."
 
 
 def would_lock_out(db: DbSession, data_dir: Path | None, login: Login) -> bool:
-    """True when ending single sign-on here (its Privacy switch off, or taking away what lets
-    Mealwright reach the sign-in server) would lock this admin out: they are an admin whose only
-    way in is a single sign-on link (no password of their own), and no other admin gets in by
-    the household's rule (`another_admin_gets_in` with links: a working password, or an
-    accepted, unrefused link and a sign-in open right now; cabledrawer 14 Nov, (c)+(d)). A password
-    counts even while password sign-in is off: ending single sign-on turns it back on."""
+    """True when ending single sign-on here (its Privacy switch off, taking away what lets
+    Mealwright reach the sign-in server, or saving another sign-in server) would lock this admin
+    out: they are an admin whose only way in is a single sign-on link (no password of their
+    own), and no other admin has a password. Only a working password counts, theirs or another
+    admin's, because every link ends with single sign-on and ending it turns password sign-in
+    back on (cabledrawer 14 Nov: "set a password or add another admin first"; fix round 1). It is
+    `another_admin_gets_in` with passwords counted and links not: the household's one rule."""
     if login.role != ADMIN or login.shared or login.password_hash or login.sso_subject is None:
         return False
     off = passwords_off(db, data_dir, login.household_id)
-    sso_on = off or sso_can_start(db, data_dir, login.household_id)
-    if not sso_on:
+    if not (off or sso_can_start(db, data_dir, login.household_id)):
         return False  # it can't start now: nothing to end
-    return not another_admin_gets_in(db, login, off, links=True, sso_on=sso_on)
+    return not another_admin_gets_in(db, login, False, links=False, sso_on=False)
 
 
 def _hourly_keeps(db: DbSession, login: Login, row: SsoSettings, data_dir: Path) -> bool | None:
@@ -665,7 +665,7 @@ def _prepare(
             # a new one): its token isn't this server's to be asked about (O1 review r3,
             # L5). Not asked, not ended, and so no API token is stopped by it.
             session.sso_refresh_sealed = None
-            session.sso_check_at = None
+            session.sso_check_at = at  # the day runs from the drop (auth.last_moment)
             db.commit()
             return None
         try:

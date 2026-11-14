@@ -632,18 +632,23 @@ def _session_and_login(db: DbSession, token: str) -> tuple[Session, Login] | Non
     return None if found is None else (found[0], found[1])
 
 
-def longest(session: Session) -> timedelta:
-    """How long after it started a sign-in ends, however busy: a day for a single sign-on one
-    with no refresh token (S8), else LONGEST_SIGN_IN."""
+def last_moment(session: Session) -> datetime:
+    """When a sign-in ends however busy: LONGEST_SIGN_IN after it started; for a single sign-on
+    one with no refresh token (S8) a day after it started, or, when a refresh token was dropped
+    since (a saved sign-in server or client), a day after that (`sso_check_at` holds the moment
+    it was dropped, which nothing else reads while there is no token)."""
+    started = _as_utc(session.created_at)
     if session.sso and session.sso_refresh_sealed is None:
-        return SSO_UNCHECKED_FOR
-    return LONGEST_SIGN_IN
+        if session.sso_check_at is not None:
+            started = max(started, _as_utc(session.sso_check_at))
+        return started + SSO_UNCHECKED_FOR
+    return started + LONGEST_SIGN_IN
 
 
 def _ended(session: Session, at: datetime) -> bool:
-    """Run out: idle too long, or past its longest (a refresh token dropped since it started
-    counts at once, S8)."""
-    return _as_utc(session.expires_at) <= at or _as_utc(session.created_at) + longest(session) <= at
+    """Run out: idle too long, or past its last moment (a refresh token dropped since it started
+    starts the day from the drop, S8)."""
+    return _as_utc(session.expires_at) <= at or last_moment(session) <= at
 
 
 def find_session(db: DbSession, token: str | None) -> SignedIn | None:
@@ -661,7 +666,7 @@ def find_session(db: DbSession, token: str | None) -> SignedIn | None:
     if at - _as_utc(session.last_seen_at) >= SEEN_EVERY:
         session.last_seen_at = at
         if not session.remember:
-            ends_by = _as_utc(session.created_at) + longest(session)
+            ends_by = last_moment(session)
             session.expires_at = min(at + IDLE_TIMEOUT, ends_by)
         db.commit()
     return SignedIn(login=login, session=session)

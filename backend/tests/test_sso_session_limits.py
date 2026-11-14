@@ -16,6 +16,7 @@ from sqlalchemy import select
 from test_sso_api import (
     API,
     ISSUER,
+    SETUP,
     admin,
     begin,
     browser,
@@ -158,3 +159,32 @@ def test_a_password_sign_in_isnt_cut_to_a_day(admin: TestClient) -> None:
         session.created_at = session.created_at - timedelta(days=2)
         db.commit()
     assert admin.get(f"{API}/me").status_code == 200
+
+
+def test_a_refresh_token_dropped_by_a_saved_setup_starts_the_day_from_the_drop(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """Saving another client drops every refresh token; the people stay signed in, and the one
+    day (S8) runs from then, not from when each sign-in started."""
+    idp.discovery_extra = {"scopes_supported": ["openid", "profile", "email", "offline_access"]}
+    sso.cache.forget()
+    person_here(admin, "lorna")
+    phone = browser(admin)
+    _finish(phone, idp, begin(phone, "/sso/start?remember=true"))
+    _started_earlier(admin, timedelta(days=2))
+    assert phone.get(f"{API}/me").status_code == 200
+    saved = admin.put(f"{API}/sso/settings", json={**SETUP, "client_id": "another-client"})
+    assert saved.status_code == 200, saved.text
+    session = _sso_session(admin)
+    assert session.sso_refresh_sealed is None
+    assert phone.get(f"{API}/me").status_code == 200  # still signed in, two days on
+    with cast(Any, admin.app).state.sessionmaker() as db:  # a day less five minutes after the drop
+        row = db.scalars(select(Session).where(Session.sso.is_(True))).one()
+        row.sso_check_at = row.sso_check_at - (SSO_UNCHECKED_FOR - timedelta(minutes=5))
+        db.commit()
+    assert phone.get(f"{API}/me").status_code == 200
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        row = db.scalars(select(Session).where(Session.sso.is_(True))).one()
+        row.sso_check_at = row.sso_check_at - timedelta(minutes=6)
+        db.commit()
+    assert phone.get(f"{API}/me").status_code == 401

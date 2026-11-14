@@ -87,12 +87,16 @@ def test_an_admin_with_a_password_may_turn_it_off(
     assert not _on(kitchen)
 
 
-def test_another_admin_signed_in_with_an_accepted_link_lets_it_be_turned_off(
+def test_another_admin_signed_in_with_only_a_link_doesnt_count(
     kitchen: TestClient, link_only: FakeProvider
 ) -> None:
+    """Every link ends with single sign-on, so a link-only admin is no way back in (fix round 1:
+    "set a password or add another admin first")."""
     _second_admin(kitchen, link_only, signed_in=True)
-    assert _off(kitchen).status_code == 200
-    assert not _on(kitchen)
+    refused = _off(kitchen)
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["detail"] == SENTENCE
+    assert _on(kitchen)
 
 
 def test_another_admin_linked_but_signed_out_doesnt_count(
@@ -114,6 +118,19 @@ def test_another_admin_with_a_working_password_lets_it_be_turned_off(
     assert _off(kitchen).status_code == 200
 
 
+def test_another_admins_working_password_counts_with_passwords_off_too(
+    kitchen: TestClient, link_only: FakeProvider
+) -> None:
+    """Ending single sign-on turns password sign-in back on, so their password is a way back."""
+    person_here(kitchen, "noor", role="admin")
+    with cast(Any, kitchen.app).state.sessionmaker() as db:
+        noor = db.scalars(select(Login).where(Login.username == "noor")).one()
+        noor.password_hash = hash_password("noor's own password")
+        db.commit()
+    assert kitchen.put(f"{API}/sso/password-sign-in", json={"on": False}).status_code == 200
+    assert _off(kitchen).status_code == 200
+
+
 def test_another_household_cant_make_it_pass(
     kitchen: TestClient, link_only: FakeProvider, neighbour: TestClient
 ) -> None:
@@ -131,3 +148,43 @@ def test_nothing_is_refused_when_it_is_off_already_or_the_asker_isnt_linked(
         db.commit()
     assert _off(kitchen).status_code == 200
     assert _off(kitchen).status_code == 200  # again: no change, no refusal
+
+
+# Saving the setup (fix round 1): another sign-in server or client orphans every link.
+
+
+def _save(client: TestClient, **change: Any) -> Any:
+    from test_sso_api import SETUP
+
+    return client.put(f"{API}/sso/settings", json={**SETUP, **change})
+
+
+def test_the_last_link_only_admin_cant_save_another_sign_in_server_or_client(
+    kitchen: TestClient, link_only: FakeProvider
+) -> None:
+    for change in ({"client_id": "another-client"}, {"issuer": "https://other.example.org"}):
+        refused = _save(kitchen, **change)
+        assert refused.status_code == 409, refused.text
+        assert refused.json()["code"] == "locked_out"
+        assert refused.json()["detail"] == SENTENCE
+    saved = kitchen.get(f"{API}/sso/settings").json()
+    assert saved["client_id"] != "another-client" and "other.example" not in saved["issuer"]
+
+
+def test_a_save_that_keeps_the_server_and_client_is_not_refused(
+    kitchen: TestClient, link_only: FakeProvider
+) -> None:
+    assert _save(kitchen, button_name="Our sign-in").status_code == 200
+    assert _save(kitchen, client_secret="a new secret").status_code == 200
+    groups = [{"group": "everyone", "role": "member"}]
+    assert _save(kitchen, group_roles=groups).status_code == 200
+
+
+def test_saving_another_client_is_allowed_with_a_password(
+    kitchen: TestClient, link_only: FakeProvider
+) -> None:
+    with cast(Any, kitchen.app).state.sessionmaker() as db:
+        for login in db.scalars(select(Login)):
+            login.password_hash = hash_password("a long enough password")
+        db.commit()
+    assert _save(kitchen, client_id="another-client").status_code == 200
