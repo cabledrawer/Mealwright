@@ -1,7 +1,7 @@
 """add Import from Mealie: the import record, and which ingredients and drafts it made
 
 Revision ID: b6e2d8f4a913
-Revises: d3a9f1c7e254
+Revises: b8e2d4f6a913
 Create Date: 2026-11-15 09:00:00
 
 0.9.5 Import from Mealie (cabledrawer 13 Nov). New table `mealie_import` (household_id, state,
@@ -21,7 +21,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "b6e2d8f4a913"
-down_revision: str | Sequence[str] | None = "d3a9f1c7e254"
+down_revision: str | Sequence[str] | None = "b8e2d4f6a913"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

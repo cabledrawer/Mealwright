@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from mealwright import migrate
 from mealwright.db import make_engine
 
-BEFORE = "d3a9f1c7e254"  # the line's newest before this (beta fix5, former names)
+BEFORE = "b8e2d4f6a913"  # the line's newest before this (reset links)
 MEALIE = "b6e2d8f4a913"
 
 
