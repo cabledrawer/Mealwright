@@ -231,10 +231,19 @@ describe('Settings → Household → a person', () => {
       .toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('a single sign-on person signs in: no "link has run out", and the shared switch shows', async () => {
+  it('a link that has run out or was cancelled says only that it no longer works', async () => {
+    // 16b security re-check S2-M1: an admin's sign-in link can now be cancelled when another
+    // admin goes, so "has run out" isn't always true (proposed, for cabledrawer).
+    const gone = { ...pendingJoss, login: { ...pendingJoss.login, link_pending: false } };
+    open({ 'GET /people': [200, people([TESS, gone])] });
+    await expect.element(page.getByText('Joss’s sign-in link no longer works.')).toBeVisible();
+    await expect.element(page.getByRole('button', { name: 'Make a new link' })).toBeVisible();
+  });
+
+  it('a single sign-on person signs in: no "link no longer works", and the shared switch shows', async () => {
     open({ 'GET /people': [200, people([TESS, ssoJoss])] });
     await expect.element(page.getByText('Shared login', { exact: true })).toBeVisible();
-    expect(page.getByText('sign-in link has run out', { exact: false }).query()).toBeNull();
+    expect(page.getByText('sign-in link no longer works', { exact: false }).query()).toBeNull();
     expect(page.getByRole('button', { name: 'Make a new link' }).query()).toBeNull();
   });
 

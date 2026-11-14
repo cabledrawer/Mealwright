@@ -446,7 +446,7 @@
           <p class="sub">
             {login.link_pending
               ? `${person.name} hasn’t used the sign-in link yet.`
-              : `${person.name}’s sign-in link has run out.`}
+              : `${person.name}’s sign-in link no longer works.`}
           </p>
           <button class="quiet" type="button" disabled={locked} onclick={() => void makeLink()}
             >Make a new link</button
