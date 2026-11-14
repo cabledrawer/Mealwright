@@ -2,6 +2,12 @@
 
 All notable changes to Mealwright are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the plan in `docs/spec.md` section 8: 0.N.0 per build milestone (not published), then MAJOR.MINOR.PATCH from 1.0.0.
 
+## [Unreleased]
+
+### Added
+
+- **Export password (0.9.5, cabledrawer 13 Nov: "Export everything offers an optional password that encrypts the file").** Settings › Your data › Export everything has a **Password (optional)** box (the mockup's words; the rule line, "Use 8 to 1,024 characters. Mealwright doesn’t keep the password and can’t recover it.", is proposed, for cabledrawer). With a password the file is encrypted (Argon2id for the key, AES-256-GCM in 64 KiB chunks that carry their position and a "last chunk" mark, so a dropped, moved or cut-short chunk is noticed) and comes as `mealwright-export-<day>.zip.mwenc`; without one nothing changes (`GET /api/v1/export`, the same zip). The password goes in the body of `POST /api/v1/export` only, is never stored or logged, and an admin only may use it. The format, its costs and a short Python snippet to open a file by hand (using only `cryptography`) are in `docs/export-format.md`; the app itself still has no restore from an export, so nothing here reads one back. 0.9.0 said this was not built yet; it is now.
+
 ## [0.9.0] - 2026-11-13
 
 0.9.0 is "What a tester needs": the household's people and roles, single sign-on, API tokens, onboarding, Settings in the spec's order, backups, export, restore, updates and Report a problem, all first listed under 0.9.0-beta.1 below. What is new since beta.1 is the 0.8 leftovers, the fixes from cabledrawer's hand test (Batch cook buttons, start times, tubs, Today and the Plan card, and unticking in the trolley) and the fixes from the whole-0.9 review.

@@ -4,10 +4,13 @@ header, nothing in the clear. Costs are small here so the tests are quick; the d
 checked to be what the page says."""
 
 import io
+import re
 import struct
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
+from cryptography.exceptions import InvalidTag
 
 from mealwright import export_crypto as xc
 
@@ -210,3 +213,37 @@ def test_it_streams_in_pieces_and_never_holds_the_whole_file() -> None:
     next(out)  # the key check
     next(out)  # the first data chunk
     assert made < 10  # the source is read on demand, not all at once
+
+
+# --- The by-hand snippet in docs/export-format.md is the one that is tested ----------------
+
+
+def _snippet() -> str:
+    page = (Path(__file__).parents[2] / "docs" / "export-format.md").read_text(encoding="utf-8")
+    found = re.findall(r"```python\n(.*?)```", page, flags=re.S)
+    assert len(found) == 1
+    return found[0]
+
+
+def _by_hand(blob: bytes, password: str, tmp_path: Path) -> bytes:
+    scope: dict[str, object] = {}
+    exec(compile(_snippet(), "export-format.md", "exec"), scope)  # noqa: S102
+    source, target = tmp_path / "in.mwenc", tmp_path / "out.zip"
+    source.write_bytes(blob)
+    scope["open_export"](str(source), str(target), password)  # type: ignore[operator]
+    return target.read_bytes()
+
+
+@pytest.mark.parametrize("size", [0, 1, 65_535, 65_536, 65_537, 200_000])
+def test_the_page_snippet_opens_a_file_of_the_real_app_settings(tmp_path: Path, size: int) -> None:
+    data = bytes(i % 253 for i in range(size))
+    blob = b"".join(xc.encrypt([data], PASSWORD))  # the real cost and chunk size
+    assert _by_hand(blob, PASSWORD, tmp_path) == data
+
+
+def test_the_page_snippet_refuses_a_wrong_password_and_a_cut_file(tmp_path: Path) -> None:
+    blob = b"".join(xc.encrypt([b"x" * 70_000], PASSWORD))
+    with pytest.raises(InvalidTag):
+        _by_hand(blob, "wrong one entirely", tmp_path)
+    with pytest.raises(InvalidTag):
+        _by_hand(blob[:-30], PASSWORD, tmp_path)
