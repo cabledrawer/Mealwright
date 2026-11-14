@@ -19,7 +19,9 @@ from sqlalchemy import event, select
 from sqlalchemy.engine import Engine
 from test_mealie_file import jpeg
 
-from mealwright import drafts, mealie_import
+from mealwright import drafts, mealie_file, mealie_import
+from mealwright.api.v1 import mealie as mealie_api
+from mealwright.mealie_file import MealieFileProblem
 from mealwright.models import (
     Food,
     ImportDraft,
@@ -698,3 +700,75 @@ def test_a_mealie_draft_can_be_kept_again_and_comes_back_still_from_mealie(
         back = db.get(ImportDraft, draft["id"])
         assert back is not None and back.mealie_import_id == done["id"]
         assert drafts.count(db, 1) == 0
+
+
+def test_a_file_being_sent_holds_up_only_its_own_household(
+    kitchen: TestClient, neighbour: TestClient, raw: bytes
+) -> None:
+    # Round 1, review 12: one upload at a time for the whole server, with no time limit, so a
+    # stalled one held up everyone's.
+    mine = 1  # the kitchen's household
+    mealie_api._UPLOADING.add(mine)
+    try:
+        busy = upload(kitchen, raw)
+        assert busy.status_code == 503 and busy.json()["code"] == "mealie_upload_busy"
+        assert upload(neighbour, raw).status_code == 201
+    finally:
+        mealie_api._UPLOADING.discard(mine)
+    assert upload(kitchen, raw).status_code == 201
+    assert set() == mealie_api._UPLOADING
+
+
+def test_the_job_waits_while_the_file_reader_is_busy(
+    kitchen: TestClient, raw: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Round 1, review 2: a busy reader failed the whole import and deleted its file.
+    import_id = started(kitchen, raw, monkeypatch)
+    read = mealie_file.read_file
+    tries: list[int] = []
+
+    def busy_twice(path: Path) -> Any:
+        tries.append(1)
+        if len(tries) <= 2:
+            raise MealieFileProblem("busy")
+        return read(path)
+
+    monkeypatch.setattr(mealie_file, "read_file", busy_twice)
+    factory = kitchen.app.state.sessionmaker  # type: ignore[attr-defined]
+    mealie_import.run(factory, import_id)
+    assert len(tries) == 3
+    job = kitchen.get(f"{API}/mealie-imports/{import_id}").json()
+    assert job["state"] == "done" and job["counts"]["saved"] == 2, job["counts"]
+
+
+def test_the_job_gives_up_on_a_reader_that_stays_busy_and_stops_if_cancelled(
+    kitchen: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(mealie_import, "BUSY_TRIES", 3)
+    tries: list[int] = []
+
+    def always_busy(path: Path) -> Any:
+        tries.append(1)
+        raise MealieFileProblem("busy")
+
+    factory = kitchen.app.state.sessionmaker  # type: ignore[attr-defined]
+    first = started(kitchen, zipped(tmp_path / "a.zip"), monkeypatch)
+    monkeypatch.setattr(mealie_file, "read_file", always_busy)
+    mealie_import.run(factory, first)
+    assert len(tries) == 3
+    assert kitchen.get(f"{API}/mealie-imports/{first}").json()["state"] == "failed"
+    # Cancelled while it waits: it stops, and doesn't fail.
+    tries.clear()
+    monkeypatch.undo()
+    second = started(kitchen, zipped(tmp_path / "b.zip"), monkeypatch)
+
+    def busy_then_cancelled(path: Path) -> Any:
+        tries.append(1)
+        assert kitchen.delete(f"{API}/mealie-imports/{second}").status_code == 204
+        raise MealieFileProblem("busy")
+
+    monkeypatch.setattr(mealie_file, "read_file", busy_then_cancelled)
+    mealie_import.run(factory, second)
+    assert len(tries) == 1
+    job = kitchen.get(f"{API}/mealie-imports/{second}").json()
+    assert job["state"] == "done" and job["done"] == 0

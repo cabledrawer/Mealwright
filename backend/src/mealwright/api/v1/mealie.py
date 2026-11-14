@@ -32,7 +32,10 @@ UPLOAD_BUSY = "Another Mealie file is being sent. Try again in a moment."
 NO_FILE = "Choose the Mealie file (.zip)."
 
 # One upload at a time in this one server process: a 1 GB file is plenty to be writing.
-_UPLOADING = threading.Lock()
+# The households sending a file now: one file at a time for each household, so a slow or
+# stalled upload holds up only its own household, never the others (round 1, review 12, S-L8).
+_UPLOADING: set[int] = set()
+_UPLOADING_LOCK = threading.Lock()
 
 
 class PreviewRecipe(BaseModel):
@@ -172,18 +175,20 @@ def out(kitchen: Kitchen, row: MealieImport) -> MealieImportOut:
     )
 
 
-def _signed_in(request: Request) -> None:
+def _signed_in(request: Request) -> int:
     """Refuse (401) unless signed in, before a byte of the file is read (a short session of its
-    own, as for a photo upload)."""
+    own, as for a photo upload). The household's id."""
     with request.app.state.sessionmaker() as db:
-        current(request, db)
+        return current(request, db).login.household_id
 
 
-async def _mealie_file(request: Request, _: Annotated[None, Depends(_signed_in)]) -> Path:
+async def _mealie_file(request: Request, household_id: Annotated[int, Depends(_signed_in)]) -> Path:
     """The uploaded file, streamed to a temporary file in the data folder (never held in
     memory). The body limit (1 GB on this route only) is checked as it arrives."""
-    if not _UPLOADING.acquire(blocking=False):
-        raise Problem(status.HTTP_503_SERVICE_UNAVAILABLE, "mealie_upload_busy", UPLOAD_BUSY)
+    with _UPLOADING_LOCK:
+        if household_id in _UPLOADING:
+            raise Problem(status.HTTP_503_SERVICE_UNAVAILABLE, "mealie_upload_busy", UPLOAD_BUSY)
+        _UPLOADING.add(household_id)
     try:
         incoming: Path = request.app.state.settings.data_dir / mealie_import.FOLDER / "incoming"
         incoming.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -208,7 +213,8 @@ async def _mealie_file(request: Request, _: Annotated[None, Depends(_signed_in)]
             raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "mealie_no_file", NO_FILE)
         return path
     finally:
-        _UPLOADING.release()
+        with _UPLOADING_LOCK:
+            _UPLOADING.discard(household_id)
 
 
 MealieFile = Annotated[Path, Depends(_mealie_file)]

@@ -731,7 +731,10 @@ the server keeps that copy for the whole import, outside the reader's budget), e
 zip bomb is cut off. Only stored and deflated members are read, never encrypted ones. The
 zip's index and `database.json` are read in a child process with its own budget (60 s of
 processor time, 90 s by the clock, 768 MB of memory, the network guard on), the same way
-as a recipe page (`page_budget`), one file at a time for the whole server.
+as a recipe page (`page_budget`), one file at a time for the whole server. The job waits for
+a busy reader (up to `BUSY_TRIES` tries of a minute each, stopping if the import is cancelled
+meanwhile) instead of failing; sending a file is one at a time for each household, so a slow
+or stalled upload holds up only its own household (round 1, review 2 and 12, S-L8).
 
 **Bringing it in (`mealie_import.py`, `api/v1/mealie.py`).** cabledrawer 13 Nov: you see what's
 in the file before anything is added; recipes with every line read are saved straight away,

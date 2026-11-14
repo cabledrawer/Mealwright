@@ -95,6 +95,9 @@ PAUSE_SECONDS = 0.1
 # Recipes read and their photos cleaned at a time, before the lock is taken to add them.
 PREPARE = 25
 # Undo and "Save all" check and change this many rows a query.
+# How many times the job waits for the server's one file reader before it gives up: each
+# try waits up to a minute (mealie_file.MAX_WAIT_SECONDS), so about half an hour.
+BUSY_TRIES = 30
 CHUNK = 500
 
 # The words are proposed, for cabledrawer (words.md section 81).
@@ -803,8 +806,9 @@ def run(factory: sessionmaker[Session], import_id: int) -> None:
         try:
             if kitchen is None or path is None or not path.exists():
                 raise MealieFileProblem("unreadable")
-            book = mealie_file.read_file(path)
-            _carry_on(kitchen, row, book, path)
+            book = _read_book(db, row, path)
+            if book is not None:
+                _carry_on(kitchen, row, book, path)
         except Exception as why:
             db.rollback()
             log.warning("An import from Mealie stopped part-way (%s)", type(why).__name__)
@@ -815,6 +819,22 @@ def run(factory: sessionmaker[Session], import_id: int) -> None:
                     row.finished_at = utcnow()
                     _drop_file(db, row)
                     db.commit()
+
+
+def _read_book(db: Session, row: MealieImport, path: Path) -> MealieBook | None:
+    """Read the file, waiting while the server's one reader is busy with another (each try
+    waits up to a minute) instead of failing (round 1, review 2, S-L8). None when the import
+    was stopped meanwhile."""
+    for _ in range(BUSY_TRIES - 1):
+        try:
+            return mealie_file.read_file(path)
+        except MealieFileProblem as problem:
+            if problem.reason != "busy":
+                raise
+        db.refresh(row)
+        if row.state != "running":
+            return None
+    return mealie_file.read_file(path)
 
 
 def _carry_on(kitchen: Kitchen, row: MealieImport, book: MealieBook, path: Path) -> None:
