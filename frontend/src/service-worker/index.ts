@@ -15,6 +15,7 @@
 import { self as worker } from '$app/service-worker';
 import { version } from '$app/env';
 import { assets, immutable } from '$app/manifest';
+import { answer, install } from '#lib/offline/heal.js';
 import { CACHE_PREFIX, SHELL, appFiles, cacheName, handling } from '#lib/offline/rules.js';
 
 const CACHE = cacheName(version);
@@ -26,10 +27,14 @@ const KNOWN = new Set(ASSETS);
 worker.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
-      const cache = await caches.open(CACHE);
       // "reload": ask the server, not the browser's own copy, so a new worker never keeps
-      // an old file.
-      await cache.addAll([SHELL, ...ASSETS].map((path) => new Request(path, { cache: 'reload' })));
+      // an old file. A half-written cache of this name is dropped first and after a failure
+      // (lib/offline/heal.ts), so a failed install never leaves a bad cache behind.
+      await install(
+        caches,
+        CACHE,
+        [SHELL, ...ASSETS].map((path) => new Request(path, { cache: 'reload' }))
+      );
     })()
   );
 });
@@ -57,11 +62,11 @@ worker.addEventListener('fetch', (event) => {
     return;
   }
 
+  // A missing or bad copy is dropped and fetched fresh from the app's own server, and the
+  // fresh one is kept (heal.ts). A good copy still opens the app with no connection.
   event.respondWith(
-    (async () => {
-      const cache = await caches.open(CACHE);
-      const found = await cache.match(kind === 'shell' ? SHELL : url.pathname);
-      return found ?? fetch(request);
-    })()
+    answer(caches, CACHE, kind === 'shell' ? SHELL : url.pathname, () =>
+      fetch(kind === 'shell' ? SHELL : request)
+    )
   );
 });
