@@ -65,6 +65,8 @@ Mealwright can sign people in through your own sign-in server (Settings → Sign
 
 **Setting up: where's the setup code?** The first time Mealwright starts, before anyone has an account, it prints a setup code in its log, and the first-run page asks for it, so only someone who can read the server's log can create the admin account. Run `docker logs mealwright` (use your container's name) and look for "setup code". A new code is made each time Mealwright restarts until the admin account exists.
 
+**Someone forgot their password.** An admin opens Settings → Household → that person and taps Reset password. It makes a one-time link that works for 24 hours: send it to them, and they choose a new password there. Their recipes, plans and history stay as they are. Their page then shows when the link was used ("Link used today 21:40"), so you can tell if someone else used it.
+
 **The only admin forgot their password.** Another admin can't see passwords, so run this on the server (use your container's name and the admin's username):
 
 ```
