@@ -233,8 +233,11 @@ describe('Settings → Your data', () => {
     it('a member has no box at all', async () => {
       session.me = { ...ME, role: 'member' };
       open(YourData);
-      await expect.element(page.getByLabelText('How often')).toBeVisible();
+      await expect.element(page.getByText('How often')).toBeVisible();
       expect(document.querySelector('input[type="password"]')).toBeNull();
+      // Nothing points at a field that isn't there (a label with a dead `for`).
+      for (const label of document.querySelectorAll('label[for]'))
+        expect(document.getElementById(label.getAttribute('for')!)).not.toBeNull();
     });
   });
 

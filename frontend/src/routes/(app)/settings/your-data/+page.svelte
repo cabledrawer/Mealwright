@@ -159,7 +159,12 @@
       <h2 id="backups">Backups</h2>
       <div class="card">
         <div class="row">
-          <label class="lbl" for="every">How often</label>
+          <!-- A label only where there is a field for it to point at (not for someone who can only look). -->
+          {#if locked}
+            <span class="lbl">How often</span>
+          {:else}
+            <label class="lbl" for="every">How often</label>
+          {/if}
           {#if locked}
             <span class="val">{EVERY_WORDS[backups.every]}</span>
           {:else}
@@ -179,7 +184,12 @@
           {/if}
         </div>
         <div class="row">
-          <label class="lbl" for="keep">Keep</label>
+          <!-- A label only where there is a field for it to point at (not for someone who can only look). -->
+          {#if locked}
+            <span class="lbl">Keep</span>
+          {:else}
+            <label class="lbl" for="keep">Keep</label>
+          {/if}
           {#if locked}
             <span class="val">{keepWords(backups.keep)}</span>
           {:else}
