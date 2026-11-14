@@ -26,6 +26,7 @@ from mealwright.models import (
     Household,
     ImportDraft,
     Login,
+    MealieImport,
     Member,
     OwnNetworkEntry,
     Recipe,
@@ -408,6 +409,18 @@ def planted(kitchen: TestClient, neighbour: TestClient) -> TestClient:
                 household_id=1, kind="name", value="nas.lan", added_by_name="Vance Hale"
             )
         )
+        # A Mealie import (0.9.5): the file's name and who brought it in.
+        db.add(
+            MealieImport(
+                household_id=1,
+                state="done",
+                file_name="zephyrine_mealie_backup.zip",
+                preview={},
+                choices={},
+                results=[],
+                started_by_name="Wattlesworth Quill",
+            )
+        )
         for household, username, name in [
             (1, "jos", "Jos\u00e9 \u00d8rsted"),
             (2, "smu", "Stra\u00dfe M\u00fcller"),
@@ -456,6 +469,13 @@ PLANTED = [
     ("a recipe", "Couldn't save Granny Mabel's lasagne", "lasagne", "[recipe]"),
     ("next door's recipe", "Couldn't save Next-door goulash now", "goulash", "[recipe]"),
     ("an import draft", "Draft paneer tikka stuck", "paneer", "[recipe]"),
+    (
+        "a Mealie file's name",
+        "Can't open zephyrine_mealie_backup.zip now",
+        "zephyrine",
+        "[removed]",
+    ),
+    ("who brought a Mealie file in", "Wattlesworth was busy", "Wattlesworth", "[name]"),
     ("an ingredient", "Thuvaram paruppu had no size", "Thuvaram", "[ingredient]"),
     ("an ingredient's other name", "Arhar dal matched twice", "Arhar", "[ingredient]"),
     ("next door's ingredient", "Neighbour's sourdough went", "sourdough", "[ingredient]"),

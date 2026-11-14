@@ -417,6 +417,7 @@ _PEOPLE_COLUMNS: tuple[Any, ...] = (
     models.Recipe.updated_by_name,
     models.RecipePhoto.added_by_name,
     models.ImportDraft.started_by_name,
+    models.MealieImport.started_by_name,  # who brought a Mealie file in (0.9.5)
     models.CookedRecord.cooked_by_name,
     # Who did each change, tick and queued action, by the name they had then (review r1).
     models.Change.login_name,
@@ -457,6 +458,9 @@ _PHRASE_COLUMNS: tuple[tuple[str, tuple[Any, ...]], ...] = (
             models.ShoppingList.name,
             models.MealSlot.name,
             models.ApiToken.name,  # a script's or app's name, as an admin typed it (0.9 O2)
+            # A Mealie backup's file name, as the person's device called it (0.9.5): it may
+            # hold a name, so it is removed (proposed, for cabledrawer).
+            models.MealieImport.file_name,
         ),
     ),
 )
