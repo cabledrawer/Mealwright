@@ -37,6 +37,7 @@ Everything else below is the spec's or cabledrawer's, as marked:
 """
 
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
@@ -243,24 +244,33 @@ def _scaled(need: int, recipe: Recipe, servings: int | None) -> int:
 
 
 def hints(
-    lines: list[Line], recipes: dict[int, Recipe], stock: Stock, servings: int | None = None
+    lines: list[Line],
+    recipes: dict[int, Recipe],
+    stock: Stock,
+    servings: int | None = None,
+    only: Iterable[int] | None = None,
 ) -> dict[int, tuple[StockHint | None, UseSoonHint | None, bool]]:
     """For every recipe: whether its ingredients are in stock, what it uses that is about to
     go off, and whether some line uses a recipe that can't be checked (so "all in stock" and
     "Can cook now" would claim too much). `servings` (the recipe page's minus and plus buttons)
-    replaces each recipe's own Serves; the list leaves it out."""
+    replaces each recipe's own Serves; the list leaves it out. `only` works the hints out for
+    just those recipes (the page shown); `recipes` still holds them all, because a line may
+    use another recipe."""
+    wanted = set(recipes) if only is None else set(only)
     by_recipe: dict[int, list[Line]] = defaultdict(list)
     unchecked: set[int] = set()
     for line in lines:
         # A line with no amount is ignored, whatever it points at (cabledrawer 20 Oct). So is an
         # Optional one: a recipe is "Can cook now" without it (R3).
-        if line.amount_milli is None or line.optional:
+        if line.recipe_id not in wanted or line.amount_milli is None or line.optional:
             continue
         by_recipe[line.recipe_id].append(line)
         if line.sub_recipe_id is not None and _ingredient_of(line, stock.foods, recipes) is None:
             unchecked.add(line.recipe_id)
     found: dict[int, tuple[StockHint | None, UseSoonHint | None, bool]] = {}
     for recipe_id in recipes:
+        if recipe_id not in wanted:
+            continue
         left = recipe_id in unchecked
         needs: dict[int, int] = {}
         for line in by_recipe.get(recipe_id, ()):
@@ -360,14 +370,10 @@ def page(
     lines = _lines(kitchen, set(recipes))
     foods = _foods(kitchen)
     # Can cook now follows the way of cooking it the recipe would be planned with: the one used
-    # last, else the first (M2). The search below looks in every method.
+    # last, else the first (M2). Search looks in every method.
     counted = keep_method(lines, methods.picks_for(kitchen.db, recipes))
-    found = hints(counted, recipes, Stock(kitchen, foods))
+    stock = Stock(kitchen, foods)
     kept = ordered
-    if can_cook_now:
-        kept = [r for r in kept if (found[r.id][0] and found[r.id][0].can_cook_now)]  # type: ignore[union-attr]
-    if use_soon:
-        kept = [r for r in kept if found[r.id][1] is not None]
     terms = fold(q).split()
     wanted = fold(tag) if tag and tag.strip() else None
     if terms or wanted:
@@ -377,7 +383,17 @@ def page(
         if terms:
             text = _search_text(kitchen, recipes, lines, foods, tags)
             kept = [r for r in kept if all(term in text[r.id] for term in terms)]
+    # The hints are worked out only for the recipes that need them (0.9.5): every recipe left
+    # after the search when a hint decides who is kept, else just the page shown.
+    if can_cook_now or use_soon:
+        found = hints(counted, recipes, stock, only=[r.id for r in kept])
+        if can_cook_now:
+            kept = [r for r in kept if (found[r.id][0] and found[r.id][0].can_cook_now)]  # type: ignore[union-attr]
+        if use_soon:
+            kept = [r for r in kept if found[r.id][1] is not None]
     shown = kept[start : start + limit]
+    if not (can_cook_now or use_soon):
+        found = hints(counted, recipes, stock, only=[r.id for r in shown])
     briefs = brief_list(kitchen, shown)
     rows = [
         RecipeRow(

@@ -594,3 +594,38 @@ def test_a_best_before_packet_is_no_nudge_to_cook(kitchen: TestClient) -> None:
     make(kitchen, "Dal soup", lines=[line(dal["id"], 100, "g")])
     assert row(kitchen, "Dal soup")["use_soon"] is None
     assert names(kitchen, use_soon="true") == []
+
+
+# --- Hints only for the page shown (0.9.5) ----------------------------------------------------
+
+
+def test_hints_are_worked_out_only_for_the_recipes_on_the_page(
+    kitchen: TestClient, monkeypatch: Any
+) -> None:
+    from mealwright import recipe_list
+
+    rice = food(kitchen, "Hint rice")
+    stock(kitchen, rice["id"], 5000, "g")
+    for i in range(12):
+        make(kitchen, f"Hint {i:02d}", lines=[line(rice["id"], 50, "g")])
+    worked: list[int] = []
+    real = recipe_list.hints
+
+    def spy(*args: Any, **kwargs: Any) -> Any:
+        found = real(*args, **kwargs)
+        worked.extend(found)
+        return found
+
+    monkeypatch.setattr(recipe_list, "hints", spy)
+    page = listing(kitchen, limit=5)
+    assert len(page["recipes"]) == 5 and page["total"] == 12
+    assert len(worked) == 5  # not twelve
+    assert all(r["stock"]["can_cook_now"] for r in page["recipes"])
+    # A filter that needs every recipe's hint still gets the right total.
+    worked.clear()
+    kept = listing(kitchen, limit=5, can_cook_now="true")
+    assert kept["total"] == 12 and len(kept["recipes"]) == 5
+    # A search narrows first, so only the matches are worked out.
+    worked.clear()
+    one = listing(kitchen, limit=5, q="Hint 03", can_cook_now="true")
+    assert one["total"] == 1 and len(worked) == 1
