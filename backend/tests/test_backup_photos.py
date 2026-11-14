@@ -21,6 +21,7 @@ from sqlalchemy import Engine
 
 from mealwright import backups, migrate
 from mealwright.auth import hash_password
+from mealwright.config import Settings
 from mealwright.db import make_engine
 from mealwright.models import Login
 
@@ -372,14 +373,60 @@ def test_trimming_removes_the_photo_folder_with_its_backup(kitchen: TestClient) 
     assert live.read_bytes() == b"sambar"  # the live photo is never touched by a trim
 
 
-def test_a_photo_folder_with_no_database_or_half_made_is_tidied_away(kitchen: TestClient) -> None:
+def test_orphan_and_half_made_photo_folders_are_tidied_of_every_kind_of_copy(
+    kitchen: TestClient,
+) -> None:
     folder = _folder(kitchen)
     backups.make_folder(folder)
-    (folder / "backup-20261101-030000-photos" / "1").mkdir(parents=True)
-    (folder / "backup-20261101-030000-photos.99999999.part" / "1").mkdir(parents=True)
-    (folder / "pre-upgrade-abc-20261101-030000-photos").mkdir()  # not a backup's: left alone
+    kinds = ["backup-20261101-030000", "before-delete-everything-20261101-030000-2"]
+    kinds.append("pre-upgrade-abc123-20261101-030000")
+    for kind in kinds:
+        (folder / f"{kind}-photos" / "1").mkdir(parents=True)  # its .db is gone
+        (folder / f"{kind}-photos.99999999.part" / "1").mkdir(parents=True)  # killed half-made
+        # With this process's own pid: in Docker every start is PID 1, so the pid always matches.
+        (folder / f"{kind}-photos.{os.getpid()}.part" / "1").mkdir(parents=True)
+    (folder / "unrelated-photos").mkdir()  # not a copy's: left alone
+    kept = folder / "backup-20261102-030000.db"
+    kept.write_bytes(b"x")
+    (folder / "backup-20261102-030000-photos").mkdir()  # its .db is there
     backups.trim(folder, 7)
-    assert [p.name for p in folder.iterdir()] == ["pre-upgrade-abc-20261101-030000-photos"]
+    assert sorted(p.name for p in folder.iterdir()) == [
+        "backup-20261102-030000-photos",
+        "backup-20261102-030000.db",
+        "unrelated-photos",
+    ]
+
+
+def test_start_up_tidies_a_half_made_folder_with_its_own_pid(settings: Settings) -> None:
+    from mealwright.main import create_app
+
+    leftover = (
+        settings.data_dir / backups.FOLDER / f"backup-20261101-030000-photos.{os.getpid()}.part"
+    )
+    (leftover / "1").mkdir(parents=True)
+    with TestClient(create_app(settings)):
+        assert not leftover.exists()
+
+
+def test_the_folder_in_the_making_is_not_tidied(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A trim from another thread while a copy is under way leaves its half-made folder."""
+    _photo(_store(kitchen), "a")
+    folder = _folder(kitchen)
+    real = sqlite3.connect
+    seen: list[bool] = []
+
+    def trim_meanwhile(path: object, *args: object, **kwargs: object) -> object:
+        (part,) = folder.glob("*-photos.*.part")
+        backups.tidy_photo_folders(folder)
+        seen.append(part.is_dir())
+        return real(path, *args, **kwargs)  # type: ignore[call-overload]
+
+    monkeypatch.setattr(sqlite3, "connect", trim_meanwhile)
+    made = backups.back_up(_engine(kitchen), folder, 7, photos=_store(kitchen))
+    assert seen == [True]
+    assert backups.photos_beside(made.path).is_dir()
 
 
 # --- Restoring --------------------------------------------------------------------------------
@@ -522,3 +569,25 @@ def test_a_real_photo_comes_back_from_the_backup_and_a_missing_one_is_only_a_404
     assert kitchen.get("/api/v1/recipes").status_code == 200
     shutil.copytree(backups.photos_beside(backup.path), _store(kitchen))  # cp -an, as the docs say
     assert kitchen.get(url).status_code == 200
+
+
+def test_trim_waits_for_a_backup_under_way_and_a_backup_can_trim_itself(
+    kitchen: TestClient,
+) -> None:
+    """Changing Keep trims under the one-at-a-time lock, so it can't remove a photo folder
+    between its rename and its `.db` arriving; `back_up`, which holds the lock, trims too
+    (no deadlock: the many-backups test above runs it)."""
+    import threading
+
+    folder = _folder(kitchen)
+    backups.make_folder(folder)
+    done = threading.Event()
+    with backups._ONE_AT_A_TIME:
+        thread = threading.Thread(target=lambda: (backups.trim(folder, 1), done.set()))
+        thread.start()
+        assert not done.wait(0.3)  # waiting for the backup that holds the lock
+    thread.join(timeout=5)
+    assert done.is_set()
+    # And the real route: a Keep change while nothing runs, and a backup that trims.
+    assert kitchen.patch(API, json={"keep": 1}).status_code == 200
+    assert kitchen.post(API).status_code == 200

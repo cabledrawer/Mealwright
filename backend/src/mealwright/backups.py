@@ -69,6 +69,12 @@ WEEKLY_ON = 0  # Monday (cabledrawer 12 Nov)
 RETRY_AFTER = timedelta(hours=1)
 
 BACKUP_NAME = re.compile(r"^backup-(\d{8}-\d{6})\.db$")
+# Every kind of copy that can have a photo folder: a backup, the copy before Delete everything,
+# the safety copy before an upgrade (mealwright.migrate.SAFETY_COPY_NAME has the same shape).
+ANY_COPY = re.compile(
+    r"^(?:backup-\d{8}-\d{6}|before-delete-everything-\d{8}-\d{6}(?:-\d+)?"
+    r"|pre-upgrade-[0-9A-Za-z_]+-\d{8}-\d{6}(?:-\d+)?)\.db$"
+)
 # A photo folder beside a backup, and the half-made one (`.<pid>.part`, mealwright.migrate too).
 PHOTOS_SUFFIX = "-photos"
 _PHOTOS_PART = re.compile(r"^(?P<stem>.+)-photos\.(?P<pid>\d+)\.part$")
@@ -78,7 +84,15 @@ BEFORE_DELETE = "before-delete-everything"
 _STAMP = "%Y%m%d-%H%M%S"
 
 # One backup at a time: the job and "Back up now" never write at once.
-_ONE_AT_A_TIME = threading.Lock()
+# Re-entrant: `back_up` holds it and trims while it does, and `trim` takes it for itself.
+_ONE_AT_A_TIME = threading.RLock()
+
+# The photo folders being made in this process right now (their half-made and final names), so
+# a sweep never removes one that is in the making. Known by this marker, not by the process ID:
+# in Docker the app is PID 1 on every start, so a half-made folder left by a killed run has the
+# same PID as the new one.
+_MAKING: set[str] = set()
+_MAKING_LOCK = threading.Lock()
 
 
 class BackupFailed(RuntimeError):
@@ -192,25 +206,31 @@ def remove_copy(path: Path) -> bool:
     return gone
 
 
-def drop_orphan_photos(folder: Path, stem: re.Pattern[str]) -> None:
-    """Delete photo folders whose `.db` is gone, and half-made ones left by a start that was
-    killed (another process's). `stem` matches the names of the kind of copy handled."""
-    try:
-        entries = list(folder.iterdir())
-    except OSError:
-        return
-    names = {entry.name for entry in entries}
-    for entry in entries:
-        if not entry.is_dir() or entry.is_symlink():
-            continue
-        part = _PHOTOS_PART.match(entry.name)
-        if part:
-            if stem.match(part["stem"] + ".db") and int(part["pid"]) != os.getpid():
+def tidy_photo_folders(folder: Path) -> None:
+    """Delete photo folders that no finished copy owns: half-made ones (`.part`, whoever's) and
+    finished ones whose `.db` is gone, for every kind of copy (ANY_COPY). Not one being made in
+    this process right now. Takes the one-at-a-time lock, so it never runs between a copy's photo
+    folder being put in place and its `.db` arriving. Never raises."""
+    with _ONE_AT_A_TIME:
+        try:
+            entries = list(folder.iterdir())
+        except OSError:
+            return
+        names = {entry.name for entry in entries}
+        with _MAKING_LOCK:
+            making = set(_MAKING)
+        for entry in entries:
+            if entry.name in making or not entry.is_dir() or entry.is_symlink():
+                continue
+            part = _PHOTOS_PART.match(entry.name)
+            if part:
+                if ANY_COPY.match(part["stem"] + ".db"):
+                    _drop(entry)
+                continue
+            db_name = entry.name.removesuffix(PHOTOS_SUFFIX) + ".db"
+            owned = db_name in names or not ANY_COPY.match(db_name)
+            if entry.name.endswith(PHOTOS_SUFFIX) and not owned:
                 _drop(entry)
-            continue
-        db_name = entry.name.removesuffix(PHOTOS_SUFFIX) + ".db"
-        if entry.name.endswith(PHOTOS_SUFFIX) and stem.match(db_name) and db_name not in names:
-            _drop(entry)
 
 
 def copy_database(engine: Engine, target: Path, photos: Path | None = None) -> None:
@@ -229,6 +249,8 @@ def copy_database(engine: Engine, target: Path, photos: Path | None = None) -> N
     final_photos = photos_beside(target)
     photos_part = final_photos.with_name(f"{final_photos.name}.{os.getpid()}.part")
     placed_photos = False
+    with _MAKING_LOCK:
+        _MAKING.update({final_photos.name, photos_part.name})
     try:
         partial.unlink(missing_ok=True)
         _drop(photos_part)
@@ -258,7 +280,8 @@ def copy_database(engine: Engine, target: Path, photos: Path | None = None) -> N
         if photos_part.is_dir():
             # A photo added while the database was copied: the copy may point to it.
             _add_photos(photos, photos_part, have)  # type: ignore[arg-type]
-            _drop(final_photos)  # left by a copy that never finished: its `.db` isn't here
+            if final_photos.exists():  # another copy's, or one left unfinished: not ours to take
+                raise FileExistsError(errno.EEXIST, "A copy with that name is already there")
             photos_part.rename(final_photos)
             placed_photos = True
         _put_in_place(partial, target)
@@ -269,6 +292,9 @@ def copy_database(engine: Engine, target: Path, photos: Path | None = None) -> N
         if placed_photos:
             _drop(final_photos)
         raise
+    finally:
+        with _MAKING_LOCK:
+            _MAKING.difference_update({final_photos.name, photos_part.name})
 
 
 def _put_in_place(partial: Path, target: Path) -> None:
@@ -334,12 +360,15 @@ def backups(folder: Path) -> list[Backup]:
 
 
 def trim(folder: Path, keep: int) -> list[Path]:
-    """Delete Mealwright's own backups beyond the newest `keep`. Returns what went."""
+    """Delete Mealwright's own backups beyond the newest `keep`, and tidy the photo folders no
+    copy owns. Returns what went. Holds the one-at-a-time lock (a backup being made waits for it,
+    and `back_up`, which holds the lock itself, can call this)."""
     gone = []
-    for backup in backups(folder)[max(keep, 1) :]:
-        if remove_copy(backup.path):
-            gone.append(backup.path)
-    drop_orphan_photos(folder, BACKUP_NAME)
+    with _ONE_AT_A_TIME:
+        for backup in backups(folder)[max(keep, 1) :]:
+            if remove_copy(backup.path):
+                gone.append(backup.path)
+        tidy_photo_folders(folder)
     return gone
 
 

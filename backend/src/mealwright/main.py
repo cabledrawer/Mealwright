@@ -94,6 +94,8 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
                 backups=settings.data_dir / backups.FOLDER,
                 photos=settings.data_dir / "photos",
             )
+        # Half-made photo folders from a run that was killed (before any backup can start).
+        backups.tidy_photo_folders(settings.data_dir / backups.FOLDER)
         # After the database is open (its -wal and -shm files exist): fix older installs.
         private_files.tighten(settings.data_dir)
         # A fresh install gets a one-off setup code, printed in the log (PR A2): only

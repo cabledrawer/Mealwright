@@ -55,7 +55,7 @@ Below, `<folder>` is the folder holding `compose.yaml` and the `data` folder (th
 
 An older version can't read a database a newer version has changed, and Mealwright has no downgrade command. Going back means putting back the backup you took before upgrading, **together with the old image**. Anything you changed after upgrading is lost. One thing to know: if you go back to 0.9.0 and then upgrade again, a login number from before can be used again, because 0.9.0 doesn't remember the ones it used.
 
-**After going back to 0.8, Undo of 0.9 people changes does nothing** (cabledrawer 13 Nov). If the 0.9 changes to people (added, removed, a sign-in link made) are still in Recent changes because the data wasn't put back from a backup, 0.8 shows an Undo for them, says "Undone." and changes nothing. Going back from a backup avoids this: the changes are not there at all.
+**After going back to 0.8, Undo of 0.9 people changes does nothing** (cabledrawer 13 Nov). If the 0.9 changes to people (added, removed, a sign-in link made) are still in Recent changes because the data wasn't put back from a backup, 0.8 shows an Undo for them, says "Undone." and changes nothing. Going back to 0.8 also leaves any `-photos` folders in `data/backups`: 0.8 doesn't know them and never trims them, so delete them by hand when you no longer need them. Going back from a backup avoids the first problem: the changes are not there at all.
 
 1. Stop it:
 

@@ -17,10 +17,10 @@ from sqlalchemy import Connection, Engine
 
 from mealwright.backups import (
     copy_to_free_name,
-    drop_orphan_photos,
     make_folder,
     remove_copy,
     sqlite_file,
+    tidy_photo_folders,
 )
 
 log = logging.getLogger(__name__)
@@ -161,7 +161,7 @@ def _drop_stale_parts(backups: Path) -> None:
             except OSError as error:
                 log.warning("Couldn't remove the half-written copy %s: %s", path, error)
     # A half-made photo folder, or one whose copy is gone.
-    drop_orphan_photos(backups, SAFETY_COPY_NAME)
+    tidy_photo_folders(backups)
 
 
 def _keep_newest(backups: Path, also: str | None = None) -> None:
