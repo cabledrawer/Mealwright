@@ -1,8 +1,10 @@
 """Import from Mealie (0.9.5): upload the backup file, look it over, bring it in, Undo, and Save
 all as they are (`mealwright.mealie_import`; docs/dev/recipe-import.md, "Import from Mealie").
 
-Who may: anyone in the household, the same as importing a recipe from a link or pasted text
-(no role check there either). Through an API token too, like a recipe import.
+Who may (round 1, proposed, for cabledrawer): the household's admin, like the other Your data
+actions. Sending the file, Bring in, Cancel, Undo and Save all check the role (sending the file
+before a byte of it is read), and refuse API tokens, as Your data does. Anyone in the household
+may look (the import screen's state, Today's note, Drafts).
 """
 
 import secrets
@@ -17,12 +19,14 @@ from sqlalchemy import func, select
 
 from mealwright import mealie_import
 from mealwright.api.v1.context import Here, Kitchen
+from mealwright.api_tokens import not_for_tokens
 from mealwright.auth import SameOrigin, current
 from mealwright.errors import Problem, StoredInt
 from mealwright.history import as_utc
 from mealwright.limits import MAX_MEALIE_BYTES, MEALIE_TOO_BIG
 from mealwright.mealie_file import MAX_RECIPES
 from mealwright.models import Food, MealieImport, utcnow
+from mealwright.roles import Action, allowed
 
 router = APIRouter(tags=["recipes"], dependencies=[SameOrigin])
 
@@ -30,6 +34,7 @@ CHUNK = 1024 * 1024
 # The words are proposed, for cabledrawer (words.md section 81).
 UPLOAD_BUSY = "Another Mealie file is being sent. Try again in a moment."
 NO_FILE = "Choose the Mealie file (.zip)."
+ADMINS_ONLY = "Only the household’s admin can change this."  # as Kitchen.admin_only says
 
 # One upload at a time in this one server process: a 1 GB file is plenty to be writing.
 # The households sending a file now: one file at a time for each household, so a slow or
@@ -176,10 +181,16 @@ def out(kitchen: Kitchen, row: MealieImport) -> MealieImportOut:
 
 
 def _signed_in(request: Request) -> int:
-    """Refuse (401) unless signed in, before a byte of the file is read (a short session of its
-    own, as for a photo upload). The household's id."""
+    """Refuse (401) unless signed in, and (403) unless the household's admin on a device, before
+    a byte of the file is read (a short session of its own, as for a photo upload). The
+    household's id."""
     with request.app.state.sessionmaker() as db:
-        return current(request, db).login.household_id
+        caller = current(request, db)
+        if not allowed(caller.login.role, Action.YOUR_DATA, caller.by_token):
+            if caller.by_token and allowed(caller.login.role, Action.YOUR_DATA):
+                raise not_for_tokens()
+            raise Problem(status.HTTP_403_FORBIDDEN, "admins_only", ADMINS_ONLY)
+        return caller.login.household_id
 
 
 async def _mealie_file(request: Request, household_id: Annotated[int, Depends(_signed_in)]) -> Path:
@@ -278,6 +289,7 @@ def start(
 ) -> MealieImportOut:
     """ "Bring in": the server brings the recipes in on its own; the screen can be left.
     Recipes whose every ingredient line was read are saved; the others wait in Drafts."""
+    kitchen.admin_only(Action.YOUR_DATA)
     row = mealie_import.find(kitchen, import_id)
     mealie_import.start(kitchen, row, body.leave_out, body.photos)
     request.app.state.mealie.kick(row.id)
@@ -293,6 +305,7 @@ def cancel(import_id: StoredInt, kitchen: Here) -> Response:
     """Cancel on the preview: the file is deleted and nothing was added. Cancel while it runs:
     it stops between two short stretches of work; what came in stays, with the import's Undo
     (proposed, for cabledrawer)."""
+    kitchen.admin_only(Action.YOUR_DATA)
     mealie_import.cancel(kitchen, mealie_import.find(kitchen, import_id))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -307,6 +320,7 @@ def cancel(import_id: StoredInt, kitchen: Here) -> Response:
 def undo(import_id: StoredInt, kitchen: Here) -> MealieUndone:
     """The import's one Undo, for 7 days: its recipes, new ingredients and drafts are taken out,
     except recipes changed, cooked or planned since and ingredients something else uses."""
+    kitchen.admin_only(Action.YOUR_DATA)
     done = mealie_import.undo(kitchen, mealie_import.find(kitchen, import_id))
     return MealieUndone(recipes=done.recipes, kept=done.kept, foods=done.foods, drafts=done.drafts)
 
@@ -315,6 +329,7 @@ def undo(import_id: StoredInt, kitchen: Here) -> MealieUndone:
 def save_all(kitchen: Here) -> MealieSavedAll:
     """Save all the Mealie drafts as they are: lines Mealwright couldn't read are kept as plain
     text and never go on the shopping list."""
+    kitchen.admin_only(Action.YOUR_DATA)
     return MealieSavedAll(saved=mealie_import.save_all_drafts(kitchen))
 
 

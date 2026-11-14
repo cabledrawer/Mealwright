@@ -167,8 +167,8 @@ describe('Settings → Your data', () => {
     await expect.element(page.getByRole('link', { name: /How to restore/ })).toBeVisible();
   });
 
-  it('Import from Mealie is a row under Import, for any member (0.9.5)', async () => {
-    session.me = { ...ME, role: 'member' };
+  it('Import from Mealie is a row under Import, for the admin (0.9.5)', async () => {
+    session.me = { ...ME, role: 'admin' };
     open(YourData);
     await expect.element(page.getByRole('heading', { name: 'Import' })).toBeVisible();
     const row = page.getByRole('link', { name: /Import from Mealie/ });
@@ -177,6 +177,16 @@ describe('Settings → Your data', () => {
       .element(page.getByText('Recipes and ingredients from a Mealie backup file'))
       .toBeVisible();
     expect(row.element().getAttribute('href')).toBe('/settings/your-data/mealie');
+  });
+
+  it('a member does not see Import from Mealie (0.9.5 round 1: the server refuses them)', async () => {
+    session.me = { ...ME, role: 'member' };
+    open(YourData);
+    await expect.element(page.getByRole('link', { name: /How to restore/ })).toBeVisible();
+    await expect.element(page.getByRole('heading', { name: 'Import' })).not.toBeInTheDocument();
+    await expect
+      .element(page.getByRole('link', { name: /Import from Mealie/ }))
+      .not.toBeInTheDocument();
   });
 
   it('How to restore has the steps', async () => {

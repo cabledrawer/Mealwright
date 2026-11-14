@@ -17,6 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import event, select
 from sqlalchemy.engine import Engine
+from sync_kit import person
 from test_mealie_file import jpeg
 
 from mealwright import drafts, mealie_file, mealie_import
@@ -772,3 +773,41 @@ def test_the_job_gives_up_on_a_reader_that_stays_busy_and_stops_if_cancelled(
     assert len(tries) == 1
     job = kitchen.get(f"{API}/mealie-imports/{second}").json()
     assert job["state"] == "done" and job["done"] == 0
+
+
+def mealie_writes(import_id: int) -> list[tuple[str, str]]:
+    return [
+        ("POST", f"{API}/mealie-imports/{import_id}/start"),
+        ("DELETE", f"{API}/mealie-imports/{import_id}"),
+        ("POST", f"{API}/mealie-imports/{import_id}/undo"),
+        ("POST", f"{API}/mealie-imports/drafts/save-all"),
+    ]
+
+
+def test_only_the_households_admin_may_import(kitchen: TestClient, raw: bytes) -> None:
+    # Round 1, review 9 (proposed, for cabledrawer): like the other Your data actions.
+    noor = person(kitchen, name="Noor", username="noor")
+    sent = upload(noor, raw)
+    assert sent.status_code == 403 and sent.json()["code"] == "admins_only"
+    assert mealie_files(kitchen) == []  # refused before a byte was kept
+    import_id = upload(kitchen, raw).json()["id"]
+    for method, path in mealie_writes(import_id):
+        answer = noor.request(method, path, json={})
+        assert answer.status_code == 403, (method, path, answer.text)
+        assert answer.json()["code"] == "admins_only"
+    # Looking is fine: the screen's state, and nothing changed.
+    assert noor.get(f"{API}/mealie-imports/current").json()["current"]["state"] == "ready"
+
+
+def test_an_api_token_may_not_import(kitchen: TestClient, raw: bytes) -> None:
+    made = kitchen.post(f"{API}/api-tokens", json={"name": "Sam's script", "scope": "full"})
+    app = TestClient(kitchen.app, base_url="https://testserver")
+    app.headers["Authorization"] = f"Bearer {made.json()['token']}"
+    sent = upload(app, raw)
+    assert sent.status_code == 403 and sent.json()["code"] == "not_for_tokens"
+    assert mealie_files(kitchen) == []
+    import_id = upload(kitchen, raw).json()["id"]
+    for method, path in mealie_writes(import_id):
+        answer = app.request(method, path, json={})
+        assert answer.status_code == 403, (method, path, answer.text)
+        assert answer.json()["code"] == "not_for_tokens"

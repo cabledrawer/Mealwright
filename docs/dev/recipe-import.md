@@ -742,10 +742,13 @@ only ones with unread lines go to Drafts ("From Mealie"); "Save all as they are"
 the server; one Undo for the whole import (7 days; recipes changed or cooked since are kept).
 The choices below are proposed, for cabledrawer:
 
-- **Who:** anyone in the household, the same as importing a recipe from a link (no role
-  check), and an API token may too. `POST /api/v1/mealie-imports` takes the `.zip` itself as
+- **Who (round 1, proposed, for cabledrawer):** the household's admin, like the other Your data
+  actions: sending the file (checked before a byte is read), Bring in, Cancel, Undo and Save
+  all answer a member 403 `admins_only` and an API token 403 `not_for_tokens`. A member
+  doesn't see the row in Your data; anyone in the household may look (the import's state,
+  Today's note, Drafts). `POST /api/v1/mealie-imports` takes the `.zip` itself as
   the body (at most 1 GB, this route only; streamed to a file in the data folder, one upload
-  at a time for the whole server). Signed-out uploads are refused before a byte is read.
+  at a time for each household). Signed-out uploads are refused before a byte is read.
 - **The preview** is kept with the file until "Bring in" or Cancel; sending another file
   lets the earlier one go, and a file nobody brings in is deleted after a day. One import
   runs at a time in a household (409 `mealie_busy`).

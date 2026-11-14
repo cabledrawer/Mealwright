@@ -1,6 +1,7 @@
 // Import from Mealie (0.9.5; backend api/v1/mealie.py, cabledrawer 13 Nov): the file is read on
 // the server and shown before anything is added; "Bring in" runs on the server, so the screen
-// can be left; one Undo for the whole import, for 7 days. Anyone in the household may import.
+// can be left; one Undo for the whole import, for 7 days. Only the household's admin imports, on a
+// device, never by API token (round 1, proposed, for cabledrawer); anyone in the household may look.
 
 import { api } from '#lib/api.js';
 
