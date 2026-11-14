@@ -207,6 +207,11 @@ class PlanTubOut(BaseModel):
     use_by: date
 
 
+class RemovedPersonOut(BaseModel):
+    member_id: int
+    name: str
+
+
 class PlanOut(BaseModel):
     start: date
     end: date
@@ -214,6 +219,10 @@ class PlanOut(BaseModel):
     batch_cooks: list[PlanBatchOut]
     tubs: list[PlanTubOut]
     batch_sessions: list[PlanSessionOut] = Field(default_factory=list)
+    # Removed people still named here (a past meal's eater, a tub's owner), so a screen can say
+    # "Lorna (removed)" (0.9.5 Pe6, cabledrawer 13 Nov). Meals from the day of their removal on don't
+    # list them in `eater_member_ids`.
+    removed_people: list[RemovedPersonOut] = Field(default_factory=list)
 
 
 @router.get("/plan")
@@ -329,9 +338,10 @@ def get_plan(
             )
         )
     }
-    mine_members = set(
-        db.scalars(
-            select(Member.id).where(
+    tub_owners = {
+        row.id: row
+        for row in db.execute(
+            select(Member.id, Member.name, Member.removed_at).where(
                 Member.household_id == household_id,
                 Member.id.in_(
                     select(Tub.member_id).where(
@@ -341,7 +351,8 @@ def get_plan(
                 ),
             )
         )
-    )
+    }
+    mine_members = set(tub_owners)
 
     photos = {
         p.recipe_id: p
@@ -593,8 +604,10 @@ def get_plan(
     kcal_by_meal: dict[int, int] = {}
     portions = batch_service.portions_by_batch(kitchen, batches)
     eaters: dict[int, list[int]] = {}
-    for meal_id, member_id in db.execute(
-        select(MealEater.meal_id, MealEater.member_id)
+    gone: set[int] = set()  # removed people still named on a meal before their removal day
+    meal_day = {m.id: m.day for m in meals}
+    for meal_id, member_id, removed_at in db.execute(
+        select(MealEater.meal_id, MealEater.member_id, Member.removed_at)
         .join(Member, Member.id == MealEater.member_id)
         .where(
             MealEater.household_id == household_id,
@@ -603,7 +616,12 @@ def get_plan(
         )
         .order_by(MealEater.member_id)
     ):
+        # Pe6 (cabledrawer 13 Nov): off the meals from the day of the removal, by the household's day.
+        if not plan.still_eating(kitchen.household, removed_at, meal_day[meal_id]):
+            continue
         eaters.setdefault(meal_id, []).append(member_id)
+        if removed_at is not None:
+            gone.add(member_id)
     session_rows = _sessions_out(kitchen, [b for b in batches if b.session_id is not None])
     # F233 (cabledrawer 12 Nov): once a Batch cook session's Cooked it is done, its cook-day meal's
     # kcal counts only what is eaten at that meal, not the recipes the session cooked. A meal
@@ -668,6 +686,17 @@ def get_plan(
             for t in tubs
         ],
         batch_sessions=session_rows,
+        removed_people=[
+            RemovedPersonOut(member_id=m.id, name=m.name)
+            for m in db.execute(
+                select(Member.id, Member.name)
+                .where(
+                    Member.household_id == household_id,
+                    Member.id.in_(gone | {i for i, o in tub_owners.items() if o.removed_at}),
+                )
+                .order_by(Member.id)
+            )
+        ],
     )
 
 

@@ -17,6 +17,7 @@ from mealwright.models import (
     Change,
     CookedRecord,
     Food,
+    Household,
     Meal,
     MealEater,
     MealItem,
@@ -335,7 +336,7 @@ def _drop_meal(kitchen: Kitchen, meal: Meal, steps: list[dict[str, Any]]) -> Non
                 "status": meal.status,
             },
             "batches": batches,
-            "eaters": eaters_of(kitchen, meal),
+            "eaters": eaters_of(kitchen, meal, everyone=True),
         }
     )
     delete_meal(kitchen.db, meal)
@@ -1205,11 +1206,23 @@ def set_servings(kitchen: Kitchen, item: MealItem, servings: int) -> Change | No
     )
 
 
-def eaters_of(kitchen: Kitchen, meal: Meal) -> list[int]:
-    """The people ticked as eating a meal, oldest first (none: everyone)."""
-    return list(
-        kitchen.db.scalars(
-            select(MealEater.member_id)
+def still_eating(household: Household, removed_at: datetime | None, day: date) -> bool:
+    """Whether a person ticked for the meal on `day` still counts as eating it (0.9.5 Pe6,
+    cabledrawer 13 Nov): a removed person is off every meal from the day they were removed, by the
+    household's own day (not the server's clock), and stays on the meals before it. Undo of the
+    removal puts them back (nothing is deleted)."""
+    return removed_at is None or day < today(household, as_utc(removed_at))
+
+
+def eaters_of(kitchen: Kitchen, meal: Meal, everyone: bool = False) -> list[int]:
+    """The people ticked as eating a meal, oldest first (none: everyone). A person removed
+    before the meal still counts on it (past meals name them "(removed)"); one removed on its day
+    or earlier doesn't (`still_eating`), unless `everyone` is set (a deleted meal's Undo keeps
+    every tick)."""
+    return [
+        member_id
+        for member_id, removed_at in kitchen.db.execute(
+            select(MealEater.member_id, Member.removed_at)
             .join(Member, Member.id == MealEater.member_id)
             .where(
                 MealEater.household_id == kitchen.household_id,
@@ -1218,7 +1231,8 @@ def eaters_of(kitchen: Kitchen, meal: Meal) -> list[int]:
             )
             .order_by(MealEater.member_id)
         )
-    )
+        if everyone or still_eating(kitchen.household, removed_at, meal.day)
+    ]
 
 
 def _write_eaters(kitchen: Kitchen, meal_id: int, member_ids: list[int]) -> None:
@@ -1244,7 +1258,9 @@ def set_eaters(kitchen: Kitchen, meal: Meal, member_ids: list[int]) -> Change | 
     own_members(kitchen, [i for i in wanted if i not in before])
     if before == wanted:
         return None
-    _write_eaters(kitchen, meal.id, wanted)
+    # A removed person's hidden tick stays, so Undo of the removal can put them back.
+    hidden = set(eaters_of(kitchen, meal, everyone=True)) - set(before)
+    _write_eaters(kitchen, meal.id, sorted(set(wanted) | hidden))
     when = _short_where(kitchen, meal.day, meal.slot_id)
     return _finish(
         kitchen,
@@ -1562,10 +1578,12 @@ def _undo_step(
             return False
         if "to" in step and eaters_of(kitchen, meal) != step["to"]:
             return False  # changed again since (F165)
+        hidden = set(eaters_of(kitchen, meal, everyone=True)) - set(eaters_of(kitchen, meal))
         _write_eaters(
             kitchen,
             meal.id,
-            [i for i in step["member_ids"] if _own(kitchen, Member, i) is not None],
+            [i for i in step["member_ids"] if _own(kitchen, Member, i) is not None]
+            + sorted(hidden),
         )
         return True
     if op == "status":
