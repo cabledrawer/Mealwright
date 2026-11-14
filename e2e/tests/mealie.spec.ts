@@ -186,7 +186,20 @@ test('on a computer: an unticked recipe is left out, Save all, then Undo', async
   await openFromYourData(page);
   await expect(page.getByRole('list', { name: 'Steps' })).toBeVisible();
   await choose(page, tag);
-  await page.getByRole('checkbox', { name: `Bring in Sam’s curry ${tag}` }).uncheck();
+  // Every target on the table is at least 44 px (round 1, review 3): the chips, the search
+  // and the tick box's whole cell, which unticks from its corner.
+  const curry = page.getByRole('checkbox', { name: `Bring in Sam’s curry ${tag}` });
+  const cell = page.locator('label.hit').filter({ has: curry });
+  for (const target of [
+    page.getByRole('button', { name: /^All \d+$/ }),
+    page.getByRole('searchbox', { name: 'Find a recipe' }),
+    cell,
+  ]) {
+    expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+  expect((await cell.boundingBox())!.width).toBeGreaterThanOrEqual(44);
+  await cell.click({ position: { x: 3, y: 3 } });
+  await expect(curry).not.toBeChecked();
   await page.getByRole('button', { name: 'Bring in 2 recipes' }).click();
   await expect(page.getByText(/2 recipes brought in/)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: '1 recipe to check' })).toBeVisible();

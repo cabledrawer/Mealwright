@@ -11,6 +11,7 @@ import {
   fileWords,
   fromFileWords,
   newIngredientsWords,
+  alreadyWords,
   notBroughtIn,
   noteCheckWords,
   noteWords,
@@ -98,6 +99,14 @@ describe('Import from Mealie words', () => {
     expect(newIngredientsWords(['Asafoetida', 'Tamarind'], 207)).toBe(
       'Asafoetida, Tamarind and 205 more'
     );
+  });
+
+  it('lists at most 200 recipes under See which, then how many more', () => {
+    expect(alreadyWords(["Sam's dal", "Lorna's soup"])).toBe("Sam's dal, Lorna's soup");
+    const names = Array.from({ length: 212 }, (_, i) => `Noor's dish ${i}`);
+    const words = alreadyWords(names);
+    expect(words.endsWith("Noor's dish 199 and 12 more")).toBe(true);
+    expect(words).not.toContain("Noor's dish 200");
   });
 
   it('says when a file has more new ingredients than one import adds', () => {

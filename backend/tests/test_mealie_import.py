@@ -9,7 +9,7 @@ import threading
 import zipfile
 from collections import Counter
 from collections.abc import Iterator
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -19,11 +19,14 @@ from sqlalchemy import event, select
 from sqlalchemy.engine import Engine
 from sync_kit import person
 from test_mealie_file import jpeg
+from test_plan import add_recipe, slot_ids
 
 from mealwright import drafts, mealie_file, mealie_import
 from mealwright.api.v1 import mealie as mealie_api
 from mealwright.mealie_file import MealieFileProblem
 from mealwright.models import (
+    BatchCook,
+    CookedRecord,
     Food,
     ImportDraft,
     MealieImport,
@@ -170,7 +173,8 @@ def test_the_preview_finds_recipes_already_here(kitchen: TestClient, raw: bytes)
     again = upload(kitchen, raw).json()["preview"]
     assert again["new"] == 0 and again["already"] == 3
     assert all(r["already"] for r in again["recipes"])
-    assert again["foods_matching"] == 2 and again["foods_new"] == 0
+    # Nothing is coming, so no ingredient is counted (round 1, review 1).
+    assert again["foods_matching"] == 0 and again["foods_new"] == 0
     assert again["foods_new_names"] == []
 
 
@@ -423,6 +427,17 @@ def test_tidy_lets_an_unused_file_go_after_a_day(kitchen: TestClient, raw: bytes
         row = db.get(MealieImport, made)
         assert row is not None and row.state == "gone"
     assert mealie_files(kitchen) == []
+
+
+def test_the_hourly_tidy_looks_at_mealie_files_once(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from mealwright import jobs
+
+    calls: list[datetime] = []
+    monkeypatch.setattr(mealie_import, "tidy", lambda db, now=None: calls.append(now) or 0)
+    jobs.purge_removed_ingredients(kitchen.app.state.sessionmaker)  # type: ignore[attr-defined]
+    assert len(calls) == 1  # before round 1: twice (the block was pasted twice)
 
 
 # --- Short stretches of the write lock (round 1: S-H1, S-M2, S-M3, S-L6) ------------------------
@@ -811,3 +826,165 @@ def test_an_api_token_may_not_import(kitchen: TestClient, raw: bytes) -> None:
         answer = app.request(method, path, json={})
         assert answer.status_code == 403, (method, path, answer.text)
         assert answer.json()["code"] == "not_for_tokens"
+
+
+# --- Round 1: the rest (review 1, 5, 6, 11) ---------------------------------------------------
+
+
+def keyed(job: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {entry["key"]: entry for entry in job["recent"]}
+
+
+def test_recipes_left_out_add_no_ingredients_and_the_preview_counts_the_same(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    raw = zipped(tmp_path / "many.zip", many(foods=4, recipes=4), photo=False)
+    first = bring_in(kitchen, raw, leave_out=["r" + "0" * 31])  # unticked
+    assert first["counts"]["saved"] == 3 and first["counts"]["new_foods"] == 3
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        names = set(db.scalars(select(Food.name).where(Food.mealie_import_id.is_not(None))))
+    assert len(names) == 3 and not any(name.endswith("spice 0") for name in names)
+    # The same file again: three recipes are already here, so only the fourth's ingredient
+    # is counted, as new (before: every recipe's, so 1 new and 3 matching).
+    preview = upload(kitchen, raw).json()["preview"]
+    assert preview["already"] == 3 and preview["new"] == 1
+    assert preview["foods_new"] == 1 and preview["foods_matching"] == 0
+    assert preview["foods_new_names"][0].endswith("spice 0")
+
+
+def test_a_second_import_of_the_same_file_adds_nothing(kitchen: TestClient, tmp_path: Path) -> None:
+    raw = zipped(tmp_path / "many.zip", many(foods=4, recipes=4, unread=True), photo=False)
+    first = bring_in(kitchen, raw)
+    assert first["counts"]["drafts"] == 4 and first["counts"]["new_foods"] == 4
+    again = bring_in(kitchen, raw)
+    assert again["state"] == "done"
+    assert again["counts"]["saved"] == 0 and again["counts"]["drafts"] == 0
+    assert again["counts"]["already"] == 4 and again["counts"]["new_foods"] == 0
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        assert len(db.scalars(select(ImportDraft)).all()) == 4
+        assert len(db.scalars(select(Food).where(Food.mealie_import_id.is_not(None))).all()) == 4
+
+
+def test_a_deleted_mealie_draft_is_not_already_here(kitchen: TestClient, raw: bytes) -> None:
+    bring_in(kitchen, raw)
+    (draft,) = kitchen.get(f"{API}/recipes/drafts").json()["drafts"]
+    assert kitchen.delete(f"{API}/recipes/drafts/{draft['id']}").status_code == 200
+    preview = upload(kitchen, raw).json()["preview"]
+    soup = next(entry for entry in preview["recipes"] if entry["key"] == SOUP)
+    assert soup["already"] is False  # before round 1: still "already here"
+    assert preview["already"] == 2 and preview["new"] == 1
+
+
+def test_a_recipe_with_no_name_is_brought_in_not_dropped(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    data = database()
+    data["recipes"].append(recipe("4" * 32, "   "))
+    data["recipes"].append(recipe("5" * 32, ""))
+    data["recipes_ingredients"].append(line("5" * 32, 0, "a pinch of Noor's secret"))
+    raw = zipped(tmp_path / "nameless.zip", data, photo=False)
+    preview = upload(kitchen, raw).json()["preview"]
+    assert preview["new"] == 5
+    assert [entry["name"] for entry in preview["recipes"][3:]] == [drafts.NO_NAME] * 2
+    job = bring_in(kitchen, raw)
+    assert job["total"] == 5 and job["done"] == 5
+    rows = keyed(job)
+    assert rows["4" * 32]["state"] == "saved" and rows["4" * 32]["name"] == drafts.NO_NAME
+    assert rows["5" * 32]["state"] == "draft" and rows["5" * 32]["name"] == drafts.NO_NAME
+
+
+def test_odd_names_come_in_tidied_and_match_what_is_here(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    assert kitchen.post(f"{API}/foods", json={"name": "Café crème"}).status_code == 201
+    foods = {
+        "a" * 32: "  café CRÈME ",
+        "b" * 32: "<b>Noor's</b> chilli",
+        "c" * 32: "\U0001f336 Lorna's chilli",
+        "d" * 32: "Sam's " + "long " * 80,
+        "e" * 32: "   ",
+    }
+    keys = [f"{i}" * 32 for i in range(6, 10)]
+    names = ["  Sam's   stew  ", "<script>Noor</script>", "Ünïcödé dal", "Lorna's ' \" quote"]
+    data = {
+        **database(),
+        "recipes": [recipe(key, name) for key, name in zip(keys, names, strict=True)],
+        "recipes_ingredients": [
+            line(keys[i % 4], i, "", food, 100) for i, food in enumerate(foods)
+        ],
+        "recipe_instructions": [],
+        "ingredient_foods": [{"id": key, "name": name} for key, name in foods.items()],
+        "recipes_to_tags": [],
+    }
+    job = bring_in(kitchen, zipped(tmp_path / "odd.zip", data, photo=False))
+    assert job["state"] == "done" and job["done"] == 4
+    rows = keyed(job)
+    # A name that is only markup is nameless, so it comes in as "Untitled recipe".
+    assert rows["7" * 32]["name"] == drafts.NO_NAME and rows["7" * 32]["state"] == "saved"
+    assert rows["8" * 32]["name"] == "Ünïcödé dal" and rows["8" * 32]["state"] == "saved"
+    # Spaces tidied; the blank ingredient leaves a line to check, so a draft.
+    assert rows["6" * 32] | {"draft_id": 0} == rows["6" * 32] | {
+        "name": "Sam's stew", "state": "draft", "unread": ["100 g"], "draft_id": 0
+    }  # fmt: skip
+    # Too long for an ingredient: cut to 100 characters, and the line uses the cut name
+    # (before: an ingredient made that no line used, and the line left to check).
+    assert rows["9" * 32]["name"] == "Lorna's ' \" quote" and rows["9" * 32]["state"] == "saved"
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        made = set(db.scalars(select(Food.name).where(Food.mealie_import_id == job["id"])))
+        cafe = list(db.scalars(select(Food).where(Food.name == "Café crème")))
+    # The café matched the one already here (accents and case), the markup was taken out.
+    long = "Sam's" + " long" * 18 + "…"
+    assert len(long) <= 100 and made == {"Noor's chilli", "\U0001f336 Lorna's chilli", long}
+    assert len(cafe) == 1 and cafe[0].mealie_import_id is None
+    assert not any("<" in name or "café" in name.lower() for name in made)
+
+
+def test_undo_keeps_what_was_cooked_planned_or_used_since(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    raw = zipped(tmp_path / "many.zip", many(foods=4, recipes=4), photo=False)
+    job = bring_in(kitchen, raw)
+    ids = {key: entry["recipe_id"] for key, entry in keyed(job).items()}
+    cooked, planned, used, plain = (ids[f"r{i:031d}"] for i in range(4))
+    day = utcnow().date()
+    answer = kitchen.post(
+        f"{API}/plan/items",
+        json={
+            "date": day.isoformat(),
+            "slot_id": slot_ids(kitchen)["Dinner"],
+            "recipe_id": planned,
+        },
+    )
+    assert answer.status_code == 201, answer.text
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        batch = BatchCook(
+            household_id=1, recipe_id=cooked, recipe_name="x", cooked_on=day, tub_count=1
+        )
+        db.add(batch)
+        db.flush()
+        db.add(
+            CookedRecord(
+                household_id=1,
+                batch_id=batch.id,
+                recipe_id=cooked,
+                portions=1,
+                snapshot={},
+                cooked_at=utcnow(),
+            )
+        )
+        thali = add_recipe(db, 1, "Noor's thali")
+        db.flush()
+        plain_food = db.scalar(select(Food.id).where(Food.name.endswith("spice 3")))
+        db.add(RecipeLine(household_id=1, recipe_id=thali.id, position=0, words="dish",
+                          sub_recipe_id=used))  # fmt: skip
+        db.add(RecipeLine(household_id=1, recipe_id=thali.id, position=1, words="spice",
+                          food_id=plain_food))  # fmt: skip
+        db.commit()
+    undone = kitchen.post(f"{API}/mealie-imports/{job['id']}/undo").json()
+    assert undone["recipes"] == 1 and undone["kept"] == 3
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        live = set(db.scalars(select(Recipe.id).where(Recipe.removed_at.is_(None))))
+        assert {cooked, planned, used} <= live and plain not in live
+        # The plain recipe's ingredient is used by the thali, so it stays.
+        assert db.get(Food, plain_food).removed_at is None  # type: ignore[union-attr]
+    assert undone["foods"] == 0

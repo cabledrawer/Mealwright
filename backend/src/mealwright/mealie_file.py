@@ -355,7 +355,7 @@ def _book(tables: dict[str, object], photos: dict[str, tuple[str, int]]) -> Meal
     foods = {
         key: name
         for row in _rows(tables, "ingredient_foods")[:MAX_FOODS]
-        if (key := _key(row.get("id"))) and (name := _text(row.get("name"), 200))
+        if (key := _key(row.get("id"))) and (name := _text(row.get("name"), 100))
     }
     units = {
         key: name
@@ -397,20 +397,19 @@ def _book(tables: dict[str, object], photos: dict[str, tuple[str, int]]) -> Meal
             key, row, lines.get(key, []), steps.get(key, []), nutrition.get(key, {}),
             tagged.get(key, []), foods, units, photos.get(key),
         )  # fmt: skip
-        if recipe is not None:
-            page = recipe.page
-            lines_left -= len(page.ingredients) + len(page.steps)
-            text_left -= (
-                len(page.name)
-                + len(page.description or "")
-                + sum(len(line.text) for line in (*page.ingredients, *page.steps))
-                + sum(len(tag) for tag in page.tags)
-                + len(recipe.source or "")
-            )
-            if lines_left < 0 or text_left < 0:
-                raise MealieFileProblem("too_big")
-            used.update(recipe.foods)
-            recipes.append(recipe)
+        page = recipe.page
+        lines_left -= len(page.ingredients) + len(page.steps)
+        text_left -= (
+            len(page.name)
+            + len(page.description or "")
+            + sum(len(line.text) for line in (*page.ingredients, *page.steps))
+            + sum(len(tag) for tag in page.tags)
+            + len(recipe.source or "")
+        )
+        if lines_left < 0 or text_left < 0:
+            raise MealieFileProblem("too_big")
+        used.update(recipe.foods)
+        recipes.append(recipe)
     left_out = {
         word: len(rows) if isinstance(rows := tables.get(table), list) else 0
         for word, table in LEFT_OUT_TABLES.items()
@@ -439,10 +438,10 @@ def _recipe(
     foods: dict[str, str],
     units: dict[str, str],
     photo: tuple[str, int] | None,
-) -> MealieRecipe | None:
+) -> MealieRecipe:
+    # A recipe with no name is still brought in: it waits in Drafts as "Recipe with no name"
+    # (drafts.NO_NAME), never dropped without a word (round 1, review 6).
     name = _text(row.get("name"), page_reader.MAX_NAME)
-    if not name:
-        return None
     ingredients: list[PageLine] = []
     used: list[str] = []
     for line in sorted(line_rows, key=_position):

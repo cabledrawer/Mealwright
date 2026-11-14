@@ -753,7 +753,13 @@ The choices below are proposed, for cabledrawer:
   lets the earlier one go, and a file nobody brings in is deleted after a day. One import
   runs at a time in a household (409 `mealie_busy`).
 - **Already here:** same name (folded) and same source link; no link on both counts as the
-  same. A Mealie draft still waiting counts too, so the same file twice makes no second draft.
+  same. A Mealie draft still waiting counts too, so the same file twice makes no second draft;
+  a deleted draft doesn't (round 1, review 5). A recipe with no name is never already here
+  and comes in as "Untitled recipe" (`drafts.NO_NAME`), never dropped (review 6).
+- **Ingredients counted and added** only for the recipes coming in: a recipe unticked or
+  already here adds none, and the preview's counts say the same (round 1, review 1). A
+  Mealie food's name is cut to 100 characters (at a word, with "…") when the file is read,
+  the most an ingredient's name keeps, so its lines name the ingredient as added.
 - **Read:** a recipe is saved when every ingredient line is matched or a staple. New Mealie
   foods become ingredients first, marked by the import (`food.mealie_import_id`), so a line
   that names a Mealie food is read. Waits the reader suggests aren't added; the file's own

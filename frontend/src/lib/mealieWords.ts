@@ -143,6 +143,14 @@ export function newIngredientsWords(names: string[], count: number): string {
   return more > 0 ? `${names.join(', ')} and ${more} more` : names.join(', ');
 }
 
+/** The most names the phone's "See which" under You already have these lists. */
+export const SEE_WHICH_AT_MOST = 200;
+
+/** The phone's "See which" under You already have these: the first 200 names, then
+ *  "and 12 more" (round 1, review 7). */
+export const alreadyWords = (names: string[]): string =>
+  newIngredientsWords(names.slice(0, SEE_WHICH_AT_MOST), names.length);
+
 /** When the file has more new ingredients than one import adds (5,000; proposed, for
  *  cabledrawer): what happens to the rest. Null when it hasn't. */
 export function tooManyIngredientsWords(

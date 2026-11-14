@@ -313,12 +313,33 @@ def test_wrong_types_are_skipped(tmp_path: Path) -> None:
         recipes_to_tags=[{"recipe_id": SOUP, "tag_id": None}],
     )  # fmt: skip
     book = read_now(make_zip(tmp_path / "x.zip", database))
-    assert [r.page.name for r in book.recipes] == ["Kept"]
-    kept = book.recipes[0]
+    # A name that isn't text is no name: the recipe still comes (as "Untitled recipe"), never
+    # dropped without a word (round 1, review 6).
+    assert [(r.key, r.page.name) for r in book.recipes] == [
+        (DAL.replace("-", ""), ""),
+        (SOUP, "Kept"),
+    ]
+    kept = book.recipes[1]
     assert kept.page.total_minutes is None and kept.page.serves is None
     assert kept.page.description is None and kept.source is None
     assert [line.text for line in kept.page.ingredients] == ["Red lentils", "Red lentils"]
     assert kept.page.tags == ()
+
+
+def test_a_nameless_recipe_is_kept_and_an_ingredients_name_is_cut_to_100(
+    tmp_path: Path,
+) -> None:
+    database = tables(
+        recipes=[{"id": DAL, "name": "   "}],
+        recipes_ingredients=[{"recipe_id": DAL, "position": 0, "food_id": FLOUR, "quantity": 2}],
+        ingredient_foods=[{"id": FLOUR, "name": "Sam's " + "very " * 40 + "fine flour"}],
+    )
+    book = read_now(make_zip(tmp_path / "x.zip", database))
+    assert [recipe.page.name for recipe in book.recipes] == [""]
+    (food,) = book.foods
+    assert len(food.name) <= 100 and food.name.endswith("…")
+    # The line names the ingredient as cut, so it matches the one the import adds.
+    assert book.recipes[0].page.ingredients[0].text == f"2 {food.name}"
 
 
 def test_too_many_recipes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -326,13 +347,21 @@ def test_too_many_recipes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     assert problem(make_zip(tmp_path / "x.zip", tables())) == "too_many"
 
 
-def named_over_and_over(recipes: int, lines: int, name: str) -> dict[str, object]:
-    """A small file that names one ingredient on every line of every recipe (made up)."""
+def named_over_and_over(
+    recipes: int, lines: int, name: str, unit: str | None = None
+) -> dict[str, object]:
+    """A small file that names one ingredient (and unit) on every line of every recipe."""
     keys = [f"{i:032x}" for i in range(recipes)]
     return tables(
         recipes=[{"id": key, "name": f"Lorna's pot {i}"} for i, key in enumerate(keys)],
         recipes_ingredients=[
-            {"recipe_id": key, "position": j, "food_id": FLOUR, "quantity": 1}
+            {
+                "recipe_id": key,
+                "position": j,
+                "food_id": FLOUR,
+                "quantity": 1,
+                "unit_id": unit and GRAM,
+            }
             for key in keys
             for j in range(lines)
         ],
@@ -340,14 +369,16 @@ def named_over_and_over(recipes: int, lines: int, name: str) -> dict[str, object
         recipe_nutrition=[],
         recipes_to_tags=[],
         ingredient_foods=[{"id": FLOUR, "name": name}],
+        ingredient_units=[{"id": GRAM, "name": unit}] if unit else [],
     )
 
 
 def test_what_the_reader_hands_back_has_a_limit_on_its_text(tmp_path: Path) -> None:
-    # Round 1, S-M5: 130,000 lines of a 200-character name are 26 million characters for the
-    # server to keep, from a file of a few hundred KB.
+    # Round 1, S-M5: 190,000 lines of a 100-character name (the most an ingredient's name
+    # keeps) and a 30-character unit are 25 million characters for the server to keep, from a
+    # file of a few hundred KB.
     assert mealie_file.MAX_BOOK_TEXT == 24_000_000
-    database = named_over_and_over(1_300, 100, "Noor's " + "q" * 193)
+    database = named_over_and_over(1_900, 100, "Noor's " + "q" * 193, "Lorna's " + "u" * 40)
     path = make_zip(tmp_path / "x.zip", database)
     assert path.stat().st_size < 1_000_000
     assert problem(path) == "too_big"

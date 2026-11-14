@@ -233,13 +233,16 @@
           {#each shown as recipe (recipe.key)}
             <tr>
               <td class="tick">
-                <input
-                  type="checkbox"
-                  aria-label="Bring in {recipe.name}"
-                  checked={!recipe.already && !flow.leaveOut.has(recipe.key)}
-                  disabled={recipe.already || flow.busy}
-                  onchange={(event) => flow.toggle(recipe.key, event.currentTarget.checked)}
-                />
+                <!-- The whole cell is the target, 44 px (round 1, review 3). -->
+                <label class="hit">
+                  <input
+                    type="checkbox"
+                    aria-label="Bring in {recipe.name}"
+                    checked={!recipe.already && !flow.leaveOut.has(recipe.key)}
+                    disabled={recipe.already || flow.busy}
+                    onchange={(event) => flow.toggle(recipe.key, event.currentTarget.checked)}
+                  />
+                </label>
               </td>
               <th scope="row" class:dim={recipe.already}>{recipe.name}</th>
               <td class="dim">{recipe.tags.join(', ')}</td>
@@ -625,7 +628,7 @@
   }
 
   .chip {
-    min-height: 36px;
+    min-height: var(--touch-target);
     padding: 0 12px;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-full);
@@ -645,7 +648,7 @@
 
   .search {
     width: 220px;
-    min-height: 38px;
+    min-height: var(--touch-target);
     padding: 0 12px;
     border: 1px solid var(--color-field-border);
     border-radius: var(--radius-field);
@@ -679,7 +682,19 @@
   }
 
   .tick {
-    width: 36px;
+    width: var(--touch-target);
+  }
+
+  td.tick {
+    padding: 0;
+  }
+
+  .hit {
+    display: grid;
+    place-items: center;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    cursor: pointer;
   }
 
   .tick input {

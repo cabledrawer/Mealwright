@@ -120,12 +120,6 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
             db.rollback()
             log.exception("Couldn't tidy Mealie files (will try again within the hour)")
         try:
-            if tidied := tidy_mealie(db, now):
-                log.info("Deleted %d Mealie files nobody brought in", tidied)
-        except Exception:
-            db.rollback()
-            log.exception("Couldn't tidy Mealie files (will try again within the hour)")
-        try:
             households = list(db.scalars(select(Household)))
         except Exception:
             log.exception("Couldn't tidy removed ingredients (will try again within the hour)")

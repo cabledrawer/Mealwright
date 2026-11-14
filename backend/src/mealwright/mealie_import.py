@@ -165,7 +165,10 @@ def _have(db: Session, household_id: int) -> set[tuple[str, str | None]]:
     url = ImportDraft.review[("source", "url")].as_string()
     for name, source in db.execute(
         select(ImportDraft.name, url).where(
-            ImportDraft.household_id == household_id, ImportDraft.mealie_import_id.is_not(None)
+            # Deleted drafts, and drafts past their days, aren't "already here" (round 1,
+            # review 5).
+            *drafts.live(household_id, utcnow()),
+            ImportDraft.mealie_import_id.is_not(None),
         )
     ):
         have.add((fold(name), source or None))
@@ -192,8 +195,9 @@ def _known(names: set[str], food_name: str) -> bool:
 
 
 def _same(have: set[tuple[str, str | None]], recipe: MealieRecipe) -> bool:
-    """Already here: same name and same source (no source on both counts as the same)."""
-    return (fold(_name(recipe)), _source(recipe.source)) in have
+    """Already here: same name and same source (no source on both counts as the same). A
+    recipe with no name never is (round 1, review 6)."""
+    return bool(_name(recipe)) and (fold(_name(recipe)), _source(recipe.source)) in have
 
 
 # --- 1. The preview ---------------------------------------------------------------------------
@@ -203,12 +207,14 @@ def _preview(kitchen: Kitchen, book: MealieBook) -> dict[str, Any]:
     have = _have(kitchen.db, kitchen.household_id)
     rows = []
     new = already = with_photo = photo_bytes = 0
+    coming: set[str] = set()
     for recipe in book.recipes:
         here = _same(have, recipe)
         if here:
             already += 1
         else:
             new += 1
+            coming.add(recipe.key)
             if recipe.photo is not None:
                 with_photo += 1
                 photo_bytes += recipe.photo_bytes
@@ -223,9 +229,13 @@ def _preview(kitchen: Kitchen, book: MealieBook) -> dict[str, Any]:
         )
     matching = 0
     names = _food_names(kitchen.db, kitchen.household_id)
-    # The new ingredients, once each (folded), with the name they will be shown with.
+    # The new ingredients, once each (folded), with the name they will be shown with: only
+    # those of the recipes that would come in, as the import adds (round 1, review 1).
+    used = _used_foods(book, coming)
     new_names: dict[str, str] = {}
     for food in book.foods:
+        if food.key not in used:
+            continue
         if _known(names, food.name):
             matching += 1
         else:
@@ -719,10 +729,10 @@ def _bring_in(
     db = kitchen.db
     recipe = item.recipe
     same = (fold(_name(recipe)), _source(recipe.source))
-    if same in have:  # added since the preview
-        return {"key": recipe.key, "name": _name(recipe), "state": "already"}
+    if _same(have, recipe):  # added since the preview
+        return {"key": recipe.key, "name": _name(recipe) or drafts.NO_NAME, "state": "already"}
     if item.review is None:
-        return {"key": recipe.key, "name": _name(recipe), "state": "skipped"}
+        return {"key": recipe.key, "name": _name(recipe) or drafts.NO_NAME, "state": "skipped"}
     review = item.review
     try:
         with db.begin_nested():
@@ -733,8 +743,9 @@ def _bring_in(
         log.warning(
             "A Mealie recipe couldn't be brought in; it was skipped (%s)", type(why).__name__
         )
-        return {"key": recipe.key, "name": _name(recipe), "state": "skipped"}
-    have.add(same)
+        return {"key": recipe.key, "name": _name(recipe) or drafts.NO_NAME, "state": "skipped"}
+    if same[0]:
+        have.add(same)
     return {"key": recipe.key, **result}
 
 

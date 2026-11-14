@@ -19,6 +19,7 @@
     fileWords,
     fromFileWords,
     newIngredientsWords,
+    alreadyWords,
     notBroughtIn,
     tooManyIngredientsWords,
     photosWords,
@@ -164,7 +165,7 @@
         </li>
         {#if seeWhich}
           <li class="which" aria-label="You already have these">
-            {already.map((r) => r.name).join(', ')}
+            {alreadyWords(already.map((r) => r.name))}
           </li>
         {/if}
       {/if}
