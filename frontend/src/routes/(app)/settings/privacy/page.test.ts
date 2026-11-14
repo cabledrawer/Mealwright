@@ -286,7 +286,7 @@ describe('Settings → Privacy', () => {
     });
 
     it('says “You’d be locked out” and keeps single sign-on on for the last admin with only a link', async () => {
-      const LOCKED = 'You’d be locked out: set a password or add another admin first.';
+      const LOCKED = 'You’d be locked out: first add another admin who signs in with a password.';
       open({
         'GET /privacy/switches': [
           200,
@@ -455,7 +455,7 @@ describe('Settings → Privacy', () => {
     });
 
     it('keeps the entry and says “You’d be locked out” when it is what single sign-on needs', async () => {
-      const LOCKED = 'You’d be locked out: set a password or add another admin first.';
+      const LOCKED = 'You’d be locked out: first add another admin who signs in with a password.';
       open({
         'GET /privacy/own-network': list([wiki, lan]),
         'DELETE /privacy/own-network/1': [409, { detail: LOCKED, code: 'locked_out' }]

@@ -267,7 +267,8 @@ def another_admin_gets_in(
     return int(db.scalar(query) or 0) > 0
 
 
-LOCKED_OUT = "You’d be locked out: set a password or add another admin first."  # cabledrawer 14 Nov
+# cabledrawer 14 Nov (the sentence word for word).
+LOCKED_OUT = "You’d be locked out: first add another admin who signs in with a password."
 
 
 def would_lock_out(db: DbSession, data_dir: Path | None, login: Login) -> bool:
@@ -276,7 +277,7 @@ def would_lock_out(db: DbSession, data_dir: Path | None, login: Login) -> bool:
     out: they are an admin whose only way in is a single sign-on link (no password of their
     own), and no other admin has a password. Only a working password counts, theirs or another
     admin's, because every link ends with single sign-on and ending it turns password sign-in
-    back on (cabledrawer 14 Nov: "set a password or add another admin first"; fix round 1). It is
+    back on (cabledrawer 14 Nov: "first add another admin who signs in with a password"; the own-network entry, the saved issuer or client ID and "only a password counts" also cabledrawer 14 Nov). It is
     `another_admin_gets_in` with passwords counted and links not: the household's one rule."""
     if login.role != ADMIN or login.shared or login.password_hash or login.sso_subject is None:
         return False
@@ -408,8 +409,8 @@ def _match(db: DbSession, row: SsoSettings, identity: Identity, role: str) -> Lo
     """The login of this household this identity is linked to automatically on its first
     sign-in, or None (it waits for an admin). Only an exact username match (`same_username`)
     of a login that can take the link: not shared (a kitchen tablet is nobody's), its person
-    not removed, and one that has never signed in any way (`never_signed_in`: security pass
-    finding, fix round 1; proposed, for cabledrawer). An admin's login only
+    not removed, and one that has never signed in any way (`never_signed_in`: a security pass
+    finding, decided by cabledrawer 14 Nov). An admin's login only
     when the groups make the newcomer an Admin too, as the setup test's link (proposed, for
     cabledrawer): a same-named account at the sign-in server that the groups make a Member never
     takes over an admin."""

@@ -1,5 +1,5 @@
 """Single sign-on can't be turned off on the last admin who can only get in with it (Tess 14
-Nov): "You'd be locked out: set a password or add another admin first." Both ways to end it:
+Nov): "You'd be locked out: first add another admin who signs in with a password." Both ways to end it:
 the Privacy switch, and taking off Your own network the entry that lets Mealwright reach the
 sign-in server. Another admin counts only by the household's rule: a working password, or an
 accepted single sign-on link and signed in right now (#205 (c)+(d))."""
@@ -18,7 +18,7 @@ from mealwright import sso_accounts
 from mealwright.auth import hash_password
 from mealwright.models import Login
 
-SENTENCE = "You’d be locked out: set a password or add another admin first."
+SENTENCE = "You’d be locked out: first add another admin who signs in with a password."
 SWITCH = f"{API}/privacy/switches/single_sign_on"
 
 
@@ -91,7 +91,7 @@ def test_another_admin_signed_in_with_only_a_link_doesnt_count(
     kitchen: TestClient, link_only: FakeProvider
 ) -> None:
     """Every link ends with single sign-on, so a link-only admin is no way back in (fix round 1:
-    "set a password or add another admin first")."""
+    "first add another admin who signs in with a password")."""
     _second_admin(kitchen, link_only, signed_in=True)
     refused = _off(kitchen)
     assert refused.status_code == 409, refused.text

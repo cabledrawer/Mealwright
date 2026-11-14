@@ -174,7 +174,7 @@ test.describe('Almost there: a sign-in that matches nobody waits', () => {
 });
 
 test.describe('turning single sign-on off with only a link', () => {
-  const LOCKED = 'You’d be locked out: set a password or add another admin first.';
+  const LOCKED = 'You’d be locked out: first add another admin who signs in with a password.';
 
   test('the switch stays on and says why when the server refuses', async ({ page }) => {
     await answer(page, '/privacy/switches', {
