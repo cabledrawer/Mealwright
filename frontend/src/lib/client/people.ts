@@ -107,7 +107,8 @@ export const giveLogin = (id: number, username: string, role: Role) =>
 export const takeBackLogin = (id: number) => api<void>('DELETE', `/people/${id}/login`);
 
 /** Reset password (Pe1): a one-time link, for 24 hours, where the person chooses a new one. */
-export const resetPassword = (id: number) => api<SignInLink>('POST', `/people/${id}/reset-password`);
+export const resetPassword = (id: number) =>
+  api<SignInLink>('POST', `/people/${id}/reset-password`);
 
 export const setAskWhosThis = (on: boolean) => api<People>('PUT', '/people/ask-whos-this', { on });
 

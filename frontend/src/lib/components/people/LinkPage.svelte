@@ -103,7 +103,7 @@
 {#if refused}
   <!-- words.md section 81, word for word (cabledrawer 13 Nov). -->
   <div class="heading">
-    <h1>This link can't be used here</h1>
+    <h1>This link can’t be used here</h1>
     <p>
       Someone is already signed in on this device. Sign-in links only work where nobody is signed
       in.
@@ -112,8 +112,8 @@
   <p class="info">
     <Icon name="info" size={18} />
     <span>
-      The link hasn't been used. Open it on another device, or sign out here first and then open
-      it again.
+      The link hasn’t been used. Open it on another device, or sign out here first and then open it
+      again.
     </span>
   </p>
   <a class="go" href={resolve('/(app)')}>Go to Today</a>

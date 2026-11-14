@@ -222,10 +222,10 @@
       "name": "People and roles",
       "paths": [
         "backend/src/mealwright/people.py", "backend/src/mealwright/roles.py", "backend/src/mealwright/api/v1/people.py",
-        "frontend/src/routes/(app)/settings/household/**", "frontend/src/routes/(auth)/join/**", "frontend/src/lib/components/people/**",
+        "frontend/src/routes/(app)/settings/household/**", "frontend/src/routes/(auth)/join/**", "frontend/src/routes/(auth)/reset/**", "frontend/src/lib/linkSecret*", "frontend/src/lib/components/people/**",
         "frontend/src/lib/client/people.ts", "frontend/src/lib/people.svelte.ts", "frontend/src/lib/whosThis.svelte.ts", "frontend/src/lib/testing/fakePeople.ts"
       ],
-      "backend": ["test_people.py", "test_roles.py", "test_people_signs_in.py", "test_whos_this_keeps_going.py"],
+      "backend": ["test_people.py", "test_roles.py", "test_people_signs_in.py", "test_whos_this_keeps_going.py", "test_reset_password.py", "test_migration_reset_links.py"],
       "browser": ["household.spec.ts"]
     },
     {

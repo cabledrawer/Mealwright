@@ -21,11 +21,7 @@ describe('Join with a sign-in link', () => {
   let requests: FakeRequest[] = [];
   const before = location.pathname + location.search;
 
-  function open(
-    routes: Parameters<typeof fakeApi>[0] = {},
-    hash = `#${SECRET}`,
-    signedIn = false
-  ) {
+  function open(routes: Parameters<typeof fakeApi>[0] = {}, hash = `#${SECRET}`, signedIn = false) {
     history.replaceState(history.state, '', `${before}${hash}`);
     requests = fakeApi({ 'POST /join/look': [200, LINK], ...routes });
     component = mount(Join, {
@@ -97,13 +93,17 @@ describe('Join with a sign-in link', () => {
     open({}, '');
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('This sign-in link has been used or has run out.');
+      .toHaveTextContent(
+        'This sign-in link has been used or has run out. Ask your household’s admin for a new one.'
+      );
     expect(requests).toHaveLength(0);
   });
 
   it('a Reset password link asks for a new password, naming nobody', async () => {
     open({ 'POST /join/look': [200, { ...LINK, kind: 'reset' }] });
-    await expect.element(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
+    await expect
+      .element(page.getByRole('heading', { name: 'Choose a new password' }))
+      .toBeVisible();
     await expect
       .element(page.getByText('Your recipes, plans and history stay as they are.'))
       .toBeVisible();
@@ -113,16 +113,18 @@ describe('Join with a sign-in link', () => {
   describe('opened where someone is already signed in (Pe2)', () => {
     const REFUSED = [
       'Someone is already signed in on this device. Sign-in links only work where nobody is signed in.',
-      'The link hasn\'t been used. Open it on another device, or sign out here first and then open it again.'
+      'The link hasn’t been used. Open it on another device, or sign out here first and then open it again.'
     ];
 
     async function seesTheRefusal() {
       await expect
-        .element(page.getByRole('heading', { name: "This link can't be used here" }))
+        .element(page.getByRole('heading', { name: 'This link can’t be used here' }))
         .toBeVisible();
       const text = document.body.textContent!.replace(/\s+/g, ' ');
       for (const line of REFUSED) expect(text).toContain(line);
-      await expect.element(page.getByRole('link', { name: 'Go to Today' })).toHaveAttribute('href', '/');
+      await expect
+        .element(page.getByRole('link', { name: 'Go to Today' }))
+        .toHaveAttribute('href', '/');
       // No names, no sign-out, no password.
       expect(page.getByRole('button', { name: /sign out/i }).query()).toBeNull();
       expect(page.getByLabelText('Password').query()).toBeNull();
@@ -137,10 +139,7 @@ describe('Join with a sign-in link', () => {
 
     it('refuses when the server finds someone signed in here', async () => {
       open({
-        'POST /join/look': [
-          409,
-          { code: 'signed_in_here', detail: REFUSED[0] }
-        ]
+        'POST /join/look': [409, { code: 'signed_in_here', detail: REFUSED[0] }]
       });
       await seesTheRefusal();
     });

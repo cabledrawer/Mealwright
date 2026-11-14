@@ -154,8 +154,8 @@ test('give a login: the sign-in link opens "Choose a password", which then lets 
 
   // Opened here, where the admin is signed in, the link refuses and stays unused (Pe2).
   await page.goto(path);
-  await expect(page.getByRole('heading', { level: 1, name: "This link can't be used here" })).toBeVisible();
-  await expect(page.getByText('The link hasn\'t been used.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: "This link can’t be used here" })).toBeVisible();
+  await expect(page.getByText('The link hasn’t been used.', { exact: false })).toBeVisible();
   expect(page.url()).not.toContain('#');
   await expect(page.getByText(name)).toHaveCount(0);
   await checkPage(page);

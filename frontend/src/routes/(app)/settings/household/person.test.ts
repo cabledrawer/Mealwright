@@ -269,14 +269,19 @@ describe('Settings → Household → a person', () => {
     await page.getByRole('button', { name: 'Reset password' }).click();
     await vi.waitFor(() => expect(sent('POST', '/people/3/reset-password')).toHaveLength(1));
     const panel = page.getByRole('status');
-    await expect.element(panel).toHaveTextContent(
-      'Reset link made. It works once, for 24 hours. Send it to Joss: they pick a new password, and their recipes, plans and history stay as they are.'
-    );
+    await expect
+      .element(panel)
+      .toHaveTextContent(
+        'Reset link made. It works once, for 24 hours. Send it to Joss: they pick a new password, and their recipes, plans and history stay as they are. ' +
+          `${location.origin}/reset#reset-secret`
+      );
     await expect.element(page.getByText(`${location.origin}/reset#reset-secret`)).toBeVisible();
     const writeText = vi.fn(() => Promise.resolve());
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
     await page.getByRole('button', { name: 'Copy the link' }).click();
-    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(`${location.origin}/reset#reset-secret`));
+    await vi.waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(`${location.origin}/reset#reset-secret`)
+    );
   });
 
   it('an unused reset link says so', async () => {
@@ -293,11 +298,15 @@ describe('Settings → Household → a person', () => {
   });
 
   it('an older use says the day: "Link used 12 Nov 21:40"', async () => {
-    const at = new Date(2026, 10, 12, 21, 40);
+    // Ten days ago at 21:40, in this device's time: older than a week, so the date shows.
+    const at = new Date();
+    at.setDate(at.getDate() - 10);
+    at.setHours(21, 40, 0, 0);
+    const month = at.toLocaleString('en-GB', { month: 'short' }).slice(0, 3);
     open({
       'GET /people': [200, people([TESS, passwordJoss({ link_used_at: at.toISOString() })])]
     });
-    await expect.element(page.getByText('Link used 12 Nov 21:40')).toBeVisible();
+    await expect.element(page.getByText(`Link used ${at.getDate()} ${month} 21:40`)).toBeVisible();
   });
 
   it('no Reset password on your own page; the only admin learns about reset-admin', async () => {
@@ -306,7 +315,9 @@ describe('Settings → Household → a person', () => {
     await expect.element(page.getByRole('heading', { name: 'Tess', level: 1 })).toBeVisible();
     expect(page.getByRole('button', { name: 'Reset password' }).query()).toBeNull();
     await expect
-      .element(page.getByText('Forgotten your own password and you\'re the only admin?', { exact: false }))
+      .element(
+        page.getByText('Forgotten your own password and you’re the only admin?', { exact: false })
+      )
       .toBeVisible();
   });
 

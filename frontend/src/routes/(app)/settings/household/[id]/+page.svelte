@@ -399,7 +399,8 @@
             >
             <span class="mono">{linkUrl}</span>
           </div>
-          <button class="quiet" type="button" onclick={() => void copy(linkUrl)}>Copy the link</button
+          <button class="quiet" type="button" onclick={() => void copy(linkUrl)}
+            >Copy the link</button
           >
         {:else if !login}
           <button
@@ -426,7 +427,9 @@
 
     {#if onlyAdmin && login?.has_password && (person.is_me || resetLink)}
       <p class="note">
-        Forgotten your own password and you're the only admin? Use <span class="mono">reset-admin</span>
+        Forgotten your own password and you’re the only admin? Use <span class="mono"
+          >reset-admin</span
+        >
         on the server (How to restore, step 2).
       </p>
     {/if}
