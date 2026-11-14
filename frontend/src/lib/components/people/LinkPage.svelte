@@ -19,11 +19,29 @@
   import { takeLinkSecret } from '#lib/linkSecret.js';
   import { connection } from '#lib/session.svelte.js';
 
-  /** The server's words for a link that doesn't work (cabledrawer 12 Nov). */
-  const GONE =
-    'This sign-in link has been used or has run out. Ask your household’s admin for a new one.';
+  let {
+    plainHttpAllowed,
+    signedIn,
+    kind = 'join'
+  }: {
+    plainHttpAllowed: boolean;
+    signedIn: boolean;
+    /** Which address it was opened at: "/join" or "/reset" (Pe1). */
+    kind?: 'join' | 'reset';
+  } = $props();
 
-  let { plainHttpAllowed, signedIn }: { plainHttpAllowed: boolean; signedIn: boolean } = $props();
+  /** The heading where the link can't be used: the address says which kind (proposed). */
+  const linkName = $derived(kind === 'reset' ? 'Reset password link' : 'Sign-in link');
+  /** A reset link used or run out: the server's words (cabledrawer 12 Nov), said of a reset link
+   * (16b review R-L2; proposed, for cabledrawer). */
+  const RESET_GONE =
+    'This reset link has been used or has run out. Ask your household’s admin for a new one.';
+  /**
+   * The address has no secret: the page was reloaded, or a tab restored, after the secret was
+   * taken out of the address bar. Nothing is known about the link, so the page says only what
+   * is true (16b review R-L2; proposed, for cabledrawer).
+   */
+  const NO_SECRET = 'Open the link again from the message it came in.';
 
   // First of all: the secret out of the address bar.
   const token = takeLinkSecret();
@@ -32,6 +50,8 @@
   let link = $state<JoinLink | null>(null);
   /** Why the link can't be used: run out, used, or the server can't be reached. */
   let gone = $state('');
+  /** The address had no secret (reloaded, or a tab restored). */
+  const noSecret = !token;
   let password = $state('');
   let problem = $state('');
   let busy = $state(false);
@@ -52,17 +72,16 @@
     gone = '';
     if (refused) return; // nothing is asked: the link stays as it is
     try {
-      if (!token) {
-        gone = GONE; // an address without its secret: nothing to ask the server
-        return;
-      }
+      if (!token) return; // an address without its secret: nothing to ask the server
       link = await getJoinLink(token);
     } catch (error) {
       if (signedInHere(error)) return;
       gone = cantReach(error)
         ? cantReachWords()
         : error instanceof ApiError
-          ? error.detail
+          ? error.code === 'link_gone' && kind === 'reset'
+            ? RESET_GONE
+            : error.detail
           : 'Something went wrong. Try again.';
     }
   }
@@ -154,9 +173,17 @@
     </form>
     <p class="note">This link works once. It stops working after you save your password.</p>
   {/if}
+{:else if noSecret}
+  <div class="heading">
+    <h1>{linkName}</h1>
+  </div>
+  <p class="info">
+    <Icon name="info" size={18} />
+    <span>{NO_SECRET}</span>
+  </p>
 {:else if gone}
   <div class="heading">
-    <h1>Sign-in link</h1>
+    <h1>{linkName}</h1>
   </div>
   <p class="problem" role="alert">{gone}</p>
   <Button quiet onclick={() => void look()}>Try again</Button>

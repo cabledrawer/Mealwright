@@ -89,13 +89,15 @@ describe('Join with a sign-in link', () => {
     expect(page.getByLabelText('Password').query()).toBeNull();
   });
 
-  it('a link without its secret asks the server nothing', async () => {
+  it('a link without its secret asks the server nothing, and says what is true', async () => {
+    // Reloaded, or a tab restored, after the secret left the address bar (16b review R-L2).
     open({}, '');
+    await expect.element(page.getByRole('heading', { name: 'Sign-in link' })).toBeVisible();
     await expect
-      .element(page.getByRole('alert'))
-      .toHaveTextContent(
-        'This sign-in link has been used or has run out. Ask your household’s admin for a new one.'
-      );
+      .element(page.getByText('Open the link again from the message it came in.'))
+      .toBeVisible();
+    expect(document.body.textContent).not.toContain('used or has run out');
+    expect(page.getByRole('button', { name: 'Try again' }).query()).toBeNull();
     expect(requests).toHaveLength(0);
   });
 
