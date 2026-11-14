@@ -270,7 +270,7 @@ def _apply(kitchen: Kitchen, member: Member, login: Login | None, wanted: dict[s
         login.name = member.name  # the login's name follows its person's
         if wanted.get("role") is not None:
             if login.role == ADMIN and wanted["role"] != ADMIN:
-                drop_reset_links(kitchen.db, kitchen.household_id)  # S-M1 d
+                drop_admin_links(kitchen.db, kitchen.household_id)  # S-M1 d, S2-M1
             login.role = wanted["role"]
             if login.role != ADMIN:  # only admins have API tokens (PR O2)
                 api_tokens.stop_for(kitchen.db, login.id)
@@ -314,7 +314,7 @@ def remove(kitchen: Kitchen, member: Member) -> Change:
         kitchen.db.execute(delete(Session).where(Session.login_id == login.id))
         kitchen.db.execute(delete(JoinLink).where(JoinLink.login_id == login.id))
         if login.role == ADMIN:
-            drop_reset_links(kitchen.db, kitchen.household_id)  # S-M1 d
+            drop_admin_links(kitchen.db, kitchen.household_id)  # S-M1 d, S2-M1
         api_tokens.stop_for(kitchen.db, login.id)  # for good: Undo doesn't bring them back
         api_tokens.clear_refused(kitchen.db, login)
     # Nobody is "Who's this?"-picked as them any more.
@@ -457,21 +457,37 @@ def take_back_login(kitchen: Kitchen, member: Member) -> None:
     kitchen.db.flush()
 
 
-def drop_links(db: DbSession, login_id: int) -> None:
+def drop_links(db: DbSession, login: Login) -> None:
     """Every link of this login goes, of either kind, even one a request has claimed and is
     still hashing for: called when the login's own password or sign-ins change (its owner
-    changes the password or signs out everywhere else; reset-admin does the same itself), so
-    a link made before can't outlive the way back in (16b security pass S-M1; proposed, for
-    cabledrawer)."""
-    db.execute(delete(JoinLink).where(JoinLink.login_id == login_id))
+    changes the password or signs out everywhere else, or reset-admin), so a link made before
+    can't outlive the way back in (16b security pass S-M1; proposed, for cabledrawer). When the
+    login is an admin's, that is the household being taken back, so every admin's link in it
+    goes too (`drop_admin_links`; S2-M1)."""
+    db.execute(delete(JoinLink).where(JoinLink.login_id == login.id))
+    if login.role == ADMIN:
+        drop_admin_links(db, login.household_id)
 
 
-def drop_reset_links(db: DbSession, household_id: int) -> None:
-    """Every Reset password link in the household goes, used or not: called when an admin is
-    removed or stops being one, so no link an admin made outlives their being an admin (16b
-    security pass S-M1; proposed, for cabledrawer). Sign-in links for new people stay."""
+def drop_admin_links(db: DbSession, household_id: int) -> None:
+    """Every link in the household that leads to an admin goes: every Reset password link,
+    used or not, and every unused sign-in link for an admin's login. Called when an admin is
+    removed or stops being one, and when an admin takes the household back (`drop_links`), so
+    no link a hostile admin made or kept outlives them (16b security pass S-M1 and re-check
+    S2-M1; proposed, for cabledrawer). Sign-in links for Members stay."""
+    admins = select(Login.id).where(Login.household_id == household_id, Login.role == ADMIN)
     db.execute(
-        delete(JoinLink).where(JoinLink.household_id == household_id, JoinLink.kind == RESET)
+        delete(JoinLink).where(
+            JoinLink.household_id == household_id,
+            or_(
+                JoinLink.kind == RESET,
+                and_(
+                    JoinLink.kind == JOIN,
+                    JoinLink.used_at.is_(None),
+                    JoinLink.login_id.in_(admins),
+                ),
+            ),
+        )
     )
 
 

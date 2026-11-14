@@ -5,6 +5,7 @@ except for the household's last admin who can still sign in by password."""
 
 from typing import Any, cast
 
+import pytest
 from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -343,3 +344,26 @@ def test_an_admin_refused_by_the_groups_leaves_no_reset_link_behind(
     assert look.post(f"{API}/join/look", json={"token": token}).status_code == 404
     sam_secret = sams["path"].removeprefix("/join#")
     assert look.post(f"{API}/join/look", json={"token": sam_secret}).status_code == 200
+
+
+@pytest.mark.parametrize("groups", [["mealwright-users"], []], ids=["made a member", "refused"])
+def test_no_admins_sign_in_link_outlives_the_groups_ending_the_admin_who_made_it(
+    admin: TestClient, idp: FakeProvider, groups: list[str]
+) -> None:
+    """16b security re-check S2-M1 (proposed, for cabledrawer): Noor adds Sam as an admin and keeps
+    his sign-in link; when the groups make her a member or no longer let her in, it ends. A
+    Member's sign-in link stays."""
+    noor = browser(admin)
+    done, _ = sign_in(noor, idp, sub="noor", extra=ADMIN_GROUPS)
+    assert done.json()["me"]["role"] == "admin"
+    links = {}
+    for name, role in (("Sam", "admin"), ("Lorna", "member")):
+        added = ok(noor.post(f"{API}/people", json={"name": name}), 201)
+        person = next(p["id"] for p in added["people"] if p["name"] == name)
+        body = {"username": name.lower(), "role": role}
+        made = ok(noor.post(f"{API}/people/{person}/login", json=body), 201)
+        links[name] = made["path"].removeprefix("/join#")
+    sign_in(browser(admin), idp, sub="noor", extra={"groups": groups})
+    look = TestClient(admin.app, base_url="https://testserver")
+    assert look.post(f"{API}/join/look", json={"token": links["Sam"]}).status_code == 404
+    assert look.post(f"{API}/join/look", json={"token": links["Lorna"]}).status_code == 200

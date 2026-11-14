@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from conftest import ADMIN
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 from sync_kit import API, db, ok, person
@@ -341,3 +342,43 @@ def test_a_reset_ends_the_logins_live_updates(
     token = _token(_reset(kitchen, lorna))
     ok(_fresh(kitchen).post(f"{API}/join", json={"token": token, "password": NEW}))
     assert sorted(ended) == theirs
+
+
+def _owner_changes_password(kitchen: TestClient, noor: int) -> None:
+    body = {"current_password": ADMIN["password"], "new_password": NEW, "sign_out_others": False}
+    ok(kitchen.put(f"{API}/me/password", json=body))
+
+
+def _owner_runs_reset_admin(kitchen: TestClient, noor: int) -> None:
+    settings = kitchen.app.state.settings  # type: ignore[attr-defined]
+    assert reset_admin(settings, ADMIN["username"], io.StringIO()) == 0
+
+
+RECOVERIES = {
+    "noor removed": lambda kitchen, noor: ok(kitchen.delete(f"{API}/people/{noor}")),
+    "noor made a member": lambda kitchen, noor: ok(
+        kitchen.patch(f"{API}/people/{noor}", json={"role": "member"})
+    ),
+    "password changed": _owner_changes_password,
+    "signed out everywhere else": lambda kitchen, noor: ok(
+        kitchen.delete(f"{API}/me/sessions/others")
+    ),
+    "reset-admin": _owner_runs_reset_admin,
+}
+
+
+@pytest.mark.parametrize("recovery", RECOVERIES)
+def test_no_admins_sign_in_link_outlives_the_owner_taking_the_household_back(
+    kitchen: TestClient, recovery: str
+) -> None:
+    """16b security re-check S2-M1 (proposed, for cabledrawer): Noor, a hostile admin, adds Sam as
+    an admin and keeps his 24-hour sign-in link. Each way the owner takes the household back
+    ends it; a Member's sign-in link stays."""
+    noor, hers = _noor_admin(kitchen)
+    sam = _add(hers, "Sam")
+    sams = _join(hers, sam, "sam", role="admin")
+    lorna = _add(hers, "Lorna")
+    lornas = _join(hers, lorna, "lorna")
+    RECOVERIES[recovery](kitchen, noor)
+    _problem(_look(_fresh(kitchen), sams), 404, "link_gone")
+    ok(_look(_fresh(kitchen), lornas))

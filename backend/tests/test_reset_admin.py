@@ -151,9 +151,11 @@ def test_refuses_a_removed_admin_and_lists_only_admins_who_can_sign_in(
     (0.9.0-alpha.1 security pass). The list names admins who can sign in, and an admin whose
     sign-in link isn't used yet, marked."""
     joss = _admin_person(kitchen, "Joss", "joss", join=True)
-    _admin_person(kitchen, "Pia", "pia", join=False)
     _admin_person(kitchen, "Ola", "ola", join=True)
     assert kitchen.delete(f"/api/v1/people/{joss}").status_code == 200
+    # Pia's link is made after: removing an admin ends every admin's unused sign-in link
+    # (16b security re-check S2-M1; proposed, for cabledrawer).
+    _admin_person(kitchen, "Pia", "pia", join=False)
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         before = db.scalars(select(Login.password_hash).where(Login.username == "joss")).one()
     settings = kitchen.app.state.settings  # type: ignore[attr-defined]
