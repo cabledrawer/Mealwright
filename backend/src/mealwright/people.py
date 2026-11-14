@@ -453,6 +453,24 @@ def take_back_login(kitchen: Kitchen, member: Member) -> None:
     kitchen.db.flush()
 
 
+def drop_links(db: DbSession, login_id: int) -> None:
+    """Every link of this login goes, of either kind, even one a request has claimed and is
+    still hashing for: called when the login's own password or sign-ins change (its owner
+    changes the password or signs out everywhere else; reset-admin does the same itself), so
+    a link made before can't outlive the way back in (16b security pass S-M1; proposed, for
+    cabledrawer)."""
+    db.execute(delete(JoinLink).where(JoinLink.login_id == login_id))
+
+
+def drop_reset_links(db: DbSession, household_id: int) -> None:
+    """Every Reset password link in the household goes, used or not: called when an admin is
+    removed or stops being one, so no link an admin made outlives their being an admin (16b
+    security pass S-M1; proposed, for cabledrawer). Sign-in links for new people stay."""
+    db.execute(
+        delete(JoinLink).where(JoinLink.household_id == household_id, JoinLink.kind == RESET)
+    )
+
+
 def link_pending(kitchen: Kitchen, login: Login, kind: str = JOIN) -> bool:
     """An unused link of this kind for the login that hasn't run out."""
     return (

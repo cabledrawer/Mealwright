@@ -87,6 +87,9 @@ def reset_admin(settings: Settings, username: str, out: TextIO = sys.stdout) -> 
             ended = db.scalar(select(func.count()).select_from(Session).where(mine)) or 0
             db.execute(delete(Session).where(mine))
             api_tokens.stop_for(db, login.id)  # a token is a sign-in too (O2 review r1, finding 5)
+            # And no unused link of this login is left: a Reset password link made before
+            # can't outlive the way back in (16b security pass S-M1; proposed, for cabledrawer).
+            db.execute(delete(JoinLink).where(JoinLink.login_id == login.id))
             # A way back in even with password sign-in turned off for single sign-on (0.9 O1;
             # proposed, for cabledrawer): it's turned back on for the household.
             sso = db.get(SsoSettings, login.household_id)

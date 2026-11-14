@@ -3,6 +3,7 @@ where a person who has forgotten their password chooses a new one; their data st
 The link's secret follows a `#` like a sign-in link's, and the Person page says when it was
 used."""
 
+import io
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -13,6 +14,7 @@ from test_people import _add, _fresh, _id, _join, _look, _newest, _people, _prob
 
 from mealwright.history import as_utc
 from mealwright.models import ApiToken, JoinLink, Login, Session
+from mealwright.reset_admin import reset_admin
 
 FIRST = "lorna's first password"
 NEW = "lorna's brand new password"
@@ -181,3 +183,41 @@ def test_a_reset_stops_the_logins_api_tokens(kitchen: TestClient) -> None:
         assert len(tokens) == 1 and tokens[0].revoked_at is not None
     # Someone else's sign-ins stay: the admin who made the link is still signed in.
     assert kitchen.get(f"{API}/me").status_code == 200
+
+
+def _lorna_signed_in(kitchen: TestClient) -> tuple[int, TestClient]:
+    lorna = _lorna(kitchen)
+    hers = _fresh(kitchen)
+    ok(hers.post(f"{API}/session", json={"username": "lorna", "password": FIRST}))
+    return lorna, hers
+
+
+def test_changing_your_own_password_ends_a_reset_link_made_before(kitchen: TestClient) -> None:
+    """16b security pass S-M1 (proposed, for cabledrawer): no link outlives the way back in, even
+    when the person keeps their other devices signed in."""
+    lorna, hers = _lorna_signed_in(kitchen)
+    token = _token(_reset(kitchen, lorna))
+    body = {"current_password": FIRST, "new_password": NEW, "sign_out_others": False}
+    ok(hers.put(f"{API}/me/password", json=body))
+    _problem(_look(_fresh(kitchen), token), 404, "link_gone")
+    assert _login(kitchen, lorna)["reset_pending"] is False
+    with db(kitchen) as session:
+        assert session.scalars(select(JoinLink)).all() == []
+
+
+def test_signing_out_everywhere_else_ends_a_reset_link(kitchen: TestClient) -> None:
+    lorna, hers = _lorna_signed_in(kitchen)
+    token = _token(_reset(kitchen, lorna))
+    ok(hers.delete(f"{API}/me/sessions/others"))
+    _problem(_look(_fresh(kitchen), token), 404, "link_gone")
+    assert _signs_in(kitchen, FIRST)
+
+
+def test_reset_admin_ends_a_reset_link(kitchen: TestClient) -> None:
+    noor = _add(kitchen, "Noor")
+    joined = _join(kitchen, noor, "noor", role="admin")
+    ok(_fresh(kitchen).post(f"{API}/join", json={"token": joined, "password": FIRST}))
+    token = _token(_reset(kitchen, noor))
+    out = io.StringIO()
+    assert reset_admin(kitchen.app.state.settings, "noor", out) == 0  # type: ignore[attr-defined]
+    _problem(_look(_fresh(kitchen), token), 404, "link_gone")

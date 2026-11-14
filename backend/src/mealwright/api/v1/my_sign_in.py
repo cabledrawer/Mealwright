@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import api_tokens
+from mealwright import api_tokens, people
 from mealwright.auth import (
     MAX_PASSWORD,
     CurrentSession,
@@ -104,6 +104,8 @@ def _end_others(request: Request, db: DbSession, signed_in: SignedIn) -> list[in
     # A token is a sign-in too: signing everything else out stops the tokens this login made
     # (O2 review r1, finding 5; proposed, for cabledrawer).
     api_tokens.stop_for(db, signed_in.login.id)
+    # And no unused link of this login is left (16b security pass S-M1; proposed, for cabledrawer).
+    people.drop_links(db, signed_in.login.id)
     return ended
 
 
@@ -140,6 +142,7 @@ def change_password(
         raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "wrong_password", WRONG_CURRENT)
     login.password_hash = hash_password(body.new_password)
     login.password_changed_at = now()
+    people.drop_links(db, login.id)  # no link made before outlives the change (S-M1)
     ended = _end_others(request, db, signed_in) if body.sign_out_others else []
     db.commit()
     remember_device(request, response, request.app.state.settings, login)
