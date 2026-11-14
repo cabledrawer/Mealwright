@@ -277,7 +277,8 @@ def would_lock_out(db: DbSession, data_dir: Path | None, login: Login) -> bool:
     out: they are an admin whose only way in is a single sign-on link (no password of their
     own), and no other admin has a password. Only a working password counts, theirs or another
     admin's, because every link ends with single sign-on and ending it turns password sign-in
-    back on (cabledrawer 14 Nov: "first add another admin who signs in with a password"; the own-network entry, the saved issuer or client ID and "only a password counts" also cabledrawer 14 Nov). It is
+    back on (cabledrawer 14 Nov: "first add another admin who signs in with a password"; so are the
+    own-network entry, the saved issuer or client ID and "only a password counts"). It is
     `another_admin_gets_in` with passwords counted and links not: the household's one rule."""
     if login.role != ADMIN or login.shared or login.password_hash or login.sso_subject is None:
         return False

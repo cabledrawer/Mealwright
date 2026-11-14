@@ -1,8 +1,8 @@
 """Single sign-on can't be turned off on the last admin who can only get in with it (Tess 14
-Nov): "You'd be locked out: first add another admin who signs in with a password." Both ways to end it:
-the Privacy switch, and taking off Your own network the entry that lets Mealwright reach the
-sign-in server. Another admin counts only by the household's rule: a working password, or an
-accepted single sign-on link and signed in right now (#205 (c)+(d))."""
+Nov): "You'd be locked out: first add another admin who signs in with a password." Ways to end
+it: the Privacy switch, taking off Your own network the entry that lets Mealwright reach the
+sign-in server, and saving another sign-in server or client ID. Only another admin with a working
+password counts: a link ends with single sign-on, signed in or not (cabledrawer 14 Nov)."""
 
 # ruff: noqa: F401
 from typing import Any, cast
