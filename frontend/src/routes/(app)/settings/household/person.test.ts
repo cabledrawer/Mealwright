@@ -184,6 +184,29 @@ describe('Settings → Household → a person', () => {
     expect(toasts.current?.message).toBe('Changed Joss: colour, portion');
   });
 
+  it('shows the refusal when the last admin who can get in would be made a Member (#205)', async () => {
+    // Sam is an admin; if Lorna's answer says nobody else could get in, the server refuses and
+    // the page shows its sentence the way every refusal is shown, staying on the page.
+    const admin = passwordSam({ role: 'admin' });
+    open({
+      'GET /people': [200, people([LORNA, admin])],
+      'PATCH /people/3': [
+        409,
+        {
+          code: 'last_admin',
+          detail: 'Sam is the household’s only admin. Make someone else an admin first.'
+        }
+      ]
+    });
+    await page.getByRole('button', { name: 'Member' }).click();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent('Sam is the household’s only admin. Make someone else an admin first.');
+    expect(goto).not.toHaveBeenCalled();
+    expect(sent('PATCH', '/people/3')[0]!.body).toEqual({ role: 'member' });
+  });
+
   it('Save with nothing changed just goes back', async () => {
     open();
     await page.getByRole('button', { name: 'Save' }).click();
