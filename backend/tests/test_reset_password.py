@@ -221,3 +221,44 @@ def test_reset_admin_ends_a_reset_link(kitchen: TestClient) -> None:
     out = io.StringIO()
     assert reset_admin(kitchen.app.state.settings, "noor", out) == 0  # type: ignore[attr-defined]
     _problem(_look(_fresh(kitchen), token), 404, "link_gone")
+
+
+def _noor_admin(kitchen: TestClient) -> tuple[int, TestClient]:
+    """Noor, a second admin who has chosen her password and is signed in."""
+    noor = _add(kitchen, "Noor")
+    joined = _join(kitchen, noor, "noor", role="admin")
+    ok(_fresh(kitchen).post(f"{API}/join", json={"token": joined, "password": FIRST}))
+    hers = _fresh(kitchen)
+    ok(hers.post(f"{API}/session", json={"username": "noor", "password": FIRST}))
+    return noor, hers
+
+
+def test_an_admin_made_a_member_leaves_no_reset_link_behind(kitchen: TestClient) -> None:
+    """16b security pass S-M1 d (proposed, for cabledrawer): every unused reset link in the
+    household goes when an admin stops being one; sign-in links for new people stay."""
+    lorna = _lorna(kitchen)
+    noor, hers = _noor_admin(kitchen)
+    token = _token(_reset(hers, lorna))
+    sam = _add(kitchen, "Sam")
+    sams = _join(hers, sam, "sam")
+    ok(kitchen.patch(f"{API}/people/{noor}", json={"role": "member"}))
+    _problem(_look(_fresh(kitchen), token), 404, "link_gone")
+    ok(_look(_fresh(kitchen), sams))
+
+
+def test_an_admin_removed_leaves_no_reset_link_behind(kitchen: TestClient) -> None:
+    lorna = _lorna(kitchen)
+    noor, hers = _noor_admin(kitchen)
+    token = _token(_reset(hers, lorna))
+    ok(kitchen.delete(f"{API}/people/{noor}"))
+    _problem(_look(_fresh(kitchen), token), 404, "link_gone")
+    assert _signs_in(kitchen, FIRST)
+
+
+def test_a_member_removed_leaves_other_reset_links(kitchen: TestClient) -> None:
+    lorna = _lorna(kitchen)
+    token = _token(_reset(kitchen, lorna))
+    sam = _add(kitchen, "Sam")
+    _join(kitchen, sam, "sam")
+    ok(kitchen.delete(f"{API}/people/{sam}"))
+    ok(_look(_fresh(kitchen), token))

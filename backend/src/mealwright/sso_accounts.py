@@ -46,7 +46,7 @@ from mealwright.events import Broadcaster
 from mealwright.models import Login, Member, Session, SsoSettings
 from mealwright.names import cut_text, fold, tidy_one_line
 from mealwright.outbound import Connection, OutboundGate, switches
-from mealwright.people import admin_can_sign_in
+from mealwright.people import admin_can_sign_in, drop_reset_links
 from mealwright.roles import ADMIN, MEMBER
 from mealwright.secret_box import SecretUnreadable, open_sealed, seal
 from mealwright.sso import Client, Identity, SsoFailed
@@ -377,6 +377,9 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Pat
             log.info("Single sign-on: %s is now %s, from the groups", login.username, role)
             if login.role == ADMIN:  # only admins have API tokens (O2 review r1, finding 3)
                 api_tokens.stop_for(db, login.id)
+                # No Reset password link outlives an admin's being one (16b security pass
+                # S-M1 d; proposed, for cabledrawer).
+                drop_reset_links(db, login.household_id)
             login.role = role
             api_tokens.clear_refused(db, login)  # a Member makes no tokens: the mark ends
     return login

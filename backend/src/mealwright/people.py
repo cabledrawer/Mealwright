@@ -269,6 +269,8 @@ def _apply(kitchen: Kitchen, member: Member, login: Login | None, wanted: dict[s
     if login is not None:
         login.name = member.name  # the login's name follows its person's
         if wanted.get("role") is not None:
+            if login.role == ADMIN and wanted["role"] != ADMIN:
+                drop_reset_links(kitchen.db, kitchen.household_id)  # S-M1 d
             login.role = wanted["role"]
             if login.role != ADMIN:  # only admins have API tokens (PR O2)
                 api_tokens.stop_for(kitchen.db, login.id)
@@ -311,6 +313,8 @@ def remove(kitchen: Kitchen, member: Member) -> Change:
     if login is not None:
         kitchen.db.execute(delete(Session).where(Session.login_id == login.id))
         kitchen.db.execute(delete(JoinLink).where(JoinLink.login_id == login.id))
+        if login.role == ADMIN:
+            drop_reset_links(kitchen.db, kitchen.household_id)  # S-M1 d
         api_tokens.stop_for(kitchen.db, login.id)  # for good: Undo doesn't bring them back
         api_tokens.clear_refused(kitchen.db, login)
     # Nobody is "Who's this?"-picked as them any more.
