@@ -1338,7 +1338,32 @@ no_lint_tools_in_image() {
       if command -v "$tool" >/dev/null 2>&1; then echo "$tool is in the image"; exit 1; fi
     done'
 }
+# --- A repo safe to make public (0.9.5, cabledrawer 13 Nov) ----------------------------------------
+# Two steps, both in the fast run too (well under 10 s). The first needs no private list: home-folder
+# paths, drive mounts, Windows drive paths, private addresses (e2e/scripts/private-words.mjs; the true
+# examples are in scripts/public-safe-allow.txt). The second reads the git-ignored word list
+# (.private-words; $CHECK_PRIVATE_WORDS names another; a copy made with `git worktree` also looks in the
+# main checkout) and is SKIPPED, never failed, where there is none (a public clone, a fresh copy).
+private_words_file() {
+  local f common
+  [[ -n "${CHECK_PRIVATE_WORDS:-}" ]] && { [[ -f "$CHECK_PRIVATE_WORDS" ]] && echo "$CHECK_PRIVATE_WORDS"; return 0; }
+  [[ -f "$ROOT/.private-words" ]] && { echo "$ROOT/.private-words"; return 0; }
+  common="$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 0
+  f="${common%/.git}/.private-words"
+  [[ -f "$f" ]] && echo "$f"
+  return 0
+}
+public_safe_steps() {
+  local words; words="$(private_words_file)"
+  step "repo: home paths and addresses" node e2e/scripts/private-words.mjs --builtin
+  if [[ -n "$words" ]]; then
+    step "repo: private words" node e2e/scripts/private-words.mjs --words "$words"
+  else
+    skip "repo: private words" "no private word list here"
+  fi
+}
 extra_steps() {
+public_safe_steps
 if ((FAST)); then
   skip "docker: hadolint" "fast run"
   skip "docker: compose config" "fast run"

@@ -1,0 +1,5 @@
+# Private words for ./check's "repo: private words" step. Copy this file to .private-words (which
+# git ignores) and put your own names and paths in it: one word or regular expression per line,
+# case-insensitive; a line starting with "#" is a comment. The values below are made up.
+wiki\.example-home\.test
+\bmy-server-name\b

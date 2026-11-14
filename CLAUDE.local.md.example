@@ -1,0 +1,18 @@
+# Local notes (example)
+
+Copy this file to `CLAUDE.local.md` (git ignores it; Claude Code loads it by itself) and fill in your
+own values. Tracked files say `<code server>`, `<main checkout>` and `<sync>`; this is where each one is
+written down. The values below are made up.
+
+## The code server
+- Address: `git.example.org` (repo `https://git.example.org/owner/mealwright`).
+- Machine: `code-box`.
+
+## Where things are
+- `<main checkout>`: `/home/jo/mealwright`.
+- `<sync>`: `/mnt/x/Mealwright/repo-sync` (reviews in `<sync>/reviews`, mockups in `<sync>/mockups-<milestone>`,
+  hand-test files and checklists, the import check's `import-check/urls.md`).
+- Set `MEALWRIGHT_SYNC_DIR` to `<sync>` to run `backend/scripts/import_check.py` with its default files.
+
+## Machines
+- Test VM: `test-vm` on `host-box`.

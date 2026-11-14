@@ -48,3 +48,7 @@ Thumbs.db
 # Speed baseline (e2e/perf): the sign-in and the raw results of a run
 e2e/perf/.state.json
 e2e/perf/results*.json
+
+# Private notes and word list (see docs/dev/public-safe.md)
+/CLAUDE.local.md
+/.private-words

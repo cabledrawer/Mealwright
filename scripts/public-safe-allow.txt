@@ -1,0 +1,49 @@
+# The true examples ./check's built-in patterns let through (home-folder paths, drive paths,
+# private addresses). One regular expression per line; a hit is allowed only when a line matches
+# the WHOLE hit, so an entry for one address does not allow a longer one that starts the same. Case-insensitive.
+# Textbook examples only (made-up users, example networks, the cloud metadata address the app
+# refuses). A real address of anyone's network never goes here: put it in the private word list.
+/home/ayla/
+C:\\\\U
+10\.0\.0\.0
+10\.0\.0\.1
+10\.0\.0\.2
+10\.1\.2\.3
+10\.66\.66\.66
+10\.9\.8\.7
+10\.9\.9\.9
+172\.16\.5\.4
+172\.18\.0\.0
+172\.29\.91\.0
+172\.29\.91\.10
+172\.29\.91\.20
+172\.30\.42\.0
+172\.30\.42\.7
+172\.30\.43\.1
+192\.168\.0\.1
+192\.168\.1\.0
+192\.168\.1\.1
+192\.168\.1\.20
+192\.168\.1\.23
+192\.168\.1\.30
+192\.168\.1\.5
+192\.168\.1\.50
+192\.168\.1\.7
+192\.168\.1\.77
+192\.168\.1\.99
+192\.168\.2\.1
+192\.168\.2\.30
+192\.168\.2\.5
+192\.168\.77\.1
+FD12:3456:0000::0001
+FD12:3456:789A::
+FD12::1
+fd00::
+fd00::5
+fd00:ec2::
+fd00:ec2::254
+fd12:3456::1
+fd12:77::1
+fd12::20
+/home/jo/
+/mnt/x/
