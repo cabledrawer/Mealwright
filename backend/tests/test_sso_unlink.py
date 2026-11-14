@@ -150,6 +150,19 @@ def test_an_account_linked_before_it_was_kept_is_kept_when_unlinked(
     assert waits(answer)
 
 
+def test_the_person_page_knows_single_sign_on_is_set_up_for_an_admin_only(
+    admin: TestClient, member: TestClient
+) -> None:
+    assert member.get(f"{API}/people").json()["single_sign_on"] is False
+    assert admin.get(f"{API}/people").json()["single_sign_on"] is True
+
+
+def test_with_no_single_sign_on_set_up_the_person_page_says_nothing_of_it(
+    kitchen: TestClient,
+) -> None:
+    assert kitchen.get(f"{API}/people").json()["single_sign_on"] is False
+
+
 def test_someone_not_linked_cant_be_unlinked(admin: TestClient, idp: FakeProvider) -> None:
     person_here(admin, "lorna")
     answer = _unlink(admin, _member_id(admin, "Lorna"))

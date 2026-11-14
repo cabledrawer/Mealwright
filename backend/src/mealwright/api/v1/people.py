@@ -125,6 +125,9 @@ class PeopleOut(BaseModel):
     # "Who is this?" (0.9.5 Pe3/M2): single sign-on sign-ins waiting for an admin, newest
     # first. Empty for a member.
     waiting: list[WaitingSignIn] = []
+    # Single sign-on is set up (0.9.5 Pe3/M2): the Person page shows who is linked. False for a
+    # member.
+    single_sign_on: bool = False
 
 
 def _person(kitchen: Here, member: Member, issuer: str | None) -> HouseholdPerson:
@@ -178,6 +181,7 @@ def _people(kitchen: Here) -> PeopleOut:
         ]
         if can_change
         else [],
+        single_sign_on=can_change and issuer is not None,
     )
 
 

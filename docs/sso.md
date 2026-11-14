@@ -59,6 +59,11 @@ An admin sees "1 sign-in waiting" at the top of **Settings → Household**, with
 
 After a link, the person signs in with single sign-on again to get in. Only the 20 newest waiting sign-ins are kept. Only an admin of the household sees or answers them, and only those from the sign-in server saved now.
 
+An admin also sees **Single sign-on** on each person's page in Settings → Household:
+
+- **Linked to *lorna.s* on your sign-in server**, with **Unlink**. Unlinking ends that person's single sign-on sign-ins at once; a password they have still works. Their account is never linked automatically again: at its next sign-in it waits for "Who is this?". The household's last admin who can sign in is never unlinked while single sign-on is their only way in: make someone else an admin, or give them a password, first.
+- **Not linked**, with **Link…**: pick, from the sign-ins waiting, the one that is this person. Nobody waiting? Ask them to sign in with single sign-on first.
+
 ## How long a sign-in lasts
 
 When your sign-in server gives a refresh token, Mealwright checks it about once an hour. If the server says no (the account was removed or disabled there), Mealwright signs that person out too. If the server can't be reached, it tries again later. Mealwright's own limits still apply: signed out after 12 hours idle, or 30 days with "Remember".
