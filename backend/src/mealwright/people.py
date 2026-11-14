@@ -394,7 +394,9 @@ def free_old_usernames(db: DbSession, now: datetime | None = None) -> int:
     ).all()
     freed = 0
     for login, removed_at, household in old:
-        if as_utc(removed_at) < now - undo_window(household) - PURGE_MARGIN:
+        if removed_at is not None and as_utc(removed_at) < (
+            now - undo_window(household) - PURGE_MARGIN
+        ):
             login.username = f"{login.username[: 50 - len(LET_GO) - 12]}{LET_GO}{login.id}"
             freed += 1
     db.flush()

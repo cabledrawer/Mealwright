@@ -66,7 +66,7 @@ def test_the_username_stays_taken_during_the_undo_and_is_free_after_it(admin: Te
     _removed_ago(admin, lorna, 6.9)  # the Undo is still there
     assert _new_person_with_login(admin, "Sam", "lorna").status_code == 409
     _removed_ago(admin, lorna, 7.1)  # the Undo has passed
-    assert _new_person_with_login(admin, "Kit", "lorna").status_code == 201
+    assert _new_person_with_login(admin, "Lorna", "lorna").status_code == 201
     old = _login_row(admin, lorna)
     assert old.id == before.id and old.username != "lorna"  # same login number, name let go
     with cast(Any, admin.app).state.sessionmaker() as db:

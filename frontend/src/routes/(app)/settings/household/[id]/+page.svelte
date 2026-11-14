@@ -95,6 +95,21 @@
     if (person && filledFor !== person.id) fill(person);
   });
 
+  /** Picks of a colour or portion on their way to the server (they save as you pick). */
+  let picking = $state(0);
+  /** The number of the newest pick: only it may put the old value back. */
+  let newest = 0;
+  /** How many picks overlapped since none was on its way. */
+  let burst = 0;
+  // Whenever the list refreshes (an Undo of a pick, another device) and no pick is on its way,
+  // the colour and portion show what the person has now, so Save can't send an old pick again.
+  $effect(() => {
+    if (person && picking === 0 && filledFor === person.id) {
+      colour = person.colour;
+      portion = person.portion_quarters;
+    }
+  });
+
   const login = $derived(person?.login ?? null);
   /** Profile only, or a login whose link is still unused (or ran out): the choice shows. */
   const canChoose = $derived(!login || !login.signs_in);
@@ -175,7 +190,7 @@
   }
 
   async function save() {
-    if (!person || locked || household.busy) return;
+    if (!person || locked || household.busy || picking > 0) return;
     problem = null;
     if (Object.keys(changes).length === 0) return back();
     try {
@@ -193,11 +208,26 @@
   async function saveNow(change: PersonChange, back: () => void) {
     if (!person || locked) return;
     problem = null;
+    const mine = ++newest;
+    burst += 1;
+    picking += 1;
     try {
       await household.change(person.id, change);
     } catch (error) {
-      back();
-      problem = sentence(error);
+      // Only the newest pick puts the old value back: an earlier one failing while a later one
+      // is on its way must not undo what the server is about to keep.
+      if (mine === newest) {
+        back();
+        problem = sentence(error);
+      }
+    } finally {
+      picking -= 1;
+      // Replies can come back out of order: after a burst, read the person again.
+      if (picking === 0) {
+        const overlapped = burst > 1;
+        burst = 0;
+        if (overlapped) void household.load();
+      }
     }
   }
 
@@ -214,7 +244,7 @@
   }
 
   async function remove() {
-    if (!person || locked || household.busy) return;
+    if (!person || locked || household.busy || picking > 0) return;
     problem = null;
     try {
       if (await household.remove(person.id)) await back();
@@ -574,12 +604,18 @@
     {/if}
 
     {#if household.canChange}
-      <button class="primary" type="button" disabled={locked} onclick={() => void save()}
-        >Save</button
+      <button
+        class="primary"
+        type="button"
+        disabled={locked || picking > 0}
+        onclick={() => void save()}>Save</button
       >
       {#if !person.is_me}
-        <button class="quiet danger" type="button" disabled={locked} onclick={() => void remove()}
-          >Remove {person.name}</button
+        <button
+          class="quiet danger"
+          type="button"
+          disabled={locked || picking > 0}
+          onclick={() => void remove()}>Remove {person.name}</button
         >
         <p class="note">
           Removing someone keeps their meals and history; Recent changes shows “{person.name} (removed)”.

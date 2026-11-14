@@ -239,6 +239,27 @@ describe('the meal’s menu (0.7 P1)', () => {
         .toEqual([{ member_ids: [] }]);
     });
 
+    it('a removed person ticked on a past meal stays ticked, and is named, not "Everyone"', async () => {
+      meal.eater_member_ids = [99];
+      model.plan = { ...plan([meal]), removed_people: [{ member_id: 99, name: 'Lorna' }] };
+      const dialog = open({ kind: 'meal', meal });
+      await expect.element(dialog.getByText('Lorna (removed)')).toBeVisible();
+      await dialog.getByRole('button', { name: 'Tess' }).click();
+      await expect
+        .poll(() => requests.filter((r) => r.method === 'PUT').map((r) => r.body))
+        .toEqual([{ member_ids: [1, 99] }]);
+    });
+
+    it('a meal ticked only for a removed person does not show Everyone pressed', async () => {
+      meal.eater_member_ids = [99];
+      model.plan = { ...plan([meal]), removed_people: [{ member_id: 99, name: 'Lorna' }] };
+      const dialog = open({ kind: 'meal', meal });
+      await expect.element(dialog.getByText('Lorna (removed)')).toBeVisible();
+      await expect
+        .element(dialog.getByRole('button', { name: 'Everyone' }))
+        .toHaveAttribute('aria-pressed', 'false');
+    });
+
     it('is not asked when only one person signs in', async () => {
       model.people = [{ member_id: 1, name: 'Tess', colour: null, portion_quarters: 4 }];
       const dialog = open({ kind: 'meal', meal });

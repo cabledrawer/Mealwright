@@ -168,13 +168,17 @@ describe('Settings → Household → a person', () => {
   });
 
   it('a colour and a portion save as you pick them, each with its own Undo (hunt L4)', async () => {
+    let now = JOSS;
     open({
-      'PATCH /people/3': [
-        200,
-        people([TESS, { ...JOSS, colour: 'blue', portion_quarters: 6 }], {
-          change: CHANGE(60, 'person_changed', 'Changed Joss: colour blue')
-        })
-      ]
+      'PATCH /people/3': (r) => {
+        now = { ...now, ...(r.body as object) };
+        return [
+          200,
+          people([TESS, now], {
+            change: CHANGE(60, 'person_changed', 'Changed Sam: colour blue')
+          })
+        ];
+      }
     });
     await page.getByRole('button', { name: 'Blue' }).click();
     await vi.waitFor(() => expect(sent('PATCH', '/people/3')).toHaveLength(1));
@@ -183,7 +187,7 @@ describe('Settings → Household → a person', () => {
     await vi.waitFor(() => expect(sent('PATCH', '/people/3')).toHaveLength(2));
     expect(sent('PATCH', '/people/3')[1]!.body).toEqual({ portion_quarters: 6 });
     expect(goto).not.toHaveBeenCalled(); // still on the page, nothing to press
-    expect(toasts.current?.message).toBe('Changed Joss: colour blue');
+    expect(toasts.current?.message).toBe('Changed Sam: colour blue');
   });
 
   it('leaving with the back link keeps a colour and a portion already picked', async () => {
@@ -196,6 +200,52 @@ describe('Settings → Household → a person', () => {
     await page.getByRole('button', { name: 'Save' }).click();
     await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/household'));
     expect(sent('PATCH', '/people/3')).toHaveLength(1);
+  });
+
+  it('after an Undo of the pick, the list shows the old colour and Save does not send the pick again', async () => {
+    open({
+      'PATCH /people/3': [200, people([TESS, { ...JOSS, colour: 'blue' }])]
+    });
+    await page.getByRole('button', { name: 'Blue' }).click();
+    await vi.waitFor(() => expect(sent('PATCH', '/people/3')).toHaveLength(1));
+    // Undo on the toast: the list is read again and the person has the old colour.
+    fakeApi({ 'GET /people': [200, people()], 'GET /household': [200, HOUSEHOLD] });
+    await household.load();
+    await expect
+      .element(page.getByRole('button', { name: 'Amber' }))
+      .toHaveAttribute('aria-pressed', 'true');
+    await expect
+      .element(page.getByRole('button', { name: 'Blue' }))
+      .toHaveAttribute('aria-pressed', 'false');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/household'));
+    expect(sent('PATCH', '/people/3')).toHaveLength(1); // nothing sent again
+  });
+
+  it('two quick picks: an earlier one failing does not undo the later one; Save waits', async () => {
+    open();
+    const waiting: ((reply: Response) => void)[] = [];
+    const real = globalThis.fetch;
+    vi.stubGlobal('fetch', (input: string, init: RequestInit = {}) =>
+      init.method === 'PATCH'
+        ? new Promise<Response>((done) => waiting.push(done))
+        : real(input, init)
+    );
+    await page.getByRole('button', { name: 'Blue' }).click();
+    await page.getByRole('button', { name: 'Violet' }).click();
+    await vi.waitFor(() => expect(waiting).toHaveLength(2));
+    await expect.element(page.getByRole('button', { name: 'Save' })).toBeDisabled();
+    waiting[0]!(new Response(JSON.stringify({ detail: 'Boom' }), { status: 500 }));
+    waiting[1]!(
+      new Response(JSON.stringify(people([TESS, { ...JOSS, colour: 'violet' }])), {
+        status: 200
+      })
+    );
+    await expect
+      .element(page.getByRole('button', { name: 'Violet' }))
+      .toHaveAttribute('aria-pressed', 'true');
+    expect(page.getByRole('alert').query()).toBeNull();
+    await expect.element(page.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 
   it('a colour that could not be saved says so and puts the old one back', async () => {
