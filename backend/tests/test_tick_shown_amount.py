@@ -284,3 +284,37 @@ def test_the_same_untick_replayed_offline_leaves_the_edited_rest_alone(
     send(kitchen, again)
     send(kitchen, again)
     assert sorted(lines(kitchen, ghee["id"])) == [(120, False), (250, False)]
+
+
+def test_untick_of_both_purchases_leaves_the_lines_apart_whatever_order_they_are_named(
+    kitchen: TestClient,
+) -> None:
+    # Lorna's tick split the line, Sam ticked it again, the rest line was edited since: naming
+    # the second purchase first must not decide the answer.
+    ghee, row, first = split_tick(kitchen)
+    second = one(kitchen, "tick", counter(kitchen), PHONE_A, item_id=row["id"])
+    assert second["status"] == "applied"
+    rest = next(
+        i for i in changes(kitchen)["items"] if i["food_id"] == ghee["id"] and not i["ticks"]
+    )
+    one(kitchen, "set_amount", counter(kitchen), PHONE_A, item_id=rest["id"], amount=250)
+    one(
+        kitchen,
+        "untick",
+        counter(kitchen),
+        PHONE_B,
+        item_id=row["id"],
+        tick_ids=[second["id"], first["id"]],
+    )
+    assert sorted(lines(kitchen, ghee["id"])) == [(120, False), (250, False)]
+
+
+def test_untick_of_a_split_tick_whose_ticked_line_was_changed_stays_apart(
+    kitchen: TestClient,
+) -> None:
+    # "Either line was changed since" (11 Nov rule, "neither has been touched"): the ticked
+    # line's amount was set by hand, so the unticked line is not joined into the rest.
+    ghee, row, done = split_tick(kitchen)
+    one(kitchen, "set_amount", counter(kitchen), PHONE_A, item_id=row["id"], amount=150)
+    one(kitchen, "untick", counter(kitchen), PHONE_B, item_id=row["id"], tick_ids=[done["id"]])
+    assert sorted(lines(kitchen, ghee["id"])) == [(120, False), (150, False)]
