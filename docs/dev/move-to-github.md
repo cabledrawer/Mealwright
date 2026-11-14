@@ -19,7 +19,7 @@ There is also no runner on your Forgejo, so nothing could queue. Belt and braces
    grep -rn '<owner>' .github docs README.md
    ```
    In `.github/workflows/release.yml` set `GHCR_IMAGE` to `ghcr.io/<owner>/mealwright` and `DOCKERHUB_IMAGE` to `docker.io/<your Docker Hub name>/mealwright` (lower case). Until you do, a release cannot push anywhere.
-3. Pin the actions. Each `uses:` line has a `# TODO(cabledrawer): pin SHA`. For each, open the action's page on GitHub, Releases, pick the newest version released at least two weeks ago, and replace the version with its full 40-character commit hash, keeping the version in a comment: `uses: actions/checkout@<40 characters>  # v4.2.2`. The versions written there were chosen without network access, so check they still exist.
+3. The actions are already pinned. Each `uses:` line in `.github/workflows/check.yml` and `release.yml` names a full 40-character commit hash, with the version it came from in a comment (`uses: actions/checkout@<40 characters>  # v4.2.2`). To move one to a newer version: pick the newest release at least two weeks old, get its commit with `git ls-remote https://github.com/<owner>/<action> refs/tags/<tag> 'refs/tags/<tag>^{}'` (when a second line ending `^{}` appears, that line's hash is the commit; otherwise the one line is), replace the hash, and change the version in the comment. Never put a bare version tag back.
 4. Prepare the cleaned history, as BUILD-PLAN 1.0.0 says.
 
 ## 1. Make the GitHub repo

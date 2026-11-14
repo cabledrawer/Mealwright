@@ -149,7 +149,7 @@ At 1.0 the code moves to GitHub, and the work already in the repo starts running
    docker buildx imagetools inspect ghcr.io/<owner>/mealwright:1.2.3   # lists the platforms
    ```
 
-The workflows send nothing about an installation anywhere. TODO(cabledrawer): `release.yml` still has `# TODO(cabledrawer): pin SHA` on its actions; they are listed in [move-to-github.md](move-to-github.md) section "Before you start".
+The workflows send nothing about an installation anywhere. The actions in both workflows are pinned to full commit hashes; [move-to-github.md](move-to-github.md) section "Before you start" says how to move a pin.
 
 ## If something is missing here
 
