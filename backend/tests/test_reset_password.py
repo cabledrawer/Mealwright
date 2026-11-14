@@ -12,7 +12,7 @@ from sync_kit import API, db, ok, person
 from test_people import _add, _fresh, _id, _join, _look, _newest, _people, _problem
 
 from mealwright.history import as_utc
-from mealwright.models import JoinLink, Login
+from mealwright.models import ApiToken, JoinLink, Login, Session
 
 FIRST = "lorna's first password"
 NEW = "lorna's brand new password"
@@ -66,18 +66,23 @@ def test_an_admin_resets_a_password_and_the_person_chooses_a_new_one(kitchen: Te
     assert page["kind"] == "reset" and set(page) == {"kind", "expires_at", "min_password"}
     done = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": NEW})
     assert done.status_code == 200 and done.json() == {"username": "lorna"}, done.text
+    with db(kitchen) as session:  # no sign-in of hers is left anywhere
+        login = session.scalars(select(Login).where(Login.username == "lorna")).one()
+        assert session.scalars(select(Session).where(Session.login_id == login.id)).all() == []
     assert _signs_in(kitchen, NEW) and not _signs_in(kitchen, FIRST)
     # The link works once.
     _problem(_look(_fresh(kitchen), token), 404, "link_gone")
     again = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": "someone else's"})
     _problem(again, 404, "link_gone")
-    # Her data stays as it is, and so does where she is signed in (proposed, for cabledrawer).
+    # Her data stays as it is.
     after = next(p for p in _people(kitchen)["people"] if p["id"] == lorna)
     assert {k: v for k, v in after.items() if k != "login"} == {
         k: v for k, v in before.items() if k != "login"
     }
     assert after["login"]["username"] == "lorna" and after["login"]["role"] == "member"
-    assert signed_in.get(f"{API}/me").status_code == 200
+    # Whoever was signed in as her is signed out everywhere, like reset-admin (proposed, for
+    # cabledrawer): someone who used a link meant for her loses the login when she resets again.
+    assert signed_in.get(f"{API}/me").status_code == 401
     # The Person page says when the link was used, and the password's date is the new one.
     used = datetime.fromisoformat(after["login"]["link_used_at"])
     assert timedelta(0) <= datetime.now(UTC) - used < timedelta(minutes=1)
@@ -159,3 +164,20 @@ def test_a_reset_link_opened_where_someone_is_signed_in_is_refused(kitchen: Test
     _problem(r, 409, "signed_in_here")
     assert _signs_in(kitchen, FIRST)
     ok(_look(_fresh(kitchen), token))
+
+
+def test_a_reset_stops_the_logins_api_tokens(kitchen: TestClient) -> None:
+    """An API token is a sign-in too: an admin's tokens stop when their password is reset."""
+    noor = _add(kitchen, "Noor")
+    token = _join(kitchen, noor, "noor", role="admin")
+    ok(_fresh(kitchen).post(f"{API}/join", json={"token": token, "password": FIRST}))
+    theirs = _fresh(kitchen)
+    ok(theirs.post(f"{API}/session", json={"username": "noor", "password": FIRST}))
+    ok(theirs.post(f"{API}/api-tokens", json={"name": "Kitchen display", "scope": "read"}), 201)
+    reset = _token(_reset(kitchen, noor))
+    ok(_fresh(kitchen).post(f"{API}/join", json={"token": reset, "password": NEW}))
+    with db(kitchen) as session:
+        tokens = session.scalars(select(ApiToken)).all()
+        assert len(tokens) == 1 and tokens[0].revoked_at is not None
+    # Someone else's sign-ins stay: the admin who made the link is still signed in.
+    assert kitchen.get(f"{API}/me").status_code == 200

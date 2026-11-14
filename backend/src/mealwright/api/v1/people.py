@@ -12,9 +12,9 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel, Field, StrictBool, field_validator
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
-from mealwright import people
+from mealwright import api_tokens, people
 from mealwright.api.v1.account import USERNAME
 from mealwright.api.v1.context import Here, acting_member
 from mealwright.api.v1.schemas import ChangeOut
@@ -484,9 +484,12 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
         login.link_used_at = utcnow()
         if link.kind == people.RESET:
             # Like a password changed in Settings: the Person page's "Set" date, and the
-            # username's pause doesn't keep them out of it. Their sessions stay as they are
-            # (proposed, for cabledrawer): an admin who suspects someone else removes the person.
+            # username's pause doesn't keep them out of it. And like reset-admin, the login is
+            # signed out everywhere and its API tokens stop (proposed, for cabledrawer): someone who
+            # used a link meant for this person loses the login when they reset again.
             login.password_changed_at = login.link_used_at
+            db.execute(delete(Session).where(Session.login_id == login.id))
+            api_tokens.stop_for(db, login.id)
         db.commit()
     except Exception:
         people.give_back_link(db, link)
