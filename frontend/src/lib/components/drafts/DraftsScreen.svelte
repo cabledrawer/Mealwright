@@ -613,9 +613,9 @@
     font-size: 1rem;
     font-weight: var(--weight-extrabold);
     /* A name that is one very long word may break anywhere (at 200% it must not widen the page),
-       but the column is never narrower than 10rem, so long From lines can't squeeze
+       but the column is never narrower than 6rem, so long From lines can't squeeze
        "Minestrone" into "Minestron / e" (7f163897). */
-    min-width: 10rem;
+    min-width: 6rem;
     overflow-wrap: anywhere;
   }
 
