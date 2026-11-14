@@ -2,7 +2,7 @@
 // Delete everything. Everyone in the household can read the backups' settings; only an admin
 // changes them, backs up now, exports or deletes everything (the server refuses anyone else).
 
-import { api } from '#lib/api.js';
+import { api, ApiError, cantReachWords, codeOf, detailOf, sessionEnded } from '#lib/api.js';
 
 export type BackupEvery = 'daily' | 'twice-daily' | 'weekly';
 
@@ -51,3 +51,42 @@ export interface HowToConfirm {
 }
 
 export const getHowToConfirm = () => api<HowToConfirm>('GET', '/delete-everything');
+
+/**
+ * Export with a password: the file comes back encrypted (docs/export-format.md). The password
+ * goes in the request body only, and is kept nowhere. The file is saved by the browser as the
+ * download it is; it is held in memory until then (an export is megabytes, not gigabytes).
+ */
+export async function exportWithPassword(password: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(EXPORT_PATH, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ password }),
+      signal: AbortSignal.timeout(600_000)
+    });
+  } catch {
+    throw new ApiError(0, cantReachWords());
+  }
+  if (!response.ok) {
+    if (response.status === 401) sessionEnded();
+    let data: unknown = null;
+    try {
+      data = await response.json();
+    } catch {
+      // not JSON: an error page
+    }
+    throw new ApiError(response.status, detailOf(data), codeOf(data), data);
+  }
+  const blob = await response.blob();
+  const named = /filename="([^"]+)"/.exec(response.headers.get('content-disposition') ?? '');
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = named?.[1] ?? 'mealwright-export.zip.mwenc';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
+}

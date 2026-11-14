@@ -112,8 +112,104 @@ describe('Settings → Your data', () => {
     await expect
       .element(page.getByRole('link', { name: 'Delete everything…' }))
       .toHaveAttribute('href', '/settings/your-data/delete');
-    // No password box for the export yet: it comes with the encryption.
-    expect(document.querySelector('input[type="password"]')).toBeNull();
+    // The optional password for the export, with the mockup's words and the rule.
+    const box = page.getByLabelText('Password (optional)');
+    await expect.element(box).toHaveAttribute('type', 'password');
+    await expect.element(box).toHaveAttribute('autocomplete', 'new-password');
+    await expect.element(box).toHaveValue('');
+    await expect
+      .element(
+        page.getByText(
+          'With a password, the file is encrypted. Without it you can’t open the file, so keep it safe.'
+        )
+      )
+      .toBeVisible();
+    await expect
+      .element(
+        page.getByText(
+          'Use 8 to 1,024 characters. Mealwright doesn’t keep the password and can’t recover it.'
+        )
+      )
+      .toBeVisible();
+    expect(box.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(getComputedStyle(box.element()).fontSize).toBe('16px');
+  });
+
+  describe('Export with a password', () => {
+    const box = () => page.getByLabelText('Password (optional)');
+
+    it('sends the password in the body only, then empties the box', async () => {
+      const made = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:made');
+      open(YourData, { 'POST /export': [200, { fine: true }] });
+      await userEvent.fill(box(), 'lorna and noor');
+      await userEvent.click(page.getByRole('button', { name: 'Export' }));
+      await vi.waitFor(() => expect(requests.some((r) => r.method === 'POST')).toBe(true));
+      const sent = requests.find((r) => r.method === 'POST')!;
+      expect(sent.path).toBe('/export');
+      expect(sent.url).toBe('/export'); // nothing in the address
+      expect(sent.body).toEqual({ password: 'lorna and noor' });
+      await vi.waitFor(() => expect(made).toHaveBeenCalled());
+      await expect.element(box()).toHaveValue('');
+      expect(document.querySelector('[role="alert"]')).toBeNull();
+      made.mockRestore();
+    });
+
+    it('Enter in the box exports too', async () => {
+      const made = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:made');
+      open(YourData, { 'POST /export': [200, {}] });
+      await userEvent.fill(box(), 'lorna and noor');
+      await userEvent.keyboard('{Enter}');
+      await vi.waitFor(() => expect(requests.some((r) => r.method === 'POST')).toBe(true));
+      made.mockRestore();
+    });
+
+    it('a password that is too short is refused on the page and nothing is sent', async () => {
+      open(YourData);
+      await userEvent.fill(box(), 'short');
+      await userEvent.click(page.getByRole('button', { name: 'Export' }));
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent('Use a password of 8 to 1,024 characters.');
+      expect(requests.some((r) => r.method === 'POST')).toBe(false);
+    });
+
+    it('says why the server refused, and keeps what was typed so it can be tried again', async () => {
+      open(YourData, {
+        'POST /export': [403, { detail: 'Only the household’s admin can change this.' }]
+      });
+      await userEvent.fill(box(), 'lorna and noor');
+      await userEvent.click(page.getByRole('button', { name: 'Export' }));
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent('Only the household’s admin can change this.');
+      await expect.element(box()).toHaveValue('lorna and noor');
+    });
+
+    it('with no password the Export link is still the plain file', async () => {
+      open(YourData);
+      await expect
+        .element(page.getByRole('link', { name: 'Export' }))
+        .toHaveAttribute('href', '/api/v1/export');
+      await userEvent.fill(box(), 'lorna and noor');
+      await expect.element(page.getByRole('link', { name: 'Export' })).not.toBeInTheDocument();
+      await userEvent.clear(box());
+      await expect.element(page.getByRole('link', { name: 'Export' })).toBeVisible();
+    });
+
+    it('is off while offline', async () => {
+      open(YourData);
+      await expect.element(box()).toBeEnabled();
+      network.offline = true;
+      await expect.element(box()).toBeDisabled();
+      await expect.element(page.getByRole('button', { name: 'Export' })).toBeDisabled();
+    });
+
+    it('a member has no box at all', async () => {
+      session.me = { ...ME, role: 'member' };
+      open(YourData);
+      await expect.element(page.getByLabelText('How often')).toBeVisible();
+      expect(document.querySelector('input[type="password"]')).toBeNull();
+    });
   });
 
   it('an admin changes how often and how many, and it is sent', async () => {

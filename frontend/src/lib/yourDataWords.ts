@@ -90,6 +90,26 @@ export const PHOTOS_NOTE =
 
 export const EXPORT_LEAD = 'One file with all recipes, plans, lists, pantry, people and settings.';
 
+/** The password box on Export everything (mockup Dark-YourData09-Phone). */
+export const EXPORT_PASSWORD_LABEL = 'Password (optional)';
+
+export const EXPORT_PASSWORD_HINT =
+  'With a password, the file is encrypted. Without it you can’t open the file, so keep it safe.';
+
+/** Proposed, for cabledrawer: the rule and that the password can't be recovered. */
+export const EXPORT_PASSWORD_RULE =
+  'Use 8 to 1,024 characters. Mealwright doesn’t keep the password and can’t recover it.';
+
+/** Proposed, for cabledrawer: while the file is being made and when it can't be. */
+export const EXPORT_MAKING = 'Making the file…';
+export const EXPORT_PASSWORD_LENGTH = 'Use a password of 8 to 1,024 characters.';
+
+/** The password's length counts as the server counts it (Unicode NFC). */
+export function exportPasswordOk(password: string): boolean {
+  const length = [...password.normalize('NFC')].length;
+  return length >= 8 && length <= 1024;
+}
+
 export const UNDO_REACH = 'Undo reaches back 7 days.';
 
 export const ADMINS_ONLY = 'Only the household’s admin can change these.';

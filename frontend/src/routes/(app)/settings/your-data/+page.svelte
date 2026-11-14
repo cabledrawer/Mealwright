@@ -3,8 +3,11 @@
   // How to restore, Export everything, History, and Start again.
   //
   // Everyone in the household can look; only an admin changes anything (the server refuses
-  // anyone else). Export's optional password is not here yet: it comes with the library that
-  // encrypts the file. Offline it says so, as Privacy does.
+  // anyone else). Export's optional password (0.9.5): empty, "Export" is the plain link to the
+  // zip; with a password it asks the server for the encrypted file in a request body and the
+  // browser saves it. The password is kept nowhere (not in the page's storage, not in the
+  // address) and the box is emptied once the file is on its way. Offline it says so, as
+  // Privacy does.
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
   import Icon from '#lib/components/Icon.svelte';
@@ -16,6 +19,7 @@
     backUpNow,
     changeBackups,
     EXPORT_PATH,
+    exportWithPassword,
     getBackups,
     KEEP_MOST,
     type BackupEvery,
@@ -27,6 +31,12 @@
     ADMINS_ONLY,
     EVERY_WORDS,
     EXPORT_LEAD,
+    EXPORT_MAKING,
+    EXPORT_PASSWORD_HINT,
+    EXPORT_PASSWORD_LABEL,
+    EXPORT_PASSWORD_LENGTH,
+    EXPORT_PASSWORD_RULE,
+    exportPasswordOk,
     PHOTOS_NOTE,
     SAME_DISK,
     UNDO_REACH,
@@ -86,6 +96,35 @@
       problem = failed(error);
     } finally {
       busy = false;
+    }
+  }
+
+  let exportPassword = $state('');
+  let exporting = $state(false);
+  let exportProblem = $state<string | null>(null);
+  let plainLink = $state<HTMLAnchorElement | null>(null);
+
+  /** Export (Enter in the box too): no password, the plain file; a password, the encrypted one. */
+  async function exportFile(event: SubmitEvent) {
+    event.preventDefault();
+    if (exporting) return;
+    exportProblem = null;
+    if (exportPassword === '') {
+      plainLink?.click();
+      return;
+    }
+    if (!exportPasswordOk(exportPassword)) {
+      exportProblem = EXPORT_PASSWORD_LENGTH;
+      return;
+    }
+    exporting = true;
+    try {
+      await exportWithPassword(exportPassword);
+      exportPassword = '';
+    } catch (error) {
+      exportProblem = failed(error);
+    } finally {
+      exporting = false;
     }
   }
 
@@ -207,13 +246,38 @@
       <div class="card pad">
         <p class="sub">{EXPORT_LEAD}</p>
         {#if admin}
-          {#if network.offline}
-            <!-- Offline a download can only fail in the browser's own words: off, as the page's other buttons. -->
-            <button type="button" class="export" disabled>Export</button>
-          {:else}
-            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a file from the API, not a page -->
-            <a class="export" href={EXPORT_PATH} download>Export</a>
-          {/if}
+          <form class="export-form" onsubmit={(event) => void exportFile(event)}>
+            <div class="field">
+              <label for="export-password">{EXPORT_PASSWORD_LABEL}</label>
+              <input
+                id="export-password"
+                type="password"
+                autocomplete="new-password"
+                spellcheck="false"
+                autocapitalize="off"
+                maxlength="4096"
+                aria-describedby="export-hint export-rule"
+                disabled={network.offline || exporting}
+                bind:value={exportPassword}
+              />
+              <span class="hint" id="export-hint">{EXPORT_PASSWORD_HINT}</span>
+              <span class="hint" id="export-rule">{EXPORT_PASSWORD_RULE}</span>
+            </div>
+            {#if exportProblem}
+              <p class="problem" role="alert">{exportProblem}</p>
+            {/if}
+            {#if network.offline}
+              <!-- Offline a download can only fail in the browser's own words: off, as the page's other buttons. -->
+              <button type="button" class="export" disabled>Export</button>
+            {:else if exportPassword === ''}
+              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a file from the API, not a page -->
+              <a class="export" href={EXPORT_PATH} download bind:this={plainLink}>Export</a>
+            {:else}
+              <button type="submit" class="export" disabled={exporting}
+                >{exporting ? EXPORT_MAKING : 'Export'}</button
+              >
+            {/if}
+          </form>
         {/if}
       </div>
     </section>
@@ -421,6 +485,45 @@
     background: var(--color-inverse);
     color: var(--color-inverse-text);
     font-family: inherit;
+  }
+
+  .export-form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    gap: var(--space-3);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+  }
+
+  .field input {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-5);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-field);
+    background: var(--color-surface);
+    color: var(--color-text);
+    /* 16 px: smaller and iOS zooms in when it takes focus. */
+    font: var(--weight-regular) 1rem var(--font-ui);
+  }
+
+  .field input:focus-visible {
+    outline: 2px solid var(--color-focus);
+  }
+
+  .hint {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-regular);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   .export:disabled {
