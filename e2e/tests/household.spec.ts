@@ -478,4 +478,20 @@ test('screenshots, dark (by hand only)', async ({ page, app }) => {
     await page.goto(`/settings/household/${made.id}`);
     await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible();
   });
+  // The Shared login line (Pe7) and a colour saved as it is picked (L4).
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+  await shoot('person-shared-login-line', async () => {
+    await page.goto(`/settings/household/${made.id}`);
+    await expect(page.getByText('A shared login isn’t counted as someone who eats.')).toBeVisible();
+  });
+  const noor = `Noor ${mark()}`;
+  const made2 = await page.request.post('/api/v1/people', { data: { name: noor, colour: 'amber' } });
+  expect(made2.ok(), await made2.text()).toBe(true);
+  const noorId = ((await (await page.request.get('/api/v1/people')).json()) as Json).people.find((p: Json) => p.name === noor).id;
+  await shoot('person-colour-picked', async () => {
+    await page.goto(`/settings/household/${noorId}`);
+    await page.getByRole('button', { name: 'Violet' }).click();
+    await expect(page.getByRole('button', { name: 'Violet' })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Amber' }).click();
+  });
 });
