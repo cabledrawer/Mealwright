@@ -81,6 +81,10 @@ MAX_FILE_NAME = 200
 PREVIEW_TAGS = 3  # the computer's table shows the first few Mealie tags
 # The new ingredients' names the preview lists under "See" (the rest are counted).
 PREVIEW_NEW_FOODS = 200
+# At most this many new ingredients come from one import (proposed, for cabledrawer; round 1):
+# the rest aren't added, so the lines that name them aren't read and their recipes wait in
+# Drafts, to be checked like any import. The preview says so.
+MAX_NEW_FOODS = 5_000
 # The import holds the database's write lock in short stretches, so other households' writes
 # (and a person's own) get in between: each stretch ends once it has taken about this long,
 # after at least one recipe or ingredient (round 1, S-H1).
@@ -233,6 +237,7 @@ def _preview(kitchen: Kitchen, book: MealieBook) -> dict[str, Any]:
         "photo_bytes": photo_bytes,
         "foods_matching": matching,
         "foods_new": len(new_names),
+        "foods_left_out": max(0, len(new_names) - MAX_NEW_FOODS),
         "foods_new_names": sorted(new_names.values(), key=fold)[:PREVIEW_NEW_FOODS],
         "left_out": dict(book.left_out),
     }
@@ -419,7 +424,14 @@ def _foods_to_make(
     kitchen: Kitchen, row: MealieImport, book: MealieBook, used: set[str]
 ) -> list[dict[str, Any]]:
     """The new ingredients, worked out before any lock is taken: the Mealie foods (of the
-    recipes being brought in) no ingredient matches, once each."""
+    recipes being brought in) no ingredient matches, once each, up to the most one import
+    adds (counting any it made before a restart)."""
+    room = MAX_NEW_FOODS - (
+        kitchen.db.scalar(
+            select(func.count()).select_from(Food).where(Food.mealie_import_id == row.id)
+        )
+        or 0
+    )
     names = _food_names(kitchen.db, kitchen.household_id)
     shops = shop_choices(kitchen)
     todo: list[dict[str, Any]] = []
@@ -430,6 +442,8 @@ def _foods_to_make(
         folded = fold(name)
         if not folded:
             continue
+        if len(todo) >= room:  # the rest wait: their recipes go to Drafts
+            break
         names.add(folded)
         found = table().match(name)
         todo.append(

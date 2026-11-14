@@ -20,6 +20,7 @@
     fromFileWords,
     newIngredientsWords,
     notBroughtIn,
+    tooManyIngredientsWords,
     photosWords,
     resultWords,
     undoWords,
@@ -44,6 +45,7 @@
   const already = $derived(preview?.recipes.filter((r) => r.already) ?? []);
   const newNames = $derived(preview?.foods_new_names ?? []);
   const leftOut = $derived(preview ? notBroughtIn(preview.left_out) : null);
+  const tooMany = $derived(preview ? tooManyIngredientsWords(preview) : null);
   const share = $derived(job && job.total ? Math.round((job.done / job.total) * 100) : 0);
   const offline = $derived(network.offline);
 </script>
@@ -202,6 +204,7 @@
         </div>
       </div>
     {/if}
+    {#if tooMany}<p class="fine" data-testid="mealie-too-many">{tooMany}</p>{/if}
     {#if leftOut}<p class="fine">{leftOut}</p>{/if}
     {@render problem()}
     <div class="foot">

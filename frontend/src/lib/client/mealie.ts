@@ -23,6 +23,9 @@ export interface MealiePreview {
   photo_bytes: number;
   foods_matching: number;
   foods_new: number;
+  /** Of those, the ones past the most one import adds (5,000): not added, so the recipes that
+   *  use them wait in Drafts (missing from a preview read before round 1). */
+  foods_left_out?: number;
   /** Their names, A to Z, the first 200 (missing from a preview read before 0.9.5's "See"). */
   foods_new_names?: string[];
   /** Never brought in: meal_plans, shopping_lists, users, cookbooks → how many. */

@@ -50,6 +50,9 @@ class MealiePreview(BaseModel):
     photo_bytes: int  # those photos' size in the file
     foods_matching: int  # Mealie foods the recipes use that match an ingredient
     foods_new: int  # the ones that will be new ingredients, marked "from Mealie"
+    # Of those, the ones past the most one import adds (5,000): not added, so the recipes
+    # that use them wait in Drafts (0 in a preview read before round 1).
+    foods_left_out: int = 0
     # Their names, A to Z, the first 200 (empty in a preview read before 0.9.5's "See").
     foods_new_names: list[str] = []
     # Never brought in: "meal_plans", "shopping_lists", "users", "cookbooks" → how many.

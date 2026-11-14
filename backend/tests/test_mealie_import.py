@@ -645,3 +645,38 @@ def test_cancel_stops_a_running_import_between_stretches(
     # What came in has the import's Undo.
     undone = kitchen.post(f"{API}/mealie-imports/{import_id}/undo").json()
     assert undone["recipes"] == 3
+
+
+def test_one_import_adds_at_most_5000_new_ingredients(
+    kitchen: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert mealie_import.MAX_NEW_FOODS == 5_000
+    monkeypatch.setattr(mealie_import, "MAX_NEW_FOODS", 5)
+    raw = zipped(tmp_path / "many.zip", many(foods=8, recipes=8), photo=False)
+    made = upload(kitchen, raw).json()
+    # The preview says how many aren't added.
+    assert made["preview"]["foods_new"] == 8 and made["preview"]["foods_left_out"] == 3
+    import_id = made["id"]
+    monkeypatch.setattr(kitchen.app.state.mealie, "kick", lambda _id: None)  # type: ignore[attr-defined]
+    assert kitchen.post(f"{API}/mealie-imports/{import_id}/start", json={}).status_code == 202
+    # The server stops just after making the ingredients, before noting it had: the restart
+    # doesn't add more than the most.
+    make = mealie_import._make_foods
+
+    def stops_after(*args: Any) -> Any:
+        make(*args)
+        raise Stopped
+
+    monkeypatch.setattr(mealie_import, "_make_foods", stops_after)
+    factory = kitchen.app.state.sessionmaker  # type: ignore[attr-defined]
+    with pytest.raises(Stopped):
+        mealie_import.run(factory, import_id)
+    monkeypatch.setattr(mealie_import, "_make_foods", make)
+    mealie_import.run(factory, import_id)
+    job = kitchen.get(f"{API}/mealie-imports/{import_id}").json()
+    assert job["state"] == "done"
+    # The other 3 recipes' lines name an ingredient that wasn't added: they wait in Drafts.
+    assert job["counts"]["new_foods"] == 5
+    assert job["counts"]["saved"] == 5 and job["counts"]["drafts"] == 3
+    with factory() as db:
+        assert len(db.scalars(select(Food).where(Food.mealie_import_id == import_id)).all()) == 5

@@ -18,6 +18,7 @@ import {
   resultWords,
   saveAllWords,
   showingWords,
+  tooManyIngredientsWords,
   undoWords,
   undoneWords,
   unreadWords
@@ -96,6 +97,14 @@ describe('Import from Mealie words', () => {
     expect(newIngredientsWords(['Asafoetida', 'Tamarind'], 2)).toBe('Asafoetida, Tamarind');
     expect(newIngredientsWords(['Asafoetida', 'Tamarind'], 207)).toBe(
       'Asafoetida, Tamarind and 205 more'
+    );
+  });
+
+  it('says when a file has more new ingredients than one import adds', () => {
+    expect(tooManyIngredientsWords({ foods_new: 85 })).toBeNull();
+    expect(tooManyIngredientsWords({ foods_new: 85, foods_left_out: 0 })).toBeNull();
+    expect(tooManyIngredientsWords({ foods_new: 6240, foods_left_out: 1240 })).toBe(
+      'Only the first 5,000 new ingredients are added. Recipes that use the other 1,240 wait in Drafts for you to check.'
     );
   });
 

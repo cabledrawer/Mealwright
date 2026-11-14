@@ -761,6 +761,9 @@ The choices below are proposed, for cabledrawer:
   the recipe's words); the import never stops half-way for one bad recipe. The file is
   deleted when it ends. Progress is asked for every few seconds (`GET /mealie-imports/{id}`),
   not sent as a live event. Today shows a note for a day after it finishes.
+- **At most 5,000 new ingredients per import** (`MAX_NEW_FOODS`, proposed, for cabledrawer;
+  round 1): the rest aren't added, so their lines aren't read and those recipes wait in Drafts.
+  The preview's `foods_left_out` says how many; a restart counts the ones already made.
 - **Cancel while it runs** (`DELETE /mealie-imports/{id}`, proposed, for cabledrawer; no button
   for it yet): it stops between two stretches; what came in stays, with the import's Undo
   (the import ends "done", `choices.stopped`).

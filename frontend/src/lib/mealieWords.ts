@@ -143,6 +143,17 @@ export function newIngredientsWords(names: string[], count: number): string {
   return more > 0 ? `${names.join(', ')} and ${more} more` : names.join(', ');
 }
 
+/** When the file has more new ingredients than one import adds (5,000; proposed, for
+ *  cabledrawer): what happens to the rest. Null when it hasn't. */
+export function tooManyIngredientsWords(
+  preview: Pick<MealiePreview, 'foods_new' | 'foods_left_out'>
+): string | null {
+  const over = preview.foods_left_out ?? 0;
+  if (over <= 0) return null;
+  const added = (preview.foods_new - over).toLocaleString('en-GB');
+  return `Only the first ${added} new ingredients are added. Recipes that use the other ${over.toLocaleString('en-GB')} wait in Drafts for you to check.`;
+}
+
 /** "Showing 8 of 214. Untick any you don't want." */
 export const showingWords = (shown: number, all: number): string =>
   `Showing ${shown} of ${all}. Untick any you don’t want.`;
