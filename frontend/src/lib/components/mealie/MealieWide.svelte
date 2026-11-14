@@ -146,7 +146,7 @@
         <div>
           <strong>What comes across</strong>
           <span class="sub"
-            >Recipes (steps, ingredients, nutrition, tags, photos) and foods. Not meal plans,
+            >Recipes (steps, ingredients, nutrition, tags, photos) and ingredients. Not meal plans,
             shopping lists, users or cookbooks.</span
           >
         </div>
@@ -178,7 +178,7 @@
           <span class="num dim">{preview.already}</span><span>you already have: left out</span>
         </div>
         <div class="stat">
-          <span class="num">{preview.foods_matching}</span><span>foods match your ingredients</span>
+          <span class="num">{preview.foods_matching}</span><span>ingredients you already have</span>
         </div>
         <div class="stat">
           <span class="num">{preview.foods_new}</span><span

@@ -9,10 +9,10 @@ import { sizeWords, whenWords } from './yourDataWords';
 export { sizeWords };
 
 export const LEAD =
-  'Bring your recipes and foods across from Mealie in one go. Your Mealwright recipes stay as they are.';
+  'Bring your recipes and ingredients across from Mealie in one go. Your Mealwright recipes stay as they are.';
 /** The computer's lead says the preview too (the mockup's own words). */
 export const LEAD_WIDE =
-  'Bring your recipes and foods across from Mealie in one go. Your Mealwright recipes stay as they are, and nothing is added until you’ve looked it over.';
+  'Bring your recipes and ingredients across from Mealie in one go. Your Mealwright recipes stay as they are, and nothing is added until you’ve looked it over.';
 /** Mealie's own menu path (proposed, for cabledrawer: Mealie's current menus). */
 export const MENU_PATH = 'In Mealie: Settings › Admin Settings › Backups › Create Backup.';
 export const READS_ONLY =

@@ -101,7 +101,7 @@
       <li class="r">
         <span class="yes"><Icon name="check" size={20} stroke={2.4} /></span>
         <span class="rn"
-          ><b>Foods</b><span>Matched to your ingredients; new ones are added</span></span
+          ><b>Ingredients</b><span>Matched to your ingredients; new ones are added</span></span
         >
       </li>
       <li class="r">
@@ -166,7 +166,7 @@
       <li class="r">
         <span class="num">{preview.foods_matching}</span>
         <span class="rn"
-          ><b>Foods that match your ingredients</b><span>Linked, nothing new added</span></span
+          ><b>Ingredients you already have</b><span>Linked, nothing new added</span></span
         >
       </li>
       <li class="r">

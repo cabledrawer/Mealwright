@@ -192,7 +192,7 @@
       <h2 id="import">Import</h2>
       <a class="card row to" href={resolve('/(app)/settings/your-data/mealie')}>
         <span class="lbl"
-          >Import from Mealie<small>Recipes and foods from a Mealie backup file</small></span
+          >Import from Mealie<small>Recipes and ingredients from a Mealie backup file</small></span
         >
         <Icon name="back" size={18} stroke={2.4} />
       </a>

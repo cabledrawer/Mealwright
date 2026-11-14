@@ -167,6 +167,18 @@ describe('Settings → Your data', () => {
     await expect.element(page.getByRole('link', { name: /How to restore/ })).toBeVisible();
   });
 
+  it('Import from Mealie is a row under Import, for any member (0.9.5)', async () => {
+    session.me = { ...ME, role: 'member' };
+    open(YourData);
+    await expect.element(page.getByRole('heading', { name: 'Import' })).toBeVisible();
+    const row = page.getByRole('link', { name: /Import from Mealie/ });
+    await expect.element(row).toBeVisible();
+    await expect
+      .element(page.getByText('Recipes and ingredients from a Mealie backup file'))
+      .toBeVisible();
+    expect(row.element().getAttribute('href')).toBe('/settings/your-data/mealie');
+  });
+
   it('How to restore has the steps', async () => {
     open(Restore);
     await expect

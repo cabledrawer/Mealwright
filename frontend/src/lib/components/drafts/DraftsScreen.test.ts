@@ -57,10 +57,10 @@ const list = (items: DraftBrief[]): [number, unknown] => [
 describe('the Drafts screen', () => {
   let component: ReturnType<typeof mount> | null = null;
 
-  async function open(routes: Parameters<typeof fakeApi>[0], width = 390) {
+  async function open(routes: Parameters<typeof fakeApi>[0], width = 390, fromMealie = false) {
     await page.viewport(width, 844);
     const requests = fakeApi(routes);
-    component = mount(DraftsScreen, { target: document.body });
+    component = mount(DraftsScreen, { target: document.body, props: { fromMealie } });
     flushSync();
     return requests;
   }
@@ -450,6 +450,103 @@ describe('the Drafts screen', () => {
       await expect
         .element(page.getByRole('button', { name: 'Save recipe Aloo paratha' }))
         .toBeDisabled();
+    });
+  });
+  describe('from Mealie (0.9.5)', () => {
+    const MEALIE = [
+      draft({
+        id: 11,
+        name: 'Green curry',
+        source: { kind: 'mealie', site: null },
+        started_by: 'Sam',
+        lines_total: 8,
+        lines_checked: 6,
+        waiting: ['1 tin coconut milk (optional)', 'salt to taste']
+      }),
+      draft({
+        id: 12,
+        name: 'Shakshuka',
+        source: { kind: 'mealie', site: null },
+        started_by: 'Sam',
+        lines_total: 7,
+        lines_checked: 4,
+        waiting: ['2 tins tomatoes or 6 fresh', 'a pinch of chilli', 'feta, to serve']
+      })
+    ];
+
+    it('has no chips when no draft came from Mealie', async () => {
+      await open({ 'GET /recipes/drafts': list(THREE) });
+      await expect.element(page.getByText('Chettinad kuzhambu')).toBeVisible();
+      expect(page.getByRole('group', { name: 'Show' }).elements()).toEqual([]);
+    });
+
+    it('From Mealie shows only those, the lines each waits on, and Save all', async () => {
+      await open({ 'GET /recipes/drafts': list([...THREE, ...MEALIE]) }, 390, true);
+      await expect.element(page.getByRole('button', { name: 'All 5' })).toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: 'From Mealie 2' }))
+        .toHaveAttribute('aria-pressed', 'true');
+      await expect.element(page.getByText('Green curry')).toBeVisible();
+      await expect.element(page.getByText('Chettinad kuzhambu')).not.toBeInTheDocument();
+      // The phone quotes two lines, then "…".
+      await expect
+        .element(page.getByText('“1 tin coconut milk (optional)”, “salt to taste”'))
+        .toBeVisible();
+      await expect
+        .element(page.getByText('“2 tins tomatoes or 6 fresh”, “a pinch of chilli”, …'))
+        .toBeVisible();
+      await expect.element(page.getByText(/Open one to check its lines/)).toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: 'Save all 2 as they are' }))
+        .toBeVisible();
+
+      await page.getByRole('button', { name: 'All 5' }).click();
+      await expect.element(page.getByText('Chettinad kuzhambu')).toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: 'Save all 2 as they are' }))
+        .not.toBeInTheDocument();
+    });
+
+    it('Save all saves them on the server, then shows what is left', async () => {
+      let saved = false;
+      const requests = await open(
+        {
+          'GET /recipes/drafts': () => list(saved ? THREE : [...THREE, ...MEALIE]),
+          'POST /mealie-imports/drafts/save-all': () => {
+            saved = true;
+            return [200, { saved: 2 }];
+          }
+        },
+        390,
+        true
+      );
+      await page.getByRole('button', { name: 'Save all 2 as they are' }).click();
+      await expect.element(page.getByText('Chettinad kuzhambu')).toBeVisible();
+      await expect.element(page.getByText('Green curry')).not.toBeInTheDocument();
+      expect(page.getByRole('group', { name: 'Show' }).elements()).toEqual([]);
+      expect(requests.filter((r) => r.path === '/mealie-imports/drafts/save-all').length).toBe(1);
+    });
+
+    it('Save all says why the server refused, and keeps the drafts', async () => {
+      await open(
+        {
+          'GET /recipes/drafts': list(MEALIE),
+          'POST /mealie-imports/drafts/save-all': [409, { detail: 'Not now.' }]
+        },
+        390,
+        true
+      );
+      await page.getByRole('button', { name: 'Save all 2 as they are' }).click();
+      await expect.element(page.getByRole('alert')).toHaveTextContent('Not now.');
+      await expect.element(page.getByText('Green curry')).toBeVisible();
+    });
+
+    it('on a computer the From cell says Mealie, a line and how many more', async () => {
+      await open({ 'GET /recipes/drafts': list(MEALIE) }, 1300, true);
+      await expect.element(page.getByText('Shakshuka')).toBeVisible();
+      await expect
+        .element(page.getByText(/“2 tins tomatoes or 6 fresh”, “a pinch of chilli”, and 1 more/))
+        .toBeVisible();
     });
   });
 });
