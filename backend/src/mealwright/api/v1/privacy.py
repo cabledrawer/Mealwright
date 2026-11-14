@@ -83,6 +83,17 @@ def get_switches(kitchen: Here) -> SwitchesOut:
     return _switches(kitchen)
 
 
+def _locked_out() -> Problem:
+    return Problem(status.HTTP_409_CONFLICT, "locked_out", sso_accounts.LOCKED_OUT)
+
+
+def _not_locked_out(kitchen: Here) -> None:
+    """Refuse (409 `locked_out`) when the admin asking is the last who can get in and has only a
+    single sign-on link (cabledrawer 14 Nov): ending single sign-on would lock them out."""
+    if sso_accounts.would_lock_out(kitchen.db, kitchen.data_dir, kitchen.login):
+        raise _locked_out()
+
+
 @router.put("/privacy/switches/{connection}")
 def put_switch(connection: Shown, body: SwitchIn, kitchen: Here) -> SwitchesOut:
     """Admins only. Turn one switch on or off; the next connection follows it at once.
@@ -90,6 +101,8 @@ def put_switch(connection: Shown, body: SwitchIn, kitchen: Here) -> SwitchesOut:
     kitchen.admin_only(Action.PRIVACY)
     kind = Connection(connection)
     was = stored_switches(kitchen.db, kitchen.household_id)[kind]
+    if kind is Connection.SINGLE_SIGN_ON and was and not body.on:
+        _not_locked_out(kitchen)
     set_switch(kitchen.db, kitchen.household_id, kind, body.on)
     kitchen.db.commit()
     if was != body.on:
@@ -210,8 +223,12 @@ def remove_entry(entry_id: StoredInt, request: Request, kitchen: Here) -> Respon
     kitchen.admin_only(Action.PRIVACY)
     data_dir = request.app.state.settings.data_dir
     was_off = sso_accounts.passwords_off(kitchen.db, data_dir, kitchen.household_id)
+    locks_out = sso_accounts.would_lock_out(kitchen.db, data_dir, kitchen.login)
     if not own_network.remove(kitchen.db, kitchen.household_id, entry_id):
         raise not_found("That entry")
+    if locks_out and not sso_accounts.sso_can_start(kitchen.db, data_dir, kitchen.household_id):
+        kitchen.db.rollback()  # this entry was what let single sign-on reach the sign-in server
+        raise _locked_out()
     kitchen.db.commit()
     log.info("Your own network: removed")
     # Passwords count as off only while single sign-on can start (`sso_can_start`, with no

@@ -285,6 +285,22 @@ describe('Settings → Privacy', () => {
       await expect.element(toggle).not.toBeChecked();
     });
 
+    it('says “You’d be locked out” and keeps single sign-on on for the last admin with only a link', async () => {
+      const LOCKED = 'You’d be locked out: set a password or add another admin first.';
+      open({
+        'GET /privacy/switches': [
+          200,
+          { switches: [{ connection: 'single_sign_on', on: true }], can_change: true }
+        ],
+        'PUT /privacy/switches/single_sign_on': [409, { detail: LOCKED, code: 'locked_out' }]
+      });
+      const toggle = page.getByRole('switch', { name: 'Single sign-on' });
+      await expect.element(toggle).toBeChecked();
+      await toggle.click();
+      await expect.element(page.getByRole('alert')).toHaveTextContent(LOCKED);
+      await expect.element(toggle).toBeChecked();
+    });
+
     it('puts a switch back when the server can’t be reached', async () => {
       open();
       const toggle = page.getByRole('switch', { name: PHOTOS });
@@ -436,6 +452,18 @@ describe('Settings → Privacy', () => {
       const names = [...document.querySelectorAll('li .value')].map((n) => n.textContent);
       expect(names).toEqual(['wiki.home.example', '192.168.1.0/24']);
       expect(toasts.current).toBeNull();
+    });
+
+    it('keeps the entry and says “You’d be locked out” when it is what single sign-on needs', async () => {
+      const LOCKED = 'You’d be locked out: set a password or add another admin first.';
+      open({
+        'GET /privacy/own-network': list([wiki, lan]),
+        'DELETE /privacy/own-network/1': [409, { detail: LOCKED, code: 'locked_out' }]
+      });
+      await page.getByRole('button', { name: 'Remove wiki.home.example' }).click();
+      await expect.element(page.getByRole('alert')).toHaveTextContent(LOCKED);
+      const names = [...document.querySelectorAll('li .value')].map((n) => n.textContent);
+      expect(names).toEqual(['wiki.home.example', '192.168.1.0/24']);
     });
 
     it('keeps one row per entry when a load brings in what was just added', async () => {

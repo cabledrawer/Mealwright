@@ -267,6 +267,25 @@ def another_admin_gets_in(
     return int(db.scalar(query) or 0) > 0
 
 
+LOCKED_OUT = "You’d be locked out: set a password or add another admin first."  # cabledrawer 14 Nov
+
+
+def would_lock_out(db: DbSession, data_dir: Path | None, login: Login) -> bool:
+    """True when ending single sign-on here (its Privacy switch off, or taking away what lets
+    Mealwright reach the sign-in server) would lock this admin out: they are an admin whose only
+    way in is a single sign-on link (no password of their own), and no other admin gets in by
+    the household's rule (`another_admin_gets_in` with links: a working password, or an
+    accepted, unrefused link and a sign-in open right now; cabledrawer 14 Nov, (c)+(d)). A password
+    counts even while password sign-in is off: ending single sign-on turns it back on."""
+    if login.role != ADMIN or login.shared or login.password_hash or login.sso_subject is None:
+        return False
+    off = passwords_off(db, data_dir, login.household_id)
+    sso_on = off or sso_can_start(db, data_dir, login.household_id)
+    if not sso_on:
+        return False  # it can't start now: nothing to end
+    return not another_admin_gets_in(db, login, off, links=True, sso_on=sso_on)
+
+
 def _hourly_keeps(db: DbSession, login: Login, row: SsoSettings, data_dir: Path) -> bool | None:
     """For the hourly check's "ended" answer: None to end the sign-in as before; else True or
     False (passwords are off) to keep it, as the refusal path does for the household's last way
