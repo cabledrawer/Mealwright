@@ -61,6 +61,25 @@ const ssoJoss = {
   }
 };
 
+// Someone who chose their password with a sign-in link (Pe1, link hardening).
+const passwordJoss = (extra: Partial<NonNullable<(typeof JOSS)['login']>> = {}) => ({
+  ...JOSS,
+  login: {
+    username: 'joss',
+    role: 'member' as const,
+    shared: false,
+    has_password: true,
+    signs_in: true,
+    link_pending: false,
+    link_used_at: null,
+    reset_pending: false,
+    ...extra
+  }
+});
+
+const clock = (at: Date) =>
+  `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+
 describe('Settings → Household → a person', () => {
   let component: ReturnType<typeof mount> | null = null;
   let requests: FakeRequest[] = [];
@@ -235,6 +254,68 @@ describe('Settings → Household → a person', () => {
     await expect
       .element(page.getByRole('alert'))
       .toHaveTextContent('This person isn’t in the household any more. Household');
+  });
+
+  it('Reset password makes a one-time link to copy, and the data stays (Pe1)', async () => {
+    let made = false;
+    open({
+      'GET /people': () => [200, people([TESS, passwordJoss({ reset_pending: made })])],
+      'POST /people/3/reset-password': () => {
+        made = true;
+        return [201, { path: '/reset#reset-secret', expires_at: '2026-11-15T10:00:00Z' }];
+      }
+    });
+    await expect.element(page.getByText('Password', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Reset password' }).click();
+    await vi.waitFor(() => expect(sent('POST', '/people/3/reset-password')).toHaveLength(1));
+    const panel = page.getByRole('status');
+    await expect.element(panel).toHaveTextContent(
+      'Reset link made. It works once, for 24 hours. Send it to Joss: they pick a new password, and their recipes, plans and history stay as they are.'
+    );
+    await expect.element(page.getByText(`${location.origin}/reset#reset-secret`)).toBeVisible();
+    const writeText = vi.fn(() => Promise.resolve());
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    await page.getByRole('button', { name: 'Copy the link' }).click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(`${location.origin}/reset#reset-secret`));
+  });
+
+  it('an unused reset link says so', async () => {
+    open({ 'GET /people': [200, people([TESS, passwordJoss({ reset_pending: true })])] });
+    await expect.element(page.getByText('Joss hasn’t used the reset link yet.')).toBeVisible();
+  });
+
+  it('says when a link was used: "Link used today 21:40" (cabledrawer 13 Nov)', async () => {
+    const now = new Date();
+    open({
+      'GET /people': [200, people([TESS, passwordJoss({ link_used_at: now.toISOString() })])]
+    });
+    await expect.element(page.getByText(`Link used today ${clock(now)}`)).toBeVisible();
+  });
+
+  it('an older use says the day: "Link used 12 Nov 21:40"', async () => {
+    const at = new Date(2026, 10, 12, 21, 40);
+    open({
+      'GET /people': [200, people([TESS, passwordJoss({ link_used_at: at.toISOString() })])]
+    });
+    await expect.element(page.getByText('Link used 12 Nov 21:40')).toBeVisible();
+  });
+
+  it('no Reset password on your own page; the only admin learns about reset-admin', async () => {
+    params.id = '1';
+    open();
+    await expect.element(page.getByRole('heading', { name: 'Tess', level: 1 })).toBeVisible();
+    expect(page.getByRole('button', { name: 'Reset password' }).query()).toBeNull();
+    await expect
+      .element(page.getByText('Forgotten your own password and you\'re the only admin?', { exact: false }))
+      .toBeVisible();
+  });
+
+  it('a member cannot reset anyone’s password', async () => {
+    open({
+      'GET /people': [200, people([TESS, passwordJoss()], { can_change: false })]
+    });
+    await expect.element(page.getByText('Password', { exact: true })).toBeVisible();
+    expect(page.getByRole('button', { name: 'Reset password' }).query()).toBeNull();
   });
 
   it('a member sees the person and changes nothing', async () => {

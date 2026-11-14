@@ -199,6 +199,65 @@ test('give a login: the sign-in link opens "Choose a password", which then lets 
   await expect(peopleList(page).getByRole('link', { name: new RegExp(name) })).toContainText('Member · signs in · 1 portion');
 });
 
+test('Reset password: a one-time link where they choose a new password; the Person page says when a link was used (Pe1)', async ({
+  page,
+  browser,
+  app,
+}) => {
+  const m = mark();
+  const name = `Lorna ${m}`;
+  const username = `lorna.${m}`;
+  const NEW_PASSWORD = 'a-new-kitchen-password';
+  const made = await personWhoSignsIn(page, name, username);
+  await page.goto(`/settings/household/${made.id}`);
+  // Their sign-in link was used just now: an admin can spot a link someone else used.
+  await expect(page.getByText(/^Link used today \d{2}:\d{2}$/)).toBeVisible();
+  await page.getByRole('button', { name: 'Reset password' }).click();
+  const panel = page.getByRole('status').filter({ hasText: 'Reset link made.' });
+  await expect(panel).toContainText(
+    `It works once, for 24 hours. Send it to ${name}: they pick a new password, and their recipes, plans and history stay as they are.`,
+  );
+  await expect(page.getByRole('button', { name: 'Copy the link' })).toBeVisible();
+  await checkPage(page);
+  const link = (await panel.locator('.mono').textContent())!.trim();
+  expect(link).toMatch(/\/reset#[\w-]+$/);
+  const path = new URL(link).pathname + new URL(link).hash;
+
+  const theirs = await anotherBrowser(browser, app.url);
+  try {
+    const them = await theirs.newPage();
+    const asked: string[] = [];
+    them.on('request', (request) => asked.push(request.url()));
+    await them.goto(path);
+    await expect(them.getByRole('heading', { level: 1, name: 'Choose a new password' })).toBeVisible();
+    expect(them.url()).not.toContain('#');
+    expect(asked.filter((url) => url.includes(path.split('#')[1]!))).toEqual([]);
+    await expect(them.getByText(username)).toHaveCount(0);
+    await expect(them.getByText(name)).toHaveCount(0);
+    await checkPage(them);
+    await them.getByLabel('Password', { exact: true }).fill(NEW_PASSWORD);
+    await them.getByRole('button', { name: 'Save my password' }).click();
+    await expect(them.getByText(`Your password is saved. Sign in as ${username}.`)).toBeVisible();
+    // The new password signs in; the old one doesn't.
+    const old = await them.request.post('/api/v1/session', {
+      data: { username, password: PASSWORD, remember: false },
+    });
+    expect(old.status()).toBe(401);
+    await them.goto('/sign-in');
+    await them.getByLabel('Username').fill(username);
+    await them.getByLabel('Password', { exact: true }).fill(NEW_PASSWORD);
+    await them.getByRole('button', { name: 'Sign in' }).click();
+    await expect(them).not.toHaveURL(/\/sign-in/);
+  } finally {
+    await theirs.close();
+  }
+
+  // Back on the Person page: no reset link waits any more, and its use shows.
+  await page.reload();
+  await expect(page.getByText(/^Link used today \d{2}:\d{2}$/)).toBeVisible();
+  await expect(page.getByText(`${name} hasn’t used the reset link yet.`)).toHaveCount(0);
+});
+
 test('remove a person: they leave the list, and Undo brings them back', async ({ page }) => {
   const name = `Mira ${mark()}`;
   const made = await addPerson(page, name, { colour: 'blue' });

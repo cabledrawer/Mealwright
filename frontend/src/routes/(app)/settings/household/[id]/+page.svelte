@@ -16,6 +16,7 @@
     PORTION_CHOICES,
     giveLogin,
     portionWords,
+    resetPassword,
     takeBackLogin,
     type Colour,
     type Person,
@@ -26,6 +27,7 @@
   import { network } from '#lib/network.svelte.js';
   import { household, sentence } from '#lib/people.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
+  import { whenWords } from '#lib/yourDataWords.js';
 
   const id = $derived(Number(page.params.id));
   const person: Person | undefined = $derived(household.people.find((p) => p.id === id));
@@ -42,6 +44,8 @@
   let username = $state('');
   /** The sign-in link just made, shown once (never stored on the server). */
   let link = $state<string | null>(null);
+  /** The Reset password link just made (Pe1), shown once the same way. */
+  let resetLink = $state<string | null>(null);
   let problem = $state<string | null>(null);
   let loginProblem = $state<string | null>(null);
   let filledFor: number | null = null;
@@ -56,6 +60,7 @@
     username = from.login?.username ?? suggestedUsername(from.name);
     giving = false;
     link = null;
+    resetLink = null;
     problem = null;
     loginProblem = null;
   }
@@ -106,6 +111,28 @@
   });
 
   const linkUrl = $derived(link ? `${location.origin}${link}` : '');
+  const resetUrl = $derived(resetLink ? `${location.origin}${resetLink}` : '');
+
+  /** "Link used today 21:40" (cabledrawer 13 Nov): an admin can spot a link someone else used. */
+  const linkUsed = $derived.by(() => {
+    if (!login?.link_used_at) return null;
+    const when = whenWords(login.link_used_at).replace(/^(Today|Yesterday) /, (w) =>
+      w.toLowerCase()
+    );
+    return `Link used ${when}`;
+  });
+
+  /** Only an admin resets someone else's password; their own is Settings → Sign-in. */
+  const canReset = $derived(household.canChange && !!person && !person.is_me);
+
+  /**
+   * The only admin who signs in: if they forget their own password, nobody here can reset it,
+   * so the page says where the way back is (Pe1; shown to that admin, proposed, for cabledrawer).
+   */
+  const onlyAdmin = $derived(
+    household.canChange &&
+      household.people.filter((p) => p.login?.role === 'admin' && p.login.signs_in).length === 1
+  );
 
   async function back() {
     await goto(resolve('/(app)/settings/household'));
@@ -161,9 +188,21 @@
     }
   }
 
-  async function copy() {
+  async function reset() {
+    if (!person || locked) return;
+    loginProblem = null;
     try {
-      await navigator.clipboard.writeText(linkUrl);
+      const made = await resetPassword(person.id);
+      resetLink = made.path;
+      await household.load();
+    } catch (error) {
+      loginProblem = sentence(error);
+    }
+  }
+
+  async function copy(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
       toasts.show('Link copied');
     } catch {
       toasts.show('Couldn’t copy. Select the link and copy it.', { tone: 'problem' });
@@ -323,6 +362,36 @@
           </div>
         {/if}
 
+        {#if login?.has_password}
+          <div class="switch-row">
+            <span class="words">
+              <span class="label">Password</span>
+              {#if linkUsed}<span class="hint">{linkUsed}</span>{/if}
+            </span>
+            {#if canReset}
+              <button class="quiet sm" type="button" disabled={locked} onclick={() => void reset()}
+                >Reset password</button
+              >
+            {/if}
+          </div>
+          {#if resetLink}
+            <div class="ok" role="status">
+              <span
+                ><strong>Reset link made.</strong> It works once, for 24 hours. Send it to {person.name}:
+                they pick a new password, and their recipes, plans and history stay as they are.</span
+              >
+              <span class="mono">{resetUrl}</span>
+            </div>
+            <button class="quiet" type="button" onclick={() => void copy(resetUrl)}
+              >Copy the link</button
+            >
+          {:else if login.reset_pending && canReset}
+            <p class="sub">{person.name} hasn’t used the reset link yet.</p>
+          {/if}
+        {:else if linkUsed}
+          <p class="hint">{linkUsed}</p>
+        {/if}
+
         {#if link}
           <div class="ok" role="status">
             <span
@@ -330,7 +399,8 @@
             >
             <span class="mono">{linkUrl}</span>
           </div>
-          <button class="quiet" type="button" onclick={() => void copy()}>Copy the link</button>
+          <button class="quiet" type="button" onclick={() => void copy(linkUrl)}>Copy the link</button
+          >
         {:else if !login}
           <button
             class="quiet"
@@ -353,6 +423,13 @@
         <p class="problem" role="alert">{loginProblem}</p>
       {/if}
     </div>
+
+    {#if onlyAdmin && login?.has_password && (person.is_me || resetLink)}
+      <p class="note">
+        Forgotten your own password and you're the only admin? Use <span class="mono">reset-admin</span>
+        on the server (How to restore, step 2).
+      </p>
+    {/if}
 
     {#if problem}
       <p class="problem" role="alert">{problem}</p>
@@ -600,6 +677,12 @@
     font-size: var(--text-lg);
     font-weight: var(--weight-bold);
     cursor: pointer;
+  }
+
+  .sm {
+    min-height: var(--touch-target);
+    padding: 0 14px;
+    font-size: var(--text-md);
   }
 
   .primary {
