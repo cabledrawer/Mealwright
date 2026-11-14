@@ -386,7 +386,7 @@ def test_a_photo_folder_with_no_database_or_half_made_is_tidied_away(kitchen: Te
 
 
 def test_copying_the_photo_folder_back_restores_the_photos(kitchen: TestClient) -> None:
-    """The restore page's step: `cp -a <backup>-photos/. data/photos/`."""
+    """The restore page's step: `cp -an <backup>-photos/. data/photos/`."""
     live = _photo(_store(kitchen), "a", b"sambar")
     assert kitchen.post(API).status_code == 200
     (backup,) = backups.backups(_folder(kitchen))
@@ -520,5 +520,5 @@ def test_a_real_photo_comes_back_from_the_backup_and_a_missing_one_is_only_a_404
     assert kitchen.get(url).status_code == 404  # no photos in the restore: a plain "not found"
     assert kitchen.get(f"/api/v1/recipes/{recipe_id}").status_code == 200
     assert kitchen.get("/api/v1/recipes").status_code == 200
-    shutil.copytree(backups.photos_beside(backup.path), _store(kitchen))  # cp -a, as the docs say
+    shutil.copytree(backups.photos_beside(backup.path), _store(kitchen))  # cp -an, as the docs say
     assert kitchen.get(url).status_code == 200

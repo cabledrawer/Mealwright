@@ -234,7 +234,7 @@ sudo cp data/mealwright.db "backups/mealwright-broken-$(date +%Y%m%d-%H%M).db"  
 sudo cp data/backups/pre-upgrade-<revision>-<date>.db data/mealwright.db
 sudo rm -f data/mealwright.db-wal data/mealwright.db-shm
 sudo mkdir -p data/photos   # photos: skip the next line if there is no -photos folder beside the copy
-sudo cp -a data/backups/pre-upgrade-<revision>-<date>-photos/. data/photos/
+sudo cp -an data/backups/pre-upgrade-<revision>-<date>-photos/. data/photos/
 sudo rm -f data/backups/upgrade-failed   # the copy you just restored is no longer "the copy from before the first try"
 ```
 

@@ -430,7 +430,7 @@ describe('Settings → Your data', () => {
     await expect.element(page.getByText('The photos, when Include photos was on')).toBeVisible();
     await expect
       .element(
-        page.getByText(/sudo cp -a data\/backups\/backup-<date>-<time>-photos\/\. data\/photos\//)
+        page.getByText(/sudo cp -an data\/backups\/backup-<date>-<time>-photos\/\. data\/photos\//)
       )
       .toBeVisible();
   });

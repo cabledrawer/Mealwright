@@ -26,7 +26,7 @@ backup tools can copy the folder from there.
   `<household id>/<file>` layout. A photo file is never changed once written (it is written under
   another name and renamed, and deleted whole), so the folder holds **hard links** to the live
   files: no extra disk for photos that haven't changed, a photo deleted later stays in the older
-  backups, and restore is one `cp -a`. Where a hard link can't be made (another disk or a share
+  backups, and restore is one `cp -an`. Where a hard link can't be made (another disk or a share
   that can't), the file is copied instead. The household's switch "Include photos" (off) leaves the
   folder out. No photos on the server, no folder.
   **Consistent while in use:** the photo files are linked first, then the database is copied

@@ -78,12 +78,16 @@ is `/data` inside the container).
    (`mv` says nothing when a `-wal` or `-shm` file isn't there; that is fine.)
 
 4. **Put the photos back, if the backup has a photos folder** (the same name as the `.db` file
-   you picked, with `-photos` in place of `.db`). `cp -a` adds them to the photos already there,
-   so nothing is lost; skip this step when there is no such folder:
+   you picked, with `-photos` in place of `.db`). `cp -an` adds the ones that are missing
+   and skips the ones already there (the live files and the backup's are often the same file,
+   which plain `cp -a` refuses with an error): a photo is never changed once saved, so a file with
+   the same name is the same photo, the restored database finds every photo it points to, and
+   newer photos stay (harmless). Newer `cp` versions print a harmless warning about `-n`; the
+   command still succeeds. Skip this step when there is no such folder:
 
    ```bash
    sudo mkdir -p data/photos
-   sudo cp -a data/backups/backup-<date>-<time>-photos/. data/photos/
+   sudo cp -an data/backups/backup-<date>-<time>-photos/. data/photos/
    sudo chown -R 10001:10001 data/photos
    ```
 

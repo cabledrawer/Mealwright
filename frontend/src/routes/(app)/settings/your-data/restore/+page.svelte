@@ -89,7 +89,7 @@ sudo chmod 600 data/mealwright.db</code
         skip this when there is none. It adds them to the photos already there:
         <pre><code
             >sudo mkdir -p data/photos
-sudo cp -a data/backups/backup-&lt;date&gt;-&lt;time&gt;-photos/. data/photos/
+sudo cp -an data/backups/backup-&lt;date&gt;-&lt;time&gt;-photos/. data/photos/
 sudo chown -R 10001:10001 data/photos</code
           ></pre>
       </li>

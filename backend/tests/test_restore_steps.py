@@ -51,15 +51,51 @@ def test_a_copy_of_the_data_folder_leaves_the_logs_out() -> None:
 
 
 def test_both_put_the_photos_back_with_the_same_commands() -> None:
-    """D2 (0.9.5): a backup's photo folder goes back with `cp -a`, which adds to the photos
+    """D2 (0.9.5): a backup's photo folder goes back with `cp -an`, which adds to the photos
     already there; the screen and the doc say so in one block, in the same place."""
     for commands in (_doc_commands(), _screen_commands()):
         (back,) = [block for block in commands if "-photos/." in block]
         assert back.splitlines() == [
             "sudo mkdir -p data/photos",
-            "sudo cp -a data/backups/backup-<date>-<time>-photos/. data/photos/",
+            "sudo cp -an data/backups/backup-<date>-<time>-photos/. data/photos/",
             "sudo chown -R 10001:10001 data/photos",
         ]
         # After the database is in place, before Mealwright starts.
         blocks = [block for block in commands if "cp data/backups" in block or "up -d" in block]
         assert commands.index(blocks[0]) < commands.index(back) < commands.index(blocks[1])
+
+
+def test_the_documented_photo_command_works_over_files_that_are_the_same_file(
+    tmp_path: Path,
+) -> None:
+    """On the same server the live photos and the backup's are hard links to one file: plain
+    `cp -a` prints "are the same file" and exits 1. The documented command, read from
+    docs/restore.md, exits 0 and brings the photo that is missing."""
+    import subprocess
+
+    (block,) = [b for b in _doc_commands() if "-photos/." in b]
+    lines = [line.removeprefix("sudo ") for line in block.splitlines()]
+    lines = [line for line in lines if not line.startswith("chown")]  # needs root
+    script = "\n".join(lines).replace("<date>-<time>", "20261101-030000")
+    backup = tmp_path / "data/backups/backup-20261101-030000-photos/1"
+    live = tmp_path / "data/photos/1"
+    backup.mkdir(parents=True)
+    live.mkdir(parents=True)
+    (backup / "kept.jpg").write_bytes(b"kept")
+    (backup / "missing.jpg").write_bytes(b"missing")
+    (live / "kept.jpg").hardlink_to(backup / "kept.jpg")
+    (live / "newer.jpg").write_bytes(b"newer, not in the backup")
+
+    plain = subprocess.run(  # noqa: S603, S607
+        ["cp", "-a", f"{backup.parent}/.", f"{live.parent}/"], capture_output=True
+    )
+    assert plain.returncode != 0  # why the documented command is not `cp -a`
+    (live / "missing.jpg").unlink(missing_ok=True)
+
+    done = subprocess.run(  # noqa: S603, S607
+        ["bash", "-ec", script], cwd=tmp_path, capture_output=True
+    )
+    assert done.returncode == 0, done.stderr
+    assert (live / "missing.jpg").read_bytes() == b"missing"
+    assert (live / "kept.jpg").read_bytes() == b"kept"
+    assert (live / "newer.jpg").read_bytes() == b"newer, not in the backup"
