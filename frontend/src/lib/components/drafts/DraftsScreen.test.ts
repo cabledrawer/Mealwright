@@ -572,5 +572,30 @@ describe('the Drafts screen', () => {
         .element(page.getByText(/“2 tins tomatoes or 6 fresh”, “a pinch of chilli”, and 1 more/))
         .toBeVisible();
     });
+
+    it('keeps a recipe name’s words whole when the From lines are long (narrow computer)', async () => {
+      const long = draft({
+        id: 13,
+        name: 'Minestrone',
+        source: { kind: 'mealie', site: null },
+        started_by: 'Sam',
+        lines_total: 10,
+        lines_checked: 6,
+        waiting: [
+          'a handful of whatever is in the garden',
+          'parmesan rind',
+          'olive oil, a good glug',
+          'bread, to serve'
+        ]
+      });
+      await open({ 'GET /recipes/drafts': list([...MEALIE, long]) }, 800, true);
+      const name = page.getByRole('rowheader', { name: 'Minestrone' });
+      await expect.element(name).toBeVisible();
+      // One line box for the one word: it isn't broken mid-word.
+      const range = document.createRange();
+      range.selectNodeContents(name.element());
+      const lines = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+      expect(lines.size).toBe(1);
+    });
   });
 });

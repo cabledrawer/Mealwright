@@ -609,7 +609,9 @@
   .table th.name {
     font-size: 1rem;
     font-weight: var(--weight-extrabold);
-    overflow-wrap: anywhere;
+    /* break-word, not anywhere: the column is never narrower than a whole word, so long
+       From lines can't squeeze "Minestrone" into "Minestron / e". */
+    overflow-wrap: break-word;
   }
 
   .from {
