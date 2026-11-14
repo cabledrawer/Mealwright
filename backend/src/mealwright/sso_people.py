@@ -125,7 +125,7 @@ def free_username(kitchen: Kitchen, account: SsoAccount) -> str:
     if not USERNAME.match(base):
         digest = hashlib.sha256(f"{account.issuer} {account.subject}".encode()).hexdigest()
         base = f"sso-{digest[:10]}"
-    free_old_usernames(kitchen.db, kitchen.household)  # a removed person's name, after the Undo
+    free_old_usernames(kitchen.db)  # a removed person's name, after the Undo
     candidate, number = base, 2
     while kitchen.db.scalar(select(Login.id).where(Login.username == candidate)) is not None:
         ending = f"-{number}"

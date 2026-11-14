@@ -133,9 +133,56 @@ def test_ticking_others_after_a_removal_keeps_the_hidden_tick_for_undo(
 ) -> None:
     day = ahead(kitchen, 2)
     meal = plan_recipe(kitchen, sambar, day, slots["Dinner"])["meal_id"]
+    noor = _person(kitchen, "Noor")
+    _tick(kitchen, meal, [noor, lorna])
+    removed = _remove(kitchen, lorna)
+    _tick(kitchen, meal, [1])  # the others change who eats
+    assert _eaters(kitchen, meal, day) == [1]
+    ok(kitchen.post(f"{API}/changes/{removed['change']['id']}/undo"))
+    assert _eaters(kitchen, meal, day) == [1, lorna]
+
+
+def test_everyone_after_a_removal_is_not_undone_into_her_alone(
+    kitchen: TestClient, sambar: int, lorna: int, slots: dict[str, int]
+) -> None:
+    """Fix round 1: the others choose Everyone ([]); Undo of the removal must not make the meal
+    Lorna's alone. (The earlier expectation, `[lorna]`, was wrong.)"""
+    day = ahead(kitchen, 2)
+    meal = plan_recipe(kitchen, sambar, day, slots["Dinner"])["meal_id"]
     _tick(kitchen, meal, [1, lorna])
     removed = _remove(kitchen, lorna)
-    _tick(kitchen, meal, [])  # the others change who eats
+    _tick(kitchen, meal, [])
     assert _eaters(kitchen, meal, day) == []
     ok(kitchen.post(f"{API}/changes/{removed['change']['id']}/undo"))
-    assert _eaters(kitchen, meal, day) == [lorna]
+    assert _eaters(kitchen, meal, day) == []
+
+
+def _person(kitchen: TestClient, name: str) -> int:
+    with kitchen.app.state.sessionmaker() as db:
+        login = Login(
+            household_id=1, username=name.lower(), name=name, password_hash="x", role="member"
+        )
+        db.add(login)
+        db.commit()
+        return int(login.member_id or 0)
+
+
+def test_a_removal_and_its_undo_tell_the_open_plans(
+    kitchen: TestClient, sambar: int, lorna: int, slots: dict[str, int]
+) -> None:
+    from mealwright import events
+
+    seen: list[int] = []
+    real = events.note_plan
+    events.note_plan = lambda session, household_id: (
+        seen.append(household_id),
+        real(session, household_id),
+    )[1]  # type: ignore[assignment]
+    try:
+        removed = _remove(kitchen, lorna)
+        assert seen, "removing a person should note a plan change"
+        seen.clear()
+        ok(kitchen.post(f"{API}/changes/{removed['change']['id']}/undo"))
+        assert seen, "its Undo should note a plan change"
+    finally:
+        events.note_plan = real

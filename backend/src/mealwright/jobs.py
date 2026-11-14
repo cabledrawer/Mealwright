@@ -140,7 +140,7 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
                 dropped = drop_waiting_photos(db, household, now)
                 if dropped:
                     log.info("Deleted %d photos that were never saved on a recipe", dropped)
-                freed = free_old_usernames(db, household, now)
+                freed = free_old_usernames(db, now)
                 if freed:
                     db.commit()
                     log.info("Let go of %d removed people's usernames", freed)

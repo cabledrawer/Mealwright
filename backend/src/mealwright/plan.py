@@ -1259,7 +1259,8 @@ def set_eaters(kitchen: Kitchen, meal: Meal, member_ids: list[int]) -> Change | 
     if before == wanted:
         return None
     # A removed person's hidden tick stays, so Undo of the removal can put them back.
-    hidden = set(eaters_of(kitchen, meal, everyone=True)) - set(before)
+    # Everyone ("none ticked") drops them too: a hidden tick must not make the meal theirs alone.
+    hidden = set(eaters_of(kitchen, meal, everyone=True)) - set(before) if wanted else set()
     _write_eaters(kitchen, meal.id, sorted(set(wanted) | hidden))
     when = _short_where(kitchen, meal.day, meal.slot_id)
     return _finish(
@@ -1578,7 +1579,11 @@ def _undo_step(
             return False
         if "to" in step and eaters_of(kitchen, meal) != step["to"]:
             return False  # changed again since (F165)
-        hidden = set(eaters_of(kitchen, meal, everyone=True)) - set(eaters_of(kitchen, meal))
+        hidden = (
+            set(eaters_of(kitchen, meal, everyone=True)) - set(eaters_of(kitchen, meal))
+            if step["member_ids"]
+            else set()  # back to Everyone: no hidden tick makes the meal someone's alone
+        )
         _write_eaters(
             kitchen,
             meal.id,

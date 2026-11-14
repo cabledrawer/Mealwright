@@ -149,3 +149,28 @@ def test_a_new_person_from_a_waiting_account_gets_the_freed_username(
             .where(Login.username == "lorna", Member.removed_at.is_(None))
         ).all()
     assert here == ["lorna"]  # a person who is here now holds "lorna"
+
+
+def test_the_edge_is_an_hour_after_the_seven_days(admin: TestClient) -> None:
+    """Undo stays open a moment past 7 days (the change's own time); the name waits an hour more,
+    as the ingredient purge does."""
+    lorna = _lorna_removed(admin)
+    _removed_ago(admin, lorna, 7.01)  # 7 days and 15 minutes: still inside the margin
+    assert _new_person_with_login(admin, "Sam", "lorna").status_code == 409
+    _removed_ago(admin, lorna, 7.05)  # 7 days and 72 minutes
+    assert _new_person_with_login(admin, "Noor", "lorna").status_code == 201
+
+
+def test_another_households_expired_name_does_not_block_this_one(
+    admin: TestClient, neighbour: TestClient
+) -> None:
+    """Usernames are unique across households: an expired name there is freed by a call here."""
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        other = db.scalars(select(Login).where(Login.household_id != 1)).first()
+        assert other is not None
+        member = db.get(Member, other.member_id)
+        assert member is not None
+        member.removed_at = utcnow() - timedelta(days=9)
+        name = other.username
+        db.commit()
+    assert _new_person_with_login(admin, "Noor", name).status_code == 201

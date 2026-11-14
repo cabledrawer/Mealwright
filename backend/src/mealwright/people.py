@@ -9,11 +9,11 @@ from fastapi import status
 from sqlalchemy import ColumnElement, and_, delete, false, func, or_, select, update
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import api_tokens
+from mealwright import api_tokens, events
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Who
 from mealwright.errors import Problem, not_found
-from mealwright.history import as_utc, record
+from mealwright.history import PURGE_MARGIN, as_utc, record
 from mealwright.household import undo_window
 from mealwright.models import (
     Change,
@@ -328,6 +328,7 @@ def remove(kitchen: Kitchen, member: Member) -> Change:
     if login is not None and login.role == ADMIN and admins_left(kitchen, member.id) == 0:
         raise last_admin(member)
     member.removed_at = utcnow()
+    events.note_plan(kitchen.db, kitchen.household_id)  # open Plans drop them from future meals
     if login is not None:
         kitchen.db.execute(delete(Session).where(Session.login_id == login.id))
         kitchen.db.execute(delete(JoinLink).where(JoinLink.login_id == login.id))
@@ -376,27 +377,28 @@ def _token_hash(token: str) -> str:
 LET_GO = "~"
 
 
-def free_old_usernames(db: DbSession, household: Household, now: datetime | None = None) -> int:
-    """A removed person's username is free again once the Undo of their removal has passed
-    (0.9.5 Pe8, cabledrawer 13 Nov). The login row stays, with its number, its data and any
-    single sign-on link, and stays removed: only its username changes, to one nobody can type
-    (`LET_GO`), so a new person, or a single sign-on account, can have the name but never the
-    old login. Returns how many were let go. Not committed."""
-    cutoff = (now or utcnow()) - undo_window(household)
-    old = db.scalars(
-        select(Login)
+def free_old_usernames(db: DbSession, now: datetime | None = None) -> int:
+    """A removed person's username is free again once the Undo of their removal has passed, with
+    the hour's margin the ingredient purge has (0.9.5 Pe8, cabledrawer 13 Nov). Usernames are unique
+    across households, so every household's expired names are let go in one call; nothing about
+    another household is shown or returned. The login row stays, with its number, its data and
+    any single sign-on link, and stays removed: only its username changes, to one nobody can
+    type (`LET_GO`), so a new person, or a single sign-on account, can have the name but never
+    the old login. Returns how many were let go. Not committed."""
+    now = now or utcnow()
+    old = db.execute(
+        select(Login, Member.removed_at, Household)
         .join(Member, Member.id == Login.member_id)
-        .where(
-            Login.household_id == household.id,
-            Member.removed_at.is_not(None),
-            Member.removed_at < cutoff,
-            Login.username.not_like(f"%{LET_GO}%"),
-        )
+        .join(Household, Household.id == Login.household_id)
+        .where(Member.removed_at.is_not(None), Login.username.not_like(f"%{LET_GO}%"))
     ).all()
-    for login in old:
-        login.username = f"{login.username[: 50 - len(LET_GO) - 12]}{LET_GO}{login.id}"
+    freed = 0
+    for login, removed_at, household in old:
+        if as_utc(removed_at) < now - undo_window(household) - PURGE_MARGIN:
+            login.username = f"{login.username[: 50 - len(LET_GO) - 12]}{LET_GO}{login.id}"
+            freed += 1
     db.flush()
-    return len(old)
+    return freed
 
 
 def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tuple[str, JoinLink]:
@@ -408,7 +410,7 @@ def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tu
         raise _refused(  # cabledrawer 12 Nov
             "signs_in_already", f"{member.name} already signs in."
         )
-    free_old_usernames(kitchen.db, kitchen.household)
+    free_old_usernames(kitchen.db)
     taken = kitchen.db.scalar(select(Login).where(Login.username == username))
     if taken is not None and taken is not login:
         raise _refused("username_taken", "That username is taken. Try another.")
@@ -648,6 +650,7 @@ def undo(kitchen: Kitchen, change: Change) -> None:
                 f"That can’t be undone: there’s someone else called {member.name} now."
             ) from None
         member.removed_at = None
+        events.note_plan(kitchen.db, kitchen.household_id)  # and put them back on future meals
         kitchen.db.flush()
     elif change.kind == "person_changed":
         _undo_change(kitchen, member, data["person"])
