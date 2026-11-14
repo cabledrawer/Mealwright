@@ -78,6 +78,8 @@ def main(argv: list[str] | None = None) -> None:
         # Forwarded headers are handled inside the app (ProxyHeadersMiddleware in
         # create_app), so they're tested; don't apply them twice.
         proxy_headers=False,
+        # No `Server: uvicorn` header on any answer: it tells nothing a person needs (0.9.5).
+        server_header=False,
         # No request log: addresses would show what people look at and search for.
         access_log=False,
         # Logging is set up above; uvicorn's errors reach the same output and file.
