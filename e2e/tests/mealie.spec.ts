@@ -136,10 +136,13 @@ test('the file is shown before anything is added; Cancel adds nothing', async ({
   await expect(page.getByText(/It never connects to Mealie or to the internet/)).toBeVisible();
   await checkPage(page);
   await choose(page, tag);
+  // The file is read in a child process that starts cold (about 1.5 s alone here, longer when
+  // the machine is busy with the other browser runs), so this waits as long as the other
+  // tests wait for the server's work.
   if (isPhone(page)) {
-    await expect(page.getByRole('heading', { name: 'In this file' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'In this file' })).toBeVisible({ timeout: 30_000 });
   } else {
-    await expect(page.getByRole('row', { name: new RegExp(`Sam’s curry ${tag}`) })).toBeVisible();
+    await expect(page.getByRole('row', { name: new RegExp(`Sam’s curry ${tag}`) })).toBeVisible({ timeout: 30_000 });
   }
   await expect(page.getByText('Not brought in: 2 meal plans, 1 shopping list, 1 user.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Bring in 3 recipes' })).toBeEnabled();
