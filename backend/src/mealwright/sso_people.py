@@ -20,7 +20,14 @@ from mealwright.auth import now
 from mealwright.errors import Problem, not_found
 from mealwright.history import record
 from mealwright.models import Change, Login, Member, Session, SsoAccount, utcnow
-from mealwright.people import LINK_KIND, admins_left, drop_join_links, login_of, mine
+from mealwright.people import (
+    LINK_KIND,
+    admins_left,
+    drop_join_links,
+    free_old_usernames,
+    login_of,
+    mine,
+)
 from mealwright.roles import ADMIN, MEMBER
 from mealwright.sso_accounts import USERNAME, member_name, passwords_off, settings_row
 
@@ -118,6 +125,7 @@ def free_username(kitchen: Kitchen, account: SsoAccount) -> str:
     if not USERNAME.match(base):
         digest = hashlib.sha256(f"{account.issuer} {account.subject}".encode()).hexdigest()
         base = f"sso-{digest[:10]}"
+    free_old_usernames(kitchen.db, kitchen.household)  # a removed person's name, after the Undo
     candidate, number = base, 2
     while kitchen.db.scalar(select(Login.id).where(Login.username == candidate)) is not None:
         ending = f"-{number}"

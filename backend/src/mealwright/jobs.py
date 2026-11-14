@@ -109,6 +109,7 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
     from mealwright.drafts import purge as purge_drafts
     from mealwright.history import purge_removed  # imported here: history needs the API
     from mealwright.mealie_import import tidy as tidy_mealie
+    from mealwright.people import free_old_usernames
     from mealwright.recipes import drop_waiting_photos, purge_removed_recipes
 
     now = now or utcnow()
@@ -139,6 +140,10 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
                 dropped = drop_waiting_photos(db, household, now)
                 if dropped:
                     log.info("Deleted %d photos that were never saved on a recipe", dropped)
+                freed = free_old_usernames(db, household, now)
+                if freed:
+                    db.commit()
+                    log.info("Let go of %d removed people's usernames", freed)
                 old_drafts = purge_drafts(db, household, now)
                 if old_drafts:
                     log.info("Deleted %d old drafts", old_drafts)

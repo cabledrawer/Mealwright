@@ -2,7 +2,7 @@
 
 import hashlib
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import status
@@ -14,7 +14,17 @@ from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Who
 from mealwright.errors import Problem, not_found
 from mealwright.history import as_utc, record
-from mealwright.models import Change, JoinLink, Login, Member, Session, SsoSettings, utcnow
+from mealwright.household import undo_window
+from mealwright.models import (
+    Change,
+    Household,
+    JoinLink,
+    Login,
+    Member,
+    Session,
+    SsoSettings,
+    utcnow,
+)
 from mealwright.names import fold
 from mealwright.roles import ADMIN, MEMBER
 
@@ -360,6 +370,35 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+# What a username becomes when its person's removal can't be undone any more. `~` is not allowed
+# in a username (`api.v1.account.USERNAME`), so nobody can type it, and the login's own number
+# keeps it different from every other: the name is free again, and the login stays removed.
+LET_GO = "~"
+
+
+def free_old_usernames(db: DbSession, household: Household, now: datetime | None = None) -> int:
+    """A removed person's username is free again once the Undo of their removal has passed
+    (0.9.5 Pe8, cabledrawer 13 Nov). The login row stays, with its number, its data and any
+    single sign-on link, and stays removed: only its username changes, to one nobody can type
+    (`LET_GO`), so a new person, or a single sign-on account, can have the name but never the
+    old login. Returns how many were let go. Not committed."""
+    cutoff = (now or utcnow()) - undo_window(household)
+    old = db.scalars(
+        select(Login)
+        .join(Member, Member.id == Login.member_id)
+        .where(
+            Login.household_id == household.id,
+            Member.removed_at.is_not(None),
+            Member.removed_at < cutoff,
+            Login.username.not_like(f"%{LET_GO}%"),
+        )
+    ).all()
+    for login in old:
+        login.username = f"{login.username[: 50 - len(LET_GO) - 12]}{LET_GO}{login.id}"
+    db.flush()
+    return len(old)
+
+
 def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tuple[str, JoinLink]:
     """Give a person a login with no password yet, and a one-time sign-in link (24 hours) where
     they choose one (cabledrawer 12 Nov). A new link replaces any unused one. Returns the
@@ -369,6 +408,7 @@ def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tu
         raise _refused(  # cabledrawer 12 Nov
             "signs_in_already", f"{member.name} already signs in."
         )
+    free_old_usernames(kitchen.db, kitchen.household)
     taken = kitchen.db.scalar(select(Login).where(Login.username == username))
     if taken is not None and taken is not login:
         raise _refused("username_taken", "That username is taken. Try another.")
