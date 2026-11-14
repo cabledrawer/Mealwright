@@ -18,7 +18,7 @@
   import type { DraftBrief } from '#lib/client/drafts.js';
   import { saveAllMealieDrafts } from '#lib/client/mealie.js';
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
-  import { DRAFTS_LEAD, linesWords, saveAllWords, unreadWords } from '#lib/mealieWords.js';
+  import { DRAFTS_LEAD, count, linesWords, saveAllWords, unreadWords } from '#lib/mealieWords.js';
   import {
     RUNNING_OUT,
     allChecked,
@@ -192,7 +192,7 @@
       label="Show"
       options={[
         { value: 'all', label: `All ${drafts.drafts.length}` },
-        { value: 'mealie', label: `From Mealie ${mealie.length}` },
+        { value: 'mealie', label: `From Mealie ${count(mealie.length)}` },
         ...(links.length ? [{ value: 'link' as const, label: `Links ${links.length}` }] : [])
       ]}
       selected={showing}
@@ -612,9 +612,11 @@
   .table th.name {
     font-size: 1rem;
     font-weight: var(--weight-extrabold);
-    /* break-word, not anywhere: the column is never narrower than a whole word, so long
-       From lines can't squeeze "Minestrone" into "Minestron / e". */
-    overflow-wrap: break-word;
+    /* A name that is one very long word may break anywhere (at 200% it must not widen the page),
+       but the column is never narrower than 10rem, so long From lines can't squeeze
+       "Minestrone" into "Minestron / e" (7f163897). */
+    min-width: 10rem;
+    overflow-wrap: anywhere;
   }
 
   .from {

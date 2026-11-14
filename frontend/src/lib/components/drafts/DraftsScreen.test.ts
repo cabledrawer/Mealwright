@@ -519,6 +519,15 @@ describe('the Drafts screen', () => {
       expect(page.getByRole('button', { name: /^Save all/ }).elements()).toEqual([]);
     });
 
+    it('the From Mealie chip and Save all write a count over a thousand with its comma', async () => {
+      const many = Array.from({ length: 1250 }, (_, i) => ({ ...MEALIE[0]!, id: 1000 + i }));
+      await open({ 'GET /recipes/drafts': list(many) }, 390, true);
+      await expect.element(page.getByRole('button', { name: 'From Mealie 1,250' })).toBeVisible();
+      await expect
+        .element(page.getByRole('button', { name: 'Save all 1,250 as they are' }))
+        .toBeVisible();
+    });
+
     it('Links shows only the drafts from a link (mockup Dark-MealieCheck095-Phone)', async () => {
       await open({ 'GET /recipes/drafts': list([...THREE, ...MEALIE]) });
       await expect.element(page.getByRole('button', { name: 'All 5' })).toBeVisible();
