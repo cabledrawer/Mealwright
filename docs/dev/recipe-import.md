@@ -750,16 +750,28 @@ The choices below are proposed, for cabledrawer:
   that names a Mealie food is read. Waits the reader suggests aren't added; the file's own
   times are used. Mealie drafts don't count towards the 50-draft limit; the 15 days still
   apply.
-- **The job:** one thread per import, one transaction per recipe, so a restart carries on
-  where it stopped (`resume()` at start-up). A recipe that fails is skipped and counted; the
-  import never stops half-way for one bad recipe. The file is deleted when it ends. Progress
-  is asked for every few seconds (`GET /mealie-imports/{id}`), not sent as a live event.
-  Today shows a note for a day after it finishes.
+- **The job:** one thread per import. It holds the database's write lock only in short
+  stretches (about half a second, `HOLD_SECONDS`, then the lock is left free for a tenth of a
+  second), so other households' writes, and the household's own, get in while it runs (round
+  1, S-H1). Slow work happens with no lock held: the ingredients' names are read once, and
+  recipes are read and their photos cleaned 25 at a time (`PREPARE`) before the lock is
+  taken to add them. Each stretch commits what it added and the import's results together,
+  so a restart carries on where it stopped (`resume()` at start-up) and saves nothing twice.
+  A recipe that fails is skipped and counted (the log says only the kind of failure, never
+  the recipe's words); the import never stops half-way for one bad recipe. The file is
+  deleted when it ends. Progress is asked for every few seconds (`GET /mealie-imports/{id}`),
+  not sent as a live event. Today shows a note for a day after it finishes.
+- **Cancel while it runs** (`DELETE /mealie-imports/{id}`, proposed, for cabledrawer; no button
+  for it yet): it stops between two stretches; what came in stays, with the import's Undo
+  (the import ends "done", `choices.stopped`).
 - **Undo** (`POST /mealie-imports/{id}/undo`, 7 days, 410 `too_old` after): takes out the
   recipes (to Removed, as a delete does), the import's drafts, and its new ingredients.
   Kept: recipes changed (their version moved), cooked, planned, or used in another recipe
   since; ingredients used anywhere (pantry, a list, the plan, a recipe kept). No Recent
-  changes entries: the import's own screen holds its Undo.
+  changes entries: the import's own screen holds its Undo. It runs in stretches of 500 rows
+  (`CHUNK`), each checked again under the lock; a stop part-way leaves the import to be undone
+  again, which carries on.
 - **Save all as they are** (`POST /mealie-imports/drafts/save-all`): every Mealie draft is
   saved, read lines linked and the rest as plain text (no ingredient, so never on the
-  shopping list). They join the import's Undo.
+  shopping list). They join the import's Undo. Saved in short stretches too, each draft
+  checked again (still there, not deleted) inside its stretch.

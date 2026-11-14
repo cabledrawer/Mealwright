@@ -454,10 +454,19 @@ def _from_text(kitchen: Kitchen, text: str) -> ImportReview:
 
 
 def _review(
-    kitchen: Kitchen, found: _Found, source: ReviewSource, photo: ReviewPhoto
+    kitchen: Kitchen,
+    found: _Found,
+    source: ReviewSource,
+    photo: ReviewPhoto,
+    known: tuple[KnownIngredients, dict[int, str]] | None = None,
 ) -> ImportReview:
-    ingredients = kitchen_of(kitchen.db, kitchen.household_id)
-    places = _food_places(kitchen)
+    """`known`: the household's ingredients and their places, read once by a caller that
+    reviews many recipes (Import from Mealie); else they are read here."""
+    if known is not None:
+        ingredients, places = known
+    else:
+        ingredients = kitchen_of(kitchen.db, kitchen.household_id)
+        places = _food_places(kitchen)
     # Pints: the household's own, except on a US site, which is read with US pints (and the
     # review offers the switch back) while the household's are UK.
     household = pints.household_pints(kitchen.household.pints)

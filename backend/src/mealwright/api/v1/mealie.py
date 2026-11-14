@@ -278,10 +278,12 @@ def start(
 @router.delete(
     "/mealie-imports/{import_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses={409: {"description": "`mealie_not_ready`: it has started already."}},
+    responses={409: {"description": "`mealie_not_ready`: it has finished already."}},
 )
 def cancel(import_id: StoredInt, kitchen: Here) -> Response:
-    """Cancel on the preview: the file is deleted and nothing was added."""
+    """Cancel on the preview: the file is deleted and nothing was added. Cancel while it runs:
+    it stops between two short stretches of work; what came in stays, with the import's Undo
+    (proposed, for cabledrawer)."""
     mealie_import.cancel(kitchen, mealie_import.find(kitchen, import_id))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

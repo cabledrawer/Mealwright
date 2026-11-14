@@ -3,15 +3,20 @@ all as they are, and the API. Every file is made up here (made-up recipes and pe
 Lorna); nothing goes online.
 """
 
+import contextlib
 import json
+import threading
 import zipfile
+from collections import Counter
+from collections.abc import Iterator
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import event, select
+from sqlalchemy.engine import Engine
 from test_mealie_file import jpeg
 
 from mealwright import drafts, mealie_import
@@ -415,3 +420,228 @@ def test_tidy_lets_an_unused_file_go_after_a_day(kitchen: TestClient, raw: bytes
         row = db.get(MealieImport, made)
         assert row is not None and row.state == "gone"
     assert mealie_files(kitchen) == []
+
+
+# --- Short stretches of the write lock (round 1: S-H1, S-M2, S-M3, S-L6) ------------------------
+
+
+def many(foods: int, recipes: int, unread: bool = False) -> dict[str, Any]:
+    """A made-up file: `foods` Mealie foods, used in turn by `recipes` recipes (each with one
+    line nobody can read, if `unread`)."""
+    food_keys = [f"f{i:031d}" for i in range(foods)]
+    recipe_keys = [f"r{i:031d}" for i in range(recipes)]
+    lines = [line(recipe_keys[i % recipes], i, "", key, 100) for i, key in enumerate(food_keys)]
+    if unread:
+        lines += [line(key, 10_000, "a pinch of Noor's secret") for key in recipe_keys]
+    return {
+        **database(),
+        "recipes": [recipe(key, f"Sam's dish {i}") for i, key in enumerate(recipe_keys)],
+        "recipes_ingredients": lines,
+        "recipe_instructions": [],
+        "ingredient_foods": [
+            {"id": key, "name": f"Lorna's spice {i}"} for i, key in enumerate(food_keys)
+        ],
+        "recipes_to_tags": [],
+    }
+
+
+class Seen:
+    """What the database was asked, by thread: write transactions ended (`stretches`),
+    reads of the ingredient table, and which threads hold the write lock now."""
+
+    def __init__(self) -> None:
+        self.stretches: Counter[str] = Counter()
+        self.food_reads: Counter[str] = Counter()
+        self.writing: dict[int, str] = {}
+
+    def holding(self, thread: str) -> bool:
+        return thread in self.writing.values()
+
+
+@contextlib.contextmanager
+def seen(engine: Engine) -> Iterator[Seen]:
+    found = Seen()
+
+    def ran(conn: Any, cursor: Any, statement: str, *_: Any) -> None:
+        name = threading.current_thread().name
+        word = statement.lstrip()[:16].upper()
+        if word.startswith(("BEGIN IMMEDIATE", "INSERT", "UPDATE", "DELETE")):
+            found.writing.setdefault(id(conn.connection.dbapi_connection), name)
+        flat = f"{statement} ".replace("\n", " ")
+        where = flat.partition(" WHERE ")[2]
+        # A read of every ingredient (not one by its id).
+        if word.startswith("SELECT") and " FROM food " in flat and "food.id " not in where:
+            found.food_reads[name] += 1
+
+    def ended(conn: Any) -> None:
+        name = found.writing.pop(id(conn.connection.dbapi_connection), None)
+        if name is not None:
+            found.stretches[name] += 1
+
+    event.listen(engine, "after_cursor_execute", ran)
+    event.listen(engine, "commit", ended)
+    event.listen(engine, "rollback", ended)
+    try:
+        yield found
+    finally:
+        event.remove(engine, "after_cursor_execute", ran)
+        event.remove(engine, "commit", ended)
+        event.remove(engine, "rollback", ended)
+
+
+def engine_of(client: TestClient) -> Engine:
+    return client.app.state.engine  # type: ignore[attr-defined,no-any-return]
+
+
+def test_the_ingredients_are_read_once_not_once_per_mealie_food(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    raw = zipped(tmp_path / "many.zip", many(foods=300, recipes=3), photo=False)
+    with seen(engine_of(kitchen)) as asked:
+        job = bring_in(kitchen, raw)
+    assert job["state"] == "done" and job["counts"]["saved"] == 3
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        made = db.scalars(select(Food).where(Food.mealie_import_id == job["id"])).all()
+    assert len(made) == 300
+    # Before round 1: every Mealie food read every ingredient, in the preview and again in
+    # the import, under the lock.
+    assert sum(asked.food_reads.values()) < 40, asked.food_reads
+
+
+def test_new_ingredients_and_recipes_go_in_short_stretches(
+    kitchen: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # No time at all for a stretch: one ingredient or recipe each.
+    monkeypatch.setattr(mealie_import, "HOLD_SECONDS", 0, raising=False)
+    monkeypatch.setattr(mealie_import, "PAUSE_SECONDS", 0, raising=False)
+    raw = zipped(tmp_path / "many.zip", many(foods=30, recipes=10), photo=False)
+    with seen(engine_of(kitchen)) as asked:
+        job = bring_in(kitchen, raw)
+    assert job["state"] == "done" and job["counts"]["saved"] == 10
+    # 30 ingredients and 10 recipes, each its own stretch (before: all the ingredients in
+    # one transaction, then one a recipe).
+    assert asked.stretches["mealie-import"] >= 40, asked.stretches
+
+
+def test_photos_are_cleaned_with_no_lock_held(
+    kitchen: TestClient, raw: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    held: list[bool] = []
+    cleaned = mealie_import.MealiePhotos.cleaned
+
+    with seen(engine_of(kitchen)) as asked:
+
+        def watched(self: Any, member: str | None) -> Any:
+            held.append(asked.holding(threading.current_thread().name))
+            return cleaned(self, member)
+
+        monkeypatch.setattr(mealie_import.MealiePhotos, "cleaned", watched)
+        job = bring_in(kitchen, raw)
+    assert job["state"] == "done"
+    assert held == [False]
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        assert db.scalars(select(RecipePhoto)).one().recipe_id is not None
+
+
+def test_save_all_and_undo_go_in_short_stretches(
+    kitchen: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = zipped(tmp_path / "many.zip", many(foods=12, recipes=6, unread=True), photo=False)
+    job = bring_in(kitchen, raw)
+    assert job["counts"]["drafts"] == 6
+    monkeypatch.setattr(mealie_import, "HOLD_SECONDS", 0, raising=False)
+    monkeypatch.setattr(mealie_import, "PAUSE_SECONDS", 0, raising=False)
+    monkeypatch.setattr(mealie_import, "CHUNK", 2, raising=False)
+    with seen(engine_of(kitchen)) as asked:
+        answer = kitchen.post(f"{API}/mealie-imports/drafts/save-all")
+    assert answer.json() == {"saved": 6}
+    assert sum(asked.stretches.values()) >= 6, asked.stretches  # before: 1
+    with seen(engine_of(kitchen)) as asked:
+        undone = kitchen.post(f"{API}/mealie-imports/{job['id']}/undo").json()
+    assert undone == {"recipes": 6, "kept": 0, "foods": 12, "drafts": 0}
+    assert sum(asked.stretches.values()) >= 6, asked.stretches  # before: 1
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        assert db.scalars(select(Recipe).where(Recipe.removed_at.is_(None))).all() == []
+        assert db.get(MealieImport, job["id"]).state == "undone"  # type: ignore[union-attr]
+
+
+class Stopped(BaseException):
+    """The server stopping part-way (not an error the job would catch)."""
+
+
+def started(kitchen: TestClient, raw: bytes, monkeypatch: pytest.MonkeyPatch) -> int:
+    """An import started, with the runner held back so the test runs it itself."""
+    monkeypatch.setattr(kitchen.app.state.mealie, "kick", lambda _id: None)  # type: ignore[attr-defined]
+    made = upload(kitchen, raw).json()["id"]
+    assert kitchen.post(f"{API}/mealie-imports/{made}/start", json={}).status_code == 202
+    return made  # type: ignore[no-any-return]
+
+
+def test_a_restart_carries_on_from_where_it_stopped(
+    kitchen: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = zipped(tmp_path / "many.zip", many(foods=8, recipes=8), photo=False)
+    import_id = started(kitchen, raw, monkeypatch)
+    monkeypatch.setattr(mealie_import, "PREPARE", 3, raising=False)
+    prepare = mealie_import._prepare
+    calls: list[int] = []
+
+    def stops_second_time(*args: Any) -> Any:
+        calls.append(1)
+        if len(calls) == 2:
+            raise Stopped
+        return prepare(*args)
+
+    monkeypatch.setattr(mealie_import, "_prepare", stops_second_time)
+    factory = kitchen.app.state.sessionmaker  # type: ignore[attr-defined]
+    with pytest.raises(Stopped):
+        mealie_import.run(factory, import_id)
+    with factory() as db:
+        row = db.get(MealieImport, import_id)
+        assert row is not None and row.state == "running" and row.done == 3
+        foods_before = len(db.scalars(select(Food).where(Food.mealie_import_id == import_id)).all())
+    assert foods_before == 8
+    # The server starts again: what was saved isn't saved twice, the ingredients aren't made
+    # again.
+    monkeypatch.setattr(mealie_import, "_prepare", prepare)
+    mealie_import.run(factory, import_id)
+    with factory() as db:
+        row = db.get(MealieImport, import_id)
+        assert row is not None and row.state == "done" and row.done == 8
+        assert sorted(entry["key"] for entry in row.results) == sorted(
+            f"r{i:031d}" for i in range(8)
+        )
+        assert len(db.scalars(select(Recipe)).all()) == 8
+        assert len(db.scalars(select(Food).where(Food.mealie_import_id == import_id)).all()) == 8
+
+
+def test_cancel_stops_a_running_import_between_stretches(
+    kitchen: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = zipped(tmp_path / "many.zip", many(foods=8, recipes=8), photo=False)
+    import_id = started(kitchen, raw, monkeypatch)
+    monkeypatch.setattr(mealie_import, "PREPARE", 3, raising=False)
+    prepare = mealie_import._prepare
+    calls: list[int] = []
+    answers: list[Any] = []
+
+    def cancels_second_time(*args: Any) -> Any:
+        calls.append(1)
+        if len(calls) == 2:
+            answers.append(kitchen.delete(f"{API}/mealie-imports/{import_id}"))
+        return prepare(*args)
+
+    monkeypatch.setattr(mealie_import, "_prepare", cancels_second_time)
+    factory = kitchen.app.state.sessionmaker  # type: ignore[attr-defined]
+    mealie_import.run(factory, import_id)
+    assert [answer.status_code for answer in answers] == [204], answers[0].text
+    with factory() as db:
+        row = db.get(MealieImport, import_id)
+        assert row is not None and row.state == "done" and row.choices["stopped"] is True
+        assert row.done == 3 and row.file_key is None
+        assert len(db.scalars(select(Recipe)).all()) == 3
+        assert db.scalars(select(RecipePhoto)).all() == []
+    assert mealie_files(kitchen) == []
+    # What came in has the import's Undo.
+    undone = kitchen.post(f"{API}/mealie-imports/{import_id}/undo").json()
+    assert undone["recipes"] == 3

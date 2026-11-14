@@ -31,6 +31,7 @@ import logging
 import secrets
 import shutil
 import threading
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -39,7 +40,7 @@ from typing import Any
 
 from fastapi import status
 from pydantic import ValidationError
-from sqlalchemy import exists, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from mealwright import drafts, mealie_file, photos
@@ -49,7 +50,7 @@ from mealwright.api.v1.import_schemas import ImportReview, ReviewLine, ReviewPho
 from mealwright.api.v1.recipe_schemas import RecipeIn
 from mealwright.conversions import guess_aisle, table
 from mealwright.errors import Problem, not_found
-from mealwright.foods import name_owner, suggested_shop
+from mealwright.foods import shop_choices
 from mealwright.line_prep import clean_recipe_name, tidy_ingredient_name
 from mealwright.mealie_file import MealieBook, MealieFileProblem, MealiePhotos, MealieRecipe
 from mealwright.models import (
@@ -68,6 +69,7 @@ from mealwright.models import (
     utcnow,
 )
 from mealwright.names import cut_text, fold
+from mealwright.pack_sizes import usual_shop_id
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +81,17 @@ MAX_FILE_NAME = 200
 PREVIEW_TAGS = 3  # the computer's table shows the first few Mealie tags
 # The new ingredients' names the preview lists under "See" (the rest are counted).
 PREVIEW_NEW_FOODS = 200
+# The import holds the database's write lock in short stretches, so other households' writes
+# (and a person's own) get in between: each stretch ends once it has taken about this long,
+# after at least one recipe or ingredient (round 1, S-H1).
+HOLD_SECONDS = 0.5
+# Between two stretches the lock is left free this long, so a write that is waiting for it
+# (SQLite's wait checks again every 0.1 s at most) gets its turn.
+PAUSE_SECONDS = 0.1
+# Recipes read and their photos cleaned at a time, before the lock is taken to add them.
+PREPARE = 25
+# Undo and "Save all" check and change this many rows a query.
+CHUNK = 500
 
 # The words are proposed, for cabledrawer (words.md section 81).
 BUSY = "An import from Mealie is already running. Wait for it to finish first."
@@ -141,14 +154,34 @@ def _have(db: Session, household_id: int) -> set[tuple[str, str | None]]:
             )
         )
     }
-    for name, review in db.execute(
-        select(ImportDraft.name, ImportDraft.review).where(
+    # Only the draft's link is read from its review, not the whole review (round 1, S-L6).
+    url = ImportDraft.review[("source", "url")].as_string()
+    for name, source in db.execute(
+        select(ImportDraft.name, url).where(
             ImportDraft.household_id == household_id, ImportDraft.source_kind == "mealie"
         )
     ):
-        source = (review or {}).get("source") or {}
-        have.add((fold(name), source.get("url") if isinstance(source, dict) else None))
+        have.add((fold(name), source or None))
     return have
+
+
+def _food_names(db: Session, household_id: int) -> set[str]:
+    """Every visible ingredient's name, folded: read once, not once per Mealie food (S-H1)."""
+    return {
+        fold(name)
+        for name in db.scalars(
+            select(Food.name).where(
+                Food.household_id == household_id,
+                Food.removed_at.is_(None),
+                Food.merged_into_id.is_(None),
+            )
+        )
+    }
+
+
+def _known(names: set[str], food_name: str) -> bool:
+    """A Mealie food an ingredient already matches, by its name as Mealie has it or tidied."""
+    return fold(food_name) in names or fold(tidy_ingredient_name(food_name)[:100]) in names
 
 
 def _same(have: set[tuple[str, str | None]], recipe: MealieRecipe) -> bool:
@@ -182,13 +215,14 @@ def _preview(kitchen: Kitchen, book: MealieBook) -> dict[str, Any]:
             }
         )
     matching = 0
+    names = _food_names(kitchen.db, kitchen.household_id)
     # The new ingredients, once each (folded), with the name they will be shown with.
     new_names: dict[str, str] = {}
     for food in book.foods:
-        if name_owner(kitchen, food.name) is not None:
+        if _known(names, food.name):
             matching += 1
         else:
-            shown = tidy_ingredient_name(food.name)
+            shown = tidy_ingredient_name(food.name)[:100]
             new_names.setdefault(fold(shown), shown)
     new_names.pop("", None)
     return {
@@ -293,11 +327,20 @@ def latest(kitchen: Kitchen) -> MealieImport | None:
 
 
 def cancel(kitchen: Kitchen, row: MealieImport) -> None:
-    """Cancel on the preview: the file is deleted, nothing was added. Commits."""
+    """Cancel on the preview: the file is deleted, nothing was added. Cancel while it runs
+    (proposed, for cabledrawer; no button for it yet): it stops between two short stretches, what
+    came in stays and has the import's Undo. Commits."""
     from mealwright.shopping import lock_household
 
     lock_household(kitchen)
     kitchen.db.refresh(row)
+    if row.state == "running":
+        row.state = "done"
+        row.finished_at = utcnow()
+        row.choices = {**row.choices, "stopped": True}
+        _drop_file(kitchen.db, row)
+        kitchen.db.commit()
+        return
     if row.state != "ready":
         raise Problem(status.HTTP_409_CONFLICT, "mealie_not_ready", NOT_READY)
     row.state = "gone"
@@ -367,30 +410,81 @@ def _lock(kitchen: Kitchen, row: MealieImport) -> bool:
     return row.state == "running"
 
 
-def _new_foods(kitchen: Kitchen, row: MealieImport, book: MealieBook) -> None:
-    """The Mealie foods no ingredient matches become ingredients, marked "from Mealie"."""
+def _used_foods(book: MealieBook, keys: set[str]) -> set[str]:
+    """The Mealie foods the recipes with these keys use."""
+    return {food for recipe in book.recipes if recipe.key in keys for food in recipe.foods}
+
+
+def _foods_to_make(
+    kitchen: Kitchen, row: MealieImport, book: MealieBook, used: set[str]
+) -> list[dict[str, Any]]:
+    """The new ingredients, worked out before any lock is taken: the Mealie foods (of the
+    recipes being brought in) no ingredient matches, once each."""
+    names = _food_names(kitchen.db, kitchen.household_id)
+    shops = shop_choices(kitchen)
+    todo: list[dict[str, Any]] = []
+    for food in book.foods:
+        if food.key not in used or _known(names, food.name):
+            continue
+        name = tidy_ingredient_name(food.name)[:100]
+        folded = fold(name)
+        if not folded:
+            continue
+        names.add(folded)
+        found = table().match(name)
+        todo.append(
+            {
+                "name": name,
+                "counted_as": found.counted_as if found else "weight",
+                "shop_id": usual_shop_id([name], shops),
+                "aisle": guess_aisle(name, found),
+                "table_key": found.key if found else None,
+            }
+        )
+    return todo
+
+
+def _make_foods(kitchen: Kitchen, row: MealieImport, todo: list[dict[str, Any]]) -> bool:
+    """Add the new ingredients, marked "from Mealie", a short stretch of the lock at a time.
+    A name added meanwhile (by a person, or before a restart) is skipped. False: the import
+    stopped meanwhile."""
     from mealwright.shopping import bump_foods
 
-    made: list[int] = []
-    for food in book.foods:
-        name = tidy_ingredient_name(food.name)
-        if not fold(name) or name_owner(kitchen, name) is not None:
-            continue
-        found = table().match(name)
-        new = Food(
-            household_id=kitchen.household_id,
-            name=name[:100],
-            counted_as=found.counted_as if found else "weight",
-            staple=False,
-            shop_id=suggested_shop(kitchen, name),
-            aisle=guess_aisle(name, found),
-            table_key=found.key if found else None,
-            mealie_import_id=row.id,
-        )
-        kitchen.db.add(new)
-        kitchen.db.flush()
-        made.append(new.id)
-    bump_foods(kitchen, made)
+    db = kitchen.db
+    at = 0
+    while at < len(todo):
+        if not _lock(kitchen, row):
+            db.rollback()
+            return False
+        names = _food_names(db, kitchen.household_id)
+        began, first = time.monotonic(), at
+        made: list[Food] = []
+        while at < len(todo) and (at == first or time.monotonic() - began < HOLD_SECONDS):
+            plan = todo[at]
+            at += 1
+            if fold(plan["name"]) in names:
+                continue
+            names.add(fold(plan["name"]))
+            food = Food(
+                household_id=kitchen.household_id,
+                staple=False,
+                mealie_import_id=row.id,
+                **plan,
+            )
+            db.add(food)
+            made.append(food)
+            if len(made) % 50 == 0:  # written as it goes, so the time counts the writing
+                db.flush()
+        db.flush()
+        bump_foods(kitchen, [food.id for food in made])
+        db.commit()
+        _pause()
+    return True
+
+
+def _pause() -> None:
+    """Leave the lock free for a moment between two stretches."""
+    time.sleep(PAUSE_SECONDS)
 
 
 def _read(line: ReviewLine) -> bool:
@@ -462,47 +556,87 @@ def _recipe_in(review: ImportReview, lines: list[dict[str, Any]], photo_id: int 
     return RecipeIn.model_validate(body)
 
 
-def _photo(kitchen: Kitchen, pictures: MealiePhotos | None, recipe: MealieRecipe) -> int | None:
-    """The recipe's photo, cleaned like an upload and kept, not on any recipe yet."""
-    if pictures is None or recipe.photo is None:
+@dataclass
+class _Ready:
+    """A recipe made ready outside the lock: its review, and its photo cleaned and written
+    (the files only; the record is added with the recipe)."""
+
+    recipe: MealieRecipe
+    review: ImportReview | None  # None: it couldn't be read
+    photo_key: str | None = None
+    photo: photos.Cleaned | None = None
+    photo_bytes: int = 0
+    kept: bool = False  # the photo's record was committed
+
+
+def _prepare(
+    kitchen: Kitchen, chunk: list[MealieRecipe], pictures: MealiePhotos | None
+) -> list[_Ready]:
+    """Read the recipes and clean their photos, with no lock held (S-M2): the household's
+    ingredients are read once for the lot (round 1, review 4)."""
+    from mealwright.ingredient_match import kitchen_of
+    from mealwright.recipe_import import _food_places
+
+    db = kitchen.db
+    known = (kitchen_of(db, kitchen.household_id), _food_places(kitchen))
+    db.commit()  # nothing was written: this only ends the read
+    store = photos.store_of(db)
+    ready: list[_Ready] = []
+    for recipe in chunk:
+        try:
+            item = _Ready(recipe, _review_of(kitchen, recipe, known))
+        except Exception as why:
+            db.rollback()
+            log.warning("A Mealie recipe couldn't be read; it was skipped (%s)", type(why).__name__)
+            ready.append(_Ready(recipe, None))
+            continue
+        ready.append(item)
+        if pictures is None or recipe.photo is None:
+            continue
+        try:
+            cleaned = pictures.cleaned(recipe.photo)
+            if cleaned is not None:
+                key = photos.new_key()
+                item.photo_bytes = photos.write(store, kitchen.household_id, key, cleaned)
+                item.photo_key, item.photo = key, cleaned
+        except Exception as why:  # the photo never stops a recipe
+            log.warning("A Mealie photo couldn't be kept (%s)", type(why).__name__)
+    return ready
+
+
+def _photo(kitchen: Kitchen, item: _Ready) -> int | None:
+    """The recipe's photo record (its files are written already), not on any recipe yet."""
+    if item.photo is None or item.photo_key is None:
         return None
-    cleaned = pictures.cleaned(recipe.photo)
-    if cleaned is None:
-        return None
-    store = photos.store_of(kitchen.db)
-    key = photos.new_key()
-    size = photos.write(store, kitchen.household_id, key, cleaned)
     photo = RecipePhoto(
         household_id=kitchen.household_id,
         recipe_id=None,
-        file_key=key,
-        width=cleaned.large_size[0],
-        height=cleaned.large_size[1],
-        list_width=cleaned.small_size[0],
-        list_height=cleaned.small_size[1],
-        bytes=size,
+        file_key=item.photo_key,
+        width=item.photo.large_size[0],
+        height=item.photo.large_size[1],
+        list_width=item.photo.small_size[0],
+        list_height=item.photo.small_size[1],
+        bytes=item.photo_bytes,
         added_at=utcnow(),
         added_by_name=kitchen.login.name,
     )
     kitchen.db.add(photo)
-    # The files go if this transaction is rolled back (the record is never made).
-    kitchen.db.info.setdefault(_WRITTEN, []).append((kitchen.household_id, key))
     kitchen.db.flush()
     return photo.id
 
 
-_WRITTEN = "mealwright.mealie_photos_written"
+def _let_go(db: Session, household_id: int, ready: list[_Ready]) -> None:
+    """Delete the files of photos whose record was never committed."""
+    store = photos.store_of(db)
+    for item in ready:
+        if item.photo_key is not None and not item.kept:
+            photos.remove_files(store, household_id, item.photo_key)
+            item.photo_key = None
 
 
-def _forget_written(db: Session, delete: bool) -> None:
-    written = db.info.pop(_WRITTEN, [])
-    if delete:
-        store = photos.store_of(db)
-        for household_id, key in written:
-            photos.remove_files(store, household_id, key)
-
-
-def _review_of(kitchen: Kitchen, recipe: MealieRecipe) -> ImportReview:
+def _review_of(
+    kitchen: Kitchen, recipe: MealieRecipe, known: tuple[Any, dict[int, str]]
+) -> ImportReview:
     from mealwright.recipe_import import _from_page, _review
 
     source = _source(recipe.source)
@@ -511,6 +645,7 @@ def _review_of(kitchen: Kitchen, recipe: MealieRecipe) -> ImportReview:
         _from_page(recipe.page),
         ReviewSource(kind="mealie", url=source, site=_site(source)),
         ReviewPhoto(state="none"),
+        known,
     )
 
 
@@ -561,22 +696,47 @@ def _draft(
 
 
 def _bring_in(
-    kitchen: Kitchen, row: MealieImport, recipe: MealieRecipe, pictures: MealiePhotos | None
+    kitchen: Kitchen, row: MealieImport, item: _Ready, have: set[tuple[str, str | None]]
 ) -> dict[str, Any]:
-    if _same(_have(kitchen.db, kitchen.household_id), recipe):  # added since the preview
+    """One recipe, in its own savepoint: saved, a draft, already here, or skipped."""
+    db = kitchen.db
+    recipe = item.recipe
+    same = (fold(_name(recipe)), _source(recipe.source))
+    if same in have:  # added since the preview
         return {"key": recipe.key, "name": _name(recipe), "state": "already"}
-    review = _review_of(kitchen, recipe)
+    if item.review is None:
+        return {"key": recipe.key, "name": _name(recipe), "state": "skipped"}
+    review = item.review
+    try:
+        with db.begin_nested():
+            photo_id = _photo(kitchen, item)
+            result = _save_or_draft(kitchen, row, review, photo_id)
+    except Exception as why:
+        # Only the kind of failure: the recipe's own words never go in the log (S-L7).
+        log.warning(
+            "A Mealie recipe couldn't be brought in; it was skipped (%s)", type(why).__name__
+        )
+        return {"key": recipe.key, "name": _name(recipe), "state": "skipped"}
+    have.add(same)
+    return {"key": recipe.key, **result}
+
+
+def _save_or_draft(
+    kitchen: Kitchen, row: MealieImport, review: ImportReview, photo_id: int | None
+) -> dict[str, Any]:
     lines = _ingredient_lines(review)
     unread = [line for line in lines if not _read(line)]
-    photo_id = _photo(kitchen, pictures, recipe)
     if not unread:
         try:
-            saved = _save(kitchen, review, photo_id, [_read(line) for line in review.lines])
+            with kitchen.db.begin_nested():
+                saved = _save(kitchen, review, photo_id, [_read(line) for line in review.lines])
         except (Problem, ValidationError) as why:
-            log.info("A Mealie recipe couldn't be saved as it was; kept as a draft (%s)", why)
+            log.info(
+                "A Mealie recipe couldn't be saved as it was; kept as a draft (%s)",
+                type(why).__name__,
+            )
         else:
             return {
-                "key": recipe.key,
                 "name": saved.name,
                 "state": "saved",
                 "recipe_id": saved.id,
@@ -584,7 +744,6 @@ def _bring_in(
             }
     draft = _draft(kitchen, row, review, photo_id)
     return {
-        "key": recipe.key,
         "name": draft.name,
         "state": "draft",
         "draft_id": draft.id,
@@ -593,9 +752,34 @@ def _bring_in(
     }
 
 
+def _add(
+    kitchen: Kitchen, row: MealieImport, ready: list[_Ready], have: set[tuple[str, str | None]]
+) -> bool:
+    """Add the prepared recipes, a short stretch of the lock at a time; the import's results
+    are written once a stretch (S-L6). False: the import stopped meanwhile."""
+    db = kitchen.db
+    at = 0
+    while at < len(ready):
+        if not _lock(kitchen, row):
+            db.rollback()
+            return False
+        began, first = time.monotonic(), at
+        results: list[dict[str, Any]] = []
+        while at < len(ready) and (at == first or time.monotonic() - began < HOLD_SECONDS):
+            results.append(_bring_in(kitchen, row, ready[at], have))
+            at += 1
+        row.results = [*row.results, *results]
+        row.done = len(row.results)
+        db.commit()
+        for item, result in zip(ready[first:at], results, strict=True):
+            item.kept = result["state"] in ("saved", "draft")
+        _pause()
+    return True
+
+
 def run(factory: sessionmaker[Session], import_id: int) -> None:
-    """Bring the import's recipes in, one per transaction, carrying on from where it stopped.
-    Never raises: a failure is kept on the import ("failed")."""
+    """Bring the import's recipes in, carrying on from where it stopped. Never raises: a
+    failure is kept on the import ("failed")."""
     with factory() as db:
         row = db.get(MealieImport, import_id)
         if row is None or row.state != "running":
@@ -607,10 +791,9 @@ def run(factory: sessionmaker[Session], import_id: int) -> None:
                 raise MealieFileProblem("unreadable")
             book = mealie_file.read_file(path)
             _carry_on(kitchen, row, book, path)
-        except Exception:
+        except Exception as why:
             db.rollback()
-            _forget_written(db, delete=True)
-            log.exception("An import from Mealie stopped part-way")
+            log.warning("An import from Mealie stopped part-way (%s)", type(why).__name__)
             with contextlib.suppress(Exception):
                 row = db.get(MealieImport, import_id)
                 if row is not None and row.state == "running":
@@ -621,42 +804,43 @@ def run(factory: sessionmaker[Session], import_id: int) -> None:
 
 
 def _carry_on(kitchen: Kitchen, row: MealieImport, book: MealieBook, path: Path) -> None:
+    """The work, in short locked stretches. Each stretch checks the import is still running
+    (so stopping it takes effect between them), and a restart skips what was saved."""
     db = kitchen.db
-    if not _lock(kitchen, row):
+    db.refresh(row)
+    if row.state != "running":
         return
-    if not row.results and row.done == 0 and not row.choices.get("foods_made"):
-        _new_foods(kitchen, row, book)
-        row.choices = {**row.choices, "foods_made": True}
-        db.commit()
     leave_out = set(row.choices.get("leave_out", []))
     already = {entry["key"] for entry in row.preview.get("recipes", []) if entry["already"]}
+    wanted = {recipe.key for recipe in book.recipes} - leave_out - already
+    if not row.choices.get("foods_made"):
+        todo = _foods_to_make(kitchen, row, book, _used_foods(book, wanted))
+        db.commit()  # only read: ends the read
+        if not _make_foods(kitchen, row, todo) or not _lock(kitchen, row):
+            db.rollback()
+            return
+        row.choices = {**row.choices, "foods_made": True}
+        db.commit()
+    done = {entry["key"] for entry in row.results}
+    todo_recipes = [r for r in book.recipes if r.key in wanted and r.key not in done]
+    have = _have(db, kitchen.household_id)  # once; each recipe added joins it
+    db.commit()  # only read: ends the read
     with contextlib.ExitStack() as stack:
         pictures = stack.enter_context(MealiePhotos(path)) if row.choices.get("photos") else None
-        for recipe in book.recipes:
-            if recipe.key in leave_out or recipe.key in already:
-                continue
-            if not _lock(kitchen, row):
-                return
-            if any(entry["key"] == recipe.key for entry in row.results):
-                continue
+        for first in range(0, len(todo_recipes), PREPARE):
+            ready = _prepare(kitchen, todo_recipes[first : first + PREPARE], pictures)
             try:
-                result = _bring_in(kitchen, row, recipe, pictures)
-            except Exception:
-                db.rollback()
-                _forget_written(db, delete=True)
-                log.exception("A Mealie recipe couldn't be brought in; it was skipped")
-                if not _lock(kitchen, row):
+                if not _add(kitchen, row, ready, have):
                     return
-                result = {"key": recipe.key, "name": _name(recipe), "state": "skipped"}
-            row.results = [*row.results, result]
-            row.done = len(row.results)
-            db.commit()
-            _forget_written(db, delete=False)
+            finally:
+                _let_go(db, kitchen.household_id, ready)
     if _lock(kitchen, row):
         row.state = "done"
         row.finished_at = utcnow()
         _drop_file(db, row)
         db.commit()
+    else:
+        db.rollback()
 
 
 class MealieRunner:
@@ -705,50 +889,53 @@ def undo_until(row: MealieImport) -> datetime | None:
     return as_utc(row.finished_at) + timedelta(days=UNDO_DAYS)
 
 
-def _kept_recipe(db: Session, recipe: Recipe, version: int, since: datetime) -> bool:
-    """Changed, cooked or planned since the import: the recipe stays."""
-    if recipe.version != version:
-        return True
-    cooked = db.scalar(
-        select(exists().where(CookedRecord.recipe_id == recipe.id, CookedRecord.cooked_at >= since))
-    )
-    planned = db.scalar(select(exists().where(MealItem.recipe_id == recipe.id)))
-    used = db.scalar(
-        select(
-            exists().where(
-                RecipeLine.sub_recipe_id == recipe.id,
-                RecipeLine.recipe_id.in_(
-                    select(Recipe.id).where(Recipe.removed_at.is_(None), Recipe.id != recipe.id)
-                ),
-            )
-        )
-    )
-    return bool(cooked or planned or used)
+def _ids_where(db: Session, column: Any, ids: list[int], *where: Any) -> set[int]:
+    """The values of `column` among `ids` that match `where`, a chunk of ids a query."""
+    found: set[int] = set()
+    for first in range(0, len(ids), CHUNK):
+        chunk = ids[first : first + CHUNK]
+        found.update(db.scalars(select(column).where(column.in_(chunk), *where)))
+    return found
 
 
-def _food_used(db: Session, food: Food) -> bool:
-    """Something other than the import's own recipes uses the ingredient."""
-    for model, column in (
-        (StockLot, StockLot.food_id),
-        (ListItem, ListItem.food_id),
-        (MealItem, MealItem.food_id),
-    ):
-        if db.scalar(
-            select(exists().where(column == food.id, model.household_id == food.household_id))
-        ):
-            return True
-    if db.scalar(select(exists().where(Recipe.homemade_food_id == food.id))):
-        return True
-    return bool(
-        db.scalar(
-            select(
-                exists().where(
-                    RecipeLine.food_id == food.id,
-                    RecipeLine.recipe_id.in_(select(Recipe.id).where(Recipe.removed_at.is_(None))),
-                )
-            )
+def _kept_recipes(db: Session, versions: dict[int, int], since: datetime) -> set[int]:
+    """Of these recipes (id → version when imported), the ones changed, cooked, planned or
+    used in another recipe since the import: they stay. A few queries for all of them."""
+    ids = sorted(versions)
+    kept = {
+        recipe_id
+        for first in range(0, len(ids), CHUNK)
+        for recipe_id, version in db.execute(
+            select(Recipe.id, Recipe.version).where(Recipe.id.in_(ids[first : first + CHUNK]))
         )
+        if version != versions[recipe_id]
+    }
+    kept |= _ids_where(db, CookedRecord.recipe_id, ids, CookedRecord.cooked_at >= since)
+    kept |= _ids_where(db, MealItem.recipe_id, ids)
+    kept |= _ids_where(
+        db,
+        RecipeLine.sub_recipe_id,
+        ids,
+        RecipeLine.recipe_id != RecipeLine.sub_recipe_id,
+        RecipeLine.recipe_id.in_(select(Recipe.id).where(Recipe.removed_at.is_(None))),
     )
+    return kept
+
+
+def _used_foods_of(db: Session, household_id: int, ids: list[int]) -> set[int]:
+    """Of these ingredients, the ones something uses: the pantry, a list, the plan, a
+    homemade recipe, or a recipe that isn't deleted."""
+    used: set[int] = set()
+    for model in (StockLot, ListItem, MealItem):
+        used |= _ids_where(db, model.food_id, ids, model.household_id == household_id)
+    used |= _ids_where(db, Recipe.homemade_food_id, ids)
+    used |= _ids_where(
+        db,
+        RecipeLine.food_id,
+        ids,
+        RecipeLine.recipe_id.in_(select(Recipe.id).where(Recipe.removed_at.is_(None))),
+    )
+    return used
 
 
 @dataclass
@@ -759,67 +946,109 @@ class Undone:
     drafts: int
 
 
-def undo(kitchen: Kitchen, row: MealieImport) -> Undone:
-    """The import's one Undo. Commits."""
-    from mealwright.history import as_utc, bump_recipes_by
-    from mealwright.shopping import bump_foods, lock_household
-
-    db = kitchen.db
-    lock_household(kitchen)
-    db.refresh(row)
+def _undo_ready(row: MealieImport) -> None:
     until = undo_until(row)
     if row.state == "running" or until is None:
         raise Problem(status.HTTP_409_CONFLICT, "mealie_not_done", NOT_DONE)
     if utcnow() > until:
         raise Problem(status.HTTP_410_GONE, "too_old", TOO_LATE)
-    since = as_utc(row.started_at or row.created_at)
-    now = utcnow()
-    removed: list[Recipe] = []
-    kept = 0
-    for entry in row.results:
-        recipe = db.get(Recipe, entry.get("recipe_id") or 0)
-        if recipe is None or recipe.household_id != kitchen.household_id or recipe.removed_at:
-            continue
-        if _kept_recipe(db, recipe, int(entry.get("version") or 0), since):
-            kept += 1
-            continue
-        recipe.removed_at = now
-        removed.append(recipe)
-    db.flush()
-    from mealwright.recipes import _users_of
 
-    users: set[int] = set()
-    for recipe in removed:
-        users |= _users_of(kitchen, recipe.id)
-    bump_recipes_by(kitchen, users - {recipe.id for recipe in removed})
-    gone_drafts = list(
+
+def undo(kitchen: Kitchen, row: MealieImport) -> Undone:
+    """The import's one Undo, in short locked stretches of a few hundred rows each (S-M3):
+    what to keep is checked again inside each stretch. A stop part-way leaves the import
+    to be undone again, which carries on. Commits."""
+    from mealwright.history import as_utc, bump_recipes_by
+    from mealwright.shopping import bump_foods, lock_household
+
+    db = kitchen.db
+    db.refresh(row)
+    _undo_ready(row)
+    since = as_utc(row.started_at or row.created_at)
+    versions = {
+        int(entry["recipe_id"]): int(entry.get("version") or 0)
+        for entry in row.results
+        if entry.get("recipe_id")
+    }
+    db.commit()  # only read: ends the read
+    removed = kept = foods = gone_drafts = 0
+    ids = sorted(versions)
+    for first in range(0, max(len(ids), 1), CHUNK):
+        chunk = ids[first : first + CHUNK]
+        lock_household(kitchen)
+        db.refresh(row)
+        _undo_ready(row)
+        live = set(
+            db.scalars(
+                select(Recipe.id).where(
+                    Recipe.id.in_(chunk),
+                    Recipe.household_id == kitchen.household_id,
+                    Recipe.removed_at.is_(None),
+                )
+            )
+        )
+        stays = _kept_recipes(db, {i: versions[i] for i in live}, since)
+        going = sorted(live - stays)
+        kept += len(stays)
+        now = utcnow()
+        for recipe in db.scalars(select(Recipe).where(Recipe.id.in_(going))):
+            recipe.removed_at = now
+        db.flush()
+        users = set(
+            db.scalars(select(RecipeLine.recipe_id).where(RecipeLine.sub_recipe_id.in_(going)))
+        )
+        bump_recipes_by(kitchen, users - set(going))
+        removed += len(going)
+        db.commit()
+        _pause()
+    while True:
+        lock_household(kitchen)
+        db.refresh(row)
+        _undo_ready(row)
+        chunk = list(
+            db.scalars(
+                select(ImportDraft.id)
+                .where(
+                    ImportDraft.household_id == kitchen.household_id,
+                    ImportDraft.mealie_import_id == row.id,
+                    ImportDraft.removed_at.is_(None),
+                )
+                .limit(CHUNK)
+            )
+        )
+        drafts.delete_for_good(db, chunk)
+        gone_drafts += len(chunk)
+        db.commit()
+        _pause()
+        if len(chunk) < CHUNK:
+            break
+    food_ids = list(
         db.scalars(
-            select(ImportDraft.id).where(
-                ImportDraft.household_id == kitchen.household_id,
-                ImportDraft.mealie_import_id == row.id,
-                ImportDraft.removed_at.is_(None),
+            select(Food.id).where(
+                Food.household_id == kitchen.household_id,
+                Food.mealie_import_id == row.id,
+                Food.removed_at.is_(None),
             )
         )
     )
-    drafts.delete_for_good(db, gone_drafts)
-    db.flush()
-    foods: list[int] = []
-    for food in db.scalars(
-        select(Food).where(
-            Food.household_id == kitchen.household_id,
-            Food.mealie_import_id == row.id,
-            Food.removed_at.is_(None),
-        )
-    ):
-        if not _food_used(db, food):
+    db.commit()  # only read: ends the read
+    for first in range(0, max(len(food_ids), 1), CHUNK):
+        chunk = food_ids[first : first + CHUNK]
+        lock_household(kitchen)
+        db.refresh(row)
+        _undo_ready(row)
+        going = sorted(set(chunk) - _used_foods_of(db, kitchen.household_id, chunk))
+        now = utcnow()
+        for food in db.scalars(select(Food).where(Food.id.in_(going), Food.removed_at.is_(None))):
             food.removed_at = now
-            foods.append(food.id)
-    db.flush()
-    bump_foods(kitchen, foods)
-    row.state = "undone"
-    row.undone_at = now
-    db.commit()
-    return Undone(recipes=len(removed), kept=kept, foods=len(foods), drafts=len(gone_drafts))
+        db.flush()
+        bump_foods(kitchen, going)
+        foods += len(going)
+        if first + CHUNK >= len(food_ids):
+            row.state = "undone"
+            row.undone_at = now
+        db.commit()
+    return Undone(recipes=removed, kept=kept, foods=foods, drafts=gone_drafts)
 
 
 # --- 4. Save all as they are ------------------------------------------------------------------
@@ -836,50 +1065,84 @@ def mealie_drafts(kitchen: Kitchen) -> list[ImportDraft]:
     )
 
 
+def _save_draft(kitchen: Kitchen, draft: ImportDraft) -> Recipe | None:
+    """One Mealie draft saved as it is, in its own savepoint; None if it can't be."""
+    db = kitchen.db
+    try:
+        review = ImportReview.model_validate(draft.review)
+    except ValidationError:
+        return None
+    review = review.model_copy(update={"name": draft.name or review.name})
+    try:
+        with db.begin_nested():
+            photo = db.scalar(select(RecipePhoto).where(RecipePhoto.draft_id == draft.id))
+            if photo is not None:
+                photo.draft_id = None
+                db.flush()
+            recipe = _save(
+                kitchen,
+                review,
+                photo.id if photo is not None else None,
+                [_read(line) for line in review.lines],
+            )
+            db.delete(draft)
+            db.flush()
+    except Problem, ValidationError:
+        return None
+    return recipe
+
+
 def save_all_drafts(kitchen: Kitchen) -> int:
     """Save every Mealie draft as it is: the lines Mealwright read stay tied to their
     ingredient; the others are kept as plain text (not on the shopping list). Each saved
-    recipe joins its import's results, so the import's Undo takes it out too. Commits."""
+    recipe joins its import's results, so the import's Undo takes it out too. Short locked
+    stretches (S-M3); each draft is checked again inside its stretch. Commits."""
     from mealwright.shopping import lock_household
 
     db = kitchen.db
-    lock_household(kitchen)
+    ids = [draft.id for draft in mealie_drafts(kitchen)]
+    db.commit()  # only read: ends the read
     saved = 0
-    for draft in mealie_drafts(kitchen):
-        try:
-            review = ImportReview.model_validate(draft.review)
-        except ValidationError:
-            continue
-        photo = db.scalar(select(RecipePhoto).where(RecipePhoto.draft_id == draft.id))
-        if photo is not None:
-            photo.draft_id = None
-            db.flush()
-        name = draft.name or review.name
-        review = review.model_copy(update={"name": name})
-        with db.begin_nested():
-            try:
-                recipe = _save(
-                    kitchen,
-                    review,
-                    photo.id if photo is not None else None,
-                    [_read(line) for line in review.lines],
+    at = 0
+    while at < len(ids):
+        lock_household(kitchen)
+        began, first = time.monotonic(), at
+        done: dict[int, dict[int, Recipe]] = {}  # import → draft → its recipe
+        while at < len(ids) and (at == first or time.monotonic() - began < HOLD_SECONDS):
+            draft = db.scalar(
+                select(ImportDraft).where(
+                    ImportDraft.id == ids[at],
+                    *drafts.live(kitchen.household_id, utcnow()),
+                    ImportDraft.source_kind == "mealie",
                 )
-            except Problem, ValidationError:
-                if photo is not None:
-                    photo.draft_id = draft.id
+            )
+            at += 1
+            if draft is None:
                 continue
-        row = db.get(MealieImport, draft.mealie_import_id or 0)
-        if row is not None and row.household_id == kitchen.household_id:
+            import_id, draft_id = draft.mealie_import_id or 0, draft.id
+            recipe = _save_draft(kitchen, draft)
+            if recipe is None:
+                continue
+            done.setdefault(import_id, {})[draft_id] = recipe
+            saved += 1
+        for import_id, recipes in done.items():
+            row = db.get(MealieImport, import_id)
+            if row is None or row.household_id != kitchen.household_id:
+                continue
             row.results = [
-                {**entry, "recipe_id": recipe.id, "version": recipe.version, "state": "saved_all"}
-                if entry.get("draft_id") == draft.id
+                {
+                    **entry,
+                    "recipe_id": recipes[entry["draft_id"]].id,
+                    "version": recipes[entry["draft_id"]].version,
+                    "state": "saved_all",
+                }
+                if entry.get("draft_id") in recipes
                 else entry
                 for entry in row.results
             ]
-        db.delete(draft)
-        db.flush()
-        saved += 1
-    db.commit()
+        db.commit()
+        if at < len(ids):
+            _pause()
     return saved
 
 
