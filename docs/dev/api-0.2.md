@@ -13,6 +13,7 @@ Added 25 Oct (cabledrawer 25 Oct), so nobody reads the whole file: read this pag
 - **Display (§5):** the server sends the as-sold wording ready made (`display`, "about 750 g · 1½ packets"), with no-break spaces; screens never rebuild it.
 - **Tables (§3):** household settings, places and shops, foods (ingredients on screen) with sizes and other names, stock (lots), and the change log behind Undo; migrations in order in §3.7.
 - **Endpoints (§6):** every food or stock write answers with the `change` it recorded (§6.1), so the screen can offer Undo at once. Foods §6.2, places and shops §6.3, stock §6.4, Recent changes and Undo §6.5.
+- **Open routes (no sign-in):** `GET /api/v1/version` (the version) and `GET /api/v1/health` (0.9.5: `{"status": "ok"}`, or 503 `{"status": "unavailable"}` when the database can't answer a trivial query; `Cache-Control: no-store`, nothing else in the answer; the image's health check calls it). The full description is in `docs/api.md`.
 - **Words:** the API says "food"; screens say "ingredient" (`docs/dev/words.md`).
 
 | § | What |
