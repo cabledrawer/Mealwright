@@ -53,7 +53,7 @@ Below, `<folder>` is the folder holding `compose.yaml` and the `data` folder (th
 
 ## Going back
 
-An older version can't read a database a newer version has changed, and Mealwright has no downgrade command. Going back means putting back the backup you took before upgrading, **together with the old image**. Anything you changed after upgrading is lost.
+An older version can't read a database a newer version has changed, and Mealwright has no downgrade command. Going back means putting back the backup you took before upgrading, **together with the old image**. Anything you changed after upgrading is lost. One thing to know: if you go back to 0.9.0 and then upgrade again, a login number from before can be used again, because 0.9.0 doesn't remember the ones it used.
 
 1. Stop it:
 
