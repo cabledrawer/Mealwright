@@ -465,6 +465,11 @@ class Food(Base):
     # cabledrawer 2 Nov: "the date I type wins"). While set, `restocked_at` holds that date and a
     # tick counts only if it was ticked after this moment.
     restock_typed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Made by an Import from Mealie (0.9.5): shown "from Mealie" in Ingredients, and taken
+    # out again by that import's Undo when nothing else uses it.
+    mealie_import_id: Mapped[int | None] = mapped_column(
+        ForeignKey("mealie_import.id", ondelete="SET NULL"), index=True
+    )
 
 
 class FoodName(Base):
@@ -1226,7 +1231,7 @@ class ImportDraft(Base):
 
     __tablename__ = "import_draft"
     __table_args__ = (
-        CheckConstraint("source_kind IN ('link', 'text')", name="source_kind_known"),
+        CheckConstraint("source_kind IN ('link', 'text', 'mealie')", name="source_kind_known"),
         {"sqlite_autoincrement": True},
     )
 
@@ -1234,7 +1239,8 @@ class ImportDraft(Base):
     household_id: Mapped[int] = mapped_column(
         ForeignKey("household.id", ondelete="CASCADE"), index=True
     )
-    # "link" or "text", and what was typed in the box (up to 100,000 characters).
+    # "link" or "text", and what was typed in the box (up to 100,000 characters); "mealie" for
+    # a recipe an Import from Mealie couldn't read every line of (its text is empty).
     source_kind: Mapped[str] = mapped_column(String(8))
     source_text: Mapped[str] = mapped_column(Text)
     # "bbcgoodfood.com", for the list. Null for pasted text.
@@ -1257,6 +1263,60 @@ class ImportDraft(Base):
     # The last time anyone changed it: the 15 days count from here.
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The Import from Mealie that made it (0.9.5): the Drafts filter "From Mealie", and that
+    # import's Undo.
+    mealie_import_id: Mapped[int | None] = mapped_column(
+        ForeignKey("mealie_import.id", ondelete="SET NULL"), index=True
+    )
+
+
+class MealieImport(Base):
+    """One Import from Mealie (0.9.5, cabledrawer 13 Nov; `mealwright.mealie_import`).
+
+    - **ready:** the file is read and kept (`file_key`, in the data folder's `mealie/`
+      folder) with what is in it (`preview`); nothing is added yet.
+    - **running:** the server is bringing the recipes in, one at a time (`done` of `total`);
+      `results` says what became of each. A restart carries on where it stopped.
+    - **done** / **failed:** finished (`finished_at`); the file is deleted.
+    - **undone:** its one Undo was used (`undone_at`). **gone:** a ready file nobody brought in,
+      deleted after a day; or Cancel.
+
+    Only one import runs at a time in a household. Undo works for 7 days after it finished."""
+
+    __tablename__ = "mealie_import"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('ready', 'running', 'done', 'failed', 'undone', 'gone')",
+            name="state_known",
+        ),
+        {"sqlite_autoincrement": True},
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("household.id", ondelete="CASCADE"), index=True
+    )
+    state: Mapped[str] = mapped_column(String(8))
+    file_name: Mapped[str] = mapped_column(String(200))  # as the person's device called it
+    # A random name: the stored copy is `mealie/<household_id>/<file_key>.zip`; null once
+    # it has been deleted.
+    file_key: Mapped[str | None] = mapped_column(String(64))
+    preview: Mapped[dict[str, Any]] = mapped_column(JSON)
+    # What was chosen at "Bring in": the recipes left out (their Mealie keys) and the photo
+    # switch.
+    choices: Mapped[dict[str, Any]] = mapped_column(JSON)
+    total: Mapped[int] = mapped_column(Integer, default=0)
+    done: Mapped[int] = mapped_column(Integer, default=0)
+    # What became of each recipe, in order: {key, name, state, recipe_id, draft_id, lines}.
+    results: Mapped[list[Any]] = mapped_column(JSON)
+    started_by_login_id: Mapped[int | None] = mapped_column(
+        ForeignKey("login.id", ondelete="SET NULL")
+    )
+    started_by_name: Mapped[str] = mapped_column(String(100), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    undone_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 # --- Plan and cooking (0.6) --------------------------------------------------------------------
