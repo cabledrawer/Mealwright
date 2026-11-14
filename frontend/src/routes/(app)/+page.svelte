@@ -303,7 +303,7 @@
                     class="chip"
                     style:--soft="var(--batch-{n}-soft)"
                     style:--soft-text="var(--batch-{n}-soft-text)"
-                    >{whoseTub(found.tub, data.people) ?? 'Everyone'} · tub {found.tub.number} of {found
+                    >{whoseTub(found.tub, data.people, data.plan.removed_people) ?? 'Everyone'} · tub {found.tub.number} of {found
                       .batch.tub_count}</span
                   >
                 {/if}

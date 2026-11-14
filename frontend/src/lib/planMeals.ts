@@ -212,8 +212,26 @@ export function mealColour(plan: Plan | null, meal: PlanMeal): number | null {
 }
 
 /** Whose a tub is, in words: the person's name, or null when it is nobody's in particular. */
-export const whoseTub = (tub: PlanTub, people: Person[]): string | null =>
-  people.find((p) => p.member_id === tub.member_id)?.name ?? null;
+export const whoseTub = (
+  tub: PlanTub,
+  people: Person[],
+  removed: RemovedPerson[] = []
+): string | null => {
+  const gone = removed.find((p) => p.member_id === tub.member_id);
+  return (
+    people.find((p) => p.member_id === tub.member_id)?.name ??
+    (gone ? removedName(gone.name) : null)
+  );
+};
+
+/** A removed person the plan still names, with the name they had (0.9.5 Pe6). */
+export interface RemovedPerson {
+  member_id: number;
+  name: string;
+}
+
+/** "Lorna (removed)": how a removed person reads on a past meal or a tub (cabledrawer 13 Nov). */
+export const removedName = (name: string): string => `${name} (removed)`;
 
 /** "3 days left", "use by today", "use by yesterday": for a tub's use-by day. Days left count
  * from the day the batch is cooked when that is still to come (F48: a tub cooked on Saturday has

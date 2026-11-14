@@ -27,7 +27,7 @@
     const tubs = meal.items.flatMap((i) => {
       const found = tubOf(model.plan, i);
       if (!found) return [];
-      const who = whoseTub(found.tub, model.people);
+      const who = whoseTub(found.tub, model.people, model.plan?.removed_people);
       return [`Tub ${found.tub.number} of ${found.batch.tub_count}${who ? ` · ${who}` : ''}`];
     });
     if (tubs.length) return tubs.join(', ');

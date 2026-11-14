@@ -14,6 +14,16 @@ describe('who is eating', () => {
   });
 });
 
+describe('a removed person on a past meal (0.9.5 Pe6)', () => {
+  it('reads "Lorna (removed)", after the people who are here', () => {
+    const removed = [{ member_id: 99, name: 'Lorna' }];
+    const meal = mealOf(1, DAYS[0]!, 1, [], { eater_member_ids: [11, 99] });
+    expect(eaterNames(meal, PEOPLE, removed)).toEqual(['Wren', 'Lorna (removed)']);
+    // Without the plan naming them there is nothing to say.
+    expect(eaterNames(meal, PEOPLE)).toEqual(['Wren']);
+  });
+});
+
 describe('the Eat rows of a meal', () => {
   const plan = samplePlan();
   const meal = (id: number) => plan.meals.find((m) => m.id === id)!;

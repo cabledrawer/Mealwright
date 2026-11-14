@@ -97,7 +97,7 @@ export function weekCards(
     if (found) {
       const { tub, batch } = found;
       const last = tub.number === batch.tub_count && batch.tub_count > 1;
-      const who = whoseTub(tub, people);
+      const who = whoseTub(tub, people, plan.removed_people);
       cards.push({
         ...base,
         key: `e${item.id}`,
@@ -138,7 +138,7 @@ export function weekCards(
         eyebrow: 'Eat',
         name,
         shown: name,
-        who: eaterNames(meal, people),
+        who: eaterNames(meal, people, plan.removed_people),
         colour: colourOfBatch(batch),
         session: sessionTag(batch)
       });

@@ -144,6 +144,8 @@ export interface Plan {
   batch_cooks: PlanBatch[];
   tubs: PlanTub[];
   batch_sessions?: PlanSession[];
+  /** Removed people the plan still names (a past meal's eater, a tub's owner): "Lorna (removed)". */
+  removed_people?: { member_id: number; name: string }[];
 }
 
 /** What every plan write answers: the change (with its Undo) and where the meal ended up. */

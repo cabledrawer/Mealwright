@@ -249,6 +249,8 @@ describe('a meal card’s words', () => {
       'Wren'
     );
     expect(whoseTub(tub, [])).toBeNull();
+    // A removed owner: named with "(removed)" when the plan names them, not "Everyone" (Pe6).
+    expect(whoseTub(tub, [], [{ member_id: 4, name: 'Wren' }])).toBe('Wren (removed)');
   });
 
   it('says how long a tub keeps', () => {

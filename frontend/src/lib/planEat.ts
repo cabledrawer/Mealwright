@@ -3,6 +3,7 @@
 // sent, with no new request. Pure, so it is tested on its own (planEat.test.ts).
 
 import type { MealSlot, Person, Plan, PlanBatch, PlanMeal } from './client/plan';
+import { removedName, type RemovedPerson } from './planMeals';
 import { dayShort } from './planDates';
 import { colourOfBatch, cookBatchOfItem, cookedOn, itemName, tubOf, whoseTub } from './planMeals';
 
@@ -36,9 +37,17 @@ export interface EatDay {
 }
 
 /** The people ticked for a meal; empty when it is for everyone (nothing to say). */
-export function eaterNames(meal: PlanMeal, people: Person[]): string[] {
+export function eaterNames(
+  meal: PlanMeal,
+  people: Person[],
+  removed: RemovedPerson[] = []
+): string[] {
   if (meal.eater_member_ids.length === 0) return [];
-  return people.filter((p) => meal.eater_member_ids.includes(p.member_id)).map((p) => p.name);
+  const names = [
+    ...people.map((p) => [p.member_id, p.name] as const),
+    ...removed.map((p) => [p.member_id, removedName(p.name)] as const)
+  ];
+  return names.filter(([id]) => meal.eater_member_ids.includes(id)).map(([, name]) => name);
 }
 
 const joined = (parts: (string | null)[]) => parts.filter((p) => p).join(' · ');
@@ -46,18 +55,18 @@ const joined = (parts: (string | null)[]) => parts.filter((p) => p).join(' · ')
 /** The rows of one meal: one for each recipe, ingredient or note, one for each batch's tubs. */
 export function eatRows(plan: Plan, meal: PlanMeal, people: Person[]): EatRow[] {
   const rows: EatRow[] = [];
-  const eaters = eaterNames(meal, people);
+  const eaters = eaterNames(meal, people, plan.removed_people);
   const tubGroups = new Map<number, { batch: PlanBatch; whose: (string | null)[]; at: number }>();
   for (const item of meal.items) {
     if (item.kind === 'tub') {
       const found = tubOf(plan, item);
       if (found) {
         const group = tubGroups.get(found.batch.id);
-        if (group) group.whose.push(whoseTub(found.tub, people));
+        if (group) group.whose.push(whoseTub(found.tub, people, plan.removed_people));
         else {
           tubGroups.set(found.batch.id, {
             batch: found.batch,
-            whose: [whoseTub(found.tub, people)],
+            whose: [whoseTub(found.tub, people, plan.removed_people)],
             at: rows.length
           });
           rows.push({

@@ -17,7 +17,9 @@
   let draft = $state<number[] | null>(null);
   // The meal as the plan holds it now (the menu's own copy goes stale after a change).
   const live = $derived(model.plan?.meals.find((m) => m.id === meal.id) ?? meal);
-  const ticked = $derived(draft ?? live.eater_member_ids);
+  // Only people who are here can be ticked: a removed person on a past meal isn't a chip.
+  const here = $derived(new Set(model.people.map((p) => p.member_id)));
+  const ticked = $derived(draft ?? live.eater_member_ids.filter((id) => here.has(id)));
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function send(): void {
@@ -26,7 +28,7 @@
     const wanted = draft;
     draft = null;
     if (wanted === null) return;
-    const now = [...live.eater_member_ids].sort((a, b) => a - b);
+    const now = live.eater_member_ids.filter((id) => here.has(id)).sort((a, b) => a - b);
     if (wanted.length !== now.length || wanted.some((id, i) => id !== now[i]))
       void model.setEaters(live, wanted);
   }
