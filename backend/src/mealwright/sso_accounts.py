@@ -293,6 +293,8 @@ def _refused_known(
             db.execute(delete(Session).where(Session.login_id == login.id))
         else:
             api_tokens.mark_refused(db, login)  # kept signed in: no new tokens (fix13)
+        if login.role == ADMIN:  # refused, as if made a member: no Reset password link
+            drop_reset_links(db, login.household_id)  # outlives it (16b S-M1 d; proposed)
         db.commit()
         log.info(
             "Single sign-on: login %d refused (%s); %s",

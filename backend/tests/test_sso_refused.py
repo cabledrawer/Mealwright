@@ -315,3 +315,31 @@ def test_an_admin_demoted_by_the_groups_leaves_no_reset_link_behind(
     assert demoted.json()["me"]["role"] == "member"
     look = TestClient(admin.app, base_url="https://testserver")
     assert look.post(f"{API}/join/look", json={"token": token}).status_code == 404
+
+
+def test_an_admin_refused_by_the_groups_leaves_no_reset_link_behind(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """16b security pass S-M1 d (lead, 14 Nov; proposed, for cabledrawer): an admin the groups no
+    longer let in is treated as one made a member: every unused Reset password link in the
+    household goes, and join links stay."""
+    noor = browser(admin)
+    done, _ = sign_in(noor, idp, sub="noor", extra=ADMIN_GROUPS)
+    assert done.json()["me"]["role"] == "admin"
+    lorna = ok(admin.post(f"{API}/people", json={"name": "Lorna"}), 201)
+    lorna_id = next(p["id"] for p in lorna["people"] if p["name"] == "Lorna")
+    joined = ok(admin.post(f"{API}/people/{lorna_id}/login", json={"username": "lorna"}), 201)
+    fresh = TestClient(admin.app, base_url="https://testserver")
+    secret = joined["path"].removeprefix("/join#")
+    ok(fresh.post(f"{API}/join", json={"token": secret, "password": "lorna's long password"}))
+    made = ok(noor.post(f"{API}/people/{lorna_id}/reset-password"), 201)
+    token = made["path"].removeprefix("/reset#")
+    sam = ok(admin.post(f"{API}/people", json={"name": "Sam"}), 201)
+    sam_id = next(p["id"] for p in sam["people"] if p["name"] == "Sam")
+    sams = ok(admin.post(f"{API}/people/{sam_id}/login", json={"username": "sam"}), 201)
+    refused, _ = sign_in(browser(admin), idp, sub="noor", extra={"groups": []})
+    assert refused.status_code != 200
+    look = TestClient(admin.app, base_url="https://testserver")
+    assert look.post(f"{API}/join/look", json={"token": token}).status_code == 404
+    sam_secret = sams["path"].removeprefix("/join#")
+    assert look.post(f"{API}/join/look", json={"token": sam_secret}).status_code == 200
