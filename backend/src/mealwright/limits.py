@@ -7,7 +7,8 @@ actions of 500 items each, about 3.4 MB with the longest IDs the server takes. B
 are counted as they arrive, so a missing or wrong Content-Length doesn't get round it.
 
 One route takes more: a recipe photo upload may be up to 15 MB (cabledrawer 19 Oct). Only that
-route, and only for that method.
+route, and only for that method. Mealie's backup file may be up to 1 GB (0.9.5, proposed, for
+cabledrawer): it is streamed to a file, never held in memory.
 """
 
 from starlette.exceptions import HTTPException
@@ -18,10 +19,13 @@ MAX_BODY_BYTES = 4 * 1024 * 1024
 TOO_BIG = "That’s too much to send in one go."
 MAX_PHOTO_BYTES = 15 * 1024 * 1024
 PHOTO_TOO_BIG = "That photo is bigger than 15 MB."
+MAX_MEALIE_BYTES = 1024 * 1024 * 1024
+MEALIE_TOO_BIG = "That file is bigger than 1 GB. Mealwright can’t read it."
 
 # (method, path) → (the most it takes, what to say, code). Exact paths only.
 BIGGER = {
     ("POST", "/api/v1/recipes/photos"): (MAX_PHOTO_BYTES, PHOTO_TOO_BIG, "photo_too_big"),
+    ("POST", "/api/v1/mealie-imports"): (MAX_MEALIE_BYTES, MEALIE_TOO_BIG, "mealie_too_big"),
 }
 
 

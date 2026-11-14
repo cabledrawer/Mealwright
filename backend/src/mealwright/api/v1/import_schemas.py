@@ -164,7 +164,7 @@ class ReviewPhoto(BaseModel):
 
 
 class ReviewSource(BaseModel):
-    kind: Literal["link", "text"]
+    kind: Literal["link", "text", "mealie"]  # "mealie": a recipe from an Import from Mealie
     url: str | None  # where the page was in the end, after any redirects
     site: str | None  # "bbcgoodfood.com"
 

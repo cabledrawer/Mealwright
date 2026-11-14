@@ -108,10 +108,23 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
     start-up and then every hour. Never raises."""
     from mealwright.drafts import purge as purge_drafts
     from mealwright.history import purge_removed  # imported here: history needs the API
+    from mealwright.mealie_import import tidy as tidy_mealie
     from mealwright.recipes import drop_waiting_photos, purge_removed_recipes
 
     now = now or utcnow()
     with factory() as db:
+        try:
+            if tidied := tidy_mealie(db, now):
+                log.info("Deleted %d Mealie files nobody brought in", tidied)
+        except Exception:
+            db.rollback()
+            log.exception("Couldn't tidy Mealie files (will try again within the hour)")
+        try:
+            if tidied := tidy_mealie(db, now):
+                log.info("Deleted %d Mealie files nobody brought in", tidied)
+        except Exception:
+            db.rollback()
+            log.exception("Couldn't tidy Mealie files (will try again within the hour)")
         try:
             households = list(db.scalars(select(Household)))
         except Exception:

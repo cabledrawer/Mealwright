@@ -13,6 +13,7 @@ from mealwright import plan, start_ahead
 from mealwright import today as answers
 from mealwright.api.v1.batches import PersonOut, TubLeftOut, get_tubs_left, list_people
 from mealwright.api.v1.context import Here
+from mealwright.api.v1.mealie import MealieNote, today_note
 from mealwright.api.v1.pantry import UseSoonLot, UseSoonTub, use_soon
 from mealwright.api.v1.plan import ItemStartIn, MealSlotOut, PlanOut, PlanWrite, _run, get_plan
 from mealwright.auth import SameOrigin
@@ -68,6 +69,8 @@ class TodayOut(BaseModel):
     # that place when its soonest is within the Use soon days (or passed).
     use_soon_tubs: list[UseSoonTub]
     next_cook: NextCookOut | None
+    # An import from Mealie that finished in the last day (0.9.5; proposed, for cabledrawer).
+    mealie: MealieNote | None = None
 
 
 @router.get("/today")
@@ -156,6 +159,7 @@ def get_today(kitchen: Here) -> TodayOut:
         use_soon_lots=lots.lots,
         use_soon_tubs=lots.tubs,
         next_cook=next_cook,
+        mealie=today_note(kitchen),
     )
 
 

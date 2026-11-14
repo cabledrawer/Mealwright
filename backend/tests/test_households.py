@@ -11,12 +11,15 @@ the same afterwards.
 
 from collections.abc import Iterator
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any
 
 import photo_kit as kit
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
+from test_mealie_import import upload as mealie_upload
+from test_mealie_import import zipped as mealie_zipped
 
 from mealwright.auth import hash_password
 from mealwright.db import Base
@@ -81,7 +84,7 @@ def ok(response: Any, status: int = 200) -> Any:
 
 
 @pytest.fixture
-def mine(kitchen: TestClient) -> dict[str, Any]:
+def mine(kitchen: TestClient, tmp_path: Path) -> dict[str, Any]:
     """Household 1's data, and the ids to attack it with."""
     toor = ok(kitchen.post(f"{API}/foods", json={"name": "Toor dal"}), 201)["food"]
     moong = ok(kitchen.post(f"{API}/foods", json={"name": "Moong dal"}), 201)["food"]
@@ -157,6 +160,7 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
     entry = ok(kitchen.post(f"{API}/privacy/own-network", json={"value": "wiki.home.example"}), 201)
     photo = kit.uploaded(kitchen)  # not saved on a recipe, so household 1 could delete it
     draft = ok(kitchen.post(f"{API}/recipes/drafts", json=DRAFT_BODY), 201)
+    mealie = ok(mealie_upload(kitchen, mealie_zipped(tmp_path / "mealie.zip")), 201)
     joss = ok(kitchen.post(f"{API}/people", json={"name": "Joss"}), 201)["people"][-1]
     sign_in = ok(kitchen.get(f"{API}/me/sign-in"))["sessions"][0]["id"]
     token = ok(
@@ -167,6 +171,7 @@ def mine(kitchen: TestClient) -> dict[str, Any]:
         "member_id": joss["id"],
         "sign_in_id": sign_in,
         "draft_id": draft["id"],
+        "import_id": mealie["id"],
         "recipe_id": recipe["id"],
         "tag_id": tag_id,
         "plan_item_id": planned["item_id"],
@@ -268,6 +273,11 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("GET", "/api/v1/recipes/drafts/{draft_id}"): None,
     ("PUT", "/api/v1/recipes/drafts/{draft_id}"): DRAFT_BODY,
     ("DELETE", "/api/v1/recipes/drafts/{draft_id}"): None,
+    # Import from Mealie (0.9.5): a file read and waiting for "Bring in".
+    ("GET", "/api/v1/mealie-imports/{import_id}"): None,
+    ("POST", "/api/v1/mealie-imports/{import_id}/start"): {"leave_out": []},
+    ("DELETE", "/api/v1/mealie-imports/{import_id}"): None,
+    ("POST", "/api/v1/mealie-imports/{import_id}/undo"): None,
     # The plan (0.6 PR 3). Each is also tried in test_plan_writes.py, in both directions.
     ("DELETE", "/api/v1/plan/items/{plan_item_id}"): None,
     ("DELETE", "/api/v1/plan/meals/{plan_meal_id}"): None,

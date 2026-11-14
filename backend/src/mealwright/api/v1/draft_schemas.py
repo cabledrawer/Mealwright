@@ -135,7 +135,7 @@ class DraftIn(BaseModel):
 
 
 class DraftSource(BaseModel):
-    kind: Literal["link", "text"]
+    kind: Literal["link", "text", "mealie"]
     site: str | None  # "bbcgoodfood.com"; null for pasted text
 
 
@@ -153,6 +153,8 @@ class DraftBrief(BaseModel):
     days_left: int  # 15 for a draft changed just now; 1 on its last day
     lines_total: int  # ingredient lines
     lines_checked: int  # tied to an ingredient (matched, or chosen)
+    # The first few lines still to check, as written (0.9.5: the "From Mealie" rows).
+    waiting: list[str] = Field(default_factory=list)
 
 
 class DraftList(BaseModel):

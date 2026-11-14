@@ -13,6 +13,7 @@ from mealwright.api.v1 import (
     foods,
     imports,
     kitchen,
+    mealie,
     my_sign_in,
     pantry,
     people,
@@ -53,6 +54,7 @@ router.include_router(batch_cook.router)
 router.include_router(cooked.router)
 router.include_router(today.router)
 router.include_router(imports.router)
+router.include_router(mealie.router)
 router.include_router(drafts.router)
 router.include_router(recipes.router)
 router.include_router(photos.router)

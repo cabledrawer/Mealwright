@@ -33,6 +33,7 @@ from mealwright.forwarded import ForwardedMiddleware
 from mealwright.frontend import inline_script_hashes, mount_frontend
 from mealwright.limits import BodyLimitMiddleware
 from mealwright.logs import DailyLogFile
+from mealwright.mealie_import import MealieRunner
 from mealwright.models import Login
 from mealwright.outbound import OutboundGate, install_network_guard
 from mealwright.security import SecurityHeadersMiddleware
@@ -108,6 +109,7 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
                 single_sign_on=(app.state.outbound, settings.data_dir, app.state.events),
             )
             background.start()
+            app.state.mealie.resume()  # carry on imports a restart stopped
         yield
         app.state.events.close()  # end open live streams so shutdown isn't held up
         if background is not None:
@@ -141,6 +143,8 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     # cabledrawer): passwords go off only over it, and a restart forgets it.
     app.state.sso_proven = {}
     app.state.setup_code = None  # set at start-up on a fresh install
+    # Imports from Mealie run on the server, one thread each (0.9.5).
+    app.state.mealie = MealieRunner(app.state.sessionmaker)
     errors.install(app)
     app.include_router(api_v1)
     mount_frontend(app, settings.frontend_dir)  # after the API, so it only gets the rest

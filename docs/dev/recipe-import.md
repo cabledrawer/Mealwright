@@ -729,3 +729,37 @@ zip bomb is cut off. Only stored and deflated members are read, never encrypted 
 zip's index and `database.json` are read in a child process with its own budget (60 s of
 processor time, 90 s by the clock, 768 MB of memory, the network guard on), the same way
 as a recipe page (`page_budget`), one file at a time for the whole server.
+
+**Bringing it in (`mealie_import.py`, `api/v1/mealie.py`).** cabledrawer 13 Nov: you see what's
+in the file before anything is added; recipes with every line read are saved straight away,
+only ones with unread lines go to Drafts ("From Mealie"); "Save all as they are"; it runs on
+the server; one Undo for the whole import (7 days; recipes changed or cooked since are kept).
+The choices below are proposed, for cabledrawer:
+
+- **Who:** anyone in the household, the same as importing a recipe from a link (no role
+  check), and an API token may too. `POST /api/v1/mealie-imports` takes the `.zip` itself as
+  the body (at most 1 GB, this route only; streamed to a file in the data folder, one upload
+  at a time for the whole server). Signed-out uploads are refused before a byte is read.
+- **The preview** is kept with the file until "Bring in" or Cancel; sending another file
+  lets the earlier one go, and a file nobody brings in is deleted after a day. One import
+  runs at a time in a household (409 `mealie_busy`).
+- **Already here:** same name (folded) and same source link; no link on both counts as the
+  same. A Mealie draft still waiting counts too, so the same file twice makes no second draft.
+- **Read:** a recipe is saved when every ingredient line is matched or a staple. New Mealie
+  foods become ingredients first, marked by the import (`food.mealie_import_id`), so a line
+  that names a Mealie food is read. Waits the reader suggests aren't added; the file's own
+  times are used. Mealie drafts don't count towards the 50-draft limit; the 15 days still
+  apply.
+- **The job:** one thread per import, one transaction per recipe, so a restart carries on
+  where it stopped (`resume()` at start-up). A recipe that fails is skipped and counted; the
+  import never stops half-way for one bad recipe. The file is deleted when it ends. Progress
+  is asked for every few seconds (`GET /mealie-imports/{id}`), not sent as a live event.
+  Today shows a note for a day after it finishes.
+- **Undo** (`POST /mealie-imports/{id}/undo`, 7 days, 410 `too_old` after): takes out the
+  recipes (to Removed, as a delete does), the import's drafts, and its new ingredients.
+  Kept: recipes changed (their version moved), cooked, planned, or used in another recipe
+  since; ingredients used anywhere (pantry, a list, the plan, a recipe kept). No Recent
+  changes entries: the import's own screen holds its Undo.
+- **Save all as they are** (`POST /mealie-imports/drafts/save-all`): every Mealie draft is
+  saved, read lines linked and the rest as plain text (no ingredient, so never on the
+  shopping list). They join the import's Undo.

@@ -85,7 +85,7 @@ def days_left(draft: ImportDraft, now: datetime | None = None) -> int:
     return max(0, -(-int(left.total_seconds()) // 86_400))
 
 
-def _live(household_id: int, now: datetime) -> list[Any]:
+def live(household_id: int, now: datetime) -> list[Any]:
     """Drafts that are there to see: the household's, not deleted, not past their 15 days."""
     return [
         ImportDraft.household_id == household_id,
@@ -99,7 +99,7 @@ def is_live(kitchen: Kitchen, draft_id: int) -> bool:
     return (
         kitchen.db.scalar(
             select(ImportDraft.id).where(
-                ImportDraft.id == draft_id, *_live(kitchen.household_id, utcnow())
+                ImportDraft.id == draft_id, *live(kitchen.household_id, utcnow())
             )
         )
         is not None
@@ -109,9 +109,7 @@ def is_live(kitchen: Kitchen, draft_id: int) -> bool:
 def find(kitchen: Kitchen, draft_id: int) -> ImportDraft:
     """A draft in this household that is there to see (else 404, whoever it belongs to)."""
     draft = kitchen.db.scalar(
-        select(ImportDraft).where(
-            ImportDraft.id == draft_id, *_live(kitchen.household_id, utcnow())
-        )
+        select(ImportDraft).where(ImportDraft.id == draft_id, *live(kitchen.household_id, utcnow()))
     )
     if draft is None:
         raise not_found("That draft")
@@ -119,11 +117,13 @@ def find(kitchen: Kitchen, draft_id: int) -> ImportDraft:
 
 
 def count(db: DbSession, household_id: int, now: datetime | None = None) -> int:
+    """The drafts that count towards the 50: an Import from Mealie's own drafts don't (it can
+    make hundreds; proposed, for cabledrawer)."""
     return (
         db.scalar(
             select(func.count())
             .select_from(ImportDraft)
-            .where(*_live(household_id, now or utcnow()))
+            .where(*live(household_id, now or utcnow()), ImportDraft.source_kind != "mealie")
         )
         or 0
     )
@@ -184,7 +184,7 @@ def listing(kitchen: Kitchen) -> list[DraftBrief]:
     rows = list(
         kitchen.db.scalars(
             select(ImportDraft)
-            .where(*_live(kitchen.household_id, now))
+            .where(*live(kitchen.household_id, now))
             .order_by(ImportDraft.updated_at.desc(), ImportDraft.id.desc())
         )
     )
@@ -205,7 +205,13 @@ def listing(kitchen: Kitchen) -> list[DraftBrief]:
             review, choices = rematch(kitchen, review, choices, draft.id, given, budget)
             review, choices = freshen(kitchen, review, choices)
             total, checked = _progress(review, choices)
-            out = out.model_copy(update={"lines_total": total, "lines_checked": checked})
+            out = out.model_copy(
+                update={
+                    "lines_total": total,
+                    "lines_checked": checked,
+                    "waiting": _waiting(review, choices),
+                }
+            )
         briefs.append(out)
     return briefs
 
@@ -230,7 +236,7 @@ def _answers_given(kitchen: Kitchen, now: datetime | None = None) -> list[tuple[
     folded, the ingredient), the newest draft first."""
     rows = kitchen.db.scalars(
         select(ImportDraft)
-        .where(*_live(kitchen.household_id, now or utcnow()))
+        .where(*live(kitchen.household_id, now or utcnow()))
         .order_by(ImportDraft.updated_at.desc(), ImportDraft.id.desc())
     )
     given: list[tuple[int, str, Ref]] = []
@@ -488,6 +494,24 @@ def freshen(
 # --- Keeping and changing ---------------------------------------------------------------------
 
 
+WAITING_SHOWN = 3
+
+
+def _waiting(review: ImportReview, choices: DraftChoices) -> list[str]:
+    """The first few lines still to check, as written (the Drafts list shows them for a draft
+    from Mealie: "a thumb of galangal")."""
+    found: list[str] = []
+    for index, line in enumerate(review.lines):
+        if line.kind != "ingredient" or (not line.written and not line.words.strip()):
+            continue
+        if index in choices.lines or (line.label in ("matched", "staple") and line.food):
+            continue
+        found.append(line.written or line.words)
+        if len(found) == WAITING_SHOWN:
+            break
+    return found
+
+
 def _progress(review: ImportReview, choices: DraftChoices) -> tuple[int, int]:
     """(ingredient lines, how many are tied to an ingredient): a matched or staple line is,
     and so is any line with a choice. The same count the review screen makes."""
@@ -545,7 +569,7 @@ def _hold_photo(kitchen: Kitchen, draft: ImportDraft, review: ImportReview) -> I
     return review
 
 
-def _fill(kitchen: Kitchen, draft: ImportDraft, body: DraftIn) -> None:
+def fill(kitchen: Kitchen, draft: ImportDraft, body: DraftIn) -> None:
     review = _hold_photo(kitchen, draft, body.review)
     total, checked = _progress(review, body.choices)
     draft.source_kind = review.source.kind
@@ -578,7 +602,7 @@ def create(kitchen: Kitchen, body: DraftIn) -> ImportDraft:
     )
     kitchen.db.add(draft)
     kitchen.db.flush()
-    _fill(kitchen, draft, body)
+    fill(kitchen, draft, body)
     kitchen.db.flush()
     return draft
 
@@ -586,7 +610,7 @@ def create(kitchen: Kitchen, body: DraftIn) -> ImportDraft:
 def update(kitchen: Kitchen, draft: ImportDraft, body: DraftIn) -> None:
     """Replace what a draft keeps (the last save wins). It counts as a change: the 15 days
     start again."""
-    _fill(kitchen, draft, body)
+    fill(kitchen, draft, body)
     kitchen.db.flush()
 
 
