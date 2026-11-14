@@ -15,7 +15,13 @@ from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import Connection, Engine
 
-from mealwright.backups import copy_to_free_name, make_folder, sqlite_file
+from mealwright.backups import (
+    copy_to_free_name,
+    drop_orphan_photos,
+    make_folder,
+    remove_copy,
+    sqlite_file,
+)
 
 log = logging.getLogger(__name__)
 
@@ -86,14 +92,35 @@ def current_revision(engine: Engine) -> str | None:
         return MigrationContext.configure(connection).get_current_revision()
 
 
-def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> Path | None:
+def include_photos(engine: Engine) -> bool:
+    """The household's "Include photos" choice, read from the database as it is NOW: before an
+    upgrade it may be an older one without the column (then the answer is yes, the usual), and it
+    is read by plain SQL because the models describe the newest database. A database that can't be
+    asked is taken as yes: a photo folder that wasn't wanted costs less than photos that were."""
+    try:
+        with engine.connect() as connection:
+            row = connection.exec_driver_sql(
+                "SELECT backup_photos FROM household ORDER BY id LIMIT 1"
+            ).first()
+    except Exception:
+        return True
+    return True if row is None or row[0] is None else bool(row[0])
+
+
+def safety_copy(
+    engine: Engine, backups: Path, now: datetime | None = None, photos: Path | None = None
+) -> Path | None:
     """Copy the database before upgrading it (cabledrawer 28 Oct, review of v0.6.0): SQLite's own
     backup, which gives a consistent copy while the database is in use (WAL included), to
     `backups/pre-upgrade-<current revision>-<UTC date>.db`. Old copies are trimmed by
     `upgrade`, and only once the upgrade has worked.
 
     Nothing is copied for a new database or one that is already up to date. Returns the copy,
-    or None. Raises SafetyCopyFailed if the copy can't be made: then don't upgrade."""
+    or None. Raises SafetyCopyFailed if the copy can't be made: then don't upgrade.
+
+    With `photos` (the folder of photo files), the copy gets a photo folder beside it too
+    (`pre-upgrade-<revision>-<stamp>-photos/`, mealwright.backups) unless the household has left
+    photos out (Settings → Your data → Include photos), so going back by it brings them back."""
     if sqlite_file(engine) is None:
         return None
     revision = current_revision(engine)
@@ -107,7 +134,12 @@ def safety_copy(engine: Engine, backups: Path, now: datetime | None = None) -> P
     # there: a second start in the same second could be copying a half-upgraded database.
     try:
         make_folder(backups)
-        target = copy_to_free_name(engine, backups, f"pre-upgrade-{revision}-{stamp}")
+        target = copy_to_free_name(
+            engine,
+            backups,
+            f"pre-upgrade-{revision}-{stamp}",
+            photos if photos is not None and include_photos(engine) else None,
+        )
     except (OSError, sqlite3.Error) as error:
         raise SafetyCopyFailed(
             f"Couldn't make a safety copy of the database in {backups} before upgrading it "
@@ -128,6 +160,8 @@ def _drop_stale_parts(backups: Path) -> None:
                 path.unlink(missing_ok=True)
             except OSError as error:
                 log.warning("Couldn't remove the half-written copy %s: %s", path, error)
+    # A half-made photo folder, or one whose copy is gone.
+    drop_orphan_photos(backups, SAFETY_COPY_NAME)
 
 
 def _keep_newest(backups: Path, also: str | None = None) -> None:
@@ -141,7 +175,7 @@ def _keep_newest(backups: Path, also: str | None = None) -> None:
             copies.append((found.group(2), int(found.group(3) or 1), path))
     copies.sort(reverse=True)  # newest first: by time, then -2 after the first of that second
     for _stamp, _number, path in copies[SAFETY_COPIES_KEPT:]:
-        path.unlink(missing_ok=True)
+        remove_copy(path)  # with the photo folder beside it
 
 
 def _made_on(name: str) -> str:
@@ -166,9 +200,15 @@ def _failed_before(backups: Path) -> str | None:
         ) from error
 
 
-def upgrade(engine: Engine, revision: str = "head", backups: Path | None = None) -> None:
+def upgrade(
+    engine: Engine,
+    revision: str = "head",
+    backups: Path | None = None,
+    photos: Path | None = None,
+) -> None:
     """Bring the database up to `revision`. With `backups` (on start-up), a safety copy is
-    made there first, and nothing is upgraded if it fails. While an upgrade keeps failing,
+    made there first (with the photos in `photos`, if the household wants them: see
+    `safety_copy`), and nothing is upgraded if it fails. While an upgrade keeps failing,
     no new copy is made and nothing is trimmed (see UPGRADE_FAILED); once it works, old
     copies are trimmed, keeping the clean one from before the trouble."""
     if backups is None:
@@ -194,7 +234,7 @@ def upgrade(engine: Engine, revision: str = "head", backups: Path | None = None)
         clean = None
     kept_aside = clean  # only a copy from before an earlier failure is kept beyond the three
     if clean is None:
-        copy = safety_copy(engine, backups)
+        copy = safety_copy(engine, backups, photos=photos)
         if copy is not None:
             clean = copy.name
             try:

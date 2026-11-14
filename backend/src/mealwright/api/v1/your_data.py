@@ -51,7 +51,8 @@ def _folder(request: Request) -> Path:
 
 class BackupOut(BaseModel):
     at: datetime
-    size: int = Field(description="In bytes.")
+    size: int = Field(description="In bytes, the photos included when it has them.")
+    photos: bool = Field(description="Whether it holds the recipe photos (D2, 0.9.5).")
 
 
 class BackupsOut(BaseModel):
@@ -62,6 +63,14 @@ class BackupsOut(BaseModel):
         "(Mondays 03:00), in the household's time."
     )
     keep: int = Field(description="How many of its own backups are kept, 1 to 30.")
+    photos: bool = Field(
+        description="Include the recipe photos in backups and in the safety copy made before "
+        "an upgrade (on by default; D2, 0.9.5)."
+    )
+    photos_size: int = Field(
+        description="What the recipe photos on the server come to, in bytes: what including "
+        "them adds to a backup."
+    )
     last: BackupOut | None = Field(description="The newest backup, or null when there's none.")
     problem: str | None = Field(
         description="Why the last try failed, in plain words, or null when backups work."
@@ -71,6 +80,13 @@ class BackupsOut(BaseModel):
     folder: str = Field(description="Where the backups are, on the server.")
 
 
+def _last(newest: backups.Backup) -> BackupOut:
+    size = newest.size
+    if newest.photos:
+        size += backups.photos_size(backups.photos_beside(newest.path))
+    return BackupOut(at=newest.made_at, size=size, photos=newest.photos)
+
+
 def _out(kitchen: Here, folder: Path) -> BackupsOut:
     household = kitchen.household
     found = backups.backups(folder)
@@ -78,7 +94,9 @@ def _out(kitchen: Here, folder: Path) -> BackupsOut:
     return BackupsOut(
         every=every,  # type: ignore[arg-type]
         keep=household.backup_keep,
-        last=BackupOut(at=found[0].made_at, size=found[0].size) if found else None,
+        photos=household.backup_photos,
+        photos_size=backups.photos_size(backups.photo_store(folder)),
+        last=_last(found[0]) if found else None,
         problem=household.backup_problem,
         problem_at=household.backup_problem_at,
         count=len(found),
@@ -100,11 +118,13 @@ class BackupsChange(BaseModel):
 
     every: Literal["daily", "twice-daily", "weekly"] | None = None
     keep: int | None = Field(default=None, ge=1, le=backups.KEEP_MOST)
+    photos: bool | None = None
 
 
 @router.patch("/backups")
 def change_backups(body: BackupsChange, kitchen: Here, request: Request) -> BackupsOut:
-    """Change how often and how many. Keeping fewer removes the oldest backups now."""
+    """Change how often, how many and whether photos are included. Keeping fewer removes the
+    oldest backups now. Including photos changes the backups made from now on, not those made."""
     kitchen.admin_only(Action.YOUR_DATA)
     household = kitchen.household
     folder = _folder(request)
@@ -112,10 +132,17 @@ def change_backups(body: BackupsChange, kitchen: Here, request: Request) -> Back
         household.backup_every = body.every
     if body.keep is not None:
         household.backup_keep = body.keep
+    if body.photos is not None:
+        household.backup_photos = body.photos
     kitchen.db.commit()
     if body.keep is not None:
         backups.trim(folder, body.keep)
     return _out(kitchen, folder)
+
+
+def _photos(kitchen: Here, folder: Path) -> Path | None:
+    """The folder of photo files to put in a backup, or None when the household left them out."""
+    return backups.photo_store(folder) if kitchen.household.backup_photos else None
 
 
 @router.post("/backups")
@@ -127,7 +154,9 @@ def back_up_now(kitchen: Here, request: Request) -> BackupsOut:
     folder = _folder(request)
     now = utcnow()
     try:
-        backups.back_up(engine, folder, kitchen.household.backup_keep, now)
+        backups.back_up(
+            engine, folder, kitchen.household.backup_keep, now, _photos(kitchen, folder)
+        )
     except backups.BackupFailed as error:
         backups.note_problem(kitchen.db, kitchen.household, str(error), now)
     else:
@@ -373,7 +402,9 @@ def delete_everything(
             _sign_out(request, response)
             return
         try:
-            safety = backups.before_delete_everything(engine, _folder(request))
+            safety = backups.before_delete_everything(
+                engine, _folder(request), photos=_photos(kitchen, _folder(request))
+            )
         except backups.BackupFailed as error:
             raise Problem(
                 status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -89,7 +89,11 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if settings.migrate_on_start:
             settings.data_dir.mkdir(parents=True, exist_ok=True)
-            migrate.upgrade(engine, backups=settings.data_dir / backups.FOLDER)
+            migrate.upgrade(
+                engine,
+                backups=settings.data_dir / backups.FOLDER,
+                photos=settings.data_dir / "photos",
+            )
         # After the database is open (its -wal and -shm files exist): fix older installs.
         private_files.tighten(settings.data_dir)
         # A fresh install gets a one-off setup code, printed in the log (PR A2): only

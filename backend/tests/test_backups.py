@@ -376,7 +376,7 @@ def test_a_backup_whose_name_is_taken_while_it_is_made_leaves_the_other_one(
     at = datetime(2026, 11, 1, 3, 0, tzinfo=UTC)
     real = backups.copy_database
 
-    def taken_meanwhile(engine: object, target: Path) -> None:
+    def taken_meanwhile(engine: object, target: Path, photos: Path | None = None) -> None:
         target.write_bytes(b"the other process's copy")
         real(engine, target)  # type: ignore[arg-type]
 

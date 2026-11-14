@@ -89,9 +89,13 @@ def test_it_deletes_every_row_and_photo_keeps_backups_and_starts_again(
     # The backups are kept, and a safety backup was made first, holding the data.
     after = {p.name for p in folder.iterdir()}
     assert before < after
-    (safety,) = after - before
+    # The safety backup: the database, and the photos beside it (D2, 0.9.5), so a restore
+    # brings them back.
+    (safety,) = {name for name in after - before if name.endswith(".db")}
     assert safety.startswith("before-delete-everything-")
     assert (folder / safety).stat().st_size > 0
+    assert after - before == {safety, safety.removesuffix(".db") + "-photos"}
+    assert any((folder / (safety.removesuffix(".db") + "-photos") / "1").iterdir())
     # Everyone is signed out, the admin's cookie with them.
     assert COOKIE not in kitchen.cookies
     assert kitchen.get("/api/v1/me").status_code == 401
@@ -293,7 +297,9 @@ def test_two_at_once_the_first_safety_backup_stays_whole(
     first_done = threading.Event()
     calls: list[str] = []
 
-    def in_the_same_second(engine: object, folder: Path, now: object = None) -> Path:
+    def in_the_same_second(
+        engine: object, folder: Path, now: object = None, photos: Path | None = None
+    ) -> Path:
         if not calls:
             calls.append("first")
             first_in.set()
@@ -302,7 +308,7 @@ def test_two_at_once_the_first_safety_backup_stays_whole(
             calls.append("second")
             second_in.set()
             first_done.wait(timeout=5)  # copy only once the first has deleted
-        return real(engine, folder, same_second)  # type: ignore[arg-type]
+        return real(engine, folder, same_second, photos)  # type: ignore[arg-type]
 
     second_in = threading.Event()
     monkeypatch.setattr(your_data.backups, "before_delete_everything", in_the_same_second)

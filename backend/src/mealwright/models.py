@@ -93,6 +93,8 @@ class Household(Base):
     # backup that failed, in plain words, and when: empty while backups work (mealwright.backups).
     backup_every: Mapped[str] = mapped_column(String(12), default="daily", server_default="daily")
     backup_keep: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
+    # Include the recipe photos in backups and the safety copy (0.9.5 step 16f, D2): on by default.
+    backup_photos: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("1"))
     backup_problem: Mapped[str | None] = mapped_column(String(300))
     backup_problem_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Full Onboarding (0.9 U2): false until the first admin finishes or skips the steps after
