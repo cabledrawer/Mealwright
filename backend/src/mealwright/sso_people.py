@@ -20,7 +20,7 @@ from mealwright.auth import now
 from mealwright.errors import Problem, not_found
 from mealwright.history import record
 from mealwright.models import Change, Login, Member, Session, SsoAccount, utcnow
-from mealwright.people import LINK_KIND, admins_left, login_of, mine
+from mealwright.people import LINK_KIND, admins_left, drop_join_links, login_of, mine
 from mealwright.roles import ADMIN, MEMBER
 from mealwright.sso_accounts import USERNAME, member_name, passwords_off, settings_row
 
@@ -129,6 +129,7 @@ def free_username(kitchen: Kitchen, account: SsoAccount) -> str:
 def _done(kitchen: Kitchen, account: SsoAccount, login: Login) -> None:
     login.sso_issuer, login.sso_subject = account.issuer, account.subject
     login.sso_refused_at = None
+    drop_join_links(kitchen.db, login)  # an unused sign-in link must not work again after Unlink
     account.waiting_since = None
     account.refused_at = None
     account.unlinked_at = None

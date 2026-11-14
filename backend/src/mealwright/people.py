@@ -477,6 +477,14 @@ def drop_links(db: DbSession, login: Login) -> None:
         drop_admin_links(db, login.household_id)
 
 
+def drop_join_links(db: DbSession, login: Login) -> None:
+    """Every sign-in link of this login goes, used or not: called when the login is linked to
+    single sign-on (automatically, or by an admin), so the link, which a linked login can't use,
+    doesn't work again if they are unlinked later (0.9.5 Pe3/M2, "a new link cancels the old").
+    A Reset password link stays: it is only for a login with a password."""
+    db.execute(delete(JoinLink).where(JoinLink.login_id == login.id, JoinLink.kind == JOIN))
+
+
 def drop_admin_links(db: DbSession, household_id: int) -> None:
     """Every link in the household that leads to an admin goes: every Reset password link,
     and every sign-in link for an admin's login, used or not, so one a request has claimed and

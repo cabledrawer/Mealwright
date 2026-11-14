@@ -47,7 +47,7 @@ from mealwright.events import Broadcaster
 from mealwright.models import Login, Member, Session, SsoAccount, SsoSettings
 from mealwright.names import cut_text, fold, tidy_one_line
 from mealwright.outbound import Connection, OutboundGate, switches
-from mealwright.people import admin_can_sign_in, drop_admin_links
+from mealwright.people import admin_can_sign_in, drop_admin_links, drop_join_links
 from mealwright.roles import ADMIN, MEMBER
 from mealwright.secret_box import SecretUnreadable, open_sealed, seal
 from mealwright.sso import Client, Identity, SsoFailed
@@ -477,6 +477,7 @@ def login_for(db: DbSession, row: SsoSettings, identity: Identity, data_dir: Pat
         if login is None:
             _wait(db, account)
         login.sso_issuer, login.sso_subject = identity.issuer, identity.subject
+        drop_join_links(db, login)  # an unused sign-in link must not work again after Unlink
         account.waiting_since = None
         db.flush()
         log.info("Single sign-on: %s linked on first sign-in, same username", login.username)
