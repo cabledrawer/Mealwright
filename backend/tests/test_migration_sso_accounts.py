@@ -8,7 +8,7 @@ from sqlalchemy import inspect
 from mealwright import migrate
 from mealwright.db import make_engine
 
-BEFORE = "b8e2d4f6a913"  # the line's newest before this (16b reset links)
+BEFORE = "b6e2d8f4a913"  # the line's newest before this (the Mealie import)
 ACCOUNTS = "c30b3fee4849"
 
 

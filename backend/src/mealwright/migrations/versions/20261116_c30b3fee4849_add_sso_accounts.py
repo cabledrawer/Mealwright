@@ -1,7 +1,7 @@
 """single sign-on accounts that wait for an admin
 
 Revision ID: c30b3fee4849
-Revises: b8e2d4f6a913
+Revises: b6e2d8f4a913
 Create Date: 2026-11-16 10:00:00
 
 0.9.5 step 16c (Pe3/M2, cabledrawer 13 Nov): a first single sign-on sign-in is linked automatically
@@ -19,7 +19,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "c30b3fee4849"
-down_revision: str | Sequence[str] | None = "b8e2d4f6a913"
+down_revision: str | Sequence[str] | None = "b6e2d8f4a913"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
