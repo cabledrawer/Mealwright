@@ -373,6 +373,35 @@ def named_over_and_over(
     )
 
 
+def test_only_the_foods_of_the_lines_that_are_kept_count_as_used(tmp_path: Path) -> None:
+    # Round 2, S2: a recipe of 20,000 lines, each with a food of its own, keeps 200 lines, and
+    # only those 200 foods are used (the other 19,800 were counted, and each line also searched
+    # a list, so a small file held the reader for 23 s).
+    foods = [f"{i:032x}" for i in range(20_000)]
+    database = tables(
+        recipes=[{"id": FLOUR, "name": "Noor's long list"}],
+        recipes_ingredients=[
+            {"recipe_id": FLOUR, "position": i, "food_id": key, "quantity": 1, "unit_id": None}
+            for i, key in enumerate(foods)
+        ],
+        recipe_instructions=[],
+        recipe_nutrition=[],
+        recipes_to_tags=[],
+        ingredient_foods=[{"id": key, "name": f"Lorna's food {i}"} for i, key in enumerate(foods)],
+        ingredient_units=[],
+    )
+    book = read_now(
+        make_zip(
+            tmp_path / "x.zip",
+            database,
+        )
+    )
+    (recipe,) = book.recipes
+    assert len(recipe.page.ingredients) == 200 and recipe.page.lines_cut
+    assert recipe.foods == tuple(foods[:200])
+    assert [food.key for food in book.foods] == foods[:200]
+
+
 def test_what_the_reader_hands_back_has_a_limit_on_its_text(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -386,6 +415,32 @@ def test_what_the_reader_hands_back_has_a_limit_on_its_text(
     assert len(read_now(make_zip(tmp_path / "x.zip", small)).recipes) == 3
     path = make_zip(tmp_path / "y.zip", named_over_and_over(4, 10, "Salt"))
     assert path.stat().st_size < 10_000
+    assert problem(path) == "too_big"
+
+
+def test_the_text_limit_counts_bytes_not_characters(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Round 2, S3: emoji are 4 bytes each, so a file under the limit in characters can be far
+    # over it in bytes (a 713 KB zip of emoji text grew the server by 175 MB).
+    monkeypatch.setattr(mealie_file, "MAX_BOOK_TEXT", 1_000)
+    emoji = "\U0001f336" * 150  # 150 characters, 600 bytes
+    keys = ["a" * 32, "b" * 32]
+    database = tables(
+        recipes=[{"id": key, "name": "Noor's pot"} for key in keys],
+        recipes_ingredients=[
+            {"recipe_id": key, "position": 0, "note": emoji, "quantity": 0} for key in keys
+        ],
+        recipe_instructions=[],
+        recipe_nutrition=[],
+        recipes_to_tags=[],
+        ingredient_foods=[],
+        ingredient_units=[],
+    )
+    one = tables(**{**database, "recipes": database["recipes"][:1]})  # type: ignore[index]
+    one["recipes_ingredients"] = database["recipes_ingredients"][:1]  # type: ignore[index]
+    assert len(read_now(make_zip(tmp_path / "x.zip", one)).recipes) == 1  # 600 bytes: fits
+    path = make_zip(tmp_path / "y.zip", database)  # 300 characters, 1,200 bytes
     assert problem(path) == "too_big"
 
 

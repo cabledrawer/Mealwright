@@ -66,7 +66,7 @@ MAX_FOODS = 20_000
 # import, so a small file that names one long ingredient a million times is refused instead.
 # A big real Mealie backup (5,000 recipes of 15 lines and 10 steps) is about 125,000 lines.
 MAX_BOOK_LINES = 250_000
-MAX_BOOK_TEXT = 24_000_000  # characters
+MAX_BOOK_TEXT = 24_000_000  # UTF-8 bytes: memory goes by bytes (round 2, S3)
 MAX_TAGS = page_reader.MAX_TAGS
 
 # The child's budget. Reading database.json for a few hundred recipes is well under a second
@@ -400,11 +400,11 @@ def _book(tables: dict[str, object], photos: dict[str, tuple[str, int]]) -> Meal
         page = recipe.page
         lines_left -= len(page.ingredients) + len(page.steps)
         text_left -= (
-            len(page.name)
-            + len(page.description or "")
-            + sum(len(line.text) for line in (*page.ingredients, *page.steps))
-            + sum(len(tag) for tag in page.tags)
-            + len(recipe.source or "")
+            _bytes(page.name)
+            + _bytes(page.description or "")
+            + sum(_bytes(line.text) for line in (*page.ingredients, *page.steps))
+            + sum(_bytes(tag) for tag in page.tags)
+            + _bytes(recipe.source or "")
         )
         if lines_left < 0 or text_left < 0:
             raise MealieFileProblem("too_big")
@@ -419,6 +419,10 @@ def _book(tables: dict[str, object], photos: dict[str, tuple[str, int]]) -> Meal
         foods=tuple(MealieFood(key, name) for key, name in foods.items() if key in used),
         left_out=left_out,
     )
+
+
+def _bytes(text: str) -> int:
+    return len(text.encode("utf-8"))
 
 
 def _unit_name(row: dict[str, object]) -> str:
@@ -443,15 +447,18 @@ def _recipe(
     # (drafts.NO_NAME), never dropped without a word (round 1, review 6).
     name = _text(row.get("name"), page_reader.MAX_NAME)
     ingredients: list[PageLine] = []
-    used: list[str] = []
+    named: list[str | None] = []  # the Mealie food of each entry of `ingredients`, if any
     for line in sorted(line_rows, key=_position):
         if (title := _text(line.get("title"), page_reader.MAX_HEADING)) != "":
             ingredients.append(PageLine(text=title, heading=True))
+            named.append(None)
         text, food = _ingredient(line, foods, units)
         if text:
             ingredients.append(PageLine(text=text, heading=False))
-        if food and food not in used:
-            used.append(food)
+            named.append(food)
+    # Only the foods of the lines that are kept, once each, in order (round 2, S2: no list
+    # searched for every line, and not the foods of lines cut off below).
+    used = dict.fromkeys(food for food in named[: page_reader.MAX_LINES] if food)
     steps: list[PageLine] = []
     for step in sorted(step_rows, key=_position):
         if (title := _text(step.get("title"), page_reader.MAX_HEADING)) != "":

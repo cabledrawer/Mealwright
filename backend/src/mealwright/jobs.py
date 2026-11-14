@@ -116,9 +116,13 @@ def purge_removed_ingredients(factory: sessionmaker[Session], now: datetime | No
         try:
             if tidied := tidy_mealie(db, now):
                 log.info("Deleted %d Mealie files nobody brought in", tidied)
-        except Exception:
+        except Exception as why:
             db.rollback()
-            log.exception("Couldn't tidy Mealie files (will try again within the hour)")
+            # The kind of failure only: a traceback could carry the file's path (round 2, S5).
+            log.warning(
+                "Couldn't tidy Mealie files (%s; will try again within the hour)",
+                type(why).__name__,
+            )
         try:
             households = list(db.scalars(select(Household)))
         except Exception:

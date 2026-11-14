@@ -429,6 +429,23 @@ def test_tidy_lets_an_unused_file_go_after_a_day(kitchen: TestClient, raw: bytes
     assert mealie_files(kitchen) == []
 
 
+def test_a_failed_tidy_logs_the_kind_of_failure_not_a_traceback(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Round 2, S5: a traceback could carry the stored file's path.
+    from mealwright import jobs
+
+    def broken(db: Any, now: Any = None) -> int:
+        raise OSError("/data/mealie/secret-path/abc.zip")
+
+    monkeypatch.setattr(mealie_import, "tidy", broken)
+    with caplog.at_level("WARNING", logger="mealwright.jobs"):
+        jobs.purge_removed_ingredients(kitchen.app.state.sessionmaker)  # type: ignore[attr-defined]
+    (record,) = [r for r in caplog.records if "tidy Mealie" in r.getMessage()]
+    assert record.exc_info is None and "OSError" in record.getMessage()
+    assert "secret-path" not in caplog.text
+
+
 def test_the_hourly_tidy_looks_at_mealie_files_once(
     kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -965,6 +982,27 @@ def test_a_nameless_recipe_is_not_doubled_by_a_second_import(
             len(db.scalars(select(ImportDraft).where(ImportDraft.name == drafts.NO_NAME)).all())
             == 1
         )
+
+
+def test_only_the_ingredients_of_the_kept_lines_are_counted_and_added(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    # Round 2, S2: a recipe of 250 lines, each with its own food, keeps 200; the preview and the
+    # import count and add only those 200 ingredients (it said 250).
+    foods = [f"{i:032x}" for i in range(1, 251)]
+    data = {
+        **database(),
+        "recipes": [recipe("a" * 32, "Noor's long list")],
+        "recipes_ingredients": [line("a" * 32, i, "", key, 100) for i, key in enumerate(foods)],
+        "recipe_instructions": [],
+        "ingredient_foods": [
+            {"id": key, "name": f"Lorna's food {i}"} for i, key in enumerate(foods)
+        ],
+        "recipes_to_tags": [],
+    }
+    raw = zipped(tmp_path / "long.zip", data, photo=False)
+    assert upload(kitchen, raw).json()["preview"]["foods_new"] == 200
+    assert bring_in(kitchen, raw)["counts"]["new_foods"] == 200
 
 
 def test_odd_names_come_in_tidied_and_match_what_is_here(
