@@ -27,9 +27,15 @@
         in UTC).
       </li>
       <li>
-        <strong>Not the photos.</strong> They are files in <code>data/photos</code>, and a restore
-        leaves them where they are. Copy the data folder (or at least <code>backups</code> and
-        <code>photos</code>) to another disk or your NAS as well.
+        <strong>The photos, when Include photos was on</strong> (it is, unless an admin switched it
+        off): a folder beside the database file, named like it with <code>-photos</code> in place of
+        <code>.db</code>, for example
+        <code>data/backups/backup-&lt;date&gt;-&lt;time&gt;-photos</code>. A backup made with
+        Include photos off, by an older version, or when there were no photos has none: restoring it
+        keeps the photos already on the server, and a recipe whose photo file is missing shows no
+        photo. Copy the data folder (or at least <code>backups</code> and
+        <code>photos</code>) to another disk or your NAS as well. The folders are mostly links, so
+        use <code>tar</code> or <code>restic</code>, or <code>rsync -aH</code>.
       </li>
       <li>
         <strong>Leave out <code>logs</code>.</strong> It holds the sign-in lines, which Mealwright
@@ -44,7 +50,8 @@
       </li>
       <li>
         The copies made before an upgrade (<code>pre-upgrade-…</code>) and before Delete everything
-        (<code>before-delete-everything-…</code>) restore the same way.
+        (<code>before-delete-everything-…</code>) restore the same way, with their own photos
+        folders.
       </li>
     </ul>
   </section>
@@ -77,6 +84,16 @@ sudo chmod 600 data/mealwright.db</code
           ></pre>
       </li>
       <li>
+        Put the photos back, if the backup has a photos folder (the same name as the
+        <code>.db</code> file you picked, with <code>-photos</code> in place of <code>.db</code>);
+        skip this when there is none. It adds them to the photos already there:
+        <pre><code
+            >sudo mkdir -p data/photos
+sudo cp -a data/backups/backup-&lt;date&gt;-&lt;time&gt;-photos/. data/photos/
+sudo chown -R 10001:10001 data/photos</code
+          ></pre>
+      </li>
+      <li>
         Start it, and check:
         <pre><code
             >docker compose up -d
@@ -95,8 +112,8 @@ docker compose logs -f</code
       <li>Install Mealwright, the same version or a newer one, but don’t start it yet.</li>
       <li>
         Copy your copy of the data folder into <code>&lt;folder&gt;/data</code>. With only a backup
-        file, put it there as <code>mealwright.db</code>, with your copy of
-        <code>photos</code> beside it.
+        file, put it there as <code>mealwright.db</code>, with the backup’s photos folder (or your
+        own copy of <code>photos</code>) as <code>data/photos</code>.
       </li>
       <li>
         Give it to Mealwright’s user:

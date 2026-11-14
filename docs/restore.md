@@ -13,10 +13,22 @@ is `/data` inside the container).
 - **The database**: every recipe, plan, list, pantry item, person, login and setting. One file,
   `data/backups/backup-<date>-<time>.db` (the date and time in UTC).
 - **The single sign-on client secret opens only with `data/secret.key`** (proposed, for cabledrawer). A backup keeps the secret sealed; on a new server without that key file, Mealwright can't open it, password sign-in works again, and an admin types the secret again in Settings → Sign-in → Single sign-on. An admin who has only ever signed in with single sign-on has no password: run the `reset-admin` command for them first (proposed, for cabledrawer). An export leaves the secret out altogether, and API tokens too: make new ones.
-- **Not the photos.** Recipe photos are files in `data/photos`. A restore leaves them where they
-  are. If the disk itself is lost, the photos come back only from a copy of the whole data
-  folder, so copy the data folder (or at least `backups` and `photos`) to another disk or your
-  NAS as well. Backups on the same disk as Mealwright go when the disk goes.
+- **The photos, when "Include photos" was on** (it is on unless an admin switched it off in
+  Settings → Your data): a folder beside the database file with the same name and `-photos` in
+  place of `.db`, for example `data/backups/backup-<date>-<time>-photos`. It holds the recipe
+  photos as they were when the backup was made, in the same `photos/<number>/` layout as
+  `data/photos`. A backup made before 0.9.5, one made with "Include photos" off, or one made when
+  there were no photos has **no** photos folder. Restoring such a backup **keeps the photos
+  already on the server**; a recipe whose photo file is missing just shows no photo (a plain
+  coloured square in the list, nothing on the recipe's page), and nothing else is affected. If the
+  disk itself is lost, those photos come back only from a copy of the whole data folder, so copy the
+  data folder (or at least `backups` and `photos`) to another disk or your NAS as well. Backups on
+  the same disk as Mealwright go when the disk goes.
+- **The photo folders are mostly links, not copies** (proposed, for cabledrawer). Mealwright makes them
+  with hard links, so a photo that hasn't changed takes no extra room however many backups hold it.
+  A copy of the `backups` folder to another disk is a full copy of the photos in it: use `tar` or
+  `restic`, or `rsync -aH`, which keep the links together on the way (plain `rsync -a` copies each
+  one in full, once per backup).
 - **Mealwright's own backups are the safe copy of the database.** A copy of the data folder
   taken while Mealwright runs can catch `mealwright.db` and its `-wal` and `-shm` files at
   different moments. The files in `backups` are whole and complete, so a restore uses the newest
@@ -31,7 +43,9 @@ is `/data` inside the container).
   With `rsync`, add `--exclude=logs/`.
 - Other copies in the same folder: `pre-upgrade-….db` (made before a version upgrades the
   database) and `before-delete-everything-….db` (made before Delete everything). They restore
-  the same way.
+  the same way, with their own `-photos` folders (they follow the same "Include photos" choice).
+  A `before-delete-everything-…` copy is the way to bring back the photos Delete everything
+  removed, as long as "Include photos" was on.
 
 ## Restore on the same server
 
@@ -63,7 +77,17 @@ is `/data` inside the container).
 
    (`mv` says nothing when a `-wal` or `-shm` file isn't there; that is fine.)
 
-4. **Start it, and check.**
+4. **Put the photos back, if the backup has a photos folder** (the same name as the `.db` file
+   you picked, with `-photos` in place of `.db`). `cp -a` adds them to the photos already there,
+   so nothing is lost; skip this step when there is no such folder:
+
+   ```bash
+   sudo mkdir -p data/photos
+   sudo cp -a data/backups/backup-<date>-<time>-photos/. data/photos/
+   sudo chown -R 10001:10001 data/photos
+   ```
+
+5. **Start it, and check.**
 
    ```bash
    docker compose up -d
@@ -82,8 +106,12 @@ is `/data` inside the container).
 2. Copy your copy of the data folder into `<folder>/data`. Then put the newest
    `data/backups/backup-….db` in as `mealwright.db`, and delete any copied `mealwright.db-wal`
    and `mealwright.db-shm` (a copy of the database taken while Mealwright was running may be
-   half-written; the backup file is not). If you have only a backup file, make `<folder>/data`
-   with the backup in it as `mealwright.db`, and your copy of `photos` beside it.
+   half-written; the backup file is not). If the backup has a photos folder
+   (`backup-<date>-<time>-photos`), copy its contents into `<folder>/data/photos` too (a plain
+   copy of the folders; if your copy of `data/photos` is newer, it is already more complete, so
+   add only what is missing). If you have only a backup file, make `<folder>/data` with the
+   backup in it as `mealwright.db`, and the photos folder from the backup (or your own copy of
+   `photos`) as `<folder>/data/photos`.
 3. Give it to Mealwright's user:
 
    ```bash

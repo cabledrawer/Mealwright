@@ -48,3 +48,18 @@ def test_a_copy_of_the_data_folder_leaves_the_logs_out() -> None:
     for commands in (_doc_commands(), _screen_commands()):
         (copy,) = [block for block in commands if " -czf " in block]
         assert "--exclude=data/logs" in copy
+
+
+def test_both_put_the_photos_back_with_the_same_commands() -> None:
+    """D2 (0.9.5): a backup's photo folder goes back with `cp -a`, which adds to the photos
+    already there; the screen and the doc say so in one block, in the same place."""
+    for commands in (_doc_commands(), _screen_commands()):
+        (back,) = [block for block in commands if "-photos/." in block]
+        assert back.splitlines() == [
+            "sudo mkdir -p data/photos",
+            "sudo cp -a data/backups/backup-<date>-<time>-photos/. data/photos/",
+            "sudo chown -R 10001:10001 data/photos",
+        ]
+        # After the database is in place, before Mealwright starts.
+        blocks = [block for block in commands if "cp data/backups" in block or "up -d" in block]
+        assert commands.index(blocks[0]) < commands.index(back) < commands.index(blocks[1])
