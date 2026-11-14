@@ -41,6 +41,7 @@
   import { removeRecipe } from '#lib/recipes/remove.js';
   import { toasts } from '#lib/toast.svelte.js';
   import { ApiError } from '#lib/api.js';
+  import { printing, watchPrinting } from '#lib/printing.svelte.js';
   import { lineAmount, makesAmount } from '#lib/recipeAmounts.js';
   import { RecipeView, stepGroups } from '#lib/recipePage.svelte.js';
   import { markFor, toAdd } from '#lib/recipeStock.js';
@@ -195,6 +196,8 @@
         )
       : []
   );
+  // On paper the footer line exists (the print layout, Print-Recipe095-A4).
+  $effect(() => watchPrinting());
   const steps = $derived(stepGroups(recipe?.steps ?? []));
   const meta = $derived.by(() => {
     if (!recipe) return [];
@@ -468,6 +471,13 @@
           {:else}
             {recipe.source_note}
           {/if}
+        </p>
+      {/if}
+      {#if printing.on}
+        <!-- Only on paper (mockup Print-Recipe095-A4; proposed, for cabledrawer). -->
+        <p class="foot">
+          From Mealwright{view.servesNow !== null ? ` · amounts for ${view.servesNow}` : ''} · photo left
+          off to save ink
         </p>
       {/if}
     </article>
@@ -932,5 +942,103 @@
     font-size: var(--text-base);
     font-weight: var(--weight-bold);
     cursor: pointer;
+  }
+
+  /* On paper (mockup Print-Recipe095-A4; proposed, for cabledrawer): the title, the figures, the
+     ingredients in two columns and the method, in dark ink on white, with no photo, buttons or
+     links to other screens. The ingredients are as many as the servings now chosen. */
+  .foot {
+    display: none;
+  }
+
+  @media print {
+    .top,
+    .next-draft,
+    .actions,
+    .method-switch,
+    .back,
+    .crumbs {
+      display: none !important;
+    }
+    .page,
+    .page.panes {
+      display: block;
+      max-width: none;
+      width: auto;
+      margin: 0;
+      padding: 0;
+    }
+    .recipe,
+    .recipe :global(*) {
+      color: #1a1f1c !important;
+      background: transparent !important;
+      border-color: #c9cfcb !important;
+      box-shadow: none !important;
+    }
+    .recipe {
+      display: block;
+      font-size: 15px;
+    }
+    .recipe h1 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      break-after: avoid;
+    }
+    .recipe h2 {
+      margin: 28px 0 8px;
+      font-size: 18px;
+      font-weight: 800;
+      break-after: avoid;
+    }
+    .recipe h3 {
+      break-after: avoid;
+    }
+    .meta {
+      margin: 6px 0 0;
+      font-size: 13px;
+      color: #4a524d !important;
+    }
+    .card {
+      padding: 0;
+      border-radius: 0;
+    }
+    .lines {
+      columns: 2;
+      column-gap: 32px;
+    }
+    .lines li {
+      break-inside: avoid;
+      padding: 4px 0;
+      border-bottom: 1px solid #dde2df !important;
+    }
+    .method ol {
+      gap: 0;
+      margin: 0;
+      font-size: 15px;
+    }
+    .method li {
+      margin: 0 0 10px;
+      break-inside: avoid;
+      text-wrap: pretty;
+    }
+    .tags {
+      display: none;
+    }
+    .source {
+      margin-top: 16px;
+      font-size: 12px;
+      color: #4a524d !important;
+    }
+    .foot {
+      display: block;
+      margin-top: 32px;
+      padding-top: 10px;
+      border-top: 1px solid #c9cfcb;
+      font-size: 12px;
+      color: #4a524d !important;
+      break-inside: avoid;
+    }
   }
 </style>

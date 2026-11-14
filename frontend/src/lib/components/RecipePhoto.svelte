@@ -60,4 +60,11 @@
     height: auto;
     min-height: 150px;
   }
+
+  /* The printed recipe has no photo (cabledrawer 13 Nov). */
+  @media print {
+    .frame {
+      display: none;
+    }
+  }
 </style>

@@ -72,4 +72,11 @@
     font-weight: var(--weight-bold);
     text-align: center;
   }
+
+  /* On paper only the words stay ("Serves 4"). */
+  @media print {
+    button {
+      display: none;
+    }
+  }
 </style>

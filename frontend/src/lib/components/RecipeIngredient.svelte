@@ -181,4 +181,12 @@
   .label.short {
     color: var(--color-use-soon-text);
   }
+
+  /* On paper: no pantry dots or marks, and the line is not a button. */
+  @media print {
+    .dot,
+    .label {
+      display: none;
+    }
+  }
 </style>

@@ -16,6 +16,7 @@
   import DoubleTickCard from '#lib/components/shopping/DoubleTickCard.svelte';
   import ItemRow from '#lib/components/shopping/ItemRow.svelte';
   import ListPicker from '#lib/components/shopping/ListPicker.svelte';
+  import PrintSheet from '#lib/components/shopping/PrintSheet.svelte';
   import PutAwayPanel from '#lib/components/shopping/PutAwayPanel.svelte';
   import StaplesCard from '#lib/components/shopping/StaplesCard.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
@@ -23,10 +24,13 @@
   import { keepFocus } from '#lib/focusNear.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
+  import { printing, watchPrinting } from '#lib/printing.svelte.js';
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { inTrolleyOrder, joinTrolley, linesOf } from '#lib/shopping/view.js';
 
   const model = new ShoppingModel();
+  // On paper the page is the plain sheet of what is left to buy (PrintSheet).
+  $effect(() => watchPrinting());
   const uid = $props.id();
 
   const WIDE = '(min-width: 768px)';
@@ -506,6 +510,10 @@
       </aside>
     {/if}
   </div>
+{/if}
+
+{#if printing.on && model.loaded && model.list}
+  <PrintSheet groups={model.groups} builtFrom={model.builtFrom} />
 {/if}
 
 <style>
