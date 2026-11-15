@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { changePints, getHousehold } from './household';
 import { askServer } from '../offline/opening';
+import { runWipeHooks } from '../offline/wipeHooks';
+import { sessionEnded } from '../api';
 
 type Wait = { url: string; method: string; answer: (body: unknown, status?: number) => void };
 
@@ -65,6 +67,23 @@ describe('reading the household', () => {
     await change;
     expect(((await before) as { pints: string }).pints).toBe('uk');
     expect(((await after) as { pints: string }).pints).toBe('us');
+  });
+
+  it('does not hand a read that began before a wipe, or a session end, to someone who asks after', async () => {
+    for (const forget of [runWipeHooks, sessionEnded]) {
+      server.asked.length = 0;
+      const before = getHousehold();
+      await settle();
+      forget();
+      const after = getHousehold();
+      await settle();
+      const reads = server.asked.filter((a) => a.method === 'GET');
+      expect(reads).toHaveLength(2); // asked afresh, not joined to the first person's question
+      reads[0]!.answer({ name: 'Sam’s household' });
+      reads[1]!.answer({ name: 'Lorna’s household' });
+      expect(((await before) as { name: string }).name).toBe('Sam’s household');
+      expect(((await after) as { name: string }).name).toBe('Lorna’s household');
+    }
   });
 });
 

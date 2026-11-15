@@ -1,6 +1,7 @@
 // The household's settings (contract 6.3).
 
-import { api } from '#lib/api.js';
+import { api, forgetWhenSessionEnds } from '#lib/api.js';
+import { forgetOnWipe } from '#lib/offline/wipeHooks.js';
 import type { AmountsShown, Household, Pints } from './types';
 
 /** The household's settings. Screens that open together ask at the same moment (the sidebar, the
@@ -8,8 +9,18 @@ import type { AmountsShown, Household, Pints } from './types';
  * work; proposed, for cabledrawer). Each later read asks again, and a change drops a question still
  * on its way, so nobody is given an answer older than their own change. */
 let reading: Promise<Household> | null = null;
-export const getHousehold = (): Promise<Household> =>
-  (reading ??= api<Household>('GET', '/household').finally(() => (reading = null)));
+export const getHousehold = (): Promise<Household> => {
+  if (reading) return reading;
+  const asked: Promise<Household> = api<Household>('GET', '/household').finally(() => {
+    if (reading === asked) reading = null;
+  });
+  return (reading = asked);
+};
+// A question still on its way when a sign-in ends or the browser is wiped is never handed to
+// anyone who asks afterwards: they ask afresh, as the next person.
+const forgetRead = () => (reading = null);
+forgetOnWipe(forgetRead);
+forgetWhenSessionEnds(forgetRead);
 /** A change to the household: a read still on its way is dropped (also used by people.svelte.ts). */
 export const changed = <T>(answer: Promise<T>): Promise<T> => {
   reading = null;
