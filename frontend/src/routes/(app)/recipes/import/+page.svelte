@@ -73,7 +73,7 @@
       {#snippet actions()}<ImportSteps step={1} />{/snippet}
     </PageHeader>
   {/if}
-  <ImportStart {flow} photosOff={privacy.photosOff} />
+  <ImportStart {flow} photosOff={privacy.photosOff} linksOff={privacy.linksOff} />
 {/if}
 
 {#if flow.already}

@@ -4,7 +4,8 @@
   // Mealwright works out which. A link needs "Recipe import from links" to be on; pasted text
   // never goes online. Online only: offline, the box says it needs the server and nothing is
   // queued. Under "How it works", a note says photos aren't downloaded while that switch is
-  // off (`photosOff`: true only when the server has said so, never on a guess).
+  // off (`photosOff`: true only when the server has said so, never on a guess). `linksOff` is the same
+  // for the links switch: the link chip says it is off instead of "your server visits this page".
   import { resolve } from '$app/paths';
   import { tick } from 'svelte';
   import Icon from '#lib/components/Icon.svelte';
@@ -33,7 +34,11 @@
   import { offlineNote, PASTE_INSTEAD_STEPS, type ImportFlow } from '#lib/import.svelte.js';
 
   import '#lib/styles/fields.css';
-  let { flow, photosOff = false }: { flow: ImportFlow; photosOff?: boolean } = $props();
+  let {
+    flow,
+    photosOff = false,
+    linksOff = false
+  }: { flow: ImportFlow; photosOff?: boolean; linksOff?: boolean } = $props();
 
   const uid = $props.id();
   let box = $state<HTMLTextAreaElement>();
@@ -90,7 +95,12 @@
     <p class="limit" id="{uid}-limit">{pasteLimitWords()}</p>
 
     <p class="kind" id="{uid}-kind" aria-live="polite">
-      {#if kind === 'link'}
+      {#if kind === 'link' && linksOff}
+        <!-- F239: the green "your server visits this page" is true only while the switch is on. -->
+        <span class="chip"
+          ><Icon name="link" size={18} stroke={2.2} />Importing from links is switched off</span
+        >
+      {:else if kind === 'link'}
         <span class="chip good"
           ><Icon name="link" size={18} stroke={2.2} />{#if several}{linksHeading(
               flow.linkCount

@@ -91,6 +91,11 @@ class Privacy {
     return this.loaded && !this.loading && this.problem === null && !this.switches.recipe_photos;
   }
 
+  /** True only when the server has said recipe import from links is off (never on a guess). */
+  get linksOff(): boolean {
+    return this.loaded && !this.loading && this.problem === null && !this.switches.recipe_import;
+  }
+
   /** Fetch both (again, if already loaded: what's shown stays until the answer). */
   async load(): Promise<void> {
     const generation = this.#generation;

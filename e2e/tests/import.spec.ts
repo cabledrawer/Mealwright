@@ -131,14 +131,14 @@ test('Recipes has an Import item (the sidebar, or a button on a phone) that open
 });
 
 /** The server's answer to GET /privacy/switches, made up in the browser. */
-const photoSwitch = (page: Page, on: boolean) =>
+const photoSwitch = (page: Page, on: boolean, links = false) =>
   page.route('**/api/v1/privacy/switches', (route: Route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         switches: [
-          { connection: 'recipe_import', on: false },
+          { connection: 'recipe_import', on: links },
           { connection: 'recipe_photos', on },
         ],
         can_change: true,
@@ -166,13 +166,26 @@ test('the box says nothing about photos when the switch can’t be read', async 
 });
 
 test('the box says whether it thinks it is a link or pasted text', async ({ page }) => {
+  await photoSwitch(page, false, true);
+  const answered = page.waitForResponse('**/api/v1/privacy/switches');
   await page.goto('/recipes/import');
+  await answered;
   await box(page).fill('https://bananaleaf.example/sambar/');
   await expect(page.getByText('A link · your server visits this page once')).toBeVisible();
   await box(page).fill('Sambar\n1 cup toor dal');
   await expect(page.getByText('Pasted text · nothing goes online')).toBeVisible();
   await expect(read(page)).toBeEnabled();
   await checkPage(page);
+});
+
+test('F239: with Recipe import from links off, a link is not "your server visits this page once"', async ({ page }) => {
+  await photoSwitch(page, false, false);
+  const answered = page.waitForResponse('**/api/v1/privacy/switches');
+  await page.goto('/recipes/import');
+  await answered;
+  await box(page).fill('https://bananaleaf.example/sambar/');
+  await expect(page.locator('.chip', { hasText: 'Importing from links is switched off' })).toBeVisible();
+  await expect(page.getByText('your server visits this page once')).toHaveCount(0);
 });
 
 test('importing from links is switched off (as it starts), and pasted text still works', async ({ page }) => {

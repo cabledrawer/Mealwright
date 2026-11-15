@@ -150,6 +150,18 @@ describe('Import a recipe', () => {
       await expect.element(page.getByText('Pasted text · nothing goes online')).toBeVisible();
     });
 
+    it('with the links switch off, a link says so and not "your server visits this page" (F239)', async () => {
+      const flow = new ImportFlow();
+      component = mount(ImportStart, { target: document.body, props: { flow, linksOff: true } });
+      flow.text = 'https://kitchen.example/dal';
+      flushSync();
+      await expect.element(page.getByText('Importing from links is switched off')).toBeVisible();
+      expect(page.getByText('your server visits this page', { exact: false }).query()).toBeNull();
+      flow.text = 'Sambar\n1 onion';
+      flushSync();
+      await expect.element(page.getByText('Pasted text · nothing goes online')).toBeVisible();
+    });
+
     it('says several links are read one after another (F110)', async () => {
       const flow = new ImportFlow();
       show(flow);
