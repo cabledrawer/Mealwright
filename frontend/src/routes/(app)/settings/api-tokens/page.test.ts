@@ -134,6 +134,7 @@ describe('Settings → Sign-in → API tokens', () => {
 
     await userEvent.click(page.getByRole('button', { name: 'Copy' }));
     expect(writeText).toHaveBeenCalledWith(SECRET);
+    await expect.element(page.getByRole('button', { name: 'Copied' })).toBeVisible();
     await userEvent.click(page.getByRole('button', { name: 'Done' }));
     expect(document.body.textContent).not.toContain(SECRET);
     await expect.element(page.getByRole('button', { name: 'Make token' })).toBeVisible();

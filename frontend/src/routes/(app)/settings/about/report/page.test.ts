@@ -145,6 +145,7 @@ describe('Report a problem (X2)', () => {
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledOnce());
     expect(writeText.mock.calls[0]![0]).toBe(body());
     expect(toasts.current?.message).toBe('Report copied');
+    await expect.element(page.getByRole('button', { name: 'Copied' })).toBeVisible();
   });
 
   it('says so when the clipboard refuses', async () => {

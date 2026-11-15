@@ -25,6 +25,7 @@
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
   import TextField from '#lib/components/TextField.svelte';
+  import { CopyFeedback } from '#lib/copyFeedback.svelte.js';
   import { radioKeys } from '#lib/radioKeys.js';
   import { session } from '#lib/session.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -62,7 +63,7 @@
   let done = $state('');
   /** The server's notice after a save: password sign-in is on again. */
   let notice = $state('');
-  let copied = $state(false);
+  const copier = new CopyFeedback();
   let testing = $state(false);
   let testProblem = $state('');
   let linking = $state(false);
@@ -137,11 +138,7 @@
   }
 
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(redirect);
-      copied = true;
-    } catch {
-      copied = false;
+    if (!(await copier.copy(redirect))) {
       toasts.show('Couldn’t copy. Select the address and copy it.', { tone: 'problem' });
     }
   }
@@ -286,7 +283,7 @@
         <div class="callback">
           <span class="mono address" aria-labelledby="sso-callback-label">{redirect}</span>
           <button type="button" class="small" onclick={() => void copy()}
-            >{copied ? 'Copied' : 'Copy'}</button
+            >{copier.label('Copy')}</button
           >
         </div>
         {#if saved?.redirect_uri && saved.redirect_uri !== redirect}

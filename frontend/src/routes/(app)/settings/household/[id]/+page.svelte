@@ -25,6 +25,7 @@
     type PersonChange,
     type Role
   } from '#lib/client/people.js';
+  import { CopyFeedback } from '#lib/copyFeedback.svelte.js';
   import { dayMonthWords } from '#lib/dates.js';
   import { network } from '#lib/network.svelte.js';
   import { household, sentence } from '#lib/people.svelte.js';
@@ -310,11 +311,13 @@
     }
   }
 
-  async function copy(url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
+  const resetCopier = new CopyFeedback();
+  const linkCopier = new CopyFeedback();
+
+  async function copy(url: string, copier: CopyFeedback) {
+    if (await copier.copy(url)) {
       toasts.show('Link copied');
-    } catch {
+    } else {
       toasts.show('Couldn’t copy. Select the link and copy it.', { tone: 'problem' });
     }
   }
@@ -495,8 +498,8 @@
               >
               <span class="mono">{resetUrl}</span>
             </div>
-            <button class="quiet" type="button" onclick={() => void copy(resetUrl)}
-              >Copy the link</button
+            <button class="quiet" type="button" onclick={() => void copy(resetUrl, resetCopier)}
+              >{resetCopier.label('Copy the link')}</button
             >
           {:else if login.reset_pending && canReset}
             <p class="sub">{person.name} hasn’t used the reset link yet.</p>
@@ -524,8 +527,8 @@
             >
             <span class="mono">{linkUrl}</span>
           </div>
-          <button class="quiet" type="button" onclick={() => void copy(linkUrl)}
-            >Copy the link</button
+          <button class="quiet" type="button" onclick={() => void copy(linkUrl, linkCopier)}
+            >{linkCopier.label('Copy the link')}</button
           >
         {:else if !login}
           <button

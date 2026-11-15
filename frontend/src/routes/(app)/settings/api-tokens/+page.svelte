@@ -18,6 +18,7 @@
     type Ends,
     type TokenScope
   } from '#lib/apiTokens.js';
+  import { CopyFeedback } from '#lib/copyFeedback.svelte.js';
   import { addDays } from '#lib/dates.js';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Icon from '#lib/components/Icon.svelte';
@@ -104,12 +105,13 @@
     }
   }
 
+  const copier = new CopyFeedback();
+
   async function copy() {
     if (made === null) return;
-    try {
-      await navigator.clipboard.writeText(made);
+    if (await copier.copy(made)) {
       toasts.show('Token copied');
-    } catch {
+    } else {
       toasts.show('Couldn’t copy. Select the token and copy it.', { tone: 'problem' });
     }
   }
@@ -188,7 +190,7 @@
         </p>
         <output class="mono" aria-label="Your new token">{made}</output>
         <div class="two">
-          <button type="button" class="main" onclick={() => void copy()}>Copy</button>
+          <button type="button" class="main" onclick={() => void copy()}>{copier.label('Copy')}</button>
           <button type="button" class="other" onclick={done}>Done</button>
         </div>
       </div>

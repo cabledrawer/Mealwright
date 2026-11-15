@@ -37,6 +37,7 @@
     reportText,
     startingLines
   } from '#lib/problemReport.js';
+  import { CopyFeedback } from '#lib/copyFeedback.svelte.js';
   import { autosize } from '#lib/recipes/autosize.js';
   import { toasts } from '#lib/toast.svelte.js';
 
@@ -99,11 +100,12 @@
     });
   }
 
+  const copier = new CopyFeedback();
+
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(text);
+    if (await copier.copy(text)) {
       toasts.show(COPIED);
-    } catch {
+    } else {
       toasts.show(COPY_FAILED, { tone: 'problem' });
     }
   }
@@ -177,7 +179,7 @@
       {#if link.trimmed}<p class="quiet trimmed">{TRIMMED_NOTE}</p>{/if}
     {/if}
     <div class="pair">
-      <button type="button" class="btn2" onclick={() => void copy()}>{COPY}</button>
+      <button type="button" class="btn2" onclick={() => void copy()}>{copier.label(COPY)}</button>
       <button type="button" class="btn2" onclick={download}>{DOWNLOAD}</button>
     </div>
   {:else if loading}

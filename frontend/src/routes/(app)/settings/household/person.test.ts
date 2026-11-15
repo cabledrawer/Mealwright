@@ -349,6 +349,12 @@ describe('Settings → Household → a person', () => {
       .toBeVisible();
     await expect.element(page.getByText(`${location.origin}/join#secret-token`)).toBeVisible();
     await expect.element(page.getByRole('button', { name: 'Copy the link' })).toBeVisible();
+    // F237: the button says Copied once the link is on the clipboard.
+    const writeText = vi.fn(() => Promise.resolve());
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    await page.getByRole('button', { name: 'Copy the link' }).click();
+    await expect.element(page.getByRole('button', { name: 'Copied' })).toBeVisible();
+    expect(writeText).toHaveBeenCalledWith(`${location.origin}/join#secret-token`);
   });
 
   it('an unused link can be made again, or taken back with "Profile only"', async () => {
@@ -440,6 +446,7 @@ describe('Settings → Household → a person', () => {
     await vi.waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(`${location.origin}/reset#reset-secret`)
     );
+    await expect.element(page.getByRole('button', { name: 'Copied' })).toBeVisible();
   });
 
   it('an unused reset link says so', async () => {
