@@ -69,7 +69,9 @@ async function slowDown(page: Page) {
 const api = await request.newContext({ baseURL: BASE, storageState: state.storage, ...TLS });
 const get = async (path: string) => (await api.get(`/api/v1${path}`)).json();
 const someRecipe = (await get(`/recipes/${state.recipeIds[7]}`)) as { id: number; name: string };
-const todayPlan = (await get(`/plan?from=${state.today}&to=${state.today}`)) as { meals: { items: { name?: string; recipe_name?: string }[] }[] };
+// The household's day now, not the day it was seeded: the plan pages show from today on.
+const now = ((await get('/household')) as { today?: string }).today ?? state.today;
+const todayPlan = (await get(`/plan?from=${now}&to=${now}`)) as { meals: { items: { name?: string; recipe_name?: string }[] }[] };
 const plannedName = JSON.stringify(todayPlan).match(/"(?:recipe_name|name)":"([^"]+)"/g)?.[0]?.split('":"')[1]?.slice(0, -1) ?? '';
 
 // --- What a page counts as ready ---------------------------------------------------------------------
