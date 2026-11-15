@@ -8,23 +8,11 @@ import type { AmountsShown, Household, Pints } from './types';
  * work; proposed, for cabledrawer). Each later read asks again, and a change drops a question still
  * on its way, so nobody is given an answer older than their own change. */
 let reading: Promise<Household> | null = null;
-export const getHousehold = (): Promise<Household> => {
-  if (reading) return reading;
-  const asked = api<Household>('GET', '/household');
-  reading = asked;
-  const done = () => {
-    if (reading === asked) reading = null;
-  };
-  asked.then(done, done);
-  return asked;
-};
+export const getHousehold = (): Promise<Household> =>
+  (reading ??= api<Household>('GET', '/household').finally(() => (reading = null)));
 /** A change to the household: a read still on its way is dropped (also used by people.svelte.ts). */
 export const changed = <T>(answer: Promise<T>): Promise<T> => {
   reading = null;
-  const clear = () => {
-    reading = null;
-  };
-  answer.then(clear, clear);
   return answer;
 };
 

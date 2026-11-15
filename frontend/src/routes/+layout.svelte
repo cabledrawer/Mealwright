@@ -20,7 +20,7 @@
   $effect(() => watchLeaving());
   // The service worker's first download of the app's files waits for this (precacheWait.ts).
   $effect(() => {
-    void tellWorkerPageIsQuiet();
+    tellWorkerPageIsQuiet().catch(() => {});
   });
 </script>
 
