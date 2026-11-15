@@ -1,7 +1,7 @@
 """the hash of a change's request body
 
 Revision ID: c4f7a2d9e816
-Revises: b8e2d4f6a913
+Revises: c6a1f3b9d805
 Create Date: 2026-11-15 12:00:00
 
 0.9.5 step 11: `change.body_hash`, the SHA-256 of the request body, so a request sent again
@@ -16,7 +16,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "c4f7a2d9e816"
-down_revision: str | Sequence[str] | None = "b8e2d4f6a913"
+down_revision: str | Sequence[str] | None = "c6a1f3b9d805"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
