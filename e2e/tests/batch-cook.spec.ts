@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './clock.ts';
+import { workerReady } from './worker.ts';
 import { expectNoAxeViolations, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme } from './a11y.ts';
 
 // Batch cook (Experimental; 0.8 wave 6, B2): the sidebar entry on a computer and the Plan's third
@@ -435,6 +436,7 @@ test('offline the picks can be read but not changed: no Plan this batch, no Swap
   await call(page, 'POST', '/recipes', { name: `Extra ${tag}`, steps: [{ text: 'Cook it for 10 minutes.' }] });
   await open(page);
   await expect(page.getByRole('button', { name: 'Plan this batch' })).toBeEnabled();
+  await workerReady(page);
   await context.setOffline(true);
   try {
     await expect(page.getByRole('button', { name: 'Plan this batch' })).toBeDisabled();

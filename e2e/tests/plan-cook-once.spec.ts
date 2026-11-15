@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from "./clock.ts";
+import { workerReady } from "./worker.ts";
 import {
   expectNoAxeViolations,
   inTheme,
@@ -338,6 +339,7 @@ test("Cook once: pattern, who is eating, nothing offline, and the sheet passes t
   await inTheme(page, "light");
   if (test.info().project.use.browserName !== "webkit") {
     // Offline, the first try finds out; then nothing on the sheet can change the plan.
+    await workerReady(page);
     await context.setOffline(true);
     await sheet.getByRole("button", { name: "One tub more" }).click();
     await expect(

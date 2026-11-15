@@ -1,4 +1,5 @@
 import { test, expect, testNow, type Page } from './clock.ts';
+import { workerReady } from './worker.ts';
 import { checkPage, inTheme, isPhone, setAccountTheme } from './a11y.ts';
 
 // The recipe editor (0.4): New recipe and Edit recipe, against the real server. Runs in the
@@ -619,6 +620,7 @@ test('offline: the editor stays open, Save is greyed out and says why', async ({
   await page.goto('/recipes/new');
   await page.getByLabel('Name', { exact: true }).fill('Typed offline');
   await page.waitForLoadState('networkidle'); // the app is watching the connection
+  await workerReady(page);
   await context.setOffline(true);
   // The browser says so too (Playwright's switch does not send that word by itself).
   await page.evaluate(() => window.dispatchEvent(new Event('offline')));

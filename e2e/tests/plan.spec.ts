@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from './clock.ts';
+import { workerReady } from './worker.ts';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
 // The Plan (0.6, PR 3): the week and the month; drag by mouse and by finger, Alt to copy, the
@@ -698,6 +699,7 @@ test.describe('on a computer', () => {
     const { today, slot } = await setup(page);
     await page.goto('/plan');
     await expect(cell(page, today, slot.Dinner)).toBeVisible();
+    await workerReady(page);
     await context.setOffline(true);
     await page.getByRole('button', { name: 'Next week' }).click();
     await expect(page.getByText('You’re offline. Plan changes when you’re back online.').first()).toBeVisible({ timeout: 15_000 });

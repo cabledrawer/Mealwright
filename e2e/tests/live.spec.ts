@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './clock.ts';
+import { workerReady } from './worker.ts';
 import {
   checkPage,
   expectNoAxeViolations,
@@ -130,6 +131,7 @@ test.describe('the connection bar', () => {
   }) => {
     await open(page, '/shopping');
     await expect(bar(page)).toBeHidden();
+    await workerReady(page);
     await context.setOffline(true);
     await expect(bar(page)).toBeVisible({ timeout: 10_000 });
     await expect(bar(page)).toContainText('Offline');
@@ -144,6 +146,7 @@ test.describe('the connection bar', () => {
 
   test('a blip shows nothing at all', async ({ page, context }) => {
     await open(page, '/shopping');
+    await workerReady(page);
     await context.setOffline(true);
     // Kept: a blip of one second is the thing being tested.
     await page.waitForTimeout(1000);
@@ -160,6 +163,7 @@ test.describe('the connection bar', () => {
     // subtitle then says so too.
     await open(page, '/shopping');
     await expect(page.getByText(/^\d+ to buy(?: · built from .+)? · (synced with .+|saved)$/)).toBeVisible();
+    await workerReady(page);
     await context.setOffline(true);
     const device = isPhone(page) ? 'phone' : 'computer';
     await expect(
@@ -203,6 +207,7 @@ test.describe('the connection bar', () => {
     test.skip(isPhone(page), 'the sidebar is desktop only');
     await open(page, '/shopping');
     await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+    await workerReady(page);
     await context.setOffline(true);
     const dot = page.getByTestId('connection-dot');
     await expect(dot.getByRole('button', { name: 'Offline. Try now' })).toBeVisible({
@@ -218,6 +223,7 @@ test.describe('the connection bar', () => {
     context,
   }) => {
     await open(page, '/shopping');
+    await workerReady(page);
     await context.setOffline(true);
     // The bar waits 3 s of the page's time before it shows (so a blip shows nothing): the page's
     // clock jumps those seconds instead of the test waiting them. What the bar says and looks

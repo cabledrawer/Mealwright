@@ -1,4 +1,5 @@
 import { test, expect, testNow, type Page } from './clock.ts';
+import { newIngredientDialogReady, workerReady } from './worker.ts';
 import { isPhone } from './a11y.ts';
 import { ADMIN } from './servers.ts';
 
@@ -98,11 +99,12 @@ const savedCopyNames = (page: Page, name: string) =>
  */
 async function start(page: Page, row?: string) {
   await page.goto('/shopping');
-  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+  await workerReady(page);
   const hello = page.waitForResponse((r) => r.url().endsWith('/api/v1/events'));
   await page.reload(); // the first page load is not under the worker; this one is
   await expect(page.getByRole('heading', { name: 'Shopping', level: 1 })).toBeVisible();
   await hello;
+  await newIngredientDialogReady(page); // fetched when the page is idle; offline WebKit cannot fetch it
   if (row) {
     await expect(page.getByRole('checkbox', { name: `Tick ${row}` })).toBeVisible();
     await expect.poll(() => savedCopyNames(page, row)).toBe(true);

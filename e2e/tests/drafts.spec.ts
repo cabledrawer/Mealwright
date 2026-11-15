@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from './clock.ts';
+import { workerReady } from './worker.ts';
 import { checkPage, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme } from './a11y.ts';
 
 // Drafts (0.5): "Save as draft?" on leaving the review, the Drafts screen, carrying on, Delete
@@ -318,6 +319,7 @@ test('offline, Drafts shows what it last had and cannot be changed', async ({ pa
   await reviewOf(page, title, unique('Hing'), unique('Masala'));
   await keepDraft(page);
   await page.waitForLoadState('networkidle');
+  await workerReady(page);
   await context.setOffline(true);
   await page.evaluate(() => window.dispatchEvent(new Event('offline')));
   await expect(page.getByText(/This is as it was when you last looked, and it can’t be changed until you’re\s+back online/)).toBeVisible({ timeout: 10000 });

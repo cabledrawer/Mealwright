@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from './clock.ts';
+import { workerReady } from './worker.ts';
 import { checkPage, expectNoSidewaysScroll, inTheme, setAccountTheme } from './a11y.ts';
 import { uploadPhoto } from '../review/photos.ts';
 
@@ -214,6 +215,7 @@ test('offline, the box says it needs the server and nothing is sent', async ({ p
   // Let the page go quiet first: an answer that arrives after the connection is cut would count
   // as connected (docs/dev/browser-tests.md).
   await page.waitForLoadState('networkidle');
+  await workerReady(page);
   await context.setOffline(true);
   await page.evaluate(() => window.dispatchEvent(new Event('offline')));
   await expect(page.getByText(/Importing needs your Mealwright server/)).toBeVisible({ timeout: 10000 });

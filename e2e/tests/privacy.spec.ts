@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { test, expect, type Page } from './clock.ts';
+import { workerReady } from './worker.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 
 // Settings → Privacy (0.5 PR 4): the switches for outside connections and "Your own network",
@@ -277,6 +278,7 @@ test.describe('states made up in the browser', () => {
     await page.request.put('/api/v1/privacy/switches/recipe_import', { data: { on: true } });
     await page.goto('/settings/privacy');
     await expect(page.getByRole('switch', { name: IMPORT })).toBeChecked();
+    await workerReady(page);
     await context.setOffline(true);
     await expect(
       page.getByText('You’re offline. This is as it was when you last looked', { exact: false }).first(),

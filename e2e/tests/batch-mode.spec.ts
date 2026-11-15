@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './clock.ts';
+import { workerReady } from './worker.ts';
 import { checkPage, expectNoSidewaysScroll, inTheme, isPhone } from './a11y.ts';
 
 // Batch cook mode (0.8 wave 6, B3), against the real server: one session of two recipes cooked
@@ -179,6 +180,7 @@ test('offline, Done, next keeps working and is sent when the connection is back'
   const s = await session(page);
   await page.goto(`/batch-cook/session/${s.id}/cook`);
   await expect(now(page)).toContainText('Chop 3 ');
+  await workerReady(page);
   await context.setOffline(true);
   await done(page).click();
   await expect(now(page)).not.toContainText('Chop 3 ');

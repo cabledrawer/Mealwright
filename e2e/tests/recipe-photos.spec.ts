@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from './clock.ts';
+import { workerReady } from './worker.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 import { photoPng, uploadPhoto, type Shape } from '../review/photos.ts';
 
@@ -43,6 +44,7 @@ const reader = (page: Page) => (isPhone(page) ? page.locator('main') : page.getB
 
 /** The phone loses its connection, the photos come back, and so does the connection. */
 async function offlineThenBack(page: Page) {
+  await workerReady(page);
   await page.context().setOffline(true);
   await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(false);
   await page.unrouteAll();

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "./clock.ts";
+import { workerReady } from "./worker.ts";
 import {
   checkPage,
   expectNoSidewaysScroll,
@@ -482,6 +483,7 @@ test("the amount box’s Edit ingredient saves the box and opens the ingredient 
     }),
   ).toBeVisible();
 
+  await workerReady(page);
   await context.setOffline(true);
   await expect(
     page.getByTestId(isPhone(page) ? "connection-phone" : "connection-desktop"),
@@ -836,6 +838,7 @@ test("F101: offline, + Place says it needs the server and makes nothing", async 
   await page.goto("/shopping");
   await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
   await expect(page.getByRole("heading", { name: "Put away" })).toBeVisible();
+  await workerReady(page);
   await context.setOffline(true);
   await page
     .getByRole("combobox", { name: "Where" })
