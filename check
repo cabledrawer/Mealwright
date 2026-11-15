@@ -624,7 +624,8 @@ run_completed() {
 # folder, so it survives `rm -rf .check` and the next run's start. commit.txt is written last: a
 # folder without it is not a finished copy.
 save_last_full() {
-  local dir="$HIST/last-full/$(basename "$ROOT")" r
+  local dir r
+  dir="$HIST/last-full/$(basename "$ROOT")"
   rm -rf "$dir" && mkdir -p "$dir" || return 1
   for r in "$@"; do cp "$r" "$dir/" || return 1; done
   date -u '+%Y-%m-%d %H:%M UTC' >"$dir/when.txt"
@@ -653,7 +654,8 @@ stopped_reason() {
   fi
 }
 save_last_run() {
-  local dir="$HIST/last-run/$(basename "$ROOT")" r why
+  local dir r why
+  dir="$HIST/last-run/$(basename "$ROOT")"
   rm -rf "$dir" && mkdir -p "$dir" || return 1
   for r in "$@"; do [[ -f "$r" ]] && { cp "$r" "$dir/" || return 1; }; done
   date -u '+%Y-%m-%d %H:%M UTC' >"$dir/when.txt"
@@ -984,7 +986,7 @@ targeted_run() {
 # save_last_run), the failed tests of each stream, found with flaky.mjs --rerun.
 declare -A RERUN_ARGS=()
 rerun_prepare() {
-  local last report proj label offset total=0 out defs=() order p rerun_files=()
+  local last report label offset total=0 out defs=() p rerun_files=()
   last="$HIST/last-run/$(basename "$ROOT")"
   if [[ ! -f "$last/commit.txt" ]]; then
     RERUN_NONE="There is no last full run to take the failures from (looked in $last): run the full ./check first."
@@ -1006,16 +1008,16 @@ rerun_prepare() {
       desktop|phone|webkit) label="$p"; offset=$(case "$p" in desktop) echo 0 ;; phone) echo 10 ;; *) echo 20 ;; esac) ;;
       phone-webkit) label="phone + webkit"; offset=10 ;;
     esac
-    local args="" kind value
+    local argtext="" kind value
     while IFS=$'\t' read -r kind value; do
       case "$kind" in
-        project) args+="--project"$'\n'"$value"$'\n' ;;
-        grep) args+="--grep"$'\n'"$value"$'\n' ;;
+        project) argtext+="--project"$'\n'"$value"$'\n' ;;
+        grep) argtext+="--grep"$'\n'"$value"$'\n' ;;
         count) total=$((total + value)) ;;
         file) rerun_files+=("tests/$value") ;;
       esac
     done <<<"$out"
-    RERUN_ARGS[$label]="$args"
+    RERUN_ARGS[$label]="$argtext"
     defs+=("$label:${p//-/,}:$offset")
   done
   MODE_BANNER="DIAGNOSIS RUN, NOT valid for a pull request. The failures come from the full run of $RERUN_FROM_WHEN on commit $RERUN_FROM (the last one that ran browser tests; a later run that stopped before them left none); this run is on commit $RERUN_NOW."
@@ -1326,7 +1328,8 @@ shellcheck_run() {
   local files; mapfile -t files < <(shell_scripts)
   ((${#files[@]})) || { echo "No shell script found."; return 1; }
   printf 'shellcheck: %s\n' "${files[@]}"
-  docker run --rm -v "$ROOT:/mnt:ro" -w /mnt "$SHELLCHECK" "${files[@]}"
+  # Warnings and errors only (proposed, for cabledrawer): the info and style notes (quoting inside single-quoted sh -c, sed vs ${var//}) are left.
+  docker run --rm -v "$ROOT:/mnt:ro" -w /mnt "$SHELLCHECK" --severity=warning "${files[@]}"
 }
 # The image that ships holds neither linter (they only ever run from their own images).
 no_lint_tools_in_image() {
