@@ -46,7 +46,29 @@ describe('the sidebar’s Drafts entry', () => {
     network.reset();
   });
 
-  it('is under Recipes after Import and before Ingredients, with how many drafts there are', async () => {
+  it('has Ingredients as its own item right after Pantry, before Recipes, and not under Recipes (F251)', async () => {
+    await open({ 'GET /recipes/drafts': [200, { drafts: [], count: 0 }] });
+    const main = page.getByRole('navigation', { name: 'Main' });
+    await expect.element(main).toBeVisible();
+    const top = main
+      .getByRole('link')
+      .elements()
+      .filter((link) => !link.closest('[role="group"]'))
+      .map((link) => link.textContent?.replace(/\s+/g, ' ').trim())
+      .filter((name) => !name?.startsWith('Batch cook'));
+    expect(top).toEqual(['Today', 'Plan', 'Shopping', 'Pantry', 'Ingredients', 'Recipes']);
+    await expect
+      .element(main.getByRole('link', { name: 'Ingredients', exact: true }))
+      .toHaveAttribute('href', '/recipes/ingredients');
+    expect(
+      page
+        .getByRole('group', { name: 'Recipes' })
+        .getByRole('link', { name: 'Ingredients' })
+        .elements()
+    ).toHaveLength(0);
+  });
+
+  it('is under Recipes after Import, with how many drafts there are', async () => {
     await open({
       'GET /recipes/drafts': [200, { drafts: [brief(1), brief(2), brief(3)], count: 3 }]
     });
@@ -58,7 +80,7 @@ describe('the sidebar’s Drafts entry', () => {
         .getByRole('link')
         .elements()
         .map((link) => link.textContent?.replace(/\s+/g, ' ').trim())
-    ).toEqual(['All recipes', 'Import', 'Drafts3', 'Ingredients']);
+    ).toEqual(['All recipes', 'Import', 'Drafts3']);
     await expect
       .element(page.getByRole('link', { name: 'Drafts 3' }))
       .toHaveAttribute('href', '/recipes/drafts');
