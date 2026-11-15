@@ -79,6 +79,7 @@ def _find(folder: Path, path: str) -> Path | None:
 
 # The compressed copies the build makes, best first.
 ENCODINGS = (("br", ".br"), ("gzip", ".gz"))
+ENCODED_SUFFIXES = tuple(ext for _, ext in ENCODINGS)
 
 
 def _compressed(found: Path, request: Request) -> tuple[Path, str | None, bool]:
@@ -107,6 +108,9 @@ def mount_frontend(app: FastAPI, folder: Path) -> None:
         # lookups cost far less than handing each request to a worker thread and back, which on
         # a small server was a large part of the 30 ms each of the app's ~100 files cost.
         if path == "api" or path.startswith("api/") or not folder.is_dir():
+            raise HTTPException(404, "Not found")
+        if path.lower().endswith(ENCODED_SUFFIXES):
+            # The build's compressed copies are sent in place of their file, never by name.
             raise HTTPException(404, "Not found")
         found = _find(folder, path.strip("/")) if path.strip("/") else None
         if found is None:

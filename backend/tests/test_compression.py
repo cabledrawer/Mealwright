@@ -246,3 +246,19 @@ def test_what_a_header_allows() -> None:
     assert accepted_encodings("") == set()
     assert accepted_encodings("GZIP") == {"gzip"}
     assert json.dumps(sorted(accepted_encodings("gzip;q=x"))) == "[]"
+
+
+def test_a_compressed_copy_cannot_be_asked_for_by_name(web: TestClient) -> None:
+    for path in (
+        "/_app/immutable/app.abc.js.gz",
+        "/_app/immutable/app.abc.js.br",
+        "/_app/immutable/app.abc.js.GZ",
+        "/_app/immutable/app.abc.js.Br",
+        "/_app/immutable/only-gz.js.gz",
+    ):
+        got = web.get(path, headers={"Accept-Encoding": "br, gzip"})
+        assert got.status_code == 404, path
+        assert "immutable" not in got.headers.get("cache-control", ""), path
+    # The file itself still gets its compressed copy.
+    got = web.get("/_app/immutable/app.abc.js", headers={"Accept-Encoding": "br"})
+    assert got.status_code == 200 and got.headers["content-encoding"] == "br"
