@@ -1,0 +1,142 @@
+{
+"aisles": [
+{
+"key": "veg_fruit",
+"name": "Veg & fruit"
+},
+{
+"key": "meat_fish",
+"name": "Meat & fish"
+},
+{
+"key": "dairy",
+"name": "Dairy"
+},
+{
+"key": "bakery",
+"name": "Bakery"
+},
+{
+"key": "dry_goods",
+"name": "Dry goods"
+},
+{
+"key": "tins_jars",
+"name": "Tins & jars"
+},
+{
+"key": "spices",
+"name": "Spices"
+},
+{
+"key": "frozen",
+"name": "Frozen"
+},
+{
+"key": "drinks",
+"name": "Drinks"
+},
+{
+"key": "household",
+"name": "Household"
+},
+{
+"key": "other",
+"name": "Other"
+}
+],
+"cursor": 49,
+"foods": [
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "weight",
+"id": 7,
+"merged_into_id": null,
+"name": "Ingredient 006",
+"other_names": [
+"Ingredient 009"
+],
+"place_id": 1,
+"removed": false,
+"shop_id": null,
+"sizes": [],
+"staple": false,
+"version": 49
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "weight",
+"id": 10,
+"merged_into_id": 7,
+"name": "Ingredient 009",
+"other_names": [],
+"place_id": 2,
+"removed": false,
+"shop_id": null,
+"sizes": [],
+"staple": false,
+"version": 49
+}
+],
+"items": [
+{
+"deleted": true,
+"food_id": 8,
+"id": "U1",
+"list_id": "U2",
+"removed_by": "Tess",
+"shop_id": null,
+"version": 47
+},
+{
+"deleted": true,
+"food_id": 7,
+"id": "U3",
+"list_id": "U2",
+"removed_by": "Tess",
+"shop_id": null,
+"version": 49
+}
+],
+"lists": [],
+"notes": [],
+"people": [
+{
+"login_id": 1,
+"name": "Tess"
+}
+],
+"places": [
+{
+"id": 1,
+"kind": "fridge",
+"name": "Fridge",
+"position": 0
+},
+{
+"id": 2,
+"kind": "freezer",
+"name": "Freezer",
+"position": 1
+},
+{
+"id": 3,
+"kind": "cupboard",
+"name": "Cupboard",
+"position": 2
+},
+{
+"id": 4,
+"kind": "cupboard",
+"name": "Spice rack",
+"position": 3
+}
+],
+"questions": [],
+"reset": false,
+"shops": []
+}

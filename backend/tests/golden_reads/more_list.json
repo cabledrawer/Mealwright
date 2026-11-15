@@ -1,0 +1,461 @@
+{
+"shopping_list": {
+"id": "U1",
+"main": true,
+"name": "This week",
+"ticked": 4,
+"to_buy": 6
+},
+"shops": [
+{
+"aisles": [
+{
+"aisle": "other",
+"items": [
+{
+"added_by": "The plan",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 291.0,
+"as_sold": null,
+"display": "291\u00a0g",
+"short": "291\u00a0g",
+"unit": "g"
+},
+"food": {
+"id": 1,
+"name": "Ingredient 000"
+},
+"hand_edited": false,
+"id": "U2",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": "1\u00a0packet (500\u00a0g)",
+"line": "1\u00a0packet (500\u00a0g) \u00b7 291\u00a0g needed",
+"need": "291\u00a0g needed",
+"packs": 1,
+"size_id": 1,
+"suggestions": []
+},
+"put_away_place": null,
+"shop": null,
+"source": "plan",
+"staple_offer": false,
+"ticked_at": null,
+"ticked_by": null,
+"version": 33,
+"why": "291\u00a0g needed \u00b7 Dish 000 (Sun, Mon, Wed) \u00b7 Dish 004 (Mon, Wed, Thu)"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 208.0,
+"as_sold": null,
+"display": "208\u00a0ml",
+"short": "208\u00a0ml",
+"unit": "ml"
+},
+"food": {
+"id": 2,
+"name": "Ingredient 001"
+},
+"hand_edited": false,
+"id": "U3",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": "1\u00a0packet (500\u00a0ml)",
+"line": "1\u00a0packet (500\u00a0ml) \u00b7 208\u00a0ml needed",
+"need": "208\u00a0ml needed",
+"packs": 1,
+"size_id": 2,
+"suggestions": []
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": null,
+"ticked_by": null,
+"version": 25,
+"why": "208\u00a0ml needed \u00b7 Added by you"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 207.0,
+"as_sold": null,
+"display": "207\u00a0left",
+"short": "207\u00a0left",
+"unit": "count"
+},
+"food": {
+"id": 3,
+"name": "Ingredient 002"
+},
+"hand_edited": false,
+"id": "U4",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": "18\u00a0packets (12)",
+"line": "18\u00a0packets (12) \u00b7 207 needed",
+"need": "207 needed",
+"packs": 18,
+"size_id": 3,
+"suggestions": []
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": null,
+"ticked_by": null,
+"version": 24,
+"why": "207 needed \u00b7 Added by you"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 205.0,
+"as_sold": null,
+"display": "205\u00a0ml",
+"short": "205\u00a0ml",
+"unit": "ml"
+},
+"food": {
+"id": 5,
+"name": "Ingredient 004"
+},
+"hand_edited": false,
+"id": "U5",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": "1\u00a0packet (500\u00a0ml)",
+"line": "1\u00a0packet (500\u00a0ml) \u00b7 205\u00a0ml needed",
+"need": "205\u00a0ml needed",
+"packs": 1,
+"size_id": 5,
+"suggestions": []
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": null,
+"ticked_by": null,
+"version": 21,
+"why": "205\u00a0ml needed \u00b7 Added by you"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 204.0,
+"as_sold": null,
+"display": "204\u00a0left",
+"short": "204\u00a0left",
+"unit": "count"
+},
+"food": {
+"id": 6,
+"name": "Ingredient 005"
+},
+"hand_edited": false,
+"id": "U6",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": "17\u00a0packets (12)",
+"line": "17\u00a0packets (12) \u00b7 204 needed",
+"need": "204 needed",
+"packs": 17,
+"size_id": 6,
+"suggestions": []
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": null,
+"ticked_by": null,
+"version": 20,
+"why": "Added by you"
+},
+{
+"added_by": "The plan",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 291.0,
+"as_sold": null,
+"display": "291\u00a0g",
+"short": "291\u00a0g",
+"unit": "g"
+},
+"food": {
+"id": 7,
+"name": "Ingredient 006"
+},
+"hand_edited": false,
+"id": "U7",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": null,
+"line": "291\u00a0g needed \u00b7 no pack size yet",
+"need": "291\u00a0g needed",
+"packs": null,
+"size_id": null,
+"suggestions": [
+{
+"amount": 100.0,
+"amount_text": "100\u00a0g",
+"display": "pack \u00b7 100\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 250.0,
+"amount_text": "250\u00a0g",
+"display": "pack \u00b7 250\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0g",
+"display": "pack \u00b7 500\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0kg",
+"display": "pack \u00b7 1\u00a0kg",
+"name": "pack",
+"pack": null
+}
+]
+},
+"put_away_place": null,
+"shop": null,
+"source": "plan",
+"staple_offer": false,
+"ticked_at": null,
+"ticked_by": null,
+"version": 32,
+"why": "Dish 002 (Sun, Tue, Thu) \u00b7 Dish 003 (Mon, Tue, Thu) \u00b7 Dish 004 (Mon, Wed, Thu) \u00b7 no pack size"
+}
+],
+"name": "Other"
+}
+],
+"in_trolley": [
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 209.0,
+"as_sold": null,
+"display": "209\u00a0g",
+"short": "209\u00a0g",
+"unit": "g"
+},
+"food": {
+"id": 1,
+"name": "Ingredient 000"
+},
+"hand_edited": false,
+"id": "U8",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": "1\u00a0packet (500\u00a0g)",
+"line": "1\u00a0packet (500\u00a0g) \u00b7 209\u00a0g needed",
+"need": "209\u00a0g needed",
+"packs": 1,
+"size_id": 1,
+"suggestions": []
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": "<moment>",
+"ticked_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"version": 27,
+"why": "209\u00a0g needed \u00b7 Added by you"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 206.0,
+"as_sold": null,
+"display": "206\u00a0g",
+"short": "206\u00a0g",
+"unit": "g"
+},
+"food": {
+"id": 4,
+"name": "Ingredient 003"
+},
+"hand_edited": false,
+"id": "U9",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": "1\u00a0packet (500\u00a0g)",
+"line": "1\u00a0packet (500\u00a0g) \u00b7 206\u00a0g needed",
+"need": "206\u00a0g needed",
+"packs": 1,
+"size_id": 4,
+"suggestions": []
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": "<moment>",
+"ticked_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"version": 23,
+"why": "206\u00a0g needed \u00b7 Added by you"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 203.0,
+"as_sold": null,
+"display": "203\u00a0g",
+"short": "203\u00a0g",
+"unit": "g"
+},
+"food": {
+"id": 7,
+"name": "Ingredient 006"
+},
+"hand_edited": false,
+"id": "U10",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": null,
+"line": "203\u00a0g needed \u00b7 no pack size yet",
+"need": "203\u00a0g needed",
+"packs": null,
+"size_id": null,
+"suggestions": [
+{
+"amount": 100.0,
+"amount_text": "100\u00a0g",
+"display": "pack \u00b7 100\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 250.0,
+"amount_text": "250\u00a0g",
+"display": "pack \u00b7 250\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0g",
+"display": "pack \u00b7 500\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0kg",
+"display": "pack \u00b7 1\u00a0kg",
+"name": "pack",
+"pack": null
+}
+]
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": "<moment>",
+"ticked_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"version": 19,
+"why": "Added by you"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 201.0,
+"as_sold": null,
+"display": "201\u00a0left",
+"short": "201\u00a0left",
+"unit": "count"
+},
+"food": {
+"id": 9,
+"name": "Ingredient 008"
+},
+"hand_edited": false,
+"id": "U11",
+"list_id": "U1",
+"pack": null,
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": "<moment>",
+"ticked_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"version": 46,
+"why": "Added by you"
+}
+],
+"name": "Any shop",
+"shop": null
+}
+]
+}

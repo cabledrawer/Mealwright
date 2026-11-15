@@ -1,0 +1,777 @@
+{
+"aisles": [
+{
+"key": "veg_fruit",
+"name": "Veg & fruit"
+},
+{
+"key": "meat_fish",
+"name": "Meat & fish"
+},
+{
+"key": "dairy",
+"name": "Dairy"
+},
+{
+"key": "bakery",
+"name": "Bakery"
+},
+{
+"key": "dry_goods",
+"name": "Dry goods"
+},
+{
+"key": "tins_jars",
+"name": "Tins & jars"
+},
+{
+"key": "spices",
+"name": "Spices"
+},
+{
+"key": "frozen",
+"name": "Frozen"
+},
+{
+"key": "drinks",
+"name": "Drinks"
+},
+{
+"key": "household",
+"name": "Household"
+},
+{
+"key": "other",
+"name": "Other"
+}
+],
+"cursor": 49,
+"foods": [
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "weight",
+"id": 1,
+"merged_into_id": null,
+"name": "Ingredient 000",
+"other_names": [
+"Also called 000"
+],
+"place_id": 1,
+"removed": false,
+"shop_id": null,
+"sizes": [
+{
+"added_when_shopping": false,
+"amount": 500,
+"id": 1,
+"name": "packet",
+"plural": "packets",
+"usual": true
+}
+],
+"staple": false,
+"version": 35
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "volume",
+"id": 2,
+"merged_into_id": null,
+"name": "Ingredient 001",
+"other_names": [
+"Also called 001"
+],
+"place_id": 2,
+"removed": false,
+"shop_id": null,
+"sizes": [
+{
+"added_when_shopping": false,
+"amount": 500,
+"id": 2,
+"name": "packet",
+"plural": "packets",
+"usual": true
+}
+],
+"staple": false,
+"version": 37
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "count",
+"id": 3,
+"merged_into_id": null,
+"name": "Ingredient 002",
+"other_names": [
+"Also called 002"
+],
+"place_id": 1,
+"removed": false,
+"shop_id": null,
+"sizes": [
+{
+"added_when_shopping": false,
+"amount": 12,
+"id": 3,
+"name": "packet",
+"plural": "packets",
+"usual": true
+}
+],
+"staple": false,
+"version": 39
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "weight",
+"id": 4,
+"merged_into_id": null,
+"name": "Ingredient 003",
+"other_names": [
+"Also called 003"
+],
+"place_id": 2,
+"removed": false,
+"shop_id": null,
+"sizes": [
+{
+"added_when_shopping": false,
+"amount": 500,
+"id": 4,
+"name": "packet",
+"plural": "packets",
+"usual": true
+}
+],
+"staple": false,
+"version": 41
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "volume",
+"id": 5,
+"merged_into_id": null,
+"name": "Ingredient 004",
+"other_names": [
+"Also called 004"
+],
+"place_id": 1,
+"removed": false,
+"shop_id": null,
+"sizes": [
+{
+"added_when_shopping": false,
+"amount": 500,
+"id": 5,
+"name": "packet",
+"plural": "packets",
+"usual": true
+}
+],
+"staple": false,
+"version": 43
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "count",
+"id": 6,
+"merged_into_id": null,
+"name": "Ingredient 005",
+"other_names": [
+"Also called 005"
+],
+"place_id": 2,
+"removed": false,
+"shop_id": null,
+"sizes": [
+{
+"added_when_shopping": false,
+"amount": 12,
+"id": 6,
+"name": "packet",
+"plural": "packets",
+"usual": true
+}
+],
+"staple": false,
+"version": 45
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "weight",
+"id": 7,
+"merged_into_id": null,
+"name": "Ingredient 006",
+"other_names": [
+"Ingredient 009"
+],
+"place_id": 1,
+"removed": false,
+"shop_id": null,
+"sizes": [],
+"staple": false,
+"version": 49
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "volume",
+"id": 8,
+"merged_into_id": null,
+"name": "Ingredient 007",
+"other_names": [],
+"place_id": 2,
+"removed": false,
+"shop_id": null,
+"sizes": [],
+"staple": false,
+"version": 8
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "count",
+"id": 9,
+"merged_into_id": null,
+"name": "Ingredient 008",
+"other_names": [],
+"place_id": 1,
+"removed": false,
+"shop_id": null,
+"sizes": [],
+"staple": false,
+"version": 9
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "weight",
+"id": 11,
+"merged_into_id": null,
+"name": "Staple 000",
+"other_names": [],
+"place_id": null,
+"removed": false,
+"shop_id": null,
+"sizes": [],
+"staple": true,
+"version": 11
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "weight",
+"id": 12,
+"merged_into_id": null,
+"name": "Staple 001",
+"other_names": [],
+"place_id": null,
+"removed": false,
+"shop_id": null,
+"sizes": [],
+"staple": true,
+"version": 12
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "weight",
+"id": 13,
+"merged_into_id": null,
+"name": "Staple 002",
+"other_names": [],
+"place_id": null,
+"removed": false,
+"shop_id": null,
+"sizes": [],
+"staple": true,
+"version": 13
+}
+],
+"items": [
+{
+"added_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"amount": 203,
+"deleted": false,
+"display": "203\u00a0g",
+"food_id": 7,
+"hand_edited": false,
+"id": "U2",
+"list_id": "U1",
+"merged_into_id": null,
+"pack": {
+"alternative": null,
+"buy": null,
+"line": "203\u00a0g needed \u00b7 no pack size yet",
+"need": "203\u00a0g needed",
+"packs": null,
+"size_id": null,
+"suggestions": [
+{
+"amount": 100.0,
+"amount_text": "100\u00a0g",
+"display": "pack \u00b7 100\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 250.0,
+"amount_text": "250\u00a0g",
+"display": "pack \u00b7 250\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0g",
+"display": "pack \u00b7 500\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0kg",
+"display": "pack \u00b7 1\u00a0kg",
+"name": "pack",
+"pack": null
+}
+]
+},
+"put_away_place_id": null,
+"shop_id": null,
+"size_id": null,
+"source": "typed",
+"ticks": [
+{
+"at": "<moment>",
+"bought": {
+"amount": 203,
+"display": "203\u00a0g"
+},
+"by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"found": false,
+"id": "U3",
+"place_id": 1,
+"standing": true
+}
+],
+"version": 19
+},
+{
+"added_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"amount": 204,
+"deleted": false,
+"display": "204",
+"food_id": 6,
+"hand_edited": false,
+"id": "U4",
+"list_id": "U1",
+"merged_into_id": null,
+"pack": {
+"alternative": null,
+"buy": "17\u00a0packets (12)",
+"line": "17\u00a0packets (12) \u00b7 204 needed",
+"need": "204 needed",
+"packs": 17,
+"size_id": 6,
+"suggestions": []
+},
+"put_away_place_id": null,
+"shop_id": null,
+"size_id": null,
+"source": "typed",
+"ticks": [],
+"version": 20
+},
+{
+"added_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"amount": 205,
+"deleted": false,
+"display": "205\u00a0ml",
+"food_id": 5,
+"hand_edited": false,
+"id": "U5",
+"list_id": "U1",
+"merged_into_id": null,
+"pack": {
+"alternative": null,
+"buy": "1\u00a0packet (500\u00a0ml)",
+"line": "1\u00a0packet (500\u00a0ml) \u00b7 205\u00a0ml needed",
+"need": "205\u00a0ml needed",
+"packs": 1,
+"size_id": 5,
+"suggestions": []
+},
+"put_away_place_id": null,
+"shop_id": null,
+"size_id": null,
+"source": "typed",
+"ticks": [],
+"version": 21
+},
+{
+"added_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"amount": 206,
+"deleted": false,
+"display": "206\u00a0g",
+"food_id": 4,
+"hand_edited": false,
+"id": "U6",
+"list_id": "U1",
+"merged_into_id": null,
+"pack": {
+"alternative": null,
+"buy": "1\u00a0packet (500\u00a0g)",
+"line": "1\u00a0packet (500\u00a0g) \u00b7 206\u00a0g needed",
+"need": "206\u00a0g needed",
+"packs": 1,
+"size_id": 4,
+"suggestions": []
+},
+"put_away_place_id": null,
+"shop_id": null,
+"size_id": null,
+"source": "typed",
+"ticks": [
+{
+"at": "<moment>",
+"bought": {
+"amount": 206,
+"display": "206\u00a0g"
+},
+"by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"found": false,
+"id": "U7",
+"place_id": 2,
+"standing": true
+}
+],
+"version": 23
+},
+{
+"added_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"amount": 207,
+"deleted": false,
+"display": "207",
+"food_id": 3,
+"hand_edited": false,
+"id": "U8",
+"list_id": "U1",
+"merged_into_id": null,
+"pack": {
+"alternative": null,
+"buy": "18\u00a0packets (12)",
+"line": "18\u00a0packets (12) \u00b7 207 needed",
+"need": "207 needed",
+"packs": 18,
+"size_id": 3,
+"suggestions": []
+},
+"put_away_place_id": null,
+"shop_id": null,
+"size_id": null,
+"source": "typed",
+"ticks": [],
+"version": 24
+},
+{
+"added_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"amount": 208,
+"deleted": false,
+"display": "208\u00a0ml",
+"food_id": 2,
+"hand_edited": false,
+"id": "U9",
+"list_id": "U1",
+"merged_into_id": null,
+"pack": {
+"alternative": null,
+"buy": "1\u00a0packet (500\u00a0ml)",
+"line": "1\u00a0packet (500\u00a0ml) \u00b7 208\u00a0ml needed",
+"need": "208\u00a0ml needed",
+"packs": 1,
+"size_id": 2,
+"suggestions": []
+},
+"put_away_place_id": null,
+"shop_id": null,
+"size_id": null,
+"source": "typed",
+"ticks": [],
+"version": 25
+},
+{
+"added_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"amount": 209,
+"deleted": false,
+"display": "209\u00a0g",
+"food_id": 1,
+"hand_edited": false,
+"id": "U10",
+"list_id": "U1",
+"merged_into_id": null,
+"pack": {
+"alternative": null,
+"buy": "1\u00a0packet (500\u00a0g)",
+"line": "1\u00a0packet (500\u00a0g) \u00b7 209\u00a0g needed",
+"need": "209\u00a0g needed",
+"packs": 1,
+"size_id": 1,
+"suggestions": []
+},
+"put_away_place_id": null,
+"shop_id": null,
+"size_id": null,
+"source": "typed",
+"ticks": [
+{
+"at": "<moment>",
+"bought": {
+"amount": 209,
+"display": "209\u00a0g"
+},
+"by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"found": false,
+"id": "U11",
+"place_id": 1,
+"standing": true
+}
+],
+"version": 27
+},
+{
+"added_by": {
+"login_id": null,
+"member_id": null,
+"name": "The plan"
+},
+"amount": 291,
+"deleted": false,
+"display": "291\u00a0g",
+"food_id": 7,
+"hand_edited": false,
+"id": "U12",
+"list_id": "U1",
+"merged_into_id": null,
+"pack": {
+"alternative": null,
+"buy": null,
+"line": "291\u00a0g needed \u00b7 no pack size yet",
+"need": "291\u00a0g needed",
+"packs": null,
+"size_id": null,
+"suggestions": [
+{
+"amount": 100.0,
+"amount_text": "100\u00a0g",
+"display": "pack \u00b7 100\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 250.0,
+"amount_text": "250\u00a0g",
+"display": "pack \u00b7 250\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0g",
+"display": "pack \u00b7 500\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0kg",
+"display": "pack \u00b7 1\u00a0kg",
+"name": "pack",
+"pack": null
+}
+]
+},
+"put_away_place_id": null,
+"shop_id": null,
+"size_id": null,
+"source": "plan",
+"ticks": [],
+"version": 32
+},
+{
+"added_by": {
+"login_id": null,
+"member_id": null,
+"name": "The plan"
+},
+"amount": 291,
+"deleted": false,
+"display": "291\u00a0g",
+"food_id": 1,
+"hand_edited": false,
+"id": "U13",
+"list_id": "U1",
+"merged_into_id": null,
+"pack": {
+"alternative": null,
+"buy": "1\u00a0packet (500\u00a0g)",
+"line": "1\u00a0packet (500\u00a0g) \u00b7 291\u00a0g needed",
+"need": "291\u00a0g needed",
+"packs": 1,
+"size_id": 1,
+"suggestions": []
+},
+"put_away_place_id": null,
+"shop_id": null,
+"size_id": null,
+"source": "plan",
+"ticks": [],
+"version": 33
+},
+{
+"added_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"amount": 201,
+"deleted": false,
+"display": "201",
+"food_id": 9,
+"hand_edited": false,
+"id": "U14",
+"list_id": "U1",
+"merged_into_id": null,
+"pack": null,
+"put_away_place_id": null,
+"shop_id": null,
+"size_id": null,
+"source": "typed",
+"ticks": [
+{
+"at": "<moment>",
+"bought": {
+"amount": 150,
+"display": "150"
+},
+"by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"found": true,
+"id": "U15",
+"place_id": 1,
+"standing": true
+}
+],
+"version": 46
+}
+],
+"lists": [
+{
+"id": "U1",
+"main": true,
+"name": "This week",
+"position": 0,
+"removed": false,
+"version": 0
+}
+],
+"notes": [],
+"people": [
+{
+"login_id": 1,
+"name": "Tess"
+}
+],
+"places": [
+{
+"id": 1,
+"kind": "fridge",
+"name": "Fridge",
+"position": 0
+},
+{
+"id": 2,
+"kind": "freezer",
+"name": "Freezer",
+"position": 1
+},
+{
+"id": 3,
+"kind": "cupboard",
+"name": "Cupboard",
+"position": 2
+},
+{
+"id": 4,
+"kind": "cupboard",
+"name": "Spice rack",
+"position": 3
+}
+],
+"questions": [],
+"reset": true,
+"shops": []
+}

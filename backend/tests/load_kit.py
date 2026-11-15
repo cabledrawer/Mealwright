@@ -205,3 +205,51 @@ def normalised(answer: Any, today: date) -> Any:
         return text(value) if isinstance(value, str) else value
 
     return walk(answer)
+
+
+# --- A household with the odd cases: sizes, other names, "already have it", a merge, a removal ----
+
+
+def seed_more(kitchen: TestClient, ids: dict[str, Any]) -> dict[str, Any]:
+    """On top of `seed`: pack sizes (some usual, one pair with none usual), other names, a line
+    "already have it" at home (a found-at-home purchase), two ingredients merged (their list lines
+    move), and a line removed (a tombstone, for a phone catching up). Returns the counter before
+    the removal and merge, so a read `since` it has the incremental answer."""
+    foods = ids["foods"]
+    unit = {"weight": "g", "volume": "ml", "count": "count"}
+    for i, made in enumerate(foods[:6]):
+        size_unit = unit[made["counted_as"]]
+        ok(
+            kitchen.post(
+                f"{API}/foods/{made['id']}/sizes",
+                json={
+                    "name": "packet",
+                    "amount": {"amount": 500 if size_unit != "count" else 12, "unit": size_unit},
+                    **({"usual": True} if i % 2 == 0 else {}),
+                },
+            ),
+            201,
+        )
+        ok(
+            kitchen.post(
+                f"{API}/foods/{made['id']}/other-names", json={"name": f"Also called {i:03d}"}
+            ),
+            201,
+        )
+    answer = ok(kitchen.get(f"{API}/shopping/changes?since=0"))
+    lines = [row["id"] for row in answer["items"]]
+    one(
+        kitchen,
+        "found_at_home",
+        counter(kitchen),
+        item_id=lines[1],
+        amount=150,
+    )
+    before = counter(kitchen)
+    one(kitchen, "delete", before, item_id=lines[2])
+    # Two ingredients merged. The line of the one that goes is taken off first: two lines of one
+    # ingredient would be shown in an order that depends on their random IDs.
+    gone = next(row["id"] for row in answer["items"] if row["food_id"] == foods[-1]["id"])
+    one(kitchen, "delete", counter(kitchen), item_id=gone)
+    ok(kitchen.post(f"{API}/foods/{foods[-1]['id']}/merge", json={"into_id": foods[-4]["id"]}))
+    return {"before": before, "lines": lines}

@@ -1,0 +1,211 @@
+{
+"changes": {
+"aisles": [
+{
+"key": "veg_fruit",
+"name": "Veg & fruit"
+},
+{
+"key": "meat_fish",
+"name": "Meat & fish"
+},
+{
+"key": "dairy",
+"name": "Dairy"
+},
+{
+"key": "bakery",
+"name": "Bakery"
+},
+{
+"key": "dry_goods",
+"name": "Dry goods"
+},
+{
+"key": "tins_jars",
+"name": "Tins & jars"
+},
+{
+"key": "spices",
+"name": "Spices"
+},
+{
+"key": "frozen",
+"name": "Frozen"
+},
+{
+"key": "drinks",
+"name": "Drinks"
+},
+{
+"key": "household",
+"name": "Household"
+},
+{
+"key": "other",
+"name": "Other"
+}
+],
+"cursor": 51,
+"foods": [
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "weight",
+"id": 7,
+"merged_into_id": null,
+"name": "Ingredient 006",
+"other_names": [
+"Ingredient 009"
+],
+"place_id": 1,
+"removed": false,
+"shop_id": null,
+"sizes": [],
+"staple": false,
+"version": 49
+},
+{
+"aisle": "other",
+"count_word": null,
+"count_word_plural": null,
+"counted_as": "weight",
+"id": 10,
+"merged_into_id": 7,
+"name": "Ingredient 009",
+"other_names": [],
+"place_id": 2,
+"removed": false,
+"shop_id": null,
+"sizes": [],
+"staple": false,
+"version": 49
+}
+],
+"items": [
+{
+"deleted": true,
+"food_id": 8,
+"id": "U5",
+"list_id": "U6",
+"removed_by": "Tess",
+"shop_id": null,
+"version": 47
+},
+{
+"deleted": true,
+"food_id": 7,
+"id": "U7",
+"list_id": "U6",
+"removed_by": "Tess",
+"shop_id": null,
+"version": 49
+},
+{
+"added_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"amount": 7,
+"deleted": false,
+"display": "7",
+"food_id": 6,
+"hand_edited": true,
+"id": "U4",
+"list_id": "U6",
+"merged_into_id": null,
+"pack": {
+"alternative": null,
+"buy": "1\u00a0packet (12)",
+"line": "1\u00a0packet (12) \u00b7 7 needed",
+"need": "7 needed",
+"packs": 1,
+"size_id": 6,
+"suggestions": []
+},
+"put_away_place_id": null,
+"shop_id": null,
+"size_id": null,
+"source": "typed",
+"ticks": [],
+"version": 51
+}
+],
+"lists": [],
+"notes": [],
+"people": [
+{
+"login_id": 1,
+"name": "Tess"
+}
+],
+"places": [
+{
+"id": 1,
+"kind": "fridge",
+"name": "Fridge",
+"position": 0
+},
+{
+"id": 2,
+"kind": "freezer",
+"name": "Freezer",
+"position": 1
+},
+{
+"id": 3,
+"kind": "cupboard",
+"name": "Cupboard",
+"position": 2
+},
+{
+"id": 4,
+"kind": "cupboard",
+"name": "Spice rack",
+"position": 3
+}
+],
+"questions": [],
+"reset": false,
+"shops": []
+},
+"results": [
+{
+"change": null,
+"food_id": 7,
+"id": "U1",
+"item_id": "U2",
+"message": null,
+"reason": "already_ticked",
+"repeat": false,
+"seq": 50,
+"status": "ignored"
+},
+{
+"change": {
+"at": "<moment>",
+"can_undo": true,
+"id": 74,
+"kind": "item_amount",
+"summary": "Changed Ingredient 005 on the list",
+"undo_until": "<moment>",
+"undone": null,
+"who": {
+"login_id": 1,
+"member_id": 1,
+"name": "Tess"
+}
+},
+"food_id": 6,
+"id": "U3",
+"item_id": "U4",
+"message": null,
+"reason": null,
+"repeat": false,
+"seq": 51,
+"status": "applied"
+}
+]
+}
