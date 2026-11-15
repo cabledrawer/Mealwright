@@ -139,15 +139,17 @@ try {
       const { context, page } = await newPage(browser);
       const t0 = performance.now();
       await page.goto('/shopping');
-      await page.waitForFunction(
-        async () => {
+      // Polled from here: a function that returns a promise is not awaited by waitForFunction.
+      const ready = () =>
+        page.evaluate(async () => {
           if (navigator.serviceWorker.controller) return true;
           const registration = await navigator.serviceWorker.getRegistration();
           return registration?.active?.state === 'activated';
-        },
-        undefined,
-        { timeout: 120_000, polling: 250 }
-      );
+        });
+      while (!(await ready())) {
+        if (performance.now() - t0 > 900_000) throw new Error('Not ready for offline after 15 minutes');
+        await page.waitForTimeout(250);
+      }
       results.ready['Ready for offline']!.push({ ms: ms(t0), api: [] });
       await context.close();
     }
