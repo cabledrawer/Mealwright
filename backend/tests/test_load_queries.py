@@ -3,7 +3,10 @@ household is (0.9.5 speed work), and still give the answers they gave when they 
 database about one ingredient, one packet or one line at a time.
 
 The second part compares each answer with a copy saved from the code before it was changed
-(tests/golden_reads, made from the same seeded household). To make the copies again after a
+(tests/golden_reads, made from the same seeded household by the code at a386b406, the base of
+this branch, whose reads still asked one row at a time; all the copies were made again there, twice,
+with the same result: the earlier ones, from the code before, differed only by the field
+`removed_people` that the line below added to the plan and Today). To make the copies again after a
 change that is meant to alter an answer: `WRITE_GOLDEN=1 pytest tests/test_load_queries.py`."""
 
 import json
