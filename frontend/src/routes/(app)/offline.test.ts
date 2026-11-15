@@ -93,49 +93,36 @@ describe('the online-only screens, offline', () => {
     await switcher.getByRole('button', { name: 'Auto' }).click();
   });
 
-  // cabledrawer 18 Oct: keep the button visible; a tap explains instead of opening the sheet.
-  const NEEDS_SERVER =
-    'Adding to the pantry needs your Mealwright server. Try again when you’re back online.';
-
-  for (const [layout, width, name] of [
-    ['phone', 390, 'Add to pantry'],
-    ['desktop', 1280, '+ Add to pantry']
+  // F240 (cabledrawer 15 Nov): the page that only says "needs your server" has no + and no Stocktake.
+  // (Once the pantry has loaded, offline keeps the button and a tap says why: pantry/page.test.ts.)
+  for (const [layout, width, deviceOffline] of [
+    ['phone', 390, true],
+    ['desktop', 1280, true],
+    ['phone, server down', 390, false],
+    ['desktop, server down', 1280, false]
   ] as const) {
-    it(`${layout}: “${name}” stays offline; a tap says it needs the server and opens no sheet`, async () => {
+    it(`${layout}: the offline Pantry has no Add to pantry and no Stocktake`, async () => {
+      network.deviceOffline = deviceOffline;
       await page.viewport(width, 800);
       toasts.dismiss();
       addToPantry.close();
       show(Pantry);
-      await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();
-      const button = page.getByRole('button', { name, exact: true });
-      await expect.element(button).toBeVisible();
-      await expect.element(button).toBeEnabled();
-      const askedBefore = asked.length;
-      await button.click();
-      expect(toasts.current?.message).toBe(NEEDS_SERVER);
-      // Nothing was sent: the tap only explains.
-      expect(asked.slice(askedBefore)).toEqual([]);
-      expect(addToPantry.open).toBe(false);
-      expect(page.getByRole('dialog', { name: 'Add to pantry' }).elements()).toEqual([]);
-      addToPantry.close();
-      toasts.dismiss();
+      await expect.element(page.getByRole('heading', { name: /offline|reach/i })).toBeVisible();
+      expect(page.getByRole('button', { name: /Add to pantry/ }).elements()).toEqual([]);
+      expect(page.getByRole('link', { name: 'Stocktake' }).elements()).toEqual([]);
     });
   }
 
-  it('server down (the device has a network): the tap says the server can’t be reached, and opens no sheet', async () => {
-    network.deviceOffline = false;
-    await page.viewport(390, 800);
-    toasts.dismiss();
-    addToPantry.close();
-    show(Pantry);
-    const button = page.getByRole('button', { name: 'Add to pantry', exact: true });
-    await expect.element(button).toBeVisible();
-    await button.click();
-    expect(toasts.current?.message).toBe(
-      'Can’t reach your Mealwright server. Try again when it’s back.'
-    );
-    expect(addToPantry.open).toBe(false);
-    toasts.dismiss();
+  it('F240: the offline Ingredients and Today pages have no + / Import buttons above the note', async () => {
+    await page.viewport(1280, 800);
+    show(Ingredients);
+    await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();
+    expect(page.getByRole('link', { name: /Add an ingredient|^\+/ }).elements()).toEqual([]);
+    for (const component of mounted.splice(0)) unmount(component);
+    document.body.innerHTML = '';
+    show(Today);
+    await expect.element(page.getByRole('heading', { name: 'You’re offline.' })).toBeVisible();
+    expect(page.getByRole('link', { name: /Import a recipe/ }).elements()).toEqual([]);
   });
 
   it('Pantry fetches again once the connection is back', async () => {

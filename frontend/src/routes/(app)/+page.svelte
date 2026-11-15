@@ -190,7 +190,10 @@
 
 <PageHeader title="Today" overline={today ? dayFull(today) : undefined}>
   {#snippet actions()}
-    <a class="import" href={resolve('/(app)/recipes/import')}>+ Import a recipe</a>
+    <!-- F240: not above the note that says the server is needed. -->
+    {#if data || !network.down}
+      <a class="import" href={resolve('/(app)/recipes/import')}>+ Import a recipe</a>
+    {/if}
   {/snippet}
 </PageHeader>
 

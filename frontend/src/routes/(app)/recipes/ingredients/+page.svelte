@@ -236,7 +236,8 @@
   count={!desktop && countText ? countLine : undefined}
 >
   {#snippet actions()}
-    {#if !network.offline}
+    <!-- F240: not above the note that says the server is needed (down: offline, or no answer yet). -->
+    {#if !network.offline && !(network.down && list.couldntLoad)}
       <!-- A phone shows the round + as Pantry does: the words beside the title squeezed it
            until "Ingredients" broke inside the word at 390 px. -->
       {#if desktop}

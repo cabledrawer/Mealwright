@@ -143,7 +143,11 @@
 
 <PageHeader title="Drafts" parent={{ href: '/(app)/recipes', label: 'Recipes' }} {subtitle}>
   {#snippet actions()}
-    {#if !phone}<a class="import" href={resolve('/(app)/recipes/import')}>Import a recipe</a>{/if}
+    <!-- F240: not above the note that says the server is needed. -->
+    {#if !phone && !(network.down && !drafts.loaded)}<a
+        class="import"
+        href={resolve('/(app)/recipes/import')}>Import a recipe</a
+      >{/if}
   {/snippet}
 </PageHeader>
 

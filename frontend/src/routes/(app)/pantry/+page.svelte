@@ -238,6 +238,11 @@
     addingStaple = false;
     void model.makeStaple(food);
   }
+
+  // F240: the page that says "needs your Mealwright server" has nothing to add to or count, so its
+  // header has no + and no Stocktake. (Once the pantry has loaded, offline keeps the + and a tap
+  // says why: cabledrawer 18 Oct.)
+  const offlinePage = $derived(!pantry && network.down);
 </script>
 
 <svelte:document onvisibilitychange={onVisible} />
@@ -252,22 +257,26 @@
           >{/if}</span
       >
     {/if}
-    <a class="stocktake-pill" href={resolve('/(app)/pantry/stocktake')}>Stocktake</a>
+    {#if !offlinePage}
+      <a class="stocktake-pill" href={resolve('/(app)/pantry/stocktake')}>Stocktake</a>
+    {/if}
   </div>
 {/snippet}
 
 <PageHeader
   title="Pantry"
   overline={phone ? undefined : summary}
-  count={phone ? countLine : undefined}
+  count={phone && !offlinePage ? countLine : undefined}
 >
   {#snippet actions()}
     <!-- The Stocktake (F118): place by place, in its own screen. -->
-    {#if !phone}
+    {#if !phone && !offlinePage}
       <a class="stocktake-pill" href={resolve('/(app)/pantry/stocktake')}>Stocktake</a>
     {/if}
     <!-- Adding needs the server: offline the button stays, and a tap says why (cabledrawer 18 Oct). -->
-    {#if phone}
+    {#if offlinePage}
+      <!-- F240: nothing to add to while the page only says the server is needed. -->
+    {:else if phone}
       <button type="button" class="add-round" aria-label="Add to pantry" onclick={addClicked}
         ><Icon name="plus" size={20} stroke={2.6} /></button
       >
@@ -416,7 +425,7 @@
   </section>
 {/snippet}
 
-{#if !pantry && network.down}
+{#if offlinePage}
   <OfflineNote screen="Pantry" />
 {:else if model.problem && !pantry}
   <p class="problem" role="alert">
