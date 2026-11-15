@@ -370,6 +370,8 @@ After PR 1, helpers read `docs/dev/sync-protocol.md` plus the spec sections thei
   - `./check` extras: hadolint, compose config, shellcheck, a smoke run of the built image, and an upgrade test from a saved real database for each tag.
   - The arm64 image question at the 0.9 kickoff.
   - The service worker's cache heals itself; a replayed change with the same key checks the body too; recipe-list hints only for the page shown; a print layout for the shopping list and recipes; an optional sample recipe pack; scaling edge cases written down as "roughly right".
+- **Speed (cabledrawer 15 Nov):** the 2 s first-open target is not met (6.7–11.1 s on the slowed phone at Pi strength); first opens on cabledrawer's own phone felt under about 3 s, which is acceptable. No more speed work in 0.9.5.
+- v0.9.5-beta.2 = the beta.1 hand-test fixes and the planned beta.2 work in one round (cabledrawer 15 Nov); then the pre-public review, the history rewrite and the trial.
 
 **Done when:** every "v1.0 must have" item in spec section 2 is built and ticked off in a checklist in `docs/`; the pre-release checklist is complete.
 
