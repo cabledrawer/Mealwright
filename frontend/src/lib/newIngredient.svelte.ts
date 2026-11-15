@@ -61,6 +61,8 @@ export async function addChosenSizes(foodId: number, sizes: NewSize[]): Promise<
 
 class NewIngredientFlow {
   current = $state<Pending | null>(null);
+  /** Asked at least once: the dialog's code is fetched then, and kept (size limit). */
+  wanted = $state(false);
 
   /** Open the dialog. Resolves with the ingredient once it exists, or null if cancelled. */
   ask(name = ''): Promise<Made | null> {
@@ -78,6 +80,7 @@ class NewIngredientFlow {
     hint: CountedAs | null = null
   ): Promise<Made | Chosen | null> {
     this.current?.resolve(null);
+    this.wanted = true;
     return new Promise((resolve) => {
       this.current = { name: name.trim(), mode, hint, resolve };
     });

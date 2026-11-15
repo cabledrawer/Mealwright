@@ -10,7 +10,6 @@
   import Toast from '#lib/components/Toast.svelte';
   import IngredientSheet from '#lib/components/IngredientSheet.svelte';
   import AskOnce from '#lib/components/AskOnce.svelte';
-  import NewIngredient from '#lib/components/NewIngredient.svelte';
   import { lastOwnChange } from '#lib/client/changes.js';
   import { settleHousehold } from '#lib/client/household.js';
   import { drafts } from '#lib/drafts.svelte.js';
@@ -20,6 +19,7 @@
   import { onWipedElsewhere } from '#lib/offline/otherTabs.js';
   import { askToKeepDataHere } from '#lib/offline/persist.js';
   import { live } from '#lib/live.svelte.js';
+  import { newIngredient } from '#lib/newIngredient.svelte.js';
   import { optionalAsk } from '#lib/optionalAsk.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
@@ -204,7 +204,13 @@
       <WhosThis />
     {/await}
   {/if}
-  <NewIngredient />
+  <!-- "Pantry keeps it by" (a new ingredient); fetched when first asked, then kept so closing
+       it hands focus back as before (size limit). -->
+  {#if newIngredient.wanted}
+    {#await import('#lib/components/NewIngredient.svelte') then { default: NewIngredient }}
+      <NewIngredient />
+    {/await}
+  {/if}
   <!-- "Add a starter pack" (R4); fetched when first opened, then kept so closing it
        hands focus back as before (size limit). -->
   {#if starterPacks.wanted}
