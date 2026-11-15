@@ -809,22 +809,23 @@ test("F168: at 1200 px a person's name under a tub that is too wide for its card
   const { today, slot } = await setup(page);
   const day = far(today, 9);
   const { sun, batch } = await batchWithTubs(page, `${stamp()} Dal`, day, slot);
-  const me = (await (await page.request.get("/api/v1/me")).json()) as {
-    member_id: number;
-  };
+  // A person this test makes, with a long name of its own, so the test does not depend on how long
+  // the seeded person's name is (a short name fits at 200%). Removed again at the end.
+  const longName = `Wilhelmina-Bartholomew ${stamp()}`;
+  const made = await call(page, "POST", "/people", { name: longName });
+  const person = (made.people as { id: number; name: string }[]).find((p) => p.name === longName)!;
   const tubs = ((await planRange(page, day, sun)).tubs as { id: number; batch_id: number }[]).filter(
     (t) => t.batch_id === batch,
   );
-  for (const tub of tubs)
-    await call(page, "PATCH", `/plan/tubs/${tub.id}`, { member_id: me.member_id });
+  for (const tub of tubs) await call(page, "PATCH", `/plan/tubs/${tub.id}`, { member_id: person.id });
   await page.setViewportSize({ width: 1200, height: 900 });
   await openWeekOf(page, today, day);
-  // At 200% text the name no longer fits its card, as "Longhousename" did at 100% on a narrow week.
+  // At 200% text the long name no longer fits its card (as a long name did at 100% on a narrow week).
   await page.evaluate(() => (document.documentElement.style.fontSize = "200%"));
   const chips = cell(page, sun, slot.Lunch).locator(".who span");
   await expect(chips.first()).toBeVisible();
   // Review r1 L6: the whole name shows on hover.
-  await expect(chips.first()).toHaveAttribute("title", /\S/);
+  await expect(chips.first()).toHaveAttribute("title", new RegExp(longName));
   const report = await chips.first().evaluate((el) => {
     const style = getComputedStyle(el);
     const card = el.closest("button")!.getBoundingClientRect();
@@ -838,6 +839,7 @@ test("F168: at 1200 px a person's name under a tub that is too wide for its card
   });
   expect(report).toMatchObject({ overflow: "hidden", ellipsis: "ellipsis", cut: true, inside: true });
   await page.evaluate(() => (document.documentElement.style.fontSize = ""));
+  await call(page, "DELETE", `/people/${person.id}`);
 });
 
 test("H9: the week grid starts at 1200 px, where ordinary words fit a card; from 1100 to 1199 px the week is the list", async ({
