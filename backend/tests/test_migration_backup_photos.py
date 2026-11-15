@@ -7,7 +7,7 @@ from sqlalchemy import inspect
 from mealwright import migrate
 from mealwright.db import make_engine
 
-BEFORE = "b8e2d4f6a913"  # the line's newest before this (16b's reset links)
+BEFORE = "91246ac80e8c"  # the line's newest before this (logins never reuse a number)
 THIS = "c6a1f3b9d805"
 
 

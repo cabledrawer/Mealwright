@@ -1,7 +1,7 @@
 """add the household's "Include photos" backup setting
 
 Revision ID: c6a1f3b9d805
-Revises: b8e2d4f6a913
+Revises: 91246ac80e8c
 Create Date: 2026-11-16 09:00:00
 
 0.9.5 step 16f (D2, cabledrawer 13 Nov): backups and the safety copy made before an upgrade include
@@ -20,7 +20,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "c6a1f3b9d805"
-down_revision: str | Sequence[str] | None = "b8e2d4f6a913"
+down_revision: str | Sequence[str] | None = "91246ac80e8c"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -473,7 +473,7 @@ def test_the_safety_backup_before_delete_everything_holds_the_photos(kitchen: Te
 # --- The safety copy before an upgrade --------------------------------------------------------
 
 OLD = "a4c8e1f7b296"  # any revision before the newest (as test_safety_copy.py)
-BEFORE_SWITCH = "b8e2d4f6a913"  # the line's head before the switch's column
+BEFORE_SWITCH = "91246ac80e8c"  # the line's head before the switch's column
 
 
 def _old_database(path: Path, revision: str = OLD) -> Engine:
