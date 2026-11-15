@@ -672,7 +672,7 @@ wheels = [
 
 [[package]]
 name = "mealwright"
-version = "0.9.0"
+version = "0.9.5b1"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
