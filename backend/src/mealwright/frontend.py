@@ -109,9 +109,6 @@ def mount_frontend(app: FastAPI, folder: Path) -> None:
         # a small server was a large part of the 30 ms each of the app's ~100 files cost.
         if path == "api" or path.startswith("api/") or not folder.is_dir():
             raise HTTPException(404, "Not found")
-        if path.lower().endswith(ENCODED_SUFFIXES):
-            # The build's compressed copies are sent in place of their file, never by name.
-            raise HTTPException(404, "Not found")
         found = _find(folder, path.strip("/")) if path.strip("/") else None
         if found is None:
             if "." in path.rsplit("/", 1)[-1]:
@@ -119,6 +116,10 @@ def mount_frontend(app: FastAPI, folder: Path) -> None:
             found = folder / FALLBACK
             if not found.is_file():
                 raise HTTPException(404, "Not found")
+        if found.name.lower().endswith(ENCODED_SUFFIXES):
+            # The build's compressed copies are sent in place of their file, never by name, however
+            # the path is written (a trailing slash, dots, %2F): judged on the file found.
+            raise HTTPException(404, "Not found")
         immutable = path.startswith(IMMUTABLE)
         cache = "public, max-age=31536000, immutable" if immutable else "no-cache"
         sent, encoding, varies = _compressed(found, request)

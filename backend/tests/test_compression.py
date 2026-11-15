@@ -255,6 +255,12 @@ def test_a_compressed_copy_cannot_be_asked_for_by_name(web: TestClient) -> None:
         "/_app/immutable/app.abc.js.GZ",
         "/_app/immutable/app.abc.js.Br",
         "/_app/immutable/only-gz.js.gz",
+        # Written another way, the same file is found by the lookup, so the name is judged there.
+        "/_app/immutable/app.abc.js.gz/",
+        "/_app/immutable/app.abc.js.gz/.",
+        "/_app/immutable/app.abc.js.gz//",
+        "/_app/immutable/app.abc.js.gz%2F",
+        "/_app/immutable/x/../app.abc.js.br/",
     ):
         got = web.get(path, headers={"Accept-Encoding": "br, gzip"})
         assert got.status_code == 404, path
