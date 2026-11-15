@@ -19,6 +19,9 @@ import { askAgain, restart, START_WAIT_MS } from '#lib/offline/opening.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { importLinks } from '#lib/importLinks.svelte.js';
 import { recipePeek } from '#lib/recipePeek.js';
+import { cookNow } from '#lib/cookNow.svelte.js';
+import { RecipeDraft } from '#lib/recipes/draft.svelte.js';
+import { editorKey, keep, reopen } from '#lib/recipes/stash.js';
 import type { RecipeRow } from '#lib/client/recipes.js';
 import { SETUP } from '#lib/session.svelte.js';
 import { theme, type ThemeChoice } from '#lib/theme.svelte.js';
@@ -64,6 +67,46 @@ async function wrensPhone(count: number) {
     await addToQueue(makeAction({ kind: 'tick', item_id: 'i-onions' }), 2, DEVICE);
   }
 }
+
+describe('another person signing in, in a tab that kept no login to compare', () => {
+  beforeEach(() => {
+    freshPhone();
+    session.me = null;
+    network.reset();
+    signOutState.unfinished = false;
+  });
+
+  afterEach(async () => {
+    await dropPhone();
+    vi.unstubAllGlobals();
+    network.reset();
+  });
+
+  /** Sam's session ended (a 401) and the phone database holds no login id, so no wipe runs. */
+  async function sessionEndedWithNoStoredLogin() {
+    await setMeta({ login_id: undefined as never });
+    session.me = null;
+  }
+
+  it('Cook now and the editor stash of the first person are gone; the same person keeps them', async () => {
+    fakeApi(signedInAs(1, 'Sam'));
+    await open();
+    cookNow.mealId = 5;
+    keep(editorKey(9), new RecipeDraft());
+
+    await sessionEndedWithNoStoredLogin();
+    fakeApi(signedInAs(1, 'Sam'));
+    await open();
+    expect(cookNow.mealId).toBe(5); // the same person signing in again
+    expect(reopen(editorKey(9))).toBe(true);
+
+    await sessionEndedWithNoStoredLogin();
+    fakeApi(signedInAs(2, 'Lorna'));
+    await open();
+    expect(cookNow.mealId).toBeNull();
+    expect(reopen(editorKey(9))).toBe(false);
+  });
+});
 
 describe('opening the app (11.4)', () => {
   beforeEach(() => {

@@ -42,6 +42,9 @@ import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import type { LayoutLoad } from './$types';
 
+/** Whose login this tab last opened as (only an id, nothing stored). */
+let opened: number | undefined;
+
 export const load: LayoutLoad = async ({ fetch, url, untrack }) => {
   // Only on starting the app and after signing in, not on every page change.
   const heading = untrack(() => url.pathname + url.search);
@@ -180,6 +183,10 @@ function fromDevice(last: SignedIn): Me {
 
 /** The same login carries on in place (its Undo kept); anyone else replaces it. */
 function openAs(me: Me): void {
+  // Another person than the last one opened in this tab: nothing held for them stays, even
+  // when the phone database kept no login to compare (so no wipe ran).
+  if (opened !== undefined && opened !== me.id) forgetAll();
+  opened = me.id;
   if (session.me && session.me.id === me.id) Object.assign(session.me, me);
   else session.me = me;
 }
