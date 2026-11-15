@@ -190,7 +190,9 @@
         </p>
         <output class="mono" aria-label="Your new token">{made}</output>
         <div class="two">
-          <button type="button" class="main" onclick={() => void copy()}>{copier.label('Copy')}</button>
+          <button type="button" class="main" onclick={() => void copy()}
+            >{copier.label('Copy')}</button
+          >
           <button type="button" class="other" onclick={done}>Done</button>
         </div>
       </div>
