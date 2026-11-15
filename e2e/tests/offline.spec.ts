@@ -121,12 +121,24 @@ test('a first visit, with no reload, is under the worker, and a screen never ope
   await context.setOffline(true);
   await page.evaluate(() => window.dispatchEvent(new Event('offline')));
   await expect(bar(page)).toContainText('Offline');
+  // The app's code asked for from now on is answered BY THE WORKER (Chromium reports this; Playwright's WebKit can't be cut offline here anyway), and none of it fails.
+  const code: { url: string; fromWorker: boolean }[] = [];
+  const failed: string[] = [];
+  page.on('response', (r) => {
+    if (r.url().includes('/_app/immutable/')) code.push({ url: r.url(), fromWorker: r.fromServiceWorker() });
+  });
+  page.on('requestfailed', (r) => {
+    if (r.url().includes('/_app/immutable/')) failed.push(r.url());
+  });
   // Pantry's code was never asked for: it comes from the device, by the tab, not "You're offline."
   await page.getByRole('link', { name: 'Pantry', exact: true }).first().click();
   await expect(page.getByRole('heading', { name: 'Pantry', level: 1 })).toBeVisible();
   await expect(page).toHaveURL(/\/pantry/);
   await expect(page.getByText("You're offline.", { exact: true })).toHaveCount(0);
   await expect(bar(page)).toContainText('Offline');
+  expect(failed, 'no code file failed').toEqual([]);
+  expect(code.length, 'the screen asked for code after going offline').toBeGreaterThan(0);
+  expect(code.filter((c) => c.fromWorker).length, 'code answered by the service worker').toBeGreaterThan(0);
 });
 
 test('E2: changes made offline survive a reload, then reach the server', async ({ page, context }) => {
