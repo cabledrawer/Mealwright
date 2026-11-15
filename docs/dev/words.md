@@ -122,6 +122,7 @@ Rules (all from what is built; the spec only fixes a few of them):
 - **Already done is said, not repeated:** "Oil is already on the shopping list." (Pantry) and "Milk is already on the list · 2 L" (Shopping add box) (spec "Tap a staple…", "Adding something that's already on the list").
 - **A note, not a pop-up, when two people clash:** "Wren ticked this too", "Wren added milk too", "Wren put coriander in the Freezer", each with Undo (spec "Offline shopping-list sync").
 - **A problem toast** (for something that didn't work) uses the same calm voice and offers "Try again" (see section 7).
+- **A part of the app that couldn't be fetched** (the new-ingredient dialog, when its code fails to load): "Couldn’t open that. Try again." The ask ends as if cancelled, nothing is lost, and the next try fetches it again (`newIngredient.svelte.ts`; proposed, for cabledrawer, 15 Nov).
 
 ## 7. Error messages
 
