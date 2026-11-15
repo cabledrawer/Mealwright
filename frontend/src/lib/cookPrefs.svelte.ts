@@ -6,7 +6,7 @@
 // The switch changes at once; if the server can't take it, it goes back to what it was and the
 // usual words for "nothing was changed" say so.
 
-import { cantReach, forgetWhenSessionEnds } from './api';
+import { cantReach } from './api';
 import { forgetOnWipe } from './offline/wipeHooks';
 import { changeCookPerStep, getHousehold } from './client/household';
 import { nothingChanged } from './downWords';
@@ -68,11 +68,11 @@ export class CookPrefs {
 
 export const cookPrefs = new CookPrefs();
 
-// The household's setting is read again each time Cook mode opens; between sign-ins the last
-// household's answer is not kept for the next person.
+// The household's setting is read again each time Cook mode opens; when the browser is wiped
+// (another person signing in) the last household's answer is not kept. The same person signing in
+// again after a session ended keeps it.
 const forgetPrefs = () => {
   cookPrefs.perStep = false;
   cookPrefs.problem = null;
 };
-forgetWhenSessionEnds(forgetPrefs);
 forgetOnWipe(forgetPrefs);

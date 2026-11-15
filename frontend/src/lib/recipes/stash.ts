@@ -1,7 +1,6 @@
 // A cancelled editor, kept in memory so "Changes not saved · Undo" can open it again exactly as
 // it was (cabledrawer 19 Oct). Only while the page stays open: nothing is written anywhere.
 
-import { forgetWhenSessionEnds } from '../api';
 import { forgetOnWipe } from '../offline/wipeHooks';
 import type { RecipeDraft } from './draft.svelte';
 
@@ -34,12 +33,11 @@ export function takeKept(key: string): RecipeDraft | null {
   return draft;
 }
 
-/** Nothing of a cancelled editor outlives a sign-in: its upload goes, and so does the draft. */
+/** Nothing of a cancelled editor outlives another person's sign-in (a wipe): its upload goes, and so does the draft. Kept when the same person signs in again after a session ended. */
 export function forgetKept(): void {
   kept?.draft.release();
   kept = null;
   reopening = null;
 }
 
-forgetWhenSessionEnds(forgetKept);
 forgetOnWipe(forgetKept);

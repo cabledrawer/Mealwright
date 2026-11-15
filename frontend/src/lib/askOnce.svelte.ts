@@ -3,6 +3,7 @@
 // next time" switch, and sends the same change again with the answer (contract 4.4).
 // AskOnce.svelte shows the question; save() waits for the answer.
 
+import { forgetAtSignOut } from './api';
 import type { Answer, Ask } from './client/types';
 
 interface Pending {
@@ -44,3 +45,5 @@ class AskOnce {
 }
 
 export const askOnce = new AskOnce();
+// A question waiting for an answer is dropped (as Cancel does) when a sign-in ends.
+forgetAtSignOut(() => askOnce.dismiss());

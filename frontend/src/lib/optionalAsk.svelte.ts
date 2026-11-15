@@ -4,6 +4,7 @@
 // ticked ones go on the shopping list if they are needed and come out of the pantry at Cooked
 // it, the others don't. Online only, like the rest of the Plan.
 
+import { forgetAtSignOut } from './api';
 import type { OptionalRow } from './optionalQuestion';
 // What reads the recipe for the rows (optionalQuestion.ts) loads when the question is first
 // asked, so every page doesn't carry it (the size limit).
@@ -89,3 +90,4 @@ class OptionalAsk {
 }
 
 export const optionalAsk = new OptionalAsk();
+forgetAtSignOut(() => optionalAsk.dismiss());

@@ -3,6 +3,7 @@
 // before it is added to the plan, and again from its meal when the person wants to change it.
 // PlanMethod.svelte shows the question; this holds it. Online only, like the rest of the Plan.
 
+import { forgetAtSignOut } from './api';
 import { getRecipe, type RecipeMethodRef } from './client/recipes';
 import { optionalAsk } from './optionalAsk.svelte';
 
@@ -83,3 +84,4 @@ class MethodAsk {
 }
 
 export const methodAsk = new MethodAsk();
+forgetAtSignOut(() => methodAsk.dismiss());

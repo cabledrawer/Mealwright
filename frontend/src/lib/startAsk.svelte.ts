@@ -5,6 +5,7 @@
 // What reads the server for the times loads when the question is first asked (the size limit).
 // Online only, like the rest of the Plan.
 
+import { forgetAtSignOut } from './api';
 import type { StartAt, StartOption } from './client/plan';
 import { optionalAsk } from './optionalAsk.svelte';
 import type { StepWait } from './timeWords';
@@ -125,3 +126,4 @@ class StartAsk {
 }
 
 export const startAsk = new StartAsk();
+forgetAtSignOut(() => startAsk.dismiss());

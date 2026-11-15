@@ -2,7 +2,7 @@
 // brand-new ingredient, from the Shopping add box and from the Ingredients "New ingredient"
 // button. NewIngredient.svelte shows it; callers wait for the answer.
 
-import { ApiError } from './api';
+import { ApiError, forgetAtSignOut } from './api';
 import { newChangeId } from './changeId';
 import { addSize, createFood, getFood } from './client/foods';
 import type { CountedAs, Ref } from './client/types';
@@ -134,3 +134,4 @@ class NewIngredientFlow {
 }
 
 export const newIngredient = new NewIngredientFlow();
+forgetAtSignOut(() => newIngredient.cancel());
