@@ -790,7 +790,8 @@ test("phone: swipe right is Used…, swipe left is Binned with an Undo toast and
   await expect(
     page.getByRole("status").filter({ hasText: /^Binned/ }),
   ).toBeVisible();
-  expect(await lotsOf(page, food.id)).toBe(0);
+  // The toast shows at once and the save follows (about 30 ms later), so wait for it.
+  await expect.poll(() => lotsOf(page, food.id)).toBe(0);
   await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
   await expect.poll(() => lotsOf(page, food.id)).toBe(1);
 });
