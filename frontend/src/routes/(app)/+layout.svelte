@@ -97,7 +97,7 @@
     };
   });
 
-  // The new-ingredient dialog's code is fetched once the page is idle, not in the first page
+  // The new-ingredient dialog's code is fetched once the page has loaded, not in the first page
   // load (size limit), so it is already here when asked offline.
   $effect(() => whenIdle(() => newIngredient.warm()));
 
