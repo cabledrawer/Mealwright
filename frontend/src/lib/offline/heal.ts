@@ -96,3 +96,33 @@ export async function install(
     throw error;
   }
 }
+
+/**
+ * A small entry in the new cache that says: when this worker installed, no worker was active
+ * (it is the first on this device). The worker may be stopped and started again between install
+ * and activate, so the fact is kept in the cache, not in memory. It is never one of the app's
+ * files (`KNOWN` doesn't hold it, so it is never served) and is removed when read.
+ */
+export const FIRST_INSTALL_MARK = '/_first-install';
+
+export async function markFirstInstall(storage: StorageLike, name: string): Promise<void> {
+  try {
+    const cache = await storage.open(name);
+    await cache.put(FIRST_INSTALL_MARK, new Response('', { status: 200 }));
+  } catch {
+    // No mark means "not the first": the worker then never claims, which is the safe side.
+  }
+}
+
+/** Reads the mark and removes it. False when it is missing or the cache can't be read. */
+export async function takeFirstInstallMark(storage: StorageLike, name: string): Promise<boolean> {
+  try {
+    const cache = await storage.open(name);
+    const found = await cache.match(FIRST_INSTALL_MARK);
+    if (!found) return false;
+    await cache.delete(FIRST_INSTALL_MARK);
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -8,6 +8,7 @@ import {
   handling,
   isApi,
   isFirstInstall,
+  mayClaim,
   oldCaches
 } from './rules';
 
@@ -121,5 +122,22 @@ describe('the first worker on a device (it alone takes the page that installed i
   it('is an update when an older version’s cache exists, so it never claims', () => {
     expect(isFirstInstall([cacheName('1'), now], now)).toBe(false);
     expect(oldCaches([cacheName('1'), now, 'other'], now)).toEqual([cacheName('1')]);
+  });
+});
+
+describe('may the worker claim the page (both facts must hold)', () => {
+  const now = cacheName('2');
+  const old = [cacheName('1'), now];
+  it('claims only with no older cache AND no active worker at install', () => {
+    expect(mayClaim([now], now, true)).toBe(true);
+  });
+  it('never claims when a worker was active at install (only the cache storage was cleared)', () => {
+    expect(mayClaim([now], now, false)).toBe(false);
+  });
+  it('never claims when an older cache exists, even with no mark', () => {
+    expect(mayClaim(old, now, true)).toBe(false);
+  });
+  it('never claims an update (older cache and an active worker)', () => {
+    expect(mayClaim(old, now, false)).toBe(false);
   });
 });

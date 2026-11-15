@@ -17,13 +17,22 @@ export const cacheName = (version: string) => `${CACHE_PREFIX}${version}`;
 export const oldCaches = (keys: readonly string[], current: string) =>
   keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== current);
 
-/**
- * Is this the very first worker on this device (no older version's cache existed)? Only the
- * first worker takes the page that installed it (`clients.claim()`); an update never does, so
- * it waits until every window is closed (sync protocol 11.6).
- */
+/** No older version's cache exists (the activate-time half of "first worker"). */
 export const isFirstInstall = (keys: readonly string[], current: string) =>
   oldCaches(keys, current).length === 0;
+
+/**
+ * May this worker take the page that installed it (`clients.claim()`)? Only the very first
+ * worker on a device may; an update never does, so it waits until every window is closed (sync
+ * protocol 11.6). Two facts must both hold, so that clearing only the cache storage under an
+ * old worker can't make an update claim an open tab of the old build: no older cache exists at
+ * activate, AND no worker was active when this one installed.
+ */
+export const mayClaim = (
+  keys: readonly string[],
+  current: string,
+  noWorkerWasActiveAtInstall: boolean
+) => noWorkerWasActiveAtInstall && isFirstInstall(keys, current);
 
 /**
  * The file SvelteKit 3 asks for when a tab comes back into view (it cannot be switched off).

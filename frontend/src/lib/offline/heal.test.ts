@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { INSTALL_AT_ONCE, answer, install, usable, type CacheLike, type StorageLike } from './heal';
+import {
+  FIRST_INSTALL_MARK,
+  INSTALL_AT_ONCE,
+  answer,
+  markFirstInstall,
+  takeFirstInstallMark,
+  install,
+  usable,
+  type CacheLike,
+  type StorageLike
+} from './heal';
 
 /** A cache kept in a map; `broken` makes reading it fail, `failPut` makes keeping fail. */
 function fakeStorage(start: Record<string, Record<string, Response>> = {}) {
@@ -182,5 +192,33 @@ describe('the service worker cache heals itself', () => {
     ).rejects.toThrow('Could not fetch http://x/f8.js');
     expect(store.has('v1')).toBe(false);
     expect(asked).toHaveLength(12); // the groups of 0-5 and 6-11; the third never starts
+  });
+});
+
+describe('the first-install mark', () => {
+  it('is kept in the cache, read once and then gone, and never counts as an app file', async () => {
+    const { storage, store } = fakeStorage();
+    await install(storage, 'v1', [new Request('http://x/a.js')], async () => new Response('x'));
+    expect(await takeFirstInstallMark(storage, 'v1')).toBe(false); // nothing marked yet
+    await markFirstInstall(storage, 'v1');
+    expect([...(store.get('v1')?.keys() ?? [])]).toEqual(['/a.js', FIRST_INSTALL_MARK]);
+    expect(await takeFirstInstallMark(storage, 'v1')).toBe(true);
+    expect(await takeFirstInstallMark(storage, 'v1')).toBe(false); // taken
+    expect([...(store.get('v1')?.keys() ?? [])]).toEqual(['/a.js']);
+  });
+
+  it('is never served: asking for its address goes to the network like any other unknown file', async () => {
+    // The worker only answers KNOWN files; the mark's address is not among the app's files.
+    const { handling } = await import('./rules');
+    const known = new Set(['/a.js']);
+    const url = new URL(FIRST_INSTALL_MARK, 'http://x');
+    expect(handling(new Request(url), url, 'http://x', known)).toBe('network');
+  });
+
+  it('an unreadable cache means no mark (the safe side: no claim)', async () => {
+    const { storage, flags } = fakeStorage();
+    flags.brokenOpen = true;
+    await markFirstInstall(storage, 'v1'); // must not throw
+    expect(await takeFirstInstallMark(storage, 'v1')).toBe(false);
   });
 });

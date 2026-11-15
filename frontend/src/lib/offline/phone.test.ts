@@ -121,11 +121,11 @@ describe('FE-4 (part 2): an update never takes over mid-shop', () => {
       app.filter(([, text]) => pattern.test(code(text))).map(([path]) => path);
     expect(callers(/\bskipWaiting\s*\(/)).toEqual([]);
     expect(callers(/\bclaim\s*\(/)).toEqual(['/src/service-worker/index.ts']);
-    // ...and there, only under the decision that nothing older was installed (rules.ts, tested).
+    // ...and there, only under the decision mayClaim (rules.ts, tested): no older cache and no active worker at install.
     const worker = code(sources['/src/service-worker/index.ts'] ?? '');
     expect(worker.match(/\bclaim\s*\(/g)).toHaveLength(1);
     expect(worker).toMatch(/if\s*\(\s*first\s*\)\s*await worker\.clients\.claim\(\)/);
-    expect(worker).toMatch(/const first = isFirstInstall\(/);
+    expect(worker).toMatch(/const first = mayClaim\(/);
   });
 });
 
