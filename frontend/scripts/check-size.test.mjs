@@ -25,7 +25,7 @@ const gz = (text) => gzipSync(Buffer.from(text), { level: 9 }).length;
  * every page shares `shared.js` and the root CSS. Returns the folder and what each file
  * gzips to.
  */
-function fakeBuild({ big = 1000, shared = 1000, worker = 0 } = {}) {
+function fakeBuild({ big = 1000, shared = 1000, worker = 0, packed = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'mw-size-'));
   const files = {
     'theme.js': `${noise(50)}`,
@@ -53,6 +53,11 @@ function fakeBuild({ big = 1000, shared = 1000, worker = 0 } = {}) {
   for (const [path, text] of Object.entries(files)) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), text);
+    // The compressed copies the build makes beside each file (scripts/compress.mjs).
+    if (packed) {
+      writeFileSync(join(root, `${path}.br`), randomBytes(50));
+      writeFileSync(join(root, `${path}.gz`), randomBytes(60));
+    }
   }
   const size = Object.fromEntries(Object.entries(files).map(([p, t]) => [p, gz(t)]));
   const everyPage = [
@@ -98,6 +103,15 @@ test('counts a pageâ€™s shared chunks, its layouts and its CSS, not other pagesâ
     new RegExp(`${(bytes / 1024).toFixed(1)} KiB {2}${page} {2}\\(${count} files\\)`);
   assert.match(out, line(build.bigPage, '/big', 9));
   assert.match(out, line(build.home, '/', 8));
+});
+
+test('the compressed copies beside the files change nothing and are not counted', () => {
+  const build = fakeBuild({ packed: true });
+  const { code, out } = run(build, 10 ** 6);
+  assert.equal(code, 0);
+  assert.match(out, /\(9 files\)/);
+  assert.match(out, /Everything in the build: 10 files/);
+  assert.match(out, new RegExp(`Largest page: /big, .* \\(${build.bigPage} bytes\\)`));
 });
 
 test('fails when the largest page is over the limit, naming the page', () => {

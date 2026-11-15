@@ -7,17 +7,24 @@
   version of the app is found promptly (the worker itself never installs one mid-use).
 - Files under /_app/immutable/ have content hashes in their names, so browsers may keep
   them for a year. Pages are always checked again.
+- Text files are compressed once, at build time (`frontend/scripts/compress.mjs` writes `x.js.br`
+  and `x.js.gz` next to `x.js`). A browser that sends `Accept-Encoding` with `br` or `gzip` gets
+  that file as it is, with `Content-Encoding` and `Vary: Accept-Encoding`; every other browser, and
+  any request for a byte range, gets the plain file. Nothing is compressed while the app runs.
 - At start-up, every inline <script> in the built pages is fingerprinted (SHA-256), and
   only those exact scripts are allowed by the Content Security Policy.
 """
 
 import base64
 import hashlib
+import mimetypes
 from html.parser import HTMLParser
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
+
+from mealwright.compression import accepted_encodings
 
 IMMUTABLE = "_app/immutable/"
 # Not every Python knows this one; the installable app's manifest needs it.
@@ -70,6 +77,27 @@ def _find(folder: Path, path: str) -> Path | None:
     return None
 
 
+# The compressed copies the build makes, best first.
+ENCODINGS = (("br", ".br"), ("gzip", ".gz"))
+
+
+def _compressed(found: Path, request: Request) -> tuple[Path, str | None, bool]:
+    """The file to send for `found`: its compressed copy when the build made one and the browser
+    accepts it. Returns the file, its `Content-Encoding` (None for the plain file) and whether
+    the answer depends on what the browser accepts (so it says `Vary: Accept-Encoding`)."""
+    copies = [(name, found.with_name(found.name + ext)) for name, ext in ENCODINGS]
+    copies = [(name, copy) for name, copy in copies if copy.is_file()]
+    if not copies:
+        return found, None, False
+    if "range" in request.headers:  # a byte range is of the file itself, not of a packed copy
+        return found, None, True
+    accepted = accepted_encodings(request.headers.get("accept-encoding", ""))
+    for name, copy in copies:
+        if name in accepted:
+            return copy, name, True
+    return found, None, True
+
+
 def mount_frontend(app: FastAPI, folder: Path) -> None:
     """Add the catch-all route for the web app. Call after the API routes."""
 
@@ -86,8 +114,15 @@ def mount_frontend(app: FastAPI, folder: Path) -> None:
                 raise HTTPException(404, "Not found")
         immutable = path.startswith(IMMUTABLE)
         cache = "public, max-age=31536000, immutable" if immutable else "no-cache"
+        sent, encoding, varies = _compressed(found, request)
+        headers = {"Cache-Control": cache}
+        if encoding is not None:
+            headers["Content-Encoding"] = encoding
+        if varies:
+            headers["Vary"] = "Accept-Encoding"
         return FileResponse(
-            found,
-            headers={"Cache-Control": cache},
-            media_type=MEDIA_TYPES.get(found.suffix),
+            sent,
+            headers=headers,
+            # The type of the file asked for, not of its compressed copy.
+            media_type=MEDIA_TYPES.get(found.suffix) or mimetypes.guess_type(found.name)[0],
         )

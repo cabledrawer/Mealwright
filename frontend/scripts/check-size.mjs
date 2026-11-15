@@ -80,8 +80,8 @@ function inFolder(folder, test, what) {
 
 /** Each page with every file it needs, read from the app's entry file. */
 function pages() {
-  const start = inFolder('entry', (n) => n.startsWith('start.'), 'start.*.js');
-  const app = inFolder('entry', (n) => n.startsWith('app.'), 'app.*.js');
+  const start = inFolder('entry', (n) => n.startsWith('start.') && n.endsWith('.js'), 'start.*.js');
+  const app = inFolder('entry', (n) => n.startsWith('app.') && n.endsWith('.js'), 'app.*.js');
   const source = readFileSync(app, 'utf8');
   const where = relative(BUILD, app);
 

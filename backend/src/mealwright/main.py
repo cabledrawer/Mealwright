@@ -26,6 +26,7 @@ from mealwright import (
 )
 from mealwright.api.v1 import router as api_v1
 from mealwright.auth import OldCookieMiddleware, SlowDown
+from mealwright.compression import JsonGzipMiddleware
 from mealwright.config import Settings, get_settings
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.events import Broadcaster
@@ -156,6 +157,9 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     errors.install(app)
     app.include_router(api_v1)
     mount_frontend(app, settings.frontend_dir)  # after the API, so it only gets the rest
+    # JSON answers of 1 KB or more are gzipped for a client that accepts it
+    # (mealwright.compression).
+    app.add_middleware(JsonGzipMiddleware)
     # No body bigger than the biggest real one, checked before anything reads it.
     app.add_middleware(BodyLimitMiddleware)
     # Strict browser rules on every response (spec section 7). The web app's own inline

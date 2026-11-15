@@ -24,15 +24,18 @@ export const VERSION_FILE = '/_app/version.json';
 /**
  * The addresses of the app's own files, from SvelteKit's manifest (`immutable`: the files
  * Vite builds; `assets`: the files in `static/`). Each becomes an absolute address (a
- * leading `/`; the app has no base path), de-duplicated, in the order given.
+ * leading `/`; the app has no base path), de-duplicated, in the order given. Never the
+ * compressed copies the build makes next to its text files (`x.js.br`, `x.js.gz`): the server
+ * sends one of them in place of `x.js` to a browser that accepts it, so the worker asks for
+ * `x.js` and keeps what it is given (a copy the browser has already unpacked).
  */
 export function appFiles(
   immutable: readonly { path: string }[],
   assets: readonly { path: string }[]
 ): string[] {
-  const all = [...immutable, ...assets].map((file) =>
-    file.path.startsWith('/') ? file.path : `/${file.path}`
-  );
+  const all = [...immutable, ...assets]
+    .map((file) => (file.path.startsWith('/') ? file.path : `/${file.path}`))
+    .filter((path) => !/\.(br|gz)$/.test(path));
   return [...new Set(all)];
 }
 

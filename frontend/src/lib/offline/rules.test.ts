@@ -87,6 +87,15 @@ describe('the app’s own files, from SvelteKit’s manifest', () => {
     ]);
   });
 
+  it('never name the compressed copies the build makes (.br, .gz)', () => {
+    expect(
+      appFiles(
+        [{ path: '_app/immutable/a.js' }, { path: '_app/immutable/a.js.br' }],
+        [{ path: 'theme.js.gz' }, { path: 'theme.js' }]
+      )
+    ).toEqual(['/_app/immutable/a.js', '/theme.js']);
+  });
+
   it('are nothing when the manifest is empty (a development run)', () => {
     expect(appFiles([], [])).toEqual([]);
   });
