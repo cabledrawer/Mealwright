@@ -7,6 +7,8 @@ import { drafts } from '#lib/drafts.svelte.js';
 import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
 import { nextDraft } from '#lib/nextDraft.svelte.js';
 import { network } from '#lib/network.svelte.js';
+import { recipePeek } from '#lib/recipePeek.js';
+import type { RecipeRow } from '#lib/client/recipes.js';
 import { session } from '#lib/session.svelte.js';
 import { fakeShopping, ME, sampleCopy } from '#lib/testing/fakeShopping.js';
 import { dropPhone, freshPhone } from '#lib/testing/phone.js';
@@ -181,6 +183,54 @@ describe('the recipe page', () => {
     for (const hidden of ['Start cooking', 'Cook once', 'Delete']) {
       expect(text).not.toContain(hidden);
     }
+  });
+
+  describe('opened from a list, before the server has answered (0.9.5 speed work)', () => {
+    const row = {
+      id: 1,
+      name: 'Sambar',
+      description: 'Lentil & vegetable stew',
+      time_minutes: 50,
+      photo: null
+    } as unknown as RecipeRow;
+
+    /** The screen for recipe `id`, with a server that never answers. */
+    function openWithNoAnswer(id: number) {
+      vi.stubGlobal('fetch', () => new Promise<Response>(() => {}));
+      mounted.push(
+        mount(RecipeScreen, {
+          target: document.body.appendChild(document.createElement('div')),
+          props: { id }
+        })
+      );
+      flushSync();
+    }
+
+    afterEach(() => recipePeek.forget());
+
+    it('shows the list row’s name and details at once, with the rest still loading', async () => {
+      recipePeek.hold(row);
+      openWithNoAnswer(1);
+      await expect.element(page.getByRole('heading', { name: 'Sambar', level: 1 })).toBeVisible();
+      await expect.element(page.getByText(`Lentil & vegetable stew · 50${NB}min`)).toBeVisible();
+      await expect.element(page.getByText('Loading…')).toBeVisible();
+      expect(document.body.textContent).not.toContain('Rinse the dal.');
+    });
+
+    it('never shows another recipe’s row', async () => {
+      recipePeek.hold(row);
+      openWithNoAnswer(2);
+      await expect.element(page.getByText('Loading…')).toBeVisible();
+      expect(document.querySelector('h1')).toBeNull();
+    });
+
+    it('gives way to the recipe itself when it arrives', async () => {
+      recipePeek.hold({ ...row, name: 'Old name from the list' } as RecipeRow);
+      await open();
+      await expect.element(page.getByRole('heading', { name: 'Sambar', level: 1 })).toBeVisible();
+      expect(document.body.textContent).not.toContain('Old name from the list');
+      await expect.element(page.getByText('Rinse the dal.')).toBeVisible();
+    });
   });
 
   describe('the ⋯ menu: Duplicate and Delete recipe', () => {

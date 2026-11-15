@@ -7,6 +7,7 @@
   import { resolve } from '$app/paths';
   import type { RecipeRow } from '#lib/client/recipes.js';
   import { network } from '#lib/network.svelte.js';
+  import { recipePeek } from '#lib/recipePeek.js';
   import { recipeParts } from '#lib/recipeLine.js';
 
   let {
@@ -42,6 +43,7 @@
   class:pane
   href="{resolve('/(app)/recipes/[id]', { id: String(recipe.id) })}{search}"
   aria-current={current ? 'page' : undefined}
+  onclick={() => recipePeek.hold(recipe)}
 >
   <span class="square" aria-hidden="true">
     {#if photo}

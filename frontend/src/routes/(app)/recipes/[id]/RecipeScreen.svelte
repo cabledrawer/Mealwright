@@ -35,6 +35,7 @@
   import type { PlanModel } from '#lib/plan.svelte.js';
   import type { PlanActions, PlanTarget } from '#lib/planActions.js';
   import { recipePanes } from '#lib/recipePanes.svelte.js';
+  import { recipePeek } from '#lib/recipePeek.js';
   import { go, RECIPES, editPage } from '#lib/recipes/paths.js';
   import { newChangeId } from '#lib/changeId.js';
   import { duplicateRecipe } from '#lib/client/recipes.js';
@@ -206,6 +207,13 @@
     const { active } = timeParts(recipe.time_minutes, recipe.wait);
     if (active) parts.push(active);
     return parts;
+  });
+  /** Before the recipe has come: the list's row it was opened from, if any (recipePeek.ts). */
+  const peeked = $derived(!recipe && !view.gone && !view.problem ? recipePeek.of(id) : null);
+  const peekedMeta = $derived.by(() => {
+    if (!peeked) return '';
+    const { active } = timeParts(peeked.time_minutes, peeked.wait);
+    return [peeked.description, active].filter(Boolean).join(' · ');
   });
   /** "plus 4 h – overnight marinating": the recipe's waits, after its active time (M1). */
   const waitText = $derived(timeParts(recipe?.time_minutes ?? null, recipe?.wait).wait);
@@ -490,6 +498,15 @@
       <p>{view.problem}</p>
       <button type="button" onclick={() => void view.load()}>Try again</button>
     </div>
+  {:else if peeked}
+    <article class="recipe">
+      {#if !panes}<RecipePhoto photo={peeked.photo} name={peeked.name} />{/if}
+      <header>
+        <h1>{peeked.name}</h1>
+        {#if peekedMeta}<p class="meta">{peekedMeta}</p>{/if}
+      </header>
+      <p class="quiet loading" aria-busy="true">Loading…</p>
+    </article>
   {:else}
     <p class="quiet loading" aria-busy="true">Loading…</p>
   {/if}
