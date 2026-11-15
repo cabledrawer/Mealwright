@@ -164,6 +164,12 @@
   );
 
   /**
+   * Your own page, and you are the household's only admin who signs in: the Role buttons are
+   * switched off for yourself, so say why in the server's own words (F238, hand test 15 Nov).
+   */
+  const onlyAdminYou = $derived(!!person?.is_me && login?.role === 'admin' && onlyAdmin);
+
+  /**
    * Single sign-on (0.9.5 Pe3/M2): for an admin while it is set up, whether this person is linked
    * to an account at the sign-in server, with Unlink or Link…. Never for a shared login.
    */
@@ -456,6 +462,11 @@
           <span class="hint"
             >Members cook, plan and shop. Admins also change Settings and people.</span
           >
+          {#if onlyAdminYou}
+            <span class="hint" data-only-admin
+              >{person?.name} is the household’s only admin. Make someone else an admin first.</span
+            >
+          {/if}
         </fieldset>
 
         {#if login?.signs_in && !person.is_me}

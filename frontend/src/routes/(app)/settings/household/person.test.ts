@@ -412,6 +412,25 @@ describe('Settings → Household → a person', () => {
     await expect.element(page.getByRole('button', { name: 'Admin' })).toBeDisabled();
   });
 
+  it('the only admin on their own page is told why Member cannot be picked (F238)', async () => {
+    params.id = '1';
+    open({ 'GET /people': [200, people([LORNA, SAM])] });
+    await expect.element(page.getByRole('heading', { name: 'Lorna', level: 1 })).toBeVisible();
+    await expect.element(page.getByRole('button', { name: 'Member' })).toBeDisabled();
+    await expect
+      .element(
+        page.getByText('Lorna is the household’s only admin. Make someone else an admin first.')
+      )
+      .toBeVisible();
+  });
+
+  it('no such sentence on their own page when another admin can sign in (F238)', async () => {
+    params.id = '1';
+    open({ 'GET /people': [200, people([LORNA, passwordSam({ role: 'admin' })])] });
+    await expect.element(page.getByRole('heading', { name: 'Lorna', level: 1 })).toBeVisible();
+    expect(page.getByText('only admin', { exact: false }).query()).toBeNull();
+  });
+
   it('says so when the person is not in the household any more', async () => {
     params.id = '99';
     open();
