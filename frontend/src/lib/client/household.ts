@@ -3,26 +3,50 @@
 import { api } from '#lib/api.js';
 import type { AmountsShown, Household, Pints } from './types';
 
-export const getHousehold = () => api<Household>('GET', '/household');
+/** The household's settings. Screens that open together ask at the same moment (the sidebar, the
+ * plan, the cooking switches); they share one question, so the server is asked once (0.9.5 speed
+ * work; proposed, for cabledrawer). Each later read asks again, and a change drops a question still
+ * on its way, so nobody is given an answer older than their own change. */
+let reading: Promise<Household> | null = null;
+export const getHousehold = (): Promise<Household> => {
+  if (reading) return reading;
+  const asked = api<Household>('GET', '/household');
+  reading = asked;
+  const done = () => {
+    if (reading === asked) reading = null;
+  };
+  asked.then(done, done);
+  return asked;
+};
+/** A change to the household: a read still on its way is dropped (also used by people.svelte.ts). */
+export const changed = <T>(answer: Promise<T>): Promise<T> => {
+  reading = null;
+  const clear = () => {
+    reading = null;
+  };
+  answer.then(clear, clear);
+  return answer;
+};
 
 /** Settings: which pint a recipe's "pint" is (an admin only; the server refuses a member). */
-export const changePints = (pints: Pints) => api<Household>('PATCH', '/household', { pints });
+export const changePints = (pints: Pints) =>
+  changed(api<Household>('PATCH', '/household', { pints }));
 
 /** Settings → Amounts and Onboarding: how amounts are shown (an admin only). */
 export const changeAmountsShown = (amounts_shown: AmountsShown) =>
-  api<Household>('PATCH', '/household', { amounts_shown });
+  changed(api<Household>('PATCH', '/household', { amounts_shown }));
 
 /** Cook mode's per-step ingredients, for the household (any person of it may change it). */
 export const changeCookPerStep = (on: boolean) =>
-  api<Household>('PATCH', '/household', { cook_per_step: on });
+  changed(api<Household>('PATCH', '/household', { cook_per_step: on }));
 
 /** Batch cook (Experimental): show it (true) or hide it for everyone (admins only). */
 export const changeBatchCook = (on: boolean) =>
-  api<Household>('PATCH', '/household', { batch_cook: on });
+  changed(api<Household>('PATCH', '/household', { batch_cook: on }));
 
 /** Onboarding finished or skipped, for the whole household (admins only; never opens again). */
 export const finishOnboarding = () =>
-  api<Household>('PATCH', '/household', { onboarding_done: true });
+  changed(api<Household>('PATCH', '/household', { onboarding_done: true }));
 
 /**
  * The cup size to start with (spec "Decided for 0.2"): 240 ml for US English, 250 ml

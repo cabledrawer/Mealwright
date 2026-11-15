@@ -4,7 +4,7 @@
 
 import { ApiError, cantReach, cantReachWords, forgetWhenSessionEnds } from './api';
 import { lastOwnChange, onUndoOf, serverUndo } from './client/changes';
-import { getHousehold } from './client/household';
+import { changed, getHousehold } from './client/household';
 import {
   addPerson,
   changePerson,
@@ -149,7 +149,7 @@ class Household_ {
     const before = this.name;
     this.name = name;
     try {
-      const household = await api<Household>('PATCH', '/household', { name });
+      const household = await changed(api<Household>('PATCH', '/household', { name }));
       this.name = household.name;
       if (household.name === before) return;
       // The rename is the server's own change (household_renamed): its Undo is the server's.

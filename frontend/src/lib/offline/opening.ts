@@ -41,9 +41,14 @@ export type Answer = { setup: SetupState; me: Me | null } | { error: unknown };
 /** Ask the server (never throws: a failure is part of the answer). */
 export async function askServer(fetch: typeof globalThis.fetch): Promise<Answer> {
   try {
-    const setup = await getSetup(fetch);
-    if (setup.needs_setup) return { setup, me: null };
-    return { setup, me: await getMe(fetch) };
+    // Both asked at once (0.9.5 speed work; proposed, for cabledrawer): on a slow connection the
+    // second question waited a whole round trip for the first. On a fresh install nobody is
+    // signed in and whatever the server says to "who am I?" is not asked about, as before.
+    const [setup, me] = await Promise.allSettled([getSetup(fetch), getMe(fetch)]);
+    if (setup.status === 'rejected') throw setup.reason;
+    if (setup.value.needs_setup) return { setup: setup.value, me: null };
+    if (me.status === 'rejected') throw me.reason;
+    return { setup: setup.value, me: me.value };
   } catch (error) {
     return { error };
   }

@@ -583,7 +583,8 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     const listed = shoppingSync.refresh();
     await new Promise((done) => setTimeout(done, 200));
     // The waiting change has gone (11.6) and is applied once; the list is not asked for.
-    expect(server.asked).toEqual(['GET /setup', 'POST /shopping/actions']);
+    // (/me is asked beside /setup now: both questions hang, the list still isn't asked for.)
+    expect(server.asked).toEqual(['GET /setup', 'GET /me', 'POST /shopping/actions']);
     expect(shop.actions).toHaveLength(1);
 
     server.release();
@@ -768,7 +769,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     await expect(reruns[0]).rejects.toMatchObject({ status: 500 });
     expect(serverListsHeld()).not.toBeNull();
     await new Promise((done) => setTimeout(done, 100));
-    expect(server.asked).toEqual(['GET /setup']);
+    expect(server.asked).toEqual(['GET /setup', 'GET /me']);
     expect(await getMeta('login_id')).toBe(2);
     expect(await readQueue()).toHaveLength(1);
 
@@ -904,11 +905,11 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
       await openedStillOffline();
       const server = slowServer(() => Promise.reject(new TypeError('Failed to fetch')));
       const asking = askAgain();
-      await vi.waitFor(() => expect(server.asked).toEqual(['GET /setup']));
+      await vi.waitFor(() => expect(server.asked).toEqual(['GET /setup', 'GET /me']));
       expect(serverListsHeld()).not.toBeNull();
       // Asked once at a time.
       await askAgain();
-      expect(server.asked).toEqual(['GET /setup']);
+      expect(server.asked).toEqual(['GET /setup', 'GET /me']);
       server.release();
       await asking;
       expect(serverListsHeld()).toBeNull();
@@ -926,7 +927,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
       const opened = session.me;
       const requests = fakeApi({ 'GET /setup': [500, { detail: 'Something broke.' }] });
       await askAgain();
-      expect(said(requests)).toEqual(['GET /setup']);
+      expect(said(requests)).toEqual(['GET /setup', 'GET /me']);
       expect(reruns).toEqual([]);
       expect(session.me).toBe(opened);
       expect(serverListsHeld()).toBeNull();
