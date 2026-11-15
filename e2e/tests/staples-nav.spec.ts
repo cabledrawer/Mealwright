@@ -231,7 +231,7 @@ test('New recipe opens a small choice: Add by hand · Import recipe, with keys a
   await checkPage(page);
 });
 
-test('Import is its own item: the sidebar on a computer, a button beside Drafts and Ingredients on a phone', async ({ page }) => {
+test('Import is its own item: the sidebar on a computer, a button beside Drafts and Ingredients on a phone (Ingredients has its own sidebar item, F251)', async ({ page }) => {
   await page.goto('/recipes');
   if (isPhone(page)) {
     await expect(page.getByRole('navigation', { name: 'Recipes' }).getByRole('link')).toHaveText([
@@ -244,7 +244,6 @@ test('Import is its own item: the sidebar on a computer, a button beside Drafts 
       'All recipes',
       'Import',
       /^Drafts\s*\d*$/,
-      'Ingredients',
     ]);
   }
   await page.getByRole('link', { name: 'Import', exact: true }).click();

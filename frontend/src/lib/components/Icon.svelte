@@ -7,6 +7,7 @@
     | 'shopping'
     | 'pantry'
     | 'recipes'
+    | 'ingredients'
     | 'auto'
     | 'light'
     | 'dark'
@@ -73,6 +74,10 @@
   {:else if name === 'recipes'}
     <path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" />
     <path d="M9 9h6M9 13h4" />
+  {:else if name === 'ingredients'}
+    <!-- Ingredients in the main menu (F251; the icon the Settings mockup draws): a round token with a plus. -->
+    <circle cx="12" cy="12" r="8" />
+    <path d="M12 8v8M8 12h8" />
   {:else if name === 'auto'}
     <circle cx="12" cy="12" r="8" />
     <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" />

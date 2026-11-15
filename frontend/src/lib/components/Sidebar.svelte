@@ -1,6 +1,6 @@
 <script lang="ts">
   // The desktop and tablet sidebar. Expanded: logo, the five pages (Recipes as a
-  // tree: All recipes · Drafts · Ingredients), the theme switch and Settings. Collapsed: icons only, with tooltips (Recipes opens a small pop-out with its pages), a
+  // tree: All recipes · Import · Drafts; Ingredients is its own item after Pantry), the theme switch and Settings. Collapsed: icons only, with tooltips (Recipes opens a small pop-out with its pages), a
   // single theme button, and a button to expand it again. Not shown on phones (they get
   // the bottom tabs).
   import { resolve } from '$app/paths';
@@ -11,12 +11,14 @@
   import { batchCook } from '#lib/batchCook.svelte.js';
   import {
     BATCH_COOK,
+    INGREDIENTS,
     PAGES,
     RECIPES_PAGES,
     appRoute,
     isBatchCook,
     isCurrent,
-    isCurrentRecipesPage
+    isCurrentRecipesPage,
+    isIngredients
   } from '#lib/nav.js';
   import { initial, session } from '#lib/session.svelte.js';
   import { sidebar } from '#lib/sidebar.svelte.js';
@@ -68,7 +70,9 @@
 
   <nav aria-label="Main">
     {#each PAGES as item (item.href)}
-      {@const current = isCurrent(item, page.url.pathname)}
+      {@const current =
+        isCurrent(item, page.url.pathname) &&
+        !(item.href === '/recipes' && isIngredients(page.url.pathname))}
       {@const tree = item.href === '/recipes' && !sidebar.collapsed}
       <!-- With the tree showing, the page under Recipes is marked, and Recipes shows
            only that you’re somewhere inside it. -->
@@ -107,6 +111,19 @@
               ></span
             >
           {/if}
+        </a>
+      {/if}
+      <!-- Ingredients (F251): its own entry right after Pantry. -->
+      {#if item.href === '/pantry'}
+        {@const here = isIngredients(page.url.pathname)}
+        <a
+          href={resolve('/(app)/recipes/ingredients')}
+          aria-current={here ? 'page' : undefined}
+          aria-label={sidebar.collapsed ? INGREDIENTS.label : undefined}
+          title={sidebar.collapsed ? INGREDIENTS.label : undefined}
+        >
+          <Icon name={INGREDIENTS.icon} size={sidebar.collapsed ? 22 : 20} />
+          {#if !sidebar.collapsed}<span class="label">{INGREDIENTS.label}</span>{/if}
         </a>
       {/if}
       {#if tree}

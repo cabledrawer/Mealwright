@@ -1,6 +1,6 @@
 <script lang="ts">
   // The Recipes icon in the collapsed sidebar: a button that opens a small pop-out with
-  // the three pages under Recipes (All recipes · Drafts · Ingredients), the current one
+  // the pages under Recipes (All recipes · Import · Drafts), the current one
   // marked. A menu button (WAI-ARIA): Enter, Space or the Down arrow open it; Up and
   // Down move between the pages (Home and End jump); Esc closes it and puts focus back
   // on the icon; clicking elsewhere, or Tab-ing away, closes it too.

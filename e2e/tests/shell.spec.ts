@@ -415,16 +415,55 @@ test.describe('theme', () => {
 test.describe('desktop sidebar', () => {
   test.skip(({ viewport }) => (viewport?.width ?? 0) < 768, 'desktop layout only');
 
-  test('Recipes’ tree is All recipes, Import, Drafts and Ingredients (Import is its own item, F113)', async ({ page }) => {
-    await page.goto('/recipes/ingredients');
+  test('Recipes’ tree is All recipes, Import and Drafts (Import is its own item, F113)', async ({ page }) => {
+    await page.goto('/recipes/drafts');
     const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
     await expect(sidebar.getByRole('group', { name: 'Recipes' }).getByRole('link')).toHaveText([
       'All recipes',
       'Import',
       /^Drafts\s*\d*$/,
-      'Ingredients',
     ]);
     await expect(sidebar.getByRole('link', { name: /^Drafts/ })).toHaveAttribute('href', '/recipes/drafts');
+  });
+
+  test('Ingredients is its own item right after Pantry, marked on its page (F251)', async ({ page }) => {
+    await page.goto('/recipes/ingredients');
+    const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+    const main = sidebar.getByRole('navigation', { name: 'Main' });
+    // Top-level items in order (the Recipes tree's links sit in their own group).
+    // (Batch cook, Experimental, may or may not be shown after Plan: it doesn't matter here.)
+    await expect(async () => {
+      const names = (await main.locator(':scope > a').allInnerTexts())
+        .map((t) => t.trim())
+        .filter((t) => !t.startsWith('Batch cook'));
+      expect(names).toEqual(['Today', 'Plan', 'Shopping', 'Pantry', 'Ingredients', 'Recipes']);
+    }).toPass();
+    const ingredients = main.locator(':scope > a', { hasText: 'Ingredients' });
+    await expect(ingredients).toHaveAttribute('href', '/recipes/ingredients');
+    await expect(ingredients).toHaveAttribute('aria-current', 'page');
+    // Recipes is not marked, and nothing under it is.
+    await expect(main.locator(':scope > a', { hasText: 'Recipes' })).not.toHaveAttribute('aria-current', 'page');
+    await expect(main.getByRole('group', { name: 'Recipes' }).locator('[aria-current="page"]')).toHaveCount(0);
+    await expect(main.locator('[aria-current="page"]')).toHaveCount(1);
+    // On a recipe list the marks swap.
+    await page.goto('/recipes');
+    await expect(main.locator(':scope > a', { hasText: 'Ingredients' })).not.toHaveAttribute('aria-current', 'page');
+    await expect(main.getByRole('link', { name: 'All recipes' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('collapsed, Ingredients is an icon of its own after Pantry, and the Recipes pop-out has no Ingredients (F251)', async ({ page }) => {
+    await page.goto('/recipes/ingredients');
+    const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
+    await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click();
+    const link = sidebar.getByRole('link', { name: 'Ingredients', exact: true });
+    await expect(link).toHaveAttribute('title', 'Ingredients');
+    await expect(link).toHaveAttribute('aria-current', 'page');
+    const pantry = (await sidebar.getByRole('link', { name: 'Pantry', exact: true }).boundingBox())!;
+    const recipes = (await sidebar.getByRole('button', { name: 'Recipes' }).boundingBox())!;
+    const own = (await link.boundingBox())!;
+    expect(own.y).toBeGreaterThan(pantry.y);
+    expect(own.y).toBeLessThan(recipes.y);
+    await expect(sidebar.getByRole('button', { name: 'Recipes' })).not.toHaveClass(/current/);
   });
 
   test('collapses to icons, and is remembered', async ({ page }) => {
@@ -455,15 +494,15 @@ test.describe('desktop sidebar', () => {
   test('collapsed, Recipes opens a pop-out with its pages and the current one marked', async ({
     page,
   }) => {
-    await page.goto('/recipes/ingredients');
+    await page.goto('/recipes/drafts');
     const sidebar = page.getByRole('complementary', { name: 'Sidebar' });
     await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click();
     const icon = sidebar.getByRole('button', { name: 'Recipes' });
     await expect(icon).toHaveAttribute('aria-haspopup', 'menu');
     await icon.click();
     const menu = page.getByRole('menu', { name: 'Recipes' });
-    await expect(menu.getByRole('menuitem')).toHaveText(['All recipes', 'Import', 'Drafts', 'Ingredients']);
-    await expect(menu.getByRole('menuitem', { name: 'Ingredients' })).toHaveAttribute(
+    await expect(menu.getByRole('menuitem')).toHaveText(['All recipes', 'Import', 'Drafts']);
+    await expect(menu.getByRole('menuitem', { name: 'Drafts' })).toHaveAttribute(
       'aria-current',
       'page',
     );
@@ -480,8 +519,8 @@ test.describe('desktop sidebar', () => {
 
     // Choosing a page goes there, and the sidebar stays collapsed.
     await icon.click();
-    await menu.getByRole('menuitem', { name: 'Ingredients' }).click();
-    await expect(page).toHaveURL('/recipes/ingredients');
+    await menu.getByRole('menuitem', { name: 'Import' }).click();
+    await expect(page).toHaveURL('/recipes/import');
     await expect(menu).toBeHidden();
     await expect.poll(async () => (await sidebar.boundingBox())!.width).toBe(72);
   });
@@ -505,7 +544,7 @@ test.describe('desktop sidebar', () => {
     await sidebar.getByRole('button', { name: 'Collapse sidebar' }).click();
     await sidebar.getByRole('button', { name: 'Recipes' }).click();
     const menu = page.getByRole('menu', { name: 'Recipes' });
-    await expect(menu.getByRole("menuitem")).toHaveCount(4);
+    await expect(menu.getByRole("menuitem")).toHaveCount(3);
 
     // Whatever is at the middle of each menu item is that item, not a row underneath.
     for (const item of await menu.getByRole('menuitem').all()) {
