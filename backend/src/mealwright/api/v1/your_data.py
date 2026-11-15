@@ -20,7 +20,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine, delete, func, select
 
-from mealwright import backups, export, export_crypto, setup_code, sso_accounts
+from mealwright import backups, export, export_crypto, mealie_import, setup_code, sso_accounts
 from mealwright.api.v1 import sso as sso_api
 from mealwright.api.v1.context import Here
 from mealwright.api_tokens import not_for_tokens
@@ -358,6 +358,25 @@ def _remove_photos(folder: Path) -> None:
     )
 
 
+def _remove_mealie_files(folder: Path) -> None:
+    """Delete the household's uploaded Mealie files (`mealie/<household>/`). A link standing
+    where the folder should be is removed, never followed out of the data folder. The log
+    never says which files."""
+    try:
+        if folder.is_symlink():
+            folder.unlink()
+        else:
+            shutil.rmtree(folder)
+    except FileNotFoundError:
+        return
+    except OSError as error:
+        log.error(
+            "Delete everything: couldn't remove the Mealie files (%s). Remove the "
+            "household's folder in data/mealie by hand.",
+            error.strerror or type(error).__name__,
+        )
+
+
 def _forget_in_memory(request: Request, household_id: int, people: list[tuple[int, str]]) -> None:
     """Everything kept in memory about the deleted household goes too, so the next household
     (which may get the same number) never sees it (whole-0.9 S3, D1). Left alone on purpose:
@@ -379,9 +398,9 @@ def delete_everything(
     body: DeleteEverything, kitchen: Here, request: Request, response: Response
 ) -> None:
     """Delete everything of the household: every recipe, plan, list, pantry item, person, login
-    and setting, and its photos. Admins only, with the typed words and the admin's password.
-    A safety backup is made first, and nothing is deleted if it can't
-    be. The backups folder is kept. Everyone is signed out; Mealwright then starts again at
+    and setting, and its photos and uploaded Mealie files. Admins only, with the typed words and
+    the admin's password. A safety backup is made first, and nothing is deleted if it can't be.
+    The backups folder is kept. Everyone is signed out; Mealwright then starts again at
     first-run setup. There is no Undo."""
     kitchen.admin_only(Action.YOUR_DATA)
     if " ".join(body.words.split()).lower() != WORDS:
@@ -437,6 +456,7 @@ def delete_everything(
             )
         ]
         photos = household_folder(store_of(db), household_id)
+        mealie = mealie_import.folder(db, household_id)
         # Every table points at the household with ON DELETE CASCADE: one row takes all of it.
         db.execute(delete(Household).where(Household.id == household_id))
         db.commit()
@@ -447,6 +467,7 @@ def delete_everything(
             request.app.state.setup_code = setup_code.new_code()
             setup_code.announce(request.app.state.setup_code)
         _remove_photos(photos)
+        _remove_mealie_files(mealie)
         _forget_in_memory(request, household_id, people)
     for session_id in sessions:  # open live-update streams end now
         request.app.state.events.end_session(session_id)

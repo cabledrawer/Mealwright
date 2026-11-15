@@ -382,3 +382,67 @@ def test_deleting_one_household_forgets_only_its_own_wrong_password_counts(
     slow.failed(ours + others)
     assert kitchen.post(API, json=RIGHT).status_code == 204
     assert sorted(slow._failures) == sorted(others)
+
+
+def test_it_also_removes_the_households_uploaded_mealie_files(
+    kitchen: TestClient, neighbour: TestClient, tmp_path: Path
+) -> None:
+    """A file read but not yet brought in is the household's own data: it goes with the rest,
+    and next door's file stays (release security pass L1)."""
+    from test_mealie_import import mealie_files, upload, zipped
+
+    raw = zipped(tmp_path / "backup.zip")
+    mine = upload(kitchen, raw)
+    theirs = upload(neighbour, raw)
+    assert mine.status_code == 201 and theirs.status_code == 201
+    assert len(mealie_files(kitchen)) == 2
+    home = _data(kitchen) / "mealie"
+    assert (home / "1").is_dir()
+
+    assert kitchen.post(API, json=RIGHT).status_code == 204
+
+    assert not (home / "1").exists()
+    assert [path.parent.name for path in mealie_files(kitchen)] == ["2"]
+
+
+def test_a_symlinked_mealie_folder_is_unlinked_not_followed(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    from test_mealie_import import upload, zipped
+
+    assert upload(kitchen, zipped(tmp_path / "b.zip")).status_code == 201
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "precious.txt").write_text("keep")
+    home = _data(kitchen) / "mealie" / "1"
+    for path in home.iterdir():
+        path.unlink()
+    home.rmdir()
+    home.symlink_to(outside, target_is_directory=True)
+
+    assert kitchen.post(API, json=RIGHT).status_code == 204
+
+    assert not home.is_symlink()
+    assert (outside / "precious.txt").read_text() == "keep"
+
+
+def test_an_import_running_when_everything_is_deleted_ends_without_writing(
+    kitchen: TestClient, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The job finds its household gone: it stops quietly, adds no row and logs no data."""
+    from test_mealie_import import upload, zipped
+
+    made = upload(kitchen, zipped(tmp_path / "b.zip")).json()["id"]
+    started = kitchen.post(f"/api/v1/mealie-imports/{made}/start", json={})
+    assert started.status_code == 202
+    kitchen.app.state.mealie.wait()  # type: ignore[attr-defined]
+    assert kitchen.post(API, json=RIGHT).status_code == 204
+    from mealwright import mealie_import
+    from mealwright.models import MealieImport, Recipe
+
+    with caplog.at_level(logging.DEBUG):
+        mealie_import.run(kitchen.app.state.sessionmaker, made)  # type: ignore[attr-defined]
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        assert db.scalar(select(func.count()).select_from(MealieImport)) == 0
+        assert db.scalar(select(func.count()).select_from(Recipe)) == 0
+    assert "Traceback" not in caplog.text
