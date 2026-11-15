@@ -1,4 +1,4 @@
-"""With passwords off, the hourly check never ends the only admin's last sign-in (Tess
+"""With passwords off, the hourly check never ends the only admin's last sign-in (cabledrawer
 12 Nov; proposed, for cabledrawer): its tokens stop, the sign-in stays, Settings warns the admin."""
 
 # ruff: noqa: F811, F401

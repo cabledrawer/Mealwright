@@ -42,7 +42,7 @@ describe('putAwayState', () => {
 });
 
 describe('putAwayWords', () => {
-  it('says it the way Tess worded it (20 Oct)', () => {
+  it('says it the way cabledrawer worded it (20 Oct)', () => {
     expect(putAwayWords({ kind: 'amount', place: 'Fridge', amount: '2 L' })).toBe(
       'In the Fridge · 2 L'
     );

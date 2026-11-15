@@ -1,4 +1,4 @@
-"""Single sign-on can't be turned off on the last admin who can only get in with it (Tess 14
+"""Single sign-on can't be turned off on the last admin who can only get in with it (cabledrawer 14
 Nov): "You'd be locked out: first add another admin who signs in with a password." Ways to end
 it: the Privacy switch, taking off Your own network the entry that lets Mealwright reach the
 sign-in server, and saving another sign-in server or client ID. Only another admin with a working

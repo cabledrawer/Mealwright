@@ -1,4 +1,4 @@
-"""A removed person's username is free again once the 7-day Undo has passed (0.9.5 Pe8, Tess
+"""A removed person's username is free again once the 7-day Undo has passed (0.9.5 Pe8, cabledrawer
 13 Nov), for a new person and for single sign-on. The old login stays removed, with its number,
 its data and its link: nobody takes it over."""
 

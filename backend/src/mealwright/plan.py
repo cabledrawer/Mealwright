@@ -754,7 +754,7 @@ def _wait_item(kitchen: Kitchen, item: MealItem) -> tuple[Meal, MealSlot | None]
 
 
 def set_start(kitchen: Kitchen, item: MealItem, start: tuple[date, time] | None) -> Change | None:
-    """When a planned recipe's long wait will be started, changed from the meal (M3, Tess
+    """When a planned recipe's long wait will be started, changed from the meal (M3, cabledrawer
     9 Nov); None takes the time away. Already that time → None."""
     meal, slot = _wait_item(kitchen, item)
     recipe = kitchen.db.get(Recipe, item.recipe_id or 0)
