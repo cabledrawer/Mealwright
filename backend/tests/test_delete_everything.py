@@ -7,6 +7,7 @@ stay; everyone is signed out; Mealwright then asks for first-run setup. The othe
 """
 
 import logging
+import threading
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -426,22 +427,58 @@ def test_a_symlinked_mealie_folder_is_unlinked_not_followed(
     assert (outside / "precious.txt").read_text() == "keep"
 
 
-def test_an_import_running_when_everything_is_deleted_ends_without_writing(
-    kitchen: TestClient, tmp_path: Path, caplog: pytest.LogCaptureFixture
+def test_an_upload_the_route_then_refuses_leaves_nothing_in_incoming(
+    kitchen: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The job finds its household gone: it stops quietly, adds no row and logs no data."""
+    """The file arrived, then the route failed (a refused sign-in, say): the half-named file in
+    `mealie/incoming/` goes at once, not a day on (security check of L1)."""
     from test_mealie_import import upload, zipped
 
-    made = upload(kitchen, zipped(tmp_path / "b.zip")).json()["id"]
-    started = kitchen.post(f"/api/v1/mealie-imports/{made}/start", json={})
-    assert started.status_code == 202
-    kitchen.app.state.mealie.wait()  # type: ignore[attr-defined]
-    assert kitchen.post(API, json=RIGHT).status_code == 204
     from mealwright import mealie_import
+    from mealwright.errors import Problem
+
+    def refuse(*_: object) -> None:
+        raise Problem(401, "unauthorized", "Sign in first.")
+
+    monkeypatch.setattr(mealie_import, "create", refuse)
+    assert upload(kitchen, zipped(tmp_path / "b.zip")).status_code == 401
+    incoming = _data(kitchen) / "mealie" / "incoming"
+    assert list(incoming.iterdir()) == []
+
+
+def test_an_import_running_while_everything_is_deleted_leaves_no_photo_and_no_traceback(
+    kitchen: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The job has the household's number and is about to save a photo when Delete everything
+    happens. It goes on, finds the household gone and stops: no row, and the photo file it then
+    writes is removed, so the next household with the same number never gets it."""
+    from test_mealie_import import upload, zipped
+
+    from mealwright import photos
     from mealwright.models import MealieImport, Recipe
 
+    made = upload(kitchen, zipped(tmp_path / "b.zip")).json()["id"]
+    in_write, go_on = threading.Event(), threading.Event()
+    real = photos.write
+
+    def slow_write(*args: Any, **kwargs: Any) -> int:
+        in_write.set()  # the job is writing a photo: Delete everything happens now
+        assert go_on.wait(timeout=30)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(photos, "write", slow_write)
     with caplog.at_level(logging.DEBUG):
-        mealie_import.run(kitchen.app.state.sessionmaker, made)  # type: ignore[attr-defined]
+        started = kitchen.post(f"/api/v1/mealie-imports/{made}/start", json={})
+        assert started.status_code == 202
+        assert in_write.wait(timeout=30)
+        assert kitchen.post(API, json=RIGHT).status_code == 204
+        go_on.set()
+        kitchen.app.state.mealie.wait()  # type: ignore[attr-defined]
+    folder = _data(kitchen) / "photos" / "1"
+    assert not folder.exists() or [p for p in folder.rglob("*") if p.is_file()] == []
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         assert db.scalar(select(func.count()).select_from(MealieImport)) == 0
         assert db.scalar(select(func.count()).select_from(Recipe)) == 0

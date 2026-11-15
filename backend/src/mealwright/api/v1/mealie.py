@@ -210,6 +210,7 @@ async def _mealie_file(
         if household_id in _UPLOADING:
             raise Problem(status.HTTP_503_SERVICE_UNAVAILABLE, "mealie_upload_busy", UPLOAD_BUSY)
         _UPLOADING.add(household_id)
+    path: Path | None = None
     try:
         incoming: Path = request.app.state.settings.data_dir / mealie_import.FOLDER / "incoming"
         incoming.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -239,6 +240,11 @@ async def _mealie_file(
             raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "mealie_no_file", NO_FILE)
         yield path
     finally:
+        # The route has finished or failed. `create()` moves the file away when it keeps it
+        # (and deletes it when it refuses), so only a failure after the body arrived (a refused
+        # sign-in, say) leaves a file here: it goes now, not a day on (security check of L1).
+        if path is not None:
+            path.unlink(missing_ok=True)
         with _UPLOADING_LOCK:
             _UPLOADING.discard(household_id)
 

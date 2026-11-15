@@ -876,7 +876,8 @@ def _carry_on(kitchen: Kitchen, row: MealieImport, book: MealieBook, path: Path)
         db.commit()
     done = {entry["key"] for entry in row.results}
     todo_recipes = [r for r in book.recipes if r.key in wanted and r.key not in done]
-    have = _have(db, kitchen.household_id)  # once; each recipe added joins it
+    household_id = kitchen.household_id  # read once: the household may be deleted meanwhile
+    have = _have(db, household_id)  # once; each recipe added joins it
     db.commit()  # only read: ends the read
     with contextlib.ExitStack() as stack:
         pictures = stack.enter_context(MealiePhotos(path)) if row.choices.get("photos") else None
@@ -886,7 +887,7 @@ def _carry_on(kitchen: Kitchen, row: MealieImport, book: MealieBook, path: Path)
                 if not _add(kitchen, row, ready, have):
                     return
             finally:
-                _let_go(db, kitchen.household_id, ready)
+                _let_go(db, household_id, ready)
     if _lock(kitchen, row):
         row.state = "done"
         row.finished_at = utcnow()

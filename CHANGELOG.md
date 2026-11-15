@@ -65,14 +65,14 @@ The first 0.9.5 test version, for the trial: Import from Mealie, sign-in links a
 
 ### Security
 
-- **Delete everything also removes the household's uploaded Mealie files (release security pass L1).** The Mealie file kept for a preview or a running import (`data/mealie/<household>/`) now goes with the photos; before, it stayed on the disk. A link standing where that folder should be is removed, never followed out of the data folder, and another household's files are left alone. A file still being uploaded when you press Delete everything (`data/mealie/incoming/`) belongs to no household until it is read, so it is not removed then; the daily tidy deletes it a day after it was started. An import running at that moment finds its household gone and stops without writing anything.
+- **Delete everything also removes the household's uploaded Mealie files (release security pass L1).** The Mealie file kept for a preview or a running import (`data/mealie/<household>/`) now goes with the photos; before, it stayed on the disk. A link standing where that folder should be is removed, never followed out of the data folder, and another household's files are left alone. A file still being uploaded when you press Delete everything (`data/mealie/incoming/`) belongs to no household until it is read, so it is not removed then; the daily tidy deletes it a day after it was started. An upload that arrives and is then refused is deleted at once, not a day later. An import running at that moment finds its household gone, stops without writing anything, and removes the photo files it had just written (before, those could stay in the photos folder, where the next household with the same number would find them).
 - Logins are never given a number used before, even after Delete everything: before, a leftover reference (a log line, a backup being compared) could point at a new admin. **Database:** one migration, `91246ac80e8c`.
 - Single sign-on: the automatic link takes only a login nobody has used, the sign-in server's name for a person is taken exactly (no tidying), and a live sign-in or Reset link counts as "in use".
 - Updated libraries with published warnings: `@sveltejs/kit` 3.0.1 to 3.1.1 and `@sveltejs/adapter-static` 4.0.0 to 4.0.1 (GHSA-mw6w-2fmv-pvw3 and GHSA-jf9x-2fg2-hx4w, both Moderate); `opentelemetry-api` 1.45.1 to 1.45.2 (GHSA-mf5v-w3w3-f6cg, Moderate; tracing is switched off in Mealwright, so a scanner fix, not a live risk).
 
 ### Tests
 
-- A saved database from each earlier release (twelve, 0.1.0 to 0.9.0-beta.1) is upgraded to the newest layout in a test, and a column that disappears fails it unless renamed on purpose. Delete everything is also tested for the Mealie files (removed, next door's kept, a link not followed) and for an import running while it happens.
+- A saved database from each earlier release (twelve, 0.1.0 to 0.9.0-beta.1) is upgraded to the newest layout in a test, and a column that disappears fails it unless renamed on purpose. Delete everything is also tested for the Mealie files (removed, next door's kept, a link not followed), for an upload refused after it arrived, and for an import still running while it happens (no photo left, no traceback).
 
 ## [0.9.0] - 2026-11-13
 
