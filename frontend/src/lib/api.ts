@@ -5,6 +5,7 @@ import { cantReachText } from './downWords';
 import { isLeaving, whenStaying } from './leaving';
 import { network } from './network.svelte';
 import { endPendingSignOut } from './offline/signOutPending';
+import { forgetOnWipe } from './offline/wipeHooks';
 import { PROXY_GAP, proxyGap } from './proxyGap';
 
 export { PROXY_GAP };
@@ -118,9 +119,21 @@ export function forgetWhenSessionEnds(forget: () => void): void {
   onEnded.add(forget);
 }
 
+/** Run what is forgotten when a session ends. */
+export function runSessionEndHooks(): void {
+  for (const forget of onEnded) forget();
+}
+
+/** Forget at BOTH ends of a person's time here: when a session ends and when the browser is
+ * wiped (what one person's screen holds must not be there for the next). */
+export function forgetAtSignOut(forget: () => void): void {
+  onEnded.add(forget);
+  forgetOnWipe(forget);
+}
+
 /** The session ended (a 401, or the live stream's signed_out): go to the sign-in page. */
 export function sessionEnded(): void {
-  for (const forget of onEnded) forget();
+  runSessionEndHooks();
   onUnauthorized?.();
 }
 

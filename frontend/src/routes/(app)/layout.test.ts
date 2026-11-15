@@ -17,6 +17,9 @@ import { wipePending } from '#lib/offline/wipePending.svelte.js';
 import { releaseServerLists, serverListsHeld } from '#lib/offline/confirmed.js';
 import { askAgain, restart, START_WAIT_MS } from '#lib/offline/opening.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+import { importLinks } from '#lib/importLinks.svelte.js';
+import { recipePeek } from '#lib/recipePeek.js';
+import type { RecipeRow } from '#lib/client/recipes.js';
 import { SETUP } from '#lib/session.svelte.js';
 import { theme, type ThemeChoice } from '#lib/theme.svelte.js';
 import { load as signInLoad } from '../(auth)/+layout';
@@ -665,6 +668,8 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     await shoppingSync.start();
     expect(shoppingSync.copy).not.toBeNull();
     placesAndShops.places = [{ id: 9, name: 'Arlo’s fridge', kind: 'fridge' }];
+    recipePeek.hold({ id: 123, name: 'Wren’s dal' } as unknown as RecipeRow);
+    importLinks.rows = [{ link: 'https://example.com/a' } as never];
 
     server.release();
     await vi.waitFor(() => expect(reruns).toHaveLength(1));
@@ -673,6 +678,9 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
       location: '/sign-in?next=%2Fshopping'
     });
     expect(session.me).toBeNull();
+    // The held recipe row and the import links went with the rest (forgetAll).
+    expect(recipePeek.of(123)).toBeNull();
+    expect(importLinks.rows).toEqual([]);
     // With Arlo's username filled in, as a login turned away at the start.
     expect(takeTurnedAway()).toBe('arlo');
     expect(server.requests.map((r) => `${r.method} ${r.path}`)).toEqual([

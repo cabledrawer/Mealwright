@@ -1,7 +1,6 @@
 // The household's settings (contract 6.3).
 
-import { api, forgetWhenSessionEnds } from '#lib/api.js';
-import { forgetOnWipe } from '#lib/offline/wipeHooks.js';
+import { api, forgetAtSignOut } from '#lib/api.js';
 import type { AmountsShown, Household, Pints } from './types';
 
 /** The household's settings. Screens that open together ask at the same moment (the sidebar, the
@@ -19,8 +18,7 @@ export const getHousehold = (): Promise<Household> => {
 // A question still on its way when a sign-in ends or the browser is wiped is never handed to
 // anyone who asks afterwards: they ask afresh, as the next person.
 const forgetRead = () => (reading = null);
-forgetOnWipe(forgetRead);
-forgetWhenSessionEnds(forgetRead);
+forgetAtSignOut(forgetRead);
 /** A change to the household: a read still on its way is dropped (also used by people.svelte.ts). */
 export const changed = <T>(answer: Promise<T>): Promise<T> => {
   reading = null;

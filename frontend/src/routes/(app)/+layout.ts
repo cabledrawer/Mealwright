@@ -32,6 +32,7 @@ import { endSession } from '#lib/offline/signOut.js';
 import { wipeIfAnotherLogin } from '#lib/offline/wipe.js';
 import { wipePending } from '#lib/offline/wipePending.svelte.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+import { forgetAll } from '#lib/forgetAll.js';
 import { forgetLoaded } from '#lib/forgetWhenLoaded.js';
 import { updates } from '#lib/updates.svelte.js';
 import { SETUP, session, signInPath } from '#lib/session.svelte.js';
@@ -156,6 +157,7 @@ async function turnAwayLate(me: Me, heading: string): Promise<never> {
   drafts.forget();
   undoHistory.clear();
   toasts.dismiss();
+  forgetAll();
   signIn(heading);
 }
 

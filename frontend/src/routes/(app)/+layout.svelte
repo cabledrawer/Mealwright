@@ -14,6 +14,7 @@
   import { lastOwnChange } from '#lib/client/changes.js';
   import { settleHousehold } from '#lib/client/household.js';
   import { drafts } from '#lib/drafts.svelte.js';
+  import { forgetAll } from '#lib/forgetAll.js';
   import { forgetToday } from '#lib/today.svelte.js';
   import { askAgain } from '#lib/offline/opening.js';
   import { onWipedElsewhere } from '#lib/offline/otherTabs.js';
@@ -81,6 +82,7 @@
       forgetToday();
       undoHistory.clear();
       toasts.dismiss();
+      forgetAll();
       try {
         sessionStorage.clear();
       } catch {

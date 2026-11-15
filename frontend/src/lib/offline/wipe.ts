@@ -19,7 +19,7 @@
 
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
 import { drafts } from '#lib/drafts.svelte.js';
-import { runWipeHooks } from './wipeHooks';
+import { forgetAll } from '../forgetAll';
 import { forgetLoaded } from '#lib/forgetWhenLoaded.js';
 import { updates } from '#lib/updates.svelte.js';
 import { forgetToday } from '#lib/today.svelte.js';
@@ -76,7 +76,7 @@ export async function wipeNow(): Promise<boolean> {
   forgetLoaded('privacy');
   updates.forget();
   drafts.forget();
-  runWipeHooks();
+  forgetAll();
   forgetToday();
   forgetDeviceId();
   let timer: ReturnType<typeof setTimeout> | undefined;

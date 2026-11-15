@@ -6,9 +6,8 @@
 // recipe, and never in place of an answer: when the recipe has arrived, or is not found, or
 // can't be reached, the page says so as before.
 
-import { forgetWhenSessionEnds } from './api';
+import { forgetAtSignOut } from './api';
 import type { RecipeRow } from './client/recipes';
-import { forgetOnWipe } from './offline/wipeHooks';
 
 let held: RecipeRow | null = null;
 
@@ -28,5 +27,4 @@ export const recipePeek = {
 
 // Never outlives a sign-in: a person who signs out and another who signs in, in the same tab, must
 // never see the first one's recipe (its name, details or picture) while the page loads.
-forgetOnWipe(recipePeek.forget);
-forgetWhenSessionEnds(recipePeek.forget);
+forgetAtSignOut(recipePeek.forget);
