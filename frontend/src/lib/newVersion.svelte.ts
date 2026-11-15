@@ -1,6 +1,7 @@
 // "New version ready" (spec "App updates"; plan row X1): a new version of the app has been
-// downloaded and its service worker is waiting. Our worker never calls skipWaiting(), so it takes
-// over only once every tab and window of the app is closed. This only notices that it's waiting,
+// downloaded and its service worker is waiting. Our worker never calls skipWaiting() (and claims
+// only on the very first install), so an update takes over only once every tab and window of
+// the app is closed. This only notices that it's waiting,
 // so About can say so; it never reloads a page or asks the worker to take over.
 
 class NewVersion {

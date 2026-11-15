@@ -13,6 +13,18 @@ export const CACHE_PREFIX = 'mealwright-app-';
 
 export const cacheName = (version: string) => `${CACHE_PREFIX}${version}`;
 
+/** The caches of older versions among `keys`: ours by prefix, but not this version's. */
+export const oldCaches = (keys: readonly string[], current: string) =>
+  keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== current);
+
+/**
+ * Is this the very first worker on this device (no older version's cache existed)? Only the
+ * first worker takes the page that installed it (`clients.claim()`); an update never does, so
+ * it waits until every window is closed (sync protocol 11.6).
+ */
+export const isFirstInstall = (keys: readonly string[], current: string) =>
+  oldCaches(keys, current).length === 0;
+
 /**
  * The file SvelteKit 3 asks for when a tab comes back into view (it cannot be switched off).
  * Updates here come only through this worker, so the worker answers it itself with the

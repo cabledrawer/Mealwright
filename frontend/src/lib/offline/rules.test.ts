@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { CACHE_PREFIX, SHELL, VERSION_FILE, appFiles, cacheName, handling, isApi } from './rules';
+import {
+  CACHE_PREFIX,
+  SHELL,
+  VERSION_FILE,
+  appFiles,
+  cacheName,
+  handling,
+  isApi,
+  isFirstInstall,
+  oldCaches
+} from './rules';
 
 const own = 'https://home.example';
 const assets = new Set(['/_app/immutable/entry/start.js', '/icons/icon-192.png', '/theme.js']);
@@ -98,5 +108,18 @@ describe('the app’s own files, from SvelteKit’s manifest', () => {
 
   it('are nothing when the manifest is empty (a development run)', () => {
     expect(appFiles([], [])).toEqual([]);
+  });
+});
+
+describe('the first worker on a device (it alone takes the page that installed it)', () => {
+  const now = cacheName('2');
+  it('is first when only its own cache exists, or none', () => {
+    expect(isFirstInstall([], now)).toBe(true);
+    expect(isFirstInstall([now], now)).toBe(true);
+    expect(isFirstInstall([now, 'something-else'], now)).toBe(true);
+  });
+  it('is an update when an older version’s cache exists, so it never claims', () => {
+    expect(isFirstInstall([cacheName('1'), now], now)).toBe(false);
+    expect(oldCaches([cacheName('1'), now, 'other'], now)).toEqual([cacheName('1')]);
   });
 });

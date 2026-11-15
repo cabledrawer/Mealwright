@@ -6,9 +6,12 @@
 //   - touch anything under /api (so /api/v1/events and every API call go straight to the
 //     network and nothing about the household is ever cached here);
 //   - touch anything from another address (there is none; nothing is fetched elsewhere);
-//   - call skipWaiting() or claim() or reload a page. A new version waits until every
-//     window of the app is closed, so an update never takes over in the middle of shopping.
-//     The next start opens the new version.
+//   - call skipWaiting() or reload a page. A new version waits until every window of the app
+//     is closed, so an update never takes over in the middle of shopping. The next start opens
+//     the new version.
+//   - call clients.claim() for an update. Only the very first worker on a device (no older
+//     version's cache) takes the page that installed it, once its files are on the device, so
+//     that first page also works with no connection. Nothing reloads.
 // PR 6's offline queue lives in IndexedDB, not here; the new version sends the old one's
 // queue before showing the list (sync protocol 11.6).
 
@@ -16,7 +19,14 @@ import { self as worker } from '$app/service-worker';
 import { version } from '$app/env';
 import { assets, immutable } from '$app/manifest';
 import { answer, install } from '#lib/offline/heal.js';
-import { CACHE_PREFIX, SHELL, appFiles, cacheName, handling } from '#lib/offline/rules.js';
+import {
+  SHELL,
+  appFiles,
+  cacheName,
+  handling,
+  isFirstInstall,
+  oldCaches
+} from '#lib/offline/rules.js';
 import { MOST_WAIT_MS, PAGE_IS_QUIET } from '#lib/offline/precacheMessage.js';
 
 const CACHE = cacheName(version);
@@ -58,9 +68,12 @@ worker.addEventListener('activate', (event) => {
   // Only now, when no window of the old version is left, are its files deleted.
   event.waitUntil(
     (async () => {
-      for (const key of await caches.keys()) {
-        if (key.startsWith(CACHE_PREFIX) && key !== CACHE) await caches.delete(key);
-      }
+      const keys = await caches.keys();
+      const first = isFirstInstall(keys, CACHE);
+      for (const key of oldCaches(keys, CACHE)) await caches.delete(key);
+      // The first worker takes the page that installed it (its files are on the device now).
+      // An update never does: it waits for every window to close.
+      if (first) await worker.clients.claim();
     })()
   );
 });

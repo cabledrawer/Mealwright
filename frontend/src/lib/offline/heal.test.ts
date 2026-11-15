@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answer, install, usable, type CacheLike, type StorageLike } from './heal';
+import { INSTALL_AT_ONCE, answer, install, usable, type CacheLike, type StorageLike } from './heal';
 
 /** A cache kept in a map; `broken` makes reading it fail, `failPut` makes keeping fail. */
 function fakeStorage(start: Record<string, Record<string, Response>> = {}) {
@@ -137,5 +137,50 @@ describe('the service worker cache heals itself', () => {
     const got = await answer(storage, 'v1', '/a.js', async () => bad);
     expect(await got.text()).toBe('login page');
     expect(store.get('v1')?.has('/a.js')).toBe(false);
+  });
+
+  it('downloads in groups, never more than INSTALL_AT_ONCE in flight, and keeps the order', async () => {
+    expect(INSTALL_AT_ONCE).toBe(6);
+    const { storage, store } = fakeStorage();
+    const names = Array.from({ length: 20 }, (_, i) => `/f${i}.js`);
+    let inFlight = 0;
+    let most = 0;
+    await install(
+      storage,
+      'v1',
+      names.map((n) => new Request(`http://x${n}`)),
+      async (request) => {
+        inFlight++;
+        most = Math.max(most, inFlight);
+        // Later files answer first, so a wrong order would show.
+        await new Promise((done) =>
+          setTimeout(done, 20 - Number(new URL(request.url).pathname.slice(2, -3)))
+        );
+        inFlight--;
+        return new Response('x');
+      }
+    );
+    expect(most).toBe(INSTALL_AT_ONCE);
+    expect([...(store.get('v1')?.keys() ?? [])]).toEqual(names);
+  });
+
+  it('a file failing in the middle of a group drops the whole cache and starts no more', async () => {
+    const { storage, store } = fakeStorage();
+    const asked: string[] = [];
+    const names = Array.from({ length: 14 }, (_, i) => `/f${i}.js`);
+    await expect(
+      install(
+        storage,
+        'v1',
+        names.map((n) => new Request(`http://x${n}`)),
+        async (request) => {
+          const path = new URL(request.url).pathname;
+          asked.push(path);
+          return path === '/f8.js' ? new Response('no', { status: 503 }) : new Response('x');
+        }
+      )
+    ).rejects.toThrow('Could not fetch http://x/f8.js');
+    expect(store.has('v1')).toBe(false);
+    expect(asked).toHaveLength(12); // the groups of 0-5 and 6-11; the third never starts
   });
 });

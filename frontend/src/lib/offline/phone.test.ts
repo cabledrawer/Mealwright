@@ -114,13 +114,18 @@ describe('FE-4 (part 2): an update never takes over mid-shop', () => {
       .replace(/\/\*[\s\S]*?\*\//g, ' ')
       .replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 
-  it('nothing calls skipWaiting() or clients.claim()', () => {
+  it('nothing calls skipWaiting(); claim() is called only by the worker, in its first-install branch', () => {
     const app = Object.entries(sources).filter(([path]) => !path.endsWith('.test.ts'));
     expect(app.some(([path]) => path === '/src/service-worker/index.ts')).toBe(true);
-    const callers = app
-      .filter(([, text]) => /\bskipWaiting\s*\(|\bclaim\s*\(/.test(code(text)))
-      .map(([path]) => path);
-    expect(callers).toEqual([]);
+    const callers = (pattern: RegExp) =>
+      app.filter(([, text]) => pattern.test(code(text))).map(([path]) => path);
+    expect(callers(/\bskipWaiting\s*\(/)).toEqual([]);
+    expect(callers(/\bclaim\s*\(/)).toEqual(['/src/service-worker/index.ts']);
+    // ...and there, only under the decision that nothing older was installed (rules.ts, tested).
+    const worker = code(sources['/src/service-worker/index.ts']);
+    expect(worker.match(/\bclaim\s*\(/g)).toHaveLength(1);
+    expect(worker).toMatch(/if\s*\(\s*first\s*\)\s*await worker\.clients\.claim\(\)/);
+    expect(worker).toMatch(/const first = isFirstInstall\(/);
   });
 });
 

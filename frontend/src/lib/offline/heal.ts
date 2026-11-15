@@ -62,6 +62,9 @@ export async function answer(
   return fresh;
 }
 
+/** How many of the app's files the first download asks for at once. */
+export const INSTALL_AT_ONCE = 6;
+
 /**
  * Fills this version's cache. Anything left under the same name (half-written by an install
  * that failed) is dropped first, and if filling fails the half-filled cache is dropped again
@@ -77,11 +80,16 @@ export async function install(
   try {
     const cache = await storage.open(name);
     // Not `cache.addAll`: it keeps a redirected or partial answer too. Each file is checked
-    // by the same rule as every later write (usable) before it is kept.
-    for (const request of requests) {
-      const response = await fetchFresh(request);
-      if (!usable(response)) throw new Error(`Could not fetch ${request.url}`);
-      await cache.put(request.url, response);
+    // by the same rule as every later write (usable) before it is kept. INSTALL_AT_ONCE files
+    // at a time (one at a time cost a round trip each on a slow link); a group is kept in order,
+    // and a failure anywhere stops the rest and drops the cache (below).
+    for (let at = 0; at < requests.length; at += INSTALL_AT_ONCE) {
+      const group = requests.slice(at, at + INSTALL_AT_ONCE);
+      const answers = await Promise.all(group.map((request) => fetchFresh(request)));
+      answers.forEach((response, i) => {
+        if (!usable(response)) throw new Error(`Could not fetch ${group[i].url}`);
+      });
+      for (let i = 0; i < group.length; i++) await cache.put(group[i].url, answers[i]);
     }
   } catch (error) {
     await storage.delete(name).catch(() => false);
