@@ -1,0 +1,22 @@
+[
+{
+"id": 1,
+"kind": "fridge",
+"name": "Fridge"
+},
+{
+"id": 2,
+"kind": "freezer",
+"name": "Freezer"
+},
+{
+"id": 3,
+"kind": "cupboard",
+"name": "Cupboard"
+},
+{
+"id": 4,
+"kind": "cupboard",
+"name": "Spice rack"
+}
+]

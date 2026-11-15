@@ -42,6 +42,7 @@ from mealwright.foods import (
     pack_line_out,
     pack_sizes_out,
     resolve,
+    visible_foods,
 )
 from mealwright.history import commit, replayed
 from mealwright.models import Change, Food, FoodSize, ListItem, Place, Shop, ShoppingList
@@ -145,10 +146,13 @@ def _counts(kitchen: Kitchen) -> dict[str, tuple[int, int]]:
         )
     )
     counts: dict[str, list[int]] = {}
-    shown: dict[int, bool] = {}
-    for item in rows:
-        if item.food_id not in shown:  # only what the list would show
-            shown[item.food_id] = _visible_food(kitchen, item.food_id) is not None
+    items = list(rows)
+    # Only what the list would show: all the ingredients looked up together, not one by one.
+    shown = {
+        food_id: food is not None
+        for food_id, food in visible_foods(kitchen, {i.food_id for i in items}).items()
+    }
+    for item in items:
         if not shown[item.food_id]:
             continue
         entry = counts.setdefault(item.list_id, [0, 0])
@@ -156,8 +160,15 @@ def _counts(kitchen: Kitchen) -> dict[str, tuple[int, int]]:
     return {key: (a, b) for key, (a, b) in counts.items()}
 
 
-def list_out(kitchen: Kitchen, shopping_list: ShoppingList) -> ListOut:
-    to_buy, ticked = _counts(kitchen).get(shopping_list.id, (0, 0))
+def list_out(
+    kitchen: Kitchen,
+    shopping_list: ShoppingList,
+    counts: dict[str, tuple[int, int]] | None = None,
+) -> ListOut:
+    """`counts`: what `_counts` gave, when many lists are made at once."""
+    to_buy, ticked = (counts if counts is not None else _counts(kitchen)).get(
+        shopping_list.id, (0, 0)
+    )
     return ListOut(
         id=shopping_list.id,
         name=shopping_list.name,
@@ -193,8 +204,8 @@ def _item_out(
             amount_out(food, item.amount_milli, size) if item.amount_milli is not None else None
         ),
         pack=pack,
-        why=why_text(kitchen, item, food, pack, uses),
-        staple_offer=tiny_need(kitchen, food, item.amount_milli),
+        why=why_text(kitchen, item, food, pack, uses, reads),
+        staple_offer=tiny_need(kitchen, food, item.amount_milli, reads),
         shop=Ref(id=shop.id, name=shop.name) if shop else None,
         aisle=aisle,
         aisle_name=AISLE_LABELS[aisle],
@@ -255,8 +266,9 @@ def list_view(kitchen: Kitchen, shopping_list: ShoppingList) -> ListView:
     )
     uses = work_out(kitchen).uses if any(i.source == "plan" for i in items) else {}
     by_shop: dict[int | None, list[tuple[ListItem, Food]]] = {}
+    visible = visible_foods(kitchen, {i.food_id for i in items})
     for item in items:
-        food = _visible_food(kitchen, item.food_id)
+        food = visible[item.food_id]
         if food is None:  # an ingredient that's gone: nothing to show
             continue
         by_shop.setdefault(item.shop_id if item.shop_id in shops else None, []).append((item, food))
@@ -326,7 +338,8 @@ def get_lists(kitchen: Here) -> ListsOut:
     """The household's lists: the main list first, then the extra lists in the order made."""
     lists = shopping.live_lists(kitchen)
     kitchen.db.commit()  # the main list may have just been made
-    return ListsOut(lists=[list_out(kitchen, row) for row in lists])
+    counts = _counts(kitchen)
+    return ListsOut(lists=[list_out(kitchen, row, counts) for row in lists])
 
 
 @router.get("/shopping/lists/{list_id}")

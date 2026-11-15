@@ -12,7 +12,7 @@ from typing import cast
 
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import PackLineOut
-from mealwright.foods import other_names, pack_bought, sizes
+from mealwright.foods import PackReads, other_names, pack_bought, sizes
 from mealwright.models import Food, ListItem
 from mealwright.pack_sizes import CountedAs, suggest_sizes
 from mealwright.pack_sizes import table as pack_table
@@ -29,11 +29,17 @@ def recipes_text(uses: dict[str, set[date]]) -> str:
     )
 
 
-def _pack_bigger(kitchen: Kitchen, food: Food, item: ListItem, pack: PackLineOut | None) -> bool:
+def _pack_bigger(
+    kitchen: Kitchen,
+    food: Food,
+    item: ListItem,
+    pack: PackLineOut | None,
+    reads: PackReads | None = None,
+) -> bool:
     """Is the pack to buy bigger than what is needed? (A pack line with a size and spare.)"""
     if pack is None or pack.packs is None or item.amount_milli is None:
         return False
-    usual = pack_bought(kitchen, food.id)
+    usual = pack_bought(kitchen, food.id, reads)
     return usual is not None and pack.packs * usual.amount_milli > item.amount_milli
 
 
@@ -43,9 +49,11 @@ def why_text(
     food: Food,
     pack: PackLineOut | None,
     uses: dict[int, dict[str, set[date]]],
+    reads: PackReads | None = None,
 ) -> str:
+    """`reads`: the list's sizes and names, read once (a caller with many lines passes it)."""
     parts: list[str] = []
-    if _pack_bigger(kitchen, food, item, pack) and pack is not None:
+    if _pack_bigger(kitchen, food, item, pack, reads) and pack is not None:
         parts.append(pack.need)
     if item.source == "plan":
         found = uses.get(food.id)
@@ -57,17 +65,21 @@ def why_text(
     return SEP.join(parts)
 
 
-def tiny_need(kitchen: Kitchen, food: Food, need_milli: int | None) -> bool:
+def tiny_need(
+    kitchen: Kitchen, food: Food, need_milli: int | None, reads: PackReads | None = None
+) -> bool:
     """Offer "Make it a staple?" (cabledrawer 7 Nov): a best-before ingredient (its pack-size table
     row says "best before"; no row, or "use by", never) whose need is under a twentieth of its
     smallest known pack (the household's sizes and the table's, in the need's unit)."""
     if food.staple or need_milli is None or need_milli <= 0:
         return False
-    names = [food.name, *(n.name for n in other_names(kitchen, food.id))]
+    others = reads.names(food.id) if reads is not None else other_names(kitchen, food.id)
+    names = [food.name, *(n.name for n in others)]
     row = pack_table().match(*names)
     if row is None or row.dates != "best before":
         return False
-    known = [s.amount_milli for s in sizes(kitchen, food.id) if s.amount_milli > 0]
+    own = reads.sizes(food.id) if reads is not None else sizes(kitchen, food.id)
+    known = [s.amount_milli for s in own if s.amount_milli > 0]
     # The table matched, so these are its own sizes (never the generic ones).
     known += [
         p.amount_milli

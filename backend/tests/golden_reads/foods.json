@@ -1,0 +1,438 @@
+{
+"counts": {
+"all": 10,
+"maybe_same": 0,
+"maybe_same_pairs": 0,
+"staples": 2,
+"unused": 2
+},
+"foods": [
+{
+"counted_as": "weight",
+"counted_as_display": "Weight",
+"id": 1,
+"matched_name": null,
+"maybe_same": [],
+"more_sizes": [],
+"name": "Ingredient 000",
+"other_names": [],
+"pack": null,
+"pack_suggestions": [
+{
+"amount": 100.0,
+"amount_text": "100\u00a0g",
+"display": "pack \u00b7 100\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 250.0,
+"amount_text": "250\u00a0g",
+"display": "pack \u00b7 250\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0g",
+"display": "pack \u00b7 500\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0kg",
+"display": "pack \u00b7 1\u00a0kg",
+"name": "pack",
+"pack": null
+}
+],
+"place": {
+"id": 1,
+"name": "Fridge"
+},
+"restocked_at": null,
+"restocked_days_ago": null,
+"restocked_on": null,
+"stand_ins": [],
+"staple": false,
+"used_in_recipes": 2
+},
+{
+"counted_as": "volume",
+"counted_as_display": "Volume",
+"id": 2,
+"matched_name": null,
+"maybe_same": [],
+"more_sizes": [],
+"name": "Ingredient 001",
+"other_names": [],
+"pack": null,
+"pack_suggestions": [
+{
+"amount": 250.0,
+"amount_text": "250\u00a0ml",
+"display": "pack \u00b7 250\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0ml",
+"display": "pack \u00b7 500\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0L",
+"display": "pack \u00b7 1\u00a0L",
+"name": "pack",
+"pack": null
+}
+],
+"place": {
+"id": 2,
+"name": "Freezer"
+},
+"restocked_at": null,
+"restocked_days_ago": null,
+"restocked_on": null,
+"stand_ins": [],
+"staple": false,
+"used_in_recipes": 1
+},
+{
+"counted_as": "count",
+"counted_as_display": "Count",
+"id": 3,
+"matched_name": null,
+"maybe_same": [],
+"more_sizes": [],
+"name": "Ingredient 002",
+"other_names": [],
+"pack": null,
+"pack_suggestions": [
+{
+"amount": 1.0,
+"amount_text": "1",
+"display": "pack \u00b7 1",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 2.0,
+"amount_text": "2",
+"display": "pack \u00b7 2",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 6.0,
+"amount_text": "6",
+"display": "pack \u00b7 6",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 12.0,
+"amount_text": "12",
+"display": "pack \u00b7 12",
+"name": "pack",
+"pack": null
+}
+],
+"place": {
+"id": 1,
+"name": "Fridge"
+},
+"restocked_at": null,
+"restocked_days_ago": null,
+"restocked_on": null,
+"stand_ins": [],
+"staple": false,
+"used_in_recipes": 2
+},
+{
+"counted_as": "weight",
+"counted_as_display": "Weight",
+"id": 4,
+"matched_name": null,
+"maybe_same": [],
+"more_sizes": [],
+"name": "Ingredient 003",
+"other_names": [],
+"pack": null,
+"pack_suggestions": [
+{
+"amount": 100.0,
+"amount_text": "100\u00a0g",
+"display": "pack \u00b7 100\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 250.0,
+"amount_text": "250\u00a0g",
+"display": "pack \u00b7 250\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0g",
+"display": "pack \u00b7 500\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0kg",
+"display": "pack \u00b7 1\u00a0kg",
+"name": "pack",
+"pack": null
+}
+],
+"place": {
+"id": 2,
+"name": "Freezer"
+},
+"restocked_at": null,
+"restocked_days_ago": null,
+"restocked_on": null,
+"stand_ins": [],
+"staple": false,
+"used_in_recipes": 1
+},
+{
+"counted_as": "volume",
+"counted_as_display": "Volume",
+"id": 5,
+"matched_name": null,
+"maybe_same": [],
+"more_sizes": [],
+"name": "Ingredient 004",
+"other_names": [],
+"pack": null,
+"pack_suggestions": [
+{
+"amount": 250.0,
+"amount_text": "250\u00a0ml",
+"display": "pack \u00b7 250\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0ml",
+"display": "pack \u00b7 500\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0L",
+"display": "pack \u00b7 1\u00a0L",
+"name": "pack",
+"pack": null
+}
+],
+"place": {
+"id": 1,
+"name": "Fridge"
+},
+"restocked_at": null,
+"restocked_days_ago": null,
+"restocked_on": null,
+"stand_ins": [],
+"staple": false,
+"used_in_recipes": 2
+},
+{
+"counted_as": "count",
+"counted_as_display": "Count",
+"id": 6,
+"matched_name": null,
+"maybe_same": [],
+"more_sizes": [],
+"name": "Ingredient 005",
+"other_names": [],
+"pack": null,
+"pack_suggestions": [
+{
+"amount": 1.0,
+"amount_text": "1",
+"display": "pack \u00b7 1",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 2.0,
+"amount_text": "2",
+"display": "pack \u00b7 2",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 6.0,
+"amount_text": "6",
+"display": "pack \u00b7 6",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 12.0,
+"amount_text": "12",
+"display": "pack \u00b7 12",
+"name": "pack",
+"pack": null
+}
+],
+"place": {
+"id": 2,
+"name": "Freezer"
+},
+"restocked_at": null,
+"restocked_days_ago": null,
+"restocked_on": null,
+"stand_ins": [],
+"staple": false,
+"used_in_recipes": 1
+},
+{
+"counted_as": "weight",
+"counted_as_display": "Weight",
+"id": 7,
+"matched_name": null,
+"maybe_same": [],
+"more_sizes": [],
+"name": "Ingredient 006",
+"other_names": [],
+"pack": null,
+"pack_suggestions": [
+{
+"amount": 100.0,
+"amount_text": "100\u00a0g",
+"display": "pack \u00b7 100\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 250.0,
+"amount_text": "250\u00a0g",
+"display": "pack \u00b7 250\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0g",
+"display": "pack \u00b7 500\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0kg",
+"display": "pack \u00b7 1\u00a0kg",
+"name": "pack",
+"pack": null
+}
+],
+"place": {
+"id": 1,
+"name": "Fridge"
+},
+"restocked_at": null,
+"restocked_days_ago": null,
+"restocked_on": null,
+"stand_ins": [],
+"staple": false,
+"used_in_recipes": 2
+},
+{
+"counted_as": "volume",
+"counted_as_display": "Volume",
+"id": 8,
+"matched_name": null,
+"maybe_same": [],
+"more_sizes": [],
+"name": "Ingredient 007",
+"other_names": [],
+"pack": null,
+"pack_suggestions": [
+{
+"amount": 250.0,
+"amount_text": "250\u00a0ml",
+"display": "pack \u00b7 250\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0ml",
+"display": "pack \u00b7 500\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0L",
+"display": "pack \u00b7 1\u00a0L",
+"name": "pack",
+"pack": null
+}
+],
+"place": {
+"id": 2,
+"name": "Freezer"
+},
+"restocked_at": null,
+"restocked_days_ago": null,
+"restocked_on": null,
+"stand_ins": [],
+"staple": false,
+"used_in_recipes": 1
+},
+{
+"counted_as": "weight",
+"counted_as_display": "Staple",
+"id": 9,
+"matched_name": null,
+"maybe_same": [],
+"more_sizes": [],
+"name": "Staple 000",
+"other_names": [],
+"pack": null,
+"pack_suggestions": [],
+"place": null,
+"restocked_at": null,
+"restocked_days_ago": null,
+"restocked_on": null,
+"stand_ins": [],
+"staple": true,
+"used_in_recipes": 0
+},
+{
+"counted_as": "weight",
+"counted_as_display": "Staple",
+"id": 10,
+"matched_name": null,
+"maybe_same": [],
+"more_sizes": [],
+"name": "Staple 001",
+"other_names": [],
+"pack": null,
+"pack_suggestions": [],
+"place": null,
+"restocked_at": null,
+"restocked_days_ago": null,
+"restocked_on": null,
+"stand_ins": [],
+"staple": true,
+"used_in_recipes": 0
+}
+],
+"next": null,
+"total": 10
+}

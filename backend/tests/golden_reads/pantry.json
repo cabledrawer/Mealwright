@@ -1,0 +1,740 @@
+{
+"counts": {
+"items": 13,
+"running_low": 0,
+"tubs": 0,
+"use_soon": 1
+},
+"places": [
+{
+"groups": [
+{
+"date_kind": "use_by",
+"dates_count": 1,
+"days_left": 0,
+"food": {
+"counted_as": "weight",
+"id": 1,
+"name": "Ingredient 000"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "use_by",
+"days_left": 0,
+"frozen_on": null,
+"how_added": "found",
+"id": 1,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 100.0,
+"as_sold": null,
+"display": "100\u00a0g",
+"short": "100\u00a0g",
+"unit": "g"
+},
+"use_by": "D+0",
+"use_soon": true
+}
+],
+"lots_count": 1,
+"place": {
+"id": 1,
+"kind": "fridge",
+"name": "Fridge"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 100.0,
+"as_sold": null,
+"display": "100\u00a0g",
+"short": "100\u00a0g",
+"unit": "g"
+},
+"use_by": "D+0",
+"use_soon": true
+},
+{
+"date_kind": "best_before",
+"dates_count": 1,
+"days_left": 3,
+"food": {
+"counted_as": "weight",
+"id": 4,
+"name": "Ingredient 003"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "best_before",
+"days_left": 3,
+"frozen_on": null,
+"how_added": "found",
+"id": 6,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 153.0,
+"as_sold": null,
+"display": "153\u00a0g",
+"short": "153\u00a0g",
+"unit": "g"
+},
+"use_by": "D+3",
+"use_soon": false
+}
+],
+"lots_count": 1,
+"place": {
+"id": 1,
+"kind": "fridge",
+"name": "Fridge"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 153.0,
+"as_sold": null,
+"display": "153\u00a0g",
+"short": "153\u00a0g",
+"unit": "g"
+},
+"use_by": "D+3",
+"use_soon": false
+},
+{
+"date_kind": "use_by",
+"dates_count": 0,
+"days_left": null,
+"food": {
+"counted_as": "volume",
+"id": 5,
+"name": "Ingredient 004"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "use_by",
+"days_left": null,
+"frozen_on": null,
+"how_added": "found",
+"id": 7,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 104.0,
+"as_sold": null,
+"display": "104\u00a0ml",
+"short": "104\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+},
+{
+"added_on": "D+0",
+"date_kind": "use_by",
+"days_left": null,
+"frozen_on": null,
+"how_added": "bought",
+"id": 14,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 203.0,
+"as_sold": null,
+"display": "203\u00a0ml",
+"short": "203\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"lots_count": 2,
+"place": {
+"id": 1,
+"kind": "fridge",
+"name": "Fridge"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 307.0,
+"as_sold": null,
+"display": "307\u00a0ml",
+"short": "307\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+},
+{
+"date_kind": "best_before",
+"dates_count": 0,
+"days_left": null,
+"food": {
+"counted_as": "volume",
+"id": 8,
+"name": "Ingredient 007"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "best_before",
+"days_left": null,
+"frozen_on": null,
+"how_added": "found",
+"id": 12,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 157.0,
+"as_sold": null,
+"display": "157\u00a0ml",
+"short": "157\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"lots_count": 1,
+"place": {
+"id": 1,
+"kind": "fridge",
+"name": "Fridge"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 157.0,
+"as_sold": null,
+"display": "157\u00a0ml",
+"short": "157\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"id": 1,
+"items": 4,
+"kind": "fridge",
+"name": "Fridge",
+"tubs": []
+},
+{
+"groups": [
+{
+"date_kind": "best_before",
+"dates_count": 0,
+"days_left": null,
+"food": {
+"counted_as": "volume",
+"id": 2,
+"name": "Ingredient 001"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "best_before",
+"days_left": null,
+"frozen_on": null,
+"how_added": "found",
+"id": 2,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 101.0,
+"as_sold": null,
+"display": "101\u00a0ml",
+"short": "101\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+},
+{
+"added_on": "D+0",
+"date_kind": "best_before",
+"days_left": null,
+"frozen_on": null,
+"how_added": "bought",
+"id": 15,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 206.0,
+"as_sold": null,
+"display": "206\u00a0ml",
+"short": "206\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"lots_count": 2,
+"place": {
+"id": 2,
+"kind": "freezer",
+"name": "Freezer"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 307.0,
+"as_sold": null,
+"display": "307\u00a0ml",
+"short": "307\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+},
+{
+"date_kind": "best_before",
+"dates_count": 0,
+"days_left": null,
+"food": {
+"counted_as": "count",
+"id": 6,
+"name": "Ingredient 005"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "best_before",
+"days_left": null,
+"frozen_on": null,
+"how_added": "found",
+"id": 8,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 105.0,
+"as_sold": null,
+"display": "105\u00a0left",
+"short": "105\u00a0left",
+"unit": "count"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"lots_count": 1,
+"place": {
+"id": 2,
+"kind": "freezer",
+"name": "Freezer"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 105.0,
+"as_sold": null,
+"display": "105\u00a0left",
+"short": "105\u00a0left",
+"unit": "count"
+},
+"use_by": null,
+"use_soon": false
+},
+{
+"date_kind": "best_before",
+"dates_count": 0,
+"days_left": null,
+"food": {
+"counted_as": "volume",
+"id": 8,
+"name": "Ingredient 007"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "best_before",
+"days_left": null,
+"frozen_on": null,
+"how_added": "bought",
+"id": 13,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 200.0,
+"as_sold": null,
+"display": "200\u00a0ml",
+"short": "200\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"lots_count": 1,
+"place": {
+"id": 2,
+"kind": "freezer",
+"name": "Freezer"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 200.0,
+"as_sold": null,
+"display": "200\u00a0ml",
+"short": "200\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"id": 2,
+"items": 3,
+"kind": "freezer",
+"name": "Freezer",
+"tubs": []
+},
+{
+"groups": [
+{
+"date_kind": "use_by",
+"dates_count": 1,
+"days_left": 6,
+"food": {
+"counted_as": "weight",
+"id": 7,
+"name": "Ingredient 006"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "use_by",
+"days_left": 6,
+"frozen_on": null,
+"how_added": "found",
+"id": 10,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 106.0,
+"as_sold": null,
+"display": "106\u00a0g",
+"short": "106\u00a0g",
+"unit": "g"
+},
+"use_by": "D+6",
+"use_soon": false
+}
+],
+"lots_count": 1,
+"place": {
+"id": 3,
+"kind": "cupboard",
+"name": "Cupboard"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 106.0,
+"as_sold": null,
+"display": "106\u00a0g",
+"short": "106\u00a0g",
+"unit": "g"
+},
+"use_by": "D+6",
+"use_soon": false
+},
+{
+"date_kind": "best_before",
+"dates_count": 0,
+"days_left": null,
+"food": {
+"counted_as": "volume",
+"id": 2,
+"name": "Ingredient 001"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "best_before",
+"days_left": null,
+"frozen_on": null,
+"how_added": "found",
+"id": 3,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 151.0,
+"as_sold": null,
+"display": "151\u00a0ml",
+"short": "151\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"lots_count": 1,
+"place": {
+"id": 3,
+"kind": "cupboard",
+"name": "Cupboard"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 151.0,
+"as_sold": null,
+"display": "151\u00a0ml",
+"short": "151\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+},
+{
+"date_kind": "use_by",
+"dates_count": 0,
+"days_left": null,
+"food": {
+"counted_as": "count",
+"id": 3,
+"name": "Ingredient 002"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "use_by",
+"days_left": null,
+"frozen_on": null,
+"how_added": "found",
+"id": 4,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 102.0,
+"as_sold": null,
+"display": "102\u00a0left",
+"short": "102\u00a0left",
+"unit": "count"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"lots_count": 1,
+"place": {
+"id": 3,
+"kind": "cupboard",
+"name": "Cupboard"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 102.0,
+"as_sold": null,
+"display": "102\u00a0left",
+"short": "102\u00a0left",
+"unit": "count"
+},
+"use_by": null,
+"use_soon": false
+},
+{
+"date_kind": "best_before",
+"dates_count": 0,
+"days_left": null,
+"food": {
+"counted_as": "count",
+"id": 6,
+"name": "Ingredient 005"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "best_before",
+"days_left": null,
+"frozen_on": null,
+"how_added": "found",
+"id": 9,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 155.0,
+"as_sold": null,
+"display": "155\u00a0left",
+"short": "155\u00a0left",
+"unit": "count"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"lots_count": 1,
+"place": {
+"id": 3,
+"kind": "cupboard",
+"name": "Cupboard"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 155.0,
+"as_sold": null,
+"display": "155\u00a0left",
+"short": "155\u00a0left",
+"unit": "count"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"id": 3,
+"items": 4,
+"kind": "cupboard",
+"name": "Cupboard",
+"tubs": []
+},
+{
+"groups": [
+{
+"date_kind": "best_before",
+"dates_count": 1,
+"days_left": 3,
+"food": {
+"counted_as": "weight",
+"id": 4,
+"name": "Ingredient 003"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "best_before",
+"days_left": 3,
+"frozen_on": null,
+"how_added": "found",
+"id": 5,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 103.0,
+"as_sold": null,
+"display": "103\u00a0g",
+"short": "103\u00a0g",
+"unit": "g"
+},
+"use_by": "D+3",
+"use_soon": false
+}
+],
+"lots_count": 1,
+"place": {
+"id": 4,
+"kind": "cupboard",
+"name": "Spice rack"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 103.0,
+"as_sold": null,
+"display": "103\u00a0g",
+"short": "103\u00a0g",
+"unit": "g"
+},
+"use_by": "D+3",
+"use_soon": false
+},
+{
+"date_kind": "best_before",
+"dates_count": 0,
+"days_left": null,
+"food": {
+"counted_as": "volume",
+"id": 8,
+"name": "Ingredient 007"
+},
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "best_before",
+"days_left": null,
+"frozen_on": null,
+"how_added": "found",
+"id": 11,
+"open": false,
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 107.0,
+"as_sold": null,
+"display": "107\u00a0ml",
+"short": "107\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"lots_count": 1,
+"place": {
+"id": 4,
+"kind": "cupboard",
+"name": "Spice rack"
+},
+"running_low": false,
+"stock": {
+"about": false,
+"amount": 107.0,
+"as_sold": null,
+"display": "107\u00a0ml",
+"short": "107\u00a0ml",
+"unit": "ml"
+},
+"use_by": null,
+"use_soon": false
+}
+],
+"id": 4,
+"items": 2,
+"kind": "cupboard",
+"name": "Spice rack",
+"tubs": []
+}
+],
+"staples": [
+{
+"id": 9,
+"name": "Staple 000",
+"restocked_at": null,
+"restocked_days_ago": null,
+"restocked_on": null
+},
+{
+"id": 10,
+"name": "Staple 001",
+"restocked_at": null,
+"restocked_days_ago": null,
+"restocked_on": null
+}
+],
+"today": "D+0"
+}

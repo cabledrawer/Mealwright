@@ -1,0 +1,34 @@
+{
+"counted": 3,
+"lines": [
+{
+"food": {
+"id": 1,
+"name": "Ingredient 000"
+},
+"line_id": 1,
+"place": "Fridge",
+"state": "in_stock"
+},
+{
+"food": {
+"id": 2,
+"name": "Ingredient 001"
+},
+"line_id": 2,
+"place": "Freezer",
+"state": "in_stock"
+},
+{
+"food": {
+"id": 3,
+"name": "Ingredient 002"
+},
+"line_id": 3,
+"place": "Cupboard",
+"state": "in_stock"
+}
+],
+"missing": 0,
+"stock_unchecked": false
+}

@@ -1,0 +1,529 @@
+{
+"shopping_list": {
+"id": "U1",
+"main": true,
+"name": "This week",
+"ticked": 3,
+"to_buy": 6
+},
+"shops": [
+{
+"aisles": [
+{
+"aisle": "other",
+"items": [
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 207.0,
+"as_sold": null,
+"display": "207\u00a0g",
+"short": "207\u00a0g",
+"unit": "g"
+},
+"food": {
+"id": 1,
+"name": "Ingredient 000"
+},
+"hand_edited": false,
+"id": "U2",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": null,
+"line": "207\u00a0g needed \u00b7 no pack size yet",
+"need": "207\u00a0g needed",
+"packs": null,
+"size_id": null,
+"suggestions": [
+{
+"amount": 100.0,
+"amount_text": "100\u00a0g",
+"display": "pack \u00b7 100\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 250.0,
+"amount_text": "250\u00a0g",
+"display": "pack \u00b7 250\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0g",
+"display": "pack \u00b7 500\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0kg",
+"display": "pack \u00b7 1\u00a0kg",
+"name": "pack",
+"pack": null
+}
+]
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": null,
+"ticked_by": null,
+"version": 21,
+"why": "Added by you"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 205.0,
+"as_sold": null,
+"display": "205\u00a0left",
+"short": "205\u00a0left",
+"unit": "count"
+},
+"food": {
+"id": 3,
+"name": "Ingredient 002"
+},
+"hand_edited": false,
+"id": "U3",
+"list_id": "U1",
+"pack": null,
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": null,
+"ticked_by": null,
+"version": 18,
+"why": "Added by you"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 204.0,
+"as_sold": null,
+"display": "204\u00a0g",
+"short": "204\u00a0g",
+"unit": "g"
+},
+"food": {
+"id": 4,
+"name": "Ingredient 003"
+},
+"hand_edited": false,
+"id": "U4",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": null,
+"line": "204\u00a0g needed \u00b7 no pack size yet",
+"need": "204\u00a0g needed",
+"packs": null,
+"size_id": null,
+"suggestions": [
+{
+"amount": 100.0,
+"amount_text": "100\u00a0g",
+"display": "pack \u00b7 100\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 250.0,
+"amount_text": "250\u00a0g",
+"display": "pack \u00b7 250\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0g",
+"display": "pack \u00b7 500\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0kg",
+"display": "pack \u00b7 1\u00a0kg",
+"name": "pack",
+"pack": null
+}
+]
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": null,
+"ticked_by": null,
+"version": 17,
+"why": "Added by you"
+},
+{
+"added_by": "The plan",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 293.0,
+"as_sold": null,
+"display": "293\u00a0ml",
+"short": "293\u00a0ml",
+"unit": "ml"
+},
+"food": {
+"id": 5,
+"name": "Ingredient 004"
+},
+"hand_edited": false,
+"id": "U5",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": null,
+"line": "293\u00a0ml needed \u00b7 no pack size yet",
+"need": "293\u00a0ml needed",
+"packs": null,
+"size_id": null,
+"suggestions": [
+{
+"amount": 250.0,
+"amount_text": "250\u00a0ml",
+"display": "pack \u00b7 250\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0ml",
+"display": "pack \u00b7 500\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0L",
+"display": "pack \u00b7 1\u00a0L",
+"name": "pack",
+"pack": null
+}
+]
+},
+"put_away_place": null,
+"shop": null,
+"source": "plan",
+"staple_offer": false,
+"ticked_at": null,
+"ticked_by": null,
+"version": 24,
+"why": "Dish 001 (Sun, Mon, Wed) \u00b7 Dish 002 (Sun, Tue, Wed) \u00b7 no pack size"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 202.0,
+"as_sold": null,
+"display": "202\u00a0left",
+"short": "202\u00a0left",
+"unit": "count"
+},
+"food": {
+"id": 6,
+"name": "Ingredient 005"
+},
+"hand_edited": false,
+"id": "U6",
+"list_id": "U1",
+"pack": null,
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": null,
+"ticked_by": null,
+"version": 14,
+"why": "Added by you"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 201.0,
+"as_sold": null,
+"display": "201\u00a0g",
+"short": "201\u00a0g",
+"unit": "g"
+},
+"food": {
+"id": 7,
+"name": "Ingredient 006"
+},
+"hand_edited": false,
+"id": "U7",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": null,
+"line": "201\u00a0g needed \u00b7 no pack size yet",
+"need": "201\u00a0g needed",
+"packs": null,
+"size_id": null,
+"suggestions": [
+{
+"amount": 100.0,
+"amount_text": "100\u00a0g",
+"display": "pack \u00b7 100\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 250.0,
+"amount_text": "250\u00a0g",
+"display": "pack \u00b7 250\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0g",
+"display": "pack \u00b7 500\u00a0g",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0kg",
+"display": "pack \u00b7 1\u00a0kg",
+"name": "pack",
+"pack": null
+}
+]
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": null,
+"ticked_by": null,
+"version": 13,
+"why": "Added by you"
+}
+],
+"name": "Other"
+}
+],
+"in_trolley": [
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 206.0,
+"as_sold": null,
+"display": "206\u00a0ml",
+"short": "206\u00a0ml",
+"unit": "ml"
+},
+"food": {
+"id": 2,
+"name": "Ingredient 001"
+},
+"hand_edited": false,
+"id": "U8",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": null,
+"line": "206\u00a0ml needed \u00b7 no pack size yet",
+"need": "206\u00a0ml needed",
+"packs": null,
+"size_id": null,
+"suggestions": [
+{
+"amount": 250.0,
+"amount_text": "250\u00a0ml",
+"display": "pack \u00b7 250\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0ml",
+"display": "pack \u00b7 500\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0L",
+"display": "pack \u00b7 1\u00a0L",
+"name": "pack",
+"pack": null
+}
+]
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": "<moment>",
+"ticked_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"version": 20,
+"why": "Added by you"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 203.0,
+"as_sold": null,
+"display": "203\u00a0ml",
+"short": "203\u00a0ml",
+"unit": "ml"
+},
+"food": {
+"id": 5,
+"name": "Ingredient 004"
+},
+"hand_edited": false,
+"id": "U9",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": null,
+"line": "203\u00a0ml needed \u00b7 no pack size yet",
+"need": "203\u00a0ml needed",
+"packs": null,
+"size_id": null,
+"suggestions": [
+{
+"amount": 250.0,
+"amount_text": "250\u00a0ml",
+"display": "pack \u00b7 250\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0ml",
+"display": "pack \u00b7 500\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0L",
+"display": "pack \u00b7 1\u00a0L",
+"name": "pack",
+"pack": null
+}
+]
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": "<moment>",
+"ticked_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"version": 16,
+"why": "Added by you"
+},
+{
+"added_by": "Tess",
+"aisle": "other",
+"aisle_name": "Other",
+"amount": {
+"about": false,
+"amount": 200.0,
+"as_sold": null,
+"display": "200\u00a0ml",
+"short": "200\u00a0ml",
+"unit": "ml"
+},
+"food": {
+"id": 8,
+"name": "Ingredient 007"
+},
+"hand_edited": false,
+"id": "U10",
+"list_id": "U1",
+"pack": {
+"alternative": null,
+"buy": null,
+"line": "200\u00a0ml needed \u00b7 no pack size yet",
+"need": "200\u00a0ml needed",
+"packs": null,
+"size_id": null,
+"suggestions": [
+{
+"amount": 250.0,
+"amount_text": "250\u00a0ml",
+"display": "pack \u00b7 250\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 500.0,
+"amount_text": "500\u00a0ml",
+"display": "pack \u00b7 500\u00a0ml",
+"name": "pack",
+"pack": null
+},
+{
+"amount": 1000.0,
+"amount_text": "1\u00a0L",
+"display": "pack \u00b7 1\u00a0L",
+"name": "pack",
+"pack": null
+}
+]
+},
+"put_away_place": null,
+"shop": null,
+"source": "typed",
+"staple_offer": false,
+"ticked_at": "<moment>",
+"ticked_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"version": 12,
+"why": "Added by you"
+}
+],
+"name": "Any shop",
+"shop": null
+}
+]
+}

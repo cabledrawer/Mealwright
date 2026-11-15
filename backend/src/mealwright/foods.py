@@ -147,6 +147,43 @@ def find(kitchen: Kitchen, food_id: int, follow_merges: bool = True) -> Food:
     return food
 
 
+def visible_foods(kitchen: Kitchen, food_ids: Iterable[int]) -> dict[int, Food | None]:
+    """What `find` gives for each id, for many ids in a few statements (one, and one more for
+    each step of a merge chain) instead of one per id: the food the id leads to when merged, or
+    None when it is gone or isn't this household's. Every read keeps the household filter."""
+    db = kitchen.db
+    have: dict[int, Food] = {}
+
+    def fetch(ids: set[int]) -> None:
+        wanted = sorted(i for i in ids if i not in have)
+        for start in range(0, len(wanted), 500):
+            chunk = wanted[start : start + 500]
+            for food in db.scalars(
+                select(Food).where(Food.household_id == kitchen.household_id, Food.id.in_(chunk))
+            ):
+                have[food.id] = food
+
+    wanted = set(food_ids)
+    fetch(wanted)
+    while True:
+        more = {f.merged_into_id for f in have.values() if f.merged_into_id is not None}
+        if not {i for i in more if i not in have}:
+            break
+        before = len(have)
+        fetch(more)
+        if len(have) == before:  # a target that isn't this household's: nothing more to read
+            break
+    out: dict[int, Food | None] = {}
+    for food_id in wanted:
+        food = have.get(food_id)
+        seen: set[int] = set()
+        while food is not None and food.merged_into_id is not None and food.id not in seen:
+            seen.add(food.id)
+            food = have.get(food.merged_into_id)
+        out[food_id] = food if food is not None and visible(food) else None
+    return out
+
+
 def all_foods(kitchen: Kitchen) -> list[Food]:
     return list(
         kitchen.db.scalars(
@@ -177,9 +214,13 @@ def sizes(kitchen: Kitchen, food_id: int) -> list[FoodSize]:
     )
 
 
-def usual_size(kitchen: Kitchen, food_id: int) -> FoodSize | None:
-    found = sizes(kitchen, food_id)
+def usual_of(found: list[FoodSize]) -> FoodSize | None:
+    """The usual one of an ingredient's sizes (all of them, in order), or its first."""
     return next((size for size in found if size.usual), found[0] if found else None)
+
+
+def usual_size(kitchen: Kitchen, food_id: int) -> FoodSize | None:
+    return usual_of(sizes(kitchen, food_id))
 
 
 class PackReads:
@@ -203,14 +244,17 @@ class PackReads:
             found_sizes: dict[int, list[FoodSize]] = {i: [] for i in chunk}
             found_names: dict[int, list[FoodName]] = {i: [] for i in chunk}
             db = self._kitchen.db
+            hid = self._kitchen.household_id
             for size in db.scalars(
                 select(FoodSize)
-                .where(FoodSize.food_id.in_(chunk))
+                .where(FoodSize.household_id == hid, FoodSize.food_id.in_(chunk))
                 .order_by(FoodSize.position, FoodSize.id)
             ):
                 found_sizes[size.food_id].append(size)
             for name in db.scalars(
-                select(FoodName).where(FoodName.food_id.in_(chunk)).order_by(FoodName.id)
+                select(FoodName)
+                .where(FoodName.household_id == hid, FoodName.food_id.in_(chunk))
+                .order_by(FoodName.id)
             ):
                 found_names[name.food_id].append(name)
             self._sizes.update(found_sizes)
@@ -220,6 +264,10 @@ class PackReads:
         if food_id not in self._sizes:
             self.load([food_id])
         return self._sizes[food_id]
+
+    def known_sizes(self) -> list[FoodSize]:
+        """Every size read so far (for all the foods loaded), in no particular order."""
+        return [size for found in self._sizes.values() for size in found]
 
     def names(self, food_id: int) -> list[FoodName]:
         if food_id not in self._names:

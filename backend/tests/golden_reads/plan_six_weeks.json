@@ -1,0 +1,465 @@
+{
+"batch_cooks": [],
+"batch_sessions": [],
+"end": "D+41",
+"meals": [
+{
+"date": "D+0",
+"eater_member_ids": [],
+"id": 1,
+"items": [
+{
+"ahead": null,
+"cooked": false,
+"eating": 4,
+"id": 1,
+"ingredient": null,
+"kept_name": null,
+"kind": "recipe",
+"method": null,
+"method_id": null,
+"note": null,
+"optional_skipped": [],
+"position": 0,
+"recipe": {
+"id": 1,
+"kcal": null,
+"methods": [],
+"name": "Dish 000",
+"optional_count": 0,
+"photo_url": null,
+"removed": false,
+"serves": 4,
+"time_minutes": 30,
+"wait": null
+},
+"servings": null,
+"tub_id": null
+}
+],
+"kcal": null,
+"slot_id": 1,
+"status": "planned"
+},
+{
+"date": "D+0",
+"eater_member_ids": [],
+"id": 2,
+"items": [
+{
+"ahead": null,
+"cooked": false,
+"eating": 4,
+"id": 2,
+"ingredient": null,
+"kept_name": null,
+"kind": "recipe",
+"method": null,
+"method_id": null,
+"note": null,
+"optional_skipped": [],
+"position": 0,
+"recipe": {
+"id": 2,
+"kcal": null,
+"methods": [],
+"name": "Dish 001",
+"optional_count": 0,
+"photo_url": null,
+"removed": false,
+"serves": 4,
+"time_minutes": 30,
+"wait": null
+},
+"servings": null,
+"tub_id": null
+}
+],
+"kcal": null,
+"slot_id": 2,
+"status": "planned"
+},
+{
+"date": "D+0",
+"eater_member_ids": [],
+"id": 3,
+"items": [
+{
+"ahead": null,
+"cooked": false,
+"eating": 4,
+"id": 3,
+"ingredient": null,
+"kept_name": null,
+"kind": "recipe",
+"method": null,
+"method_id": null,
+"note": null,
+"optional_skipped": [],
+"position": 0,
+"recipe": {
+"id": 3,
+"kcal": null,
+"methods": [],
+"name": "Dish 002",
+"optional_count": 0,
+"photo_url": null,
+"removed": false,
+"serves": 4,
+"time_minutes": 30,
+"wait": null
+},
+"servings": null,
+"tub_id": null
+}
+],
+"kcal": null,
+"slot_id": 4,
+"status": "planned"
+},
+{
+"date": "D+1",
+"eater_member_ids": [],
+"id": 4,
+"items": [
+{
+"ahead": null,
+"cooked": false,
+"eating": 4,
+"id": 4,
+"ingredient": null,
+"kept_name": null,
+"kind": "recipe",
+"method": null,
+"method_id": null,
+"note": null,
+"optional_skipped": [],
+"position": 0,
+"recipe": {
+"id": 4,
+"kcal": null,
+"methods": [],
+"name": "Dish 003",
+"optional_count": 0,
+"photo_url": null,
+"removed": false,
+"serves": 4,
+"time_minutes": 30,
+"wait": null
+},
+"servings": null,
+"tub_id": null
+}
+],
+"kcal": null,
+"slot_id": 1,
+"status": "planned"
+},
+{
+"date": "D+1",
+"eater_member_ids": [],
+"id": 5,
+"items": [
+{
+"ahead": null,
+"cooked": false,
+"eating": 4,
+"id": 5,
+"ingredient": null,
+"kept_name": null,
+"kind": "recipe",
+"method": null,
+"method_id": null,
+"note": null,
+"optional_skipped": [],
+"position": 0,
+"recipe": {
+"id": 1,
+"kcal": null,
+"methods": [],
+"name": "Dish 000",
+"optional_count": 0,
+"photo_url": null,
+"removed": false,
+"serves": 4,
+"time_minutes": 30,
+"wait": null
+},
+"servings": null,
+"tub_id": null
+}
+],
+"kcal": null,
+"slot_id": 2,
+"status": "planned"
+},
+{
+"date": "D+1",
+"eater_member_ids": [],
+"id": 6,
+"items": [
+{
+"ahead": null,
+"cooked": false,
+"eating": 4,
+"id": 6,
+"ingredient": null,
+"kept_name": null,
+"kind": "recipe",
+"method": null,
+"method_id": null,
+"note": null,
+"optional_skipped": [],
+"position": 0,
+"recipe": {
+"id": 2,
+"kcal": null,
+"methods": [],
+"name": "Dish 001",
+"optional_count": 0,
+"photo_url": null,
+"removed": false,
+"serves": 4,
+"time_minutes": 30,
+"wait": null
+},
+"servings": null,
+"tub_id": null
+}
+],
+"kcal": null,
+"slot_id": 4,
+"status": "planned"
+},
+{
+"date": "D+2",
+"eater_member_ids": [],
+"id": 7,
+"items": [
+{
+"ahead": null,
+"cooked": false,
+"eating": 4,
+"id": 7,
+"ingredient": null,
+"kept_name": null,
+"kind": "recipe",
+"method": null,
+"method_id": null,
+"note": null,
+"optional_skipped": [],
+"position": 0,
+"recipe": {
+"id": 3,
+"kcal": null,
+"methods": [],
+"name": "Dish 002",
+"optional_count": 0,
+"photo_url": null,
+"removed": false,
+"serves": 4,
+"time_minutes": 30,
+"wait": null
+},
+"servings": null,
+"tub_id": null
+}
+],
+"kcal": null,
+"slot_id": 1,
+"status": "planned"
+},
+{
+"date": "D+2",
+"eater_member_ids": [],
+"id": 8,
+"items": [
+{
+"ahead": null,
+"cooked": false,
+"eating": 4,
+"id": 8,
+"ingredient": null,
+"kept_name": null,
+"kind": "recipe",
+"method": null,
+"method_id": null,
+"note": null,
+"optional_skipped": [],
+"position": 0,
+"recipe": {
+"id": 4,
+"kcal": null,
+"methods": [],
+"name": "Dish 003",
+"optional_count": 0,
+"photo_url": null,
+"removed": false,
+"serves": 4,
+"time_minutes": 30,
+"wait": null
+},
+"servings": null,
+"tub_id": null
+}
+],
+"kcal": null,
+"slot_id": 2,
+"status": "planned"
+},
+{
+"date": "D+2",
+"eater_member_ids": [],
+"id": 9,
+"items": [
+{
+"ahead": null,
+"cooked": false,
+"eating": 4,
+"id": 9,
+"ingredient": null,
+"kept_name": null,
+"kind": "recipe",
+"method": null,
+"method_id": null,
+"note": null,
+"optional_skipped": [],
+"position": 0,
+"recipe": {
+"id": 1,
+"kcal": null,
+"methods": [],
+"name": "Dish 000",
+"optional_count": 0,
+"photo_url": null,
+"removed": false,
+"serves": 4,
+"time_minutes": 30,
+"wait": null
+},
+"servings": null,
+"tub_id": null
+}
+],
+"kcal": null,
+"slot_id": 4,
+"status": "planned"
+},
+{
+"date": "D+3",
+"eater_member_ids": [],
+"id": 10,
+"items": [
+{
+"ahead": null,
+"cooked": false,
+"eating": 4,
+"id": 10,
+"ingredient": null,
+"kept_name": null,
+"kind": "recipe",
+"method": null,
+"method_id": null,
+"note": null,
+"optional_skipped": [],
+"position": 0,
+"recipe": {
+"id": 2,
+"kcal": null,
+"methods": [],
+"name": "Dish 001",
+"optional_count": 0,
+"photo_url": null,
+"removed": false,
+"serves": 4,
+"time_minutes": 30,
+"wait": null
+},
+"servings": null,
+"tub_id": null
+}
+],
+"kcal": null,
+"slot_id": 1,
+"status": "planned"
+},
+{
+"date": "D+3",
+"eater_member_ids": [],
+"id": 11,
+"items": [
+{
+"ahead": null,
+"cooked": false,
+"eating": 4,
+"id": 11,
+"ingredient": null,
+"kept_name": null,
+"kind": "recipe",
+"method": null,
+"method_id": null,
+"note": null,
+"optional_skipped": [],
+"position": 0,
+"recipe": {
+"id": 3,
+"kcal": null,
+"methods": [],
+"name": "Dish 002",
+"optional_count": 0,
+"photo_url": null,
+"removed": false,
+"serves": 4,
+"time_minutes": 30,
+"wait": null
+},
+"servings": null,
+"tub_id": null
+}
+],
+"kcal": null,
+"slot_id": 2,
+"status": "planned"
+},
+{
+"date": "D+3",
+"eater_member_ids": [],
+"id": 12,
+"items": [
+{
+"ahead": null,
+"cooked": false,
+"eating": 4,
+"id": 12,
+"ingredient": null,
+"kept_name": null,
+"kind": "recipe",
+"method": null,
+"method_id": null,
+"note": null,
+"optional_skipped": [],
+"position": 0,
+"recipe": {
+"id": 4,
+"kcal": null,
+"methods": [],
+"name": "Dish 003",
+"optional_count": 0,
+"photo_url": null,
+"removed": false,
+"serves": 4,
+"time_minutes": 30,
+"wait": null
+},
+"servings": null,
+"tub_id": null
+}
+],
+"kcal": null,
+"slot_id": 4,
+"status": "planned"
+}
+],
+"start": "D+0",
+"tubs": []
+}

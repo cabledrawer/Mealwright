@@ -1,0 +1,40 @@
+{
+"lots": [
+{
+"added_on": "D+0",
+"date_kind": "use_by",
+"days_left": 0,
+"food": {
+"counted_as": "weight",
+"id": 1,
+"name": "Ingredient 000"
+},
+"frozen_on": null,
+"how_added": "found",
+"id": 1,
+"lot_ids": [
+1
+],
+"lots_count": 1,
+"open": false,
+"place": {
+"id": 1,
+"kind": "fridge",
+"name": "Fridge"
+},
+"size_id": null,
+"stock": {
+"about": false,
+"amount": 100.0,
+"as_sold": null,
+"display": "100\u00a0g",
+"short": "100\u00a0g",
+"unit": "g"
+},
+"use_by": "D+0",
+"use_soon": true
+}
+],
+"today": "D+0",
+"tubs": []
+}

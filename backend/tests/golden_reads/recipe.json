@@ -1,0 +1,116 @@
+{
+"created_at": "<moment>",
+"description": null,
+"homemade": null,
+"id": 1,
+"lines": [
+{
+"amount": 100.0,
+"amount_text": "100",
+"food": {
+"id": 1,
+"name": "Ingredient 000",
+"other_names": []
+},
+"id": 1,
+"kind": "ingredient",
+"link": "ingredient",
+"note": null,
+"optional": false,
+"recipe": null,
+"size": null,
+"unit": "g",
+"words": "ingredient 000"
+},
+{
+"amount": 100.0,
+"amount_text": "100",
+"food": {
+"id": 2,
+"name": "Ingredient 001",
+"other_names": []
+},
+"id": 2,
+"kind": "ingredient",
+"link": "ingredient",
+"note": null,
+"optional": false,
+"recipe": null,
+"size": null,
+"unit": "ml",
+"words": "ingredient 001"
+},
+{
+"amount": 1.0,
+"amount_text": "1",
+"food": {
+"id": 3,
+"name": "Ingredient 002",
+"other_names": []
+},
+"id": 3,
+"kind": "ingredient",
+"link": "ingredient",
+"note": null,
+"optional": false,
+"recipe": null,
+"size": null,
+"unit": null,
+"words": "ingredient 002"
+}
+],
+"made_ahead": false,
+"makes": null,
+"methods": [
+{
+"id": 1,
+"name": "",
+"time_minutes": 30,
+"used_last": false,
+"wait": null
+}
+],
+"name": "Dish 000",
+"nutrition": {
+"carbs": null,
+"fat": null,
+"fibre": null,
+"kcal": null,
+"possibly_out_of_date": false,
+"protein": null
+},
+"photo": null,
+"second_method": null,
+"serves": 4,
+"source": null,
+"source_note": null,
+"steps": [
+{
+"id": 1,
+"kind": "step",
+"lines": [],
+"optional": false,
+"text": "Cook it.",
+"timing": {
+"equipment": "hob",
+"equipment_guessed": true,
+"hands": "hands",
+"hands_guessed": true,
+"minutes": 5,
+"minutes_guessed": true
+},
+"wait": null
+}
+],
+"tags": [],
+"time_minutes": 30,
+"updated_at": "<moment>",
+"updated_by": {
+"login_id": 1,
+"member_id": null,
+"name": "Tess"
+},
+"used_by": [],
+"version": 1,
+"wait": null
+}

@@ -25,7 +25,6 @@ from mealwright.models import (
     Change,
     DoubleTick,
     Food,
-    FoodName,
     FoodSize,
     ListItem,
     ListNote,
@@ -266,39 +265,71 @@ def _removed_by(kitchen: Kitchen, item: ListItem, device_id: str | None) -> str 
     return action.login_name
 
 
-def _ticks(kitchen: Kitchen, item: ListItem, food: Food | None) -> list[TickRow]:
-    rows = kitchen.db.scalars(
-        ticks.server_order(
-            select(ListTick).where(
-                ListTick.household_id == kitchen.household_id, ListTick.item_id == item.id
+def _ticks_by_item(
+    kitchen: Kitchen, items: list[ListItem], foods: dict[int, Food | None]
+) -> dict[str, list[TickRow]]:
+    """The purchases of all these lines, in server order, in a fixed number of statements (one
+    for the purchases, one for which of them were "Already have it") and not one per line.
+    Both reads keep the household filter."""
+    hid = kitchen.household_id
+    db = kitchen.db
+    by_item: dict[str, list[ListTick]] = {}
+    ids = [item.id for item in items]
+    for start in range(0, len(ids), PackReads.CHUNK):
+        chunk = ids[start : start + PackReads.CHUNK]
+        for tick in db.scalars(
+            ticks.server_order(
+                select(ListTick).where(ListTick.household_id == hid, ListTick.item_id.in_(chunk))
+            )
+        ):
+            by_item.setdefault(tick.item_id, []).append(tick)
+    every = [tick for found in by_item.values() for tick in found]
+    found_at_home: set[str] = set()
+    tick_ids = [tick.id for tick in every]
+    for start in range(0, len(tick_ids), PackReads.CHUNK):
+        chunk = tick_ids[start : start + PackReads.CHUNK]
+        found_at_home.update(
+            db.scalars(
+                select(SyncAction.id).where(
+                    SyncAction.household_id == hid,
+                    SyncAction.id.in_(chunk),
+                    SyncAction.kind == "found_at_home",
+                )
             )
         )
-    )
-    out = []
-    for tick in rows:
-        bought = None
-        if tick.bought_milli is not None and food is not None:
-            size = kitchen.db.get(FoodSize, tick.bought_size_id) if tick.bought_size_id else None
-            bought = Bought(
-                amount=_number(tick.bought_milli),
-                display=list_text(food, tick.bought_milli, size),
+    out: dict[str, list[TickRow]] = {}
+    for item in items:
+        food = foods.get(item.food_id)
+        rows = []
+        for tick in by_item.get(item.id, []):
+            bought = None
+            if tick.bought_milli is not None and food is not None:
+                size = db.get(FoodSize, tick.bought_size_id) if tick.bought_size_id else None
+                bought = Bought(
+                    amount=_number(tick.bought_milli),
+                    display=list_text(food, tick.bought_milli, size),
+                )
+            rows.append(
+                TickRow(
+                    id=tick.id,
+                    by=Who(login_id=tick.login_id, name=tick.login_name),
+                    at=tick.ticked_at,
+                    place_id=tick.place_id,
+                    bought=bought,
+                    standing=tick.reversed_at is None,
+                    found=tick.id in found_at_home,
+                )
             )
-        out.append(
-            TickRow(
-                id=tick.id,
-                by=Who(login_id=tick.login_id, name=tick.login_name),
-                at=tick.ticked_at,
-                place_id=tick.place_id,
-                bought=bought,
-                standing=tick.reversed_at is None,
-                found=ticks.is_found(kitchen, tick),
-            )
-        )
+        out[item.id] = rows
     return out
 
 
 def _item(
-    kitchen: Kitchen, item: ListItem, foods: dict[int, Food | None], reads: PackReads
+    kitchen: Kitchen,
+    item: ListItem,
+    foods: dict[int, Food | None],
+    reads: PackReads,
+    purchases: dict[str, list[TickRow]],
 ) -> ItemRow:
     if item.food_id not in foods:
         foods[item.food_id] = kitchen.db.get(Food, item.food_id)
@@ -323,7 +354,7 @@ def _item(
         source=item.source,
         hand_edited=item.hand_edited,
         put_away_place_id=item.put_away_place_id,
-        ticks=_ticks(kitchen, item, food),
+        ticks=purchases.get(item.id, []),
         added_by=Who(login_id=item.added_by_login_id, name=item.added_by_name),
         deleted=False,
         merged_into_id=item.merged_into_id,
@@ -331,22 +362,13 @@ def _item(
     )
 
 
-def _food(kitchen: Kitchen, food: Food) -> FoodRow:
-    hid = kitchen.household_id
-    names = kitchen.db.scalars(
-        select(FoodName.name)
-        .where(FoodName.household_id == hid, FoodName.food_id == food.id)
-        .order_by(FoodName.id)
-    )
-    sizes = kitchen.db.scalars(
-        select(FoodSize)
-        .where(FoodSize.household_id == hid, FoodSize.food_id == food.id)
-        .order_by(FoodSize.position, FoodSize.id)
-    )
+def _food(food: Food, reads: PackReads) -> FoodRow:
+    names = [name.name for name in reads.names(food.id)]
+    sizes = reads.sizes(food.id)
     return FoodRow(
         id=food.id,
         name=food.name,
-        other_names=list(names),
+        other_names=names,
         counted_as=food.counted_as,
         staple=food.staple,
         aisle=food.aisle if food.aisle in AISLE_KEYS else DEFAULT_AISLE,
@@ -413,10 +435,20 @@ def changes_since(kitchen: Kitchen, since: int, device_id: str | None = None) ->
         )
     )
     # The sizes and other names of every line's ingredient, read once for the whole answer.
-    reads = PackReads(kitchen, {i.food_id for i in changed if i.deleted_at is None})
+    live = [i for i in changed if i.deleted_at is None]
+    reads = PackReads(kitchen, {i.food_id for i in live})
+    # The lines' ingredients and purchases, each read once too (not one statement per line).
+    wanted = sorted({i.food_id for i in live})
+    for start in range(0, len(wanted), PackReads.CHUNK):
+        chunk = wanted[start : start + PackReads.CHUNK]
+        for food in db.scalars(select(Food).where(Food.household_id == hid, Food.id.in_(chunk))):
+            foods[food.id] = food
+    for food_id in wanted:
+        foods.setdefault(food_id, None)
+    purchases = _ticks_by_item(kitchen, live, foods)
     for item in changed:
         if item.deleted_at is None:
-            items.append(_item(kitchen, item, foods, reads))
+            items.append(_item(kitchen, item, foods, reads, purchases))
         elif not reset:
             items.append(
                 Tombstone(
@@ -479,7 +511,9 @@ def changes_since(kitchen: Kitchen, since: int, device_id: str | None = None) ->
     food_rows = select(Food).where(Food.household_id == hid, newer(Food.version))
     if reset:
         food_rows = food_rows.where(Food.removed_at.is_(None), Food.merged_into_id.is_(None))
-    food_out = [_food(kitchen, food) for food in db.scalars(food_rows.order_by(Food.id))]
+    food_list = list(db.scalars(food_rows.order_by(Food.id)))
+    reads.load(f.id for f in food_list)
+    food_out = [_food(food, reads) for food in food_list]
 
     shops = [
         ShopRow(id=s.id, name=s.name, position=s.position, aisle_order=s.aisle_order)

@@ -1,0 +1,125 @@
+{
+"all_recipes": 4,
+"next": null,
+"recipes": [
+{
+"description": null,
+"id": 1,
+"ingredient_count": 3,
+"kcal": null,
+"made_ahead": false,
+"makes": null,
+"method_count": 1,
+"name": "Dish 000",
+"optional_count": 0,
+"photo": null,
+"serves": 4,
+"stock": {
+"can_cook_now": true,
+"counted": 3,
+"missing": 0
+},
+"stock_unchecked": false,
+"tags": [],
+"time_minutes": 30,
+"updated_at": "<moment>",
+"use_soon": {
+"days_left": 0,
+"foods": [
+{
+"id": 1,
+"name": "Ingredient 000"
+}
+],
+"use_by": "D+0"
+},
+"version": 1,
+"wait": null
+},
+{
+"description": null,
+"id": 2,
+"ingredient_count": 3,
+"kcal": null,
+"made_ahead": false,
+"makes": null,
+"method_count": 1,
+"name": "Dish 001",
+"optional_count": 0,
+"photo": null,
+"serves": 4,
+"stock": {
+"can_cook_now": true,
+"counted": 3,
+"missing": 0
+},
+"stock_unchecked": false,
+"tags": [],
+"time_minutes": 30,
+"updated_at": "<moment>",
+"use_soon": null,
+"version": 1,
+"wait": null
+},
+{
+"description": null,
+"id": 3,
+"ingredient_count": 3,
+"kcal": null,
+"made_ahead": false,
+"makes": null,
+"method_count": 1,
+"name": "Dish 002",
+"optional_count": 0,
+"photo": null,
+"serves": 4,
+"stock": {
+"can_cook_now": true,
+"counted": 3,
+"missing": 0
+},
+"stock_unchecked": false,
+"tags": [],
+"time_minutes": 30,
+"updated_at": "<moment>",
+"use_soon": null,
+"version": 1,
+"wait": null
+},
+{
+"description": null,
+"id": 4,
+"ingredient_count": 3,
+"kcal": null,
+"made_ahead": false,
+"makes": null,
+"method_count": 1,
+"name": "Dish 003",
+"optional_count": 0,
+"photo": null,
+"serves": 4,
+"stock": {
+"can_cook_now": true,
+"counted": 3,
+"missing": 0
+},
+"stock_unchecked": false,
+"tags": [],
+"time_minutes": 30,
+"updated_at": "<moment>",
+"use_soon": {
+"days_left": 0,
+"foods": [
+{
+"id": 1,
+"name": "Ingredient 000"
+}
+],
+"use_by": "D+0"
+},
+"version": 1,
+"wait": null
+}
+],
+"total": 4
+}

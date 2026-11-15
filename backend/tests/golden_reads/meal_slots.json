@@ -1,0 +1,26 @@
+[
+{
+"enabled": true,
+"id": 1,
+"name": "Breakfast",
+"position": 0
+},
+{
+"enabled": true,
+"id": 2,
+"name": "Lunch",
+"position": 1
+},
+{
+"enabled": false,
+"id": 3,
+"name": "Snack",
+"position": 2
+},
+{
+"enabled": true,
+"id": 4,
+"name": "Dinner",
+"position": 3
+}
+]

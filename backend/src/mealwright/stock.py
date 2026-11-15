@@ -112,16 +112,27 @@ def place_kinds(kitchen: Kitchen) -> dict[int, str]:
     }
 
 
-def opened_lots(kitchen: Kitchen, lots: Iterable[StockLot]) -> set[int]:
-    """The lots that are part used: bought as a size, and now holding less than it."""
+def opened_lots(
+    kitchen: Kitchen, lots: Iterable[StockLot], size_amounts: dict[int, int] | None = None
+) -> set[int]:
+    """The lots that are part used: bought as a size, and now holding less than it.
+    `size_amounts` (size id to amount) is what a caller that already holds the sizes passes,
+    so the database is not asked again for every group."""
     lots = list(lots)
     wanted = {lot.size_id for lot in lots if lot.size_id}
     if not wanted:
         return set()
-    sizes = {
-        size.id: size.amount_milli
-        for size in kitchen.db.scalars(select(FoodSize).where(FoodSize.id.in_(wanted)))
-    }
+    if size_amounts is not None:
+        sizes = size_amounts
+    else:
+        sizes = {
+            size.id: size.amount_milli
+            for size in kitchen.db.scalars(
+                select(FoodSize).where(
+                    FoodSize.household_id == kitchen.household_id, FoodSize.id.in_(wanted)
+                )
+            )
+        }
     return {
         lot.id for lot in lots if lot.size_id in sizes and 0 < lot.amount_milli < sizes[lot.size_id]
     }
@@ -138,10 +149,19 @@ def view(lot: StockLot, kinds: dict[int, str], opened: bool = False) -> LotView:
     )
 
 
-def ordered(kitchen: Kitchen, lots: Iterable[StockLot]) -> list[StockLot]:
-    kinds = place_kinds(kitchen)
+def ordered(
+    kitchen: Kitchen,
+    lots: Iterable[StockLot],
+    kinds: dict[int, str] | None = None,
+    size_amounts: dict[int, int] | None = None,
+) -> list[StockLot]:
+    """Packets in the order they are used. A caller that makes many groups passes the places'
+    kinds and the sizes' amounts it already holds (`kinds`, `size_amounts`), so each group
+    costs no statement of its own."""
+    if kinds is None:
+        kinds = place_kinds(kitchen)
     by_id = {lot.id: lot for lot in lots}
-    opened = opened_lots(kitchen, by_id.values())
+    opened = opened_lots(kitchen, by_id.values(), size_amounts)
     return [
         by_id[v.id] for v in use_order(view(lot, kinds, lot.id in opened) for lot in by_id.values())
     ]

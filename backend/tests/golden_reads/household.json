@@ -1,0 +1,19 @@
+{
+"amounts_shown": "as_written",
+"batch_cook": true,
+"cook_per_step": false,
+"cup_ml": null,
+"cup_ml_used": 250,
+"history_months": 12,
+"name": "Home",
+"onboarding_done": false,
+"pints": "uk",
+"plan_ahead_days": 7,
+"time_zone": null,
+"today": "D+0",
+"tub_freezer_months": 3,
+"tub_fridge_days": 3,
+"undo_days": 7,
+"use_soon_days": 2,
+"week_starts_on": 1
+}

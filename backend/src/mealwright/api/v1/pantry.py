@@ -24,7 +24,7 @@ from mealwright.api.v1.schemas import (
 )
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
-from mealwright.foods import amount_out, change_out, find, resolve, usual_size
+from mealwright.foods import PackReads, amount_out, change_out, find, resolve, usual_of, usual_size
 from mealwright.history import as_utc, commit, replayed
 from mealwright.household import places, today, zone
 from mealwright.models import Change, ChangeLine, CookedRecord, Food, FoodSize, Place, StockLot
@@ -197,6 +197,49 @@ class Pantry:
         self._totals: dict[int, int] | None = None
         self._other_names: dict[int, list[str]] | None = None
         self._found: set[int] | None = None
+        self._reads = PackReads(kitchen)
+        self._by_id: dict[int, FoodSize] = {}
+        self._indexed = -1
+
+    def load(self, food_ids: Iterable[int]) -> None:
+        """Read the ingredients and their sizes for all these ids at once (a fixed number of
+        statements), so describing each group asks the database nothing more. Both reads keep
+        the household filter; an id that isn't found here is read the old way when asked for."""
+        every = sorted(set(food_ids))
+        wanted = [i for i in every if i not in self._foods]
+        db = self.kitchen.db
+        for start in range(0, len(wanted), PackReads.CHUNK):
+            chunk = wanted[start : start + PackReads.CHUNK]
+            for found in db.scalars(
+                select(Food).where(
+                    Food.household_id == self.kitchen.household_id, Food.id.in_(chunk)
+                )
+            ):
+                self._foods[found.id] = found
+        self._reads.load(every)
+
+    def _size_index(self) -> dict[int, FoodSize]:
+        """Every size read so far, by size id (rebuilt only when more were read)."""
+        known = self._reads.known_sizes()
+        if self._indexed != len(known):
+            self._by_id = {size.id: size for size in known}
+            self._indexed = len(known)
+        return self._by_id
+
+    def ordered(self, lots: Iterable[StockLot]) -> list[StockLot]:
+        """Packets in the order they are used, from what is already read: no statement per
+        group, only (for a food not read yet) its sizes once."""
+        lots = list(lots)
+        self._reads.load({lot.food_id for lot in lots})
+        index = self._size_index()
+        amounts = {
+            lot.size_id: index[lot.size_id].amount_milli
+            for lot in lots
+            if lot.size_id is not None and lot.size_id in index
+        }
+        return ordered(
+            self.kitchen, lots, {pid: place.kind for pid, place in self.places.items()}, amounts
+        )
 
     def found_lots(self) -> set[int]:
         """The lots that came in as "found at home", from the change that made each one: a
@@ -234,14 +277,16 @@ class Pantry:
 
     def usual(self, food_id: int) -> FoodSize | None:
         if food_id not in self._usual:
-            self._usual[food_id] = usual_size(self.kitchen, food_id)
+            self._usual[food_id] = usual_of(self._reads.sizes(food_id))
         return self._usual[food_id]
 
     def size(self, size_id: int | None) -> FoodSize | None:
         if size_id is None:
             return None
         if size_id not in self._sizes:
-            self._sizes[size_id] = self.kitchen.db.get(FoodSize, size_id)
+            self._sizes[size_id] = self._size_index().get(size_id) or self.kitchen.db.get(
+                FoodSize, size_id
+            )
         return self._sizes[size_id]
 
     def totals(self) -> dict[int, int]:
@@ -304,7 +349,7 @@ class Pantry:
 
     def group(self, food_id: int, place_id: int, lots: list[StockLot]) -> GroupOut:
         food = self.food(food_id)
-        lots = ordered(self.kitchen, [lot for lot in lots if lot.amount_milli > 0])
+        lots = self.ordered([lot for lot in lots if lot.amount_milli > 0])
         dates = [lot.use_by for lot in lots if lot.use_by is not None]
         first = min(dates) if dates else None
         kind = self.kind(food)
@@ -403,7 +448,9 @@ def pantry(
     needle = fold(q.strip())
     names = names_by_food(kitchen) if needle else {}
     by_group: dict[tuple[int, int], list[StockLot]] = defaultdict(list)
-    for lot in lots_of(kitchen):
+    every_lot = lots_of(kitchen)
+    view.load(lot.food_id for lot in every_lot)
+    for lot in every_lot:
         by_group[(lot.food_id, lot.place_id)].append(lot)
     groups: dict[int, list[GroupOut]] = defaultdict(list)
     all_groups = []
@@ -478,7 +525,9 @@ def use_soon(kitchen: Here) -> UseSoonOut:
     first; a passed one has no Eat it on…."""
     view = Pantry(kitchen)
     by_group: dict[tuple[int, int], list[StockLot]] = defaultdict(list)
-    for lot in lots_of(kitchen):
+    every_lot = lots_of(kitchen)
+    view.load(lot.food_id for lot in every_lot)
+    for lot in every_lot:
         food = view.food(lot.food_id)
         if not food.staple and food.removed_at is None and food.merged_into_id is None:
             by_group[(lot.food_id, lot.place_id)].append(lot)
@@ -486,7 +535,7 @@ def use_soon(kitchen: Here) -> UseSoonOut:
     for (food_id, place_id), lots in by_group.items():
         food = view.food(food_id)
         kind = view.kind(food)
-        soon = [lot for lot in ordered(kitchen, lots) if view.is_soon(lot.use_by, kind)]
+        soon = [lot for lot in view.ordered(lots) if view.is_soon(lot.use_by, kind)]
         if not soon:
             continue
         soon.sort(key=lambda lot: (lot.use_by or date.max, lot.id))

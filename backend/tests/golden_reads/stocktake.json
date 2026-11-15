@@ -1,0 +1,39 @@
+{
+"complete": false,
+"current_place_id": 1,
+"places": [
+{
+"answered": 0,
+"finished": false,
+"id": 1,
+"kind": "fridge",
+"name": "Fridge",
+"total": 6
+},
+{
+"answered": 0,
+"finished": false,
+"id": 2,
+"kind": "freezer",
+"name": "Freezer",
+"total": 4
+},
+{
+"answered": 0,
+"finished": false,
+"id": 3,
+"kind": "cupboard",
+"name": "Cupboard",
+"total": 4
+},
+{
+"answered": 0,
+"finished": false,
+"id": 4,
+"kind": "cupboard",
+"name": "Spice rack",
+"total": 2
+}
+],
+"started": false
+}
