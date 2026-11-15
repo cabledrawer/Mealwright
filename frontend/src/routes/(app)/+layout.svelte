@@ -211,9 +211,9 @@
   {/if}
   <!-- "Pantry keeps it by" (a new ingredient); fetched when first asked, then kept so closing
        it hands focus back as before (size limit). -->
-  {#if newIngredient.wanted}
-    {#await import('#lib/components/NewIngredient.svelte') then { default: NewIngredient }}
-      <NewIngredient />
+  {#if newIngredient.code}
+    {#await newIngredient.code then NewIngredient}
+      {#if NewIngredient}<NewIngredient />{/if}
     {/await}
   {/if}
   <!-- "Add a starter pack" (R4); fetched when first opened, then kept so closing it

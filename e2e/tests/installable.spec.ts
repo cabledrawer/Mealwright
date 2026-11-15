@@ -96,6 +96,7 @@ test('the service worker keeps only the app, never /api, and leaves the live str
   expect(names[0]).toMatch(/^mealwright-app-/);
   const kept = cached[names[0]!]!;
   expect(kept).toContain('/index.html');
+  expect(kept, 'the first-install mark is gone once the worker has taken the page').not.toContain('/_first-install');
   expect(kept.some((p) => p.startsWith('/_app/immutable/'))).toBe(true);
   expect(kept.filter((p) => p === '/api' || p.startsWith('/api/'))).toEqual([]);
 });

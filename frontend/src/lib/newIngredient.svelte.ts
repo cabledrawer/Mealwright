@@ -2,6 +2,7 @@
 // brand-new ingredient, from the Shopping add box and from the Ingredients "New ingredient"
 // button. NewIngredient.svelte shows it; callers wait for the answer.
 
+import type { Component } from 'svelte';
 import { ApiError, forgetAtSignOut } from './api';
 import { newChangeId } from './changeId';
 import { addSize, createFood, getFood } from './client/foods';
@@ -61,15 +62,44 @@ export async function addChosenSizes(foodId: number, sizes: NewSize[]): Promise<
 
 class NewIngredientFlow {
   current = $state<Pending | null>(null);
-  /** Asked at least once: the dialog's code is fetched then, and kept (size limit). */
-  wanted = $state(false);
+  /** The dialog's code, once wanted (asked, or warmed when the page is idle); kept (size limit). */
+  code = $state.raw<Promise<Component | null> | null>(null);
+  /** Where the code comes from; a test swaps it. */
+  loader: () => Promise<{ default: Component }> = () => import('./components/NewIngredient.svelte');
+
+  get wanted(): boolean {
+    return this.code !== null;
+  }
 
   /**
    * Fetch the dialog's code now, without opening it (the app layout does this once the page is
    * idle), so asking offline works where the network layer blocks a first-use fetch.
    */
   warm() {
-    this.wanted = true;
+    this.#fetch();
+  }
+
+  /**
+   * Starts fetching the code unless it is already on its way or here. A failed fetch is
+   * forgotten, so the next ask fetches again; an ask waiting at that moment is answered as
+   * Cancel (null) with a toast, never left hanging. A failed warm-up is forgotten quietly.
+   */
+  #fetch() {
+    if (this.code) return;
+    const code: Promise<Component | null> = this.loader().then(
+      (module) => module.default,
+      () => {
+        if (this.code === code) this.code = null;
+        const waiting = this.current;
+        if (waiting) {
+          this.current = null;
+          waiting.resolve(null);
+          toasts.show('Couldn’t open that. Try again.', { tone: 'problem' });
+        }
+        return null;
+      }
+    );
+    this.code = code;
   }
 
   /** Open the dialog. Resolves with the ingredient once it exists, or null if cancelled. */
@@ -88,10 +118,11 @@ class NewIngredientFlow {
     hint: CountedAs | null = null
   ): Promise<Made | Chosen | null> {
     this.current?.resolve(null);
-    this.wanted = true;
-    return new Promise((resolve) => {
+    const asked = new Promise<Made | Chosen | null>((resolve) => {
       this.current = { name: name.trim(), mode, hint, resolve };
     });
+    this.#fetch();
+    return asked;
   }
 
   /** "choose" mode: hand the answer back. */
