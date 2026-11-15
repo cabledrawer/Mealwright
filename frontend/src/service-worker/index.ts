@@ -17,6 +17,7 @@ import { version } from '$app/env';
 import { assets, immutable } from '$app/manifest';
 import { answer, install } from '#lib/offline/heal.js';
 import { CACHE_PREFIX, SHELL, appFiles, cacheName, handling } from '#lib/offline/rules.js';
+import { MOST_WAIT_MS, PAGE_IS_QUIET } from '#lib/offline/precacheMessage.js';
 
 const CACHE = cacheName(version);
 // `immutable` is what the old `build` was (the files Vite builds); `assets` is what the old
@@ -24,9 +25,23 @@ const CACHE = cacheName(version);
 const ASSETS = appFiles(immutable, assets);
 const KNOWN = new Set(ASSETS);
 
+// The page says when it has finished loading (precacheWait.ts). Made now, while the worker's
+// script runs, so a message that comes before the install event is not missed.
+const pageIsQuiet = new Promise<void>((done) => {
+  worker.addEventListener('message', (event) => {
+    if ((event.data as { type?: string } | null)?.type === PAGE_IS_QUIET) done();
+  });
+});
+
 worker.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
+      // The very first install waits for the page to finish loading (or MOST_WAIT_MS), so
+      // its 300-odd files don't slow the page down; an update (a worker is already active)
+      // installs at once. If nothing comes, the files are downloaded all the same.
+      if (!worker.registration.active) {
+        await Promise.race([pageIsQuiet, new Promise((done) => setTimeout(done, MOST_WAIT_MS))]);
+      }
       // "reload": ask the server, not the browser's own copy, so a new worker never keeps
       // an old file. A half-written cache of this name is dropped first and after a failure
       // (lib/offline/heal.ts), so a failed install never leaves a bad cache behind.

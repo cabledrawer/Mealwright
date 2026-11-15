@@ -6,6 +6,7 @@
   import type { Snippet } from 'svelte';
   import { watchLeaving } from '#lib/leaving.js';
   import { endPendingSignOutWhenOnline } from '#lib/offline/signOutPending.js';
+  import { tellWorkerPageIsQuiet } from '#lib/offline/precacheWait.js';
   import { theme } from '#lib/theme.svelte.js';
 
   let { children }: { children: Snippet } = $props();
@@ -17,6 +18,10 @@
   // Leaving the page (a reload, a typed address): what it was still asking the server is
   // neither sent nor reported as a failure (leaving.ts).
   $effect(() => watchLeaving());
+  // The service worker's first download of the app's files waits for this (precacheWait.ts).
+  $effect(() => {
+    void tellWorkerPageIsQuiet();
+  });
 </script>
 
 {@render children()}
