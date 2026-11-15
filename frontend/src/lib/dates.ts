@@ -69,11 +69,11 @@ export function compactDateWords(iso: string | null, daysLeft: number | null): s
   return dateWords(iso, daysLeft);
 }
 
-/** "use by Mon", "use by today", "use-by date passed". */
+/** "use by Mon", "use by today", "Date passed". */
 export function useByWords(iso: string | null, daysLeft: number | null): string {
   const words = dateWords(iso, daysLeft);
   if (!words) return 'no use-by date';
-  if (words === 'Date passed') return 'use-by date passed';
+  if (words === 'Date passed') return 'Date passed';
   return `use by ${words === 'Today' || words === 'Tomorrow' ? words.toLowerCase() : words}`;
 }
 
@@ -105,17 +105,9 @@ export type DateKind = 'use_by' | 'best_before';
  * soon colour for a Use by that is close, else plain. */
 export type DateTone = 'late' | 'bb' | 'soon' | 'plain';
 
-/** "Passed yesterday", "Passed 3 days ago" (proposed, for cabledrawer). */
-export function passedWords(daysLeft: number): string {
-  const ago = -daysLeft;
-  return ago <= 1 ? 'Passed yesterday' : `Passed ${ago} days ago`;
-}
-
 export interface WhenWords {
-  /** What the date says: "Use by Sun", "Use by passed: don't eat", "Best before passed · probably fine". */
+  /** What the date says: "Use by Sun", "best before 12 Nov", or "Date passed" for either kind. */
   text: string;
-  /** How long ago it passed ("Passed 3 days ago"), else empty. */
-  ago: string;
   tone: DateTone;
   passed: boolean;
 }
@@ -124,8 +116,8 @@ const lowerDay = (words: string) =>
   words === 'Today' || words === 'Tomorrow' ? words.toLowerCase() : words;
 
 /**
- * The date on a packet in plain words. A passed Use by is never "probably fine"; a passed
- * Best before is. `capital` starts "Use by Sun" with a capital (phone rows, Use soon); a row
+ * The date on a packet in plain words. A passed date, Use by or Best before, just says "Date
+ * passed" (cabledrawer 15 Nov): red for Use by, grey for Best before. `capital` starts "Use by Sun" with a capital (phone rows, Use soon); a row
  * in a desktop column writes "use by Sun".
  */
 export function whenWords(
@@ -134,18 +126,14 @@ export function whenWords(
   daysLeft: number | null,
   options: { capital?: boolean; soon?: boolean } = {}
 ): WhenWords {
-  if (!iso || daysLeft === null) return { text: '', ago: '', tone: 'plain', passed: false };
+  if (!iso || daysLeft === null) return { text: '', tone: 'plain', passed: false };
   if (daysLeft < 0) {
-    const ago = passedWords(daysLeft);
-    return kind === 'use_by'
-      ? { text: 'Use by passed: don’t eat', ago, tone: 'late', passed: true }
-      : { text: 'Best before passed · probably fine', ago, tone: 'bb', passed: true };
+    return { text: 'Date passed', tone: kind === 'use_by' ? 'late' : 'bb', passed: true };
   }
   const label = kind === 'use_by' ? 'use by' : 'best before';
   const start = options.capital ? `${label.charAt(0).toUpperCase()}${label.slice(1)}` : label;
   return {
     text: `${start} ${lowerDay(dateWords(iso, daysLeft))}`,
-    ago: '',
     tone: options.soon ? 'soon' : 'plain',
     passed: false
   };

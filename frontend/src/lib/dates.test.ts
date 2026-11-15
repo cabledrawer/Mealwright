@@ -77,21 +77,18 @@ describe('boughtWords (a pantry row with no use-by, cabledrawer 20 Oct)', () => 
 });
 
 describe('Use by and Best before words (0.8, cabledrawer 7 Nov)', () => {
-  it('a passed Use by says don’t eat, never probably fine, and how long ago', () => {
+  it('a passed Use by just says Date passed, in red, with nothing about how long ago', () => {
     const w = whenWords('use_by', '2026-10-14', -3);
-    expect(w).toEqual({
-      text: 'Use by passed: don’t eat',
-      ago: 'Passed 3 days ago',
-      tone: 'late',
-      passed: true
-    });
-    expect(whenWords('use_by', '2026-10-16', -1).ago).toBe('Passed yesterday');
+    expect(w).toEqual({ text: 'Date passed', tone: 'late', passed: true });
+    expect(whenWords('use_by', '2026-10-16', -1)).toEqual(w);
+    expect(JSON.stringify(w)).not.toMatch(/don|probably|ago|yesterday/i);
+    expect(useByWords('2026-10-14', -3)).toBe('Date passed');
   });
 
-  it('a passed Best before says probably fine', () => {
+  it('a passed Best before just says Date passed too, in grey', () => {
     const w = whenWords('best_before', '2026-10-14', -3);
-    expect(w.text).toBe('Best before passed · probably fine');
-    expect(w.tone).toBe('bb');
+    expect(w).toEqual({ text: 'Date passed', tone: 'bb', passed: true });
+    expect(w.text).not.toMatch(/probably|don|ago/i);
   });
 
   it('a date to come reads use by or best before, with or without a capital', () => {

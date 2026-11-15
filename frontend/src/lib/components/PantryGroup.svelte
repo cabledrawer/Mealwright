@@ -60,8 +60,8 @@
       ? boughtWords(group.lots[0].added_on, today, group.lots[0].how_added)
       : ''
   );
-  /** "Use by Mon" · "best before 1 Nov" · red "Use by passed: don’t eat" · grey "Best before
-   * passed · probably fine". Capital on the phone, where the words stand alone on a line. */
+  /** "Use by Mon" · "best before 1 Nov" · red or grey "Date passed" (red for a Use by, grey
+   * for a Best before). Capital on the phone, where the words stand alone on a line. */
   const when = $derived(
     whenWords(group.date_kind, group.use_by, group.days_left, {
       capital: swipes,

@@ -2,8 +2,9 @@
   // Use soon on the Pantry page (0.8 mockups Dark-Pantry08-Desktop and Dark-UseSoon08-Phone):
   // a strip of four cards across the top on a computer, compact rows on the phone (3 shown, then
   // "Show all N"). One row per ingredient and place, the soonest first ("Toor dal · 2 packets");
-  // a passed Use by is red and says "don't eat" with Binned first and To freezer greyed out
-  // ("Too late to freeze"); a passed Best before is grey and says "probably fine". Swipe a phone row right for Used…, left for Binned. Each row
+  // a passed Use by is red with Binned first and To freezer greyed out
+  // ("Too late to freeze"); a passed Best before is grey. Either just says "Date passed"
+  // (cabledrawer 15 Nov). Swipe a phone row right for Used…, left for Binned. Each row
   // also has its buttons in `actions()` order, so a keyboard or a screen reader can reach
   // every one (SwipeRow's rule; S5 review r1 M2). Binned and To freezer take every packet the
   // row stands for, with one Undo (S5 review r1 M1).
@@ -164,9 +165,7 @@
   {/snippet}
 
   {#snippet whenTag(w: ReturnType<typeof words>)}
-    <span class="when {w.tone}"
-      >{w.text}{#if w.ago}<span class="ago">{w.ago}</span>{/if}</span
-    >
+    <span class="when {w.tone}">{w.text}</span>
   {/snippet}
 
   {#if phone}
@@ -401,12 +400,6 @@
   .when.bb {
     background: var(--color-fill);
     color: var(--color-text-muted);
-  }
-
-  .ago {
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
-    /* No opacity: it took the muted text under 4.5:1 on the grey chip (axe, 8 Nov). */
   }
 
   .pill {

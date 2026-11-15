@@ -257,8 +257,8 @@ describe('a meal card’s words', () => {
     expect(useByWords('2026-10-26', '2026-10-26')).toBe('use by today');
     expect(useByWords('2026-10-27', '2026-10-26')).toBe('use by tomorrow');
     expect(useByWords('2026-10-29', '2026-10-26')).toBe('3 days left');
-    expect(useByWords('2026-10-25', '2026-10-26')).toBe('use by yesterday');
-    expect(useByWords('2026-10-22', '2026-10-26')).toBe('4 days past use-by');
+    expect(useByWords('2026-10-25', '2026-10-26')).toBe('Date passed');
+    expect(useByWords('2026-10-22', '2026-10-26')).toBe('Date passed');
   });
 
   it('counts days left from the cook day when the batch is not cooked yet (F48)', () => {

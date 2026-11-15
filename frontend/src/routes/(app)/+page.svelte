@@ -355,9 +355,7 @@
                   >{lot.place.name} · {lot.stock.short ?? lot.stock.display}</span
                 ></span
               >
-              <span class="when" class:bb={when.tone === 'bb'}
-                >{when.text}{when.ago ? ` · ${when.ago}` : ''}</span
-              >
+              <span class="when" class:bb={when.tone === 'bb'}>{when.text}</span>
             </li>
           {/each}
         </ul>
@@ -702,7 +700,7 @@
     text-align: right;
   }
 
-  /* A passed Best before is quiet: grey, "probably fine" (0.8). */
+  /* A passed Best before is quiet: grey, "Date passed" (0.8). */
   .when.bb {
     background: var(--color-fill);
     color: var(--color-text-muted);

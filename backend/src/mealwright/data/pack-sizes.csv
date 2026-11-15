@@ -31,7 +31,7 @@
 # where (cabledrawer 7 Nov): supermarket = most UK supermarkets; world aisle = the big supermarkets'
 # world foods aisle; specialist = usually only at an Indian, Chinese, Japanese or Middle Eastern
 # grocer. Used to suggest a new ingredient's Usual shop. dates: use by (fresh meat, poultry,
-# fish, chilled dairy and other chilled foods: never "probably fine" once passed) or best before.
+# fish, chilled dairy and other chilled foods: a passed Use by shows red) or best before.
 # cuisine (cabledrawer 7 Nov): indian, chinese, japanese or middle eastern for ingredients mostly
 # bought at that kind of grocer; empty for everyday ones. A specialist ingredient's Usual shop
 # is guessed from a shop name that matches its cuisine (indian, south indian, asian, chinese,

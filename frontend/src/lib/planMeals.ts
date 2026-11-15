@@ -233,7 +233,7 @@ export interface RemovedPerson {
 /** "Lorna (removed)": how a removed person reads on a past meal or a tub (cabledrawer 13 Nov). */
 export const removedName = (name: string): string => `${name} (removed)`;
 
-/** "3 days left", "use by today", "use by yesterday": for a tub's use-by day. Days left count
+/** "3 days left", "use by today", "Date passed": for a tub's use-by day. Days left count
  * from the day the batch is cooked when that is still to come (F48: a tub cooked on Saturday has
  * its 3 days from Saturday, not "6 days left" on Wednesday). */
 export function useByWords(useBy: string, today: string, cookedOn: string | null = null): string {
@@ -241,7 +241,7 @@ export function useByWords(useBy: string, today: string, cookedOn: string | null
   const days = Math.round((Date.parse(useBy) - Date.parse(from)) / 86_400_000);
   if (days === 0) return 'use by today';
   if (days === 1) return 'use by tomorrow';
-  if (days < 0) return days === -1 ? 'use by yesterday' : `${-days} days past use-by`;
+  if (days < 0) return 'Date passed';
   return `${days} days left`;
 }
 

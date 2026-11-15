@@ -1268,13 +1268,14 @@ describe('the Pantry page', () => {
       ...extra
     });
 
-    it('a passed Use by is red, says don’t eat and how long ago, and has Binned first', async () => {
+    it('a passed Use by is red, just says Date passed, and has Binned first', async () => {
       sample.useSoon = [soonRow('Lemon', { days_left: -3, use_by: '2026-10-14' })];
       await render(1300);
       const card = page.getByRole('region', { name: /^Use soon/ });
-      await expect.element(card.getByText(/Use by passed: don’t eat/)).toBeVisible();
-      await expect.element(card.getByText(/Passed 3 days ago/)).toBeVisible();
-      expect(card.getByText(/probably fine/).elements()).toHaveLength(0);
+      await expect.element(card.getByText('Date passed')).toBeVisible();
+      expect(
+        card.getByText(/Passed \d+ days ago|Passed yesterday|don’t eat|probably fine/).elements()
+      ).toHaveLength(0);
       const buttons = card
         .getByRole('button')
         .elements()
@@ -1323,7 +1324,7 @@ describe('the Pantry page', () => {
       sample.useSoon = [soonRow('Lemon', { days_left: -3, use_by: '2026-10-14' })];
       await render(390);
       const card = page.getByRole('region', { name: /^Use soon/ });
-      await expect.element(card.getByText(/Use by passed: don’t eat/)).toBeVisible();
+      await expect.element(card.getByText('Date passed')).toBeVisible();
       const buttons = card
         .getByRole('button')
         .elements()
@@ -1358,14 +1359,16 @@ describe('the Pantry page', () => {
       });
     }
 
-    it('a passed Best before is grey, says probably fine, and can still go to the freezer', async () => {
+    it('a passed Best before is grey, just says Date passed, and can still go to the freezer', async () => {
       sample.useSoon = [
         soonRow('Toor dal', { days_left: -3, use_by: '2026-10-14', date_kind: 'best_before' })
       ];
       await render(1300);
       const card = page.getByRole('region', { name: /^Use soon/ });
-      await expect.element(card.getByText(/Best before passed · probably fine/)).toBeVisible();
-      expect(card.getByText(/don’t eat/).elements()).toHaveLength(0);
+      await expect.element(card.getByText('Date passed')).toBeVisible();
+      expect(card.getByText(/Passed \d+ days ago|don’t eat|probably fine/).elements()).toHaveLength(
+        0
+      );
       await expect.element(card.getByRole('button', { name: 'To freezer' })).toBeEnabled();
       expect(card.getByText(/Too late to freeze/).elements()).toHaveLength(0);
     });
@@ -1465,7 +1468,7 @@ describe('the Pantry page', () => {
         await render(1300);
         const card = page.getByRole('region', { name: /^Use soon/ });
         await expect.element(card.getByText('Lemon rice')).toBeVisible();
-        await expect.element(card.getByText(/Use by passed: don’t eat/)).toBeVisible();
+        await expect.element(card.getByText('Date passed')).toBeVisible();
         expect(card.getByRole('button', { name: 'Eat it on…' }).elements()).toHaveLength(0);
         await expect
           .element(

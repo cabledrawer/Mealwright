@@ -103,7 +103,7 @@ test.beforeEach(async ({ page }) => {
   await setAccountTheme(page, "auto");
 });
 
-test("a passed Use by is red and says don’t eat; a passed Best before is grey and says probably fine", async ({
+test("a passed Use by is red and a passed Best before grey, and both just say Date passed", async ({
   page,
 }) => {
   const lemon = await stockedAt(page, "Use by lemon", -3, "Fridge");
@@ -116,9 +116,10 @@ test("a passed Use by is red and says don’t eat; a passed Best before is grey 
   await showAll(page);
 
   const useBy = soonRow(page, lemon.name);
-  await expect(useBy).toContainText("Use by passed: don’t eat");
-  await expect(useBy).toContainText("Passed 3 days ago");
-  await expect(useBy).not.toContainText("probably fine");
+  await expect(useBy).toContainText("Date passed");
+  await expect(useBy).not.toContainText(
+    /Passed \d+ days ago|don’t eat|probably fine/,
+  );
   // Binned first, then Used…, and To freezer shown but greyed out with its note (cabledrawer 7 Nov,
   // option D): a packet past its Use by can't be frozen.
   const buttons = await useBy.getByRole("button").allTextContents();
@@ -134,9 +135,10 @@ test("a passed Use by is red and says don’t eat; a passed Best before is grey 
   );
 
   const bestBefore = soonRow(page, dal.name);
-  await expect(bestBefore).toContainText("Best before passed · probably fine");
-  await expect(bestBefore).toContainText("Passed 2 days ago");
-  await expect(bestBefore).not.toContainText("don’t eat");
+  await expect(bestBefore).toContainText("Date passed");
+  await expect(bestBefore).not.toContainText(
+    /Passed \d+ days ago|don’t eat|probably fine/,
+  );
   // Best before food can always be frozen: To freezer is there and works.
   await expect(
     bestBefore.getByRole("button", { name: "To freezer" }),
@@ -394,7 +396,17 @@ test("on the computer a long amount never cuts the name, and the row stays insid
   // The long amount is not squeezed to one word a line beside "+ List" (F223, alpha.3 note).
   const amount = await row.locator(".amount").evaluate((el) => {
     const r = el.getBoundingClientRect();
-    return { width: r.width, lines: Math.round(r.height / (parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.3)) };
+    return {
+      width: r.width,
+      lines: Math.round(
+        r.height /
+          (parseFloat(getComputedStyle(el).lineHeight) ||
+            parseFloat(getComputedStyle(el).fontSize) * 1.3),
+      ),
+    };
   });
-  expect(amount.lines, "the amount takes at most three lines").toBeLessThanOrEqual(3);
+  expect(
+    amount.lines,
+    "the amount takes at most three lines",
+  ).toBeLessThanOrEqual(3);
 });
