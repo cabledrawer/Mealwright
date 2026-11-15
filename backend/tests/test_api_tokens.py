@@ -525,6 +525,7 @@ NO_SIGN_IN = {
     ("POST", "/sso/finish"): "the callback page posts what the provider sent",
     ("GET", "/sign-in-options"): "which ways of signing in the sign-in page offers",
     ("GET", "/version"): "the running version, as the sign-in page shows it",
+    ("GET", "/health"): "the image health check: ok only when the database answers",
     ("GET", "/problem-report"): "the text a person copies when something goes wrong",
     ("POST", "/session"): "signing in",
     ("DELETE", "/session"): "signing out",

@@ -65,6 +65,8 @@ def test_the_image_has_only_the_installed_package_and_the_web_app() -> None:
     assert copies == [
         "COPY --from=api /app/backend/.venv /app/backend/.venv",
         "COPY --from=web /src/frontend/build /app/frontend",
+        # The licence notices of what the image ships (0.9.5).
+        "COPY THIRD-PARTY-NOTICES.md /app/THIRD-PARTY-NOTICES.md",
     ]
     # The package is installed as a copy (not linked to the source folder), so scripts/ stays out.
     assert "--no-editable" in dockerfile

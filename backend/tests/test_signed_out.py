@@ -26,6 +26,7 @@ API = "/api/v1"
 ALLOWED: dict[tuple[str, str], str] = {
     ("GET", f"{API}/openapi.json"): "the public API description",
     ("GET", f"{API}/version"): "which version is running",
+    ("GET", f"{API}/health"): "the image health check: ok only when the database answers",
     ("GET", f"{API}/setup"): "whether this is a fresh install",
     ("POST", f"{API}/setup"): "first-run setup (refused once set up)",
     ("POST", f"{API}/session"): "signing in",
