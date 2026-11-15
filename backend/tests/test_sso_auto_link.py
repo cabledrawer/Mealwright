@@ -101,7 +101,7 @@ import pytest  # noqa: E402
 
 @pytest.mark.parametrize(
     "hidden",
-    ["lor​na", "lor­na", "﻿lorna", "lee\x00la", "lorna‮", "lor‎na"],
+    ["lor​na", "lor­na", "﻿lorna", "lor\x00na", "lorna‮", "lor‎na"],
     ids=["zero-width space", "soft hyphen", "BOM", "NUL", "right-to-left", "left-to-right mark"],
 )
 def test_a_username_with_a_hidden_character_is_not_the_exact_username(
