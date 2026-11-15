@@ -1103,4 +1103,4 @@ Also: the app reports its version number on the local network (in `/api/v1`), so
 
 ## Publishing requirements already noted
 
-Migrations from day one; SSRF protection on URL import; multi-user plus OIDC plus API tokens; household_id on all data; metric base with locale-based display units; SQLite default, Postgres optional; multi-arch image on GHCR; Mealie importer (carry nutrition fields across); docs and changelog; cabledrawer identity and AI disclosure; README "Privacy" section stating the ethos and listing every possible outbound connection; bundled food-conversion table with licence checked.
+Migrations from day one; SSRF protection on URL import; multi-user plus OIDC plus API tokens; household_id on all data; metric base with locale-based display units; SQLite default, Postgres optional; multi-arch image on GHCR; Mealie importer (carry nutrition fields across); docs and changelog; public identity and AI disclosure; README "Privacy" section stating the ethos and listing every possible outbound connection; bundled food-conversion table with licence checked.
