@@ -1,5 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { setAccountTheme } from './a11y.ts';
+import { workerReady } from './worker.ts';
 
 // The installable app (0.3, PR 5): manifest, icons, theme colour and the service worker
 // (sync protocol 11.6, spec "App updates"), against the real server.
@@ -60,8 +61,7 @@ test('the browser bar colour follows the page, light or dark', async ({ page }) 
 
 async function underWorker(page: Page) {
   await page.goto('/shopping');
-  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
-  await page.reload(); // the first page load is not under the worker; this one is
+  await workerReady(page);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 }
 
@@ -119,13 +119,14 @@ test('offline, the app’s own files still load but the API is never answered fr
   await context.setOffline(false);
 });
 
-test('a new version never takes over by itself (no skipWaiting, no claim, no reload)', async ({
+test('a new version never takes over by itself (no skipWaiting, claim only for the first worker, no reload)', async ({
   request,
 }) => {
   const response = await request.get('/service-worker.js');
   expect(response.headers()['cache-control']).toBe('no-cache');
   const code = await response.text();
   expect(code).not.toContain('skipWaiting');
-  expect(code).not.toContain('.claim(');
+  // claim() is there once, behind the first-install decision; an update never reaches it.
+  expect(code.match(/\.claim\(/g)).toHaveLength(1);
   expect(code).not.toMatch(/\.reload\(|navigate\(/);
 });

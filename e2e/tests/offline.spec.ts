@@ -98,10 +98,9 @@ const savedCopyNames = (page: Page, name: string) =>
  * then waited for the held server, 4.8 s).
  */
 async function start(page: Page, row?: string) {
-  await page.goto('/shopping');
-  await workerReady(page);
   const hello = page.waitForResponse((r) => r.url().endsWith('/api/v1/events'));
-  await page.reload(); // the first page load is not under the worker; this one is
+  await page.goto('/shopping'); // a first visit: this very page is taken by the worker, no reload
+  await workerReady(page);
   await expect(page.getByRole('heading', { name: 'Shopping', level: 1 })).toBeVisible();
   await hello;
   await newIngredientDialogReady(page); // fetched when the page is idle; offline WebKit cannot fetch it
@@ -112,6 +111,23 @@ async function start(page: Page, row?: string) {
   // Kept: the app's start-up after the stream opens has no signal to wait for; the tests then cut the network.
   await page.waitForTimeout(500);
 }
+
+test('a first visit, with no reload, is under the worker, and a screen never opened before opens with no connection', async ({ page, context }) => {
+  test.skip(test.info().project.use.browserName === 'webkit', "Playwright's WebKit offline switch blocks requests before the service worker sees them (proved 25 Oct); the iPhone hand test covers offline Safari");
+  await signIn(page); // by the API: the first page this browser opens is the very first visit
+  await page.goto('/shopping');
+  await expect(page.getByRole('heading', { name: 'Shopping', level: 1 })).toBeVisible();
+  await workerReady(page); // no reload: this page itself is taken by the first worker
+  await context.setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  await expect(bar(page)).toContainText('Offline');
+  // Pantry's code was never asked for: it comes from the device, by the tab, not "You're offline."
+  await page.getByRole('link', { name: 'Pantry', exact: true }).first().click();
+  await expect(page.getByRole('heading', { name: 'Pantry', level: 1 })).toBeVisible();
+  await expect(page).toHaveURL(/\/pantry/);
+  await expect(page.getByText("You're offline.", { exact: true })).toHaveCount(0);
+  await expect(bar(page)).toContainText('Offline');
+});
 
 test('E2: changes made offline survive a reload, then reach the server', async ({ page, context }) => {
   test.skip(test.info().project.use.browserName === 'webkit', "Playwright's WebKit offline switch blocks requests before the service worker sees them (proved 25 Oct); the iPhone hand test covers offline Safari");

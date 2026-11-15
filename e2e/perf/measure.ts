@@ -107,7 +107,7 @@ async function newPage(browser: Browser, signedIn = true): Promise<{ context: Br
   return { context, page };
 }
 
-const results: Record<string, Record<string, Sample[]>> = { first: {}, repeat: {}, action: {} };
+const results: Record<string, Record<string, Sample[]>> = { first: {}, repeat: {}, action: {}, ready: {} };
 const wanted = (name: string) => !values.only || values.only.split(',').includes(name);
 
 const browser = await chromium.launch();
@@ -125,6 +125,30 @@ try {
       await page.getByRole('button', { name: 'Sign in', exact: true }).click();
       await h1('Today')(page);
       results.first['Sign in']!.push({ ms: ms(t0), api: calls });
+      await context.close();
+    }
+  }
+
+  // Ready for offline: from the start of a first open until the page is under the service worker
+  // with its files on the device (the worker has taken the page: `controller` is set). A build whose
+  // worker never takes the first page (before the 15 Nov fix) is counted until its worker is
+  // activated, which is when its files are on the device.
+  if (wanted('Ready for offline')) {
+    results.ready['Ready for offline'] = [];
+    for (let i = 0; i < RUNS; i++) {
+      const { context, page } = await newPage(browser);
+      const t0 = performance.now();
+      await page.goto('/shopping');
+      await page.waitForFunction(
+        async () => {
+          if (navigator.serviceWorker.controller) return true;
+          const registration = await navigator.serviceWorker.getRegistration();
+          return registration?.active?.state === 'activated';
+        },
+        undefined,
+        { timeout: 120_000, polling: 250 }
+      );
+      results.ready['Ready for offline']!.push({ ms: ms(t0), api: [] });
       await context.close();
     }
   }

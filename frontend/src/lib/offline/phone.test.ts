@@ -122,7 +122,7 @@ describe('FE-4 (part 2): an update never takes over mid-shop', () => {
     expect(callers(/\bskipWaiting\s*\(/)).toEqual([]);
     expect(callers(/\bclaim\s*\(/)).toEqual(['/src/service-worker/index.ts']);
     // ...and there, only under the decision that nothing older was installed (rules.ts, tested).
-    const worker = code(sources['/src/service-worker/index.ts']);
+    const worker = code(sources['/src/service-worker/index.ts'] ?? '');
     expect(worker.match(/\bclaim\s*\(/g)).toHaveLength(1);
     expect(worker).toMatch(/if\s*\(\s*first\s*\)\s*await worker\.clients\.claim\(\)/);
     expect(worker).toMatch(/const first = isFirstInstall\(/);

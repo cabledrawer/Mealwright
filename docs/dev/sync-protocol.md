@@ -634,6 +634,7 @@ The service worker (SvelteKit's own) caches only the app shell. List data lives 
 ### 11.6 App updates (L290)
 
 - The app never calls `skipWaiting()` and never reloads itself while it's open, so a new version never takes over mid-shop. The browser switches to the new version once every window of the app has been closed, so the next cold start opens the new version.
+- **The very first worker takes the page that installed it** (proposed, for cabledrawer 15 Nov): when no older version's cache exists on the device, the worker calls `clients.claim()` once its files are on the device, so that first page also works with no connection, without a reload. An update never does this: it waits as above, and `skipWaiting()` is still never called. The first download asks for six files at a time.
 - That means the old version can't send its queue first. Instead, **the new version sends the old version's queue before it shows the list.** On start it opens IndexedDB (its upgrade code keeps `queue` and `meta` exactly as they were) and, if the queue has entries, starts sending them as they are (protocol 1) as Shopping opens. Shopping shows from the copy with the queue on top straight away, without waiting for that send to finish (cabledrawer 20 Oct, hand test: on a weak signal the wait held "Loading…" for over 40 seconds). The server's list is asked for only after that send's turn (answered or not). Offline, the list shows from the copy with the queue on top, as always, and the queue goes when it can.
 - This is safe because the server accepts protocol 1 for the life of `/api/v1` (4.1). FE-4 tests it.
 - Docs: offline needs HTTPS (L461); iPhone Safari can clear offline data after 7 days without use, and adding to the Home Screen helps (L290).
@@ -790,7 +791,7 @@ Runs as: **BE** = fast backend test (pytest, `backend/tests/test_sync_*.py`, tes
 | FE-1 | | | | | Grouping: shops in order, aisles in the spec's order and names, no aisle → Other, Any shop last, trolley row per shop | | | FE |
 | FE-2 | | | | | Subtitle for 1, 2, 3 and 4 logins; offline wording | | | FE |
 | FE-3 | | | | | A different login signs in on a phone holding Wren's queue → the warning, never a send; carrying on wipes the whole offline copy and the device ID | | | FE |
-| FE-4 | | | | | A newer app version opens an IndexedDB database written by the older one: `queue` and `meta` kept exactly; it sends the queue as protocol 1 before showing Shopping; nothing calls `skipWaiting()` | | | FE |
+| FE-4 | | | | | A newer app version opens an IndexedDB database written by the older one: `queue` and `meta` kept exactly; it sends the queue as protocol 1 before showing Shopping; nothing calls `skipWaiting()` and only the first worker calls `claim()` | | | FE |
 | FE-5 | | | | | `applyLocal` never produces pantry data, and the offline copy has no pantry store | | | FE |
 | FE-6 | | | | | `package.json` pins `idb` to an exact version (no `^` or `~`) | | | FE |
 | FE-8 | | | | | **PR 6c.** The phone database can't be read (IndexedDB fails): never "nothing waiting"; nothing wiped, `meta` not written; the app turns a different login away, the sign-in page says it couldn't check and sends nothing; Settings won't sign out without "Sign out anyway" | | | FE |

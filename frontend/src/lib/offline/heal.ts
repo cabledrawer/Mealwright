@@ -86,10 +86,10 @@ export async function install(
     for (let at = 0; at < requests.length; at += INSTALL_AT_ONCE) {
       const group = requests.slice(at, at + INSTALL_AT_ONCE);
       const answers = await Promise.all(group.map((request) => fetchFresh(request)));
-      answers.forEach((response, i) => {
-        if (!usable(response)) throw new Error(`Could not fetch ${group[i].url}`);
-      });
-      for (let i = 0; i < group.length; i++) await cache.put(group[i].url, answers[i]);
+      for (const [i, request] of group.entries()) {
+        if (!usable(answers[i])) throw new Error(`Could not fetch ${request.url}`);
+      }
+      for (const [i, request] of group.entries()) await cache.put(request.url, answers[i]!);
     }
   } catch (error) {
     await storage.delete(name).catch(() => false);

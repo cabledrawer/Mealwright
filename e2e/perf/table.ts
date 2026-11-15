@@ -23,6 +23,8 @@ for (const file of process.argv.slice(2)) {
     const slowest = first.flatMap((s) => s.api).sort((a, b) => b.wait - a.wait)[0];
     console.log(`| ${name} | ${fmt(first.map((s) => s.ms))} | ${fmt((r.results.repeat[name] ?? []).map((s) => s.ms))} | ${slowest ? `${slowest.wait} (${slowest.path.split('?')[0]})` : 'n/a'} |`);
   }
+  const ready = r.results.ready?.['Ready for offline'] ?? [];
+  if (ready.length) console.log(`\nReady for offline (first open until the page is under the worker with its files on the device), median / slowest, in ms: ${fmt(ready.map((x) => x.ms))}`);
   console.log('\n| Action | Time to show | Slowest API wait |\n|---|---|---|');
   for (const [name, samples] of Object.entries(r.results.action)) {
     const slowest = samples.flatMap((s) => s.api).sort((a, b) => b.wait - a.wait)[0];
