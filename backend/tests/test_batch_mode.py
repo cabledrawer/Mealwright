@@ -1,4 +1,5 @@
-"""Batch cook mode's schedule and progress (0.8 wave 6, B3; cabledrawer 28 Oct and 11 Nov): made when
+"""Batch cook mode's schedule and progress (0.8 wave 6, B3; cabledrawer 28 Oct and 11 Nov): made
+when
 the mode is started and kept on the session, Now and Next, timers, done and Undo, a reload or
 another phone carrying on, Plan again, live updates, the switch and the other household."""
 

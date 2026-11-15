@@ -439,7 +439,8 @@ def cookie_name(settings: Settings) -> str:
     return PLAIN_COOKIE if settings.allow_plain_http else COOKIE
 
 
-# Signed out here on purpose (S7, cabledrawer 13 Nov): the next "Sign in with …" in this browser asks
+# Signed out here on purpose (S7, cabledrawer 13 Nov): the next "Sign in with …" in this browser
+# asks
 # the sign-in server to ask for the login again (`prompt=login`), so whoever uses the device next
 # isn't let in as the person who just signed out. Holds nothing but "1"; gone once someone signs
 # in with single sign-on here.

@@ -10,8 +10,8 @@ from sync_kit import (
     API,
     PHONE_A,
     PHONE_R,
-    WREN_PASSWORD,
     S0,
+    WREN_PASSWORD,
     action,
     changes,
     db,
@@ -374,9 +374,7 @@ def test_sy72_two_moves(kitchen: TestClient, a_first: bool) -> None:
     loser = kitchen if a_first else s.wren
     (note,) = changes(loser)["notes"]
     expected = (
-        "Wren moved Coriander to Diwali party"
-        if a_first
-        else "Tess moved Coriander to This week"
+        "Wren moved Coriander to Diwali party" if a_first else "Tess moved Coriander to This week"
     )
     assert note["text"] == expected
     # Undo of the note puts the first mover's choice back.

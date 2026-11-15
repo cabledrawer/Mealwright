@@ -234,7 +234,8 @@ def test_no_token_and_no_single_sign_on_secret_ever_leaves(kitchen: TestClient) 
     assert "client_secret_sealed" not in row
 
 
-# --- The optional password (0.9.5, cabledrawer 13 Nov; docs/export-format.md, "The encrypted file") --
+# --- The optional password (0.9.5, cabledrawer 13 Nov; docs/export-format.md, "The encrypted file")
+# --
 
 SEALED_PASSWORD = "lorna and noor's passphrase"
 

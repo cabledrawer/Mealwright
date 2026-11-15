@@ -1134,7 +1134,8 @@ def read_line(text: str, size_words: Iterable[str] = (), pint_ml: int | None = N
             metric = _bracket_metric(part)
             if metric is not None:
                 # "half a jar (340g)": half of the bracket's amount; "1 cup flour (125g)": it.
-                # "2 tins (800 g)": the bracket is the total, 800 g (proposed, for cabledrawer); only
+                # "2 tins (800 g)": the bracket is the total, 800 g (proposed, for cabledrawer);
+                # only
                 # one tin or a fraction of one multiplies ("half a jar (340g)" is 170 g).
                 whole = unit is None and other is None and amount <= 1
                 amount = amount * metric.value if whole else metric.value
@@ -1523,7 +1524,8 @@ def _each_first(work: str) -> str:
 
 def _slash_as_or(text: str) -> str | None:
     """ "2 tbsp ghee / 2 tbsp oil" said as an "or" line, "2 tbsp ghee or 2 tbsp oil", when a slash
-    between two foods has an amount on both sides (cabledrawer 11 Nov; RF4). None for a slash between
+    between two foods has an amount on both sides (cabledrawer 11 Nov; RF4). None for a slash
+    between
     names alone ("hing / asafoetida"), a fraction's slash, and a second measure straight after the
     first ("500g/1lb beef", "1 cup / 240 ml milk": nothing but a measure before the slash)."""
     work = working_text(text)

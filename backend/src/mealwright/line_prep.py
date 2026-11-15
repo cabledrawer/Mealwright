@@ -171,7 +171,8 @@ _HOW_TO = re.compile(r"^\s*how\s+to\s+(?:make|cook|bake|prepare|do)\s+", re.IGNO
 _HOW_TO_TAIL = re.compile(
     r"\s*[,:;|\u2013\u2014-]\s*how\s+to\s+(?:make|cook|bake|prepare|do)\b.*$", re.IGNORECASE
 )
-# "Recipe" where it is clearly a label (F91, proposed, for cabledrawer). Steps in order: (1) the start,
+# "Recipe" where it is clearly a label (F91, proposed, for cabledrawer). Steps in order: (1) the
+# start,
 # always: "Recipe for [a|an|the] ...", "Recipe: ..." and "Recipe - ..." (a dash needs spaces round
 # it). (2) A "Recipe" bracket, a "Recipe" label just before a bracket ("Lemon Rice Recipe
 # (Chitranna)"), a bracket of puff words ("(Easy)"), then the end of the name ("Classic Victoria

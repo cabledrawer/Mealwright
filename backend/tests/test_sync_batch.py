@@ -528,7 +528,8 @@ def test_a_phone_ahead_of_the_server_gets_a_full_copy(kitchen: TestClient) -> No
     assert send(kitchen, since=now + 1)["changes"]["reset"] is True
 
 
-# --- Packet sizes travel with new_food (4.4, cabledrawer 18 Oct decision 8) -------------------------
+# --- Packet sizes travel with new_food (4.4, cabledrawer 18 Oct decision 8)
+# -------------------------
 
 
 def test_new_food_carries_its_packet_sizes(kitchen: TestClient) -> None:

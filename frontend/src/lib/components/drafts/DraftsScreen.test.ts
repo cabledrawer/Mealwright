@@ -93,9 +93,7 @@ describe('the Drafts screen', () => {
         .element(page.getByText('Imports your household hasn’t finished · kept for 15 days'))
         .toBeVisible();
       await expect.element(page.getByText('Chettinad kuzhambu')).toBeVisible();
-      await expect
-        .element(page.getByText('From bbcgoodfood.com · started by Tess'))
-        .toBeVisible();
+      await expect.element(page.getByText('From bbcgoodfood.com · started by Tess')).toBeVisible();
       await expect.element(page.getByText('13 days left')).toBeVisible();
       await expect.element(page.getByText('6 of 9 ingredients checked · 3 need you')).toBeVisible();
       await expect.element(page.getByText('Pasted text · started by Wren')).toBeVisible();

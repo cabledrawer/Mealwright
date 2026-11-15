@@ -1637,7 +1637,8 @@ OPTIONAL_MIGRATION = "b6d1f3a8c254"  # the one just before step waits
 
 
 def test_step_wait_migration_adds_empty_columns_and_goes_back_and_forward(tmp_path: Path) -> None:
-    """0.8 wave 5, M1 (cabledrawer 31 Oct and 9 Nov): every step starts with no wait; going back drops
+    """0.8 wave 5, M1 (cabledrawer 31 Oct and 9 Nov): every step starts with no wait; going back
+    drops
     only the four wait columns and keeps every row and "never reuse an id"; going forward adds
     them empty again. The columns are on a table that already has `household_id`, and a recipe's
     single time is left as it was (nothing is guessed from old words)."""

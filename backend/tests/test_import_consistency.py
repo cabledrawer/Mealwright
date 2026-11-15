@@ -797,7 +797,8 @@ def test_variety_regex_is_whole_words_and_site_tail_keeps_taste() -> None:
 
 
 def test_f109_water_and_broth_is_two_lines_with_the_amount_in_the_note() -> None:
-    """F109 (cabledrawer 31 Oct): "4 1/2 cups water and broth (see instructions)" is Water and Broth,
+    """F109 (cabledrawer 31 Oct): "4 1/2 cups water and broth (see instructions)" is Water and
+    Broth,
     each with no amount and the note "4½ cups together"."""
     water, broth = read_lines("4 1/2 cups water and broth (see instructions)")
     assert (water.name, broth.name) == ("water", "broth")

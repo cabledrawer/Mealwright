@@ -1,4 +1,5 @@
-"""Pack suggestions and the suggested Usual shop on the foods API (F120, F121; cabledrawer 7 Nov)."""
+"""Pack suggestions and the suggested Usual shop on the foods API (F120, F121; cabledrawer 7
+Nov)."""
 
 from typing import Any
 

@@ -523,7 +523,8 @@ class HouseholdChange(BaseModel):
     """A setting changed on purpose. Only what is sent changes. The pint is for admins only;
     `cook_per_step` may be changed by any signed-in person of the household."""
 
-    # Which pint a recipe's "pint" is: "uk" (568 ml) or "us" (473 ml) (0.6; proposed, for cabledrawer).
+    # Which pint a recipe's "pint" is: "uk" (568 ml) or "us" (473 ml) (0.6; proposed, for
+    # cabledrawer).
     pints: Literal["uk", "us"] | None = None
     # Cook mode's per-step ingredients (Experimental; 0.7 K4, cabledrawer 1 Nov). Proposed, for
     # cabledrawer: any signed-in person of the household may change this one (it changes only what
@@ -662,7 +663,8 @@ def change_kitchen(body: KitchenChange, kitchen: Here, response: Response) -> Ki
     """Saves the kitchen's equipment (Your kitchen, or Settings, Kitchen). Any signed-in person
     of the household may: like Cook mode's per-step switch, it changes only what Batch cook
     plans. Answers with the kitchen as stored."""
-    # Any person may (proposed, for cabledrawer; kept out of the docstring, which is the public API).
+    # Any person may (proposed, for cabledrawer; kept out of the docstring, which is the public
+    # API).
     lock_db(kitchen.db, kitchen.household)  # one key twice at once: the second waits, then sees it
     household = kitchen.household
     if replayed(kitchen) is not None:  # a retry of a used key: change nothing, answer as stored

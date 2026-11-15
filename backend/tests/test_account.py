@@ -411,8 +411,8 @@ def test_a_pause_reads_the_same_for_a_made_up_username(client: TestClient) -> No
         assert blocked.status_code == 429
         answers[username] = (blocked.json(), blocked.headers["retry-after"])
     assert answers["tess"][0]["detail"].replace("tess", "NAME") == answers["nobody-by-this-name"][
-        "nobody-by-this-name"
-    ][0]["detail"].replace("nobody-by-this-name", "NAME")
+        0
+    ]["detail"].replace("nobody-by-this-name", "NAME")
     assert answers["tess"][1] == answers["nobody-by-this-name"][1]
 
 
@@ -499,9 +499,7 @@ def test_the_message_matches_the_real_lock(
     assert sign_in(client, "wrong-password") == 401  # checked normally at 30 s
     # The 6th wrong guess doubles the wait, and the message says so.
     blocked = client.post("/api/v1/session", json={"username": "tess", "password": "x"})
-    assert (
-        blocked.json()["detail"] == "Too many wrong passwords for tess. Try again in 1 minute."
-    )
+    assert blocked.json()["detail"] == "Too many wrong passwords for tess. Try again in 1 minute."
     clock[0] += 59.5
     assert sign_in(client) == 429
     clock[0] += 0.5

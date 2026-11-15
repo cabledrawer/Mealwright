@@ -257,7 +257,8 @@ def test_what_is_there_already_is_read_under_the_household_lock(
 
 
 def test_household_pack_items_take_the_table_aisle_never_household(kitchen: TestClient) -> None:
-    """cabledrawer 7 Nov: the Household pack is food staples; the Household aisle is for cleaning."""
+    """cabledrawer 7 Nov: the Household pack is food staples; the Household aisle is for
+    cleaning."""
     household = packs(kitchen)["household"]
     assert add(kitchen, "household", keys(household)).status_code == 201
     for item in household["items"]:

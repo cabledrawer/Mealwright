@@ -219,7 +219,8 @@ def test_a_quick_pick_size_reaches_the_next_pull_so_the_screen_follows(
     assert newer and any(s["usual"] for s in newer[0]["sizes"]), (food, after["foods"])
 
 
-# --- "Make it a staple?" (cabledrawer 7 Nov) ---------------------------------------------------------
+# --- "Make it a staple?" (cabledrawer 7 Nov)
+# ---------------------------------------------------------
 
 
 def offered(kitchen: TestClient, name: str) -> bool:

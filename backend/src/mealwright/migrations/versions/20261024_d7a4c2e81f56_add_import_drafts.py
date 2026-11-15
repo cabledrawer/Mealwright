@@ -4,7 +4,8 @@ Revision ID: d7a4c2e81f56
 Revises: 5b2e9d41a7c3
 Create Date: 2026-10-24 01:40:00
 
-Drafts (spec section 6, "Drafts (cabledrawer 21 Oct)"; the database change was approved by cabledrawer
+Drafts (spec section 6, "Drafts (cabledrawer 21 Oct)"; the database change was approved by
+cabledrawer
 on 22 Oct: "drafts table, photo -> draft", nothing else).
 
 - A new table, `import_draft`: an import left unfinished. It belongs to a household, and keeps

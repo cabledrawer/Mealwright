@@ -55,10 +55,12 @@ def pack_line(food: Food, need_milli: int | None, usual: FoodSize | None) -> Pac
     return PackLine(packs, usual.id, buy, need, f"{buy} · {need}")
 
 
-# --- Another size (F183 + F204, cabledrawer 8 and 9 Nov) -------------------------------------------
+# --- Another size (F183 + F204, cabledrawer 8 and 9 Nov)
+# -------------------------------------------
 
 # "When another size would leave much less over it is suggested" (cabledrawer 9 Nov). How much is
-# "much less" is the builder's, proposed, for cabledrawer: the other size leaves at most half as much
+# "much less" is the builder's, proposed, for cabledrawer: the other size leaves at most half as
+# much
 # over as the usual one and saves at least a tenth of what is needed, and it is no more than
 # MOST_PACKS packs (ten small sachets are not a better way to buy).
 MUCH_LESS_RATIO = 2  # the other size's leftover times 2 is at most the usual size's

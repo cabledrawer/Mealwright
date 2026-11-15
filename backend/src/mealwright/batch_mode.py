@@ -6,7 +6,8 @@ B1's timings and 0.7's step-ingredient links) and the household's kitchen, and k
 session as a snapshot (`batch_session.schedule`), so a reload, another phone or a closed tab
 carries on where it was, and a recipe edited later does not move a schedule already running.
 What it was made from is fingerprinted (`schedule_basis`): when a recipe or the kitchen has
-changed since, the screen offers **Plan again** (proposed, for cabledrawer), which makes it afresh and
+changed since, the screen offers **Plan again** (proposed, for cabledrawer), which makes it afresh
+and
 clears the progress.
 
 **Progress** is one row for each task that is done or whose timer was started

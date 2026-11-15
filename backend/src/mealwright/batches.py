@@ -60,7 +60,8 @@ from mealwright.plan import (
 )
 from mealwright.stock import add_months
 
-# --- Caps (proposed, for cabledrawer) ---------------------------------------------------------------
+# --- Caps (proposed, for cabledrawer)
+# ---------------------------------------------------------------
 #
 # A batch holds at most 12 tubs and a day at most 10 batches. With the rest of the plan's caps
 # (20 things in a meal, 12 slots) these keep GET /plan, which asks the database about the batches
@@ -617,7 +618,8 @@ def edit_tub(kitchen: Kitchen, tub: Tub, fields: dict[str, Any]) -> Change | Non
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "use_by_before_cook_day",
-                "A tub’s use-by can’t be before the day it was cooked.",  # proposed, for cabledrawer
+                # proposed, for cabledrawer
+                "A tub’s use-by can’t be before the day it was cooked.",
             )
         changed = changed or new_day != tub.use_by
         if new_day != tub.use_by:
@@ -1123,7 +1125,8 @@ def leftover_tub(
     steps.append({"op": "add_item", "item": clone.id})
 
 
-# --- Portions (0.7, P1; cabledrawer 28 Oct) ----------------------------------------------------------
+# --- Portions (0.7, P1; cabledrawer 28 Oct)
+# ----------------------------------------------------------
 #
 # A batch makes a fixed number of portions: its tubs plus the cook-day meal (the people eating
 # the cooking on the day; one when the meal has no number of its own, as Cook once and the
@@ -1432,7 +1435,8 @@ def _fill_summary(named: list[str]) -> str:
         meals = ", ".join(names)
         if len(named) == 1:
             summary = (
-                f"Filled {meals} from a freezer tub (it runs out soonest)"  # proposed, for cabledrawer
+                # proposed, for cabledrawer
+                f"Filled {meals} from a freezer tub (it runs out soonest)"
             )
         else:
             summary = f"Filled {meals} from freezer tubs (they run out soonest)"

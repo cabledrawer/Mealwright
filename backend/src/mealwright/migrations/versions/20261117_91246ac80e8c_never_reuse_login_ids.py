@@ -4,7 +4,8 @@ Revision ID: 91246ac80e8c
 Revises: c30b3fee4849
 Create Date: 2026-11-17 12:00:00
 
-D1/S5 (cabledrawer 13 Nov): login numbers are never reused, not even after Delete everything. Without
+D1/S5 (cabledrawer 13 Nov): login numbers are never reused, not even after Delete everything.
+Without
 "never reuse an id", the first login made after Delete everything (or after the newest login was
 removed) was given the number of the one gone: anything that still named that number (a sign-in
 in another browser's memory, a log line, a backup) would point at somebody else. The table is

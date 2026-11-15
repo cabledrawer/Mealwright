@@ -1,4 +1,5 @@
-"""Steps that wait (0.8 wave 5, M1; cabledrawer 31 Oct and 9 Nov): a step can carry a wait (a kind and
+"""Steps that wait (0.8 wave 5, M1; cabledrawer 31 Oct and 9 Nov): a step can carry a wait (a kind
+and
 a range, or one that ends at "overnight"); a recipe's time stays its active time and the waits
 come back added up; recipes made before keep their single time."""
 

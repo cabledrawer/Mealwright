@@ -97,7 +97,8 @@ def test_headings_lines_without_an_amount_and_unlinked_lines_have_no_state(
 
 
 def test_a_line_without_an_amount_gets_a_mark_but_never_counts(kitchen: TestClient) -> None:
-    """0.5.1 (cabledrawer's hand test): "salt to taste" linked to the Salt staple showed no "Staple".
+    """0.5.1 (cabledrawer's hand test): "salt to taste" linked to the Salt staple showed no
+    "Staple".
     A line with no amount still never counts towards stock (cabledrawer 19 Oct, question 13)."""
     salt = food(kitchen, "Zorba salt", staple=True)
     lemon = food(kitchen, "Zorba lemon")

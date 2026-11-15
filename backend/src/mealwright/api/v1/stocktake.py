@@ -701,7 +701,8 @@ def finish_place(place_id: StoredInt, kitchen: Here) -> StocktakeOut:
 
 
 def _check_the_rest(kitchen: Kitchen, place: Place) -> None:
-    """Next means right (cabledrawer 7 Nov): every ingredient not answered yet is recorded as checked
+    """Next means right (cabledrawer 7 Nov): every ingredient not answered yet is recorded as
+    checked
     and correct. No stock change and no change in Recent changes; the row counts as done."""
     view = Stocktake(kitchen)
     for food in view.members(place.id):

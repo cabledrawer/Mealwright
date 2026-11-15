@@ -1,4 +1,5 @@
-"""#205 (b) and (d), cabledrawer 12 Nov late: one rule for "another admin can get in" (a password that
+"""#205 (b) and (d), cabledrawer 12 Nov late: one rule for "another admin can get in" (a password
+that
 works now, or a single sign-on link accepted at the saved sign-in server while single sign-on can
 start), and an admin can't make themselves a Member, or a shared login, when no other admin can
 get in. A sign-in that is open now, an API token and a link not used yet are no way in."""

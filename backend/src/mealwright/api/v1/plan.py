@@ -220,7 +220,8 @@ class PlanOut(BaseModel):
     tubs: list[PlanTubOut]
     batch_sessions: list[PlanSessionOut] = Field(default_factory=list)
     # Removed people still named here (a past meal's eater, a tub's owner), so a screen can say
-    # "Lorna (removed)" (0.9.5 Pe6, cabledrawer 13 Nov). Meals from the day of their removal on don't
+    # "Lorna (removed)" (0.9.5 Pe6, cabledrawer 13 Nov). Meals from the day of their removal on
+    # don't
     # list them in `eater_member_ids`.
     removed_people: list[RemovedPersonOut] = Field(default_factory=list)
 
@@ -420,7 +421,8 @@ def get_plan(
     batch_recipe = {b.id: batch_recipes.get(b.recipe_id or 0) for b in batches}
     tub_batch = {t.id: t.batch_id for t in tubs}
     # Every tub of a listed batch is in `tubs`. "Tub 2 of 4" is its place in date order (F50,
-    # cabledrawer 28 Oct): tubs in meals by the meal's day and slot, then tubs left in the order made.
+    # cabledrawer 28 Oct): tubs in meals by the meal's day and slot, then tubs left in the order
+    # made.
     when: dict[int, tuple[date, int, int]] = {}
     for tub_id, tub_day, position, slot_id in db.execute(
         select(MealItem.tub_id, Meal.day, MealSlot.position, MealSlot.id)
@@ -616,7 +618,8 @@ def get_plan(
         )
         .order_by(MealEater.member_id)
     ):
-        # Pe6 (cabledrawer 13 Nov): off the meals from the day of the removal, by the household's day.
+        # Pe6 (cabledrawer 13 Nov): off the meals from the day of the removal, by the household's
+        # day.
         if not plan.still_eating(kitchen.household, removed_at, meal_day[meal_id]):
             continue
         eaters.setdefault(meal_id, []).append(member_id)

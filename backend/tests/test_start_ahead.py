@@ -1,4 +1,5 @@
-"""The plan works backwards (0.8 wave 5, M3, F124; cabledrawer 31 Oct and 9 Nov): adding a recipe with
+"""The plan works backwards (0.8 wave 5, M3, F124; cabledrawer 31 Oct and 9 Nov): adding a recipe
+with
 a long wait asks when it will be started, suggesting times from the meal's slot time and the wait;
 the plan says it the day before; "Done already" and Cook mode record that it was begun; day two
 knows how long it has waited. In the app only: nothing here sends anything. Times are the
@@ -562,7 +563,8 @@ def test_the_start_belongs_to_the_way_of_cooking_it_and_a_change_of_way_asks_aga
 
 
 def test_nothing_is_sent_or_scheduled() -> None:
-    """No notifications before 1.0 (cabledrawer 18 Oct): the start is only ever read from the plan, so
+    """No notifications before 1.0 (cabledrawer 18 Oct): the start is only ever read from the plan,
+    so
     the module reaches no job, no outgoing call and no notifier."""
     source = Path(start_ahead.__file__).read_text()
     imports = [line for line in source.splitlines() if line.startswith(("import ", "from "))]
@@ -690,7 +692,8 @@ def test_copying_a_recipe_with_a_long_wait_can_say_when_to_start_it(kitchen: Tes
     assert leftovers.json()["code"] == "start_not_for_leftovers"
 
 
-# --- A move asks the start time again (cabledrawer 10 Nov) -------------------------------------------
+# --- A move asks the start time again (cabledrawer 10 Nov)
+# -------------------------------------------
 
 
 def test_moving_one_recipe_can_say_when_to_start_it_on_its_new_day(kitchen: TestClient) -> None:
@@ -973,7 +976,8 @@ def test_a_start_with_a_move_or_copy_of_an_item_that_is_not_there_is_a_404(
 
 
 def test_a_batch_cook_session_plans_a_long_wait_with_its_start_tonight(kitchen: TestClient) -> None:
-    """B3 (cabledrawer 11 Nov): a session's recipe with a long wait gets wave 5's first Start tonight
+    """B3 (cabledrawer 11 Nov): a session's recipe with a long wait gets wave 5's first Start
+    tonight
     time, so Today shows it the day before; a recipe with no long wait gets none."""
     batter = dosa(kitchen)
     plain_one = make(kitchen, "Plain rasam", steps=[{"text": "Simmer for 10 minutes."}])

@@ -1,4 +1,5 @@
-"""D3 (cabledrawer 13 Nov): an admin who signs in only with single sign-on confirms Delete everything
+"""D3 (cabledrawer 13 Nov): an admin who signs in only with single sign-on confirms Delete
+everything
 with a fresh single sign-on sign-in instead of a password.
 
 "Fresh" is proven so: `POST /sso/confirm` asks the sign-in server for the login again

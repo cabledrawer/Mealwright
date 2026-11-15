@@ -755,7 +755,8 @@ def test_fill_from_freezer_puts_the_soonest_tub_on_each_empty_day_with_undo(
 def test_fill_from_freezer_says_which_meals_it_filled_and_why(
     kitchen: TestClient, cook: dict[str, Any], slots: dict[str, int]
 ) -> None:
-    """The Undo toast names the meals (cabledrawer 28 Oct): "Filled Tue dinner, Thu lunch from freezer
+    """The Undo toast names the meals (cabledrawer 28 Oct): "Filled Tue dinner, Thu lunch from
+    freezer
     tubs (they run out soonest)", and one Undo takes all of it back."""
     make(kitchen, cook["item_id"], tub_count=3, pattern="pick", extras_to_freezer=True)
     before = shape(kitchen)
@@ -978,7 +979,8 @@ def test_batch_changes_are_in_recent_changes_with_their_undo(
     assert mine["kind"] == "plan_batch" and mine["can_undo"] is True
 
 
-# --- Never into the past, never before the cooking (F50, cabledrawer 28 Oct) --------------------------
+# --- Never into the past, never before the cooking (F50, cabledrawer 28 Oct)
+# --------------------------
 
 
 def _after_cook_refused(r: Any) -> None:

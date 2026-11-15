@@ -720,7 +720,8 @@ def test_a_member_is_told_no_sizes_and_an_admin_only_their_own_households_photos
 def test_delete_everything_always_keeps_the_photos_in_its_safety_copy(
     kitchen: TestClient,
 ) -> None:
-    """Whatever the switch says (proposed, for cabledrawer): the photos are removed for good, so this
+    """Whatever the switch says (proposed, for cabledrawer): the photos are removed for good, so
+    this
     copy is the only way back. The ordinary backup and the safety copy before an upgrade follow
     the switch (test_the_safety_copy_with_the_switch_off_has_no_photo_folder, above)."""
     _photo(_store(kitchen), "a", b"sambar")

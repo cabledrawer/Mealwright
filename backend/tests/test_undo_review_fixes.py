@@ -122,7 +122,8 @@ def test_undo_of_planning_puts_the_used_last_way_back_after_another_way_was_pick
 
 
 def test_undo_of_a_removed_place_leaves_a_new_stocktake_alone(kitchen: TestClient) -> None:
-    """RF1 review r1 (proposed, for cabledrawer): remove a place, press "Start a new stocktake", then
+    """RF1 review r1 (proposed, for cabledrawer): remove a place, press "Start a new stocktake",
+    then
     Undo the removal: the new stocktake doesn't get the old place's answers or its finished mark."""
     garage = ok(
         kitchen.post(f"{API}/places", json={"name": "Garage freezer", "kind": "freezer"}), 201

@@ -240,9 +240,7 @@ def test_a_waiting_link_does_not_survive_signing_out_and_in_even_if_the_session_
         from mealwright.models import Login
 
         db.execute(
-            update(Login)
-            .where(Login.username == "tess")
-            .values(sso_subject=None, sso_issuer=None)
+            update(Login).where(Login.username == "tess").values(sso_subject=None, sso_issuer=None)
         )
         db.commit()
     started = kitchen.post(f"{API}/sso/test", headers={"Origin": "https://testserver"})

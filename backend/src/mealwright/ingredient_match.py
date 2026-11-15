@@ -44,7 +44,8 @@ FRIDGE = "fridge"
 FREEZER = "freezer"
 
 # "Kept in" for a new ingredient (cabledrawer 30 Oct): milk, cream, raw meat and the like go in the
-# Fridge, not the Cupboard (cabledrawer OK'd 31 Oct). A word here puts the ingredient there; a word in
+# Fridge, not the Cupboard (cabledrawer OK'd 31 Oct). A word here puts the ingredient there; a word
+# in
 # `NOT_FRIDGE` ("coconut milk", "chicken stock", "milk powder") takes it back to the Cupboard.
 FRIDGE_WORDS = frozenset(
     {"milk", "cream", "butter", "yoghurt", "yogurt", "egg", "cheese", "chicken", "beef", "pork",
@@ -269,7 +270,8 @@ _SPOON_OR_CUP = frozenset({"tsp", "tbsp", "cup"})
 def _kind_by_table(name: str, counted_as: CountedAs) -> CountedAs:
     """A spoon or cup of something the bundled table counts by weight and knows the weight of
     (sugar, salt, flour, cumin) is counted by weight, so a pack's weight and the need are in the
-    same unit (F183, cabledrawer 8 Nov: "spoon and cup amounts become a weight first"). Milk, oil and
+    same unit (F183, cabledrawer 8 Nov: "spoon and cup amounts become a weight first"). Milk, oil
+    and
     anything the table counts by volume, or does not know, stay as read. Only the name itself or
     its last words count ("ground cumin" → cumin), never a word inside it ("rice milk" is not
     rice), and ml and litres stay volume: they were measured as a liquid."""

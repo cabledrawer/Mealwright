@@ -1,4 +1,5 @@
-"""API tokens and single sign-on (O2 review r1, finding 3; proposed, for cabledrawer): a token acts as
+"""API tokens and single sign-on (O2 review r1, finding 3; proposed, for cabledrawer): a token acts
+as
 the admin who made it, and only while they are an admin who is signed in. Single sign-on makes
 two ways that end: the groups make the admin a Member at their next sign-in, and the sign-in
 server ends their sign-in (the job)."""

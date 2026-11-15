@@ -139,7 +139,8 @@ def pints_changed(kitchen: Kitchen, old: str, new: str) -> Change:
     return record(
         kitchen,
         "pints_changed",
-        f"Changed the pint to {name[new]} pints (was {name[old]} pints)",  # proposed, for cabledrawer
+        # proposed, for cabledrawer
+        f"Changed the pint to {name[new]} pints (was {name[old]} pints)",
         None,
         {"pints": {"old": old, "new": new}},
     )
@@ -175,7 +176,8 @@ def cook_step_changed(kitchen: Kitchen, shown: bool) -> Change:
     return record(
         kitchen,
         "cook_step_changed",
-        f"Switched Ingredients for each step {'on' if shown else 'off'}",  # proposed, for cabledrawer
+        # proposed, for cabledrawer
+        f"Switched Ingredients for each step {'on' if shown else 'off'}",
         None,
         {"cook_per_step": {"old": not shown, "new": shown}},
     )

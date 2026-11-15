@@ -670,7 +670,8 @@ def set_optional(kitchen: Kitchen, item: MealItem, use: list[int]) -> Change | N
 
 
 def set_method(kitchen: Kitchen, item: MealItem, method_id: int) -> Change | None:
-    """Which way of cooking a planned recipe uses, changed from the meal (M2, cabledrawer 9 Nov). The
+    """Which way of cooking a planned recipe uses, changed from the meal (M2, cabledrawer 9 Nov).
+    The
     shopping list, Can cook now and Cooked it follow it. The Optional picks belonged to the other
     way, so they start again (every line counts). Already that way → None."""
     meal = kitchen.db.get(Meal, item.meal_id)

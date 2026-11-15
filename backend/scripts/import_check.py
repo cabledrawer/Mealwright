@@ -55,9 +55,9 @@ from mealwright.page_fetch import FetchedPage, FetchRefused, Problem, fetch_page
 from mealwright.page_reader import PageRecipe
 
 
-
 def default_paths() -> tuple[Path, Path]:
-    """The list and the report, in the sync folder (outside the repo): $MEALWRIGHT_SYNC_DIR, else ./repo-sync."""
+    """The list and the report, in the sync folder (outside the repo): $MEALWRIGHT_SYNC_DIR, else
+    ./repo-sync."""
     sync = Path(os.environ.get("MEALWRIGHT_SYNC_DIR", "repo-sync"))
     return sync / "import-check" / "urls.md", sync / "import-check-0.5.md"
 

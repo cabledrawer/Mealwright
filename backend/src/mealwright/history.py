@@ -456,7 +456,8 @@ class Tally:
     skipped: int = 0
     # Something was left alone because the shopping line it joined has been bought since.
     joined_bought: bool = False
-    # Why something was left alone, when the generic words need adding to (proposed, for cabledrawer).
+    # Why something was left alone, when the generic words need adding to (proposed, for
+    # cabledrawer).
     sentence: str | None = None
     # The whole answer, when the generic words don't fit (an Undo that left ingredients in use).
     message: str | None = None

@@ -380,7 +380,8 @@ class Pool:
         self, food: Food, amount: int, from_freezer: bool, stand_in: bool, tidy: bool = True
     ) -> Take | None:
         """Rule 4: the packet that goes off first. None when nothing could be taken. With `tidy`,
-        a packet left with under 2 % of its size is taken whole ("Used it all", cabledrawer 31 Oct)."""
+        a packet left with under 2 % of its size is taken whole ("Used it all", cabledrawer 31
+        Oct)."""
         mine = self.lots.get(food.id, [])
         views = [
             LotView(

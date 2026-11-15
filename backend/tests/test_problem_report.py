@@ -1,4 +1,5 @@
-"""Settings → About → Report a problem (spec section 7, "Bug reports", cabledrawer 17 Oct; plan row X2).
+"""Settings → About → Report a problem (spec section 7, "Bug reports", cabledrawer 17 Oct; plan row
+X2).
 
 The server builds the report with personal details already removed and never sends it anywhere.
 Each kind of personal detail is planted in the log and must not come back.

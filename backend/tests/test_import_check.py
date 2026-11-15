@@ -464,7 +464,9 @@ def test_the_command_stops_on_an_empty_list(
     assert "no addresses" in capsys.readouterr().err
 
 
-def test_the_defaults_are_in_the_sync_folder_outside_the_repo(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_defaults_are_in_the_sync_folder_outside_the_repo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("MEALWRIGHT_SYNC_DIR", "/sync-folder")
     assert check.default_paths() == (
         Path("/sync-folder/import-check/urls.md"),

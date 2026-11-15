@@ -1,4 +1,5 @@
-"""Portions (0.7, P1; cabledrawer 28 Oct): a batch makes a fixed number of portions, its tubs plus the
+"""Portions (0.7, P1; cabledrawer 28 Oct): a batch makes a fixed number of portions, its tubs plus
+the
 cook-day meal. "Leftovers on…" ticks several meals at once; when none are left the server says so
 and the person picks Cook more or Add anyway. Plan changes are online only (spec section 2), so
 "two phones" are two requests with their own Idempotency-Keys."""

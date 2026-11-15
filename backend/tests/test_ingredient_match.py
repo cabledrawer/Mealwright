@@ -836,7 +836,8 @@ def test_f186_cuts_and_parts_of_an_animal_or_egg_still_match(
     assert (result.label, result.food_name) == ("to_confirm", food)
 
 
-# --- F189: a recipe is offered before a same-named plain ingredient (cabledrawer 8 Nov) -------------
+# --- F189: a recipe is offered before a same-named plain ingredient (cabledrawer 8 Nov)
+# -------------
 
 
 def add_recipe(db: Session, name: str, *, household: int = 1, removed: bool = False) -> None:

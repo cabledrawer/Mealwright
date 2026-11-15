@@ -83,7 +83,8 @@ class Problem(StrEnum):
     TIMEOUT = "timeout"
     SITE_ERROR = "site_error"
     # The site said no on purpose (401, 403 or 429), as some big recipe sites do to anything
-    # that isn't a web browser. The request is not changed to get round it (cabledrawer's to decide).
+    # that isn't a web browser. The request is not changed to get round it (cabledrawer's to
+    # decide).
     SITE_REFUSED = "site_refused"
     NOT_A_PAGE = "not_a_page"
     PAGE_TOO_BIG = "page_too_big"

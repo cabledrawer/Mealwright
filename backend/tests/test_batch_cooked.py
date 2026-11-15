@@ -1,4 +1,5 @@
-"""One Cooked it for a whole Batch cook session (0.8 wave 6, B3; cabledrawer 28 Oct and 11 Nov): every
+"""One Cooked it for a whole Batch cook session (0.8 wave 6, B3; cabledrawer 28 Oct and 11 Nov):
+every
 recipe's stock taken as ONE change with one Undo, the tubs per recipe, and the stock after Cooked
 it and after Undo the same as doing each recipe's Cooked it alone and undoing it."""
 

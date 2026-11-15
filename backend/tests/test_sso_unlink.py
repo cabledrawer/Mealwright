@@ -139,9 +139,7 @@ def test_an_account_linked_before_it_was_kept_is_kept_when_unlinked(
     person_here(admin, "sam", role="admin")
     with cast(Any, admin.app).state.sessionmaker() as db:
         sam = db.scalars(select(Login).where(Login.username == "sam")).one()
-        sam.sso_issuer = (
-            db.scalars(select(Login).where(Login.username == "tess")).one().sso_issuer
-        )
+        sam.sso_issuer = db.scalars(select(Login).where(Login.username == "tess")).one().sso_issuer
         sam.sso_subject = "sam-1"
         db.commit()
     assert _unlink(admin, _member_id(admin, "Sam")).status_code == 200

@@ -1,4 +1,5 @@
-"""Batch cook's schedule (0.8 wave 6, B3; cabledrawer 28 Oct and 11 Nov): shared prep, waits filled by
+"""Batch cook's schedule (0.8 wave 6, B3; cabledrawer 28 Oct and 11 Nov): shared prep, waits filled
+by
 hands-on work, and the hard rules over random recipe sets and kitchens."""
 
 import random

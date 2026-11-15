@@ -1,5 +1,6 @@
 # ruff: noqa: F811  (the fixtures come from test_recipe_import.py and are used by name)
-"""Drafts: an import left unfinished, kept for 15 days (spec section 6, "Drafts (cabledrawer 21 Oct)",
+"""Drafts: an import left unfinished, kept for 15 days (spec section 6, "Drafts (cabledrawer 21
+Oct)",
 "Drafts: how long they last (cabledrawer 22 Oct, question 8)" and "Size limits (cabledrawer 22 Oct,
 question 9)"). The web is faked as in test_recipe_import.py: no test goes online.
 

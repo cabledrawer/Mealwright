@@ -1,4 +1,5 @@
-"""The cooked record (0.7 K1; spec section 6, "Plan and batch cooks", cabledrawer 17 Oct: "Cooked meals
+"""The cooked record (0.7 K1; spec section 6, "Plan and batch cooks", cabledrawer 17 Oct: "Cooked
+meals
 keep a record of what was actually made ... so history and pantry changes stay correct"). "Cooked
 it" (K2, K3) writes it; here it is written the way they will, with `cooked.snapshot`."""
 

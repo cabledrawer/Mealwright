@@ -99,7 +99,8 @@ def live_recipes(kitchen: Kitchen) -> dict[int, Recipe]:
     }
 
 
-# --- The loop guard (cabledrawer 19 Oct, questions 19 and 20) --------------------------------------
+# --- The loop guard (cabledrawer 19 Oct, questions 19 and 20)
+# --------------------------------------
 
 
 def uses_graph(kitchen: Kitchen, also_live: int | None = None) -> dict[int, set[int]]:

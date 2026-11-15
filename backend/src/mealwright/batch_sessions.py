@@ -120,7 +120,8 @@ def _start_tonight(
     kitchen: Kitchen, day: date, slot_id: int, recipe: Recipe, method_id: int | None = None
 ) -> tuple[date, time] | None:
     """A recipe with a long wait (soak, marinate overnight) is planned with wave 5's first "Start
-    tonight" time, so Today shows it the day before (B3, cabledrawer 11 Nov; proposed, for cabledrawer:
+    tonight" time, so Today shows it the day before (B3, cabledrawer 11 Nov; proposed, for
+    cabledrawer:
     the session picks the time itself, and it can be changed on the Plan like any other). None
     when the recipe has no such wait or every time has gone by."""
     method = plan._method_for(kitchen, recipe, method_id)
@@ -287,7 +288,8 @@ def _take_off(kitchen: Kitchen, session: BatchSession, steps: list[dict[str, Any
 
 def remove(kitchen: Kitchen, session: BatchSession) -> Change:
     """Take the whole session off the plan: one change, one Undo that puts all of it back. Like
-    every Batch cook route it answers 409 while an admin has Batch cook hidden (cabledrawer 11 Nov)."""
+    every Batch cook route it answers 409 while an admin has Batch cook hidden (cabledrawer 11
+    Nov)."""
     hidden_check(kitchen)
     day, count = session.cook_day, len(batches_of(kitchen, session))
     steps: list[dict[str, Any]] = []

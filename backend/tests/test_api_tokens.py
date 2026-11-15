@@ -358,7 +358,8 @@ def test_the_api_docs_describe_the_bearer_token(kitchen: TestClient) -> None:
     assert {"ApiToken": []} in spec["paths"][f"{API}/foods"]["get"]["security"]
 
 
-# --- Settings → Your data is never for a token (O2 review r1, finding 1; proposed, for cabledrawer) --
+# --- Settings → Your data is never for a token (O2 review r1, finding 1; proposed, for cabledrawer)
+# --
 
 YOUR_DATA_ROUTES = [
     ("GET", "/backups", None),

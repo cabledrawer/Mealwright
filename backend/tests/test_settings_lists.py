@@ -870,7 +870,8 @@ def test_undoing_an_added_place_is_refused_when_a_stocktake_used_it(kitchen: Tes
         assert session.scalar(select(StocktakeEntry).where(StocktakeEntry.place_id == made["id"]))
 
 
-# --- The pint and Ingredients for each step (RF5, cabledrawer 11 Nov) -------------------------------
+# --- The pint and Ingredients for each step (RF5, cabledrawer 11 Nov)
+# -------------------------------
 
 
 def _retry_after_another_change(
@@ -1053,7 +1054,8 @@ def test_another_households_pint_change_is_not_found(
     assert ok(neighbour.get(f"{API}/household"))["pints"] == "us"
 
 
-# --- A save that changes nothing still remembers its key (RF5 sweep, cabledrawer 11 Nov) -----------
+# --- A save that changes nothing still remembers its key (RF5 sweep, cabledrawer 11 Nov)
+# -----------
 
 
 def _replayed(response: Any) -> None:

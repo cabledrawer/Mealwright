@@ -4,7 +4,8 @@ Revision ID: b2f7c4e8a915
 Revises: b4f8e2a6c917
 Create Date: 2026-11-13 09:00:00
 
-Backups (0.9, D1; spec section 7, "Backups", cabledrawer 17 Oct): Mealwright backs its database up by
+Backups (0.9, D1; spec section 7, "Backups", cabledrawer 17 Oct): Mealwright backs its database up
+by
 itself into the data folder, daily by default, keeping the last 7. Four small columns on
 `household`:
 

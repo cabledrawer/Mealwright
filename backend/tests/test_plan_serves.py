@@ -1,5 +1,6 @@
 """Serves - N + and who's eating (0.7 P1; spec, "The Plan redesign": "Click a meal → Serves - N +
-(amounts and the list follow) and who's eating, right there (F57)"; cabledrawer 31 Oct: it "must also
+(amounts and the list follow) and who's eating, right there (F57)"; cabledrawer 31 Oct: it "must
+also
 work on meals planned before the update"). Plan changes are online only (spec section 2)."""
 
 from datetime import timedelta

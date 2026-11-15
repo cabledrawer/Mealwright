@@ -11,7 +11,8 @@ backup tools can copy the folder from there.
   own user only (0600), in a folder only it can open (0700).
 - **When:** at 03:00 in the household's own time (UTC until the browser has said which):
   "daily" every day, "twice-daily" at 03:00 and 15:00, "weekly" on Mondays (the choices and the
-  day are accepted (cabledrawer 12 Nov)). A job looks every 10 minutes whether one is due: the last slot
+  day are accepted (cabledrawer 12 Nov)). A job looks every 10 minutes whether one is due: the last
+  slot
   that has passed has no backup yet. A server that was off at 03:00 backs up when it starts.
   After a failure it tries again an hour later, not every 10 minutes.
 - **Names:** `backup-<UTC date>-<UTC time>.db`. Only these are trimmed to the number kept. The
@@ -474,7 +475,8 @@ def before_delete_everything(
 ) -> Path:
     """The safety backup made before "Delete everything" (cabledrawer 12 Nov), with the photos when
     `photos` is given (D2, 0.9.5), so a restore brings them back. The caller always gives them,
-    whatever the Include photos switch says (proposed, for cabledrawer): Delete everything removes the
+    whatever the Include photos switch says (proposed, for cabledrawer): Delete everything removes
+    the
     photos for good, so this copy is the only way back. Never trimmed."""
     if sqlite_file(engine) is None:
         raise BackupFailed("Backups need Mealwright’s own database file.")

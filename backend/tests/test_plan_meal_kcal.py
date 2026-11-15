@@ -1,4 +1,5 @@
-"""F233 (cabledrawer 12 Nov): after a Batch cook session's Cooked it, the cook-day meal's kcal counts
+"""F233 (cabledrawer 12 Nov): after a Batch cook session's Cooked it, the cook-day meal's kcal
+counts
 only what is eaten at that meal (a tub eaten there), not the recipes the session cooked."""
 
 from fastapi.testclient import TestClient
