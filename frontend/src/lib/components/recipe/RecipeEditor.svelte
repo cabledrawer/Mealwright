@@ -638,7 +638,7 @@
             class="mw-input"
             type="text"
             maxlength="500"
-            placeholder="Amma’s, a book, or a web address"
+            placeholder="A friend’s, a book, or a web address"
             aria-invalid={errors.source ? true : undefined}
             aria-describedby="{uid}-source-hint"
             bind:value={draft.source}

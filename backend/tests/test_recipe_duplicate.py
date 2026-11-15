@@ -33,7 +33,7 @@ def full_recipe(client: TestClient) -> dict[str, Any]:
         "makes": {"amount": 2, "unit": "l"},
         "tags": ["Batch-friendly", "Quick"],
         "nutrition": {"kcal": 320, "protein": 14.5},
-        "source_note": "Amma",
+        "source_note": "Tess",
         "lines": [
             {"kind": "heading", "words": "For the dal"},
             {

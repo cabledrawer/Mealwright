@@ -178,7 +178,7 @@ body{margin:0}
 </div>
 
 <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: #A3AFA8"><span>Source <span style="font-weight: 500">(optional)</span></span>
-<input type="text" value="{{ source }}" placeholder="Amma’s, a book, or a web address" style="border: 1px solid #39433D; background: #1B221F; border-radius: 12px; min-height: 46px; padding: 0 12px; font: 500 15px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB; box-sizing: border-box; width: 100%; min-width: 0">
+<input type="text" value="{{ source }}" placeholder="A friend’s, a book, or a web address" style="border: 1px solid #39433D; background: #1B221F; border-radius: 12px; min-height: 46px; padding: 0 12px; font: 500 15px 'Plus Jakarta Sans', sans-serif; color: #E9EEEB; box-sizing: border-box; width: 100%; min-width: 0">
 <span style="font-size: 12px; font-weight: 500; color: #A3AFA8">A web address shows as a link you can open yourself. Mealwright never visits it.</span>
 </label>
 
@@ -292,7 +292,7 @@ const isEdit = mode !== 'new';
 const isNew = !isEdit;
 const long = show === 'long';
 const offline = show === 'offline';
-const name = isEdit ? (long ? 'Amma’s Sunday drumstick and shallot sambar with freshly roasted sambar powder' : 'Sambar') : '';
+const name = isEdit ? (long ? 'Tess’s Sunday drumstick and shallot sambar with freshly roasted sambar powder' : 'Sambar') : '';
 const picker = s.picker !== undefined ? s.picker : show === 'picker';
 const wren = s.wren !== undefined ? s.wren : show === 'conflict-sheet';
 const made = !!s.made;
@@ -338,7 +338,7 @@ name: name, nameRows: long ? 3 : 1,
 desc: isEdit ? 'Lentil & vegetable stew' : '',
 time: isEdit ? '50' : '',
 kcal: isEdit ? '320' : '', protein: isEdit ? '16' : '', carbs: isEdit ? '48' : '', fat: isEdit ? '7' : '', fibre: isEdit ? '11' : '',
-source: isEdit ? 'Amma’s' : '',
+source: isEdit ? 'Tess’s' : '',
 madeName: name || 'this recipe',
 lines: lines, lineCount: lines.filter((l) => l.isLine).length + (lines.length === 1 ? ' line' : ' lines'),
 steps: steps, tags: tags, hasTags: tags.length > 0,

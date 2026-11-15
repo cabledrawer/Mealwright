@@ -7,7 +7,7 @@ import { timePlusWait } from './timeWords';
 
 /** A thing in a meal, in words: the recipe's name, the ingredient's name, or the tub's. */
 export function itemName(item: PlanItem, plan: Plan | null = null): string {
-  if (item.note) return item.note; // "Eating out", "At Amma’s"
+  if (item.note) return item.note; // "Eating out", "At Tess’s"
   if (item.recipe) return item.recipe.name;
   if (item.ingredient) return item.ingredient.name;
   if (item.kept_name) return item.kept_name; // deleted for good: past meals still say what it was

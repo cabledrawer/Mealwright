@@ -5,7 +5,7 @@ Revises: 6612736d5aae
 Create Date: 2026-11-01 09:00:00
 
 A "Note" plan item (0.7 P1; spec, "From the 28 Oct review of v0.6.0": eating out, takeaway, "at
-Amma's"). A meal item may now be of kind `note`: no recipe, tub or ingredient, only its text in
+Tess's"). A meal item may now be of kind `note`: no recipe, tub or ingredient, only its text in
 `name`. Only the "exactly one of" rule on `meal_item` changes; no row and no column.
 
 Going back removes the notes (the old rule would refuse them) and any meal that held nothing

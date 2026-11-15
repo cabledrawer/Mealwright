@@ -26,7 +26,7 @@
 //                   in the four size and theme combinations. Needs no --path or sign-in:
 //                     node review/screens.ts --gallery
 //   --out DIR       default review-shots/<screen or path> (git-ignored)
-//   --locale TAG    the browser's language, default en-GB (cabledrawer is in the UK; en-US
+//   --locale TAG    the browser's language, default en-GB (UK measures; en-US
 //                   would give the household a 240 ml cup)
 //
 // For each size and theme it writes app-*.png, mockup-*.png and compare-*.png (the two

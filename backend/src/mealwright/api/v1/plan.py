@@ -826,7 +826,7 @@ class PlanItemIn(BaseModel):
     note: str | None = Field(
         default=None,
         description="A note instead of a recipe or ingredient: 'Eating out', 'Takeaway', 'At"
-        " Amma's' (up to 200 letters, one line). It counts as a filled meal and needs nothing"
+        " a friend's' (up to 200 letters, one line). It counts as a filled meal and needs nothing"
         " bought.",
     )
     servings: Annotated[int, Field(ge=1, le=99)] | None = Field(

@@ -98,7 +98,7 @@ test('every box is saved, and Edit opens them filled in', async ({ page }) => {
   await page.getByLabel('Tags').fill('Quick,');
   await page.getByLabel('kcal').fill('320');
   await page.getByLabel('protein g').fill('14,5');
-  await page.getByLabel('Source').fill('Amma’s');
+  await page.getByLabel('Source').fill('Tess’s');
 
   // A new recipe starts with one empty line and one empty step. "thuvaram" is only the start of
   // another name ("thuvaram paruppu"), so picking fills in the ingredient's name (cabledrawer 25 Oct).
@@ -130,7 +130,7 @@ test('every box is saved, and Edit opens them filled in', async ({ page }) => {
     serves: 5,
     makes: { amount: 1.5, unit: 'l' },
     tags: ['Batch-friendly', 'Quick'],
-    source_note: 'Amma’s',
+    source_note: 'Tess’s',
     nutrition: { kcal: 320, protein: 14.5, carbs: null },
   });
   expect(recipe.lines.map((l: Json) => [l.kind, l.words, l.amount_text, l.unit, l.food?.id ?? null, l.note])).toEqual([
@@ -820,7 +820,7 @@ test('a very long name wraps, and text at 200% still fits', async ({ browser }) 
   await context.clock.install({ time: testNow() });
   const page = await context.newPage();
   try {
-    const long = 'Amma’s Sunday drumstick and shallot sambar with freshly roasted sambar powder and a lot more words after that';
+    const long = 'Tess’s Sunday drumstick and shallot sambar with freshly roasted sambar powder and a lot more words after that';
     const recipe = await makeRecipe(page, {
       name: long,
       description: 'துவரம் பருப்பு (தூர் தால்) முழுதாக, கரிம விவசாயிகளின் சந்தையில் வாங்கியது',

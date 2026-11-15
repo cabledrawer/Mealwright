@@ -97,7 +97,7 @@ def test_trusted_addresses_and_networks() -> None:
     assert "fd00::5" in trusted
     assert "testclient" in trusted
     assert "10.0.0.2" not in trusted
-    assert "172.30.43.1" not in trusted
+    assert "172.28.11.1" not in trusted
     assert None not in trusted
     assert "203.0.113.5" in TrustedProxies("*")
     assert "203.0.113.5" not in TrustedProxies("")

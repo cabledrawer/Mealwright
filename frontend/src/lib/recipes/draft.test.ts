@@ -75,7 +75,7 @@ function recipe(over: Partial<RecipeOut> = {}): RecipeOut {
       })
     ],
     steps: [{ id: 1, kind: 'step', text: 'Boil the dal.' }],
-    source_note: 'Amma’s',
+    source_note: 'Tess’s',
     photo,
     used_by: [],
     version: 4,

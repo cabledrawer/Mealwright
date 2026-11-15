@@ -139,7 +139,7 @@ good only when its last chunk, marked last, opens and nothing follows it. The fi
 written as it is made: nothing but the current chunk and the one before it are held, so a large
 export (many photos) is never held whole.
 
-**Costs.** 64 MiB, 3 passes and 1 lane take about 0.2 s on a desktop processor (an AMD Ryzen
+**Costs.** 64 MiB, 3 passes and 1 lane take about 0.2 s on a desktop processor (6 cores,
 measured). A Raspberry Pi 4 was not at hand; it is expected to take about 5 to 8
 times as long, 1 to 2 s, and 64 MiB is within what a 2 GB Pi spares. The costs are in the header, so a
 later version may raise them. A reader accepts only 1 to 10 passes, 8 MiB to 256 MiB, 1 to 4

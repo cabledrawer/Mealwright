@@ -69,7 +69,7 @@ const note = (id: number, text: string): PlanItem => ({
 describe('a note in a meal (0.7 P1)', () => {
   it('is called by its text, and counted as a note', () => {
     expect(itemName(note(5, 'Eating out'))).toBe('Eating out');
-    expect(mealName(meal([note(5, 'At Amma’s')]))).toBe('At Amma’s');
+    expect(mealName(meal([note(5, 'At Tess’s')]))).toBe('At Tess’s');
     expect(mealTotals(meal([note(5, 'Takeaway')]))).toBe('1 note');
     expect(mealTotals(meal([note(5, 'Takeaway'), note(6, 'Ice cream')]))).toBe('2 notes');
     expect(mealTotals(meal([note(5, 'Takeaway'), recipe(1, 'Dosa')]))).toBe('2 things');

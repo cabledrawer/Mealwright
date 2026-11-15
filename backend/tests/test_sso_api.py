@@ -347,7 +347,7 @@ def test_an_admins_login_links_only_when_the_groups_make_them_an_admin_too(
         ("Lorna", False),  # case counts: Mealwright usernames are lowercase
         ("LORNA", False),
         ("lorna.s", False),
-        ("leel", False),
+        ("lorn", False),
         ("lorna ", True),
         ("", False),
         (None, False),

@@ -36,7 +36,7 @@
   let slotId = $state<number | null>(null);
   let problem = $state<string | null>(null);
   let asked = 0;
-  // A note ("Eating out", "At Amma’s"; 0.7 P1) instead of a recipe or an ingredient.
+  // A note ("Eating out", "At Tess’s"; 0.7 P1) instead of a recipe or an ingredient.
   let noting = $state(false);
   let noteText = $state('');
   // "Cook once here…" (F52): the recipe picked is planned in this meal and Cook once opens for it.
@@ -236,7 +236,7 @@
             type="text"
             class="find"
             maxlength="200"
-            placeholder="Eating out, takeaway, at Amma’s"
+            placeholder="Eating out, takeaway, at a friend’s"
             aria-label="Note"
             bind:value={noteText}
           />

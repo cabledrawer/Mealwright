@@ -64,7 +64,7 @@ Ingredients (`/foods`) gain `used_in_recipes` (a count) and, on one ingredient, 
     { "words": "salt to taste" }
   ],
   "steps": [ { "kind": "heading", "text": "The dal" }, { "text": "Boil the dal." } ],
-  "source_note": "Amma's",
+  "source_note": "Tess's",
   "photo_id": 5
 }
 ```

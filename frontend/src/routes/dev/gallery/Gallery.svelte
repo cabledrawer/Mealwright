@@ -1367,7 +1367,7 @@
       <div class="mw-field">
         <label class="mw-label" for="g-rx-name">Name</label>
         <textarea id="g-rx-name" class="mw-input" rows="2"
-          >Amma’s Sunday drumstick and shallot sambar with freshly roasted sambar powder</textarea
+          >Tess’s Sunday drumstick and shallot sambar with freshly roasted sambar powder</textarea
         >
       </div>
       <div class="mw-field">

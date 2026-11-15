@@ -1,5 +1,5 @@
 """A "Note" plan item (0.7 P1; spec, "From the 28 Oct review of v0.6.0"): "Eating out",
-"Takeaway", "At Amma's". It counts as a filled meal and needs nothing bought, gets no "Did you
+"Takeaway", "At Tess's". It counts as a filled meal and needs nothing bought, gets no "Did you
 cook?", and Cook once and Fill from freezer ignore it."""
 
 from datetime import date, timedelta
@@ -35,11 +35,11 @@ def add_note(
 
 def test_a_note_is_planned_shown_and_undone(kitchen: TestClient, slots: dict[str, int]) -> None:
     before = shape(kitchen)
-    made = add_note(kitchen, D1, slots["Dinner"], "  At   Amma’s ")
-    assert made["change"]["summary"].startswith("Planned At Amma’s for Dinner on ")
+    made = add_note(kitchen, D1, slots["Dinner"], "  At   Tess’s ")
+    assert made["change"]["summary"].startswith("Planned At Tess’s for Dinner on ")
     meal = view(kitchen)["meals"][0]
     (item,) = meal["items"]
-    assert item["kind"] == "note" and item["note"] == "At Amma’s"
+    assert item["kind"] == "note" and item["note"] == "At Tess’s"
     assert item["recipe"] is None and item["ingredient"] is None and item["tub_id"] is None
     assert item["kept_name"] is None and item["servings"] is None
     assert undo(kitchen, made)["result"] == "done"
@@ -139,7 +139,7 @@ def test_cook_once_and_fill_from_freezer_ignore_a_noted_meal(
         recipe_id = recipe.id
     cook = plan_recipe(kitchen, recipe_id, D1, slots["Dinner"])
     tomorrow = D1 + timedelta(days=1)
-    add_note(kitchen, tomorrow, slots["Lunch"], "At Amma’s")
+    add_note(kitchen, tomorrow, slots["Lunch"], "At Tess’s")
     made = make(
         kitchen, cook["item_id"], tub_count=3, pattern="lunch_dinner", extras_to_freezer=True
     )

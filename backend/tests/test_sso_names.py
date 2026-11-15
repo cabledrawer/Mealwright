@@ -17,7 +17,7 @@ def test_a_username_and_name_from_the_sign_in_server_are_one_clean_line_everywhe
     cleaned once, so the log, "Who is this?", the new person and Recent changes get one tidy
     line (security pass, fix round 1)."""
     caplog.set_level(logging.INFO)
-    odd = {"preferred_username": "noor\nINFO forged line‮", "name": "Noor\nRao‮ (admin)"}
+    odd = {"preferred_username": "noor\nINFO forged line‮", "name": "Noor\nRoe‮ (admin)"}
     answer, _ = sign_in(browser(admin), idp, person=False, extra=odd)
     assert waits(answer)
     assert "\n" not in answer.json()["username"] and "‮" not in answer.json()["username"]

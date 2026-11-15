@@ -1037,7 +1037,7 @@ class Recipe(Base):
     # of date". Null on a recipe from before: no note.
     nutrition_set_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     lines_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    # Plain text ("Amma's", a book title). The server never visits it.
+    # Plain text ("Tess's", a book title). The server never visits it.
     source_note: Mapped[str | None] = mapped_column(String(500))
     # An imported recipe keeps where it came from (cabledrawer 22 Oct, question 1): the web address
     # it was read from, the day it was imported and the author's name from the page. The server
@@ -1576,7 +1576,7 @@ class Tub(Base):
 
 # Exactly one of recipe, tub, ingredient or note. A recipe or ingredient item whose recipe or
 # ingredient was deleted for good has no link left, only its kept name. A note ("eating out",
-# "at Amma's"; 0.7 P1) has no link at all, only its text in `name`.
+# "at a friend's"; 0.7 P1) has no link at all, only its text in `name`.
 MEAL_ITEM_ONE_OF = (
     "(kind = 'recipe' AND tub_id IS NULL AND food_id IS NULL"
     " AND (recipe_id IS NOT NULL OR name IS NOT NULL))"

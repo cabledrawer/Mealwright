@@ -49,7 +49,7 @@ async function sambar(page: Page, extra: object = {}) {
     serves: 4,
     nutrition: { kcal: 320, protein: 16 },
     tags: ['Batch-friendly'],
-    source_note: 'Amma’s',
+    source_note: 'Tess’s',
     lines: [
       { kind: 'heading', words: 'For the dal' },
       line(dal, 200, 'g', 'thuvaram paruppu'),
@@ -85,7 +85,7 @@ test('opens from All recipes, says where each ingredient is, and passes the acce
   await expect(reader(page).getByText('2 missing', { exact: true })).toBeVisible();
   await expect(reader(page).getByText('Rinse the dal.')).toBeVisible();
   await expect(reader(page).getByText('Batch-friendly')).toBeVisible();
-  await expect(reader(page).getByText('Source: Amma’s')).toBeVisible();
+  await expect(reader(page).getByText('Source: Tess’s')).toBeVisible();
   await expect(reader(page).getByText('unknown', { exact: true }).first()).toBeVisible(); // carbs were never typed
   // Edit opens the editor (Delete is inside it). Hidden in 0.4: not drawn, not stubbed.
   await expect(page.getByRole('link', { name: 'Edit', exact: true })).toHaveAttribute('href', `/recipes/${recipe.id}/edit`);

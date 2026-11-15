@@ -41,7 +41,7 @@ export async function seed(request: APIRequestContext) {
     serves: 6,
     tags: ['Batch-friendly', 'South Indian'],
     nutrition: { kcal: 320, protein: 16, carbs: 48, fat: 7, fibre: 11 },
-    source_note: 'Amma’s',
+    source_note: 'Tess’s',
     lines: [
       { kind: 'heading', words: 'For the dal' },
       { words: 'thuvaram paruppu', amount: 200, unit: 'g', food_id: await foodId(api, 'Toor dal'), note: 'rinsed' },
@@ -72,7 +72,7 @@ export async function seed(request: APIRequestContext) {
 // --- Stress: 200 lines, 100 steps, very long names ------------------------------------------------
 
 const LONG_NAME =
-  'Amma’s Sunday drumstick and shallot sambar with freshly roasted sambar powder, tamarind from the Saturday market and a very long name that goes on and on';
+  'Tess’s Sunday drumstick and shallot sambar with freshly roasted sambar powder, tamarind from the Saturday market and a very long name that goes on and on';
 const TAMIL = 'துவரம் பருப்பு (தூர் தால், அர்ஹர் தால்) முழுதாக, கரிம விவசாயிகளின் சந்தையில் வாங்கியது';
 
 /** Sambar becomes a recipe with 200 lines (some very long) and 100 steps. */

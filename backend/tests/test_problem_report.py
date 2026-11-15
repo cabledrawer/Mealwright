@@ -356,7 +356,7 @@ def test_making_the_report_never_connects(
 # --- Personal details are removed ----------------------------------------------------------------
 
 
-# "Tess Marsh" in Tamil, "Tess Sutton" in Hindi and "Bikash Ray" in Bengali.
+# "Tessa Wren" in Tamil, "Tessa Sutton" in Hindi and "Bikash Ray" in Bengali.
 TAMIL = "டெஸ்ஸா ரென்"
 HINDI = "टेस्सा सटन"
 BENGALI = "বিকাশ রায়"
@@ -541,7 +541,7 @@ PLANTED = [
         "[link]",
     ),
     ("a host name under .arpa", "Proxy at caddy.home.arpa didn't answer", "caddy", "[link]"),
-    ("a host name under .local", "Seen from ashas-macbook.local", "ashas-macbook", "[link]"),
+    ("a host name under .local", "Seen from aylas-macbook.local", "aylas-macbook", "[link]"),
     ("a path in a home folder", "Can't open /home/ayla/mealwright/backup.db", "ayla", "[file]"),
     ("a Windows path", "Can't open C:\\Users\\Ayla\\mealwright\\x.db", "Ayla", "[file]"),
     ("a data path with a space", "Can't read /data/photos/Ayla Roe/x.jpg now", "Roe", "[file]"),
@@ -901,9 +901,7 @@ def test_the_s_after_a_removed_name_does_not_open_a_quote(
     planted: TestClient, settings: Settings
 ) -> None:
     """Review r3, N3: "Vance's" becomes "[name]'s", and that apostrophe is not a quote."""
-    write_log(
-        log_folder(settings), [error("Tess: Vance's phone couldn't sync (OperationalError)")]
-    )
+    write_log(log_folder(settings), [error("Tess: Vance's phone couldn't sync (OperationalError)")])
     line = report(planted)["errors"][0]
     assert "phone couldn't sync" in line, line
     assert "vance" not in line.lower(), line

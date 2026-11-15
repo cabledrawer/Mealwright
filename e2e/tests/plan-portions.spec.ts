@@ -283,19 +283,19 @@ test('+ Note adds "Eating out" to a meal: it counts as filled, with no Serves or
   }
   const add = page.getByRole('dialog', { name: 'Add to the plan' });
   await add.getByRole('button', { name: '+ Note' }).click();
-  await add.getByRole('textbox', { name: 'Note' }).fill('At Amma’s');
+  await add.getByRole('textbox', { name: 'Note' }).fill('At Tess’s');
   for (const theme of ['light', 'dark'] as const) {
     await inTheme(page, theme);
     await expectNoAxeViolations(page, `+ Note, ${theme}`);
   }
   await inTheme(page, 'light');
   await add.getByRole('button', { name: 'Add note' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Planned At Amma’s for Dinner' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Planned At Tess’s for Dinner' })).toBeVisible();
   await expect.poll(async () => (await planRange(page, day, day)).meals[0]?.items).toMatchObject([
-    { kind: 'note', note: 'At Amma’s', recipe: null },
+    { kind: 'note', note: 'At Tess’s', recipe: null },
   ]);
-  await mealButton(page, day, 'Dinner', slot.Dinner, 'At Amma’s').click();
-  const menu = page.getByRole('dialog', { name: 'At Amma’s' });
+  await mealButton(page, day, 'Dinner', slot.Dinner, 'At Tess’s').click();
+  const menu = page.getByRole('dialog', { name: 'At Tess’s' });
   await expect(menu.getByRole('button', { name: 'Move to…' })).toBeVisible();
   await expect(menu.getByRole('button', { name: 'Copy to…' })).toBeVisible();
   await expect(menu.getByRole('button', { name: 'Leftovers on…' })).toHaveCount(0);

@@ -489,7 +489,7 @@ export class PlanModel {
     });
   }
 
-  /** A note ("Eating out", "At Amma’s") on a day and meal. */
+  /** A note ("Eating out", "At Tess’s") on a day and meal. */
   addNote(text: string, day: string, slotId: number) {
     return this.#send({
       label: `Planned ${text} for ${this.slotName(slotId)}`,

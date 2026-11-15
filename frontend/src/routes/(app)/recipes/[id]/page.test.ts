@@ -97,7 +97,7 @@ const SAMBAR: Recipe = {
     { id: 3, kind: 'step', text: 'Pop the seeds.' },
     { id: 4, kind: 'step', text: 'Stir it in.' }
   ],
-  source_note: 'Amma’s',
+  source_note: 'Tess’s',
   photo: null,
   version: 1
 };
@@ -171,7 +171,7 @@ describe('the recipe page', () => {
     await expect.element(page.getByText('Rinse the dal.')).toBeVisible();
     await expect.element(page.getByRole('heading', { name: 'The tempering' })).toBeVisible();
     await expect.element(page.getByText('Batch-friendly')).toBeVisible();
-    await expect.element(page.getByText('Source: Amma’s')).toBeVisible();
+    await expect.element(page.getByText('Source: Tess’s')).toBeVisible();
     // Numbered through the headings: the tempering starts at 2.
     const lists = document.querySelectorAll('ol');
     expect([...lists].map((ol) => ol.getAttribute('start'))).toEqual(['1', '2']);

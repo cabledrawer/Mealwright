@@ -120,7 +120,7 @@ def test_a_whole_recipe_round_trips(kitchen: TestClient) -> None:
         makes={"amount": 1.5, "unit": "litres"},
         tags=["Batch-friendly", "Quick"],
         nutrition={"kcal": 320, "protein": 14.5, "carbs": 41, "fat": 9, "fibre": 11},
-        source_note="Amma's",
+        source_note="Tess's",
         lines=[
             {"kind": "heading", "words": "For the dal"},
             {
@@ -156,7 +156,7 @@ def test_a_whole_recipe_round_trips(kitchen: TestClient) -> None:
         "fibre": 11.0,
         "possibly_out_of_date": False,
     }
-    assert recipe["source_note"] == "Amma's"
+    assert recipe["source_note"] == "Tess's"
     heading, dal, spare, salt = recipe["lines"]
     assert heading["kind"] == "heading" and heading["link"] is None
     assert dal["words"] == "thuvaram paruppu" and dal["food"]["name"] == "Toor dal"
@@ -558,7 +558,7 @@ def test_recipe_text_refuses_hidden_characters(kitchen: TestClient) -> None:
         ("name", "Sam\tbar"),
         ("name", "Sam\nbar"),
         ("description", "a\u200bb"),
-        ("source_note", "Amma\u202es"),
+        ("source_note", "Tess\u202es"),
         ("tags", ["Qui\tck"]),
         ("lines", [{"words": "sal\nt"}]),
         ("lines", [{"words": "salt", "note": "a\tb"}]),
