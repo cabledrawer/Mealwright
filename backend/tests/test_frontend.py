@@ -135,3 +135,18 @@ def test_the_policy_still_allows_the_worker_and_manifest_from_our_own_server_onl
     assert "manifest-src 'self';" in policy
     assert "connect-src 'self';" in policy
     assert "default-src 'self';" in policy
+
+
+def test_files_are_answered_on_the_event_loop_not_handed_to_a_worker_thread(
+    web: TestClient,
+) -> None:
+    import inspect
+
+    from starlette.routing import Route
+
+    catch_all = next(
+        r
+        for r in web.app.routes
+        if isinstance(r, Route) and r.path == "/{path:path}"  # type: ignore[attr-defined]
+    )
+    assert inspect.iscoroutinefunction(catch_all.endpoint)

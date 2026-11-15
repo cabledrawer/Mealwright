@@ -102,7 +102,10 @@ def mount_frontend(app: FastAPI, folder: Path) -> None:
     """Add the catch-all route for the web app. Call after the API routes."""
 
     @app.get("/{path:path}", include_in_schema=False)
-    def web_app(path: str, request: Request) -> Response:
+    async def web_app(path: str, request: Request) -> Response:
+        # `async`, so a request for a file is answered on the event loop: a few file-system
+        # lookups cost far less than handing each request to a worker thread and back, which on
+        # a small server was a large part of the 30 ms each of the app's ~100 files cost.
         if path == "api" or path.startswith("api/") or not folder.is_dir():
             raise HTTPException(404, "Not found")
         found = _find(folder, path.strip("/")) if path.strip("/") else None
