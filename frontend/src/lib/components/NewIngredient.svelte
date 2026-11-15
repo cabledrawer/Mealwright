@@ -155,7 +155,12 @@
   }
 </script>
 
-<dialog bind:this={dialog} aria-labelledby="{uid}-q" oncancel={() => newIngredient.cancel()}>
+<dialog
+  bind:this={dialog}
+  data-new-ingredient
+  aria-labelledby="{uid}-q"
+  oncancel={() => newIngredient.cancel()}
+>
   {#if pending}
     <form onsubmit={submit}>
       <h2 id="{uid}-q">{KEPT_BY}</h2>

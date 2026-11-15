@@ -20,6 +20,7 @@
   import { askToKeepDataHere } from '#lib/offline/persist.js';
   import { live } from '#lib/live.svelte.js';
   import { newIngredient } from '#lib/newIngredient.svelte.js';
+  import { whenIdle } from '#lib/whenIdle.js';
   import { optionalAsk } from '#lib/optionalAsk.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
@@ -95,6 +96,10 @@
       stop();
     };
   });
+
+  // The new-ingredient dialog's code is fetched once the page is idle, not in the first page
+  // load (size limit), so it is already here when asked offline.
+  $effect(() => whenIdle(() => newIngredient.warm()));
 
   // Installed to the home screen: ask the browser to keep our stored data (once, quietly).
   $effect(() => {

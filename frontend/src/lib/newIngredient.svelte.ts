@@ -64,6 +64,14 @@ class NewIngredientFlow {
   /** Asked at least once: the dialog's code is fetched then, and kept (size limit). */
   wanted = $state(false);
 
+  /**
+   * Fetch the dialog's code now, without opening it (the app layout does this once the page is
+   * idle), so asking offline works where the network layer blocks a first-use fetch.
+   */
+  warm() {
+    this.wanted = true;
+  }
+
   /** Open the dialog. Resolves with the ingredient once it exists, or null if cancelled. */
   ask(name = ''): Promise<Made | null> {
     return this.#open(name, 'make') as Promise<Made | null>;
