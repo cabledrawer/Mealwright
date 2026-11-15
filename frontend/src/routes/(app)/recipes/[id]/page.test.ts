@@ -224,6 +224,22 @@ describe('the recipe page', () => {
       expect(document.querySelector('h1')).toBeNull();
     });
 
+    it('is forgotten once the recipe has loaded, so it is never shown for a later visit', async () => {
+      recipePeek.hold(row);
+      await open();
+      await expect.element(page.getByText('Rinse the dal.')).toBeVisible();
+      expect(recipePeek.of(1)).toBeNull();
+    });
+
+    it('shows nothing of the held row when the server says there is no such recipe', async () => {
+      recipePeek.hold({ ...row, name: 'Sam’s private dal' } as RecipeRow);
+      await open({}, STOCK, { 'GET /recipes/1': [404, { detail: 'Not found.' }] });
+      await expect.element(page.getByText('Recipe not found')).toBeVisible();
+      expect(document.body.textContent).not.toContain('Sam’s private dal');
+      expect(document.querySelector('h1')).toBeNull();
+      expect(recipePeek.of(1)).toBeNull();
+    });
+
     it('gives way to the recipe itself when it arrives', async () => {
       recipePeek.hold({ ...row, name: 'Old name from the list' } as RecipeRow);
       await open();

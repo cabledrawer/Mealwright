@@ -210,6 +210,10 @@
   });
   /** Before the recipe has come: the list's row it was opened from, if any (recipePeek.ts). */
   const peeked = $derived(!recipe && !view.gone && !view.problem ? recipePeek.of(id) : null);
+  // Once the recipe (or a refusal) has come, the row is not needed and never shown again.
+  $effect(() => {
+    if (recipe || view.gone || view.problem) recipePeek.forget();
+  });
   const peekedMeta = $derived.by(() => {
     if (!peeked) return '';
     const { active } = timeParts(peeked.time_minutes, peeked.wait);
