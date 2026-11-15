@@ -16,7 +16,8 @@
 // Offline, or the plan can't be written: Cook mode still opens, without "Cooked it", and one
 // line says the recipe wasn't planned.
 
-import { cantReach } from './api';
+import { cantReach, forgetWhenSessionEnds } from './api';
+import { forgetOnWipe } from './offline/wipeHooks';
 import { newChangeId } from './changeId';
 import { serverUndo } from './client/changes';
 import { getHousehold } from './client/household';
@@ -203,3 +204,8 @@ export class CookNow {
 }
 
 export const cookNow = new CookNow();
+
+// What Cook now planned (a meal, a plan item, the words about it) is one household's: gone when a
+// sign-in ends or the browser is wiped, so the next person in this tab sees none of it.
+forgetWhenSessionEnds(() => cookNow.leave());
+forgetOnWipe(() => cookNow.leave());
