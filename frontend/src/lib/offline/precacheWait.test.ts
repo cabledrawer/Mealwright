@@ -74,6 +74,28 @@ describe('telling the installing worker', () => {
     expect(postMessage).toHaveBeenCalledWith({ type: PAGE_IS_QUIET });
   });
 
+  it('says so when the worker starts installing after the page went quiet, once', async () => {
+    const postMessage = vi.fn();
+    const listeners: { type: string; run: () => void; once?: boolean }[] = [];
+    const registration = {
+      active: null,
+      installing: null as unknown as ServiceWorker | null,
+      waiting: null,
+      addEventListener: (type: string, run: () => void, options?: { once?: boolean }) =>
+        listeners.push({ type, run, once: options?.once })
+    };
+    const sent = tellWorkerPageIsQuiet(container(registration as never), () => () => () => {});
+    await vi.advanceTimersByTimeAsync(QUIET_MS + 10);
+    await sent;
+    expect(postMessage).not.toHaveBeenCalled();
+    expect(listeners).toHaveLength(1);
+    expect(listeners[0]).toMatchObject({ type: 'updatefound', once: true });
+    registration.installing = { postMessage } as unknown as ServiceWorker;
+    listeners[0]!.run();
+    expect(postMessage).toHaveBeenCalledOnce();
+    expect(postMessage).toHaveBeenCalledWith({ type: PAGE_IS_QUIET });
+  });
+
   it('says nothing when a worker is already running (an update or a later visit)', async () => {
     const postMessage = vi.fn();
     const sent = tellWorkerPageIsQuiet(

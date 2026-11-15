@@ -58,7 +58,16 @@ export async function tellWorkerPageIsQuiet(
   }
   await afterQuiet(watch, QUIET_MS, PAGE_GIVES_UP_MS);
   const registration = await container.getRegistration().catch(() => undefined);
-  if (registration && !registration.active) {
-    (registration.installing ?? registration.waiting)?.postMessage({ type: PAGE_IS_QUIET });
+  if (!registration || registration.active) return;
+  const worker = registration.installing ?? registration.waiting;
+  if (worker) worker.postMessage({ type: PAGE_IS_QUIET });
+  // Not installing yet (the page went quiet before the browser started it): say so when it starts,
+  // once, to this registration's own worker. Without this the worker would wait its full time.
+  else {
+    registration.addEventListener(
+      'updatefound',
+      () => registration.installing?.postMessage({ type: PAGE_IS_QUIET }),
+      { once: true }
+    );
   }
 }
