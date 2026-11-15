@@ -1,4 +1,5 @@
 import { writeFileSync } from 'node:fs';
+import { inflateSync } from 'node:zlib';
 import { test, expect, type Page } from './clock.ts';
 import { isPhone, setAccountTheme } from './a11y.ts';
 import { uploadPhoto } from '../review/photos.ts';
@@ -55,6 +56,23 @@ async function expectLight(page: Page, selector: string) {
 
 /** The pages of a PDF (Chromium): each page is one "/Type /Page" object. */
 const pagesOf = (pdf: Buffer) => (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+
+/** The pages of a PDF (Chromium) that have any writing on them: Skia draws a page as one compressed stream. */
+function pagesWithText(pdf: Buffer): number {
+  const raw = pdf.toString('latin1');
+  let found = 0;
+  for (const m of raw.matchAll(/stream\r?\n/g)) {
+    const start = m.index! + m[0].length;
+    const end = raw.indexOf('endstream', start);
+    try {
+      const text = inflateSync(pdf.subarray(start, end)).toString('latin1');
+      if (/\bBT\b/.test(text) && /\bT[jJ]\b/.test(text)) found++;
+    } catch {
+      /* not a compressed content stream (a font, an image) */
+    }
+  }
+  return found;
+}
 
 function keep(name: string, pdf: Buffer) {
   if (process.env.PRINT_SHOTS) writeFileSync(`${process.env.PRINT_SHOTS}/${name}.pdf`, pdf);
@@ -123,16 +141,57 @@ test('A long shopping list flows on to more pages, and a line never splits', asy
   expect(new Set(heads)).toEqual(new Set(['avoid']));
 });
 
+test('Shopping list on paper: no blank page after the list, wherever the list ends on the page', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'page.pdf() is Chromium only');
+  // F235 (hand test, 15 Nov): Chrome showed an empty last page. Three shops, so the sheet has shop
+  // and aisle headings, and the list is nudged down a few pixels at a time so its end crosses the
+  // foot of the first page.
+  const ids: number[] = [];
+  for (const word of ['Alpha', 'Beta', 'Gamma']) ids.push((await call(page, 'POST', '/shops', { name: unique(word) })).id);
+  const list = await mainList(page);
+  for (let i = 0; i < 11; i++) {
+    const { food } = await call(page, 'POST', '/foods', { name: unique(`Item${i}`), counted_as: 'weight', shop_id: ids[i % 3] });
+    await call(page, 'POST', `/shopping/lists/${list}/items`, { food_id: food.id, amount: { amount: 500, unit: 'g' } });
+  }
+  await page.setViewportSize({ width: 650, height: 979 });
+  await page.goto('/shopping');
+  await toPrint(page);
+  await expect(sheet(page)).toBeVisible();
+  // Nothing but the sheet takes any room on the printed page.
+  const rooms = await page.evaluate(() =>
+    [...document.body.querySelectorAll('*')]
+      .filter((el) => !el.closest('[data-print-sheet]') && !el.contains(document.querySelector('[data-print-sheet]')))
+      .filter((el) => {
+        const css = getComputedStyle(el);
+        if (css.display === 'none' || el.getClientRects().length === 0) return false;
+        // Room in the flow, or taken out of it but still on the page (it can still add a page).
+        return el.getBoundingClientRect().height > 1 || css.position === 'absolute' || css.position === 'fixed';
+      })
+      .map((el) => `${el.tagName}.${el.getAttribute('class')} ${getComputedStyle(el).position} ${el.outerHTML.slice(0, 120)}`)
+  );
+  expect(rooms).toEqual([]);
+  const blank: string[] = [];
+  for (let nudge = 0; nudge < 120; nudge += 6) {
+    await sheet(page).evaluate((e, px) => ((e.querySelector('.meta') as HTMLElement).style.marginTop = `${px}px`), nudge);
+    const pdf = await page.pdf({ format: 'A4', preferCSSPageSize: true });
+    if (pagesOf(pdf) !== pagesWithText(pdf)) blank.push(`nudge ${nudge}: ${pagesOf(pdf)} pages, ${pagesWithText(pdf)} with writing`);
+  }
+  expect(blank).toEqual([]);
+});
+
 async function recipeWithPhoto(page: Page, name: string) {
   const photo = await uploadPhoto(page.request, 'dish');
-  const line = (words: string, amount: number, unit: string) => ({ words, amount, unit });
+  // Lines tied to ingredients that are not in the pantry, so the screen shows "N missing".
+  const rice = (await call(page, 'POST', '/foods', { name: unique('Basmati'), counted_as: 'weight' })).food.id;
+  const nuts = (await call(page, 'POST', '/foods', { name: unique('Peanuts'), counted_as: 'weight' })).food.id;
+  const line = (words: string, food_id: number, amount: number, unit: string) => ({ words, food_id, amount, unit });
   return call(page, 'POST', '/recipes', {
     name,
     description: 'Yellow, sharp and quick.',
     serves: 4,
     time_minutes: 20,
     nutrition: { kcal: 410, protein: 9, carbs: 62, fat: 14 },
-    lines: [line('cooked basmati rice', 600, 'g'), line('peanuts', 40, 'g'), { words: 'salt' }],
+    lines: [line('cooked basmati rice', rice, 600, 'g'), line('peanuts', nuts, 40, 'g'), { words: 'salt' }],
     steps: [{ text: 'Spread the cooked rice on a tray to cool.' }, { text: 'Heat the oil in a wide pan.' }],
     photo_id: photo
   });
@@ -148,9 +207,16 @@ for (const theme of ['light', 'dark'] as const) {
     // More servings first: the paper has what the screen shows.
     await page.getByRole('button', { name: 'More servings' }).click();
     await expect(page.getByText('Serves 5')).toBeVisible();
+    // On the screen the ingredients are not in the pantry, so "N missing" and its button show.
+    await expect(page.locator('article.recipe').getByText(/^\d+ missing$/).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add to the list' })).toBeVisible();
     await toPrint(page);
     await expect(page.getByRole('heading', { level: 1, name: recipe.name })).toBeVisible();
     await expect(page.getByText('Serves 5')).toBeVisible();
+    // F236: a screen-only control never prints (the missing bar, the nutrition link, any button).
+    await expect(page.locator('article.recipe').getByText(/^\d+ missing$/).first()).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Add to the list' })).toBeHidden();
+    await expect(page.locator('article.recipe button:visible:not(.line)')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Ingredients' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Method' })).toBeVisible();
     await expect(page.getByText('Spread the cooked rice on a tray to cool.')).toBeVisible();

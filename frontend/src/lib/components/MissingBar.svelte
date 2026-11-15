@@ -47,4 +47,11 @@
     font-weight: var(--weight-bold);
     cursor: pointer;
   }
+
+  /* A screen control: a printed recipe shows no "N missing" or "Add to the list" (F236). */
+  @media print {
+    .bar {
+      display: none;
+    }
+  }
 </style>

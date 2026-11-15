@@ -978,7 +978,8 @@
     .actions,
     .method-switch,
     .back,
-    .crumbs {
+    .crumbs,
+    .info {
       display: none !important;
     }
     .page,

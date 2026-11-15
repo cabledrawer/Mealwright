@@ -140,7 +140,8 @@ svg {
   }
   .sidebar-slot,
   .tabbar-slot,
-  .skip {
+  .skip,
+  #svelte-announcer {
     display: none !important;
   }
   .shell {
