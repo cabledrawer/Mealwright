@@ -63,7 +63,7 @@
       "test_api.py", "test_third_party_notices.py", "test_health.py", "test_server_header.py", "test_licences.py", "test_telemetry.py", "test_wording.py", "test_outbound.py",
       "test_frontend.py", "test_shutdown.py", "test_start_refusals.py", "test_test_clock.py",
       "test_tmp_cleanup.py", "test_logs.py", "test_log_content.py", "test_jobs.py", "test_purge.py", "test_db.py",
-      "test_migrations.py", "test_migration_counters.py", "test_upgrade_from_tags.py", "test_place_removal_household.py", "test_undo_review_fixes.py", "test_stocktake_undo_rounds.py", "test_safety_copy.py", "test_request_size.py", "test_security_headers.py", "test_private_files.py", "test_cancelled_requests.py", "test_many_at_once.py", "test_slow_uploads.py", "test_compression.py", "test_load_queries.py", "test_load_queries_more.py", "test_household_filters.py"
+      "test_migrations.py", "test_migration_counters.py", "test_migration_time_is_work_only.py", "test_upgrade_from_tags.py", "test_place_removal_household.py", "test_undo_review_fixes.py", "test_stocktake_undo_rounds.py", "test_safety_copy.py", "test_request_size.py", "test_security_headers.py", "test_private_files.py", "test_cancelled_requests.py", "test_many_at_once.py", "test_slow_uploads.py", "test_compression.py", "test_load_queries.py", "test_load_queries_more.py", "test_household_filters.py"
     ]
   },
   "areas": [
@@ -169,7 +169,7 @@
         "frontend/src/lib/timeWords*"
       ],
       "backend": [
-        "test_recipe*.py", "test_photos.py", "test_pints.py", "test_step_links.py", "test_step_waits.py", "test_step_timings.py", "test_step_timings_api.py", "test_recipes_isolation.py"
+        "test_recipe*.py", "test_photos.py", "test_pints.py", "test_step_links.py", "test_step_waits.py", "test_l6_wait_once.py", "test_step_timings.py", "test_step_timings_api.py", "test_recipes_isolation.py"
       ],
       "browser": [
         "recipes.spec.ts", "recipe-page.spec.ts", "recipe-photos.spec.ts", "recipes-panes.spec.ts", "print.spec.ts", "recipe-editor.spec.ts",
