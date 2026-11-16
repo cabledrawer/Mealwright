@@ -5,6 +5,7 @@
 // it, the others don't. Online only, like the rest of the Plan.
 
 import { forgetAtSignOut } from './api';
+import { couldntOpen, LazyCode } from './lazyCode.svelte';
 import type { OptionalRow } from './optionalQuestion';
 // What reads the recipe for the rows (optionalQuestion.ts) loads when the question is first
 // asked, so every page doesn't carry it (the size limit).
@@ -33,6 +34,10 @@ class OptionalAsk {
   methodOpen = $state(false);
   /** The "when will you start it?" sheet is open (M3): the layout loads it when first asked. */
   startOpen = $state(false);
+  /** The three sheets' code, fetched when first asked; a failed fetch is forgotten (retried). */
+  methodCode = new LazyCode(() => import('./components/plan/PlanMethod.svelte'));
+  optionalCode = new LazyCode(() => import('./components/plan/PlanOptional.svelte'));
+  startCode = new LazyCode(() => import('./components/plan/PlanStart.svelte'));
 
   /**
    * Ask which Optional ingredients of the recipe the meal will use. Resolves with the ids of the
@@ -55,13 +60,19 @@ class OptionalAsk {
     } = {}
   ): Promise<number[] | null | undefined> {
     if (recipe.optionalCount === 0) return undefined;
-    const { optionalRows } = await import('./optionalQuestion');
+    let optionalRows;
+    try {
+      ({ optionalRows } = await import('./optionalQuestion'));
+    } catch {
+      couldntOpen(); // the ask ends as if cancelled; the next try fetches it again
+      return null;
+    }
     const found = await optionalRows(recipe.id, options);
     if (!found) return undefined;
     const { name, serves, rows } = found;
     this.current?.resolve(null);
     const ids = rows.map((r) => r.id);
-    return new Promise((resolve) => {
+    const asked = new Promise<number[] | null>((resolve) => {
       this.current = {
         question: {
           recipeName: name,
@@ -74,6 +85,8 @@ class OptionalAsk {
         resolve
       };
     });
+    this.optionalCode.load(() => this.dismiss());
+    return asked;
   }
 
   answer(use: number[]): void {

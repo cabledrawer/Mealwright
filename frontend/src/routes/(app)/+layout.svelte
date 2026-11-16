@@ -187,26 +187,27 @@
   <AskOnce />
   <!-- Which optional ingredients a meal will use (R3); fetched when first asked (size limit). -->
   <!-- Which way of cooking a recipe the meal uses (M2); fetched when first asked too. -->
-  {#if optionalAsk.methodOpen}
-    {#await import('#lib/components/plan/PlanMethod.svelte') then { default: PlanMethod }}
-      <PlanMethod />
+  <!-- A failed fetch is forgotten and toasted (lazyCode.svelte.ts), and the ask ends as cancelled. -->
+  {#if optionalAsk.methodOpen && optionalAsk.methodCode.code}
+    {#await optionalAsk.methodCode.code then PlanMethod}
+      {#if PlanMethod}<PlanMethod />{/if}
     {/await}
   {/if}
-  {#if optionalAsk.current}
-    {#await import('#lib/components/plan/PlanOptional.svelte') then { default: PlanOptional }}
-      <PlanOptional />
+  {#if optionalAsk.current && optionalAsk.optionalCode.code}
+    {#await optionalAsk.optionalCode.code then PlanOptional}
+      {#if PlanOptional}<PlanOptional />{/if}
     {/await}
   {/if}
   <!-- When a recipe's long wait will be started (M3); fetched when first asked too. -->
-  {#if optionalAsk.startOpen}
-    {#await import('#lib/components/plan/PlanStart.svelte') then { default: PlanStart }}
-      <PlanStart />
+  {#if optionalAsk.startOpen && optionalAsk.startCode.code}
+    {#await optionalAsk.startCode.code then PlanStart}
+      {#if PlanStart}<PlanStart />{/if}
     {/await}
   {/if}
   <!-- "Who's this?" on a shared login (0.9 A1); fetched only there. -->
-  {#if session.me?.shared}
-    {#await import('#lib/components/people/WhosThis.svelte') then { default: WhosThis }}
-      <WhosThis />
+  {#if session.me?.shared && whosThis.code.code}
+    {#await whosThis.code.code then WhosThis}
+      {#if WhosThis}<WhosThis />{/if}
     {/await}
   {/if}
   <!-- "Pantry keeps it by" (a new ingredient); fetched when first asked, then kept so closing

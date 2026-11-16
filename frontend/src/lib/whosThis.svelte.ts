@@ -9,6 +9,7 @@
 import { cantReach } from './api';
 import { getWhosThis, pickWho, type Pickable } from './client/people';
 import { nothingChanged } from './downWords';
+import { LazyCode } from './lazyCode.svelte';
 import { network } from './network.svelte';
 import { session } from './session.svelte';
 
@@ -41,6 +42,8 @@ class WhosThis_ {
   /** The pick couldn't be sent: the sheet says so and stays. */
   problem = $state<string | null>(null);
   busy = $state(false);
+  /** The sheet's code, fetched the first time it is to open; a failed fetch is forgotten. */
+  code = new LazyCode(() => import('./components/people/WhosThis.svelte'));
   #lookingUntil = readLooking();
   #lastUse = Date.now();
   #now: () => number = () => Date.now();
@@ -67,7 +70,11 @@ class WhosThis_ {
         this.open = false;
         return;
       }
-      if (found.picked === null && this.#now() >= this.#lookingUntil) this.open = true;
+      if (found.picked === null && this.#now() >= this.#lookingUntil) {
+        this.open = true;
+        // No code, no sheet: it ends as if cancelled (nothing is picked) and asks next time.
+        this.code.load(() => (this.open = false));
+      }
     } catch (error) {
       if (!cantReach(error)) throw error;
       // No answer: ask next time the app is used.

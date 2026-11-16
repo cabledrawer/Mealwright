@@ -54,7 +54,7 @@ class MethodAsk {
       methods.find((m) => m.id === options.current)?.id ??
       methods.find((m) => m.used_last)?.id ??
       methods[0]!.id;
-    return new Promise((resolve) => {
+    const asked = new Promise<number | null>((resolve) => {
       this.current = {
         question: {
           recipeName: name,
@@ -66,6 +66,8 @@ class MethodAsk {
         resolve
       };
     });
+    optionalAsk.methodCode.load(() => this.dismiss());
+    return asked;
   }
 
   answer(id: number): void {
