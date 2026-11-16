@@ -102,10 +102,20 @@ is `/data` inside the container).
    Sign in with the password you had **when the backup was made**. Everything is as it was at
    that time; whatever changed after it is gone. A database put back from a copy (a backup, the
    copy before an upgrade or before Delete everything) signs every device out, stops every API
-   token and cancels every sign-in or reset link the first time it starts, so nothing stopped
-   after the copy was made works again: everyone signs in again, and you make new API tokens
-   (B7 R5, proposed, for cabledrawer). Once all is well, you can delete the
+   token and cancels every sign-in or reset link the first time it starts, so a cookie, token or
+   link stopped after the copy was made doesn't work again: everyone signs in again, and you
+   make new API tokens (B7 R5, proposed, for cabledrawer). Once all is well, you can delete the
    `data/before-restore-…` folder.
+
+   **After a restore**, everything else is as it was in the copy, logins and passwords
+   included. Do again what you did after the copy was made: remove people you removed, unlink
+   or refuse single sign-on accounts you unlinked or refused, change any password that leaked,
+   and check the switches in Settings → Privacy.
+
+   Only copies Mealwright made carry the mark that ends the sign-ins. A copy of the data folder
+   made another way (a `tar` of `data`, a snapshot of the server) doesn't: after restoring
+   one, use Sign out everywhere else and delete the API tokens yourself. A safety copy put back
+   under an older version keeps its mark, so the sign-ins end at the next upgrade instead.
 
 ## Restore on a new server (the disk died)
 

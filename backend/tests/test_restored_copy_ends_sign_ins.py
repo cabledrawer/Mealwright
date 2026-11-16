@@ -46,7 +46,14 @@ def test_a_restored_copy_signs_everyone_out_and_stops_its_tokens(settings: Setti
         token = made.json()["token"]
         token_id = app.get(f"{API}/api-tokens").json()["tokens"][0]["id"]
         engine: Engine = app.app.state.engine  # type: ignore[attr-defined]
+        with engine.begin() as connection:  # a reset link not yet used (review r1 L4)
+            connection.exec_driver_sql(
+                "INSERT INTO join_link (household_id, login_id, kind, token_hash, created_at,"
+                " expires_at) VALUES (1, 1, 'reset', 'x', '2026-11-16 00:00:00',"
+                " '2999-01-01 00:00:00')"
+            )
         copy = backups.back_up(engine, folder, 7).path
+        assert _one(copy, "SELECT count(*) FROM join_link") == 1
         # Leaked: the admin stops the token after the backup was made.
         assert app.delete(f"{API}/api-tokens/{token_id}").status_code == 204
         assert not _token_works(app, token)

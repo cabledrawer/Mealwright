@@ -247,8 +247,12 @@ def forget_sign_ins_if_restored(engine: Engine) -> bool:
     of 0.9.5-beta.1; proposed, for cabledrawer): every device is signed out, every API token
     stopped and every sign-in or reset link cancelled. A copy holds them as they were when it
     was made, so without this a cookie, token or link that was stopped later (because it leaked,
-    or "Sign out everywhere else", or the person was removed) would work again. Then the mark
-    is cleared, so it happens once. Run at start-up, after the upgrade. True if it happened."""
+    or "Sign out everywhere else") would work again. Then the mark is cleared, so it happens once.
+    Run at start-up, after the upgrade. True if it happened.
+
+    Not covered (review r1 M1): everything else comes back as it was in the copy, logins and
+    passwords included, so a person removed, unlinked from single sign-on or refused since then
+    can sign in again with them (docs/restore.md, "After a restore")."""
     with engine.begin() as connection:
         if connection.exec_driver_sql("PRAGMA user_version").scalar_one() != COPY_MARK:
             return False
