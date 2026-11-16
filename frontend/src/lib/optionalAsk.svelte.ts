@@ -5,7 +5,8 @@
 // it, the others don't. Online only, like the rest of the Plan.
 
 import { forgetAtSignOut } from './api';
-import { couldntOpen, LazyCode } from './lazyCode.svelte';
+import { fetchCode, LazyCode } from './lazyCode.svelte';
+import { loaders } from './lazyModules';
 import type { OptionalRow } from './optionalQuestion';
 // What reads the recipe for the rows (optionalQuestion.ts) loads when the question is first
 // asked, so every page doesn't carry it (the size limit).
@@ -60,13 +61,9 @@ class OptionalAsk {
     } = {}
   ): Promise<number[] | null | undefined> {
     if (recipe.optionalCount === 0) return undefined;
-    let optionalRows;
-    try {
-      ({ optionalRows } = await import('./optionalQuestion'));
-    } catch {
-      couldntOpen(); // the ask ends as if cancelled; the next try fetches it again
-      return null;
-    }
+    const loaded = await fetchCode(loaders.optionalQuestion);
+    if (!loaded) return null; // as if cancelled; the next try fetches it again
+    const { optionalRows } = loaded;
     const found = await optionalRows(recipe.id, options);
     if (!found) return undefined;
     const { name, serves, rows } = found;

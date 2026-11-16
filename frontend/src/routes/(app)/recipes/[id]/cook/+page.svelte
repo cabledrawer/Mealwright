@@ -20,6 +20,8 @@
   import { cookSteps } from '#lib/cookSteps.js';
   import { cookTarget } from '#lib/cookTargets.js';
   import { CookTimers } from '#lib/cookTimers.svelte.js';
+  import { fetchCode } from '#lib/lazyCode.svelte.js';
+  import { loaders } from '#lib/lazyModules.js';
   import { network } from '#lib/network.svelte.js';
   import { PlanModel } from '#lib/plan.svelte.js';
   import { dayFull } from '#lib/planDates.js';
@@ -98,8 +100,9 @@
   async function begun() {
     const item = mealItem();
     if (!item?.ahead || network.offline) return;
-    const { markStarted } = await import('#lib/startNow.js');
-    await markStarted(item.id, item.recipe?.name ?? 'it', { withUndo: false });
+    const loaded = await fetchCode(loaders.startNow);
+    if (!loaded) return; // nothing is marked; the next step past the wait tries again
+    await loaded.markStarted(item.id, item.recipe?.name ?? 'it', { withUndo: false });
     await model.load();
   }
 

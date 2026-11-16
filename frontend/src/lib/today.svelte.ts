@@ -17,7 +17,8 @@ import {
   type WaitingMeal
 } from './client/today';
 import { kitchen } from './freshness.svelte';
-import { couldntOpen } from './lazyCode.svelte';
+import { fetchCode } from './lazyCode.svelte';
+import { loaders } from './lazyModules';
 import { sendTwice } from './sendTwice';
 import { network } from './network.svelte';
 import { rememberedLogin } from './offline/device';
@@ -263,13 +264,9 @@ export class TodayModel {
     );
     const starts: { item_id: number; day: string; time: string }[] = [];
     if (asking.length) {
-      let startAsk;
-      try {
-        ({ startAsk } = await import('./startAsk.svelte'));
-      } catch {
-        couldntOpen(); // Cancel: nothing is moved, and the next try fetches it again
-        return undefined;
-      }
+      const loaded = await fetchCode(loaders.startAsk);
+      if (!loaded) return undefined; // Cancel: nothing is moved, and the next try fetches again
+      const { startAsk } = loaded;
       for (const item of asking) {
         const start = await startAsk.ask(
           { id: item.recipe!.id, name: item.recipe!.name },

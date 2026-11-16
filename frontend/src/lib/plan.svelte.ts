@@ -47,6 +47,8 @@ import {
 } from './client/plan';
 import { forgetBatchMode } from './batchModeStore';
 import { kitchen } from './freshness.svelte';
+import { fetchCode } from './lazyCode.svelte';
+import { loaders } from './lazyModules';
 import {
   addDays,
   dayShort,
@@ -386,12 +388,15 @@ export class PlanModel {
       const where = `${dayShort(day)} ${this.slotName(slotId).toLocaleLowerCase()}`;
       // A recipe with two ways of cooking it asks which first (M2), then which optional
       // ingredients of that way.
-      const method =
-        what.recipe.method_count === 1
-          ? undefined
-          : await (
-              await import('./methodAsk.svelte')
-            ).methodAsk.ask({ id: what.recipe.id, methodCount: what.recipe.method_count }, where);
+      let method: number | null | undefined;
+      if (what.recipe.method_count !== 1) {
+        const loaded = await fetchCode(loaders.methodAsk);
+        if (!loaded) return { ok: false, error: null, cancelled: true };
+        method = await loaded.methodAsk.ask(
+          { id: what.recipe.id, methodCount: what.recipe.method_count },
+          where
+        );
+      }
       if (method === null) return { ok: false, error: null, cancelled: true };
       if (method !== undefined) body.method_id = method;
       const use = await optionalAsk.ask(
@@ -404,20 +409,21 @@ export class PlanModel {
       // A recipe with a long wait asks when it will be started (M3), for the way chosen. Known
       // not to have one (the server's rule: a wait of 4 hours or more), it is not even loaded.
       const wait = what.recipe.wait;
-      const start =
-        options.askStart === false
-          ? undefined
-          : wait === undefined ||
-              (what.recipe.method_count ?? 1) > 1 ||
-              (wait?.max_minutes ?? 0) >= 240
-            ? await (
-                await import('./startAsk.svelte')
-              ).startAsk.ask(
-                what.recipe,
-                { day, slotId, slotName: this.slotName(slotId) },
-                { method, adding: true }
-              )
-            : undefined;
+      let start: StartAt | null | undefined;
+      if (
+        options.askStart !== false &&
+        (wait === undefined ||
+          (what.recipe.method_count ?? 1) > 1 ||
+          (wait?.max_minutes ?? 0) >= 240)
+      ) {
+        const loaded = await fetchCode(loaders.startAsk);
+        if (!loaded) return { ok: false, error: null, cancelled: true };
+        start = await loaded.startAsk.ask(
+          what.recipe,
+          { day, slotId, slotName: this.slotName(slotId) },
+          { method, adding: true }
+        );
+      }
       if (start === null) return { ok: false, error: null, cancelled: true };
       if (start !== undefined) body.start = start;
     }
@@ -431,8 +437,9 @@ export class PlanModel {
   async changeMethod(item: PlanItem, day: string): Promise<void> {
     if (item.kind !== 'recipe' || !item.recipe) return;
     const meal = this.plan?.meals.find((m) => m.items.some((i) => i.id === item.id));
-    const { methodAsk } = await import('./methodAsk.svelte');
-    const picked = await methodAsk.ask(
+    const loaded = await fetchCode(loaders.methodAsk);
+    if (!loaded) return; // nothing is changed
+    const picked = await loaded.methodAsk.ask(
       { id: item.recipe.id },
       `${dayShort(day)} ${meal ? this.slotName(meal.slot_id).toLocaleLowerCase() : 'meal'}`,
       { current: item.method_id ?? null, button: 'Save' }
@@ -452,8 +459,9 @@ export class PlanModel {
     const current = item.ahead.start_day
       ? { day: item.ahead.start_day, time: item.ahead.start_time! }
       : null;
-    const { startAsk } = await import('./startAsk.svelte');
-    const picked = await startAsk.ask(
+    const loaded = await fetchCode(loaders.startAsk);
+    if (!loaded) return; // nothing is changed
+    const picked = await loaded.startAsk.ask(
       { id: item.recipe.id, name: item.recipe.name },
       { day, slotId: meal.slot_id, slotName: this.slotName(meal.slot_id) },
       { method: item.method_id ?? null, current, button: 'Save' }
@@ -468,8 +476,9 @@ export class PlanModel {
 
   /** "Done already": the long wait of a planned recipe is begun (M3). */
   async markStarted(item: PlanItem) {
-    const { markStarted } = await import('./startNow'); // loaded when first used (size limit)
-    return markStarted(item.id, itemName(item, this.plan));
+    const loaded = await fetchCode(loaders.startNow); // loaded when first used (size limit)
+    if (!loaded) return { ok: false, error: null, cancelled: true } as const; // nothing is marked
+    return loaded.markStarted(item.id, itemName(item, this.plan));
   }
 
   /** Change which Optional ingredients a planned recipe will use, from its meal (R3). */
@@ -569,10 +578,11 @@ export class PlanModel {
     const asking = this.#startsToAsk(what, mode);
     if (asking.length === 0) return this.#drop(what, day, slotId, mode, ifNoneLeft);
     return (async () => {
-      const { startAsk } = await import('./startAsk.svelte');
+      const loaded = await fetchCode(loaders.startAsk);
+      if (!loaded) return { ok: false, error: null, cancelled: true } as const; // nothing is moved
       const starts: { item_id: number; day: string; time: string }[] = [];
       for (const item of asking) {
-        const start = await startAsk.ask(
+        const start = await loaded.startAsk.ask(
           { id: item.recipe!.id, name: item.recipe!.name },
           { day, slotId, slotName: this.slotName(slotId) },
           {

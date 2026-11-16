@@ -6,7 +6,8 @@
 // Online only, like the rest of the Plan.
 
 import { forgetAtSignOut } from './api';
-import { couldntOpen } from './lazyCode.svelte';
+import { fetchCode } from './lazyCode.svelte';
+import { loaders } from './lazyModules';
 import type { StartAt, StartOption } from './client/plan';
 import { optionalAsk } from './optionalAsk.svelte';
 import type { StepWait } from './timeWords';
@@ -71,13 +72,9 @@ class StartAsk {
     ) {
       return undefined;
     }
-    let getStartOptions;
-    try {
-      ({ getStartOptions } = await import('./client/plan'));
-    } catch {
-      couldntOpen(); // the ask ends as if cancelled; the next try fetches it again
-      return null;
-    }
+    const plan = await fetchCode(loaders.clientPlan);
+    if (!plan) return null; // as if cancelled; the next try fetches it again
+    const { getStartOptions } = plan;
     let found;
     try {
       found = await getStartOptions(recipe.id, meal.day, meal.slotId, options.method);
@@ -87,13 +84,9 @@ class StartAsk {
     if (!found.wait) return undefined;
     if (options.adding && found.options.length === 0) return undefined; // the meal's time has gone by
     this.current?.resolve(null);
-    let forMeal;
-    try {
-      ({ forMeal } = await import('./startWords'));
-    } catch {
-      couldntOpen();
-      return null;
-    }
+    const words = await fetchCode(loaders.startWords);
+    if (!words) return null;
+    const { forMeal } = words;
     optionalAsk.startOpen = true;
     const asked = new Promise<StartAt | null | undefined>((resolve) => {
       this.current = {

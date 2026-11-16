@@ -37,3 +37,17 @@ export class LazyCode {
     this.code = code;
   }
 }
+
+/**
+ * Fetch a module's code on first use: `await fetchCode(() => import('./x'))`. If the fetch fails
+ * the toast shows and the result is null, so the caller ends as if cancelled, with nothing
+ * changed; nothing is kept, so the next try fetches again.
+ */
+export async function fetchCode<T>(load: () => Promise<T>): Promise<T | null> {
+  try {
+    return await load();
+  } catch {
+    couldntOpen();
+    return null;
+  }
+}
