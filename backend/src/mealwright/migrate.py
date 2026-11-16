@@ -47,26 +47,49 @@ def alembic_config() -> Config:
 
 @contextmanager
 def foreign_keys_off(connection: Connection) -> Iterator[None]:
-    """On SQLite, switch foreign keys off while migrating.
+    """Run a migration as one transaction, committed only if every step worked; on SQLite,
+    with foreign keys off.
 
     Batch migrations rebuild a table to change it (copy, drop, rename). With foreign keys
     on, dropping the old copy of a parent table counts as deleting its rows, and ON DELETE
     CASCADE would then delete every row that points at it: changing `household` would
     delete every login. SQLite's own advice is to switch foreign keys off for this. It
-    can only be changed outside a transaction. Afterwards every foreign key is checked.
+    can only be changed outside a transaction. Afterwards every foreign key is checked,
+    before anything is committed.
+
+    All or nothing (B7 R1): left to itself, Python's sqlite3 module commits a schema change
+    (ALTER, CREATE, DROP) the moment it runs unless a write came first, so an upgrade killed
+    or failing part-way could leave, say, a new column under the old version stamp, and every
+    later start then failed. Here the driver's own transaction handling is switched off and
+    one explicit BEGIN IMMEDIATE covers every step and the version stamp: an error rolls it
+    all back, and SQLite rolls it back itself if the process is killed.
     """
     if connection.dialect.name != "sqlite":
-        yield
+        try:
+            yield
+        except BaseException:
+            connection.rollback()
+            raise
+        connection.commit()
         return
     connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
     connection.commit()
+    raw = connection.connection.driver_connection
+    old_level = raw.isolation_level  # type: ignore[union-attr]
+    raw.isolation_level = None  # type: ignore[union-attr]
     try:
-        yield
-        broken = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
-        if broken:
-            raise RuntimeError(f"Migration left broken links between tables: {broken[:5]}")
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
+        try:
+            yield
+            broken = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+            if broken:
+                raise RuntimeError(f"Migration left broken links between tables: {broken[:5]}")
+        except BaseException:
+            connection.rollback()
+            raise
         connection.commit()
     finally:
+        raw.isolation_level = old_level  # type: ignore[union-attr]
         connection.exec_driver_sql("PRAGMA foreign_keys=ON")
         connection.commit()
 
@@ -79,7 +102,7 @@ def _run(engine: Engine, action: str, revision: str) -> None:
             command.upgrade(config, revision)
         else:
             command.downgrade(config, revision)
-        connection.commit()
+        # foreign_keys_off commits, after its check, only if every step worked (B7 R1).
 
 
 class SafetyCopyFailed(RuntimeError):

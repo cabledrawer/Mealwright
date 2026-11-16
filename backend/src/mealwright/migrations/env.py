@@ -53,8 +53,7 @@ def run_migrations_online() -> None:
     url = config.get_main_option("sqlalchemy.url") or get_settings().sqlalchemy_url
     engine = make_engine(url)
     with engine.connect() as connection, foreign_keys_off(connection):
-        _configure(connection)
-        connection.commit()
+        _configure(connection)  # foreign_keys_off commits only if every step worked (B7 R1)
     engine.dispose()
 
 
