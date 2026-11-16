@@ -15,6 +15,7 @@ import hashlib
 from fastapi import status
 from sqlalchemy import delete, select
 
+from mealwright import api_tokens
 from mealwright.api.v1.context import Kitchen
 from mealwright.auth import now
 from mealwright.errors import Problem, not_found
@@ -263,6 +264,10 @@ def unlink(kitchen: Kitchen, member_id: int) -> Change:
     login.sso_issuer = None
     login.sso_subject = None
     kitchen.db.execute(delete(Session).where(Session.login_id == login.id, Session.sso.is_(True)))
+    # A token is a sign-in too (review R8): the sign-in server's say-so made it, so it ends, for
+    # good (a later promotion doesn't bring it back).
+    api_tokens.stop_for(kitchen.db, login.id)
+    api_tokens.clear_refused(kitchen.db, login)
     kitchen.db.flush()
     return record(
         kitchen,

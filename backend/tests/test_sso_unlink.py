@@ -24,8 +24,9 @@ from test_sso_api import (
     waits,
 )
 
+from mealwright import api_tokens
 from mealwright.auth import hash_password
-from mealwright.models import Login, Session, SsoAccount
+from mealwright.models import ApiToken, Login, Session, SsoAccount, utcnow
 
 ADMINS = ["mealwright-admins"]
 
@@ -110,6 +111,37 @@ def test_an_unlinked_person_is_signed_out_and_their_account_waits_from_then_on(
         browser(admin), idp, person=False, sub="lorna-1", extra={"preferred_username": "lorna"}
     )
     assert back.json()["me"]["username"] == "lorna"
+
+
+def test_unlinking_stops_the_api_tokens_the_person_made_for_good(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """Review R8: a token is a sign-in too. It stays dead when the person is made an admin
+    again later."""
+    _lorna_signed_in(admin, idp)
+    token = api_tokens.new_token("full")
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        login = db.scalars(select(Login).where(Login.username == "lorna")).one()
+        login.role = "admin"
+        db.add(
+            ApiToken(
+                household_id=1,
+                login_id=login.id,
+                name="Script",
+                token_hash=api_tokens.token_hash(token),
+                scope="full",
+                created_at=utcnow(),
+            )
+        )
+        db.commit()
+    app = TestClient(admin.app, base_url="https://testserver")
+    app.headers["Authorization"] = f"Bearer {token}"
+    assert app.get(f"{API}/me").status_code == 200
+    assert _unlink(admin, _member_id(admin, "Lorna")).status_code == 200
+    assert app.get(f"{API}/me").status_code == 401
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        row = db.scalars(select(ApiToken)).one()
+        assert row.revoked_at is not None
 
 
 def test_a_password_sign_in_of_the_unlinked_person_is_kept(
