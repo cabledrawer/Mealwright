@@ -164,6 +164,12 @@ def test_database_from_release_upgrades_cleanly(tag: str, tmp_path: Path) -> Non
         assert db.execute("PRAGMA foreign_key_check").fetchall() == [], f"{tag}: foreign keys"
         head = ScriptDirectory.from_config(migrate.alembic_config()).get_current_head()
         assert db.execute("SELECT version_num FROM alembic_version").fetchall() == [(head,)]
+        # L6 (beta.2): every recipe and way from an old release is unmarked (keeps today's rule).
+        for table in ("recipe", "recipe_method"):
+            if table in _tables(path):
+                assert db.execute(
+                    f"SELECT count(*) FROM {table} WHERE time_is_work_only != 0"  # noqa: S608
+                ).fetchone() == (0,), f"{tag}: {table} has a marked time"
         for table in _tables(path):
             if table in ("household", "alembic_version"):
                 continue

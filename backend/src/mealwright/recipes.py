@@ -342,6 +342,8 @@ def save(
         db.add(recipe)
     recipe.name = body.name
     recipe.description = body.description
+    if recipe.time_minutes != body.time_minutes:
+        recipe.time_is_work_only = False  # a Time typed by hand follows the plain L6 rule
     recipe.time_minutes = body.time_minutes
     recipe.serves = body.serves
     recipe.makes_milli = body.makes.amount if body.makes else None
@@ -481,6 +483,7 @@ def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
         name=_copy_name(kitchen, source),
         description=source.description,
         time_minutes=source.time_minutes,
+        time_is_work_only=source.time_is_work_only,
         serves=source.serves,
         makes_milli=source.makes_milli,
         makes_unit=source.makes_unit,
@@ -526,6 +529,7 @@ def duplicate(kitchen: Kitchen, source: Recipe) -> Recipe:
             position=method.position if method else 0,
             name=method.name if method else "",
             time_minutes=method.time_minutes if method else source.time_minutes,
+            time_is_work_only=(method.time_is_work_only if method else source.time_is_work_only),
         )
         db.add(made)
         db.flush()
@@ -670,6 +674,8 @@ def _first_method(
     if first is None:
         first = RecipeMethod(household_id=kitchen.household_id, recipe_id=recipe.id, position=0)
         db.add(first)
+    if first.time_minutes != body.time_minutes:
+        first.time_is_work_only = False
     first.time_minutes = body.time_minutes
     # A recipe with one way of cooking it has no method name.
     first.name = body.method_name or "" if body.second_method is not None else first.name
@@ -700,6 +706,8 @@ def _save_second(
         second = RecipeMethod(household_id=kitchen.household_id, recipe_id=recipe.id, position=1)
         db.add(second)
     second.name = second_in.name
+    if second.time_minutes != second_in.time_minutes:
+        second.time_is_work_only = False
     second.time_minutes = second_in.time_minutes
     db.flush()
     lines = _save_lines(kitchen, recipe, second, second_in.lines, resolved, old_rows)

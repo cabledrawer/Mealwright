@@ -670,6 +670,14 @@ cabledrawer's decisions are in the spec ("From cabledrawer's real use of v0.7.0-
 
 How the reader now reads "each" lines, "or" lines, a pinch and a bracket word after a food is in `ingredient-reader.md`, "0.8 additions". The one API change: each review line (`ReviewLine`) has an optional `alternative` (another review line, or null) for an "or" line; Check's **Use this instead** swaps the two. Save is unchanged and there is no database change. A draft keeps the field with the rest of its review.
 
+## A wait is taken off only once (L6, cabledrawer 13 and 15 Nov; beta.2, database change)
+
+M1 takes a suggested wait off the page's total time at import, so the Time on Check (and saved) is the work. The plan's start-ahead sum (`start_ahead.of_steps`, through `step_waits.active_time`) takes a wait off a saved Time again when the Time is at least the wait, so 6 h of work with a 4 h marinade came out as 2 h. Fix: a hidden `time_is_work_only` boolean (not null, default false) on `recipe` and on `recipe_method` (the first way mirrors the recipe, like `time_minutes`); migration `d7a3e1b5c924`, existing rows false. Not in any request or answer (the export carries it like every column).
+
+- **Set** by `recipe_import.save` (link and pasted imports; one caller, `api/v1/imports.py`) for each way whose steps carry a wait and whose time is set. Not for a draft that came from Mealie (`draft.mealie_import_id`), and Mealie's own import never goes through `save` (it keeps the page's time, `mealie_import.py`). A section's own recipe has no time, so is never marked. Proposed, for cabledrawer: the server decides this from the steps, not from a new field; when M1 took no wait off, the page time was below the wait and L6 leaves it alone anyway.
+- **Read:** `start_ahead.ahead_of` and the plan's `ahead_out` pass the mark to `of_steps(work_only=...)`, which then leaves the time alone. Unmarked recipes keep L6's rule.
+- **Cleared** (proposed, for cabledrawer) when a save changes that way's Time (`recipes.save`: recipe, first way, second way); a copy keeps it.
+
 ## Whole-0.8 review fixes: import (RF4, cabledrawer 11 Nov)
 
 - **Drafts:** a line fixed by hand keeps its words, amount, unit and note when another draft makes its ingredient (`rematch` takes only the match from the fresh read). The Drafts list counts a draft with waiting lines through `rematch` too (`listing`), so its "n of m checked" and Save recipe agree with opening it.

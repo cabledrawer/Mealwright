@@ -530,7 +530,9 @@ def get_plan(
         way = methods.named(found, i.method_id)
         minutes = way.time_minutes if way is not None else recipe.time_minutes
         ahead = start_ahead.of_steps(
-            [s for s in waited_steps[recipe.id] if methods.in_method(s, found, way)], minutes
+            [s for s in waited_steps[recipe.id] if methods.in_method(s, found, way)],
+            minutes,
+            work_only=way.time_is_work_only if way is not None else recipe.time_is_work_only,
         )
         if ahead is None:
             return None

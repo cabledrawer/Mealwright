@@ -102,15 +102,20 @@ def eat_instant(household: Household, day: date, slot: MealSlot | None) -> datet
 
 
 def of_steps(
-    steps: Sequence[RecipeStep], active_minutes: int | None, minimum: int = MIN_AHEAD_MINUTES
+    steps: Sequence[RecipeStep],
+    active_minutes: int | None,
+    minimum: int = MIN_AHEAD_MINUTES,
+    work_only: bool = False,
 ) -> Ahead | None:
     """The first step (in order) whose wait is at least `minimum` minutes at its shortest.
     `active_minutes` is the recipe's saved Time (for the way of cooking it), and is turned into its
     work: a Time that already holds the recipe's waits (Dosa Batter: 745 min with an 8-12 h
     ferment) has them taken off, the same rule as `step_waits.active_time` (F228; proposed, for
-    cabledrawer, cabledrawer 12 Nov). Give every step of the way, so that all its waits come off."""
+    cabledrawer, cabledrawer 12 Nov). Give every step of the way, so that all its waits come off.
+    `work_only`: the saved Time is already the work, the wait taken off at import (L6, hidden
+    mark; proposed, for cabledrawer): it is left alone, never taken off twice."""
     waits = [w for w in (step_waits.of_step(step) for step in steps) if w is not None]
-    work = step_waits.active_time(active_minutes, waits)
+    work = active_minutes if work_only else step_waits.active_time(active_minutes, waits)
     for step in steps:
         wait = step_waits.of_step(step)
         if wait is not None and wait.min_minutes >= minimum:
@@ -135,7 +140,8 @@ def ahead_of(
         if methods.in_method(s, found, method)
     ]
     minutes = method.time_minutes if method is not None else recipe.time_minutes
-    return of_steps(steps, minutes)
+    marked = method.time_is_work_only if method is not None else recipe.time_is_work_only
+    return of_steps(steps, minutes, work_only=marked)
 
 
 def _floor_hour(instant: datetime, household: Household) -> datetime:

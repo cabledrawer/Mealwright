@@ -907,7 +907,7 @@ Plain-language list of every kind of record, grouped. Every record belongs to th
 
 **Recipes**
 
-- Recipe: title, servings, steps, photo, tags, nutrition per serving, source URL / import date / source note, version number.
+- Recipe: title, servings, steps, photo, tags, nutrition per serving, source URL / import date / source note, version number. Each way of cooking it has a hidden "time is work only" mark (set when a link or pasted import saved a time with the wait already taken off; cleared when the Time is changed by hand; proposed, for cabledrawer).
 - Recipe photo (from 0.4): two cleaned JPEG files on the mounted volume, in the household's own folder (`photos/<household>/`) under random names, never in the database; the database keeps only the record (which recipe, the random name, the sizes, who added it and when). Uploads not saved on a recipe are kept for at most 24 hours. The uploaded file itself is never kept.
 - Ingredient: points to a food or another recipe, amount, original wording, note.
 - Homemade link: a recipe that's made ahead (batter, podi) has its own pantry food.

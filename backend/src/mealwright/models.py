@@ -1016,6 +1016,11 @@ class Recipe(Base):
     description: Mapped[str | None] = mapped_column(String(200))
     # Whole minutes, in total. Null: not given.
     time_minutes: Mapped[int | None] = mapped_column(Integer)
+    # Hidden (L6, beta.2): the saved time is the recipe's own work with its wait already taken off
+    # at import, so the plan leaves it alone. Cleared when the time is changed by hand.
+    time_is_work_only: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("0")
+    )
     # 1 to 99. Null: not given (a batter or a powder).
     serves: Mapped[int | None] = mapped_column(Integer)
     # "Makes 1.5 litres": thousandths of the unit; the unit is g, kg, ml, l or a count word.
@@ -1082,6 +1087,10 @@ class RecipeMethod(Base):
     name: Mapped[str] = mapped_column(String(60), default="", server_default="")
     # Whole minutes: the active time, as the recipe's own `time_minutes`. Null: not given.
     time_minutes: Mapped[int | None] = mapped_column(Integer)
+    # Hidden (L6): this way's time is work only (see `Recipe.time_is_work_only`).
+    time_is_work_only: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("0")
+    )
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

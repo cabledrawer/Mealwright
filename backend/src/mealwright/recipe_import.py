@@ -25,7 +25,7 @@ from fastapi import status
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from mealwright import drafts, page_budget, page_fetch, photos, pints, roles, step_waits
+from mealwright import drafts, methods, page_budget, page_fetch, photos, pints, roles, step_waits
 from mealwright.amounts import MAX_AMOUNT
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.import_schemas import (
@@ -1078,6 +1078,8 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
         recipe.source_url = source
         recipe.imported_at = utcnow()
         recipe.source_author = _author(body.source_author)
+        if draft is None or draft.mealie_import_id is None:  # Mealie keeps the page's time
+            _mark_work_only(kitchen, recipe, body)
         db.flush()
         if draft is not None:
             # What Undo needs to bring the draft back (spec section 6, question 36): kept in
@@ -1096,6 +1098,29 @@ def save(kitchen: Kitchen, body: ImportSave) -> Saved:
     return Saved(
         recipe=recipe, change=change, new_foods=new_foods, learned=learned, sections=section_recipes
     )
+
+
+def _mark_work_only(kitchen: Kitchen, recipe: Recipe, body: ImportSave) -> None:
+    """L6 (cabledrawer 15 Nov; the way to know it is proposed, for cabledrawer): the import
+    screen's Time is always the work (M1 took the wait off, and a time typed there is typed as
+    work), so a way of cooking whose steps carry a wait has its saved time marked as work only:
+    the plan then never takes the wait off a second time. When no wait was taken off the page's
+    time was shorter than the wait, and L6 leaves such a time alone anyway, so the answer is the
+    same. A section's own recipe has no time, so it is never marked."""
+
+    def waits(steps: list[Any]) -> bool:
+        return any(s.kind == "step" and s.wait is not None for s in steps)
+
+    ways = methods.methods_of(kitchen.db, recipe.id)
+    marks = [
+        body.time_minutes is not None and waits(body.steps),
+        body.second_method is not None
+        and body.time_minutes is not None
+        and waits(body.second_method.steps),
+    ]
+    recipe.time_is_work_only = marks[0]
+    for way, marked in zip(ways, marks, strict=False):
+        way.time_is_work_only = marked
 
 
 def _make_homemade(kitchen: Kitchen, edit: FoodEdit, own: ImportOwnRecipe) -> None:
