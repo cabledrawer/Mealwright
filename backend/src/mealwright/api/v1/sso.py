@@ -46,6 +46,8 @@ from mealwright.api.v1.context import Here
 from mealwright.auth import (
     Db,
     SameOrigin,
+    SlowDown,
+    address_key,
     client_address,
     find_session,
     forget_signed_out,
@@ -197,6 +199,16 @@ def _begin(
         raise
 
 
+def _pace(request: Request) -> None:
+    """Count one start or finish from this address (review R7) before a place to wait on the
+    sign-in server is taken; past the free ones each waits longer (up to a minute), told with
+    the same quick "try again" a full set of places gives."""
+    slow: SlowDown = request.app.state.slow_down
+    at, _ = slow.begin([f"sso:{address_key(client_address(request))}"])
+    if at is None:
+        raise sso.SsoFailed("unreachable", say_nothing_of_it=True)
+
+
 def _bind(response: Response, settings: Settings, started: sso.Started) -> None:
     """Give the sign-in to this browser, sealed in a cookie of its own: only this server
     can read or make one, and only this browser can finish with it."""
@@ -217,6 +229,7 @@ def start(request: Request, db: Db, remember: bool = False) -> RedirectResponse:
     redirect to the sign-in server, or to `/sign-in?sso=<code>` when it can't. A link is safe
     here: following it changes nothing for someone signed in."""
     try:
+        _pace(request)
         started = _begin(request, db, mode="sign_in", remember=remember)
     except sso.SsoFailed as failure:
         return _go("/sign-in", failure.code)
@@ -394,6 +407,10 @@ def finish(body: FinishIn, request: Request, response: Response, db: Db) -> Fini
     400 with a `code` and a sentence to show."""
     settings: Settings = request.app.state.settings
     needs_https(request, settings)
+    try:
+        _pace(request)
+    except sso.SsoFailed as failure:
+        raise _refused(failure) from None
     sealed = request.cookies.get(_cookie(settings))
     response.delete_cookie(
         _cookie(settings), httponly=True, secure=not settings.allow_plain_http, path="/"

@@ -528,9 +528,13 @@ _holding = threading.local()
 
 
 @contextlib.contextmanager
-def _slot(household_id: int) -> Iterator[None]:
+def _slot(household_id: int, *, front: bool = False) -> Iterator[None]:
     """One of the household's places to wait on the sign-in server. Re-entrant: a step inside
-    another (a discovery inside a start) is the same request and counts once."""
+    another (a discovery inside a start) is the same request and counts once.
+
+    The last place of a household, and the last of the total, is only for the background checks
+    (`refresh`, `check_sessions`); `front` (a signed-out start or finish) never takes it, so
+    strangers can't starve the checks that end a removed person's sign-ins (review R7)."""
     if getattr(_holding, "depth", 0) > 0:
         _holding.depth += 1
         try:
@@ -538,10 +542,11 @@ def _slot(household_id: int) -> Iterator[None]:
         finally:
             _holding.depth -= 1
         return
+    reserved = 1 if front else 0
     with _in_flight_lock:
         if (
-            _in_flight.get(household_id, 0) >= IN_FLIGHT_MOST
-            or sum(_in_flight.values()) >= IN_FLIGHT_TOTAL
+            _in_flight.get(household_id, 0) >= IN_FLIGHT_MOST - reserved
+            or sum(_in_flight.values()) >= IN_FLIGHT_TOTAL - reserved
         ):
             raise SsoFailed("unreachable", say_nothing_of_it=True)
         _in_flight[household_id] = _in_flight.get(household_id, 0) + 1
@@ -564,7 +569,7 @@ def waiting_for(household_id: int, around: Callable[[], Any] | None = None) -> I
     when a real wait begins: never for an answer that is already remembered. So at most
     IN_FLIGHT_MOST of a household's threads, and IN_FLIGHT_TOTAL in all, are ever without a
     place, and a thread never waits for a place while others wait for threads (O2 fix11)."""
-    with _slot(household_id):
+    with _slot(household_id, front=True):
         _holding.around = around
         _holding.opened = None
         try:

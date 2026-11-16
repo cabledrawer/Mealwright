@@ -268,7 +268,7 @@
         "test_setup_code.py", "test_reset_admin.py", "test_forwarded.py", "test_sign_in_attacks.py",
         "test_removed_sign_in.py", "test_api_tokens.py", "test_migration_api_tokens.py",
         "test_sso.py", "test_sso_api.py", "test_sso_check_job.py", "test_sso_names.py", "test_secret_box.py", "test_migration_sso.py", "test_migration_sso_refused_at.py",
-        "test_sso_proven.py", "test_sso_own_network.py", "test_sso_look_up_cap.py", "test_sso_guards.py",
+        "test_sso_proven.py", "test_sso_own_network.py", "test_sso_look_up_cap.py", "test_sso_places.py", "test_sso_guards.py",
         "test_api_tokens_sso.py", "test_api_tokens_sign_out.py", "test_api_tokens_guards.py",
         "test_sso_passwords_off_class.py", "test_sso_refused.py", "test_sso_restart.py",
         "test_sso_slow_provider.py", "test_sso_kept.py", "test_sso_waiting.py", "test_sso_unlink.py", "test_sso_join_links.py", "test_sso_switch_off.py", "test_sso_auto_link.py", "test_migration_sso_accounts.py",

@@ -200,13 +200,21 @@ class SlowDown:
     MAX_USERNAME_WAIT = 60.0
     # Each key keeps only its newest guesses: the wait needs no more than the count up to its
     # cap and the newest time, and a flood of guesses can't grow the memory (A2 review r3).
-    KEEP = FREE + 64
+    KEEP = 60 + 64  # the most free tries of any key (`SSO_FREE`) and the doublings after
     # Past this many doubles every wait is at its cap anyway; a bigger power would overflow.
     MAX_DOUBLINGS = 30
 
+    # Starting and finishing a single sign-on sign-in, counted per address (`sso:`; review R7):
+    # not guesses, so a home gets many more free ones, and the wait never passes a minute (a
+    # family on one network is never shut out for long).
+    SSO_FREE = 60  # a start and a finish each: 30 sign-ins in 15 minutes
+
     def _longest(self, key: str) -> float:
-        personal = key.startswith(("user:", "dev:", "change:"))
+        personal = key.startswith(("user:", "dev:", "change:", "sso:"))
         return self.MAX_USERNAME_WAIT if personal else self.MAX_WAIT
+
+    def _free(self, key: str) -> int:
+        return self.SSO_FREE if key.startswith("sso:") else self.FREE
 
     def __init__(self) -> None:
         self._failures: dict[str, deque[float]] = defaultdict(deque)
@@ -226,7 +234,7 @@ class SlowDown:
 
     def _wait(self, key: str, at: float) -> int:
         times = self._recent(key, at)
-        extra = len(times) - self.FREE
+        extra = len(times) - self._free(key)
         if extra < 0:
             return 0
         doublings = min(extra, self.MAX_DOUBLINGS)
