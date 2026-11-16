@@ -184,17 +184,24 @@ def page_load_reads(ids: dict[str, Any]) -> dict[str, str]:
 _UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 _STAMP = re.compile(r"\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:?\d{2})?")
 _DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+_WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+_WEEKDAY = re.compile(r"\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b")
 
 
 def normalised(answer: Any, today: date) -> Any:
     """An answer with what changes from one run to the next made steady: IDs made at random
-    become U1, U2 (in the order they appear), moments become "<moment>", and days become their
-    distance from today ("D+3"). Everything else is kept as it is."""
+    become U1, U2 (in the order they appear), moments become "<moment>", days become their
+    distance from today ("D+3"), and day names ("Sun, Mon") their distance from today's day of
+    the week ("W+0, W+1"), so the answers don't depend on which day the tests run. Everything
+    else is kept as it is."""
     seen: dict[str, str] = {}
 
     def text(value: str) -> str:
         value = _STAMP.sub("<moment>", value)
         value = _DAY.sub(lambda m: f"D{(date.fromisoformat(m.group()) - today).days:+d}", value)
+        value = _WEEKDAY.sub(
+            lambda m: f"W+{(_WEEKDAYS.index(m.group()) - today.weekday()) % 7}", value
+        )
         return _UUID.sub(lambda m: seen.setdefault(m.group(), f"U{len(seen) + 1}"), value)
 
     def walk(value: Any) -> Any:
