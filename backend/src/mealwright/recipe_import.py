@@ -1106,17 +1106,18 @@ def _mark_work_only(kitchen: Kitchen, recipe: Recipe, body: ImportSave) -> None:
     work), so a way of cooking whose steps carry a wait has its saved time marked as work only:
     the plan then never takes the wait off a second time. When no wait was taken off the page's
     time was shorter than the wait, and L6 leaves such a time alone anyway, so the answer is the
-    same. A section's own recipe has no time, so it is never marked."""
+    same. A section's own recipe has no time, so it is never marked. Both ways share the page's
+    one time, and only the first way's waits come off it (M1), so the second way is marked only
+    when the first way's steps carry a wait too; else nothing came off and plain L6 applies."""
 
     def waits(steps: list[Any]) -> bool:
         return any(s.kind == "step" and s.wait is not None for s in steps)
 
     ways = methods.methods_of(kitchen.db, recipe.id)
+    first = body.time_minutes is not None and waits(body.steps)
     marks = [
-        body.time_minutes is not None and waits(body.steps),
-        body.second_method is not None
-        and body.time_minutes is not None
-        and waits(body.second_method.steps),
+        first,
+        first and body.second_method is not None and waits(body.second_method.steps),
     ]
     recipe.time_is_work_only = marks[0]
     for way, marked in zip(ways, marks, strict=False):

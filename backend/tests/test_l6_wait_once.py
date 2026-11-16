@@ -100,6 +100,21 @@ def test_two_ways_are_each_marked_by_their_own_steps(kitchen: TestClient) -> Non
     assert marked(kitchen, recipe["id"]) == (True, [True, False])
 
 
+def test_a_second_way_with_the_only_wait_is_not_marked(kitchen: TestClient) -> None:
+    # Only the first way's waits come off the shared time (M1), so with no wait there nothing
+    # came off: the second way's 4 h marinade still comes off once, at the plan (review r1 L1).
+    body = to_save(review(kitchen, PASTED))
+    body["name"] = "Oven only marinade"
+    body["time_minutes"] = 600
+    body["method_name"] = "Stovetop"
+    body["second_method"] = {
+        "name": "Oven",
+        "steps": [{"kind": "step", "text": "Marinate.", "wait": MARINATE_4H}],
+    }
+    recipe = ok(save_import(kitchen, body), 201)["recipe"]
+    assert marked(kitchen, recipe["id"]) == (False, [False, False])
+
+
 def test_a_mealie_recipe_is_not_marked_and_keeps_the_pages_time(
     kitchen: TestClient, tmp_path: Path
 ) -> None:
