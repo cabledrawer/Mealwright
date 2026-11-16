@@ -374,9 +374,11 @@ def test_trimming_removes_the_photo_folder_with_its_backup(kitchen: TestClient) 
     assert live.read_bytes() == b"sambar"  # the live photo is never touched by a trim
 
 
-def test_orphan_and_half_made_photo_folders_are_tidied_of_every_kind_of_copy(
+def test_half_made_photo_folders_and_a_backups_orphan_are_tidied_a_safety_copys_orphan_stays(
     kitchen: TestClient,
 ) -> None:
+    """B7 R2: a safety copy's `.db` moved into place to restore it leaves its photo folder
+    behind, and after Delete everything that folder holds the only copy of the photos."""
     folder = _folder(kitchen)
     backups.make_folder(folder)
     kinds = ["backup-20261101-030000", "before-delete-everything-20261101-030000-2"]
@@ -394,8 +396,15 @@ def test_orphan_and_half_made_photo_folders_are_tidied_of_every_kind_of_copy(
     assert sorted(p.name for p in folder.iterdir()) == [
         "backup-20261102-030000-photos",
         "backup-20261102-030000.db",
+        "before-delete-everything-20261101-030000-2-photos",
+        "pre-upgrade-abc123-20261101-030000-photos",
         "unrelated-photos",
     ]
+    # Removing the copy itself still takes its photo folder with it.
+    for kind in kinds[1:]:
+        (folder / f"{kind}.db").write_bytes(b"x")
+        assert backups.remove_copy(folder / f"{kind}.db")
+        assert not (folder / f"{kind}-photos").exists()
 
 
 def test_start_up_tidies_a_half_made_folder_with_its_own_pid(settings: Settings) -> None:

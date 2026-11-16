@@ -57,11 +57,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from mealwright.household import zone
-from mealwright.models import Household, utcnow
+from mealwright.models import ApiToken, Household, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -237,11 +237,52 @@ def remove_copy(path: Path) -> bool:
     return gone
 
 
+# SQLite's user_version in every copy (backup, before Delete everything, before an upgrade).
+# Mealwright leaves it 0 in the live database; nothing else uses it.
+COPY_MARK = 1297567555  # "MWRC"
+
+
+def forget_sign_ins_if_restored(engine: Engine) -> bool:
+    """On a database put back from a copy, end every sign-in kept in it (B7 R5, Fable review
+    of 0.9.5-beta.1; proposed, for cabledrawer): every device is signed out, every API token
+    stopped and every sign-in or reset link cancelled. A copy holds them as they were when it
+    was made, so without this a cookie, token or link that was stopped later (because it leaked,
+    or "Sign out everywhere else", or the person was removed) would work again. Then the mark
+    is cleared, so it happens once. Run at start-up, after the upgrade. True if it happened."""
+    with engine.begin() as connection:
+        if connection.exec_driver_sql("PRAGMA user_version").scalar_one() != COPY_MARK:
+            return False
+        tables = set(
+            connection.exec_driver_sql(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).scalars()
+        )
+        if "session" in tables:
+            connection.exec_driver_sql("DELETE FROM session")
+        if "join_link" in tables:
+            connection.exec_driver_sql("DELETE FROM join_link")
+        if "api_token" in tables:
+            connection.execute(
+                update(ApiToken).where(ApiToken.revoked_at.is_(None)).values(revoked_at=utcnow())
+            )
+        connection.exec_driver_sql("PRAGMA user_version=0")
+    log.warning(
+        "This database was put back from a copy: every device was signed out, every API token "
+        "stopped and every sign-in link cancelled. Sign in again, and make new API tokens."
+    )
+    return True
+
+
 def tidy_photo_folders(folder: Path) -> None:
-    """Delete photo folders that no finished copy owns: half-made ones (`.part`, whoever's) and
-    finished ones whose `.db` is gone, for every kind of copy (ANY_COPY). Not one being made in
-    this process right now. Takes the one-at-a-time lock, so it never runs between a copy's photo
-    folder being put in place and its `.db` arriving. Never raises."""
+    """Delete photo folders that no finished copy owns: half-made ones (`.part`, whoever's) of
+    every kind of copy (ANY_COPY), and finished ones of a scheduled backup whose `.db` is gone.
+    Not one being made in this process right now. Takes the one-at-a-time lock, so it never runs
+    between a copy's photo folder being put in place and its `.db` arriving. Never raises.
+
+    A finished photo folder of a safety copy (`before-delete-everything-…`, `pre-upgrade-…`)
+    stays even when its `.db` is gone (B7 R2, proposed, for cabledrawer): that `.db` has most
+    likely been moved into place to restore it, and after Delete everything its photo folder is
+    the only copy of the photos. Such a folder goes only with its `.db` (remove_copy)."""
     with _ONE_AT_A_TIME:
         try:
             entries = list(folder.iterdir())
@@ -259,7 +300,7 @@ def tidy_photo_folders(folder: Path) -> None:
                     _drop(entry)
                 continue
             db_name = entry.name.removesuffix(PHOTOS_SUFFIX) + ".db"
-            owned = db_name in names or not ANY_COPY.match(db_name)
+            owned = db_name in names or not BACKUP_NAME.match(db_name)
             if entry.name.endswith(PHOTOS_SUFFIX) and not owned:
                 _drop(entry)
 
@@ -300,6 +341,9 @@ def copy_database(engine: Engine, target: Path, photos: Path | None = None) -> N
             copy = sqlite3.connect(partial)
             try:
                 source.backup(copy)
+                # Marks it as a copy, so a start-up on it after a restore ends its sign-ins
+                # (see forget_sign_ins_if_restored; B7 R5). The live database never has it.
+                copy.execute(f"PRAGMA user_version={COPY_MARK}")
                 # The copy keeps the source's WAL mode; a plain journal makes it one file that
                 # opens on its own, with no "-wal" or "-shm" files appearing beside it.
                 copy.execute("PRAGMA journal_mode=DELETE")

@@ -100,8 +100,11 @@ is `/data` inside the container).
    ```
 
    Sign in with the password you had **when the backup was made**. Everything is as it was at
-   that time; whatever changed after it is gone. API tokens deleted or stopped since the backup work
-   again: delete them again (proposed, for cabledrawer). Once all is well, you can delete the
+   that time; whatever changed after it is gone. A database put back from a copy (a backup, the
+   copy before an upgrade or before Delete everything) signs every device out, stops every API
+   token and cancels every sign-in or reset link the first time it starts, so nothing stopped
+   after the copy was made works again: everyone signs in again, and you make new API tokens
+   (B7 R5, proposed, for cabledrawer). Once all is well, you can delete the
    `data/before-restore-…` folder.
 
 ## Restore on a new server (the disk died)

@@ -95,6 +95,8 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
                 backups=settings.data_dir / backups.FOLDER,
                 photos=settings.data_dir / "photos",
             )
+        # A database put back from a copy: its sign-ins as they were then end (B7 R5).
+        backups.forget_sign_ins_if_restored(engine)
         # Half-made photo folders from a run that was killed (before any backup can start).
         backups.tidy_photo_folders(settings.data_dir / backups.FOLDER)
         # After the database is open (its -wal and -shm files exist): fix older installs.
