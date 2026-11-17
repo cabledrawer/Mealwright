@@ -45,7 +45,7 @@ from sqlalchemy.orm import Session, aliased, sessionmaker
 
 from mealwright import drafts, mealie_file, photos
 from mealwright.api.v1.context import Kitchen
-from mealwright.api.v1.draft_schemas import DraftIn
+from mealwright.api.v1.draft_schemas import DraftChoices, DraftIn
 from mealwright.api.v1.import_schemas import ImportReview, ReviewLine, ReviewPhoto, ReviewSource
 from mealwright.api.v1.recipe_schemas import RecipeIn
 from mealwright.conversions import guess_aisle, table
@@ -1180,6 +1180,22 @@ def _save_draft(kitchen: Kitchen, draft: ImportDraft) -> Recipe | None:
     except ValidationError:
         return None
     review = review.model_copy(update={"name": draft.name or review.name})
+    try:
+        choices = DraftChoices.model_validate(draft.choices)
+    except ValidationError:
+        choices = None
+    if choices is not None and choices.lines:
+        # Answers already given (by ingredient, or on the review screen) are kept: a line
+        # answered with an ingredient is tied to it, the rest of the answered ones are words.
+        from mealwright.mealie_answers import _saved_review
+
+        choices = choices.model_copy(
+            update={
+                "lines": {i: c for i, c in choices.lines.items() if 0 <= i < len(review.lines)}
+            }
+        )
+        review, choices = drafts.freshen(kitchen, review, choices)
+        review = _saved_review(review, choices, draft)
     try:
         with db.begin_nested():
             photo = db.scalar(select(RecipePhoto).where(RecipePhoto.draft_id == draft.id))

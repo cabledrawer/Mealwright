@@ -41,3 +41,20 @@ def test_an_answer_that_completes_a_draft_keeps_its_staple_line_tied(
     assert done.json()["moved"] == 2, done.text
     lines = recipe_lines(kitchen, "Dish a")
     assert sorted(lines.values(), key=str) == sorted([salt, soy], key=str), lines  # salt is tied
+
+
+# --- 4. Save all keeps the answers already given -----------------------------------------------
+
+
+def test_save_all_ties_the_lines_answered_by_ingredient(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    bring(kitchen, tmp_path, {A: ["2 tbsp soya sauce", "a pinch of kasuri methi"]})
+    soy = make_food(kitchen, "Soy sauce")
+    done = answer(kitchen, "soya sauce", "ingredient", food_id=soy)
+    assert done.json()["moved"] == 0 and draft_names(kitchen) == ["Dish a"]  # one line waits
+    saved = kitchen.post(f"{API}/mealie-imports/drafts/save-all")
+    assert saved.json()["saved"] == 1, saved.text
+    lines = recipe_lines(kitchen, "Dish a")
+    assert soy in lines.values(), lines  # the answered line is tied, not plain text
+    assert None in lines.values()  # the unanswered one stays words only
