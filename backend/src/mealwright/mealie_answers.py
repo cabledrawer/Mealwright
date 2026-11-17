@@ -509,6 +509,8 @@ def _save_complete(
 ) -> dict[str, Any] | None:
     """The draft as a recipe, in its own savepoint; the draft's copy goes in the change so Undo can
     bring it back. None: it couldn't be saved (it stays a draft with its answers)."""
+    from mealwright.mealie_import import _read  # the one rule, as Save all and the import use
+
     db = kitchen.db
     photo = db.scalar(select(RecipePhoto).where(RecipePhoto.draft_id == draft.id))
     import_id, draft_id = draft.mealie_import_id, draft.id
@@ -523,7 +525,7 @@ def _save_complete(
                 kitchen,
                 final,
                 photo.id if photo is not None else None,
-                [line.label == "matched" and line.food is not None for line in final.lines],
+                [_read(line) for line in final.lines],
             )
             db.delete(draft)
             db.flush()
