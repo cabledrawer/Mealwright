@@ -101,3 +101,48 @@ def test_undo_leaves_a_mealie_ingredient_that_was_merged_into_an_existing_one(
     foods = _foods_by_name(kitchen)
     assert "Masoor" in foods and foods["Masoor"].removed_at is None
     assert foods["Red lentils"].merged_into_id == foods["Masoor"].id
+
+
+# --- R9: photo files wait for the outermost commit --------------------------------------------
+
+
+def _queued_session(tmp_path: Path) -> Any:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from mealwright.photos import STORE
+
+    return sessionmaker(
+        bind=create_engine("sqlite://"), expire_on_commit=False, info={STORE: tmp_path}
+    )()
+
+
+def _file(tmp_path: Path, key: str) -> Path:
+    from mealwright.photos import paths
+
+    path = paths(tmp_path, 1, key)[0]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"x")
+    return path
+
+
+def test_a_file_queued_in_a_rolled_back_savepoint_is_kept(tmp_path: Path) -> None:
+    """R9: the savepoint is undone, so its photo record is back and its file must stay; a file
+    queued in a savepoint that was released goes with the outer commit."""
+    from mealwright.photos import delete_after_commit
+
+    db = _queued_session(tmp_path)
+    kept, gone, outer = _file(tmp_path, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), _file(tmp_path, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"), _file(tmp_path, "cccccccccccccccccccccccccccccccc")
+    delete_after_commit(db, 1, ["cccccccccccccccccccccccccccccccc"])
+    with db.begin_nested():
+        delete_after_commit(db, 1, ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"])
+    try:
+        with db.begin_nested():
+            delete_after_commit(db, 1, ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"])
+            raise RuntimeError("this draft can't be saved")
+    except RuntimeError:
+        pass
+    assert kept.exists() and gone.exists() and outer.exists()  # nothing before the commit
+    db.commit()
+    assert kept.exists()
+    assert not gone.exists() and not outer.exists()

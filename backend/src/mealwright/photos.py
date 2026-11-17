@@ -308,18 +308,22 @@ def remove_files(store: Path, household_id: int, key: str) -> None:
 
 def delete_after_commit(db: Session, household_id: int, keys: Iterable[str]) -> None:
     """Delete these photos' files once this transaction is committed; if it's rolled
-    back, they stay."""
+    back, they stay. A deletion queued inside a savepoint that is rolled back is dropped, and
+    nothing is deleted when a savepoint is released: only when the outermost one commits."""
     store_of(db)  # fail now, not after the commit, if this session can't find them
-    db.info.setdefault(_DELETE_LATER, []).extend((household_id, key) for key in keys)
+    here = db.get_nested_transaction() or db.get_transaction()
+    db.info.setdefault(_DELETE_LATER, []).extend((household_id, key, here) for key in keys)
 
 
 @event.listens_for(Session, "after_commit")
 def _delete_now(db: Session) -> None:
+    if db.in_nested_transaction():  # a savepoint was released; the real commit is still to come
+        return
     waiting = db.info.pop(_DELETE_LATER, None)
     if not waiting:
         return
     store = store_of(db)
-    for household_id, key in waiting:
+    for household_id, key, _transaction in waiting:
         try:
             remove_files(store, household_id, key)
         except Exception as e:
@@ -329,6 +333,23 @@ def _delete_now(db: Session) -> None:
                 "Couldn't delete a photo's files (will try again within the hour): %s",
                 type(e).__name__,
             )
+
+
+@event.listens_for(Session, "after_soft_rollback")
+def _drop_rolled_back(db: Session, transaction: SessionTransaction) -> None:
+    """A savepoint (or the whole transaction) was rolled back: what was queued inside it is
+    dropped, because its photo records are back."""
+
+    def inside(queued: SessionTransaction | None) -> bool:
+        while queued is not None:
+            if queued is transaction:
+                return True
+            queued = queued.parent
+        return False
+
+    waiting = db.info.get(_DELETE_LATER)
+    if waiting:
+        waiting[:] = [entry for entry in waiting if not inside(entry[2])]
 
 
 @event.listens_for(Session, "after_transaction_end")
