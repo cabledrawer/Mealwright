@@ -265,3 +265,26 @@ test('screenshot of the Back up now box, dark (by hand only)', async ({ page }) 
     await page.screenshot({ path: join(dir!, `your-data-backup-now-${width}.png`), fullPage: true });
   }
 });
+
+test('Delete everything: Back up now first at a full folder asks on its own and makes nothing', async ({ page }) => {
+  await pretendThereAreFour(page, 7);
+  const sent: string[] = [];
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().endsWith('/api/v1/backups')) sent.push(request.postData() ?? '');
+  });
+  await page.goto('/settings/your-data/delete');
+  await page.getByLabel('Your password', { exact: true }).fill('typed for the delete');
+  await page.getByRole('button', { name: 'Back up now first' }).click();
+  await expect(page.getByText('This replaces the oldest backup.')).toBeVisible();
+  await expect(page.getByLabel('Your password for backing up')).toBeVisible();
+  await checkPage(page);
+  expect(sent).toEqual([]);
+  const dir = process.env.E2E_SHOTS_DIR;
+  if (dir && test.info().project.name.startsWith('desktop')) {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    for (const width of [428, 768, 1100, 1300]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.screenshot({ path: join(dir, `delete-everything-backup-now-${width}.png`), fullPage: true });
+    }
+  }
+});
