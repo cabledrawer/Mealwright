@@ -15,6 +15,10 @@
   const text = $derived(
     offlineText(layout === 'phone' ? 'phone' : 'desktop', network.waiting, network.deviceOffline)
   );
+  // The folded sidebar has no room for the line about waiting changes, so the dot says it (F252).
+  const dotLabel = $derived(
+    text.detail ? `${text.title}. ${text.detail} Try now` : `${text.title}. Try now`
+  );
 </script>
 
 <div
@@ -28,8 +32,8 @@
       <button
         type="button"
         class="dot-button"
-        aria-label={`${text.title}. Try now`}
-        title={`${text.title}. Try now`}
+        aria-label={dotLabel}
+        title={dotLabel}
         disabled={network.trying}
         onclick={() => void network.tryNow()}
       >

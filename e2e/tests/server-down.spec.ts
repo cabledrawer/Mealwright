@@ -12,7 +12,15 @@ import { isPhone } from './a11y.ts';
 test.use({ serviceWorkers: 'block' });
 
 /** The offline bar for this layout (phone: above the tabs; desktop: foot of the sidebar). */
-const bar = (page: Page) => page.getByTestId(isPhone(page) ? 'connection-phone' : 'connection-desktop');
+// On a computer's Settings pages the menu is folded, so the bar is its dot (F252).
+const onSettings = (page: Page) => !isPhone(page) && new URL(page.url()).pathname.startsWith('/settings');
+const bar = (page: Page) =>
+  page.getByTestId(isPhone(page) ? 'connection-phone' : onSettings(page) ? 'connection-dot' : 'connection-desktop');
+/** What the bar says: its words, or for the dot its button's name. */
+const barSays = (page: Page, words: string) =>
+  onSettings(page)
+    ? expect(bar(page).getByRole('button', { name: new RegExp(words) })).toBeVisible()
+    : expect(bar(page)).toContainText(words);
 
 const backOnline = (page: Page) => page.getByText('Back online — all saved');
 
@@ -61,7 +69,7 @@ for (const { name, path, notes, realTime: realTimePage } of PAGES) {
     await page.reload();
     await barTurns(true);
     // The bar's word follows the cause too (cabledrawer 30 Oct): the device has a network.
-    await expect(bar(page)).toContainText('Can’t reach server');
+    await barSays(page, 'Can’t reach server');
 
     // Steady for over two rounds of the online check (every 5 seconds): the bar never goes,
     // the page never flits between "You're offline" and itself, and no "Back online" toast.

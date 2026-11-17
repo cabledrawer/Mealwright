@@ -26,7 +26,7 @@ async function make(page: Page, name: string, can: 'Read only' | 'Read and chang
   return (await shown.textContent())!.trim();
 }
 
-test('Settings lists API tokens in the Household group, leading to the list, with ‹ Sign-in for everyone back', async ({
+test('Settings lists API tokens in the Household group, leading to the list, with ‹ Settings back', async ({
   page,
 }) => {
   await page.goto('/settings');
@@ -36,9 +36,9 @@ test('Settings lists API tokens in the Household group, leading to the list, wit
   await row.click();
   await expect(page).toHaveURL(/\/settings\/api-tokens$/);
   await expect(page.getByRole('heading', { name: 'API tokens', level: 1 })).toBeVisible();
-  // Back to Sign-in for everyone.
-  await page.getByRole('link', { name: 'Sign-in for everyone' }).first().click();
-  await expect(page).toHaveURL(/\/settings\/sign-in-everyone$/);
+  // ‹ Settings goes back to the list.
+  await page.getByRole('link', { name: 'Settings', exact: true }).first().click();
+  await expect(page).toHaveURL(/\/settings(\/appearance)?$/);
 });
 
 test('a token is shown once, works for another app, and stops when deleted', async ({

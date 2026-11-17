@@ -67,7 +67,7 @@ test('the list of Settings sits beside the page, one item each, the open one mar
   await page.goto('/settings');
   await expect(page).toHaveURL(/\/settings\/appearance$/);
   const list = page.getByRole('navigation', { name: 'Settings', exact: true });
-  await expect(list.getByRole('link')).toHaveText([
+  await expect(list.getByRole('link').filter({ hasNotText: 'Finish setup' })).toHaveText([
     'Appearance',
     'Amounts',
     'Your sign-in',

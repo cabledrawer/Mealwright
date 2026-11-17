@@ -61,6 +61,12 @@ const waitingText = (page: Page, n: number) => {
   return isPhone(page) ? `Offline — ${changes} waiting` : `${changes} waiting. They’ll save when you’re back.`;
 };
 
+/** The waiting changes are shown: in the bar, or on a computer's Settings pages (the menu is folded there) by the dot. */
+const waitingShown = (page: Page, n: number) =>
+  !isPhone(page) && new URL(page.url()).pathname.startsWith('/settings')
+    ? expect(page.getByRole('button', { name: new RegExp(`${n} ${n === 1 ? 'change' : 'changes'} waiting`) })).toBeVisible()
+    : expect(bar(page)).toContainText(waitingText(page, n));
+
 /** The phone database is there. */
 const phoneDatabase = (page: Page) =>
   page.evaluate(async () => (await indexedDB.databases()).some((db) => db.name === 'mealwright'));
@@ -477,7 +483,7 @@ test('E3: signing out offline warns first, then wipes, and the session ends once
   await expect(page.getByRole('button', { name: 'Sign out and lose it' })).toBeVisible();
   await page.getByRole('button', { name: 'Stay signed in' }).click();
   await expect(page.getByRole('alert')).toHaveCount(0);
-  await expect(bar(page)).toContainText(waitingText(page, 1));
+  await waitingShown(page, 1);
   expect(await phoneDatabase(page)).toBe(true);
 
   // Sign out and lose it: the phone database is gone, and the sign-in page shows.

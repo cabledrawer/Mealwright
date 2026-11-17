@@ -50,8 +50,8 @@ test('a computer: the main menu folds to icons with names and tooltips, and the 
   expect(listBox.x).toBeGreaterThanOrEqual(sideBox.x + sideBox.width - 1);
   const content = (await page.getByRole('heading', { level: 1, name: 'Amounts' }).boundingBox())!;
   expect(content.x).toBeGreaterThan(listBox.x + listBox.width - 1);
-  await expect(list(page).getByRole('link', { name: 'Amounts' })).toHaveAttribute('aria-current', 'page');
-  await expect(list(page).getByRole('link', { name: 'Appearance' })).not.toHaveAttribute('aria-current');
+  await expect(list(page).getByRole('link', { name: 'Amounts', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(list(page).getByRole('link', { name: 'Appearance', exact: true })).not.toHaveAttribute('aria-current');
   await checkPage(page);
   // The way back to the app: the menu opens out again on any other page.
   await side.getByRole('link', { name: 'Show the menu' }).click();
@@ -141,7 +141,7 @@ test('a member is not shown the Household group, and an address in it says only 
     await checkPage(page);
   } else {
     await expect(page).toHaveURL('/settings/appearance');
-    await expect(list(page).getByRole('link', { name: 'Appearance' })).toBeVisible();
+    await expect(list(page).getByRole('link', { name: 'Appearance', exact: true })).toBeVisible();
     await expect(list(page).getByRole('group', { name: 'Household settings' })).toHaveCount(0);
     for (const item of HOUSEHOLD_ITEMS) {
       await expect(list(page).getByRole('link', { name: item, exact: true })).toHaveCount(0);

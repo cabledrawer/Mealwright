@@ -86,7 +86,7 @@ test("Settings leads to About: the version, its release day and the admins’ Up
   await page.goto("/settings");
   // A computer opens Appearance first, with the list beside it (F252).
   if (!isPhone(page)) await expect(page).toHaveURL("/settings/appearance");
-  await page.locator('a[href="/settings/about"]').first().click();
+  await page.locator('a[href="/settings/about"]:visible').first().click();
   await expect(page).toHaveURL("/settings/about");
   await expect(
     page.getByRole("heading", { level: 1, name: "About" }),
@@ -142,7 +142,7 @@ test("the daily check is its own Privacy switch, off at first; About says when i
     .toContainEqual({ connection: "update_check", on: true });
   await page.goto("/settings/about");
   await expect(page.getByRole("link", { name: /^Daily check/ })).toContainText(
-    "Once a day · change in Privacy",
+    "Once a day · change in Outside connections",
   );
   await expect(page.getByRole("link", { name: /^Daily check/ })).toContainText(
     "On",
