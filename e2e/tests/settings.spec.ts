@@ -89,7 +89,7 @@ test('the list of Settings sits beside the page, one item each, the open one mar
   // The main menu has folded to its icons, each with a name and a tooltip.
   const side = page.getByRole('complementary', { name: 'Sidebar' });
   await expect(side.getByText('Mealwright', { exact: true })).toHaveCount(0);
-  await expect(side.getByRole('link', { name: 'Today' })).toHaveAttribute('title', 'Today');
+  await expect(side.getByRole('link', { name: 'Today', exact: true })).toHaveAttribute('title', 'Today');
   for (const link of await list.getByRole('link').all()) {
     expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }

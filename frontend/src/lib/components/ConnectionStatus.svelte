@@ -62,7 +62,9 @@
     display: none;
   }
 
-  .dot {
+  /* The circle only: the folded sidebar's wrapper is also classed "dot" and must not become one. */
+  .line .dot,
+  .dot-button .dot {
     flex: none;
     width: 8px;
     height: 8px;
@@ -166,7 +168,8 @@
   }
 
   @media (forced-colors: active) {
-    .dot {
+    .line .dot,
+    .dot-button .dot {
       background: CanvasText;
     }
   }

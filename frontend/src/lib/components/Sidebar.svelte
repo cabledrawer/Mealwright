@@ -390,7 +390,7 @@
   .collapsed {
     width: var(--sidebar-collapsed-width);
     align-items: center;
-    gap: var(--space-4);
+    gap: var(--space-6);
     padding: 18px var(--space-5);
   }
 
@@ -407,8 +407,8 @@
 
   .collapsed nav a {
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     padding: 0;
     border-radius: var(--radius-lg);
     color: var(--color-text-soft);
@@ -416,7 +416,6 @@
 
   .collapsed .foot {
     align-items: center;
-    gap: var(--space-3);
   }
 
   .collapsed .settings {
