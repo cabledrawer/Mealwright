@@ -35,7 +35,9 @@ router = APIRouter(tags=["recipes"], dependencies=[SameOrigin])
         },
         422: {
             "description": "A sentence in `detail` and a `code`: `not_a_page`, `bad_link`,"
-            " `cant_reach`, `cant_read`, `busy`, `no_recipe`, `text_too_long` and the rest of"
+            " `cant_reach`, `cant_read`, `busy`, `cant_open_link`"
+            " (a member's answer for a link on this server or your own network, or on an unusual"
+            " port), `no_recipe`, `text_too_long` and the rest of"
             " docs/dev/recipe-import.md."
         },
     },

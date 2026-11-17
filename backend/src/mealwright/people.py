@@ -657,7 +657,9 @@ def undo(kitchen: Kitchen, change: Change) -> None:
             raise _cannot_undo(f"That can’t be undone: {member.name} is back already.")
         gone = login_of(kitchen, member)
         if gone is not None and LET_GO in gone.username:  # their username is free for others now
-            raise _cannot_undo(f"That can’t be undone: {member.name}’s username was let go.")
+            raise _cannot_undo(  # proposed, for cabledrawer
+                f"That can’t be undone: {member.name}’s username was let go."
+            )
         try:
             check_name(kitchen, member.name, member.id)
         except Problem:

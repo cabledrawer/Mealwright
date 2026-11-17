@@ -435,7 +435,9 @@ never goes online and works with the switch off. A link goes through `page_fetch
 read only with `page_budget.read_within_budget`, and the fetch, a wait for a place to read, the
 read and the photo share one 30-second deadline set when the import starts (see "The import's 30
 seconds" above). Every refusal is 422 with a `code` and a sentence from
-`words.md` section 18: `bad_link`, `always_blocked`, `own_network`, `odd_port`,
+`words.md` section 18: `bad_link`, `always_blocked`, `own_network`, `odd_port` (an admin's answer; a
+member gets `cant_open_link` for all three, and the same sentence on the photo, so no member can map
+internal names; proposed, for cabledrawer),
 `too_many_redirects`, `cant_reach` (also anything the fetch did not expect), `timeout`, `site_error`, `not_a_page`, `page_too_big`,
 `cant_read` (over a budget, a crash, or anything the reader did not expect: the log has the
 connection's label and the kind of error, never an address), `busy`, `no_recipe` (a page without a
