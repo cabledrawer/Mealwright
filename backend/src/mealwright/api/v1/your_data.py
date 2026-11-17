@@ -195,7 +195,7 @@ def export_everything(kitchen: Here) -> StreamingResponse:
     # Everything is read now, in one snapshot, before the first byte is sent.
     doc = export.document(kitchen.db, household_id)
     kitchen.db.rollback()  # ends the read
-    photos = export.photo_files(store_of(kitchen.db), household_id)
+    photos = export.photo_files(store_of(kitchen.db), household_id, doc)
     name = export.file_name(today(kitchen.household))
     return StreamingResponse(
         export.zip_stream(doc, photos),
@@ -255,7 +255,7 @@ def export_everything_with_password(body: ExportWithPassword, kitchen: Here) -> 
     household_id = kitchen.household_id
     doc = export.document(kitchen.db, household_id)
     kitchen.db.rollback()
-    photos = export.photo_files(store_of(kitchen.db), household_id)
+    photos = export.photo_files(store_of(kitchen.db), household_id, doc)
     name = export.file_name(today(kitchen.household)) + export_crypto.SUFFIX
     return StreamingResponse(
         export_crypto.encrypt_with(export.zip_stream(doc, photos), sealing),

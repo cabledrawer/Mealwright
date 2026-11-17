@@ -13,8 +13,8 @@ from sync_kit import person
 from test_mealie_import import API, bring_in, many, mealie_files, upload, zipped
 
 from mealwright import mealie_import
-from mealwright.mealie_file import read_now
 from mealwright.api.v1 import mealie as mealie_api
+from mealwright.mealie_file import read_now
 from mealwright.models import MealieImport, Recipe, utcnow
 
 

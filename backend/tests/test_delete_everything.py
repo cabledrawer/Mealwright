@@ -343,7 +343,6 @@ def test_a_photo_that_cant_be_removed_is_moved_out_of_reach(
 ) -> None:
     """The next household is household 1 again: a photo left in photos/1 would be served
     and exported as its own. What can't be removed goes aside, out of photos/ (review r1)."""
-    from mealwright import export
 
     store = _data(kitchen) / "photos"
     photos = store / "1"
@@ -363,7 +362,6 @@ def test_a_photo_that_cant_be_removed_is_moved_out_of_reach(
         assert kitchen.post("/api/v1/setup", json=ADMIN).status_code == 201
         with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
             assert db.scalars(select(Household.id)).all() == [1]
-        assert export.photo_files(store, 1) == []
         assert not photos.exists() or not any(photos.rglob("*"))
     finally:
         for folder in _data(kitchen).glob("photos-left-over-*/stuck"):

@@ -185,14 +185,38 @@ def test_the_stream_is_a_valid_zip_with_photos_stored_as_they_are(tmp_path: Path
         assert archive.read("photos/" + photo.name) == photo.read_bytes()
 
 
-def test_only_photo_files_are_taken(tmp_path: Path) -> None:
+def _rows(*keys: str) -> dict[str, object]:
+    return {"tables": {"recipe_photo": [{"file_key": key} for key in keys]}}
+
+
+def test_only_the_photos_of_the_exported_rows_are_taken(tmp_path: Path) -> None:
+    """B7 low: the list comes from the recipe_photo rows, not the folder."""
     folder = household_folder(tmp_path, 1)
     folder.mkdir(parents=True)
     keep = ["c" * 32 + ".jpg", "c" * 32 + "-list.jpg"]
-    for name in [*keep, "c" * 32 + ".jpg.part", "notes.txt", "../x.jpg".replace("/", "_")]:
+    stray = ["d" * 32 + ".jpg", "d" * 32 + "-list.jpg"]
+    for name in [*keep, *stray, "c" * 32 + ".jpg.part", "notes.txt"]:
         (folder / name).write_bytes(b"x")
-    assert [p.name for p in export.photo_files(tmp_path, 1)] == sorted(keep)
-    assert export.photo_files(tmp_path, 9) == []
+    doc = _rows("c" * 32, "e" * 32, "../../etc/passwd", "not a key")  # one row has no files
+    assert [p.name for p in export.photo_files(tmp_path, 1, doc)] == sorted(keep)
+    assert export.photo_files(tmp_path, 9, doc) == []
+
+
+def test_a_symbolic_link_is_never_followed_into_the_export(tmp_path: Path) -> None:
+    folder = household_folder(tmp_path, 1)
+    folder.mkdir(parents=True)
+    secret = tmp_path / "secret.jpg"
+    secret.write_bytes(b"not for the export")
+    (folder / ("a" * 32 + ".jpg")).symlink_to(secret)
+    (folder / ("a" * 32 + "-list.jpg")).write_bytes(jpeg())
+    assert [p.name for p in export.photo_files(tmp_path, 1, _rows("a" * 32))] == [
+        "a" * 32 + "-list.jpg"
+    ]
+    # A link put in the place of a listed file after the list was made is skipped too.
+    doc = {"format": export.FORMAT, "version": 1, "tables": {}}
+    data = b"".join(export.zip_stream(doc, [folder / ("a" * 32 + ".jpg")]))
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        assert archive.namelist() == [export.DOCUMENT]
 
 
 def test_no_token_and_no_single_sign_on_secret_ever_leaves(kitchen: TestClient) -> None:
@@ -247,10 +271,7 @@ def _open_sealed(content: bytes, password: str = SEALED_PASSWORD) -> bytes:
 def test_with_a_password_the_file_is_encrypted_and_opens_to_the_same_export(
     kitchen: TestClient,
 ) -> None:
-    store = _photo_store(kitchen)
-    folder = household_folder(store, 1)
-    folder.mkdir(parents=True)
-    (folder / ("a" * 32 + ".jpg")).write_bytes(jpeg())
+    photo = uploaded(kitchen, jpeg())  # a recipe_photo row, so its file is exported
     sealed = kitchen.post(API, json={"password": SEALED_PASSWORD})
     assert sealed.status_code == 200, sealed.text
     assert sealed.headers["content-type"] == "application/octet-stream"
@@ -265,7 +286,11 @@ def test_with_a_password_the_file_is_encrypted_and_opens_to_the_same_export(
     assert b"PK\x03\x04" not in body
     doc, photos = export.read(io.BytesIO(_open_sealed(body)))
     assert doc["format"] == "mealwright-export"
-    assert photos == {"a" * 32 + ".jpg": jpeg()}
+    assert photo["id"]
+    large = [n for n in photos if not n.endswith("-list.jpg")]
+    assert len(large) == 1 and large[0][:-4] + "-list.jpg" in photos  # its two copies
+    folder = household_folder(_photo_store(kitchen), 1)
+    assert photos[large[0]] == (folder / large[0]).read_bytes()
 
 
 def test_without_a_password_the_export_is_exactly_the_plain_zip(kitchen: TestClient) -> None:

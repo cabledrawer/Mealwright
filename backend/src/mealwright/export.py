@@ -21,6 +21,7 @@ network connection.
 """
 
 import json
+import os
 import re
 import zipfile
 from collections.abc import Iterator
@@ -36,7 +37,7 @@ from sqlalchemy.orm import Session
 from mealwright import __version__
 from mealwright.db import Base
 from mealwright.models import utcnow
-from mealwright.photos import household_folder
+from mealwright.photos import paths as photo_paths
 
 FORMAT = "mealwright-export"
 VERSION = 1
@@ -116,13 +117,19 @@ def document(db: Session, household_id: int) -> dict[str, Any]:
     }
 
 
-def photo_files(store: Path, household_id: int) -> list[Path]:
-    """The household's photo files (never a half-written upload or anything else)."""
-    folder = household_folder(store, household_id)
-    try:
-        return sorted(p for p in folder.iterdir() if _PHOTO_FILE.match(p.name) and p.is_file())
-    except OSError:  # no photos yet
-        return []
+def photo_files(store: Path, household_id: int, doc: dict[str, Any]) -> list[Path]:
+    """The household's photo files: those of the `recipe_photo` rows in the export document
+    (never a stray file in the folder, a half-written upload, or a symbolic link)."""
+    found: set[Path] = set()
+    for row in doc.get("tables", {}).get("recipe_photo", []):
+        try:
+            copies = photo_paths(store, household_id, str(row.get("file_key")))
+        except ValueError:  # not a key Mealwright made
+            continue
+        for path in copies:
+            if _PHOTO_FILE.match(path.name) and not path.is_symlink() and path.is_file():
+                found.add(path)
+    return sorted(found)
 
 
 class _Pipe:
@@ -155,8 +162,8 @@ def zip_stream(doc: dict[str, Any], photos: list[Path]) -> Iterator[bytes]:
         archive.writestr(DOCUMENT, json.dumps(doc, ensure_ascii=False, indent=1))
         yield pipe.take()
         for path in photos:
-            try:
-                source = path.open("rb")
+            try:  # never through a symbolic link put in the file's place meanwhile
+                source = os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), "rb")
             except OSError:
                 continue
             with source:
