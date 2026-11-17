@@ -13,6 +13,8 @@ const VERB_KINDS = new Set([
   'split',
   'undo',
   'recipe_imported',
+  // Mealie drafts answered by ingredient (0.9.5-beta.2): "Answered “soya sauce” in 46 drafts".
+  'mealie_drafts_answered',
   // The rest of Settings → Recent changes (F172): stock, plan, cooking, recipes and removals.
   'added',
   'used',

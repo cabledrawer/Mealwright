@@ -2,6 +2,13 @@
 
 All notable changes to Mealwright are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the plan in `docs/spec.md` section 8: 0.N.0 per build milestone (not published), then MAJOR.MINOR.PATCH from 1.0.0.
 
+## [Unreleased]
+
+### Added
+
+- **Drafts from Mealie can be fixed by ingredient (cabledrawer 15 Nov, 0.9.5-beta.2).** On Drafts, when Mealie drafts wait, a By recipe | By ingredient switch appears. By ingredient groups the lines that couldn't be matched by ingredient across all drafts, most-used first; one answer (an ingredient you have, a new ingredient with its pantry place, or plain text) goes into every draft that uses it, and a recipe whose lines are all answered moves to Recipes. Nothing is saved until you answer; Skip for now changes nothing. Undo (7 days, in the toast and in Recent changes) puts the answers back and the recipes back in Drafts; recipes changed, cooked or planned since stay in Recipes. New API: `GET /api/v1/recipes/drafts/by-ingredient` and `POST /api/v1/recipes/drafts/by-ingredient/answer`.
+- **A new ingredient brought in from Mealie now gets a pantry place (F249)**, the same first guess as the import check (Fridge for milk and the like, otherwise Cupboard), instead of none.
+
 ## [0.9.5-beta.1] - 2026-11-15
 
 The first 0.9.5 test version, for the trial: Import from Mealie, sign-in links and single sign-on fixes, people (remove, rename, undo), plan timing, backups with photos, an export password, A4 printing, the small items and leftovers, image and check extras, and the first speed work. Several lines are marked "proposed, for cabledrawer": they are words or rules I chose that still need your yes.

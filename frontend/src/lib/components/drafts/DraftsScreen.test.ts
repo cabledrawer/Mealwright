@@ -617,4 +617,27 @@ describe('the Drafts screen', () => {
       expect(lines.size).toBe(1);
     });
   });
+
+  describe('the By recipe | By ingredient switch', () => {
+    it('shows only while Mealie drafts wait, and opens By ingredient', async () => {
+      await open({ 'GET /recipes/drafts': list(THREE) });
+      await expect.element(page.getByText('Chettinad kuzhambu')).toBeVisible();
+      expect(page.getByRole('button', { name: 'By ingredient' }).elements()).toHaveLength(0);
+      unmount(component!);
+      component = null;
+      document.body.innerHTML = '';
+      const requests = await open({
+        'GET /recipes/drafts': list([draft({ id: 50, name: 'Minestrone', source: { kind: 'mealie', site: null } })]),
+        'GET /recipes/drafts/by-ingredient': [
+          200,
+          { groups: [], total: 0, drafts: 0, recipes_ready: 0, places: [] }
+        ]
+      });
+      await page.getByRole('button', { name: 'By ingredient' }).click();
+      await expect.element(page.getByText('Every ingredient is answered')).toBeVisible();
+      expect(requests.some((r) => r.path === '/recipes/drafts/by-ingredient')).toBe(true);
+      await page.getByRole('button', { name: 'By recipe' }).click();
+      await expect.element(page.getByRole('button', { name: 'By ingredient' })).toBeVisible();
+    });
+  });
 });

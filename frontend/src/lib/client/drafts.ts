@@ -73,3 +73,56 @@ export const changeDraft = (id: number, body: DraftBody) =>
 
 export const deleteDraft = (id: number, idempotencyKey: string) =>
   api<{ change: Change }>('DELETE', `/recipes/drafts/${id}`, undefined, { idempotencyKey });
+
+// Fixing Mealie drafts by ingredient (spec "Fixing Mealie drafts by ingredient", cabledrawer
+// 15 Nov, 0.9.5-beta.2; backend api/v1/drafts.py). The lines nobody could read are grouped by
+// ingredient across every draft; one answer goes into each draft that uses it. Online only.
+
+/** One group: an ingredient still unanswered in some drafts. */
+export interface IngredientGroup {
+  /** What an answer names the group by. */
+  key: string;
+  name: string;
+  /** How many drafts use it, and how many lines. */
+  drafts: number;
+  lines: number;
+  /** Up to two of the lines as written. */
+  examples: string[];
+  /** An ingredient the household has that it may be. */
+  suggestion: Ref | null;
+  /** The first guess for a new ingredient: its name and where it is kept. */
+  new_name: string;
+  new_place: Ref | null;
+}
+
+export interface IngredientGroups {
+  /** Most-used first (the first `limit`). */
+  groups: IngredientGroup[];
+  /** Every group still unanswered. */
+  total: number;
+  drafts: number;
+  recipes_ready: number;
+  places: Ref[];
+}
+
+/** One answer for a group: an ingredient the household has, a new one, or plain text. */
+export type GroupAnswer =
+  | { key: string; kind: 'ingredient'; food_id: number }
+  | { key: string; kind: 'new'; name: string; place_id: number | null }
+  | { key: string; kind: 'text' };
+
+export interface GroupAnswered {
+  change: Change;
+  drafts: number;
+  moved: number;
+  ingredient: Ref | null;
+}
+
+export const listGroups = (limit?: number) =>
+  api<IngredientGroups>(
+    'GET',
+    `/recipes/drafts/by-ingredient${limit ? `?limit=${limit}` : ''}`
+  );
+
+export const answerGroup = (body: GroupAnswer, idempotencyKey: string) =>
+  api<GroupAnswered>('POST', '/recipes/drafts/by-ingredient/answer', body, { idempotencyKey });

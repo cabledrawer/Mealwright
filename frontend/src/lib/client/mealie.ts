@@ -35,7 +35,7 @@ export interface MealiePreview {
   recipes: PreviewRecipe[];
 }
 
-export type ResultState = 'saved' | 'draft' | 'saved_all' | 'already' | 'skipped';
+export type ResultState = 'saved' | 'draft' | 'saved_all' | 'answered' | 'already' | 'skipped';
 
 export interface MealieResult {
   key: string;

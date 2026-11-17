@@ -37,11 +37,13 @@
   import { initial, session } from '#lib/session.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import type { Side } from '#lib/swipe.js';
+  import { BY_INGREDIENT, BY_RECIPE, SWITCH_LABEL } from '#lib/groupWords.js';
   import EmptyState from '../EmptyState.svelte';
   import FilterChips from '../FilterChips.svelte';
   import OfflineNote from '../OfflineNote.svelte';
   import PageHeader from '../PageHeader.svelte';
   import SwipeRow from '../SwipeRow.svelte';
+  import IngredientGroups from './IngredientGroups.svelte';
 
   let { fromMealie = false }: { fromMealie?: boolean } = $props();
 
@@ -109,6 +111,12 @@
   );
   const mealieLine = (draft: DraftBrief) =>
     unreadWords(draft.waiting ?? [], needYou(draft), !phone);
+
+  /** By recipe (the list) or By ingredient (0.9.5-beta.2): the switch shows while Mealie drafts
+   *  wait, and stays while By ingredient is open so its "all answered" can be seen. */
+  let view = $state<'recipe' | 'ingredient'>('recipe');
+  const byIngredient = $derived(view === 'ingredient' && (mealie.length > 0 || groupsOpen));
+  let groupsOpen = $state(false);
 
   let savingAll = $state(false);
   let saveAllProblem = $state<string | null>(null);
@@ -203,6 +211,29 @@
       onselect={(value) => (only = value)}
     />
   {/if}
+  {#if mealie.length || view === 'ingredient'}
+    <div class="seg" role="group" aria-label={SWITCH_LABEL}>
+      <button
+        type="button"
+        aria-pressed={view === 'recipe'}
+        onclick={() => {
+          view = 'recipe';
+          groupsOpen = false;
+        }}>{BY_RECIPE}</button
+      >
+      <button
+        type="button"
+        aria-pressed={view === 'ingredient'}
+        onclick={() => {
+          view = 'ingredient';
+          groupsOpen = true;
+        }}>{BY_INGREDIENT}</button
+      >
+    </div>
+  {/if}
+  {#if byIngredient}
+    <IngredientGroups {phone} />
+  {:else}
   {#if showing === 'mealie'}
     <div class="mealie">
       <p class="lead">{DRAFTS_LEAD}</p>
@@ -331,9 +362,36 @@
       ingredients until it’s saved.
     </p>
   {/if}
+  {/if}
 {/if}
 
 <style>
+  .seg {
+    display: inline-flex;
+    align-self: flex-start;
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-ground);
+  }
+
+  .seg button {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--color-text-soft);
+    font: var(--weight-bold) var(--text-base) var(--font-ui);
+    cursor: pointer;
+  }
+
+  .seg button[aria-pressed='true'] {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+  }
+
   .sr {
     position: absolute;
     width: 1px;
