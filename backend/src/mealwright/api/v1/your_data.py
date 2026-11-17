@@ -13,9 +13,9 @@ import shutil
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import Engine, delete, func, select
@@ -345,7 +345,7 @@ def how_to_confirm(
     kitchen: Here,
     request: Request,
     action: Literal["delete_everything", "keep", "backup_now"] = "delete_everything",
-    keep: int | None = None,
+    keep: Annotated[int | None, Query(ge=1, le=backups.KEEP_MOST)] = None,
 ) -> HowToConfirm:
     """Admins only: how this admin confirms Delete everything (or, with `action`, lowering Keep
     to `keep`, or Back up now at a full folder); `confirmed` is for that action only."""
