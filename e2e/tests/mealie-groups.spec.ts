@@ -163,7 +163,7 @@ test('one answer goes into every draft that uses the ingredient; Undo puts it ba
   await page.getByRole('button', { name: 'Fridge' }).click();
   await checkPage(page);
   await page.getByRole('button', { name: /^Use for all/ }).click();
-  await expect(page.getByText(/Answered .* in 2 drafts · 1 recipes moved to Recipes/)).toBeVisible();
+  await expect(page.getByText(/Answered .* in 2 drafts · 1 recipe moved to Recipes/)).toBeVisible();
   // Lorna's soup had only that line: it is a recipe now; Sam's stew still waits for the root.
   expect(await recipeNames(page, tag)).toContain('Lorna’s soup');
   const drafts = JSON.stringify(await (await page.request.get('/api/v1/recipes/drafts')).json());
