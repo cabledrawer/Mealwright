@@ -42,6 +42,13 @@ def test_the_image_healthcheck_asks_the_health_endpoint() -> None:
     assert "/api/v1/version" not in check
 
 
+def test_the_image_healthcheck_ignores_an_environment_proxy() -> None:
+    dockerfile = (Path(__file__).resolve().parents[2] / "Dockerfile").read_text()
+    check = dockerfile[dockerfile.index("HEALTHCHECK") :]
+    assert "ProxyHandler({})" in check
+    assert "urlopen" not in check
+
+
 def test_both_health_answers_are_never_kept(client: TestClient, tmp_path: Path) -> None:
     assert client.get("/api/v1/health").headers["cache-control"] == "no-store"
     broken = create_engine(f"sqlite:///{tmp_path}")

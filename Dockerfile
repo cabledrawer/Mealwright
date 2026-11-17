@@ -73,5 +73,5 @@ VOLUME /data
 EXPOSE 8080
 # Asks the app itself, on the container's own loopback address. /api/v1/health answers 200 only when the database answers a trivial query (0.9.5).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD ["python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/api/v1/health', timeout=4).status == 200 else 1)"]
+  CMD ["python", "-c", "import sys, urllib.request; sys.exit(0 if urllib.request.build_opener(urllib.request.ProxyHandler({})).open('http://127.0.0.1:8080/api/v1/health', timeout=4).status == 200 else 1)"]
 CMD ["python", "-m", "mealwright"]
