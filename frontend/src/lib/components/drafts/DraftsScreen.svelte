@@ -646,7 +646,7 @@
     /* F246: the table uses the room the page has (it was held to 1100px with 6px between
        columns, and the buttons wrapped under each other). */
     width: 100%;
-    padding: 6px 24px;
+    padding: 6px 18px;
     border-collapse: separate;
     border-spacing: 0;
     border-radius: var(--radius-2xl);
@@ -657,14 +657,14 @@
 
   .table th,
   .table td {
-    padding: 16px 14px;
+    padding: 14px 6px;
     border-top: 1px solid var(--color-border);
     vertical-align: middle;
     font-weight: var(--weight-regular);
   }
 
   .table thead th {
-    padding: 12px 14px;
+    padding: 12px 6px;
     border-top: none;
     color: var(--color-text-muted);
     font-size: var(--text-xs);
@@ -750,6 +750,19 @@
   }
 
   @container (min-width: 50rem) {
+    .table {
+      padding: 6px 24px;
+    }
+
+    .table th,
+    .table td {
+      padding: 16px 14px;
+    }
+
+    .table thead th {
+      padding: 12px 14px;
+    }
+
     .table th.name {
       min-width: 12rem;
     }
