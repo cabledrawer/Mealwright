@@ -140,6 +140,8 @@ def test_a_read_only_token_reads_and_never_changes(kitchen: TestClient) -> None:
         app.patch(f"{API}/household", json={"cook_per_step": True}),
         app.put(f"{API}/places/order", json={"ids": []}),
         app.delete(f"{API}/places/1"),
+        app.post(f"{API}/recipes/import", json={"text": "https://example.org/pie"}),
+        app.post(f"{API}/recipes/import/save", json={}),
     ]
     for r in writes:
         _refused(r, 403, "read_only_token")
