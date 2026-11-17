@@ -664,7 +664,7 @@
     border-radius: var(--radius-md);
     background: var(--color-field);
     color: var(--color-text);
-    font: var(--weight-medium) var(--text-lg) var(--font-ui);
+    font: var(--weight-medium) 1rem var(--font-ui);
   }
 
   .picked {
@@ -687,7 +687,7 @@
   }
 
   .chip {
-    min-height: 36px;
+    min-height: 44px;
     padding: 0 var(--space-5);
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-full);
