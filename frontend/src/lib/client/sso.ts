@@ -118,7 +118,8 @@ export type ConfirmingFor = 'delete' | 'backups';
 
 export function markConfirming(on: boolean, now = Date.now(), forPage: ConfirmingFor = 'delete') {
   try {
-    if (on) sessionStorage.setItem(CONFIRMING, forPage === 'delete' ? String(now) : `${now}:${forPage}`);
+    if (on)
+      sessionStorage.setItem(CONFIRMING, forPage === 'delete' ? String(now) : `${now}:${forPage}`);
     else sessionStorage.removeItem(CONFIRMING);
   } catch {
     // Storage blocked: the way back is then Back to sign in, which still works.

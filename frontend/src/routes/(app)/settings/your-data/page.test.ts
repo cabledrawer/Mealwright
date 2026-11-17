@@ -584,7 +584,9 @@ describe('Settings → Your data', () => {
       expect(patches()).toEqual([]);
       await userEvent.fill(page.getByLabelText('Your password'), 'correct horse battery');
       await go().click();
-      await vi.waitFor(() => expect(patches()).toEqual([{ keep: 2, password: 'correct horse battery' }]));
+      await vi.waitFor(() =>
+        expect(patches()).toEqual([{ keep: 2, password: 'correct horse battery' }])
+      );
       await expect.element(page.getByLabelText('Keep')).toHaveValue('2');
       await expect.element(go()).not.toBeInTheDocument();
     });
@@ -651,7 +653,9 @@ describe('Settings → Your data', () => {
       await page.getByLabelText('Keep').selectOptions('Last 2');
       await expect
         .element(page.getByRole('status'))
-        .toHaveTextContent('Confirmed at your sign-in server. Keep fewer backups within 10 minutes.');
+        .toHaveTextContent(
+          'Confirmed at your sign-in server. Keep fewer backups within 10 minutes.'
+        );
       await go().click();
       await vi.waitFor(() => expect(patches()).toEqual([{ keep: 2 }]));
     });
