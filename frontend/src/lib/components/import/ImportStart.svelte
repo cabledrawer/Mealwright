@@ -10,6 +10,7 @@
   import { tick } from 'svelte';
   import Icon from '#lib/components/Icon.svelte';
   import { network } from '#lib/network.svelte.js';
+  import { session } from '#lib/session.svelte.js';
   import { OUTSIDE_CONNECTIONS_ANCHOR } from '#lib/privacyWords.js';
   import {
     canPaste,
@@ -266,10 +267,14 @@
   {#if photosOff}
     <p class="photos">
       Recipe photos: not downloaded.
-      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Outside connections is built beside this page -->
-      <a href="/settings/privacy#{OUTSIDE_CONNECTIONS_ANCHOR}"
-        >Change in Settings → Outside connections</a
-      >
+      {#if session.me?.role === 'admin'}
+        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Outside connections is built beside this page -->
+        <a href="/settings/privacy#{OUTSIDE_CONNECTIONS_ANCHOR}"
+          >Change in Settings → Outside connections</a
+        >
+      {:else}
+        An admin can switch them on in Settings → Outside connections.
+      {/if}
     </p>
   {/if}
 </form>

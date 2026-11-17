@@ -6,6 +6,8 @@ import type { ImportReview } from '#lib/client/imports.js';
 import { ImportFlow } from '#lib/import.svelte.js';
 import { drafts } from '#lib/drafts.svelte.js';
 import { network } from '#lib/network.svelte.js';
+import { session } from '#lib/session.svelte.js';
+import { ME } from '#lib/testing/fakeShopping.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { handleUndoKey, undoHistory } from '#lib/undo.svelte.js';
 import { placesAndShops } from '#lib/placesAndShops.svelte.js';
@@ -328,7 +330,8 @@ describe('Import a recipe', () => {
   });
 
   describe('the review', () => {
-    async function reviewing() {
+    async function reviewing(role: 'admin' | 'member' = 'admin') {
+      session.me = { ...ME, role };
       const flow = new ImportFlow();
       flow.text = 'https://kitchen.example/dal';
       fakeApi({
@@ -354,6 +357,16 @@ describe('Import a recipe', () => {
       await flow.read();
       show(flow, ReviewScreen);
       await vi.waitFor(() => expect(placesAndShops.places.map((p) => p.id)).toContain(9));
+    });
+
+    it('tells a member who can’t change it that an admin can, with no link to Settings', async () => {
+      await reviewing('member');
+      await expect
+        .element(
+          page.getByText(/Photo downloads are off in Settings → Outside connections; an admin/)
+        )
+        .toBeVisible();
+      expect(page.getByRole('link', { name: /Outside connections/ }).elements()).toEqual([]);
     });
 
     it('shows the counts, each line as written, and Photo not downloaded', async () => {

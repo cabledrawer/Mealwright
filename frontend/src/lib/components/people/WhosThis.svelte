@@ -62,7 +62,8 @@
       >Just looking (don’t ask again for an hour)</button
     >
     <p class="note">
-      Asked again after 30 minutes without use. Turn this off in Settings › People.
+      Asked again after 30 minutes without use.{#if session.me?.role === 'admin'}
+        Turn this off in Settings › People.{/if}
     </p>
   </div>
 </dialog>

@@ -8,6 +8,8 @@ import { page } from 'vitest/browser';
 import type { PrivacySwitches } from '#lib/client/privacy.js';
 import { network } from '#lib/network.svelte.js';
 import { privacy } from '#lib/privacy.svelte.js';
+import { session } from '#lib/session.svelte.js';
+import { ME } from '#lib/testing/fakeShopping.js';
 import { fakeApi } from '#lib/testing/fakeApi.js';
 import { MOST_LINKS } from '#lib/importLinks.svelte.js';
 import ImportPage from './+page.svelte';
@@ -43,6 +45,7 @@ describe('Import a recipe: the note about photos', () => {
     await page.viewport(390, 844);
     network.reset();
     privacy.forget();
+    session.me = { ...ME, role: 'admin' };
   });
 
   afterEach(() => {
@@ -59,6 +62,15 @@ describe('Import a recipe: the note about photos', () => {
     await expect
       .element(page.getByRole('link', { name: 'Change in Settings → Outside connections' }))
       .toHaveAttribute('href', '/settings/privacy#outside-connections');
+  });
+
+  it('tells a member an admin can switch photos on, with no link to Settings', async () => {
+    session.me = { ...ME, role: 'member' };
+    open({ 'GET /privacy/switches': switches(false), 'GET /privacy/own-network': OWN });
+    await expect
+      .element(page.getByText(/An admin can switch them on in Settings → Outside connections/))
+      .toBeVisible();
+    expect(page.getByRole('link', { name: /Outside connections/ }).elements()).toEqual([]);
   });
 
   it('says nothing about photos while the switch is on', async () => {

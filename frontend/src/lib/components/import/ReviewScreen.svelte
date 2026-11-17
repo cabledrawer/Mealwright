@@ -19,6 +19,7 @@
   import { CLOSE_OFFLINE, isBlank, leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
   import { sentenceCount, stepRuns } from '#lib/importSteps.js';
   import { network } from '#lib/network.svelte.js';
+  import { session } from '#lib/session.svelte.js';
   import { PhotoFallback } from '#lib/photoFallback.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -335,8 +336,13 @@
       <p class="photo-note">
         {#if review.photo.state === 'off'}
           <b>Photo not downloaded.</b> Photo downloads are off in
-          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Outside connections is built beside this page -->
-          <a href={privacy}>Settings → Outside connections</a>. You can add your own photo later.
+          {#if session.me?.role === 'admin'}
+            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Outside connections is built beside this page -->
+            <a href={privacy}>Settings → Outside connections</a>.
+          {:else}
+            Settings → Outside connections; an admin can switch them on.
+          {/if}
+          You can add your own photo later.
         {:else}
           <b>Photo not downloaded</b>
           — {review.photo.message} You can add your own photo later.
