@@ -396,6 +396,21 @@ def test_a_member_gets_one_code_for_every_network_refusal(
     assert start(links_on, LINK).json()["code"] == problem.value  # an admin keeps the reason
 
 
+@pytest.mark.parametrize("problem", [Problem.ALWAYS_BLOCKED, Problem.OWN_NETWORK, Problem.ODD_PORT])
+def test_a_members_photo_says_one_thing_for_every_network_refusal(
+    links_on: TestClient, web: Web, problem: Problem
+) -> None:
+    switch(links_on, Connection.RECIPE_PHOTOS)
+    web.photo = FetchRefused(problem)
+    member = review(person(links_on), LINK)["photo"]
+    assert member["state"] == "failed"
+    assert member["message"].startswith("Mealwright can’t open that link.")
+    admin = review(links_on, LINK, again=True)["photo"]
+    assert (
+        admin["message"] != member["message"] and admin["message"] == FetchRefused(problem).message
+    )
+
+
 def test_an_error_the_fetch_did_not_expect_is_a_sentence_and_the_log_has_no_address(
     links_on: TestClient, web: Web, caplog: pytest.LogCaptureFixture
 ) -> None:

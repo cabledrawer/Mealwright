@@ -125,7 +125,9 @@ MEMBER_SWITCHED_OFF = "Importing from links is switched off. An admin can switch
 ALREADY = "You already have this recipe"
 # What a member is told for any link Mealwright won't open for a network reason, so no member can
 # map internal names by the code (B7 low). Proposed, for cabledrawer.
-MEMBER_CANT_OPEN = "Mealwright can’t open that link. Ask an admin if it should be allowed."
+MEMBER_CANT_OPEN = (  # proposed, for cabledrawer
+    "Mealwright can’t open that link. Ask an admin if it should be allowed."
+)
 _NETWORK_REASONS = (FetchProblem.ALWAYS_BLOCKED, FetchProblem.OWN_NETWORK, FetchProblem.ODD_PORT)
 
 
@@ -151,6 +153,13 @@ def several_links(text: str) -> list[str]:
     return []
 
 
+def _hides_network_reason(why: FetchProblem, kitchen: Kitchen) -> bool:
+    """A member is never told which network reason refused a link (B7 low): only an admin is."""
+    return why in _NETWORK_REASONS and not roles.allowed(
+        kitchen.login.role, roles.Action.PRIVACY, kitchen.by_token
+    )
+
+
 def _problem(why: FetchProblem, kitchen: Kitchen) -> Problem:
     """A refused fetch as the API's answer: the sentence, and a code the screen reacts to."""
     message = page_fetch.MESSAGES[why]
@@ -159,9 +168,7 @@ def _problem(why: FetchProblem, kitchen: Kitchen) -> Problem:
         if why == FetchProblem.SWITCHED_OFF and not admin:
             message = MEMBER_SWITCHED_OFF
         return Problem(status.HTTP_403_FORBIDDEN, why.value, message, admin=admin)
-    if why in _NETWORK_REASONS and not roles.allowed(
-        kitchen.login.role, roles.Action.PRIVACY, kitchen.by_token
-    ):
+    if _hides_network_reason(why, kitchen):
         return Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "cant_open_link", MEMBER_CANT_OPEN)
     return Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, why.value, message)
 
@@ -371,6 +378,8 @@ def _hold_photo(kitchen: Kitchen, gate: OutboundGate, url: str | None, left: Lef
     except FetchRefused as refused:
         if refused.problem == FetchProblem.PHOTO_SWITCHED_OFF:
             return ReviewPhoto(state="off", message=refused.message)
+        if _hides_network_reason(refused.problem, kitchen):
+            return ReviewPhoto(state="failed", message=MEMBER_CANT_OPEN)
         return ReviewPhoto(state="failed", message=refused.message)
     except Exception as error:  # anything the download didn't expect: the photo only
         log.warning(
