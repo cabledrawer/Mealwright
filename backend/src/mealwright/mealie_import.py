@@ -119,11 +119,18 @@ def file_path(db: Session, row: MealieImport) -> Path | None:
     return folder(db, row.household_id) / f"{row.file_key}.zip"
 
 
-def _drop_file(db: Session, row: MealieImport) -> None:
+def _drop_file(db: Session, row: MealieImport) -> Path | None:
+    """Let the row go of its file. The file itself is deleted by the caller with `_unlink`
+    only after the commit that lets it go: a rolled-back change must keep its file."""
     path = file_path(db, row)
     row.file_key = None
-    if path is not None:
-        path.unlink(missing_ok=True)
+    return path
+
+
+def _unlink(paths: list[Path | None]) -> None:
+    for path in paths:
+        if path is not None:
+            path.unlink(missing_ok=True)
 
 
 # --- Telling the same recipe ------------------------------------------------------------------
@@ -298,6 +305,7 @@ def create(kitchen: Kitchen, upload: Path, file_name: str) -> MealieImport:
         raise _refused(problem) from None
     key = secrets.token_hex(16)
     kept = folder(db, kitchen.household_id) / f"{key}.zip"
+    let_go: list[Path | None] = []
     try:
         preview = _preview(kitchen, book)
         lock_household(kitchen)
@@ -309,7 +317,7 @@ def create(kitchen: Kitchen, upload: Path, file_name: str) -> MealieImport:
             )
         ):
             earlier.state = "gone"
-            _drop_file(db, earlier)
+            let_go.append(_drop_file(db, earlier))
         kept.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         shutil.move(upload, kept)
         name = " ".join(Path(file_name or "").name.split())[:MAX_FILE_NAME] or "mealie.zip"
@@ -333,6 +341,7 @@ def create(kitchen: Kitchen, upload: Path, file_name: str) -> MealieImport:
         upload.unlink(missing_ok=True)
         kept.unlink(missing_ok=True)
         raise
+    _unlink(let_go)  # only now the earlier rows are let go for good
     return row
 
 
@@ -365,14 +374,16 @@ def cancel(kitchen: Kitchen, row: MealieImport) -> None:
         row.state = "done"
         row.finished_at = utcnow()
         row.choices = {**row.choices, "stopped": True}
-        _drop_file(kitchen.db, row)
+        path = _drop_file(kitchen.db, row)
         kitchen.db.commit()
+        _unlink([path])
         return
     if row.state != "ready":
         raise Problem(status.HTTP_409_CONFLICT, "mealie_not_ready", NOT_READY)
     row.state = "gone"
-    _drop_file(kitchen.db, row)
+    path = _drop_file(kitchen.db, row)
     kitchen.db.commit()
+    _unlink([path])
 
 
 # --- 2. Bringing it in ------------------------------------------------------------------------
@@ -837,8 +848,9 @@ def run(factory: sessionmaker[Session], import_id: int) -> None:
                 if row is not None and row.state == "running":
                     row.state = "failed"
                     row.finished_at = utcnow()
-                    _drop_file(db, row)
+                    let_go = _drop_file(db, row)
                     db.commit()
+                    _unlink([let_go])
 
 
 def _read_book(db: Session, row: MealieImport, path: Path) -> MealieBook | None:
@@ -892,8 +904,9 @@ def _carry_on(kitchen: Kitchen, row: MealieImport, book: MealieBook, path: Path)
     if _lock(kitchen, row):
         row.state = "done"
         row.finished_at = utcnow()
-        _drop_file(db, row)
+        let_go = _drop_file(db, row)
         db.commit()
+        _unlink([let_go])
     else:
         db.rollback()
 
@@ -1036,42 +1049,52 @@ def undo(kitchen: Kitchen, row: MealieImport) -> Undone:
     db.refresh(row)
     _undo_ready(row)
     since = as_utc(row.started_at or row.created_at)
-    versions = {
-        int(entry["recipe_id"]): int(entry.get("version") or 0)
-        for entry in row.results
-        if entry.get("recipe_id")
-    }
-    db.commit()  # only read: ends the read
     removed = kept = foods = gone_drafts = 0
-    ids = sorted(versions)
-    for first in range(0, max(len(ids), 1), CHUNK):
-        chunk = ids[first : first + CHUNK]
-        lock_household(kitchen)
+    seen: set[int] = set()
+
+    def recipes_pass() -> None:
+        """The import's recipes not yet looked at, from the row as it is now: a "Save all"
+        in a pause adds entries to it, so this runs again after the drafts."""
+        nonlocal removed, kept
         db.refresh(row)
-        _undo_ready(row)
-        live = set(
-            db.scalars(
-                select(Recipe.id).where(
-                    Recipe.id.in_(chunk),
-                    Recipe.household_id == kitchen.household_id,
-                    Recipe.removed_at.is_(None),
+        versions = {
+            int(entry["recipe_id"]): int(entry.get("version") or 0)
+            for entry in row.results
+            if entry.get("recipe_id") and int(entry["recipe_id"]) not in seen
+        }
+        seen.update(versions)
+        db.commit()  # only read: ends the read
+        ids = sorted(versions)
+        for first in range(0, len(ids), CHUNK):
+            chunk = ids[first : first + CHUNK]
+            lock_household(kitchen)
+            db.refresh(row)
+            _undo_ready(row)
+            live = set(
+                db.scalars(
+                    select(Recipe.id).where(
+                        Recipe.id.in_(chunk),
+                        Recipe.household_id == kitchen.household_id,
+                        Recipe.removed_at.is_(None),
+                    )
                 )
             )
-        )
-        stays = _kept_recipes(db, {i: versions[i] for i in live}, since)
-        going = sorted(live - stays)
-        kept += len(stays)
-        now = utcnow()
-        for recipe in db.scalars(select(Recipe).where(Recipe.id.in_(going))):
-            recipe.removed_at = now
-        db.flush()
-        users = set(
-            db.scalars(select(RecipeLine.recipe_id).where(RecipeLine.sub_recipe_id.in_(going)))
-        )
-        bump_recipes_by(kitchen, users - set(going))
-        removed += len(going)
-        db.commit()
-        _pause()
+            stays = _kept_recipes(db, {i: versions[i] for i in live}, since)
+            going = sorted(live - stays)
+            kept += len(stays)
+            now = utcnow()
+            for recipe in db.scalars(select(Recipe).where(Recipe.id.in_(going))):
+                recipe.removed_at = now
+            db.flush()
+            users = set(
+                db.scalars(select(RecipeLine.recipe_id).where(RecipeLine.sub_recipe_id.in_(going)))
+            )
+            bump_recipes_by(kitchen, users - set(going))
+            removed += len(going)
+            db.commit()
+            _pause()
+
+    recipes_pass()
     while True:
         lock_household(kitchen)
         db.refresh(row)
@@ -1093,6 +1116,7 @@ def undo(kitchen: Kitchen, row: MealieImport) -> Undone:
         _pause()
         if len(chunk) < CHUNK:
             break
+    recipes_pass()  # recipes a "Save all" made from drafts during the pauses
     food_ids = list(
         db.scalars(
             select(Food.id).where(
@@ -1229,14 +1253,32 @@ def tidy(db: Session, now: datetime | None = None) -> int:
     """A file read but not brought in is deleted after a day. Returns how many."""
     from mealwright.history import as_utc
 
+    from mealwright.shopping import lock_db
+
     now = now or utcnow()
     count = 0
-    for row in db.scalars(select(MealieImport).where(MealieImport.state == "ready")):
-        if as_utc(row.created_at) <= now - timedelta(hours=READY_HOURS):
-            row.state = "gone"
-            _drop_file(db, row)
-            count += 1
-    db.commit()
+    old = [
+        (row.id, row.household_id)
+        for row in db.scalars(select(MealieImport).where(MealieImport.state == "ready"))
+        if as_utc(row.created_at) <= now - timedelta(hours=READY_HOURS)
+    ]
+    db.commit()  # only read: ends the read
+    for import_id, household_id in old:
+        household = db.get(Household, household_id)
+        if household is None:
+            continue
+        lock_db(db, household)  # one household at a time, as start and cancel
+        row = db.get(MealieImport, import_id)
+        if row is not None:
+            db.refresh(row)  # "Bring in" or Cancel may have come first
+        if row is None or row.state != "ready":
+            db.commit()
+            continue
+        row.state = "gone"
+        path = _drop_file(db, row)
+        db.commit()
+        _unlink([path])
+        count += 1
     # Files a stopped upload or a stopped server left behind, a day on.
     home = folder(db, 0).parent
     kept = {

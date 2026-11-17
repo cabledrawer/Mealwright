@@ -283,6 +283,9 @@ def upload(
     """Send Mealie's backup file and get what is in it. Nothing is added: the file is kept on
     the server until "Bring in" (`POST /mealie-imports/{id}/start`) or Cancel, or for a day.
     Only one file waits at a time: sending another lets the earlier one go."""
+    # Again, now the body is in: the role may have changed during a long upload (the temporary
+    # file goes in `_mealie_file`'s `finally`), as start/cancel/undo check.
+    kitchen.admin_only(Action.YOUR_DATA)
     row = mealie_import.create(kitchen, upload, file_name)
     return out(kitchen, row)
 
