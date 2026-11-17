@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import person
-from test_mealie_import import API, bring_in, mealie_files, many, upload, zipped
+from test_mealie_import import API, bring_in, many, mealie_files, upload, zipped
 
 from mealwright import mealie_import
 from mealwright.api.v1 import mealie as mealie_api
@@ -104,3 +104,22 @@ def test_undo_takes_a_recipe_added_to_the_import_while_it_ran(
     assert undone["recipes"] == 1
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         assert db.scalars(select(Recipe).where(Recipe.removed_at.is_(None))).all() == []
+
+
+def test_trim_sweeps_half_written_copies_and_their_side_files(tmp_path: Path) -> None:
+    from mealwright import backups
+
+    folder = tmp_path / "backups"
+    folder.mkdir()
+    old = [
+        "backup-20261101-030000.db.1.part",
+        "backup-20261101-030000.db.1.part-wal",
+        "backup-20261101-030000.db.1.part-shm",
+        "backup-20261101-030000.db.1.part-journal",
+        "before-delete-everything-20261101-030000.db.7.part",
+    ]
+    keep = ["notes.txt", "backup-20261101-040000.db.1.part.bak", "other.db.1.part"]
+    for name in [*old, *keep]:
+        (folder / name).write_bytes(b"x")
+    backups.trim(folder, 7)
+    assert sorted(p.name for p in folder.iterdir()) == sorted(keep)

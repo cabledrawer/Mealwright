@@ -83,6 +83,8 @@ ANY_COPY = re.compile(
 # A photo folder beside a backup, and the half-made one (`.<pid>.part`, mealwright.migrate too).
 PHOTOS_SUFFIX = "-photos"
 _PHOTOS_PART = re.compile(r"^(?P<stem>.+)-photos\.(?P<pid>\d+)\.part$")
+# A half-written database copy (`<copy>.db.<pid>.part`) and the files SQLite may leave beside it.
+_DB_PART = re.compile(r"^(?P<stem>.+\.db)\.\d+\.part(?:-wal|-shm|-journal)?$")
 # The photo files the app writes (mealwright.photos): never anything else is copied.
 _PHOTO_FILE = re.compile(r"^[0-9a-f]{32}(-list)?\.jpg$")
 BEFORE_DELETE = "before-delete-everything"
@@ -278,7 +280,8 @@ def forget_sign_ins_if_restored(engine: Engine) -> bool:
 
 
 def tidy_photo_folders(folder: Path) -> None:
-    """Delete photo folders that no finished copy owns: half-made ones (`.part`, whoever's) of
+    """Delete half-written database copies (`<copy>.db.<n>.part` and its -wal, -shm, -journal)
+    and photo folders that no finished copy owns: half-made ones (`.part`, whoever's) of
     every kind of copy (ANY_COPY), and finished ones of a scheduled backup whose `.db` is gone.
     Not one being made in this process right now. Takes the one-at-a-time lock, so it never runs
     between a copy's photo folder being put in place and its `.db` arriving. Never raises.
@@ -296,6 +299,17 @@ def tidy_photo_folders(folder: Path) -> None:
         with _MAKING_LOCK:
             making = set(_MAKING)
         for entry in entries:
+            half = _DB_PART.match(entry.name)
+            if half and ANY_COPY.match(half["stem"]):
+                # A half-written copy of the database, whoever's (not by process ID: in Docker
+                # every start is PID 1), unless it is being written in this process right now.
+                base = entry.name.split(".part")[0] + ".part"
+                if base not in making and not entry.is_dir():
+                    try:
+                        entry.unlink(missing_ok=True)
+                    except OSError as error:
+                        log.warning("Couldn't remove the half-written copy %s: %s", entry, error)
+                continue
             if entry.name in making or not entry.is_dir() or entry.is_symlink():
                 continue
             part = _PHOTOS_PART.match(entry.name)
@@ -326,7 +340,7 @@ def copy_database(engine: Engine, target: Path, photos: Path | None = None) -> N
     photos_part = final_photos.with_name(f"{final_photos.name}.{os.getpid()}.part")
     placed_photos = False
     with _MAKING_LOCK:
-        _MAKING.update({final_photos.name, photos_part.name})
+        _MAKING.update({final_photos.name, photos_part.name, partial.name})
     try:
         partial.unlink(missing_ok=True)
         _drop(photos_part)
@@ -376,7 +390,7 @@ def copy_database(engine: Engine, target: Path, photos: Path | None = None) -> N
         raise
     finally:
         with _MAKING_LOCK:
-            _MAKING.difference_update({final_photos.name, photos_part.name})
+            _MAKING.difference_update({final_photos.name, photos_part.name, partial.name})
 
 
 def _put_in_place(partial: Path, target: Path) -> None:

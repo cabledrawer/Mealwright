@@ -10,6 +10,7 @@ from alembic.script import ScriptDirectory
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
+from mealwright import backups as backups_module
 from mealwright import migrate
 from mealwright.config import Settings
 from mealwright.db import make_engine
@@ -262,16 +263,27 @@ def test_the_stale_marker_warning_shows_the_copys_date(
     assert "(made on 2026-10-31)" in caplog.messages[0]
 
 
-def test_a_part_file_from_another_process_is_tidied_and_our_own_stays(tmp_path: Path) -> None:
+def test_every_part_file_is_tidied_unless_it_is_being_written_now(tmp_path: Path) -> None:
+    """B7 low: not by process ID (PID 1 in Docker): by what this process is writing now."""
     backups = tmp_path / "backups"
     backups.mkdir()
     stale = backups / "pre-upgrade-d7a4c2e81f56-20261031-090000.db.99999999.part"
     mine = backups / f"pre-upgrade-d7a4c2e81f56-20261031-090001.db.{os.getpid()}.part"
+    leftover = backups / f"pre-upgrade-d7a4c2e81f56-20261031-090002.db.{os.getpid()}.part"
+    side = backups / "backup-20261101-030000.db.1.part-journal"
     other = backups / "notes.txt"
-    for path in (stale, mine, other):
+    for path in (stale, mine, leftover, side, other):
         path.write_bytes(b"x")
-    migrate._keep_newest(backups)
+    with backups_module._MAKING_LOCK:
+        backups_module._MAKING.add(mine.name)
+    try:
+        migrate._keep_newest(backups)
+    finally:
+        with backups_module._MAKING_LOCK:
+            backups_module._MAKING.discard(mine.name)
     assert not stale.exists()
+    assert not leftover.exists()  # even with this process's number: a killed run's, in Docker
+    assert not side.exists()
     assert mine.exists()
     assert other.exists()
 

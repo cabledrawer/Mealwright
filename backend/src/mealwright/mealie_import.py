@@ -1252,7 +1252,6 @@ def save_all_drafts(kitchen: Kitchen) -> int:
 def tidy(db: Session, now: datetime | None = None) -> int:
     """A file read but not brought in is deleted after a day. Returns how many."""
     from mealwright.history import as_utc
-
     from mealwright.shopping import lock_db
 
     now = now or utcnow()

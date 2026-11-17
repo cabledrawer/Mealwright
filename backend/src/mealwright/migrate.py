@@ -1,7 +1,6 @@
 """Run database migrations from code (on start-up and in tests)."""
 
 import logging
-import os
 import re
 import sqlite3
 from collections.abc import Iterator
@@ -35,7 +34,6 @@ SAFETY_COPY_NAME = re.compile(r"^pre-upgrade-([0-9A-Za-z_]+)-(\d{8}-\d{6})(?:-(\
 # it makes no new copy (on SQLite a failed migration can leave the database half-upgraded, so a new
 # copy could be half-upgraded too), and that clean copy is never trimmed: not while the upgrade
 # keeps failing, and not on the trim after it finally works.
-PART_NAME = re.compile(r"^pre-upgrade-[0-9A-Za-z_]+-\d{8}-\d{6}(?:-\d+)?\.db\.(\d+)\.part$")
 UPGRADE_FAILED = "upgrade-failed"
 
 
@@ -174,15 +172,9 @@ def safety_copy(
 
 
 def _drop_stale_parts(backups: Path) -> None:
-    """Delete half-written copies left by a start that was killed (another process's `.part`
-    files). This process's own stay. A file that can't be removed is logged, never fatal."""
-    for path in backups.iterdir():
-        found = PART_NAME.match(path.name)
-        if found and int(found.group(1)) != os.getpid():
-            try:
-                path.unlink(missing_ok=True)
-            except OSError as error:
-                log.warning("Couldn't remove the half-written copy %s: %s", path, error)
+    """Delete half-written copies left by a start that was killed (any `.part`, whoever's: not
+    by process ID, which is 1 in Docker; those being written now are skipped) and the photo
+    folders no finished copy owns. Never raises."""
     # A half-made photo folder, or one whose copy is gone.
     tidy_photo_folders(backups)
 
