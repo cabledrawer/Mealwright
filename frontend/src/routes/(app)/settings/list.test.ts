@@ -113,16 +113,11 @@ describe('/settings on a computer', () => {
   it('goes to Appearance without reading any row values', async () => {
     await openPhoneList('admin');
     await vi.waitFor(() => expect(goto).toHaveBeenCalled());
-    const asked = requests.map((r) => r.path);
-    for (const path of [
-      '/meal-slots',
-      '/shops',
-      '/places',
-      '/people',
-      '/privacy',
-      '/household/kitchen'
-    ])
-      expect(asked, path).not.toContain(path);
+    // Only the household's own settings (read to set up the test) may be asked; every row's
+    // read ("/meal-slots", "/shops", "/places", "/people", "/privacy/...", "/updates", the
+    // kitchen) is caught by prefix.
+    const asked = requests.map((r) => r.path).filter((path) => path !== '/household');
+    expect(asked).toEqual([]);
   });
 });
 
