@@ -277,9 +277,13 @@ describe('Import from Mealie', () => {
     it('a preview without the Drafts count (read before F247) says nothing of it', async () => {
       const older = { ...READY.preview };
       delete older.to_drafts;
-      await open({ 'GET /mealie-imports/current': [200, { current: { ...READY, preview: older } }] });
+      await open({
+        'GET /mealie-imports/current': [200, { current: { ...READY, preview: older } }]
+      });
       await expect.element(page.getByText('New ingredients', { exact: true })).toBeVisible();
-      expect(page.getByText(/go to Drafts to check|goes to Drafts to check/).elements()).toHaveLength(0);
+      expect(
+        page.getByText(/go to Drafts to check|goes to Drafts to check/).elements()
+      ).toHaveLength(0);
     });
 
     it('Undo names the recipes it kept (F248)', async () => {
@@ -287,12 +291,20 @@ describe('Import from Mealie', () => {
         'GET /mealie-imports/current': [200, { current: DONE() }],
         'POST /mealie-imports/7/undo': [
           200,
-          { recipes: 1, drafts: 0, foods: 85, kept: 2, kept_names: ['Red lentil dal', 'Sam’s curry'] }
+          {
+            recipes: 1,
+            drafts: 0,
+            foods: 85,
+            kept: 2,
+            kept_names: ['Red lentil dal', 'Sam’s curry']
+          }
         ]
       });
       await page.getByRole('button', { name: 'Undo' }).click();
       await expect
-        .element(page.getByText(/kept 2 you’d changed or cooked: Red lentil dal and Sam’s curry\.$/))
+        .element(
+          page.getByText(/kept 2 you’d changed or cooked: Red lentil dal and Sam’s curry\.$/)
+        )
         .toBeVisible();
     });
 

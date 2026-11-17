@@ -189,7 +189,7 @@
         "frontend/src/lib/client/imports.ts", "frontend/src/lib/client/drafts.ts"
       ],
       "backend": [
-        "test_import_*.py", "test_recipe_import.py", "test_page_*.py", "test_pasted_recipe.py", "test_drafts.py",
+        "test_import_*.py", "test_recipe_import.py", "test_page_*.py", "test_pasted_recipe.py", "test_drafts.py", "test_drafts_speed.py",
         "test_ingredient_reader.py", "test_hidden_characters.py", "test_lone_surrogate.py"
       ],
       "browser": ["import.spec.ts", "import-check-phone.spec.ts", "import-pints.spec.ts", "import-steps.spec.ts", "drafts.spec.ts"]

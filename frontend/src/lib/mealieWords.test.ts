@@ -101,7 +101,9 @@ describe('Import from Mealie words', () => {
   });
 
   it('says how many new recipes are ready and how many go to Drafts (F247)', () => {
-    expect(readyWords({ new: 202, to_drafts: 34 })).toBe('168 recipes ready, 34 go to Drafts to check');
+    expect(readyWords({ new: 202, to_drafts: 34 })).toBe(
+      '168 recipes ready, 34 go to Drafts to check'
+    );
     expect(readyWords({ new: 5, to_drafts: 1 })).toBe('4 recipes ready, 1 goes to Drafts to check');
     expect(readyWords({ new: 2, to_drafts: 0 })).toBe('2 recipes ready, 0 go to Drafts to check');
     expect(readyWords({ new: 3 })).toBeNull();
