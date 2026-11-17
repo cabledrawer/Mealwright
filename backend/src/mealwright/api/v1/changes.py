@@ -882,13 +882,24 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
             # Many drafts at once: short locked stretches, committed as it goes (nothing has
             # been written yet, so the lock the Batch took is let go first).
             kitchen.db.commit()
-            undone = mealie_answers.undo(kitchen, change, stretched=True)
+            try:
+                undone = mealie_answers.undo(kitchen, change, stretched=True)
+            except Problem:
+                # Another Undo finished first: a retry of this one gets that one's result.
+                kitchen.db.rollback()
+                earlier = replayed(kitchen)
+                if earlier is None:
+                    raise
+                undone = None
         else:
             undone = undo_run(kitchen, change, batch, lambda: pantry_undo(kitchen, change, batch))
             batch.finish()
-        earlier = commit(kitchen)
-        if earlier is None:
-            return _undo_out(kitchen, undone)
+        if undone is not None:
+            earlier = commit(kitchen)
+            if earlier is None:
+                return _undo_out(kitchen, undone)
+    if earlier is None:  # never: replayed, or committed by another request first
+        raise already_undone()
     if earlier.kind != "undo":
         raise Problem(
             status.HTTP_409_CONFLICT,

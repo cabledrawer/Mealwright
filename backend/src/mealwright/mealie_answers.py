@@ -59,7 +59,7 @@ from mealwright.api.v1.schemas import Ref
 from mealwright.conversions import guess_aisle, table
 from mealwright.errors import not_found
 from mealwright.foods import shop_choices
-from mealwright.history import as_utc, record
+from mealwright.history import already_undone, as_utc, record
 from mealwright.ingredient_match import _key
 from mealwright.models import (
     Change,
@@ -775,6 +775,10 @@ def _walk(
         ):
             chunk = pending[at : at + UNDO_BATCH]
             at += len(chunk)
+            # Another Undo of the same change may have done some between stretches.
+            chunk = [k for k in chunk if not items[k].get("done")]
+            if not chunk:
+                continue
             for k, new in zip(chunk, handle([items[k] for k in chunk], counts), strict=True):
                 items[k] = new
         change.undo_data = {**data, key: items, "progress": counts}
@@ -843,6 +847,9 @@ def undo(kitchen: Kitchen, change: Change, stretched: bool = False) -> Change:
         lock_household(kitchen)
     change = db.get(Change, change_id) or change
     db.refresh(change)
+    if change.undone_by_change_id is not None:
+        # Two Undos at once (a retry, or two people): the first to get here records it.
+        raise already_undone()
     data = change.undo_data or {}
     counts = data.get("progress") or {}
     back, kept, gone = (int(counts.get(k, 0)) for k in ("back", "kept", "gone"))
