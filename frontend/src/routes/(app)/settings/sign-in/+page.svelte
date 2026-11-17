@@ -26,7 +26,7 @@
   // An unused reset link made for you, admin or not (spec "Pe1"): you can cancel it here, so a
   // member (who isn't shown the Household pages) still can. Placement proposed, for cabledrawer.
   onMount(() => {
-    if (!household.loaded) void household.load();
+    void household.load();
   });
   const resetPending = $derived(
     household.people.find((person) => person.is_me)?.login?.reset_pending ?? false

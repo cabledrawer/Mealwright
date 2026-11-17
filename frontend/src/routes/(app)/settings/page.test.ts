@@ -656,4 +656,35 @@ describe('your own reset link, on Your sign-in', () => {
     await vi.waitFor(() => expect(line.query()).toBeNull());
     expect(toasts.current?.message).toBe('Reset link cancelled');
   });
+  it('shows a link made after the list was loaded earlier (it reads the list each time it opens)', async () => {
+    let pending = false;
+    session.me = { ...ME, role: 'member' };
+    const me = () =>
+      person(2, 'Sam', {
+        is_me: true,
+        login: {
+          username: 'sam',
+          role: 'member',
+          shared: false,
+          has_password: true,
+          signs_in: true,
+          link_pending: false,
+          link_used_at: null,
+          reset_pending: pending
+        }
+      });
+    fakeApi({
+      'GET /people': () => [200, people([me()], { can_change: false })],
+      'GET /household': [200, HOUSEHOLD]
+    });
+    await household.load();
+    expect(household.loaded).toBe(true);
+    pending = true;
+    const target = document.body.appendChild(document.createElement('div'));
+    view = mount(SignIn, { target });
+    flushSync();
+    await expect
+      .element(page.getByText('Someone made a reset link for your password', { exact: false }))
+      .toBeVisible();
+  });
 });
