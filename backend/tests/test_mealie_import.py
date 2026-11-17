@@ -181,6 +181,38 @@ def test_the_preview_says_how_many_new_recipes_will_wait_in_drafts(
     assert done["counts"]["saved"] == preview["new"] - preview["to_drafts"]
 
 
+def test_each_preview_recipe_says_whether_it_goes_to_drafts(
+    kitchen: TestClient, raw: bytes
+) -> None:
+    """Round 1, finding 1: the screen counts only the recipes still ticked, so each recipe
+    carries its own answer: the soup waits in Drafts, the other two are ready."""
+    rows = upload(kitchen, raw).json()["preview"]["recipes"]
+    assert {r["name"]: r["to_drafts"] for r in rows} == {
+        "Red lentil dal": False,
+        "Lorna's soup": True,
+        "Sam's curry": False,
+    }
+
+
+def test_a_recipe_that_cant_be_read_is_neither_ready_nor_in_drafts(
+    kitchen: TestClient, raw: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Round 1, finding 2: the import skips a recipe it can't read, so the preview doesn't
+    call it ready: it has no answer and is in neither number."""
+    real = mealie_import._review_of
+
+    def flaky(kitchen_: Any, recipe: Any, known: Any) -> Any:
+        if mealie_import._name(recipe) == "Red lentil dal":
+            raise ValueError("unreadable")
+        return real(kitchen_, recipe, known)
+
+    monkeypatch.setattr(mealie_import, "_review_of", flaky)
+    preview = upload(kitchen, raw).json()["preview"]
+    answers = {r["name"]: r["to_drafts"] for r in preview["recipes"]}
+    assert answers == {"Red lentil dal": None, "Lorna's soup": True, "Sam's curry": False}
+    assert preview["to_drafts"] == 1
+
+
 def test_the_preview_counts_a_recipe_left_in_drafts_only_when_new(
     kitchen: TestClient, raw: bytes
 ) -> None:

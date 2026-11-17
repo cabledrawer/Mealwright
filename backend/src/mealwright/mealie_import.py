@@ -264,10 +264,12 @@ def _preview(kitchen: Kitchen, book: MealieBook) -> dict[str, Any]:
             shown = tidy_ingredient_name(food.name)[:100]
             new_names.setdefault(fold(shown), shown)
     new_names.pop("", None)
-    to_drafts = _going_to_drafts(kitchen, book, coming, list(new_names.values())[:MAX_NEW_FOODS])
+    goes = _going_to_drafts(kitchen, book, coming, list(new_names.values())[:MAX_NEW_FOODS])
+    for row in rows:
+        row["to_drafts"] = goes.get(row["key"])  # None: not read, or already here
     return {
         "recipes": rows,
-        "to_drafts": to_drafts,
+        "to_drafts": sum(goes.values()),
         "new": new,
         "already": already,
         "with_photo": with_photo,
@@ -282,11 +284,12 @@ def _preview(kitchen: Kitchen, book: MealieBook) -> dict[str, Any]:
 
 def _going_to_drafts(
     kitchen: Kitchen, book: MealieBook, coming: set[str], new_foods: list[str]
-) -> int:
-    """How many of the new recipes the import would leave in Drafts: the ones with an
+) -> dict[str, bool]:
+    """Of the new recipes, key → whether the import would leave it in Drafts: the ones with an
     ingredient line Mealwright can't tie to an ingredient, read as the import reads them, with
     the new ingredients it is about to add (F247). The same reading, so it can differ only for
-    a recipe that fails to save for another reason."""
+    a recipe that fails to save for another reason. A recipe that can't be read has no entry: the
+    import skips it, so it is neither ready nor in Drafts."""
     from dataclasses import replace
 
     from mealwright.ingredient_match import KitchenFood, kitchen_of
@@ -298,7 +301,7 @@ def _going_to_drafts(
         for number, name in enumerate(new_foods, start=1)
     )
     known = (replace(now, foods=now.foods + coming_foods), _food_places(kitchen))
-    count = 0
+    goes: dict[str, bool] = {}
     for recipe in book.recipes:
         if recipe.key not in coming:
             continue
@@ -307,10 +310,8 @@ def _going_to_drafts(
         except Exception as why:  # the import skips what it can't read: it goes nowhere
             log.info("A Mealie recipe couldn't be read for the preview (%s)", type(why).__name__)
             continue
-        lines = _ingredient_lines(review)
-        if any(not _read(line) for line in lines):
-            count += 1
-    return count
+        goes[recipe.key] = any(not _read(line) for line in _ingredient_lines(review))
+    return goes
 
 
 def _refused(problem: MealieFileProblem) -> Problem:

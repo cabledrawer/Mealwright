@@ -55,6 +55,9 @@ class PreviewRecipe(BaseModel):
     tags: list[str]  # its first few Mealie tags
     photo: bool
     already: bool  # the household has it already (same name and source): left out
+    # Whether it would wait in Drafts to check (true) or be saved ready (false): the server's own
+    # reading. None: it isn't coming (already here), or it couldn't be read (the import skips it).
+    to_drafts: bool | None = None
 
 
 class MealiePreview(BaseModel):
