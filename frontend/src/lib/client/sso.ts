@@ -138,6 +138,35 @@ export function confirmingFor(now = Date.now()): ConfirmingFor | null {
   }
 }
 
+/** R6: what the admin was about to do on Your data when they went to confirm (a lower Keep, or
+ *  Back up now), kept for this tab so the page can open its box again on the way back. Taken
+ *  once; it runs out with the confirming. */
+export type ReopenAction = { keep: number } | { backUpNow: true };
+const REOPEN = 'mealwright.sso-reopen';
+
+export function rememberAction(action: ReopenAction, now = Date.now()): void {
+  try {
+    sessionStorage.setItem(REOPEN, JSON.stringify({ at: now, ...action }));
+  } catch {
+    // Storage blocked: the person picks again after coming back.
+  }
+}
+
+export function takeAction(now = Date.now()): ReopenAction | null {
+  try {
+    const raw = sessionStorage.getItem(REOPEN);
+    sessionStorage.removeItem(REOPEN);
+    if (raw === null) return null;
+    const found = JSON.parse(raw) as { at?: unknown; keep?: unknown; backUpNow?: unknown };
+    if (typeof found.at !== 'number' || now - found.at < 0 || now - found.at >= CONFIRMING_FOR_MS)
+      return null;
+    if (typeof found.keep === 'number' && Number.isInteger(found.keep)) return { keep: found.keep };
+    return found.backUpNow === true ? { backUpNow: true } : null;
+  } catch {
+    return null;
+  }
+}
+
 export const wasConfirming = (now = Date.now()): boolean => confirmingFor(now) !== null;
 
 /** "Link tess to …?", confirmed: links the admin's own login to who the test found. */

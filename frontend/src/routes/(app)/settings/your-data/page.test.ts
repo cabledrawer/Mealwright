@@ -10,7 +10,13 @@ import { network } from '#lib/network.svelte.js';
 import { session } from '#lib/session.svelte.js';
 import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
 import { ME } from '#lib/testing/fakeShopping.js';
-import { confirmingFor, wasConfirming } from '#lib/client/sso.js';
+import {
+  confirmingFor,
+  markConfirming,
+  rememberAction,
+  takeAction,
+  wasConfirming
+} from '#lib/client/sso.js';
 import { whenWords } from '#lib/yourDataWords.js';
 import YourData from './+page.svelte';
 import DeleteEverything from './delete/+page.svelte';
@@ -658,6 +664,78 @@ describe('Settings → Your data', () => {
         );
       await go().click();
       await vi.waitFor(() => expect(patches()).toEqual([{ keep: 2 }]));
+    });
+
+    it('after the sign-in server, the box opens again with the chosen Keep, confirmed', async () => {
+      markConfirming(true, Date.now(), 'backups');
+      rememberAction({ keep: 2 });
+      open(YourData, {
+        ...ROUTES,
+        'GET /delete-everything': [200, { confirm_with: 'single_sign_on', confirmed: true }]
+      });
+      await expect.element(page.getByText('This deletes the oldest backup.')).toBeVisible();
+      await expect.element(page.getByLabelText('Keep')).toHaveValue('2');
+      await go().click();
+      await vi.waitFor(() => expect(patches()).toEqual([{ keep: 2 }]));
+    });
+
+    it('going to confirm remembers the chosen Keep for the way back', async () => {
+      open(YourData, {
+        'GET /delete-everything': [200, { confirm_with: 'single_sign_on', confirmed: false }],
+        'POST /sso/confirm': [200, { url: 'https://id.example.org/authorize?x=1' }]
+      });
+      await page.getByLabelText('Keep').selectOptions('Last 2');
+      await page.getByRole('button', { name: 'Confirm at your sign-in server' }).click();
+      await vi.waitFor(() => expect(leave.goToSignInServer).toHaveBeenCalled());
+      expect(takeAction()).toEqual({ keep: 2 });
+    });
+
+    it('a remembered action that has run out opens nothing', async () => {
+      rememberAction({ keep: 2 }, Date.now() - 11 * 60_000);
+      open(YourData);
+      await expect.element(page.getByLabelText('Keep')).toHaveValue('7');
+      await expect.element(go()).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Back up now at a full folder (R6)', () => {
+    const FULL = { ...BACKUPS, keep: 3, count: 3 };
+    const posts = () => requests.filter((r) => r.method === 'POST' && r.path === '/backups');
+
+    it('below Keep it backs up at once', async () => {
+      open(YourData, { 'POST /backups': [200, BACKUPS] });
+      await page.getByRole('button', { name: 'Back up now' }).click();
+      await vi.waitFor(() => expect(posts().map((r) => r.body)).toEqual([undefined]));
+    });
+
+    it('at Keep it says it replaces the oldest, and sends the password with the backup', async () => {
+      open(YourData, {
+        'GET /backups': [200, FULL],
+        'POST /backups': [200, FULL],
+        'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+      });
+      await page.getByRole('button', { name: 'Back up now' }).click();
+      await expect.element(page.getByText('This replaces the oldest backup.')).toBeVisible();
+      expect(posts()).toEqual([]);
+      await userEvent.fill(page.getByLabelText('Your password'), 'correct horse battery');
+      await page.getByRole('button', { name: 'Back up now' }).last().click();
+      await vi.waitFor(() =>
+        expect(posts().map((r) => r.body)).toEqual([{ password: 'correct horse battery' }])
+      );
+      await expect.element(page.getByLabelText('Your password')).not.toBeInTheDocument();
+    });
+
+    it('an admin with single sign-on confirms first, and the box comes back for Back up now', async () => {
+      open(YourData, {
+        'GET /backups': [200, FULL],
+        'GET /delete-everything': [200, { confirm_with: 'single_sign_on', confirmed: false }],
+        'POST /sso/confirm': [200, { url: 'https://id.example.org/authorize?x=1' }]
+      });
+      await page.getByRole('button', { name: 'Back up now' }).click();
+      await page.getByRole('button', { name: 'Confirm at your sign-in server' }).click();
+      await vi.waitFor(() => expect(leave.goToSignInServer).toHaveBeenCalled());
+      expect(takeAction()).toEqual({ backUpNow: true });
+      expect(posts()).toEqual([]);
     });
   });
 });

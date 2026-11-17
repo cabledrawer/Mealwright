@@ -16,7 +16,13 @@
   import Switch from '#lib/components/Switch.svelte';
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
   import { getHousehold } from '#lib/client/household.js';
-  import { markConfirming, startConfirm, goToSignInServer } from '#lib/client/sso.js';
+  import {
+    markConfirming,
+    rememberAction,
+    startConfirm,
+    goToSignInServer,
+    takeAction
+  } from '#lib/client/sso.js';
   import {
     backUpNow,
     changeBackups,
@@ -33,6 +39,8 @@
   import { session } from '#lib/session.svelte.js';
   import {
     ADMINS_ONLY,
+    BACK_UP_NOW_CONFIRM,
+    CONFIRMED_SSO_BACKUP,
     CONFIRMED_SSO_KEEP,
     CONFIRMING_SSO,
     CONFIRM_SSO_BUTTON,
@@ -41,6 +49,7 @@
     KEEP_FEWER_BUSY,
     KEEP_FEWER_BUTTON,
     KEEP_FEWER_CANCEL,
+    REPLACES_OLDEST,
     EVERY_WORDS,
     EXPORT_LEAD,
     EXPORT_MAKING,
@@ -99,9 +108,11 @@
     }
   }
 
-  // R6: a Keep that would delete backups waits here for the admin's password (or the single
-  // sign-on confirm step, as Delete everything asks); nothing is sent until then.
-  let pendingKeep = $state<number | null>(null);
+  // R6: a Keep that would delete backups, or a Back up now that would push the oldest one out,
+  // waits here for the admin's password (or the single sign-on confirm step, as Delete everything
+  // asks); nothing is sent until then.
+  type Ask = { keep: number } | { backUpNow: true };
+  let ask = $state<Ask | null>(null);
   let keepPassword = $state('');
   let keepBusy = $state(false);
   let how = $state<HowToConfirm | null>(null);
@@ -113,18 +124,23 @@
       !keepBusy &&
       !network.offline
   );
+  const pendingKeep = $derived(ask && 'keep' in ask ? ask.keep : null);
   const goingWords = $derived(
-    backups && pendingKeep !== null ? deletesBackupsWords(backups.count - pendingKeep) : ''
+    !backups || ask === null
+      ? ''
+      : 'keep' in ask
+        ? deletesBackupsWords(backups.count - ask.keep)
+        : REPLACES_OLDEST
+  );
+  const confirmedWords = $derived(
+    ask !== null && 'backUpNow' in ask ? CONFIRMED_SSO_BACKUP : CONFIRMED_SSO_KEEP
+  );
+  const goWords = $derived(
+    ask !== null && 'backUpNow' in ask ? BACK_UP_NOW_CONFIRM : KEEP_FEWER_BUTTON
   );
 
-  async function pickKeep(keep: number) {
-    if (!backups) return;
-    if (keep >= backups.count) {
-      pendingKeep = null;
-      await change({ keep });
-      return;
-    }
-    pendingKeep = keep;
+  function openAsk(what: Ask) {
+    ask = what;
     keepPassword = '';
     problem = null;
     how = null;
@@ -135,22 +151,38 @@
     );
   }
 
+  async function pickKeep(keep: number) {
+    if (!backups) return;
+    if (keep >= backups.count) {
+      ask = null;
+      await change({ keep });
+      return;
+    }
+    openAsk({ keep });
+  }
+
   function cancelKeep() {
-    pendingKeep = null;
+    ask = null;
     keepPassword = '';
     problem = null;
   }
 
   async function keepFewer(event: SubmitEvent) {
     event.preventDefault();
-    if (!keepReady || pendingKeep === null || !backups) return;
+    if (!keepReady || ask === null || !backups) return;
     keepBusy = true;
     problem = null;
+    const password = withSso ? undefined : keepPassword;
     try {
-      backups = await changeBackups(
-        withSso ? { keep: pendingKeep } : { keep: pendingKeep, password: keepPassword }
-      );
-      pendingKeep = null;
+      if ('keep' in ask) {
+        backups = await changeBackups(
+          password === undefined ? { keep: ask.keep } : { keep: ask.keep, password }
+        );
+      } else {
+        backups = await backUpNow(password);
+        now = new Date();
+      }
+      ask = null;
     } catch (error) {
       problem = failed(error);
       // The proof ran out, or was another session's: ask for a fresh one.
@@ -168,6 +200,7 @@
     try {
       const { url } = await startConfirm();
       markConfirming(true, Date.now(), 'backups');
+      if (ask) rememberAction(ask);
       goToSignInServer(url, true);
     } catch (error) {
       confirming = false;
@@ -175,7 +208,19 @@
     }
   }
 
+  // Back from the sign-in server with a confirming: open the box again for what was asked.
+  onMount(() => {
+    const again = takeAction();
+    if (again && admin) openAsk(again);
+  });
+
+  /** Back up now: at a full folder the new backup pushes the oldest out, so it asks first. */
   async function backUp() {
+    if (!backups) return;
+    if (backups.count >= backups.keep) {
+      openAsk({ backUpNow: true });
+      return;
+    }
     busy = true;
     problem = null;
     try {
@@ -329,12 +374,12 @@
           {/if}
         </div>
       </div>
-      {#if pendingKeep !== null}
+      {#if ask !== null}
         <form class="ask" onsubmit={(event) => void keepFewer(event)}>
           <strong>{goingWords}</strong>
           {#if withSso}
             {#if how?.confirmed}
-              <p class="sub" role="status">{CONFIRMED_SSO_KEEP}</p>
+              <p class="sub" role="status">{confirmedWords}</p>
             {:else}
               <p class="sub">{CONFIRM_SSO_LINE}</p>
               <button
@@ -353,7 +398,7 @@
           {/if}
           <div class="buttons">
             <button type="submit" class="small" disabled={!keepReady}
-              >{keepBusy ? KEEP_FEWER_BUSY : KEEP_FEWER_BUTTON}</button
+              >{keepBusy ? KEEP_FEWER_BUSY : goWords}</button
             >
             <button type="button" class="small" disabled={keepBusy} onclick={cancelKeep}
               >{KEEP_FEWER_CANCEL}</button

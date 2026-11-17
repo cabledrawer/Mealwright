@@ -23,6 +23,7 @@
   import { signOutHere } from '#lib/offline/signOut.js';
   import { session } from '#lib/session.svelte.js';
   import {
+    BACK_UP_NEEDS_PASSWORD,
     CONFIRMED_SSO,
     CONFIRMING_SSO,
     CONFIRM_SSO_BUTTON,
@@ -79,11 +80,16 @@
     problem = null;
     backedUp = null;
     try {
-      const backups = await backUpNow();
+      const backups = await backUpNow(withSso || password === '' ? undefined : password);
       if (backups.problem) problem = `Couldn’t back up: ${backups.problem}`;
       else backedUp = `Backed up: ${lastBackupWords(backups)}`;
     } catch (error) {
-      problem = failed(error);
+      // At a full folder a new backup pushes the oldest out, which asks for the password
+      // (R6); this box has none typed yet.
+      problem =
+        !withSso && password === '' && error instanceof ApiError && error.code === 'password_wrong'
+          ? BACK_UP_NEEDS_PASSWORD
+          : failed(error);
     } finally {
       backingUp = false;
     }

@@ -43,7 +43,10 @@ export const changeBackups = (change: {
 }) => api<Backups>('PATCH', '/backups', change);
 
 /** "Back up now". A backup that fails comes back as the settings with `problem` set. */
-export const backUpNow = () => api<Backups>('POST', '/backups', undefined, { timeoutMs: 120_000 });
+export const backUpNow = (password?: string) =>
+  api<Backups>('POST', '/backups', password === undefined ? undefined : { password }, {
+    timeoutMs: 120_000
+  });
 
 /** Where "Export" downloads the file from (a plain link: the browser saves what it streams). */
 export const EXPORT_PATH = '/api/v1/export';
