@@ -14,6 +14,9 @@ export interface PreviewRecipe {
   photo: boolean;
   /** The household has it already (same name and source): left out. */
   already: boolean;
+  /** Whether it would wait in Drafts to check (true) or be saved ready (false). Null or missing:
+   *  it isn't coming, or the server couldn't read it (or an older server). */
+  to_drafts?: boolean | null;
 }
 
 export interface MealiePreview {

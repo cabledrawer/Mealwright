@@ -49,7 +49,7 @@
   const already = $derived(preview?.recipes.filter((r) => r.already) ?? []);
   const newNames = $derived(preview?.foods_new_names ?? []);
   const leftOut = $derived(preview ? notBroughtIn(preview.left_out) : null);
-  const ready = $derived(preview ? readyWords(preview) : null);
+  const ready = $derived(preview ? readyWords(preview, flow.leaveOut) : null);
   const tooMany = $derived(preview ? tooManyIngredientsWords(preview) : null);
   const share = $derived(job && job.total ? Math.round((job.done / job.total) * 100) : 0);
   const offline = $derived(network.offline);

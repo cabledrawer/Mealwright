@@ -100,14 +100,31 @@ describe('Import from Mealie words', () => {
     );
   });
 
-  it('says how many new recipes are ready and how many go to Drafts (F247)', () => {
-    expect(readyWords({ new: 202, to_drafts: 34 })).toBe(
-      '168 recipes ready, 34 go to Drafts to check'
-    );
-    expect(readyWords({ new: 5, to_drafts: 1 })).toBe('4 recipes ready, 1 goes to Drafts to check');
-    expect(readyWords({ new: 2, to_drafts: 0 })).toBe('2 recipes ready, 0 go to Drafts to check');
-    expect(readyWords({ new: 3 })).toBeNull();
-    expect(readyWords({ new: 0, to_drafts: 0 })).toBeNull();
+  it('says how many ticked recipes are ready and how many go to Drafts (F247)', () => {
+    const recipe = (key: string, to_drafts?: boolean | null, already = false) => ({
+      key,
+      name: key,
+      tags: [],
+      photo: false,
+      already,
+      to_drafts
+    });
+    const preview = {
+      recipes: [
+        recipe('a', false),
+        recipe('b', false),
+        recipe('c', true),
+        recipe('d', null),
+        recipe('e', undefined),
+        recipe('f', false, true)
+      ]
+    };
+    // Already-here, unread and unanswered recipes are in neither number.
+    expect(readyWords(preview)).toBe('2 recipes ready, 1 goes to Drafts to check');
+    expect(readyWords(preview, new Set(['c']))).toBe('2 recipes ready, 0 go to Drafts to check');
+    expect(readyWords(preview, new Set(['a']))).toBe('1 recipe ready, 1 goes to Drafts to check');
+    expect(readyWords(preview, new Set(['a', 'b', 'c']))).toBeNull();
+    expect(readyWords({ recipes: [recipe('d', null), recipe('e')] })).toBeNull();
   });
 
   it('quotes the lines it couldn’t read: the phone adds …, the computer how many more', () => {

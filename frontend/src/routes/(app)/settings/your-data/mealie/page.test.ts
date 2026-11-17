@@ -16,9 +16,23 @@ import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
 const RECIPES: PreviewRecipe[] = [
-  { key: 'm1', name: 'Green curry', tags: ['Dinner', 'Thai'], photo: true, already: false },
-  { key: 'm2', name: 'Shakshuka', tags: ['Breakfast'], photo: true, already: false },
-  { key: 'm3', name: 'Pâté on toast', tags: [], photo: false, already: false },
+  {
+    key: 'm1',
+    name: 'Green curry',
+    tags: ['Dinner', 'Thai'],
+    photo: true,
+    already: false,
+    to_drafts: false
+  },
+  {
+    key: 'm2',
+    name: 'Shakshuka',
+    tags: ['Breakfast'],
+    photo: true,
+    already: false,
+    to_drafts: true
+  },
+  { key: 'm3', name: 'Pâté on toast', tags: [], photo: false, already: false, to_drafts: false },
   { key: 'm4', name: 'Dal makhani', tags: ['Dinner'], photo: false, already: true }
 ];
 
@@ -275,8 +289,10 @@ describe('Import from Mealie', () => {
     });
 
     it('a preview without the Drafts count (read before F247) says nothing of it', async () => {
-      const older = { ...READY.preview };
-      delete older.to_drafts;
+      const older = {
+        ...READY.preview,
+        recipes: RECIPES.map(({ to_drafts: _gone, ...rest }) => rest)
+      };
       await open({
         'GET /mealie-imports/current': [200, { current: { ...READY, preview: older } }]
       });
@@ -284,6 +300,19 @@ describe('Import from Mealie', () => {
       expect(
         page.getByText(/go to Drafts to check|goes to Drafts to check/).elements()
       ).toHaveLength(0);
+    });
+
+    it('the line counts only the recipes still ticked, on a computer (round 1, finding 1)', async () => {
+      await open({ 'GET /mealie-imports/current': [200, { current: READY }] }, 1300);
+      await expect
+        .element(page.getByText('2 recipes ready, 1 goes to Drafts to check'))
+        .toBeVisible();
+      await page.getByRole('checkbox', { name: 'Bring in Shakshuka' }).click(); // goes to Drafts
+      await expect
+        .element(page.getByText('2 recipes ready, 0 go to Drafts to check'))
+        .toBeVisible();
+      await page.getByRole('checkbox', { name: 'Bring in Green curry' }).click(); // is ready
+      await expect.element(page.getByText('1 recipe ready, 0 go to Drafts to check')).toBeVisible();
     });
 
     it('Undo names the recipes it kept (F248)', async () => {

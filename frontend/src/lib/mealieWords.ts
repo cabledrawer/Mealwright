@@ -126,11 +126,18 @@ export function namesWords(names: string[], total: number): string {
 }
 
 /** The preview's line under the recipes (F247, proposed, for cabledrawer): "168 recipes ready,
- *  34 go to Drafts to check". Null for a preview read before the server said it. */
-export function readyWords(preview: Pick<MealiePreview, 'new' | 'to_drafts'>): string | null {
-  if (preview.to_drafts == null || preview.new <= 0) return null;
-  const ready = preview.new - preview.to_drafts;
-  const drafts = `${count(preview.to_drafts)} ${preview.to_drafts === 1 ? 'goes' : 'go'}`;
+ *  34 go to Drafts to check", over the recipes still ticked (not already here, not left out).
+ *  A recipe with no answer (a preview read before the server said it, or one it couldn't read)
+ *  is in neither number. Null when no ticked recipe has an answer. */
+export function readyWords(
+  preview: Pick<MealiePreview, 'recipes'>,
+  leaveOut: ReadonlySet<string> = new Set()
+): string | null {
+  const ticked = preview.recipes.filter((r) => !r.already && !leaveOut.has(r.key));
+  const toDrafts = ticked.filter((r) => r.to_drafts === true).length;
+  const ready = ticked.filter((r) => r.to_drafts === false).length;
+  if (toDrafts + ready <= 0) return null;
+  const drafts = `${count(toDrafts)} ${toDrafts === 1 ? 'goes' : 'go'}`;
   return `${recipesWords(ready)} ready, ${drafts} to Drafts to check`;
 }
 
