@@ -191,11 +191,11 @@ test('screenshots of the export password, dark (by hand only)', async ({ page })
 
 // R6: keeping fewer backups than there are asks for the password first. The count is stood in
 // for (the server's own tests make real backups and delete them), so nothing is deleted here.
-async function pretendThereAreFour(page: Page) {
+async function pretendThereAreFour(page: Page, count = 4) {
   await page.route('**/api/v1/backups', async (route) => {
     if (route.request().method() !== 'GET') return route.continue();
     const response = await route.fetch();
-    await route.fulfill({ response, json: { ...(await response.json()), count: 4 } });
+    await route.fulfill({ response, json: { ...(await response.json()), count } });
   });
 }
 
@@ -218,6 +218,23 @@ test('lowering Keep so that backups go asks for the password, and Cancel changes
   expect(sent).toEqual([]);
 });
 
+test('Back up now at a full folder asks for the password first, and Cancel makes nothing', async ({ page }) => {
+  await pretendThereAreFour(page, 7);
+  const sent: string[] = [];
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().endsWith('/api/v1/backups')) sent.push(request.postData() ?? '');
+  });
+  await page.goto('/settings/your-data');
+  await page.getByRole('button', { name: 'Back up now' }).click();
+  await expect(page.getByText('This replaces the oldest backup.')).toBeVisible();
+  await expect(page.getByLabel('Your password')).toBeVisible();
+  await checkPage(page);
+  expect(sent).toEqual([]);
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByLabel('Your password')).toHaveCount(0);
+  expect(sent).toEqual([]);
+});
+
 /** Dark screenshots at four widths for the review, only when E2E_SHOTS_DIR is set (by hand). */
 test('screenshot of the Keep box, dark (by hand only)', async ({ page }) => {
   const dir = process.env.E2E_SHOTS_DIR;
@@ -231,5 +248,20 @@ test('screenshot of the Keep box, dark (by hand only)', async ({ page }) => {
     await page.getByLabel('Keep').selectOption('2');
     await expect(page.getByLabel('Your password')).toBeVisible();
     await page.screenshot({ path: join(dir!, `your-data-keep-${width}.png`), fullPage: true });
+  }
+});
+
+test('screenshot of the Back up now box, dark (by hand only)', async ({ page }) => {
+  const dir = process.env.E2E_SHOTS_DIR;
+  test.skip(!dir || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+  mkdirSync(dir!, { recursive: true });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await pretendThereAreFour(page, 7);
+  for (const width of [428, 768, 1100, 1300]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/settings/your-data');
+    await page.getByRole('button', { name: 'Back up now' }).click();
+    await expect(page.getByLabel('Your password')).toBeVisible();
+    await page.screenshot({ path: join(dir!, `your-data-backup-now-${width}.png`), fullPage: true });
   }
 });
