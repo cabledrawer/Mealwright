@@ -147,10 +147,11 @@ class BackupsChange(BaseModel):
 
 @router.patch("/backups")
 def change_backups(body: BackupsChange, kitchen: Here, request: Request) -> BackupsOut:
-    """Change how often, how many and whether photos are included. Keeping fewer removes the
-    oldest backups now, and then asks for the admin's password (or the single sign-on confirm
-    step): 403 `password_wrong` or `confirm_first`. Keeping as many or more asks for nothing.
-    Including photos changes the backups made from now on, not those made."""
+    """Change how often, how many and whether photos are included. Keeping fewer than there are
+    removes the oldest backups, so it asks first: 403 `password_wrong` or `confirm_first` (the
+    admin's password, or the single sign-on confirm step), and nothing is changed or deleted
+    until that is given. Keeping as many or more asks for nothing. Including photos changes the
+    backups made from now on, not those made."""
     kitchen.admin_only(Action.YOUR_DATA)
     household = kitchen.household
     folder = _folder(request)
@@ -173,13 +174,28 @@ def _photos(kitchen: Here, folder: Path) -> Path | None:
     return backups.photo_store(folder) if kitchen.household.backup_photos else None
 
 
+class BackUpNow(BaseModel):
+    password: str = Field(
+        default="",
+        max_length=1024,
+        description="The admin's own password. Needed only when the new backup would push the "
+        "oldest one out (the folder is at or over Keep); an admin who confirms with single "
+        "sign-on instead (`GET /delete-everything` says which) leaves it out.",
+    )
+
+
 @router.post("/backups")
-def back_up_now(kitchen: Here, request: Request) -> BackupsOut:
-    """Back up now ("Back up now"). Admins only. A failure is answered as the settings with
-    `problem` set, as the screen shows it, not as an error."""
+def back_up_now(kitchen: Here, request: Request, body: BackUpNow | None = None) -> BackupsOut:
+    """Back up now ("Back up now"). Admins only. When the folder already holds Keep backups or
+    more, the new one pushes the oldest out, so it asks first (the admin's password or the
+    single sign-on confirm step: 403 `password_wrong` or `confirm_first`) and makes nothing
+    until that is given; below Keep it asks for nothing. A failure is answered as the settings
+    with `problem` set, as the screen shows it, not as an error."""
     kitchen.admin_only(Action.YOUR_DATA)
     engine: Engine = request.app.state.engine
     folder = _folder(request)
+    if len(backups.backups(folder)) >= kitchen.household.backup_keep:
+        confirm_admin(request, kitchen, body.password if body else "", "Backing up over the oldest")
     now = utcnow()
     try:
         backups.back_up(

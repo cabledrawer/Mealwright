@@ -159,3 +159,72 @@ def test_one_confirmation_passes_only_one_of_two_requests_sent_at_once(
     finally:
         sso_api.has_confirmed = real  # type: ignore[assignment]
     assert sorted(results) == [200, 403]
+
+
+# --- Back up now: a new backup at a full folder pushes the oldest out (security review, finding 1)
+
+
+def test_back_up_now_at_a_full_folder_needs_the_password_and_makes_nothing(
+    kitchen: TestClient,
+) -> None:
+    kitchen.patch(API, json={"keep": 3})
+    _make(kitchen, 3)
+    before = {b.path for b in backups.backups(_folder(kitchen))}
+    refused = kitchen.post(API)
+    assert refused.status_code == 403
+    assert refused.json()["code"] == "password_wrong"
+    wrong = kitchen.post(API, json={"password": "nope"})
+    assert wrong.status_code == 403
+    assert {b.path for b in backups.backups(_folder(kitchen))} == before  # none made or lost
+
+
+def test_seven_presses_without_a_password_leave_every_old_backup(kitchen: TestClient) -> None:
+    _make(kitchen, 7)
+    before = {b.path for b in backups.backups(_folder(kitchen))}
+    for _ in range(7):  # the wrong tries are counted, so the later ones are paused (429)
+        assert kitchen.post(API).status_code in (403, 429)
+    assert {b.path for b in backups.backups(_folder(kitchen))} == before
+
+
+def test_back_up_now_with_the_password_makes_one_and_trims(kitchen: TestClient) -> None:
+    kitchen.patch(API, json={"keep": 3})
+    _make(kitchen, 3)
+    oldest = backups.backups(_folder(kitchen))[-1].path
+    done = kitchen.post(API, json={"password": PASSWORD})
+    assert done.status_code == 200, done.text
+    assert done.json()["count"] == 3
+    assert not oldest.exists()
+
+
+def test_back_up_now_below_keep_needs_no_password(kitchen: TestClient) -> None:
+    _make(kitchen, 2)  # keep is 7
+    assert kitchen.post(API).status_code == 200
+    assert _count(kitchen) == 3
+
+
+def test_a_wrong_password_on_back_up_now_is_counted(kitchen: TestClient) -> None:
+    kitchen.patch(API, json={"keep": 2})
+    _make(kitchen, 2)
+    for _ in range(5):
+        assert kitchen.post(API, json={"password": "nope"}).status_code == 403
+    assert kitchen.post(API, json={"password": PASSWORD}).status_code == 429
+
+
+def test_an_sso_only_admin_backs_up_over_the_oldest_only_after_confirming(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    _make(sso_only, 7)
+    refused = sso_only.post(API)
+    assert refused.status_code == 403
+    assert refused.json()["code"] == "confirm_first"
+    assert _confirm(sso_only, idp).status_code == 200
+    assert sso_only.post(API).status_code == 200
+    assert _count(sso_only) == 7
+
+
+def test_the_scheduled_job_still_trims_without_a_password(kitchen: TestClient) -> None:
+    _make(kitchen, 5)
+    engine = cast(Any, kitchen.app).state.engine
+    start = datetime(2026, 12, 1, 3, 0, tzinfo=UTC)
+    backups.back_up(engine, _folder(kitchen), 3, start)
+    assert _count(kitchen) == 3
