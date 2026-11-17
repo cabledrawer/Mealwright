@@ -32,13 +32,14 @@ SUN = date(2026, 11, 15)
 @pytest.fixture
 def clock(monkeypatch: pytest.MonkeyPatch) -> Callable[[datetime], None]:
     """Move the clock the plan reads to a chosen moment (sign-in keeps the real one, so a jump
-    of a day doesn't sign the test out)."""
-    from mealwright import batch_sessions, plan
+    of a day doesn't sign the test out). The household's own "today" reads its clock too: left
+    out, a date in the test that was before the real today was refused as a past day."""
+    from mealwright import batch_sessions, household, plan
     from mealwright.api.v1 import plan as plan_api
 
     def set_to(moment: datetime) -> None:
         shift = moment - datetime.now(UTC)
-        for module in (plan, plan_api, batch_sessions):
+        for module in (plan, plan_api, batch_sessions, household):
             monkeypatch.setattr(module, "utcnow", lambda: datetime.now(UTC) + shift)
 
     return set_to

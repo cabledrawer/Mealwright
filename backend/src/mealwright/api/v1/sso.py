@@ -203,6 +203,8 @@ def _pace(request: Request) -> None:
     """Count one start or finish from this address (review R7) before a place to wait on the
     sign-in server is taken; past the free ones each waits longer (up to a minute), told with
     the same quick "try again" a full set of places gives."""
+    # address_key counts per IPv6 /64, the same as password sign-in; a bigger block gets more tries
+    # while the background check keeps its place (review L2).
     slow: SlowDown = request.app.state.slow_down
     at, _ = slow.begin([f"sso:{address_key(client_address(request))}"])
     if at is None:
