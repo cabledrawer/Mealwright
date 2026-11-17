@@ -641,9 +641,10 @@
 
   /* --- A computer: a table ------------------------------------------------------------ */
   .table {
+    /* F246: the table uses the room the page has (it was held to 1100px with 6px between
+       columns, and the buttons wrapped under each other). */
     width: 100%;
-    max-width: 1100px;
-    padding: 6px 18px;
+    padding: 6px 24px;
     border-collapse: separate;
     border-spacing: 0;
     border-radius: var(--radius-2xl);
@@ -654,14 +655,14 @@
 
   .table th,
   .table td {
-    padding: 14px 6px;
+    padding: 16px 14px;
     border-top: 1px solid var(--color-border);
     vertical-align: middle;
     font-weight: var(--weight-regular);
   }
 
   .table thead th {
-    padding: 12px 6px;
+    padding: 12px 14px;
     border-top: none;
     color: var(--color-text-muted);
     font-size: var(--text-xs);
@@ -676,11 +677,12 @@
     /* A name that is one very long word may break anywhere (at 200% it must not widen the page),
        but the column is never narrower than 7rem, so long From lines can't squeeze
        "Minestrone" into "Minestron / e" (7f163897). */
-    min-width: 7rem;
+    min-width: 12rem;
     overflow-wrap: anywhere;
   }
 
   .from {
+    min-width: 10rem;
     color: var(--color-text-soft);
     overflow-wrap: anywhere;
   }
@@ -720,8 +722,9 @@
 
   .table .buttons {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
+    white-space: nowrap;
     gap: var(--space-3);
   }
 
@@ -729,7 +732,7 @@
   .table .delete,
   .table .save {
     min-height: var(--touch-target);
-    padding: 0 var(--space-7);
+    padding: 0 var(--space-6);
     border-radius: var(--radius-full);
     font-size: var(--text-base);
   }

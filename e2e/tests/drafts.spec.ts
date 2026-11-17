@@ -276,6 +276,21 @@ test('the Drafts screen as the mockup shows it: days left, how far, Carry on or 
   await checkPage(page);
 });
 
+test('F246: on a computer the Drafts table has room: the buttons sit on one line and the name has width', async ({ page }) => {
+  test.skip(isPhone(page), 'the table is the computer’s');
+  await listing(page, [brief(1, { name: 'Chettinad kuzhambu', lines_checked: 9 }), brief(2, { name: 'Rava dosa' })]);
+  await page.goto('/recipes/drafts');
+  const row = page.getByRole('row').filter({ hasText: 'Chettinad kuzhambu' });
+  const tops = await row.getByRole('button').or(row.getByRole('link', { name: /^Carry on/ })).evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+  expect(tops.length).toBe(3);
+  expect(new Set(tops).size, 'Save recipe, Carry on and Delete on one line').toBe(1);
+  const name = await page.getByRole('rowheader', { name: 'Chettinad kuzhambu' }).boundingBox();
+  expect(name!.width).toBeGreaterThanOrEqual(190);
+  const table = await page.getByRole('table', { name: 'Drafts' }).boundingBox();
+  expect(table!.width).toBeGreaterThan(800); // it fills the room the page has
+  await expectNoSidewaysScroll(page);
+});
+
 test('long names and text at 200% never scroll sideways', async ({ page }) => {
   const long = 'வெண்டைக்காய் '.repeat(8) + 'x'.repeat(60);
   await listing(page, [brief(1, { name: long, started_by: 'Wilhelmina Featherstonehaugh' }), brief(2, { lines_checked: 9 })]);
