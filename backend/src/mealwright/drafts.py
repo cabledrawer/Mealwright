@@ -201,22 +201,42 @@ def listing(kitchen: Kitchen) -> list[DraftBrief]:
             .order_by(ImportDraft.updated_at.desc(), ImportDraft.id.desc())
         )
     )
+    # Each draft is read from its stored form once, and the ingredients and recipes they point
+    # at are looked up together (F245: 700 drafts took ~20 s, a few queries and a second read
+    # of every draft each).
+    parsed: dict[int, tuple[ImportReview, DraftChoices] | None] = {}
+    known = Known()
+    food_ids: set[int] = set()
+    recipe_ids: set[int] = set()
+    for draft in rows:
+        if draft.lines_checked >= draft.lines_total:
+            continue
+        try:
+            both = (
+                ImportReview.model_validate(draft.review),
+                DraftChoices.model_validate(draft.choices),
+            )
+        except ValueError:
+            parsed[draft.id] = None
+            continue
+        parsed[draft.id] = both
+        more_foods, more_recipes = _ids_in(*both)
+        food_ids |= more_foods
+        recipe_ids |= more_recipes
+    _load_foods(kitchen, food_ids, known.foods)
+    _load_recipes(kitchen, recipe_ids, known.recipes)
     given: list[tuple[int, str, Ref]] | None = None
     budget = ReadBudget()
     briefs = []
     for draft in rows:
         out = brief(draft, now)
-        if draft.lines_checked < draft.lines_total:
+        waiting_pair = parsed.get(draft.id)
+        if waiting_pair is not None:
+            review, choices = waiting_pair
             if given is None:
-                given = _answers_given(kitchen, now)
-            try:
-                review = ImportReview.model_validate(draft.review)
-                choices = DraftChoices.model_validate(draft.choices)
-            except ValueError:
-                briefs.append(out)
-                continue
+                given = _answers_given(kitchen, now, rows, parsed)
             review, choices = rematch(kitchen, review, choices, draft.id, given, budget)
-            review, choices = freshen(kitchen, review, choices)
+            review, choices = freshen(kitchen, review, choices, known)
             total, checked = _progress(review, choices)
             out = out.model_copy(
                 update={
@@ -244,21 +264,38 @@ def detail(kitchen: Kitchen, draft: ImportDraft) -> DraftOut:
 # --- Drafts from one batch learn from each other (F213, F215) -------------------------------
 
 
-def _answers_given(kitchen: Kitchen, now: datetime | None = None) -> list[tuple[int, str, Ref]]:
+def _answers_given(
+    kitchen: Kitchen,
+    now: datetime | None = None,
+    rows: list[ImportDraft] | None = None,
+    parsed: dict[int, tuple[ImportReview, DraftChoices] | None] | None = None,
+) -> list[tuple[int, str, Ref]]:
     """What the household's waiting drafts were told "Same as": (the draft, the line's words
-    folded, the ingredient), the newest draft first."""
-    rows = kitchen.db.scalars(
-        select(ImportDraft)
-        .where(*live(kitchen.household_id, now or utcnow()))
-        .order_by(ImportDraft.updated_at.desc(), ImportDraft.id.desc())
-    )
+    folded, the ingredient), the newest draft first. `rows` and `parsed`: the drafts, and the
+    ones the Drafts list has read already (a draft not in `parsed` is read here)."""
+    if rows is None:
+        rows = list(
+            kitchen.db.scalars(
+                select(ImportDraft)
+                .where(*live(kitchen.household_id, now or utcnow()))
+                .order_by(ImportDraft.updated_at.desc(), ImportDraft.id.desc())
+            )
+        )
     given: list[tuple[int, str, Ref]] = []
     for other in rows:
-        try:
-            review = ImportReview.model_validate(other.review)
-            choices = DraftChoices.model_validate(other.choices)
-        except ValueError:
+        if parsed is not None and other.id in parsed:
+            both = parsed[other.id]
+        else:
+            try:
+                both = (
+                    ImportReview.model_validate(other.review),
+                    DraftChoices.model_validate(other.choices),
+                )
+            except ValueError:
+                both = None
+        if both is None:
             continue
+        review, choices = both
         for index, choice in choices.lines.items():
             if choice.kind != "ingredient" or not choice.learn or choice.food is None:
                 continue
@@ -424,37 +461,33 @@ def _current(foods: dict[int, Food | None], food_id: int) -> Food | None:
     return food
 
 
-def freshen(
-    kitchen: Kitchen, review: ImportReview, choices: DraftChoices
-) -> tuple[ImportReview, DraftChoices]:
-    """Bring a draft's ingredients up to date, without changing anything stored.
+class Known:
+    """The ingredients and recipes the Drafts list has looked up already, shared by all its
+    drafts so each is asked for once (F245: 700 drafts asked the database twice each)."""
 
-    A draft can wait up to 15 days, and ingredients change meanwhile. An ingredient that was
-    renamed shows its new name; one that was merged into another shows that one; one that was
-    removed is no longer offered: a line that was matched to it goes back to "needs you", and a
-    choice that pointed at it is dropped, so the person picks again. (Save would refuse
-    them anyway, line by line.) Only the household's own ingredients are looked at."""
-    ids = {line.food.id for line in review.lines if line.food}
-    ids |= {c.food.id for c in choices.lines.values() if c.food}
-    recipe_ids = {c.recipe.id for c in choices.lines.values() if c.recipe}
-    if not ids and not recipe_ids:
-        return review, choices
-    # A recipe a line was set to use (F188): its new name, or no choice when it is gone.
-    recipes = {
-        recipe.id: recipe
-        for recipe in kitchen.db.scalars(
-            select(Recipe).where(
-                Recipe.household_id == kitchen.household_id, Recipe.id.in_(recipe_ids)
+    def __init__(self) -> None:
+        self.foods: dict[int, Food | None] = {}
+        self.recipes: dict[int, Recipe | None] = {}
+
+
+_CHUNK = 500  # ids per query: far below SQLite's limit on bound values
+
+
+def _load_foods(kitchen: Kitchen, ids: set[int], foods: dict[int, Food | None]) -> None:
+    """Fill `foods` with these ids and the ones they were merged into; ids already there are
+    not asked for again (an id that is not the household's, or is gone, is None)."""
+    wanted = {i for i in ids if i not in foods}
+    while wanted:
+        listed = sorted(wanted)
+        found: dict[int, Food] = {}
+        for start in range(0, len(listed), _CHUNK):
+            rows = kitchen.db.scalars(
+                select(Food).where(
+                    Food.household_id == kitchen.household_id,
+                    Food.id.in_(listed[start : start + _CHUNK]),
+                )
             )
-        )
-    }
-    foods: dict[int, Food | None] = {}
-    wanted = set(ids)
-    while wanted:  # the ids asked for, and the ones they were merged into
-        rows = kitchen.db.scalars(
-            select(Food).where(Food.household_id == kitchen.household_id, Food.id.in_(wanted))
-        )
-        found = {food.id: food for food in rows}
+            found.update({food.id: food for food in rows})
         for food_id in wanted:
             foods[food_id] = found.get(food_id)
         wanted = {
@@ -462,6 +495,49 @@ def freshen(
             for food in found.values()
             if food.merged_into_id is not None and food.merged_into_id not in foods
         }
+
+
+def _load_recipes(kitchen: Kitchen, ids: set[int], recipes: dict[int, Recipe | None]) -> None:
+    wanted = sorted(i for i in ids if i not in recipes)
+    for start in range(0, len(wanted), _CHUNK):
+        chunk = wanted[start : start + _CHUNK]
+        rows = kitchen.db.scalars(
+            select(Recipe).where(Recipe.household_id == kitchen.household_id, Recipe.id.in_(chunk))
+        )
+        found = {recipe.id: recipe for recipe in rows}
+        for recipe_id in chunk:
+            recipes[recipe_id] = found.get(recipe_id)
+
+
+def _ids_in(review: ImportReview, choices: DraftChoices) -> tuple[set[int], set[int]]:
+    ids = {line.food.id for line in review.lines if line.food}
+    ids |= {c.food.id for c in choices.lines.values() if c.food}
+    return ids, {c.recipe.id for c in choices.lines.values() if c.recipe}
+
+
+def freshen(
+    kitchen: Kitchen,
+    review: ImportReview,
+    choices: DraftChoices,
+    known: Known | None = None,
+) -> tuple[ImportReview, DraftChoices]:
+    """Bring a draft's ingredients up to date, without changing anything stored.
+
+    A draft can wait up to 15 days, and ingredients change meanwhile. An ingredient that was
+    renamed shows its new name; one that was merged into another shows that one; one that was
+    removed is no longer offered: a line that was matched to it goes back to "needs you", and a
+    choice that pointed at it is dropped, so the person picks again. (Save would refuse
+    them anyway, line by line.) Only the household's own ingredients are looked at. `known`:
+    what the Drafts list has looked up already for its other drafts."""
+    ids, recipe_ids = _ids_in(review, choices)
+    if not ids and not recipe_ids:
+        return review, choices
+    known = known or Known()
+    # A recipe a line was set to use (F188): its new name, or no choice when it is gone.
+    _load_recipes(kitchen, recipe_ids, known.recipes)
+    recipes = known.recipes
+    _load_foods(kitchen, ids, known.foods)
+    foods = known.foods
     lines = []
     for line in review.lines:
         if line.food is not None:
