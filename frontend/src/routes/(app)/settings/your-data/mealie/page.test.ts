@@ -291,7 +291,11 @@ describe('Import from Mealie', () => {
     it('a preview without the Drafts count (read before F247) says nothing of it', async () => {
       const older = {
         ...READY.preview,
-        recipes: RECIPES.map(({ to_drafts: _gone, ...rest }) => rest)
+        recipes: RECIPES.map((r) => {
+          const rest = { ...r };
+          delete (rest as { to_drafts?: boolean | null }).to_drafts;
+          return rest;
+        })
       };
       await open({
         'GET /mealie-imports/current': [200, { current: { ...READY, preview: older } }]
