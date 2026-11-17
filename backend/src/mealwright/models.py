@@ -664,6 +664,7 @@ class FoodMerge(Base):
     """Merge history: old links to `from_food_id` resolve to the food it went into."""
 
     __tablename__ = "food_merge"
+    __table_args__ = ({"sqlite_autoincrement": True},)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     household_id: Mapped[int] = mapped_column(
@@ -711,6 +712,7 @@ class ChangeLine(Base):
     """One stock lot touched by a change: before → after."""
 
     __tablename__ = "change_line"
+    __table_args__ = ({"sqlite_autoincrement": True},)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     household_id: Mapped[int] = mapped_column(

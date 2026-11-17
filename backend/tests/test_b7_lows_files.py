@@ -46,7 +46,7 @@ def test_an_earlier_file_stays_when_the_change_that_lets_it_go_fails(
     def broken(*args: Any, **kwargs: Any) -> None:
         raise OSError("disk full")
 
-    monkeypatch.setattr(mealie_import.shutil, "move", broken)
+    monkeypatch.setattr("shutil.move", broken)
     with pytest.raises(OSError):
         kitchen.post(f"{API}/mealie-imports", content=raw)
     assert mealie_files(kitchen) == before  # not unlinked ahead of its commit
@@ -103,7 +103,7 @@ def test_undo_takes_a_recipe_added_to_the_import_while_it_ran(
     monkeypatch.setattr(mealie_import, "_pause", other_writer)
     undone = kitchen.post(f"{API}/mealie-imports/{job['id']}/undo").json()
     assert undone["recipes"] == 1
-    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+    with kitchen.app.state.sessionmaker() as db:
         assert db.scalars(select(Recipe).where(Recipe.removed_at.is_(None))).all() == []
 
 
@@ -141,3 +141,32 @@ def test_one_oversized_yield_quantity_does_not_make_the_file_unreadable(tmp_path
     )
     book = read_now(make_zip(tmp_path / "x.zip", database))
     assert [r.page.name for r in book.recipes] == ["Big batch"]
+
+
+def test_undoing_a_merge_only_deletes_its_own_households_merge_record(
+    kitchen: TestClient,
+) -> None:
+    from mealwright.api.v1.context import Kitchen
+    from mealwright.history import undo_merge_record
+    from mealwright.models import Food, FoodMerge, Household, Login
+
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        other = Household(name="Other", created_at=utcnow())
+        db.add(other)
+        db.flush()
+        foods = [Food(household_id=other.id, name=n, counted_as="each", staple=False) for n in "ab"]
+        db.add_all(foods)
+        db.flush()
+        merge = FoodMerge(household_id=other.id, from_food_id=foods[0].id, into_food_id=foods[1].id)
+        db.add(merge)
+        db.commit()
+        mine = Kitchen(
+            db=db,
+            login=db.scalars(select(Login)).first(),  # type: ignore[arg-type]
+            household=db.get(Household, 1),  # type: ignore[arg-type]
+            idempotency_key=None,
+            request="test",
+        )
+        undo_merge_record(mine, {"merge_id": merge.id})
+        db.commit()
+        assert db.get(FoodMerge, merge.id) is not None  # another household's: stays

@@ -859,10 +859,14 @@ def undo_lines(kitchen: Kitchen, change: Change, tally: Tally) -> list[Shortfall
 def undo_merge_record(kitchen: Kitchen, data: dict[str, Any]) -> None:
     """A merge's history row goes when the merge is undone; a split's mark is cleared."""
     if "merge_id" in data:
-        kitchen.db.execute(delete(FoodMerge).where(FoodMerge.id == data["merge_id"]))
+        kitchen.db.execute(
+            delete(FoodMerge).where(
+                FoodMerge.id == data["merge_id"], FoodMerge.household_id == kitchen.household_id
+            )
+        )
     if "split_merge_id" in data:
         merge = kitchen.db.get(FoodMerge, data["split_merge_id"])
-        if merge is not None:
+        if merge is not None and merge.household_id == kitchen.household_id:
             merge.split_at = None
 
 
