@@ -67,7 +67,8 @@ def create_draft(body: DraftIn, kitchen: Here, response: Response) -> DraftOut:
 def drafts_by_ingredient(
     kitchen: Here, limit: Annotated[int, Query(ge=1, le=mealie_answers.MAX_LIMIT)] = 50
 ) -> IngredientGroups:
-    """Fixing Mealie drafts by ingredient (cabledrawer 15 Nov): the lines of the household's
+    # Spec: "Fixing Mealie drafts by ingredient" (cabledrawer 15 Nov).
+    """Fixing Mealie drafts by ingredient: the lines of the household's
     drafts from Mealie that are still unanswered, grouped by the ingredient they name across all
     drafts, most-used first (the first `limit`; `total` is every group). Each group has its draft
     count, two lines as written and, where matching has one, an ingredient it may be. Changes

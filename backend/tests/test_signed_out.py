@@ -130,3 +130,9 @@ def test_the_allowed_endpoints_say_nothing_private(
     docs = kitchen.get(f"{API}/openapi.json").text.lower()
     for private in (ADMIN["username"], ADMIN["password"], ADMIN["name"].lower()):
         assert private not in docs
+
+
+def test_the_public_api_description_names_nobody(client: TestClient) -> None:
+    """openapi.json is public: no credit line from a docstring may reach it (release pass)."""
+    text = client.get(f"{API}/openapi.json").text.lower()
+    assert "cabledrawer" not in text
