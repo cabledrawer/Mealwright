@@ -130,7 +130,12 @@ def _drop_file(db: Session, row: MealieImport) -> Path | None:
 def _unlink(paths: list[Path | None]) -> None:
     for path in paths:
         if path is not None:
-            path.unlink(missing_ok=True)
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as why:
+                # The change is already saved: a file that will not go is left for `tidy`'s
+                # day-old sweep, and the answer (or the next row) is not spoiled by it.
+                log.warning("A Mealie file could not be deleted (%s)", type(why).__name__)
 
 
 # --- Telling the same recipe ------------------------------------------------------------------

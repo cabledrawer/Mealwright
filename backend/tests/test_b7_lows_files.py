@@ -170,3 +170,58 @@ def test_undoing_a_merge_only_deletes_its_own_households_merge_record(
         undo_merge_record(mine, {"merge_id": merge.id})
         db.commit()
         assert db.get(FoodMerge, merge.id) is not None  # another household's: stays
+
+
+def _zip_wont_go(monkeypatch: pytest.MonkeyPatch) -> None:
+    real = Path.unlink
+
+    def unlink(self: Path, missing_ok: bool = False) -> None:
+        if self.suffix == ".zip":
+            raise PermissionError("read-only")
+        real(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+
+
+def test_a_file_that_will_not_go_after_the_commit_does_not_spoil_the_answer(
+    kitchen: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = zipped(tmp_path / "b.zip")
+    first = upload(kitchen, raw).json()["id"]
+    _zip_wont_go(monkeypatch)
+    again = kitchen.post(f"{API}/mealie-imports", content=raw)
+    assert again.status_code < 300  # saved, so not a 500
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        gone = db.get(MealieImport, first)
+        assert gone is not None and gone.state == "gone" and gone.file_key is None
+
+
+def test_tidy_carries_on_when_a_file_will_not_go(
+    kitchen: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = upload(kitchen, zipped(tmp_path / "b.zip")).json()["id"]
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        one = db.get(MealieImport, first)
+        assert one is not None
+        db.add(  # a second waiting import (the API keeps only one, so it is made here)
+            MealieImport(
+                household_id=one.household_id,
+                state="ready",
+                file_name=one.file_name,
+                file_key="second",
+                preview=one.preview,
+                choices={},
+                total=0,
+                done=0,
+                results=[],
+                started_by_login_id=one.started_by_login_id,
+                started_by_name=one.started_by_name,
+                created_at=one.created_at,
+            )
+        )
+        db.commit()
+    _zip_wont_go(monkeypatch)
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        assert mealie_import.tidy(db, utcnow() + timedelta(hours=25)) == 2
+        states = [row.state for row in db.scalars(select(MealieImport))]
+    assert states == ["gone", "gone"]
