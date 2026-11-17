@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick, untrack } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import Button from '#lib/components/Button.svelte';
@@ -12,12 +12,37 @@
     type Unreadable
   } from '#lib/offline/held.js';
   import { signOutHere, trySending, type Waiting } from '#lib/offline/signOut.js';
+  import { cancelMyResetLink } from '#lib/client/people.js';
+  import { network } from '#lib/network.svelte.js';
+  import { household, sentence } from '#lib/people.svelte.js';
+  import { toasts } from '#lib/toast.svelte.js';
   import { session } from '#lib/session.svelte.js';
   import SignInSection from '../SignInSection.svelte';
 
   // Who is shown stays put while signing out (session.me goes first).
   const who = untrack(() => session.me);
   const admin = who?.role === 'admin';
+
+  // An unused reset link made for you, admin or not (spec "Pe1"): you can cancel it here, so a
+  // member (who isn't shown the Household pages) still can. Placement proposed, for cabledrawer.
+  onMount(() => {
+    if (!household.loaded) void household.load();
+  });
+  const resetPending = $derived(
+    household.people.find((person) => person.is_me)?.login?.reset_pending ?? false
+  );
+  let resetProblem = $state<string | null>(null);
+  async function cancelReset() {
+    if (network.offline) return;
+    resetProblem = null;
+    try {
+      await cancelMyResetLink();
+      await household.load();
+      toasts.show('Reset link cancelled');
+    } catch (error) {
+      resetProblem = sentence(error);
+    }
+  }
 
   let busy = $state(false);
   /** Changes not sent yet: the warning is showing. */
@@ -120,6 +145,18 @@
 />
 
 <section class="section" aria-label="Your sign-in">
+  {#if resetPending}
+    <div class="card pending">
+      <p>
+        Someone made a reset link for your password, and it hasn’t been used yet. If you didn’t ask
+        for one, cancel it.
+      </p>
+      <Button quiet disabled={network.offline} onclick={() => void cancelReset()}
+        >Cancel the link</Button
+      >
+      {#if resetProblem}<p role="alert">{resetProblem}</p>{/if}
+    </div>
+  {/if}
   <SignInSection {device} {admin} part="mine" />
   <div class="card">
     <div class="row">
@@ -174,6 +211,14 @@
     padding: var(--space-1) var(--space-7);
     border-radius: var(--radius-xl);
     background: var(--color-surface);
+  }
+
+  .pending {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding-block: var(--space-5);
   }
 
   .row {

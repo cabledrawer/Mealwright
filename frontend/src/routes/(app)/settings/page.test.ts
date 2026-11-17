@@ -11,6 +11,9 @@ import { phoneDatabaseName, setMeta } from '#lib/offline/phone.js';
 import { SIGN_OUT_PENDING_KEY, signOutPending } from '#lib/offline/signOutPending.js';
 import { addToQueue, readQueue } from '#lib/offline/store.js';
 import { session } from '#lib/session.svelte.js';
+import { household } from '#lib/people.svelte.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { HOUSEHOLD, person, people } from '#lib/testing/fakePeople.js';
 import { makeAction } from '#lib/shopping/actions.js';
 import { shoppingSync } from '#lib/shopping/sync.svelte.js';
 import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
@@ -599,5 +602,58 @@ describe('how amounts are shown (Amounts, 0.9 U2)', () => {
     await expect.element(metric()).toBeChecked();
     await expect.element(asWritten()).toBeDisabled();
     await expect.element(metric()).toBeDisabled();
+  });
+});
+
+describe('your own reset link, on Your sign-in', () => {
+  // A member isn't shown the Household pages, so the way to cancel a reset link made for them is
+  // here (placement proposed, for cabledrawer).
+  let view: ReturnType<typeof mount> | undefined;
+  afterEach(() => {
+    if (view) unmount(view);
+    view = undefined;
+    document.body.innerHTML = '';
+    household.forget();
+    vi.unstubAllGlobals();
+  });
+
+  it('a member sees an unused link made for them and cancels it', async () => {
+    let pending = true;
+    session.me = { ...ME, role: 'member' };
+    const me = () =>
+      person(2, 'Sam', {
+        is_me: true,
+        login: {
+          username: 'sam',
+          role: 'member',
+          shared: false,
+          has_password: true,
+          signs_in: true,
+          link_pending: false,
+          link_used_at: null,
+          reset_pending: pending
+        }
+      });
+    const seen = fakeApi({
+      'GET /people': () => [200, people([me()], { can_change: false })],
+      'GET /household': [200, HOUSEHOLD],
+      'DELETE /me/reset-link': () => {
+        pending = false;
+        return [204, null];
+      }
+    });
+    const target = document.body.appendChild(document.createElement('div'));
+    view = mount(SignIn, { target });
+    flushSync();
+    const line = page.getByText('Someone made a reset link for your password', { exact: false });
+    await expect.element(line).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel the link' }).click();
+    await vi.waitFor(() =>
+      expect(seen.filter((r) => r.method === 'DELETE' && r.path === '/me/reset-link')).toHaveLength(
+        1
+      )
+    );
+    await vi.waitFor(() => expect(line.query()).toBeNull());
+    expect(toasts.current?.message).toBe('Reset link cancelled');
   });
 });

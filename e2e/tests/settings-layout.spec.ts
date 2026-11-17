@@ -167,6 +167,29 @@ test('a member is not shown the Household group, and an address in it says only 
   expect(asked.filter((p) => /\/api\/v1\/(people|privacy|api-tokens|sso|backups|export)/.test(p))).toEqual([]);
 });
 
+test('a member with a reset link made for them can cancel it on Your sign-in', async ({ page }) => {
+  await asMember(page);
+  let pending = true;
+  let cancelled = 0;
+  await page.route('**/api/v1/people', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    for (const person of body.people)
+      if (person.is_me && person.login) person.login.reset_pending = pending;
+    await route.fulfill({ response, json: body });
+  });
+  await page.route('**/api/v1/me/reset-link', async (route) => {
+    cancelled++;
+    pending = false;
+    await route.fulfill({ status: 204, body: '' });
+  });
+  await page.goto('/settings/sign-in');
+  await expect(page.getByText('Someone made a reset link for your password')).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel the link' }).click();
+  await expect(page.getByText('Someone made a reset link for your password')).toHaveCount(0);
+  expect(cancelled).toBe(1);
+});
+
 /** Dark screenshots at four widths for the review, only when E2E_SHOTS_DIR is set (by hand). */
 test('screenshots of the Settings list and each item, dark (by hand only)', async ({ page }) => {
   const dir = process.env.E2E_SHOTS_DIR;
