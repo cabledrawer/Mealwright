@@ -10,7 +10,7 @@ import { network } from '#lib/network.svelte.js';
 import { session } from '#lib/session.svelte.js';
 import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
 import { ME } from '#lib/testing/fakeShopping.js';
-import { wasConfirming } from '#lib/client/sso.js';
+import { confirmingFor, wasConfirming } from '#lib/client/sso.js';
 import { whenWords } from '#lib/yourDataWords.js';
 import YourData from './+page.svelte';
 import DeleteEverything from './delete/+page.svelte';
@@ -560,6 +560,100 @@ describe('Settings → Your data', () => {
       open(DeleteEverything);
       await expect.element(page.getByText('Only the household’s admin can do this.')).toBeVisible();
       await expect.element(button()).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Keep fewer than there are (R6)', () => {
+    const patches = () => requests.filter((r) => r.method === 'PATCH').map((r) => r.body);
+    const go = () => page.getByRole('button', { name: 'Keep fewer backups' });
+    const ROUTES = {
+      'PATCH /backups': (request: FakeRequest) => [
+        200,
+        { ...BACKUPS, ...(request.body as object), count: 2 }
+      ]
+    } as Parameters<typeof fakeApi>[0];
+
+    it('lowering Keep so that backups go sends nothing until the password is typed', async () => {
+      open(YourData, {
+        ...ROUTES,
+        'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+      });
+      await page.getByLabelText('Keep').selectOptions('Last 2');
+      await expect.element(page.getByText('This deletes the oldest backup.')).toBeVisible();
+      await expect.element(go()).toBeDisabled();
+      expect(patches()).toEqual([]);
+      await userEvent.fill(page.getByLabelText('Your password'), 'correct horse battery');
+      await go().click();
+      await vi.waitFor(() => expect(patches()).toEqual([{ keep: 2, password: 'correct horse battery' }]));
+      await expect.element(page.getByLabelText('Keep')).toHaveValue('2');
+      await expect.element(go()).not.toBeInTheDocument();
+    });
+
+    it('says how many go', async () => {
+      open(YourData, {
+        'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+      });
+      await page.getByLabelText('Keep').selectOptions('Last 1');
+      await expect.element(page.getByText('This deletes the 2 oldest backups.')).toBeVisible();
+    });
+
+    it('a Keep that deletes nothing is sent at once, with no password', async () => {
+      open(YourData, ROUTES);
+      await page.getByLabelText('Keep').selectOptions('Last 3');
+      await vi.waitFor(() => expect(patches()).toEqual([{ keep: 3 }]));
+      expect(requests.some((r) => r.path === '/delete-everything')).toBe(false);
+    });
+
+    it('Cancel puts Keep back and sends nothing', async () => {
+      open(YourData, {
+        'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+      });
+      await page.getByLabelText('Keep').selectOptions('Last 2');
+      await page.getByRole('button', { name: 'Cancel' }).click();
+      await expect.element(page.getByLabelText('Keep')).toHaveValue('7');
+      await expect.element(go()).not.toBeInTheDocument();
+      expect(patches()).toEqual([]);
+    });
+
+    it('a wrong password is said, and nothing changes', async () => {
+      open(YourData, {
+        'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }],
+        'PATCH /backups': [403, { detail: 'That password isn’t right.', code: 'password_wrong' }]
+      });
+      await page.getByLabelText('Keep').selectOptions('Last 2');
+      await userEvent.fill(page.getByLabelText('Your password'), 'nope');
+      await go().click();
+      await expect.element(page.getByRole('alert')).toHaveTextContent('That password isn’t right.');
+      await expect.element(page.getByLabelText('Keep')).toHaveValue('2');
+      await expect.element(page.getByLabelText('Your password')).toHaveValue('');
+    });
+
+    it('an admin with single sign-on only confirms at the sign-in server, no password box', async () => {
+      open(YourData, {
+        'GET /delete-everything': [200, { confirm_with: 'single_sign_on', confirmed: false }],
+        'POST /sso/confirm': [200, { url: 'https://id.example.org/authorize?x=1' }]
+      });
+      await page.getByLabelText('Keep').selectOptions('Last 2');
+      await expect.element(page.getByLabelText('Your password')).not.toBeInTheDocument();
+      await expect.element(go()).toBeDisabled();
+      await page.getByRole('button', { name: 'Confirm at your sign-in server' }).click();
+      await vi.waitFor(() => expect(leave.goToSignInServer).toHaveBeenCalled());
+      expect(wasConfirming()).toBe(true);
+      expect(confirmingFor()).toBe('backups');
+      expect(patches()).toEqual([]);
+    });
+
+    it('once confirmed there, Keep fewer sends no password', async () => {
+      open(YourData, {
+        ...ROUTES,
+        'GET /delete-everything': [200, { confirm_with: 'single_sign_on', confirmed: true }]
+      });
+      await page.getByLabelText('Keep').selectOptions('Last 2');
+      await expect
+        .element(page.getByRole('status'))
+        .toHaveTextContent('Confirmed at your sign-in server. Keep fewer backups within 10 minutes.');
+      await go().click();
+      await vi.waitFor(() => expect(patches()).toEqual([{ keep: 2 }]));
     });
   });
 });

@@ -58,6 +58,8 @@ export const SIGN_IN_AGAIN = 'Sign in again';
 export const SIGN_OUT = 'Sign out';
 export const BACK_TO_SETUP = 'Back to single sign-on';
 // D3: the way back when confirming Delete everything was refused. Proposed, for cabledrawer.
+// R6: the way back when confirming a lower Keep was refused. Proposed, for cabledrawer.
+export const BACK_TO_BACKUPS = 'Back to Backups & your data';
 export const BACK_TO_DELETE = 'Back to Delete everything';
 export const TEST_TAB_DONE = 'You can close this tab: the setup tab shows the result.';
 

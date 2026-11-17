@@ -16,13 +16,16 @@
   import Switch from '#lib/components/Switch.svelte';
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
   import { getHousehold } from '#lib/client/household.js';
+  import { markConfirming, startConfirm, goToSignInServer } from '#lib/client/sso.js';
   import {
     backUpNow,
     changeBackups,
     EXPORT_PATH,
     exportWithPassword,
     getBackups,
+    getHowToConfirm,
     KEEP_MOST,
+    type HowToConfirm,
     type BackupEvery,
     type Backups
   } from '#lib/client/yourData.js';
@@ -30,6 +33,14 @@
   import { session } from '#lib/session.svelte.js';
   import {
     ADMINS_ONLY,
+    CONFIRMED_SSO_KEEP,
+    CONFIRMING_SSO,
+    CONFIRM_SSO_BUTTON,
+    CONFIRM_SSO_LINE,
+    deletesBackupsWords,
+    KEEP_FEWER_BUSY,
+    KEEP_FEWER_BUTTON,
+    KEEP_FEWER_CANCEL,
     EVERY_WORDS,
     EXPORT_LEAD,
     EXPORT_MAKING,
@@ -84,6 +95,82 @@
       backups = await changeBackups(what);
     } catch (error) {
       backups = before;
+      problem = failed(error);
+    }
+  }
+
+  // R6: a Keep that would delete backups waits here for the admin's password (or the single
+  // sign-on confirm step, as Delete everything asks); nothing is sent until then.
+  let pendingKeep = $state<number | null>(null);
+  let keepPassword = $state('');
+  let keepBusy = $state(false);
+  let how = $state<HowToConfirm | null>(null);
+  let confirming = $state(false);
+  const withSso = $derived(how?.confirm_with === 'single_sign_on');
+  const keepReady = $derived(
+    how !== null &&
+      (withSso ? how.confirmed : keepPassword.length > 0) &&
+      !keepBusy &&
+      !network.offline
+  );
+  const goingWords = $derived(
+    backups && pendingKeep !== null ? deletesBackupsWords(backups.count - pendingKeep) : ''
+  );
+
+  async function pickKeep(keep: number) {
+    if (!backups) return;
+    if (keep >= backups.count) {
+      pendingKeep = null;
+      await change({ keep });
+      return;
+    }
+    pendingKeep = keep;
+    keepPassword = '';
+    problem = null;
+    how = null;
+    getHowToConfirm().then(
+      (answer) => (how = answer),
+      // Can't tell: the password field; the server still decides.
+      () => (how = { confirm_with: 'password', confirmed: false })
+    );
+  }
+
+  function cancelKeep() {
+    pendingKeep = null;
+    keepPassword = '';
+    problem = null;
+  }
+
+  async function keepFewer(event: SubmitEvent) {
+    event.preventDefault();
+    if (!keepReady || pendingKeep === null || !backups) return;
+    keepBusy = true;
+    problem = null;
+    try {
+      backups = await changeBackups(
+        withSso ? { keep: pendingKeep } : { keep: pendingKeep, password: keepPassword }
+      );
+      pendingKeep = null;
+    } catch (error) {
+      problem = failed(error);
+      // The proof ran out, or was another session's: ask for a fresh one.
+      if (withSso && error instanceof ApiError && error.code === 'confirm_first' && how)
+        how = { ...how, confirmed: false };
+    } finally {
+      keepPassword = '';
+      keepBusy = false;
+    }
+  }
+
+  async function confirmAtServer() {
+    confirming = true;
+    problem = null;
+    try {
+      const { url } = await startConfirm();
+      markConfirming(true, Date.now(), 'backups');
+      goToSignInServer(url, true);
+    } catch (error) {
+      confirming = false;
       problem = failed(error);
     }
   }
@@ -202,8 +289,8 @@
             <span class="pick">
               <select
                 id="keep"
-                value={backups.keep}
-                onchange={(event) => void change({ keep: Number(event.currentTarget.value) })}
+                value={pendingKeep ?? backups.keep}
+                onchange={(event) => void pickKeep(Number(event.currentTarget.value))}
               >
                 {#each keeps as keep (keep)}
                   <option value={keep}>{keepWords(keep)}</option>
@@ -242,6 +329,38 @@
           {/if}
         </div>
       </div>
+      {#if pendingKeep !== null}
+        <form class="ask" onsubmit={(event) => void keepFewer(event)}>
+          <strong>{goingWords}</strong>
+          {#if withSso}
+            {#if how?.confirmed}
+              <p class="sub" role="status">{CONFIRMED_SSO_KEEP}</p>
+            {:else}
+              <p class="sub">{CONFIRM_SSO_LINE}</p>
+              <button
+                type="button"
+                class="small"
+                disabled={confirming || keepBusy || network.offline}
+                onclick={() => void confirmAtServer()}
+                >{confirming ? CONFIRMING_SSO : CONFIRM_SSO_BUTTON}</button
+              >
+            {/if}
+          {:else if how}
+            <label class="askfield">
+              Your password
+              <input type="password" bind:value={keepPassword} autocomplete="current-password" />
+            </label>
+          {/if}
+          <div class="buttons">
+            <button type="submit" class="small" disabled={!keepReady}
+              >{keepBusy ? KEEP_FEWER_BUSY : KEEP_FEWER_BUTTON}</button
+            >
+            <button type="button" class="small" disabled={keepBusy} onclick={cancelKeep}
+              >{KEEP_FEWER_CANCEL}</button
+            >
+          </div>
+        </form>
+      {/if}
       {#if failure}
         <p class="problem" role="alert">{failure}</p>
       {/if}
@@ -470,6 +589,52 @@
     flex: none;
     color: var(--color-text-muted);
     transform: scaleX(-1);
+  }
+
+  .ask {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-5);
+    padding: var(--space-5) 14px;
+    border: 1px solid var(--color-stop-border);
+    border-radius: var(--radius-field);
+    background: var(--color-stop);
+    color: var(--color-stop-text);
+    font-size: var(--text-md);
+  }
+
+  .ask strong {
+    color: var(--color-stop-title);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .askfield {
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    gap: var(--space-3);
+    font-weight: var(--weight-bold);
+  }
+
+  .askfield input {
+    min-height: var(--touch-target);
+    padding: 0 var(--space-5);
+    border: 1px solid var(--color-field-border);
+    border-radius: var(--radius-field);
+    background: var(--color-field);
+    color: var(--color-text);
+    font: var(--weight-medium) 1rem var(--font-ui);
+  }
+
+  .askfield input:focus-visible {
+    outline: 2px solid var(--color-focus);
+  }
+
+  .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-5);
   }
 
   .disk {

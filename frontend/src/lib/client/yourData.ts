@@ -33,8 +33,14 @@ export const KEEP_MOST = 30;
 
 export const getBackups = () => api<Backups>('GET', '/backups');
 
-export const changeBackups = (change: { every?: BackupEvery; keep?: number; photos?: boolean }) =>
-  api<Backups>('PATCH', '/backups', change);
+export const changeBackups = (change: {
+  every?: BackupEvery;
+  keep?: number;
+  photos?: boolean;
+  /** R6: the admin's own password, needed when `keep` would delete backups (an admin who
+   *  confirmed with single sign-on leaves it out). */
+  password?: string;
+}) => api<Backups>('PATCH', '/backups', change);
 
 /** "Back up now". A backup that fails comes back as the settings with `problem` set. */
 export const backUpNow = () => api<Backups>('POST', '/backups', undefined, { timeoutMs: 120_000 });

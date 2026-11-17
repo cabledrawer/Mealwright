@@ -236,7 +236,7 @@
         "frontend/src/routes/(app)/settings/your-data/**", "frontend/src/lib/client/yourData.ts", "frontend/src/lib/yourDataWords*",
         "docs/restore.md"
       ],
-      "backend": ["test_backups.py", "test_backup_settings_migration.py", "test_export.py", "test_export_crypto.py", "test_delete_everything.py", "test_delete_everything_memory.py", "test_restore_steps.py", "test_restored_copy_ends_sign_ins.py", "test_sso_confirm_delete.py", "test_login_ids.py", "test_backup_photos.py", "test_migration_backup_photos.py"],
+      "backend": ["test_backups.py", "test_backup_keep_confirm.py", "test_backup_settings_migration.py", "test_export.py", "test_export_crypto.py", "test_delete_everything.py", "test_delete_everything_memory.py", "test_restore_steps.py", "test_restored_copy_ends_sign_ins.py", "test_sso_confirm_delete.py", "test_login_ids.py", "test_backup_photos.py", "test_migration_backup_photos.py"],
       "browser": ["your-data.spec.ts"]
     },
     {

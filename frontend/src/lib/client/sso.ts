@@ -112,23 +112,32 @@ export const startConfirm = () => api<{ url: string }>('POST', '/sso/confirm');
 const CONFIRMING = 'mealwright.sso-confirming';
 const CONFIRMING_FOR_MS = 10 * 60_000;
 
-export function markConfirming(on: boolean, now = Date.now()): void {
+/** Where a confirming goes back to: Delete everything's page, or Your data (R6: lowering Keep so
+ *  that backups go asks for the same confirming). */
+export type ConfirmingFor = 'delete' | 'backups';
+
+export function markConfirming(on: boolean, now = Date.now(), forPage: ConfirmingFor = 'delete') {
   try {
-    if (on) sessionStorage.setItem(CONFIRMING, String(now));
+    if (on) sessionStorage.setItem(CONFIRMING, forPage === 'delete' ? String(now) : `${now}:${forPage}`);
     else sessionStorage.removeItem(CONFIRMING);
   } catch {
     // Storage blocked: the way back is then Back to sign in, which still works.
   }
 }
 
-export function wasConfirming(now = Date.now()): boolean {
+/** What this tab was confirming, or null when it wasn't (or the flow has run out). */
+export function confirmingFor(now = Date.now()): ConfirmingFor | null {
   try {
-    const since = Number(sessionStorage.getItem(CONFIRMING));
-    return since > 0 && now - since >= 0 && now - since < CONFIRMING_FOR_MS;
+    const [stamp, page] = (sessionStorage.getItem(CONFIRMING) ?? '').split(':');
+    const since = Number(stamp);
+    if (!(since > 0 && now - since >= 0 && now - since < CONFIRMING_FOR_MS)) return null;
+    return page === 'backups' ? 'backups' : 'delete';
   } catch {
-    return false;
+    return null;
   }
 }
+
+export const wasConfirming = (now = Date.now()): boolean => confirmingFor(now) !== null;
 
 /** "Link tess to …?", confirmed: links the admin's own login to who the test found. */
 export const linkTested = () => api<SsoSetup>('POST', '/sso/link');

@@ -26,7 +26,7 @@
     goToSignInServer,
     markConfirming,
     startAddress,
-    wasConfirming,
+    confirmingFor,
     type TestResult
   } from '#lib/client/sso.js';
   import Logo from '#lib/components/Logo.svelte';
@@ -36,6 +36,7 @@
   import { session } from '#lib/session.svelte.js';
   import {
     ALMOST_THERE,
+    BACK_TO_BACKUPS,
     BACK_TO_DELETE,
     BACK_TO_SETUP,
     BACK_TO_SIGN_IN,
@@ -62,7 +63,8 @@
   /** "Almost there": the username at the sign-in server that waits for an admin. */
   let waitingAs = $state<string | null>(null);
   /** Where "Back" goes: the setup screen for a test, Delete everything for its confirming. */
-  let back = $state<'sign-in' | 'setup' | 'delete'>(wasConfirming() ? 'delete' : 'sign-in');
+  const confirmingPage = confirmingFor(); // read before anything clears it
+  let back = $state<'sign-in' | 'setup' | 'delete' | 'backups'>(confirmingPage ?? 'sign-in');
   let signingOut = $state(false);
 
   async function signOutWaiting() {
@@ -93,7 +95,12 @@
       }
       if (out.done === 'confirmed') {
         markConfirming(false);
-        await goto(resolve('/(app)/settings/your-data/delete'), { replace: true });
+        await goto(
+          confirmingPage === 'backups'
+            ? resolve('/(app)/settings/your-data')
+            : resolve('/(app)/settings/your-data/delete'),
+          { replace: true }
+        );
         return;
       }
       if (out.done === 'tested') {
@@ -158,6 +165,8 @@
       <p class="problem" role="alert">{problem}</p>
       {#if back === 'setup'}
         <a class="back" href={resolve('/(app)/settings/sso')}>{BACK_TO_SETUP}</a>
+      {:else if back === 'backups'}
+        <a class="back" href={resolve('/(app)/settings/your-data')}>{BACK_TO_BACKUPS}</a>
       {:else if back === 'delete'}
         <a class="back" href={resolve('/(app)/settings/your-data/delete')}>{BACK_TO_DELETE}</a>
       {:else}

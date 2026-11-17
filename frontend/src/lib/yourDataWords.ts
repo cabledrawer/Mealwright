@@ -145,3 +145,13 @@ export const CONFIRM_SSO_LINE =
 export const CONFIRM_SSO_BUTTON = 'Confirm at your sign-in server';
 export const CONFIRMING_SSO = 'Going to your sign-in server…';
 export const CONFIRMED_SSO = 'Confirmed at your sign-in server. Delete within 10 minutes.';
+
+// R6 (cabledrawer 17 Nov: ask for the admin's password, or the single sign-on confirm step, before
+// lowering Keep so that backups go). All proposed, for cabledrawer.
+export const deletesBackupsWords = (n: number): string =>
+  n === 1 ? 'This deletes the oldest backup.' : `This deletes the ${n} oldest backups.`;
+export const KEEP_FEWER_BUTTON = 'Keep fewer backups';
+export const KEEP_FEWER_BUSY = 'Deleting…';
+export const KEEP_FEWER_CANCEL = 'Cancel';
+export const CONFIRMED_SSO_KEEP =
+  'Confirmed at your sign-in server. Keep fewer backups within 10 minutes.';

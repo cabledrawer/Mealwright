@@ -185,6 +185,24 @@ describe('the single sign-on callback', () => {
     expect(session.me).toBeNull();
   });
 
+  it('goes back to Your data once an admin has confirmed a lower Keep there (R6)', async () => {
+    markConfirming(true, Date.now(), 'backups');
+    requests = fakeApi({ 'POST /sso/finish': [200, { done: 'confirmed', me: null, test: null }] });
+    show('?state=s1&code=c1');
+    await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
+    expect(navigation.goto.mock.calls[0]).toEqual(['/settings/your-data', { replace: true }]);
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('when that confirming is refused, the way back goes to Your data (R6)', async () => {
+    markConfirming(true, Date.now(), 'backups');
+    fakeApi({ 'POST /sso/finish': [400, { detail: 'Not you.', code: 'not_you' }] });
+    show('?state=s1&code=c1');
+    await expect
+      .element(page.getByRole('link', { name: 'Back to Backups & your data' }))
+      .toHaveAttribute('href', '/settings/your-data');
+  });
+
   it('when confirming Delete everything is refused, the way back goes there (D3)', async () => {
     markConfirming(true);
     const detail =
