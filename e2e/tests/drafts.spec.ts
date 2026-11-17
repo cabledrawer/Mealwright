@@ -295,6 +295,20 @@ test('F246: on a computer the Drafts table has room: the buttons sit on one line
   await expectNoSidewaysScroll(page);
 });
 
+test('F246: at a 1130 px window, where the roomy layout begins, a long "Started by" name and Save recipe do not scroll sideways', async ({ page }) => {
+  test.skip(isPhone(page), 'the table is the computer’s');
+  await page.setViewportSize({ width: 1130, height: 900 });
+  const long = 'வெண்டைக்காய் '.repeat(6) + 'x'.repeat(40);
+  await listing(page, [
+    brief(1, { name: long, started_by: 'Wilhelmina Featherstonehaugh-Montgomery', lines_checked: 9 }),
+    brief(2, { name: 'Rava dosa' })
+  ]);
+  await page.goto('/recipes/drafts');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Drafts');
+  await expect(page.getByRole('button', { name: /^Save recipe/ })).toBeVisible();
+  await expectNoSidewaysScroll(page);
+});
+
 test('long names and text at 200% never scroll sideways', async ({ page }) => {
   const long = 'வெண்டைக்காய் '.repeat(8) + 'x'.repeat(60);
   await listing(page, [brief(1, { name: long, started_by: 'Wilhelmina Featherstonehaugh' }), brief(2, { lines_checked: 9 })]);
