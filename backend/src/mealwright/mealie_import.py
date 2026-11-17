@@ -1185,6 +1185,7 @@ def save_all_drafts(kitchen: Kitchen) -> int:
             row = db.get(MealieImport, import_id)
             if row is None or row.household_id != kitchen.household_id:
                 continue
+            db.refresh(row)  # the session keeps rows between stretches; another writer may have added
             row.results = [
                 {
                     **entry,
