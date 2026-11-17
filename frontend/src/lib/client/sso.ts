@@ -102,9 +102,11 @@ export const startAddress = (remember: boolean): string =>
 /** "Test sign-in": the sign-in server's address, to open in a new tab. */
 export const startTest = () => api<{ url: string }>('POST', '/sso/test');
 
-/** D3: begin confirming Delete everything with a fresh single sign-on sign-in; the sign-in
+/** D3: begin confirming Delete everything (or, with `what`, lowering Keep to a number, or Back up
+ *  now at a full folder: a confirmation passes only the action it was begun for) with a fresh single sign-on sign-in; the sign-in
  *  server's page, for this tab to go to. */
-export const startConfirm = () => api<{ url: string }>('POST', '/sso/confirm');
+export const startConfirm = (what?: { action: 'keep' | 'backup_now'; keep?: number }) =>
+  api<{ url: string }>('POST', '/sso/confirm', what);
 
 /** Set while this tab is away confirming Delete everything, so the callback page offers the way
  *  back there if the sign-in server's answer is refused. When it was set, so a confirming given

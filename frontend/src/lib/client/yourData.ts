@@ -68,7 +68,13 @@ export interface HowToConfirm {
   confirmed: boolean;
 }
 
-export const getHowToConfirm = () => api<HowToConfirm>('GET', '/delete-everything');
+export const getHowToConfirm = (what?: { action: 'keep' | 'backup_now'; keep?: number }) =>
+  api<HowToConfirm>(
+    'GET',
+    what
+      ? `/delete-everything?action=${what.action}${what.keep === undefined ? '' : `&keep=${what.keep}`}`
+      : '/delete-everything'
+  );
 
 /**
  * Export with a password: the file comes back encrypted (docs/export-format.md). The password

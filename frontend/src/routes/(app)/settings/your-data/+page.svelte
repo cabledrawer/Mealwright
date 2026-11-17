@@ -144,7 +144,9 @@
     keepPassword = '';
     problem = null;
     how = null;
-    getHowToConfirm().then(
+    getHowToConfirm(
+      'keep' in what ? { action: 'keep', keep: what.keep } : { action: 'backup_now' }
+    ).then(
       (answer) => (how = answer),
       // Can't tell: the password field; the server still decides.
       () => (how = { confirm_with: 'password', confirmed: false })
@@ -198,7 +200,13 @@
     confirming = true;
     problem = null;
     try {
-      const { url } = await startConfirm();
+      const { url } = await startConfirm(
+        ask === null
+          ? undefined
+          : 'keep' in ask
+            ? { action: 'keep', keep: ask.keep }
+            : { action: 'backup_now' }
+      );
       markConfirming(true, Date.now(), 'backups');
       if (ask) rememberAction(ask);
       goToSignInServer(url, true);

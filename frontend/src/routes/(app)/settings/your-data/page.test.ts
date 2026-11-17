@@ -496,6 +496,54 @@ describe('Settings → Your data', () => {
         .toHaveTextContent(`Backed up: ${WHEN} · 2.1 MB · all fine`);
     });
 
+    describe('Back up now first (R6, round 2)', () => {
+      const FULL = { ...BACKUPS, keep: 3, count: 3 };
+      const backupPosts = () =>
+        requests.filter((r) => r.method === 'POST' && r.path === '/backups');
+
+      it('never sends the password typed for Delete everything', async () => {
+        open(DeleteEverything, {
+          'GET /backups': [200, BACKUPS],
+          'POST /backups': [200, BACKUPS]
+        });
+        await userEvent.fill(page.getByLabelText('Your password'), 'typed for the delete');
+        await page.getByRole('button', { name: 'Back up now first' }).click();
+        await vi.waitFor(() => expect(backupPosts().map((r) => r.body)).toEqual([undefined]));
+      });
+
+      it('at a full folder says it replaces the oldest and asks for its own password', async () => {
+        open(DeleteEverything, {
+          'GET /backups': [200, FULL],
+          'POST /backups': [200, FULL],
+          'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+        });
+        await userEvent.fill(page.getByLabelText('Your password'), 'typed for the delete');
+        await page.getByRole('button', { name: 'Back up now first' }).click();
+        await expect.element(page.getByText('This replaces the oldest backup.')).toBeVisible();
+        expect(backupPosts()).toEqual([]);
+        await userEvent.fill(page.getByLabelText('Your password for backing up'), 'its own');
+        await page.getByRole('button', { name: 'Back up now', exact: true }).click();
+        await vi.waitFor(() =>
+          expect(backupPosts().map((r) => r.body)).toEqual([{ password: 'its own' }])
+        );
+      });
+
+      it('an admin with single sign-on confirms that action, and nothing is sent first', async () => {
+        open(DeleteEverything, {
+          'GET /backups': [200, FULL],
+          'GET /delete-everything': [200, { confirm_with: 'single_sign_on', confirmed: false }],
+          'POST /sso/confirm': [200, { url: 'https://id.example.org/authorize?x=1' }]
+        });
+        await page.getByRole('button', { name: 'Back up now first' }).click();
+        await expect.element(page.getByText('This replaces the oldest backup.')).toBeVisible();
+        await page.getByRole('button', { name: 'Confirm at your sign-in server' }).first().click();
+        await vi.waitFor(() => expect(leave.goToSignInServer).toHaveBeenCalled());
+        const sent = requests.find((r) => r.method === 'POST' && r.path === '/sso/confirm');
+        expect(sent?.body).toEqual({ action: 'backup_now' });
+        expect(backupPosts()).toEqual([]);
+      });
+    });
+
     const SSO_ONLY = { confirm_with: 'single_sign_on', confirmed: false };
     const CONFIRM_LINE =
       'You sign in with single sign-on, so confirm at your sign-in server instead of with a password. It asks you to sign in again.';
@@ -688,6 +736,8 @@ describe('Settings → Your data', () => {
       await page.getByRole('button', { name: 'Confirm at your sign-in server' }).click();
       await vi.waitFor(() => expect(leave.goToSignInServer).toHaveBeenCalled());
       expect(takeAction()).toEqual({ keep: 2 });
+      const began = requests.find((r) => r.method === 'POST' && r.path === '/sso/confirm');
+      expect(began?.body).toEqual({ action: 'keep', keep: 2 });
     });
 
     it('a remembered action that has run out opens nothing', async () => {

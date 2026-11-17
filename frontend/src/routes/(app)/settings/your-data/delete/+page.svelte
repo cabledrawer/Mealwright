@@ -12,10 +12,16 @@
   import { resolve } from '$app/paths';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
-  import { markConfirming, startConfirm, goToSignInServer } from '#lib/client/sso.js';
+  import {
+    markConfirming,
+    rememberAction,
+    startConfirm,
+    goToSignInServer
+  } from '#lib/client/sso.js';
   import {
     backUpNow,
     deleteEverything,
+    getBackups,
     getHowToConfirm,
     type HowToConfirm
   } from '#lib/client/yourData.js';
@@ -23,7 +29,8 @@
   import { signOutHere } from '#lib/offline/signOut.js';
   import { session } from '#lib/session.svelte.js';
   import {
-    BACK_UP_NEEDS_PASSWORD,
+    BACK_UP_NOW_CONFIRM,
+    REPLACES_OLDEST,
     CONFIRMED_SSO,
     CONFIRMING_SSO,
     CONFIRM_SSO_BUTTON,
@@ -75,23 +82,71 @@
   const failed = (error: unknown) =>
     error instanceof ApiError && !cantReach(error) ? error.detail : cantReachWords();
 
-  async function backUp() {
+  // Back up now first. The password typed for Delete everything is never sent with it (B8b round
+  // 2). At a full folder the new backup pushes the oldest out, so it asks on its own, as Your data
+  // does: its own password field, or the single sign-on confirm for that action.
+  let replacing = $state(false);
+  let backupPassword = $state('');
+
+  async function backUp(event?: SubmitEvent) {
+    event?.preventDefault();
     backingUp = true;
     problem = null;
     backedUp = null;
     try {
-      const backups = await backUpNow(withSso || password === '' ? undefined : password);
+      if (!replacing) {
+        const found = await getBackups();
+        if (found.count >= found.keep) {
+          replacing = true;
+          backupPassword = '';
+          getHowToConfirm({ action: 'backup_now' }).then(
+            (answer) => (backupHow = answer),
+            () => (backupHow = { confirm_with: 'password', confirmed: false })
+          );
+          return;
+        }
+      }
+      const backups = await backUpNow(
+        replacing && backupHow?.confirm_with !== 'single_sign_on' ? backupPassword : undefined
+      );
+      replacing = false;
       if (backups.problem) problem = `Couldn’t back up: ${backups.problem}`;
       else backedUp = `Backed up: ${lastBackupWords(backups)}`;
     } catch (error) {
-      // At a full folder a new backup pushes the oldest out, which asks for the password
-      // (R6); this box has none typed yet.
-      problem =
-        !withSso && password === '' && error instanceof ApiError && error.code === 'password_wrong'
-          ? BACK_UP_NEEDS_PASSWORD
-          : failed(error);
+      problem = failed(error);
+      if (
+        error instanceof ApiError &&
+        error.code === 'confirm_first' &&
+        backupHow?.confirm_with === 'single_sign_on'
+      )
+        backupHow = { ...backupHow, confirmed: false };
     } finally {
+      backupPassword = '';
       backingUp = false;
+    }
+  }
+
+  let backupHow = $state<HowToConfirm | null>(null);
+  const backupReady = $derived(
+    backupHow !== null &&
+      (backupHow.confirm_with === 'single_sign_on'
+        ? backupHow.confirmed
+        : backupPassword.length > 0) &&
+      !backingUp &&
+      !network.offline
+  );
+
+  async function confirmBackupAtServer() {
+    confirming = true;
+    problem = null;
+    try {
+      const { url } = await startConfirm({ action: 'backup_now' });
+      markConfirming(true, Date.now(), 'backups');
+      rememberAction({ backUpNow: true });
+      goToSignInServer(url, true);
+    } catch (error) {
+      confirming = false;
+      problem = failed(error);
     }
   }
 
@@ -142,6 +197,32 @@
       disabled={backingUp || busy || network.offline}
       onclick={() => void backUp()}>{backingUp ? 'Backing up…' : 'Back up now first'}</button
     >
+    {#if replacing}
+      <form class="form" onsubmit={(event) => void backUp(event)}>
+        <p class="note">{REPLACES_OLDEST}</p>
+        {#if backupHow?.confirm_with === 'single_sign_on'}
+          {#if backupHow.confirmed}
+            <p class="done" role="status">{CONFIRMED_SSO}</p>
+          {:else}
+            <p class="note">{CONFIRM_SSO_LINE}</p>
+            <button
+              type="button"
+              class="quiet"
+              disabled={confirming || network.offline}
+              onclick={() => void confirmBackupAtServer()}
+              >{confirming ? CONFIRMING_SSO : CONFIRM_SSO_BUTTON}</button
+            >
+          {/if}
+        {:else if backupHow}
+          <label class="fld">
+            Your password for backing up
+            <input type="password" bind:value={backupPassword} autocomplete="current-password" />
+          </label>
+        {/if}
+        <button type="submit" class="quiet" disabled={!backupReady}>{BACK_UP_NOW_CONFIRM}</button>
+        <button type="button" class="quiet" onclick={() => (replacing = false)}>Cancel</button>
+      </form>
+    {/if}
     {#if backedUp}
       <p class="done" role="status">{backedUp}</p>
     {/if}

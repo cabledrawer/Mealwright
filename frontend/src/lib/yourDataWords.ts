@@ -160,5 +160,3 @@ export const CONFIRMED_SSO_KEEP =
 export const REPLACES_OLDEST = 'This replaces the oldest backup.';
 export const BACK_UP_NOW_CONFIRM = 'Back up now';
 export const CONFIRMED_SSO_BACKUP = 'Confirmed at your sign-in server. Back up within 10 minutes.';
-export const BACK_UP_NEEDS_PASSWORD =
-  'This replaces the oldest backup, so type your password first.';
