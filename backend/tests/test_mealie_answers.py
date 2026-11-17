@@ -148,8 +148,7 @@ def test_an_ingredient_i_have_goes_into_every_draft_that_uses_it(waiting: TestCl
     assert body["drafts"] == 3 and body["moved"] == 1  # only Dish b had nothing else
     assert body["ingredient"]["id"] == soy
     assert (
-        body["change"]["summary"]
-        == "Answered “soya sauce” in 3 drafts · 1 recipes moved to Recipes"
+        body["change"]["summary"] == "Answered “soya sauce” in 3 drafts · 1 recipe moved to Recipes"
     )
     assert draft_names(waiting) == ["Dish a", "Dish c"]
     assert list(recipe_lines(waiting, "Dish b").values()) == [soy]
@@ -285,7 +284,7 @@ def test_undo_leaves_a_recipe_changed_since_in_recipes(waiting: TestClient) -> N
         recipe_row.version += 1
         session.commit()
     undone = waiting.post(f"{API}/changes/{done['change']['id']}/undo").json()
-    assert "stay in Recipes" in str(undone), undone
+    assert "stays in Recipes" in str(undone), undone  # one recipe: singular
     assert "Dish b" not in draft_names(waiting)
 
 

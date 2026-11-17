@@ -18,7 +18,7 @@ from test_mealie_answers import (
 )
 from test_mealie_import import API, bring_in, zipped
 
-from mealwright.models import Food, ImportDraft
+from mealwright.models import Food, ImportDraft, MealieImport
 
 A, B, C = (f"a{i:031d}" for i in range(3))
 
@@ -133,3 +133,34 @@ def test_singular_plural_and_spelling_variants_are_one_group(
     assert len(found) == 3 and set(found.values()) == {(3, 3)}, found
     key = next(iter(found))
     assert answer(kitchen, key, "text").json()["drafts"] == 3  # the answer reaches all three
+
+
+# --- 6. Words: singular and plural, no marker in a message ------------------------------------
+
+
+def test_one_draft_and_one_recipe_are_said_in_the_singular(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    bring(kitchen, tmp_path, {A: ["2 tbsp soya sauce"]})
+    done = answer(kitchen, "soya sauce", "new", name="Soy sauce").json()
+    assert (
+        done["change"]["summary"] == "Answered “soya sauce” in 1 draft · 1 recipe moved to Recipes"
+    )
+    undone = kitchen.post(f"{API}/changes/{done['change']['id']}/undo").json()
+    assert "1 recipe is back in Drafts." in str(undone), undone
+    assert "proposed" not in str(undone) and "cabledrawer" not in str(undone)
+
+
+def test_undo_after_the_imports_own_undo_gives_a_true_reason(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    bring(kitchen, tmp_path, {A: ["2 tbsp soya sauce"], B: ["1 tsp soya sauce"]})
+    done = answer(kitchen, "soya sauce", "new", name="Soy sauce").json()
+    with db(kitchen) as session:
+        import_id = session.scalars(select(MealieImport)).one().id
+    assert kitchen.post(f"{API}/mealie-imports/{import_id}/undo").status_code == 200
+    undone = kitchen.post(f"{API}/changes/{done['change']['id']}/undo")
+    assert undone.status_code == 200, undone.text
+    said = str(undone.json())
+    assert "2 recipes were already out of Recipes" in said, said
+    assert "changed, cooked or planned" not in said and "proposed" not in said

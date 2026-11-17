@@ -83,6 +83,11 @@ def _name_key(line: dict[str, Any]) -> tuple[str, str]:
     return _key(name)[:300], name[:100]
 
 
+def _many(count: int, word: str) -> str:
+    """ "1 draft", "3 drafts"."""
+    return f"{count} {word}{'' if count == 1 else 's'}"
+
+
 def _food_id(value: Any) -> int | None:
     return value.get("id") if isinstance(value, dict) and isinstance(value.get("id"), int) else None
 
@@ -482,9 +487,9 @@ def answer(kitchen: Kitchen, body: GroupAnswer) -> Answered:
     _results_say(kitchen, saved, "answered")
     count = len(saved) + len(partial)
     name = group.names.most_common(1)[0][0] if group.names else body.key
-    summary = f"Answered “{cut_text(name, 60)}” in {count} drafts"
+    summary = f"Answered “{cut_text(name, 60)}” in {_many(count, 'draft')}"
     if saved:
-        summary += f" · {len(saved)} recipes moved to Recipes"
+        summary += f" · {_many(len(saved), 'recipe')} moved to Recipes"
     change = record(
         kitchen,
         "mealie_drafts_answered",
@@ -592,7 +597,7 @@ def undo(kitchen: Kitchen, change: Change) -> Change:
     saved: list[dict[str, Any]] = data.get("saved", [])
     versions = {int(item["recipe_id"]): int(item.get("version") or 0) for item in saved}
     stays = _kept_recipes(db, versions, as_utc(change.at)) if versions else set()
-    back = kept = 0
+    back = kept = gone = 0
     returned: list[dict[str, Any]] = []
     for item in saved:
         recipe = db.get(Recipe, int(item["recipe_id"]))
@@ -600,8 +605,10 @@ def undo(kitchen: Kitchen, change: Change) -> Change:
             recipe is None
             or recipe.household_id != kitchen.household_id
             or recipe.removed_at is not None
-            or recipe.id in stays
         ):
+            gone += 1  # deleted, or taken out by the import's Undo: nothing to bring back
+            continue
+        if recipe.id in stays:
             kept += 1
             continue
         recipe.removed_at = now
@@ -648,11 +655,19 @@ def undo(kitchen: Kitchen, change: Change) -> Change:
                 foods = 1
     message = f"“{data.get('name', '')}” is unanswered again."
     if back:
-        message += f" {back} recipes are back in Drafts."
+        verb = "is" if back == 1 else "are"
+        message += f" {_many(back, 'recipe')} {verb} back in Drafts."
+    # Words proposed, for cabledrawer (the spec doesn't give them).
+    if gone:
+        message += (
+            f" {_many(gone, 'recipe')} {'was' if gone == 1 else 'were'} already out of Recipes"
+            " (deleted, or the import was undone), so nothing was brought back for"
+            f" {'it' if gone == 1 else 'them'}."
+        )
     if kept:
         message += (
-            f" {kept} stay in Recipes: they were changed, cooked or planned since"
-            " (proposed, for cabledrawer)."
+            f" {kept} {'stays' if kept == 1 else 'stay'} in Recipes:"
+            f" {'it was' if kept == 1 else 'they were'} changed, cooked or planned since."
         )
     undone = record(
         kitchen,
