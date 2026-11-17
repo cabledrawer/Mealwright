@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright phone dark – Settings redesign for beta.2 (proposed)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.h2{margin:0 4px;font-size:12px;font-weight:800;color:#A3AFA8;text-transform:uppercase;letter-spacing:0.07em}
+.card{background:#1B221F;border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
+.row{display:flex;align-items:center;gap:12px;min-height:44px;padding:8px 14px;box-sizing:border-box;border-top:1px solid #26302B;text-decoration:none;color:#E9EEEB;font-size:16px;font-weight:600}
+.row:first-child{border-top:none}
+.val{margin-left:auto;font-size:13px;font-weight:500;color:#A3AFA8;white-space:nowrap}
+.adm{margin-left:auto;font-size:11px;font-weight:800;color:#A3AFA8;border:1px solid #39433D;border-radius:999px;padding:1px 7px}
+.chev{color:#A3AFA8;flex:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #111614; color: #E9EEEB; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; padding: 20px 16px; display: flex; flex-direction: column; gap: 8px; overflow: hidden">
+<h1 style="margin: 0 4px 2px; font-size: 26px; font-weight: 800; letter-spacing: -0.02em">Settings</h1>
+<div class="h2">You</div>
+<div class="card"><a class="row" href="#">Appearance<span class="val">Dark</span></a><a class="row" href="#">Amounts<span class="val">Metric</span></a><a class="row" href="#">Your sign-in<span class="val">2 devices</span></a></div>
+<div class="h2">Kitchen</div>
+<div class="card"><a class="row" href="#">Meal slots<span class="val">3</span></a><a class="row" href="#">Shops &amp; places<span class="val">2 · 4</span></a><a class="row" href="#">Your kitchen</a></div>
+<div class="h2" style="display: flex; align-items: center">Household<span class="adm" style="text-transform: none; letter-spacing: 0">admins only</span></div>
+<div class="card"><a class="row" href="#">People<span class="val">3</span></a><a class="row" href="#">Sign-in for everyone</a><a class="row" href="#">API tokens</a><a class="row" href="#">Outside connections</a><a class="row" href="#">Backups &amp; your data</a></div>
+<div class="h2">Mealwright</div>
+<div class="card"><a class="row" href="#">Recent changes</a><a class="row" href="#">About<span class="val">0.9.5</span></a></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 390, "height": 844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
