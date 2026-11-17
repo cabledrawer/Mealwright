@@ -1000,6 +1000,25 @@ def _kept_recipes(db: Session, versions: dict[int, int], since: datetime) -> set
     return kept
 
 
+def _pointed_at_by_drafts(db: Session, household_id: int, ids: list[int]) -> set[int]:
+    """Of these ingredients, the ones the answers in a live draft point at (an answer given by
+    ingredient, or on the review screen): taking one away would lose that answer."""
+    wanted = set(ids)
+    found: set[int] = set()
+    if not wanted:
+        return found
+    for choices in db.scalars(
+        select(ImportDraft.choices).where(*drafts.live(household_id, utcnow()))
+    ):
+        lines = choices.get("lines") if isinstance(choices, dict) else None
+        for choice in lines.values() if isinstance(lines, dict) else []:
+            food = choice.get("food") if isinstance(choice, dict) else None
+            found_id = food.get("id") if isinstance(food, dict) else None
+            if isinstance(found_id, int) and found_id in wanted:
+                found.add(found_id)
+    return found
+
+
 def _used_foods_of(db: Session, household_id: int, import_id: int, ids: list[int]) -> set[int]:
     """Of these ingredients (made by this import), the ones something uses: the pantry, a list,
     the plan, a homemade recipe, a recipe that isn't deleted, or a tie to an ingredient this
@@ -1023,6 +1042,7 @@ def _used_foods_of(db: Session, household_id: int, import_id: int, ids: list[int
         (FoodStandIn.stand_in_id, FoodStandIn.food_id),
     ):
         used |= _ids_where(db, column, ids, tied.in_(outside))
+    used |= _pointed_at_by_drafts(db, household_id, ids)
     used |= _ids_where(
         db,
         RecipeLine.food_id,
@@ -1190,9 +1210,7 @@ def _save_draft(kitchen: Kitchen, draft: ImportDraft) -> Recipe | None:
         from mealwright.mealie_answers import _saved_review
 
         choices = choices.model_copy(
-            update={
-                "lines": {i: c for i, c in choices.lines.items() if 0 <= i < len(review.lines)}
-            }
+            update={"lines": {i: c for i, c in choices.lines.items() if 0 <= i < len(review.lines)}}
         )
         review, choices = drafts.freshen(kitchen, review, choices)
         review = _saved_review(review, choices, draft)
