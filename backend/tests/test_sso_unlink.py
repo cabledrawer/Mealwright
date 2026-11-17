@@ -187,6 +187,21 @@ def test_the_person_page_knows_single_sign_on_is_set_up_for_an_admin_only(
     assert admin.get(f"{API}/people").json()["single_sign_on"] is True
 
 
+def test_a_member_cant_read_who_is_linked_to_single_sign_on(
+    admin: TestClient, member: TestClient, idp: FakeProvider
+) -> None:
+    _lorna_signed_in(admin, idp)
+    seen = {
+        p["name"]: p["login"] for p in admin.get(f"{API}/people").json()["people"] if p["login"]
+    }
+    assert seen["Lorna"]["sso_linked"] is True
+    assert seen["Lorna"]["sso_username"] == "lorna"
+    for person in member.get(f"{API}/people").json()["people"]:
+        if person["login"]:
+            assert person["login"]["sso_linked"] is False
+            assert person["login"]["sso_username"] is None
+
+
 def test_with_no_single_sign_on_set_up_the_person_page_says_nothing_of_it(
     kitchen: TestClient,
 ) -> None:

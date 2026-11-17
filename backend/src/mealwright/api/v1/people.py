@@ -130,9 +130,16 @@ class PeopleOut(BaseModel):
     single_sign_on: bool = False
 
 
-def _person(kitchen: Here, member: Member, issuer: str | None) -> HouseholdPerson:
+def _person(
+    kitchen: Here, member: Member, issuer: str | None, can_change: bool
+) -> HouseholdPerson:
     login = people.login_of(kitchen, member)
-    account = sso_people.account_of(kitchen, login, issuer) if login is not None else None
+    # Who is linked to single sign-on is for those who can change people (B7 low).
+    account = (
+        sso_people.account_of(kitchen, login, issuer)
+        if login is not None and can_change
+        else None
+    )
     return HouseholdPerson(
         id=member.id,
         name=member.name,
@@ -149,7 +156,7 @@ def _person(kitchen: Here, member: Member, issuer: str | None) -> HouseholdPerso
             link_pending=people.link_pending(kitchen, login),
             reset_pending=people.link_pending(kitchen, login, people.RESET),
             link_used_at=as_utc(login.link_used_at) if login.link_used_at else None,
-            sso_linked=sso_people.linked_here(kitchen, login, issuer),
+            sso_linked=can_change and sso_people.linked_here(kitchen, login, issuer),
             sso_username=account.username if account is not None else None,
         ),
         is_me=member.id == kitchen.login.member_id,
@@ -167,7 +174,7 @@ def _people(kitchen: Here) -> PeopleOut:
     issuer = sso_people.saved_issuer(kitchen)
     can_change = allowed(kitchen.login.role, Action.PEOPLE, kitchen.by_token)
     return PeopleOut(
-        people=[_person(kitchen, m, issuer) for m in members],
+        people=[_person(kitchen, m, issuer, can_change) for m in members],
         can_change=can_change,
         ask_whos_this=kitchen.household.ask_whos_this,
         waiting=[
