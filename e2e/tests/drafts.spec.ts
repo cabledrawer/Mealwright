@@ -280,12 +280,16 @@ test('F246: on a computer the Drafts table has room: the buttons sit on one line
   test.skip(isPhone(page), 'the table is the computer’s');
   await listing(page, [brief(1, { name: 'Chettinad kuzhambu', lines_checked: 9 }), brief(2, { name: 'Rava dosa' })]);
   await page.goto('/recipes/drafts');
-  const row = page.getByRole('row').filter({ hasText: 'Chettinad kuzhambu' });
-  const tops = await row.getByRole('button').or(row.getByRole('link', { name: /^Carry on/ })).evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+  const name = 'Chettinad kuzhambu';
+  const tops = [
+    await page.getByRole('button', { name: `Save recipe ${name}` }).boundingBox(),
+    await page.getByRole('link', { name: `Carry on ${name}` }).boundingBox(),
+    await page.getByRole('button', { name: `Delete ${name}` }).boundingBox()
+  ].map((box) => Math.round(box!.y));
   expect(tops.length).toBe(3);
   expect(new Set(tops).size, 'Save recipe, Carry on and Delete on one line').toBe(1);
-  const name = await page.getByRole('rowheader', { name: 'Chettinad kuzhambu' }).boundingBox();
-  expect(name!.width).toBeGreaterThanOrEqual(190);
+  const nameBox = await page.getByRole('rowheader', { name }).boundingBox();
+  expect(nameBox!.width).toBeGreaterThanOrEqual(190);
   const table = await page.getByRole('table', { name: 'Drafts' }).boundingBox();
   expect(table!.width).toBeGreaterThan(800); // it fills the room the page has
   await expectNoSidewaysScroll(page);

@@ -677,12 +677,11 @@
     /* A name that is one very long word may break anywhere (at 200% it must not widen the page),
        but the column is never narrower than 7rem, so long From lines can't squeeze
        "Minestrone" into "Minestron / e" (7f163897). */
-    min-width: 12rem;
+    min-width: 7rem;
     overflow-wrap: anywhere;
   }
 
   .from {
-    min-width: 10rem;
     color: var(--color-text-soft);
     overflow-wrap: anywhere;
   }
@@ -707,6 +706,23 @@
     font-weight: var(--weight-extrabold);
   }
 
+  /* F246: with room (rem, so a person who enlarges the text gets the wrapping back, not a page
+     that scrolls sideways) the name is wide and the buttons stay on one line. */
+  @media (min-width: 70rem) {
+    .table th.name {
+      min-width: 12rem;
+    }
+
+    .from {
+      min-width: 10rem;
+    }
+
+    .table .buttons {
+      flex-wrap: nowrap;
+      white-space: nowrap;
+    }
+  }
+
   .table .progress {
     min-width: 7rem;
     gap: var(--space-2);
@@ -722,9 +738,8 @@
 
   .table .buttons {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: flex-end;
-    white-space: nowrap;
     gap: var(--space-3);
   }
 
