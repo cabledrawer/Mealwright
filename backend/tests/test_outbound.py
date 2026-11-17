@@ -389,6 +389,13 @@ def test_guard_allows_local_lookups() -> None:
     socket.getaddrinfo("localhost", 80)
 
 
+def test_guard_only_lets_whole_ip_literals_through() -> None:
+    socket.getaddrinfo("::1", 80)
+    for odd in ("1.2.3.4%x.example.net", "8.8.8.8]", "[1.2.3.4", "[::1]"):
+        with pytest.raises(OutboundBlocked):
+            socket.getaddrinfo(odd, 80)
+
+
 def test_guard_blocks_udp() -> None:
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp, pytest.raises(OutboundBlocked):
         udp.sendto(b"hi", ("127.0.0.1", 9))

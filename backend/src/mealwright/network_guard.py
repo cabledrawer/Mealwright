@@ -103,7 +103,7 @@ def _is_local_name(host: object) -> bool:
         return True
     text = host.decode() if isinstance(host, bytes) else str(host)
     try:
-        ipaddress.ip_address(text.strip("[]").split("%")[0])
+        ipaddress.ip_address(text)  # the whole string: "1.2.3.4%x.example.net" is a name
     except ValueError:
         return False
     return True
