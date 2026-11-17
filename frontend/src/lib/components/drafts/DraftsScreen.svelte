@@ -706,23 +706,6 @@
     font-weight: var(--weight-extrabold);
   }
 
-  /* F246: with room (rem, so a person who enlarges the text gets the wrapping back, not a page
-     that scrolls sideways) the name is wide and the buttons stay on one line. */
-  @media (min-width: 70rem) {
-    .table th.name {
-      min-width: 12rem;
-    }
-
-    .from {
-      min-width: 10rem;
-    }
-
-    .table .buttons {
-      flex-wrap: nowrap;
-      white-space: nowrap;
-    }
-  }
-
   .table .progress {
     min-width: 7rem;
     gap: var(--space-2);
@@ -755,5 +738,22 @@
   .table .delete {
     border: 1px solid var(--color-border-strong);
     background: transparent;
+  }
+
+  /* F246: with room (rem, so a person who enlarges the text gets the wrapping back, not a page
+     that scrolls sideways) the name is wide and the buttons stay on one line. */
+  @media (min-width: 70rem) {
+    .table th.name {
+      min-width: 12rem;
+    }
+
+    .from {
+      min-width: 10rem;
+    }
+
+    .table .buttons {
+      flex-wrap: nowrap;
+      white-space: nowrap;
+    }
   }
 </style>
