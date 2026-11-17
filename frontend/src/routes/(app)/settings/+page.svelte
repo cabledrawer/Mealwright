@@ -89,7 +89,10 @@
       void updates.load();
     }
   }
-  onMount(() => untrack(readRowValues));
+  // Only the phone shows these rows; a computer is on its way to Appearance, so reads nothing.
+  onMount(() => {
+    if (!matchMedia(COMPUTER).matches) untrack(readRowValues);
+  });
 
   /** The value on an item's row, once known. */
   function valueFor(item: Item): string | undefined {

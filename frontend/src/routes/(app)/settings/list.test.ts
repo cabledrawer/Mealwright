@@ -109,6 +109,23 @@ afterEach(() => {
 
 const list = () => page.getByRole('navigation', { name: 'Settings' });
 
+describe('/settings on a computer', () => {
+  it('goes to Appearance without reading any row values', async () => {
+    await openPhoneList('admin');
+    await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+    const asked = requests.map((r) => r.path);
+    for (const path of [
+      '/meal-slots',
+      '/shops',
+      '/places',
+      '/people',
+      '/privacy',
+      '/household/kitchen'
+    ])
+      expect(asked, path).not.toContain(path);
+  });
+});
+
 describe('the list beside the page (computer)', () => {
   it('shows an admin the four groups and every item, the open one marked', async () => {
     openLayout('/settings/shops-places', 'admin');
