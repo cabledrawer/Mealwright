@@ -390,6 +390,57 @@ def test_an_admin_refused_by_the_groups_leaves_no_reset_link_behind(
     assert look.post(f"{API}/join/look", json={"token": sam_secret}).status_code == 200
 
 
+def _lorna_with_a_login(admin: TestClient) -> int:
+    lorna = ok(admin.post(f"{API}/people", json={"name": "Lorna"}), 201)
+    lorna_id = next(p["id"] for p in lorna["people"] if p["name"] == "Lorna")
+    joined = ok(admin.post(f"{API}/people/{lorna_id}/login", json={"username": "lorna"}), 201)
+    fresh = TestClient(admin.app, base_url="https://testserver")
+    secret = joined["path"].removeprefix("/join#")
+    ok(fresh.post(f"{API}/join", json={"token": secret, "password": "lorna's long password"}))
+    return lorna_id
+
+
+def _new_reset_token(admin: TestClient, lorna_id: int) -> bool:
+    made = ok(admin.post(f"{API}/people/{lorna_id}/reset-password"), 201)
+    return str(made["path"].removeprefix("/reset#"))
+
+
+def test_a_refusal_that_ends_nothing_leaves_the_households_reset_links(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """B7 low: the same refusal again (or a removed login's) must not wipe the household's reset
+    links each time; the first refusal that ended something did already."""
+    noor = browser(admin)
+    sign_in(noor, idp, sub="noor", extra=ADMIN_GROUPS)
+    lorna_id = _lorna_with_a_login(admin)
+    refused, _ = sign_in(browser(admin), idp, sub="noor", extra={"groups": []})
+    assert refused.status_code != 200  # ended Noor's sign-in and the links of that time
+    token = _new_reset_token(admin, lorna_id)  # a new link, made after
+    again, _ = sign_in(browser(admin), idp, sub="noor", extra={"groups": []})
+    assert again.status_code != 200  # nothing left to end
+    look = TestClient(admin.app, base_url="https://testserver")
+    assert look.post(f"{API}/join/look", json={"token": token}).status_code == 200
+
+
+def test_a_removed_admins_refused_sign_in_leaves_the_households_reset_links(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    noor = browser(admin)
+    sign_in(noor, idp, sub="noor", extra=ADMIN_GROUPS)
+    lorna_id = _lorna_with_a_login(admin)
+    noor_id = next(
+        p["id"]
+        for p in admin.get(f"{API}/people").json()["people"]
+        if p["login"] and p["login"]["sso_linked"] and not p["is_me"]
+    )
+    ok(admin.delete(f"{API}/people/{noor_id}"))
+    token = _new_reset_token(admin, lorna_id)
+    gone, _ = sign_in(browser(admin), idp, sub="noor", extra=ADMIN_GROUPS)
+    assert gone.status_code != 200
+    look = TestClient(admin.app, base_url="https://testserver")
+    assert look.post(f"{API}/join/look", json={"token": token}).status_code == 200
+
+
 @pytest.mark.parametrize("groups", [["mealwright-users"], []], ids=["made a member", "refused"])
 def test_no_admins_sign_in_link_outlives_the_groups_ending_the_admin_who_made_it(
     admin: TestClient, idp: FakeProvider, groups: list[str]

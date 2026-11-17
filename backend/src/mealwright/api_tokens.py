@@ -125,21 +125,25 @@ def check_method(row: ApiToken, method: str) -> None:
         raise Problem(status.HTTP_403_FORBIDDEN, "read_only_token", READ_ONLY)
 
 
-def stop_for(db: DbSession, login_id: int) -> None:
+def stop_for(db: DbSession, login_id: int) -> int:
     """Delete every token this login made, for good: they were removed, or aren't an admin
-    any more."""
-    db.execute(
+    any more. Returns how many it stopped."""
+    stopped = db.execute(
         update(ApiToken)
         .where(ApiToken.login_id == login_id, ApiToken.revoked_at.is_(None))
         .values(revoked_at=utcnow())
     )
+    return int(getattr(stopped, "rowcount", 0) or 0)
 
 
-def mark_refused(db: DbSession, login: Login) -> None:
+def mark_refused(db: DbSession, login: Login) -> bool:
     """The sign-in server refused this login but they are kept signed in: from now, they can't
-    make API tokens, and tokens made from now on don't work (O2 fix13; cabledrawer 12 Nov)."""
+    make API tokens, and tokens made from now on don't work (O2 fix13; cabledrawer 12 Nov).
+    Returns whether the mark is new."""
     if login.sso_refused_at is None:
         login.sso_refused_at = utcnow()
+        return True
+    return False
 
 
 def clear_refused(db: DbSession, login: Login) -> None:

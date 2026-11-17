@@ -345,14 +345,19 @@ def _refused_known(
     keeps = _last_admin_keeps(db, login, row, data_dir)
     ended: list[int] = []
     if keeps != "all":
-        api_tokens.stop_for(db, login.id)
+        changed = api_tokens.stop_for(db, login.id) > 0
         if keeps == "":
             ended = list(db.scalars(select(Session.id).where(Session.login_id == login.id)))
             db.execute(delete(Session).where(Session.login_id == login.id))
+            changed = changed or bool(ended)
         else:
-            api_tokens.mark_refused(db, login)  # kept signed in: no new tokens (fix13)
-        if login.role == ADMIN:  # refused, as if made a member: no link to an admin
-            drop_admin_links(db, login.household_id)  # outlives it (16b S-M1 d, S2-M1)
+            changed = api_tokens.mark_refused(db, login) or changed  # kept signed in (fix13)
+        # A refused admin is treated as made a member: no link to an admin outlives them (16b
+        # S-M1 d, S2-M1). Only when this refusal changed something: a removed login's links
+        # went when they were removed, and the same refusal again must not wipe the household's
+        # reset links every time (B7 low).
+        if login.role == ADMIN and code != "removed" and changed:
+            drop_admin_links(db, login.household_id)
         db.commit()
         log.info(
             "Single sign-on: login %d refused (%s); %s",
