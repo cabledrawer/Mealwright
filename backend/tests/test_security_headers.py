@@ -26,6 +26,7 @@ def test_every_response_has_the_headers(client: TestClient, path: str) -> None:
     headers = client.get(path).headers
     assert "content-security-policy" in headers
     assert headers["x-content-type-options"] == "nosniff"
+    assert headers["x-dns-prefetch-control"] == "off"
     assert headers["x-frame-options"] == "DENY"
     assert headers["referrer-policy"] == "no-referrer"
     assert headers["cross-origin-opener-policy"] == "same-origin"

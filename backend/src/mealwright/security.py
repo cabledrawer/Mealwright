@@ -78,6 +78,7 @@ def security_headers(
         "permissions-policy": PERMISSIONS_POLICY,
         "referrer-policy": "no-referrer",
         "x-content-type-options": "nosniff",
+        "x-dns-prefetch-control": "off",  # the browser looks up no name a page only links to
         "x-frame-options": "DENY",
         "cross-origin-opener-policy": "same-origin",
         "cross-origin-resource-policy": "same-origin",
