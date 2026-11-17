@@ -13,6 +13,7 @@ from sync_kit import person
 from test_mealie_import import API, bring_in, many, mealie_files, upload, zipped
 
 from mealwright import mealie_import
+from mealwright.mealie_file import read_now
 from mealwright.api.v1 import mealie as mealie_api
 from mealwright.models import MealieImport, Recipe, utcnow
 
@@ -123,3 +124,20 @@ def test_trim_sweeps_half_written_copies_and_their_side_files(tmp_path: Path) ->
         (folder / name).write_bytes(b"x")
     backups.trim(folder, 7)
     assert sorted(p.name for p in folder.iterdir()) == sorted(keep)
+
+
+def test_one_oversized_yield_quantity_does_not_make_the_file_unreadable(tmp_path: Path) -> None:
+    from test_mealie_file import SOUP, make_zip, tables
+
+    database = tables(
+        recipes=[
+            {
+                "id": SOUP,
+                "name": "Big batch",
+                "recipe_yield": "loaves",
+                "recipe_yield_quantity": 1e30,
+            }
+        ]
+    )
+    book = read_now(make_zip(tmp_path / "x.zip", database))
+    assert [r.page.name for r in book.recipes] == ["Big batch"]

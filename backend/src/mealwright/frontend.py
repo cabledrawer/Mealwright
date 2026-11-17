@@ -70,10 +70,13 @@ def inline_script_hashes(folder: Path) -> list[str]:
 def _find(folder: Path, path: str) -> Path | None:
     root = folder.resolve()
     for candidate in (path, f"{path}.html", f"{path}/index.html"):
-        target = (root / candidate).resolve()
-        # Never serve anything outside the build folder.
-        if target.is_relative_to(root) and target.is_file():
-            return target
+        try:
+            target = (root / candidate).resolve()
+            # Never serve anything outside the build folder.
+            if target.is_relative_to(root) and target.is_file():
+                return target
+        except OSError, ValueError:  # a NUL byte (%00) in the path: not a file, not an error
+            return None
     return None
 
 

@@ -150,3 +150,15 @@ def test_files_are_answered_on_the_event_loop_not_handed_to_a_worker_thread(
         if isinstance(r, Route) and r.path == "/{path:path}"  # type: ignore[attr-defined]
     )
     assert inspect.iscoroutinefunction(catch_all.endpoint)
+
+
+@pytest.mark.parametrize("path", ["/%00", "/a%00b", "/%00.html", "/_app/%00/x.js"])
+def test_a_nul_byte_in_the_path_is_not_found_not_an_error(
+    web: TestClient, path: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """B7 low: a %00 reached the file lookup and raised ValueError (a 500 and an ERROR line)."""
+    response = web.get(path)
+    assert response.status_code in (200, 404)  # the app page for a page-like name, else 404
+    if "." in path:
+        assert response.status_code == 404
+    assert [r for r in caplog.records if r.levelname == "ERROR"] == []

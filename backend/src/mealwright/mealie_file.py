@@ -545,7 +545,7 @@ def _yield(row: dict[str, object]) -> tuple[int | None, tuple[Decimal, str] | No
         serves = int(servings) if 1 <= servings <= page_reader.MAX_SERVES else None
     text = _text(row.get("recipe_yield"), 100)
     quantity = _number(row.get("recipe_yield_quantity"))
-    if text and quantity is not None and quantity > 0 and not text[:1].isdigit():
+    if text and quantity is not None and 0 < quantity <= 1_000_000 and not text[:1].isdigit():
         text = f"{_amount_text(quantity)} {text}"
     if not text:
         return serves, None
