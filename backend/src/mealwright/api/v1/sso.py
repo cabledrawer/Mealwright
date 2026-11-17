@@ -788,7 +788,9 @@ def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
             )
             .values(sso_refresh_sealed=None, sso_check_at=utcnow())  # the day runs from now (S8)
         )
-        # A "the sign-in server refused you" mark was the old server's say-so: it ends (B7 low).
+    if before is not None and row.issuer != issuer:
+        # A "the sign-in server refused you" mark was the old server's say-so: it ends when the
+        # server changes, not when only the client ID does (B7 low).
         for marked in db.scalars(
             select(Login).where(
                 Login.household_id == kitchen.household_id, Login.sso_refused_at.is_not(None)

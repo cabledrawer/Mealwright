@@ -506,7 +506,12 @@ def test_the_refused_mark_ends_when_the_sign_in_server_changes(admin: TestClient
     same = admin.put(f"{API}/sso/settings", json={**SETUP, "button_name": "Other"})
     assert same.status_code == 200, same.text
     assert _marked(admin, "tess")  # the same server and client: the mark stays
-    moved = admin.put(f"{API}/sso/settings", json={**SETUP, "client_id": "new-client"})
+    client = admin.put(f"{API}/sso/settings", json={**SETUP, "client_id": "new-client"})
+    assert client.status_code == 200, client.text
+    assert _marked(admin, "tess")  # only the client ID changed: the server's say-so stays
+    moved = admin.put(
+        f"{API}/sso/settings", json={**SETUP, "issuer": "https://other.example.org/realm"}
+    )
     assert moved.status_code == 200, moved.text
     assert not _marked(admin, "tess")
 
