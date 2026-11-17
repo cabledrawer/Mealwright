@@ -155,17 +155,23 @@ def change_backups(body: BackupsChange, kitchen: Here, request: Request) -> Back
     kitchen.admin_only(Action.YOUR_DATA)
     household = kitchen.household
     folder = _folder(request)
-    if body.keep is not None and len(backups.backups(folder)) > body.keep:
-        confirm_admin(request, kitchen, body.password, "Keeping fewer backups", "keep", body.keep)
-    if body.every is not None:
-        household.backup_every = body.every
-    if body.keep is not None:
-        household.backup_keep = body.keep
-    if body.photos is not None:
-        household.backup_photos = body.photos
-    kitchen.db.commit()
-    if body.keep is not None:
-        backups.trim(folder, body.keep)
+    # Counting, asking, saving and trimming are one step under the backups lock, so a Back up
+    # now finishing in between can't push a backup out that this change had counted as safe
+    # (B8b round 2).
+    with backups._ONE_AT_A_TIME:
+        if body.keep is not None and len(backups.backups(folder)) > body.keep:
+            confirm_admin(
+                request, kitchen, body.password, "Keeping fewer backups", "keep", body.keep
+            )
+        if body.every is not None:
+            household.backup_every = body.every
+        if body.keep is not None:
+            household.backup_keep = body.keep
+        if body.photos is not None:
+            household.backup_photos = body.photos
+        kitchen.db.commit()
+        if body.keep is not None:
+            backups.trim(folder, body.keep)
     return _out(kitchen, request)
 
 
@@ -194,23 +200,27 @@ def back_up_now(kitchen: Here, request: Request, body: BackUpNow | None = None) 
     kitchen.admin_only(Action.YOUR_DATA)
     engine: Engine = request.app.state.engine
     folder = _folder(request)
-    if len(backups.backups(folder)) >= kitchen.household.backup_keep:
-        confirm_admin(
-            request,
-            kitchen,
-            body.password if body else "",
-            "Backing up over the oldest",
-            "backup_now",
-        )
     now = utcnow()
-    try:
-        backups.back_up(
-            engine, folder, kitchen.household.backup_keep, now, _photos(kitchen, folder)
-        )
-    except backups.BackupFailed as error:
-        backups.note_problem(kitchen.db, kitchen.household, str(error), now)
-    else:
-        backups.note_problem(kitchen.db, kitchen.household, None, now)
+    # Counting, asking and making (which trims) are one step under the backups lock: five
+    # presses at once can't each count "room for one more" and then each push one out (B8b
+    # round 2).
+    with backups._ONE_AT_A_TIME:
+        if len(backups.backups(folder)) >= kitchen.household.backup_keep:
+            confirm_admin(
+                request,
+                kitchen,
+                body.password if body else "",
+                "Backing up over the oldest",
+                "backup_now",
+            )
+        try:
+            backups.back_up(
+                engine, folder, kitchen.household.backup_keep, now, _photos(kitchen, folder)
+            )
+        except backups.BackupFailed as error:
+            backups.note_problem(kitchen.db, kitchen.household, str(error), now)
+        else:
+            backups.note_problem(kitchen.db, kitchen.household, None, now)
     return _out(kitchen, request)
 
 

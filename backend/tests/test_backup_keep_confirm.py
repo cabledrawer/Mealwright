@@ -286,3 +286,96 @@ def test_deleting_everything_keeps_its_own_confirmation(
     assert sso_only.patch(API, json={"keep": 2}).status_code == 403
     assert sso_only.post(API).status_code == 403
     assert _how(sso_only)["confirmed"] is True
+
+
+# --- Counting and then deleting is one step (B8b round 2, finding 1)
+
+
+def _slow_back_up(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make every backup take a moment, as one with photos does, so a request counting the
+    folder outside the lock would see the same count as the others."""
+    import time
+
+    real = backups.back_up
+
+    def slow(*args: Any, **kwargs: Any) -> Any:
+        time.sleep(0.3)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(backups, "back_up", slow)
+
+
+def _in_other_client(client: TestClient, send: Any) -> int:
+    with TestClient(cast(Any, client.app), base_url="https://testserver") as other:
+        other.cookies.update(client.cookies)
+        return int(send(other).status_code)
+
+
+def test_five_back_ups_at_once_one_below_keep_make_one_and_delete_nothing(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import itertools
+
+    import mealwright.api.v1.your_data as your_data
+
+    _make(kitchen, 6)  # Keep is 7: room for exactly one
+    old = {path.name for path in backups.backups(_folder(kitchen)) for path in [path.path]}
+    seconds = itertools.count(1)
+    start = datetime(2026, 12, 1, 3, 0, tzinfo=UTC)
+    monkeypatch.setattr(
+        your_data, "utcnow", lambda: start + timedelta(seconds=next(seconds)), raising=True
+    )
+    _slow_back_up(monkeypatch)
+    results: list[int] = []
+    threads = [
+        threading.Thread(
+            target=lambda: results.append(_in_other_client(kitchen, lambda c: c.post(API)))
+        )
+        for _ in range(5)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert sorted(results) == [200, 403, 403, 403, 403]
+    now = {found.path.name for found in backups.backups(_folder(kitchen))}
+    assert old <= now  # no old backup was deleted
+    assert len(now) == 7
+
+
+def test_keeping_exactly_what_there_is_cannot_slip_past_a_back_up_now(
+    kitchen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Keep = the count asks for nothing; a Back up now finishing before that change's trim
+    used to delete one with no password."""
+    _make(kitchen, 6)
+    old = {found.path.name for found in backups.backups(_folder(kitchen))}
+    _slow_back_up(monkeypatch)
+    real_trim = backups.trim
+
+    def slow_trim(folder: Any, keep: int) -> Any:
+        if keep == 6:  # this change's own trim, run after the other request's backup is made
+            import time
+
+            time.sleep(0.6)
+        return real_trim(folder, keep)
+
+    monkeypatch.setattr(backups, "trim", slow_trim)
+    results: dict[str, int] = {}
+
+    def press() -> None:
+        results["post"] = _in_other_client(kitchen, lambda c: c.post(API))
+
+    def lower() -> None:
+        import time
+
+        time.sleep(0.1)
+        results["patch"] = _in_other_client(kitchen, lambda c: c.patch(API, json={"keep": 6}))
+
+    threads = [threading.Thread(target=press), threading.Thread(target=lower)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    now = {found.path.name for found in backups.backups(_folder(kitchen))}
+    assert old <= now, results  # none of the six was deleted without a password
