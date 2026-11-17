@@ -12,6 +12,7 @@ from test_mealie_answers import (
     db,
     draft_names,
     file,
+    groups,
     make_food,
     recipe_lines,
 )
@@ -111,3 +112,24 @@ def test_the_imports_undo_keeps_an_ingredient_a_draft_outside_it_points_at(
     assert undone.status_code == 200, undone.text
     with db(kitchen) as session:
         assert session.get(Food, food_id).removed_at is None  # type: ignore[union-attr]
+
+
+# --- 5. Groups are told apart the way matching tells names apart ------------------------------
+
+
+def test_singular_plural_and_spelling_variants_are_one_group(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    bring(
+        kitchen,
+        tmp_path,
+        {
+            A: ["2 eggs", "1 chilli", "3 tomatoes"],
+            B: ["1 egg", "2 chillies", "1 tomato"],
+            C: ["Egg", "a chilli", "tomato (ripe)"],
+        },
+    )
+    found = {g["key"]: (g["drafts"], g["lines"]) for g in groups(kitchen)["groups"]}
+    assert len(found) == 3 and set(found.values()) == {(3, 3)}, found
+    key = next(iter(found))
+    assert answer(kitchen, key, "text").json()["drafts"] == 3  # the answer reaches all three

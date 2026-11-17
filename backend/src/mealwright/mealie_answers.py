@@ -10,7 +10,8 @@ still takes it out. Nothing is saved until the person answers; "Skip for now" is
 screen's: the server keeps nothing for it.
 
 How a group is told apart: by the name as read (`learn_name`, else `words`, else the line as
-written), folded the way matching folds names (`names.fold`). An unanswered line is an
+written), keyed the way matching keys names (`ingredient_match._key`: case, accents, brackets
+and plurals folded, so egg and eggs, chilli and chillies are one group). An unanswered line is an
 ingredient line with a name that has no choice and is not matched or a staple (the same test
 `drafts._progress` makes). The grouping reads each draft's stored JSON once, with no query per
 draft (about 700 drafts must stay quick).
@@ -50,6 +51,7 @@ from mealwright.conversions import guess_aisle, table
 from mealwright.errors import not_found
 from mealwright.foods import shop_choices
 from mealwright.history import as_utc, record
+from mealwright.ingredient_match import _key
 from mealwright.models import (
     Change,
     Food,
@@ -78,7 +80,7 @@ READY_STATES = ("saved", "saved_all", "answered")
 def _name_key(line: dict[str, Any]) -> tuple[str, str]:
     """(key, name) of a line's ingredient as read."""
     name = str(line.get("learn_name") or line.get("words") or line.get("written") or "").strip()
-    return fold(name)[:300], name[:100]
+    return _key(name)[:300], name[:100]
 
 
 def _food_id(value: Any) -> int | None:
