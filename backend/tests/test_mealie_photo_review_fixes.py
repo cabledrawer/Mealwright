@@ -64,7 +64,7 @@ def _foods_by_name(kitchen: TestClient) -> dict[str, Food]:
 
 def _purge_a_week_on(kitchen: TestClient) -> None:
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        purge_removed(db, db.get(Household, 1), utcnow() + timedelta(days=8))  # type: ignore[arg-type]
+        purge_removed(db, db.get(Household, 1), utcnow() + timedelta(days=8))
 
 
 def test_undo_leaves_a_mealie_ingredient_an_existing_one_was_merged_into(
@@ -77,7 +77,9 @@ def test_undo_leaves_a_mealie_ingredient_an_existing_one_was_merged_into(
     done = bring_in(kitchen, zipped(tmp_path / "b.zip"))
     mealie = _foods_by_name(kitchen)["Red lentils"]
     assert mealie.mealie_import_id == done["id"]
-    merged = kitchen.post(f"{API}/foods/{old.json()['food']['id']}/merge", json={"into_id": mealie.id})
+    merged = kitchen.post(
+        f"{API}/foods/{old.json()['food']['id']}/merge", json={"into_id": mealie.id}
+    )
     assert merged.status_code == 200, merged.text
     assert kitchen.post(f"{API}/mealie-imports/{done['id']}/undo").status_code == 200
     _purge_a_week_on(kitchen)
@@ -94,7 +96,9 @@ def test_undo_leaves_a_mealie_ingredient_that_was_merged_into_an_existing_one(
     assert old.status_code == 201, old.text
     done = bring_in(kitchen, zipped(tmp_path / "b.zip"))
     mealie = _foods_by_name(kitchen)["Red lentils"]
-    merged = kitchen.post(f"{API}/foods/{mealie.id}/merge", json={"into_id": old.json()["food"]["id"]})
+    merged = kitchen.post(
+        f"{API}/foods/{mealie.id}/merge", json={"into_id": old.json()["food"]["id"]}
+    )
     assert merged.status_code == 200, merged.text
     assert kitchen.post(f"{API}/mealie-imports/{done['id']}/undo").status_code == 200
     _purge_a_week_on(kitchen)
@@ -132,7 +136,11 @@ def test_a_file_queued_in_a_rolled_back_savepoint_is_kept(tmp_path: Path) -> Non
     from mealwright.photos import delete_after_commit
 
     db = _queued_session(tmp_path)
-    kept, gone, outer = _file(tmp_path, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), _file(tmp_path, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"), _file(tmp_path, "cccccccccccccccccccccccccccccccc")
+    kept, gone, outer = (
+        _file(tmp_path, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+        _file(tmp_path, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+        _file(tmp_path, "cccccccccccccccccccccccccccccccc"),
+    )
     delete_after_commit(db, 1, ["cccccccccccccccccccccccccccccccc"])
     with db.begin_nested():
         delete_after_commit(db, 1, ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"])
