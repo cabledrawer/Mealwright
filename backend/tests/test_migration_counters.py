@@ -29,8 +29,9 @@ V070 = "5fbd6d33c434"  # v0.7.0's last migration
 BEFORE_REPAIR = "e7b4d9a1c628"  # the head before the counter repair
 REPAIR = "a9d3f6b2c481"
 # Counters made by migrations after the repair: going back before the repair drops them. 0.9
-# A1's people table; 0.9.5 D1/S5's login, which only counts with AUTOINCREMENT from then on.
-AFTER_REPAIR = {"member", "login"}
+# A1's people table; 0.9.5 D1/S5's login, which only counts with AUTOINCREMENT from then on;
+# B7's change_line and food_merge (same).
+AFTER_REPAIR = {"member", "login", "change_line", "food_merge"}
 REBUILT = {"meal_item", "batch_cook", "recipe_step", "recipe_line", "recipe", "food"}
 ADMIN = {
     "name": "Tess",
