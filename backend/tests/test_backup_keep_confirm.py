@@ -4,6 +4,7 @@ single sign-on, the fresh confirmation Delete everything asks for), counted like
 everything's. Keeping as many or more, and a change that deletes nothing, ask for nothing."""
 
 # ruff: noqa: F811, F401
+import contextlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -136,10 +137,8 @@ def test_one_confirmation_passes_only_one_of_two_requests_sent_at_once(
 
     def slow(request: Any, kitchen: Any) -> bool:
         answer = real(request, kitchen)
-        try:
+        with contextlib.suppress(threading.BrokenBarrierError):
             both.wait()  # the old code reached here twice before either removed the proof
-        except threading.BrokenBarrierError:
-            pass
         return answer
 
     results: list[int] = []
