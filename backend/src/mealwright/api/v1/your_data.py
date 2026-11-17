@@ -156,7 +156,7 @@ def change_backups(body: BackupsChange, kitchen: Here, request: Request) -> Back
     household = kitchen.household
     folder = _folder(request)
     if body.keep is not None and len(backups.backups(folder)) > body.keep:
-        confirm_admin(request, kitchen, body.password, "Keeping fewer backups")
+        confirm_admin(request, kitchen, body.password, "Keeping fewer backups", "keep", body.keep)
     if body.every is not None:
         household.backup_every = body.every
     if body.keep is not None:
@@ -195,7 +195,13 @@ def back_up_now(kitchen: Here, request: Request, body: BackUpNow | None = None) 
     engine: Engine = request.app.state.engine
     folder = _folder(request)
     if len(backups.backups(folder)) >= kitchen.household.backup_keep:
-        confirm_admin(request, kitchen, body.password if body else "", "Backing up over the oldest")
+        confirm_admin(
+            request,
+            kitchen,
+            body.password if body else "",
+            "Backing up over the oldest",
+            "backup_now",
+        )
     now = utcnow()
     try:
         backups.back_up(
@@ -325,13 +331,20 @@ def _sso_only(request: Request, kitchen: Here) -> bool:
 
 
 @router.get("/delete-everything")
-def how_to_confirm(kitchen: Here, request: Request) -> HowToConfirm:
-    """Admins only: how this admin confirms Delete everything."""
+def how_to_confirm(
+    kitchen: Here,
+    request: Request,
+    action: Literal["delete_everything", "keep", "backup_now"] = "delete_everything",
+    keep: int | None = None,
+) -> HowToConfirm:
+    """Admins only: how this admin confirms Delete everything (or, with `action`, lowering Keep
+    to `keep`, or Back up now at a full folder); `confirmed` is for that action only."""
     kitchen.admin_only(Action.YOUR_DATA)
     if not _sso_only(request, kitchen):
         return HowToConfirm(confirm_with="password")
     return HowToConfirm(
-        confirm_with="single_sign_on", confirmed=sso_api.has_confirmed(request, kitchen)
+        confirm_with="single_sign_on",
+        confirmed=sso_api.has_confirmed(request, kitchen, action, keep),
     )
 
 
@@ -420,14 +433,21 @@ def _forget_in_memory(request: Request, household_id: int, people: list[tuple[in
     state.slow_down.forget_people([name for _, name in people], [n for n, _ in people])
 
 
-def confirm_admin(request: Request, kitchen: Here, password: str, what: str) -> None:
+def confirm_admin(
+    request: Request,
+    kitchen: Here,
+    password: str,
+    what: str,
+    action: str = "delete_everything",
+    keep: int | None = None,
+) -> None:
     """Ask the admin to prove it is them before something that can't be taken back (Delete
     everything; lowering Keep so that backups go, R6, cabledrawer 17 Nov). An admin who signs in
     only with single sign-on confirmed with a fresh sign-in there, in this session, in the last
     10 minutes (POST /sso/confirm); used once (D3). Anyone else gives their own password."""
     login = kitchen.login
     if _sso_only(request, kitchen):
-        if not sso_api.take_confirmed(request, kitchen):
+        if not sso_api.take_confirmed(request, kitchen, action, keep):
             raise Problem(status.HTTP_403_FORBIDDEN, "confirm_first", CONFIRM_FIRST)
         return
     # The admin's own password, checked as Change password checks it (0.9 A2): through

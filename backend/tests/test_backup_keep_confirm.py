@@ -5,6 +5,7 @@ everything's. Keeping as many or more, and a change that deletes nothing, ask fo
 
 # ruff: noqa: F811, F401
 import contextlib
+import threading
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -15,11 +16,13 @@ from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from test_backups import API, _folder, _household, member
 from test_sso_api import admin, browser, fresh_cache, idp
-from test_sso_confirm_delete import ADMINS, _confirm, _link_admin, sso_only
+from test_sso_confirm_delete import ADMINS, ORIGIN, _confirm, _how, _link_admin, sso_only
 
 from mealwright import backups
+from mealwright.api.v1 import sso as sso_api
 
 PASSWORD = ADMIN["password"]
+V1 = "/api/v1"
 
 
 def _make(client: TestClient, count: int) -> None:
@@ -28,6 +31,19 @@ def _make(client: TestClient, count: int) -> None:
         backups.back_up(
             cast(Any, client.app).state.engine, _folder(client), 30, start + timedelta(days=day)
         )
+
+
+def _confirm_for(
+    client: TestClient, idp: FakeProvider, action: str, keep: int | None = None
+) -> Any:
+    """A fresh sign-in at the sign-in server, begun for one action (B8b round 2)."""
+    body: dict[str, Any] = {"action": action}
+    if keep is not None:
+        body["keep"] = keep
+    started = client.post(f"{V1}/sso/confirm", headers=ORIGIN, json=body)
+    assert started.status_code == 200, started.text
+    code, state = idp.sign_in(started.json()["url"], sub="admin-1", extra=ADMINS)
+    return client.post(f"{V1}/sso/finish", json={"state": state, "code": code})
 
 
 def _count(client: TestClient) -> int:
@@ -108,7 +124,7 @@ def test_an_sso_only_admin_needs_a_fresh_confirmation(
     assert _count(sso_only) == 4
     # No password is ever read for them.
     assert sso_only.patch(API, json={"keep": 2, "password": PASSWORD}).status_code == 403
-    assert _confirm(sso_only, idp).status_code == 200
+    assert _confirm_for(sso_only, idp, "keep", 2).status_code == 200
     done = sso_only.patch(API, json={"keep": 2})
     assert done.status_code == 200, done.text
     assert _count(sso_only) == 2
@@ -121,43 +137,39 @@ def test_an_sso_only_admin_needs_nothing_when_nothing_is_deleted(sso_only: TestC
     assert sso_only.patch(API, json={"keep": 5}).status_code == 200
 
 
-def test_one_confirmation_passes_only_one_of_two_requests_sent_at_once(
-    sso_only: TestClient, idp: FakeProvider
-) -> None:
+def test_one_confirmation_passes_only_one_of_two_requests_sent_at_once() -> None:
     """Security review, finding 2: take_confirmed checked, then removed, so two at once could
-    both pass. Both threads are held at the check until both have arrived."""
-    import threading
+    both pass. (The routes now also run one at a time, so this asks take_confirmed itself.)"""
+    from types import SimpleNamespace
 
-    from mealwright.api.v1 import sso as sso_api
-
-    _make(sso_only, 6)
-    assert _confirm(sso_only, idp).status_code == 200
+    state = SimpleNamespace(sso_confirmed={1: object()})
+    request = SimpleNamespace(app=SimpleNamespace(state=state))
+    kitchen = SimpleNamespace(household_id=1)
     real = sso_api.has_confirmed
     both = threading.Barrier(2, timeout=1)
 
-    def slow(request: Any, kitchen: Any) -> bool:
-        answer = real(request, kitchen)
+    def slow(request: Any, kitchen: Any, *rest: Any) -> bool:
+        answer = kitchen.household_id in request.app.state.sso_confirmed
         with contextlib.suppress(threading.BrokenBarrierError):
             both.wait()  # the old code reached here twice before either removed the proof
         return answer
 
-    results: list[int] = []
-
-    def lower(keep: int) -> None:
-        with TestClient(cast(Any, sso_only.app), base_url="https://testserver") as other:
-            other.cookies.update(sso_only.cookies)
-            results.append(other.patch(API, json={"keep": keep}).status_code)
-
+    results: list[bool] = []
     sso_api.has_confirmed = slow  # type: ignore[assignment]
     try:
-        threads = [threading.Thread(target=lower, args=(keep,)) for keep in (2, 3)]
+        threads = [
+            threading.Thread(
+                target=lambda: results.append(sso_api.take_confirmed(request, kitchen))  # type: ignore[arg-type]
+            )
+            for _ in range(2)
+        ]
         for thread in threads:
             thread.start()
         for thread in threads:
             thread.join()
     finally:
         sso_api.has_confirmed = real  # type: ignore[assignment]
-    assert sorted(results) == [200, 403]
+    assert sorted(results) == [False, True]
 
 
 # --- Back up now: a new backup at a full folder pushes the oldest out (security review, finding 1)
@@ -216,7 +228,7 @@ def test_an_sso_only_admin_backs_up_over_the_oldest_only_after_confirming(
     refused = sso_only.post(API)
     assert refused.status_code == 403
     assert refused.json()["code"] == "confirm_first"
-    assert _confirm(sso_only, idp).status_code == 200
+    assert _confirm_for(sso_only, idp, "backup_now").status_code == 200
     assert sso_only.post(API).status_code == 200
     assert _count(sso_only) == 7
 
@@ -227,3 +239,50 @@ def test_the_scheduled_job_still_trims_without_a_password(kitchen: TestClient) -
     start = datetime(2026, 12, 1, 3, 0, tzinfo=UTC)
     backups.back_up(engine, _folder(kitchen), 3, start)
     assert _count(kitchen) == 3
+
+
+def test_a_confirmation_for_one_action_passes_no_other(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """B8b round 2, finding 2: a confirm for Keep 6 doesn't pass Keep 1, Back up now or Delete
+    everything, and a refusal doesn't use it up."""
+    _make(sso_only, 7)
+    assert _confirm_for(sso_only, idp, "keep", 6).status_code == 200
+    assert sso_only.patch(API, json={"keep": 1}).status_code == 403
+    assert sso_only.post(API).status_code == 403
+    assert (
+        sso_only.post(f"{V1}/delete-everything", json={"words": "delete everything"}).status_code
+        == 403
+    )
+    assert _count(sso_only) == 7
+    assert _how(sso_only) == {"confirm_with": "single_sign_on", "confirmed": False}
+    assert sso_only.get(f"{V1}/delete-everything", params={"action": "keep", "keep": 6}).json()[
+        "confirmed"
+    ]
+    assert sso_only.patch(API, json={"keep": 6}).status_code == 200
+    assert _count(sso_only) == 6
+
+
+def test_a_back_up_now_confirmation_passes_no_keep_and_no_delete_everything(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    _make(sso_only, 7)
+    assert _confirm_for(sso_only, idp, "backup_now").status_code == 200
+    assert sso_only.patch(API, json={"keep": 2}).status_code == 403
+    assert (
+        sso_only.post(f"{V1}/delete-everything", json={"words": "delete everything"}).status_code
+        == 403
+    )
+    assert _count(sso_only) == 7
+
+
+def test_deleting_everything_keeps_its_own_confirmation(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """The start with nothing said is still Delete everything's, and a Keep or Back up now
+    can't use it."""
+    _make(sso_only, 7)
+    assert _confirm(sso_only, idp).status_code == 200
+    assert sso_only.patch(API, json={"keep": 2}).status_code == 403
+    assert sso_only.post(API).status_code == 403
+    assert _how(sso_only)["confirmed"] is True

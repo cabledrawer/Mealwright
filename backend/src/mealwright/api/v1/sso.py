@@ -101,6 +101,10 @@ class Confirmed:
     login_id: int
     session_token_hash: str
     expires: float
+    # What it was for (B8b round 2): a confirm for one thing doesn't pass another. For Keep, the
+    # number of backups to keep.
+    action: str = "delete_everything"
+    keep: int | None = None
 
 
 @dataclass(frozen=True)
@@ -262,8 +266,17 @@ def test(request: Request, response: Response, kitchen: Here) -> TestStarted:
     return TestStarted(url=started.url)
 
 
+class ConfirmFor(BaseModel):
+    """What the confirmation is for. Left out: Delete everything."""
+
+    action: Literal["delete_everything", "keep", "backup_now"] = "delete_everything"
+    keep: int | None = Field(default=None, ge=1, le=30, description="For `keep`: the number.")
+
+
 @router.post("/sso/confirm")
-def confirm(request: Request, response: Response, kitchen: Here) -> TestStarted:
+def confirm(
+    request: Request, response: Response, kitchen: Here, body: ConfirmFor | None = None
+) -> TestStarted:
     """Admins who sign in only with single sign-on: begin confirming Delete everything with a
     fresh sign-in (D3). The sign-in server is asked to ask for the login again (`prompt=login`)
     and to say when it was given (`max_age=0`). A POST from this site only, like a test. The
@@ -283,16 +296,23 @@ def confirm(request: Request, response: Response, kitchen: Here) -> TestStarted:
     except sso.SsoFailed as failure:
         raise _refused(failure) from None
     _bind(response, settings, started)
+    asked = body or ConfirmFor()
+    request.app.state.sso_confirm_for[kitchen.login.id] = (
+        asked.action,
+        asked.keep if asked.action == "keep" else None,
+    )
     return TestStarted(url=started.url)
 
 
-def take_confirmed(request: Request, kitchen: Here) -> bool:
+def take_confirmed(
+    request: Request, kitchen: Here, action: str = "delete_everything", keep: int | None = None
+) -> bool:
     """Use this admin's fresh confirmation (D3), once: True when there is one, made by this
-    signed-in session, not yet run out."""
+    signed-in session, not yet run out, and for this action (and for Keep, this number)."""
     # Check and remove as one step, so one confirmation can't pass two requests sent at once
     # (B8b security review, finding 2).
     with _TAKE:
-        if not has_confirmed(request, kitchen):
+        if not has_confirmed(request, kitchen, action, keep):
             return False
         request.app.state.sso_confirmed.pop(kitchen.household_id, None)
         return True
@@ -301,9 +321,16 @@ def take_confirmed(request: Request, kitchen: Here) -> bool:
 _TAKE = threading.Lock()
 
 
-def has_confirmed(request: Request, kitchen: Here) -> bool:
+def has_confirmed(
+    request: Request, kitchen: Here, action: str = "delete_everything", keep: int | None = None
+) -> bool:
     found: Confirmed | None = request.app.state.sso_confirmed.get(kitchen.household_id)
-    return found is not None and _confirmed_here(request, kitchen, found)
+    return (
+        found is not None
+        and found.action == action
+        and found.keep == (keep if action == "keep" else None)
+        and _confirmed_here(request, kitchen, found)
+    )
 
 
 def _confirmed_here(request: Request, kitchen: Here, found: Confirmed) -> bool:
@@ -506,10 +533,13 @@ def _finish_confirm(
     if sso_accounts.role_for(row, identity.groups) != ADMIN:
         raise sso.SsoFailed("not_let_in")
     sso.confirm_fresh(flow, identity)
+    for_what = request.app.state.sso_confirm_for.pop(login.id, ("delete_everything", None))
     request.app.state.sso_confirmed[flow.household_id] = Confirmed(
         login_id=login.id,
         session_token_hash=signed_in.session.token_hash,
         expires=time.monotonic() + sso.FLOW_FOR,
+        action=for_what[0],
+        keep=for_what[1],
     )
     log.info("Delete everything confirmed with single sign-on by %s", login.username)
     return FinishOut(done="confirmed")
