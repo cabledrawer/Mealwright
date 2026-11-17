@@ -32,7 +32,7 @@ import secrets
 import shutil
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -87,6 +87,8 @@ PREVIEW_NEW_FOODS = 200
 # the rest aren't added, so the lines that name them aren't read and their recipes wait in
 # Drafts, to be checked like any import. The preview says so.
 MAX_NEW_FOODS = 5_000
+KEPT_NAMES = 5
+"""How many of the recipes Undo kept are named in its answer (F248)."""
 # The import holds the database's write lock in short stretches, so other households' writes
 # (and a person's own) get in between: each stretch ends once it has taken about this long,
 # after at least one recipe or ingredient (round 1, S-H1).
@@ -262,8 +264,10 @@ def _preview(kitchen: Kitchen, book: MealieBook) -> dict[str, Any]:
             shown = tidy_ingredient_name(food.name)[:100]
             new_names.setdefault(fold(shown), shown)
     new_names.pop("", None)
+    to_drafts = _going_to_drafts(kitchen, book, coming, list(new_names.values())[:MAX_NEW_FOODS])
     return {
         "recipes": rows,
+        "to_drafts": to_drafts,
         "new": new,
         "already": already,
         "with_photo": with_photo,
@@ -274,6 +278,39 @@ def _preview(kitchen: Kitchen, book: MealieBook) -> dict[str, Any]:
         "foods_new_names": sorted(new_names.values(), key=fold)[:PREVIEW_NEW_FOODS],
         "left_out": dict(book.left_out),
     }
+
+
+def _going_to_drafts(
+    kitchen: Kitchen, book: MealieBook, coming: set[str], new_foods: list[str]
+) -> int:
+    """How many of the new recipes the import would leave in Drafts: the ones with an
+    ingredient line Mealwright can't tie to an ingredient, read as the import reads them, with
+    the new ingredients it is about to add (F247). The same reading, so it can differ only for
+    a recipe that fails to save for another reason."""
+    from dataclasses import replace
+
+    from mealwright.ingredient_match import KitchenFood, kitchen_of
+    from mealwright.recipe_import import _food_places
+
+    now = kitchen_of(kitchen.db, kitchen.household_id)
+    coming_foods = tuple(
+        KitchenFood(-number, name, "weight", False, (), ())
+        for number, name in enumerate(new_foods, start=1)
+    )
+    known = (replace(now, foods=now.foods + coming_foods), _food_places(kitchen))
+    count = 0
+    for recipe in book.recipes:
+        if recipe.key not in coming:
+            continue
+        try:
+            review = _review_of(kitchen, recipe, known)
+        except Exception as why:  # the import skips what it can't read: it goes nowhere
+            log.info("A Mealie recipe couldn't be read for the preview (%s)", type(why).__name__)
+            continue
+        lines = _ingredient_lines(review)
+        if any(not _read(line) for line in lines):
+            count += 1
+    return count
 
 
 def _refused(problem: MealieFileProblem) -> Problem:
@@ -1058,6 +1095,7 @@ class Undone:
     kept: int
     foods: int
     drafts: int
+    kept_names: list[str] = field(default_factory=list)  # the first few kept (F248)
 
 
 def _undo_ready(row: MealieImport) -> None:
@@ -1081,6 +1119,7 @@ def undo(kitchen: Kitchen, row: MealieImport) -> Undone:
     since = as_utc(row.started_at or row.created_at)
     removed = kept = foods = gone_drafts = 0
     seen: set[int] = set()
+    kept_names: list[str] = []
 
     def recipes_pass() -> None:
         """The import's recipes not yet looked at, from the row as it is now: a "Save all"
@@ -1112,6 +1151,16 @@ def undo(kitchen: Kitchen, row: MealieImport) -> Undone:
             stays = _kept_recipes(db, {i: versions[i] for i in live}, since)
             going = sorted(live - stays)
             kept += len(stays)
+            if stays and len(kept_names) < KEPT_NAMES:
+                kept_names.extend(
+                    cut_text(name or drafts.NO_NAME, 100)
+                    for name in db.scalars(
+                        select(Recipe.name)
+                        .where(Recipe.id.in_(sorted(stays)))
+                        .order_by(Recipe.id)
+                        .limit(KEPT_NAMES - len(kept_names))
+                    )
+                )
             now = utcnow()
             for recipe in db.scalars(select(Recipe).where(Recipe.id.in_(going))):
                 recipe.removed_at = now
@@ -1173,7 +1222,9 @@ def undo(kitchen: Kitchen, row: MealieImport) -> Undone:
             row.state = "undone"
             row.undone_at = now
         db.commit()
-    return Undone(recipes=removed, kept=kept, foods=foods, drafts=gone_drafts)
+    return Undone(
+        recipes=removed, kept=kept, foods=foods, drafts=gone_drafts, kept_names=kept_names
+    )
 
 
 # --- 4. Save all as they are ------------------------------------------------------------------

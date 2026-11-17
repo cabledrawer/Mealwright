@@ -169,6 +169,27 @@ def test_the_preview_says_what_is_in_the_file_and_adds_nothing(
     assert len(mealie_files(kitchen)) == 1  # kept for "Bring in"
 
 
+def test_the_preview_says_how_many_new_recipes_will_wait_in_drafts(
+    kitchen: TestClient, raw: bytes
+) -> None:
+    """F247: the soup has a line nobody could read, so of the 3 new recipes 1 goes to Drafts;
+    the number is the same as the import then makes."""
+    preview = upload(kitchen, raw).json()["preview"]
+    assert preview["new"] == 3 and preview["to_drafts"] == 1
+    done = bring_in(kitchen, raw)
+    assert done["counts"]["drafts"] == preview["to_drafts"]
+    assert done["counts"]["saved"] == preview["new"] - preview["to_drafts"]
+
+
+def test_the_preview_counts_a_recipe_left_in_drafts_only_when_new(
+    kitchen: TestClient, raw: bytes
+) -> None:
+    """F247: a recipe the household has already is left out, so it is not counted."""
+    bring_in(kitchen, raw)
+    again = upload(kitchen, raw).json()["preview"]
+    assert again["new"] == 0 and again["to_drafts"] == 0
+
+
 def test_the_preview_finds_recipes_already_here(kitchen: TestClient, raw: bytes) -> None:
     bring_in(kitchen, raw)
     again = upload(kitchen, raw).json()["preview"]
@@ -352,7 +373,13 @@ def test_undo_takes_the_whole_import_out(kitchen: TestClient, raw: bytes) -> Non
     done = bring_in(kitchen, raw)
     answer = kitchen.post(f"{API}/mealie-imports/{done['id']}/undo")
     assert answer.status_code == 200, answer.text
-    assert answer.json() == {"recipes": 2, "kept": 0, "foods": 2, "drafts": 1}
+    assert answer.json() == {
+        "recipes": 2,
+        "kept": 0,
+        "foods": 2,
+        "drafts": 1,
+        "kept_names": [],
+    }
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         assert db.scalars(select(Recipe).where(Recipe.removed_at.is_(None))).all() == []
         assert db.scalars(select(ImportDraft)).all() == []
@@ -362,6 +389,26 @@ def test_undo_takes_the_whole_import_out(kitchen: TestClient, raw: bytes) -> Non
         )
     assert kitchen.get(f"{API}/mealie-imports/{done['id']}").json()["state"] == "undone"
     assert kitchen.post(f"{API}/mealie-imports/{done['id']}/undo").status_code == 409
+
+
+def test_undo_names_the_first_few_recipes_it_kept_and_counts_them_all(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    """F248: 7 recipes were changed since: Undo says 7 were kept and names the first 5."""
+    data = database()
+    data["recipes"] = [recipe(f"{n:032x}", f"Kept {n}") for n in range(1, 8)]
+    data["recipes_ingredients"] = [line(f"{n:032x}", 0, "", LENTILS, 100) for n in range(1, 8)]
+    data["recipe_instructions"] = []
+    data["recipes_to_tags"] = []
+    done = bring_in(kitchen, zipped(tmp_path / "seven.zip", data, photo=False))
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        for recipe_row in db.scalars(select(Recipe)):
+            recipe_row.version += 1
+        db.commit()
+    answer = kitchen.post(f"{API}/mealie-imports/{done['id']}/undo").json()
+    assert answer["recipes"] == 0 and answer["kept"] == 7
+    assert len(answer["kept_names"]) == 5
+    assert all(name.startswith("Kept ") for name in answer["kept_names"])
 
 
 def test_undo_keeps_recipes_changed_since_and_their_ingredients(
@@ -376,6 +423,7 @@ def test_undo_keeps_recipes_changed_since_and_their_ingredients(
         db.commit()
     answer = kitchen.post(f"{API}/mealie-imports/{done['id']}/undo").json()
     assert answer["recipes"] == 1 and answer["kept"] == 1
+    assert answer["kept_names"] == ["Red lentil dal"]  # F248
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         kept = db.get(Recipe, dal_id)
         assert kept is not None and kept.removed_at is None
@@ -594,7 +642,7 @@ def test_save_all_and_undo_go_in_short_stretches(
     assert sum(asked.stretches.values()) >= 6, asked.stretches  # before: 1
     with seen(engine_of(kitchen)) as asked:
         undone = kitchen.post(f"{API}/mealie-imports/{job['id']}/undo").json()
-    assert undone == {"recipes": 6, "kept": 0, "foods": 12, "drafts": 0}
+    assert undone == {"recipes": 6, "kept": 0, "foods": 12, "drafts": 0, "kept_names": []}
     assert sum(asked.stretches.values()) >= 6, asked.stretches  # before: 1
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         assert db.scalars(select(Recipe).where(Recipe.removed_at.is_(None))).all() == []
@@ -1147,9 +1195,38 @@ def test_undo_keeps_what_was_cooked_planned_or_used_since(
         db.commit()
     undone = kitchen.post(f"{API}/mealie-imports/{job['id']}/undo").json()
     assert undone["recipes"] == 1 and undone["kept"] == 3
+    assert len(undone["kept_names"]) == 3
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         live = set(db.scalars(select(Recipe.id).where(Recipe.removed_at.is_(None))))
         assert {cooked, planned, used} <= live and plain not in live
         # The plain recipe's ingredient is used by the thali, so it stays.
         assert db.get(Food, plain_food).removed_at is None  # type: ignore[union-attr]
     assert undone["foods"] == 0
+
+
+def test_the_preview_of_700_recipes_is_read_in_a_few_seconds(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    """F247: counting the recipes that go to Drafts reads every new recipe's lines in the
+    upload request; 700 recipes of 8 lines (a big Mealie) must not make it slow."""
+    import time
+
+    data = database()
+    data["recipes"], data["recipes_ingredients"], data["recipe_instructions"] = [], [], []
+    for number in range(700):
+        key = f"{number:032x}"
+        data["recipes"].append(recipe(key, f"Recipe {number}"))
+        for at in range(7):
+            data["recipes_ingredients"].append(line(key, at, "", LENTILS if at % 2 else STOCK, 100))
+        data["recipes_ingredients"].append(line(key, 7, "a handful of whatever is about"))
+        data["recipe_instructions"].append(
+            {"recipe_id": key, "position": 0, "title": "", "text": "Cook."}
+        )
+    big = zipped(tmp_path / "big.zip", data, photo=False)
+    started = time.perf_counter()
+    answer = upload(kitchen, big)
+    took = time.perf_counter() - started
+    print(f"preview of 700 recipes: {took:.2f}s")
+    assert answer.status_code == 201, answer.text
+    assert answer.json()["preview"]["to_drafts"] == 700
+    assert took < 15, took

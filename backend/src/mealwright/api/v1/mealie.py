@@ -69,6 +69,10 @@ class MealiePreview(BaseModel):
     foods_left_out: int = 0
     # Their names, A to Z, the first 200 (empty in a preview read before 0.9.5's "See").
     foods_new_names: list[str] = []
+    # Of the new recipes, how many would wait in Drafts to check (an ingredient line Mealwright
+    # can't tie to an ingredient): the server's own reading, as the import does it. None in a
+    # preview read before F247.
+    to_drafts: int | None = None
     # Never brought in: "meal_plans", "shopping_lists", "users", "cookbooks" → how many.
     left_out: dict[str, int]
     recipes: list[PreviewRecipe]  # every recipe in the file, in its order (not once started)
@@ -134,6 +138,7 @@ class MealieUndone(BaseModel):
     kept: int  # changed, cooked or planned since: kept
     foods: int  # new ingredients taken out
     drafts: int
+    kept_names: list[str] = []  # the first few of the kept recipes, by name (F248)
 
 
 class MealieSavedAll(BaseModel):
@@ -350,7 +355,13 @@ def undo(import_id: StoredInt, kitchen: Here) -> MealieUndone:
     except recipes changed, cooked or planned since and ingredients something else uses."""
     kitchen.admin_only(Action.YOUR_DATA)
     done = mealie_import.undo(kitchen, mealie_import.find(kitchen, import_id))
-    return MealieUndone(recipes=done.recipes, kept=done.kept, foods=done.foods, drafts=done.drafts)
+    return MealieUndone(
+        recipes=done.recipes,
+        kept=done.kept,
+        foods=done.foods,
+        drafts=done.drafts,
+        kept_names=done.kept_names,
+    )
 
 
 @router.post("/mealie-imports/drafts/save-all")
