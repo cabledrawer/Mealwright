@@ -983,6 +983,10 @@ def _used_foods_of(db: Session, household_id: int, ids: list[int]) -> set[int]:
     for model in (StockLot, ListItem, MealItem):
         used |= _ids_where(db, model.food_id, ids, model.household_id == household_id)
     used |= _ids_where(db, Recipe.homemade_food_id, ids)
+    # A merge ties ingredients together (and the purge deletes whatever was merged into a
+    # removed one), so one that was merged away, or merged into, stays.
+    used |= _ids_where(db, Food.id, ids, Food.merged_into_id.is_not(None))
+    used |= _ids_where(db, Food.merged_into_id, ids)
     used |= _ids_where(
         db,
         RecipeLine.food_id,
