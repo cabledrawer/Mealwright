@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mealwright phone dark – Drafts from Mealie, fixed by ingredient (beta.2, proposed)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+html,body{overflow:hidden;background:#111614}
+a{color:#6FCF9E}a:hover{color:#9FE3BF}
+.top{padding:12px 16px;border-bottom:1px solid #2A332E;display:flex;align-items:center;gap:10px;flex:none}
+.x{width:44px;height:44px;border-radius:22px;background:#252E29;color:#E9EEEB;display:flex;align-items:center;justify-content:center;flex:none;border:none;cursor:pointer}
+.body{flex:1;min-height:0;overflow:hidden;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.card{background:#1B221F;border-radius:18px;display:flex;flex-direction:column;overflow:hidden}
+.seg{display:flex;background:#111614;border:1px solid #39433D;border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;border:none;background:transparent;color:#C5CEC8;border-radius:9px;min-height:40px;font:700 14px 'Plus Jakarta Sans',sans-serif}
+.seg button[aria-pressed="true"]{background:#1F3A2D;color:#8FE0B5}
+.row{display:flex;align-items:center;gap:10px;min-height:56px;padding:8px 14px;border:none;border-top:1px solid #26302B;background:transparent;color:#E9EEEB;text-align:left;width:100%;font-family:inherit;cursor:pointer;box-sizing:border-box}
+.row:first-child{border-top:none}
+.rn{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rn b{font-size:15px;font-weight:700}
+.rn span{font-size:12px;color:#A3AFA8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cnt{font-size:12px;font-weight:700;color:#FF9B76;white-space:nowrap}
+.done{font-size:12px;font-weight:700;color:#8FE0B5;white-space:nowrap}
+.small{font-size:12px;color:#A3AFA8;line-height:1.45}
+.bar{height:8px;border-radius:4px;background:#252E29;overflow:hidden}
+.bar span{display:block;height:100%;background:#2E9E6E}
+.q{font-size:12px;color:#C5CEC8;background:#1B221F;border-radius:8px;padding:6px 8px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.opt{display:flex;align-items:center;gap:12px;border:1px solid #39433D;border-radius:14px;padding:12px;background:#111614;color:#E9EEEB;font:600 15px 'Plus Jakarta Sans',sans-serif;text-align:left;cursor:pointer;width:100%;box-sizing:border-box}
+.opt[aria-pressed="true"]{border-color:#2E7D5B;background:#173326}
+.dot{width:20px;height:20px;border-radius:10px;border:2px solid #6A766F;flex:none;box-sizing:border-box}
+.opt[aria-pressed="true"] .dot{border:6px solid #6FCF9E}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;color:#C9D2CD}
+.fld input{border:1px solid #39433D;border-radius:12px;min-height:46px;padding:0 12px;font:500 15px 'Plus Jakarta Sans',sans-serif;color:#E9EEEB;background:#111614;box-sizing:border-box;width:100%}
+.chip{border:1px solid #39433D;background:#111614;color:#C5CEC8;border-radius:999px;min-height:36px;padding:0 12px;font:700 13px 'Plus Jakarta Sans',sans-serif}
+.chip[aria-pressed="true"]{border-color:#2E7D5B;background:#1F3A2D;color:#8FE0B5}
+.foot{border-top:1px solid #2A332E;background:#151B18;padding:10px 16px 26px;display:flex;gap:10px;flex:none}
+.btnw{flex:1;border:none;background:#E9EEEB;color:#111614;border-radius:999px;min-height:52px;font:800 15px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.btno{border:1px solid #39433D;background:transparent;color:#E9EEEB;border-radius:999px;min-height:52px;padding:0 16px;font:700 15px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.note{background:#1E2A33;border:1px solid #2E4352;color:#BFD9EA;border-radius:14px;padding:10px 12px;font-size:13px;line-height:1.45}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #111614; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #E9EEEB; display: flex; flex-direction: column; overflow: hidden">
+<sc-if value="{{ list }}" hint-placeholder-val="{{ true }}"><div style="display: flex; flex-direction: column; height: 844px">
+<div class="top"><button type="button" class="x" aria-label="Back"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button><span style="flex: 1; font-size: 16px; font-weight: 800">Drafts · From Mealie</span></div>
+<div class="body">
+<div class="seg" role="group" aria-label="Show"><button type="button" aria-pressed="false">By recipe</button><button type="button" aria-pressed="true">By ingredient</button></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><strong style="font-size: 15px">{{ left }} ingredients to answer · {{ ready }} recipes ready</strong><div class="bar" aria-hidden="true"><span style="width: {{ pct }}%"></span></div><span class="small">Answer one once and every draft using it is fixed. Most-used first.</span></div>
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}"><div class="note">Answered “{{ last }}” in {{ lastn }} drafts · 3 recipes moved to Recipes. <a href="#">Undo</a></div></sc-if>
+<div class="card">
+<button type="button" class="row" onClick="{{ g0 }}"><span class="rn"><b>soya sauce</b><span>"2 tbsp soya sauce", "soya sauce, dark"</span></span><span class="{{ k0 }}">{{ t0 }}</span></button>
+<button type="button" class="row" onClick="{{ g1 }}"><span class="rn"><b>kasuri methi</b><span>"kasuri methi, a pinch"</span></span><span class="{{ k1 }}">{{ t1 }}</span></button>
+<button type="button" class="row" onClick="{{ g2 }}"><span class="rn"><b>salt to taste</b><span>"salt to taste", "season with salt"</span></span><span class="{{ k2 }}">{{ t2 }}</span></button>
+<button type="button" class="row" onClick="{{ g3 }}"><span class="rn"><b>galangal</b><span>"a thumb of galangal"</span></span><span class="{{ k3 }}">{{ t3 }}</span></button>
+<button type="button" class="row"><span class="rn"><b>biryani masala</b><span>"1 packet biryani masala"</span></span><span class="cnt">9 drafts</span></button>
+</div>
+<p class="small" style="margin: 0; text-align: center">Show all</p>
+</div></div></sc-if>
+<sc-if value="{{ sheet }}" hint-placeholder-val="{{ false }}"><div style="display: flex; flex-direction: column; height: 844px">
+<div class="top"><button type="button" class="x" aria-label="Back to the list" onClick="{{ back }}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg></button><span style="flex: 1; font-size: 16px; font-weight: 800">{{ name }}</span><span class="cnt">{{ n }} drafts</span></div>
+<div class="body" style="gap: 12px">
+<span class="small" style="font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em">Written as</span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px"><span class="q">{{ ex1 }}</span><span class="q">{{ ex2 }}</span></div>
+<button type="button" class="opt" aria-pressed="{{ m_have }}" onClick="{{ pick_have }}"><span class="dot"></span>An ingredient I already have</button>
+<sc-if value="{{ have }}" hint-placeholder-val="{{ true }}"><label class="fld">Which one<input type="text" value="{{ match }}"></label></sc-if>
+<button type="button" class="opt" aria-pressed="{{ m_new }}" onClick="{{ pick_new }}"><span class="dot"></span>A new ingredient</button>
+<sc-if value="{{ isnew }}" hint-placeholder-val="{{ false }}"><label class="fld">Name<input type="text" value="{{ match }}"></label><div style="display: flex; gap: 8px; flex-wrap: wrap"><button type="button" class="chip" aria-pressed="true">Cupboard</button><button type="button" class="chip" aria-pressed="false">Fridge</button><button type="button" class="chip" aria-pressed="false">Freezer</button><button type="button" class="chip" aria-pressed="false">Spice rack</button></div></sc-if>
+<button type="button" class="opt" aria-pressed="{{ m_text }}" onClick="{{ pick_text }}"><span class="dot"></span><span style="flex: 1">Keep it as plain text<span class="small" style="display: block; font-weight: 500">Never on the list or taken from the pantry</span></span></button>
+</div>
+<div class="foot"><button type="button" class="btno" onClick="{{ skip }}">Skip</button><button type="button" class="btnw" onClick="{{ answer }}">Use for all {{ n }}</button></div>
+</div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 390, "height": 844}}'>
+class Component extends DCLogic {
+renderVals() {
+const I = [
+ { name: 'soya sauce', n: 46, ex1: '"2 tbsp soya sauce"', ex2: '"soya sauce, dark"', match: 'Soy sauce', mode: 'have' },
+ { name: 'kasuri methi', n: 31, ex1: '"kasuri methi, a pinch"', ex2: '"1 tsp dried fenugreek leaves"', match: 'Kasuri methi', mode: 'new' },
+ { name: 'salt to taste', n: 120, ex1: '"salt to taste"', ex2: '"season with salt"', match: 'Salt', mode: 'have' },
+ { name: 'galangal', n: 12, ex1: '"a thumb of galangal"', ex2: '"2 cm galangal"', match: 'Galangal', mode: 'text' }
+];
+const s = this.state || {};
+const open = s.open !== undefined && s.open !== null;
+const cur = open ? s.open : 0;
+const answered = s.answered || [];
+const mode = (s.mode && s.mode[cur]) || I[cur].mode;
+const it = I[cur];
+const o = { list: !open, sheet: open, name: it.name, n: it.n, ex1: it.ex1, ex2: it.ex2, match: it.match,
+  have: mode === 'have', isnew: mode === 'new',
+  m_have: mode === 'have' ? 'true' : 'false', m_new: mode === 'new' ? 'true' : 'false', m_text: mode === 'text' ? 'true' : 'false',
+  left: 214 - answered.length, ready: 38 + answered.length * 3, pct: Math.round(100 * answered.length / 214) + 6,
+  toast: !open && !!s.last, last: s.last || '', lastn: s.lastn || 0 };
+const setMode = (m) => () => this.setState({ mode: Object.assign({}, s.mode || {}, { [cur]: m }) });
+o.pick_have = setMode('have'); o.pick_new = setMode('new'); o.pick_text = setMode('text');
+o.back = () => this.setState({ open: null });
+o.skip = () => this.setState({ open: (cur + 1) % 4 });
+o.answer = () => { const a = answered.includes(cur) ? answered : answered.concat([cur]); this.setState({ answered: a, last: it.name, lastn: it.n, open: null }); };
+I.forEach((x, i) => { o['g' + i] = () => this.setState({ open: i }); const d = answered.includes(i); o['k' + i] = d ? 'done' : 'cnt'; o['t' + i] = d ? 'Answered' : x.n + ' drafts'; });
+return o;
+}
+}
+</script>
+</body>
+</html>
