@@ -92,6 +92,9 @@ def answer_by_ingredient(body: GroupAnswer, kitchen: Here, response: Response) -
         done = mealie_answers.answer(kitchen, body)
         earlier = commit(kitchen)
         if earlier is None:
+            # The answers and the change are in; the recipes it completes are saved in short
+            # locked stretches, so a long answer never holds the lock for seconds.
+            done = mealie_answers.finish(kitchen, done)
             return GroupAnswered(
                 change=change_out(kitchen, done.change),
                 drafts=done.drafts,

@@ -4,8 +4,10 @@ cabledrawer 15 Nov, 0.9.5-beta.2).
 The lines of the household's Mealie drafts that nobody has answered are grouped by the
 ingredient they name, across every draft, most-used first. One answer for a group (an
 ingredient the household has, a new one with its pantry place, or plain text) goes into every
-draft that uses it, in one change with one Undo (7 days). A draft whose lines are all answered
-is saved as a recipe and leaves Drafts; it joins its import's results, so the import's own Undo
+draft that uses it, in one change with one Undo (7 days). The answers are written on the drafts
+at once; the drafts they complete are then saved, and brought back by Undo, in short locked
+stretches (the time budget of Save all), the change recording each stretch as it is done. A draft whose lines are all
+answered is saved as a recipe and leaves Drafts; it joins its import's results, so the import's own Undo
 still takes it out. Nothing is saved until the person answers; "Skip for now" is only the
 screen's: the server keeps nothing for it.
 
@@ -33,8 +35,13 @@ Proposed, for cabledrawer (the spec doesn't say; the safest reading, listed in t
   it stays, and the message says so), as the import's Undo does.
 """
 
+import base64
+import json
 import logging
+import time
+import zlib
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -328,6 +335,7 @@ class Answered:
     drafts: int
     moved: int
     ingredient: Ref | None
+    todo: list[int] = field(default_factory=list)  # drafts the answer completed
 
 
 def _answer_food(
@@ -421,11 +429,23 @@ def _saved_review(review: ImportReview, choices: DraftChoices, draft: ImportDraf
     return review.model_copy(update={"lines": lines, "name": draft.name or review.name})
 
 
+def _remaining(review: ImportReview, choices: DraftChoices) -> list[int]:
+    """The ingredient lines of the draft that still have no answer."""
+    return [
+        i
+        for i, line in enumerate(review.lines)
+        if line.kind == "ingredient"
+        and (line.written.strip() or line.words.strip())
+        and i not in choices.lines
+        and not (line.label in ("matched", "staple") and line.food is not None)
+    ]
+
+
 def answer(kitchen: Kitchen, body: GroupAnswer) -> Answered:
-    """Apply one answer to every Mealie draft that uses the group. The caller holds the
-    household's lock and commits (with the change's own Idempotency-Key)."""
-    from mealwright import recipes
-    from mealwright.mealie_import import _save
+    """Apply one answer to every Mealie draft that uses the group: the answers are written on
+    the drafts and the change is recorded, all at once. The caller holds the household's lock and
+    commits (with the change's own Idempotency-Key), then calls `finish`, which saves the drafts
+    this answer completed in short locked stretches."""
     from mealwright.shopping import bump_foods
 
     db = kitchen.db
@@ -451,7 +471,7 @@ def answer(kitchen: Kitchen, body: GroupAnswer) -> Answered:
     if made and food is not None:
         bump_foods(kitchen, [food.id])
     now = utcnow()
-    saved: list[dict[str, Any]] = []
+    complete: list[int] = []  # drafts every line of which is now answered: saved by `finish`
     partial: list[dict[str, Any]] = []
     for draft, hits in users:
         before = _choices_of(draft)
@@ -461,52 +481,171 @@ def answer(kitchen: Kitchen, body: GroupAnswer) -> Answered:
         review, choices = applied
         before_model = DraftChoices.model_validate(draft.choices)
         review, choices = drafts.freshen(kitchen, review, choices)
-        remaining = [
-            i
-            for i, line in enumerate(review.lines)
-            if line.kind == "ingredient"
-            and (line.written.strip() or line.words.strip())
-            and i not in choices.lines
-            and not (line.label in ("matched", "staple") and line.food is not None)
-        ]
-        if not remaining and _may_save(choices, before_model):
-            item = _save_complete(kitchen, draft, review, choices, recipes, _save)
-            if item is not None:
-                saved.append(item)
-                continue
+        if not _remaining(review, choices) and _may_save(choices, before_model):
+            complete.append(draft.id)
         total, checked = drafts._progress(review, choices)
         draft.choices = choices.model_dump(mode="json")
         draft.lines_total, draft.lines_checked = total, checked
         draft.updated_at = now
-        partial.append(
-            {
-                "draft_id": draft.id,
-                "lines": {
-                    str(i): before.get(i) for i in hits
-                },  # what each line's choice was before (null: none)
-            }
-        )
+        # What each line's choice was before (null: none): all Undo needs for a draft that
+        # stays a draft, and for one `finish` saves (it is moved to "saved" then).
+        partial.append({"draft_id": draft.id, "lines": {str(i): before.get(i) for i in hits}})
     db.flush()
-    _results_say(kitchen, saved, "answered")
-    count = len(saved) + len(partial)
     name = group.names.most_common(1)[0][0] if group.names else body.key
-    summary = f"Answered “{cut_text(name, 60)}” in {_many(count, 'draft')}"
-    if saved:
-        summary += f" · {_many(len(saved), 'recipe')} moved to Recipes"
     change = record(
         kitchen,
         "mealie_drafts_answered",
-        summary,
+        _summary(name, len(partial), 0),
         None,
         {
             "name": name,
             "choice": choice.model_dump(mode="json"),
             "made_food": food.id if made and food is not None else None,
-            "saved": saved,
+            "saved": [],
             "partial": partial,
         },
     )
-    return Answered(change, count, len(saved), ref)
+    return Answered(change, len(partial), 0, ref, complete)
+
+
+def _summary(name: str, count: int, moved: int) -> str:
+    summary = f"Answered “{cut_text(name, 60)}” in {_many(count, 'draft')}"
+    if moved:
+        summary += f" · {_many(moved, 'recipe')} moved to Recipes"
+    return summary
+
+
+def finish(kitchen: Kitchen, done: Answered) -> Answered:
+    """Save the drafts the answer completed, each short stretch under the household's lock with
+    the same time budget as Save all (`mealie_import.HOLD_SECONDS`), the lock let go between
+    stretches. Each stretch records, in the same commit as its recipes, which drafts it moved
+    (from the change's `partial` to its `saved`), so the change always says exactly what was
+    done, and Undo takes back just that, even if a later stretch fails. A draft that changed
+    since (answered again, deleted, saved) is left alone. Commits."""
+    from mealwright import mealie_import, recipes
+    from mealwright.shopping import lock_household
+
+    db = kitchen.db
+    change_id = done.change.id
+    todo = done.todo
+    moved = 0
+    at = 0
+    while at < len(todo):
+        lock_household(kitchen)
+        began, first = time.monotonic(), at
+        change = db.get(Change, change_id)
+        if change is None or change.undone_by_change_id is not None:
+            db.commit()
+            break
+        db.refresh(change)
+        data = change.undo_data or {}
+        before = {int(e["draft_id"]): e["lines"] for e in data.get("partial", [])}
+        items: list[dict[str, Any]] = []
+        while at < len(todo) and (
+            at == first or time.monotonic() - began < mealie_import.HOLD_SECONDS
+        ):
+            draft_id = todo[at]
+            at += 1
+            if draft_id not in before:
+                continue  # taken back (Undo) or already moved
+            item = _save_one(kitchen, draft_id, before[draft_id], recipes, mealie_import._save)
+            if item is not None:
+                items.append(item)
+        _results_say(kitchen, items, "answered")
+        moved_ids = {item["draft_id"] for item in items}
+        saved = [*data.get("saved", []), *items]
+        moved = len(saved)
+        count = len(saved) + len(data.get("partial", [])) - len(moved_ids)  # drafts it went into
+        change.summary = _summary(str(data.get("name", "")), count, moved)
+        change.undo_data = {
+            **data,
+            "saved": saved,
+            "partial": [e for e in data.get("partial", []) if e["draft_id"] not in moved_ids],
+        }
+        db.commit()
+        if at < len(todo):
+            mealie_import._pause()
+    change = db.get(Change, change_id)
+    if change is not None:
+        db.refresh(change)
+        moved = len((change.undo_data or {}).get("saved", []))
+        done = Answered(change, done.drafts, moved, done.ingredient, [])
+    return done
+
+
+def _save_one(
+    kitchen: Kitchen,
+    draft_id: int,
+    lines_before: dict[str, Any],
+    recipes: Any,
+    save: Any,
+) -> dict[str, Any] | None:
+    """One completed draft, looked at again inside its stretch: saved as a recipe only if it is
+    still a live Mealie draft every line of which is answered and the person has changed
+    nothing else on the review screen."""
+    db = kitchen.db
+    draft = db.scalar(
+        select(ImportDraft).where(
+            ImportDraft.id == draft_id,
+            *drafts.live(kitchen.household_id, utcnow()),
+            ImportDraft.mealie_import_id.is_not(None),
+        )
+    )
+    if draft is None:
+        return None
+    try:
+        review = ImportReview.model_validate(draft.review)
+        choices = DraftChoices.model_validate(draft.choices)
+    except ValidationError:
+        return None
+    review, choices = drafts.freshen(kitchen, review, choices)
+    if _remaining(review, choices) or not _may_save(choices, choices):
+        return None
+    # The draft as it was before this answer, which is what Undo brings back.
+    lines = dict(choices.lines)
+    for key, was in lines_before.items():
+        if was is None:
+            lines.pop(int(key), None)
+        else:
+            lines[int(key)] = DraftChoice.model_validate(was)
+    original = choices.model_copy(update={"lines": lines})
+    return _save_complete(kitchen, draft, review, choices, original, recipes, save)
+
+
+def _compact(copy: dict[str, Any]) -> dict[str, Any]:
+    """A draft's copy as Undo needs it and no more: what the item already says (the draft's id
+    and its import) and empty values are left out, and the rest is packed (zlib, then base64
+    text), which makes the review about a fifth of its size. The names stay readable outside the
+    pack, so the problem report's scrubber still finds them."""
+    rest = {
+        k: v
+        for k, v in copy.items()
+        if k not in ("id", "mealie_import_id", "name", "started_by_name")
+        and not (k in ("source_text", "site", "photo_id", "started_by_login_id") and not v)
+    }
+    packed = zlib.compress(json.dumps(rest, separators=(",", ":")).encode())
+    return {
+        "name": copy.get("name", ""),
+        "started_by_name": copy.get("started_by_name", ""),
+        "z": base64.b64encode(packed).decode("ascii"),
+    }
+
+
+def _expanded(item: dict[str, Any]) -> dict[str, Any]:
+    """The copy as `drafts.bring_back` takes it (a record from before the copy was packed is
+    read as it is)."""
+    saved = dict(item["draft"])
+    if "z" in saved:
+        saved.update(json.loads(zlib.decompress(base64.b64decode(saved.pop("z")))))
+    return {
+        "source_text": "",
+        "site": None,
+        "photo_id": None,
+        "started_by_login_id": None,
+        "id": item.get("draft_id"),
+        "mealie_import_id": item.get("import_id"),
+        **saved,
+    }
 
 
 def _save_complete(
@@ -514,6 +653,7 @@ def _save_complete(
     draft: ImportDraft,
     review: ImportReview,
     choices: DraftChoices,
+    original: DraftChoices,
     recipes: Any,
     save: Any,
 ) -> dict[str, Any] | None:
@@ -525,6 +665,8 @@ def _save_complete(
     photo = db.scalar(select(RecipePhoto).where(RecipePhoto.draft_id == draft.id))
     import_id, draft_id = draft.mealie_import_id, draft.id
     copy = drafts.snapshot(draft, photo.id if photo is not None else None)
+    copy["choices"] = original.model_dump(mode="json")
+    copy["lines_total"], copy["lines_checked"] = drafts._progress(review, original)
     final = _saved_review(review, choices, draft)
     try:
         with db.begin_nested():
@@ -551,7 +693,7 @@ def _save_complete(
         "version": recipe.version,
         "draft_id": draft_id,
         "import_id": import_id,
-        "draft": copy,
+        "draft": _compact(copy),
     }
 
 
@@ -589,67 +731,120 @@ def _results_say(kitchen: Kitchen, items: list[dict[str, Any]], state: str) -> N
 # --- Undo ---------------------------------------------------------------------------------
 
 
-def undo(kitchen: Kitchen, change: Change) -> Change:
+UNDO_BATCH = 10  # recipes looked at together inside one stretch of an Undo
+
+
+def _walk(
+    kitchen: Kitchen,
+    change_id: int,
+    key: str,
+    handle: Callable[[list[dict[str, Any]], dict[str, int]], list[dict[str, Any]]],
+    stretched: bool,
+) -> None:
+    """Go through the items of the change under `key` that are not `done`, `UNDO_BATCH` at a
+    time. `handle` takes some items and the running counts and answers each item as it should be
+    kept. Stretched (the Undo's own request): each stretch is locked for about
+    `mealie_import.HOLD_SECONDS`, then committed with the items it did marked `done`, and the lock
+    is let go before the next; so a stop part-way leaves a change that says exactly what is
+    still to undo, and the Undo carries on when asked again."""
+    from mealwright import mealie_import
+    from mealwright.shopping import lock_household
+
+    db = kitchen.db
+    first_look = db.get(Change, change_id)
+    if first_look is None:
+        return
+    pending = [
+        k for k, i in enumerate((first_look.undo_data or {}).get(key, [])) if not i.get("done")
+    ]
+    at = 0
+    while at < len(pending):
+        if stretched:
+            lock_household(kitchen)
+        change = db.get(Change, change_id)
+        if change is None:
+            return
+        db.refresh(change)
+        data = change.undo_data or {}
+        items = list(data.get(key, []))
+        counts = dict(data.get("progress") or {})
+        began, first = time.monotonic(), at
+        while at < len(pending) and (
+            not stretched or at == first or time.monotonic() - began < mealie_import.HOLD_SECONDS
+        ):
+            chunk = pending[at : at + UNDO_BATCH]
+            at += len(chunk)
+            for k, new in zip(chunk, handle([items[k] for k in chunk], counts), strict=True):
+                items[k] = new
+        change.undo_data = {**data, key: items, "progress": counts}
+        db.flush()
+        if stretched:
+            db.commit()
+            if at < len(pending):
+                mealie_import._pause()
+
+
+def undo(kitchen: Kitchen, change: Change, stretched: bool = False) -> Change:
     """Put a group's answers back to unanswered: the answered lines of drafts that stayed drafts
     lose their answer (unless the person changed it since), recipes moved to Recipes come back
     to Drafts (unless changed, cooked or planned since), and the ingredient this answer made
-    goes only if nothing outside these drafts uses it."""
+    goes only if nothing else (a recipe, the pantry, a draft's answer) uses it.
+
+    `stretched`: in short locked stretches, committing as it goes (see `_walk`); the caller
+    has not written anything yet, and commits the last stretch with the Undo's own record."""
     from mealwright.history import bump_recipes_by
     from mealwright.mealie_import import _kept_recipes, _used_foods_of
     from mealwright.recipes import _users_of
-    from mealwright.shopping import bump_foods
+    from mealwright.shopping import bump_foods, lock_household
 
     db = kitchen.db
-    data = change.undo_data or {}
-    now = utcnow()
-    saved: list[dict[str, Any]] = data.get("saved", [])
-    versions = {int(item["recipe_id"]): int(item.get("version") or 0) for item in saved}
-    stays = _kept_recipes(db, versions, as_utc(change.at)) if versions else set()
-    back = kept = gone = 0
-    returned: list[dict[str, Any]] = []
-    for item in saved:
-        recipe = db.get(Recipe, int(item["recipe_id"]))
-        if (
-            recipe is None
-            or recipe.household_id != kitchen.household_id
-            or recipe.removed_at is not None
-        ):
-            gone += 1  # deleted, or taken out by the import's Undo: nothing to bring back
-            continue
-        if recipe.id in stays:
-            kept += 1
-            continue
-        recipe.removed_at = now
-        db.flush()
-        bump_recipes_by(kitchen, {recipe.id, *_users_of(kitchen, recipe.id)})
-        drafts.bring_back(kitchen, recipe.id, item["draft"])
-        returned.append(item)
-        back += 1
-    _results_say(kitchen, returned, "draft")
-    chosen = data.get("choice", {})
-    for item in data.get("partial", []):
-        draft = db.get(ImportDraft, item["draft_id"])
-        if draft is None or draft.household_id != kitchen.household_id or draft.removed_at:
-            continue
-        choices = DraftChoices.model_validate(draft.choices)
-        lines = dict(choices.lines)
-        for key, was in item["lines"].items():
-            index = int(key)
-            now_choice = lines.get(index)
-            if now_choice is None or now_choice.model_dump(mode="json") != chosen:
-                continue  # changed since: leave what the person chose
-            if was is None:
-                del lines[index]
+    change_id = change.id
+    since = as_utc(change.at)
+    chosen = (change.undo_data or {}).get("choice", {})
+
+    def recipes_back(items: list[dict[str, Any]], counts: dict[str, int]) -> list[dict[str, Any]]:
+        now = utcnow()
+        versions = {int(i["recipe_id"]): int(i.get("version") or 0) for i in items}
+        stays = _kept_recipes(db, versions, since)
+        returned: list[dict[str, Any]] = []
+        out: list[dict[str, Any]] = []
+        for item in items:
+            recipe = db.get(Recipe, int(item["recipe_id"]))
+            if (
+                recipe is None
+                or recipe.household_id != kitchen.household_id
+                or recipe.removed_at is not None
+            ):
+                counts["gone"] = counts.get("gone", 0) + 1  # nothing to bring back
+            elif recipe.id in stays:
+                counts["kept"] = counts.get("kept", 0) + 1
             else:
-                lines[index] = DraftChoice.model_validate(was)
-        choices = choices.model_copy(update={"lines": lines})
-        try:
-            review = ImportReview.model_validate(draft.review)
-            draft.lines_total, draft.lines_checked = drafts._progress(review, choices)
-        except ValidationError:
-            pass
-        draft.choices = choices.model_dump(mode="json")
-        draft.updated_at = now
+                recipe.removed_at = now
+                db.flush()
+                bump_recipes_by(kitchen, {recipe.id, *_users_of(kitchen, recipe.id)})
+                drafts.bring_back(kitchen, recipe.id, _expanded(item))
+                returned.append(item)
+                counts["back"] = counts.get("back", 0) + 1
+            out.append({k: v for k, v in item.items() if k != "draft"} | {"done": True})
+        _results_say(kitchen, returned, "draft")
+        return out
+
+    def answers_off(items: list[dict[str, Any]], counts: dict[str, int]) -> list[dict[str, Any]]:
+        now = utcnow()
+        for item in items:
+            _unanswer(kitchen, item, chosen, now)
+        return [{**item, "done": True} for item in items]
+
+    _walk(kitchen, change_id, "saved", recipes_back, stretched)
+    _walk(kitchen, change_id, "partial", answers_off, stretched)
+
+    if stretched:
+        lock_household(kitchen)
+    change = db.get(Change, change_id) or change
+    db.refresh(change)
+    data = change.undo_data or {}
+    counts = data.get("progress") or {}
+    back, kept, gone = (int(counts.get(k, 0)) for k in ("back", "kept", "gone"))
     foods = 0
     made = data.get("made_food")
     if isinstance(made, int):
@@ -657,7 +852,7 @@ def undo(kitchen: Kitchen, change: Change) -> Change:
         if food is not None and food.household_id == kitchen.household_id and not food.removed_at:
             db.flush()
             if not _used_foods_of(db, kitchen.household_id, food.mealie_import_id or 0, [made]):
-                food.removed_at = now
+                food.removed_at = utcnow()
                 db.flush()
                 bump_foods(kitchen, [made])
                 foods = 1
@@ -692,13 +887,36 @@ def undo(kitchen: Kitchen, change: Change) -> Change:
     )
     undone.undoes_change_id = change.id
     change.undone_by_change_id = undone.id
-    # The copies of the drafts are no use now.
-    change.undo_data = {
-        **{k: v for k, v in data.items() if k != "saved"},
-        "saved": [{k: v for k, v in item.items() if k != "draft"} for item in saved],
-    }
     db.flush()
     return undone
+
+
+def _unanswer(kitchen: Kitchen, item: dict[str, Any], chosen: Any, now: datetime) -> None:
+    """One draft that stayed a draft: its lines this answer answered are unanswered again,
+    unless the person changed one since."""
+    db = kitchen.db
+    draft = db.get(ImportDraft, item["draft_id"])
+    if draft is None or draft.household_id != kitchen.household_id or draft.removed_at:
+        return
+    choices = DraftChoices.model_validate(draft.choices)
+    lines = dict(choices.lines)
+    for key, was in item["lines"].items():
+        index = int(key)
+        now_choice = lines.get(index)
+        if now_choice is None or now_choice.model_dump(mode="json") != chosen:
+            continue  # changed since: leave what the person chose
+        if was is None:
+            del lines[index]
+        else:
+            lines[index] = DraftChoice.model_validate(was)
+    choices = choices.model_copy(update={"lines": lines})
+    try:
+        review = ImportReview.model_validate(draft.review)
+        draft.lines_total, draft.lines_checked = drafts._progress(review, choices)
+    except ValidationError:
+        pass
+    draft.choices = choices.model_dump(mode="json")
+    draft.updated_at = now
 
 
 def drop_copies(db: Any, household_id: int, before: datetime) -> int:

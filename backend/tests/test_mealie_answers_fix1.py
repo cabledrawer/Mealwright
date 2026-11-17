@@ -20,7 +20,7 @@ from test_mealie_answers import (
 )
 from test_mealie_import import API, bring_in, zipped
 
-from mealwright.models import Food, ImportDraft, MealieImport
+from mealwright.models import Change, Food, ImportDraft, MealieImport
 
 A, B, C = (f"a{i:031d}" for i in range(3))
 
@@ -191,3 +191,113 @@ def test_a_draft_that_cant_be_saved_stays_a_draft_and_the_log_names_only_the_err
     (record,) = [r for r in caplog.records if "couldn't be saved" in r.getMessage()]
     assert "ValueError" in record.getMessage()
     assert "private words" not in caplog.text
+
+
+# --- 2. A long answer and its Undo let the lock go between short stretches --------------------
+
+
+def _many_drafts(kitchen: TestClient, tmp_path: Path, n: int) -> int:
+    bring(kitchen, tmp_path, {f"r{i:031d}": ["2 tbsp soya sauce"] for i in range(n)})
+    return make_food(kitchen, "Soy sauce")
+
+
+def _count_pauses(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    pauses: list[int] = []
+    monkeypatch.setattr("mealwright.mealie_import.HOLD_SECONDS", 0.0)  # one draft per stretch
+    monkeypatch.setattr("mealwright.mealie_import._pause", lambda: pauses.append(1))
+    monkeypatch.setattr("mealwright.mealie_answers.UNDO_BATCH", 1)
+    return pauses
+
+
+def test_a_long_answer_and_its_undo_save_and_restore_in_short_stretches(
+    kitchen: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    soy = _many_drafts(kitchen, tmp_path, 12)
+    pauses = _count_pauses(monkeypatch)
+    done = answer(kitchen, "soya sauce", "ingredient", food_id=soy)
+    assert done.status_code == 200 and done.json()["moved"] == 12, done.text
+    assert done.json()["change"]["summary"].endswith("in 12 drafts · 12 recipes moved to Recipes")
+    assert len(pauses) == 11  # the lock was let go between the 12 stretches
+    assert draft_names(kitchen) == []
+    pauses.clear()
+    undone = kitchen.post(f"{API}/changes/{done.json()['change']['id']}/undo")
+    assert undone.status_code == 200, undone.text
+    assert "12 recipes are back in Drafts." in str(undone.json())
+    assert len(pauses) == 11
+    assert len(draft_names(kitchen)) == 12
+    assert groups(kitchen)["groups"][0]["drafts"] == 12  # unanswered again
+
+
+def test_the_change_says_exactly_what_was_done_when_a_stretch_fails_part_way(
+    kitchen: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    soy = _many_drafts(kitchen, tmp_path, 6)
+    calls: list[int] = []
+
+    def stops() -> None:
+        calls.append(1)
+        if len(calls) == 2:
+            raise RuntimeError("the disk went away")
+
+    monkeypatch.setattr("mealwright.mealie_import.HOLD_SECONDS", 0.0)
+    monkeypatch.setattr("mealwright.mealie_import._pause", stops)
+    with pytest.raises(RuntimeError):
+        answer(kitchen, "soya sauce", "ingredient", food_id=soy)
+    with db(kitchen) as session:
+        change = session.scalar(select(Change).where(Change.kind == "mealie_drafts_answered"))
+        assert change is not None
+        saved, partial = change.undo_data["saved"], change.undo_data["partial"]
+        change_id = change.id
+    assert len(saved) == 2 and len(partial) == 4  # two stretches were committed, no more
+    assert len(draft_names(kitchen)) == 4
+    monkeypatch.setattr("mealwright.mealie_import._pause", lambda: None)
+    undone = kitchen.post(f"{API}/changes/{change_id}/undo")
+    assert undone.status_code == 200, undone.text
+    assert len(draft_names(kitchen)) == 6  # the two recipes are back, the four are unanswered
+    assert groups(kitchen)["groups"][0]["drafts"] == 6
+
+
+def test_an_undo_stopped_part_way_carries_on_when_asked_again(
+    kitchen: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    soy = _many_drafts(kitchen, tmp_path, 6)
+    done = answer(kitchen, "soya sauce", "ingredient", food_id=soy).json()
+    calls: list[int] = []
+
+    def stops() -> None:
+        calls.append(1)
+        if len(calls) == 2:
+            raise RuntimeError("the disk went away")
+
+    monkeypatch.setattr("mealwright.mealie_import.HOLD_SECONDS", 0.0)
+    monkeypatch.setattr("mealwright.mealie_answers.UNDO_BATCH", 1)
+    monkeypatch.setattr("mealwright.mealie_import._pause", stops)
+    with pytest.raises(RuntimeError):
+        kitchen.post(f"{API}/changes/{done['change']['id']}/undo")
+    assert len(draft_names(kitchen)) == 2  # two came back; nothing was lost or doubled
+    monkeypatch.setattr("mealwright.mealie_import._pause", lambda: None)
+    again = kitchen.post(f"{API}/changes/{done['change']['id']}/undo")
+    assert again.status_code == 200, again.text
+    assert len(draft_names(kitchen)) == 6
+    assert "6 recipes are back in Drafts." in str(again.json())
+
+
+def test_the_change_record_keeps_only_what_undo_needs(kitchen: TestClient, tmp_path: Path) -> None:
+    import json
+
+    soy = _many_drafts(kitchen, tmp_path, 20)
+    with db(kitchen) as session:
+        review = session.scalars(select(ImportDraft).order_by(ImportDraft.id)).first().review  # type: ignore[union-attr]
+    done = answer(kitchen, "soya sauce", "ingredient", food_id=soy).json()
+    with db(kitchen) as session:
+        change = session.get(Change, done["change"]["id"])
+        assert change is not None
+        per_draft = len(json.dumps(change.undo_data)) / 20
+    assert per_draft < 1000, per_draft  # was about 1,600 bytes a draft
+    undone = kitchen.post(f"{API}/changes/{done['change']['id']}/undo")
+    assert undone.status_code == 200, undone.text
+    with db(kitchen) as session:
+        back = session.scalars(select(ImportDraft).order_by(ImportDraft.id)).first()
+        assert back is not None
+        assert back.review == {**review, "name": back.review["name"]}  # the review is whole
+        assert back.choices.get("lines", {}) == {}  # as it was before the answer

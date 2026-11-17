@@ -878,8 +878,14 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
             raise Problem(status.HTTP_409_CONFLICT, "cannot_undo", "That can’t be undone.")
         from mealwright.ticks import pantry_undo
 
-        undone = undo_run(kitchen, change, batch, lambda: pantry_undo(kitchen, change, batch))
-        batch.finish()
+        if change.kind == mealie_answers.KIND:
+            # Many drafts at once: short locked stretches, committed as it goes (nothing has
+            # been written yet, so the lock the Batch took is let go first).
+            kitchen.db.commit()
+            undone = mealie_answers.undo(kitchen, change, stretched=True)
+        else:
+            undone = undo_run(kitchen, change, batch, lambda: pantry_undo(kitchen, change, batch))
+            batch.finish()
         earlier = commit(kitchen)
         if earlier is None:
             return _undo_out(kitchen, undone)
