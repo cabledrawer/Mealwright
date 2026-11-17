@@ -918,6 +918,7 @@ def test_a_relative_redirect(gate: OutboundGate, net: FakeNet) -> None:
         ("http://127.0.0.1/", Problem.ALWAYS_BLOCKED),
         ("http://169.254.169.254/latest/meta-data/", Problem.ALWAYS_BLOCKED),
         ("http://100.100.100.200/latest/meta-data/", Problem.ALWAYS_BLOCKED),
+        ("http://168.63.129.16/", Problem.ALWAYS_BLOCKED),
         ("http://[fd00:ec2::254]/", Problem.ALWAYS_BLOCKED),
         ("http://metadata.example/", Problem.ALWAYS_BLOCKED),
         ("file:///etc/passwd", Problem.BAD_LINK),

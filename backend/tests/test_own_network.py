@@ -114,6 +114,10 @@ def test_this_server_link_local_and_metadata_are_always_blocked(address: str) ->
     assert needs_listing(ip_address(address))
 
 
+def test_azures_platform_address_is_always_blocked_though_public() -> None:
+    assert always_blocked(ip_address("168.63.129.16"))
+
+
 # --- Adding and tidying ------------------------------------------------------------------
 
 
@@ -202,6 +206,7 @@ def test_entries_are_tidied(typed: str, kind: str, value: str) -> None:
         ("0.0.0.0", NEVER),  # noqa: S104
         ("169.254.169.254", NEVER),
         ("100.100.100.200", NEVER),
+        ("168.63.129.16", NEVER),
         ("fd00:ec2::254", NEVER),
         ("fe80::1", NEVER),
         ("::ffff:127.0.0.1", NEVER),

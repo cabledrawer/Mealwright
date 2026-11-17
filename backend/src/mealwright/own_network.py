@@ -13,7 +13,7 @@ home servers or this server itself (SSRF).
 - **Always blocked, even if listed:** this server itself (`localhost` by name, 127.0.0.0/8,
   ::1, and 0.0.0.0/8 and ::, which reach this server too), link-local (169.254.0.0/16 and
   fe80::/10) and the cloud "metadata" addresses (169.254.169.254 is link-local;
-  100.100.100.200 and fd00:ec2::254).
+  100.100.100.200, 168.63.129.16 (Azure's, a public address) and fd00:ec2::254).
 
 An entry is a host name, one address or a range (CIDR); a /32 or /128 range is one address.
 A list holds at most MAX_ENTRIES. A listed name opens every address
@@ -43,6 +43,7 @@ ALWAYS_BLOCKED: tuple[IPNetwork, ...] = (
     IPv4Network("127.0.0.0/8"),  # loopback
     IPv4Network("169.254.0.0/16"),  # link-local, with the usual metadata address 169.254.169.254
     IPv4Network("100.100.100.200/32"),  # a cloud metadata address (inside 100.64.0.0/10)
+    IPv4Network("168.63.129.16/32"),  # Azure's platform address (WireServer), host-only
     IPv6Network("::/128"),  # unspecified: reaches this server
     IPv6Network("::1/128"),  # loopback
     IPv6Network("fe80::/10"),  # link-local
