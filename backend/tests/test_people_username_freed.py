@@ -22,7 +22,7 @@ from test_sso_api import (
     waits,
 )
 
-from mealwright import jobs
+from mealwright import jobs, people
 from mealwright.models import Login, Member, utcnow
 
 
@@ -91,6 +91,20 @@ def test_a_person_brought_back_by_undo_keeps_their_username(admin: TestClient) -
     assert _new_person_with_login(admin, "Noor", "lorna").status_code == 409
     ok(admin.post(f"{API}/changes/{removed['change']['id']}/undo"))
     assert _login_row(admin, lorna).username == "lorna"
+
+
+def test_undo_is_refused_once_the_username_was_let_go(admin: TestClient) -> None:
+    assert _new_person_with_login(admin, "Lorna", "lorna").status_code == 201
+    lorna = _member(admin, "Lorna")
+    removed = ok(admin.delete(f"{API}/people/{lorna}"))
+    with cast(Any, admin.app).state.sessionmaker() as db:  # the hourly job ran, the Undo is still listed
+        assert people.free_old_usernames(db, utcnow() + timedelta(days=30)) == 1
+        db.commit()
+    answer = admin.post(f"{API}/changes/{removed['change']['id']}/undo")
+    assert answer.status_code == 409 and answer.json()["code"] == "cannot_undo"
+    assert _new_person_with_login(admin, "Noor", "lorna").status_code == 201
+    with cast(Any, admin.app).state.sessionmaker() as db:
+        assert db.get(Member, lorna).removed_at is not None  # type: ignore[union-attr]
 
 
 def test_single_sign_on_cannot_take_over_a_removed_login_even_after_the_window(

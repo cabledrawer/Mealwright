@@ -648,6 +648,9 @@ def undo(kitchen: Kitchen, change: Change) -> None:
     elif change.kind == "person_removed":
         if member.removed_at is None:  # pragma: no cover (only this Undo brings them back)
             raise _cannot_undo(f"That can’t be undone: {member.name} is back already.")
+        gone = login_of(kitchen, member)
+        if gone is not None and LET_GO in gone.username:  # their username is free for others now
+            raise _cannot_undo(f"That can’t be undone: {member.name}’s username was let go.")
         try:
             check_name(kitchen, member.name, member.id)
         except Problem:
