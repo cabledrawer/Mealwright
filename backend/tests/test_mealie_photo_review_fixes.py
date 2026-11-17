@@ -107,6 +107,45 @@ def test_undo_leaves_a_mealie_ingredient_that_was_merged_into_an_existing_one(
     assert foods["Red lentils"].merged_into_id == foods["Masoor"].id
 
 
+@pytest.mark.parametrize("tie", ["stand-in", "stand-in-back"])
+def test_undo_leaves_a_mealie_ingredient_tied_to_an_existing_one(
+    kitchen: TestClient, tmp_path: Path, tie: str
+) -> None:
+    """R4 review round 1: a "can use instead" (either way) between an old ingredient and one
+    the import made keeps the import's one, so the purge a week later
+    doesn't drop the old ingredient's mark."""
+    old = kitchen.post(f"{API}/foods", json={"name": "Masoor"}).json()["food"]["id"]
+    done = bring_in(kitchen, zipped(tmp_path / "b.zip"))
+    mealie = _foods_by_name(kitchen)["Red lentils"].id
+    main, stand_in = (old, mealie) if tie == "stand-in" else (mealie, old)
+    made = kitchen.post(f"{API}/foods/{main}/stand-ins", json={"food_id": stand_in})
+    assert made.status_code == 201, made.text
+    assert kitchen.post(f"{API}/mealie-imports/{done['id']}/undo").status_code == 200
+    _purge_a_week_on(kitchen)
+    foods = _foods_by_name(kitchen)
+    assert "Red lentils" in foods and foods["Red lentils"].removed_at is None
+
+
+def test_undo_takes_out_two_of_its_own_ingredients_merged_together(
+    kitchen: TestClient, tmp_path: Path
+) -> None:
+    """R4 review round 1: a merge between two ingredients the same import made doesn't keep
+    them; Undo takes both out."""
+    done = bring_in(kitchen, zipped(tmp_path / "m.zip", many(foods=2, recipes=1), photo=False))
+    ours = [f for f in _foods_by_name(kitchen).values() if f.mealie_import_id == done["id"]]
+    assert len(ours) == 2
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        recipe_id = db.scalars(select(Recipe.id)).one()
+    # Its one recipe is deleted first, so nothing outside the import uses either ingredient.
+    assert kitchen.delete(f"{API}/recipes/{recipe_id}").status_code in (200, 204)
+    merged = kitchen.post(f"{API}/foods/{ours[0].id}/merge", json={"into_id": ours[1].id})
+    assert merged.status_code == 200, merged.text
+    assert kitchen.post(f"{API}/mealie-imports/{done['id']}/undo").status_code == 200
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        left = db.scalars(select(Food).where(Food.id.in_([f.id for f in ours]))).all()
+        assert all(f.removed_at is not None for f in left)
+
+
 # --- R9: photo files wait for the outermost commit --------------------------------------------
 
 

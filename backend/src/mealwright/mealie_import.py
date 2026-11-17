@@ -41,7 +41,7 @@ from typing import Any
 from fastapi import status
 from pydantic import ValidationError
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, aliased, sessionmaker
 
 from mealwright import drafts, mealie_file, photos
 from mealwright.api.v1.context import Kitchen
@@ -56,6 +56,7 @@ from mealwright.mealie_file import MealieBook, MealieFileProblem, MealiePhotos, 
 from mealwright.models import (
     CookedRecord,
     Food,
+    FoodStandIn,
     Household,
     ImportDraft,
     ListItem,
@@ -976,17 +977,29 @@ def _kept_recipes(db: Session, versions: dict[int, int], since: datetime) -> set
     return kept
 
 
-def _used_foods_of(db: Session, household_id: int, ids: list[int]) -> set[int]:
-    """Of these ingredients, the ones something uses: the pantry, a list, the plan, a
-    homemade recipe, or a recipe that isn't deleted."""
+def _used_foods_of(db: Session, household_id: int, import_id: int, ids: list[int]) -> set[int]:
+    """Of these ingredients (made by this import), the ones something uses: the pantry, a list,
+    the plan, a homemade recipe, a recipe that isn't deleted, or a tie to an ingredient this
+    import didn't make (a merge, a "can use instead"). A "not the same" mark doesn't keep one:
+    it means nothing once either ingredient is gone."""
     used: set[int] = set()
     for model in (StockLot, ListItem, MealItem):
         used |= _ids_where(db, model.food_id, ids, model.household_id == household_id)
     used |= _ids_where(db, Recipe.homemade_food_id, ids)
-    # A merge ties ingredients together (and the purge deletes whatever was merged into a
-    # removed one), so one that was merged away, or merged into, stays.
-    used |= _ids_where(db, Food.id, ids, Food.merged_into_id.is_not(None))
-    used |= _ids_where(db, Food.merged_into_id, ids)
+    # The purge deletes whatever was merged into a removed ingredient, and every "can use
+    # instead" link on one, so an ingredient tied that way to one from outside this import
+    # stays. Ties between two of this import's own ingredients don't keep them.
+    other = aliased(Food)
+    outside = select(other.id).where(
+        other.household_id == household_id, other.mealie_import_id.is_distinct_from(import_id)
+    )
+    used |= _ids_where(db, Food.id, ids, Food.merged_into_id.in_(outside))
+    used |= _ids_where(db, Food.merged_into_id, ids, Food.id.in_(outside))
+    for column, tied in (
+        (FoodStandIn.food_id, FoodStandIn.stand_in_id),
+        (FoodStandIn.stand_in_id, FoodStandIn.food_id),
+    ):
+        used |= _ids_where(db, column, ids, tied.in_(outside))
     used |= _ids_where(
         db,
         RecipeLine.food_id,
@@ -1095,7 +1108,7 @@ def undo(kitchen: Kitchen, row: MealieImport) -> Undone:
         lock_household(kitchen)
         db.refresh(row)
         _undo_ready(row)
-        going = sorted(set(chunk) - _used_foods_of(db, kitchen.household_id, chunk))
+        going = sorted(set(chunk) - _used_foods_of(db, kitchen.household_id, row.id, chunk))
         now = utcnow()
         for food in db.scalars(select(Food).where(Food.id.in_(going), Food.removed_at.is_(None))):
             food.removed_at = now
@@ -1189,9 +1202,9 @@ def save_all_drafts(kitchen: Kitchen) -> int:
             row = db.get(MealieImport, import_id)
             if row is None or row.household_id != kitchen.household_id:
                 continue
-            db.refresh(
-                row
-            )  # the session keeps rows between stretches; another writer may have added
+            # The session keeps rows between stretches; another writer may have added
+            # results since this one read them.
+            db.refresh(row)
             row.results = [
                 {
                     **entry,
