@@ -1,7 +1,7 @@
 // The Settings items: four groups, each item once, the Household group for admins only (F252).
 
 import { describe, expect, it } from 'vitest';
-import { GROUPS, ITEMS, itemAt, itemForOldSection, itemsFor } from './items.js';
+import { GROUPS, ITEMS, itemAt, itemAtRoute, itemForOldSection, itemsFor } from './items.js';
 
 describe('Settings items', () => {
   it('has the four groups, and each one holds the items the decision names', () => {
@@ -48,6 +48,14 @@ describe('Settings items', () => {
     expect(itemAt('/settings/password')?.id).toBe('sign-in');
     expect(itemAt('/settings/your-data/restore')?.id).toBe('your-data');
     expect(itemAt('/settings')).toBeUndefined();
+  });
+
+  it('finds the item by the route of the page, whatever the address was spelt like', () => {
+    expect(itemAtRoute('/(app)/settings/household')?.id).toBe('people');
+    expect(itemAtRoute('/(app)/settings/household/[id]')?.id).toBe('people');
+    expect(itemAtRoute('/(app)/settings/your-data/restore')?.id).toBe('your-data');
+    expect(itemAtRoute('/(app)/settings')).toBeUndefined();
+    expect(itemAtRoute(null)).toBeUndefined();
   });
 
   it('maps every old section name to an item', () => {

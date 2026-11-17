@@ -17,7 +17,10 @@ import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(async () => {}) }));
-const route = vi.hoisted(() => ({ url: new URL('http://localhost/settings') }));
+const route = vi.hoisted(() => ({
+  url: new URL('http://localhost/settings'),
+  route: { id: '/(app)/settings' as string | null }
+}));
 vi.mock('$app/state', () => ({ page: route }));
 
 const WORDS = 'A few quick things: amounts, household, shops.';

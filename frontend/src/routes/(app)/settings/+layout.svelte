@@ -16,12 +16,12 @@
   import FinishRing from './FinishRing.svelte';
   import { ringWords } from './finishRing.js';
   import { settingsKnown } from './finishSetup.svelte.js';
-  import { GROUPS, adminOnly, itemAt, itemsFor } from './items.js';
+  import { GROUPS, adminOnly, itemAtRoute, itemsFor } from './items.js';
 
   let { children }: { children: Snippet } = $props();
 
   const admin = $derived(session.me?.role === 'admin');
-  const here = $derived(itemAt(page.url.pathname));
+  const here = $derived(itemAtRoute(page.route.id));
   /** An address in the admins-only group, opened by someone who isn't one. */
   const refused = $derived(!!here && adminOnly(here) && !admin);
   const shown = $derived(itemsFor(admin));

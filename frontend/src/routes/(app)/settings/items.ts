@@ -50,8 +50,6 @@ export type Item = {
   icon: IconKey;
   /** For admins only even though its group isn't (Meal slots, as before the redesign). */
   admin?: boolean;
-  /** The line under the page's title (the mockup's; "food" there is "ingredients" here). */
-  blurb: string;
 };
 
 export const ITEMS: Item[] = [
@@ -61,8 +59,7 @@ export const ITEMS: Item[] = [
     group: 'You',
     route: '/(app)/settings/appearance',
     path: '/settings/appearance',
-    icon: 'appearance',
-    blurb: 'Theme and how the app looks on this device.'
+    icon: 'appearance'
   },
   {
     id: 'amounts',
@@ -70,8 +67,7 @@ export const ITEMS: Item[] = [
     group: 'You',
     route: '/(app)/settings/amounts',
     path: '/settings/amounts',
-    icon: 'amounts',
-    blurb: 'Metric or cups, and how amounts are rounded.'
+    icon: 'amounts'
   },
   {
     id: 'sign-in',
@@ -80,8 +76,7 @@ export const ITEMS: Item[] = [
     route: '/(app)/settings/sign-in',
     path: '/settings/sign-in',
     also: ['/settings/password'],
-    icon: 'sign-in',
-    blurb: 'Your own password and the devices you are signed in on.'
+    icon: 'sign-in'
   },
   {
     id: 'meal-slots',
@@ -90,8 +85,7 @@ export const ITEMS: Item[] = [
     route: '/(app)/settings/meal-slots',
     path: '/settings/meal-slots',
     admin: true,
-    icon: 'meal-slots',
-    blurb: 'Breakfast, lunch, dinner and any of your own.'
+    icon: 'meal-slots'
   },
   {
     id: 'shops-places',
@@ -99,8 +93,7 @@ export const ITEMS: Item[] = [
     group: 'Kitchen',
     route: '/(app)/settings/shops-places',
     path: '/settings/shops-places',
-    icon: 'shops-places',
-    blurb: 'Where you shop and where ingredients are kept.'
+    icon: 'shops-places'
   },
   {
     id: 'your-kitchen',
@@ -108,8 +101,7 @@ export const ITEMS: Item[] = [
     group: 'Kitchen',
     route: '/(app)/settings/kitchen',
     path: '/settings/kitchen',
-    icon: 'your-kitchen',
-    blurb: 'Hob rings, pressure cookers and oven, for Batch cook.'
+    icon: 'your-kitchen'
   },
   {
     id: 'people',
@@ -117,8 +109,7 @@ export const ITEMS: Item[] = [
     group: 'Household',
     route: '/(app)/settings/household',
     path: '/settings/household',
-    icon: 'household',
-    blurb: 'Everyone who eats from this kitchen, their role and how they sign in.'
+    icon: 'household'
   },
   {
     id: 'sign-in-everyone',
@@ -127,8 +118,7 @@ export const ITEMS: Item[] = [
     route: '/(app)/settings/sign-in-everyone',
     path: '/settings/sign-in-everyone',
     also: ['/settings/sso'],
-    icon: 'sign-in-everyone',
-    blurb: 'How the whole household signs in.'
+    icon: 'sign-in-everyone'
   },
   {
     id: 'api-tokens',
@@ -136,8 +126,7 @@ export const ITEMS: Item[] = [
     group: 'Household',
     route: '/(app)/settings/api-tokens',
     path: '/settings/api-tokens',
-    icon: 'api-tokens',
-    blurb: 'Keys for other programs at home.'
+    icon: 'api-tokens'
   },
   {
     id: 'privacy',
@@ -145,8 +134,7 @@ export const ITEMS: Item[] = [
     group: 'Household',
     route: '/(app)/settings/privacy',
     path: '/settings/privacy',
-    icon: 'privacy',
-    blurb: 'Every connection to the internet, each off until an admin turns it on.'
+    icon: 'privacy'
   },
   {
     id: 'your-data',
@@ -154,8 +142,7 @@ export const ITEMS: Item[] = [
     group: 'Household',
     route: '/(app)/settings/your-data',
     path: '/settings/your-data',
-    icon: 'your-data',
-    blurb: 'Backups, export, Mealie import and starting again.'
+    icon: 'your-data'
   },
   {
     id: 'recent-changes',
@@ -163,8 +150,7 @@ export const ITEMS: Item[] = [
     group: 'Mealwright',
     route: '/(app)/settings/recent-changes',
     path: '/settings/recent-changes',
-    icon: 'recent-changes',
-    blurb: 'What changed lately, with Undo.'
+    icon: 'recent-changes'
   },
   {
     id: 'about',
@@ -172,8 +158,7 @@ export const ITEMS: Item[] = [
     group: 'Mealwright',
     route: '/(app)/settings/about',
     path: '/settings/about',
-    icon: 'about',
-    blurb: 'Version, updates, Report a problem and credits.'
+    icon: 'about'
   }
 ];
 
@@ -201,6 +186,16 @@ const under = (pathname: string, base: string) =>
 export function itemAt(pathname: string): Item | undefined {
   const path = pathname.replace(/\/+$/, '');
   return ITEMS.find((item) => [item.path, ...(item.also ?? [])].some((p) => under(path, p)));
+}
+
+/**
+ * The item a page belongs to, by the page's route (`page.route.id`, such as
+ * "/(app)/settings/household/[id]"), not by the address typed: the address may be spelt with
+ * percent-codes ("/settings/%68ousehold") that name the same page.
+ */
+export function itemAtRoute(routeId: string | null | undefined): Item | undefined {
+  if (!routeId) return undefined;
+  return itemAt(routeId.replace(/\/\([^/)]*\)/g, ''));
 }
 
 /** The old section names ("#about", "?section=sign-in") and the item each one is now. */

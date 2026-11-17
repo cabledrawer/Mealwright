@@ -20,7 +20,10 @@ import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(async () => {}) }));
-const route = vi.hoisted(() => ({ url: new URL('http://localhost/settings') }));
+const route = vi.hoisted(() => ({
+  url: new URL('http://localhost/settings'),
+  route: { id: '/(app)/settings' as string | null }
+}));
 vi.mock('$app/state', () => ({ page: route }));
 
 const GROUP_NAMES = ['Your settings', 'Kitchen settings', 'Household settings', 'Mealwright'];
@@ -31,9 +34,11 @@ let requests: FakeRequest[] = [];
 function openLayout(
   at: string,
   role: 'admin' | 'member',
-  more: Record<string, [number, unknown]> = {}
+  more: Record<string, [number, unknown]> = {},
+  routeId: string = `/(app)${at.replace(/\/\d+$/, '/[id]')}`
 ) {
   route.url = new URL(`http://localhost${at}`);
+  route.route = { id: routeId };
   session.me = { ...ME, role };
   requests = fakeApi({
     'GET /household': [200, { name: 'Home', pints: 'uk', onboarding_done: true }],
@@ -183,6 +188,12 @@ describe('the list beside the page (computer)', () => {
     }
     // The layout asked for nothing of the Household group's data.
     expect(requests.some((r) => /people|privacy|api-tokens|sso|backups/.test(r.path))).toBe(false);
+  });
+
+  it('still refuses a member an address spelt with percent-codes (the page, not the text, decides)', async () => {
+    openLayout('/settings/%68ousehold', 'member', {}, '/(app)/settings/household');
+    await expect.element(page.getByText('Only admins can change this.')).toBeVisible();
+    expect(page.getByTestId('the-page').elements()).toEqual([]);
   });
 
   it('shows an admin the page at the same addresses', async () => {
