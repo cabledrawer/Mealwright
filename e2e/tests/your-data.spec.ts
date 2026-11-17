@@ -188,3 +188,48 @@ test('screenshots of the export password, dark (by hand only)', async ({ page })
     await page.screenshot({ path: join(dir, `your-data-export-too-short-${width}.png`), fullPage: true });
   }
 });
+
+// R6: keeping fewer backups than there are asks for the password first. The count is stood in
+// for (the server's own tests make real backups and delete them), so nothing is deleted here.
+async function pretendThereAreFour(page: Page) {
+  await page.route('**/api/v1/backups', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue();
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...(await response.json()), count: 4 } });
+  });
+}
+
+test('lowering Keep so that backups go asks for the password, and Cancel changes nothing', async ({ page }) => {
+  await pretendThereAreFour(page);
+  const sent: string[] = [];
+  page.on('request', (request) => {
+    if (request.method() === 'PATCH' && request.url().endsWith('/api/v1/backups')) sent.push(request.postData() ?? '');
+  });
+  await page.goto('/settings/your-data');
+  await page.getByLabel('Keep').selectOption('2');
+  await expect(page.getByText('This deletes the 2 oldest backups.')).toBeVisible();
+  await expect(page.getByLabel('Your password')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Keep fewer backups' })).toBeDisabled();
+  await checkPage(page);
+  expect(sent).toEqual([]);
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByLabel('Keep')).toHaveValue('7');
+  await expect(page.getByLabel('Your password')).toHaveCount(0);
+  expect(sent).toEqual([]);
+});
+
+/** Dark screenshots at four widths for the review, only when E2E_SHOTS_DIR is set (by hand). */
+test('screenshot of the Keep box, dark (by hand only)', async ({ page }) => {
+  const dir = process.env.E2E_SHOTS_DIR;
+  test.skip(!dir || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+  mkdirSync(dir!, { recursive: true });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await pretendThereAreFour(page);
+  for (const width of [428, 768, 1100, 1300]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/settings/your-data');
+    await page.getByLabel('Keep').selectOption('2');
+    await expect(page.getByLabel('Your password')).toBeVisible();
+    await page.screenshot({ path: join(dir!, `your-data-keep-${width}.png`), fullPage: true });
+  }
+});
