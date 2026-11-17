@@ -4,11 +4,14 @@ A draft belongs to the household; anyone in it can read, change, delete or carry
 Every query is for the signed-in household only, so another household's draft is a plain
 "not found". Nothing here changes Ingredients."""
 
-from fastapi import APIRouter, Response, status
+from typing import Annotated
 
-from mealwright import drafts
+from fastapi import APIRouter, Query, Response, status
+
+from mealwright import drafts, mealie_answers
 from mealwright.api.v1.context import Here
 from mealwright.api.v1.draft_schemas import DraftIn, DraftList, DraftOut, DraftRemoved
+from mealwright.api.v1.group_schemas import GroupAnswer, GroupAnswered, IngredientGroups
 from mealwright.auth import SameOrigin
 from mealwright.errors import StoredInt
 from mealwright.foods import change_out
@@ -57,6 +60,51 @@ def create_draft(body: DraftIn, kitchen: Here, response: Response) -> DraftOut:
     response.headers["Idempotent-Replayed"] = "true"
     return drafts.detail(
         kitchen, drafts.find(kitchen, (earlier.undo_data or {}).get("draft_id", 0))
+    )
+
+
+@router.get("/recipes/drafts/by-ingredient")
+def drafts_by_ingredient(
+    kitchen: Here, limit: Annotated[int, Query(ge=1, le=mealie_answers.MAX_LIMIT)] = 50
+) -> IngredientGroups:
+    """Fixing Mealie drafts by ingredient (cabledrawer 15 Nov): the lines of the household's
+    drafts from Mealie that are still unanswered, grouped by the ingredient they name across all
+    drafts, most-used first (the first `limit`; `total` is every group). Each group has its draft
+    count, two lines as written and, where matching has one, an ingredient it may be. Changes
+    nothing."""
+    return mealie_answers.listing(kitchen, limit)
+
+
+@router.post(
+    "/recipes/drafts/by-ingredient/answer",
+    responses={404: {"description": "No draft from Mealie uses that ingredient any more."}},
+)
+def answer_by_ingredient(body: GroupAnswer, kitchen: Here, response: Response) -> GroupAnswered:
+    """One answer for a group, applied to every draft from Mealie that uses it: an ingredient
+    the household has (`ingredient`), a new one with its pantry place (`new`), or plain text
+    (`text`: shown in the recipe, never on the shopping list or taken from the pantry). A draft
+    whose lines are all answered is saved as a recipe and leaves Drafts. One change, with an Undo
+    (`POST /changes/{id}/undo`, 7 days) that puts the answers back, brings those recipes back to
+    Drafts, and takes out an ingredient it made only if nothing else uses it."""
+    earlier = replayed(kitchen)
+    if earlier is None:
+        lock_household(kitchen)
+        done = mealie_answers.answer(kitchen, body)
+        earlier = commit(kitchen)
+        if earlier is None:
+            return GroupAnswered(
+                change=change_out(kitchen, done.change),
+                drafts=done.drafts,
+                moved=done.moved,
+                ingredient=done.ingredient,
+            )
+    response.headers["Idempotent-Replayed"] = "true"
+    data = earlier.undo_data or {}
+    return GroupAnswered(
+        change=change_out(kitchen, earlier),
+        drafts=len(data.get("saved", [])) + len(data.get("partial", [])),
+        moved=len(data.get("saved", [])),
+        ingredient=(data.get("choice") or {}).get("food"),
     )
 
 

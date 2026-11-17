@@ -13,6 +13,7 @@ from mealwright import (
     cooking,
     drafts,
     kitchen_changes,
+    mealie_answers,
     people,
     plan,
     recipe_tags,
@@ -836,6 +837,8 @@ def _undo_one(kitchen: Kitchen, change: Change, stock: Callable[[], Change]) -> 
         return recipes.undo_removal(kitchen, change)
     if change.kind == "draft_removed":
         return drafts.undo_removal(kitchen, change)
+    if change.kind == mealie_answers.KIND:
+        return mealie_answers.undo(kitchen, change)
     if change.kind == recipe_tags.KIND:
         return recipe_tags.undo_merge(kitchen, change)
     if change.kind.startswith("plan_"):

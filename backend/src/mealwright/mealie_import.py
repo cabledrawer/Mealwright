@@ -51,6 +51,7 @@ from mealwright.api.v1.recipe_schemas import RecipeIn
 from mealwright.conversions import guess_aisle, table
 from mealwright.errors import Problem, not_found
 from mealwright.foods import shop_choices
+from mealwright.ingredient_match import kitchen_of
 from mealwright.line_prep import clean_recipe_name, tidy_ingredient_name
 from mealwright.mealie_file import MealieBook, MealieFileProblem, MealiePhotos, MealieRecipe
 from mealwright.models import (
@@ -472,6 +473,9 @@ def _foods_to_make(
     )
     names = _food_names(kitchen.db, kitchen.household_id)
     shops = shop_choices(kitchen)
+    # F249 (cabledrawer 15 Nov): a Mealie food keeps only an id and a name, so its pantry place
+    # is the first guess "Kept in" gives a New ingredient (proposed, for cabledrawer).
+    homes = kitchen_of(kitchen.db, kitchen.household_id)
     todo: list[dict[str, Any]] = []
     for food in book.foods:
         if food.key not in used or _known(names, food.name):
@@ -491,6 +495,7 @@ def _foods_to_make(
                 "shop_id": usual_shop_id([name], shops),
                 "aisle": guess_aisle(name, found),
                 "table_key": found.key if found else None,
+                "place_id": homes.usual_place_id(name),
             }
         )
     return todo

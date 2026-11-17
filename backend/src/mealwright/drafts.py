@@ -809,7 +809,9 @@ def drop_save_copies(db: DbSession, household: Household, now: datetime) -> int:
     """Drop the draft copy that a Save from a draft keeps in its change, once the Save's undo
     window has passed (its Undo is then refused, so the copy has no use). Only the copy goes:
     the rest of the change stays. The caller holds the lock and commits. Returns how many."""
-    dropped = 0
+    from mealwright import mealie_answers
+
+    dropped = mealie_answers.drop_copies(db, household.id, now - undo_window(household))
     for change in db.scalars(
         select(Change).where(
             Change.household_id == household.id,
