@@ -44,6 +44,7 @@ const READY: MealieImport = {
     photo_bytes: 41_200_000,
     foods_matching: 120,
     foods_new: 85,
+    to_drafts: 1,
     foods_new_names: ['Asafoetida', 'Curry leaves', 'Tamarind'],
     left_out: { meal_plans: 6, shopping_lists: 2, users: 3, cookbooks: 4 },
     recipes: RECIPES
@@ -263,6 +264,35 @@ describe('Import from Mealie', () => {
         .toHaveTextContent('This isn’t a Mealie backup file.');
       await expect
         .element(page.getByRole('button', { name: /Choose the Mealie file/ }))
+        .toBeVisible();
+    });
+
+    it('the preview says how many new recipes are ready and how many go to Drafts (F247)', async () => {
+      await open({ 'GET /mealie-imports/current': [200, { current: READY }] });
+      await expect
+        .element(page.getByText('2 recipes ready, 1 goes to Drafts to check'))
+        .toBeVisible();
+    });
+
+    it('a preview without the Drafts count (read before F247) says nothing of it', async () => {
+      const older = { ...READY.preview };
+      delete older.to_drafts;
+      await open({ 'GET /mealie-imports/current': [200, { current: { ...READY, preview: older } }] });
+      await expect.element(page.getByText('New ingredients', { exact: true })).toBeVisible();
+      expect(page.getByText(/go to Drafts to check|goes to Drafts to check/).elements()).toHaveLength(0);
+    });
+
+    it('Undo names the recipes it kept (F248)', async () => {
+      await open({
+        'GET /mealie-imports/current': [200, { current: DONE() }],
+        'POST /mealie-imports/7/undo': [
+          200,
+          { recipes: 1, drafts: 0, foods: 85, kept: 2, kept_names: ['Red lentil dal', 'Sam’s curry'] }
+        ]
+      });
+      await page.getByRole('button', { name: 'Undo' }).click();
+      await expect
+        .element(page.getByText(/kept 2 you’d changed or cooked: Red lentil dal and Sam’s curry\.$/))
         .toBeVisible();
     });
 

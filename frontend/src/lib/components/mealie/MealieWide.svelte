@@ -25,6 +25,7 @@
     linesWords,
     moreWords,
     notBroughtIn,
+    readyWords,
     tooManyIngredientsWords,
     photosWords,
     recipesWords,
@@ -76,6 +77,7 @@
   });
   const shown = $derived(found.slice(0, limit));
   const leftOut = $derived(preview ? notBroughtIn(preview.left_out) : null);
+  const ready = $derived(preview ? readyWords(preview) : null);
   const tooMany = $derived(preview ? tooManyIngredientsWords(preview) : null);
   const share = $derived(job && job.total ? Math.round((job.done / job.total) * 100) : 0);
   const offline = $derived(network.offline);
@@ -286,6 +288,7 @@
           />
         </div>
       {/if}
+      {#if ready}<p class="sub" data-testid="mealie-ready">{ready}</p>{/if}
       {#if tooMany}<p class="sub" data-testid="mealie-too-many">{tooMany}</p>{/if}
       {#if leftOut}<p class="sub">{leftOut}</p>{/if}
       {@render problem()}

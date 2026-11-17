@@ -22,6 +22,7 @@ import {
   showingWords,
   tooManyIngredientsWords,
   undoWords,
+  readyWords,
   undoneWords,
   unreadWords
 } from './mealieWords';
@@ -81,6 +82,30 @@ describe('Import from Mealie words', () => {
       'Took out 171 recipes and 85 ingredients; kept 3 you’d changed or cooked.'
     );
     expect(undoneWords({ recipes: 1, drafts: 0, foods: 0, kept: 0 })).toBe('Took out 1 recipe.');
+  });
+
+  it('names the recipes Undo kept: all of them, or the first few and how many more (F248)', () => {
+    const base = { recipes: 720, drafts: 0, foods: 85 };
+    expect(undoneWords({ ...base, kept: 2, kept_names: ['Dal', 'Soup'] })).toBe(
+      'Took out 720 recipes and 85 ingredients; kept 2 you’d changed or cooked: Dal and Soup.'
+    );
+    expect(undoneWords({ ...base, kept: 1, kept_names: ['Dal'] })).toBe(
+      'Took out 720 recipes and 85 ingredients; kept 1 you’d changed or cooked: Dal.'
+    );
+    expect(undoneWords({ ...base, kept: 3, kept_names: ['A', 'B', 'C'] })).toContain(
+      ': A, B and C.'
+    );
+    expect(undoneWords({ ...base, kept: 7, kept_names: ['A', 'B', 'C', 'D', 'E'] })).toBe(
+      'Took out 720 recipes and 85 ingredients; kept 7 you’d changed or cooked: A, B, C, D, E and 2 more.'
+    );
+  });
+
+  it('says how many new recipes are ready and how many go to Drafts (F247)', () => {
+    expect(readyWords({ new: 202, to_drafts: 34 })).toBe('168 recipes ready, 34 go to Drafts to check');
+    expect(readyWords({ new: 5, to_drafts: 1 })).toBe('4 recipes ready, 1 goes to Drafts to check');
+    expect(readyWords({ new: 2, to_drafts: 0 })).toBe('2 recipes ready, 0 go to Drafts to check');
+    expect(readyWords({ new: 3 })).toBeNull();
+    expect(readyWords({ new: 0, to_drafts: 0 })).toBeNull();
   });
 
   it('quotes the lines it couldn’t read: the phone adds …, the computer how many more', () => {

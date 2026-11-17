@@ -29,6 +29,9 @@ export interface MealiePreview {
   foods_left_out?: number;
   /** Their names, A to Z, the first 200 (missing from a preview read before 0.9.5's "See"). */
   foods_new_names?: string[];
+  /** Of the new recipes, how many wait in Drafts to check (the server's own reading; missing
+   *  from a preview read before F247). */
+  to_drafts?: number | null;
   /** Never brought in: meal_plans, shopping_lists, users, cookbooks → how many. */
   left_out: Record<string, number>;
   /** Every recipe in the file, in its order (empty once started). */
@@ -79,6 +82,8 @@ export interface MealieUndone {
   kept: number;
   foods: number;
   drafts: number;
+  /** The first few of the kept recipes, by name (missing from an answer before F248). */
+  kept_names?: string[];
 }
 
 /** How long one upload may take (a big file over a slow home network). */

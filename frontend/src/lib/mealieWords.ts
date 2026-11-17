@@ -105,12 +105,33 @@ export function undoWords(job: Pick<MealieImport, 'counts'>): string {
 }
 
 /** After Undo (proposed, for cabledrawer): "Took out 171 recipes and 85 ingredients; kept 3 you'd
- *  changed or cooked." */
+ *  changed or cooked." With the names (F248, proposed, for cabledrawer): "; kept 7 you'd
+ *  changed or cooked: Dal, Soup, Curry, Stew, Pie and 2 more." */
 export function undoneWords(done: MealieUndone): string {
   let words = `Took out ${recipesWords(done.recipes + done.drafts)}`;
   if (done.foods) words += ` and ${plural(done.foods, 'ingredient')}`;
-  if (done.kept) words += `; kept ${count(done.kept)} you’d changed or cooked`;
+  if (done.kept) {
+    words += `; kept ${count(done.kept)} you’d changed or cooked`;
+    const names = done.kept_names ?? [];
+    if (names.length) words += `: ${namesWords(names, done.kept)}`;
+  }
   return `${words}.`;
+}
+
+/** "Dal", "Dal and Soup", "Dal, Soup and Curry", or the first few and "and 2 more". */
+export function namesWords(names: string[], total: number): string {
+  if (total > names.length) return `${names.join(', ')} and ${count(total - names.length)} more`;
+  if (names.length < 2) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/** The preview's line under the recipes (F247, proposed, for cabledrawer): "168 recipes ready,
+ *  34 go to Drafts to check". Null for a preview read before the server said it. */
+export function readyWords(preview: Pick<MealiePreview, 'new' | 'to_drafts'>): string | null {
+  if (preview.to_drafts == null || preview.new <= 0) return null;
+  const ready = preview.new - preview.to_drafts;
+  const drafts = `${count(preview.to_drafts)} ${preview.to_drafts === 1 ? 'goes' : 'go'}`;
+  return `${recipesWords(ready)} ready, ${drafts} to Drafts to check`;
 }
 
 /** A recipe's line while it runs: "Ready", "2 lines to check", "Left out" (already here). */
