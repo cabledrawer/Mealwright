@@ -22,8 +22,7 @@
   import PageHeader from '#lib/components/PageHeader.svelte';
   import YourKitchen from '#lib/components/YourKitchen.svelte';
   import type { Ahead, Earlier } from '#lib/cookOnce.svelte.js';
-  import { fetchCode } from '#lib/lazyCode.svelte.js';
-  import { loaders } from '#lib/lazyModules.js';
+  import { askBatchMethod } from '#lib/lazyActions.js';
   import { network } from '#lib/network.svelte.js';
   import { dayShort, dayOfMonth, monthShort } from '#lib/planDates.js';
   import { PlanModel } from '#lib/plan.svelte.js';
@@ -142,11 +141,7 @@
         pick.recipe_id,
         `${dayShort(model.cookDay)} ${dayOfMonth(model.cookDay)}`,
         {
-          method: async (id, where) => {
-            const loaded = await fetchCode(loaders.methodAsk);
-            if (!loaded) return null; // as if cancelled: nothing is planned
-            return loaded.methodAsk.ask({ id }, where, { button: 'Next' });
-          },
+          method: askBatchMethod,
           optional: (id, where, method) =>
             optionalAsk.ask({ id }, where, { method, button: 'Next' })
         }

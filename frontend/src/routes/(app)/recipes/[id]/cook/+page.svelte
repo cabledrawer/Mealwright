@@ -20,8 +20,7 @@
   import { cookSteps } from '#lib/cookSteps.js';
   import { cookTarget } from '#lib/cookTargets.js';
   import { CookTimers } from '#lib/cookTimers.svelte.js';
-  import { fetchCode } from '#lib/lazyCode.svelte.js';
-  import { loaders } from '#lib/lazyModules.js';
+  import { markWaitBegun } from '#lib/lazyActions.js';
   import { network } from '#lib/network.svelte.js';
   import { PlanModel } from '#lib/plan.svelte.js';
   import { dayFull } from '#lib/planDates.js';
@@ -97,14 +96,7 @@
 
   /** Past the step that waits for the first time: the wait is begun, and tomorrow Cook mode opens
    *  after it. No Undo is offered (the person only moved to the next step). */
-  async function begun() {
-    const item = mealItem();
-    if (!item?.ahead || network.offline) return;
-    const loaded = await fetchCode(loaders.startNow);
-    if (!loaded) return; // nothing is marked; the next step past the wait tries again
-    await loaded.markStarted(item.id, item.recipe?.name ?? 'it', { withUndo: false });
-    await model.load();
-  }
+  const begun = () => markWaitBegun(mealItem(), network.offline, () => model.load());
 
   $effect(() => {
     if (twoWays && !settling && !asked) {
