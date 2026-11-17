@@ -123,6 +123,10 @@ NO_RECIPE_IN_TEXT = (
 )
 MEMBER_SWITCHED_OFF = "Importing from links is switched off. An admin can switch it on."
 ALREADY = "You already have this recipe"
+# What a member is told for any link Mealwright won't open for a network reason, so no member can
+# map internal names by the code (B7 low). Proposed, for cabledrawer.
+MEMBER_CANT_OPEN = "Mealwright can’t open that link. Ask an admin if it should be allowed."
+_NETWORK_REASONS = (FetchProblem.ALWAYS_BLOCKED, FetchProblem.OWN_NETWORK, FetchProblem.ODD_PORT)
 
 
 # --- The one box ------------------------------------------------------------------------------
@@ -155,6 +159,10 @@ def _problem(why: FetchProblem, kitchen: Kitchen) -> Problem:
         if why == FetchProblem.SWITCHED_OFF and not admin:
             message = MEMBER_SWITCHED_OFF
         return Problem(status.HTTP_403_FORBIDDEN, why.value, message, admin=admin)
+    if why in _NETWORK_REASONS and not roles.allowed(
+        kitchen.login.role, roles.Action.PRIVACY, kitchen.by_token
+    ):
+        return Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "cant_open_link", MEMBER_CANT_OPEN)
     return Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, why.value, message)
 
 
