@@ -118,3 +118,44 @@ def test_an_sso_only_admin_needs_a_fresh_confirmation(
 def test_an_sso_only_admin_needs_nothing_when_nothing_is_deleted(sso_only: TestClient) -> None:
     _make(sso_only, 2)
     assert sso_only.patch(API, json={"keep": 5}).status_code == 200
+
+
+def test_one_confirmation_passes_only_one_of_two_requests_sent_at_once(
+    sso_only: TestClient, idp: FakeProvider
+) -> None:
+    """Security review, finding 2: take_confirmed checked, then removed, so two at once could
+    both pass. Both threads are held at the check until both have arrived."""
+    import threading
+
+    from mealwright.api.v1 import sso as sso_api
+
+    _make(sso_only, 6)
+    assert _confirm(sso_only, idp).status_code == 200
+    real = sso_api.has_confirmed
+    both = threading.Barrier(2, timeout=1)
+
+    def slow(request: Any, kitchen: Any) -> bool:
+        answer = real(request, kitchen)
+        try:
+            both.wait()  # the old code reached here twice before either removed the proof
+        except threading.BrokenBarrierError:
+            pass
+        return answer
+
+    results: list[int] = []
+
+    def lower(keep: int) -> None:
+        with TestClient(cast(Any, sso_only.app), base_url="https://testserver") as other:
+            other.cookies.update(sso_only.cookies)
+            results.append(other.patch(API, json={"keep": keep}).status_code)
+
+    sso_api.has_confirmed = slow  # type: ignore[assignment]
+    try:
+        threads = [threading.Thread(target=lower, args=(keep,)) for keep in (2, 3)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    finally:
+        sso_api.has_confirmed = real  # type: ignore[assignment]
+    assert sorted(results) == [200, 403]

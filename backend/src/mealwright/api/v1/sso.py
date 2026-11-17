@@ -30,6 +30,7 @@ secret or an address.
 """
 
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from typing import Literal
@@ -288,10 +289,16 @@ def confirm(request: Request, response: Response, kitchen: Here) -> TestStarted:
 def take_confirmed(request: Request, kitchen: Here) -> bool:
     """Use this admin's fresh confirmation (D3), once: True when there is one, made by this
     signed-in session, not yet run out."""
-    if not has_confirmed(request, kitchen):
-        return False
-    request.app.state.sso_confirmed.pop(kitchen.household_id, None)
-    return True
+    # Check and remove as one step, so one confirmation can't pass two requests sent at once
+    # (B8b security review, finding 2).
+    with _TAKE:
+        if not has_confirmed(request, kitchen):
+            return False
+        request.app.state.sso_confirmed.pop(kitchen.household_id, None)
+        return True
+
+
+_TAKE = threading.Lock()
 
 
 def has_confirmed(request: Request, kitchen: Here) -> bool:
