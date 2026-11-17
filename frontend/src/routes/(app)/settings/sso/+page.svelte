@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   // Settings → Sign-in → Single sign-on (0.9 O1; the mockup Dark-SSO09-Desktop). Admins only,
   // and on a computer: a phone says "Set up on a computer" (cabledrawer 12 Nov). The client
   // secret is never shown or sent back: the field is blank, and blank keeps the saved one.
@@ -64,6 +65,7 @@
   /** The server's notice after a save: password sign-in is on again. */
   let notice = $state('');
   const copier = new CopyFeedback();
+  onDestroy(() => copier.dispose());
   let testing = $state(false);
   let testProblem = $state('');
   let linking = $state(false);

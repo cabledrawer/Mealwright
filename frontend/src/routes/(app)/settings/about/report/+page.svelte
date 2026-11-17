@@ -8,7 +8,7 @@
   //    "What were you doing?" is typed here. 3. The person sends it: Open on GitHub (a link to a
   //    filled-in new-issue page, their own click), Copy, or Download (a text file made here).
   //    The server makes no connection for any of it.
-  import { onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import Icon from '#lib/components/Icon.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
@@ -101,6 +101,7 @@
   }
 
   const copier = new CopyFeedback();
+  onDestroy(() => copier.dispose());
 
   async function copy() {
     if (await copier.copy(text)) {

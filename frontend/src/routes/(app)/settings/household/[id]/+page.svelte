@@ -6,7 +6,7 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
@@ -319,6 +319,10 @@
 
   const resetCopier = new CopyFeedback();
   const linkCopier = new CopyFeedback();
+  onDestroy(() => {
+    resetCopier.dispose();
+    linkCopier.dispose();
+  });
 
   async function copy(url: string, copier: CopyFeedback) {
     if (await copier.copy(url)) {

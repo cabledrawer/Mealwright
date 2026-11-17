@@ -43,4 +43,17 @@ describe('CopyFeedback', () => {
     expect(await feedback.copy('abc')).toBe(false);
     expect(feedback.label('Copy')).toBe('Copy');
   });
+
+  it('dispose leaves no timer, and a copy that finishes after it starts none', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    const feedback = new CopyFeedback();
+    await feedback.copy('a');
+    expect(vi.getTimerCount()).toBe(1);
+    feedback.dispose();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(feedback.copied).toBe(false);
+    expect(await feedback.copy('b')).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });

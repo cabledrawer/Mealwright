@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   // Settings › Sign-in › API tokens (0.9 O2; the mockup Dark-ApiTokens09). Admins only. The
   // list, "New token" (name, Read only / Read and change, Expires: Never, 30 days, 1 year or
   // Pick a date) and, once made, the token shown this once with Copy and Done. Deleting asks
@@ -106,6 +107,7 @@
   }
 
   const copier = new CopyFeedback();
+  onDestroy(() => copier.dispose());
 
   async function copy() {
     if (made === null) return;
