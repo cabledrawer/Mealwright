@@ -384,9 +384,7 @@ def test_a_refused_fetch_reaches_the_screen_as_its_sentence(
     assert counts(links_on) == (0, 0, 0)
 
 
-@pytest.mark.parametrize(
-    "problem", [Problem.ALWAYS_BLOCKED, Problem.OWN_NETWORK, Problem.ODD_PORT]
-)
+@pytest.mark.parametrize("problem", [Problem.ALWAYS_BLOCKED, Problem.OWN_NETWORK, Problem.ODD_PORT])
 def test_a_member_gets_one_code_for_every_network_refusal(
     links_on: TestClient, web: Web, problem: Problem
 ) -> None:

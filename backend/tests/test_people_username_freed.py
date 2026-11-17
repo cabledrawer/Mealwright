@@ -97,7 +97,9 @@ def test_undo_is_refused_once_the_username_was_let_go(admin: TestClient) -> None
     assert _new_person_with_login(admin, "Lorna", "lorna").status_code == 201
     lorna = _member(admin, "Lorna")
     removed = ok(admin.delete(f"{API}/people/{lorna}"))
-    with cast(Any, admin.app).state.sessionmaker() as db:  # the hourly job ran, the Undo is still listed
+    with cast(
+        Any, admin.app
+    ).state.sessionmaker() as db:  # the hourly job ran, the Undo is still listed
         assert people.free_old_usernames(db, utcnow() + timedelta(days=30)) == 1
         db.commit()
     answer = admin.post(f"{API}/changes/{removed['change']['id']}/undo")

@@ -38,9 +38,9 @@ from urllib.parse import quote, urlsplit
 from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import update
+from sqlalchemy import select, update
 
-from mealwright import sso, sso_accounts
+from mealwright import api_tokens, sso, sso_accounts
 from mealwright.api.v1.account import Me, _device, _me
 from mealwright.api.v1.context import Here
 from mealwright.auth import (
@@ -59,7 +59,7 @@ from mealwright.auth import (
 )
 from mealwright.config import Settings
 from mealwright.errors import Problem
-from mealwright.models import Session, SsoSettings, utcnow
+from mealwright.models import Login, Session, SsoSettings, utcnow
 from mealwright.outbound import OutboundGate
 from mealwright.own_network import is_localhost
 from mealwright.roles import ADMIN, MEMBER, Action
@@ -788,6 +788,13 @@ def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
             )
             .values(sso_refresh_sealed=None, sso_check_at=utcnow())  # the day runs from now (S8)
         )
+        # A "the sign-in server refused you" mark was the old server's say-so: it ends (B7 low).
+        for marked in db.scalars(
+            select(Login).where(
+                Login.household_id == kitchen.household_id, Login.sso_refused_at.is_not(None)
+            )
+        ):
+            api_tokens.clear_refused(db, marked)
     row.issuer = issuer
     row.client_id = body.client_id.strip()
     if new_secret:

@@ -3,13 +3,25 @@
 
 # ruff: noqa: F811, F401
 
+import io
 from typing import Any, cast
 
 import pytest
 from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from test_sso_api import ADMIN_GROUPS, API, PASSWORD, admin, browser, check, idp, sign_in, sso_only
+from test_sso_api import (
+    ADMIN_GROUPS,
+    API,
+    PASSWORD,
+    SETUP,
+    admin,
+    browser,
+    check,
+    idp,
+    sign_in,
+    sso_only,
+)
 from test_sso_refused import a_token
 
 from mealwright import sso_accounts
@@ -460,3 +472,48 @@ def test_the_warning_is_left_only_once_the_job_has_saved(
     with pytest.raises(RuntimeError):
         check(sso_only)
     assert sso_accounts._kept == {}
+
+
+def _mark(client: TestClient, username: str) -> None:
+    with cast(Any, client.app).state.sessionmaker() as db:
+        login = db.scalars(select(Login).where(Login.username == username)).one()
+        login.sso_refused_at = now()
+        db.commit()
+
+
+def _marked(client: TestClient, username: str) -> bool:
+    with cast(Any, client.app).state.sessionmaker() as db:
+        return (
+            db.scalars(select(Login).where(Login.username == username)).one().sso_refused_at
+            is not None
+        )
+
+
+def test_the_refused_mark_ends_when_the_person_is_unlinked(
+    admin: TestClient, idp: FakeProvider
+) -> None:
+    """B7 low (and #255 review L3)."""
+    from test_sso_unlink import _lorna_signed_in, _member_id, _unlink
+
+    _lorna_signed_in(admin, idp)
+    _mark(admin, "lorna")
+    assert _unlink(admin, _member_id(admin, "Lorna")).status_code == 200
+    assert not _marked(admin, "lorna")
+
+
+def test_the_refused_mark_ends_when_the_sign_in_server_changes(admin: TestClient) -> None:
+    _mark(admin, "tess")
+    same = admin.put(f"{API}/sso/settings", json={**SETUP, "button_name": "Other"})
+    assert same.status_code == 200, same.text
+    assert _marked(admin, "tess")  # the same server and client: the mark stays
+    moved = admin.put(f"{API}/sso/settings", json={**SETUP, "client_id": "new-client"})
+    assert moved.status_code == 200, moved.text
+    assert not _marked(admin, "tess")
+
+
+def test_the_refused_mark_ends_with_reset_admin(admin: TestClient) -> None:
+    from mealwright.reset_admin import reset_admin
+
+    _mark(admin, "tess")
+    assert reset_admin(cast(Any, admin.app).state.settings, "tess", out=io.StringIO()) == 0
+    assert not _marked(admin, "tess")

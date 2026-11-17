@@ -130,15 +130,11 @@ class PeopleOut(BaseModel):
     single_sign_on: bool = False
 
 
-def _person(
-    kitchen: Here, member: Member, issuer: str | None, can_change: bool
-) -> HouseholdPerson:
+def _person(kitchen: Here, member: Member, issuer: str | None, can_change: bool) -> HouseholdPerson:
     login = people.login_of(kitchen, member)
     # Who is linked to single sign-on is for those who can change people (B7 low).
     account = (
-        sso_people.account_of(kitchen, login, issuer)
-        if login is not None and can_change
-        else None
+        sso_people.account_of(kitchen, login, issuer) if login is not None and can_change else None
     )
     return HouseholdPerson(
         id=member.id,

@@ -88,6 +88,7 @@ def reset_admin(settings: Settings, username: str, out: TextIO = sys.stdout) -> 
             ended = db.scalar(select(func.count()).select_from(Session).where(mine)) or 0
             db.execute(delete(Session).where(mine))
             api_tokens.stop_for(db, login.id)  # a token is a sign-in too (O2 review r1, finding 5)
+            api_tokens.clear_refused(db, login)  # the sign-in server's "refused" mark ends too
             # And no unused link of this login is left, nor any link to an admin: a link made
             # before can't outlive the way back in (16b security pass S-M1 and S2-M1;
             # proposed, for cabledrawer).
