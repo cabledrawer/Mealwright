@@ -227,7 +227,7 @@ def _same(have: set[tuple[str, str | None]], recipe: MealieRecipe) -> bool:
 
 def _preview(kitchen: Kitchen, book: MealieBook) -> dict[str, Any]:
     have = _have(kitchen.db, kitchen.household_id)
-    rows = []
+    rows: list[dict[str, Any]] = []
     new = already = with_photo = photo_bytes = 0
     coming: set[str] = set()
     for recipe in book.recipes:
