@@ -136,15 +136,26 @@ class BackupsChange(BaseModel):
     every: Literal["daily", "twice-daily", "weekly"] | None = None
     keep: int | None = Field(default=None, ge=1, le=backups.KEEP_MOST)
     photos: bool | None = None
+    password: str = Field(
+        default="",
+        max_length=1024,
+        description="The admin's own password. Needed only when the new `keep` would delete "
+        "backups that exist now (R6); an admin who confirms with single sign-on instead "
+        "(`GET /delete-everything` says which) leaves it out.",
+    )
 
 
 @router.patch("/backups")
 def change_backups(body: BackupsChange, kitchen: Here, request: Request) -> BackupsOut:
     """Change how often, how many and whether photos are included. Keeping fewer removes the
-    oldest backups now. Including photos changes the backups made from now on, not those made."""
+    oldest backups now, and then asks for the admin's password (or the single sign-on confirm
+    step): 403 `password_wrong` or `confirm_first`. Keeping as many or more asks for nothing.
+    Including photos changes the backups made from now on, not those made."""
     kitchen.admin_only(Action.YOUR_DATA)
     household = kitchen.household
     folder = _folder(request)
+    if body.keep is not None and len(backups.backups(folder)) > body.keep:
+        confirm_admin(request, kitchen, body.password, "Keeping fewer backups")
     if body.every is not None:
         household.backup_every = body.every
     if body.keep is not None:
@@ -393,6 +404,27 @@ def _forget_in_memory(request: Request, household_id: int, people: list[tuple[in
     state.slow_down.forget_people([name for _, name in people], [n for n, _ in people])
 
 
+def confirm_admin(request: Request, kitchen: Here, password: str, what: str) -> None:
+    """Ask the admin to prove it is them before something that can't be taken back (Delete
+    everything; lowering Keep so that backups go, R6, cabledrawer 17 Nov). An admin who signs in
+    only with single sign-on confirmed with a fresh sign-in there, in this session, in the last
+    10 minutes (POST /sso/confirm); used once (D3). Anyone else gives their own password."""
+    login = kitchen.login
+    if _sso_only(request, kitchen):
+        if not sso_api.take_confirmed(request, kitchen):
+            raise Problem(status.HTTP_403_FORBIDDEN, "confirm_first", CONFIRM_FIRST)
+        return
+    # The admin's own password, checked as Change password checks it (0.9 A2): through
+    # counted_check, on this login's own count ("change:<id>", shared with Change password
+    # and apart from sign-in's), so each try is counted before its hash, wrong ones pause
+    # the same way, and guessing at the username at sign-in can't hold the admin up.
+    slow: SlowDown = request.app.state.slow_down
+    tries = Tries(name=login.username, personal=f"change:{login.id}")
+    if not counted_check(slow, tries, lambda: check_password(login, password)):
+        sign_in_log.warning("%s: wrong password for %s", what, login.username)
+        raise Problem(status.HTTP_403_FORBIDDEN, "password_wrong", "That password isn’t right.")
+
+
 @router.post("/delete-everything", status_code=status.HTTP_204_NO_CONTENT)
 def delete_everything(
     body: DeleteEverything, kitchen: Here, request: Request, response: Response
@@ -410,21 +442,7 @@ def delete_everything(
             f"Type “{WORDS}” to confirm.",
         )
     login = kitchen.login
-    if _sso_only(request, kitchen):
-        # D3: an admin who signs in only with single sign-on confirmed with a fresh sign-in
-        # there, in this session, in the last 10 minutes (POST /sso/confirm). Used once.
-        if not sso_api.take_confirmed(request, kitchen):
-            raise Problem(status.HTTP_403_FORBIDDEN, "confirm_first", CONFIRM_FIRST)
-    else:
-        # The admin's own password, checked as Change password checks it (0.9 A2): through
-        # counted_check, on this login's own count ("change:<id>", shared with Change password
-        # and apart from sign-in's), so each try is counted before its hash, wrong ones pause
-        # the same way, and guessing at the username at sign-in can't hold the admin up.
-        slow: SlowDown = request.app.state.slow_down
-        tries = Tries(name=login.username, personal=f"change:{login.id}")
-        if not counted_check(slow, tries, lambda: check_password(login, body.password)):
-            sign_in_log.warning("Delete everything: wrong password for %s", login.username)
-            raise Problem(status.HTTP_403_FORBIDDEN, "password_wrong", "That password isn’t right.")
+    confirm_admin(request, kitchen, body.password, "Delete everything")
 
     engine: Engine = request.app.state.engine
     db = kitchen.db

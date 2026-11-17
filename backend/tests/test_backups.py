@@ -230,7 +230,9 @@ def test_an_admin_changes_how_often_and_how_many(kitchen: TestClient) -> None:
     start = datetime(2026, 11, 1, 3, 0, tzinfo=UTC)
     for day in range(4):
         backups.back_up(engine, folder, 7, start + timedelta(days=day))
-    response = kitchen.patch(API, json={"every": "weekly", "keep": 2})
+    response = kitchen.patch(
+        API, json={"every": "weekly", "keep": 2, "password": "correct horse battery"}
+    )  # keeping fewer than there are asks for the password (R6)
     assert response.status_code == 200, response.text
     body = response.json()
     assert (body["every"], body["keep"], body["count"]) == ("weekly", 2, 2)

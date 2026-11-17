@@ -599,7 +599,8 @@ def test_trim_waits_for_a_backup_under_way_and_a_backup_can_trim_itself(
     thread.join(timeout=5)
     assert done.is_set()
     # And the real route: a Keep change while nothing runs, and a backup that trims.
-    assert kitchen.patch(API, json={"keep": 1}).status_code == 200
+    password = "correct horse battery"  # R6: keeping fewer than there are asks for it
+    assert kitchen.patch(API, json={"keep": 1, "password": password}).status_code == 200
     assert kitchen.post(API).status_code == 200
 
 
