@@ -306,56 +306,58 @@
         Nothing here is in your recipes yet. Drafts are deleted quietly after 15 days.
       </p>
     {:else}
-      <table class="table">
-        <caption class="sr">Drafts</caption>
-        <thead>
-          <tr>
-            <th scope="col">Recipe</th>
-            <th scope="col">From</th>
-            <th scope="col">Started by</th>
-            <th scope="col">Checked</th>
-            <th scope="col">Left</th>
-            <th scope="col"><span class="sr">Actions</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each listed as draft (draft.id)}
+      <div class="tablebox">
+        <table class="table">
+          <caption class="sr">Drafts</caption>
+          <thead>
             <tr>
-              <th scope="row" class="name">{draft.name}</th>
-              <td class="from"
-                >{fromWords(
-                  draft
-                )}{#if draft.source.kind === 'mealie' && draft.waiting?.length}<span class="waiting"
-                    >{mealieLine(draft)} · {linesWords(needYou(draft))}</span
-                  >{/if}</td
-              >
-              <td
-                ><span class="who"
-                  ><span class="avatar" aria-hidden="true">{initial(draft.started_by)}</span
-                  >{draft.started_by}</span
-                ></td
-              >
-              <td>
-                <div class="progress">
-                  <div class="bar" aria-hidden="true">
-                    <div class="fill" style:width="{progressShare(draft)}%"></div>
-                  </div>
-                  <span class="words">{shortProgress(draft)}</span>
-                </div>
-              </td>
-              <td class="left" class:running-out={draft.days_left <= RUNNING_OUT}
-                >{daysWords(draft.days_left, false)}</td
-              >
-              <td>
-                <div class="buttons">{@render buttons(draft)}</div>
-                {#if problems[draft.id]}<p class="failed-line" role="alert">
-                    {problems[draft.id]}
-                  </p>{/if}
-              </td>
+              <th scope="col">Recipe</th>
+              <th scope="col">From</th>
+              <th scope="col">Started by</th>
+              <th scope="col">Checked</th>
+              <th scope="col">Left</th>
+              <th scope="col"><span class="sr">Actions</span></th>
             </tr>
-          {/each}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {#each listed as draft (draft.id)}
+              <tr>
+                <th scope="row" class="name">{draft.name}</th>
+                <td class="from"
+                  >{fromWords(
+                    draft
+                  )}{#if draft.source.kind === 'mealie' && draft.waiting?.length}<span
+                      class="waiting">{mealieLine(draft)} · {linesWords(needYou(draft))}</span
+                    >{/if}</td
+                >
+                <td
+                  ><span class="who"
+                    ><span class="avatar" aria-hidden="true">{initial(draft.started_by)}</span
+                    >{draft.started_by}</span
+                  ></td
+                >
+                <td>
+                  <div class="progress">
+                    <div class="bar" aria-hidden="true">
+                      <div class="fill" style:width="{progressShare(draft)}%"></div>
+                    </div>
+                    <span class="words">{shortProgress(draft)}</span>
+                  </div>
+                </td>
+                <td class="left" class:running-out={draft.days_left <= RUNNING_OUT}
+                  >{daysWords(draft.days_left, false)}</td
+                >
+                <td>
+                  <div class="buttons">{@render buttons(draft)}</div>
+                  {#if problems[draft.id]}<p class="failed-line" role="alert">
+                      {problems[draft.id]}
+                    </p>{/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
       <p class="foot">
         Anyone in your household can carry on with a draft. Nothing here is in your recipes or
         ingredients until it’s saved.
@@ -740,9 +742,14 @@
     background: transparent;
   }
 
-  /* F246: with room (rem, so a person who enlarges the text gets the wrapping back, not a page
-     that scrolls sideways) the name is wide and the buttons stay on one line. */
-  @media (min-width: 70rem) {
+  /* F246: with room the name is wide and the buttons stay on one line. A container query, not a
+     media query: its rem is the page's own text size, so a person who enlarges the text gets
+     the wrapping back instead of a page that scrolls sideways. */
+  .tablebox {
+    container-type: inline-size;
+  }
+
+  @container (min-width: 50rem) {
     .table th.name {
       min-width: 12rem;
     }
