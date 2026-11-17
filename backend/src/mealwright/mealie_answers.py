@@ -33,6 +33,7 @@ Proposed, for cabledrawer (the spec doesn't say; the safest reading, listed in t
   it stays, and the message says so), as the import's Undo does.
 """
 
+import logging
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -64,6 +65,8 @@ from mealwright.models import (
 )
 from mealwright.names import cut_text, fold
 from mealwright.pack_sizes import usual_shop_id
+
+log = logging.getLogger(__name__)
 
 KIND = "mealie_drafts_answered"
 SUGGEST_FOR = 40  # the first groups get a fresh look at the household's ingredients
@@ -536,7 +539,12 @@ def _save_complete(
             )
             db.delete(draft)
             db.flush()
-    except Exception:
+    except Exception as why:
+        # Only the kind of error: what it says may hold the person's own words.
+        log.warning(
+            "A Mealie draft answered by ingredient couldn't be saved; kept as a draft (%s)",
+            type(why).__name__,
+        )
         return None
     return {
         "recipe_id": recipe.id,

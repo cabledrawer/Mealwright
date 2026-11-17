@@ -101,6 +101,9 @@
 
   let working = $state(false);
   let failed = $state<string | null>(null);
+  /** The change ID of the answer being sent (one per answer): a press again after a dropped
+   * connection sends the same ID, so the server gives the first result, not a second answer. */
+  let attempt: { sent: string; id: string } | null = null;
 
   function openRow(group: IngredientGroup) {
     chosen = group.key;
@@ -133,7 +136,10 @@
           : mode === 'new'
             ? ({ key: group.key, kind: 'new', name: newName.trim(), place_id: placeId } as const)
             : ({ key: group.key, kind: 'text' } as const);
-      const done = await answerGroup(body, newChangeId());
+      const sent = JSON.stringify(body);
+      if (attempt?.sent !== sent) attempt = { sent, id: newChangeId() };
+      const done = await answerGroup(body, attempt.id);
+      attempt = null;
       const change = done.change;
       undoHistory.record({
         label: change.summary,
@@ -151,6 +157,7 @@
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
         // Another person got there first.
+        attempt = null;
         failed = words.ALREADY_ANSWERED;
         chosen = null;
         formFor = '';

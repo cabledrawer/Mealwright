@@ -4,7 +4,9 @@ already given; an answered ingredient is not removed while a draft's answer stil
 groups fold names as matching does; plural words; one change ID for a retry. Made-up recipes."""
 
 from pathlib import Path
+from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from test_mealie_answers import (
@@ -164,3 +166,28 @@ def test_undo_after_the_imports_own_undo_gives_a_true_reason(
     said = str(undone.json())
     assert "2 recipes were already out of Recipes" in said, said
     assert "changed, cooked or planned" not in said and "proposed" not in said
+
+
+# --- 7. A save that fails is logged by the kind of error only ---------------------------------
+
+
+def test_a_draft_that_cant_be_saved_stays_a_draft_and_the_log_names_only_the_error_kind(
+    kitchen: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    bring(kitchen, tmp_path, {A: ["2 tbsp soya sauce"]})
+    soy = make_food(kitchen, "Soy sauce")
+
+    def broken(*_: Any, **__: Any) -> None:
+        raise ValueError("private words of the person")
+
+    monkeypatch.setattr("mealwright.mealie_import._save", broken)
+    with caplog.at_level("WARNING", logger="mealwright.mealie_answers"):
+        done = answer(kitchen, "soya sauce", "ingredient", food_id=soy)
+    assert done.status_code == 200 and done.json()["moved"] == 0
+    assert draft_names(kitchen) == ["Dish a"]
+    (record,) = [r for r in caplog.records if "couldn't be saved" in r.getMessage()]
+    assert "ValueError" in record.getMessage()
+    assert "private words" not in caplog.text

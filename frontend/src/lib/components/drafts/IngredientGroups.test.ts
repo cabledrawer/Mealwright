@@ -132,6 +132,33 @@ describe('Drafts, by ingredient', () => {
     expect(posts[1]?.body).toEqual({ key: 'galangal', kind: 'text' });
   });
 
+  it('a press again after a failed one sends the same change ID; another answer gets its own', async () => {
+    let calls = 0;
+    const requests = await open({
+      'GET /recipes/drafts/by-ingredient': [200, GROUPS],
+      'POST /recipes/drafts/by-ingredient/answer': () => {
+        calls += 1;
+        return calls === 1 ? [500, { detail: 'Something went wrong.' }] : [200, ANSWERED];
+      }
+    });
+    const button = page.getByRole('button', { name: 'Use for all 46 drafts' });
+    await button.click();
+    await expect.element(button).toBeVisible();
+    await vi.waitFor(() => expect(requests.filter((r) => r.method === 'POST')).toHaveLength(1));
+    await button.click();
+    await vi.waitFor(() => expect(requests.filter((r) => r.method === 'POST')).toHaveLength(2));
+    const [first, second] = requests.filter((r) => r.method === 'POST');
+    const key = (r?: { headers: Record<string, string> }) =>
+      r?.headers['Idempotency-Key'] ?? r?.headers['idempotency-key'];
+    expect(key(first)).toBeTruthy();
+    expect(key(second)).toBe(key(first));
+    // The next answer (another group, so another body) is a new change.
+    await page.getByRole('button', { name: /Keep it as plain text/ }).click();
+    await page.getByRole('button', { name: 'Use for all 1 draft' }).click();
+    await vi.waitFor(() => expect(requests.filter((r) => r.method === 'POST')).toHaveLength(3));
+    expect(key(requests.filter((r) => r.method === 'POST')[2])).not.toBe(key(first));
+  });
+
   it('Skip for now sends nothing and opens the next ingredient', async () => {
     const requests = await open({ 'GET /recipes/drafts/by-ingredient': [200, GROUPS] });
     await page.getByRole('button', { name: 'Skip for now' }).click();
