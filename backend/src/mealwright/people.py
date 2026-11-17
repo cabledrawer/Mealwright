@@ -281,6 +281,17 @@ def change(kitchen: Kitchen, member: Member, wanted: dict[str, Any]) -> Change |
     )
 
 
+def _set_role(kitchen: Kitchen, login: Login, role: str) -> None:
+    """The one place a login's role changes: an admin made a member loses the household's admin
+    links and their API tokens (only admins have tokens, PR O2) and any refused mark."""
+    if login.role == ADMIN and role != ADMIN:
+        drop_admin_links(kitchen.db, kitchen.household_id)  # S-M1 d, S2-M1
+    login.role = role
+    if role != ADMIN:
+        api_tokens.stop_for(kitchen.db, login.id)
+        api_tokens.clear_refused(kitchen.db, login)
+
+
 def _apply(kitchen: Kitchen, member: Member, login: Login | None, wanted: dict[str, Any]) -> None:
     for key in ("name", "colour", "portion_quarters"):
         if key in wanted:
@@ -288,12 +299,7 @@ def _apply(kitchen: Kitchen, member: Member, login: Login | None, wanted: dict[s
     if login is not None:
         login.name = member.name  # the login's name follows its person's
         if wanted.get("role") is not None:
-            if login.role == ADMIN and wanted["role"] != ADMIN:
-                drop_admin_links(kitchen.db, kitchen.household_id)  # S-M1 d, S2-M1
-            login.role = wanted["role"]
-            if login.role != ADMIN:  # only admins have API tokens (PR O2)
-                api_tokens.stop_for(kitchen.db, login.id)
-                api_tokens.clear_refused(kitchen.db, login)
+            _set_role(kitchen, login, wanted["role"])
         if wanted.get("shared") is not None:
             login.shared = wanted["shared"]
     kitchen.db.flush()
@@ -431,7 +437,8 @@ def give_login(kitchen: Kitchen, member: Member, username: str, role: str) -> tu
     else:
         if role == MEMBER and login.role == ADMIN and admins_left(kitchen, member.id) == 0:
             raise last_admin(member)  # pragma: no cover (the admin doing it signs in)
-        login.username, login.role = username, role
+        login.username = username
+        _set_role(kitchen, login, role)
     kitchen.db.flush()
     token, link = _new_link(kitchen, login, JOIN)
     record(

@@ -10,10 +10,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import API, db, ok, person
 
-from mealwright import people
+from mealwright import api_tokens, people
 from mealwright.api.v1.context import Kitchen
 from mealwright.history import as_utc
-from mealwright.models import Household, JoinLink, Login, Member, Session, utcnow
+from mealwright.models import ApiToken, Household, JoinLink, Login, Member, Session, utcnow
 
 
 def _people(client: TestClient) -> dict[str, Any]:
@@ -863,3 +863,26 @@ def test_a_link_opened_where_someone_is_signed_in_is_refused_and_stays_unused(
     ok(_look(stale, token))
     joined = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": "sam's own pw!"})
     assert joined.status_code == 200, joined.text
+
+
+def test_give_login_that_makes_an_admin_a_member_stops_their_api_tokens(
+    kitchen: TestClient,
+) -> None:
+    joss = _add(kitchen)
+    _join(kitchen, joss, "joss", role="admin")  # an admin who hasn't chosen a password yet
+    with db(kitchen) as session:
+        login = session.scalars(select(Login).where(Login.username == "joss")).one()
+        session.add(
+            ApiToken(
+                household_id=1,
+                login_id=login.id,
+                name="Script",
+                token_hash=api_tokens.token_hash(api_tokens.new_token("full")),
+                scope="full",
+                created_at=utcnow(),
+            )
+        )
+        session.commit()
+    _join(kitchen, joss, "joss2", role="member")
+    with db(kitchen) as session:
+        assert session.scalars(select(ApiToken)).one().revoked_at is not None
