@@ -258,7 +258,7 @@
             <span class="rn"><b>{result.name}</b><span>{resultWords(result)}</span></span>
             {#if result.state === 'draft'}
               <span class="need">To check</span>
-            {:else if result.state === 'saved' || result.state === 'saved_all'}
+            {:else if result.state === 'saved' || result.state === 'saved_all' || result.state === 'answered'}
               <span class="yes"><Icon name="check" size={20} stroke={2.4} /></span>
             {/if}
           </li>

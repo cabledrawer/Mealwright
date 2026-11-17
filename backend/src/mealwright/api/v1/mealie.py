@@ -78,8 +78,9 @@ class MealieResult(BaseModel):
     key: str
     name: str
     # saved: in Recipes; draft: in Drafts, lines to check; saved_all: a draft saved by Save all;
+    # answered: a draft moved to Recipes by answers given by ingredient;
     # already: the household had it by then (left out); skipped: couldn't be brought in.
-    state: Literal["saved", "draft", "saved_all", "already", "skipped"]
+    state: Literal["saved", "draft", "saved_all", "answered", "already", "skipped"]
     recipe_id: int | None = None
     draft_id: int | None = None
     unread: list[str] = Field(default_factory=list)  # the first lines it couldn't read
@@ -141,7 +142,9 @@ class MealieSavedAll(BaseModel):
 
 def out(kitchen: Kitchen, row: MealieImport) -> MealieImportOut:
     results = [MealieResult.model_validate(entry) for entry in row.results]
-    tally = {state: 0 for state in ("saved", "draft", "saved_all", "already", "skipped")}
+    tally = {
+        state: 0 for state in ("saved", "draft", "saved_all", "answered", "already", "skipped")
+    }
     for result in results:
         tally[result.state] += 1
     new_foods = (
@@ -174,7 +177,7 @@ def out(kitchen: Kitchen, row: MealieImport) -> MealieImportOut:
         total=row.total,
         done=row.done,
         counts=MealieCounts(
-            saved=tally["saved"] + tally["saved_all"],
+            saved=tally["saved"] + tally["saved_all"] + tally["answered"],
             drafts=tally["draft"],
             already=row.preview.get("already", 0) + tally["already"],
             skipped=tally["skipped"],
@@ -386,6 +389,6 @@ def today_note(kitchen: Kitchen, now: datetime | None = None) -> MealieNote | No
     saved = drafts = 0
     for entry in row.results:
         state: Any = entry.get("state")
-        saved += state in ("saved", "saved_all")
+        saved += state in ("saved", "saved_all", "answered")
         drafts += state == "draft"
     return MealieNote(id=row.id, state=row.state, recipes=saved + drafts, to_check=drafts)  # type: ignore[arg-type]
