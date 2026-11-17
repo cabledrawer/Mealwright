@@ -277,7 +277,8 @@ test('Settings is a cog beside the avatar: in the phone header (44 px), and afte
     await expect(link.locator('.cog')).toBeVisible();
   }
   await link.click();
-  await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+  // Settings2 (#262): on a computer Settings opens its first item, on a phone the list.
+  await expect(page).toHaveURL(/\/settings(\/|$)/);
 });
 
 test('on a phone the Pantry tab remembers Pantry · Ingredients', async ({ page }) => {

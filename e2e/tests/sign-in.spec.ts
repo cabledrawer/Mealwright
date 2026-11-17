@@ -286,6 +286,9 @@ test.describe('signed in', () => {
 
   test('Sign out (in Settings) returns to sign in', async ({ page }) => {
     await page.getByRole('link', { name: 'Tess · Settings' }).click();
+    await expect(page).toHaveURL(/\/settings/);
+    // Settings2 (#262): each item is its own page; Sign out is on Your sign-in.
+    await page.goto('/settings/sign-in');
     await expect(page.getByText('Signed in as tess')).toBeVisible();
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await expect(page).toHaveURL('/sign-in');
