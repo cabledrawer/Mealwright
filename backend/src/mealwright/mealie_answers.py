@@ -6,8 +6,9 @@ ingredient they name, across every draft, most-used first. One answer for a grou
 ingredient the household has, a new one with its pantry place, or plain text) goes into every
 draft that uses it, in one change with one Undo (7 days). The answers are written on the drafts
 at once; the drafts they complete are then saved, and brought back by Undo, in short locked
-stretches (the time budget of Save all), the change recording each stretch as it is done. A draft whose lines are all
-answered is saved as a recipe and leaves Drafts; it joins its import's results, so the import's own Undo
+stretches (the time budget of Save all), the change recording each stretch as it is done.
+A draft whose lines are all answered is saved as a recipe and leaves Drafts; it joins its
+import's results, so the import's own Undo
 still takes it out. Nothing is saved until the person answers; "Skip for now" is only the
 screen's: the server keeps nothing for it.
 
