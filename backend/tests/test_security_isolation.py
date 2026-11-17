@@ -452,6 +452,8 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("*", "device_id"): "each action's device is its household's own",
     ("Add", "list_id"): "attacks",
     ("Add", "item_id"): "attacks",
+    ("GroupAnswer", "food_id"): "test_mealie_answers",
+    ("GroupAnswer", "place_id"): "test_mealie_answers",
     ("Add", "food_id"): "attacks",
     ("Add", "size_id"): "attacks",
     ("Add", "shop_id"): "attacks",

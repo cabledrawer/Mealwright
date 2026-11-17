@@ -45,8 +45,7 @@ export const OPTION_HAVE = 'It’s an ingredient I already have';
 export const OPTION_HAVE_PHONE = 'An ingredient I already have';
 export const OPTION_NEW = 'A new ingredient';
 export const OPTION_TEXT = 'Keep it as plain text';
-export const TEXT_HINT =
-  'Shown in the recipe, never on the shopping list or taken from the pantry';
+export const TEXT_HINT = 'Shown in the recipe, never on the shopping list or taken from the pantry';
 export const TEXT_HINT_PHONE = 'Never on the list or taken from the pantry';
 export const WHICH_ONE = 'Which one';
 export const CHANGE_IT = 'Change';

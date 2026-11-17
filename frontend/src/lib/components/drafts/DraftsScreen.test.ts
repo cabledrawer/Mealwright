@@ -627,7 +627,9 @@ describe('the Drafts screen', () => {
       component = null;
       document.body.innerHTML = '';
       const requests = await open({
-        'GET /recipes/drafts': list([draft({ id: 50, name: 'Minestrone', source: { kind: 'mealie', site: null } })]),
+        'GET /recipes/drafts': list([
+          draft({ id: 50, name: 'Minestrone', source: { kind: 'mealie', site: null } })
+        ]),
         'GET /recipes/drafts/by-ingredient': [
           200,
           { groups: [], total: 0, drafts: 0, recipes_ready: 0, places: [] }

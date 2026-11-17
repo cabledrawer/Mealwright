@@ -94,7 +94,9 @@
   });
 
   const ready = $derived(
-    mode === 'text' || (mode === 'ingredient' && food !== null) || (mode === 'new' && !!newName.trim())
+    mode === 'text' ||
+      (mode === 'ingredient' && food !== null) ||
+      (mode === 'new' && !!newName.trim())
   );
 
   let working = $state(false);
@@ -271,12 +273,7 @@
         {/if}
       </div>
     {/if}
-    <button
-      type="button"
-      class="opt"
-      aria-pressed={mode === 'new'}
-      onclick={() => (mode = 'new')}
-    >
+    <button type="button" class="opt" aria-pressed={mode === 'new'} onclick={() => (mode = 'new')}>
       <span class="dot"></span>
       <span class="grow">{words.OPTION_NEW}</span>
     </button>
@@ -347,8 +344,11 @@
   {#if phone && selected}
     <div class="sheet">
       <div class="top">
-        <button type="button" class="x" aria-label={words.BACK_TO_LIST} onclick={() => (chosen = null)}
-          ><Icon name="back" size={20} /></button
+        <button
+          type="button"
+          class="x"
+          aria-label={words.BACK_TO_LIST}
+          onclick={() => (chosen = null)}><Icon name="back" size={20} /></button
         >
         <h2 class="title">{selected.name}</h2>
         <span class="cnt">{words.draftsWords(selected.drafts)}</span>

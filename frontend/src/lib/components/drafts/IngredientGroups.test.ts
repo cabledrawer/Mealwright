@@ -104,10 +104,12 @@ describe('Drafts, by ingredient', () => {
     const sent = requests.find((r) => r.method === 'POST');
     expect(sent?.body).toEqual({ key: 'soya sauce', kind: 'ingredient', food_id: 9 });
     expect(sent?.headers['Idempotency-Key'] ?? sent?.headers['idempotency-key']).toBeTruthy();
-    await expect
-      .element(page.getByText('Answered “soya sauce” in 46 drafts · 3 recipes moved to Recipes'))
-      .toBeVisible();
-    await expect.element(page.getByRole('button', { name: 'Undo' })).toBeVisible();
+    await vi.waitFor(() => {
+      expect(toasts.current?.message).toBe(
+        'Answered “soya sauce” in 46 drafts · 3 recipes moved to Recipes'
+      );
+      expect(toasts.current?.action?.label).toBe('Undo');
+    });
   });
 
   it('a new ingredient is sent with its name and place; plain text with neither', async () => {
@@ -147,14 +149,15 @@ describe('Drafts, by ingredient', () => {
       ]
     });
     await page.getByRole('button', { name: 'Use for all 46 drafts' }).click();
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await vi.waitFor(() => expect(toasts.current?.action?.label).toBe('Undo'));
+    toasts.current?.action?.run();
     await vi.waitFor(() =>
       expect(requests.some((r) => r.method === 'POST' && r.path === '/changes/40/undo')).toBe(true)
     );
     await vi.waitFor(() =>
-      expect(requests.filter((r) => r.path === '/recipes/drafts/by-ingredient').length).toBeGreaterThan(
-        2
-      )
+      expect(
+        requests.filter((r) => r.path === '/recipes/drafts/by-ingredient').length
+      ).toBeGreaterThan(2)
     );
   });
 
@@ -188,11 +191,17 @@ describe('Drafts, by ingredient', () => {
       390
     );
     await expect.element(page.getByText('2 ingredients to answer · 3 recipes ready')).toBeVisible();
-    await expect.element(page.getByRole('button', { name: 'Use for all 46' })).not.toBeInTheDocument();
+    await expect
+      .element(page.getByRole('button', { name: 'Use for all 46' }))
+      .not.toBeInTheDocument();
     await page.getByRole('button', { name: /soya sauce/ }).click();
     const answer = page.getByRole('button', { name: 'Use for all 46' });
     await expect.element(answer).toBeVisible();
-    for (const button of [answer, page.getByRole('button', { name: 'Skip' }), page.getByRole('button', { name: 'Back to the list' })]) {
+    for (const button of [
+      answer,
+      page.getByRole('button', { name: 'Skip' }),
+      page.getByRole('button', { name: 'Back to the list' })
+    ]) {
       expect(button.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
     }
     await page.getByRole('button', { name: 'Back to the list' }).click();
@@ -201,9 +210,12 @@ describe('Drafts, by ingredient', () => {
 
   it('offline the answer button is off', async () => {
     await open({ 'GET /recipes/drafts/by-ingredient': [200, GROUPS] });
+    await expect.element(page.getByRole('button', { name: 'Use for all 46 drafts' })).toBeVisible();
     network.offline = true;
     flushSync();
-    await expect.element(page.getByRole('button', { name: 'Use for all 46 drafts' })).toBeDisabled();
+    await expect
+      .element(page.getByRole('button', { name: 'Use for all 46 drafts' }))
+      .toBeDisabled();
   });
 
   it('shows an all-answered note when nothing is left', async () => {

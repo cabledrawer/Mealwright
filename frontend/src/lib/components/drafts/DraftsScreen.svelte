@@ -115,8 +115,7 @@
   /** By recipe (the list) or By ingredient (0.9.5-beta.2): the switch shows while Mealie drafts
    *  wait, and stays while By ingredient is open so its "all answered" can be seen. */
   let view = $state<'recipe' | 'ingredient'>('recipe');
-  const byIngredient = $derived(view === 'ingredient' && (mealie.length > 0 || groupsOpen));
-  let groupsOpen = $state(false);
+  const byIngredient = $derived(view === 'ingredient');
 
   let savingAll = $state(false);
   let saveAllProblem = $state<string | null>(null);
@@ -218,7 +217,6 @@
         aria-pressed={view === 'recipe'}
         onclick={() => {
           view = 'recipe';
-          groupsOpen = false;
         }}>{BY_RECIPE}</button
       >
       <button
@@ -226,7 +224,6 @@
         aria-pressed={view === 'ingredient'}
         onclick={() => {
           view = 'ingredient';
-          groupsOpen = true;
         }}>{BY_INGREDIENT}</button
       >
     </div>
@@ -234,134 +231,136 @@
   {#if byIngredient}
     <IngredientGroups {phone} />
   {:else}
-  {#if showing === 'mealie'}
-    <div class="mealie">
-      <p class="lead">{DRAFTS_LEAD}</p>
-      {#if session.me?.role === 'admin'}
-        <button
-          type="button"
-          class="save-all"
-          disabled={savingAll || network.offline}
-          onclick={() => void saveAll()}
-          >{savingAll ? 'Saving…' : saveAllWords(mealie.length)}</button
-        >
-      {/if}
-      {#if saveAllProblem}<p class="failed-line" role="alert">{saveAllProblem}</p>{/if}
-    </div>
-  {/if}
-  {#if drafts.drafts.length === 0}
-    <EmptyState title="No drafts">
-      When you import a recipe and leave before saving it, it waits here for 15 days.
-    </EmptyState>
-  {:else if phone}
-    <ul class="cards" aria-label="Drafts">
-      {#each listed as draft (draft.id)}
-        <li>
-          <SwipeRow
-            bind:open={() => swiped[draft.id] ?? null, (side) => (swiped[draft.id] = side)}
-            right={{
-              label: 'Carry on',
-              describe: draft.name,
-              icon: 'arrow-right',
-              tone: 'move',
-              run: () => void goto(here(draft))
-            }}
-            left={network.offline
-              ? undefined
-              : {
-                  label: 'Delete',
-                  describe: draft.name,
-                  icon: 'trash',
-                  tone: 'danger',
-                  run: () => void drafts.remove(draft)
-                }}
+    {#if showing === 'mealie'}
+      <div class="mealie">
+        <p class="lead">{DRAFTS_LEAD}</p>
+        {#if session.me?.role === 'admin'}
+          <button
+            type="button"
+            class="save-all"
+            disabled={savingAll || network.offline}
+            onclick={() => void saveAll()}
+            >{savingAll ? 'Saving…' : saveAllWords(mealie.length)}</button
           >
-            <article class="card" class:ready={allChecked(draft)}>
-              <div class="head">
-                <span class="what">
-                  <span class="name">{draft.name}</span>
-                  {#if draft.source.kind === 'mealie' && draft.waiting?.length}
-                    <span class="source">{mealieLine(draft)}</span>
-                  {:else}
-                    <span class="source">{phoneSource(draft)}</span>
-                  {/if}
-                </span>
-                <span class="left" class:running-out={draft.days_left <= RUNNING_OUT}
-                  >{daysWords(draft.days_left)}</span
-                >
-              </div>
-              <div class="progress">
-                <div class="bar" aria-hidden="true">
-                  <div class="fill" style:width="{progressShare(draft)}%"></div>
-                </div>
-                <span class="words" class:done={allChecked(draft)}>{progressWords(draft)}</span>
-              </div>
-              <div class="buttons" class:three={allChecked(draft)}>{@render buttons(draft)}</div>
-              {#if problems[draft.id]}<p class="failed-line" role="alert">
-                  {problems[draft.id]}
-                </p>{/if}
-            </article>
-          </SwipeRow>
-        </li>
-      {/each}
-    </ul>
-    <p class="foot">
-      Nothing here is in your recipes yet. Drafts are deleted quietly after 15 days.
-    </p>
-  {:else}
-    <table class="table">
-      <caption class="sr">Drafts</caption>
-      <thead>
-        <tr>
-          <th scope="col">Recipe</th>
-          <th scope="col">From</th>
-          <th scope="col">Started by</th>
-          <th scope="col">Checked</th>
-          <th scope="col">Left</th>
-          <th scope="col"><span class="sr">Actions</span></th>
-        </tr>
-      </thead>
-      <tbody>
+        {/if}
+        {#if saveAllProblem}<p class="failed-line" role="alert">{saveAllProblem}</p>{/if}
+      </div>
+    {/if}
+    {#if drafts.drafts.length === 0}
+      <EmptyState title="No drafts">
+        When you import a recipe and leave before saving it, it waits here for 15 days.
+      </EmptyState>
+    {:else if phone}
+      <ul class="cards" aria-label="Drafts">
         {#each listed as draft (draft.id)}
-          <tr>
-            <th scope="row" class="name">{draft.name}</th>
-            <td class="from"
-              >{fromWords(draft)}{#if draft.source.kind === 'mealie' && draft.waiting?.length}<span
-                  class="waiting">{mealieLine(draft)} · {linesWords(needYou(draft))}</span
-                >{/if}</td
+          <li>
+            <SwipeRow
+              bind:open={() => swiped[draft.id] ?? null, (side) => (swiped[draft.id] = side)}
+              right={{
+                label: 'Carry on',
+                describe: draft.name,
+                icon: 'arrow-right',
+                tone: 'move',
+                run: () => void goto(here(draft))
+              }}
+              left={network.offline
+                ? undefined
+                : {
+                    label: 'Delete',
+                    describe: draft.name,
+                    icon: 'trash',
+                    tone: 'danger',
+                    run: () => void drafts.remove(draft)
+                  }}
             >
-            <td
-              ><span class="who"
-                ><span class="avatar" aria-hidden="true">{initial(draft.started_by)}</span
-                >{draft.started_by}</span
-              ></td
-            >
-            <td>
-              <div class="progress">
-                <div class="bar" aria-hidden="true">
-                  <div class="fill" style:width="{progressShare(draft)}%"></div>
+              <article class="card" class:ready={allChecked(draft)}>
+                <div class="head">
+                  <span class="what">
+                    <span class="name">{draft.name}</span>
+                    {#if draft.source.kind === 'mealie' && draft.waiting?.length}
+                      <span class="source">{mealieLine(draft)}</span>
+                    {:else}
+                      <span class="source">{phoneSource(draft)}</span>
+                    {/if}
+                  </span>
+                  <span class="left" class:running-out={draft.days_left <= RUNNING_OUT}
+                    >{daysWords(draft.days_left)}</span
+                  >
                 </div>
-                <span class="words">{shortProgress(draft)}</span>
-              </div>
-            </td>
-            <td class="left" class:running-out={draft.days_left <= RUNNING_OUT}
-              >{daysWords(draft.days_left, false)}</td
-            >
-            <td>
-              <div class="buttons">{@render buttons(draft)}</div>
-              {#if problems[draft.id]}<p class="failed-line" role="alert">
-                  {problems[draft.id]}
-                </p>{/if}
-            </td>
-          </tr>
+                <div class="progress">
+                  <div class="bar" aria-hidden="true">
+                    <div class="fill" style:width="{progressShare(draft)}%"></div>
+                  </div>
+                  <span class="words" class:done={allChecked(draft)}>{progressWords(draft)}</span>
+                </div>
+                <div class="buttons" class:three={allChecked(draft)}>{@render buttons(draft)}</div>
+                {#if problems[draft.id]}<p class="failed-line" role="alert">
+                    {problems[draft.id]}
+                  </p>{/if}
+              </article>
+            </SwipeRow>
+          </li>
         {/each}
-      </tbody>
-    </table>
-    <p class="foot">
-      Anyone in your household can carry on with a draft. Nothing here is in your recipes or
-      ingredients until it’s saved.
-    </p>
-  {/if}
+      </ul>
+      <p class="foot">
+        Nothing here is in your recipes yet. Drafts are deleted quietly after 15 days.
+      </p>
+    {:else}
+      <table class="table">
+        <caption class="sr">Drafts</caption>
+        <thead>
+          <tr>
+            <th scope="col">Recipe</th>
+            <th scope="col">From</th>
+            <th scope="col">Started by</th>
+            <th scope="col">Checked</th>
+            <th scope="col">Left</th>
+            <th scope="col"><span class="sr">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each listed as draft (draft.id)}
+            <tr>
+              <th scope="row" class="name">{draft.name}</th>
+              <td class="from"
+                >{fromWords(
+                  draft
+                )}{#if draft.source.kind === 'mealie' && draft.waiting?.length}<span class="waiting"
+                    >{mealieLine(draft)} · {linesWords(needYou(draft))}</span
+                  >{/if}</td
+              >
+              <td
+                ><span class="who"
+                  ><span class="avatar" aria-hidden="true">{initial(draft.started_by)}</span
+                  >{draft.started_by}</span
+                ></td
+              >
+              <td>
+                <div class="progress">
+                  <div class="bar" aria-hidden="true">
+                    <div class="fill" style:width="{progressShare(draft)}%"></div>
+                  </div>
+                  <span class="words">{shortProgress(draft)}</span>
+                </div>
+              </td>
+              <td class="left" class:running-out={draft.days_left <= RUNNING_OUT}
+                >{daysWords(draft.days_left, false)}</td
+              >
+              <td>
+                <div class="buttons">{@render buttons(draft)}</div>
+                {#if problems[draft.id]}<p class="failed-line" role="alert">
+                    {problems[draft.id]}
+                  </p>{/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+      <p class="foot">
+        Anyone in your household can carry on with a draft. Nothing here is in your recipes or
+        ingredients until it’s saved.
+      </p>
+    {/if}
   {/if}
 {/if}
 

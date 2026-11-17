@@ -119,10 +119,7 @@ export interface GroupAnswered {
 }
 
 export const listGroups = (limit?: number) =>
-  api<IngredientGroups>(
-    'GET',
-    `/recipes/drafts/by-ingredient${limit ? `?limit=${limit}` : ''}`
-  );
+  api<IngredientGroups>('GET', `/recipes/drafts/by-ingredient${limit ? `?limit=${limit}` : ''}`);
 
 export const answerGroup = (body: GroupAnswer, idempotencyKey: string) =>
   api<GroupAnswered>('POST', '/recipes/drafts/by-ingredient/answer', body, { idempotencyKey });

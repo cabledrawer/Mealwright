@@ -397,3 +397,35 @@ def test_700_drafts_are_grouped_in_a_few_queries_and_a_short_time(
     assert found["groups"][0]["drafts"] == 18  # most-used first (700 / 40, rounded up)
     assert len(asked) < 40, len(asked)  # not a query per draft
     assert took < 5, took
+
+
+def test_another_households_ingredient_or_place_is_refused(
+    waiting: TestClient, neighbour: TestClient
+) -> None:
+    theirs = make_food(neighbour, "Their sauce")
+    with db(neighbour) as session:
+        mine = session.scalar(
+            select(Place.household_id).where(Place.id == place_id(waiting, "Fridge"))
+        )
+        their_place = session.scalar(select(Place.id).where(Place.household_id != mine))
+    assert their_place is not None
+    assert answer(waiting, "soya sauce", "ingredient", food_id=theirs).status_code == 404
+    assert answer(waiting, "soya sauce", "new", name="Soy", place_id=their_place).status_code == 404
+    assert draft_names(waiting) == ["Dish a", "Dish b", "Dish c"]
+
+
+def test_the_undo_data_keeps_the_drafts_names_for_the_problem_report(
+    waiting: TestClient,
+) -> None:
+    """The names in the undo data (a draft's name, who started it) are found by the problem
+    report's scrubber, so a deleted name can't stay in a report."""
+    from mealwright import problem_report
+
+    soy = make_food(waiting, "Soy sauce")
+    answer(waiting, "soya sauce", "ingredient", food_id=soy)
+    with db(waiting) as session:
+        change = session.scalar(select(Change).where(Change.kind == "mealie_drafts_answered"))
+        assert change is not None
+        names = {name for name, _ in problem_report.undo_names(change.undo_data)}
+    assert "Dish b" in names
+    assert any("soya sauce" in n.lower() for n in names)

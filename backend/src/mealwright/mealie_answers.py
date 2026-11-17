@@ -485,7 +485,7 @@ def answer(kitchen: Kitchen, body: GroupAnswer) -> Answered:
         summary += f" · {len(saved)} recipes moved to Recipes"
     change = record(
         kitchen,
-        KIND,
+        "mealie_drafts_answered",
         summary,
         None,
         {

@@ -1143,8 +1143,8 @@ _RECORDS_CHANGES = {
     "api/v1/changes.py", "api/v1/drafts.py", "api/v1/foods.py", "api/v1/kitchen.py",
     "api/v1/pantry.py", "api/v1/starter_packs.py", "api/v1/stocktake.py", "cooking.py",
     "drafts.py", "foods.py", "history.py", "kitchen_changes.py", "people.py", "plan.py",
-    "recipe_import.py", "recipe_tags.py", "recipes.py", "removals.py", "shopping.py",
-    "sso_accounts.py", "sso_people.py", "stock.py", "ticks.py",
+    "mealie_answers.py", "recipe_import.py", "recipe_tags.py", "recipes.py", "removals.py",
+    "shopping.py", "sso_accounts.py", "sso_people.py", "stock.py", "ticks.py",
 }  # fmt: skip
 
 
@@ -1365,6 +1365,8 @@ _SCENARIOS: dict[str, Any] = {
     # in tests/test_drafts.py::test_a_deleted_and_purged_drafts_name_is_not_in_a_report
     "draft_saved": "test_drafts",
     "draft_removed": "test_drafts",
+    # in tests/test_mealie_answers.py (the undo data keeps the drafts' names and who started them)
+    "mealie_drafts_answered": "test_mealie_answers",
 }
 # Kinds that keep no name, and why. The names of ingredients are kept in the snapshots of
 # the changes that made, renamed, merged or removed them (the kinds above); the others name
