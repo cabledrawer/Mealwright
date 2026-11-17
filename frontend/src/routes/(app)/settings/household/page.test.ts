@@ -68,7 +68,7 @@ describe('Settings → Household', () => {
 
   it('lists everyone, with "(you)", their line and a link to each', async () => {
     open();
-    await expect.element(page.getByRole('heading', { name: 'Household', level: 1 })).toBeVisible();
+    await expect.element(page.getByRole('heading', { name: 'People', level: 1 })).toBeVisible();
     await expect.element(page.getByLabelText('Household name')).toHaveValue('Our kitchen');
     const tess = page.getByRole('link', { name: /Tess \(you\)/ });
     await expect.element(tess).toHaveAttribute('href', '/settings/household/1');

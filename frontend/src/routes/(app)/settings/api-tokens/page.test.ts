@@ -78,11 +78,11 @@ describe('Settings → Sign-in → API tokens', () => {
       .toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('the back link ‹ Sign-in lands on Settings’ Sign-in section (L5)', async () => {
+  it('the back link ‹ Settings goes to the list (L5, F252)', async () => {
     open();
     await expect
-      .element(page.getByRole('link', { name: 'Sign-in' }).first())
-      .toHaveAttribute('href', '/settings?section=sign-in');
+      .element(page.getByRole('link', { name: 'Settings', exact: true }).first())
+      .toHaveAttribute('href', '/settings');
   });
 
   it.each(['light', 'dark'])(

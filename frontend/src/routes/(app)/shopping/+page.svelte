@@ -280,7 +280,7 @@
       <section class="panel" aria-label="Shops">
         <div class="panel-head">
           <h2>Shops</h2>
-          <a href="{resolve('/(app)/settings')}#shops-places">Manage</a>
+          <a href={resolve('/(app)/settings/shops-places')}>Manage</a>
         </div>
         <div class="chips" role="group" aria-label="Show shop">
           <button

@@ -13,13 +13,10 @@ import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
 async function openFromSettings(page: Page) {
   await page.goto('/settings');
-  if (isPhone(page)) {
-    await page.getByRole('navigation', { name: 'Household settings' }).getByRole('link', { name: /^Your data/ }).click();
-  } else {
-    await page.getByRole('link', { name: /Backups, export and starting again/ }).click();
-  }
+  // The list is the phone's page and, on a computer, sits beside the page (F252).
+  await page.getByRole('link', { name: /^Backups & your data/ }).first().click();
   await expect(page).toHaveURL(/\/settings\/your-data$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Your data' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Backups & your data' })).toBeVisible();
 }
 
 test.beforeEach(async ({ page }) => {
@@ -121,7 +118,7 @@ test('Delete everything waits for the words, and a wrong password deletes nothin
   await expect(page.getByLabel('Your password')).toHaveValue('');
   // Nothing was deleted: still signed in, and Settings still opens.
   await page.goto('/settings/your-data');
-  await expect(page.getByRole('heading', { level: 1, name: 'Your data' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Backups & your data' })).toBeVisible();
 });
 
 // An admin who signs in only with single sign-on (0.9.5 D3): no password to type, so they

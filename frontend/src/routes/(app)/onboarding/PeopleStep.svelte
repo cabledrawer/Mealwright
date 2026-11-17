@@ -88,4 +88,4 @@
   >
 {/if}
 {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-<p class="note">Just names for now. Give someone a login later in Settings › Household.</p>
+<p class="note">Just names for now. Give someone a login later in Settings › People.</p>

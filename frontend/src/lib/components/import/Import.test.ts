@@ -203,7 +203,7 @@ describe('Import a recipe', () => {
         admin: false
       };
       show(flow);
-      await expect.element(page.getByText(/An admin can switch it on in Settings/)).toBeVisible();
+      await expect.element(page.getByText(/An admin can switch it on\s+in Settings/)).toBeVisible();
       expect(document.body.textContent).not.toContain('Open Settings');
     });
 
@@ -368,9 +368,13 @@ describe('Import a recipe', () => {
         .element(page.getByText(/^Photo not downloaded\. Photo downloads are off in Settings/))
         .toBeVisible();
       await expect
-        .element(page.getByText(/Settings → Privacy\. You can add your own photo later\.$/))
+        .element(
+          page.getByText(/Settings → Outside connections\. You can add your own photo later\.$/)
+        )
         .toBeVisible();
-      await expect.element(page.getByRole('link', { name: 'Settings → Privacy' })).toBeVisible();
+      await expect
+        .element(page.getByRole('link', { name: 'Settings → Outside connections' }))
+        .toBeVisible();
       await expect.element(page.getByText('Nothing is saved until you choose.')).toBeVisible();
       await expect
         .element(page.getByText('4 lines after “Tips” were left out. You can add them by hand.'))

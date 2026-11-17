@@ -150,7 +150,7 @@ test.describe('Almost there: a sign-in that matches nobody waits', () => {
   test('says who signed in and that an admin must say who they are; nothing opens, and Sign in again goes back to the sign-in server', async ({ page }) => {
     await arrive(page);
     await expect(page.getByText('lorna.s', { exact: true })).toBeVisible();
-    await expect(page.getByText(/ask them to open Settings › Household\./)).toBeVisible();
+    await expect(page.getByText(/ask them to open Settings › People\./)).toBeVisible();
     await expect(page.getByRole('status')).toContainText('Nothing in Mealwright is open to you until then.');
     await expect(page.getByRole('link', { name: 'Sign in again' })).toHaveAttribute('href', '/api/v1/sso/start?remember=false');
     // No session: the app's pages send this browser to sign in.
@@ -220,8 +220,8 @@ test.describe('turning single sign-on off with only a link', () => {
   });
 });
 
-test('Settings › Sign-in: the Single sign-on row, and password sign-in can’t go off yet', async ({ page }) => {
-  await page.goto('/settings?section=sign-in');
+test('Settings › Sign-in for everyone: the Single sign-on row, and password sign-in can’t go off yet', async ({ page }) => {
+  await page.goto('/settings/sign-in-everyone');
   const row = page.getByRole('link', { name: /Single sign-on/ });
   await expect(row).toBeVisible();
   await expect(row).toContainText(isPhone() ? 'Set up on a computer' : 'Not set up');
@@ -232,7 +232,7 @@ test('Settings › Sign-in: the Single sign-on row, and password sign-in can’t
     page.getByText('Password sign-in can only be turned off while an admin can sign in with single sign-on.'),
   ).toBeVisible();
   await shots(page, 'settings-sign-in', async () => {
-    await page.goto('/settings?section=sign-in');
+    await page.goto('/settings/sign-in-everyone');
     await expect(page.getByRole('switch', { name: 'Password sign-in' })).toBeVisible();
   });
 });

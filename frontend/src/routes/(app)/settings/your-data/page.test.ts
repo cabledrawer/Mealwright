@@ -94,7 +94,9 @@ describe('Settings → Your data', () => {
 
   it('shows the backups, the same-disk warning, export, history and Start again to an admin', async () => {
     open(YourData);
-    await expect.element(page.getByRole('heading', { level: 1, name: 'Your data' })).toBeVisible();
+    await expect
+      .element(page.getByRole('heading', { level: 1, name: 'Backups & your data' }))
+      .toBeVisible();
     await expect.element(page.getByLabelText('How often')).toHaveValue('daily');
     await expect.element(page.getByLabelText('Keep')).toHaveValue('7');
     await expect

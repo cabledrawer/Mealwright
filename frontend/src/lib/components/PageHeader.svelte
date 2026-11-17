@@ -35,6 +35,8 @@
         | '/(app)/recipes'
         | '/(app)/recipes/drafts'
         | '/(app)/settings'
+        | '/(app)/settings/sign-in'
+        | '/(app)/settings/sign-in-everyone'
         | '/(app)/settings/household'
         | '/(app)/settings/your-data'
         | '/(app)/settings/about';

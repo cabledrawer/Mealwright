@@ -184,7 +184,7 @@
             >
             <span
               >Everything stays on your server. Nothing connects outside until you switch it on in
-              Privacy.</span
+              Outside connections.</span
             >
           </p>
           <p class="note">Next: import a recipe or add your own, then plan a week.</p>
@@ -255,7 +255,9 @@
           <button type="button" class="main" disabled={finishing} onclick={() => void finish()}
             >Finish setup</button
           >
-          <p class="note">Nothing connects outside until you switch it on in Privacy.</p>
+          <p class="note">
+            Nothing connects outside until you switch it on in Outside connections.
+          </p>
         </div>
       </div>
     {/if}

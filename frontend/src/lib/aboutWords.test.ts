@@ -79,7 +79,7 @@ describe('the last check', () => {
   });
 
   it('says whether the daily check is on', () => {
-    expect(dailyWords(false)).toEqual({ detail: 'Turn on in Privacy', value: 'Off' });
+    expect(dailyWords(false)).toEqual({ detail: 'Turn on in Outside connections', value: 'Off' });
     expect(dailyWords(true).value).toBe('On');
   });
 });

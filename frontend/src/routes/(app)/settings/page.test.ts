@@ -17,18 +17,14 @@ import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
 import { ME } from '#lib/testing/fakeShopping.js';
 import { breakPhone, dropPhone, failPhoneDelete, freshPhone } from '#lib/testing/phone.js';
 import { wipePending } from '#lib/offline/wipePending.svelte.js';
-import Settings from './+page.svelte';
+import Amounts from './amounts/+page.svelte';
+import Appearance from './appearance/+page.svelte';
+import SignIn from './sign-in/+page.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
 const navigation = vi.hoisted(() => ({ goto: vi.fn(async () => {}) }));
 vi.mock('$app/navigation', () => navigation);
-
-// The page's address: on the phone each section is its own page ("?section=…", F193), and these
-// tests are phone-wide, so each describe says which section it is on.
-const route = vi.hoisted(() => ({ url: new URL('http://localhost/settings') }));
-vi.mock('$app/state', () => ({ page: route }));
-const onSection = (id: string) => (route.url = new URL(`http://localhost/settings?section=${id}`));
 
 const WARNING = '3 changes haven’t been sent yet. If you sign out now, they’re lost.';
 const CANT_CHECK =
@@ -86,14 +82,13 @@ describe('signing out', () => {
     }
     await vi.waitFor(() => expect(shoppingSync.waiting).toBe(waiting));
     const target = document.body.appendChild(document.createElement('div'));
-    mounted.push(mount(Settings, { target }));
+    mounted.push(mount(SignIn, { target }));
     flushSync();
   }
 
   const button = (name: string) => page.getByRole('button', { name, exact: true });
 
   beforeEach(() => {
-    onSection('sign-in');
     freshPhone();
     session.me = { ...ME };
     network.reset();
@@ -374,11 +369,9 @@ describe('the pint switch (Amounts)', () => {
   const mounted: ReturnType<typeof mount>[] = [];
   const household = (pints: 'uk' | 'us') => ({ name: 'Home', pints });
 
-  beforeEach(() => onSection('amounts'));
-
   function open() {
     const target = document.body.appendChild(document.createElement('div'));
-    mounted.push(mount(Settings, { target }));
+    mounted.push(mount(Amounts, { target }));
     flushSync();
   }
 
@@ -470,27 +463,23 @@ describe('the pint switch (Amounts)', () => {
   });
 
   it('is not shown when the household can’t be read', async () => {
-    // On a computer, where Appearance and Amounts are on one page (the phone has a page each).
-    await page.viewport(1300, 900);
-    fakeApi({});
+    const requests = fakeApi({});
     open();
-    await expect.element(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
-    expect(document.body.textContent).not.toContain('Amounts');
-    await page.viewport(390, 800);
+    await vi.waitFor(() => expect(requests.some((r) => r.path.endsWith('/household'))).toBe(true));
+    await new Promise((done) => setTimeout(done, 200));
+    expect(pints().elements()).toEqual([]);
   });
 
   it('shows once the connection comes back, when Settings was opened offline', async () => {
-    await page.viewport(1300, 900);
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
     open();
-    await expect.element(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
-    expect(document.body.textContent).not.toContain('Amounts');
+    await new Promise((done) => setTimeout(done, 200));
+    expect(pints().elements()).toEqual([]);
     vi.unstubAllGlobals();
     fakeApi({ 'GET /household': [200, household('uk')] });
     network.backAgain++;
     flushSync();
-    await expect.element(page.getByRole('heading', { name: 'Amounts' })).toBeVisible();
-    await page.viewport(390, 800);
+    await expect.element(pints()).toBeVisible();
   });
 });
 
@@ -498,14 +487,13 @@ describe('Checking a recipe on the phone (Appearance, F141)', () => {
   const mounted: ReturnType<typeof mount>[] = [];
 
   beforeEach(() => {
-    onSection('appearance');
     session.me = { ...ME };
     network.reset();
     localStorage.removeItem(CHECK_MODE_STORAGE_KEY);
     checkMode.reload();
     vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
     const target = document.body.appendChild(document.createElement('div'));
-    mounted.push(mount(Settings, { target }));
+    mounted.push(mount(Appearance, { target }));
     flushSync();
   });
 
@@ -551,7 +539,6 @@ describe('how amounts are shown (Amounts, 0.9 U2)', () => {
   });
 
   beforeEach(() => {
-    onSection('amounts');
     session.me = { ...ME };
     network.reset();
   });
@@ -565,7 +552,7 @@ describe('how amounts are shown (Amounts, 0.9 U2)', () => {
 
   function open() {
     const target = document.body.appendChild(document.createElement('div'));
-    mounted.push(mount(Settings, { target }));
+    mounted.push(mount(Amounts, { target }));
     flushSync();
   }
 

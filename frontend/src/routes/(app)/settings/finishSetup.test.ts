@@ -1,7 +1,7 @@
 // Settings: the "Finish setup" row (cabledrawer 12 Nov: an admin who didn't finish set-up is not sent
 // back to it; Settings shows the row until it is done), on the phone's list and the computer's.
 
-import { flushSync, mount, unmount } from 'svelte';
+import { createRawSnippet, flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { network } from '#lib/network.svelte.js';
@@ -11,6 +11,7 @@ import { session } from '#lib/session.svelte.js';
 import { updates } from '#lib/updates.svelte.js';
 import { fakeApi, PLACES, type FakeRequest } from '#lib/testing/fakeApi.js';
 import { ME } from '#lib/testing/fakeShopping.js';
+import Layout from './+layout.svelte';
 import Settings from './+page.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
@@ -20,10 +21,14 @@ const route = vi.hoisted(() => ({ url: new URL('http://localhost/settings') }));
 vi.mock('$app/state', () => ({ page: route }));
 
 const WORDS = 'A few quick things: amounts, household, shops.';
-let mounted: ReturnType<typeof mount> | null = null;
+let mounted: ReturnType<typeof mount>[] = [];
 let requests: FakeRequest[] = [];
 
-const finishRow = () => document.querySelector('a[href*="onboarding"]')!;
+// The row that is on screen (the other list is hidden at this width).
+const finishRow = () =>
+  [...document.querySelectorAll('a[href*="onboarding"]')].find(
+    (a) => a.getClientRects().length > 0
+  )!;
 
 /** The household has been read and the page has had time to draw what it said. */
 async function householdRead() {
@@ -59,7 +64,16 @@ function open(
       }
     ]
   });
-  mounted = mount(Settings, { target: document.body.appendChild(document.createElement('div')) });
+  // The list beside the page (the computer's) and the page that is the phone's list; each is hidden
+  // at the other's width.
+  const children = createRawSnippet(() => ({ render: () => '<div></div>' }));
+  mounted = [
+    mount(Layout, {
+      target: document.body.appendChild(document.createElement('div')),
+      props: { children }
+    }),
+    mount(Settings, { target: document.body.appendChild(document.createElement('div')) })
+  ];
   flushSync();
 }
 
@@ -72,8 +86,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  if (mounted) unmount(mounted);
-  mounted = null;
+  for (const component of mounted.splice(0)) unmount(component);
   document.body.innerHTML = '';
   network.reset();
 });
@@ -92,7 +105,7 @@ for (const [name, width] of [
       const row = page.getByRole('link', { name: /Finish setup/ });
       await expect.element(row).toBeVisible();
       await expect.element(row).toHaveAttribute('href', expect.stringContaining('/onboarding'));
-      await expect.element(page.getByText(WORDS)).toBeVisible();
+      await expect.element(row.getByText(WORDS)).toBeVisible();
     });
 
     it('draws a part-filled amber ring and "N of 5" from what is done, not a tick (cabledrawer 13 Nov)', async () => {
@@ -100,7 +113,7 @@ for (const [name, width] of [
       const row = page.getByRole('link', { name: /Finish setup/ });
       await expect.element(row).toBeVisible();
       await vi.waitFor(() => expect(finishRow().textContent).toContain('3 of 5'));
-      const svg = document.querySelector('a[href*="onboarding"] svg')!;
+      const svg = finishRow().querySelector('svg')!;
       expect(svg.getAttribute('aria-hidden')).toBe('true');
       expect(svg.getAttribute('data-ring')).toBe('part');
       expect(svg.querySelectorAll('circle')).toHaveLength(1);
@@ -114,7 +127,7 @@ for (const [name, width] of [
     it('says 1 of 5 when only the account is there, and the ring follows the count', async () => {
       open(false, 'admin', { people: 1, shops: 0 });
       await vi.waitFor(() => expect(finishRow().textContent).toContain('1 of 5'));
-      const arc = document.querySelector('a[href*="onboarding"] svg path')!.getAttribute('d');
+      const arc = finishRow().querySelector('svg path')!.getAttribute('d');
       expect(arc).toBe('M12 3.5A8.5 8.5 0 0 1 20.08 9.37');
     });
 

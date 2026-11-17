@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
-// Settings (0.8, S1): the section list, Meal slots, Shops & places and Recent changes, against the
+// Settings (0.8, S1; F252: each item its own page, a list beside it): the list, Meal slots, Shops & places and Recent changes, against the
 // real server, signed in as the test admin. A member (who cannot see Meal slots) is covered by
 // the server's own permission tests (backend/tests/test_settings_lists.py) and the unit test
 // that hides the section, because the app has no way to add a member until 0.9.
@@ -59,48 +59,60 @@ test.beforeEach(async ({ page }) => {
   await setAccountTheme(page, 'auto');
 });
 
-test('the section list shows every section, goes to one, and the page passes the accessibility checks', async ({
+test('the list of Settings sits beside the page, one item each, the open one marked, and the page passes the accessibility checks', async ({
   page,
 }) => {
   test.skip(isPhone(page), 'the phone has its own grouped list (next test)');
+  // /settings opens the first item (F252).
   await page.goto('/settings');
-  const list = page.getByRole('navigation', { name: 'Settings sections' });
-  await expect(list.getByRole('button')).toHaveText([
+  await expect(page).toHaveURL(/\/settings\/appearance$/);
+  const list = page.getByRole('navigation', { name: 'Settings', exact: true });
+  await expect(list.getByRole('link')).toHaveText([
     'Appearance',
     'Amounts',
-    'Household',
+    'Your sign-in',
     'Meal slots',
     'Shops & places',
     'Your kitchen',
+    'People',
+    'Sign-in for everyone',
+    'API tokens',
+    'Outside connections',
+    'Backups & your data',
     'Recent changes',
-    'Privacy',
-    'Sign-in',
-    'Your data',
     'About',
   ]);
-  await expect(list.getByText(/comes? in 0\.9\./)).toHaveCount(0); // Household, Your data and About are all here now
-  // The sections follow one another down the page in the same order (U1).
-  const tops: number[] = [];
-  for (const name of ['Appearance', 'Amounts', 'Household', 'Meal slots', 'Shops & places', 'Privacy', 'Sign-in', 'Your data', 'About']) {
-    tops.push((await page.getByRole('heading', { name, level: 2, exact: true }).first().boundingBox())!.y);
+  for (const group of ['Your settings', 'Kitchen settings', 'Household settings', 'Mealwright']) {
+    await expect(list.getByRole('group', { name: group })).toBeVisible();
   }
-  expect(tops).toEqual([...tops].sort((a, b) => a - b));
-  for (const button of await list.getByRole('button').all()) {
-    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expect(list.getByRole('link', { name: 'Appearance' })).toHaveAttribute('aria-current', 'page');
+  // The main menu has folded to its icons, each with a name and a tooltip.
+  const side = page.getByRole('complementary', { name: 'Sidebar' });
+  await expect(side.getByText('Mealwright', { exact: true })).toHaveCount(0);
+  await expect(side.getByRole('link', { name: 'Today' })).toHaveAttribute('title', 'Today');
+  for (const link of await list.getByRole('link').all()) {
+    expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   const box = (await list.boundingBox())!;
   expect(box.x).toBeLessThan(300);
-  await list.getByRole('button', { name: 'Shops & places' }).click();
-  await expect(list.getByRole('button', { name: 'Shops & places' })).toHaveAttribute('aria-current', 'true');
-  await expect(page.getByRole('heading', { name: 'Shops & places', level: 2 })).toBeFocused();
-  await expect(section(page, 'Shops & places')).toBeInViewport();
+  await list.getByRole('link', { name: 'Shops & places' }).click();
+  await expect(page).toHaveURL(/\/settings\/shops-places$/);
+  await expect(list.getByRole('link', { name: 'Shops & places' })).toHaveAttribute('aria-current', 'page');
+  await expect(list.getByRole('link', { name: 'Appearance' })).not.toHaveAttribute('aria-current');
+  await expect(page.getByRole('heading', { name: 'Shops & places', level: 1 })).toBeVisible();
+  // Only this item's page: nothing of Recent changes or Meal slots beside it.
+  await expect(section(page, 'Recent changes')).toHaveCount(0);
+  await expect(section(page, 'Meal slots')).toHaveCount(0);
   await checkPage(page);
-  // A link that names a section ("?section=…") goes to it on a computer.
+  // An older link names a section: it goes to that item's page.
   await page.goto('/settings?section=recent-changes');
-  await expect(section(page, 'Recent changes')).toBeInViewport();
+  await expect(page).toHaveURL(/\/settings\/recent-changes$/);
+  await expect(section(page, 'Recent changes')).toBeVisible();
+  await page.goto('/settings#about');
+  await expect(page).toHaveURL(/\/settings\/about$/);
 });
 
-test('F193: the phone lists Settings in three groups, each row opens its section on its own page, with ‹ Settings back', async ({
+test('F193, F252: the phone lists Settings in four groups, each row opens its own page, with ‹ Settings back', async ({
   page,
 }) => {
   test.skip(!isPhone(page), 'the phone’s layout');
@@ -110,10 +122,13 @@ test('F193: the phone lists Settings in three groups, each row opens its section
   const unfinished = (await (await page.request.get('/api/v1/household')).json()).onboarding_done === false;
   // The groups, in order, with their rows (Amounts shows once the household has answered).
   for (const [group, rows] of [
-    ['Your settings', [...(unfinished ? ['Finish setup'] : []), 'Appearance', 'Amounts', 'Sign-in']],
-    ['Kitchen settings', ['Meal slots', 'Shops & places', 'Your kitchen', 'Recent changes']],
-    ['Household settings', ['Household', 'Privacy', 'Your data']],
-    ['Mealwright', ['About', 'Report a problem']],
+    ['Your settings', [...(unfinished ? ['Finish setup'] : []), 'Appearance', 'Amounts', 'Your sign-in']],
+    ['Kitchen settings', ['Meal slots', 'Shops & places', 'Your kitchen']],
+    [
+      'Household settings',
+      ['People', 'Sign-in for everyone', 'API tokens', 'Outside connections', 'Backups & your data'],
+    ],
+    ['Mealwright', ['Recent changes', 'About', 'Report a problem']],
   ] as const) {
     const links = page.getByRole('navigation', { name: group }).getByRole('link');
     await expect(links).toHaveCount(rows.length);
@@ -128,35 +143,36 @@ test('F193: the phone lists Settings in three groups, each row opens its section
   await expect(page.getByRole('link', { name: /^Meal slots/ })).toContainText(/\d+ on/);
   await expect(page.getByRole('link', { name: /^Shops & places/ })).toContainText(/\d+ shops? · \d+ places?/);
   await expect(page.getByRole('link', { name: /^Your kitchen/ })).toContainText(/\d+ hob rings?/);
-  await expect(page.getByRole('link', { name: /^Privacy/ })).toContainText(/All off|\d+ on/);
-  await expect(page.getByRole('link', { name: /^Household/ })).toContainText(/\d+ (person|people)/);
-  await expect(page.getByText(/comes? in 0\.9\./)).toHaveCount(0);
-  // The list shows no section's own controls.
+  await expect(page.getByRole('link', { name: /^Outside connections/ })).toContainText(/All off|\d+ on/);
+  await expect(page.getByRole('link', { name: /^People/ })).toContainText(/\d+ (person|people)/);
+  // The list shows no item's own controls.
   await expect(page.getByRole('switch')).toHaveCount(0);
   await checkPage(page);
-  // A row opens its section alone, under its own title.
+  // A row opens its item alone, under its own title.
   await page.getByRole('link', { name: /^Meal slots/ }).click();
-  await expect(page).toHaveURL(/\/settings\?section=meal-slots$/);
+  await expect(page).toHaveURL(/\/settings\/meal-slots$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Meal slots' })).toBeVisible();
   await expect(section(page, 'Meal slots')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Recent changes' })).toHaveCount(0);
   await checkPage(page);
   // ‹ Settings comes back to the list.
   await page.getByRole('link', { name: 'Settings', exact: true }).first().click();
+  await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Kitchen settings' })).toBeVisible();
-  // Privacy has its page already; the row goes straight to it.
-  await page.getByRole('link', { name: /^Privacy/ }).click();
+  // Outside connections is its own page; the row goes straight to it.
+  await page.getByRole('link', { name: /^Outside connections/ }).click();
   await expect(page).toHaveURL('/settings/privacy');
-  // An old link with "#shops-places" opens that section.
+  // An old link with "#shops-places" opens that item.
   await page.goto('/settings#shops-places');
+  await expect(page).toHaveURL(/\/settings\/shops-places$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Shops & places' })).toBeVisible();
 });
 
 test('Your kitchen (Batch cook, B1): Settings shows it, Change opens the sheet, Save keeps it for the household, and the sheet passes the accessibility checks', async ({
   page,
 }) => {
-  await page.goto(isPhone(page) ? '/settings?section=your-kitchen' : '/settings');
+  await page.goto('/settings/kitchen');
   const kitchen = section(page, 'Your kitchen');
   await expect(kitchen).toBeVisible();
   await expect(kitchen).toContainText(/Hob rings\s*\d+/);
@@ -193,7 +209,7 @@ test('Your kitchen (Batch cook, B1): Settings shows it, Change opens the sheet, 
 });
 
 test('Meal slots: rename, reorder with Move down, switch off, and add; Undo of a rename', async ({ page }) => {
-  await page.goto('/settings?section=meal-slots');
+  await page.goto('/settings/meal-slots');
   const slots = section(page, 'Meal slots');
   await expect(slots.getByRole('listitem').first()).toContainText('Breakfast');
   const name = `Elevenses ${stamp()}`;
@@ -235,7 +251,7 @@ test('Meal slots: rename, reorder with Move down, switch off, and add; Undo of a
 });
 
 test('Meal slots: add a meal, last, and switch it off', async ({ page }) => {
-  await page.goto('/settings?section=meal-slots');
+  await page.goto('/settings/meal-slots');
   const slots = section(page, 'Meal slots');
   const name = `Supper ${stamp()}`;
   await slots.getByRole('button', { name: '+ New meal' }).click();
@@ -258,7 +274,7 @@ test('Shops: add, rename, reorder; removing one sends its ingredients to Any sho
   const s = stamp();
   const first = `Aldi ${s}`;
   const second = `Butcher ${s}`;
-  await page.goto('/settings?section=shops-places');
+  await page.goto('/settings/shops-places');
   const shops = section(page, 'Shops');
   for (const name of [first, second]) {
     await shops.getByRole('button', { name: '+ New shop' }).click();
@@ -309,7 +325,7 @@ test('Places: add with a kind; a place with things in it asks where to move them
 }) => {
   const s = stamp();
   const name = `Cook shelf ${s}`;
-  await page.goto('/settings?section=shops-places');
+  await page.goto('/settings/shops-places');
   const places = section(page, 'Places at home');
   await places.getByRole('button', { name: '+ New place' }).click();
   await places.getByRole('textbox', { name: 'New place' }).fill(name);
@@ -375,7 +391,7 @@ test('Places: the last Fridge and the last Freezer stay, and the screen says why
       expect(gone.ok(), await gone.text()).toBe(true);
     }
   }
-  await page.goto('/settings?section=shops-places');
+  await page.goto('/settings/shops-places');
   const places = section(page, 'Places at home');
   await expect(places.getByRole('button', { name: 'Remove Fridge' })).toBeDisabled();
   await expect(places.getByRole('button', { name: 'Remove Freezer' })).toBeDisabled();
@@ -416,7 +432,7 @@ test('Recent changes lists a pantry change, a plan change and a removal, newest 
   ).json()) as Json;
   expect((await page.request.delete(`/api/v1/shops/${shop.id}`, { headers: key() })).ok()).toBe(true);
 
-  await page.goto('/settings?section=recent-changes');
+  await page.goto('/settings/recent-changes');
   const recent = section(page, 'Recent changes');
   const rows = recent.getByRole('listitem');
   await expect(rows.first()).toContainText(`Removed the shop Shop ${s}`);
@@ -465,7 +481,7 @@ test('one Cooked it is one row in Recent changes, with one Undo (cabledrawer 7 N
   await post(`/plan/items/${planned.item_id}/cook`, { choices: [] }, 201);
   await post(`/plan/meals/${planned.meal_id}/cooked`, {}, 200); // the meal's own answer, the second change
 
-  await page.goto('/settings?section=recent-changes');
+  await page.goto('/settings/recent-changes');
   const recent = section(page, 'Recent changes');
   await expect(recent.getByRole('listitem').filter({ hasText: new RegExp(`Cooked .*${name}`) })).toHaveCount(1);
   const undo = recent.getByRole('button', { name: new RegExp(`^Undo: Cooked ${name}`) });
@@ -495,7 +511,7 @@ test('an ingredient brought back by a Pantry Undo says so in Recent changes, and
   const undone = await page.request.post(`/api/v1/changes/${usedId}/undo`, { headers: key() });
   expect(undone.ok(), await undone.text()).toBe(true);
 
-  await page.goto('/settings?section=recent-changes');
+  await page.goto('/settings/recent-changes');
   const recent = section(page, 'Recent changes');
   await expect(recent.getByText(`${food.name} is back in Ingredients`)).toBeVisible();
   await expect(recent.getByText(`Removed ${food.name} from Ingredients`)).toBeVisible();
@@ -525,38 +541,42 @@ test('on the Plan, a member sees the Meals switches greyed, with why (review r1 
   for (const button of await meals.getByRole('button').all()) await expect(button).toBeDisabled();
 });
 
-test('F175, F176: a change made on the page shows in Recent changes at once, and Undo from there puts the rows above back, with no reload', async ({
+test('F175, F176: a change made on its page is in Recent changes when that opens, and Undo from there puts it back', async ({
   page,
 }) => {
-  // On the phone each section has its own page, so the rows and the list are never on screen
-  // together; each shows what the server has when it is opened.
-  test.skip(isPhone(page), 'the computer shows the sections together');
+  // Each item is its own page (F252): the change is made on its page, the line and its Undo are on
+  // Recent changes, and the page shows the old state when it is opened again.
   const s = stamp();
-  await page.goto('/settings');
+  await page.goto('/settings/meal-slots');
   const slots = section(page, 'Meal slots');
-  const recent = section(page, 'Recent changes');
   const name = `Midday ${s}`;
-  // A rename: its line is in Recent changes, with no reload (F176).
   await slots.getByRole('button', { name: 'Rename Snack' }).click();
   await slots.getByRole('textbox', { name: 'Name of Snack' }).fill(name);
   await page.keyboard.press('Enter');
   await expect(rowOf(page, 'Meal slots', name)).toBeVisible();
+  await page.goto('/settings/recent-changes');
+  const recent = section(page, 'Recent changes');
   await expect(recent.getByText(`Renamed Snack to ${name}`).first()).toBeVisible();
-  // Undo from Recent changes: the Meal slots row has its old name back, with no reload (F175).
   await recent.getByRole('button', { name: `Undo: Renamed Snack to ${name}` }).click();
+  await page.goto('/settings/meal-slots');
   await expect(rowOf(page, 'Meal slots', 'Snack')).toBeVisible();
   await expect(rowOf(page, 'Meal slots', name)).toHaveCount(0);
 
   // A switch: the same.
-  const snack = slots.getByRole('switch', { name: 'Show Snack in the plan' });
+  const snack = section(page, 'Meal slots').getByRole('switch', { name: 'Show Snack in the plan' });
   const was = await snack.isChecked();
   await snack.click();
   await expect(snack).toBeChecked({ checked: !was });
   const line = `${was ? 'Hid' : 'Showed'} Snack in the plan`;
-  await recent.getByRole('button', { name: `Undo: ${line}` }).first().click();
-  await expect(snack).toBeChecked({ checked: was });
+  await page.goto('/settings/recent-changes');
+  await section(page, 'Recent changes').getByRole('button', { name: `Undo: ${line}` }).first().click();
+  await page.goto('/settings/meal-slots');
+  await expect(section(page, 'Meal slots').getByRole('switch', { name: 'Show Snack in the plan' })).toBeChecked({
+    checked: was,
+  });
 
   // A shop: adding it, removing it, and bringing it back from Recent changes.
+  await page.goto('/settings/shops-places');
   const shops = section(page, 'Shops & places');
   const shop = `Corner ${s}`;
   await shops.getByRole('button', { name: '+ New shop' }).click();
@@ -565,30 +585,32 @@ test('F175, F176: a change made on the page shows in Recent changes at once, and
   await expect(rowOf(page, 'Shops & places', shop)).toBeVisible();
   await shops.getByRole('button', { name: `Remove ${shop}` }).click();
   await expect(rowOf(page, 'Shops & places', shop)).toHaveCount(0);
-  await expect(recent.getByText(`Removed the shop ${shop}`).first()).toBeVisible();
-  await recent.getByRole('button', { name: `Undo: Removed the shop ${shop}` }).click();
+  await page.goto('/settings/recent-changes');
+  await expect(section(page, 'Recent changes').getByText(`Removed the shop ${shop}`).first()).toBeVisible();
+  await section(page, 'Recent changes').getByRole('button', { name: `Undo: Removed the shop ${shop}` }).click();
+  await page.goto('/settings/shops-places');
   await expect(rowOf(page, 'Shops & places', shop)).toBeVisible();
   // Leave it as it was.
-  await shops.getByRole('button', { name: `Remove ${shop}` }).click();
+  await section(page, 'Shops & places').getByRole('button', { name: `Remove ${shop}` }).click();
   await expect(rowOf(page, 'Shops & places', shop)).toHaveCount(0);
 });
 
 test('F178: "+ New shop", "+ New place" and "+ New meal" put the cursor in the name box', async ({ page }) => {
-  await page.goto('/settings?section=shops-places');
+  await page.goto('/settings/shops-places');
   const shops = section(page, 'Shops & places');
   await shops.getByRole('button', { name: '+ New shop' }).click();
   await expect(shops.getByRole('textbox', { name: 'New shop' })).toBeFocused();
   await shops.getByRole('button', { name: 'Cancel' }).click();
   await shops.getByRole('button', { name: '+ New place' }).click();
   await expect(shops.getByRole('textbox', { name: 'New place' })).toBeFocused();
-  await page.goto('/settings?section=meal-slots');
+  await page.goto('/settings/meal-slots');
   const slots = section(page, 'Meal slots');
   await slots.getByRole('button', { name: '+ New meal' }).click();
   await expect(slots.getByRole('textbox', { name: 'New meal' })).toBeFocused();
 });
 
 test('F192: the footnote under Places at home has a space after “Move them to…”.', async ({ page }) => {
-  await page.goto('/settings?section=shops-places');
+  await page.goto('/settings/shops-places');
   const places = section(page, 'Places at home');
   await expect(
     places.getByText('offers “Move them to…”. Mealwright needs at least one Fridge and one Freezer.'),
@@ -603,7 +625,7 @@ test('F177: Meal slots and Places keep each name whole, down to a narrow column'
     ['meal-slots', 'Meal slots', 'Breakfast'],
     ['shops-places', 'Places at home', 'Cupboard'],
   ] as const) {
-    await page.goto(`/settings?section=${id}`);
+    await page.goto(`/settings/${id}`);
     const row = rowOf(page, within, name).first();
     await expect(row).toBeVisible();
     const boxes = await row.getByText(name, { exact: true }).first().evaluate((el) => {
@@ -623,7 +645,7 @@ test('F177 (review): a 60-character unbroken name does not push the card sideway
   expect(made.ok(), await made.text()).toBe(true);
   const id = ((await made.json()) as Json).id;
   try {
-    await page.goto('/settings?section=shops-places');
+    await page.goto('/settings/shops-places');
     const row = rowOf(page, 'Shops', name);
     await expect(row).toBeVisible();
     const card = section(page, 'Shops');
@@ -650,10 +672,10 @@ test('Finish setup: an admin who did not finish set-up is not sent to it, and Se
   await page.goto('/');
   await expect(page).not.toHaveURL(/\/onboarding/);
   await page.goto('/settings');
-  await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+  // A computer opens Appearance, with the list beside it; the phone has the list itself.
   const row = isPhone(page)
     ? page.getByRole('navigation', { name: 'Your settings' }).getByRole('link').first()
-    : page.getByRole('navigation', { name: 'Settings sections' }).getByRole('link').first();
+    : page.getByRole('navigation', { name: 'Settings', exact: true }).getByRole('link').first();
   await expect(row).toContainText('Finish setup');
   await expect(row).toContainText('A few quick things: amounts, household, shops.');
   expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -671,10 +693,9 @@ test('screenshots of the Settings list and Amounts, dark (by hand only)', async 
   for (const width of [428, 768, 1100, 1300]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/settings');
-    await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
-    await expect(page.getByRole('link', { name: /^Amounts/ }).or(page.getByRole('button', { name: 'Amounts', exact: true }))).toBeVisible(); // Amounts shows once the household has answered
+    await expect(page.getByRole('link', { name: /^Amounts/ }).first()).toBeVisible(); // Amounts shows once the household has answered
     await page.screenshot({ path: join(dir!, `settings-${width}.png`), fullPage: true });
-    await page.goto('/settings?section=amounts');
+    await page.goto('/settings/amounts');
     await expect(page.getByRole('region', { name: 'Amounts', exact: true })).toBeVisible();
     await page.screenshot({ path: join(dir!, `settings-amounts-${width}.png`), fullPage: true });
   }

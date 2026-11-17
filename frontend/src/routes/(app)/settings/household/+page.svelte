@@ -113,7 +113,8 @@
 </script>
 
 <PageHeader
-  title="Household"
+  title="People"
+  overline="Household"
   subtitle="Everyone who eats from this kitchen. People can sign in, or just be a name for portions and “who did it”."
   parent={{ href: '/(app)/settings', label: 'Settings' }}
 />

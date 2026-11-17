@@ -145,7 +145,8 @@
 
 <PageHeader
   title="API tokens"
-  parent={{ href: '/(app)/settings', label: 'Sign-in', section: 'sign-in' }}
+  overline="Household"
+  parent={{ href: '/(app)/settings', label: 'Settings' }}
 />
 
 <div class="page">

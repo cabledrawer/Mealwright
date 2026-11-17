@@ -7,7 +7,7 @@
 
 <PageHeader
   title="How to restore"
-  parent={{ href: '/(app)/settings/your-data', label: 'Your data' }}
+  parent={{ href: '/(app)/settings/your-data', label: 'Backups & your data' }}
 />
 
 <div class="page">

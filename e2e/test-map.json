@@ -207,7 +207,7 @@
         "backend/src/mealwright/problem_report.py", "backend/src/mealwright/api/v1/report.py", "frontend/src/lib/client/problemReport.ts", "frontend/src/lib/problemReport*"
       ],
       "backend": ["test_outbound.py", "test_own_network.py", "test_privacy.py", "test_settings_lists.py", "test_changes_press_queries.py", "test_step_timings_api.py", "test_updates.py", "test_problem_report.py", "test_problem_report_sso_names.py", "test_former_names.py", "test_migration_former_names.py"],
-      "browser": ["settings.spec.ts", "privacy.spec.ts", "about.spec.ts", "report.spec.ts"]
+      "browser": ["settings.spec.ts", "settings-layout.spec.ts", "privacy.spec.ts", "about.spec.ts", "report.spec.ts"]
     },
     {
       "name": "Onboarding and how amounts are shown",

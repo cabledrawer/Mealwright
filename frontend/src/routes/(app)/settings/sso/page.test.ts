@@ -75,7 +75,7 @@ describe('single sign-on setup', () => {
       .toBeVisible();
     await expect.element(page.getByText('id.example.org', { exact: true })).toBeVisible();
     expect(document.querySelector('.warn')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-      'On your home network? Add id.example.org to Privacy › Your own network, and turn on the Single sign-on switch there.'
+      'On your home network? Add id.example.org to Outside connections › Your own network, and turn on the Single sign-on switch there.'
     );
   });
 
@@ -162,7 +162,7 @@ describe('single sign-on setup', () => {
     await expect
       .element(
         page.getByText(
-          'Someone whose username at your sign-in server is the same as a person here who has never signed in is linked to them at their first sign-in. Anyone else waits until an admin says who they are in Settings › Household.'
+          'Someone whose username at your sign-in server is the same as a person here who has never signed in is linked to them at their first sign-in. Anyone else waits until an admin says who they are in Settings › People.'
         )
       )
       .toBeVisible();

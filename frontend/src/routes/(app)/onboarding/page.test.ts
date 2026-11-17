@@ -125,7 +125,9 @@ describe('on the phone', () => {
     // The last step has no Skip: Go to Today finishes it.
     await expect.element(page.getByRole('button', { name: 'Skip' })).not.toBeInTheDocument();
     await expect
-      .element(page.getByText(/Nothing connects outside until you switch it on in\s+Privacy\./))
+      .element(
+        page.getByText(/Nothing connects outside until you switch it on in\s+Outside connections\./)
+      )
       .toBeVisible();
     await page.getByRole('button', { name: 'Go to Today' }).click();
     await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/', { replace: true }));

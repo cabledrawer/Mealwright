@@ -86,7 +86,7 @@
 
 <PageHeader
   title="Change password"
-  parent={{ href: '/(app)/settings', label: 'Sign-in', section: 'sign-in' }}
+  parent={{ href: '/(app)/settings/sign-in', label: 'Your sign-in' }}
 />
 
 {#if mine && !mine.has_password}

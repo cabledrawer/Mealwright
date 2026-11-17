@@ -158,13 +158,13 @@ test('pages never scroll sideways', async ({ page }) => {
 
 test('on phones every button and link is at least 44 px', async ({ page }) => {
   test.skip(!isPhone(page), 'touch targets are a phone rule');
-  for (const path of ['/', '/settings', '/settings?section=amounts', '/settings?section=appearance']) {
+  for (const path of ['/', '/settings', '/settings/amounts', '/settings/appearance']) {
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     // Settings' Amounts arrives after the heading; wait for it, so it is always measured (its row
     // on the list, its switch on its own page).
     if (path === '/settings') await expect(page.getByRole('link', { name: /^Amounts/ })).toBeVisible();
-    if (path === '/settings?section=amounts') await expect(page.getByRole('switch', { name: /pints/i })).toBeVisible();
+    if (path === '/settings/amounts') await expect(page.getByRole('switch', { name: /pints/i })).toBeVisible();
     // The shared check: it counts a switch's larger invisible touch area (the pint switch in
     // Settings), which measuring the visible box alone missed whenever Amounts had loaded.
     await expectTouchTargets(page);

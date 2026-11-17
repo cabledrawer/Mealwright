@@ -1,6 +1,7 @@
-// Settings: the section list, Meal slots, Shops & places and Recent changes (0.8, S1).
+// Settings: Meal slots, Shops & places, Recent changes and Your kitchen, each on its own page (0.8, S1;
+// F252). The list and the pages' places are tested in list.test.ts.
 
-import { flushSync, mount, unmount } from 'svelte';
+import { flushSync, mount, unmount, type Component } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { kitchen as freshness } from '#lib/freshness.svelte.js';
@@ -13,16 +14,17 @@ import { changeOf, fakeApi, PLACES, type FakeRequest } from '#lib/testing/fakeAp
 import { ME } from '#lib/testing/fakeShopping.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
-import Settings from './+page.svelte';
+import Kitchen from './kitchen/+page.svelte';
+import MealSlotsPage from './meal-slots/+page.svelte';
+import RecentChangesPage from './recent-changes/+page.svelte';
+import ShopsPlacesPage from './shops-places/+page.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(async () => {}) }));
 
-// The page's address: on the phone each section is its own page ("?section=…", F193).
-const route = vi.hoisted(() => ({ url: new URL('http://localhost/settings') }));
-vi.mock('$app/state', () => ({ page: route }));
-const at = (query: string) => (route.url = new URL(`http://localhost/settings${query}`));
+/** The page each group of tests opens (each item of Settings is its own page, F252). */
+let view: Component = MealSlotsPage;
 
 const SLOTS = [
   { id: 1, name: 'Breakfast', position: 0, enabled: true },
@@ -57,15 +59,12 @@ function open(routes: Record<string, Parameters<typeof fakeApi>[0][string]> = {}
     ],
     ...routes
   });
-  mounted = mount(Settings, { target: document.body.appendChild(document.createElement('div')) });
+  mounted = mount(view, { target: document.body.appendChild(document.createElement('div')) });
   flushSync();
   return requests;
 }
 
-const sections = () => page.getByRole('navigation', { name: 'Settings sections' });
-
 beforeEach(async () => {
-  at('');
   session.me = { ...ME };
   network.reset();
   placesAndShops.forget();
@@ -84,159 +83,11 @@ afterEach(() => {
   toasts.dismiss();
 });
 
-describe('the section list', () => {
-  it('lists the sections in order, with nothing left to come in 0.9', async () => {
-    open();
-    await expect.element(page.getByRole('heading', { name: 'Amounts' })).toBeVisible();
-    const names = sections()
-      .getByRole('button')
-      .elements()
-      .map((b) => b.textContent?.trim());
-    expect(names).toEqual([
-      'Appearance',
-      'Amounts',
-      'Household',
-      'Meal slots',
-      'Shops & places',
-      'Your kitchen',
-      'Recent changes',
-      'Privacy',
-      'Sign-in',
-      'Your data',
-      'About'
-    ]);
-    // Household, Your data and About are all here now: nothing is left to come in 0.9.
-    expect(
-      sections()
-        .getByText(/comes? in 0\.9\./)
-        .elements()
-    ).toHaveLength(0);
-  });
-
-  it('goes to a section, and marks it as the current one', async () => {
-    open();
-    await sections().getByRole('button', { name: 'Shops & places' }).click();
-    await expect
-      .element(sections().getByRole('button', { name: 'Shops & places' }))
-      .toHaveAttribute('aria-current', 'true');
-    await expect.element(page.getByRole('heading', { name: 'Shops & places' })).toHaveFocus();
-  });
-
-  it('phone: a grouped list, You · Kitchen · Household, with icons and current values (F193)', async () => {
-    await page.viewport(390, 800);
-    open({
-      'GET /privacy/switches': [
-        200,
-        {
-          switches: [
-            { connection: 'recipe_import', on: false },
-            { connection: 'recipe_photos', on: false }
-          ],
-          can_change: true
-        }
-      ],
-      'GET /privacy/own-network': [200, { entries: [], limit: 100, can_change: true }]
-    });
-    const group = (name: string) => page.getByRole('navigation', { name });
-    await expect.element(group('Your settings')).toBeVisible();
-    for (const [name, rows] of [
-      ['Your settings', ['Appearance', 'Amounts', 'Sign-in']],
-      ['Kitchen settings', ['Meal slots', 'Shops & places', 'Your kitchen', 'Recent changes']],
-      ['Household settings', ['Household', 'Privacy', 'Your data']],
-      ['Mealwright', ['About', 'Report a problem']]
-    ] as const) {
-      const links = group(name).getByRole('link');
-      await vi.waitFor(() => expect(links.elements().length).toBe(rows.length));
-      for (const [i, row] of rows.entries()) {
-        const box = links.nth(i).element().getBoundingClientRect();
-        expect(links.nth(i).element().textContent).toContain(row);
-        expect(box.height).toBeGreaterThanOrEqual(44);
-      }
-    }
-    // Values: the theme, the pint, meals on, shops and places.
-    expect(page.getByRole('link', { name: /^Appearance/ }).element().textContent).toMatch(
-      /Auto|Light|Dark/
-    );
-    await expect
-      .element(page.getByRole('link', { name: /^Amounts/ }))
-      .toHaveTextContent('Amounts UK pints');
-    await expect
-      .element(page.getByRole('link', { name: /^Meal slots/ }))
-      .toHaveTextContent('Meal slots 3 on');
-    await expect
-      .element(page.getByRole('link', { name: /^Shops & places/ }))
-      .toHaveTextContent('Shops & places 2 shops · 4 places');
-    await expect
-      .element(page.getByRole('link', { name: /^Your kitchen/ }))
-      .toHaveTextContent('Your kitchen 4 hob rings');
-    await expect
-      .element(page.getByRole('link', { name: /^Privacy/ }))
-      .toHaveTextContent('Privacy All off');
-    await expect
-      .element(page.getByRole('link', { name: /^Household/ }))
-      .toHaveTextContent('Household 2 people');
-    // No section's own controls on the list, and no list of sections beside it.
-    expect(page.getByRole('switch').elements()).toEqual([]);
-    expect(sections().elements()).toEqual([]);
-    // Each row names its section; Privacy has its own page.
-    await expect
-      .element(page.getByRole('link', { name: /^Meal slots/ }))
-      .toHaveAttribute('href', '/settings?section=meal-slots');
-    await expect
-      .element(page.getByRole('link', { name: /^Privacy/ }))
-      .toHaveAttribute('href', '/settings/privacy');
-    await expect
-      .element(page.getByRole('link', { name: /^Household/ }))
-      .toHaveAttribute('href', '/settings/household');
-    await expect
-      .element(page.getByRole('link', { name: /^About/ }))
-      .toHaveAttribute('href', '/settings/about');
-    expect(page.getByText(/comes? in 0\.9\./).elements()).toHaveLength(0);
-  });
-
-  it('phone: a section opens alone, under its own title, with ‹ Settings to come back (F193)', async () => {
-    await page.viewport(390, 800);
-    at('?section=meal-slots');
-    open();
-    await expect.element(page.getByRole('heading', { level: 1, name: 'Meal slots' })).toBeVisible();
-    await expect.element(page.getByRole('link', { name: 'Settings', exact: true })).toBeVisible();
-    await expect.element(page.getByRole('region', { name: 'Meal slots' })).toBeVisible();
-    expect(page.getByRole('region', { name: 'Recent changes' }).elements()).toEqual([]);
-    expect(page.getByRole('region', { name: 'Shops' }).elements()).toEqual([]);
-  });
-
-  it('phone: an older link ending in a section (#shops-places) opens that section (F193)', async () => {
-    await page.viewport(390, 800);
-    route.url = new URL('http://localhost/settings#shops-places');
-    open();
-    await expect
-      .element(page.getByRole('heading', { level: 1, name: 'Shops & places' }))
-      .toBeVisible();
-  });
-
-  it('a computer shows every section, and a section link scrolls to it (F193)', async () => {
-    at('?section=recent-changes');
-    open();
-    await expect.element(page.getByRole('region', { name: 'Meal slots' })).toBeVisible();
-    await expect.element(page.getByRole('region', { name: 'Recent changes' })).toBeVisible();
-    await expect
-      .element(page.getByRole('heading', { level: 2, name: 'Recent changes' }))
-      .toHaveFocus();
-  });
-
-  it('hides Meal slots from a member', async () => {
-    session.me = { ...ME, role: 'member' };
-    const requests = open();
-    await expect.element(page.getByRole('heading', { name: 'Shops & places' })).toBeVisible();
-    expect(sections().getByRole('button', { name: 'Meal slots' }).elements()).toHaveLength(0);
-    expect(page.getByRole('heading', { name: 'Meal slots' }).elements()).toHaveLength(0);
-    expect(requests.some((r) => r.path === '/meal-slots')).toBe(false);
-    // Shops and places are still theirs to manage.
-    await expect.element(page.getByRole('button', { name: 'Remove Supermarket' })).toBeVisible();
-  });
-});
-
 describe('Meal slots', () => {
+  beforeEach(() => {
+    view = MealSlotsPage;
+  });
+
   it('renames a meal in place, and says nothing is lost on Undo', async () => {
     const requests = open({
       'PATCH /meal-slots/2': [
@@ -365,6 +216,10 @@ describe('Meal slots', () => {
 });
 
 describe('Shops', () => {
+  beforeEach(() => {
+    view = ShopsPlacesPage;
+  });
+
   it('renames a shop', async () => {
     const requests = open({ 'PATCH /shops/1': [200, { id: 1, name: 'Tesco' }] });
     await page.getByRole('button', { name: 'Rename Supermarket' }).click();
@@ -472,6 +327,10 @@ describe('Shops', () => {
 });
 
 describe('Places', () => {
+  beforeEach(() => {
+    view = ShopsPlacesPage;
+  });
+
   it('shows each place’s kind', async () => {
     open();
     const places = page.getByRole('region', { name: 'Places at home' });
@@ -608,6 +467,10 @@ describe('Places', () => {
 });
 
 describe('Recent changes', () => {
+  beforeEach(() => {
+    view = RecentChangesPage;
+  });
+
   const made = (id: number, kind: string, summary: string) => ({ ...changeOf(id, summary), kind });
 
   it('lists every kind, newest first, and undoes one', async () => {
@@ -690,6 +553,10 @@ describe('Recent changes', () => {
 });
 
 describe('Your kitchen (Batch cook, B1; mockup Dark-BatchKit08)', () => {
+  beforeEach(() => {
+    view = Kitchen;
+  });
+
   const kitchen = () => page.getByRole('region', { name: 'Your kitchen' });
 
   it('shows the kitchen as it is, and says it has not been asked yet', async () => {
@@ -708,7 +575,7 @@ describe('Your kitchen (Batch cook, B1; mockup Dark-BatchKit08)', () => {
     );
   });
 
-  it('Recent changes read again after a save here, and the kitchen after an Undo (RF5, H8)', async () => {
+  it('reads the kitchen again after an Undo elsewhere (RF5, H8; Recent changes is its own page now, F252)', async () => {
     const requests = open({
       'PATCH /household/kitchen': [
         200,
@@ -716,27 +583,14 @@ describe('Your kitchen (Batch cook, B1; mockup Dark-BatchKit08)', () => {
       ]
     });
     const reads = (path: string) => requests.filter((r) => r.path === path).length;
-    await vi.waitFor(() => expect(reads('/changes')).toBeGreaterThan(0));
-    const changesBefore = reads('/changes');
     await page.getByRole('button', { name: 'Change' }).click();
     const sheet = page.getByRole('dialog', { name: 'Your kitchen' });
     await sheet.getByRole('button', { name: 'Fewer hob rings' }).click();
     await sheet.getByRole('button', { name: 'Save' }).click();
-    await vi.waitFor(() => expect(reads('/changes')).toBeGreaterThan(changesBefore));
     // An Undo from Recent changes (or the toast) puts the old numbers back: Your kitchen reads them.
     const kitchenBefore = reads('/household/kitchen');
     freshness.changed({ elsewhere: true });
     await vi.waitFor(() => expect(reads('/household/kitchen')).toBeGreaterThan(kitchenBefore));
-  });
-
-  it('phone: it has its own page under Kitchen', async () => {
-    await page.viewport(390, 800);
-    at('?section=your-kitchen');
-    open();
-    await expect
-      .element(page.getByRole('heading', { level: 1, name: 'Your kitchen' }))
-      .toBeVisible();
-    await expect.element(kitchen()).toBeVisible();
   });
 
   it('Change opens the sheet; Save sends the kitchen, and the section shows it', async () => {
@@ -792,61 +646,5 @@ describe('Your kitchen (Batch cook, B1; mockup Dark-BatchKit08)', () => {
     await sheet.getByRole('button', { name: 'Save' }).click();
     await expect.element(sheet.getByRole('alert')).toBeVisible();
     await expect.element(sheet).toBeVisible();
-  });
-});
-
-describe('About and "Update available" (X1)', () => {
-  const UPDATES = (outcome: string | null, canCheck = true): [number, unknown] => [
-    200,
-    {
-      version: '0.9.0',
-      released: '2026-11-12',
-      releases_page: 'https://github.com/placeholder_until_1_0/mealwright/releases',
-      can_check: canCheck,
-      daily: canCheck ? true : null,
-      last:
-        canCheck && outcome
-          ? {
-              outcome,
-              latest: outcome === 'newer' ? 'v0.9.1' : null,
-              checked_at: new Date().toISOString()
-            }
-          : null
-    }
-  ];
-
-  it('an admin sees "Update available" by About when a newer version is out', async () => {
-    open({ 'GET /updates': UPDATES('newer') });
-    await expect
-      .element(sections().getByRole('button', { name: 'About Update available' }))
-      .toBeVisible();
-    await vi.waitFor(() =>
-      expect(page.getByRole('link', { name: /Version, updates/ }).element().textContent).toMatch(
-        /Update\s*$/
-      )
-    );
-  });
-
-  it('phone: the About row carries the badge, and opens About', async () => {
-    await page.viewport(390, 800);
-    open({ 'GET /updates': UPDATES('newer') });
-    const about = page.getByRole('link', { name: /^About/ });
-    await expect.element(about).toHaveTextContent('About Update available');
-    await expect.element(about).toHaveAttribute('href', '/settings/about');
-  });
-
-  it('no badge when up to date', async () => {
-    const requests = open({ 'GET /updates': UPDATES('up_to_date') });
-    await vi.waitFor(() => expect(requests.some((r) => r.path === '/updates')).toBe(true));
-    await expect.element(sections().getByRole('button', { name: 'About' })).toBeVisible();
-    expect(page.getByText('Update available').elements()).toEqual([]);
-  });
-
-  it('a member never asks and never sees the badge', async () => {
-    session.me = { ...ME, role: 'member' };
-    const requests = open({ 'GET /updates': UPDATES('newer') });
-    await expect.element(sections().getByRole('button', { name: 'About' })).toBeVisible();
-    expect(requests.some((r) => r.path === '/updates')).toBe(false);
-    expect(page.getByText('Update available').elements()).toEqual([]);
   });
 });

@@ -93,7 +93,9 @@ describe('Settings → Privacy', () => {
 
   it('shows both switches off to start, and an empty list', async () => {
     open();
-    await expect.element(page.getByRole('heading', { name: 'Privacy', level: 1 })).toBeVisible();
+    await expect
+      .element(page.getByRole('heading', { name: 'Outside connections', level: 1 }))
+      .toBeVisible();
     await expect
       .element(
         page.getByText(
@@ -114,7 +116,7 @@ describe('Settings → Privacy', () => {
     open({ 'GET /privacy/own-network': list([wiki, lan]) });
     await expect.element(page.getByRole('switch', { name: IMPORT })).toBeVisible();
     const box = (el: Element) => el.getBoundingClientRect();
-    const outside = page.getByRole('heading', { name: 'Outside connections' }).element();
+    const outside = page.getByRole('heading', { name: 'Outside connections', level: 2 }).element();
     const own = page.getByRole('heading', { name: 'Your own network' }).element();
     // The two headings are level: the pill beside the second doesn't push it down.
     expect(

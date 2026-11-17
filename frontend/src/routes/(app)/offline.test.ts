@@ -11,12 +11,13 @@ import Today from './+page.svelte';
 import Plan from './plan/+page.svelte';
 import Pantry from './pantry/+page.svelte';
 import Recipes from './recipes/+page.svelte';
+import Appearance from './settings/appearance/+page.svelte';
 import Settings from './settings/+page.svelte';
+import SignIn from './settings/sign-in/+page.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
-// The page's address, for the screens that read it (the phone's Settings opens the section it
-// names, F193). A test sets `route.url` before it shows the screen.
+// The page's address, for the screens that read it (Settings looks for an older "?section=" link).
 const route = vi.hoisted(() => ({ url: new URL('http://localhost/') }));
 vi.mock('$app/state', () => ({ page: route }));
 
@@ -73,14 +74,12 @@ describe('the online-only screens, offline', () => {
 
   it('Settings still lets you sign out and change the theme (phone)', async () => {
     await page.viewport(390, 800);
-    // The phone's Settings is a list: Sign-in has the button, Appearance the theme (F193).
-    route.url = new URL('http://localhost/settings?section=sign-in');
-    show(Settings);
+    // Each item is its own page (F252): Your sign-in has the button, Appearance the theme.
+    show(SignIn);
     await expect.element(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
     for (const component of mounted.splice(0)) unmount(component);
     document.body.innerHTML = '';
-    route.url = new URL('http://localhost/settings?section=appearance');
-    show(Settings);
+    show(Appearance);
     // cabledrawer 18 Oct, "Keep it visible": the theme is saved on this device.
     await expect.element(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
     const switcher = page.getByRole('group', { name: 'Theme' });

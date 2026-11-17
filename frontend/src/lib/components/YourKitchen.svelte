@@ -96,7 +96,7 @@
       </div>
       <p class="about">
         Batch cook never plans more at once than your kitchen has. Asked once; change it any time in
-        Settings › Kitchen.
+        Settings › Your kitchen.
       </p>
       <div class="card">
         <div class="row">

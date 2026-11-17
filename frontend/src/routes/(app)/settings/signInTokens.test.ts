@@ -1,5 +1,5 @@
-// Settings → Sign-in (0.9 O2): admins see "For the household (admins)" with the API tokens row
-// and how many tokens there are (the mockup Dark-SignInSettings09); members don't.
+// Settings → Your sign-in and Sign-in for everyone (F252; formerly one Sign-in section, 0.9 O2): the
+// household's part is its own page for admins, and "Your sign-in" asks for nothing of it.
 
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,25 +24,29 @@ const MINE = {
   ]
 };
 
-const token = (id: number) => ({
-  id,
-  name: `Token ${id}`,
-  scope: 'read',
-  created_at: '2026-11-01T09:00:00Z',
-  last_used_at: null,
-  expires_on: null
-});
-
-describe('Settings → Sign-in: the API tokens row', () => {
+describe('Settings → Your sign-in and Sign-in for everyone', () => {
   let component: ReturnType<typeof mount> | null = null;
   let requests: FakeRequest[] = [];
 
-  function open(admin: boolean) {
+  function open(part: 'mine' | 'everyone', admin: boolean) {
     requests = fakeApi({
       'GET /me/sign-in': [200, MINE],
-      'GET /api-tokens': [200, { tokens: [token(2), token(1)], today: '2026-11-12' }]
+      'GET /sso/settings': [
+        200,
+        {
+          secret_set: false,
+          button_name: '',
+          admin_linked: false,
+          switch_on: false,
+          password_sign_in: true,
+          kept_warning: null
+        }
+      ]
     });
-    component = mount(SignInSection, { target: document.body, props: { device: 'phone', admin } });
+    component = mount(SignInSection, {
+      target: document.body,
+      props: { device: 'phone', admin, part }
+    });
     flushSync();
   }
 
@@ -59,21 +63,26 @@ describe('Settings → Sign-in: the API tokens row', () => {
     network.reset();
   });
 
-  it('an admin sees the row, with how many tokens there are, leading to the list', async () => {
-    open(true);
-    await expect.element(page.getByText('For the household (admins)')).toBeVisible();
-    const row = page.getByRole('link', { name: /API tokens/ });
-    await expect
-      .element(row)
-      .toHaveAttribute('href', expect.stringMatching(/\/settings\/api-tokens$/));
-    await expect.element(page.getByTestId('api-token-count')).toHaveTextContent('2');
+  it('Your sign-in shows this account only, and asks for nothing of the household', async () => {
+    open('mine', true);
+    await expect.element(page.getByText('iPhone · Safari')).toBeVisible();
+    expect(page.getByText('Single sign-on').elements()).toEqual([]);
+    expect(page.getByText('For the household (admins)').elements()).toEqual([]);
+    expect(requests.some((r) => r.path.startsWith('/sso'))).toBe(false);
+    expect(requests.some((r) => r.path === '/api-tokens')).toBe(false);
   });
 
-  it('a member sees neither the row nor asks for the tokens', async () => {
-    open(false);
-    await expect.element(page.getByText('iPhone · Safari')).toBeVisible();
-    expect(page.getByText('For the household (admins)').elements()).toEqual([]);
-    expect(page.getByRole('link', { name: /API tokens/ }).elements()).toEqual([]);
-    expect(requests.some((r) => r.path === '/api-tokens')).toBe(false);
+  it('Sign-in for everyone shows single sign-on and the password switch, and not the sessions', async () => {
+    open('everyone', true);
+    await expect.element(page.getByText('Single sign-on')).toBeVisible();
+    await expect.element(page.getByText('Password sign-in')).toBeVisible();
+    expect(page.getByText('iPhone · Safari').elements()).toEqual([]);
+    expect(requests.some((r) => r.path === '/me/sign-in')).toBe(false);
+  });
+
+  it('Sign-in for everyone shows a member nothing (the page itself is refused by the layout)', async () => {
+    open('everyone', false);
+    expect(page.getByText('Single sign-on').elements()).toEqual([]);
+    expect(requests.some((r) => r.path.startsWith('/sso'))).toBe(false);
   });
 });

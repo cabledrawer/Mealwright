@@ -4,12 +4,13 @@
 
 export const SSO_MESSAGES: Record<string, string> = {
   not_set_up: 'Single sign-on isn’t set up. Ask your household’s admin.',
-  switched_off: 'Single sign-on is switched off in Settings → Privacy. Ask your household’s admin.',
+  switched_off:
+    'Single sign-on is switched off in Settings → Outside connections. Ask your household’s admin.',
   own_network:
-    'Your sign-in server is on your own network. An admin adds it in Settings → Privacy → Your own network.',
+    'Your sign-in server is on your own network. An admin adds it in Settings → Outside connections → Your own network.',
   always_blocked: 'Mealwright can’t use that address for your sign-in server.',
   not_https:
-    'Your sign-in server’s address must start with https://, unless it’s on your own network in Settings → Privacy.',
+    'Your sign-in server’s address must start with https://, unless it’s on your own network in Settings → Outside connections.',
   unreachable: 'Mealwright couldn’t reach your sign-in server. Try again in a minute.',
   bad_answer: 'Your sign-in server gave an answer Mealwright couldn’t use.',
   refused: 'Your sign-in server’s answer couldn’t be checked, so you weren’t signed in.',
@@ -17,7 +18,7 @@ export const SSO_MESSAGES: Record<string, string> = {
   cancelled: 'Signing in was cancelled at your sign-in server.',
   wrong_address: 'Open Mealwright at the address single sign-on was set up for, then try again.',
   secret_unreadable:
-    'Mealwright can’t read the saved client secret. An admin enters it again in Settings → Sign-in → Single sign-on.',
+    'Mealwright can’t read the saved client secret. An admin enters it again in Settings → Sign-in for everyone → Single sign-on.',
   not_let_in:
     'Your sign-in server doesn’t put you in a group Mealwright lets in. Ask your household’s admin.',
   no_account: 'There’s no Mealwright account for you yet. Ask your household’s admin.',
@@ -50,7 +51,7 @@ export const ALMOST_THERE = 'Almost there';
 /** Before and after the username, which is shown in bold between them. */
 export const WAITING_BEFORE = 'You signed in with single sign-on as';
 export const WAITING_AFTER =
-  ', but this kitchen hasn’t linked that name to a person yet. An admin needs to say who you are: ask them to open Settings › Household.';
+  ', but this kitchen hasn’t linked that name to a person yet. An admin needs to say who you are: ask them to open Settings › People.';
 export const WAITING_NOTE =
   'Nothing in Mealwright is open to you until then. Once they’ve linked you, sign in again.';
 export const SIGN_IN_AGAIN = 'Sign in again';
@@ -105,4 +106,4 @@ export function testPassedText(
  *  was (Pe3/M2, cabledrawer 13 Nov: nobody is made at first sign-in; the words proposed, for
  *  cabledrawer). */
 export const SSO_WHO_LINKS =
-  'Someone whose username at your sign-in server is the same as a person here who has never signed in is linked to them at their first sign-in. Anyone else waits until an admin says who they are in Settings › Household.';
+  'Someone whose username at your sign-in server is the same as a person here who has never signed in is linked to them at their first sign-in. Anyone else waits until an admin says who they are in Settings › People.';

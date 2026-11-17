@@ -44,13 +44,11 @@ test('Settings leads to Privacy, which starts with everything off, and passes th
   page,
 }) => {
   await page.goto('/settings');
-  // A computer's Settings has the Privacy section with this link in it; the phone's list has a
-  // Privacy row that goes straight to the page (F193).
-  await page
-    .getByRole('link', { name: isPhone(page) ? /^Privacy/ : /Outside connections/ })
-    .click();
+  // The list has Outside connections (the computer's beside the page, the phone's as the page),
+  // going straight to the page (F252).
+  await page.getByRole('link', { name: /^Outside connections/ }).first().click();
   await expect(page).toHaveURL('/settings/privacy');
-  await expect(page.getByRole('heading', { level: 1, name: 'Privacy' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Outside connections' })).toBeVisible();
   await expect(page.getByText('Nothing leaves this server unless you switch it on, or press Check now in About.')).toBeVisible();
   await expect(page.getByRole('switch', { name: IMPORT })).not.toBeChecked();
   await expect(page.getByRole('switch', { name: PHOTOS })).not.toBeChecked();
@@ -62,7 +60,8 @@ test('Settings leads to Privacy, which starts with everything off, and passes th
   await checkPage(page);
   // The way back.
   await page.getByRole('link', { name: 'Settings' }).first().click();
-  await expect(page).toHaveURL('/settings');
+  // A computer's /settings goes on to Appearance; the phone's is the list.
+  await expect(page).toHaveURL(isPhone(page) ? '/settings' : '/settings/appearance');
 });
 
 test('an admin switches each connection on and off, and it stays', async ({ page }) => {

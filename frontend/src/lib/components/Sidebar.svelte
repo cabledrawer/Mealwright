@@ -30,6 +30,9 @@
   import ThemeSwitch from './ThemeSwitch.svelte';
 
   const settingsCurrent = $derived(page.url.pathname.startsWith('/settings'));
+  // In Settings the menu folds to its icons and the Settings list takes its place beside the page
+  // (F252, cabledrawer 15 Nov). The saved choice (sidebar.collapsed) is left as it was.
+  const collapsed = $derived(sidebar.collapsed || settingsCurrent);
 
   // The number beside Drafts (mockup Drafts05-Desktop). It is asked for once when the app opens
   // and again when the connection comes back; changes made here update it at once. Another
@@ -50,22 +53,29 @@
   });
 </script>
 
-<aside class="sidebar" class:collapsed={sidebar.collapsed} aria-label="Sidebar">
+<aside class="sidebar" class:collapsed aria-label="Sidebar">
   <div class="top">
     <a class="brand" href={resolve('/(app)')} aria-label="Mealwright, Today">
-      <Logo size={sidebar.collapsed ? 40 : 32} />
-      {#if !sidebar.collapsed}<span class="wordmark">Mealwright</span>{/if}
+      <Logo size={collapsed ? 40 : 32} />
+      {#if !collapsed}<span class="wordmark">Mealwright</span>{/if}
     </a>
-    <button
-      type="button"
-      class="toggle"
-      aria-label={sidebar.collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      aria-expanded={!sidebar.collapsed}
-      title={sidebar.collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      onclick={() => sidebar.toggle()}
-    >
-      <Icon name={sidebar.collapsed ? 'expand' : 'collapse'} size={18} stroke={2.2} />
-    </button>
+    {#if settingsCurrent}
+      <!-- In Settings the menu is always folded; this opens the app's own pages again (proposed, for cabledrawer). -->
+      <a class="toggle" href={resolve('/(app)')} aria-label="Show the menu" title="Show the menu">
+        <Icon name="expand" size={18} stroke={2.2} />
+      </a>
+    {:else}
+      <button
+        type="button"
+        class="toggle"
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-expanded={!collapsed}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        onclick={() => sidebar.toggle()}
+      >
+        <Icon name={collapsed ? 'expand' : 'collapse'} size={18} stroke={2.2} />
+      </button>
+    {/if}
   </div>
 
   <nav aria-label="Main">
@@ -73,10 +83,10 @@
       {@const current =
         isCurrent(item, page.url.pathname) &&
         !(item.href === '/recipes' && isIngredients(page.url.pathname))}
-      {@const tree = item.href === '/recipes' && !sidebar.collapsed}
+      {@const tree = item.href === '/recipes' && !collapsed}
       <!-- With the tree showing, the page under Recipes is marked, and Recipes shows
            only that you’re somewhere inside it. -->
-      {#if item.href === '/recipes' && sidebar.collapsed}
+      {#if item.href === '/recipes' && collapsed}
         <!-- Collapsed, Recipes opens a small pop-out with its pages. -->
         <RecipesPopout pathname={page.url.pathname} {current} />
       {:else}
@@ -84,11 +94,11 @@
           href={resolve(appRoute(item.href))}
           class:section={tree && current}
           aria-current={current && !tree ? 'page' : undefined}
-          aria-label={sidebar.collapsed ? item.label : undefined}
-          title={sidebar.collapsed ? item.label : undefined}
+          aria-label={collapsed ? item.label : undefined}
+          title={collapsed ? item.label : undefined}
         >
-          <Icon name={item.icon} size={sidebar.collapsed ? 22 : 20} />
-          {#if !sidebar.collapsed}<span class="label">{item.label}</span>{/if}
+          <Icon name={item.icon} size={collapsed ? 22 : 20} />
+          {#if !collapsed}<span class="label">{item.label}</span>{/if}
           {#if tree}<Icon name="chevron-down" size={16} stroke={2.4} />{/if}
         </a>
       {/if}
@@ -99,11 +109,11 @@
         <a
           href={resolve('/(app)/batch-cook')}
           aria-current={here ? 'page' : undefined}
-          aria-label={sidebar.collapsed ? `${BATCH_COOK.label}, Experimental` : undefined}
-          title={sidebar.collapsed ? `${BATCH_COOK.label} (Experimental)` : undefined}
+          aria-label={collapsed ? `${BATCH_COOK.label}, Experimental` : undefined}
+          title={collapsed ? `${BATCH_COOK.label} (Experimental)` : undefined}
         >
-          <Icon name={BATCH_COOK.icon} size={sidebar.collapsed ? 22 : 20} />
-          {#if !sidebar.collapsed}
+          <Icon name={BATCH_COOK.icon} size={collapsed ? 22 : 20} />
+          {#if !collapsed}
             <span class="label">{BATCH_COOK.label}</span>
             <span class="flask" title="Experimental"
               ><Icon name="flask" size={16} stroke={2.4} /><span class="visually-hidden"
@@ -119,11 +129,11 @@
         <a
           href={resolve('/(app)/recipes/ingredients')}
           aria-current={here ? 'page' : undefined}
-          aria-label={sidebar.collapsed ? INGREDIENTS.label : undefined}
-          title={sidebar.collapsed ? INGREDIENTS.label : undefined}
+          aria-label={collapsed ? INGREDIENTS.label : undefined}
+          title={collapsed ? INGREDIENTS.label : undefined}
         >
-          <Icon name={INGREDIENTS.icon} size={sidebar.collapsed ? 22 : 20} />
-          {#if !sidebar.collapsed}<span class="label">{INGREDIENTS.label}</span>{/if}
+          <Icon name={INGREDIENTS.icon} size={collapsed ? 22 : 20} />
+          {#if !collapsed}<span class="label">{INGREDIENTS.label}</span>{/if}
         </a>
       {/if}
       {#if tree}
@@ -143,8 +153,8 @@
   </nav>
 
   <div class="foot">
-    <ConnectionStatus layout={sidebar.collapsed ? 'dot' : 'desktop'} />
-    <ThemeSwitch variant={sidebar.collapsed ? 'cycle' : 'sidebar'} />
+    <ConnectionStatus layout={collapsed ? 'dot' : 'desktop'} />
+    <ThemeSwitch variant={collapsed ? 'cycle' : 'sidebar'} />
     <a
       class="settings"
       href={resolve('/(app)/settings')}
@@ -153,7 +163,7 @@
       title="Settings"
     >
       <span class="avatar" aria-hidden="true">{initial(session.me?.name ?? '')}</span>
-      {#if !sidebar.collapsed}
+      {#if !collapsed}
         <span class="who">
           <span class="name">{session.me?.name}</span>
           <span class="settings-label">Settings</span>
@@ -161,7 +171,7 @@
         <span class="cog" aria-hidden="true"><Icon name="cog" size={20} stroke={2} /></span>
       {/if}
     </a>
-    {#if !sidebar.collapsed}<p class="version">{VERSION_WORDS}</p>{/if}
+    {#if !collapsed}<p class="version">{VERSION_WORDS}</p>{/if}
   </div>
 </aside>
 
@@ -217,6 +227,7 @@
     background: var(--color-fill);
     color: var(--color-text-soft);
     cursor: pointer;
+    text-decoration: none;
   }
 
   nav {

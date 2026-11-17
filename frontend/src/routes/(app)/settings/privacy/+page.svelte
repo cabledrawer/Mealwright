@@ -54,7 +54,11 @@
   }
 </script>
 
-<PageHeader title="Privacy" parent={{ href: '/(app)/settings', label: 'Settings' }} />
+<PageHeader
+  title="Outside connections"
+  overline="Household"
+  parent={{ href: '/(app)/settings', label: 'Settings' }}
+/>
 
 {#if !privacy.loaded}
   {#if network.down}

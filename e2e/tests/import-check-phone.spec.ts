@@ -188,7 +188,7 @@ test('One at a time: See all shows the whole list, and a reopened draft starts O
 
 test('Settings → Appearance chooses it, on this device: Focus until changed', async ({ page }) => {
   test.skip(!isPhone(page), 'the phone’s layout');
-  await page.goto('/settings?section=appearance');
+  await page.goto('/settings/appearance');
   const focus = page.getByRole('radio', { name: /^Focus/ });
   const one = page.getByRole('radio', { name: /^One at a time/ });
   await expect(page.getByText('Checking a recipe on the phone')).toBeVisible();
@@ -205,7 +205,7 @@ test('Settings → Appearance chooses it, on this device: Focus until changed', 
   await page.getByRole('dialog', { name: 'Save as draft?' }).getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\/recipes\/drafts$/);
   await deleteDrafts(page, title);
-  await page.goto('/settings?section=appearance');
+  await page.goto('/settings/appearance');
   await focus.check();
   await expect(focus).toBeChecked();
 });

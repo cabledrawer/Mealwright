@@ -463,9 +463,11 @@ test('E3: signing out offline warns first, then wipes, and the session ends once
   await page.getByRole('checkbox', { name: `Tick ${name}` }).click();
   await expect(bar(page)).toContainText(waitingText(page, 1), { timeout: 10_000 });
   await page.getByRole('link', { name: 'Settings' }).first().click();
-  await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
-  // The phone's Settings is a list; Sign out is in its Sign-in section (F193).
-  if (isPhone(page)) await page.getByRole('link', { name: /^Sign-in/ }).click();
+  // The phone's Settings is the list, a computer's opens Appearance with the list beside it; Sign
+  // out is on Your sign-in (F193, F252).
+  await expect(page.getByRole('heading', { name: /^(Settings|Appearance)$/, level: 1 })).toBeVisible();
+  await page.getByRole('link', { name: /^Your sign-in/ }).first().click();
+  await expect(page.getByRole('heading', { name: 'Your sign-in', level: 1 })).toBeVisible();
 
   // The warning, with its three choices. Stay signed in keeps the change.
   const warning = "1 change hasn’t been sent yet. If you sign out now, it’s lost.";
@@ -520,9 +522,11 @@ test('other tabs: signing out in one tab clears every other tab and takes it to 
   await expect(other.getByRole('checkbox', { name: `Tick ${name}` })).toBeVisible();
 
   await page.getByRole('link', { name: 'Settings' }).first().click();
-  await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
-  // The phone's Settings is a list; Sign out is in its Sign-in section (F193).
-  if (isPhone(page)) await page.getByRole('link', { name: /^Sign-in/ }).click();
+  // The phone's Settings is the list, a computer's opens Appearance with the list beside it; Sign
+  // out is on Your sign-in (F193, F252).
+  await expect(page.getByRole('heading', { name: /^(Settings|Appearance)$/, level: 1 })).toBeVisible();
+  await page.getByRole('link', { name: /^Your sign-in/ }).first().click();
+  await expect(page.getByRole('heading', { name: 'Your sign-in', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
 

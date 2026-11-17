@@ -52,12 +52,12 @@ describe('Import a recipe: the note about photos', () => {
     vi.unstubAllGlobals();
   });
 
-  it('says photos are not downloaded, and links to Settings → Privacy, while the switch is off', async () => {
+  it('says photos are not downloaded, and links to Settings → Outside connections, while the switch is off', async () => {
     open({ 'GET /privacy/switches': switches(false), 'GET /privacy/own-network': OWN });
     await expect.element(page.getByText(NOTE)).toBeVisible();
     expect(privacy.photosOff).toBe(true);
     await expect
-      .element(page.getByRole('link', { name: 'Change in Settings → Privacy' }))
+      .element(page.getByRole('link', { name: 'Change in Settings → Outside connections' }))
       .toHaveAttribute('href', '/settings/privacy#outside-connections');
   });
 

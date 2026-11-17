@@ -381,8 +381,7 @@ test('the Batch cook card sits inside its cook day, above that day’s meals, on
 });
 
 test('an admin can hide Batch cook in Settings: no sidebar entry, no Plan tab, and the picks are refused', async ({ page }) => {
-  await page.goto('/settings');
-  if (isPhone(page)) await page.getByRole('link', { name: /^Your kitchen/ }).click();
+  await page.goto('/settings/kitchen');
   const row = page.getByRole('switch', { name: 'Show Batch cook' });
   await expect(row).toBeChecked();
   const saved = (checked: boolean) =>
@@ -396,8 +395,7 @@ test('an admin can hide Batch cook in Settings: no sidebar entry, no Plan tab, a
   await page.goto('/plan');
   if (isPhone(page)) await expect(page.getByRole('link', { name: /^Batch cook/ })).toHaveCount(0);
   else await expect(page.getByRole('complementary', { name: 'Sidebar' }).getByRole('link', { name: /^Batch cook/ })).toHaveCount(0);
-  await page.goto('/settings');
-  if (isPhone(page)) await page.getByRole('link', { name: /^Your kitchen/ }).click();
+  await page.goto('/settings/kitchen');
   const showing = saved(true);
   await page.getByRole('switch', { name: 'Show Batch cook' }).click();
   await showing;

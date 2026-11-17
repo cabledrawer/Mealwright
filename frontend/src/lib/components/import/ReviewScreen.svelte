@@ -335,8 +335,8 @@
       <p class="photo-note">
         {#if review.photo.state === 'off'}
           <b>Photo not downloaded.</b> Photo downloads are off in
-          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Privacy is built beside this page -->
-          <a href={privacy}>Settings → Privacy</a>. You can add your own photo later.
+          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Outside connections is built beside this page -->
+          <a href={privacy}>Settings → Outside connections</a>. You can add your own photo later.
         {:else}
           <b>Photo not downloaded</b>
           — {review.photo.message} You can add your own photo later.

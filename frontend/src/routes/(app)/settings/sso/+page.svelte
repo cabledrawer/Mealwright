@@ -242,7 +242,7 @@
 
 <PageHeader
   title="Single sign-on"
-  parent={{ href: '/(app)/settings', label: 'Sign-in', section: 'sign-in' }}
+  parent={{ href: '/(app)/settings/sign-in-everyone', label: 'Sign-in for everyone' }}
 />
 
 {#if !admin}
@@ -295,8 +295,8 @@
       {#if issuerHost}
         <p class="warn">
           <span
-            >On your home network? Add <span class="mono">{issuerHost}</span> to Privacy › Your own network,
-            and turn on the Single sign-on switch there.</span
+            >On your home network? Add <span class="mono">{issuerHost}</span> to Outside connections ›
+            Your own network, and turn on the Single sign-on switch there.</span
           >
         </p>
       {/if}
@@ -430,8 +430,8 @@
       {#if testProblem}<p class="problem" role="alert">{testProblem}</p>{/if}
       {#if saved && !saved.switch_on}
         <p class="warn">
-          The Single sign-on switch in Settings › Privacy is off, so nothing is sent to your sign-in
-          server yet.
+          The Single sign-on switch in Settings › Outside connections is off, so nothing is sent to
+          your sign-in server yet.
         </p>
       {/if}
       <div class="switch-row">

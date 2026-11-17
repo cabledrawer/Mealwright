@@ -26,20 +26,19 @@ async function make(page: Page, name: string, can: 'Read only' | 'Read and chang
   return (await shown.textContent())!.trim();
 }
 
-test('Settings → Sign-in has the API tokens row, with the count, leading to the list', async ({
+test('Settings lists API tokens in the Household group, leading to the list, with ‹ Sign-in for everyone back', async ({
   page,
 }) => {
-  await page.goto('/settings?section=sign-in');
-  await expect(page.getByRole('heading', { name: 'For the household (admins)' })).toBeVisible();
-  const row = page.getByRole('link', { name: /API tokens/ });
+  await page.goto('/settings');
+  if (!isPhone()) await expect(page).toHaveURL(/\/settings\/appearance$/);
+  const row = page.getByRole('link', { name: /^API tokens/ }).first();
   await expect(row).toBeVisible();
-  await expect(page.getByTestId('api-token-count')).toHaveText(/^\d+$/);
   await row.click();
   await expect(page).toHaveURL(/\/settings\/api-tokens$/);
   await expect(page.getByRole('heading', { name: 'API tokens', level: 1 })).toBeVisible();
-  // Back to Sign-in.
-  await page.getByRole('link', { name: 'Sign-in' }).first().click();
-  await expect(page).toHaveURL(/\/settings/);
+  // Back to Sign-in for everyone.
+  await page.getByRole('link', { name: 'Sign-in for everyone' }).first().click();
+  await expect(page).toHaveURL(/\/settings\/sign-in-everyone$/);
 });
 
 test('a token is shown once, works for another app, and stops when deleted', async ({
@@ -180,8 +179,8 @@ test('screenshots, dark (by hand only)', async ({ page, app }) => {
     }
   }
   await shot('settings-signin', async () => {
-    await page.goto('/settings?section=sign-in');
-    await expect(page.getByTestId('api-token-count')).toBeVisible();
+    await page.goto('/settings/sign-in-everyone');
+    await expect(page.getByText('Single sign-on', { exact: true })).toBeVisible();
   });
   await shot('api-tokens', () => openTokens(page));
   await shot('api-tokens-ask', async () => {

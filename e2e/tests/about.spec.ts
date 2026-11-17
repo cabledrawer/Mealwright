@@ -84,6 +84,8 @@ test("Settings leads to About: the version, its release day and the admins’ Up
   page,
 }) => {
   await page.goto("/settings");
+  // A computer opens Appearance first, with the list beside it (F252).
+  if (!isPhone(page)) await expect(page).toHaveURL("/settings/appearance");
   await page.locator('a[href="/settings/about"]').first().click();
   await expect(page).toHaveURL("/settings/about");
   await expect(
@@ -164,8 +166,8 @@ test('a newer version found shows "Update available" by About and the version on
   } else {
     await expect(
       page
-        .getByRole("navigation", { name: "Settings sections" })
-        .getByRole("button", { name: /^About/ }),
+        .getByRole("navigation", { name: "Settings", exact: true })
+        .getByRole("link", { name: /^About/ }),
     ).toContainText("Update available");
   }
   await page.goto("/settings/about");

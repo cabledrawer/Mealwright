@@ -335,7 +335,7 @@
 
 <PageHeader
   title={person?.name ?? 'Person'}
-  parent={{ href: '/(app)/settings/household', label: 'Household' }}
+  parent={{ href: '/(app)/settings/household', label: 'People' }}
 />
 
 {#if !household.loaded}

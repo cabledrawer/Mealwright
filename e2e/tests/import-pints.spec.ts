@@ -174,7 +174,7 @@ test('the card in the dark theme passes the accessibility scan', async ({ page }
 });
 
 test('Settings has the pint switch: off for UK pints, saved on the server', async ({ page }) => {
-  await page.goto('/settings?section=amounts');
+  await page.goto('/settings/amounts');
   const pint = page.getByRole('switch', { name: 'Read pints as US pints' });
   await expect(page.getByRole('heading', { name: 'Amounts' })).toBeVisible();
   await expect(pint).not.toBeChecked();
@@ -196,7 +196,7 @@ test('Settings puts the switch back when the server can’t save it', async ({ p
       ? route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ detail: 'Only the household’s admin can change this.', code: 'admins_only' }) })
       : route.continue(),
   );
-  await page.goto('/settings?section=amounts');
+  await page.goto('/settings/amounts');
   const pint = page.getByRole('switch', { name: 'Read pints as US pints' });
   await pint.click();
   await expect(page.getByRole('alert')).toHaveText('Only the household’s admin can change this.');

@@ -105,20 +105,19 @@ test.afterEach(async ({ page }) => {
   await tidy(page);
 });
 
-test('the Settings row opens Household; add a person, who opens to choose their colour and portion, saved as they are picked; Save goes back to the list', async ({
+test('the Settings row opens People; add a person, who opens to choose their colour and portion, saved as they are picked; Save goes back to the list', async ({
   page,
 }) => {
   const name = `Joss ${mark()}`;
   await page.goto('/settings');
   if (isPhone(page)) {
-    await expect(page.getByRole('link', { name: /^Household/ })).toContainText('1 person');
-    await page.getByRole('link', { name: /^Household/ }).click();
+    await expect(page.getByRole('link', { name: /^People/ })).toContainText('1 person');
+    await page.getByRole('link', { name: /^People/ }).click();
   } else {
-    await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Household' }).click();
-    await page.getByRole('region', { name: 'Household', exact: true }).getByRole('link', { name: /People/ }).click();
+    await page.getByRole('navigation', { name: 'Settings', exact: true }).getByRole('link', { name: 'People' }).click();
   }
   await expect(page).toHaveURL('/settings/household');
-  await expect(page.getByRole('heading', { level: 1, name: 'Household' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'People' })).toBeVisible();
   await expect(peopleList(page).getByRole('link')).toHaveCount(1);
   await expect(peopleList(page).getByRole('link').first()).toContainText('Tess (you)');
   await expect(page.getByRole('switch', { name: 'Ask “Who’s this?”' })).toHaveAttribute('aria-checked', 'false');
@@ -343,7 +342,7 @@ test('a shared login asks “Who’s this?” when the switch is on; the pick is
     const shop = await them.request.post('/api/v1/shops', { data: { name: `Shop ${m}` }, headers: key() });
     expect(shop.ok(), await shop.text()).toBe(true);
     const shopId = ((await shop.json()) as Json).id;
-    await page.goto('/settings?section=recent-changes');
+    await page.goto('/settings/recent-changes');
     const row = page.getByRole('region', { name: 'Recent changes' }).getByRole('listitem').filter({ hasText: `Shop ${m}` });
     await expect(row).toContainText(eater);
     await page.request.delete(`/api/v1/shops/${shopId}`, { headers: key() });

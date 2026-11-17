@@ -32,7 +32,8 @@ const PAGES = [
   { name: 'Shopping', path: '/shopping', notes: 0, realTime: false },
   // cabledrawer 30 Oct: Settings and the recipe panes in line with the other pages.
   { name: 'Recipes', path: '/recipes', notes: 1, realTime: false },
-  { name: 'Settings', path: '/settings', notes: 1, realTime: false },
+  // Amounts is the Settings page that needs the server (F252: each item is its own page).
+  { name: 'Settings', path: '/settings/amounts', notes: 1, realTime: false },
 ] as const;
 
 for (const { name, path, notes, realTime: realTimePage } of PAGES) {
@@ -211,12 +212,11 @@ test("a page whose code can't be fetched shows the Can't reach note with the men
 // F80 on Settings (cabledrawer 31 Oct: Recipes, Ingredients and Pantry may show the note instead): once
 // loaded, the screen stays when the server stops, and what needs the server is greyed out.
 for (const screen of [
-  { name: 'Settings', path: '/settings', shows: /Appearance/ },
+  { name: 'Settings', path: '/settings/amounts', shows: /Amounts/ },
 ] as const) {
   test(`${screen.name} already showing stays when the server stops`, async ({ page }) => {
-    // The phone's Settings is a list with each section on its own page (F193): Amounts' own page
-    // has the pint switch the test looks for.
-    await page.goto(screen.name === 'Settings' && isPhone(page) ? `${screen.path}?section=amounts` : screen.path);
+    // Each item of Settings is its own page (F193, F252): Amounts has the pint switch the test looks for.
+    await page.goto(screen.path);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await page.waitForLoadState('networkidle');
     await page.route('**/api/**', proxyGap);
@@ -226,7 +226,7 @@ for (const screen of [
     await expect(page.getByRole('heading', { name: 'Can’t reach your Mealwright server.' })).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     if (screen.name === 'Settings') {
-      await expect(page.getByRole('heading', { name: isPhone(page) ? 'Amounts' : 'Appearance' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Amounts' })).toBeVisible();
       await expect(page.getByRole('switch', { name: /pints/i })).toBeDisabled();
     }
   });

@@ -1,13 +1,12 @@
 <script lang="ts">
-  // Settings → Sign-in, above Sign out (PR A2; the mockup Dark-SignInSettings09): your
-  // password ("Change password", with when it last changed), where you're signed in (this
-  // device tagged, every other one with its own Sign out) and "Sign out everywhere else".
-  // For admins, "For the household": single sign-on (set up on a computer) and the Password
-  // sign-in switch (0.9 O1). API tokens and how many there are (0.9 O2). Signing out another device has no
-  // "Are you sure?": nothing is lost, it only has to sign in again.
+  // Two pages of Settings (F252; mockup Dark-Settings2-Desktop). "Your sign-in" (part "mine", PR A2,
+  // the mockup Dark-SignInSettings09): your password ("Change password", with when it last
+  // changed), where you're signed in (this device tagged, every other one with its own Sign out)
+  // and "Sign out everywhere else". "Sign-in for everyone" (part "everyone", admins only):
+  // single sign-on (set up on a computer) and the Password sign-in switch (0.9 O1). Signing out
+  // another device has no "Are you sure?": nothing is lost, it only has to sign in again.
   import { resolve } from '$app/paths';
   import { cantReach, cantReachWords, detailOf, ApiError } from '#lib/api.js';
-  import { getApiTokens } from '#lib/apiTokens.js';
   import Icon from '#lib/components/Icon.svelte';
   import {
     changedText,
@@ -30,15 +29,17 @@
     SETUP_ON_COMPUTER
   } from '#lib/ssoWords.js';
 
-  let { device, admin = false }: { device: 'phone' | 'computer'; admin?: boolean } = $props();
+  let {
+    device,
+    admin = false,
+    part
+  }: { device: 'phone' | 'computer'; admin?: boolean; part: 'mine' | 'everyone' } = $props();
 
   let mine = $state<MySignIn | null>(null);
   let problem = $state('');
   /** Why the list couldn't be fetched: shown in its place, not read out (nothing was tapped). */
   let loadProblem = $state('');
   let busy = $state(false);
-  /** How many API tokens the household has (admins only); null until known. */
-  let tokens = $state<number | null>(null);
   /** Said after a sign-out here, for screen readers ("Signed out iPad · Safari."). */
   let said = $state('');
 
@@ -51,7 +52,7 @@
 
   $effect(() => {
     void network.backAgain;
-    if (!admin) return;
+    if (!admin || part !== 'everyone') return;
     void getSsoSetup()
       .then((found) => {
         sso = found;
@@ -79,11 +80,7 @@
 
   $effect(() => {
     void network.backAgain;
-    void load();
-    if (admin)
-      void getApiTokens()
-        .then((found) => (tokens = found.tokens.length))
-        .catch(() => undefined); // the row still leads to the list, which says what's wrong
+    if (part === 'mine') void load();
   });
 
   function why(error: unknown): string {
@@ -119,62 +116,63 @@
   }
 </script>
 
-<!-- A login made by single sign-on has no password to change (L7): leave the row out. -->
-{#if !mine || mine.has_password}
-  <h3 class="sub-title">Your password</h3>
-  <div class="card">
-    <a class="row to" href={resolve('/(app)/settings/password')}>
-      <span class="who">
-        <span class="label">Change password</span>
-        {#if mine && changedText(mine)}<span class="detail">{changedText(mine)}</span>{/if}
-      </span>
-      <Icon name="back" size={18} stroke={2.4} />
-    </a>
-  </div>
-{/if}
-
-<h3 class="sub-title">Where you’re signed in</h3>
-<div class="card" data-testid="signed-in-places">
-  {#if mine === null}
-    <p class="row detail">{loadProblem || 'Loading…'}</p>
-  {:else}
-    {#each mine.sessions as place (place.id)}
-      <div class="row">
+{#if part === 'mine'}
+  <!-- A login made by single sign-on has no password to change (L7): leave the row out. -->
+  {#if !mine || mine.has_password}
+    <h3 class="sub-title">Your password</h3>
+    <div class="card">
+      <a class="row to" href={resolve('/(app)/settings/password')}>
         <span class="who">
-          <span class="label">{deviceName(place)}</span>
-          <span class="detail">{placeDetail(place)}</span>
+          <span class="label">Change password</span>
+          {#if mine && changedText(mine)}<span class="detail">{changedText(mine)}</span>{/if}
         </span>
-        {#if place.this_device}
-          <span class="tag">This {device}</span>
-        {:else}
-          <button
-            type="button"
-            class="small"
-            aria-label="Sign out {deviceName(place)}"
-            disabled={busy || network.offline}
-            onclick={() =>
-              void run(() => signOutDevice(place.id), `Signed out ${deviceName(place)}.`)}
-            >Sign out</button
-          >
-        {/if}
-      </div>
-    {/each}
+        <Icon name="back" size={18} stroke={2.4} />
+      </a>
+    </div>
   {/if}
-</div>
-{#if problem}<p class="warning-line" role="alert">{problem}</p>{/if}
-<p class="said" role="status">{said}</p>
-{#if others.length > 0}
-  <button
-    type="button"
-    class="everywhere"
-    disabled={busy || network.offline}
-    onclick={() => void run(signOutEverywhereElse, signedOutElseText(admin))}
-    >Sign out everywhere else</button
-  >
+
+  <h3 class="sub-title">Where you’re signed in</h3>
+  <div class="card" data-testid="signed-in-places">
+    {#if mine === null}
+      <p class="row detail">{loadProblem || 'Loading…'}</p>
+    {:else}
+      {#each mine.sessions as place (place.id)}
+        <div class="row">
+          <span class="who">
+            <span class="label">{deviceName(place)}</span>
+            <span class="detail">{placeDetail(place)}</span>
+          </span>
+          {#if place.this_device}
+            <span class="tag">This {device}</span>
+          {:else}
+            <button
+              type="button"
+              class="small"
+              aria-label="Sign out {deviceName(place)}"
+              disabled={busy || network.offline}
+              onclick={() =>
+                void run(() => signOutDevice(place.id), `Signed out ${deviceName(place)}.`)}
+              >Sign out</button
+            >
+          {/if}
+        </div>
+      {/each}
+    {/if}
+  </div>
+  {#if problem}<p class="warning-line" role="alert">{problem}</p>{/if}
+  <p class="said" role="status">{said}</p>
+  {#if others.length > 0}
+    <button
+      type="button"
+      class="everywhere"
+      disabled={busy || network.offline}
+      onclick={() => void run(signOutEverywhereElse, signedOutElseText(admin))}
+      >Sign out everywhere else</button
+    >
+  {/if}
 {/if}
 
-{#if admin}
-  <h3 class="sub-title">For the household (admins)</h3>
+{#if part === 'everyone' && admin}
   <div class="card" data-testid="household-sign-in">
     <a class="row to" href={resolve('/(app)/settings/sso')}>
       <span class="who">
@@ -197,11 +195,6 @@
         onchange={(on) => void setPasswords(on)}
       />
     </div>
-    <a class="row to" href={resolve('/(app)/settings/api-tokens')}>
-      <span class="who"><span class="label">API tokens</span></span>
-      {#if tokens !== null}<span class="count" data-testid="api-token-count">{tokens}</span>{/if}
-      <Icon name="back" size={18} stroke={2.4} />
-    </a>
   </div>
   {#if ssoProblem}<p class="warning-line" role="alert">{ssoProblem}</p>{/if}
   {#if sso?.kept_warning}<p class="warning-line" role="status">{sso.kept_warning}</p>{/if}
@@ -270,11 +263,6 @@
   .detail {
     color: var(--color-text-muted);
     font-size: var(--text-sm);
-  }
-
-  .count {
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
   }
 
   .to {

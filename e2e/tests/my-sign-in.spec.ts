@@ -53,7 +53,7 @@ const isPhone = () => test.info().project.name.startsWith("phone");
 const thisTag = () => (isPhone() ? "This phone" : "This computer");
 
 async function openSignIn(page: Page) {
-  await page.goto("/settings?section=sign-in");
+  await page.goto("/settings/sign-in");
   await expect(
     page.getByRole("heading", { name: "Where you’re signed in" }),
   ).toBeVisible();

@@ -219,6 +219,9 @@ export default defineConfig({
     // Settings: the section list, Meal slots, Shops & places and Recent changes (0.8, S1).
     { name: 'phone 0.8 settings', testMatch: 'settings.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.8 settings', testMatch: 'settings.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    // Settings' layout: the list beside the page, the folded menu, the phone's list, admins only (beta 2 B8).
+    { name: 'phone beta2 settings layout', testMatch: 'settings-layout.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop beta2 settings layout', testMatch: 'settings-layout.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Safari's engine: just the Finish setup row (cabledrawer 12 Nov), not the whole of Settings.
     { name: 'webkit 0.9 settings', testMatch: 'settings.spec.ts', grep: /Finish setup/, use: { ...webkitPhone, storageState: AUTH_FILE } },
     // Settings → Household: people, logins, Undo of a removal and "Who's this?" (0.9 A1).

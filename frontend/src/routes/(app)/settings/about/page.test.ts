@@ -150,7 +150,7 @@ describe('Settings → About (X1)', () => {
     expect(page.getByText(/Privacy first/).elements()).toEqual([]);
     await vi.waitFor(() =>
       expect(page.getByRole('link', { name: /Daily check/ }).element().textContent).toMatch(
-        /Turn on in Privacy/
+        /Turn on in Outside connections/
       )
     );
   });

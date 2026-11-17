@@ -44,7 +44,7 @@
 
 <PageHeader
   title="Import from Mealie"
-  parent={{ href: '/(app)/settings/your-data', label: 'Your data' }}
+  parent={{ href: '/(app)/settings/your-data', label: 'Backups & your data' }}
 />
 
 {#if network.down && !flow.loaded}

@@ -241,7 +241,8 @@ test.describe('signed in', () => {
 
   test('Settings', async ({ page }) => {
     await page.goto('/settings');
-    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+    // The phone's /settings is the list; a computer goes on to Appearance (F252).
+    await expect(page.getByRole('heading', { name: /^(Settings|Appearance)$/, level: 1 })).toBeVisible();
     await checkKeyboard(page, 'Settings');
   });
 });

@@ -4,7 +4,6 @@
   // opens that section on its own page, with "‹ Settings" to come back (the computer keeps its
   // list of sections beside all of them). The values are worked out by the page and are blank
   // until they are known; Privacy opens its own page.
-  import { resolve } from '$app/paths';
   import Icon from '#lib/components/Icon.svelte';
   import FinishRing from './FinishRing.svelte';
   import { ringWords } from './finishRing.js';
@@ -14,11 +13,13 @@
 </script>
 
 {#each groups as group (group.name)}
-  <h2 class="group-name">{group.name}</h2>
+  <h2 class="group-name">
+    {group.name}{#if group.adminOnly}<span class="adm">admins only</span>{/if}
+  </h2>
   <nav class="card" aria-label={group.label}>
     {#each group.rows as row (row.id)}
-      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve()'s answer, plus this page's own ?section= -->
-      <a class="row" href={row.href ?? `${resolve('/(app)/settings')}?section=${row.id}`}>
+      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve()'s answer -->
+      <a class="row" href={row.href}>
         {#if row.ring}
           <span class="ico ring"><FinishRing done={row.ring.done} of={row.ring.of} /></span>
         {:else if row.icon}
@@ -58,6 +59,14 @@
     font-weight: var(--weight-bold);
     letter-spacing: var(--tracking-overline);
     text-transform: uppercase;
+  }
+
+  /* "admins only" by the Household group's name (the mockup's tag). */
+  .adm {
+    margin-left: var(--space-4);
+    font-weight: var(--weight-medium);
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   .badge {

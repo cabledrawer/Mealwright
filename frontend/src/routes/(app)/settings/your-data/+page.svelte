@@ -138,7 +138,11 @@
   const keeps = Array.from({ length: KEEP_MOST }, (_, i) => i + 1);
 </script>
 
-<PageHeader title="Your data" parent={{ href: '/(app)/settings', label: 'Settings' }} />
+<PageHeader
+  title="Backups & your data"
+  overline="Household"
+  parent={{ href: '/(app)/settings', label: 'Settings' }}
+/>
 
 {#if !backups}
   {#if network.down}

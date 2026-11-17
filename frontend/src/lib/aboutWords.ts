@@ -104,8 +104,8 @@ export function lastWords(
 /** The Daily check row's detail and value. */
 export function dailyWords(on: boolean): { detail: string; value: string } {
   return on
-    ? { detail: 'Once a day · change in Privacy', value: 'On' }
-    : { detail: 'Turn on in Privacy', value: 'Off' };
+    ? { detail: 'Once a day · change in Outside connections', value: 'On' }
+    : { detail: 'Turn on in Outside connections', value: 'Off' };
 }
 
 /** "Mealwright 0.9.0" under the logo (the version as the server says it, in tag form). */
