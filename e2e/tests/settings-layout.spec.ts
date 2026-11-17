@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
@@ -163,4 +165,44 @@ test('a member is not shown the Household group, and an address in it says only 
   await checkPage(page);
   // Nothing of the Household group was asked for.
   expect(asked.filter((p) => /\/api\/v1\/(people|privacy|api-tokens|sso|backups|export)/.test(p))).toEqual([]);
+});
+
+/** Dark screenshots at four widths for the review, only when E2E_SHOTS_DIR is set (by hand). */
+test('screenshots of the Settings list and each item, dark (by hand only)', async ({ page }) => {
+  const dir = process.env.E2E_SHOTS_DIR;
+  test.skip(!dir || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+  test.setTimeout(240_000);
+  mkdirSync(dir!, { recursive: true });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  const shoot = async (path: string, name: string, width: number) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(path);
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await page.screenshot({ path: join(dir!, `${name}-${width}.png`), fullPage: true });
+  };
+  const items = [
+    'appearance',
+    'amounts',
+    'sign-in',
+    'meal-slots',
+    'shops-places',
+    'kitchen',
+    'household',
+    'sign-in-everyone',
+    'api-tokens',
+    'privacy',
+    'your-data',
+    'recent-changes',
+    'about',
+  ];
+  for (const width of [428, 768, 1100, 1300]) {
+    await shoot('/settings', 'list', width);
+    for (const item of items) await shoot(`/settings/${item}`, item, width);
+  }
+  await asMember(page);
+  for (const width of [428, 768, 1100, 1300]) {
+    await shoot('/settings', 'members-list', width);
+    await shoot('/settings/household', 'only-admins', width);
+  }
 });
