@@ -524,3 +524,23 @@ def test_the_setup_code_burst_gets_five_and_no_more(
     answers = burst(30, lambda: client.post("/api/v1/setup", json=wrong).status_code)
     assert len(judged) == auth.SlowDown.FREE
     assert answers.count(403) == auth.SlowDown.FREE
+
+
+def test_the_kept_guesses_cover_every_free_count_so_the_limit_cant_switch_off() -> None:
+    """B7 low (#255 review L1): a key keeps its newest KEEP times, and the wait needs more than
+    its free count plus the doublings up to its longest wait."""
+    slow = auth.SlowDown
+    for key in ("addr:x", "user:x", "dev:x", "change:x", "sso:x"):
+        free = slow()._free(key)
+        longest = slow()._longest(key)
+        doublings = 0
+        while slow.FIRST_WAIT * 2**doublings < longest:
+            doublings += 1
+        assert free + doublings < slow.KEEP
+    # And a flood is really held to the limit: the free ones, then a wait.
+    box = auth.SlowDown()
+    for _ in range(slow.SSO_FREE - 1):
+        box.failed(["sso:flood"], at=1000.0)
+    assert box.wait_seconds(["sso:flood"], at=1000.0) == 0
+    box.failed(["sso:flood"], at=1000.0)
+    assert box.wait_seconds(["sso:flood"], at=1000.0) > 0

@@ -198,16 +198,17 @@ class SlowDown:
     FIRST_WAIT = 30.0
     MAX_WAIT = 15 * 60.0
     MAX_USERNAME_WAIT = 60.0
-    # Each key keeps only its newest guesses: the wait needs no more than the count up to its
-    # cap and the newest time, and a flood of guesses can't grow the memory (A2 review r3).
-    KEEP = 60 + 64  # the most free tries of any key (`SSO_FREE`) and the doublings after
-    # Past this many doubles every wait is at its cap anyway; a bigger power would overflow.
-    MAX_DOUBLINGS = 30
-
     # Starting and finishing a single sign-on sign-in, counted per address (`sso:`; review R7):
     # not guesses, so a home gets many more free ones, and the wait never passes a minute (a
     # family on one network is never shut out for long).
     SSO_FREE = 60  # a start and a finish each: 30 sign-ins in 15 minutes
+    # Each key keeps only its newest guesses: the wait needs no more than the count up to its
+    # cap and the newest time, and a flood of guesses can't grow the memory (A2 review r3).
+    # The most free tries of any key and the doublings after. Written from the free counts, so
+    # raising one can't switch the limit off (B7 low): `_count` trims to it.
+    KEEP = max(FREE, SSO_FREE) + 64
+    # Past this many doubles every wait is at its cap anyway; a bigger power would overflow.
+    MAX_DOUBLINGS = 30
 
     def _longest(self, key: str) -> float:
         personal = key.startswith(("user:", "dev:", "change:", "sso:"))
