@@ -219,9 +219,10 @@ test('on a computer: an unticked recipe is left out, Save all, then Undo', async
   await expect(page.getByText(/Took out 2 recipes/)).toBeVisible();
 });
 
-// Round 2 (review 2): a member sees the import and the Today note, and can open and check a
-// draft, but has none of the admin's buttons (the server refuses them anyway).
-test('a member sees the import and Drafts without the admin’s buttons', async ({ page, browser, app }) => {
+// Round 2 (review 2): a member sees the Today note and can open and check a draft, but has none
+// of the admin's buttons (the server refuses them anyway). The import page itself is admins only
+// since Settings2 (cabledrawer 18 Nov, Q13): a member who opens its address is told so instead.
+test('a member sees the Today note and Drafts, not the import page', async ({ page, browser, app }) => {
   const tag = run();
   const key = () => ({ 'idempotency-key': crypto.randomUUID() });
   const name = `Sam ${tag}`;
@@ -292,9 +293,11 @@ test('a member sees the import and Drafts without the admin’s buttons', async 
       await expect(note).toContainText('3 recipes brought in from Mealie');
       await expect(note.getByRole('link', { name: 'Check them' })).toBeVisible();
 
-      // The import screen: what came in, and no button that changes anything.
+      // The import page is admins only (cabledrawer 18 Nov, Q13): its address says so, and shows
+      // nothing of the import and no button that changes anything.
       await them.goto('/settings/your-data/mealie');
-      await expect(them.getByText('3 recipes brought in')).toBeVisible();
+      await expect(them.getByText('Only admins can change this.')).toBeVisible();
+      await expect(them.getByText('3 recipes brought in')).toHaveCount(0);
       await expect(them.getByRole('button', { name: /Undo|Save all|Import another/ })).toHaveCount(0);
 
       // Drafts: the draft opens, with no Save all.
