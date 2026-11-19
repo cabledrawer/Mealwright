@@ -38,7 +38,7 @@ from urllib.parse import quote, urlsplit
 
 from fastapi import APIRouter, Request, Response, status
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select, update
 
 from mealwright import api_tokens, sso, sso_accounts
@@ -275,6 +275,21 @@ class ConfirmFor(BaseModel):
 
     action: Literal["delete_everything", "keep", "backup_now"] = "delete_everything"
     keep: int | None = Field(default=None, ge=1, le=30, description="For `keep`: the number.")
+
+    @model_validator(mode="after")
+    def _keep_goes_with_keep(self) -> ConfirmFor:
+        """Refused here, not after the whole sign-in: Keep needs its number; no other action
+        takes one."""
+        if (self.action == "keep") != (self.keep is not None):
+            raise ValueError("`keep` goes with the action `keep`, and only with it")
+        return self
+
+
+_ACTION_WORDS = {
+    "delete_everything": "Delete everything",
+    "keep": "Keep",
+    "backup_now": "Back up now",
+}
 
 
 @router.post("/sso/confirm")
@@ -549,7 +564,11 @@ def _finish_confirm(
         action=flow.action or "",  # unpack refused a confirm without one
         keep=flow.keep,
     )
-    log.info("Delete everything confirmed with single sign-on by %s", login.username)
+    log.info(
+        "A single sign-on confirmation for %s was given by %s",
+        _ACTION_WORDS.get(flow.action or "", "an action"),
+        login.username,
+    )
     return FinishOut(done="confirmed")
 
 

@@ -174,7 +174,5 @@ def test_drafts_that_cannot_be_saved_are_looked_at_once_not_on_every_answer(
     assert len(looked) == 2  # A and B, the first time only
     assert draft_names(kitchen) == ["Dish a", "Dish b", "Dish c"]
     with db(kitchen) as session:
-        first = session.scalars(
-            select(Change).where(Change.kind == "mealie_drafts_answered")
-        ).one()
+        first = session.scalars(select(Change).where(Change.kind == "mealie_drafts_answered")).one()
         assert first.undo_data["completed"] == []

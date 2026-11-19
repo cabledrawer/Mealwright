@@ -166,3 +166,36 @@ def test_the_other_modes_carry_no_action() -> None:
     packed = json.loads(flow.pack()) | {"action": "delete_everything"}
     with pytest.raises(sso.SsoFailed):
         sso.Flow.unpack(json.dumps(packed))
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"action": "keep"},
+        {"action": "keep", "keep": None},
+        {"action": "delete_everything", "keep": 3},
+        {"action": "backup_now", "keep": 3},
+        {"keep": 3},
+    ],
+)
+def test_keep_and_its_number_go_together_or_the_start_is_refused(
+    sso_only: TestClient, body: dict[str, Any]
+) -> None:
+    """Refused at the start (422), not after the admin has gone through the whole sign-in."""
+    refused = sso_only.post(f"{API}/sso/confirm", headers=ORIGIN, json=body)
+    assert refused.status_code == 422, refused.text
+    assert sso_only.cookies.get(COOKIE) is None  # no trip was begun
+
+
+def test_the_log_names_the_action_that_was_confirmed(
+    sso_only: TestClient, idp: FakeProvider, caplog: pytest.LogCaptureFixture
+) -> None:
+    url = _begin(sso_only, {"action": "backup_now"})
+    code, state = idp.sign_in(url, sub="admin-1", extra=ADMINS)
+    with caplog.at_level("INFO", logger=sso_api.log.name):
+        assert (
+            sso_only.post(f"{API}/sso/finish", json={"state": state, "code": code}).status_code
+            == 200
+        )
+    said = " ".join(r.getMessage() for r in caplog.records)
+    assert "confirmation for Back up now" in said and "Delete everything" not in said
