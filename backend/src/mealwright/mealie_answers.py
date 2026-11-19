@@ -574,6 +574,59 @@ def finish(kitchen: Kitchen, done: Answered) -> Answered:
     return done
 
 
+LEFT_BEHIND_CHANGES = 20  # the newest answers looked at when finishing what a stop left
+
+
+def finish_left_behind(kitchen: Kitchen) -> int:
+    """Finish an answer a stop interrupted (round 2, L3): the answers and the change are
+    committed first and the completed drafts are saved after, in short stretches (`finish`), so a
+    server stopped between the two leaves drafts whose every line is answered still in Drafts.
+    Each such draft is still listed in its change's `partial` (a stretch moves a draft from
+    `partial` to `saved` in the same commit as its recipe), so this looks at the household's
+    newest answers (not undone, inside the Undo window) and runs `finish` on the drafts of each
+    that are live Mealie drafts with every line answered. `finish` looks at each draft again and
+    only moves one still complete and unchanged, so a draft is never moved twice, Undo brings it
+    back as for any other, and a draft the person has since answered further or changed is left
+    alone. Newest first: a draft completed by a later answer belongs to that answer. Called
+    before the next answer is applied (never on a GET, which changes nothing). Returns how many
+    drafts were moved."""
+    from mealwright.household import undo_window
+
+    moved = 0
+    changes = kitchen.db.scalars(
+        select(Change)
+        .where(
+            Change.household_id == kitchen.household_id,
+            Change.kind == KIND,
+            Change.undone_by_change_id.is_(None),
+            Change.at > utcnow() - undo_window(kitchen.household),
+        )
+        .order_by(Change.id.desc())
+        .limit(LEFT_BEHIND_CHANGES)
+    ).all()
+    for change in changes:
+        asked = [int(e["draft_id"]) for e in (change.undo_data or {}).get("partial", [])]
+        if not asked:
+            continue
+        waiting = set(
+            kitchen.db.scalars(
+                select(ImportDraft.id).where(
+                    ImportDraft.id.in_(asked),
+                    *drafts.live(kitchen.household_id, utcnow()),
+                    ImportDraft.mealie_import_id.is_not(None),
+                    ImportDraft.lines_total > 0,
+                    ImportDraft.lines_checked >= ImportDraft.lines_total,
+                )
+            )
+        )
+        todo = [i for i in asked if i in waiting]
+        if todo:
+            before = len((change.undo_data or {}).get("saved", []))
+            done = finish(kitchen, Answered(change, 0, 0, None, todo))
+            moved += max(0, done.moved - before)
+    return moved
+
+
 def _save_one(
     kitchen: Kitchen,
     draft_id: int,

@@ -247,7 +247,7 @@
         "frontend/src/routes/(app)/settings/your-data/mealie/**", "frontend/src/lib/components/mealie/**", "frontend/src/lib/client/mealie.ts",
         "frontend/src/lib/mealie*", "frontend/src/lib/groupWords*", "frontend/src/lib/components/drafts/IngredientGroups*", "frontend/src/lib/components/today/MealieNote*"
       ],
-      "backend": ["test_mealie_file.py", "test_mealie_import.py", "test_mealie_answers.py", "test_mealie_answers_fix1.py", "test_mealie_answers_fix2.py", "test_mealie_photo_review_fixes.py", "test_b7_lows_files.py", "test_migration_mealie_import.py"],
+      "backend": ["test_mealie_file.py", "test_mealie_import.py", "test_mealie_answers.py", "test_mealie_answers_fix1.py", "test_mealie_answers_fix2.py", "test_mealie_answers_left_behind.py", "test_mealie_photo_review_fixes.py", "test_b7_lows_files.py", "test_migration_mealie_import.py"],
       "browser": ["mealie.spec.ts", "mealie-groups.spec.ts"]
     },
     {
@@ -273,7 +273,7 @@
         "test_api_tokens_sso.py", "test_api_tokens_sign_out.py", "test_api_tokens_guards.py",
         "test_sso_passwords_off_class.py", "test_sso_refused.py", "test_sso_restart.py",
         "test_sso_slow_provider.py", "test_sso_kept.py", "test_sso_waiting.py", "test_sso_unlink.py", "test_sso_join_links.py", "test_sso_switch_off.py", "test_sso_auto_link.py", "test_migration_sso_accounts.py",
-        "test_sso_session_limits.py", "test_login_ids.py", "test_sso_confirm_delete.py"
+        "test_sso_session_limits.py", "test_login_ids.py", "test_sso_confirm_delete.py", "test_sso_confirm_sealed.py"
       ],
       "browser": ["sign-in.spec.ts", "csp.spec.ts", "my-sign-in.spec.ts", "sso.spec.ts", "api-tokens.spec.ts"]
     },

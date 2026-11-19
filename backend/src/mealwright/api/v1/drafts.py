@@ -87,6 +87,9 @@ def answer_by_ingredient(body: GroupAnswer, kitchen: Here, response: Response) -
     whose lines are all answered is saved as a recipe and leaves Drafts. One change, with an Undo
     (`POST /changes/{id}/undo`, 7 days) that puts the answers back, brings those recipes back to
     Drafts, and takes out an ingredient it made only if nothing else uses it."""
+    # First finish what a stop left (Final, #260 round 2 L3): drafts an earlier answer completed
+    # but the server stopped before moving them to Recipes.
+    mealie_answers.finish_left_behind(kitchen)
     earlier = replayed(kitchen)
     if earlier is None:
         lock_household(kitchen)
