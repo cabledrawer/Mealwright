@@ -123,12 +123,21 @@ NO_RECIPE_IN_TEXT = (
 )
 MEMBER_SWITCHED_OFF = "Importing from links is switched off. An admin can switch it on."
 ALREADY = "You already have this recipe"
-# What a member is told for any link Mealwright won't open for a network reason, so no member can
-# map internal names by the code (B7 low). Proposed, for cabledrawer.
+# What a member is told for any link Mealwright won't open or can't reach, whatever the cause
+# (refused as a network address, name not found, connection refused, too slow, TLS failure), so no
+# member can map the home network by the answer (B7 low; cabledrawer 18 Nov, Q10: one message for
+# "can't reach" and "can't open the link"). The cause stays in the local log only. The same
+# sentence as before, which stays true for both. Proposed, for cabledrawer.
 MEMBER_CANT_OPEN = (  # proposed, for cabledrawer
     "Mealwright can’t open that link. Ask an admin if it should be allowed."
 )
-_NETWORK_REASONS = (FetchProblem.ALWAYS_BLOCKED, FetchProblem.OWN_NETWORK, FetchProblem.ODD_PORT)
+_NETWORK_REASONS = (
+    FetchProblem.ALWAYS_BLOCKED,
+    FetchProblem.OWN_NETWORK,
+    FetchProblem.ODD_PORT,
+    FetchProblem.CANT_REACH,
+    FetchProblem.TIMEOUT,
+)
 
 
 # --- The one box ------------------------------------------------------------------------------
@@ -154,10 +163,18 @@ def several_links(text: str) -> list[str]:
 
 
 def _hides_network_reason(why: FetchProblem, kitchen: Kitchen) -> bool:
-    """A member is never told which network reason refused a link (B7 low): only an admin is."""
+    """A member is never told which network reason stopped a link (B7 low; Q10): only an admin
+    is. "Can't reach" and "too slow" are among them: told apart from "can't open", they would
+    let a member find out which home-network names exist."""
     return why in _NETWORK_REASONS and not roles.allowed(
         kitchen.login.role, roles.Action.PRIVACY, kitchen.by_token
     )
+
+
+def _shown(why: FetchProblem, kitchen: Kitchen) -> str:
+    """The sentence a person is shown for a fetch that failed: the same one for every
+    network reason when they are a member."""
+    return MEMBER_CANT_OPEN if _hides_network_reason(why, kitchen) else page_fetch.MESSAGES[why]
 
 
 def _problem(why: FetchProblem, kitchen: Kitchen) -> Problem:
@@ -372,20 +389,18 @@ def _hold_photo(kitchen: Kitchen, gate: OutboundGate, url: str | None, left: Lef
     if url is None:
         return ReviewPhoto(state="none")
     if left() <= 0:  # the page used all of the import's 30 seconds
-        return ReviewPhoto(state="failed", message=page_fetch.MESSAGES[FetchProblem.TIMEOUT])
+        return ReviewPhoto(state="failed", message=_shown(FetchProblem.TIMEOUT, kitchen))
     try:
         cleaned = page_fetch.download_photo(gate, kitchen.household_id, url, seconds=left())
     except FetchRefused as refused:
         if refused.problem == FetchProblem.PHOTO_SWITCHED_OFF:
             return ReviewPhoto(state="off", message=refused.message)
-        if _hides_network_reason(refused.problem, kitchen):
-            return ReviewPhoto(state="failed", message=MEMBER_CANT_OPEN)
-        return ReviewPhoto(state="failed", message=refused.message)
+        return ReviewPhoto(state="failed", message=_shown(refused.problem, kitchen))
     except Exception as error:  # anything the download didn't expect: the photo only
         log.warning(
             "Couldn't fetch a photo: %s, %s", LABELS[Connection.RECIPE_PHOTOS], _kind(error)
         )
-        return ReviewPhoto(state="failed", message=page_fetch.MESSAGES[FetchProblem.CANT_REACH])
+        return ReviewPhoto(state="failed", message=_shown(FetchProblem.CANT_REACH, kitchen))
     row = _store_waiting(kitchen, cleaned)
     if row is None:
         return ReviewPhoto(state="failed", message=photos.TOO_MANY_WAITING)

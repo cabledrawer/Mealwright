@@ -429,7 +429,7 @@ Written by Claude Code on 22 Oct from the 0.5 mockups (`Import05-*`, `Drafts05-*
   - Always blocked: Mealwright never opens links to this server itself or to cloud “metadata” addresses.
   - On your own network: That link is on your own network. An admin can allow it in Settings → Privacy, under “Your own network”.
   - An unusual port: That link uses an unusual port. An admin can allow it in Settings → Privacy, under “Your own network”.
-  - What a member sees for any of those three, in the answer and on the review's photo (code `cant_open_link`; proposed, for cabledrawer): Mealwright can’t open that link. Ask an admin if it should be allowed.
+  - What a member sees for any of those three, and (cabledrawer 18 Nov, Q10) for “Can’t reach it” and “Too slow” below, and for anything the fetch didn’t expect, in the answer and on the review's photo (code `cant_open_link`; proposed, for cabledrawer, the sentence that stays true for all of them; an admin still sees each reason): Mealwright can’t open that link. Ask an admin if it should be allowed.
   - Too many redirects: That link sends you on too many times. Try the recipe’s own link.
   - Can’t reach it: Couldn’t reach that site. Check the link, or try again later.
   - Too slow: That site took too long to answer. Try again later.

@@ -3,6 +3,7 @@ decided for 0.5"). The web is faked: no test goes online. The page fetch and the
 download are replaced by pages and pictures made here; the rest (the switches, the reader, the
 matching, the database, Save and Undo) is the real thing."""
 
+import json
 import logging
 from collections.abc import Iterator
 from pathlib import Path
@@ -26,6 +27,7 @@ from mealwright.models import (
 )
 from mealwright.outbound import Connection, set_switch
 from mealwright.page_fetch import FetchedPage, FetchRefused, Problem
+from mealwright.recipe_import import MEMBER_CANT_OPEN
 
 API = "/api/v1"
 PAGES = Path(__file__).parent / "import_pages"
@@ -394,6 +396,65 @@ def test_a_member_gets_one_code_for_every_network_refusal(
     assert answer.json()["code"] == "cant_open_link"
     assert answer.json()["detail"].startswith("Mealwright can’t open that link.")
     assert start(links_on, LINK).json()["code"] == problem.value  # an admin keeps the reason
+
+
+MEMBER_CAUSES: list[Any] = [
+    FetchRefused(Problem.ALWAYS_BLOCKED),  # a private address (this server, metadata)
+    FetchRefused(Problem.OWN_NETWORK),  # a private address, not listed
+    FetchRefused(Problem.ODD_PORT),
+    FetchRefused(Problem.CANT_REACH),  # name not found, connection refused, TLS failure
+    FetchRefused(Problem.TIMEOUT),
+    ValueError("something the fetch did not expect"),
+]
+
+
+def _everything_but_the_date(response: Any) -> tuple[int, bytes, dict[str, str]]:
+    return (
+        response.status_code,
+        response.content,
+        {k: v for k, v in response.headers.items() if k.lower() != "date"},
+    )
+
+
+def test_a_member_gets_byte_for_byte_one_answer_for_every_way_a_link_can_fail(
+    links_on: TestClient, web: Web
+) -> None:
+    """Q10 (cabledrawer 18 Nov): "can't reach" and "can't open the link" are one answer for a
+    member, so no member can probe home-network names by the answer: same status, same body,
+    same headers, whatever the cause."""
+    member = person(links_on)
+    answers = []
+    for cause in MEMBER_CAUSES:
+        web.pages[LINK] = cause
+        answers.append(_everything_but_the_date(start(member, LINK)))
+    assert answers[0][0] == 422
+    assert json.loads(answers[0][1])["code"] == "cant_open_link"
+    assert all(answer == answers[0] for answer in answers)
+
+
+def test_a_member_gets_one_photo_message_for_every_way_a_photo_can_fail(
+    links_on: TestClient, web: Web
+) -> None:
+    switch(links_on, Connection.RECIPE_PHOTOS)
+    member = person(links_on)
+    shown = []
+    for cause in MEMBER_CAUSES:
+        web.photo = cause
+        shown.append(review(member, LINK, again=True)["photo"])
+    assert shown[0]["state"] == "failed" and shown[0]["message"] == MEMBER_CANT_OPEN
+    assert all(one == shown[0] for one in shown)
+
+
+def test_an_admin_still_hears_the_reason(links_on: TestClient, web: Web) -> None:
+    """The admins can change the Privacy settings the reasons point to (B7 low), so they keep
+    them."""
+    codes = []
+    for cause in MEMBER_CAUSES[:5]:
+        web.pages[LINK] = cause
+        codes.append(start(links_on, LINK).json()["code"])
+    assert codes == [
+        "always_blocked", "own_network", "odd_port", "cant_reach", "timeout"
+    ]  # fmt: skip
 
 
 @pytest.mark.parametrize("problem", [Problem.ALWAYS_BLOCKED, Problem.OWN_NETWORK, Problem.ODD_PORT])
