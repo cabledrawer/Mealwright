@@ -6,6 +6,8 @@ sign-ins never do; one household never sees another's; the format says what it i
 
 import io
 import json
+import os
+import threading
 import zipfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -468,3 +470,29 @@ def test_a_file_that_resolves_outside_the_photos_root_is_skipped(tmp_path: Path)
         (outside / name).write_bytes(jpeg())
         (household_folder(store, 1) / name).symlink_to(outside / name)
     assert export.photo_files(store, 1, _rows("a" * 32)) == []
+
+
+def test_a_pipe_put_in_place_of_a_photo_is_skipped_and_the_export_finishes(
+    tmp_path: Path,
+) -> None:
+    """PR #258 review: a named pipe swapped in for a photo after the list was made held the
+    export for ever (opening one waits for a writer). It is opened without waiting and skipped."""
+    store = tmp_path / "store"
+    folder = household_folder(store, 1)
+    folder.mkdir(parents=True)
+    name = "a" * 32
+    os.mkfifo(folder / (name + ".jpg"))
+    (folder / (name + "-list.jpg")).write_bytes(jpeg())
+    doc = {"format": export.FORMAT, "version": 1, "tables": {}}
+    out: list[bytes] = []
+
+    def run() -> None:
+        both = [folder / (name + ".jpg"), folder / (name + "-list.jpg")]
+        out.append(b"".join(export.zip_stream(doc, both)))
+
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    worker.join(timeout=10)
+    assert not worker.is_alive(), "the export hung on a pipe"
+    with zipfile.ZipFile(io.BytesIO(out[0])) as archive:
+        assert sorted(archive.namelist()) == [export.DOCUMENT, "photos/" + name + "-list.jpg"]

@@ -23,6 +23,7 @@ network connection.
 import json
 import os
 import re
+import stat
 import zipfile
 from collections.abc import Iterator
 from datetime import date, datetime
@@ -156,12 +157,18 @@ def _plain_file_below_root(store: Path, path: Path) -> bool:
 def _open_below_root(path: Path) -> int:
     """A photo file opened for reading without following a link in the household's folder or in
     the file's own name (the check above can be beaten by a swap made after it): the folder is
-    opened first, itself never as a link, then the file inside it. Raises OSError."""
+    opened first, itself never as a link, then the file inside it. Opened without waiting (a
+    pipe put in the file's place would otherwise hold the export for ever) and kept only if it is
+    a plain file. Raises OSError."""
     folder = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        return os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=folder)
+        fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=folder)
     finally:
         os.close(folder)
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        os.close(fd)
+        raise OSError("not a plain file")
+    return fd
 
 
 class _Pipe:
@@ -199,7 +206,7 @@ def zip_stream(doc: dict[str, Any], photos: list[Path]) -> Iterator[bytes]:
             except OSError:
                 continue
             with source:
-                info = zipfile.ZipInfo(PHOTOS + path.name, date_time=_zip_time(path))
+                info = zipfile.ZipInfo(PHOTOS + path.name, date_time=_zip_time(source.fileno()))
                 info.compress_type = zipfile.ZIP_STORED  # a JPEG doesn't get smaller
                 with archive.open(info, "w") as entry:
                     while chunk := source.read(_CHUNK):
@@ -209,9 +216,9 @@ def zip_stream(doc: dict[str, Any], photos: list[Path]) -> Iterator[bytes]:
     yield pipe.take()
 
 
-def _zip_time(path: Path) -> tuple[int, int, int, int, int, int]:
+def _zip_time(fd: int) -> tuple[int, int, int, int, int, int]:
     try:
-        moment = datetime.fromtimestamp(path.stat().st_mtime)  # zip times are local
+        moment = datetime.fromtimestamp(os.fstat(fd).st_mtime)  # zip times are local
     except OSError:
         moment = datetime(1980, 1, 1)
     if moment.year < 1980:
