@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import type { MealieImport, PreviewRecipe } from '#lib/client/mealie.js';
 import { POLL_MS } from '#lib/mealieFlow.svelte.js';
+import { readyWords } from '#lib/mealieWords.js';
 import { network } from '#lib/network.svelte.js';
 import { session } from '#lib/session.svelte.js';
 import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
@@ -317,6 +318,26 @@ describe('Import from Mealie', () => {
         .toBeVisible();
       await page.getByRole('checkbox', { name: 'Bring in Green curry' }).click(); // is ready
       await expect.element(page.getByText('1 recipe ready, 0 go to Drafts to check')).toBeVisible();
+    });
+
+    it('on a phone there are no tick boxes (the simple version): every new recipe counts, by the same function as the computer, and all are brought in (round 1, finding 1)', async () => {
+      let job = READY;
+      await open({
+        'GET /mealie-imports/current': () => [200, { current: job }],
+        'POST /mealie-imports/7/start': () => {
+          job = RUNNING;
+          return [200, RUNNING];
+        }
+      });
+      await expect
+        .element(page.getByText('2 recipes ready, 1 goes to Drafts to check'))
+        .toBeVisible();
+      expect(page.getByRole('checkbox').elements()).toHaveLength(0);
+      // The words are what readyWords gives with nothing left out, the number the computer starts at.
+      expect(readyWords(READY.preview)).toBe('2 recipes ready, 1 goes to Drafts to check');
+      await page.getByRole('button', { name: 'Bring in 3 recipes' }).click();
+      await expect.element(page.getByText('Bringing in recipes…')).toBeVisible();
+      expect(sent('POST', '/mealie-imports/7/start')[0]!.body).toMatchObject({ leave_out: [] });
     });
 
     it('Undo names the recipes it kept (F248)', async () => {
