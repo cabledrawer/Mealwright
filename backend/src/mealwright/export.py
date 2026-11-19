@@ -127,9 +127,41 @@ def photo_files(store: Path, household_id: int, doc: dict[str, Any]) -> list[Pat
         except ValueError:  # not a key Mealwright made
             continue
         for path in copies:
-            if _PHOTO_FILE.match(path.name) and not path.is_symlink() and path.is_file():
+            if _PHOTO_FILE.match(path.name) and _plain_file_below_root(store, path):
                 found.add(path)
     return sorted(found)
+
+
+def _plain_file_below_root(store: Path, path: Path) -> bool:
+    """Whether `path` (a photo file under `store`) is a plain file reached without a symbolic
+    link below the photos root (PR #258 L2; cabledrawer 18 Nov brief). The root itself may be a
+    link (`/data/photos` pointing elsewhere is a normal setup); the household's folder and the
+    file may not, and the file must be inside the root. Anything else is skipped, as a linked
+    file always was."""
+    try:
+        relative = path.relative_to(store)
+    except ValueError:
+        return False
+    below = store
+    for part in relative.parts:
+        below = below / part
+        if below.is_symlink():
+            return False
+    try:
+        return path.resolve().is_relative_to(store.resolve()) and path.is_file()
+    except OSError:
+        return False
+
+
+def _open_below_root(path: Path) -> int:
+    """A photo file opened for reading without following a link in the household's folder or in
+    the file's own name (the check above can be beaten by a swap made after it): the folder is
+    opened first, itself never as a link, then the file inside it. Raises OSError."""
+    folder = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        return os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=folder)
+    finally:
+        os.close(folder)
 
 
 class _Pipe:
@@ -162,8 +194,8 @@ def zip_stream(doc: dict[str, Any], photos: list[Path]) -> Iterator[bytes]:
         archive.writestr(DOCUMENT, json.dumps(doc, ensure_ascii=False, indent=1))
         yield pipe.take()
         for path in photos:
-            try:  # never through a symbolic link put in the file's place meanwhile
-                source = os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), "rb")
+            try:  # never through a symbolic link put in the file's or its folder's place meanwhile
+                source = os.fdopen(_open_below_root(path), "rb")
             except OSError:
                 continue
             with source:

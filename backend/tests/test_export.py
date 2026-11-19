@@ -420,3 +420,51 @@ def test_an_error_while_making_the_key_does_not_keep_the_place(
         with pytest.raises(MemoryError):
             kitchen.post(API, json={"password": SEALED_PASSWORD})
     assert kitchen.post(API, json={"password": SEALED_PASSWORD}).status_code == 200
+
+
+def test_a_link_in_place_of_the_households_folder_is_not_followed(tmp_path: Path) -> None:
+    """PR #258 L2: the check looked only at the last part of the path, so a link standing where
+    the household's photo folder should be was followed to whatever it points at."""
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / ("a" * 32 + ".jpg")).write_bytes(b"not for the export")
+    (elsewhere / ("a" * 32 + "-list.jpg")).write_bytes(jpeg())
+    store = tmp_path / "store"
+    store.mkdir()
+    household_folder(store, 1).symlink_to(elsewhere, target_is_directory=True)
+    assert export.photo_files(store, 1, _rows("a" * 32)) == []
+    # Swapped in after the list was made: the file is skipped when it is opened.
+    doc = {"format": export.FORMAT, "version": 1, "tables": {}}
+    data = b"".join(export.zip_stream(doc, [household_folder(store, 1) / ("a" * 32 + ".jpg")]))
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        assert archive.namelist() == [export.DOCUMENT]
+
+
+def test_a_link_at_the_photos_root_itself_still_exports(tmp_path: Path) -> None:
+    """`/data/photos` pointing elsewhere is a normal setup: it keeps working."""
+    real = tmp_path / "bigger-disk"
+    folder = household_folder(real, 1)
+    folder.mkdir(parents=True)
+    (folder / ("a" * 32 + ".jpg")).write_bytes(jpeg())
+    (folder / ("a" * 32 + "-list.jpg")).write_bytes(jpeg())
+    store = tmp_path / "photos"
+    store.symlink_to(real, target_is_directory=True)
+    found = export.photo_files(store, 1, _rows("a" * 32))
+    assert [p.name for p in found] == ["a" * 32 + "-list.jpg", "a" * 32 + ".jpg"]
+    doc = {"format": export.FORMAT, "version": 1, "tables": {}}
+    data = b"".join(export.zip_stream(doc, found))
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        assert sorted(archive.namelist()) == sorted(
+            [export.DOCUMENT, "photos/" + "a" * 32 + ".jpg", "photos/" + "a" * 32 + "-list.jpg"]
+        )
+
+
+def test_a_file_that_resolves_outside_the_photos_root_is_skipped(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    household_folder(store, 1).mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    for name in ("a" * 32 + ".jpg", "a" * 32 + "-list.jpg"):
+        (outside / name).write_bytes(jpeg())
+        (household_folder(store, 1) / name).symlink_to(outside / name)
+    assert export.photo_files(store, 1, _rows("a" * 32)) == []
