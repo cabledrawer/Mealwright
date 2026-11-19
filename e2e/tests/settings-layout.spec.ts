@@ -55,10 +55,25 @@ test('a computer: the main menu folds to icons with names and tooltips, and the 
   await expect(list(page).getByRole('link', { name: 'Amounts', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(list(page).getByRole('link', { name: 'Appearance', exact: true })).not.toHaveAttribute('aria-current');
   await checkPage(page);
-  // The way back to the app: the menu opens out again on any other page.
-  await side.getByRole('link', { name: 'Show the menu' }).click();
-  await expect(page).toHaveURL('/');
+  // Show the menu (Q3, cabledrawer 18 Nov): a button that unfolds the menu in place, on the same
+  // Settings page, and the same button folds it again.
+  const show = side.getByRole('button', { name: 'Show the menu' });
+  await expect(show).toHaveAttribute('aria-expanded', 'false');
+  await show.click();
+  await expect(page).toHaveURL('/settings/amounts');
   await expect(side.getByRole('link', { name: 'Today', exact: true })).toContainText('Today');
+  await expect(list(page).getByRole('link', { name: 'Amounts', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { level: 1, name: 'Amounts' })).toBeVisible();
+  await expect(side.getByRole('button', { name: 'Collapse sidebar' })).toHaveAttribute('aria-expanded', 'true');
+  await side.getByRole('button', { name: 'Collapse sidebar' }).click();
+  await expect(side.getByText('Mealwright', { exact: true })).toHaveCount(0);
+  // Open again, then leave Settings: the menu is open on Today, and back in Settings it is folded again.
+  await side.getByRole('button', { name: 'Show the menu' }).click();
+  await side.getByRole('link', { name: 'Today', exact: true }).click();
+  await expect(page).toHaveURL('/');
+  await expect(side.getByRole('button', { name: 'Collapse sidebar' })).toBeVisible();
+  await page.goto('/settings/amounts');
+  await expect(side.getByRole('button', { name: 'Show the menu' })).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('a computer: /settings opens Appearance, and each item shows only its own page', async ({ page }) => {
@@ -227,5 +242,28 @@ test('screenshots of the Settings list and each item, dark (by hand only)', asyn
   for (const width of [428, 768, 1100, 1300]) {
     await shoot('/settings', 'members-list', width);
     await shoot('/settings/household', 'only-admins', width);
+  }
+});
+
+/** Settings with the menu folded and unfolded (Q3), dark, only when E2E_SHOTS_DIR is set (by hand). */
+test('screenshots of Settings with the menu folded and unfolded, dark (by hand only)', async ({
+  page,
+}) => {
+  const dir = process.env.E2E_SHOTS_DIR;
+  test.skip(!dir || !test.info().project.name.startsWith('desktop'), 'by hand, desktop project');
+  mkdirSync(dir!, { recursive: true });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  for (const width of [428, 768, 1100, 1300]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/settings/amounts');
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { level: 1, name: 'Amounts' })).toBeVisible();
+    await page.screenshot({ path: join(dir!, `settings-folded-${width}.png`) });
+    const show = page.getByRole('button', { name: 'Show the menu' });
+    if (await show.isVisible()) {
+      await show.click();
+      await expect(page.getByRole('button', { name: 'Collapse sidebar' })).toBeVisible();
+    }
+    await page.screenshot({ path: join(dir!, `settings-unfolded-${width}.png`) });
   }
 });

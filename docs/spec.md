@@ -73,7 +73,7 @@ Hard rules (no exceptions):
 
 ### Layout decisions from mockup feedback (cabledrawer 17 Oct)
 
-- **Sidebar** collapses to icons only (logo, search, the five pages with count badges + tooltips, theme button, avatar; expand button). Toggle on every page, remembered per device; Plan starts collapsed (proposed). The avatar opens Settings.
+- **Sidebar** collapses to icons only (logo, search, the five pages with count badges + tooltips, theme button, avatar; expand button). Toggle on every page, remembered per device; Plan starts collapsed (proposed). The avatar opens Settings. **In Settings on a computer (cabledrawer 18 Nov, Q3):** the menu is folded to icons and its top button, "Show the menu", unfolds it in place (you stay on the same Settings page); the same button, then named "Collapse sidebar", folds it again, and leaving Settings folds it back for next time (proposed, for cabledrawer). The saved Collapse / Expand choice is never changed by this.
 - **Plan (desktop):** compact one-line header (title, week arrows + Today, Meals toggles, colour key, Week/Month); the week grid fills the height; recipe tray sits below the plan as a slim horizontal strip (collapsible), not a side column. Meal cards carry more info: fresh meals = photo strip, time, kcal; tubs = tub number, whose, kcal/protein; cook days = prep note ("Soak chickpeas Tue night") or "1 ingredient on the list". Row labels (Breakfast/Lunch/Snack/Dinner) all run the same direction (vertical) — cabledrawer flagged the inconsistency.
 - **Meals (cabledrawer 17 Oct):**
   - A meal can hold several recipes/items (e.g. Dosa + Coconut chutney; a leftover tub + fresh Jeera rice). Meal shows "2 recipes · 590 kcal" and a + to add another; dropping a recipe on a filled meal adds it alongside.

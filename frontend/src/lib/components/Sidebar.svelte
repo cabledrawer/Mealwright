@@ -31,8 +31,17 @@
 
   const settingsCurrent = $derived(page.url.pathname.startsWith('/settings'));
   // In Settings the menu folds to its icons and the Settings list takes its place beside the page
-  // (F252, cabledrawer 15 Nov). The saved choice (sidebar.collapsed) is left as it was.
-  const collapsed = $derived(sidebar.collapsed || settingsCurrent);
+  // (F252, cabledrawer 15 Nov). "Show the menu" unfolds it in place (Q3, cabledrawer 18 Nov); leaving
+  // Settings folds it back for next time (proposed, for cabledrawer). The saved choice
+  // (sidebar.collapsed) is never changed here.
+  let unfolded = $state(false);
+  const collapsed = $derived(settingsCurrent ? !unfolded : sidebar.collapsed);
+  const toggleName = $derived(
+    !collapsed ? 'Collapse sidebar' : settingsCurrent ? 'Show the menu' : 'Expand sidebar'
+  );
+  $effect(() => {
+    if (!settingsCurrent) unfolded = false;
+  });
 
   // The number beside Drafts (mockup Drafts05-Desktop). It is asked for once when the app opens
   // and again when the connection comes back; changes made here update it at once. Another
@@ -59,23 +68,16 @@
       <Logo size={collapsed ? 40 : 32} />
       {#if !collapsed}<span class="wordmark">Mealwright</span>{/if}
     </a>
-    {#if settingsCurrent}
-      <!-- In Settings the menu is always folded; this opens the app's own pages again (proposed, for cabledrawer). -->
-      <a class="toggle" href={resolve('/(app)')} aria-label="Show the menu" title="Show the menu">
-        <Icon name="expand" size={18} stroke={2.2} />
-      </a>
-    {:else}
-      <button
-        type="button"
-        class="toggle"
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        aria-expanded={!collapsed}
-        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        onclick={() => sidebar.toggle()}
-      >
-        <Icon name={collapsed ? 'expand' : 'collapse'} size={18} stroke={2.2} />
-      </button>
-    {/if}
+    <button
+      type="button"
+      class="toggle"
+      aria-label={toggleName}
+      aria-expanded={!collapsed}
+      title={toggleName}
+      onclick={() => (settingsCurrent ? (unfolded = !unfolded) : sidebar.toggle())}
+    >
+      <Icon name={collapsed ? 'expand' : 'collapse'} size={18} stroke={2.2} />
+    </button>
   </div>
 
   <nav aria-label="Main">
