@@ -27,12 +27,20 @@ The second 0.9.5 test version: the fixes from cabledrawer's hand test of beta.1 
 - **The Mealie preview says "N recipes ready, M go to Drafts to check"** over the recipes still ticked (F247), and the import's Undo names the recipes it kept (F248) (both proposed, for cabledrawer).
 - Ingredients is its own main-menu item after Pantry (F251). A passed date just says **Date passed** (F250). Every Copy button says Copied for two seconds (F237). The only admin's own page says why Member can't be picked (F238). Printing: no blank last page, and a printed recipe has no "N missing" or "Add to the list" (F235, F236). Offline pages hide buttons that need the server (F240).
 - The plan questions (method, start, Who's this) retry after a failed load instead of going on without an answer (B4).
+- **Settings: Show the menu unfolds the main menu in place (Q3, cabledrawer 18 Nov)** instead of leaving Settings; the same button folds it again, and leaving Settings folds it back (that last part proposed, for cabledrawer).
+- **Members no longer see the Mealie import page (Q13, cabledrawer 18 Nov):** opening its address says "Only admins can change this."; Today's note and Check them stay.
+- **Recipe import: a member gets one answer** whether a link can't be reached or isn't allowed (Q10, cabledrawer 18 Nov); an admin still sees each reason.
+- **Scanner exceptions (Q14, cabledrawer 18 Nov):** the picomatch warning (GHSA-fc5q-39xc-vjpf, High 8.7, dev tools only) is allowed until 28 Nov 2026; the deepmerge one is gone.
+- **Docs (cabledrawer 18 Nov):** the unused reset link is on Your sign-in (Q5); Back up now at a full folder asks for the password (Q1); backup Keep stays one number for the whole install for now, on the before-1.0 list (Q11).
 
 ### Fixed
 
 - **Break-it review of beta.1 (B7):** an upgrade is all or nothing; a restored copy ends its sign-ins at start-up; unlinking single sign-on stops that person's API tokens; signed-out single sign-on tries are counted per address; Mealie import Undo no longer takes out your ingredients merged with the import's; Save all keeps recipes added during its pauses; photo files of half-saved changes are cleared.
 - **24 low findings** from the same review (#257, #258): 19 fixed, 2 were not real, and the rest are listed in the handover.
 - An imported recipe's wait is taken off its total only once (L6).
+- **A single sign-on confirmation is sealed to the one action it was started for (Q2, cabledrawer 18 Nov):** a second request can no longer turn a Keep confirmation into Delete everything.
+- **Mealie drafts answered by ingredient:** drafts a server stop left in Drafts are finished by the next answer (once each; Undo works as usual).
+- **Export:** never follows a symbolic link below the photos folder, and skips anything that is not a plain file (a pipe swapped in for a photo no longer holds the export up).
 
 ## [0.9.5-beta.1] - 2026-11-15
 
