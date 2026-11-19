@@ -178,6 +178,8 @@ def _begin(
     remember: bool = False,
     login_id: int | None = None,
     retried: bool = False,
+    action: str | None = None,
+    keep: int | None = None,
 ) -> sso.Started:
     """Begin a sign-in or a test: where to send the browser. Raises SsoFailed."""
     row = _row(db)
@@ -197,6 +199,8 @@ def _begin(
                 remember=remember,
                 login_id=login_id,
                 retried=retried,
+                action=action,
+                keep=keep,
                 ask_login=mode == "sign_in" and signed_out_here(request),
             )
     except sso.SsoFailed as failure:
@@ -291,16 +295,21 @@ def confirm(
             "use_password",
             "Confirm Delete everything with your password.",
         )
+    asked = body or ConfirmFor()
     try:
-        started = _begin(request, kitchen.db, mode="confirm", login_id=kitchen.login.id)
+        # What it is for goes into the trip itself, sealed with it (cabledrawer 18 Nov, Q2): a
+        # second request for the same login can't change what this browser's trip confirms.
+        started = _begin(
+            request,
+            kitchen.db,
+            mode="confirm",
+            login_id=kitchen.login.id,
+            action=asked.action,
+            keep=asked.keep if asked.action == "keep" else None,
+        )
     except sso.SsoFailed as failure:
         raise _refused(failure) from None
     _bind(response, settings, started)
-    asked = body or ConfirmFor()
-    request.app.state.sso_confirm_for[kitchen.login.id] = (
-        asked.action,
-        asked.keep if asked.action == "keep" else None,
-    )
     return TestStarted(url=started.url)
 
 
@@ -533,13 +542,12 @@ def _finish_confirm(
     if sso_accounts.role_for(row, identity.groups) != ADMIN:
         raise sso.SsoFailed("not_let_in")
     sso.confirm_fresh(flow, identity)
-    for_what = request.app.state.sso_confirm_for.pop(login.id, ("delete_everything", None))
     request.app.state.sso_confirmed[flow.household_id] = Confirmed(
         login_id=login.id,
         session_token_hash=signed_in.session.token_hash,
         expires=time.monotonic() + sso.FLOW_FOR,
-        action=for_what[0],
-        keep=for_what[1],
+        action=flow.action or "",  # unpack refused a confirm without one
+        keep=flow.keep,
     )
     log.info("Delete everything confirmed with single sign-on by %s", login.username)
     return FinishOut(done="confirmed")
@@ -556,6 +564,8 @@ def _again(request: Request, response: Response, db: Db, flow: sso.Flow) -> Fini
         remember=flow.remember,
         login_id=flow.login_id,
         retried=True,
+        action=flow.action,
+        keep=flow.keep,
     )
     _bind(response, request.app.state.settings, started)
     log.info("Single sign-on: trying once more without offline_access")

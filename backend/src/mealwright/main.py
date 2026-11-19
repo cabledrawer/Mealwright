@@ -153,8 +153,6 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     app.state.sso_proven = {}
     # An SSO-only admin's fresh confirmation of Delete everything (D3; memory only, 10 minutes).
     app.state.sso_confirmed = {}
-    # What the confirmation under way is for, by login (memory only; B8b round 2).
-    app.state.sso_confirm_for = {}
     app.state.setup_code = None  # set at start-up on a fresh install
     # Imports from Mealie run on the server, one thread each (0.9.5).
     app.state.mealie = MealieRunner(app.state.sessionmaker)

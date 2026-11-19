@@ -800,6 +800,11 @@ class Flow:
     # The second try, after the provider refused the first for offline_access: it isn't
     # asked for, no refresh token is kept, and there is no third try.
     retried: bool = False
+    # For a confirm (D3, B8 / R6 (a)): what it is for, sealed here so the confirmation that
+    # comes back is for exactly the action this browser's trip began (cabledrawer 18 Nov, Q2):
+    # "delete_everything", "backup_now", or "keep" with its number. None for any other mode.
+    action: str | None = None
+    keep: int | None = None
 
     def pack(self) -> str:
         """As text, for the caller to seal into the browser's cookie."""
@@ -810,8 +815,13 @@ class Flow:
         """What `pack` gave. Raises SsoFailed("expired") for anything else."""
         try:
             found = json.loads(text)
+            # A confirm sealed before the action was part of it (an upgrade in the middle of a
+            # confirm) says nothing of what it was for: it is refused, never read as Delete
+            # everything. The person starts again.
+            if found.get("mode") == "confirm" and "action" not in found:
+                raise SsoFailed("expired")
             flow = cls(**found)
-        except ValueError, TypeError:
+        except ValueError, TypeError, AttributeError:
             raise SsoFailed("expired") from None
         texts = (flow.state, flow.nonce, flow.verifier, flow.issuer, flow.client_id)
         if (
@@ -824,9 +834,28 @@ class Flow:
             or not isinstance(flow.retried, bool)
             or not (flow.login_id is None or isinstance(flow.login_id, int))
             or not isinstance(flow.started, int | float)
+            or not _action_fits(flow)
         ):
             raise SsoFailed("expired")
         return flow
+
+
+CONFIRM_ACTIONS = ("delete_everything", "backup_now", "keep")
+
+
+def _action_fits(flow: Flow) -> bool:
+    """A confirm names one of the actions (and Keep its number, 1 to 30); every other mode names none."""
+    if flow.mode != "confirm":
+        return flow.action is None and flow.keep is None
+    if flow.action not in CONFIRM_ACTIONS:
+        return False
+    if flow.action == "keep":
+        return (
+            isinstance(flow.keep, int)
+            and not isinstance(flow.keep, bool)
+            and 1 <= flow.keep <= 30
+        )
+    return flow.keep is None
 
 
 def _hash(value: str) -> str:
@@ -892,6 +921,8 @@ def start(
     login_id: int | None = None,
     retried: bool = False,
     ask_login: bool = False,
+    action: str | None = None,
+    keep: int | None = None,
 ) -> Started:
     """Begin a sign-in: the provider's address to send the browser to, and the sign-in's
     own state, nonce and verifier for the browser's cookie. Nothing is kept here.
@@ -916,6 +947,8 @@ def start(
         login_id=login_id,
         offline="offline_access" in scope.split(),
         retried=retried,
+        action=action,
+        keep=keep,
     )
     asked = {
         "response_type": "code",
