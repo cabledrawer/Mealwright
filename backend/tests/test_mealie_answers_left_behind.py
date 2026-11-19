@@ -137,3 +137,44 @@ def test_a_draft_the_person_has_answered_less_than_fully_is_left_alone(
     assert answer(kitchen, "nothing like it", "text").status_code == 404
     assert draft_names(kitchen) == ["Dish a"]  # galangal is still unanswered
     assert _recipes(kitchen) == 0
+
+
+@pytest.mark.usefixtures("stopped_once")
+def test_a_draft_the_stopped_answer_did_not_complete_is_not_saved_later(stuck: Any) -> None:
+    """C lacks galangal. The person answers it on the review screen and keeps the draft without
+    pressing Save; the next answer, from anyone, must not save it under the old answer."""
+    kitchen, soy = stuck
+    _stop_after_answering(kitchen, soy)
+    listed = kitchen.get(f"{API}/recipes/drafts").json()["drafts"]
+    c = next(d["id"] for d in listed if d["name"] == "Dish c")
+    opened = kitchen.get(f"{API}/recipes/drafts/{c}").json()
+    choices = opened["choices"]
+    choices["lines"]["1"] = {"kind": "here"}  # galangal, by hand
+    body = {"text": opened["text"], "review": opened["review"], "choices": choices}
+    assert kitchen.put(f"{API}/recipes/drafts/{c}", json=body).status_code == 200
+    assert answer(kitchen, "nothing like it", "text").status_code == 404
+    assert draft_names(kitchen) == ["Dish c"]  # A and B finished; C is the person's to save
+    assert _recipes(kitchen) == 2
+
+
+@pytest.mark.usefixtures("stopped_once")
+def test_drafts_that_cannot_be_saved_are_looked_at_once_not_on_every_answer(
+    stuck: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kitchen, soy = stuck
+    _stop_after_answering(kitchen, soy)
+    looked: list[int] = []
+
+    def cannot(kitchen_: Any, draft_id: int, *rest: Any) -> None:
+        looked.append(draft_id)
+
+    monkeypatch.setattr(mealie_answers, "_save_one", cannot)
+    for _ in range(3):
+        assert answer(kitchen, "nothing like it", "text").status_code == 404
+    assert len(looked) == 2  # A and B, the first time only
+    assert draft_names(kitchen) == ["Dish a", "Dish b", "Dish c"]
+    with db(kitchen) as session:
+        first = session.scalars(
+            select(Change).where(Change.kind == "mealie_drafts_answered")
+        ).one()
+        assert first.undo_data["completed"] == []

@@ -504,6 +504,9 @@ def answer(kitchen: Kitchen, body: GroupAnswer) -> Answered:
             "made_food": food.id if made and food is not None else None,
             "saved": [],
             "partial": partial,
+            # The drafts this answer completed and `finish` has not yet looked at (each is
+            # taken off once looked at, saved or not): what a stop leaves for the next answer.
+            "completed": list(complete),
         },
     )
     return Answered(change, len(partial), 0, ref, complete)
@@ -553,6 +556,7 @@ def finish(kitchen: Kitchen, done: Answered) -> Answered:
             if item is not None:
                 items.append(item)
         _results_say(kitchen, items, "answered")
+        looked = set(todo[first:at])
         moved_ids = {item["draft_id"] for item in items}
         saved = [*data.get("saved", []), *items]
         moved = len(saved)
@@ -562,6 +566,7 @@ def finish(kitchen: Kitchen, done: Answered) -> Answered:
             **data,
             "saved": saved,
             "partial": [e for e in data.get("partial", []) if e["draft_id"] not in moved_ids],
+            "completed": [i for i in data.get("completed", []) if i not in looked],
         }
         db.commit()
         if at < len(todo):
@@ -574,26 +579,27 @@ def finish(kitchen: Kitchen, done: Answered) -> Answered:
     return done
 
 
-LEFT_BEHIND_CHANGES = 20  # the newest answers looked at when finishing what a stop left
+LEFT_BEHIND_CHANGES = 3  # the newest answers looked at when finishing what a stop left
 
 
 def finish_left_behind(kitchen: Kitchen) -> int:
     """Finish an answer a stop interrupted (round 2, L3): the answers and the change are
     committed first and the completed drafts are saved after, in short stretches (`finish`), so a
-    server stopped between the two leaves drafts whose every line is answered still in Drafts.
-    Each such draft is still listed in its change's `partial` (a stretch moves a draft from
-    `partial` to `saved` in the same commit as its recipe), so this looks at the household's
-    newest answers (not undone, inside the Undo window) and runs `finish` on the drafts of each
-    that are live Mealie drafts with every line answered. `finish` looks at each draft again and
-    only moves one still complete and unchanged, so a draft is never moved twice, Undo brings it
-    back as for any other, and a draft the person has since answered further or changed is left
-    alone. Newest first: a draft completed by a later answer belongs to that answer. Called
-    before the next answer is applied (never on a GET, which changes nothing). Returns how many
-    drafts were moved."""
+    server stopped between the two leaves the drafts that answer completed still in Drafts. The
+    change keeps their ids in `completed` (written in the same commit as the answers; `finish`
+    takes each off once it has looked at it, saved or not), so this touches only those drafts:
+    never one the answer did not complete, never one answered or changed since (its
+    `updated_at` is later than the change), and each at most once, because the list is emptied
+    here. When nothing is left behind it costs one small query. `finish` looks at each draft
+    again and only moves one still complete, so a draft is never moved twice and Undo brings it
+    back as for any other. Called before the next answer is applied (never on a GET). Returns how
+    many drafts were moved."""
     from mealwright.household import undo_window
+    from mealwright.shopping import lock_household
 
+    db = kitchen.db
     moved = 0
-    changes = kitchen.db.scalars(
+    changes = db.scalars(
         select(Change)
         .where(
             Change.household_id == kitchen.household_id,
@@ -605,25 +611,35 @@ def finish_left_behind(kitchen: Kitchen) -> int:
         .limit(LEFT_BEHIND_CHANGES)
     ).all()
     for change in changes:
-        asked = [int(e["draft_id"]) for e in (change.undo_data or {}).get("partial", [])]
-        if not asked:
+        left = [int(i) for i in (change.undo_data or {}).get("completed", [])]
+        if not left:
             continue
+        mine = {int(e["draft_id"]) for e in (change.undo_data or {}).get("partial", [])}
         waiting = set(
-            kitchen.db.scalars(
+            db.scalars(
                 select(ImportDraft.id).where(
-                    ImportDraft.id.in_(asked),
+                    ImportDraft.id.in_(left),
                     *drafts.live(kitchen.household_id, utcnow()),
                     ImportDraft.mealie_import_id.is_not(None),
                     ImportDraft.lines_total > 0,
                     ImportDraft.lines_checked >= ImportDraft.lines_total,
+                    ImportDraft.updated_at <= change.at,
                 )
             )
         )
-        todo = [i for i in asked if i in waiting]
+        todo = [i for i in left if i in waiting and i in mine]
         if todo:
             before = len((change.undo_data or {}).get("saved", []))
             done = finish(kitchen, Answered(change, 0, 0, None, todo))
             moved += max(0, done.moved - before)
+        # What was not finished (changed since, gone, answered less) is let go for good.
+        lock_household(kitchen)
+        again = db.get(Change, change.id)
+        if again is not None:
+            db.refresh(again)
+            if (again.undo_data or {}).get("completed"):
+                again.undo_data = {**(again.undo_data or {}), "completed": []}
+        db.commit()
     return moved
 
 
