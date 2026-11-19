@@ -844,16 +844,14 @@ CONFIRM_ACTIONS = ("delete_everything", "backup_now", "keep")
 
 
 def _action_fits(flow: Flow) -> bool:
-    """A confirm names one of the actions (and Keep its number, 1 to 30); every other mode names none."""
+    """A confirm names one of the actions (Keep its number, 1 to 30); any other mode names none."""
     if flow.mode != "confirm":
         return flow.action is None and flow.keep is None
     if flow.action not in CONFIRM_ACTIONS:
         return False
     if flow.action == "keep":
         return (
-            isinstance(flow.keep, int)
-            and not isinstance(flow.keep, bool)
-            and 1 <= flow.keep <= 30
+            isinstance(flow.keep, int) and not isinstance(flow.keep, bool) and 1 <= flow.keep <= 30
         )
     return flow.keep is None
 
