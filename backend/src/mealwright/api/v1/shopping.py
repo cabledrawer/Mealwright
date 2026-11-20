@@ -11,7 +11,7 @@ come in a batch to POST /shopping/actions: a sync_action row, a counter number a
 
 import uuid
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -46,6 +46,7 @@ from mealwright.foods import (
 )
 from mealwright.history import commit, replayed
 from mealwright.models import Change, Food, FoodSize, ListItem, Place, Shop, ShoppingList
+from mealwright.moment import Moment
 from mealwright.names import clean_name, fold
 from mealwright.shop_from_plan import work_out
 from mealwright.shop_why import tiny_need, why_text
@@ -95,7 +96,7 @@ class ItemOut(BaseModel):
     shop: Ref | None
     aisle: str
     aisle_name: str
-    ticked_at: datetime | None
+    ticked_at: Moment | None
     ticked_by: Who | None
     put_away_place: Ref | None
     hand_edited: bool

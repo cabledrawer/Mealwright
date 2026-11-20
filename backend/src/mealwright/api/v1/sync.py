@@ -36,6 +36,7 @@ from mealwright.models import (
     ShoppingList,
     SyncAction,
 )
+from mealwright.moment import Moment
 from mealwright.people import can_sign_in
 from mealwright.shopping import OTHER_PHONE
 
@@ -97,7 +98,7 @@ class Bought(BaseModel):
 class TickRow(BaseModel):
     id: str  # the tick action's ID
     by: Who
-    at: datetime
+    at: Moment
     place_id: int | None
     bought: Bought | None  # null: a staple or an item with no amount (no stock)
     standing: bool  # false once reversed (untick, "Just 1", Undo)

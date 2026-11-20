@@ -103,6 +103,7 @@ from mealwright.models import (
     as_utc,
     utcnow,
 )
+from mealwright.moment import Moment
 from mealwright.names import clean, clean_name, fold, normalise, one_line, search_match, size_name
 from mealwright.shopping import removed_recently
 from mealwright.stock import has_stock, lots_of
@@ -200,7 +201,7 @@ class FoodOut(BaseModel):
     made_by: Ref | None = None
     # A staple's last restock on Shopping (0.7; mealwright.restock). Null: not a staple, or
     # never restocked. Read-only.
-    restocked_at: datetime | None = None
+    restocked_at: Moment | None = None
     # The household's own day of it, and how many days ago ("Restocked 12 Oct", "3 weeks ago").
     restocked_on: date | None = None
     restocked_days_ago: int | None = None
@@ -228,7 +229,7 @@ class FoodListItem(BaseModel):
     stand_ins: list[Ref]
     maybe_same: list[MaybeSame]
     used_in_recipes: int
-    restocked_at: datetime | None = None  # as on FoodOut
+    restocked_at: Moment | None = None  # as on FoodOut
     restocked_on: date | None = None
     restocked_days_ago: int | None = None
 

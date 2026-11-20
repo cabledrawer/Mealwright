@@ -21,14 +21,14 @@ from sqlalchemy import func, select
 from starlette.requests import ClientDisconnect
 
 from mealwright import mealie_import
-from mealwright.api.v1.context import Here, Kitchen
-from mealwright.api_tokens import not_for_tokens
+from mealwright.api.v1.context import Here, Kitchen, refuse_unless
 from mealwright.auth import SameOrigin, current
-from mealwright.errors import Problem, StoredInt, admins_only
+from mealwright.errors import Problem, StoredInt
 from mealwright.limits import MAX_MEALIE_BYTES, MEALIE_TOO_BIG
 from mealwright.mealie_file import MAX_RECIPES
 from mealwright.models import Food, MealieImport, as_utc, utcnow
-from mealwright.roles import Action, allowed
+from mealwright.moment import Moment
+from mealwright.roles import Action
 
 router = APIRouter(tags=["recipes"], dependencies=[SameOrigin])
 
@@ -106,10 +106,10 @@ class MealieImportOut(BaseModel):
     file_name: str
     file_bytes: int | None  # the file's size while it's kept (until it ends)
     started_by: str
-    created_at: datetime
-    started_at: datetime | None
-    finished_at: datetime | None
-    undo_until: datetime | None  # while Undo works (7 days after it finished)
+    created_at: Moment
+    started_at: Moment | None
+    finished_at: Moment | None
+    undo_until: Moment | None  # while Undo works (7 days after it finished)
     photos: bool  # "Bring in photos" (once started)
     leave_out: list[str]
     total: int  # recipes to bring in
@@ -201,10 +201,7 @@ def _signed_in(request: Request) -> int:
     household's id."""
     with request.app.state.sessionmaker() as db:
         caller = current(request, db)
-        if not allowed(caller.login.role, Action.YOUR_DATA, caller.by_token):
-            if caller.by_token and allowed(caller.login.role, Action.YOUR_DATA):
-                raise not_for_tokens()
-            raise admins_only()
+        refuse_unless(caller.login.role, Action.YOUR_DATA, caller.by_token)
         return caller.login.household_id
 
 

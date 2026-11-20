@@ -10,7 +10,7 @@ says: the switch controls only the daily check (see mealwright.updates; cabledra
 version number for Diun and Renovate stays at `GET /version`, unchanged.
 """
 
-from datetime import date, datetime
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Request
@@ -19,9 +19,10 @@ from pydantic import BaseModel
 from mealwright import __version__
 from mealwright.api.v1.context import Here
 from mealwright.auth import SameOrigin
+from mealwright.moment import Moment
 from mealwright.outbound import Connection
 from mealwright.outbound import switches as stored_switches
-from mealwright.roles import Action, allowed
+from mealwright.roles import Action
 from mealwright.updates import RELEASED, RELEASES_PAGE, CheckResult, UpdateChecks
 
 router = APIRouter(tags=["about"], dependencies=[SameOrigin])
@@ -32,7 +33,7 @@ class LastCheckOut(BaseModel):
     # read.
     outcome: Literal["up_to_date", "newer", "failed"]
     latest: str | None
-    checked_at: datetime
+    checked_at: Moment
 
 
 class UpdatesOut(BaseModel):
@@ -51,14 +52,14 @@ def _checks(request: Request) -> UpdateChecks:
 
 
 def _out(kitchen: Here, checks: UpdateChecks) -> UpdatesOut:
-    admin = kitchen.login.role == "admin"
+    admin = kitchen.may(Action.PRIVACY)  # the check connects out, as the switches do
     last: CheckResult | None = checks.last(kitchen.household_id) if admin else None
     daily = stored_switches(kitchen.db, kitchen.household_id)[Connection.UPDATE_CHECK]
     return UpdatesOut(
         version=__version__,
         released_on=RELEASED,
         releases_page=RELEASES_PAGE,
-        can_check=allowed(kitchen.login.role, Action.PRIVACY, kitchen.by_token),
+        can_check=admin,
         daily=daily if admin else None,
         last=(
             LastCheckOut(outcome=last.outcome, latest=last.latest, checked_at=last.checked_at)

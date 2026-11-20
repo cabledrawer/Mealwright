@@ -5,9 +5,13 @@ Everyone in the household can read both; only an admin can change them (spec sec
 the household. A change takes effect at once: the outbound gate reads the switches and the
 list each time it is about to connect, so there is nothing to restart.
 
+Every change is in Recent changes with an Undo, for an admin (D4, BE5, cabledrawer 20 Nov;
+`privacy_changes.py`), and each answer carries its change for the toast's Undo. A request with
+an Idempotency-Key that is sent again answers as the first did and changes nothing more.
+
 Nothing here makes a network connection. Log lines name the switch in plain words and never
 an address: an entry on the list is an address too, so the log says only that one was added
-or removed.
+or removed. They go on the sign-in log with the admin's username (D4, BE24 and BE25).
 """
 
 import ipaddress
@@ -15,29 +19,29 @@ import logging
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
-from mealwright import own_network, sso_accounts
+from mealwright import own_network, privacy_changes, sso_accounts
 from mealwright.api.v1.context import Here
+from mealwright.api.v1.schemas import ChangeOut
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
+from mealwright.foods import change_out
+from mealwright.history import commit, replayed
 from mealwright.household import today
-from mealwright.models import Household, OwnNetworkEntry, as_utc
+from mealwright.kitchen_changes import key_kept
+from mealwright.models import Change, Household, OwnNetworkEntry, as_utc
 from mealwright.outbound import LABELS, Connection, set_switch
 from mealwright.outbound import switches as stored_switches
-from mealwright.roles import Action, allowed
+from mealwright.roles import Action
 from mealwright.shopping import lock_household
 
-log = logging.getLogger(__name__)
+# Sign-in and privacy events share one logger (D4, BE25).
+log = logging.getLogger("mealwright.sign_in")
 
-# Proposed, for cabledrawer (O1 review r2, finding 2; r3: worded from `sso_can_start`).
-PASSWORDS_BACK_ON_OWN_NETWORK = (
-    "Removed. Passwords work again for now, because single sign-on can’t start without that "
-    "entry: your sign-in server is no longer on Your own network. Add it back and "
-    "passwords are off again."
-)
+PASSWORDS_BACK_ON_OWN_NETWORK = privacy_changes.PASSWORDS_BACK_ON_OWN_NETWORK
 
 router = APIRouter(tags=["privacy"], dependencies=[SameOrigin])
 
@@ -61,18 +65,48 @@ class SwitchesOut(BaseModel):
     switches: list[SwitchOut]
     # False for a member: they see the switches and can't change them.
     can_change: bool
+    # The change a switch made, for the toast's Undo (D4, BE5). Null on a read, and when the
+    # switch was already as asked.
+    change: ChangeOut | None = None
 
 
 class SwitchIn(BaseModel):
     on: bool
 
 
-def _switches(kitchen: Here) -> SwitchesOut:
+def _made(kitchen: Here, made: Change | None) -> ChangeOut | None:
+    """The change to answer with: one of this page's own (not a kept key)."""
+    if made is None or made.kind not in privacy_changes.KINDS:
+        return None
+    return change_out(kitchen, made)
+
+
+def _switches(kitchen: Here, made: Change | None = None) -> SwitchesOut:
     stored = stored_switches(kitchen.db, kitchen.household_id)
     return SwitchesOut(
         switches=[SwitchOut(connection=c.value, on=stored[c]) for c in SHOWN],  # type: ignore[arg-type]
-        can_change=allowed(kitchen.login.role, Action.PRIVACY, kitchen.by_token),
+        can_change=kitchen.may(Action.PRIVACY),
+        change=_made(kitchen, made),
     )
+
+
+def _start(kitchen: Here, response: Response) -> Change | None:
+    """Admins only; the household's lock (two admins at once can't pass the list's limit). A
+    retry of a change already made: that change."""
+    kitchen.admin_only(Action.PRIVACY)
+    lock_household(kitchen)
+    earlier = replayed(kitchen)
+    if earlier is not None:
+        response.headers["Idempotent-Replayed"] = "true"
+    return earlier
+
+
+def _commit(kitchen: Here, response: Response) -> Change | None:
+    """Commit. Another request with the same key got there first: its change."""
+    earlier = commit(kitchen)
+    if earlier is not None:
+        response.headers["Idempotent-Replayed"] = "true"
+    return earlier
 
 
 @router.get("/privacy/switches")
@@ -81,31 +115,42 @@ def get_switches(kitchen: Here) -> SwitchesOut:
     return _switches(kitchen)
 
 
-def _locked_out() -> Problem:
-    return Problem(status.HTTP_409_CONFLICT, "locked_out", sso_accounts.LOCKED_OUT)
-
-
 def _not_locked_out(kitchen: Here) -> None:
     """Refuse (409 `locked_out`) when the admin asking is the last who can get in and has only a
     single sign-on link (cabledrawer 14 Nov): ending single sign-on would lock them out."""
     if sso_accounts.would_lock_out(kitchen.db, kitchen.data_dir, kitchen.login):
-        raise _locked_out()
+        raise privacy_changes.locked_out()
 
 
 @router.put("/privacy/switches/{connection}")
-def put_switch(connection: Shown, body: SwitchIn, kitchen: Here) -> SwitchesOut:
+def put_switch(connection: Shown, body: SwitchIn, kitchen: Here, response: Response) -> SwitchesOut:
     """Admins only. Turn one switch on or off; the next connection follows it at once.
-    Asking for the state it already has changes nothing. Answers with all the switches."""
-    kitchen.admin_only(Action.PRIVACY)
+    Asking for the state it already has changes nothing. Answers with all the switches and
+    the change made (`connection_changed`, in Recent changes with an Undo)."""
+    earlier = _start(kitchen, response)
+    if earlier is not None:
+        return _switches(kitchen, earlier)
     kind = Connection(connection)
     was = stored_switches(kitchen.db, kitchen.household_id)[kind]
-    if kind is Connection.SINGLE_SIGN_ON and was and not body.on:
-        _not_locked_out(kitchen)
-    set_switch(kitchen.db, kitchen.household_id, kind, body.on)
-    kitchen.db.commit()
-    if was != body.on:
-        log.info("Privacy: %s switched %s", LABELS[kind], "on" if body.on else "off")
-    return _switches(kitchen)
+    made = None
+    if was == body.on:
+        key_kept(kitchen)
+    else:
+        if kind is Connection.SINGLE_SIGN_ON and not body.on:
+            _not_locked_out(kitchen)
+        set_switch(kitchen.db, kitchen.household_id, kind, body.on)
+        made = privacy_changes.connection_changed(kitchen, kind, body.on)
+    earlier = _commit(kitchen, response)
+    if earlier is not None:
+        return _switches(kitchen, earlier)
+    if made is not None:
+        log.info(
+            "Privacy: %s switched %s by %s",
+            LABELS[kind],
+            "on" if body.on else "off",
+            kitchen.login.username,
+        )
+    return _switches(kitchen, made)
 
 
 # --- Your own network ----------------------------------------------------------------------
@@ -121,6 +166,8 @@ class EntryOut(BaseModel):
     added_by: str
     # The day it was added, in the household's time zone (like every date in the app).
     added_on: date
+    # The change that added it, for the toast's Undo (D4, BE5). Only in the answer to an add.
+    change: ChangeOut | None = None
 
 
 class OwnNetworkOut(BaseModel):
@@ -158,7 +205,7 @@ def _list(kitchen: Here) -> OwnNetworkOut:
             for e in own_network.entries(kitchen.db, kitchen.household_id)
         ],
         limit=own_network.MAX_ENTRIES,
-        can_change=allowed(kitchen.login.role, Action.PRIVACY, kitchen.by_token),
+        can_change=kitchen.may(Action.PRIVACY),
     )
 
 
@@ -182,6 +229,8 @@ class PasswordsBackOn(BaseModel):
 
     passwords_back_on: bool
     notice: str | None
+    # The change that took it off, for the toast's Undo (D4, BE5).
+    change: ChangeOut | None = None
 
 
 @router.get("/privacy/own-network")
@@ -190,48 +239,77 @@ def get_own_network(kitchen: Here) -> OwnNetworkOut:
     return _list(kitchen)
 
 
+def _added(kitchen: Here, made: Change) -> EntryOut:
+    """The answer to an add, first or replayed: the entry as it is now, with its change. One
+    taken off since is answered as it was added (from the change)."""
+    data = (made.undo_data or {}).get("entry", {})
+    row = kitchen.db.get(OwnNetworkEntry, data.get("id", 0))
+    if row is None or row.household_id != kitchen.household_id:
+        raise not_found("That entry")
+    out = _entry(row, kitchen.household)
+    out.change = _made(kitchen, made)
+    return out
+
+
 @router.post("/privacy/own-network", status_code=status.HTTP_201_CREATED)
-def add_entry(body: EntryIn, kitchen: Here) -> EntryOut:
+def add_entry(body: EntryIn, kitchen: Here, response: Response) -> EntryOut:
     """Admins only. Add a host name, one address or a range (CIDR) to the list. A refusal
     comes with its own sentence and a `code`: `bad_entry`, `always_blocked`, `too_wide`
-    (422), `already_there` or `too_many_entries` (409)."""
-    kitchen.admin_only(Action.PRIVACY)
-    lock_household(kitchen)  # so two admins adding at once can't go past the limit
+    (422), `already_there` or `too_many_entries` (409). Answers with the entry and its change
+    (`own_network_added`)."""
+    earlier = _start(kitchen, response)
+    if earlier is not None:
+        return _added(kitchen, earlier)
     try:
         row = own_network.add(kitchen.db, kitchen.household_id, body.value, kitchen.login)
-        kitchen.db.commit()
     except ValueError as error:
         kitchen.db.rollback()
         raise _refused(str(error)) from None
+    made = privacy_changes.own_network_added(kitchen, row)
+    try:
+        earlier = _commit(kitchen, response)
     except IntegrityError:  # the same entry added in the same moment
         kitchen.db.rollback()
         raise _refused(own_network.ALREADY) from None
-    log.info("Your own network: added")
-    return _entry(row, kitchen.household)
+    if earlier is not None:
+        return _added(kitchen, earlier)
+    log.info("Your own network: added by %s", kitchen.login.username)
+    return _added(kitchen, made)
 
 
 @router.delete("/privacy/own-network/{entry_id}")
-def remove_entry(entry_id: StoredInt, request: Request, kitchen: Here) -> PasswordsBackOn:
+def remove_entry(entry_id: StoredInt, kitchen: Here, response: Response) -> PasswordsBackOn:
     """Admins only. Take one entry off the list. An entry of another household is "not
     here" too. Answers `passwords_back_on` false and `notice` null, or true with a `notice` to
     show when password sign-in was off and this entry was what let Mealwright reach the
-    sign-in server: passwords are on again."""
-    kitchen.admin_only(Action.PRIVACY)
-    data_dir = request.app.state.settings.data_dir
-    was_off = sso_accounts.passwords_off(kitchen.db, data_dir, kitchen.household_id)
-    locks_out = sso_accounts.would_lock_out(kitchen.db, data_dir, kitchen.login)
-    if not own_network.remove(kitchen.db, kitchen.household_id, entry_id):
-        raise not_found("That entry")
-    if locks_out and not sso_accounts.sso_can_start(kitchen.db, data_dir, kitchen.household_id):
-        # This entry may be what let single sign-on reach the sign-in server: it can't start
-        # without it, or can't be told (after a restart the memory of the address is empty).
+    sign-in server: passwords are on again. `change` is the removal (`own_network_removed`)."""
+    earlier = _start(kitchen, response)
+    if earlier is not None:
+        return _removed(kitchen, earlier)
+    try:
+        entry, back_on = privacy_changes.take_off(kitchen, entry_id)
+    except Problem:
         kitchen.db.rollback()
-        raise _locked_out()
-    kitchen.db.commit()
-    log.info("Your own network: removed")
-    # Passwords count as off only while single sign-on can start (`sso_can_start`, with no
-    # look-up): if this removal ended that, they work again, and the notice says so.
-    if was_off and not sso_accounts.passwords_off(kitchen.db, data_dir, kitchen.household_id):
-        log.warning("Single sign-on: passwords work again, it can't start without that entry")
-        return PasswordsBackOn(passwords_back_on=True, notice=PASSWORDS_BACK_ON_OWN_NETWORK)
-    return PasswordsBackOn(passwords_back_on=False, notice=None)
+        raise
+    if entry is None:
+        raise not_found("That entry")
+    made = privacy_changes.own_network_removed(kitchen, entry)
+    if back_on:
+        made.undo_data = {**(made.undo_data or {}), "passwords_back_on": True}
+    earlier = _commit(kitchen, response)
+    if earlier is not None:
+        return _removed(kitchen, earlier)
+    log.info("Your own network: removed by %s", kitchen.login.username)
+    if back_on:
+        log.info("Single sign-on: passwords work again, it can't start without that entry")
+    return _removed(kitchen, made)
+
+
+def _removed(kitchen: Here, made: Change) -> PasswordsBackOn:
+    """The answer to a removal, first or replayed (the notice is kept with the change)."""
+    back_on = bool((made.undo_data or {}).get("passwords_back_on"))
+    return PasswordsBackOn(
+        passwords_back_on=back_on,
+        notice=PASSWORDS_BACK_ON_OWN_NETWORK if back_on else None,
+        change=_made(kitchen, made),
+    )

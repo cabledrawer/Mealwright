@@ -28,6 +28,7 @@ from mealwright.problem_report import (
     server_address,
     version_line,
 )
+from mealwright.roles import Action
 
 router = APIRouter(tags=["about"], dependencies=[SameOrigin])
 
@@ -51,7 +52,10 @@ def problem_report(kitchen: Here, request: Request) -> ProblemReportOut:
     """The report for "Report a problem", with personal details removed. Never connects
     anywhere and never sends anything."""
     settings: Settings = request.app.state.settings
-    admin = kitchen.login.role == "admin"
+    # The server's error lines are for whoever looks after the install: an admin at the screen,
+    # never an API token (D4, BE11: through `allowed()`, as Settings › Backups & your data;
+    # proposed, for cabledrawer).
+    admin = kitchen.may(Action.YOUR_DATA)
     errors: list[str] = []
     if admin:
         # Nothing from before this household's set-up, nor from before the latest Delete

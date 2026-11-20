@@ -4,6 +4,7 @@
   // "Changes not saved" and Undo. Recipes are online only in 0.4: offline, the editor keeps
   // what was typed and Save waits.
   import { downLine } from '#lib/downWords.js';
+  import { UNDO_SPAN } from '#lib/undoWords.js';
   import '#lib/styles/fields.css';
   import { onMount, tick } from 'svelte';
   import { beforeNavigate } from '$app/navigation';
@@ -654,7 +655,7 @@
             <button type="button" disabled={network.offline} onclick={() => void remove()}
               >Delete recipe</button
             >
-            <span class="mw-hint">No “Are you sure?”: you can undo it for 7 days.</span>
+            <span class="mw-hint">No “Are you sure?”: you can undo it for {UNDO_SPAN}.</span>
           </div>
         {/if}
       </div>

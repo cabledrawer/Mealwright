@@ -1143,7 +1143,8 @@ _RECORDS_CHANGES = {
     "api/v1/changes.py", "api/v1/drafts.py", "api/v1/foods.py", "api/v1/household.py",
     "api/v1/pantry.py", "api/v1/starter_packs.py", "api/v1/stocktake.py", "cooking.py",
     "drafts.py", "foods.py", "history.py", "kitchen_changes.py", "people.py", "plan.py",
-    "mealie_answers.py", "recipe_import.py", "recipe_tags.py", "recipes.py", "removals.py",
+    "mealie_answers.py", "privacy_changes.py", "recipe_import.py", "recipe_tags.py", "recipes.py",
+    "removals.py",
     "shopping.py", "sso_accounts.py", "sso_people.py", "stock.py", "ticks.py",
 }  # fmt: skip
 
@@ -1421,6 +1422,11 @@ _KEEPS_NO_NAME: dict[str, str] = {
     "plan_start": "an item by ID and a time",
     "plan_started": "an item by ID and a time",
     "plan_tub": "a tub by ID",
+    # Settings › Outside connections (D4, BE5): a switch by its code name, on or off; an entry
+    # of Your own network keeps its value (an address), removed as a phrase by undo_names.
+    "connection_changed": "a switch by its code name and on or off (key `connection`)",
+    "own_network_added": "an address of Your own network, under `value`: removed as a phrase",
+    "own_network_removed": "an address of Your own network, under `value`: removed as a phrase",
 }
 
 

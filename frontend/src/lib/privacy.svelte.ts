@@ -10,6 +10,7 @@
 // entry list answers in the server's own sentences (a refusal is shown as it is).
 
 import { ApiError, cantReachWords, cantReach, forgetWhenSessionEnds } from './api';
+import { onUndoOf, serverUndo } from './client/changes';
 import {
   addEntry,
   getOwnNetwork,
@@ -19,6 +20,7 @@ import {
   type OwnNetworkEntry,
   type SwitchName
 } from './client/privacy';
+import type { Change, UndoResult } from './client/types';
 import { nothingChanged } from './downWords';
 import { rememberToForget } from './forgetWhenLoaded';
 import { network } from './network.svelte';
@@ -125,6 +127,21 @@ class Privacy {
     this.entries = [...this.entries.filter((e) => e.id !== entry.id), entry];
   }
 
+  /** A change the server made (D4, BE5: each is in Recent changes): its Undo, in the toast and
+   *  on Ctrl+Z, is the server's own. The page loads again after it, and shows the Undo's
+   *  notice when it turned password sign-in back on. */
+  #record(change: Change, generation: number): void {
+    undoHistory.record({
+      label: change.summary,
+      needsServer: true,
+      undo: serverUndo(change.id, (result: UndoResult) => {
+        if (generation !== this.#generation) return;
+        // Putting an entry back may turn passwords off again: the old notice no longer holds.
+        if (result.undone.kind !== 'connection_changed') this.removeNotice = result.notice ?? null;
+      })
+    });
+  }
+
   /** Forget everything (another login's household may be next). */
   forget(): void {
     this.#generation += 1;
@@ -157,6 +174,7 @@ class Privacy {
       if (generation !== this.#generation) return;
       for (const s of answer.switches) this.#confirmed[s.connection] = s.on;
       if (mine === this.#latest[name]) this.switches[name] = this.#confirmed[name];
+      if (answer.change) this.#record(answer.change, generation);
     } catch (error) {
       if (generation !== this.#generation) return;
       // A newer change to the same switch decides what's shown; otherwise put it back.
@@ -178,23 +196,7 @@ class Privacy {
       const entry = await addEntry(text);
       if (generation !== this.#generation) return false;
       this.#put(entry);
-      undoHistory.record({
-        label: `Added ${entry.value} to Your own network`,
-        needsServer: true,
-        undo: async () => {
-          try {
-            const answer = await removeEntry(entry.id);
-            if (answer?.notice && this.#generation === generation)
-              this.removeNotice = answer.notice;
-          } catch (error) {
-            // Already gone (taken off on another device): that's what Undo wanted.
-            if (!(error instanceof ApiError && error.status === 404)) throw error;
-          }
-          if (this.#generation === generation) {
-            this.entries = this.entries.filter((e) => e.id !== entry.id);
-          }
-        }
-      });
+      if (entry.change) this.#record(entry.change, generation);
       return true;
     } catch (error) {
       if (generation === this.#generation) this.addProblem = sentence(error);
@@ -231,15 +233,7 @@ class Privacy {
     }
     if (generation !== this.#generation) return;
     if (answer?.notice) this.removeNotice = answer.notice;
-    undoHistory.record({
-      label: `Removed ${entry.value} from Your own network`,
-      needsServer: true,
-      undo: async () => {
-        // Put back as a new entry (it keeps its text; it now says who put it back).
-        const added = await addEntry(entry.value);
-        if (this.#generation === generation) this.#put(added);
-      }
-    });
+    if (answer?.change) this.#record(answer.change, generation);
   }
 }
 
@@ -248,3 +242,11 @@ export const privacy = new Privacy();
 forgetWhenSessionEnds(() => privacy.forget());
 // The shell forgets it on a wipe or a turned-away sign-in without loading this file for it.
 rememberToForget('privacy', () => privacy.forget());
+
+// An Undo from anywhere (the toast, Ctrl+Z, Recent changes) changes the switches or the list:
+// look again (D4, BE5).
+for (const kind of ['connection_changed', 'own_network_added', 'own_network_removed']) {
+  onUndoOf(kind, () => {
+    if (privacy.loaded) void privacy.load();
+  });
+}

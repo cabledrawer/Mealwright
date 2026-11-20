@@ -7,7 +7,6 @@ accepted as built); the link's token is shown once and only its SHA-256 is store
 """
 
 import logging
-from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Request, Response, status
@@ -36,8 +35,9 @@ from mealwright.foods import change_out
 from mealwright.history import commit, replayed
 from mealwright.kitchen_changes import key_kept
 from mealwright.models import Change, JoinLink, Login, Member, Session, as_utc, utcnow
+from mealwright.moment import Moment
 from mealwright.names import one_line
-from mealwright.roles import ADMIN, Action, allowed
+from mealwright.roles import ADMIN, Action
 from mealwright.shopping import lock_db
 
 log = logging.getLogger("mealwright.sign_in")
@@ -81,7 +81,7 @@ class LoginOut(BaseModel):
     link_pending: bool
     # When a sign-in or Reset password link last set this password (0.9.5; cabledrawer 13 Nov:
     # "Link used today 21:40", so an admin can spot a link someone else used).
-    link_used_at: datetime | None
+    link_used_at: Moment | None
     # An unused Reset password link that hasn't run out (Pe1).
     reset_pending: bool
     # Linked to an account at the household's saved sign-in server (0.9.5 Pe3).
@@ -98,7 +98,7 @@ class HouseholdPerson(BaseModel):
     login: LoginOut | None
     # The signed-in login's own person.
     is_me: bool
-    created_at: datetime
+    created_at: Moment
     created_by_name: str
 
 
@@ -109,7 +109,7 @@ class WaitingSignIn(BaseModel):
     # Its username at the sign-in server, as sent.
     username: str
     # Its last sign-in here.
-    signed_in_at: datetime
+    signed_in_at: Moment
     # What the sign-in server's groups made it: an admin's login is offered only for "admin".
     role: Role
 
@@ -168,7 +168,7 @@ def _people(kitchen: Here) -> PeopleOut:
         .order_by(Member.id)
     )
     issuer = sso_people.saved_issuer(kitchen)
-    can_change = allowed(kitchen.login.role, Action.PEOPLE, kitchen.by_token)
+    can_change = kitchen.may(Action.PEOPLE)
     return PeopleOut(
         people=[_person(kitchen, m, issuer, can_change) for m in members],
         can_change=can_change,
@@ -318,7 +318,7 @@ class LinkOut(BaseModel):
     # The path of the link, "/join#<token>" or "/reset#<token>": shown once, never stored. The
     # secret follows a `#`, so opening the link never sends it to the server (cabledrawer 13 Nov).
     path: str
-    expires_at: datetime
+    expires_at: Moment
 
 
 @router.post("/people/{person_id}/login", status_code=status.HTTP_201_CREATED)
@@ -525,7 +525,7 @@ class LinkSecretIn(BaseModel):
 class JoinOut(BaseModel):
     # "join": a sign-in link, choosing a first password; "reset": a Reset password link.
     kind: Literal["join", "reset"]
-    expires_at: datetime
+    expires_at: Moment
     min_password: int
 
 

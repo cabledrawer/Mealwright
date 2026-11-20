@@ -104,6 +104,9 @@ SETTINGS = (
 # `kitchen_changes.py`, as a place is.
 REMOVALS = ("shop_removed", "place_removed", "shop_added", "shop_renamed")
 
+# Settings › Outside connections (admins only; `privacy_changes.py`; D4, BE5, cabledrawer 20 Nov).
+PRIVACY = ("connection_changed", "own_network_added", "own_network_removed")
+
 # People (admins only).
 PEOPLE = ("person_added", "person_changed", "person_removed", "whos_this_switch")
 PERSON_LOGIN = "person_login"
@@ -122,6 +125,7 @@ ALL: frozenset[str] = frozenset(
         *PLAN,
         *SETTINGS,
         *REMOVALS,
+        *PRIVACY,
         *PEOPLE,
         PERSON_LOGIN,
         UNDO,

@@ -51,7 +51,9 @@ def test_removing_the_sign_in_server_turns_passwords_back_on_and_says_so(
 ) -> None:
     gone = at_home.delete(f"{API}/privacy/own-network/{entry_id(at_home)}")
     assert gone.status_code == 200, gone.text
-    assert gone.json() == {"passwords_back_on": True, "notice": PASSWORDS_BACK_ON_OWN_NETWORK}
+    body = gone.json()
+    assert body.pop("change")["kind"] == "own_network_removed"
+    assert body == {"passwords_back_on": True, "notice": PASSWORDS_BACK_ON_OWN_NETWORK}
     assert at_home.get(f"{API}/sso/settings").json()["password_sign_in"] is True
     assert browser(at_home).post(f"{API}/session", json=PASSWORD).status_code == 200
 
@@ -61,7 +63,9 @@ def test_removing_another_entry_changes_nothing(at_home: TestClient) -> None:
     assert other.is_success
     gone = at_home.delete(f"{API}/privacy/own-network/{other.json()['id']}")
     assert gone.status_code == 200, gone.text
-    assert gone.json() == {"passwords_back_on": False, "notice": None}
+    body = gone.json()
+    assert body.pop("change")["kind"] == "own_network_removed"
+    assert body == {"passwords_back_on": False, "notice": None}
     assert at_home.get(f"{API}/sso/settings").json()["password_sign_in"] is False
 
 
@@ -69,4 +73,19 @@ def test_removing_it_with_passwords_on_changes_nothing(at_home: TestClient) -> N
     assert at_home.put(f"{API}/sso/password-sign-in", json={"on": True}).is_success
     gone = at_home.delete(f"{API}/privacy/own-network/{entry_id(at_home)}")
     assert gone.status_code == 200, gone.text
-    assert gone.json() == {"passwords_back_on": False, "notice": None}
+    body = gone.json()
+    assert body.pop("change")["kind"] == "own_network_removed"
+    assert body == {"passwords_back_on": False, "notice": None}
+
+
+def test_undoing_the_add_of_the_sign_in_server_says_passwords_work_again(
+    at_home: TestClient,
+) -> None:
+    """D4, BE5: the Undo of an add is a removal, and says what Remove says."""
+    changes = at_home.get(f"{API}/changes").json()["changes"]
+    added = next(c["id"] for c in changes if c["kind"] == "own_network_added")
+    undone = at_home.post(f"{API}/changes/{added}/undo")
+    assert undone.status_code == 200, undone.text
+    assert undone.json()["notice"] == PASSWORDS_BACK_ON_OWN_NETWORK
+    assert at_home.get(f"{API}/privacy/own-network").json()["entries"] == []
+    assert browser(at_home).post(f"{API}/session", json=PASSWORD).status_code == 200

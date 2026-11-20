@@ -3,7 +3,7 @@
 Named after the household (D3, CL13; was `kitchen.py`): on screen "your kitchen" is only the
 equipment (hob rings, pressure cookers, oven), which lives here too as one household setting."""
 
-from datetime import date, datetime
+from datetime import date
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Response, status
@@ -17,8 +17,9 @@ from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, name_taken, not_found
 from mealwright.foods import change_out, find
 from mealwright.history import FoodEdit, commit, replayed
-from mealwright.household import amounts_shown, cup_ml, places, today, valid_time_zone
+from mealwright.household import UNDO_DAYS, amounts_shown, cup_ml, places, today, valid_time_zone
 from mealwright.models import Food, FoodConversion, Place, Shop
+from mealwright.moment import Moment
 from mealwright.names import clean_name, fold
 from mealwright.pints import household_pints
 from mealwright.roles import Action
@@ -506,7 +507,7 @@ def _household(kitchen: Here) -> HouseholdOut:
         pints=household_pints(household.pints),
         cook_per_step=household.cook_per_step,
         batch_cook=not household.batch_cook_hidden,
-        undo_days=household.undo_days,
+        undo_days=UNDO_DAYS,  # fixed (D4, CL9)
         history_months=household.history_months,
         use_soon_days=household.use_soon_days,
         tub_fridge_days=household.tub_fridge_days,
@@ -742,7 +743,7 @@ class RememberedOut(BaseModel):
     kind: Literal["weight_per_ml", "item_weight"]
     display: str  # "1 cup = 200 g"
     answered_by: str
-    answered_at: datetime
+    answered_at: Moment
 
 
 class ConversionsOut(BaseModel):

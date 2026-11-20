@@ -56,6 +56,10 @@ ADMIN_KINDS: dict[str, Action] = {
     "person_changed": Action.PEOPLE,
     "person_removed": Action.PEOPLE,
     "whos_this_switch": Action.PEOPLE,
+    # Settings › Outside connections (D4, BE5): never undone through an API token either.
+    "connection_changed": Action.PRIVACY,
+    "own_network_added": Action.PRIVACY,
+    "own_network_removed": Action.PRIVACY,
 }
 ADMIN_ONLY_KINDS = tuple(ADMIN_KINDS)
 

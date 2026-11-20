@@ -1,7 +1,6 @@
 """JSON shapes for recipes (docs/dev/api-0.4-recipes.md)."""
 
 import re
-from datetime import datetime
 from decimal import Decimal
 from fractions import Fraction
 from typing import Annotated, Any, Literal
@@ -18,6 +17,7 @@ from pydantic import (
 from mealwright.amounts import MAX_AMOUNT_TEXT
 from mealwright.api.v1.schemas import Ref, ShortAmount, Who
 from mealwright.errors import TAG_NEEDS_A_WORD, TYPE_A_NAME, StoredInt
+from mealwright.moment import Moment
 from mealwright.names import clean_name, one_line, text_block
 from mealwright.step_waits import MAX_WAIT_MINUTES, OVERNIGHT_MINUTES
 
@@ -648,7 +648,7 @@ class SourceOut(BaseModel):
 
     url: str
     site: str  # the address without "www.": "bbcgoodfood.com"
-    imported_at: datetime
+    imported_at: Moment
     author: str | None
 
 
@@ -678,8 +678,8 @@ class RecipeOut(BaseModel):
     photo: PhotoOut | None
     used_by: list[Ref]  # recipes that use this one as an ingredient
     version: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: Moment
+    updated_at: Moment
     updated_by: Who
 
 
@@ -700,7 +700,7 @@ class RecipeBrief(BaseModel):
     method_count: int = 1
     photo: PhotoOut | None
     version: int
-    updated_at: datetime
+    updated_at: Moment
 
 
 class RecipeList(BaseModel):

@@ -93,6 +93,7 @@ def test_every_switch_starts_off(kitchen: TestClient) -> None:
             {"connection": "update_check", "on": False},
         ],
         "can_change": True,
+        "change": None,
     }
 
 
@@ -121,12 +122,14 @@ def test_an_admin_turns_a_switch_on_and_off(kitchen: TestClient) -> None:
 def test_asking_for_the_state_it_has_changes_nothing(
     kitchen: TestClient, caplog: pytest.LogCaptureFixture
 ) -> None:
-    with caplog.at_level(logging.INFO, logger="mealwright.api.v1.privacy"):
+    with caplog.at_level(logging.INFO, logger="mealwright.sign_in"):
         kitchen.put(f"{SWITCHES}/recipe_import", json={"on": False})
         kitchen.put(f"{SWITCHES}/recipe_import", json={"on": True})
         kitchen.put(f"{SWITCHES}/recipe_import", json={"on": True})
     assert on(kitchen)["recipe_import"] is True
-    assert [r.getMessage() for r in caplog.records] == ["Privacy: recipe import switched on"]
+    assert [r.getMessage() for r in caplog.records] == [
+        "Privacy: recipe import switched on by tess"
+    ]
 
 
 def test_a_member_sees_the_switches_but_cannot_change_them(
@@ -389,7 +392,9 @@ def test_an_admin_removes_an_entry(kitchen: TestClient) -> None:
     kitchen.post(LIST, json={"value": "192.168.1.20"})
     response = kitchen.delete(f"{LIST}/{a['id']}")
     assert response.status_code == 200
-    assert response.json() == {"passwords_back_on": False, "notice": None}
+    body = response.json()
+    assert body.pop("change")["kind"] == "own_network_removed"
+    assert body == {"passwords_back_on": False, "notice": None}
     assert values(kitchen) == ["192.168.1.20"]
     again = kitchen.delete(f"{LIST}/{a['id']}")
     assert again.status_code == 404
@@ -449,12 +454,13 @@ def test_the_log_never_holds_an_address(
     text = "\n".join(r.getMessage() for r in caplog.records)
     assert "secret-wiki" not in text
     assert "10.9.8.7" not in text
-    messages = [r.getMessage() for r in caplog.records if r.name.endswith("privacy")]
+    # On the sign-in log, with the admin's username (D4, BE24 and BE25).
+    messages = [r.getMessage() for r in caplog.records if r.name == "mealwright.sign_in"]
     assert messages == [
-        "Your own network: added",
-        "Your own network: added",
-        "Your own network: removed",
-        "Privacy: recipe import switched on",
+        "Your own network: added by tess",
+        "Your own network: added by tess",
+        "Your own network: removed by tess",
+        "Privacy: recipe import switched on by tess",
     ]
 
 

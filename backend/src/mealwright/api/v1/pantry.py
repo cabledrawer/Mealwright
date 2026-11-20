@@ -37,6 +37,7 @@ from mealwright.models import (
     StockLot,
     as_utc,
 )
+from mealwright.moment import Moment
 from mealwright.names import fold, search_match
 from mealwright.stock import (
     FREEZER_MONTHS,
@@ -140,7 +141,7 @@ class PantryCounts(BaseModel):
 
 class PantryStaple(Ref):
     # When it was last restocked (0.7 K5); null if never. Read-only here: see PATCH /foods/{id}.
-    restocked_at: datetime | None = None
+    restocked_at: Moment | None = None
     restocked_on: date | None = None  # the household's own day of it
     restocked_days_ago: int | None = None
 

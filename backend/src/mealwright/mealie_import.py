@@ -51,6 +51,7 @@ from mealwright.api.v1.recipe_schemas import RecipeIn
 from mealwright.conversions import guess_aisle, table
 from mealwright.errors import Problem, not_found
 from mealwright.foods import shop_choices
+from mealwright.household import UNDO_WINDOW
 from mealwright.ingredient_match import kitchen_of
 from mealwright.line_prep import clean_recipe_name, tidy_ingredient_name
 from mealwright.mealie_file import MealieBook, MealieFileProblem, MealiePhotos, MealieRecipe
@@ -75,7 +76,6 @@ from mealwright.pack_sizes import usual_shop_id
 
 log = logging.getLogger(__name__)
 
-UNDO_DAYS = 7  # cabledrawer 13 Nov: "one Undo for the whole import (7 days ...)"
 READY_HOURS = 24  # a read file nobody brought in is deleted after a day (proposed, for cabledrawer)
 NOTE_HOURS = 24  # Today's note shows for a day after it finished (proposed, for cabledrawer)
 FOLDER = "mealie"
@@ -1001,7 +1001,7 @@ def undo_until(row: MealieImport) -> datetime | None:
 
     if row.state not in ("done", "failed") or row.finished_at is None:
         return None
-    return as_utc(row.finished_at) + timedelta(days=UNDO_DAYS)
+    return as_utc(row.finished_at) + UNDO_WINDOW
 
 
 def _ids_where(db: Session, column: Any, ids: list[int], *where: Any) -> set[int]:
@@ -1105,7 +1105,7 @@ def _undo_ready(row: MealieImport) -> None:
     if utcnow() > until:
         from mealwright.history import too_old
 
-        raise too_old(UNDO_DAYS)
+        raise too_old()
 
 
 def undo(kitchen: Kitchen, row: MealieImport) -> Undone:

@@ -59,8 +59,14 @@ def amounts_shown(value: str | None) -> AmountsShown:
     return "metric" if value == "metric" else "as_written"
 
 
-def undo_window(household: Household) -> timedelta:
-    return timedelta(days=household.undo_days)
+# The undo window: one number for every Undo and every sentence that names it (0.9.5-beta.3,
+# D4, CL9). Fixed, not a setting (cabledrawer 11 Nov: "it is not a setting in 0.9 (no
+# `undo_days`)"); the old `household.undo_days` column is no longer read (dropping it needs a
+# migration, so it stays until one is due; proposed, for cabledrawer). The web app's sentences
+# take theirs from `UNDO_DAYS` in frontend/src/lib/undoWords.ts, and the API sends it as the
+# household's `undo_days`.
+UNDO_DAYS = 7
+UNDO_WINDOW = timedelta(days=UNDO_DAYS)
 
 
 def add_default_places(db: DbSession, household_id: int) -> None:

@@ -19,6 +19,7 @@ from mealwright.auth import CurrentSession, SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
 from mealwright.household import today, zone
 from mealwright.models import ApiToken, as_utc, utcnow
+from mealwright.moment import Moment
 from mealwright.names import one_line
 from mealwright.roles import Action
 from mealwright.shopping import lock_db
@@ -64,8 +65,8 @@ class TokenOut(BaseModel):
     id: int
     name: str
     scope: Literal["read", "full"]
-    created_at: datetime
-    last_used_at: datetime | None = Field(description="To the minute. Empty: never used.")
+    created_at: Moment
+    last_used_at: Moment | None = Field(description="To the minute. Empty: never used.")
     expires_on: date | None = Field(description="The last day it works. Empty: never ends.")
 
 

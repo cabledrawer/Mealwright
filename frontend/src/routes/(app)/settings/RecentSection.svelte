@@ -8,6 +8,7 @@
   import { kitchen } from '#lib/freshness.svelte.js';
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
+  import { UNDO_SPAN } from '#lib/undoWords.js';
 
   const recent = new AllChanges();
 
@@ -36,7 +37,9 @@
       changes={recent.changes}
       onundo={(change) => void recent.undo(change)}
       verbFirst={false}
-      none={recent.loaded ? 'Nothing yet. Changes show here, with Undo for 7 days.' : 'Loading…'}
+      none={recent.loaded
+        ? `Nothing yet. Changes show here, with Undo for ${UNDO_SPAN}.`
+        : 'Loading…'}
     />
   {/if}
   {#if recent.next !== null}

@@ -533,6 +533,7 @@ UNDO_NOT_NAMES: dict[str, str] = {
     "list_url": "a path",
     "role": "a person’s role (admin, member): everyday words, not names",
     "lot_amounts": "a stock lot’s amounts and units, not a name",
+    "connection": "an outside connection switch: its code name (recipe_import) and on or off",
 }
 # Keys that end like these hold an ID, a time or a day.
 _NOT_NAME_ENDINGS = ("_id", "_ids", "_at", "_day", "_on", "_from", "_to", "_url", "_made_at")

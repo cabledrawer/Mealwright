@@ -49,8 +49,8 @@ export function onUndoOf(kind: string, then: () => void): void {
 /**
  * How to undo a change on the server, for an Undo button. The undo has its own ID, made
  * once, so pressing Try again never undoes twice. Shows the server's message when it
- * could only put back some of it (or nothing) or brought a removed ingredient back;
- * "Undone" otherwise.
+ * could only put back some of it (or nothing) or brought a removed ingredient back, and its
+ * notice when it turned password sign-in back on; "Undone" otherwise.
  */
 export function serverUndo(
   changeId: number,
@@ -62,6 +62,7 @@ export function serverUndo(
     kitchen.changed({ elsewhere: true });
     for (const then of afterUndoOf.get(result.undone?.kind ?? '') ?? []) then();
     after?.(result);
+    if (result.notice) return result.notice;
     return result.result === 'done' && !result.brought_back?.length ? undefined : result.message;
   };
 }
@@ -74,6 +75,7 @@ export function serverUndo(
 export function undoToast(summary: string, result: UndoResult | null): string {
   if (!result) return `Undone: ${summary}`;
   if (result.result !== 'done') return result.message;
+  if (result.notice) return `Undone: ${summary}. ${result.notice}`;
   if (result.brought_back?.length) return `Undone: ${summary}. ${result.message}`;
   return `Undone: ${summary}`;
 }

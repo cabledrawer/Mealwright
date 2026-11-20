@@ -57,12 +57,23 @@ class Kitchen:
     def household_id(self) -> int:
         return self.household.id
 
+    def may(self, action: Action) -> bool:
+        """Whether this login's role may do `action` here (`mealwright.roles`): the one test for
+        what an admin-only page shows (0.9.5-beta.3, D4, BE11)."""
+        return allowed(self.login.role, action, self.by_token)
+
     def admin_only(self, action: Action) -> None:
         """Refuse (403) unless this login's role may do `action` (`mealwright.roles`)."""
-        if not allowed(self.login.role, action, self.by_token):
-            if self.by_token and allowed(self.login.role, action):
-                raise not_for_tokens()
-            raise admins_only()
+        refuse_unless(self.login.role, action, self.by_token)
+
+
+def refuse_unless(role: str, action: Action, by_token: bool) -> None:
+    """The one refusal for an admin-only action (D4, BE11): `403 not_for_tokens` when the role may
+    but not through an API token, otherwise `403 admins_only`."""
+    if not allowed(role, action, by_token):
+        if by_token and allowed(role, action):
+            raise not_for_tokens()
+        raise admins_only()
 
 
 def kitchen(

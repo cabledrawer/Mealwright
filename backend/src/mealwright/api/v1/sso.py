@@ -63,7 +63,7 @@ from mealwright.errors import Problem
 from mealwright.models import Login, Session, SsoSettings, utcnow
 from mealwright.outbound import OutboundGate
 from mealwright.own_network import is_localhost
-from mealwright.roles import ADMIN, MEMBER, Action
+from mealwright.roles import ADMIN, MEMBER, Action, allowed
 from mealwright.secret_box import SecretUnreadable, open_sealed, seal
 
 log = logging.getLogger("mealwright.sign_in")
@@ -416,7 +416,7 @@ def _still_testing(request: Request, db: Db, household_id: int, login_id: int | 
     return (
         signed_in is not None
         and signed_in.login.id == login_id
-        and signed_in.login.role == ADMIN
+        and allowed(signed_in.login.role, Action.SIGN_IN)  # through `allowed()` (D4, BE11)
         and signed_in.login.household_id == household_id
     )
 
@@ -547,7 +547,7 @@ def _finish_confirm(
     if (
         signed_in is None
         or signed_in.login.id != flow.login_id
-        or signed_in.login.role != ADMIN
+        or not allowed(signed_in.login.role, Action.SIGN_IN)
         or signed_in.login.household_id != flow.household_id
     ):
         raise sso.SsoFailed("expired")  # signed out, or someone else, since it started
@@ -599,7 +599,11 @@ def _finish_test(
     identity: sso.Identity,
 ) -> FinishOut:
     signed_in = find_session(db, session_token(request))
-    if signed_in is None or signed_in.login.id != login_id or signed_in.login.role != ADMIN:
+    if (
+        signed_in is None
+        or signed_in.login.id != login_id
+        or not allowed(signed_in.login.role, Action.SIGN_IN)
+    ):
         raise sso.SsoFailed("expired")  # signed out, or someone else, since it started
     login = signed_in.login
     role, link = sso_accounts.outcome_of_test(db, row, login, identity)

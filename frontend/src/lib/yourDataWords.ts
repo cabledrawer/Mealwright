@@ -3,6 +3,7 @@
 // cabledrawer): docs/dev/words.md, section 72.
 
 import type { BackupEvery, Backups } from '#lib/client/yourData.js';
+import { UNDO_SPAN } from '#lib/undoWords.js';
 
 export const EVERY_WORDS: Record<BackupEvery, string> = {
   daily: 'Daily, 03:00',
@@ -127,7 +128,7 @@ export function exportPasswordOk(password: string): boolean {
   return length >= 8 && length <= 1024;
 }
 
-export const UNDO_REACH = 'Undo reaches back 7 days.';
+export const UNDO_REACH = `Undo reaches back ${UNDO_SPAN}.`;
 
 export const ADMINS_ONLY = 'Only the household’s admin can change these.';
 

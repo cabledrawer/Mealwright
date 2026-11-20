@@ -29,6 +29,7 @@ from mealwright.api.v1.schemas import Answer
 from mealwright.auth import SameOrigin
 from mealwright.errors import RECIPE_ONCE, Problem, StoredInt
 from mealwright.models import BatchCook, BatchSession, Change, Meal, utcnow
+from mealwright.moment import Moment
 from mealwright.shopping import lock_db
 
 router = APIRouter(tags=["batch cook"], dependencies=[SameOrigin])
@@ -347,9 +348,9 @@ class TaskOut(BaseModel):
         description="The step is an Optional one that was kept (the screen says so)."
     )
     state: str = Field(description="`done`, `running` (a timer), `ready` or `later`.")
-    started_at: datetime | None = Field(description="When its timer was started.")
-    done_at: datetime | None
-    ends_at: datetime | None = Field(description="When a running timer ends.")
+    started_at: Moment | None = Field(description="When its timer was started.")
+    done_at: Moment | None
+    ends_at: Moment | None = Field(description="When a running timer ends.")
 
 
 class BeforeOut(BaseModel):
@@ -368,7 +369,7 @@ class ScheduleKitchenOut(BaseModel):
 class ScheduleOut(BaseModel):
     session_id: int
     cook_day: Day
-    made_at: datetime
+    made_at: Moment
     stale: bool = Field(
         description="A recipe or the kitchen has changed since: the screen offers Plan again."
     )
@@ -384,7 +385,7 @@ class ScheduleOut(BaseModel):
     next_id: str | None
     in_use: dict[str, int] = Field(description="Equipment in use now: `hob`, `pressure`, `oven`.")
     done_count: int
-    server_time: datetime
+    server_time: Moment
 
 
 def _schedule_out(kitchen: Here, session_id: int, now: datetime | None = None) -> ScheduleOut:
@@ -456,9 +457,9 @@ def get_schedule(session_id: StoredInt, kitchen: Here) -> ScheduleOut:
 class TaskProgressOut(BaseModel):
     id: str
     state: str = Field(description="`done`, `running` (a timer), `ready` or `later`.")
-    started_at: datetime | None
-    done_at: datetime | None
-    ends_at: datetime | None
+    started_at: Moment | None
+    done_at: Moment | None
+    ends_at: Moment | None
 
 
 class ScheduleProgressOut(BaseModel):
@@ -466,7 +467,7 @@ class ScheduleProgressOut(BaseModel):
     that a mark changes, so a mark's answer is small however long the steps are."""
 
     session_id: int
-    made_at: datetime = Field(description="Of the schedule these tasks belong to.")
+    made_at: Moment = Field(description="Of the schedule these tasks belong to.")
     stale: bool
     minutes_left: int
     tasks: list[TaskProgressOut]
@@ -474,7 +475,7 @@ class ScheduleProgressOut(BaseModel):
     next_id: str | None
     in_use: dict[str, int]
     done_count: int
-    server_time: datetime
+    server_time: Moment
 
 
 BriefQuery = Annotated[

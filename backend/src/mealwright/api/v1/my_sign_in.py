@@ -5,7 +5,6 @@ Every answer is about the signed-in login only: nobody sees or ends anyone else'
 """
 
 import logging
-from datetime import datetime
 
 from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel, Field
@@ -31,6 +30,7 @@ from mealwright.auth import (
 )
 from mealwright.errors import Problem, StoredInt, not_found, wrong_password
 from mealwright.models import JoinLink, Session, as_utc
+from mealwright.moment import Moment
 
 # These lines name an account or an address: Mealwright's own log file only (mealwright.logs).
 log = logging.getLogger("mealwright.sign_in")
@@ -46,14 +46,14 @@ class SignInPlace(BaseModel):
 
     id: int
     device: str | None = Field(description='"iPhone · Safari"; empty if not recognised.')
-    last_used_at: datetime
+    last_used_at: Moment
     remember: bool = Field(description="Remembered for 30 days (else signed out after 12 h idle).")
     this_device: bool = Field(description="The device this request came from.")
 
 
 class MySignIn(BaseModel):
     has_password: bool
-    password_changed_at: datetime | None
+    password_changed_at: Moment | None
     sessions: list[SignInPlace] = Field(description="This device first, then most recently used.")
 
 

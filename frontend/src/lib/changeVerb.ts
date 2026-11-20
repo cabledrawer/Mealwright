@@ -53,7 +53,12 @@ const VERB_KINDS = new Set([
   'person_removed',
   'person_login',
   'whos_this_switch',
-  'household_renamed'
+  'household_renamed',
+  // Settings › Outside connections (D4, BE5): "Switched recipe import on", "Added wiki.home.example
+  // to Your own network", "Removed … from Your own network".
+  'connection_changed',
+  'own_network_added',
+  'own_network_removed'
 ]);
 
 /** The other ways an edit's summary can end, after the ingredient's name ("{name} is now a staple"). */

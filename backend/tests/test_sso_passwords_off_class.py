@@ -72,7 +72,9 @@ def test_an_entry_removed_with_passwords_on_still_stops_passwords_going_off(
     home(kitchen, monkeypatch, "id.example.org", off=False)
     removed = kitchen.delete(f"{API}/privacy/own-network/{entry_id(kitchen)}")
     assert removed.status_code == 200, removed.text
-    assert removed.json() == {"passwords_back_on": False, "notice": None}
+    assert removed.json()["passwords_back_on"] is False
+    assert removed.json()["notice"] is None
+    assert removed.json()["change"]["kind"] == "own_network_removed"  # D4, BE5
     off = kitchen.put(f"{API}/sso/password-sign-in", json={"on": False})
     assert off.status_code == 409 and off.json()["code"] == "passwords_needed"
     assert passwords_work(kitchen)
@@ -121,7 +123,9 @@ def test_a_removal_while_the_switch_is_off_leaves_passwords_working_when_it_is_o
     assert kitchen.put(f"{API}/privacy/switches/single_sign_on", json={"on": False}).is_success
     removed = kitchen.delete(f"{API}/privacy/own-network/{entry_id(kitchen)}")
     assert removed.status_code == 200, removed.text
-    assert removed.json() == {"passwords_back_on": False, "notice": None}
+    assert removed.json()["passwords_back_on"] is False
+    assert removed.json()["notice"] is None
+    assert removed.json()["change"]["kind"] == "own_network_removed"  # D4, BE5
     assert kitchen.put(f"{API}/privacy/switches/single_sign_on", json={"on": True}).is_success
     assert passwords_work(kitchen)
 

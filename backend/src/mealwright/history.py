@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright import change_kinds, events, restock, roles
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import KEY_REUSED, Problem
-from mealwright.household import undo_window
+from mealwright.household import UNDO_DAYS, UNDO_WINDOW
 from mealwright.models import (
     Change,
     ChangeLine,
@@ -144,7 +144,7 @@ def record(
 
 
 def undo_until(kitchen: Kitchen, change: Change) -> datetime:
-    return as_utc(change.at) + undo_window(kitchen.household)
+    return as_utc(change.at) + UNDO_WINDOW
 
 
 # Changes that only remember a request's Idempotency-Key (a recipe made or saved, a draft
@@ -892,14 +892,14 @@ JOINED_BOUGHT_MESSAGES: dict[UndoResult, str] = {
 }
 
 
-def too_old_sentence(days: int) -> str:
+def too_old_sentence(days: int = UNDO_DAYS) -> str:
     """The one "too late to undo" sentence (0.9.5-beta.3, D2; proposed, for cabledrawer), with
-    the window that applied: the household's undo days, or an import's own."""
+    the undo window (D4, CL9: one window for every change, an import's included)."""
     return f"Too late to undo: changes can be undone for {days} day{'' if days == 1 else 's'}."
 
 
-def too_old(days: int) -> Problem:
-    return Problem(status.HTTP_410_GONE, "too_old", too_old_sentence(days))
+def too_old() -> Problem:
+    return Problem(status.HTTP_410_GONE, "too_old", too_old_sentence())
 
 
 def already_undone() -> Problem:
@@ -1031,7 +1031,7 @@ def thin(db: DbSession, household: Household, now: datetime | None = None) -> in
         db.commit()
         thinned += len(ids)
 
-    gone_before = now - undo_window(household)
+    gone_before = now - UNDO_WINDOW
     db.execute(
         delete(StockLot).where(
             StockLot.household_id == household.id,
@@ -1066,7 +1066,7 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     from mealwright.shopping import lock_db, on_a_list
 
     now = now or utcnow()
-    cutoff = now - undo_window(household) - PURGE_MARGIN
+    cutoff = now - UNDO_WINDOW - PURGE_MARGIN
     # The household's lock first (sync protocol 5.2): an Undo or a phone's queue can't
     # bring one of these back half way through, and the purge takes a counter number.
     lock_db(db, household)
@@ -1104,9 +1104,7 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     # Likewise never delete a live list item: an ingredient that is somehow on a list is
     # brought back instead (a merge repoints items, so this shouldn't happen).
     listed = {
-        food_id
-        for food_id in removed
-        if on_a_list(db, household.id, food_id, now - undo_window(household))
+        food_id for food_id in removed if on_a_list(db, household.id, food_id, now - UNDO_WINDOW)
     }
     if listed:
         db.execute(update(Food).where(Food.id.in_(list(listed))).values(removed_at=None))
@@ -1257,7 +1255,7 @@ def tidy_lists(db: DbSession, household: Household, now: datetime | None = None)
     from mealwright.shopping import lock_db
 
     now = now or utcnow()
-    soon = now - undo_window(household)
+    soon = now - UNDO_WINDOW
     old = month_cutoff(household, now)
     lock_db(db, household)
     hid = household.id

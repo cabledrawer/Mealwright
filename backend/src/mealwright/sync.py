@@ -30,7 +30,7 @@ from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import ShortAmount
 from mealwright.errors import KEY_REUSED, TYPE_A_NAME, Problem
 from mealwright.history import too_old_sentence
-from mealwright.household import undo_window
+from mealwright.household import UNDO_WINDOW
 from mealwright.models import Change, ListItem, ShoppingList, SyncAction, as_utc, utcnow
 from mealwright.names import clean_name, size_name
 from mealwright.shopping import Act, Batch, Refused
@@ -494,9 +494,9 @@ def undo(act: Act) -> None:
     if target.undone_by_action_id is not None:
         act.ignore("already_undone")
         return
-    window: timedelta = undo_window(kitchen.household)
+    window: timedelta = UNDO_WINDOW
     if pressed_at(act, target.applied_at) >= as_utc(target.applied_at) + window:
-        act.ignore("too_old", too_old_sentence(kitchen.household.undo_days))
+        act.ignore("too_old", too_old_sentence())
         return
     if _tidied(kitchen, target):
         act.ignore("gone")  # its list or item was tidied away for good (5.9)

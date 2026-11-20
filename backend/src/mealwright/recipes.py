@@ -50,7 +50,7 @@ from mealwright.errors import Problem, not_found
 from mealwright.foods import make_food, name_owner, name_taken, suggested_shop
 from mealwright.foods import visible as food_visible
 from mealwright.history import Tally, bump_recipes, bump_recipes_by, record, too_old
-from mealwright.household import undo_window
+from mealwright.household import UNDO_WINDOW
 from mealwright.models import (
     Change,
     Food,
@@ -984,7 +984,7 @@ def undo_removal(kitchen: Kitchen, change: Change) -> Change:
     data = change.undo_data or {}
     recipe = kitchen.db.get(Recipe, data.get("recipe_id", 0))
     if recipe is None or recipe.household_id != kitchen.household_id:
-        raise too_old(kitchen.household.undo_days)
+        raise too_old()
     # While it was deleted, recipes that use it (or ones it uses) may have been changed so
     # that bringing it back would make a loop: the same check as a save, with the same words.
     picks = []
@@ -1080,7 +1080,7 @@ def purge_removed_recipes(db: DbSession, household: Household, now: datetime | N
     from mealwright.shopping import lock_db
 
     now = now or utcnow()
-    cutoff = now - undo_window(household) - timedelta(hours=1)
+    cutoff = now - UNDO_WINDOW - timedelta(hours=1)
     lock_db(db, household)
     ids = list(
         db.scalars(

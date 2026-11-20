@@ -5,6 +5,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import type { OwnNetworkEntry, OwnNetworkList, PrivacySwitches } from '#lib/client/privacy.js';
+import type { Change, UndoResult } from '#lib/client/types.js';
 import { network } from '#lib/network.svelte.js';
 import { privacy } from '#lib/privacy.svelte.js';
 import { toasts } from '#lib/toast.svelte.js';
@@ -28,6 +29,32 @@ const entry = (
   added_on: '2026-10-22',
   ...extra
 });
+
+/** A change the server made (D4, BE5: each is in Recent changes, with the server's Undo). */
+const change = (id: number, kind: string, summary: string): Change => ({
+  id,
+  kind,
+  at: '2026-11-20T10:00:00Z',
+  who: { login_id: 1, name: 'Tess' },
+  summary,
+  can_undo: true,
+  undo_until: '2026-11-27T10:00:00Z',
+  undone: null
+});
+
+/** The server's answer to Undo of that change. */
+const undone = (of: Change, notice: string | null = null): [number, UndoResult] => [
+  200,
+  {
+    result: 'done',
+    message: 'Undone',
+    change: change(of.id + 100, 'undo', `Undid: ${of.summary}`),
+    undone: of,
+    food: null,
+    brought_back: [],
+    notice
+  }
+];
 
 const wiki = entry(1, 'name', 'wiki.home.example');
 const lan = entry(2, 'range', '192.168.1.0/24', { addresses: 256 });
@@ -228,6 +255,43 @@ describe('Settings › Outside connections', () => {
       expect(sent('PUT', '/privacy/switches/recipe_photos')).toHaveLength(0);
     });
 
+    it('offers the server’s Undo for a switch, which turns it back off (D4, BE5)', async () => {
+      const made = change(34, 'connection_changed', 'Switched recipe import on');
+      let on = false;
+      open({
+        'GET /privacy/switches': () => switches(on, false),
+        'PUT /privacy/switches/recipe_import': () => {
+          on = true;
+          return [200, { ...switches(true, false)[1], change: made }];
+        },
+        'POST /changes/34/undo': () => {
+          on = false;
+          return undone(made);
+        }
+      });
+      const toggle = page.getByRole('switch', { name: IMPORT });
+      await toggle.click();
+      await expect.element(toggle).toBeChecked();
+      await vi.waitFor(() => expect(toasts.current?.message).toBe('Switched recipe import on'));
+      expect(toasts.current?.action?.label).toBe('Undo');
+      toasts.act();
+      await expect.element(toggle).not.toBeChecked();
+      expect(sent('POST', '/changes/34/undo')).toHaveLength(1);
+      expect(sent('PUT', '/privacy/switches/recipe_import')).toHaveLength(1);
+    });
+
+    it('offers no Undo when the switch was already as asked', async () => {
+      open({
+        'PUT /privacy/switches/recipe_import': [200, { ...switches(true, false)[1], change: null }]
+      });
+      await page.getByRole('switch', { name: IMPORT }).click();
+      await vi.waitFor(() =>
+        expect(sent('PUT', '/privacy/switches/recipe_import')).toHaveLength(1)
+      );
+      await new Promise((done) => setTimeout(done, 50));
+      expect(toasts.current).toBeNull();
+    });
+
     it('turns the daily update check on, with its own words (X1)', async () => {
       open({
         'PUT /privacy/switches/update_check': [
@@ -353,13 +417,20 @@ describe('Settings › Outside connections', () => {
         .toBeVisible();
     });
 
-    it('adds a name, clears the box, and offers Undo', async () => {
+    it('adds a name, clears the box, and offers the server’s Undo', async () => {
+      const made = change(31, 'own_network_added', 'Added nas.home.example to Your own network');
+      let entries: OwnNetworkEntry[] = [];
       open({
-        'POST /privacy/own-network': (request) => [
-          201,
-          entry(5, 'name', (request.body as { value: string }).value.toLowerCase())
-        ],
-        'DELETE /privacy/own-network/5': [200, { passwords_back_on: false, notice: null }]
+        'GET /privacy/own-network': () => list(entries),
+        'POST /privacy/own-network': (request) => {
+          const added = entry(5, 'name', (request.body as { value: string }).value.toLowerCase());
+          entries = [added];
+          return [201, { ...added, change: made }];
+        },
+        'POST /changes/31/undo': () => {
+          entries = [];
+          return undone(made);
+        }
       });
       const box = page.getByRole('textbox', { name: 'Add a name or address' });
       await box.fill('Nas.Home.Example');
@@ -373,7 +444,9 @@ describe('Settings › Outside connections', () => {
       await expect
         .element(page.getByText('nas.home.example', { exact: true }))
         .not.toBeInTheDocument();
-      expect(sent('DELETE', '/privacy/own-network/5')).toHaveLength(1);
+      // The Undo is the server's (it is in Recent changes); nothing is taken off by hand.
+      expect(sent('POST', '/changes/31/undo')).toHaveLength(1);
+      expect(sent('DELETE', '/privacy/own-network/5')).toHaveLength(0);
     });
 
     it('adds with Enter too', async () => {
@@ -426,11 +499,23 @@ describe('Settings › Outside connections', () => {
       await expect.element(page.getByText(notice)).not.toBeInTheDocument();
     });
 
-    it('takes an entry off at once, with Undo that puts it back', async () => {
+    it('takes an entry off at once, with the server’s Undo that puts it back', async () => {
+      const made = change(
+        32,
+        'own_network_removed',
+        'Removed wiki.home.example from Your own network'
+      );
+      let entries = [wiki, lan];
       open({
-        'GET /privacy/own-network': list([wiki, lan]),
-        'DELETE /privacy/own-network/1': [200, { passwords_back_on: false, notice: null }],
-        'POST /privacy/own-network': [201, entry(9, 'name', 'wiki.home.example')]
+        'GET /privacy/own-network': () => list(entries),
+        'DELETE /privacy/own-network/1': () => {
+          entries = [lan];
+          return [200, { passwords_back_on: false, notice: null, change: made }];
+        },
+        'POST /changes/32/undo': () => {
+          entries = [lan, entry(9, 'name', 'wiki.home.example')]; // back as a new entry
+          return undone(made);
+        }
       });
       await page.getByRole('button', { name: 'Remove wiki.home.example' }).click();
       await expect
@@ -441,7 +526,9 @@ describe('Settings › Outside connections', () => {
       expect(toasts.current?.message).toBe('Removed wiki.home.example from Your own network');
       toasts.act();
       await expect.element(page.getByText('wiki.home.example', { exact: true })).toBeVisible();
-      expect(sent('POST', '/privacy/own-network')[0]!.body).toEqual({ value: 'wiki.home.example' });
+      expect(sent('POST', '/changes/32/undo')).toHaveLength(1);
+      expect(sent('POST', '/privacy/own-network')).toHaveLength(0);
+      expect(privacy.entries.map((e) => e.id)).toEqual([2, 9]);
     });
 
     it('puts an entry back, and says why, when it couldn’t be taken off', async () => {
@@ -483,25 +570,28 @@ describe('Settings › Outside connections', () => {
       expect(document.querySelectorAll('li .value')).toHaveLength(1);
     });
 
-    it('keeps one row per entry when Undo puts back what a load already brought in', async () => {
-      const nine = entry(9, 'name', 'wiki.home.example');
+    it('says so when the Undo of adding the sign-in server turned passwords back on', async () => {
+      const notice =
+        'Removed. Passwords work again for now, because single sign-on can’t start without that entry: your sign-in server is no longer on Your own network. Add it back and passwords are off again.';
+      const made = change(33, 'own_network_added', 'Added sso.home.example to Your own network');
+      let entries: OwnNetworkEntry[] = [];
       open({
-        'GET /privacy/own-network': list([wiki]),
-        'DELETE /privacy/own-network/1': [200, { passwords_back_on: false, notice: null }],
+        'GET /privacy/own-network': () => list(entries),
         'POST /privacy/own-network': () => {
-          privacy.entries = [nine];
-          return [201, nine];
+          entries = [entry(6, 'name', 'sso.home.example')];
+          return [201, { ...entries[0]!, change: made }];
+        },
+        'POST /changes/33/undo': () => {
+          entries = [];
+          return undone(made, notice);
         }
       });
-      await page.getByRole('button', { name: 'Remove wiki.home.example' }).click();
-      await expect
-        .element(page.getByText('wiki.home.example', { exact: true }))
-        .not.toBeInTheDocument();
+      await page.getByRole('textbox', { name: 'Add a name or address' }).fill('sso.home.example');
+      await page.getByRole('button', { name: 'Add', exact: true }).click();
+      await expect.element(page.getByText('sso.home.example', { exact: true })).toBeVisible();
       toasts.act();
-      await vi.waitFor(() => expect(sent('POST', '/privacy/own-network')).toHaveLength(1));
-      await new Promise((done) => setTimeout(done, 100)); // the answer is read and put in the list
-      await expect.element(page.getByText('wiki.home.example', { exact: true })).toBeVisible();
-      expect(privacy.entries.map((e) => e.id)).toEqual([9]);
+      await expect.element(page.getByRole('status').filter({ hasText: notice })).toBeVisible();
+      await vi.waitFor(() => expect(toasts.current?.message).toBe(notice));
     });
 
     it('lets an entry that is already gone go quietly', async () => {

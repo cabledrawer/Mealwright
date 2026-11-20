@@ -184,7 +184,7 @@ def test_only_that_households_ingredients(kitchen: TestClient) -> None:
     remove(kitchen, toor["id"])
     removed_days_ago(kitchen, toor["id"], 8)
     with db(kitchen) as session:
-        session.add(Household(id=2, name="Next door", undo_days=30))
+        session.add(Household(id=2, name="Next door"))
         session.flush()
         session.add(
             Login(
@@ -205,12 +205,12 @@ def test_only_that_households_ingredients(kitchen: TestClient) -> None:
             )
         )
         session.commit()
-    # Next door keeps removals for 30 days: purging there touches nothing.
-    assert purge(kitchen, household_id=2) == 0
-    assert exists(kitchen, 500) and exists(kitchen, toor["id"])
-    # Purging here leaves next door's alone.
+    # Purging here leaves next door's alone (the undo window is the same everywhere: D4, CL9).
     assert purge(kitchen, household_id=1) == 1
-    assert exists(kitchen, 500)
+    assert exists(kitchen, 500) and not exists(kitchen, toor["id"])
+    # And purging next door touches only theirs.
+    assert purge(kitchen, household_id=2) == 1
+    assert not exists(kitchen, 500)
 
 
 def test_the_job_runs_for_every_household(kitchen: TestClient) -> None:

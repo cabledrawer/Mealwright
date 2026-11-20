@@ -17,6 +17,7 @@ from mealwright import (
     mealie_answers,
     people,
     plan,
+    privacy_changes,
     recipe_tags,
     recipes,
     removals,
@@ -380,6 +381,9 @@ class UndoOut(BaseModel):
     groups: list[GroupOut]  # the pantry groups touched, as they are now
     brought_back: list[Ref]  # removed ingredients this Undo returned to Ingredients
     recipe: Ref | None = None  # the recipe this Undo brought back (0.4)
+    # A sentence to show as well, when the Undo did more than put the change back: undoing an
+    # entry added to Your own network turned password sign-in back on (D4, BE5). Else null.
+    notice: str | None = None
 
 
 def _plain(food: Food, milli: int) -> str:
@@ -471,6 +475,7 @@ def _undo_out(kitchen: Kitchen, undo: Change) -> UndoOut:
         if back is not None:
             revived.append(Ref(id=back.id, name=back.name))
     return UndoOut(
+        notice=data.get("notice"),
         brought_back=revived,
         recipe=recipe,
         result=result,
@@ -644,6 +649,10 @@ def undo_change(
         kitchen_changes.undo(kitchen, change)
     if change.kind in people.KINDS:
         people.undo(kitchen, change)
+    if change.kind in privacy_changes.KINDS:
+        notice = privacy_changes.undo(kitchen, change)
+        if notice is not None:
+            extra = {**(extra or {}), "notice": notice}
     if data.get("shopping"):
         shopping.undo_shopping(kitchen, change, tally, batch, action)
     # Each lot as it was before the Undo, so the Undo gets its own lines.
@@ -849,7 +858,7 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
             message = "An Undo can’t itself be undone." if change.kind == "undo" else CANT_UNDO
             raise Problem(status.HTTP_409_CONFLICT, refused, message)
         if utcnow() >= undo_until(kitchen, change):
-            raise too_old(kitchen.household.undo_days)
+            raise too_old()
         if undo_standing_refusal(kitchen, change) is not None:
             raise Problem(status.HTTP_409_CONFLICT, "cannot_undo", CANT_UNDO)
         from mealwright.ticks import pantry_undo

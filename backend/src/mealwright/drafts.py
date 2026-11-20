@@ -47,7 +47,7 @@ from mealwright.api.v1.import_schemas import ImportReview, ReviewCounts, ReviewL
 from mealwright.api.v1.schemas import Ref
 from mealwright.errors import Problem, not_found
 from mealwright.history import record, too_old
-from mealwright.household import undo_window
+from mealwright.household import UNDO_WINDOW
 from mealwright.models import (
     Change,
     Food,
@@ -727,7 +727,7 @@ def undo_removal(kitchen: Kitchen, change: Change) -> Change:
     data = change.undo_data or {}
     draft = kitchen.db.get(ImportDraft, data.get("draft_id", 0))
     if draft is None or draft.household_id != kitchen.household_id:
-        raise too_old(kitchen.household.undo_days)
+        raise too_old()
     if count(kitchen.db, kitchen.household_id) >= MAX_DRAFTS:
         raise _too_many()
     draft.removed_at = None
@@ -871,7 +871,7 @@ def purge(db: DbSession, household: Household, now: datetime | None = None) -> i
                 )
                 | (
                     ImportDraft.removed_at.is_not(None)
-                    & (ImportDraft.removed_at < now - undo_window(household) - timedelta(hours=1))
+                    & (ImportDraft.removed_at < now - UNDO_WINDOW - timedelta(hours=1))
                 ),
             )
         )
@@ -888,12 +888,12 @@ def drop_save_copies(db: DbSession, household: Household, now: datetime) -> int:
     the rest of the change stays. The caller holds the lock and commits. Returns how many."""
     from mealwright import mealie_answers
 
-    dropped = mealie_answers.drop_copies(db, household.id, now - undo_window(household))
+    dropped = mealie_answers.drop_copies(db, household.id, now - UNDO_WINDOW)
     for change in db.scalars(
         select(Change).where(
             Change.household_id == household.id,
             Change.kind == "recipe_imported",
-            Change.at < now - undo_window(household),
+            Change.at < now - UNDO_WINDOW,
             Change.undo_data.is_not(None),
         )
     ):

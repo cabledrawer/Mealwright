@@ -220,3 +220,29 @@ def test_after_a_restart_an_admin_with_a_password_is_still_allowed(
         db.commit()
     sso.forget_remembered()
     assert _off(kitchen).status_code == 200
+
+
+def _change(client: TestClient, kind: str) -> int:
+    """The newest change of this kind in Recent changes."""
+    changes = client.get(f"{API}/changes").json()["changes"]
+    return int(next(c["id"] for c in changes if c["kind"] == kind))
+
+
+def test_undoing_single_sign_on_switched_on_is_held_to_the_same_rule(
+    kitchen: TestClient, link_only: FakeProvider
+) -> None:
+    """D4, BE5: the switch is in Recent changes, and its Undo would end single sign-on."""
+    refused = kitchen.post(f"{API}/changes/{_change(kitchen, 'connection_changed')}/undo")
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["code"] == "locked_out"
+    assert refused.json()["detail"] == SENTENCE
+    assert _on(kitchen)
+
+
+def test_undoing_the_add_of_the_sign_in_servers_entry_is_refused_too(
+    kitchen: TestClient, link_only: FakeProvider
+) -> None:
+    refused = kitchen.post(f"{API}/changes/{_change(kitchen, 'own_network_added')}/undo")
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["code"] == "locked_out"
+    assert len(kitchen.get(f"{API}/privacy/own-network").json()["entries"]) == 1

@@ -14,10 +14,9 @@ from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Who
 from mealwright.errors import Problem, name_taken, not_found
 from mealwright.history import PURGE_MARGIN, record
-from mealwright.household import undo_window
+from mealwright.household import UNDO_WINDOW
 from mealwright.models import (
     Change,
-    Household,
     JoinLink,
     Login,
     Member,
@@ -398,16 +397,13 @@ def free_old_usernames(db: DbSession, now: datetime | None = None) -> int:
     the old login. Returns how many were let go. Not committed."""
     now = now or utcnow()
     old = db.execute(
-        select(Login, Member.removed_at, Household)
+        select(Login, Member.removed_at)
         .join(Member, Member.id == Login.member_id)
-        .join(Household, Household.id == Login.household_id)
         .where(Member.removed_at.is_not(None), Login.username.not_like(f"%{LET_GO}%"))
     ).all()
     freed = 0
-    for login, removed_at, household in old:
-        if removed_at is not None and as_utc(removed_at) < (
-            now - undo_window(household) - PURGE_MARGIN
-        ):
+    for login, removed_at in old:
+        if removed_at is not None and as_utc(removed_at) < (now - UNDO_WINDOW - PURGE_MARGIN):
             login.username = f"{login.username[: 50 - len(LET_GO) - 12]}{LET_GO}{login.id}"
             freed += 1
     db.flush()

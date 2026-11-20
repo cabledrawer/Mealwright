@@ -34,6 +34,16 @@ describe('the kinds in Settings › Recent changes (F172)', () => {
       expect(startsWithVerb({ kind, summary: 'Cooked Sambar' })).toBe(true);
     }
   });
+
+  it('the outside connections and Your own network start with a verb (D4, BE5)', () => {
+    for (const [kind, summary] of <[string, string][]>[
+      ['connection_changed', 'Switched recipe import on'],
+      ['own_network_added', 'Added wiki.home.example to Your own network'],
+      ['own_network_removed', 'Removed wiki.home.example from Your own network']
+    ]) {
+      expect(startsWithVerb({ kind, summary })).toBe(true);
+    }
+  });
 });
 
 describe('startsWithVerb', () => {

@@ -11,7 +11,6 @@ one exists only in tests). cabledrawer 12 Nov.
 import logging
 import shutil
 import threading
-from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -35,6 +34,7 @@ from mealwright.auth import (
 from mealwright.errors import Problem, password_length, wrong_password
 from mealwright.household import today
 from mealwright.models import Household, Login, Session, utcnow
+from mealwright.moment import Moment
 from mealwright.photos import household_folder, store_of
 from mealwright.roles import Action
 
@@ -50,7 +50,7 @@ def _folder(request: Request) -> Path:
 
 
 class BackupOut(BaseModel):
-    at: datetime
+    at: Moment
     size: int = Field(description="In bytes, the photos included when it has them.")
     photos: bool = Field(description="Whether it holds the recipe photos (D2, 0.9.5).")
 
@@ -79,7 +79,7 @@ class BackupsOut(BaseModel):
     problem: str | None = Field(
         description="Why the last try failed, in plain words, or null when backups work."
     )
-    problem_at: datetime | None
+    problem_at: Moment | None
     count: int = Field(description="How many of its own backups are in the folder.")
     folder: str = Field(description="Where the backups are, on the server.")
 
@@ -102,7 +102,7 @@ def _database_size(request: Request) -> int:
 def _out(kitchen: Here, request: Request) -> BackupsOut:
     folder = _folder(request)
     household = kitchen.household
-    admin = kitchen.login.role == "admin"
+    admin = kitchen.may(Action.YOUR_DATA)
     found = backups.backups(folder)
     every = household.backup_every if household.backup_every in backups.EVERY else "daily"
     return BackupsOut(

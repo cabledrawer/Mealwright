@@ -124,6 +124,33 @@ test('an admin adds to "Your own network" and takes off, with Undo', async ({ pa
   await expect(page.getByText('Nothing added yet.')).toBeVisible();
 });
 
+test('a switch and the list are in Recent changes, and their Undo works there (D4, BE5)', async ({ page }) => {
+  await page.goto('/settings/privacy');
+  const importSwitch = page.getByRole('switch', { name: IMPORT });
+  await importSwitch.click();
+  await expect(importSwitch).toBeChecked();
+  // The toast offers the server's own Undo.
+  await expect(page.getByRole('status').filter({ hasText: 'Switched recipe import on' })).toBeVisible();
+  await addViaApi(page, 'nas.home.example');
+
+  await page.goto('/settings/recent-changes');
+  const recent = page.getByRole('region', { name: 'Recent changes' });
+  await expect(recent.getByText('Added nas.home.example to Your own network').first()).toBeVisible();
+  await recent.getByRole('button', { name: 'Undo: Switched recipe import on' }).first().click();
+  await expect(page.getByRole('status').filter({ hasText: 'Undone: Switched recipe import on' })).toBeVisible();
+  // Undone on the server: the switch is off again, so the gate blocks at once.
+  await expect
+    .poll(async () => (await (await page.request.get('/api/v1/privacy/switches')).json()).switches[0])
+    .toEqual({ connection: 'recipe_import', on: false });
+  await recent.getByRole('button', { name: 'Undo: Added nas.home.example to Your own network' }).first().click();
+  await expect
+    .poll(async () => (await (await page.request.get('/api/v1/privacy/own-network')).json()).entries)
+    .toEqual([]);
+  await page.goto('/settings/privacy');
+  await expect(importSwitch).not.toBeChecked();
+  await expect(page.getByText('Nothing added yet.')).toBeVisible();
+});
+
 test('the server’s own sentence says why something can’t be added', async ({ page }) => {
   await page.goto('/settings/privacy');
   const box = page.getByRole('textbox', { name: ADD });

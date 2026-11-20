@@ -1017,9 +1017,10 @@ def test_the_tidy_up_drops_the_copy_of_a_draft_once_the_saves_undo_window_has_pa
     assert change_id in [c["id"] for c in ok(photos_on.get(f"{API}/changes"))["changes"]]
 
 
-def test_the_tidy_up_uses_the_households_own_undo_window(
+def test_the_tidy_up_uses_the_one_undo_window_not_the_old_column(
     photos_on: TestClient, pantry: dict[str, Any]
 ) -> None:
+    """D4, CL9: the window is fixed (cabledrawer 11 Nov); the old `undo_days` column isn't read."""
     _, saved = saved_from_a_draft_with_choices(photos_on)
     change_id = saved["change"]["id"]
     date_change(photos_on, change_id, days=2)
@@ -1029,7 +1030,7 @@ def test_the_tidy_up_uses_the_households_own_undo_window(
         household.undo_days = 1
         session.commit()
         purge(session, household)
-    assert not copy_of_draft(photos_on, change_id)[0]
+    assert copy_of_draft(photos_on, change_id)[0]
 
 
 def test_a_save_still_inside_its_window_keeps_its_copy_and_its_undo_works(

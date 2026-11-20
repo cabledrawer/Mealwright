@@ -212,6 +212,9 @@ export interface UndoResult {
   food: Food | null;
   /** Removed ingredients this Undo returned to Ingredients (the message says so). */
   brought_back: { id: number; name: string }[];
+  /** A sentence to show as well (D4, BE5): an Undo in Your own network turned password sign-in
+   * back on. Null otherwise. */
+  notice?: string | null;
 }
 
 /** The household's pint (0.6 import pints). */

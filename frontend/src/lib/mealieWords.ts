@@ -4,6 +4,7 @@
 // for cabledrawer (section 81).
 
 import type { MealieImport, MealiePreview, MealieResult, MealieUndone } from './client/mealie';
+import { UNDO_SPAN } from '#lib/undoWords.js';
 import { sizeWords, whenWords } from './yourDataWords';
 
 export { sizeWords };
@@ -101,7 +102,7 @@ export function undoWords(job: Pick<MealieImport, 'counts'>): string {
   const foods = job.counts.new_foods
     ? ` and the ${count(job.counts.new_foods)} new ${job.counts.new_foods === 1 ? 'ingredient' : 'ingredients'}`
     : '';
-  return `Takes out ${recipes}${foods}. Works for 7 days; recipes you’ve changed or cooked since are kept.`;
+  return `Takes out ${recipes}${foods}. Works for ${UNDO_SPAN}; recipes you’ve changed or cooked since are kept.`;
 }
 
 /** After Undo (proposed, for cabledrawer): "Took out 171 recipes and 85 ingredients; kept 3 you'd

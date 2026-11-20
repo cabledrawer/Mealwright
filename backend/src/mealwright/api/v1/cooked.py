@@ -4,7 +4,6 @@ meal item and for a batch cook. The review screen that uses them is K3."""
 
 import re
 from collections.abc import Callable
-from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -26,6 +25,7 @@ from mealwright.errors import (
 from mealwright.foods import change_out
 from mealwright.history import commit, replayed
 from mealwright.models import Change, CookedRecord, as_utc
+from mealwright.moment import Moment
 from mealwright.shopping import lock_household
 
 router = APIRouter(tags=["plan"], dependencies=[SameOrigin])
@@ -45,7 +45,7 @@ class CookedOut(BaseModel):
     portions: int
     snapshot: cooked.Snapshot
     change_id: int | None
-    cooked_at: datetime
+    cooked_at: Moment
     cooked_by: Who
 
 

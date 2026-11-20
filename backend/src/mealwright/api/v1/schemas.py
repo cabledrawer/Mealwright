@@ -1,6 +1,5 @@
 """JSON shapes shared by the kitchen endpoints (docs/dev/api-endpoints.md)."""
 
-from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -9,6 +8,7 @@ from pydantic_core import PydanticCustomError
 
 from mealwright.amounts import MAX_AMOUNT_TEXT
 from mealwright.errors import UNIT_OR_SIZE, StoredInt
+from mealwright.moment import Moment
 from mealwright.names import size_name
 
 
@@ -51,18 +51,18 @@ class Who(BaseModel):
 
 
 class Undone(BaseModel):
-    at: datetime
+    at: Moment
     who: Who
 
 
 class ChangeOut(BaseModel):
     id: int
     kind: str
-    at: datetime
+    at: Moment
     who: Who
     summary: str
     can_undo: bool
-    undo_until: datetime
+    undo_until: Moment
     undone: Undone | None
 
 

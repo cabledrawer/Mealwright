@@ -1,7 +1,6 @@
 """JSON shapes for import drafts (docs/dev/recipe-import.md, "Drafts")."""
 
 import json
-from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, TypeAdapter, field_validator, model_validator
@@ -10,6 +9,7 @@ from mealwright.api.v1.import_schemas import CountedAs, ImportReview
 from mealwright.api.v1.recipe_schemas import MAX_LINES, MAX_STEP_CHARS, MAX_STEPS, MAX_TAGS
 from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.errors import NAME_THE_NEW_INGREDIENT, PICK_AN_INGREDIENT, PICK_THE_MAKER, StoredInt
+from mealwright.moment import Moment
 from mealwright.names import clean_name
 
 # What the box can hold: pasted text is refused over 100,000 characters (docs/dev/recipe-import.md),
@@ -147,9 +147,9 @@ class DraftBrief(BaseModel):
     name: str
     source: DraftSource
     started_by: str
-    started_at: datetime
-    updated_at: datetime  # the last time anyone changed it: the 15 days count from here
-    expires_at: datetime
+    started_at: Moment
+    updated_at: Moment  # the last time anyone changed it: the 15 days count from here
+    expires_at: Moment
     days_left: int  # 15 for a draft changed just now; 1 on its last day
     lines_total: int  # ingredient lines
     lines_checked: int  # tied to an ingredient (matched, or chosen)

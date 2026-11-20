@@ -135,9 +135,26 @@ not downloaded" and "switched off" links) and `/settings/privacy#your-own-networ
   false and null, or true with the notice to show when password sign-in came back on
   (0.9.5-beta.3, D2). An entry of another household is "not found", like one that doesn't
   exist.
+- **Recent changes, with Undo (0.9.5-beta.3, D4, BE5; cabledrawer 20 Nov: "outside-connection
+  switches and Your own network go into Recent changes with Undo (as the spec said)").** A
+  switch that changes is the change `connection_changed` ("Switched recipe import on"); an add
+  is `own_network_added` ("Added wiki.home.example to Your own network"); a removal is
+  `own_network_removed` ("Removed wiki.home.example from Your own network") (summaries proposed,
+  for cabledrawer). The PUT, POST and DELETE answers carry it as `change` (a `ChangeOut`, null
+  when a switch was already as asked), for the toast's Undo. Each takes an `Idempotency-Key`:
+  sent again, it answers as the first did (`Idempotent-Replayed: true`) and changes nothing
+  more. Only an admin can undo them (`403 admins_only`; never through an API token), within the
+  undo window, and only while nothing has changed them since (`409 cannot_undo`): the switch
+  is still as the change left it and nobody has changed that switch since; the added entry is
+  still there; a removed entry isn't back already (and the list isn't full). Undoing a removal
+  adds the entry back as a new one, by whoever pressed Undo. An Undo that would end single
+  sign-on for the last admin who can only sign in with it is refused like the switch itself
+  (`409 locked_out`); one that turns password sign-in back on says so in the Undo's `notice`
+  (the same sentence as `DELETE`'s).
 
-Log lines say only "Privacy: recipe import switched on" and "Your own network: added" or
-"removed", never an entry.
+Log lines go on the sign-in log (`mealwright.sign_in`) and say only "Privacy: recipe import
+switched on by tess" and "Your own network: added by tess" or "removed by tess" (an Undo adds
+"(Undo)"), never an entry (D4, BE24 and BE25).
 
 ## What the reader gives back
 

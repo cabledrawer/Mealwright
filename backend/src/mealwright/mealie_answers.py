@@ -595,7 +595,7 @@ def finish_left_behind(kitchen: Kitchen) -> int:
     again and only moves one still complete, so a draft is never moved twice and Undo brings it
     back as for any other. Called before the next answer is applied (never on a GET). Returns how
     many drafts were moved."""
-    from mealwright.household import undo_window
+    from mealwright.household import UNDO_WINDOW
     from mealwright.shopping import lock_household
 
     db = kitchen.db
@@ -606,7 +606,7 @@ def finish_left_behind(kitchen: Kitchen) -> int:
             Change.household_id == kitchen.household_id,
             Change.kind == KIND,
             Change.undone_by_change_id.is_(None),
-            Change.at > utcnow() - undo_window(kitchen.household),
+            Change.at > utcnow() - UNDO_WINDOW,
         )
         .order_by(Change.id.desc())
         .limit(LEFT_BEHIND_CHANGES)

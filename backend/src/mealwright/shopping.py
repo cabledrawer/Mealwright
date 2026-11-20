@@ -29,7 +29,7 @@ from mealwright.conversions import guess_aisle, table
 from mealwright.errors import AMOUNT_TOO_BIG, Problem, not_found
 from mealwright.foods import add_size, find, name_owner, suggested_shop, usual_size
 from mealwright.history import Tally, diff, record, record_back, snapshot
-from mealwright.household import undo_window
+from mealwright.household import UNDO_WINDOW
 from mealwright.models import (
     Change,
     Food,
@@ -599,7 +599,7 @@ def on_a_list(db: DbSession, household_id: int, food_id: int, cutoff: datetime) 
 def removed_recently(kitchen: Kitchen, food_id: int) -> bool:
     """Is this ingredient on a list that is not removed, or removed within the undo window?
     (Undo of the removal would bring it back.) Tombstones don't count."""
-    cutoff = utcnow() - undo_window(kitchen.household)
+    cutoff = utcnow() - UNDO_WINDOW
     return on_a_list(kitchen.db, kitchen.household_id, food_id, cutoff)
 
 
