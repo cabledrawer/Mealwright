@@ -282,7 +282,19 @@ test('One at a time: a swipe left is Next, right is Back, and it waits while a s
   await checking(page, unique('Rava'), unique('Hing'), unique('Masala'));
   const header = page.getByRole('heading', { level: 1 });
   const swipe = async (dx: number) => {
-    const y = 600;
+    // A row on the screen that is not a button, a link or a box: a swipe that starts and ends on
+    // a button is a tap on it (the screens' height, and where the buttons sit, change).
+    const y = await page.evaluate(() => {
+      for (let at = 160; at < window.innerHeight - 60; at += 8) {
+        const clear = [340, 250, 150, 90, 50].every((x) => {
+          const el = document.elementFromPoint(x, at);
+          return el?.closest('.one') && !el.closest('button, a, input, textarea, select, [role="switch"]');
+        });
+        if (clear) return at;
+      }
+      return -1;
+    });
+    expect(y, 'a place on the screen to swipe on').toBeGreaterThan(0);
     const x = dx < 0 ? 340 : 50;
     await page.mouse.move(x, y);
     await page.mouse.down();

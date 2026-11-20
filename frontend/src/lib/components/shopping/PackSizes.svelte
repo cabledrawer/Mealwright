@@ -79,7 +79,12 @@
   });
 </script>
 
-<Sheet title="{food.name}{sheet?.need ? ` · ${sheet.need}` : ''}" size="small" {onclose}>
+<Sheet
+  title="{food.name}{sheet?.need ? ` · ${sheet.need}` : ''}"
+  label="{food.name}: which size?"
+  size="small"
+  {onclose}
+>
   <div class="body" bind:this={body}>
     <p class="sub">Sizes sold in UK shops</p>
     {#if failed}

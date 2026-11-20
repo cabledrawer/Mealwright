@@ -86,7 +86,7 @@ test('cooks a session: shared prep, a timer that survives a reload, Done, next, 
 
   // Show ingredients lists both recipes' ingredients.
   await page.getByRole('button', { name: 'Show ingredients' }).click();
-  await expect(page.getByRole('dialog', { name: 'All ingredients' })).toContainText(s.chettinad);
+  await expect(page.getByRole('dialog', { name: 'Ingredients' })).toContainText(s.chettinad);
   await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   // Done, next frees the dal's pressure cooker: its timer starts on a tap, and is kept.

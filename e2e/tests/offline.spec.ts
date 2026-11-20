@@ -749,7 +749,7 @@ async function pantryChanges(page: Page, name: string): Promise<{ kind: string; 
 async function haveHalf(page: Page, name: string) {
   await page.getByRole('button', { name, exact: true }).click();
   await page.getByRole('button', { name: 'Already have it' }).click();
-  const sheet = page.getByRole('dialog', { name: `Already have ${name}` });
+  const sheet = page.getByRole('dialog', { name: `How much ${name} is at home?` });
   await sheet.getByRole('radio', { name: /^250/ }).click();
   await sheet.getByRole('button', { name: /^Put 250.g in the pantry$/ }).click();
   await expect(sheet).toBeHidden();

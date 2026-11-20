@@ -5,8 +5,9 @@
   let {
     outside = true,
     locked = false,
+    tall = false,
     log = []
-  }: { outside?: boolean; locked?: boolean; log?: string[] } = $props();
+  }: { outside?: boolean; locked?: boolean; tall?: boolean; log?: string[] } = $props();
 
   let open = $state(false);
 </script>
@@ -23,6 +24,7 @@
     }}
   >
     <input aria-label="First" />
+    {#if tall}<div style="height: 3000px"></div>{/if}
     <button type="button">Last</button>
   </Sheet>
 {/if}

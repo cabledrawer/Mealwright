@@ -357,16 +357,20 @@ test('the Batch cook card sits inside its cook day, above that day’s meals, on
     await page.goto(`/plan?day=${day}`);
     const card = page.getByTestId('batch-card');
     await expect(card).toHaveCount(1);
-    const box = (await card.boundingBox())!;
     if (isPhone(page)) {
-      // Inside the day's own section, before its first meal.
+      // Inside the day's own section, before its first meal. Both places are read in one go: the
+      // page scrolls to the day as it opens, so two separate readings could differ by a scroll.
       const section = page.locator(`[data-plan-day="${day}"]`);
       await expect(section.getByTestId('batch-card')).toHaveCount(1);
-      const meal = section.locator('.meal').first();
-      const mealBox = (await meal.boundingBox())!;
-      expect(box.y).toBeLessThan(mealBox.y);
+      await expect(section.locator('.meal').first()).toBeVisible();
+      const at = await section.evaluate((el) => ({
+        card: el.querySelector('[data-testid="batch-card"]')!.getBoundingClientRect().y,
+        meal: el.querySelector('.meal')!.getBoundingClientRect().y,
+      }));
+      expect(at.card).toBeLessThan(at.meal);
     } else {
       // In the day's column of the week grid, between the day's name and its meals.
+      const box = (await card.boundingBox())!;
       const head = (await page.getByRole('heading', { level: 3, name: fullDay(day) }).boundingBox())!;
       const cell = (await page.getByTestId(`cell-${day}-${dinner}`).boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(head.x - 2);

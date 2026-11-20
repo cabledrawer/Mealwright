@@ -130,7 +130,7 @@ test('Already have it (from the amount box): how much is at home, where, and it 
   await open(page);
   await page.getByRole('button', { name, exact: true }).click();
   await page.getByRole('button', { name: 'Already have it' }).click();
-  const sheet = page.getByRole('dialog', { name: `Already have ${name}` });
+  const sheet = page.getByRole('dialog', { name: `How much ${name} is at home?` });
   await expect(sheet).toBeVisible();
   await expect(sheet.getByText(`How much ${name} is at home?`)).toBeVisible();
   await expect(sheet.getByText('It comes off the list and goes into the pantry as found at home, not bought.')).toBeVisible();
@@ -164,7 +164,7 @@ test('swipe right shows Already have it and Move…; a swipe alone changes nothi
   await expect(page.getByRole('button', { name: new RegExp(`^Move… ${name}`) })).toBeVisible();
   expect(await stock(page, id)).toEqual([]);
   await page.getByRole('button', { name: new RegExp(`^Already have it ${name}`) }).click();
-  await expect(page.getByRole('dialog', { name: `Already have ${name}` })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: `How much ${name} is at home?` })).toBeVisible();
 });
 
 test('320 px: with both swipe-right buttons showing (208 px), the name is still readable, wrapped not cut (F73)', async ({ page }) => {

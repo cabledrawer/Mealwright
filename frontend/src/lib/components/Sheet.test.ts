@@ -84,4 +84,17 @@ describe('Sheet', () => {
     expect(log).toEqual([]);
     expect(document.querySelector('dialog')?.open).toBe(true);
   });
+
+  it('taller than the screen: it stays inside the screen and scrolls to its last button', async () => {
+    await open({ tall: true });
+    const dialog = document.querySelector('dialog')!;
+    const box = dialog.getBoundingClientRect();
+    expect(box.height).toBeLessThanOrEqual(window.innerHeight);
+    expect(dialog.scrollHeight).toBeGreaterThan(dialog.clientHeight);
+    const last = page.getByRole('button', { name: 'Last' });
+    (last.element() as HTMLElement).scrollIntoView();
+    const at = (last.element() as HTMLElement).getBoundingClientRect();
+    expect(at.bottom).toBeLessThanOrEqual(window.innerHeight);
+    expect(at.top).toBeGreaterThanOrEqual(0);
+  });
 });

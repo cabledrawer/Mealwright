@@ -8,14 +8,17 @@
   //   can't be dismissed by accident; Escape still cancels (it is a deliberate key).
   // - `locked` (saving, say) stops both until the work is done.
   // - When it goes, focus goes back to what opened it.
+  // - Taller than the screen: the sheet itself scrolls (its buttons are at the end of it).
   // - Phone (under 768 px): a sheet from the bottom edge with a grip; computer: a dialog in the
   //   middle. The phone layout is proposed, for cabledrawer.
   // - `size` is a name, not a number: small 420, medium 460, large 520, wide 1040 px.
-  // - The title is the one heading, level 2.
+  // - The title is the one heading, level 2. It is also the dialog's name for a screen reader,
+  //   unless `label` gives a plainer one (a title that is only a date or a size, say).
   import { onMount, type Snippet } from 'svelte';
 
   let {
     title,
+    label,
     onclose,
     size = 'medium',
     outside = true,
@@ -26,6 +29,8 @@
     children
   }: {
     title: string;
+    /** A name for a screen reader when the title alone would not say what this is. */
+    label?: string;
     onclose: () => void;
     size?: 'small' | 'medium' | 'large' | 'wide';
     outside?: boolean;
@@ -72,7 +77,8 @@
   bind:this={dialog}
   class="sheet {size}"
   {role}
-  aria-labelledby="{uid}-title"
+  aria-label={label}
+  aria-labelledby={label ? undefined : `${uid}-title`}
   aria-describedby={describedby}
   oncancel={cancel}
   onclick={tapOutside}
@@ -127,7 +133,7 @@
       inset: auto 0 0 0;
       width: 100%;
       margin: 0;
-      max-height: 92dvh;
+      max-height: calc(100dvh - 48px);
       overflow-y: auto;
       border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
     }
@@ -138,6 +144,8 @@
     dialog {
       margin: auto;
       padding: var(--space-9);
+      max-height: calc(100dvh - 2 * var(--space-7));
+      overflow-y: auto;
       border-radius: var(--radius-panel);
     }
 

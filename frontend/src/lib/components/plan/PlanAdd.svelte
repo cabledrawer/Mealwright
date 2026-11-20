@@ -186,7 +186,7 @@
 </script>
 
 {#if target}
-  <Sheet title={heading.title} {onclose} testid="plan-add">
+  <Sheet title={heading.title} label="Add to the plan" {onclose} testid="plan-add">
     <div class="body">
       <p class="sub">{heading.sub}</p>
 

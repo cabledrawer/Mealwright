@@ -66,7 +66,9 @@ test.afterEach(async ({ page }) => {
   const mine = made;
   made = [];
   if (!mine.length) return;
-  const all = (await get(page, "/places")) as { id: number; name: string }[];
+  const all = (
+    (await get(page, "/places")) as { places: { id: number; name: string }[] }
+  ).places;
   const cupboard = all.find((p) => p.name === "Cupboard")!.id;
   for (const { ids } of mine)
     for (const id of ids)
@@ -338,8 +340,8 @@ test("Something else joins the place", async ({ page }) => {
   const mine = await start(page, ["Else shelf"]);
   const shelf = mine.places[0]!;
   const fridge = (
-    (await get(page, "/places")) as { id: number; name: string }[]
-  ).find((p) => p.name === "Fridge")!;
+    (await get(page, "/places")) as { places: { id: number; name: string }[] }
+  ).places.find((p) => p.name === "Fridge")!;
   const jam = await food(page, "Else jam", fridge.id);
   await openStocktake(page);
   await expect(item(page, jam.name)).toHaveCount(0);

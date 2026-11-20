@@ -111,7 +111,8 @@
 
   /* Bigger targets for fingers (touch screens, tablets). */
   @media (pointer: coarse) {
-    button {
+    button,
+    .pill button {
       min-height: var(--touch-target);
     }
   }
