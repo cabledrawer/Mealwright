@@ -17,8 +17,8 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { onDestroy, tick, untrack } from 'svelte';
+  import Breadcrumb from '#lib/components/Breadcrumb.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
-  import Icon from '#lib/components/Icon.svelte';
   import MissingBar from '#lib/components/MissingBar.svelte';
   import NutritionStrip from '#lib/components/NutritionStrip.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
@@ -276,14 +276,11 @@
 
 <div class="page" class:panes bind:this={root}>
   <div class="top">
-    <a class="back" href={resolve('/(app)/recipes')}
-      ><Icon name="back" size={18} stroke={2.4} />Recipes</a
-    >
-    <nav class="crumbs" aria-label="Breadcrumb">
-      <a href={resolve('/(app)/recipes')}>Recipes</a>
-      <span class="sep" aria-hidden="true">›</span>
-      <span aria-current="page">{recipe ? recipe.name : ''}</span>
-    </nav>
+    <Breadcrumb
+      href={resolve('/(app)/recipes')}
+      label="Recipes"
+      current={recipe ? recipe.name : ''}
+    />
     {#if recipe && !network.offline}
       <a class="edit" href={resolve('/(app)/recipes/[id]/edit', { id: String(recipe.id) })}>Edit</a>
       <RowMenu
@@ -572,17 +569,6 @@
     opacity: 0.85;
   }
 
-  .back {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    min-height: var(--touch-target);
-    margin-left: calc(-1 * var(--space-2));
-    font-size: var(--text-lg);
-    font-weight: var(--weight-bold);
-    text-decoration: none;
-  }
-
   /* Edit sits at the far right of the top row (mockups Recipe and Desktop-Recipe). */
   .edit {
     display: flex;
@@ -645,35 +631,7 @@
     color: var(--color-text);
   }
 
-  .crumbs {
-    display: none;
-    align-items: center;
-    gap: var(--space-3);
-    min-width: 0;
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-  }
-
-  .crumbs a {
-    text-decoration: none;
-  }
-
-  .crumbs .sep,
-  .crumbs [aria-current] {
-    color: var(--color-text-muted);
-  }
-
-  .crumbs [aria-current] {
-    overflow-wrap: anywhere;
-  }
-
   @media (min-width: 768px) {
-    .back {
-      display: none;
-    }
-    .crumbs {
-      display: flex;
-    }
     .edit {
       border-color: var(--color-border-strong);
       background: var(--color-surface);
@@ -980,8 +938,6 @@
     .next-draft,
     .actions,
     .method-switch,
-    .back,
-    .crumbs,
     .info {
       display: none !important;
     }

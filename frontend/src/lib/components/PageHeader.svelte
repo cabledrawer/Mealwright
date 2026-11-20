@@ -7,6 +7,7 @@
   import { resolve } from '$app/paths';
   import type { Snippet } from 'svelte';
   import { initial, session } from '#lib/session.svelte.js';
+  import Breadcrumb from './Breadcrumb.svelte';
   import Icon from './Icon.svelte';
 
   let {
@@ -66,16 +67,7 @@
 <header class="page-header" class:has-count={!!count} class:drop={dropActions}>
   <div class="titles">
     {#if parent}
-      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve()'s answer, plus the parent's own ?section= -->
-      <a class="back" href={parentHref}>
-        <Icon name="back" size={18} stroke={2.4} />{parent.label}
-      </a>
-      <nav class="crumbs" aria-label="Breadcrumb">
-        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- as above -->
-        <a href={parentHref}>{parent.label}</a>
-        <span class="sep" aria-hidden="true">›</span>
-        <span aria-current="page">{title}</span>
-      </nav>
+      <Breadcrumb href={parentHref} label={parent.label} current={title} />
     {/if}
     {#if overline}<p class="overline">{overline}</p>{/if}
     <h1>{title}</h1>
@@ -159,35 +151,6 @@
     flex: none;
   }
 
-  .back {
-    display: flex;
-    align-items: center;
-    align-self: flex-start;
-    gap: var(--space-2);
-    min-height: var(--touch-target);
-    margin-left: calc(-1 * var(--space-2));
-    font-size: var(--text-lg);
-    font-weight: var(--weight-bold);
-    text-decoration: none;
-  }
-
-  .crumbs {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-  }
-
-  .crumbs a {
-    text-decoration: none;
-  }
-
-  .crumbs .sep,
-  .crumbs [aria-current] {
-    color: var(--color-text-muted);
-  }
-
   .subtitle {
     color: var(--color-text-muted);
     font-size: var(--text-base);
@@ -245,9 +208,6 @@
   }
 
   @media (max-width: 767px) {
-    .crumbs {
-      display: none;
-    }
     .page-header {
       position: sticky;
       top: 0;
@@ -263,8 +223,7 @@
       font-size: var(--text-title-desktop);
     }
     /* Desktop reaches Settings from the sidebar, and goes up with the breadcrumb. */
-    .settings,
-    .back {
+    .settings {
       display: none;
     }
     .titles {
