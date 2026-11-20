@@ -7,7 +7,7 @@ import pytest
 from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
 
-from mealwright import auth, migrate, setup_code
+from mealwright import auth, migrate, setup_code, sso
 from mealwright.auth import hash_password
 from mealwright.config import Settings
 from mealwright.db import Base, make_engine
@@ -163,3 +163,37 @@ def neighbour(kitchen: TestClient) -> Iterator[TestClient]:
         body = {"username": "neighbour", "password": "next door's own password"}
         assert other.post("/api/v1/session", json=body).status_code == 200
         yield other
+
+
+@pytest.fixture
+def member(kitchen: TestClient) -> Iterator[TestClient]:
+    """A second login in the same household (Wren), with the Member role, on its own client."""
+    with kitchen.app.state.sessionmaker() as db:
+        db.add(
+            Login(
+                household_id=1,
+                username="wren",
+                name="Wren",
+                password_hash=hash_password("wren's own password"),
+                role="member",
+            )
+        )
+        db.commit()
+    with TestClient(kitchen.app, base_url="https://testserver") as other:
+        body = {"username": "wren", "password": "wren's own password"}
+        assert other.post("/api/v1/session", json=body).status_code == 200
+        yield other
+
+
+@pytest.fixture
+def slots(kitchen: TestClient) -> dict[str, int]:
+    """The household's meal slot ids by name."""
+    from test_plan import slot_ids
+
+    return slot_ids(kitchen)
+
+
+@pytest.fixture(autouse=True)
+def fresh_cache() -> None:
+    """No single sign-on answer carries over from another test (the sso tests rely on this)."""
+    sso.cache.forget()

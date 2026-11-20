@@ -6,7 +6,6 @@ or changes another's, and a change reaches the outbound gate at once.
 
 import logging
 import re
-from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -15,9 +14,7 @@ from fastapi.testclient import TestClient
 
 import mealwright
 from mealwright import own_network
-from mealwright.auth import hash_password
-from mealwright.household import add_default_places
-from mealwright.models import Household, Login, OwnNetworkEntry
+from mealwright.models import Household, OwnNetworkEntry
 from mealwright.outbound import Connection, OutboundBlocked, OutboundGate
 
 API = "/api/v1"
@@ -25,50 +22,6 @@ SWITCHES = f"{API}/privacy/switches"
 LIST = f"{API}/privacy/own-network"
 NEIGHBOUR = {"username": "neighbour", "password": "next door's own password"}
 ADMINS_ONLY = "Only the household’s admin can change this."
-
-
-@pytest.fixture
-def member(kitchen: TestClient) -> Iterator[TestClient]:
-    """A second login in the same household, with the Member role."""
-    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        db.add(
-            Login(
-                household_id=1,
-                username="wren",
-                name="Wren",
-                password_hash=hash_password("wren's own password"),
-                role="member",
-            )
-        )
-        db.commit()
-    with TestClient(kitchen.app, base_url="https://testserver") as other:
-        response = other.post(
-            f"{API}/session", json={"username": "wren", "password": "wren's own password"}
-        )
-        assert response.status_code == 200
-        yield other
-
-
-@pytest.fixture
-def neighbour(kitchen: TestClient) -> Iterator[TestClient]:
-    """Household 2, with its own admin, signed in on its own client."""
-    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        db.add(Household(id=2, name="Next door"))
-        db.flush()
-        add_default_places(db, 2)
-        db.add(
-            Login(
-                household_id=2,
-                username=NEIGHBOUR["username"],
-                name="Neighbour",
-                password_hash=hash_password(NEIGHBOUR["password"]),
-                role="admin",
-            )
-        )
-        db.commit()
-    with TestClient(kitchen.app, base_url="https://testserver") as other:
-        assert other.post(f"{API}/session", json=NEIGHBOUR).status_code == 200
-        yield other
 
 
 def on(client: TestClient) -> dict[str, bool]:

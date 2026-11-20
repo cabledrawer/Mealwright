@@ -1,40 +1,16 @@
 """Places, shops, units, remembered answers and the household's settings."""
 
 import threading
-from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from mealwright import migrate
-from mealwright.auth import hash_password
 from mealwright.db import make_engine
-from mealwright.models import Login, Place
+from mealwright.models import Place
 
 API = "/api/v1"
-
-
-@pytest.fixture
-def member(kitchen: TestClient) -> Iterator[TestClient]:
-    """A second login in the same household, with the Member role."""
-    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        db.add(
-            Login(
-                household_id=1,
-                username="wren",
-                name="Wren",
-                password_hash=hash_password("wren's own password"),
-                role="member",
-            )
-        )
-        db.commit()
-    with TestClient(kitchen.app, base_url="https://testserver") as other:
-        response = other.post(
-            f"{API}/session", json={"username": "wren", "password": "wren's own password"}
-        )
-        assert response.status_code == 200
-        yield other
 
 
 def test_four_default_places(kitchen: TestClient) -> None:

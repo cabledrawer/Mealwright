@@ -10,7 +10,6 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import ok
-from test_plan import slot_ids
 from test_plan_writes import plan_recipe, view
 from test_recipe_list import line
 from test_recipes import food as new_food
@@ -20,11 +19,6 @@ from test_today import ago, ahead
 from mealwright.models import Login, MealEater
 
 API = "/api/v1"
-
-
-@pytest.fixture
-def slots(kitchen: TestClient) -> dict[str, int]:
-    return slot_ids(kitchen)
 
 
 @pytest.fixture

@@ -72,11 +72,6 @@ def answer(kitchen: TestClient, meal_id: int, what: str, body: Any = None, code:
 
 
 @pytest.fixture
-def slots(kitchen: TestClient) -> dict[str, int]:
-    return slot_ids(kitchen)
-
-
-@pytest.fixture
 def sambar(kitchen: TestClient) -> int:
     return new_recipe(kitchen, "Sambar")
 

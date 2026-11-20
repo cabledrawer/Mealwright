@@ -5,7 +5,6 @@ matching, the database, Save and Undo) is the real thing."""
 
 import json
 import logging
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -1082,13 +1081,6 @@ def test_save_makes_the_import_date_in_the_recipes_own_list_of_changes(
 
 
 # --- Two households ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def neighbour(kitchen: TestClient) -> Iterator[TestClient]:
-    from test_recipes_isolation import neighbour as make_neighbour
-
-    yield from make_neighbour.__wrapped__(kitchen)  # type: ignore[attr-defined]
 
 
 def test_another_households_ingredients_places_and_photos_are_not_reachable(

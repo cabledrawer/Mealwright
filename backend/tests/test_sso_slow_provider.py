@@ -23,11 +23,6 @@ PLACES = 3  # the database places, few, so holding them is visible
 STARTS = 12  # more than the places and more than the four a household may have waiting
 
 
-@pytest.fixture(autouse=True)
-def fresh_cache() -> None:
-    sso.cache.forget()
-
-
 @pytest.fixture
 def few_places(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(database, "REQUESTS_AT_ONCE", PLACES)

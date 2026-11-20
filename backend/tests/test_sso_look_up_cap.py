@@ -12,11 +12,6 @@ from test_sso_api import API, SETUP, browser
 from mealwright import outbound, sso
 
 
-@pytest.fixture(autouse=True)
-def fresh_cache() -> None:
-    sso.cache.forget()
-
-
 @pytest.fixture
 def named(kitchen: TestClient, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """Set up with a provider that has a host name (so a look-up is made)."""

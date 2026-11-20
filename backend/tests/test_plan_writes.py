@@ -67,11 +67,6 @@ def stuff(kitchen: TestClient) -> dict[str, int]:
         return {"sambar": sambar.id, "dosa": dosa.id, "banana": banana.id}
 
 
-@pytest.fixture
-def slots(kitchen: TestClient) -> dict[str, int]:
-    return slot_ids(kitchen)
-
-
 def test_planning_a_recipe_makes_the_meal_and_a_filled_meal_gets_it_alongside(
     kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]
 ) -> None:

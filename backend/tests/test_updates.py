@@ -23,9 +23,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
 
 from mealwright import __version__, migrate, updates
-from mealwright.auth import hash_password
 from mealwright.db import make_engine, make_sessionmaker
-from mealwright.models import Household, Login
+from mealwright.models import Household
 from mealwright.outbound import Connection, OutboundGate, OutboundResponse, set_switch
 from mealwright.updates import (
     DAILY_AFTER,
@@ -499,28 +498,6 @@ def test_the_daily_check_never_raises(
 
 
 # --- The API ---------------------------------------------------------------------------------
-
-
-@pytest.fixture
-def member(kitchen: TestClient) -> Iterator[TestClient]:
-    """A second login in the same household, with the Member role."""
-    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        db.add(
-            Login(
-                household_id=1,
-                username="wren",
-                name="Wren",
-                password_hash=hash_password("wren's own password"),
-                role="member",
-            )
-        )
-        db.commit()
-    with TestClient(kitchen.app, base_url="https://testserver") as other:
-        response = other.post(
-            f"{API}/session", json={"username": "wren", "password": "wren's own password"}
-        )
-        assert response.status_code == 200
-        yield other
 
 
 def test_about_says_the_version_and_its_day_without_connecting(

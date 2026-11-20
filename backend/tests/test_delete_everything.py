@@ -8,7 +8,6 @@ stay; everyone is signed out; Mealwright then asks for first-run setup. The othe
 
 import logging
 import threading
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +20,7 @@ from test_households import snapshot
 
 from mealwright import backups
 from mealwright.api.v1 import your_data
-from mealwright.auth import COOKIE, hash_password
+from mealwright.auth import COOKIE
 from mealwright.models import Change, Household, ListItem, ListTick, Login
 
 API = "/api/v1/your-data/delete-everything"
@@ -29,25 +28,6 @@ API = "/api/v1/your-data/delete-everything"
 filled = test_households.mine
 
 RIGHT = {"words": "delete everything", "password": ADMIN["password"]}
-
-
-@pytest.fixture
-def member(kitchen: TestClient) -> Iterator[TestClient]:
-    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        db.add(
-            Login(
-                household_id=1,
-                username="wren",
-                name="Wren",
-                password_hash=hash_password("wren's own password"),
-                role="member",
-            )
-        )
-        db.commit()
-    with TestClient(kitchen.app, base_url="https://testserver") as other:
-        body = {"username": "wren", "password": "wren's own password"}
-        assert other.post("/api/v1/session", json=body).status_code == 200
-        yield other
 
 
 def _data(client: TestClient) -> Path:

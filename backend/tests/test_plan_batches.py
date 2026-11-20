@@ -21,11 +21,6 @@ D3 = D1 + timedelta(days=2)
 
 
 @pytest.fixture
-def slots(kitchen: TestClient) -> dict[str, int]:
-    return slot_ids(kitchen)
-
-
-@pytest.fixture
 def stuff(kitchen: TestClient) -> dict[str, int]:
     with db_of(kitchen) as db:
         biryani = add_recipe(db, 1, "Veg biryani")

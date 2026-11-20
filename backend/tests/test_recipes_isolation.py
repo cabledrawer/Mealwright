@@ -8,7 +8,6 @@ writing, and each answer is a plain "not found". Household 1's rows must be exac
 afterwards. (PR 0a has a general isolation test; when it merges this one can share its helpers.)
 """
 
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -19,35 +18,11 @@ from sqlalchemy import select, text
 from sync_kit import ok
 from test_recipes import make, save
 
-from mealwright.auth import hash_password
 from mealwright.db import Base
-from mealwright.household import add_default_places
-from mealwright.models import Household, Login, Recipe, RecipeLine, RecipeTag, Tag
+from mealwright.models import Recipe, RecipeLine, RecipeTag, Tag
 
 API = "/api/v1"
 NEIGHBOUR = {"username": "neighbour", "password": "next door's own password"}
-
-
-@pytest.fixture
-def neighbour(kitchen: TestClient) -> Iterator[TestClient]:
-    """Household 2, with its own admin, signed in on its own client."""
-    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        db.add(Household(id=2, name="Next door"))
-        db.flush()
-        add_default_places(db, 2)
-        db.add(
-            Login(
-                household_id=2,
-                username=NEIGHBOUR["username"],
-                name="Neighbour",
-                password_hash=hash_password(NEIGHBOUR["password"]),
-                role="admin",
-            )
-        )
-        db.commit()
-    with TestClient(kitchen.app, base_url="https://testserver") as other:
-        assert other.post(f"{API}/session", json=NEIGHBOUR).status_code == 200
-        yield other
 
 
 def rows_of_household_1(kitchen: TestClient) -> dict[str, list[tuple[Any, ...]]]:

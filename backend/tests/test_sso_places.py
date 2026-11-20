@@ -13,11 +13,6 @@ from mealwright import outbound, sso
 from mealwright.auth import SlowDown
 
 
-@pytest.fixture(autouse=True)
-def fresh_cache() -> None:
-    sso.cache.forget()
-
-
 def test_signed_out_callers_can_never_take_the_places_the_background_checks_need(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -58,11 +58,6 @@ def sessions(template: Path, tmp_path: Path) -> sessionmaker[Session]:
     return make_sessionmaker(make_engine(f"sqlite:///{path}"))
 
 
-@pytest.fixture(autouse=True)
-def fresh_cache() -> None:
-    sso.cache.forget()
-
-
 @pytest.fixture
 def idp(monkeypatch: pytest.MonkeyPatch) -> FakeProvider:
     provider = FakeProvider()

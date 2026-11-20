@@ -5,7 +5,6 @@ cook?", and Cook once and Fill from freezer ignore it."""
 from datetime import date, timedelta
 from typing import Any
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import changes, ok
@@ -16,11 +15,6 @@ from test_plan_writes import D1, plan_recipe, shape, undo, view
 from mealwright.models import MealItem
 
 API = "/api/v1"
-
-
-@pytest.fixture
-def slots(kitchen: TestClient) -> dict[str, int]:
-    return slot_ids(kitchen)
 
 
 def add_note(

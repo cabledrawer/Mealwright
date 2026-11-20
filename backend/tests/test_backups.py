@@ -7,7 +7,6 @@ changes how often and how many and can back up now; everyone else can only look.
 
 import sqlite3
 import stat
-from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -16,30 +15,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from mealwright import backups
-from mealwright.auth import hash_password
-from mealwright.models import Household, Login
+from mealwright.models import Household
 
 API = "/api/v1/your-data/backups"
 ADMINS_ONLY = "Only the household’s admin can change this."
-
-
-@pytest.fixture
-def member(kitchen: TestClient) -> Iterator[TestClient]:
-    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        db.add(
-            Login(
-                household_id=1,
-                username="wren",
-                name="Wren",
-                password_hash=hash_password("wren's own password"),
-                role="member",
-            )
-        )
-        db.commit()
-    with TestClient(kitchen.app, base_url="https://testserver") as other:
-        body = {"username": "wren", "password": "wren's own password"}
-        assert other.post("/api/v1/session", json=body).status_code == 200
-        yield other
 
 
 def _folder(client: TestClient) -> Path:

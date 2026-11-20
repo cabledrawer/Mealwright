@@ -19,11 +19,6 @@ from mealwright import jobs, outbound, sso
 from mealwright.models import Session
 
 
-@pytest.fixture(autouse=True)
-def fresh_cache() -> None:
-    sso.cache.forget()
-
-
 def restart(kitchen: TestClient) -> None:
     """What a restart loses: everything in memory (then the start job runs, if asked)."""
     app = cast(Any, kitchen.app)

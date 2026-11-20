@@ -4,20 +4,13 @@ changed again since stays, and the message says so (F140's words)."""
 
 from datetime import timedelta
 
-import pytest
 from fastapi.testclient import TestClient
 from sync_kit import ok
-from test_plan import slot_ids
 from test_plan_batches import cook, make, stuff  # noqa: F401
 from test_plan_serves import item_of, sambar, wren  # noqa: F401
 from test_plan_writes import D1, D2, plan_recipe, undo, view
 
 API = "/api/v1"
-
-
-@pytest.fixture
-def slots(kitchen: TestClient) -> dict[str, int]:
-    return slot_ids(kitchen)
 
 
 def test_serves_2_3_4_undo_of_the_first_leaves_4(

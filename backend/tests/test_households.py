@@ -9,7 +9,6 @@ endpoint with an id and no case here fails the test. Household 1's data must be 
 the same afterwards.
 """
 
-from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -21,10 +20,8 @@ from sqlalchemy import select, text
 from test_mealie_import import upload as mealie_upload
 from test_mealie_import import zipped as mealie_zipped
 
-from mealwright.auth import hash_password
 from mealwright.db import Base
-from mealwright.household import add_default_places
-from mealwright.models import Household, Login, SsoAccount
+from mealwright.models import SsoAccount
 
 API = "/api/v1"
 NEIGHBOUR = {"username": "neighbour", "password": "next door's own password"}
@@ -53,29 +50,6 @@ DRAFT_BODY: dict[str, Any] = {
     },
     "choices": {},
 }
-
-
-@pytest.fixture
-def neighbour(kitchen: TestClient) -> Iterator[TestClient]:
-    """Household 2, with its own admin, signed in on its own client."""
-    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        db.add(Household(id=2, name="Next door"))
-        db.flush()
-        add_default_places(db, 2)
-        db.add(
-            Login(
-                household_id=2,
-                username=NEIGHBOUR["username"],
-                name="Neighbour",
-                password_hash=hash_password(NEIGHBOUR["password"]),
-                role="admin",
-            )
-        )
-        db.commit()
-    with TestClient(kitchen.app, base_url="https://testserver") as other:
-        assert other.post(f"{API}/session", json=NEIGHBOUR).status_code == 200
-        assert other.get(f"{API}/me").json()["username"] == "neighbour"
-        yield other
 
 
 def ok(response: Any, status: int = 200) -> Any:

@@ -8,7 +8,6 @@ Every test here fails without the behaviour it names; the revert proofs are in t
 request."""
 
 import logging
-from collections.abc import Iterator
 from datetime import timedelta
 from typing import Any
 
@@ -1272,27 +1271,6 @@ def test_m4_a_row_made_by_each_picks_up_an_ingredient_made_since(
 
 
 # --- Other households ---------------------------------------------------------------------
-
-
-@pytest.fixture
-def neighbour(kitchen: TestClient) -> Iterator[TestClient]:
-    with db(kitchen) as session:
-        session.add(Household(id=2, name="Next door"))
-        session.flush()
-        add_default_places(session, 2)
-        session.add(
-            Login(
-                household_id=2,
-                username=NEIGHBOUR["username"],
-                name="Neighbour",
-                password_hash=hash_password(NEIGHBOUR["password"]),
-                role="admin",
-            )
-        )
-        session.commit()
-    with TestClient(kitchen.app, base_url="https://testserver") as other:
-        ok(other.post(f"{API}/session", json=NEIGHBOUR))
-        yield other
 
 
 def rows_of_household_1(client: TestClient) -> dict[str, list[tuple[Any, ...]]]:

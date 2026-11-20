@@ -9,7 +9,6 @@ import json
 import os
 import threading
 import zipfile
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -17,32 +16,12 @@ from fastapi.testclient import TestClient
 from photo_kit import jpeg, uploaded
 
 from mealwright import export, export_crypto
-from mealwright.auth import COOKIE, hash_password
+from mealwright.auth import COOKIE
 from mealwright.db import Base
-from mealwright.models import Login
 from mealwright.photos import household_folder
 
 API = "/api/v1/your-data/export"
 ADMIN_PASSWORD = "correct horse battery"
-
-
-@pytest.fixture
-def member(kitchen: TestClient) -> Iterator[TestClient]:
-    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        db.add(
-            Login(
-                household_id=1,
-                username="wren",
-                name="Wren",
-                password_hash=hash_password("wren's own password"),
-                role="member",
-            )
-        )
-        db.commit()
-    with TestClient(kitchen.app, base_url="https://testserver") as other:
-        body = {"username": "wren", "password": "wren's own password"}
-        assert other.post("/api/v1/session", json=body).status_code == 200
-        yield other
 
 
 def _export(client: TestClient) -> tuple[dict, dict[str, bytes], bytes]:  # type: ignore[type-arg]

@@ -19,11 +19,6 @@ from mealwright.models import utcnow
 from mealwright.people import admins_left
 
 
-@pytest.fixture(autouse=True)
-def fresh_cache() -> None:
-    sso.cache.forget()
-
-
 def home(
     kitchen: TestClient,
     monkeypatch: pytest.MonkeyPatch,

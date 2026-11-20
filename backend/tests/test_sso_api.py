@@ -40,11 +40,6 @@ SETUP = {
 }
 
 
-@pytest.fixture(autouse=True)
-def fresh_cache() -> None:
-    sso.cache.forget()
-
-
 @pytest.fixture
 def idp(monkeypatch: pytest.MonkeyPatch) -> FakeProvider:
     provider = FakeProvider()

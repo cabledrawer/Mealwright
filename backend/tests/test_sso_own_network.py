@@ -15,13 +15,8 @@ from test_sso_api import (
     sign_in,
 )
 
-from mealwright import outbound, sso
+from mealwright import outbound
 from mealwright.api.v1.privacy import PASSWORDS_BACK_ON_OWN_NETWORK
-
-
-@pytest.fixture(autouse=True)
-def fresh_cache() -> None:
-    sso.cache.forget()
 
 
 @pytest.fixture

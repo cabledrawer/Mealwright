@@ -20,11 +20,6 @@ API = "/api/v1"
 
 
 @pytest.fixture
-def slots(kitchen: TestClient) -> dict[str, int]:
-    return slot_ids(kitchen)
-
-
-@pytest.fixture
 def biryani(kitchen: TestClient) -> int:
     with db_of(kitchen) as db:
         recipe = add_recipe(db, 1, "Veg biryani")

@@ -2,41 +2,16 @@
 some items unticked, "Already have" by name or other name, one Undo, staples, and what each
 new ingredient comes with."""
 
-from collections.abc import Iterator
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from mealwright import starter_packs
-from mealwright.auth import hash_password
-from mealwright.household import add_default_places
-from mealwright.models import Household, Login
 from mealwright.pack_sizes import table as pack_table
 
 API = "/api/v1"
 NEIGHBOUR = {"username": "neighbour", "password": "next door's own password"}
-
-
-@pytest.fixture
-def neighbour(kitchen: TestClient) -> Iterator[TestClient]:
-    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        db.add(Household(id=2, name="Next door"))
-        db.flush()
-        add_default_places(db, 2)
-        db.add(
-            Login(
-                household_id=2,
-                username=NEIGHBOUR["username"],
-                name="Neighbour",
-                password_hash=hash_password(NEIGHBOUR["password"]),
-                role="admin",
-            )
-        )
-        db.commit()
-    with TestClient(kitchen.app, base_url="https://testserver") as other:
-        assert other.post(f"{API}/session", json=NEIGHBOUR).status_code == 200
-        yield other
 
 
 def packs(client: TestClient) -> dict[str, dict[str, Any]]:
