@@ -240,9 +240,7 @@
             disabled={actions.readonly}
             onclick={() => (choice = 'cook_more')}
           >
-            <span class="top"
-              ><Icon name="pan" size={16} stroke={2.4} />Cook more</span
-            >
+            <span class="top"><Icon name="pan" size={16} stroke={2.4} />Cook more</span>
             <small>Makes {(portions.portions ?? 0) + short.length} · list updates</small>
           </button>
           <button

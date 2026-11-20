@@ -212,7 +212,8 @@
                     type="button"
                     class="remove"
                     aria-label="Remove the {size.name} size"
-                    onclick={() => (sizes = sizes.filter((_, j) => j !== i))}><Icon name="close" size={14} stroke={2.4} /></button
+                    onclick={() => (sizes = sizes.filter((_, j) => j !== i))}
+                    ><Icon name="close" size={14} stroke={2.4} /></button
                   >
                 </li>
               {/each}

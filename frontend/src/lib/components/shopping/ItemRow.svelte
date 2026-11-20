@@ -561,7 +561,8 @@
         type="button"
         class="link"
         aria-label="Dismiss: {note.text}"
-        onclick={() => void model.dismissNote(note.id)}><Icon name="close" size={14} stroke={2.4} /></button
+        onclick={() => void model.dismissNote(note.id)}
+        ><Icon name="close" size={14} stroke={2.4} /></button
       >
     </p>
   {/each}

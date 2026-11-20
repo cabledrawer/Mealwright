@@ -78,7 +78,7 @@
 >
   {#if name === 'today'}
     <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
-  {:else if name === 'plan'}
+  {:else if name === 'plan' || name === 'calendar'}
     <!-- Plan and calendar are one drawing (beta.3 icon pack, agreed 20 Nov). -->
     <rect x="3" y="4.5" width="18" height="16.5" rx="2" />
     <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
@@ -143,16 +143,12 @@
     <path d="M3 20a6 6 0 0 1 12 0" />
     <circle cx="17" cy="9" r="2.6" />
     <path d="M15.5 14.2A5 5 0 0 1 21 19" />
-  {:else if name === 'shield-check'}
+  {:else if name === 'shield' || name === 'shield-check'}
     <path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" />
-    <path d="M9 12l2 2 4-4" />
+    {#if name === 'shield-check'}<path d="M9 12l2 2 4-4" />{/if}
   {:else if name === 'pencil'}
     <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" />
     <path d="M13.5 6.5l4 4" />
-  {:else if name === 'calendar'}
-    <rect x="3" y="4.5" width="18" height="16.5" rx="2" />
-    <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
-    <path d="M7.5 13.5h.01M12 13.5h.01M16.5 13.5h.01M7.5 17h.01M12 17h.01" />
   {:else if name === 'plus'}
     <path d="M12 5v14M5 12h14" />
   {:else if name === 'trash'}
@@ -166,8 +162,6 @@
   {:else if name === 'photo'}
     <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
     <circle cx="12" cy="13" r="3.5" />
-  {:else if name === 'shield'}
-    <path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" />
   {:else if name === 'info'}
     <circle cx="12" cy="12" r="9" />
     <path d="M12 11v5M12 8h.01" />

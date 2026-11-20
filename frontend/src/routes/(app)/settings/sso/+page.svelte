@@ -341,7 +341,8 @@
                     type="button"
                     class="small"
                     aria-label="Remove this group"
-                    onclick={() => removeGroup(index)}><Icon name="close" size={14} stroke={2.4} /></button
+                    onclick={() => removeGroup(index)}
+                    ><Icon name="close" size={14} stroke={2.4} /></button
                   >
                 </td>
               </tr>

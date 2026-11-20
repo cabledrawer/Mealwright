@@ -78,7 +78,9 @@
   <div class="row">
     <h2 id="{uid}-t">{heading}</h2>
     <span class="wt"
-      ><Icon name="clock" size={14} stroke={2.4} />{kindName(ahead.wait.kind)} · {waitRange(ahead.wait)}</span
+      ><Icon name="clock" size={14} stroke={2.4} />{kindName(ahead.wait.kind)} · {waitRange(
+        ahead.wait
+      )}</span
     >
   </div>
   <div class="words">

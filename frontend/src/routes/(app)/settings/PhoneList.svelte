@@ -36,7 +36,10 @@
               stroke-linejoin="round"
             >
               {#each SECTION_ICONS[row.icon].paths as d (d)}<path {d} />{/each}
-              {#each SECTION_ICONS[row.icon].filled ?? [] as d (d)}<path {d} fill="currentColor" />{/each}
+              {#each SECTION_ICONS[row.icon].filled ?? [] as d (d)}<path
+                  {d}
+                  fill="currentColor"
+                />{/each}
             </svg>
           </span>
         {/if}

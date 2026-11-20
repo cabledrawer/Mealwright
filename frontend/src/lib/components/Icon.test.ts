@@ -14,7 +14,10 @@ function inner(name: Name): string {
   const c = mount(Icon, { target: document.body, props: { name } });
   mounted.push(c);
   const svg = document.body.querySelector('svg')!;
-  const html = svg.innerHTML.replace(/<!---->/g, '').replace(/\s+/g, ' ').trim();
+  const html = svg.innerHTML
+    .replace(/<!---->/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   svg.remove();
   return html;
 }
@@ -59,9 +62,7 @@ describe('the Settings list pictures', () => {
     }
     expect(SECTION_ICONS.appearance.filled).toEqual(['M12 4a8 8 0 0 1 0 16z']);
     expect(SECTION_ICONS.appearance.paths).toEqual(['M4 12a8 8 0 1 0 16 0 8 8 0 1 0-16 0z']);
-    expect(SECTION_ICONS.privacy.paths).toEqual([
-      'M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z'
-    ]);
+    expect(SECTION_ICONS.privacy.paths).toEqual(['M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z']);
     expect(inner('shield')).toContain(SECTION_ICONS.privacy.paths[0]);
   });
   it('draws your-kitchen as a hob', () => {

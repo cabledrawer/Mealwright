@@ -434,7 +434,9 @@
                         >
                         {#if group.waits[j]}
                           <span class="wait-chip" data-step-wait
-                            ><Icon name="clock" size={14} stroke={2.4} />{waitName(group.waits[j]!.kind)} · {waitLength(group.waits[j]!)}</span
+                            ><Icon name="clock" size={14} stroke={2.4} />{waitName(
+                              group.waits[j]!.kind
+                            )} · {waitLength(group.waits[j]!)}</span
                           >
                         {/if}
                       </li>
