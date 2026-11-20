@@ -60,7 +60,7 @@
   ],
   "always": {
     "backend": [
-      "test_api.py", "test_api_names.py", "test_error_shape.py", "test_third_party_notices.py", "test_health.py", "test_server_header.py", "test_licences.py", "test_telemetry.py", "test_wording.py", "test_outbound.py",
+      "test_api.py", "test_one_admin_check.py", "test_one_clock.py", "test_one_rounding.py", "test_times_in_answers.py", "test_undo_window.py", "test_api_names.py", "test_error_shape.py", "test_third_party_notices.py", "test_health.py", "test_server_header.py", "test_licences.py", "test_telemetry.py", "test_wording.py", "test_outbound.py",
       "test_frontend.py", "test_shutdown.py", "test_start_refusals.py", "test_test_clock.py",
       "test_tmp_cleanup.py", "test_logs.py", "test_log_content.py", "test_jobs.py", "test_purge.py", "test_db.py",
       "test_migrations.py", "test_migration_counters.py", "test_migration_time_is_work_only.py", "test_migration_change_line_ids.py", "test_upgrade_from_tags.py", "test_upgrade_all_or_nothing.py", "test_place_removal_household.py", "test_undo_review_fixes.py", "test_stocktake_undo_rounds.py", "test_safety_copy.py", "test_request_size.py", "test_security_headers.py", "test_private_files.py", "test_cancelled_requests.py", "test_many_at_once.py", "test_slow_uploads.py", "test_compression.py", "test_load_queries.py", "test_load_queries_more.py", "test_household_filters.py"
@@ -206,7 +206,7 @@
         "frontend/src/lib/aboutWords*", "frontend/src/lib/newVersion*",
         "backend/src/mealwright/problem_report.py", "backend/src/mealwright/api/v1/report.py", "frontend/src/lib/client/problemReport.ts", "frontend/src/lib/problemReport*"
       ],
-      "backend": ["test_outbound.py", "test_own_network.py", "test_privacy.py", "test_settings_lists.py", "test_changes_press_queries.py", "test_step_timings_api.py", "test_updates.py", "test_problem_report.py", "test_problem_report_sso_names.py", "test_former_names.py", "test_migration_former_names.py"],
+      "backend": ["test_outbound.py", "test_own_network.py", "test_privacy.py", "test_privacy_changes.py", "test_settings_lists.py", "test_changes_press_queries.py", "test_step_timings_api.py", "test_updates.py", "test_problem_report.py", "test_problem_report_sso_names.py", "test_former_names.py", "test_migration_former_names.py"],
       "browser": ["settings.spec.ts", "settings-layout.spec.ts", "privacy.spec.ts", "about.spec.ts", "report.spec.ts"]
     },
     {
@@ -263,7 +263,7 @@
         "backend/src/mealwright/api_tokens.py", "backend/src/mealwright/api/v1/tokens.py", "frontend/src/lib/apiTokens*",
         "frontend/src/routes/(app)/settings/api-tokens/**", "frontend/src/routes/(app)/settings/signInTokens.test.ts"
       ],
-      "backend": [
+      "backend": ["test_sign_in_log.py", 
         "test_account.py", "test_households.py", "test_signed_out.py", "test_security_*.py", "test_plain_http.py",
         "test_sign_in_behind_proxy.py", "test_password_hashing_limit.py", "test_my_sign_in.py", "test_migration_sign_in.py",
         "test_setup_code.py", "test_reset_admin.py", "test_forwarded.py", "test_sign_in_attacks.py",
