@@ -27,8 +27,8 @@ class Action(StrEnum):
     PRIVACY = "privacy"
     # Settings › Your sign-in (single sign-on, password sign-in, API tokens; from 0.9).
     SIGN_IN = "sign_in"
-    # Settings › Backups & your data: how often and how many backups, Back up now, Export everything and
-    # Delete everything (0.9 D1).
+    # Settings › Backups & your data: how often and how many backups, Back up now, Export
+    # everything and Delete everything (0.9 D1).
     YOUR_DATA = "your_data"
     # Cook mode's ingredients for each step: any person of the household (cabledrawer 1 Nov).
     COOK_PER_STEP = "cook_per_step"
@@ -62,8 +62,8 @@ ADMIN_ONLY_KINDS = tuple(ADMIN_KINDS)
 
 # What an API token never does, even an admin's full one (PR O2; proposed, for cabledrawer): change
 # the people of the household or their roles, the outside-connection switches, or sign-in, and
-# anything in Settings › Backups & your data (the export holds every table, and Delete everything and
-# the wrong-password pause are for the admin at the screen; O2 review r1, finding 1).
+# anything in Settings › Backups & your data (the export holds every table, and Delete
+# everything and the wrong-password pause are for the admin at the screen; O2 review r1, finding 1).
 TOKENS_NEVER: frozenset[Action] = frozenset(
     {Action.PEOPLE, Action.PRIVACY, Action.SIGN_IN, Action.YOUR_DATA}
 )

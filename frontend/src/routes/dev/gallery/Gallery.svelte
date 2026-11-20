@@ -1386,9 +1386,9 @@
         <button type="button" class="mw-pill">Change photo</button>
         <button type="button" class="mw-pill" disabled>Disabled</button>
         <button type="button" class="mw-add">+ Add line</button>
-        <button type="button" class="mw-icon" aria-label="Remove"
-          ><Icon name="close" size={18} /></button
-        >
+        <button type="button" class="mw-icon" aria-label="Remove">
+          <Icon name="close" size={18} />
+        </button>
       </div>
     </div>
     <div class="stack narrow">

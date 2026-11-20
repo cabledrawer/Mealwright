@@ -5,13 +5,13 @@ to Mealwright's `/auth/callback` page with a one-time code → the server swaps 
 tokens and checks the ID token → a Mealwright sign-in.
 
 **Every request to the provider goes through the outbound gate** under the Single sign-on
-switch in Settings › Outside connections (`Connection.SINGLE_SIGN_ON`): its discovery document, its keys
-(JWKS), the token endpoint (sign-in and refresh) and its userinfo endpoint. With the switch
+switch in Settings › Outside connections (`Connection.SINGLE_SIGN_ON`): its discovery document,
+its keys (JWKS), the token endpoint (sign-in and refresh) and its userinfo endpoint. With the switch
 off nothing is looked up or sent. Each address is checked like a recipe link's
 (`mealwright.page_fetch`): a provider on the household's own network must be on "Your own
-network" in Settings › Outside connections, this server itself and cloud metadata addresses never work,
-and a port other than 80 and 443 needs listing. Plain http:// works only for a listed place
-(cabledrawer 12 Nov).
+network" in Settings › Outside connections, this server itself and cloud metadata addresses
+never work, and a port other than 80 and 443 needs listing. Plain http:// works only for a
+listed place (cabledrawer 12 Nov).
 
 Authlib is used for its protocol pieces only, never its HTTP clients: PKCE (S256), and
 `authlib.jose` / `authlib.oidc.core` to check the ID token's signature against the provider's
@@ -96,11 +96,12 @@ type _Address = ipaddress.IPv4Address | ipaddress.IPv6Address
 MESSAGES: dict[str, str] = {
     "not_set_up": "Single sign-on isn’t set up. Ask your household’s admin.",
     "switched_off": (
-        "Single sign-on is switched off in Settings › Outside connections. Ask your household’s admin."
+        "Single sign-on is switched off in Settings › Outside connections. Ask your household’s "
+        "admin."
     ),
     "own_network": (
-        "Your sign-in server is on your own network. An admin adds it in Settings › Outside connections › "
-        "Your own network."
+        "Your sign-in server is on your own network. An admin adds it in Settings › Outside "
+        "connections › Your own network."
     ),
     "always_blocked": "Mealwright can’t use that address for your sign-in server.",
     "not_https": (

@@ -1,6 +1,6 @@
-"""Cook once, eat for… (docs/dev/api-endpoints.md section 6.3a, 0.6 PR 4): making a batch cook from a
-planned recipe, placing its tubs, whose they are, the freezer, and "tubs left". Online only, like
-the rest of the plan; each write has its Undo (`POST /changes/{id}/undo`)."""
+"""Cook once, eat for… (docs/dev/api-endpoints.md section 6.3a, 0.6 PR 4): making a batch cook
+from a planned recipe, placing its tubs, whose they are, the freezer, and "tubs left". Online
+only, like the rest of the plan; each write has its Undo (`POST /changes/{id}/undo`)."""
 
 from datetime import date, timedelta
 from typing import Annotated, Literal

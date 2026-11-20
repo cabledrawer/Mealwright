@@ -1,8 +1,9 @@
 """The outbound gate: the only way Mealwright connects to anything outside the server.
 
 Spec section 7: every outgoing connection passes through one place, which checks the
-household's Privacy switches (Settings › Outside connections). Anything not switched on is blocked; the one
-exception is a person's own press of Check now in About (`pressed=True`, cabledrawer 12 Nov).
+household's Privacy switches (Settings › Outside connections). Anything not switched on is
+blocked; the one exception is a person's own press of Check now in About (`pressed=True`,
+cabledrawer 12 Nov).
 
 Two parts:
 
@@ -340,7 +341,9 @@ class OutboundGate:
         if not self.is_allowed(household_id, connection):
             # Log the switch only, never the address or site (see LABELS).
             log.warning("Blocked outgoing connection: %s is switched off", LABELS[connection])
-            raise OutboundBlocked(f"{LABELS[connection]} is switched off in Settings › Outside connections")
+            raise OutboundBlocked(
+                f"{LABELS[connection]} is switched off in Settings › Outside connections"
+            )
 
     def request(
         self,

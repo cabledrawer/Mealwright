@@ -1,5 +1,5 @@
-"""Today (docs/dev/api-endpoints.md section 6.3c, 0.6 PR 6): what we're eating, the tubs left, what to
-use soon, the next cook, and the meals nobody has answered yet ("Did you cook Sambar?" →
+"""Today (docs/dev/api-endpoints.md section 6.3c, 0.6 PR 6): what we're eating, the tubs left,
+what to use soon, the next cook, and the meals nobody has answered yet ("Did you cook Sambar?" →
 Cooked it · Didn't · Move it). Online only, like the Plan."""
 
 from datetime import date, timedelta
