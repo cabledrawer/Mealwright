@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/components/Icon.svelte';
   // First run: the first person creates the admin account (Onboarding step 1). There
   // is no default admin and no default password (spec section 7). The rest of
   // onboarding (Amounts, Household, Shops) comes in 0.8. The setup code (0.9, A2) is printed in
@@ -125,20 +126,7 @@
       error={checked ? errors.password : undefined}
     />
     <p class="note">
-      <svg
-        aria-hidden="true"
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" />
-        <path d="M9 12l2 2 4-4" />
-      </svg>
+      <Icon name="shield-check" size={18} />
       <span>No default password and no account with us. This login lives only on your server.</span>
     </p>
     {#if problem}
@@ -188,7 +176,7 @@
     line-height: 1.45;
   }
 
-  .note svg {
+  .note :global(svg) {
     margin-top: 1px;
   }
 

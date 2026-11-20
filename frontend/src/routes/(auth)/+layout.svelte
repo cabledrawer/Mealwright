@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/components/Icon.svelte';
   // Sign in and first-run setup: the logo, one card, and the reminder that everything
   // stays on the household's own server (from the SignIn-* mockups).
   import type { Snippet } from 'svelte';
@@ -18,20 +19,7 @@
   </main>
 
   <p class="private">
-    <svg
-      aria-hidden="true"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2.2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" />
-      <path d="M9 12l2 2 4-4" />
-    </svg>
+    <Icon name="shield-check" size={16} />
     Your own server · nothing is sent anywhere else
   </p>
 </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/components/Icon.svelte';
   // Changes still waiting on this phone (sync protocol 11.5, section 16 decision 4): the
   // same person signing back in sends them at once (the app does that on starting). Anyone
   // else is warned first, and never sends them. A different login always starts clean
@@ -451,35 +452,13 @@
   {/if}
   {#if locked}
     <span class="sso disabled" aria-disabled="true"
-      ><svg
-        aria-hidden="true"
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        ><circle cx="8" cy="15" r="4" /><path d="M10.8 12.2L19 4M16 7l2 2M14 9l2 2" /></svg
-      >{signInWith(options.sso_button)}</span
+      ><Icon name="key" size={18} />{signInWith(options.sso_button)}</span
     >
   {:else}
     <!-- A link, not a fetch: the server answers with a redirect to the sign-in server. -->
     <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an API address, not a page -->
     <a class="sso" href={startAddress(remember)} data-sveltekit-reload
-      ><svg
-        aria-hidden="true"
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        ><circle cx="8" cy="15" r="4" /><path d="M10.8 12.2L19 4M16 7l2 2M14 9l2 2" /></svg
-      >{signInWith(options.sso_button)}</a
+      ><Icon name="key" size={18} />{signInWith(options.sso_button)}</a
     >
   {/if}
 {/if}
