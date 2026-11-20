@@ -92,6 +92,9 @@ def test_the_refusal_is_logged_with_the_login_number_never_a_name(
         f"Single sign-on: login {number} refused (not_let_in); "
         "their sign-ins and API tokens stopped"
     ]
+    refusals = [r for r in caplog.records if "refused (" in r.getMessage()]
+    assert refusals  # a refusal is a warning, on the one logger (D4, BE25)
+    assert {(r.levelno, r.name) for r in refusals} == {(logging.WARNING, "mealwright.sign_in")}
 
 
 def test_the_only_admin_with_passwords_off_keeps_their_sign_ins_but_loses_their_tokens(

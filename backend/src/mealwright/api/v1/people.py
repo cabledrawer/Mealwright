@@ -331,7 +331,7 @@ def give_login(person_id: StoredInt, body: LoginIn, kitchen: Here) -> LinkOut:
     token, link = people.give_login(kitchen, member, body.username, body.role)
     kitchen.idempotency_key = None  # a retry makes a new link: the token is never stored
     kitchen.db.commit()
-    log.info("Sign-in link made for %s", body.username)
+    log.info("Sign-in link made for %s by %s", body.username, kitchen.login.username)
     return LinkOut(path=f"/join#{token}", expires_at=as_utc(link.expires_at))
 
 
@@ -346,9 +346,13 @@ def reset_password(person_id: StoredInt, kitchen: Here) -> LinkOut:
     lock_db(kitchen.db, kitchen.household)
     member = people.mine(kitchen, person_id)
     token, link = people.give_reset_link(kitchen, member)
+    login = people.login_of(kitchen, member)
     kitchen.idempotency_key = None  # a retry makes a new link: the token is never stored
     kitchen.db.commit()
-    log.info("Reset link made for %s", member.name)
+    # A sign-in line names the person by username, never by name (D4, BE24).
+    log.info(
+        "Reset link made for %s by %s", login.username if login else "?", kitchen.login.username
+    )
     return LinkOut(path=f"/reset#{token}", expires_at=as_utc(link.expires_at))
 
 
@@ -383,7 +387,7 @@ def link_sso_account(
         made = sso_people.new_person(kitchen, account)
     else:
         made = sso_people.link_to(kitchen, account, body.member_id)
-    log.info("Single sign-on: %s linked by an admin", account.username)
+    log.info("Single sign-on: %s linked by %s", account.username, kitchen.login.username)
     return _finish(kitchen, response, made)
 
 
@@ -396,7 +400,7 @@ def refuse_sso_account(account_id: StoredInt, kitchen: Here, response: Response)
         return _out(kitchen, earlier)
     account = sso_people.unlinked(kitchen, account_id)
     made = sso_people.refuse(kitchen, account)
-    log.info("Single sign-on: %s refused by an admin", account.username)
+    log.info("Single sign-on: %s refused by %s", account.username, kitchen.login.username)
     return _finish(kitchen, response, made)
 
 
@@ -422,8 +426,13 @@ def unlink_sso(
             )
         )
     )
+    unlinked = people.login_of(kitchen, people.mine(kitchen, person_id))
     made = sso_people.unlink(kitchen, person_id)
-    log.info("Single sign-on: a person unlinked by an admin")
+    log.info(
+        "Single sign-on: %s unlinked by %s",
+        unlinked.username if unlinked else "?",
+        kitchen.login.username,
+    )
     answer = _finish(kitchen, response, made)
     for session_id in ended:  # their open live-update streams end with their sign-ins
         request.app.state.events.end_session(session_id)

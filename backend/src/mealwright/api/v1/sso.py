@@ -894,7 +894,7 @@ def put_setup(body: SsoSetupIn, request: Request, kitchen: Here) -> SsoSetupOut:
     log.info("Single sign-on: setup saved by %s", kitchen.login.username)
     saved = _setup(request, kitchen, row)
     if back_on:
-        log.warning("Single sign-on: password sign-in is on again, as the setup changed")
+        log.info("Single sign-on: password sign-in is on again, as the setup changed")
         saved = saved.model_copy(update={"passwords_back_on": True, "notice": PASSWORDS_BACK_ON})
     return saved
 

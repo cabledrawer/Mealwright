@@ -359,7 +359,7 @@ def _refused_known(
         if login.role == ADMIN and code != "removed" and changed:
             drop_admin_links(db, login.household_id)
         db.commit()
-        log.info(
+        log.warning(  # a refusal (D4, BE25)
             "Single sign-on: login %d refused (%s); %s",
             login.id,
             code,

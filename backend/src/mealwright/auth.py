@@ -52,7 +52,8 @@ from mealwright.config import Settings
 from mealwright.errors import OTHER_SITE, Problem, password_length, signed_out
 from mealwright.models import ApiToken, Login, Member, Session, as_utc, utcnow
 
-log = logging.getLogger(__name__)
+# Sign-in and privacy events share one logger (D4, BE25).
+log = logging.getLogger("mealwright.sign_in")
 
 # The sign-in cookie's name (spec section 7, cabledrawer 19 Oct and 11 Nov). In https mode (the
 # default) it carries the `__Host-` prefix: browsers then accept it only over https, from this
