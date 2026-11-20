@@ -16,6 +16,11 @@
     | 'collapse'
     | 'back'
     | 'chevron-down'
+    | 'chevron-right'
+    | 'clock'
+    | 'key'
+    | 'people'
+    | 'shield-check'
     | 'search'
     | 'pencil'
     | 'calendar'
@@ -125,6 +130,22 @@
     <path d="M15 6l-6 6 6 6" />
   {:else if name === 'chevron-down'}
     <path d="M6 9l6 6 6-6" />
+  {:else if name === 'chevron-right'}
+    <path d="M9 6l6 6-6 6" />
+  {:else if name === 'clock'}
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  {:else if name === 'key'}
+    <circle cx="8" cy="15" r="4" />
+    <path d="M10.8 12.2L19 4M16 7l2 2M14 9l2 2" />
+  {:else if name === 'people'}
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M3 20a6 6 0 0 1 12 0" />
+    <circle cx="17" cy="9" r="2.6" />
+    <path d="M15.5 14.2A5 5 0 0 1 21 19" />
+  {:else if name === 'shield-check'}
+    <path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" />
+    <path d="M9 12l2 2 4-4" />
   {:else if name === 'pencil'}
     <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" />
     <path d="M13.5 6.5l4 4" />

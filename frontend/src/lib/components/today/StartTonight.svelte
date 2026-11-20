@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '../Icon.svelte';
   // "Start tonight at 21:00" (M3, F124; cabledrawer 31 Oct and 9 Nov, mockup TodayTonight08): the plan
   // works backwards. A recipe whose long wait has a start time of today (or earlier, and not
   // begun) shows here with what to start, for which meal, and two buttons: Start it in Cook mode,
@@ -77,16 +78,7 @@
   <div class="row">
     <h2 id="{uid}-t">{heading}</h2>
     <span class="wt"
-      ><svg
-        aria-hidden="true"
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.4"
-        stroke-linecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg
-      >{kindName(ahead.wait.kind)} · {waitRange(ahead.wait)}</span
+      ><Icon name="clock" size={14} stroke={2.4} />{kindName(ahead.wait.kind)} · {waitRange(ahead.wait)}</span
     >
   </div>
   <div class="words">

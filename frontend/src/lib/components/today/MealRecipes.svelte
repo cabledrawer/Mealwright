@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '../Icon.svelte';
   // Today's lines under a meal with more than one recipe (F160, cabledrawer 6 Nov): one line per
   // recipe. A cooked one has a tick and a Cooked chip; one still to cook has an empty circle and
   // its own Cooked it, which reviews that recipe only.
@@ -27,16 +28,7 @@
     <li>
       {#if item.cooked}
         <span class="tick" aria-hidden="true">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="3"
-            stroke-linecap="round"
-            stroke-linejoin="round"><path d="M5 12l5 5 9-10"></path></svg
-          >
+          <Icon name="check" size={16} stroke={3} />
         </span>
         <span class="recipe">{name}</span>
         <span class="chip">Cooked</span>

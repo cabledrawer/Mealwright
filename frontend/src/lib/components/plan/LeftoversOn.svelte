@@ -2,6 +2,7 @@
   import Button from '#lib/components/Button.svelte';
   import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Loading from '#lib/components/Loading.svelte';
+  import Icon from '../Icon.svelte';
   // "Leftovers on…" (0.7 P1; mockup Leftovers07-Phone; cabledrawer 28 Oct): tick several meals at
   // once, see the portions left, and when there are none left choose Cook more (a bigger batch;
   // amounts and the shopping list follow) or Add anyway (the meal is planned; the batch stays the
@@ -240,18 +241,7 @@
             onclick={() => (choice = 'cook_more')}
           >
             <span class="top"
-              ><svg
-                aria-hidden="true"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.4"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                ><path d="M4 11h13v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" /><path d="M17 13h3" /></svg
-              >Cook more</span
+              ><Icon name="pan" size={16} stroke={2.4} />Cook more</span
             >
             <small>Makes {(portions.portions ?? 0) + short.length} · list updates</small>
           </button>

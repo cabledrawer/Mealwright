@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '../Icon.svelte';
   // The list picker under the title: This week (main list) · extra lists · + New list
   // (mockup Shop). Each list's "⋯" has Rename, and Remove for extra lists (Undo in the toast).
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
@@ -86,17 +87,7 @@
       onclick={() => (open ? close() : (open = true))}
     >
       {list.name}<span class="tag">{list.main ? 'main list' : 'extra list'}</span>
-      <svg
-        aria-hidden="true"
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.6"
-        stroke-linecap="round"
-        stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg
-      >
+      <Icon name="chevron-down" size={14} stroke={2.4} />
     </button>
     {#if open}
       <div class="menu" id="{uid}-menu" role="group" aria-label="Lists">

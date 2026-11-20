@@ -362,16 +362,7 @@
             }}
           />
           <span class="box" aria-hidden="true">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3.2"
-              stroke-linecap="round"
-              stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg
-            >
+            <Icon name="check" size={16} stroke={3} />
           </span>
         </label>
         {#if trolley}

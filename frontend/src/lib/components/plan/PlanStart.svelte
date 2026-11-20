@@ -3,6 +3,7 @@
   import Sheet from '#lib/components/Sheet.svelte';
   import Button from '#lib/components/Button.svelte';
   import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Icon from '../Icon.svelte';
   // "When will you start it?" (M3, F124; cabledrawer 9 Nov, mockup PlanStart08): the times offered
   // (Fri 21:00 · ready by 08:00), Another time…, and "Add to plan" (or "Save", when the meal's
   // time is being changed). Shown over everything by the app layout, fetched when first asked
@@ -126,16 +127,7 @@
       <div class="first">
         <span class="has">{hasToWords(question.wait.kind)}</span>
         <span class="wt"
-          ><svg
-            aria-hidden="true"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.4"
-            stroke-linecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg
-          >{waitRange(question.wait)}</span
+          ><Icon name="clock" size={14} stroke={2.4} />{waitRange(question.wait)}</span
         >
       </div>
       <fieldset>

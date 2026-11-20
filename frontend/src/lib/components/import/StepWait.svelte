@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '../Icon.svelte';
   // A step that waits, on the Check screen (M1, mockup CheckWait08): what the reader found in the
   // words ("Marinate · 4 h – overnight"), "To confirm" until the person answers, and the three
   // answers: Yes, it waits · Change · No wait. Nothing is saved here: the step's own `wait` goes
@@ -26,19 +27,7 @@
   <div class="wait" data-step-wait>
     <span class="line">
       <span class="chip">
-        <svg
-          aria-hidden="true"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.4"
-          stroke-linecap="round"
-        >
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 7v5l3 2" />
-        </svg>
+        <Icon name="clock" size={14} stroke={2.4} />
         {waitName(wait.kind)} · {waitLength(wait)}
       </span>
       {#if !step.wait_confirmed}<span class="confirm">To confirm</span>{/if}
