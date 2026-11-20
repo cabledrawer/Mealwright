@@ -333,6 +333,21 @@ describe('the All recipes page', () => {
     expect(document.body.textContent).not.toContain('New recipe');
   });
 
+  it('F264: offline, “New recipe” is greyed out and opens nothing', async () => {
+    open();
+    await expect.element(page.getByText('Sambar')).toBeVisible();
+    const button = page.getByRole('button', { name: 'New recipe' });
+    await expect.element(button).toBeEnabled();
+    network.offline = true;
+    network.deviceOffline = true;
+    flushSync();
+    await expect.element(button).toBeDisabled();
+    // Back online: the same button works again.
+    network.offline = false;
+    flushSync();
+    await expect.element(button).toBeEnabled();
+  });
+
   it('the list already showing stays when the bar comes (F80)', async () => {
     open();
     await expect.element(page.getByText('Sambar')).toBeVisible();

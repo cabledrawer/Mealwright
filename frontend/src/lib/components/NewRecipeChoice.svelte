@@ -5,6 +5,7 @@
   // (Home and End jump); Esc closes it and puts focus back on the button; clicking elsewhere or
   // Tab-ing away closes it too.
   import { resolve } from '$app/paths';
+  import { network } from '#lib/network.svelte.js';
   import Icon from './Icon.svelte';
 
   const uid = $props.id();
@@ -22,6 +23,12 @@
       (at === 'last' ? all.at(-1) : all[0])?.focus();
     });
   }
+
+  // F264: a new recipe is saved on the server, so offline the button is greyed out (as every
+  // other server-only control is), and a menu already open closes.
+  $effect(() => {
+    if (network.offline) open = false;
+  });
 
   function hide(refocus: boolean) {
     open = false;
@@ -87,6 +94,7 @@
     type="button"
     class="new"
     bind:this={trigger}
+    disabled={network.offline}
     aria-haspopup="menu"
     aria-expanded={open}
     aria-controls={open ? `${uid}-menu` : undefined}
@@ -133,6 +141,11 @@
     color: var(--color-inverse-text);
     font: var(--weight-bold) var(--text-base) var(--font-ui);
     cursor: pointer;
+  }
+
+  .new:disabled {
+    cursor: default;
+    opacity: 0.7;
   }
 
   .menu {
