@@ -22,9 +22,9 @@
   import PacksStep from './PacksStep.svelte';
   import PeopleStep from './PeopleStep.svelte';
   import ShopsStep from './ShopsStep.svelte';
+  import { PHONE_QUERY } from '#lib/layout.js';
 
-  const PHONE = '(max-width: 767px)';
-  let phone = $state(matchMedia(PHONE).matches);
+  let phone = $state(matchMedia(PHONE_QUERY).matches);
   let ready = $state(false);
   /** The phone's step: 2 Amounts, 3 Who eats here?, 4 Shops, 5 Starter packs, 6 You're set. */
   let step = $state(2);
@@ -49,7 +49,7 @@
   onMount(() => {
     // The phone layout has no bottom tabs here: onboarding is a page of its own.
     document.documentElement.setAttribute('data-full-page', '');
-    const media = matchMedia(PHONE);
+    const media = matchMedia(PHONE_QUERY);
     const onchange = () => (phone = media.matches);
     media.addEventListener('change', onchange);
     if (session.me?.role !== 'admin') {

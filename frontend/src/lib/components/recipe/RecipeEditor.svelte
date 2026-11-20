@@ -48,6 +48,7 @@
   import { takeKept, editorKey, keep, reopen } from '#lib/recipes/stash.js';
   import { toasts } from '#lib/toast.svelte.js';
   import { undoHistory } from '#lib/undo.svelte.js';
+  import { PHONE_QUERY } from '#lib/layout.js';
 
   let { recipeId = null }: { recipeId?: number | null } = $props();
 
@@ -73,7 +74,7 @@
   let live = $state('');
   /** The boxes came back from what this tab kept: "Carrying on where you left off". */
   let carrying = $state(false);
-  let phone = $state(matchMedia('(max-width: 767px)').matches);
+  let phone = $state(matchMedia(PHONE_QUERY).matches);
   /** Set when the editor is being left on purpose (saved, cancelled, deleted). */
   let leaving = false;
   let attempt = { snapshot: '', key: '' };
@@ -96,7 +97,7 @@
   // The phone layout has no bottom tabs in the editor: it is a full page of its own.
   onMount(() => {
     document.documentElement.setAttribute('data-full-page', '');
-    const media = matchMedia('(max-width: 767px)');
+    const media = matchMedia(PHONE_QUERY);
     const onchange = () => (phone = media.matches);
     media.addEventListener('change', onchange);
     return () => {

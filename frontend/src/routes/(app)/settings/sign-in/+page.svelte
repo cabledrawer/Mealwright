@@ -19,6 +19,7 @@
   import { session } from '#lib/session.svelte.js';
   import SignInSection from '../SignInSection.svelte';
   import { plural } from '#lib/words.js';
+  import { PHONE_QUERY } from '#lib/layout.js';
 
   // Who is shown stays put while signing out (session.me goes first).
   const who = untrack(() => session.me);
@@ -53,7 +54,7 @@
   let stillCant = $state(false);
   /** The phone database couldn't be read: whether anything is waiting isn't known. */
   let cantCheck = $state(false);
-  const device = matchMedia('(max-width: 767px)').matches ? 'phone' : 'computer';
+  const device = matchMedia(PHONE_QUERY).matches ? 'phone' : 'computer';
 
   /** What's still waiting decides: sign out, warn, or (couldn't check) wait. */
   function found(waiting: Waiting | Unreadable): number {

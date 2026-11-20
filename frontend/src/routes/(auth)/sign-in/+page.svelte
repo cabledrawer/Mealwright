@@ -49,6 +49,7 @@
   import { theme } from '#lib/theme.svelte.js';
   import type { PageProps } from './$types';
   import { plural } from '#lib/words.js';
+  import { PHONE_QUERY } from '#lib/layout.js';
 
   let { data }: PageProps = $props();
 
@@ -68,7 +69,7 @@
   const ssoProblem = ssoMessage(page.url.searchParams.get('sso'));
 
   const secure = $derived(connection(window.isSecureContext, data.setup.plain_http_allowed));
-  const device = matchMedia('(max-width: 767px)').matches ? 'phone' : 'computer';
+  const device = matchMedia(PHONE_QUERY).matches ? 'phone' : 'computer';
 
   /** Someone's changes waiting on this phone, or UNREADABLE when it couldn't check. */
   let held = $state<Held | null | Unreadable>(null);

@@ -2,10 +2,11 @@
   import PageHeader from '#lib/components/PageHeader.svelte';
   import { session } from '#lib/session.svelte.js';
   import SignInSection from '../SignInSection.svelte';
+  import { PHONE_QUERY } from '#lib/layout.js';
 
   // Admins only: the Settings layout shows anyone else "Only admins can change this." instead.
   const admin = session.me?.role === 'admin';
-  const device = matchMedia('(max-width: 767px)').matches ? 'phone' : 'computer';
+  const device = matchMedia(PHONE_QUERY).matches ? 'phone' : 'computer';
 </script>
 
 <PageHeader

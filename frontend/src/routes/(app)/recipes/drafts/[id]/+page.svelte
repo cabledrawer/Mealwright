@@ -13,9 +13,10 @@
   import { ImportFlow } from '#lib/import.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
+  import { PHONE_QUERY } from '#lib/layout.js';
 
   const flow = new ImportFlow();
-  let phone = $state(matchMedia('(max-width: 767px)').matches);
+  let phone = $state(matchMedia(PHONE_QUERY).matches);
   /** Loading, ready, or why it can't be shown. */
   let phase = $state<'loading' | 'ready' | 'gone' | 'problem'>('loading');
   let problem = $state('');
@@ -53,7 +54,7 @@
   });
 
   $effect(() => {
-    const media = matchMedia('(max-width: 767px)');
+    const media = matchMedia(PHONE_QUERY);
     const onchange = () => (phone = media.matches);
     media.addEventListener('change', onchange);
     return () => media.removeEventListener('change', onchange);

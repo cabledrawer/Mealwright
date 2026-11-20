@@ -27,16 +27,16 @@
   import { printing, watchPrinting } from '#lib/printing.svelte.js';
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { inTrolleyOrder, joinTrolley, linesOf } from '#lib/shopping/view.js';
+  import { DESKTOP_QUERY } from '#lib/layout.js';
 
   const model = new ShoppingModel();
   // On paper the page is the plain sheet of what is left to buy (PrintSheet).
   $effect(() => watchPrinting());
   const uid = $props.id();
 
-  const WIDE = '(min-width: 768px)';
-  let desktop = $state(browser && matchMedia(WIDE).matches);
+  let desktop = $state(browser && matchMedia(DESKTOP_QUERY).matches);
   $effect(() => {
-    const media = matchMedia(WIDE);
+    const media = matchMedia(DESKTOP_QUERY);
     const onChange = () => (desktop = media.matches);
     media.addEventListener('change', onChange);
     return () => media.removeEventListener('change', onChange);

@@ -28,16 +28,16 @@
   import { PlanModel } from '#lib/plan.svelte.js';
   import { session } from '#lib/session.svelte.js';
   import { timeWords } from '#lib/timeWords.js';
+  import { PHONE_QUERY } from '#lib/layout.js';
 
   const model = new BatchPickModel();
   const plan = new PlanModel();
   const readonly = $derived(network.offline);
 
   // Two widths, as the Plan: under 768 px the bottom tabs, and this is the Plan's tab.
-  const PHONE = '(max-width: 767px)';
-  let phone = $state(typeof matchMedia === 'function' && matchMedia(PHONE).matches);
+  let phone = $state(typeof matchMedia === 'function' && matchMedia(PHONE_QUERY).matches);
   $effect(() => {
-    const query = matchMedia(PHONE);
+    const query = matchMedia(PHONE_QUERY);
     const on = () => (phone = query.matches);
     query.addEventListener('change', on);
     return () => query.removeEventListener('change', on);

@@ -13,6 +13,7 @@
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import NewPlace from './NewPlace.svelte';
   import PackPicks from './PackPicks.svelte';
+  import { PHONE_QUERY } from '#lib/layout.js';
 
   let {
     lot,
@@ -70,7 +71,7 @@
 
   /** Desktop: just under the row (above it if there's no room), inside the window. */
   function placeBy(row: HTMLElement | null) {
-    if (!row || matchMedia('(max-width: 767px)').matches) {
+    if (!row || matchMedia(PHONE_QUERY).matches) {
       dialog.style.removeProperty('top');
       dialog.style.removeProperty('left');
       return;

@@ -6,6 +6,7 @@
   // goes back to where it was opened from.
   import { tick } from 'svelte';
   import { radioKeys } from '#lib/radioKeys.js';
+  import { PHONE_QUERY } from '#lib/layout.js';
 
   let {
     open,
@@ -47,7 +48,7 @@
 
   /** Computer: just under the button (above it if there's no room), inside the window. */
   function placeBy(button: HTMLElement | null) {
-    if (!button || matchMedia('(max-width: 767px)').matches) {
+    if (!button || matchMedia(PHONE_QUERY).matches) {
       dialog.style.removeProperty('top');
       dialog.style.removeProperty('left');
       return;

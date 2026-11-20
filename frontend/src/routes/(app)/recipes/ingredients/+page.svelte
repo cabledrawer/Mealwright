@@ -31,6 +31,7 @@
   import { starterPacks } from '#lib/starterPacks.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
   import { plural } from '#lib/words.js';
+  import { DESKTOP_QUERY } from '#lib/layout.js';
 
   const list = new IngredientsList();
   let selectedId = $state<number | null>(null);
@@ -49,7 +50,7 @@
   const chipCount = (value: FoodFilter): string =>
     value === 'unused' && list.loaded && !list.problem ? ` · ${list.counts.unused}` : '';
 
-  const isDesktop = () => browser && matchMedia('(min-width: 768px)').matches;
+  const isDesktop = () => browser && matchMedia(DESKTOP_QUERY).matches;
   let desktop = $state(isDesktop());
 
   // The editor sits beside the list only where the two fit side by side: the list's 480 px, the
@@ -60,7 +61,7 @@
   let layoutWidth = $state(0);
   const sideBySide = $derived(desktop && layoutWidth >= SIDE_BY_SIDE_MIN);
   $effect(() => {
-    const media = matchMedia('(min-width: 768px)');
+    const media = matchMedia(DESKTOP_QUERY);
     const onChange = () => (desktop = media.matches);
     media.addEventListener('change', onChange);
     return () => media.removeEventListener('change', onChange);

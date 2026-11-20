@@ -30,6 +30,7 @@
   import { radioKeys } from '#lib/radioKeys.js';
   import { session } from '#lib/session.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
+  import { PHONE_QUERY } from '#lib/layout.js';
   import {
     LINK,
     NOT_LINKED_MEMBER,
@@ -46,7 +47,7 @@
     testPassedText
   } from '#lib/ssoWords.js';
 
-  const phone = new MediaQuery('max-width: 767px');
+  const phone = new MediaQuery(PHONE_QUERY.slice(1, -1));
   const admin = $derived(session.me?.role === 'admin');
 
   let saved = $state<SsoSetup | null>(null);

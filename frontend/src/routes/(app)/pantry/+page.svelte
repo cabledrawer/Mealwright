@@ -46,15 +46,15 @@
   import { searchResults } from '#lib/pantrySearch.js';
   import { toasts } from '#lib/toast.svelte.js';
   import { plural } from '#lib/words.js';
+  import { PHONE_QUERY } from '#lib/layout.js';
 
   const model = new PantryModel();
   const shopping = new PantryList();
   const uid = $props.id();
 
-  const PHONE = '(max-width: 767px)';
-  let phone = $state(browser && matchMedia(PHONE).matches);
+  let phone = $state(browser && matchMedia(PHONE_QUERY).matches);
   $effect(() => {
-    const media = matchMedia(PHONE);
+    const media = matchMedia(PHONE_QUERY);
     const onChange = () => (phone = media.matches);
     media.addEventListener('change', onChange);
     return () => media.removeEventListener('change', onChange);

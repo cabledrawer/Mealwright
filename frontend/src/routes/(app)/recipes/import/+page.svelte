@@ -11,6 +11,7 @@
   import { network } from '#lib/network.svelte.js';
   import { privacy } from '#lib/privacy.svelte.js';
   import { onMount } from 'svelte';
+  import { PHONE_QUERY } from '#lib/layout.js';
 
   const flow = new ImportFlow();
 
@@ -33,10 +34,10 @@
       void privacy.load();
     }
   });
-  let phone = $state(matchMedia('(max-width: 767px)').matches);
+  let phone = $state(matchMedia(PHONE_QUERY).matches);
 
   $effect(() => {
-    const media = matchMedia('(max-width: 767px)');
+    const media = matchMedia(PHONE_QUERY);
     const onchange = () => (phone = media.matches);
     media.addEventListener('change', onchange);
     return () => media.removeEventListener('change', onchange);

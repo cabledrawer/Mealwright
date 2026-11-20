@@ -27,12 +27,12 @@
   import { GROUPS, ITEMS, adminOnly, itemForOldSection, type Item } from './items.js';
   import type { Group, Row } from './sectionIcons.js';
   import { plural as oneOrMany } from '#lib/words.js';
+  import { DESKTOP_QUERY } from '#lib/layout.js';
 
   const admin = $derived(session.me?.role === 'admin');
 
   // --- Where a computer, or an older link, goes -----------------------------------------------
   const FINISH_SETUP = 'Finish setup';
-  const COMPUTER = '(min-width: 768px)';
   onMount(() => {
     const old = page.url.searchParams.get('section') ?? page.url.hash.slice(1);
     const item = old ? itemForOldSection(old) : undefined;
@@ -40,7 +40,7 @@
       void goto(resolve(item.route), { replace: true });
       return;
     }
-    const media = matchMedia(COMPUTER);
+    const media = matchMedia(DESKTOP_QUERY);
     const toFirst = () => {
       const first = ITEMS[0];
       if (first && media.matches) void goto(resolve(first.route), { replace: true });
@@ -91,7 +91,7 @@
   }
   // Only the phone shows these rows; a computer is on its way to Appearance, so reads nothing.
   onMount(() => {
-    if (!matchMedia(COMPUTER).matches) untrack(readRowValues);
+    if (!matchMedia(DESKTOP_QUERY).matches) untrack(readRowValues);
   });
 
   /** The value on an item's row, once known. */

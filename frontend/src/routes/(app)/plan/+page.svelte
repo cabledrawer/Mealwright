@@ -43,6 +43,7 @@
   import { RecipeList } from '#lib/recipes.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
   import { plural } from '#lib/words.js';
+  import { PHONE_QUERY } from '#lib/layout.js';
 
   const model = new PlanModel();
   const recipes = new RecipeList();
@@ -66,14 +67,13 @@
   // The week grid needs more room than the month grid (RF5, H9): at 1100 px, with the sidebar open,
   // a meal card is about 70 px wide inside, and "aubergine" or "chickpeas" were cut. From 1200 px
   // the cards are wide enough for ordinary words; from 1100 to 1199 px the week is the list.
-  const PHONE = '(max-width: 767px)';
   const COMPACT = '(max-width: 1099px)';
   const WIDE_WEEK = '(min-width: 1200px)';
-  let phone = $state(browser && matchMedia(PHONE).matches);
+  let phone = $state(browser && matchMedia(PHONE_QUERY).matches);
   let compact = $state(browser && matchMedia(COMPACT).matches);
   let wideWeek = $state(browser && matchMedia(WIDE_WEEK).matches);
   $effect(() => {
-    const [small, medium, wide] = [matchMedia(PHONE), matchMedia(COMPACT), matchMedia(WIDE_WEEK)];
+    const [small, medium, wide] = [matchMedia(PHONE_QUERY), matchMedia(COMPACT), matchMedia(WIDE_WEEK)];
     const onSmall = () => (phone = small.matches);
     const onMedium = () => (compact = medium.matches);
     const onWide = () => (wideWeek = wide.matches);
