@@ -14,7 +14,7 @@ Added 25 Oct (cabledrawer 25 Oct), so nobody reads the whole file: read this pag
 - **Amounts (§2, §4):** stored as whole thousandths of the base unit (g, ml or count) in `amount_milli`; JSON carries plain numbers with at most 3 decimals, and finer is refused, not rounded. People's amounts come in as `AmountIn` (§4.3); a missing conversion is asked once (§4.4).
 - **Display (§5):** the server sends the as-sold wording ready made (`display`, "about 750 g · 1½ packets"), with no-break spaces; screens never rebuild it.
 - **Tables (§3):** household settings, places and shops, foods (ingredients on screen) with sizes and other names, stock (lots), and the change log behind Undo; migrations in order in §3.7.
-- **Endpoints (§6):** every food or stock write answers with the `change` it recorded (§6.1), so the screen can offer Undo at once. Foods §6.2, places and shops §6.3, stock §6.4, Recent changes and Undo §6.5.
+- **Endpoints (§6):** every food or stock write answers with the `change` it recorded (§6.1), so the screen can offer Undo at once. Foods §6.2, places and shops §6.3, stock §6.4, Recent changes and Undo §6.5. Every route, with where it is described, §6.7 (a test keeps it equal to the app's routes).
 - **Open routes (no sign-in):** `GET /api/v1/version` (the version) and `GET /api/v1/health` (0.9.5: `{"status": "ok"}`, or 503 `{"status": "unavailable", "detail", "code": "unavailable"}` (the same sentence whatever went wrong) when the database can't answer a trivial query; `Cache-Control: no-store`, nothing else in the answer; the image's health check calls it). The full description is in `docs/api.md`.
 - **Words:** the API says "food"; screens say "ingredient" (`docs/dev/words.md`).
 
@@ -400,6 +400,8 @@ The client shows the question with the "Remember for next time" switch (on by de
 
 `counted_as_display`: "Staple" when staple, else the usual size ("Packets · 500 g"), else the count word plural ("Slices"), else "Count" / "Weight" / "Volume". `counts.maybe_same` counts foods with at least one match; `counts.maybe_same_pairs` counts pairs (what the chip shows). Each `maybe_same` entry says which way a merge would go, so every app does the same: `merge_into` is the food that stays, and `merge_this` is true when the food whose list it is would be merged away. The rule: a food without stock goes before one with stock; otherwise the longer name goes ("Drumsticks (moringa)" into "Drumsticks"), and on a tie the newer food goes. The same entries appear in the editor's `maybe_same`. Recipe counts are left out until 0.4.
 
+**`GET /api/v1/foods/guess?name=free range eggs`** → `{ "counted_as": "count", "from_table": true }`: how a brand-new ingredient would be counted, for "How do you count it?". The bundled table's answer when it knows the name (or the name ends in one it knows), else `weight` with `from_table: false`. A read; nothing is looked up online. `name` is 1 to 120 characters (else `422`).
+
 **`GET /api/v1/foods/{id}`** — the editor:
 
 ```jsonc
@@ -512,7 +514,7 @@ Each PATCH records one `food_edited` change ("Weight of 1 cup of Toor dal is now
 - `DELETE /api/v1/places/{place_id}?move_to=<place id>` → `{ "change": … }` (kind `place_removed`, which carries the Undo). A place with packets or tubs that have something left in them → `409 place_not_empty` with `things` (how many) and the words "Cupboard has 14 things in it. Move them to…"; send `move_to` (another place of the household; itself → `422 same_place`) and the packets and tubs go there, as do the places ingredients are usually kept in; then the place goes. The last place of the `fridge` kind and the last of the `freezer` kind can't go: `409 last_of_kind`. What else pointed at the place (empty packets kept for Undo, the log lines of earlier changes) goes to `move_to`, or with none to another place of the same kind. Undo makes the place again with its old id and puts back what it moved, each row only if it still points where the removal put it; if a newer place has taken the id, `409 cannot_undo`. Anyone in the household can; Idempotency-Key supported.
 - `POST /api/v1/places` `{ "name": "Garage fridge", "kind": "fridge" }` → `201` with the new place (`{ id, name, kind }`), put last in the order (cabledrawer 31 Oct, F101 "+ Place": type a new place wherever a place is picked). `kind` is `fridge`, `freezer` or `cupboard` and drives the rules ("freezer last"); anything else is `422`. The name is tidied and 1 to 40 characters. A name the household already has (ignoring case) → `409 name_taken` with `place` (that place), so the screen just picks it. Only the household's own places are looked at. Members may add one. A household has at most 50 places: past that, `409 too_many_places` with a plain reason (cabledrawer 1 Nov: "at most 50 places per household"). In Recent changes with an Undo, as "+ Shop" is (kind `place_added`, "Added the place Garage"; RF5, cabledrawer 11 Nov): the Undo takes it away while nothing uses it (stock, tubs, an ingredient's usual place, shopping lines, log lines), else `409 cannot_undo`. Idempotency-Key supported.
 - `GET /api/v1/shops` → `{ "shops": [{ "id": 1, "name": "Tesco" }, …] }` (0.9.5-beta.3; a bare list before).
-- `PATCH /api/v1/shops/{shop_id}` `{ "name": "Lidl" }` → the shop (`{ id, name }`). A name another shop has (ignoring case) → `409 name_taken` with `shop`. Anyone in the household can. Not logged.
+- `PATCH /api/v1/shops/{shop_id}` `{ "name": "Lidl" }` → the shop (`{ id, name }`). A name another shop has (ignoring case) → `409 name_taken` with `shop`. Anyone in the household can. In Recent changes with an Undo (kind `shop_renamed`, "Renamed the shop Tesco to Lidl"; F225, cabledrawer 10 Nov): the same name again records nothing; the Undo puts the old name back while the shop still has the new one and no other shop has the old, else `409 cannot_undo`. Idempotency-Key supported.
 - `PUT /api/v1/shops/order` `{ "ids": […] }` → `{ "shops": [...] }`, the shops in the order you visit them (every shop once, else `422 not_all_shops`). In Recent changes with an Undo (kind `shops_ordered`, "Changed the order of the shops"; RF5, cabledrawer 11 Nov), the same rules as the places' order. Idempotency-Key supported.
 - `DELETE /api/v1/shops/{shop_id}` → `{ "change": … }` (kind `shop_removed`). The ingredients that had it as their usual shop go to "Any shop", and so do the lines to buy in it (the same Undo steps as changing an ingredient's usual shop). Undo makes the shop again with its old id and aisle order and puts everything back; if a newer shop has taken the id, `409 cannot_undo`. Anyone in the household can; Idempotency-Key supported.
 - `POST /api/v1/shops` `{ "name": "Lidl" }` → `201` with the new shop. A name already used (ignoring case) → `409 name_taken` with `shop` (that shop), so "+ Shop" picks it and never makes duplicates, as "+ Place" does (0.9.5-beta.3 D2; it answered `200` with the existing shop before). In Recent changes with an Undo (`shop_added`).
@@ -588,7 +590,7 @@ Tables (all with `household_id`; links between them are composite keys, so they 
 
 Suggestions of recipes to cook together in one session, and the sessions "Plan this batch" makes. Everything is worked out on the server from the household's own recipes, pantry and plan; nothing leaves the server. Every route is for the signed-in household only (an id of another household is `404`) and answers `409 batch_cook_hidden` while an admin has Batch cook hidden. **Database change 2 of 3** (migration `d5a2c7e9b316`): the table `batch_session` (`id`, `household_id`, `cook_day`, `together_minutes`, `one_by_one_minutes`, `created_at`), `batch_cook.session_id` (empty for every batch made before, or made with Cook once on its own; joined to the session by the household too) and `household.batch_cook_hidden`. Going back drops them; the recipes keep their batches, tubs and meals as ordinary Cook once batches.
 
-- `GET /api/v1/batch-cook/suggestions?date=&count=&keep=&skip=` (a read; changes nothing) → `{ "date", "count", "picks": [{ "recipe_id", "name", "minutes", "why", "use_soon": { "foods": ["Spinach"], "days_left": 2 } | null }], "together_minutes", "one_by_one_minutes", "pool", "free_days": [date × 3], "kitchen": { "hob_rings", "pressure_cookers", "oven", "asked" } }`. `day` is the cook day (default: the next day, from today, with no recipe planned; `free_days` are the next three such days; `422` outside the plan's range); `count` is 2–4 (default 3). `keep` (up to 4 recipe ids) stay in the set, `skip` are not picked (a **swap** sends the others as `keep` and the swapped one as `skip`; **Show me others** sends the last set as `skip`); when too few are left to fill the set the skipped ones come back, best first. Only the household's own recipes that are still there and have at least one step are picked (`pool` counts them; `picks` is shorter than `count` when `pool` is). Picks favour, in this order: **shared prep** (two recipes both prepare the same ingredient: a chopping, grinding or similar step uses it by the step's ingredient links, or its line says so, "1 onion, finely chopped"; staples never count), **Use soon** ingredients (the pantry's own rule), **not cooked in the last 14 days** (never cooked counts), **fits the kitchen** (no oven step without an oven, no pressure cooker step without one). Ties go by name, then id, so the same data gives the same picks. `why` says it in words ("Shares onion, tomato and curry leaf prep with Sambar; the pressure cooker runs while you work on the others; not cooked in the last 14 days."). `minutes` is the recipe's steps' minutes added up (`step_timings`: guessed unless set by hand); `one_by_one_minutes` adds them across the picks; `together_minutes` is a rough schedule: each recipe's steps in order, waiting steps overlapping, hands-on steps never overlapping each other, never more hob rings, pressure cookers or ovens at once than the kitchen has (a missing cooker or oven uses a hob ring); never longer than one by one.
+- `GET /api/v1/batch-cook/suggestions?date=&count=&keep=&skip=` (a read; changes nothing) → `{ "date", "count", "picks": [{ "recipe_id", "name", "minutes", "why", "use_soon": { "foods": ["Spinach"], "days_left": 2 } | null }], "together_minutes", "one_by_one_minutes", "pool", "free_days": [date × 3], "kitchen": { "hob_rings", "pressure_cookers", "oven", "asked" } }`. `date` is the cook day (default: the next day, from today, with no recipe planned; `free_days` are the next three such days; `422` outside the plan's range); `count` is 2–4 (default 3). `keep` (up to 4 recipe ids) stay in the set, `skip` are not picked (a **swap** sends the others as `keep` and the swapped one as `skip`; **Show me others** sends the last set as `skip`); when too few are left to fill the set the skipped ones come back, best first. Only the household's own recipes that are still there and have at least one step are picked (`pool` counts them; `picks` is shorter than `count` when `pool` is). Picks favour, in this order: **shared prep** (two recipes both prepare the same ingredient: a chopping, grinding or similar step uses it by the step's ingredient links, or its line says so, "1 onion, finely chopped"; staples never count), **Use soon** ingredients (the pantry's own rule), **not cooked in the last 14 days** (never cooked counts), **fits the kitchen** (no oven step without an oven, no pressure cooker step without one). Ties go by name, then id, so the same data gives the same picks. `why` says it in words ("Shares onion, tomato and curry leaf prep with Sambar; the pressure cooker runs while you work on the others; not cooked in the last 14 days."). `minutes` is the recipe's steps' minutes added up (`step_timings`: guessed unless set by hand); `one_by_one_minutes` adds them across the picks; `together_minutes` is a rough schedule: each recipe's steps in order, waiting steps overlapping, hands-on steps never overlapping each other, never more hob rings, pressure cookers or ovens at once than the kitchen has (a missing cooker or oven uses a hob ring); never longer than one by one.
 - `POST /api/v1/batch-cook/sessions` (`201`), body `{ "date", "slot_id"?, "recipes": [{ "recipe_id", "tub_count", "pattern", "member_login_ids", "extras_to_freezer", "prep_note", "placements" }] }` with 2 to 4 different recipes (`422 bad_session_size`, `422 same_recipe_twice`): Plan this batch. Each recipe is planned in the meal of `slot_id` on the cook day (left out: the last meal that is on and has no recipe planned that day; tubs don't count; a change keeps the session's own meal) and cooked once with its own choices (the same fields as `POST /plan/items/{id}/batch`, and the same refusals, each of which stops the whole session with nothing made), all marked as one session. **One change, kind `plan_batch_session`, one Undo for all of it.** Answers a plan write plus `session_id`. A retry with the same `Idempotency-Key` makes nothing more.
 - `POST /api/v1/batch-cook/sessions/preview` (changes nothing), body as above with 1 to 4 recipes and, when a session is being changed, its `session_id` (it is taken off first inside the preview, as the change does, so the preview is what will be saved; the answer also has `cook_slot_id`): where the **last** recipe's tubs would land with the recipes before it already planned (the Cook once sheets follow each other); answers like `POST /plan/items/{id}/batch/preview`.
 - `GET /api/v1/batch-cook/sessions/{id}` → `{ "id", "cook_day", "slot_id", "together_minutes", "one_by_one_minutes", "recipes": [{ "batch_id", "recipe_id", "recipe_name", "tub_count", "pattern", "colour" }] }`, the recipes in the order they were made.
@@ -815,8 +817,186 @@ Place by place, each ingredient answered None · ¼ · ½ · ¾ · Full (or a co
 
 ### 6.6 Other
 
-- `GET /api/v1/units` (4.1), `GET /api/v1/foods/{id}/convert`, `GET`/`DELETE /api/v1/conversions` (4.5).
+- `GET /api/v1/units` (4.1), `GET /api/v1/foods/{id}/convert`, `GET /api/v1/conversions`, `DELETE /api/v1/conversions/{id}` (4.5).
 - No Server-Sent Events in 0.2: the web app re-fetches `/pantry` when the tab comes back into view.
+
+### 6.7 Every route (0.9.5-beta.3, D3)
+
+Every route the app has, with its methods and where it is described: a section of this page,
+another page in `docs/dev/`, or only the route's own description in the OpenAPI document
+(`/api/v1/openapi.json`). The list is in the app's order. `backend/tests/test_api_names.py`
+checks it against the app's routes exactly (path, parameter names and methods), and checks that
+every `METHOD /api/v1/...` this page names is a real route, so the page cannot drift from the
+code.
+
+- `/api/v1/version`: GET ("On one page"; `docs/api.md`)
+- `/api/v1/health`: GET ("On one page"; `docs/api.md`)
+- `/api/v1/updates`: GET (OpenAPI)
+- `/api/v1/updates/check`: POST (OpenAPI)
+- `/api/v1/problem-report`: GET (OpenAPI)
+- `/api/v1/setup`: GET, POST (OpenAPI)
+- `/api/v1/session`: POST, DELETE (`sync-protocol.md`)
+- `/api/v1/me`: GET (`sync-protocol.md`)
+- `/api/v1/me/preferences`: PUT (OpenAPI)
+- `/api/v1/sign-in-options`: GET (OpenAPI)
+- `/api/v1/sso/start`: GET (OpenAPI)
+- `/api/v1/sso/test`: POST (OpenAPI)
+- `/api/v1/sso/confirm`: POST (OpenAPI)
+- `/api/v1/sso/finish`: POST (OpenAPI)
+- `/api/v1/sso/settings`: GET, PUT (OpenAPI)
+- `/api/v1/sso/password-sign-in`: PUT (OpenAPI)
+- `/api/v1/sso/link`: POST, DELETE (OpenAPI)
+- `/api/v1/me/sign-in`: GET (OpenAPI)
+- `/api/v1/me/password`: PUT (OpenAPI)
+- `/api/v1/me/sessions/others`: DELETE (OpenAPI)
+- `/api/v1/me/reset-link`: DELETE (OpenAPI)
+- `/api/v1/me/sessions/{session_id}`: DELETE (OpenAPI)
+- `/api/v1/api-tokens`: GET, POST (OpenAPI)
+- `/api/v1/api-tokens/{token_id}`: DELETE (OpenAPI)
+- `/api/v1/places`: GET, POST (section 6.3)
+- `/api/v1/places/{place_id}`: PATCH, DELETE (section 6.3)
+- `/api/v1/places/order`: PUT (section 6.3)
+- `/api/v1/shops`: GET, POST (section 6.3)
+- `/api/v1/shops/{shop_id}`: PATCH, DELETE (section 6.3)
+- `/api/v1/shops/order`: PUT (section 6.3)
+- `/api/v1/household`: GET, PATCH (section 6.3)
+- `/api/v1/household/kitchen`: GET, PATCH (section 6.3)
+- `/api/v1/household/fill-from-browser`: POST (section 6.3)
+- `/api/v1/units`: GET (section 4.1)
+- `/api/v1/conversions`: GET (section 4.5)
+- `/api/v1/conversions/{conversion_id}`: DELETE (section 4.5)
+- `/api/v1/foods`: GET, POST (section 6.2)
+- `/api/v1/foods/guess`: GET (section 6.2)
+- `/api/v1/foods/{food_id}`: GET, PATCH, DELETE (section 6.2)
+- `/api/v1/foods/{food_id}/other-names`: POST (section 6.2)
+- `/api/v1/foods/{food_id}/other-names/{name_id}`: DELETE (section 6.2)
+- `/api/v1/foods/{food_id}/sizes`: POST (section 6.2)
+- `/api/v1/foods/{food_id}/sizes/{size_id}`: PATCH, DELETE (section 6.2)
+- `/api/v1/foods/{food_id}/stand-ins`: POST (section 6.2)
+- `/api/v1/foods/{food_id}/stand-ins/{stand_in_id}`: DELETE (section 6.2)
+- `/api/v1/foods/{food_id}/mark-not-same`: POST (section 6.2)
+- `/api/v1/foods/{food_id}/merge`: POST (section 6.2)
+- `/api/v1/foods/{food_id}/split`: POST (section 6.2)
+- `/api/v1/foods/{food_id}/convert`: GET (section 4.5)
+- `/api/v1/starter-packs`: GET (section 6.2)
+- `/api/v1/starter-packs/{pack_id}/add`: POST (section 6.2)
+- `/api/v1/pantry`: GET (section 6.4)
+- `/api/v1/pantry/use-soon`: GET (section 6.3c)
+- `/api/v1/stock`: POST (section 6.4)
+- `/api/v1/stock/{stock_id}/set-left`: POST (section 6.4)
+- `/api/v1/stock/{stock_id}/use`: POST (section 6.4)
+- `/api/v1/stock/{stock_id}/bin`: POST (section 6.4)
+- `/api/v1/stock/{stock_id}/freeze`: POST (section 6.4)
+- `/api/v1/stock/{stock_id}/move`: POST (section 6.4)
+- `/api/v1/stock/{stock_id}`: PATCH (section 6.4)
+- `/api/v1/foods/{food_id}/use`: POST (section 6.4)
+- `/api/v1/foods/{food_id}/set-left`: POST (section 6.4)
+- `/api/v1/stocktake`: GET (section 6.5a)
+- `/api/v1/stocktake/places/{place_id}`: GET (section 6.5a)
+- `/api/v1/stocktake/places/{place_id}/foods/{food_id}/answer`: POST (section 6.3f)
+- `/api/v1/stocktake/places/{place_id}/foods/{food_id}/make-staple`: POST (section 6.5a)
+- `/api/v1/stocktake/places/{place_id}/foods/{food_id}/set-size`: POST (section 6.5a)
+- `/api/v1/stocktake/places/{place_id}/foods`: POST (section 6.5a)
+- `/api/v1/stocktake/places/{place_id}/finish`: POST (section 6.5a)
+- `/api/v1/stocktake/restart`: POST (section 6.5a)
+- `/api/v1/meal-slots`: GET, POST (section 6.3a)
+- `/api/v1/plan`: GET (section 6.3a)
+- `/api/v1/plan/items`: POST (section 6.3a)
+- `/api/v1/plan/items/{plan_item_id}`: PATCH, DELETE (section 6.3a)
+- `/api/v1/plan/start-options`: GET (section 6.3a)
+- `/api/v1/plan/meals/{plan_meal_id}`: PATCH, DELETE (section 6.3a)
+- `/api/v1/plan/items/{plan_item_id}/move`: POST (section 6.3a)
+- `/api/v1/plan/meals/{plan_meal_id}/move`: POST (section 6.3a)
+- `/api/v1/meal-slots/{meal_slot_id}`: PATCH (section 6.3)
+- `/api/v1/meal-slots/order`: PUT (section 6.3)
+- `/api/v1/plan/people`: GET (section 6.3a)
+- `/api/v1/plan/items/{plan_item_id}/batch/preview`: POST (section 6.3a)
+- `/api/v1/plan/items/{plan_item_id}/batch`: POST (section 6.3a)
+- `/api/v1/plan/batches/{plan_batch_id}`: DELETE (section 6.3a)
+- `/api/v1/plan/tubs/{plan_tub_id}/place`: POST (section 6.3a)
+- `/api/v1/plan/tubs/{plan_tub_id}`: PATCH (section 6.3a)
+- `/api/v1/plan/tubs/{plan_tub_id}/eat`: POST (section 6.3d)
+- `/api/v1/plan/tubs/{plan_tub_id}/bin`: POST (section 6.3a)
+- `/api/v1/plan/tubs/{plan_tub_id}/freeze`: POST (section 6.3a)
+- `/api/v1/plan/fill-from-freezer`: POST (section 6.3a)
+- `/api/v1/plan/tubs-left`: GET (section 6.3a)
+- `/api/v1/plan/items/{plan_item_id}/portions`: GET (section 6.3a)
+- `/api/v1/plan/items/{plan_item_id}/leftovers`: POST (section 6.3a)
+- `/api/v1/batch-cook/suggestions`: GET (section 6.3a-2)
+- `/api/v1/batch-cook/sessions/preview`: POST (section 6.3a-2)
+- `/api/v1/batch-cook/sessions`: POST (section 6.3a-2)
+- `/api/v1/batch-cook/sessions/{session_id}`: GET, PUT, DELETE (section 6.3a-2)
+- `/api/v1/batch-cook/sessions/{session_id}/schedule`: GET, POST (section 6.3f)
+- `/api/v1/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}`: PATCH (section 6.3f)
+- `/api/v1/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/start-timer`: POST (section 6.3f)
+- `/api/v1/batch-cook/sessions/{session_id}/cook/preview`: POST (section 6.3f)
+- `/api/v1/batch-cook/sessions/{session_id}/cook`: POST (section 6.3f)
+- `/api/v1/plan/items/{plan_item_id}/cooked`: GET (section 6.3a)
+- `/api/v1/plan/batches/{plan_batch_id}/cooked`: GET (section 6.3a)
+- `/api/v1/plan/items/{plan_item_id}/cook/preview`: POST (section 6.3d)
+- `/api/v1/plan/batches/{plan_batch_id}/cook/preview`: POST (section 6.3d)
+- `/api/v1/plan/meals/{plan_meal_id}/cook/preview`: POST (section 6.3d)
+- `/api/v1/plan/items/{plan_item_id}/cook`: POST (section 6.3d)
+- `/api/v1/plan/batches/{plan_batch_id}/cook`: POST (section 6.3d)
+- `/api/v1/plan/meals/{plan_meal_id}/cook`: POST (section 6.3d)
+- `/api/v1/today`: GET (section 6.3a)
+- `/api/v1/plan/meals/{plan_meal_id}/mark-cooked`: POST (section 6.3a)
+- `/api/v1/plan/meals/{plan_meal_id}/mark-not-cooked`: POST (section 6.3c)
+- `/api/v1/plan/meals/{plan_meal_id}/mark-moved`: POST (section 6.3c)
+- `/api/v1/recipes/import`: POST (`recipe-import.md`)
+- `/api/v1/recipes/import/save`: POST (`recipe-import.md`)
+- `/api/v1/mealie-imports`: POST (`recipe-import.md`)
+- `/api/v1/mealie-imports/current`: GET (OpenAPI)
+- `/api/v1/mealie-imports/{import_id}`: GET, DELETE (`recipe-import.md`)
+- `/api/v1/mealie-imports/{import_id}/start`: POST (OpenAPI)
+- `/api/v1/mealie-imports/{import_id}/undo`: POST (`recipe-import.md`)
+- `/api/v1/mealie-imports/drafts/save-all`: POST (`recipe-import.md`)
+- `/api/v1/recipes/drafts`: GET, POST (`recipe-import.md`)
+- `/api/v1/recipes/drafts/by-food`: GET (OpenAPI)
+- `/api/v1/recipes/drafts/by-food/answer`: POST (OpenAPI)
+- `/api/v1/recipes/drafts/{draft_id}`: GET, PUT, DELETE (`recipe-import.md`)
+- `/api/v1/recipes`: GET, POST (`recipe-import.md`)
+- `/api/v1/recipes/tags`: GET (`api-0.4-recipes.md`)
+- `/api/v1/recipes/tags/{tag_id}`: PATCH (`api-0.4-recipes.md`)
+- `/api/v1/recipes/tags/{tag_id}/merge`: POST (`api-0.4-recipes.md`)
+- `/api/v1/recipes/{recipe_id}/duplicate`: POST (`api-0.4-recipes.md`)
+- `/api/v1/recipes/{recipe_id}`: GET, PUT, DELETE (`api-0.4-recipes.md`)
+- `/api/v1/recipes/{recipe_id}/stock`: GET (`api-0.4-recipes.md`)
+- `/api/v1/recipes/{recipe_id}/cannot-use`: GET (`api-0.4-recipes.md`)
+- `/api/v1/recipes/photos`: POST (`api-0.4-recipes.md`)
+- `/api/v1/recipes/photos/{photo_id}/{copy}`: GET (OpenAPI)
+- `/api/v1/recipes/photos/{photo_id}`: DELETE (`api-0.4-recipes.md`)
+- `/api/v1/privacy/switches`: GET (`recipe-import.md`)
+- `/api/v1/privacy/switches/{connection}`: PUT (`recipe-import.md`)
+- `/api/v1/privacy/own-network`: GET, POST (`recipe-import.md`)
+- `/api/v1/privacy/own-network/{entry_id}`: DELETE (`recipe-import.md`)
+- `/api/v1/people`: GET, POST (OpenAPI)
+- `/api/v1/people/{person_id}`: PATCH, DELETE (OpenAPI)
+- `/api/v1/people/{person_id}/login`: POST, DELETE (OpenAPI)
+- `/api/v1/people/{person_id}/reset-password`: POST (OpenAPI)
+- `/api/v1/people/sso-accounts/{account_id}/link`: POST (OpenAPI)
+- `/api/v1/people/sso-accounts/{account_id}/refuse`: POST (OpenAPI)
+- `/api/v1/people/{person_id}/sso`: DELETE (OpenAPI)
+- `/api/v1/people/ask-whos-this`: PUT (OpenAPI)
+- `/api/v1/whos-this`: GET, PUT (OpenAPI)
+- `/api/v1/join/look`: POST (OpenAPI)
+- `/api/v1/join`: POST (OpenAPI)
+- `/api/v1/shopping/lists`: GET, POST (`sync-protocol.md`)
+- `/api/v1/shopping/lists/{list_id}`: GET, PATCH, DELETE (`sync-protocol.md`)
+- `/api/v1/shopping/lists/{list_id}/items`: POST (`sync-protocol.md`)
+- `/api/v1/shopping/items/{item_id}/pack-sizes`: GET (section 6.3b)
+- `/api/v1/shopping/items/{item_id}`: PATCH, DELETE (`sync-protocol.md`)
+- `/api/v1/shopping/lists/{list_id}/clear-ticked`: POST (`sync-protocol.md`)
+- `/api/v1/shopping/add-from-plan`: POST (section 6.3b)
+- `/api/v1/shopping/staples/{food_id}`: PATCH (section 6.3b)
+- `/api/v1/shopping/actions`: POST (`sync-protocol.md`)
+- `/api/v1/shopping/sync`: GET (`sync-protocol.md`)
+- `/api/v1/events`: GET (`sync-protocol.md`)
+- `/api/v1/changes`: GET (section 6.5)
+- `/api/v1/changes/{change_id}/undo`: POST (section 6.3a)
+- `/api/v1/your-data/backups`: GET, POST, PATCH (OpenAPI)
+- `/api/v1/your-data/export`: GET, POST (`export-format.md`)
+- `/api/v1/your-data/delete-everything`: GET, POST (OpenAPI)
 
 ## 7. Decisions on the open points (lead, 17 Oct)
 

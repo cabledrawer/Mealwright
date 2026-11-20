@@ -425,3 +425,68 @@ def test_shops_are_recorded_through_kitchen_changes() -> None:
     source = Path(kitchen.__file__).read_text()
     assert '"shop_added"' not in source and '"shop_renamed"' not in source
     assert "kitchen_changes.shop_added(" in source and "kitchen_changes.shop_renamed(" in source
+
+
+# --- BE21: the endpoint page lists every route, exactly ----------------------------------------
+
+ENDPOINTS_PAGE = "docs/dev/api-endpoints.md"
+METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
+
+
+def _page() -> str:
+    from pathlib import Path
+
+    import mealwright
+
+    for folder in Path(mealwright.__file__).resolve().parents:
+        if (folder / ENDPOINTS_PAGE).is_file():
+            return (folder / ENDPOINTS_PAGE).read_text()
+    raise AssertionError(f"{ENDPOINTS_PAGE} not found")
+
+
+def _app_routes() -> set[tuple[str, str]]:
+    return {
+        (method.upper(), path)
+        for path, ops in openapi()["paths"].items()
+        for method in ops
+        if method.upper() in METHODS
+    }
+
+
+def test_the_endpoint_page_lists_every_route_exactly() -> None:
+    import re
+
+    page = _page()
+    section = page.split("### 6.7 Every route", 1)[1].split("\n## ", 1)[0]
+    listed: set[tuple[str, str]] = set()
+    for path, methods in re.findall(r"^- `(/api/v1/[^`]*)`: ([A-Z, ]+) \(", section, re.M):
+        for method in methods.split(", "):
+            assert (method, path) not in listed, f"{method} {path} is listed twice"
+            listed.add((method, path))
+    routes = _app_routes()
+    assert sorted(routes - listed) == [], "routes missing from the page's list (section 6.7)"
+    assert sorted(listed - routes) == [], "the page lists routes the app does not have"
+
+
+def test_every_route_the_endpoint_page_names_is_real() -> None:
+    """A `METHOD /path` in the page's prose (with or without `/api/v1`) is a route the app has,
+    with that method; parameter names may differ (`{id}`), `...` shortenings are skipped."""
+    import re
+
+    def shape(path: str) -> str:
+        path = path.split("?")[0].rstrip("/.,;:)")
+        path = path if path.startswith(API) else API + path
+        return re.sub(r"\{[^}]*\}", "{}", path)
+
+    routes = {(method, shape(path)) for method, path in _app_routes()}
+    wrong = []
+    for number, line in enumerate(_page().splitlines(), 1):
+        for found in re.finditer(
+            r"`((?:(?:GET|POST|PUT|PATCH|DELETE)`?/?`?)+) (/[a-z][^\s`]*)", line
+        ):
+            if "..." in found.group(2) or "…" in found.group(2):
+                continue
+            for method in re.findall("|".join(METHODS), found.group(1)):
+                if (method, shape(found.group(2))) not in routes:
+                    wrong.append(f"line {number}: {method} {found.group(2)}")
+    assert wrong == []
