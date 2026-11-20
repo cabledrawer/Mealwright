@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { nothingMatches } from '#lib/words.js';
   // "Add to Dinner · Mon 19": pick a recipe (searched by name, tag or ingredient) or, once
   // something is typed, a plain ingredient ("Fruit") to put in a meal. A meal that already has
   // things gets it alongside. In Month, with no meal chosen, it asks which meal first.
@@ -366,7 +367,9 @@
         </ul>
         {#if recipes.loaded && !recipes.recipes.length && !foods.length}
           <p class="none">
-            {query.trim() ? 'Nothing matches.' : 'You have no recipes yet. Add one under Recipes.'}
+            {query.trim()
+              ? nothingMatches('recipe or ingredient', query)
+              : 'You have no recipes yet. Add one under Recipes.'}
           </p>
         {:else if !query.trim() && !cooking}
           <p class="none">Type to find an ingredient, such as Fruit.</p>

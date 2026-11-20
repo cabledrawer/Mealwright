@@ -9,3 +9,7 @@ export const NBSP = '\u00a0';
 export function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many;
 }
+
+/** What a search that found nothing says, everywhere: `No recipe matches “dal”.` (FE7). */
+export const nothingMatches = (what: string, query: string): string =>
+  `No ${what} matches “${query.trim()}”.`;

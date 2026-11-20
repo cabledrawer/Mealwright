@@ -31,7 +31,7 @@
   import { save } from '#lib/save.js';
   import { starterPacks } from '#lib/starterPacks.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
-  import { plural } from '#lib/words.js';
+  import { plural, nothingMatches } from '#lib/words.js';
   import { DESKTOP_QUERY } from '#lib/layout.js';
 
   const list = new IngredientsList();
@@ -387,7 +387,7 @@
         {:else if !list.loaded}
           <Loading />
         {:else if list.query.trim()}
-          <p class="nothing">No ingredient called “{list.query.trim()}” yet.</p>
+          <p class="nothing">{nothingMatches('ingredient', list.query)}</p>
         {:else if list.filter === 'unused'}
           <p class="nothing">Every ingredient is in a recipe.</p>
         {:else if list.filter !== 'all'}

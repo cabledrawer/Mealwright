@@ -33,7 +33,7 @@
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { RecipeList, searchOf, type RecipeFilter } from '#lib/recipes.svelte.js';
-  import { plural } from '#lib/words.js';
+  import { nothingMatches, plural } from '#lib/words.js';
 
   let {
     pane = false,
@@ -140,7 +140,7 @@
   /** Why a search or filter found nothing. */
   const nothing = $derived(
     searching
-      ? `No recipe matches “${list.query.trim()}”.`
+      ? nothingMatches('recipe', list.query)
       : list.filter === 'cook'
         ? 'No recipe can be cooked with what is in stock right now.'
         : list.filter === 'soon'

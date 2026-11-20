@@ -368,7 +368,7 @@ test("Find in pantry finds an ingredient by its other name", async ({
   ).toBeVisible();
   await expect(page.getByText("also called thuvaram paruppu")).toBeVisible();
   await page.getByRole("searchbox", { name: "Find in pantry" }).fill("zzzz");
-  await expect(page.getByText("Nothing called “zzzz”.")).toHaveCount(1);
+  await expect(page.getByText("No ingredient matches “zzzz”.")).toHaveCount(1);
   await expect(page.getByText(/^Nothing in the/)).toHaveCount(0);
   // The header counts match: "0 ingredients" everywhere while nothing is found.
   await expect(page.getByText(/^[1-9]\d* ingredients?$/)).toHaveCount(0);

@@ -477,7 +477,7 @@ describe('the Pantry page', () => {
       // The columns, and their "Nothing in the Fridge" lines, are gone.
       expect(page.getByRole('heading', { name: 'Fridge', level: 2 }).elements()).toHaveLength(0);
       expect(page.getByText(/Nothing in the/).elements()).toHaveLength(0);
-      expect(page.getByText(/Nothing called/).elements()).toHaveLength(0);
+      expect(page.getByText(/No ingredient matches/).elements()).toHaveLength(0);
       // Clearing the search puts the columns back.
       await search().fill('');
       await expect.element(page.getByRole('heading', { name: 'Fridge', level: 2 })).toBeVisible();
@@ -492,12 +492,12 @@ describe('the Pantry page', () => {
       expect(page.getByText(/also called/).elements()).toHaveLength(0);
     });
 
-    it('says "Nothing called …" once when nothing matches anywhere', async () => {
+    it('says "No ingredient matches …" once when nothing matches anywhere', async () => {
       searchRoutes('zzz', []);
       await render(1300);
       await search().fill('zzz');
-      await expect.element(page.getByText('Nothing called “zzz”.')).toBeVisible();
-      expect(page.getByText(/Nothing called/).elements()).toHaveLength(1);
+      await expect.element(page.getByText('No ingredient matches “zzz”.')).toBeVisible();
+      expect(page.getByText(/No ingredient matches/).elements()).toHaveLength(1);
       expect(page.getByText(/Nothing in the/).elements()).toHaveLength(0);
     });
 
@@ -578,10 +578,10 @@ describe('the Pantry page', () => {
       searchRoutes('zzz', []);
       await render(1300);
       await search().fill('zzz');
-      await expect.element(page.getByText('Nothing called “zzz”.')).toBeVisible();
+      await expect.element(page.getByText('No ingredient matches “zzz”.')).toBeVisible();
       await page.viewport(390, 900);
-      await expect.element(page.getByText('Nothing called “zzz”.')).toBeVisible();
-      expect(page.getByText(/Nothing called/).elements()).toHaveLength(1);
+      await expect.element(page.getByText('No ingredient matches “zzz”.')).toBeVisible();
+      expect(page.getByText(/No ingredient matches/).elements()).toHaveLength(1);
       expect(page.getByText(/Nothing in the/).elements()).toHaveLength(0);
     });
   });

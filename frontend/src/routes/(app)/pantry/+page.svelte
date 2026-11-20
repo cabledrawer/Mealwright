@@ -46,7 +46,7 @@
   import { PantryList, listLabel } from '#lib/pantryList.svelte.js';
   import { searchResults } from '#lib/pantrySearch.js';
   import { toasts } from '#lib/toast.svelte.js';
-  import { plural } from '#lib/words.js';
+  import { plural, nothingMatches } from '#lib/words.js';
   import { PHONE_QUERY } from '#lib/layout.js';
 
   const model = new PantryModel();
@@ -368,7 +368,7 @@
         {/each}
       </ul>
     {:else}
-      <p class="empty">Nothing called “{model.searched}”.</p>
+      <p class="empty">{nothingMatches('ingredient', model.searched)}</p>
     {/if}
   </div>
 {/snippet}
