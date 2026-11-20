@@ -1,6 +1,7 @@
 <script lang="ts">
   import LoadFailed from '#lib/components/LoadFailed.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
+  import { couldntOpen, fetchCode } from '#lib/lazyCode.svelte.js';
   // "Check before saving" (mockups Import05-Phone and Import05-Desktop, ImportReview05-*, and
   // their dark versions; spec "Import review" and "The labels"): the recipe's name, serves and
   // time, whether its photo came, the counts, every ingredient line as written → how it was
@@ -221,8 +222,9 @@
     editing = step;
     // The box loads on first use. If it can't load, nothing is left open and waiting (Save,
     // Close and Discard wait while a box is open).
-    import('./StepEdit.svelte').catch(() => {
+    void import('./StepEdit.svelte').catch(() => {
       if (editing === step) editing = null;
+      couldntOpen(() => startEdit(step));
     });
   }
 
@@ -238,8 +240,12 @@
   /** Take a step or heading out, with Undo. The cursor stays in the method, on the step that took
    *  its place. A box open for another step stays open with what was typed. */
   async function removeStep(at: number) {
-    const { removeStep: remove } = await import('#lib/importStepEdits.js');
-    remove(flow, at);
+    const edits = await fetchCode(
+      () => import('#lib/importStepEdits.js'),
+      () => void removeStep(at)
+    );
+    if (!edits) return;
+    edits.removeStep(flow, at);
     await tick();
     const buttons = Array.from(document.querySelectorAll<HTMLElement>('[data-step-remove]'));
     const same = buttons.find((b) => Number(b.dataset.stepRemove) >= at);
@@ -260,6 +266,9 @@
   });
 
   const privacy = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
+
+  /** Raised by the toast's Try again, so One at a time's code is fetched again. */
+  let oneTries = $state(0);
 </script>
 
 {#snippet left()}
@@ -610,21 +619,23 @@
 
 {#if mode === 'one'}
   <!-- One at a time loads the first time it is asked for, so the import page stays small. -->
-  {#await import('./OneAtATime.svelte') then { default: Loaded }}
-    <Loaded
-      {flow}
-      bind:boxOpen={oneBox}
-      closing={flow.keeping && !(network.offline || network.deviceOffline)}
-      onclose={() => void close()}
-      onsave={() => void save()}
-      onseeall={() => (seeAll = true)}
-      onleave={discardAndLeave}
-      ondiscard={askDiscard}
-      {discardProblem}
-    />
-  {:catch}
-    <LoadFailed />
-  {/await}
+  {#key oneTries}
+    {#await import('./OneAtATime.svelte') then { default: Loaded }}
+      <Loaded
+        {flow}
+        bind:boxOpen={oneBox}
+        closing={flow.keeping && !(network.offline || network.deviceOffline)}
+        onclose={() => void close()}
+        onsave={() => void save()}
+        onseeall={() => (seeAll = true)}
+        onleave={discardAndLeave}
+        ondiscard={askDiscard}
+        {discardProblem}
+      />
+    {:catch}
+      <LoadFailed retry={() => oneTries++} />
+    {/await}
+  {/key}
 {:else if mode === 'focus'}
   <CheckFrame>
     {#snippet header()}

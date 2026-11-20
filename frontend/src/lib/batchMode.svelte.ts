@@ -59,7 +59,7 @@ export class BatchModeModel {
 
   constructor(
     readonly id: number,
-    sound: () => void = () => void import('./chime').then((m) => m.playChime())
+    sound: () => void = () => void import('./chime').then((m) => m.playChime()).catch(() => {})
   ) {
     this.#sound = sound;
   }
@@ -118,7 +118,7 @@ export class BatchModeModel {
   prime(): void {
     if (this.#primed) return;
     this.#primed = true;
-    void import('./chime').then((m) => m.primeChime());
+    void import('./chime').then((m) => m.primeChime()).catch(() => {}); // a sound: nothing to say if it can't load
   }
 
   #take(next: Schedule): void {

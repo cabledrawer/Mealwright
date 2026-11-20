@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fetchCode } from '#lib/lazyCode.svelte.js';
   import Button from '#lib/components/Button.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
   // Batch cook (Experimental; mockups Dark-BatchPick08-Phone and -Desktop): recipes picked from
@@ -77,9 +78,10 @@
     void batchCook.load();
     void plan.load();
     if (changing !== null) {
-      const { getSession } = await import('#lib/client/batch.js');
+      const client = await fetchCode(() => import('#lib/client/batch.js'));
       try {
-        const found = await getSession(changing);
+        if (!client) throw new Error('code not loaded');
+        const found = await client.getSession(changing);
         changingDay = found.cook_day;
         await model.startFrom(
           found.cook_day,

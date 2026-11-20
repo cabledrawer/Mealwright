@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fetchCode } from '#lib/lazyCode.svelte.js';
   import Button from '#lib/components/Button.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
   // "Make this its own recipe" under a section heading on Check (F190, cabledrawer 8 Nov; mockups
@@ -26,8 +27,12 @@
   }
 
   async function keepIn() {
-    const { keepInMain } = await import('#lib/importOwnEdits.js');
-    keepInMain(flow, heading);
+    const edits = await fetchCode(
+      () => import('#lib/importOwnEdits.js'),
+      () => void keepIn()
+    );
+    if (!edits) return;
+    edits.keepInMain(flow, heading);
     await tick();
     root?.querySelector('button')?.focus();
   }

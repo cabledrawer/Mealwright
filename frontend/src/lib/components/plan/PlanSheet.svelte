@@ -462,6 +462,9 @@
     if (target.kind === 'item') void model.removeItem(target.item.id);
     onclose();
   }
+
+  /** Raised by the toast's Try again, so the picker's code is fetched again. */
+  let pickerTries = $state(0);
 </script>
 
 {#if target}
@@ -669,11 +672,13 @@
         <h3>{question}</h3>
         {#if target?.kind === 'recipe' && target.ahead}
           <!-- The next 14 days, from the recipe page only; fetched when first asked for (size limit). -->
-          {#await import('./PlanItPicker.svelte') then { default: Loaded }}
-            <Loaded {model} bind:day bind:slotId />
-          {:catch}
-            <LoadFailed />
-          {/await}
+          {#key pickerTries}
+            {#await import('./PlanItPicker.svelte') then { default: Loaded }}
+              <Loaded {model} bind:day bind:slotId />
+            {:catch}
+              <LoadFailed retry={() => pickerTries++} />
+            {/await}
+          {/key}
         {:else}
           <!-- The arrow keys pick the day (Shift: the meal), Enter confirms; the focus is on this box. -->
           <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->

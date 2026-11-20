@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fetchCode } from '#lib/lazyCode.svelte.js';
   import Icon from '../Icon.svelte';
   // "Start tonight at 21:00" (M3, F124; cabledrawer 31 Oct and 9 Nov, mockup TodayTonight08): the plan
   // works backwards. A recipe whose long wait has a start time of today (or earlier, and not
@@ -58,8 +59,12 @@
   async function cookMode() {
     if (entry.item.recipe?.removed || !entry.item.recipe) return;
     const recipeId = entry.item.recipe.id;
-    const { cookNow } = await import('#lib/cookNow.svelte.js');
-    cookNow.open(recipeId, entry.meal.id, entry.item.id);
+    const code = await fetchCode(
+      () => import('#lib/cookNow.svelte.js'),
+      () => void cookMode()
+    );
+    if (!code) return;
+    code.cookNow.open(recipeId, entry.meal.id, entry.item.id);
     const to = resolve('/(app)/recipes/[id]/cook', { id: String(recipeId) });
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
     await goto(`${to}?meal=${entry.meal.id}&day=${entry.meal.date}`);

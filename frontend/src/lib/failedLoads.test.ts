@@ -3,7 +3,7 @@
 
 import type { Component } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LazyCode } from './lazyCode.svelte';
+import { fetchCode, LazyCode } from './lazyCode.svelte';
 import { methodAsk } from './methodAsk.svelte';
 import { network } from './network.svelte';
 import { optionalAsk } from './optionalAsk.svelte';
@@ -186,5 +186,24 @@ describe('Who’s this?', () => {
     expect(whosThis.open).toBe(true);
     expect(loader).toHaveBeenCalledTimes(2);
     expect(await whosThis.code.code).toBe(fake);
+  });
+});
+
+describe('fetchCode', () => {
+  it('says so with a real Try again button that fetches again, and forgets the failure', async () => {
+    const loader = failsOnce();
+    expect(await fetchCode(loader)).toBeNull();
+    expect(toasts.current?.message).toBe(WORDS);
+    expect(toasts.current?.action?.label).toBe('Try again');
+    toasts.act();
+    await vi.waitFor(() => expect(loader).toHaveBeenCalledTimes(2));
+    expect(await fetchCode(loader)).toEqual({ default: fake });
+  });
+
+  it('Try again asks the ask again when the caller gives it', async () => {
+    const again = vi.fn();
+    expect(await fetchCode(failsOnce(), again)).toBeNull();
+    toasts.act();
+    expect(again).toHaveBeenCalledTimes(1);
   });
 });

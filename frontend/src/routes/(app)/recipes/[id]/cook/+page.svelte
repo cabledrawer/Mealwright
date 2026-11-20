@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fetchCode } from '#lib/lazyCode.svelte.js';
   import Button from '#lib/components/Button.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
   import Loading from '#lib/components/Loading.svelte';
@@ -111,9 +112,14 @@
       ahead = null;
       return;
     }
-    void import('#lib/cookAhead.js').then(({ aheadView }) => {
-      if (mine === aheadAsked) ahead = aheadView(found, cookSteps(shown.steps), today);
-    });
+    // Not asked for by a tap, so no toast if it can't load: the "start ahead" hint is left out.
+    void import('#lib/cookAhead.js')
+      .then(({ aheadView }) => {
+        if (mine === aheadAsked) ahead = aheadView(found, cookSteps(shown.steps), today);
+      })
+      .catch(() => {
+        if (mine === aheadAsked) ahead = null;
+      });
   });
 
   /** Past the step that waits for the first time: the wait is begun, and tomorrow Cook mode opens
@@ -143,8 +149,12 @@
     // (offline, or it failed), so Cooked it never records the other way (M2).
     const item = mealItem();
     if (pick !== null && item && item.method_id !== pick) {
-      const { setMealWay } = await import('#lib/cookWays.js');
-      if (!(await setMealWay(item, pick))) {
+      const ways = await fetchCode(
+        () => import('#lib/cookWays.js'),
+        () => void openCooked()
+      );
+      if (!ways) return;
+      if (!(await ways.setMealWay(item, pick))) {
         // proposed, for cabledrawer
         toasts.problem(
           'Couldn’t tell the Plan which way you cooked it. Check the connection and try again.'

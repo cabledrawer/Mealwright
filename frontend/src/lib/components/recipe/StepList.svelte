@@ -71,6 +71,9 @@
   }
 
   $effect(() => () => removed.forEach((entry) => undoHistory.forget(entry)));
+
+  /** Raised by the toast's Try again, so a part whose code failed to load is fetched again. */
+  let waitTries = $state(0);
 </script>
 
 <section class="steps" aria-labelledby="{uid}-title" bind:this={root}>
@@ -142,15 +145,17 @@
           <div class="waits" data-waits>
             <span class="waits-title">Waits</span>
             {#if step.wait}
-              {#await import('./WaitFields.svelte') then { default: Loaded }}
-                <Loaded
-                  bind:wait={step.wait}
-                  bind:invalid={step.waitInvalid}
-                  name="step {numberOf(i)}"
-                />
-              {:catch}
-                <LoadFailed />
-              {/await}
+              {#key waitTries}
+                {#await import('./WaitFields.svelte') then { default: Loaded }}
+                  <Loaded
+                    bind:wait={step.wait}
+                    bind:invalid={step.waitInvalid}
+                    name="step {numberOf(i)}"
+                  />
+                {:catch}
+                  <LoadFailed retry={() => waitTries++} />
+                {/await}
+              {/key}
               <button
                 type="button"
                 class="mw-add"

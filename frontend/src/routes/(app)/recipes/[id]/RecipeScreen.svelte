@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fetchCode } from '#lib/lazyCode.svelte.js';
   import Lazy from '#lib/components/Lazy.svelte';
   import Loading from '#lib/components/Loading.svelte';
   import { timeParts, timeWords, waitLength, waitName } from '#lib/timeWords.js';
@@ -88,10 +89,12 @@
     const [wanted, wantedName] = [recipe.id, recipe.name];
     try {
       if (!planModel || !planActions) {
-        const [{ PlanModel }, { pickerActions }] = await Promise.all([
-          import('#lib/plan.svelte.js'),
-          import('#lib/planActions.js')
-        ]);
+        const code = await fetchCode(
+          () => Promise.all([import('#lib/plan.svelte.js'), import('#lib/planActions.js')]),
+          () => void planIt()
+        );
+        if (!code) return;
+        const [{ PlanModel }, { pickerActions }] = code;
         if (stale(wanted)) return;
         planModel = new PlanModel();
         planActions = pickerActions(planModel, () => network.offline);

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fetchCode } from '#lib/lazyCode.svelte.js';
   import Button from '#lib/components/Button.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
@@ -139,9 +140,13 @@
   /** Start cooking: Cook mode for this plan item, so "Cooked it" is there at the last step. */
   async function startCooking(entry: CookEntry) {
     if (entry.recipeId === null) return;
-    const { cookNow } = await import('#lib/cookNow.svelte.js');
+    const code = await fetchCode(
+      () => import('#lib/cookNow.svelte.js'),
+      () => void startCooking(entry)
+    );
+    if (!code) return;
     if (left) return; // the Plan was left while the code was fetched: don't pull the person to Cook
-    cookNow.open(entry.recipeId, entry.meal.id, entry.item.id);
+    code.cookNow.open(entry.recipeId, entry.meal.id, entry.item.id);
     const to = resolve('/(app)/recipes/[id]/cook', { id: String(entry.recipeId) });
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
     await goto(`${to}?meal=${entry.meal.id}&day=${entry.meal.date}`);
@@ -151,9 +156,13 @@
   async function startAhead(entry: StartEntry) {
     const recipe = entry.item.recipe;
     if (!recipe) return;
-    const { cookNow } = await import('#lib/cookNow.svelte.js');
+    const code = await fetchCode(
+      () => import('#lib/cookNow.svelte.js'),
+      () => void startAhead(entry)
+    );
+    if (!code) return;
     if (left) return;
-    cookNow.open(recipe.id, entry.meal.id, entry.item.id);
+    code.cookNow.open(recipe.id, entry.meal.id, entry.item.id);
     const to = resolve('/(app)/recipes/[id]/cook', { id: String(recipe.id) });
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; only the query is added
     await goto(`${to}?meal=${entry.meal.id}&day=${entry.meal.date}`);
