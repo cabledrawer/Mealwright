@@ -903,7 +903,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
   describe('every Try again is the same button, saying “Trying…” while it tries (cabledrawer 18 Oct); only “couldn’t finish signing out” is grey', () => {
     const isShared = (name: string) => {
       const el = page.getByRole('button', { name, exact: true }).element();
-      return el.classList.contains('primary') && !el.classList.contains('quiet');
+      return el.classList.contains('mw-button') && !el.classList.contains('quiet');
     };
 
     it('couldn’t finish signing out: the same button, but in the grey (quiet) look (cabledrawer 18 Oct)', async () => {
@@ -912,7 +912,7 @@ describe('signing in on a phone holding waiting changes (11.5)', () => {
       await expect.element(page.getByRole('button', { name: 'Try again' })).toBeVisible();
       expect(isShared('Try again')).toBe(false);
       const grey = page.getByRole('button', { name: 'Try again', exact: true }).element();
-      expect(grey.classList.contains('primary') && grey.classList.contains('quiet')).toBe(true);
+      expect(grey.classList.contains('mw-button') && grey.classList.contains('quiet')).toBe(true);
       let answer: (reply: Response) => void = () => {};
       vi.stubGlobal('fetch', () => new Promise<Response>((done) => (answer = done)));
       await page.getByRole('button', { name: 'Try again' }).click();

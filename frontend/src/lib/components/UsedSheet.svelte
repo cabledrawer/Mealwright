@@ -6,7 +6,8 @@
   // "Used 120 g". Weight and volume only get the quarters; a count ingredient (eggs) asks "How
   // many left?". A phone sheet: a real modal dialog, Esc closes it, and the focus goes back
   // where it came from. On a computer it is a box in the middle of the screen.
-  import { tick } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import type { CountedAs } from '#lib/client/types.js';
 
   let {
@@ -43,7 +44,6 @@
   } = $props();
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
   let typed = $state('');
   let problem = $state<string | null>(null);
   /** Nothing is chosen until a pick is tapped: 0.25, 0.5, 0.75 or 1 (All). */
@@ -58,14 +58,10 @@
   ];
 
   $effect(() => {
-    if (open && !dialog.open) {
+    if (open) {
       typed = '';
       problem = null;
       chosen = null;
-      dialog.showModal();
-      void tick().then(() => dialog.querySelector<HTMLElement>('[data-first]')?.focus());
-    } else if (!open && dialog.open) {
-      dialog.close();
     }
   });
 
@@ -120,24 +116,12 @@
   }
 </script>
 
-<dialog
-  bind:this={dialog}
-  class="used-sheet"
-  aria-labelledby="{uid}-title"
-  oncancel={(event) => {
-    event.preventDefault();
-    onclose();
-  }}
-  onclick={(event) => {
-    if (event.target === dialog) onclose();
-  }}
->
-  {#if open}
+{#if open}
+  <Sheet
+    title={countedAs === 'count' ? `How many ${name} are left?` : `How much ${name} did you use?`}
+    {onclose}
+  >
     <form class="body" onsubmit={submit}>
-      <span class="grab" aria-hidden="true"></span>
-      <p class="title" id="{uid}-title">
-        {countedAs === 'count' ? `How many ${name} are left?` : `How much ${name} did you use?`}
-      </p>
       <p class="detail">{detail}</p>
       {#if countedAs !== 'count'}
         <div class="quick" role="radiogroup" aria-label="How much">
@@ -147,7 +131,6 @@
               role="radio"
               aria-checked={chosen === part}
               class:on={chosen === part}
-              data-first={part === 0.25 ? '' : undefined}
               onclick={() => pick(part)}>{words}</button
             >
           {/each}
@@ -160,7 +143,6 @@
             inputmode="decimal"
             maxlength="20"
             placeholder="for example {countedAs === 'count' ? 3 : round(total * 0.75)}"
-            data-first={countedAs === 'count' ? '' : undefined}
             bind:value={typed}
             oninput={typing}
             aria-describedby={problem ? `${uid}-problem` : undefined}
@@ -169,52 +151,21 @@
       </label>
       {#if problem}<p class="problem" id="{uid}-problem" role="alert">{problem}</p>{/if}
       {#if countedAs === 'count'}
-        <button type="submit" class="main save">Save</button>
-        <button type="button" class="main" onclick={onall}>Used all {allWords}</button>
+        <Button type="submit">Save</Button>
+        <Button onclick={onall}>Used all {allWords}</Button>
       {:else}
-        <button type="submit" class="main" disabled={!ready}>{mainWords}</button>
+        <Button type="submit" disabled={!ready}>{mainWords}</Button>
       {/if}
-      <button type="button" class="cancel" onclick={onclose}>Cancel</button>
+      <Button quiet onclick={onclose}>Cancel</Button>
     </form>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    inset: auto 0 0 0;
-    width: 100%;
-    max-width: none;
-    max-height: none;
-    margin: 0;
-    padding: var(--space-4) var(--space-8) max(28px, env(safe-area-inset-bottom));
-    border: none;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-    box-shadow: var(--shadow-toast);
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
-  }
-
-  .grab {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  .title {
-    font-size: var(--text-2xl);
-    font-weight: var(--weight-extrabold);
   }
 
   .detail {
@@ -278,47 +229,5 @@
     font-size: var(--text-base);
   }
 
-  .main {
-    min-height: 52px;
-    border: none;
-    border-radius: var(--radius-button);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font: var(--weight-extrabold) 1rem var(--font-ui);
-    cursor: pointer;
-  }
-
-  .main:disabled {
-    background: var(--color-fill);
-    color: var(--color-text-muted);
-    cursor: default;
-  }
-
-  .main.save {
-    background: var(--color-fill);
-    color: var(--color-text);
-  }
-
   /* A computer: a box in the middle of the screen, not a sheet the width of it. */
-  @media (min-width: 768px) {
-    dialog {
-      inset: 0;
-      width: min(420px, 100%);
-      margin: auto;
-      border-radius: var(--radius-xl);
-    }
-
-    .grab {
-      display: none;
-    }
-  }
-
-  .cancel {
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-accent);
-    font: var(--weight-bold) var(--text-md) var(--font-ui);
-    cursor: pointer;
-  }
 </style>
