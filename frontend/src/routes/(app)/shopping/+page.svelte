@@ -29,6 +29,7 @@
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { inTrolleyOrder, joinTrolley, linesOf } from '#lib/shopping/view.js';
   import { DESKTOP_QUERY } from '#lib/layout.js';
+  import { whenIdle } from '#lib/whenIdle.js';
   import { couldntAdd } from '#lib/errorWords.js';
 
   const model = new ShoppingModel();
@@ -184,6 +185,15 @@
   }
 
   const empty = $derived(model.loaded && !!model.list && model.groups.length === 0);
+
+  // "Already have it" works offline (it is queued), so its code is fetched once the page is idle,
+  // not on first use: a first-use fetch offline is blocked (Playwright's WebKit; a real phone
+  // with no signal). A failed warm-up is forgotten; the sheet then fetches it when asked.
+  $effect(() =>
+    whenIdle(() => {
+      void import('#lib/components/shopping/FoundSheet.svelte').catch(() => {});
+    })
+  );
 </script>
 
 <svelte:document onvisibilitychange={onVisible} />

@@ -156,6 +156,8 @@
   }
 </script>
 
+<!-- Says the code is here (a test waits for it; the sheet itself only exists while asking). -->
+<span data-new-ingredient hidden></span>
 {#if pending}
   <Sheet title={KEPT_BY} outside={false} onclose={() => newIngredient.cancel()}>
     <form onsubmit={submit}>

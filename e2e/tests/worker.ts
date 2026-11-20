@@ -19,10 +19,10 @@ export async function workerReady(page: Page) {
 }
 
 /**
- * The new-ingredient dialog's code is on the page. It is fetched once the page is idle (not in
+ * The new-ingredient sheet's code is on the page (its hidden marker is there). It is fetched once the page is idle (not in
  * the first page load), so a test that cuts the network and then asks for it waits for this
  * first: in Playwright's WebKit the offline switch blocks a first-use fetch before the worker.
  */
 export async function newIngredientDialogReady(page: Page) {
-  await expect(page.locator('dialog[data-new-ingredient]')).toBeAttached();
+  await expect(page.locator('[data-new-ingredient]')).toBeAttached();
 }

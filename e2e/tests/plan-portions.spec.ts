@@ -220,8 +220,8 @@ test('Serves - N + in the meal’s menu works on a meal planned before the updat
   const menu = page.getByRole('dialog', { name });
   const serves = menu.getByRole('group', { name: 'Serves' });
   await expect(serves.getByRole('status')).toHaveText('4');
-  await serves.getByRole('button', { name: 'One more' }).click();
-  await serves.getByRole('button', { name: 'One more' }).click();
+  await serves.getByRole('button', { name: 'More servings' }).click();
+  await serves.getByRole('button', { name: 'More servings' }).click();
   await expect(serves.getByRole('status')).toHaveText('6');
   // One change a moment after the last press.
   await expect.poll(async () => (await planRange(page, day, day)).meals[0].items[0].servings).toBe(6);
@@ -235,7 +235,7 @@ test('Serves - N + in the meal’s menu works on a meal planned before the updat
   if (isPhone(page)) await expectTouchTargets(page);
   await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
   await expectNoSidewaysScroll(page);
-  await expect(menu.getByRole('button', { name: 'One more' })).toBeVisible();
+  await expect(menu.getByRole('button', { name: 'More servings' })).toBeVisible();
   await page.evaluate(() => (document.documentElement.style.fontSize = ''));
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect.poll(async () => (await planRange(page, day, day)).meals[0].items[0].servings).toBeNull();
