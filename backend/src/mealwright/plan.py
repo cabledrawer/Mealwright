@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from mealwright import cooked, events, methods, start_ahead
 from mealwright.api.v1.context import Kitchen
-from mealwright.errors import Problem, name_taken, not_found
+from mealwright.errors import Problem, already_there, name_taken, not_found
 from mealwright.history import Tally, as_utc, record, undo_message
 from mealwright.household import meal_slots, today
 from mealwright.models import (
@@ -989,9 +989,7 @@ def move_meal(
     if mode == "move":
         refuse_cooked_items(kitchen, items_of(kitchen, meal), meal)
     if (meal.day, meal.slot_id) == (day, slot_id):
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, "same_place", "That meal is already there."
-        )
+        raise already_there("That meal is already there.")
     if mode == "leftovers":
         check_after_cook(kitchen, meal, day, slot_id)
     steps: list[dict[str, Any]] = []
@@ -1105,7 +1103,7 @@ def move_item(
     if mode == "move":
         refuse_cooked_items(kitchen, [item], source)
     if (source.day, source.slot_id) == (day, slot_id):
-        raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "same_place", "That’s already there.")
+        raise already_there("That’s already there.")
     from mealwright import batches
 
     if mode == "move" and batches.is_cook_item(kitchen, item, source):

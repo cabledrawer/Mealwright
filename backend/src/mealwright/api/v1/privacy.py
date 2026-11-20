@@ -169,7 +169,7 @@ _REFUSALS = {
     own_network.BAD_ENTRY: (status.HTTP_422_UNPROCESSABLE_CONTENT, "bad_entry"),
     own_network.NEVER: (status.HTTP_422_UNPROCESSABLE_CONTENT, "always_blocked"),
     own_network.TOO_WIDE: (status.HTTP_422_UNPROCESSABLE_CONTENT, "too_wide"),
-    own_network.ALREADY: (status.HTTP_409_CONFLICT, "already_listed"),
+    own_network.ALREADY: (status.HTTP_409_CONFLICT, "already_there"),
     own_network.FULL: (status.HTTP_409_CONFLICT, "list_full"),
 }
 
@@ -194,7 +194,7 @@ def get_own_network(kitchen: Here) -> OwnNetworkOut:
 def add_entry(body: EntryIn, kitchen: Here) -> EntryOut:
     """Admins only. Add a host name, one address or a range (CIDR) to the list. A refusal
     comes with its own sentence and a `code`: `bad_entry`, `always_blocked`, `too_wide`
-    (422), `already_listed` or `list_full` (409)."""
+    (422), `already_there` or `list_full` (409)."""
     kitchen.admin_only(Action.PRIVACY)
     lock_household(kitchen)  # so two admins adding at once can't go past the limit
     try:

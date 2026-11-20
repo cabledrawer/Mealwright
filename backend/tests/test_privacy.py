@@ -345,7 +345,7 @@ def test_the_same_entry_twice(kitchen: TestClient) -> None:
     for text in ("wiki.home.example", "WIKI.home.example.", " wiki.home.example "):
         response = kitchen.post(LIST, json={"value": text})
         assert response.status_code == 409
-        assert response.json()["code"] == "already_listed"
+        assert response.json()["code"] == "already_there"
         assert response.json()["detail"] == own_network.ALREADY
     assert kitchen.post(LIST, json={"value": "192.168.1.5/32"}).status_code == 201
     assert kitchen.post(LIST, json={"value": "192.168.1.5"}).status_code == 409
@@ -371,7 +371,7 @@ def test_the_list_holds_a_hundred_and_then_says_so(
     assert len(values(kitchen)) == 100
     # A repeat is "already on the list", not "full": the sentence names the real reason.
     assert kitchen.post(LIST, json={"value": "host5.home.example"}).json()["code"] == (
-        "already_listed"
+        "already_there"
     )
     # Another household has its own list of 100.
     assert neighbour.post(LIST, json={"value": "one-more.home.example"}).status_code == 201

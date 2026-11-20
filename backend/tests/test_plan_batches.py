@@ -497,7 +497,7 @@ def test_to_freezer_takes_the_tub_out_of_its_meal_and_sets_the_freezer_use_by(
     # Numbered in date order (F50): the tub still in a meal is 1, the one in no meal is last.
     assert where_tubs_are(kitchen, slots)[0] == (2, None, "freezer")
     twice = kitchen.post(f"{API}/plan/tubs/{tub['id']}/freezer")
-    assert twice.status_code == 409 and twice.json()["code"] == "already_frozen"
+    assert twice.status_code == 409 and twice.json()["code"] == "already_there"
     assert undo(kitchen, frozen.json())["result"] == "done"
     assert where_tubs_are(kitchen, slots)[0] == (1, day(1), "Lunch")
     assert view(kitchen)["tubs"][0]["use_by"] == tub["use_by"]

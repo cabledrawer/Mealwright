@@ -299,7 +299,7 @@ def test_its_a_staple_is_recorded_and_undone(kitchen: TestClient) -> None:
     refused = answer(kitchen, cupboard, sambar["id"], {"fraction": 0.5})
     assert (refused.status_code, refused.json()["code"]) == (409, "staple")
     twice = kitchen.post(f"{STOCKTAKE}/places/{cupboard}/foods/{sambar['id']}/staple")
-    assert (twice.status_code, twice.json()["code"]) == (409, "already_staple")
+    assert (twice.status_code, twice.json()["code"]) == (409, "already_there")
     # Undo: not a staple, row unanswered again.
     assert kitchen.post(f"{API}/changes/{body['change']['id']}/undo").status_code == 200
     assert kitchen.get(f"{API}/foods/{sambar['id']}").json()["staple"] is False

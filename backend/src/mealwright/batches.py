@@ -18,7 +18,7 @@ from sqlalchemy.orm import aliased
 from mealwright import cooked, together
 from mealwright.amounts import quarters_text
 from mealwright.api.v1.context import Kitchen
-from mealwright.errors import Problem, not_found
+from mealwright.errors import Problem, already_there, not_found
 from mealwright.history import as_utc
 from mealwright.household import meal_slots, today, zone
 from mealwright.models import (
@@ -708,9 +708,7 @@ def to_freezer(kitchen: Kitchen, tub: Tub) -> Change:
             "There’s no freezer in your places yet.",  # proposed, for cabledrawer
         )
     if tub.place_id == freezer.id:
-        raise Problem(
-            status.HTTP_409_CONFLICT, "already_frozen", "That tub is already in the freezer."
-        )
+        raise already_there("That tub is already in the freezer.")
     if tub.use_by < today(kitchen.household):  # as a packet: the use-by day itself still works
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,

@@ -254,8 +254,9 @@ def test_a_move_to_where_it_already_is_is_refused(
 ) -> None:
     a = plan_recipe(kitchen, stuff["sambar"], D1, slots["Dinner"])
     body = {"date": D1.isoformat(), "slot_id": slots["Dinner"]}
-    assert kitchen.post(f"{API}/plan/meals/{a['meal_id']}/move", json=body).status_code == 422
-    assert kitchen.post(f"{API}/plan/items/{a['item_id']}/move", json=body).status_code == 422
+    for kind, key in (("meals", "meal_id"), ("items", "item_id")):
+        answer = kitchen.post(f"{API}/plan/{kind}/{a[key]}/move", json=body)
+        assert (answer.status_code, answer.json()["code"]) == (409, "already_there")
 
 
 def test_undo_says_partly_when_things_changed_since(

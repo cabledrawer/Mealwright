@@ -39,7 +39,7 @@ from mealwright.conversions import (
     to_base_milli,
 )
 from mealwright.date_kinds import date_kind
-from mealwright.errors import Problem, StoredInt, not_found
+from mealwright.errors import Problem, StoredInt, already_there, not_found
 from mealwright.foods import (
     UNIT_WORDS,
     add_size,
@@ -1057,11 +1057,7 @@ def add_other_name(
         if folded == fold(food.name) or any(
             fold(n.name) == folded for n in other_names(kitchen, food.id)
         ):
-            raise Problem(
-                status.HTTP_422_UNPROCESSABLE_CONTENT,
-                "name_already_here",
-                f"{food.name} already has that name.",
-            )
+            raise already_there(f"{food.name} already has that name.")
         with FoodEdit(kitchen, [food.id]) as edit:
             kitchen.db.add(
                 FoodName(household_id=kitchen.household_id, food_id=food.id, name=body.name)

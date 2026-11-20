@@ -396,7 +396,7 @@ describe('Settings › Outside connections', () => {
         'That can’t be added: this server itself (localhost), link-local and cloud “metadata” addresses are always blocked.'
       ],
       [422, 'too_wide', 'That range is too wide. Add a smaller one, like 192.168.1.0/24.'],
-      [409, 'already_listed', 'That’s already on the list.'],
+      [409, 'already_there', 'That’s already on the list.'],
       [409, 'list_full', 'The list is full: it holds up to 100 entries. Remove one first.']
     ])(
       'shows the server’s own sentence for %i %s and keeps what was typed',

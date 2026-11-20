@@ -75,3 +75,25 @@ def test_a_new_thing_with_a_used_name_is_one_code_carrying_the_one_there_is(
     kitchen.post(f"{API}/people", json={"name": "Asha"})
     again = _problem(kitchen.post(f"{API}/people", json={"name": "asha"}), 409, "name_taken")
     assert again["member"]["name"] == "Asha"
+
+
+def test_a_move_or_change_to_where_it_already_is_is_one_code(kitchen: TestClient) -> None:
+    """BE2: asking for what is already so (a packet into the place it is in, or into the freezer
+    it is in, an amount it already has, a name the ingredient already has) is 409
+    `already_there`; a meal moved to its own slot too (test_today.py)."""
+    food = kitchen.post(f"{API}/foods", json={"name": "Spinach"}).json()["food"]
+    url = f"{API}/foods/{food['id']}"
+    body = {"food_id": food["id"], "amount": {"amount": 200, "unit": "g"}}
+    added = kitchen.post(f"{API}/stock", json=body)
+    assert added.status_code == 201, added.text
+    [group] = added.json()["groups"]
+    lot = group["lots"][0]
+    here = kitchen.post(f"{API}/stock/{lot['id']}/move", json={"place_id": group["place"]["id"]})
+    assert _problem(here, 409, "already_there")["detail"].startswith("That’s already in ")
+    same = kitchen.post(f"{url}/left", json={"amount": {"amount": 200, "unit": "g"}})
+    assert _problem(same, 409, "already_there")["detail"] == "That’s how much there is already."
+    kitchen.post(f"{API}/stock/{lot['id']}/to-freezer")
+    frozen = kitchen.post(f"{API}/stock/{lot['id']}/to-freezer")
+    assert _problem(frozen, 409, "already_there")["detail"] == "That’s already in the freezer."
+    named = kitchen.post(f"{url}/other-names", json={"name": "spinach"})
+    assert _problem(named, 409, "already_there")["detail"] == "Spinach already has that name."

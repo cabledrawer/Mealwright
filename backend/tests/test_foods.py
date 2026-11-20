@@ -366,9 +366,9 @@ def test_other_names(kitchen: TestClient) -> None:
     names = response.json()["food"]["other_names"]
     assert [n["name"] for n in names] == ["arhar dal"]
     again = kitchen.post(f"{API}/foods/{food['id']}/other-names", json={"name": "Arhar Dal"})
-    assert again.status_code == 422
+    assert (again.status_code, again.json()["code"]) == (409, "already_there")
     own = kitchen.post(f"{API}/foods/{food['id']}/other-names", json={"name": "toor dal"})
-    assert own.status_code == 422
+    assert (own.status_code, own.json()["code"]) == (409, "already_there")
     response = kitchen.delete(f"{API}/foods/{food['id']}/other-names/{names[0]['id']}")
     assert response.json()["food"]["other_names"] == []
 

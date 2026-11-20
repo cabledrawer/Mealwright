@@ -23,7 +23,7 @@ from mealwright.api.v1.schemas import (
     ShortAmount,
 )
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, StoredInt, not_found
+from mealwright.errors import Problem, StoredInt, already_there, not_found
 from mealwright.foods import PackReads, amount_out, change_out, find, resolve, usual_of, usual_size
 from mealwright.history import as_utc, commit, replayed
 from mealwright.household import places, today, zone
@@ -812,9 +812,7 @@ def to_freezer(
         if freezer is None:  # pragma: no cover (every household has a freezer)
             raise not_found("The freezer")
         if lot.place_id == freezer.id:
-            raise Problem(
-                status.HTTP_409_CONFLICT, "already_frozen", "That’s already in the freezer."
-            )
+            raise already_there("That’s already in the freezer.")
         day = today(kitchen.household)
         use_by = (body.use_by if body and body.use_by else None) or add_months(day, FREEZER_MONTHS)
         moving = _soon_lots(kitchen, lot) if body and body.soon else [lot]
@@ -851,9 +849,7 @@ def move(lot_id: StoredInt, body: Move, kitchen: Here, response: Response) -> St
         food = find(kitchen, lot.food_id)
         place = _place(kitchen, body.place_id)
         if place.id == lot.place_id:
-            raise Problem(
-                status.HTTP_409_CONFLICT, "already_there", f"That’s already in {place.name}."
-            )
+            raise already_there(f"That’s already in {place.name}.")
         edit = StockEdit(kitchen)
         edit.touch(lot).place_id = place.id
         if place.kind != "freezer":
@@ -977,9 +973,7 @@ def food_left(food_id: StoredInt, body: FoodLeft, kitchen: Here, response: Respo
                     )
                 )
         else:
-            raise Problem(
-                status.HTTP_409_CONFLICT, "no_change", "That’s how much there is already."
-            )
+            raise already_there("That’s how much there is already.")  # proposed, for cabledrawer
         size = usual_size(kitchen, food.id)
         summary = f"{food.name}: {short_text(food, total, size)} → {short_text(food, target, size)}"
         return edit.record("set_left", summary, food.id), 0

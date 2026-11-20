@@ -130,7 +130,7 @@ not downloaded" and "switched off" links) and `/settings/privacy#your-own-networ
   `{id, kind, value, addresses, added_by, added_on}`; `addresses` counts an IPv4 range.
 - `POST /privacy/own-network` with `{value}` (admins only) gives 201 and the entry. A refusal
   carries `own_network`'s own sentence and a `code`: `bad_entry`, `always_blocked`,
-  `too_wide` (422); `already_listed`, `list_full` (409).
+  `too_wide` (422); `already_there`, `list_full` (409).
 - `DELETE /privacy/own-network/{id}` (admins only) gives 204; an entry of another household
   is "not found", like one that doesn't exist.
 

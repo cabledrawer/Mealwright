@@ -47,7 +47,7 @@ from mealwright.batches import (
     places_of_kind,
     tub_use_by,
 )
-from mealwright.errors import Problem, not_found
+from mealwright.errors import Problem, already_there, not_found
 from mealwright.household import today
 from mealwright.models import (
     BatchCook,
@@ -352,9 +352,7 @@ def moved(
     check_day(kitchen, day)
     find_slot(kitchen, slot_id)
     if (meal.day, meal.slot_id) == (day, slot_id):
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, "same_place", "That meal is already there."
-        )
+        raise already_there("That meal is already there.")
     if day < today(kitchen.household):
         # A move is to today or later: a past day would only make another meal to answer.
         raise Problem(

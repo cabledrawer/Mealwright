@@ -32,7 +32,7 @@ from mealwright.api.v1.schemas import (
     SizeOut,
 )
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, StoredInt, not_found
+from mealwright.errors import Problem, StoredInt, already_there, not_found
 from mealwright.events import note_pantry
 from mealwright.foods import (
     add_size,
@@ -609,9 +609,7 @@ def make_staple(
 
     def apply() -> Change | None:
         if food.staple:
-            raise Problem(
-                status.HTTP_409_CONFLICT, "already_staple", f"{food.name} is a staple already."
-            )
+            raise already_there(f"{food.name} is a staple already.")
         entry = _entry(kitchen, place.id, food.id)
         with FoodEdit(kitchen, [food.id]) as edit:
             food.staple = True

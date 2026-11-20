@@ -441,7 +441,7 @@ def test_move_it_refusals(
 ) -> None:
     meal = yesterday["meal_id"]
     same = {"date": str(ago(kitchen, 1)), "slot_id": slots["Dinner"]}
-    assert answer(kitchen, meal, "moved", same, 422)["code"] == "same_place"
+    assert answer(kitchen, meal, "moved", same, 409)["code"] == "already_there"
     far = {"date": str(ahead(kitchen, 5000)), "slot_id": slots["Dinner"]}
     assert answer(kitchen, meal, "moved", far, 422)["code"] == "bad_day"
     # Not to a past day: that would only make another meal waiting for an answer.
