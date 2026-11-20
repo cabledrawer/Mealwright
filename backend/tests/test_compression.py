@@ -188,7 +188,7 @@ def test_the_live_stream_and_the_secret_paths_are_never_gzipped() -> None:
     for path in (
         "/api/v1/api-tokens",
         "/api/v1/sso/settings",
-        "/api/v1/backups",
+        "/api/v1/your-data/backups",
         "/api/v1/your-data/x",
     ):
         app.add_api_route(path, lambda: big, methods=["GET"])
@@ -216,7 +216,7 @@ def test_the_live_stream_and_the_secret_paths_are_never_gzipped() -> None:
         "/api/v1/events",
         "/api/v1/api-tokens",
         "/api/v1/sso/settings",
-        "/api/v1/backups",
+        "/api/v1/your-data/backups",
         "/api/v1/your-data/x",
         "/api/v1/download",
         "/api/v1/text",

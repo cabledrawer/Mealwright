@@ -672,7 +672,7 @@ async function act(
 /** Answer every open "Did you buy 2?" left by other tests, so a test sees only its own card. */
 async function settleCards(page: Page) {
   const copy = await (
-    await page.request.get("/api/v1/shopping/changes?since=0")
+    await page.request.get("/api/v1/shopping/sync?since=0")
   ).json();
   for (const q of copy.questions.filter((x: { open: boolean }) => x.open)) {
     await act(page, {
@@ -1002,7 +1002,7 @@ test("opening Shopping asks for the list once and then goes quiet", async ({
 }) => {
   let asked = 0;
   page.on("request", (request) => {
-    if (request.url().includes("/api/v1/shopping/changes")) asked++;
+    if (request.url().includes("/api/v1/shopping/sync")) asked++;
   });
   await page.goto("/shopping");
   await page.waitForLoadState("networkidle");

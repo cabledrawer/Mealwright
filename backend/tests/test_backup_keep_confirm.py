@@ -251,14 +251,16 @@ def test_a_confirmation_for_one_action_passes_no_other(
     assert sso_only.patch(API, json={"keep": 1}).status_code == 403
     assert sso_only.post(API).status_code == 403
     assert (
-        sso_only.post(f"{V1}/delete-everything", json={"words": "delete everything"}).status_code
+        sso_only.post(
+            f"{V1}/your-data/delete-everything", json={"words": "delete everything"}
+        ).status_code
         == 403
     )
     assert _count(sso_only) == 7
     assert _how(sso_only) == {"confirm_with": "single_sign_on", "confirmed": False}
-    assert sso_only.get(f"{V1}/delete-everything", params={"action": "keep", "keep": 6}).json()[
-        "confirmed"
-    ]
+    assert sso_only.get(
+        f"{V1}/your-data/delete-everything", params={"action": "keep", "keep": 6}
+    ).json()["confirmed"]
     assert sso_only.patch(API, json={"keep": 6}).status_code == 200
     assert _count(sso_only) == 6
 
@@ -270,7 +272,9 @@ def test_a_back_up_now_confirmation_passes_no_keep_and_no_delete_everything(
     assert _confirm_for(sso_only, idp, "backup_now").status_code == 200
     assert sso_only.patch(API, json={"keep": 2}).status_code == 403
     assert (
-        sso_only.post(f"{V1}/delete-everything", json={"words": "delete everything"}).status_code
+        sso_only.post(
+            f"{V1}/your-data/delete-everything", json={"words": "delete everything"}
+        ).status_code
         == 403
     )
     assert _count(sso_only) == 7

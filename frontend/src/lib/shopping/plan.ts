@@ -1,6 +1,6 @@
 // The list built from the plan and the "Check you have these" card (0.6 PR 5; docs/dev/api-endpoints.md
 // section 6.3b). Online only: the server works the sums out. The list itself, with the lines the
-// plan made, comes down the ordinary way (GET /shopping/changes) and works offline as before.
+// plan made, comes down the ordinary way (GET /shopping/sync) and works offline as before.
 
 import { api } from '#lib/api.js';
 

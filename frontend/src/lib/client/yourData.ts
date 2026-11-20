@@ -31,7 +31,7 @@ export interface Backups {
 /** The most backups an admin can keep. */
 export const KEEP_MOST = 30;
 
-export const getBackups = () => api<Backups>('GET', '/backups');
+export const getBackups = () => api<Backups>('GET', '/your-data/backups');
 
 export const changeBackups = (change: {
   every?: BackupEvery;
@@ -40,23 +40,23 @@ export const changeBackups = (change: {
   /** R6: the admin's own password, needed when `keep` would delete backups (an admin who
    *  confirmed with single sign-on leaves it out). */
   password?: string;
-}) => api<Backups>('PATCH', '/backups', change);
+}) => api<Backups>('PATCH', '/your-data/backups', change);
 
 /** "Back up now". A backup that fails comes back as the settings with `problem` set. */
 export const backUpNow = (password?: string) =>
-  api<Backups>('POST', '/backups', password === undefined ? undefined : { password }, {
+  api<Backups>('POST', '/your-data/backups', password === undefined ? undefined : { password }, {
     timeoutMs: 120_000
   });
 
 /** Where "Export" downloads the file from (a plain link: the browser saves what it streams). */
-export const EXPORT_PATH = '/api/v1/export';
+export const EXPORT_PATH = '/api/v1/your-data/export';
 
 /** Delete everything: the typed words and the admin's own password, or, for an admin who
  *  confirmed with single sign-on (D3), the words only. */
 export const deleteEverything = (words: string, password?: string) =>
   api<void>(
     'POST',
-    '/delete-everything',
+    '/your-data/delete-everything',
     password === undefined ? { words } : { words, password },
     { timeoutMs: 120_000 }
   );
@@ -72,8 +72,8 @@ export const getHowToConfirm = (what?: { action: 'keep' | 'backup_now'; keep?: n
   api<HowToConfirm>(
     'GET',
     what
-      ? `/delete-everything?action=${what.action}${what.keep === undefined ? '' : `&keep=${what.keep}`}`
-      : '/delete-everything'
+      ? `/your-data/delete-everything?action=${what.action}${what.keep === undefined ? '' : `&keep=${what.keep}`}`
+      : '/your-data/delete-everything'
   );
 
 /**

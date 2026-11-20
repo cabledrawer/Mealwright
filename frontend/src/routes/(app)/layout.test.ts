@@ -636,7 +636,7 @@ describe('opening the app on a weak signal (cabledrawer 20 Oct, hand test)', () 
     server.release();
     await listed;
     const order = shop.requests.map((r) => `${r.method} ${r.path}`);
-    expect(order.indexOf('GET /me')).toBeLessThan(order.indexOf('GET /shopping/changes'));
+    expect(order.indexOf('GET /me')).toBeLessThan(order.indexOf('GET /shopping/sync'));
     // Sent once, and applied once.
     expect(shop.actions).toHaveLength(1);
   });

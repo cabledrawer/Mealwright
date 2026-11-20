@@ -33,7 +33,7 @@ describe('what the service worker handles', () => {
   });
 
   it('never touches /api, the live stream included', () => {
-    for (const path of ['/api', '/api/v1/events', '/api/v1/shopping/changes', '/api/anything']) {
+    for (const path of ['/api', '/api/v1/events', '/api/v1/shopping/sync', '/api/anything']) {
       expect(handling(get, url(path), own, assets)).toBe('network');
       expect(handling({ method: 'GET', mode: 'navigate' }, url(path), own, assets)).toBe('network');
     }

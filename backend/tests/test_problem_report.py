@@ -1047,7 +1047,7 @@ def test_errors_from_before_delete_everything_are_not_in_the_report(
     write_log(folder, [error("Old install broke", ago=timedelta(minutes=5))])
     assert any("Old install" in line for line in report(kitchen)["errors"])
     body = {"words": "delete everything", "password": ADMIN["password"]}
-    assert kitchen.post(f"{API}/delete-everything", json=body).status_code == 204
+    assert kitchen.post(f"{API}/your-data/delete-everything", json=body).status_code == 204
     assert kitchen.post(f"{API}/setup", json=ADMIN).status_code == 201
     # Stamped 2 s after the set-up: a line in the set-up's own second is left out (review r2).
     write_log(folder, [error("New install broke", ago=timedelta(seconds=-2))])
@@ -1067,7 +1067,7 @@ def test_another_households_report_has_no_line_from_before_a_delete_everything(
     folder = log_folder(settings)
     write_log(folder, [error("Couldn't save Quillfeather aubergine for Ramaswamy in Home")])
     body = {"words": "delete everything", "password": ADMIN["password"]}
-    assert kitchen.post(f"{API}/delete-everything", json=body).status_code == 204
+    assert kitchen.post(f"{API}/your-data/delete-everything", json=body).status_code == 204
     write_log(folder, [error("Later broke", ago=timedelta(seconds=-3))])
     lines = report(neighbour)["errors"]
     assert not any("Quillfeather" in line for line in lines), lines

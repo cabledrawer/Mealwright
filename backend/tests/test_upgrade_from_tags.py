@@ -195,7 +195,7 @@ def test_database_from_release_upgrades_cleanly(tag: str, tmp_path: Path) -> Non
             "/api/v1/plan?from=2026-11-01&to=2026-11-30",
             "/api/v1/shopping/lists",
             "/api/v1/pantry",
-            "/api/v1/export",
+            "/api/v1/your-data/export",
         ):
             answer = client.get(url)
             assert answer.status_code == 200, f"{tag}: GET {url} gave {answer.status_code}"

@@ -24,7 +24,7 @@ from mealwright.api.v1 import your_data
 from mealwright.auth import COOKIE, hash_password
 from mealwright.models import Change, Household, ListItem, ListTick, Login
 
-API = "/api/v1/delete-everything"
+API = "/api/v1/your-data/delete-everything"
 # Household 1 with something in nearly every table (the households test's own fixture).
 filled = test_households.mine
 
@@ -76,7 +76,7 @@ def test_it_deletes_every_row_and_photo_keeps_backups_and_starts_again(
     assert _rows(kitchen) > 50
     photos = _data(kitchen) / "photos" / "1"
     assert any(photos.iterdir())
-    assert kitchen.post("/api/v1/backups").status_code == 200
+    assert kitchen.post("/api/v1/your-data/backups").status_code == 200
     folder = _data(kitchen) / backups.FOLDER
     (folder / "pre-upgrade-0.8.0-20261101-020000.db").write_bytes(b"older copy")
     before = {p.name for p in folder.iterdir()}

@@ -25,7 +25,7 @@ def test_after_delete_everything_the_new_admin_gets_a_new_number(kitchen: TestCl
     gone = _ids(kitchen)
     assert gone
     answer = kitchen.post(
-        "/api/v1/delete-everything",
+        "/api/v1/your-data/delete-everything",
         json={"words": "delete everything", "password": ADMIN["password"]},
     )
     assert answer.status_code == 204, answer.text

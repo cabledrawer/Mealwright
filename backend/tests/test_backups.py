@@ -19,7 +19,7 @@ from mealwright import backups
 from mealwright.auth import hash_password
 from mealwright.models import Household, Login
 
-API = "/api/v1/backups"
+API = "/api/v1/your-data/backups"
 ADMINS_ONLY = "Only the household’s admin can change this."
 
 

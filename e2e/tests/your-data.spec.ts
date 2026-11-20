@@ -36,7 +36,7 @@ test('Your data opens from Settings, shows the backups, and passes the accessibi
 test('an admin changes how often and how many; it is kept, and put back', async ({ page }) => {
   await page.goto('/settings/your-data');
   const saved = (method: string) =>
-    page.waitForResponse((r) => r.url().endsWith('/api/v1/backups') && r.request().method() === method);
+    page.waitForResponse((r) => r.url().endsWith('/api/v1/your-data/backups') && r.request().method() === method);
   try {
     let done = saved('PATCH');
     await page.getByLabel('How often').selectOption('weekly');
@@ -48,7 +48,7 @@ test('an admin changes how often and how many; it is kept, and put back', async 
     await expect(page.getByLabel('How often')).toHaveValue('weekly');
     await expect(page.getByLabel('Keep')).toHaveValue('14');
   } finally {
-    const back = await page.request.patch('/api/v1/backups', { data: { every: 'daily', keep: 7 } });
+    const back = await page.request.patch('/api/v1/your-data/backups', { data: { every: 'daily', keep: 7 } });
     expect(back.status(), await back.text()).toBe(200);
   }
 });
@@ -127,7 +127,7 @@ test('Delete everything waits for the words, and a wrong password deletes nothin
 const SSO_WAY = { confirm_with: 'single_sign_on', confirmed: false };
 
 function confirmWith(page: Page, answer: object) {
-  return page.route('**/api/v1/delete-everything', (route) =>
+  return page.route('**/api/v1/your-data/delete-everything', (route) =>
     route.request().method() === 'GET'
       ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answer) })
       : route.continue(),
@@ -192,7 +192,7 @@ test('screenshots of the export password, dark (by hand only)', async ({ page })
 // R6: keeping fewer backups than there are asks for the password first. The count is stood in
 // for (the server's own tests make real backups and delete them), so nothing is deleted here.
 async function pretendThereAreFour(page: Page, count = 4) {
-  await page.route('**/api/v1/backups', async (route) => {
+  await page.route('**/api/v1/your-data/backups', async (route) => {
     if (route.request().method() !== 'GET') return route.continue();
     const response = await route.fetch();
     await route.fulfill({ response, json: { ...(await response.json()), count } });
@@ -203,7 +203,7 @@ test('lowering Keep so that backups go asks for the password, and Cancel changes
   await pretendThereAreFour(page);
   const sent: string[] = [];
   page.on('request', (request) => {
-    if (request.method() === 'PATCH' && request.url().endsWith('/api/v1/backups')) sent.push(request.postData() ?? '');
+    if (request.method() === 'PATCH' && request.url().endsWith('/api/v1/your-data/backups')) sent.push(request.postData() ?? '');
   });
   await page.goto('/settings/your-data');
   await page.getByLabel('Keep').selectOption('2');
@@ -222,7 +222,7 @@ test('Back up now at a full folder asks for the password first, and Cancel makes
   await pretendThereAreFour(page, 7);
   const sent: string[] = [];
   page.on('request', (request) => {
-    if (request.method() === 'POST' && request.url().endsWith('/api/v1/backups')) sent.push(request.postData() ?? '');
+    if (request.method() === 'POST' && request.url().endsWith('/api/v1/your-data/backups')) sent.push(request.postData() ?? '');
   });
   await page.goto('/settings/your-data');
   await page.getByRole('button', { name: 'Back up now' }).click();
@@ -270,7 +270,7 @@ test('Delete everything: Back up now first at a full folder asks on its own and 
   await pretendThereAreFour(page, 7);
   const sent: string[] = [];
   page.on('request', (request) => {
-    if (request.method() === 'POST' && request.url().endsWith('/api/v1/backups')) sent.push(request.postData() ?? '');
+    if (request.method() === 'POST' && request.url().endsWith('/api/v1/your-data/backups')) sent.push(request.postData() ?? '');
   });
   await page.goto('/settings/your-data/delete');
   await page.getByLabel('Your password', { exact: true }).fill('typed for the delete');

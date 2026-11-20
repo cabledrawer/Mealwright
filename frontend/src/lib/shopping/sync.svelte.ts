@@ -411,7 +411,7 @@ export class ShoppingSync {
       const generation = this.#generation;
       const answer = await api<ChangesAnswer>(
         'GET',
-        `/shopping/changes?since=${since}&device_id=${encodeURIComponent(deviceId())}`
+        `/shopping/sync?since=${since}&device_id=${encodeURIComponent(deviceId())}`
       );
       if (generation !== this.#generation) throw new ApiError(401, NOBODY_SIGNED_IN);
       const reset = await this.#merge(answer, full);

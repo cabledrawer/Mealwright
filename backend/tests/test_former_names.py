@@ -277,7 +277,7 @@ def test_delete_everything_keeps_no_name_and_the_old_lines_stay_out_of_the_repor
         assert "Home" in list(db.scalars(select(models.FormerName.name)))
     write_log(log_folder(settings), [error("Couldn't save Thistlewick Burrow")])
     body = {"words": "delete everything", "password": ADMIN["password"]}
-    assert kitchen.post(f"{API}/delete-everything", json=body).status_code == 204
+    assert kitchen.post(f"{API}/your-data/delete-everything", json=body).status_code == 204
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
         assert list(db.scalars(select(models.FormerName))) == []
     assert kitchen.post(f"{API}/setup", json=ADMIN).status_code == 201

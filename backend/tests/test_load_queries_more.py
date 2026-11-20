@@ -19,8 +19,8 @@ GOLDEN = Path(__file__).parent / "golden_reads"
 
 def reads(ids: dict[str, Any], more: dict[str, Any]) -> dict[str, str]:
     return {
-        "more_changes_all": "/shopping/changes?since=0",
-        "more_changes_since": f"/shopping/changes?since={more['before']}",
+        "more_changes_all": "/shopping/sync?since=0",
+        "more_changes_since": f"/shopping/sync?since={more['before']}",
         "more_list": f"/shopping/lists/{ids['list']}",
         "more_lists": "/shopping/lists",
         "more_pantry": "/pantry",

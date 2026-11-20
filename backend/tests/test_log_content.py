@@ -110,14 +110,14 @@ def test_no_password_and_nothing_people_cook_or_buy_reaches_the_log(
 
         # Your data: Back up now, the export, and Delete everything with wrong words and a
         # wrong password, then for real.
-        ok(client.post(f"{API}/backups"))
-        assert client.get(f"{API}/export").status_code == 200
+        ok(client.post(f"{API}/your-data/backups"))
+        assert client.get(f"{API}/your-data/export").status_code == 200
         # The export with a password, and a password that is too short.
-        sealed = client.post(f"{API}/export", json={"password": EXPORT_PASSWORD})
+        sealed = client.post(f"{API}/your-data/export", json={"password": EXPORT_PASSWORD})
         assert sealed.status_code == 200
-        short = client.post(f"{API}/export", json={"password": SHORT_EXPORT_TRY})
+        short = client.post(f"{API}/your-data/export", json={"password": SHORT_EXPORT_TRY})
         assert short.status_code == 422
-        everything = f"{API}/delete-everything"
+        everything = f"{API}/your-data/delete-everything"
         wrong_words = {"words": RECIPE, "password": PASSWORD}
         assert client.post(everything, json=wrong_words).status_code == 422
         wrong_password = {"words": "delete everything", "password": NEW_PASSWORD_TRY}

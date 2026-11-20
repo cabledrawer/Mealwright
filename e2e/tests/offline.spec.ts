@@ -573,7 +573,7 @@ async function pantryStock(page: Page, foodId: number): Promise<[number, string]
 /** Answer "Yes, 2" to any "Did you buy 2?" other tests left open, as another device of this login. */
 async function settleCards(page: Page) {
   const me = await (await page.request.get('/api/v1/me')).json();
-  const copy = await (await page.request.get('/api/v1/shopping/changes?since=0')).json();
+  const copy = await (await page.request.get('/api/v1/shopping/sync?since=0')).json();
   for (const q of copy.questions.filter((x: { open: boolean }) => x.open)) {
     const answered = await page.request.post('/api/v1/shopping/actions', {
       data: {

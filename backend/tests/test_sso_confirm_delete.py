@@ -55,7 +55,7 @@ def _confirm(client: TestClient, idp: FakeProvider, sub: str = "admin-1", **extr
 
 
 def _how(client: TestClient) -> dict[str, Any]:
-    answer = client.get(f"{API}/delete-everything")
+    answer = client.get(f"{API}/your-data/delete-everything")
     assert answer.status_code == 200, answer.text
     return cast(dict[str, Any], answer.json())
 
@@ -77,7 +77,7 @@ def test_an_sso_only_admin_confirms_with_a_fresh_sign_in_then_deletes(
     sso_only: TestClient, idp: FakeProvider
 ) -> None:
     assert _how(sso_only) == {"confirm_with": "single_sign_on", "confirmed": False}
-    refused = sso_only.post(f"{API}/delete-everything", json=WORDS)
+    refused = sso_only.post(f"{API}/your-data/delete-everything", json=WORDS)
     assert refused.status_code == 403
     assert refused.json()["code"] == "confirm_first"
     url = _start(sso_only)
@@ -89,7 +89,7 @@ def test_an_sso_only_admin_confirms_with_a_fresh_sign_in_then_deletes(
     assert answer.status_code == 200, answer.text
     assert answer.json()["done"] == "confirmed"
     assert _how(sso_only)["confirmed"] is True
-    deleted = sso_only.post(f"{API}/delete-everything", json=WORDS)
+    deleted = sso_only.post(f"{API}/your-data/delete-everything", json=WORDS)
     assert deleted.status_code == 204, deleted.text
     assert _logins(sso_only) == 0
 
@@ -127,7 +127,7 @@ def test_a_sign_in_the_server_doesnt_say_is_fresh_confirms_nothing(
     assert answer.status_code == 400
     assert answer.json()["code"] == "not_fresh"
     assert _how(sso_only)["confirmed"] is False
-    assert sso_only.post(f"{API}/delete-everything", json=WORDS).status_code == 403
+    assert sso_only.post(f"{API}/your-data/delete-everything", json=WORDS).status_code == 403
 
 
 def test_groups_that_no_longer_make_them_an_admin_confirm_nothing(
@@ -148,10 +148,10 @@ def test_the_proof_is_this_sessions_only_and_wrong_words_dont_use_it_up(
     answer, _ = sign_in(phone, idp, person=False, sub="admin-1", extra=ADMINS)
     assert answer.json()["me"]["role"] == "admin"
     assert _how(phone)["confirmed"] is False
-    assert phone.post(f"{API}/delete-everything", json=WORDS).status_code == 403
-    wrong = sso_only.post(f"{API}/delete-everything", json={"words": "delete"})
+    assert phone.post(f"{API}/your-data/delete-everything", json=WORDS).status_code == 403
+    wrong = sso_only.post(f"{API}/your-data/delete-everything", json={"words": "delete"})
     assert wrong.status_code == 422
-    assert sso_only.post(f"{API}/delete-everything", json=WORDS).status_code == 204
+    assert sso_only.post(f"{API}/your-data/delete-everything", json=WORDS).status_code == 204
 
 
 def test_the_proof_runs_out(sso_only: TestClient, idp: FakeProvider) -> None:
@@ -159,7 +159,7 @@ def test_the_proof_runs_out(sso_only: TestClient, idp: FakeProvider) -> None:
     state = cast(Any, sso_only.app).state
     state.sso_confirmed[1] = dataclasses.replace(state.sso_confirmed[1], expires=time.monotonic())
     assert _how(sso_only)["confirmed"] is False
-    assert sso_only.post(f"{API}/delete-everything", json=WORDS).status_code == 403
+    assert sso_only.post(f"{API}/your-data/delete-everything", json=WORDS).status_code == 403
     assert _logins(sso_only) > 0
 
 
@@ -181,4 +181,4 @@ def test_a_member_cant_start_one(sso_only: TestClient, idp: FakeProvider) -> Non
     answer, _ = sign_in(phone, idp, sub="lorna-1", extra={"preferred_username": "lorna"})
     assert answer.json()["me"]["role"] == "member"
     assert phone.post(f"{API}/sso/confirm", headers=ORIGIN).status_code == 403
-    assert phone.get(f"{API}/delete-everything").status_code == 403
+    assert phone.get(f"{API}/your-data/delete-everything").status_code == 403

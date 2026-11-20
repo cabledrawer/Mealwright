@@ -17,7 +17,7 @@ from mealwright.updates import CheckResult
 
 def _delete(admin: TestClient) -> None:
     gone = admin.post(
-        f"{API}/delete-everything",
+        f"{API}/your-data/delete-everything",
         json={"words": "delete everything", "password": ADMIN["password"]},
     )
     assert gone.status_code == 204, gone.text
@@ -89,7 +89,7 @@ def test_a_single_sign_on_test_finished_after_delete_everything_leaves_nothing(
     url = begin(admin, "/sso/test")
     code, state = idp.sign_in(url, sub="k-at-idp", extra=ADMIN_GROUPS)
     gone = admin.post(
-        f"{API}/delete-everything",
+        f"{API}/your-data/delete-everything",
         json={"words": "delete everything", "password": ADMIN["password"]},
     )
     assert gone.status_code == 204, gone.text

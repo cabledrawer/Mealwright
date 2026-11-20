@@ -1,4 +1,4 @@
-// Getting the shopping copy: GET /shopping/changes (sync-protocol 5.5). The first time (and
+// Getting the shopping copy: GET /shopping/sync (sync-protocol 5.5). The first time (and
 // whenever the server says `reset`) it is a full copy; after that only what changed since the
 // copy's cursor, which applyChanges() merges in. The same function takes the `changes` that
 // come back with a batch of actions.
@@ -26,7 +26,7 @@ export async function loadChanges(copy: ShoppingCopy | null): Promise<ChangesAns
   const since = copy?.cursor ?? 0;
   return api<ChangesAnswer>(
     'GET',
-    `/shopping/changes?since=${since}&device_id=${encodeURIComponent(deviceId())}`
+    `/shopping/sync?since=${since}&device_id=${encodeURIComponent(deviceId())}`
   );
 }
 

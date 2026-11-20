@@ -246,17 +246,15 @@ describe('Shopping: the list from the plan', () => {
     await render(390);
     await vi.waitFor(() => expect(asked('POST', '/shopping/add-from-plan').length).toBe(1));
     const order = server.requests.map((r) => `${r.method} ${r.path}`);
-    expect(order.indexOf('GET /shopping/changes')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('GET /shopping/sync')).toBeGreaterThanOrEqual(0);
     expect(order.indexOf('POST /shopping/add-from-plan')).toBeGreaterThan(
-      order.indexOf('GET /shopping/changes')
+      order.indexOf('GET /shopping/sync')
     );
   });
 
   it('after the plan changed the list, Shopping reads the list again', async () => {
     card = { ...card, changed: true };
     await render(390);
-    await vi.waitFor(() =>
-      expect(asked('GET', '/shopping/changes').length).toBeGreaterThanOrEqual(2)
-    );
+    await vi.waitFor(() => expect(asked('GET', '/shopping/sync').length).toBeGreaterThanOrEqual(2));
   });
 });

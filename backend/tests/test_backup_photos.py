@@ -26,7 +26,7 @@ from mealwright.config import Settings
 from mealwright.db import make_engine
 from mealwright.models import Login
 
-API = "/api/v1/backups"
+API = "/api/v1/your-data/backups"
 
 
 @pytest.fixture
@@ -738,7 +738,7 @@ def test_delete_everything_always_keeps_the_photos_in_its_safety_copy(
     assert kitchen.patch(API, json={"photos": False}).json()["photos"] is False
     assert kitchen.post(API).json()["last"]["photos"] is False  # the ordinary one: left out
     body = {"words": "delete everything", "password": ADMIN["password"]}
-    assert kitchen.post("/api/v1/delete-everything", json=body).status_code == 204
+    assert kitchen.post("/api/v1/your-data/delete-everything", json=body).status_code == 204
     (safety,) = _folder(kitchen).glob("before-delete-everything-*.db")
     assert _files(backups.photos_beside(safety)) == {f"1/{'a' * 32}.jpg": b"sambar"}
     assert not _store(kitchen).joinpath("1").exists()  # and the live ones are gone

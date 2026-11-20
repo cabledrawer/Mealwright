@@ -148,7 +148,7 @@ test('a household with one shop shows no shop headers', async ({ page }) => {
     const id = await k.food(name);
     await k.plan(await k.recipe(`Dish ${tag}`, [[id, 100]]), 1);
     // Whatever other tests added, this household has no shop: everything is "Any shop".
-    await page.route('**/api/v1/shopping/changes*', async (route) => {
+    await page.route('**/api/v1/shopping/sync*', async (route) => {
       try {
         const response = await route.fetch();
         const body = await response.json();

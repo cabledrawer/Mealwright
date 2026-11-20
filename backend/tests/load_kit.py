@@ -167,7 +167,7 @@ def page_load_reads(ids: dict[str, Any]) -> dict[str, str]:
         "recipes": "/recipes?limit=50",
         "recipe": f"/recipes/{recipe}",
         "recipe_stock": f"/recipes/{recipe}/stock",
-        "shopping_changes": "/shopping/changes?since=0",
+        "shopping_changes": "/shopping/sync?since=0",
         "shopping_lists": "/shopping/lists",
         "shopping_list": f"/shopping/lists/{ids['list']}",
         "pantry": "/pantry",
@@ -243,7 +243,7 @@ def seed_more(kitchen: TestClient, ids: dict[str, Any]) -> dict[str, Any]:
             ),
             201,
         )
-    answer = ok(kitchen.get(f"{API}/shopping/changes?since=0"))
+    answer = ok(kitchen.get(f"{API}/shopping/sync?since=0"))
     lines = [row["id"] for row in answer["items"]]
     one(
         kitchen,

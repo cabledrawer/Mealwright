@@ -76,7 +76,7 @@ def test_the_list_a_phone_shares_with_names_only_people_who_can_sign_in(
             )
         )
         session.commit()
-    names = [p["name"] for p in ok(kitchen.get(f"{API}/shopping/changes?since=0"))["people"]]
+    names = [p["name"] for p in ok(kitchen.get(f"{API}/shopping/sync?since=0"))["people"]]
     assert names == ["Tess", "Wren"]
 
 

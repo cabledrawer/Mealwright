@@ -112,3 +112,23 @@ def test_the_food_names_in_the_routes() -> None:
     assert "/api/v1/recipes/drafts/by-food" in paths
     assert "/api/v1/recipes/drafts/by-food/answer" in paths
     assert not [p for p in paths if "ingredient" in p]
+
+
+# --- BE28: one resource has one home -------------------------------------------------------
+
+
+def test_your_data_routes_live_under_your_data_and_the_old_ones_are_gone() -> None:
+    paths = openapi()["paths"]
+    for old in ("/backups", "/export", "/delete-everything", "/shopping/changes"):
+        assert f"{API}{old}" not in paths, old
+    assert set(paths[f"{API}/your-data/backups"]) == {"get", "patch", "post"}
+    assert set(paths[f"{API}/your-data/export"]) == {"get", "post"}
+    assert set(paths[f"{API}/your-data/delete-everything"]) == {"get", "post"}
+    assert "get" in paths[f"{API}/shopping/sync"]
+
+
+def test_the_old_your_data_addresses_answer_404(kitchen: TestClient) -> None:
+    for old in ("/backups", "/export", "/delete-everything", "/shopping/changes?since=0"):
+        assert kitchen.get(f"{API}{old}").status_code == 404, old
+    assert ok(kitchen.get(f"{API}/your-data/backups"))["keep"] >= 1
+    assert ok(kitchen.get(f"{API}/shopping/sync", params={"since": 0}))["cursor"] == 0

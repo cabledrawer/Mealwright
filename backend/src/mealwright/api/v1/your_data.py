@@ -121,7 +121,7 @@ def _out(kitchen: Here, request: Request) -> BackupsOut:
     )
 
 
-@router.get("/backups")
+@router.get("/your-data/backups")
 def get_backups(kitchen: Here, request: Request) -> BackupsOut:
     """How often Mealwright backs up, how many it keeps, and how the last backup went. Not for
     API tokens: it also names the server's backups folder, which the screen doesn't show."""
@@ -141,11 +141,11 @@ class BackupsChange(BaseModel):
         max_length=1024,
         description="The admin's own password. Needed only when the new `keep` would delete "
         "backups that exist now (R6); an admin who confirms with single sign-on instead "
-        "(`GET /delete-everything` says which) leaves it out.",
+        "(`GET /your-data/delete-everything` says which) leaves it out.",
     )
 
 
-@router.patch("/backups")
+@router.patch("/your-data/backups")
 def change_backups(body: BackupsChange, kitchen: Here, request: Request) -> BackupsOut:
     """Change how often, how many and whether photos are included. Keeping fewer than there are
     removes the oldest backups, so it asks first: 403 `wrong_password` or `confirm_first` (the
@@ -186,11 +186,11 @@ class BackUpNow(BaseModel):
         max_length=1024,
         description="The admin's own password. Needed only when the new backup would push the "
         "oldest one out (the folder is at or over Keep); an admin who confirms with single "
-        "sign-on instead (`GET /delete-everything` says which) leaves it out.",
+        "sign-on instead (`GET /your-data/delete-everything` says which) leaves it out.",
     )
 
 
-@router.post("/backups")
+@router.post("/your-data/backups")
 def back_up_now(kitchen: Here, request: Request, body: BackUpNow | None = None) -> BackupsOut:
     """Back up now ("Back up now"). Admins only. When the folder already holds Keep backups or
     more, the new one pushes the oldest out, so it asks first (the admin's password or the
@@ -225,7 +225,7 @@ def back_up_now(kitchen: Here, request: Request, body: BackUpNow | None = None) 
 
 
 @router.get(
-    "/export",
+    "/your-data/export",
     response_class=StreamingResponse,
     responses={200: {"content": {"application/zip": {}}, "description": "The export file."}},
 )
@@ -260,7 +260,7 @@ class ExportWithPassword(BaseModel):
 
 
 @router.post(
-    "/export",
+    "/your-data/export",
     response_class=StreamingResponse,
     responses={
         200: {
@@ -338,7 +338,7 @@ def _sso_only(request: Request, kitchen: Here) -> bool:
     return sso_accounts.confirms_with_sso(kitchen.db, data_dir, kitchen.login)
 
 
-@router.get("/delete-everything")
+@router.get("/your-data/delete-everything")
 def how_to_confirm(
     kitchen: Here,
     request: Request,
@@ -469,7 +469,7 @@ def confirm_admin(
         raise wrong_password()
 
 
-@router.post("/delete-everything", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/your-data/delete-everything", status_code=status.HTTP_204_NO_CONTENT)
 def delete_everything(
     body: DeleteEverything, kitchen: Here, request: Request, response: Response
 ) -> None:

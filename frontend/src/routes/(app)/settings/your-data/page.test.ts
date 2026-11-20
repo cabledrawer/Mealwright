@@ -62,7 +62,7 @@ describe('Settings › Backups & your data', () => {
     routes: Parameters<typeof fakeApi>[0] = {}
   ) {
     requests = fakeApi({
-      'GET /backups': [200, BACKUPS],
+      'GET /your-data/backups': [200, BACKUPS],
       'GET /household': [200, HOUSEHOLD],
       ...routes
     });
@@ -119,7 +119,7 @@ describe('Settings › Backups & your data', () => {
       .toHaveAttribute('href', '/settings/your-data/restore');
     await expect
       .element(page.getByRole('link', { name: 'Export' }))
-      .toHaveAttribute('href', '/api/v1/export');
+      .toHaveAttribute('href', '/api/v1/your-data/export');
     await expect.element(page.getByText('12 months')).toBeVisible();
     await expect.element(page.getByText('Undo reaches back 7 days.')).toBeVisible();
     await expect
@@ -153,13 +153,13 @@ describe('Settings › Backups & your data', () => {
 
     it('sends the password in the body only, then empties the box', async () => {
       const made = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:made');
-      open(YourData, { 'POST /export': [200, { fine: true }] });
+      open(YourData, { 'POST /your-data/export': [200, { fine: true }] });
       await userEvent.fill(box(), 'lorna and noor');
       await userEvent.click(page.getByRole('button', { name: 'Export' }));
       await vi.waitFor(() => expect(requests.some((r) => r.method === 'POST')).toBe(true));
       const sent = requests.find((r) => r.method === 'POST')!;
-      expect(sent.path).toBe('/export');
-      expect(sent.url).toBe('/export'); // nothing in the address
+      expect(sent.path).toBe('/your-data/export');
+      expect(sent.url).toBe('/your-data/export'); // nothing in the address
       expect(sent.body).toEqual({ password: 'lorna and noor' });
       await vi.waitFor(() => expect(made).toHaveBeenCalled());
       await expect.element(box()).toHaveValue('');
@@ -177,7 +177,7 @@ describe('Settings › Backups & your data', () => {
             init.signal?.addEventListener('abort', () => reject(new DOMException('', 'AbortError')))
           );
         }
-        const body = String(input).endsWith('/backups') ? BACKUPS : HOUSEHOLD;
+        const body = String(input).endsWith('/your-data/backups') ? BACKUPS : HOUSEHOLD;
         return Promise.resolve(new Response(JSON.stringify(body)));
       });
       component = mount(YourData, { target: document.body });
@@ -200,7 +200,7 @@ describe('Settings › Backups & your data', () => {
       }); // no `any`
       expect((AbortSignal as unknown as { any?: unknown }).any).toBeUndefined();
       const made = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:made');
-      open(YourData, { 'POST /export': [200, { fine: true }] });
+      open(YourData, { 'POST /your-data/export': [200, { fine: true }] });
       await userEvent.fill(box(), 'lorna and noor');
       await userEvent.click(page.getByRole('button', { name: 'Export' }));
       await vi.waitFor(() => expect(made).toHaveBeenCalled());
@@ -211,7 +211,7 @@ describe('Settings › Backups & your data', () => {
 
     it('Enter in the box exports too', async () => {
       const made = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:made');
-      open(YourData, { 'POST /export': [200, {}] });
+      open(YourData, { 'POST /your-data/export': [200, {}] });
       await userEvent.fill(box(), 'lorna and noor');
       await userEvent.keyboard('{Enter}');
       await vi.waitFor(() => expect(requests.some((r) => r.method === 'POST')).toBe(true));
@@ -230,7 +230,7 @@ describe('Settings › Backups & your data', () => {
 
     it('says why the server refused, and keeps what was typed so it can be tried again', async () => {
       open(YourData, {
-        'POST /export': [403, { detail: 'Only the household’s admin can change this.' }]
+        'POST /your-data/export': [403, { detail: 'Only the household’s admin can change this.' }]
       });
       await userEvent.fill(box(), 'lorna and noor');
       await userEvent.click(page.getByRole('button', { name: 'Export' }));
@@ -244,7 +244,7 @@ describe('Settings › Backups & your data', () => {
       open(YourData);
       await expect
         .element(page.getByRole('link', { name: 'Export' }))
-        .toHaveAttribute('href', '/api/v1/export');
+        .toHaveAttribute('href', '/api/v1/your-data/export');
       await userEvent.fill(box(), 'lorna and noor');
       await expect.element(page.getByRole('link', { name: 'Export' })).not.toBeInTheDocument();
       await userEvent.clear(box());
@@ -275,7 +275,7 @@ describe('Settings › Backups & your data', () => {
 
   it('an admin changes how often and how many, and it is sent', async () => {
     open(YourData, {
-      'PATCH /backups': (request) => [200, { ...BACKUPS, ...(request.body as object) }]
+      'PATCH /your-data/backups': (request) => [200, { ...BACKUPS, ...(request.body as object) }]
     });
     await page.getByLabelText('How often').selectOptions('Weekly, Mondays 03:00');
     await vi.waitFor(() =>
@@ -298,7 +298,7 @@ describe('Settings › Backups & your data', () => {
 
     it('is on, with the mockup’s words, and the last backup says when it holds photos', async () => {
       open(YourData, {
-        'GET /backups': [
+        'GET /your-data/backups': [
           200,
           { ...BACKUPS, last: { ...BACKUPS.last!, size: 412_140_000, photos: true } }
         ]
@@ -318,7 +318,7 @@ describe('Settings › Backups & your data', () => {
 
     it('is saved as it is picked, and nothing else is sent', async () => {
       open(YourData, {
-        'PATCH /backups': (request) => [200, { ...BACKUPS, ...(request.body as object) }]
+        'PATCH /your-data/backups': (request) => [200, { ...BACKUPS, ...(request.body as object) }]
       });
       await photos().click();
       await vi.waitFor(() =>
@@ -339,7 +339,7 @@ describe('Settings › Backups & your data', () => {
 
     it('goes back, and says why, when the server refuses', async () => {
       open(YourData, {
-        'PATCH /backups': [403, { detail: 'Only the household’s admin can change this.' }]
+        'PATCH /your-data/backups': [403, { detail: 'Only the household’s admin can change this.' }]
       });
       await photos().click();
       await expect
@@ -362,14 +362,14 @@ describe('Settings › Backups & your data', () => {
     });
 
     it('says plainly when there are no photos yet', async () => {
-      open(YourData, { 'GET /backups': [200, { ...BACKUPS, photos_size: 0 }] });
+      open(YourData, { 'GET /your-data/backups': [200, { ...BACKUPS, photos_size: 0 }] });
       await expect.element(page.getByText(/^No recipe photos yet\./)).toBeVisible();
     });
   });
 
   it('a change the server refuses goes back, and says why', async () => {
     open(YourData, {
-      'PATCH /backups': [403, { detail: 'Only the household’s admin can change this.' }]
+      'PATCH /your-data/backups': [403, { detail: 'Only the household’s admin can change this.' }]
     });
     await page.getByLabelText('Keep').selectOptions('Last 3');
     await expect
@@ -380,7 +380,7 @@ describe('Settings › Backups & your data', () => {
 
   it('Back up now shows the new backup, or why it failed', async () => {
     open(YourData, {
-      'POST /backups': [
+      'POST /your-data/backups': [
         200,
         { ...BACKUPS, problem: 'The disk is full.', problem_at: BACKUPS.last!.at }
       ]
@@ -452,7 +452,7 @@ describe('Settings › Backups & your data', () => {
 
     it('waits for the words and the password, then deletes and goes to setup', async () => {
       open(DeleteEverything, {
-        'POST /delete-everything': [204, null],
+        'POST /your-data/delete-everything': [204, null],
         'DELETE /session': [401, {}]
       });
       await expect
@@ -467,7 +467,9 @@ describe('Settings › Backups & your data', () => {
       await button().click();
       await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
       expect(navigation.goto.mock.calls[0]![0]).toBe('/setup');
-      const sent = requests.find((r) => r.method === 'POST' && r.path === '/delete-everything');
+      const sent = requests.find(
+        (r) => r.method === 'POST' && r.path === '/your-data/delete-everything'
+      );
       expect(sent?.body).toEqual({
         words: 'Delete everything',
         password: 'secret'
@@ -477,7 +479,7 @@ describe('Settings › Backups & your data', () => {
 
     it('a wrong password says so, empties the box, and deletes nothing', async () => {
       open(DeleteEverything, {
-        'POST /delete-everything': [
+        'POST /your-data/delete-everything': [
           403,
           { detail: 'That isn’t your current password.', code: 'wrong_password' }
         ]
@@ -494,7 +496,7 @@ describe('Settings › Backups & your data', () => {
     });
 
     it('Back up now first says when it is done', async () => {
-      open(DeleteEverything, { 'POST /backups': [200, BACKUPS] });
+      open(DeleteEverything, { 'POST /your-data/backups': [200, BACKUPS] });
       await page.getByRole('button', { name: 'Back up now first' }).click();
       await expect
         .element(page.getByRole('status'))
@@ -504,12 +506,12 @@ describe('Settings › Backups & your data', () => {
     describe('Back up now first (R6, round 2)', () => {
       const FULL = { ...BACKUPS, keep: 3, count: 3 };
       const backupPosts = () =>
-        requests.filter((r) => r.method === 'POST' && r.path === '/backups');
+        requests.filter((r) => r.method === 'POST' && r.path === '/your-data/backups');
 
       it('never sends the password typed for Delete everything', async () => {
         open(DeleteEverything, {
-          'GET /backups': [200, BACKUPS],
-          'POST /backups': [200, BACKUPS]
+          'GET /your-data/backups': [200, BACKUPS],
+          'POST /your-data/backups': [200, BACKUPS]
         });
         await userEvent.fill(page.getByLabelText('Your password'), 'typed for the delete');
         await page.getByRole('button', { name: 'Back up now first' }).click();
@@ -518,9 +520,9 @@ describe('Settings › Backups & your data', () => {
 
       it('at a full folder says it replaces the oldest and asks for its own password', async () => {
         open(DeleteEverything, {
-          'GET /backups': [200, FULL],
-          'POST /backups': [200, FULL],
-          'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+          'GET /your-data/backups': [200, FULL],
+          'POST /your-data/backups': [200, FULL],
+          'GET /your-data/delete-everything': [200, { confirm_with: 'password', confirmed: false }]
         });
         await userEvent.fill(page.getByLabelText('Your password'), 'typed for the delete');
         await page.getByRole('button', { name: 'Back up now first' }).click();
@@ -535,8 +537,11 @@ describe('Settings › Backups & your data', () => {
 
       it('an admin with single sign-on confirms that action, and nothing is sent first', async () => {
         open(DeleteEverything, {
-          'GET /backups': [200, FULL],
-          'GET /delete-everything': [200, { confirm_with: 'single_sign_on', confirmed: false }],
+          'GET /your-data/backups': [200, FULL],
+          'GET /your-data/delete-everything': [
+            200,
+            { confirm_with: 'single_sign_on', confirmed: false }
+          ],
           'POST /sso/confirm': [200, { url: 'https://id.example.org/authorize?x=1' }]
         });
         await page.getByRole('button', { name: 'Back up now first' }).click();
@@ -555,7 +560,7 @@ describe('Settings › Backups & your data', () => {
 
     it('asks the password when the server says so', async () => {
       open(DeleteEverything, {
-        'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+        'GET /your-data/delete-everything': [200, { confirm_with: 'password', confirmed: false }]
       });
       await expect.element(page.getByLabelText('Your password')).toBeVisible();
       await expect.element(page.getByText(CONFIRM_LINE)).not.toBeInTheDocument();
@@ -563,7 +568,7 @@ describe('Settings › Backups & your data', () => {
 
     it('an admin with single sign-on only confirms at the sign-in server, not with a password (D3)', async () => {
       open(DeleteEverything, {
-        'GET /delete-everything': [200, SSO_ONLY],
+        'GET /your-data/delete-everything': [200, SSO_ONLY],
         'POST /sso/confirm': [200, { url: 'https://id.example.org/authorize?x=1' }]
       });
       await expect.element(page.getByText(CONFIRM_LINE)).toBeVisible();
@@ -577,15 +582,15 @@ describe('Settings › Backups & your data', () => {
         true
       ]);
       expect(wasConfirming()).toBe(true);
-      expect(requests.some((r) => r.path === '/delete-everything' && r.method === 'POST')).toBe(
-        false
-      );
+      expect(
+        requests.some((r) => r.path === '/your-data/delete-everything' && r.method === 'POST')
+      ).toBe(false);
     });
 
     it('once confirmed there, the words alone delete (D3)', async () => {
       open(DeleteEverything, {
-        'GET /delete-everything': [200, { ...SSO_ONLY, confirmed: true }],
-        'POST /delete-everything': [204, null],
+        'GET /your-data/delete-everything': [200, { ...SSO_ONLY, confirmed: true }],
+        'POST /your-data/delete-everything': [204, null],
         'DELETE /session': [401, {}]
       });
       await expect
@@ -595,15 +600,17 @@ describe('Settings › Backups & your data', () => {
       await userEvent.fill(page.getByLabelText(/to confirm/), 'Delete everything');
       await button().click();
       await vi.waitFor(() => expect(navigation.goto).toHaveBeenCalled());
-      const sent = requests.find((r) => r.method === 'POST' && r.path === '/delete-everything');
+      const sent = requests.find(
+        (r) => r.method === 'POST' && r.path === '/your-data/delete-everything'
+      );
       expect(sent?.body).toEqual({ words: 'Delete everything' });
     });
 
     it('when the confirming has run out, it asks for it again (D3)', async () => {
       const detail = 'Confirm with your sign-in server first, then delete within 10 minutes.';
       open(DeleteEverything, {
-        'GET /delete-everything': [200, { ...SSO_ONLY, confirmed: true }],
-        'POST /delete-everything': [403, { detail, code: 'confirm_first' }]
+        'GET /your-data/delete-everything': [200, { ...SSO_ONLY, confirmed: true }],
+        'POST /your-data/delete-everything': [403, { detail, code: 'confirm_first' }]
       });
       await userEvent.fill(page.getByLabelText(/to confirm/), 'Delete everything');
       await button().click();
@@ -626,7 +633,7 @@ describe('Settings › Backups & your data', () => {
     const patches = () => requests.filter((r) => r.method === 'PATCH').map((r) => r.body);
     const go = () => page.getByRole('button', { name: 'Keep fewer backups' });
     const ROUTES = {
-      'PATCH /backups': (request: FakeRequest) => [
+      'PATCH /your-data/backups': (request: FakeRequest) => [
         200,
         { ...BACKUPS, ...(request.body as object), count: 2 }
       ]
@@ -635,7 +642,7 @@ describe('Settings › Backups & your data', () => {
     it('lowering Keep so that backups go sends nothing until the password is typed', async () => {
       open(YourData, {
         ...ROUTES,
-        'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+        'GET /your-data/delete-everything': [200, { confirm_with: 'password', confirmed: false }]
       });
       await page.getByLabelText('Keep').selectOptions('Last 2');
       await expect.element(page.getByText('This deletes the oldest backup.')).toBeVisible();
@@ -652,7 +659,7 @@ describe('Settings › Backups & your data', () => {
 
     it('says how many go', async () => {
       open(YourData, {
-        'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+        'GET /your-data/delete-everything': [200, { confirm_with: 'password', confirmed: false }]
       });
       await page.getByLabelText('Keep').selectOptions('Last 1');
       await expect.element(page.getByText('This deletes the 2 oldest backups.')).toBeVisible();
@@ -662,12 +669,12 @@ describe('Settings › Backups & your data', () => {
       open(YourData, ROUTES);
       await page.getByLabelText('Keep').selectOptions('Last 3');
       await vi.waitFor(() => expect(patches()).toEqual([{ keep: 3 }]));
-      expect(requests.some((r) => r.path === '/delete-everything')).toBe(false);
+      expect(requests.some((r) => r.path === '/your-data/delete-everything')).toBe(false);
     });
 
     it('Cancel puts Keep back and sends nothing', async () => {
       open(YourData, {
-        'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+        'GET /your-data/delete-everything': [200, { confirm_with: 'password', confirmed: false }]
       });
       await page.getByLabelText('Keep').selectOptions('Last 2');
       await page.getByRole('button', { name: 'Cancel' }).click();
@@ -678,8 +685,8 @@ describe('Settings › Backups & your data', () => {
 
     it('a wrong password is said, and nothing changes', async () => {
       open(YourData, {
-        'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }],
-        'PATCH /backups': [
+        'GET /your-data/delete-everything': [200, { confirm_with: 'password', confirmed: false }],
+        'PATCH /your-data/backups': [
           403,
           { detail: 'That isn’t your current password.', code: 'wrong_password' }
         ]
@@ -696,7 +703,10 @@ describe('Settings › Backups & your data', () => {
 
     it('an admin with single sign-on only confirms at the sign-in server, no password box', async () => {
       open(YourData, {
-        'GET /delete-everything': [200, { confirm_with: 'single_sign_on', confirmed: false }],
+        'GET /your-data/delete-everything': [
+          200,
+          { confirm_with: 'single_sign_on', confirmed: false }
+        ],
         'POST /sso/confirm': [200, { url: 'https://id.example.org/authorize?x=1' }]
       });
       await page.getByLabelText('Keep').selectOptions('Last 2');
@@ -712,7 +722,10 @@ describe('Settings › Backups & your data', () => {
     it('once confirmed there, Keep fewer sends no password', async () => {
       open(YourData, {
         ...ROUTES,
-        'GET /delete-everything': [200, { confirm_with: 'single_sign_on', confirmed: true }]
+        'GET /your-data/delete-everything': [
+          200,
+          { confirm_with: 'single_sign_on', confirmed: true }
+        ]
       });
       await page.getByLabelText('Keep').selectOptions('Last 2');
       await expect
@@ -729,7 +742,10 @@ describe('Settings › Backups & your data', () => {
       rememberAction({ keep: 2 });
       open(YourData, {
         ...ROUTES,
-        'GET /delete-everything': [200, { confirm_with: 'single_sign_on', confirmed: true }]
+        'GET /your-data/delete-everything': [
+          200,
+          { confirm_with: 'single_sign_on', confirmed: true }
+        ]
       });
       await expect.element(page.getByText('This deletes the oldest backup.')).toBeVisible();
       await expect.element(page.getByLabelText('Keep')).toHaveValue('2');
@@ -739,7 +755,10 @@ describe('Settings › Backups & your data', () => {
 
     it('going to confirm remembers the chosen Keep for the way back', async () => {
       open(YourData, {
-        'GET /delete-everything': [200, { confirm_with: 'single_sign_on', confirmed: false }],
+        'GET /your-data/delete-everything': [
+          200,
+          { confirm_with: 'single_sign_on', confirmed: false }
+        ],
         'POST /sso/confirm': [200, { url: 'https://id.example.org/authorize?x=1' }]
       });
       await page.getByLabelText('Keep').selectOptions('Last 2');
@@ -760,19 +779,20 @@ describe('Settings › Backups & your data', () => {
 
   describe('Back up now at a full folder (R6)', () => {
     const FULL = { ...BACKUPS, keep: 3, count: 3 };
-    const posts = () => requests.filter((r) => r.method === 'POST' && r.path === '/backups');
+    const posts = () =>
+      requests.filter((r) => r.method === 'POST' && r.path === '/your-data/backups');
 
     it('below Keep it backs up at once', async () => {
-      open(YourData, { 'POST /backups': [200, BACKUPS] });
+      open(YourData, { 'POST /your-data/backups': [200, BACKUPS] });
       await page.getByRole('button', { name: 'Back up now' }).click();
       await vi.waitFor(() => expect(posts().map((r) => r.body)).toEqual([undefined]));
     });
 
     it('at Keep it says it replaces the oldest, and sends the password with the backup', async () => {
       open(YourData, {
-        'GET /backups': [200, FULL],
-        'POST /backups': [200, FULL],
-        'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+        'GET /your-data/backups': [200, FULL],
+        'POST /your-data/backups': [200, FULL],
+        'GET /your-data/delete-everything': [200, { confirm_with: 'password', confirmed: false }]
       });
       await page.getByRole('button', { name: 'Back up now' }).click();
       await expect.element(page.getByText('This replaces the oldest backup.')).toBeVisible();
@@ -787,8 +807,11 @@ describe('Settings › Backups & your data', () => {
 
     it('an admin with single sign-on confirms first, and the box comes back for Back up now', async () => {
       open(YourData, {
-        'GET /backups': [200, FULL],
-        'GET /delete-everything': [200, { confirm_with: 'single_sign_on', confirmed: false }],
+        'GET /your-data/backups': [200, FULL],
+        'GET /your-data/delete-everything': [
+          200,
+          { confirm_with: 'single_sign_on', confirmed: false }
+        ],
         'POST /sso/confirm': [200, { url: 'https://id.example.org/authorize?x=1' }]
       });
       await page.getByRole('button', { name: 'Back up now' }).click();

@@ -2,7 +2,7 @@
 // /api/v1/events, opened by the app shell while someone is signed in.
 //
 // The stream carries numbers only. `shopping {cursor}` says the household's lists changed up
-// to that counter; Shopping asks GET /shopping/changes?since= when it is above its own.
+// to that counter; Shopping asks GET /shopping/sync?since= when it is above its own.
 // `pantry {change_id}` says stock changed; an open Pantry fetches again. `batch_cook {session_id}`
 // says a Batch cook session's schedule or progress changed; an open batch cook mode fetches again. `signed_out` means
 // the sign-in ran out: go to the sign-in page, exactly as a 401 does.

@@ -330,7 +330,7 @@ describe('the Shopping page', () => {
     // The copy came again, with Onions ticked (by the other phone), and this tick isn't kept.
     await vi.waitFor(() =>
       expect(
-        server.requests.filter((r) => r.path === '/shopping/changes').length
+        server.requests.filter((r) => r.path === '/shopping/sync').length
       ).toBeGreaterThanOrEqual(2)
     );
     await expect.element(page.getByRole('button', { name: 'In the trolley · 3' })).toBeVisible();
@@ -348,7 +348,7 @@ describe('the Shopping page', () => {
     const asked = server.requests.map((r) => `${r.method} ${r.path}`);
     const sent = asked.indexOf('POST /shopping/actions');
     expect(sent).toBeGreaterThanOrEqual(0);
-    expect(sent).toBeLessThan(asked.indexOf('GET /shopping/changes'));
+    expect(sent).toBeLessThan(asked.indexOf('GET /shopping/sync'));
     expect(server.requests[sent]!.body).toMatchObject({
       protocol: 1,
       device_id: device,
@@ -406,11 +406,11 @@ describe('the Shopping page', () => {
     // The waiting tick was sent first, once, and is still there (now in the server's copy). The
     // tick's own answer can bring Tahini down before the list is asked for, so wait for the ask.
     await vi.waitFor(() =>
-      expect(server.requests.map((r) => `${r.method} ${r.path}`)).toContain('GET /shopping/changes')
+      expect(server.requests.map((r) => `${r.method} ${r.path}`)).toContain('GET /shopping/sync')
     );
     const asked = server.requests.map((r) => `${r.method} ${r.path}`);
     expect(asked.indexOf('POST /shopping/actions')).toBeLessThan(
-      asked.indexOf('GET /shopping/changes')
+      asked.indexOf('GET /shopping/sync')
     );
     expect(server.actions).toMatchObject([{ id: 'w1', kind: 'tick' }]);
     await expect.element(page.getByRole('button', { name: 'In the trolley · 3' })).toBeVisible();

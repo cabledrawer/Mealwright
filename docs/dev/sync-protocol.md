@@ -253,7 +253,7 @@ Everything that isn't a list action, as in 0.2: the Pantry screen, the Stocktake
 | Request | What |
 |---|---|
 | `POST /api/v1/shopping/actions` | Apply a batch (4.1). Answers `200` with a result per action and the changes since `since`. |
-| `GET /api/v1/shopping/changes?since=N` | Everything that changed after counter N (5.5). `since=0` = a full copy. |
+| `GET /api/v1/shopping/sync?since=N` | Everything that changed after counter N (5.5). `since=0` = a full copy. |
 | `GET /api/v1/events` | Server-Sent Events (section 10). |
 
 **The batch answer** (PR 3): `{ "results": [ … ], "changes": { … } }`. `results` holds one result (5.4) per action, in the order they were sent; `changes` is the answer to `changes since` (5.5) for the batch's `since`, read after the last action.
@@ -305,7 +305,7 @@ Under the household lock, before applying an action, the server looks for its ID
 ### 5.5 Catching up (`changes since N`)
 
 ```json
-GET /api/v1/shopping/changes?since=1040
+GET /api/v1/shopping/sync?since=1040
 {
   "cursor": 1052, "reset": false,
   "lists":  [ { "id": "…", "name": "This week", "main": true, "position": 0, "removed": false, "version": 1044 } ],
@@ -562,7 +562,7 @@ data: {"change_id": 815}
 : keep-alive
 ```
 
-- `hello` on connect; `shopping` after any commit that raised the household's counter ("lists changed up to N"); `pantry` after any stock change (so an open Pantry screen re-fetches); `batch_cook {session_id}` after a Batch cook session's schedule or progress changed (0.8 wave 6, B3: so every phone cooking the session agrees); `plan {change_id}` after any commit that changes a planned meal, its items, eaters, tubs, batches or the meal slots, with the household's newest change number and nothing else (RF5, cabledrawer 11 Nov: an open Plan reads again after another person's change, and not while a card is being carried). `pantry` is sent only for stock changes; an ingredient renamed or made a staple elsewhere is picked up by the foreground re-fetch, not by an event. Nothing else: no list contents, no names. A device that gets `shopping` with a cursor above its own calls `GET /shopping/changes?since=…`.
+- `hello` on connect; `shopping` after any commit that raised the household's counter ("lists changed up to N"); `pantry` after any stock change (so an open Pantry screen re-fetches); `batch_cook {session_id}` after a Batch cook session's schedule or progress changed (0.8 wave 6, B3: so every phone cooking the session agrees); `plan {change_id}` after any commit that changes a planned meal, its items, eaters, tubs, batches or the meal slots, with the household's newest change number and nothing else (RF5, cabledrawer 11 Nov: an open Plan reads again after another person's change, and not while a card is being carried). `pantry` is sent only for stock changes; an ingredient renamed or made a staple elsewhere is picked up by the foreground re-fetch, not by an event. Nothing else: no list contents, no names. A device that gets `shopping` with a cursor above its own calls `GET /shopping/sync?since=…`.
 - Only to sessions of the same household. Sent after commit, never before.
 - A comment line every 25 seconds keeps proxies from closing it; the session is re-checked each time, and the stream ends with `event: signed_out` when it runs out. Signing out ends that sign-in's streams the same way straight away (0.4).
 - Headers `Cache-Control: no-store` (as on all of `/api`, section 12) and `X-Accel-Buffering: no` (so nginx-style proxies don't hold events back). The reverse-proxy docs get a line about it.
@@ -770,7 +770,7 @@ Runs as: **BE** = fast backend test (pytest, `backend/tests/test_sync_*.py`, tes
 | SY-58 | after SY-01 (A→B) and an N1 note for Wren | — | offline 8 days: dismiss the note; answer the card; untick an item tidied away for good (test sets its purge) | B | unchanged | unchanged | All three `ignored gone` (or `answered` if the card is closed but kept), no toast for the note. | BE |
 | SY-59 | after SY-01 (A→B), both synced | online: Just 1; remove Eggs, deleted for good on day 8 | offline 10 days, then: Yes, 2 | B on day 10 | toor dal ticked by Tess | 1 packet | B's answer `ignored gone`. B's next changes: no questions (the card goes), `reset: true` (the ingredient purge raised `list_purged_seq`), no Eggs in the copy. | BE |
 | SY-60 | S0 | a batch with an unknown kind, and a `tick` carrying an `amount` | — | A | unchanged | unchanged | Both `refused bad_action`. | BE |
-| SY-61 | | | | | `/api/v1/openapi.json` lists `POST /shopping/actions`, `GET /shopping/changes`, `GET /events`, a schema for every action kind and result; each one-at-a-time list request (5.1) writes a `sync_action` row and takes a counter number | | | BE |
+| SY-61 | | | | | `/api/v1/openapi.json` lists `POST /shopping/actions`, `GET /shopping/sync`, `GET /events`, a schema for every action kind and result; each one-at-a-time list request (5.1) writes a `sync_action` row and takes a counter number | | | BE |
 | SY-62 | S0 | — | online: tick toor dal; the session runs out; offline: tick toor dal again (no untick); signs back in as Wren | B | ticked once | 1 packet | Second tick `ignored already_ticked` (same device ID kept); no card. | BE + FE |
 | SY-63 | S0, B's clock 30 days slow | — | online: tick toor dal; offline: Undo on day 2, sent on day 3; and another tick Undone on day 9 | B | first unticked; second still ticked | first 0; second still in | Day-2 Undo counts; day-9 → `ignored too_old`. Same with the clock 30 days fast. | BE |
 | SY-64 | S0 | online, synced (sees milk 2 L): add Milk 1 L | — | — | one milk line, 3 L | — | No note (cabledrawer 18 Oct, decision 8). | BE |

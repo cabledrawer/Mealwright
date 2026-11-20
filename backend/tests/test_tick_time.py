@@ -234,5 +234,5 @@ def test_the_move_note_names_the_first_tick_in_server_order(kitchen: TestClient)
         device=PHONE_B,
     )["results"][0]
     assert (move["status"], move["reason"]) == ("ignored", "ticked")
-    (note,) = ok(kitchen.get(f"{API}/shopping/changes?since=0"))["notes"]
+    (note,) = ok(kitchen.get(f"{API}/shopping/sync?since=0"))["notes"]
     assert note["text"] == "Your other phone had ticked Paneer, so it wasn’t moved."

@@ -391,7 +391,7 @@ test.describe('theme', () => {
 
     // The app asks for the shopping list only once it has acted on the server's answer (the
     // lists are held back until then): that request is the sign the late answer was acted on.
-    const listAsked = page.waitForRequest((r) => r.url().includes('/api/v1/shopping/changes'));
+    const listAsked = page.waitForRequest((r) => r.url().includes('/api/v1/shopping/sync'));
     await page.getByRole('link', { name: isPhone(page) ? 'Shop' : 'Shopping' }).first().click();
     release();
     await late;

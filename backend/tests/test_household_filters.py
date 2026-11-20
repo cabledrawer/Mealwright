@@ -79,7 +79,7 @@ def test_a_stray_size_name_tick_and_line_of_another_household_never_show(
     )["item"]["id"]
     one(kitchen, "tick", counter(kitchen), item_id=line)
     tick_id = next(
-        row["id"] for row in ok(kitchen.get(f"{API}/shopping/changes"))["items"][0]["ticks"]
+        row["id"] for row in ok(kitchen.get(f"{API}/shopping/sync"))["items"][0]["ticks"]
     )
     theirs, their_size = neighbours_things(neighbour)
     with db(kitchen) as s:
@@ -125,7 +125,7 @@ def test_a_stray_size_name_tick_and_line_of_another_household_never_show(
         )
         s.commit()
 
-    changes = ok(kitchen.get(f"{API}/shopping/changes?since=0"))
+    changes = ok(kitchen.get(f"{API}/shopping/sync?since=0"))
     text = json.dumps(changes)
     assert MARK not in text and "zzz" not in text.lower()
     row = next(r for r in changes["items"] if r["id"] == line)

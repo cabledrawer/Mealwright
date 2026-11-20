@@ -37,7 +37,7 @@ describe('Pantry → the shopping list', () => {
     const working = fetch;
     vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
       if (down) throw new TypeError('Failed to fetch');
-      if (hold && String(input).includes('/shopping/changes')) await hold;
+      if (hold && String(input).includes('/shopping/sync')) await hold;
       return working(input, init);
     });
     await page.viewport(width, 1000);
@@ -50,7 +50,7 @@ describe('Pantry → the shopping list', () => {
     if (!listArrives) return;
     // The shopping list has arrived, so a tap knows what is on it.
     await vi.waitFor(() =>
-      expect(server.requests.some((r) => r.path === '/shopping/changes')).toBe(true)
+      expect(server.requests.some((r) => r.path === '/shopping/sync')).toBe(true)
     );
   }
 

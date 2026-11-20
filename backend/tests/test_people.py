@@ -698,7 +698,7 @@ def test_the_shopping_list_is_synced_only_with_people_who_sign_in(kitchen: TestC
     ok(kitchen.delete(f"{API}/people/{_id(kitchen, 'Sam')}"))
     _join(kitchen, _add(kitchen), "joss")
     ok(kitchen.patch(f"{API}/people/{_id(kitchen, 'Wren')}", json={"name": "Ram"}))
-    names = [p["name"] for p in ok(kitchen.get(f"{API}/shopping/changes"))["people"]]
+    names = [p["name"] for p in ok(kitchen.get(f"{API}/shopping/sync"))["people"]]
     assert names == ["Tess", "Ram"]
 
 

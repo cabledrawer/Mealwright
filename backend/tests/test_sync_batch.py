@@ -45,7 +45,7 @@ def test_needs_sign_in(client: TestClient) -> None:
         "actions": [],
     }
     assert client.post(f"{API}/shopping/actions", json=body).status_code == 401
-    assert client.get(f"{API}/shopping/changes").status_code == 401
+    assert client.get(f"{API}/shopping/sync").status_code == 401
 
 
 def test_sy35_another_logins_queue_is_refused_whole(kitchen: TestClient) -> None:
@@ -353,7 +353,7 @@ def test_removed_by_names_the_person_or_your_other_phone(kitchen: TestClient) ->
 def test_openapi_lists_the_sync_endpoints_and_every_kind(kitchen: TestClient) -> None:
     spec = ok(kitchen.get(f"{API}/openapi.json"))
     assert "post" in spec["paths"]["/api/v1/shopping/actions"]
-    assert "get" in spec["paths"]["/api/v1/shopping/changes"]
+    assert "get" in spec["paths"]["/api/v1/shopping/sync"]
     schemas = spec["components"]["schemas"]
     for name in ("Envelope", "BatchOut", "ResultOut", "ChangesOut", "Tombstone", "ItemRow"):
         assert name in schemas, name
@@ -489,7 +489,7 @@ def test_a_device_id_is_a_uuid(kitchen: TestClient) -> None:
     """3.8: the device ID is a random UUID, in the batch and when catching up."""
     send(kitchen, device="x" * 64, status=422)
     send(kitchen, device=PHONE_A.upper(), status=422)
-    ok(kitchen.get(f"{API}/shopping/changes?since=0&device_id={'x' * 36}"), 422)
+    ok(kitchen.get(f"{API}/shopping/sync?since=0&device_id={'x' * 36}"), 422)
     send(kitchen, device=PHONE_A)
 
 

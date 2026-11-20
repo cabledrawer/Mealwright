@@ -76,7 +76,7 @@ const line = (foodId: number, amount: number, unit = 'g') => ({ words: 'x', food
 
 /** The main list's lines, from the sync copy, with the ingredient's name. */
 async function listLines(page: Page) {
-  const copy = (await (await page.request.get('/api/v1/shopping/changes?since=0')).json()) as {
+  const copy = (await (await page.request.get('/api/v1/shopping/sync?since=0')).json()) as {
     items: { id: string; food_id: number; amount: number | null; source: string; hand_edited: boolean }[];
     foods: { id: number; name: string }[];
   };

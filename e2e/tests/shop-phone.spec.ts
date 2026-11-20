@@ -384,7 +384,7 @@ test('L1c Sh7: unticking an as-bought line joins it back into the line to buy, a
   await page.getByRole('button', { name: 'Add as bought' }).click();
   await expect(page.getByRole('status').filter({ hasText: name })).toBeVisible();
   const lines = async (): Promise<{ amount: number | null; ticked: boolean }[]> =>
-    ((await (await page.request.get('/api/v1/shopping/changes')).json()).items as any[])
+    ((await (await page.request.get('/api/v1/shopping/sync')).json()).items as any[])
       .filter((i) => i.food_id === id && !i.deleted && !i.merged_into_id)
       .map((i) => ({ amount: i.amount, ticked: i.ticks.some((t: any) => t.standing) }))
       .sort((x, y) => (x.amount ?? -1) - (y.amount ?? -1));

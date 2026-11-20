@@ -98,12 +98,12 @@ The format below follows cabledrawer's decision of 13 Nov: an optional password 
 encrypts the file. The choices of cipher, key derivation and costs are the builder's.
 
 Settings › Backups & your data › **Export everything** has an optional **Password** box. With a password
-the screen asks the server for the file with `POST /api/v1/export` and a JSON body
+the screen asks the server for the file with `POST /api/v1/your-data/export` and a JSON body
 `{"password": "..."}`; the password travels in the body only (never in the address), is
 never stored or logged, and is 8 to 1,024 characters (counted after Unicode NFC). An admin only,
 as the plain export. The answer is `application/octet-stream`, named
 `mealwright-export-YYYY-MM-DD.zip.mwenc`, and it holds the plain zip above, encrypted. `GET
-/api/v1/export` (no password) is unchanged.
+/api/v1/your-data/export` (no password) is unchanged.
 
 **Layout** (all numbers big-endian):
 

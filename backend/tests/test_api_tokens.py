@@ -365,13 +365,13 @@ def test_the_api_docs_describe_the_bearer_token(kitchen: TestClient) -> None:
 # --
 
 YOUR_DATA_ROUTES = [
-    ("GET", "/backups", None),
-    ("PATCH", "/backups", {"keep": 3}),
-    ("POST", "/backups", None),
-    ("GET", "/export", None),
-    ("GET", "/delete-everything", None),
-    ("POST", "/export", {"password": "a long enough one"}),
-    ("POST", "/delete-everything", {"words": "delete everything", "password": "x"}),
+    ("GET", "/your-data/backups", None),
+    ("PATCH", "/your-data/backups", {"keep": 3}),
+    ("POST", "/your-data/backups", None),
+    ("GET", "/your-data/export", None),
+    ("GET", "/your-data/delete-everything", None),
+    ("POST", "/your-data/export", {"password": "a long enough one"}),
+    ("POST", "/your-data/delete-everything", {"words": "delete everything", "password": "x"}),
     # D3: confirming Delete everything with single sign-on is a Your data action too
     ("POST", "/sso/confirm", None),
 ]
@@ -398,7 +398,7 @@ def test_a_token_cant_start_a_wrong_password_pause_on_the_admin(kitchen: TestCli
     for _ in range(6):
         _refused(
             app.post(
-                f"{API}/delete-everything",
+                f"{API}/your-data/delete-everything",
                 json={"words": "delete everything", "password": "not the password"},
             ),
             403,
@@ -406,15 +406,17 @@ def test_a_token_cant_start_a_wrong_password_pause_on_the_admin(kitchen: TestCli
         )
     # The admin's own first wrong try is an ordinary wrong password, not a pause.
     again = kitchen.post(
-        f"{API}/delete-everything",
+        f"{API}/your-data/delete-everything",
         json={"words": "delete everything", "password": "still not the password"},
     )
     _refused(again, 403, "wrong_password")
 
 
 def test_the_export_isnt_readable_with_a_read_only_token(kitchen: TestClient) -> None:
-    assert kitchen.get(f"{API}/export").status_code == 200  # the admin can
-    _refused(_app(kitchen, _make(kitchen, "read")).get(f"{API}/export"), 403, "not_for_tokens")
+    assert kitchen.get(f"{API}/your-data/export").status_code == 200  # the admin can
+    _refused(
+        _app(kitchen, _make(kitchen, "read")).get(f"{API}/your-data/export"), 403, "not_for_tokens"
+    )
 
 
 # --- Every route of a token-never action, so taking an action out of TOKENS_NEVER fails here
@@ -456,13 +458,13 @@ NEVER_ROUTES = [
     ("POST", "/sso/link", None),
     ("DELETE", "/sso/link", None),
     # Your data
-    ("GET", "/backups", None),
-    ("PATCH", "/backups", {"keep": 3}),
-    ("POST", "/backups", None),
-    ("GET", "/export", None),
-    ("GET", "/delete-everything", None),
-    ("POST", "/export", {"password": "a long enough one"}),
-    ("POST", "/delete-everything", {"words": "delete everything", "password": "x"}),
+    ("GET", "/your-data/backups", None),
+    ("PATCH", "/your-data/backups", {"keep": 3}),
+    ("POST", "/your-data/backups", None),
+    ("GET", "/your-data/export", None),
+    ("GET", "/your-data/delete-everything", None),
+    ("POST", "/your-data/export", {"password": "a long enough one"}),
+    ("POST", "/your-data/delete-everything", {"words": "delete everything", "password": "x"}),
     # D3: confirming Delete everything with single sign-on is a Your data action too
     ("POST", "/sso/confirm", None),
 ]

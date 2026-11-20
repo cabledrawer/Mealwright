@@ -156,7 +156,7 @@ export interface Tombstone {
   removed_by: string | null;
 }
 
-/** GET /shopping/changes, and the `changes` of a batch answer (sync-protocol 5.5). */
+/** GET /shopping/sync, and the `changes` of a batch answer (sync-protocol 5.5). */
 export interface ChangesAnswer {
   cursor: number;
   reset: boolean;

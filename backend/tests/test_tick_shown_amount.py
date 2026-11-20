@@ -88,7 +88,7 @@ def test_a_tick_with_an_amount_that_is_not_valid_is_refused(kitchen: TestClient)
     _ghee, row, seen = grown_line(kitchen)
     bad = send(kitchen, action("tick", seen, item_id=row["id"], amount=0), device=PHONE_B)
     assert bad["results"][0]["status"] == "refused"
-    assert ok(kitchen.get("/api/v1/shopping/changes"))["items"]
+    assert ok(kitchen.get("/api/v1/shopping/sync"))["items"]
 
 
 def test_a_line_the_plan_removed_is_not_blamed_on_a_person(kitchen: TestClient) -> None:
@@ -221,7 +221,7 @@ def test_a_tick_that_puts_nothing_in_does_not_split(kitchen: TestClient) -> None
     ghee = new_food(kitchen, "Salt", staple=True)
     plan(kitchen, recipe(kitchen, "Dal", line(ghee["id"], 120, "g")), 1)
     from_plan(kitchen)
-    main = ok(kitchen.get("/api/v1/shopping/changes"))["lists"][0]["id"]
+    main = ok(kitchen.get("/api/v1/shopping/sync"))["lists"][0]["id"]
     item = new_id()
     send(
         kitchen,

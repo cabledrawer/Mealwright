@@ -398,7 +398,7 @@ def test_put_away_with_a_use_by(kitchen: TestClient, use_by: str, place: str) ->
     assert put["status"] == "applied" and after["status"] == "applied"
     assert s.lots("Coriander") == [(place, 1)]
     assert use_bys() == [use_by]
-    for path in ("/pantry", "/today", "/changes", "/shopping/changes?since=0"):
+    for path in ("/pantry", "/today", "/changes", "/shopping/sync?since=0"):
         assert kitchen.get(API + path).status_code == 200, path
     assert _undo(kitchen, put["id"])["status"] == "applied"
     assert s.lots("Coriander") == [("Fridge", 1)]

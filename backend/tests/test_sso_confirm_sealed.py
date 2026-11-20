@@ -52,11 +52,11 @@ def test_a_trip_for_keep_cannot_confirm_delete_everything(
     code, state = idp.sign_in(keep_url, sub="admin-1", extra=ADMINS)
     done = sso_only.post(f"{API}/sso/finish", json={"state": state, "code": code})
     assert done.status_code == 200, done.text
-    refused = sso_only.post(f"{API}/delete-everything", json=WORDS)
+    refused = sso_only.post(f"{API}/your-data/delete-everything", json=WORDS)
     assert refused.status_code == 403
     assert _how(sso_only)["confirmed"] is False  # for Keep 2 only, not for this
-    assert sso_only.patch(f"{API}/backups", json={"keep": 3}).status_code == 403
-    assert sso_only.patch(f"{API}/backups", json={"keep": 2}).status_code == 200
+    assert sso_only.patch(f"{API}/your-data/backups", json={"keep": 3}).status_code == 403
+    assert sso_only.patch(f"{API}/your-data/backups", json={"keep": 2}).status_code == 200
     assert _count(sso_only) == 2
 
 
@@ -98,16 +98,16 @@ def test_each_action_confirms_end_to_end_and_only_itself(
     code, state = idp.sign_in(url, sub="admin-1", extra=ADMINS)
     assert sso_only.post(f"{API}/sso/finish", json={"state": state, "code": code}).is_success
     if doing == "keep":
-        assert sso_only.post(f"{API}/backups").status_code == 403
-        assert sso_only.patch(f"{API}/backups", json={"keep": 2}).status_code == 200
+        assert sso_only.post(f"{API}/your-data/backups").status_code == 403
+        assert sso_only.patch(f"{API}/your-data/backups", json={"keep": 2}).status_code == 200
         assert _count(sso_only) == 2
     elif doing == "backup_now":
-        assert sso_only.post(f"{API}/delete-everything", json=WORDS).status_code == 403
-        assert sso_only.post(f"{API}/backups").status_code == 200
+        assert sso_only.post(f"{API}/your-data/delete-everything", json=WORDS).status_code == 403
+        assert sso_only.post(f"{API}/your-data/backups").status_code == 200
         assert _count(sso_only) == 7
     else:
-        assert sso_only.post(f"{API}/backups").status_code == 403
-        assert sso_only.post(f"{API}/delete-everything", json=WORDS).status_code == 204
+        assert sso_only.post(f"{API}/your-data/backups").status_code == 403
+        assert sso_only.post(f"{API}/your-data/delete-everything", json=WORDS).status_code == 204
 
 
 def test_a_trip_sealed_before_the_action_was_part_of_it_is_refused(

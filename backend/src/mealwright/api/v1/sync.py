@@ -2,7 +2,7 @@
 
 `POST /shopping/actions` applies a phone's queued actions in order, under the household's
 lock, and answers with a result for each plus everything that changed since the phone's
-cursor. `GET /shopping/changes?since=N` is the catching-up half on its own.
+cursor. `GET /shopping/sync?since=N` is the catching-up half on its own.
 """
 
 from datetime import datetime
@@ -603,7 +603,7 @@ def apply_actions(body: Envelope, kitchen: Here) -> BatchOut:
     return BatchOut(results=results, changes=changes)
 
 
-@router.get("/shopping/changes")
+@router.get("/shopping/sync")
 def get_changes(
     kitchen: Here,
     since: Annotated[StoredInt, Query(ge=0)] = 0,

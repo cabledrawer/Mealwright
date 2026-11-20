@@ -113,7 +113,7 @@ def one(client: TestClient, kind: str, seen: int = 0, device: str = PHONE_A, **f
 
 def changes(client: TestClient, since: int = 0, device: str | None = None) -> Any:
     query = f"?since={since}" + (f"&device_id={device}" if device else "")
-    return ok(client.get(f"{API}/shopping/changes{query}"))
+    return ok(client.get(f"{API}/shopping/sync{query}"))
 
 
 def item_row(answer: Any, item_id: str) -> Any:

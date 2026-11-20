@@ -438,7 +438,7 @@ describe('a reset (FE-7)', () => {
     // Back on the restored server, which knows nothing past 40 and answers with a reset.
     vi.unstubAllGlobals();
     const again = fakeShopping(restored, {
-      'GET /shopping/changes': () => [
+      'GET /shopping/sync': () => [
         200,
         { ...structuredClone(restored), reset: true, items: restored.items }
       ]

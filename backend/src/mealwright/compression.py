@@ -30,9 +30,7 @@ NEVER = (
     "/api/v1/events",
     "/api/v1/api-tokens",
     "/api/v1/sso",
-    "/api/v1/backups",
     "/api/v1/your-data",
-    "/api/v1/export",
 )
 
 

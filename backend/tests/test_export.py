@@ -22,7 +22,7 @@ from mealwright.db import Base
 from mealwright.models import Login
 from mealwright.photos import household_folder
 
-API = "/api/v1/export"
+API = "/api/v1/your-data/export"
 ADMIN_PASSWORD = "correct horse battery"
 
 

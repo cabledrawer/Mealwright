@@ -5,7 +5,7 @@
   notes "this household's lists changed" or "this household's stock changed"; the note is
   turned into events after the commit and thrown away on a rollback.
 - Events carry numbers only (a counter, a change ID), never names or contents. A device
-  that hears `shopping` asks `GET /shopping/changes` for the details, as any request.
+  that hears `shopping` asks `GET /shopping/sync` for the details, as any request.
 - One broadcaster per server process (the container runs one). Writes may happen on a
   threadpool thread, so events are handed to each stream's own event loop thread-safely.
 - One sign-in may hold at most `MAX_STREAMS_PER_SESSION` streams open (security audit,

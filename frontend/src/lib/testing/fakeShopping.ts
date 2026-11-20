@@ -229,7 +229,7 @@ export function fakeShopping(copy: ShoppingCopy, extra: Parameters<typeof fakeAp
     }
   };
   const requests = fakeApi({
-    'GET /shopping/changes': (request: FakeRequest) => {
+    'GET /shopping/sync': (request: FakeRequest) => {
       const since = Number(new URLSearchParams(request.url.split('?')[1]).get('since'));
       return [200, answer(since)];
     },
