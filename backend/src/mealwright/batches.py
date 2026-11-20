@@ -494,6 +494,14 @@ def make_batch_steps(
     return steps, batch, worked
 
 
+TUB_EATEN = "That tub is all eaten."  # proposed, for cabledrawer
+
+
+def _tub_eaten() -> Problem:
+    """A tub with nothing left: the one answer wherever it is placed, eaten or binned."""
+    return Problem(status.HTTP_409_CONFLICT, "tub_eaten", TUB_EATEN)
+
+
 def _put_tub_in_meal(
     kitchen: Kitchen, tub: Tub, spot: Spot, steps: list[dict[str, Any]]
 ) -> MealItem:
@@ -562,11 +570,7 @@ def place_tub(
     check_day(kitchen, day)
     find_slot(kitchen, slot_id)
     if tub.amount_quarters == 0:
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "tub_eaten",
-            "That tub has been eaten.",  # proposed, for cabledrawer
-        )
+        raise _tub_eaten()
     if day > tub.use_by:  # a tub is no good past its own use-by
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -645,11 +649,7 @@ def eat_tub(kitchen: Kitchen, tub: Tub, quarters: int | None) -> Change:
     "used ½". Whatever is left stays where it is, in its meal or place. Proposed, for cabledrawer:
     an empty tub stays (0 left) for its Undo window like any other tub, and can't be eaten."""
     if tub.amount_quarters <= 0:
-        raise Problem(
-            status.HTTP_409_CONFLICT,
-            "tub_eaten",
-            "That tub is all eaten.",  # proposed, for cabledrawer
-        )
+        raise _tub_eaten()
     used = tub.amount_quarters if quarters is None else quarters
     if used < 1 or used > tub.amount_quarters:
         raise Problem(
@@ -679,11 +679,7 @@ def bin_tub(kitchen: Kitchen, tub: Tub) -> Change:
     tub planned for a meal is refused (take it out of the meal first), so a meal never holds a
     tub that is gone."""
     if tub.amount_quarters <= 0:
-        raise Problem(
-            status.HTTP_409_CONFLICT,
-            "tub_eaten",
-            "That tub is all eaten.",  # proposed, for cabledrawer
-        )
+        raise _tub_eaten()
     if item_of_tub(kitchen, tub) is not None:
         raise Problem(
             status.HTTP_409_CONFLICT,
