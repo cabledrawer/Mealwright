@@ -1,7 +1,7 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-import { toasts } from '#lib/toast.svelte';
+import { toasts } from '#lib/toast.svelte.js';
 import Lazy from './Lazy.svelte';
 import Loading from './Loading.svelte';
 
