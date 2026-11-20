@@ -3,10 +3,12 @@
   // "About how much does 1 cup of toor dal weigh?". Suggested answer filled in, and a
   // "Remember for next time" switch, on by default. A modal dialog: Escape = Not now.
   import { askOnce } from '#lib/askOnce.svelte.js';
+  import Button from './Button.svelte';
+  import ButtonRow from './ButtonRow.svelte';
+  import Sheet from './Sheet.svelte';
   import Switch from './Switch.svelte';
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
   let value = $state('');
   let remember = $state(true);
 
@@ -21,9 +23,6 @@
       // No good guess: the box starts empty, and Save waits for a number.
       value = ask.suggested === null ? '' : String(ask.suggested);
       remember = true;
-      if (!dialog.open) dialog.showModal();
-    } else if (dialog.open) {
-      dialog.close();
     }
   });
 
@@ -35,10 +34,9 @@
   const unitLabel = $derived(ask?.kind === 'size' ? (ask.unit ?? '') : (ask?.unit ?? 'g'));
 </script>
 
-<dialog bind:this={dialog} aria-labelledby="{uid}-q" oncancel={() => askOnce.dismiss()}>
-  {#if ask}
+{#if ask}
+  <Sheet title={ask.question} size="small" outside={false} onclose={() => askOnce.dismiss()}>
     <form onsubmit={submit}>
-      <h2 id="{uid}-q">{ask.question}</h2>
       <div class="amount">
         <input
           aria-label={unitLabel ? `Your answer, in ${unitLabel}` : 'Your answer'}
@@ -59,38 +57,19 @@
           <Switch bind:checked={remember} labelledby="{uid}-remember" />
         </div>
       {/if}
-      <div class="buttons">
-        <button type="button" class="quiet" onclick={() => askOnce.dismiss()}>Not now</button>
-        <button type="submit" class="main" disabled={!valid}>Save</button>
-      </div>
+      <ButtonRow>
+        <Button type="submit" disabled={!valid}>Save</Button>
+        <Button quiet onclick={() => askOnce.dismiss()}>Not now</Button>
+      </ButtonRow>
     </form>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    width: min(420px, calc(100vw - 2 * var(--space-7)));
-    padding: var(--space-9);
-    border: none;
-    border-radius: var(--radius-panel);
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   form {
     display: flex;
     flex-direction: column;
     gap: var(--space-7);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-    line-height: 1.3;
   }
 
   .amount {
@@ -128,36 +107,5 @@
     gap: var(--space-6);
     font-size: var(--text-lg);
     font-weight: var(--weight-bold);
-  }
-
-  .buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-4);
-  }
-
-  .buttons button {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-8);
-    border: none;
-    border-radius: var(--radius-full);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .quiet {
-    background: var(--color-fill);
-    color: var(--color-text);
-  }
-
-  .main {
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .main:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
   }
 </style>

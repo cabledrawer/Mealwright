@@ -5,6 +5,8 @@
   // and then changed, the same three choices are worded for that (proposed, for cabledrawer): the
   // draft is saved over, or left as it was.
   import { onMount } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Sheet from '#lib/components/Sheet.svelte';
   import { holdUndo } from '#lib/undo.svelte.js';
 
@@ -53,15 +55,13 @@
     </p>
   {/if}
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-  <div class="buttons">
-    <button type="button" class="save" disabled={busy} onclick={onsave}>
-      {busy ? 'Saving…' : 'Save draft'}
-    </button>
-    <button type="button" class="stay" onclick={onstay}>Keep checking</button>
-    <button type="button" class="discard" disabled={busy} onclick={ondiscard}>
-      {again ? 'Discard changes' : 'Discard'}
-    </button>
-  </div>
+  <ButtonRow>
+    <Button disabled={busy} onclick={onsave}>{busy ? 'Saving…' : 'Save draft'}</Button>
+    <Button quiet onclick={onstay}>Keep checking</Button>
+    <Button quiet small disabled={busy} onclick={ondiscard}
+      >{again ? 'Discard changes' : 'Discard'}</Button
+    >
+  </ButtonRow>
 </Sheet>
 
 <style>
@@ -75,70 +75,5 @@
   .problem {
     color: var(--color-warning-text);
     font-weight: var(--weight-semibold);
-  }
-
-  .buttons {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .save,
-  .stay,
-  .discard {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 52px;
-    border-radius: var(--radius-button);
-    font-size: 1rem;
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .save {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .stay {
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text);
-  }
-
-  .discard {
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-warning-text);
-  }
-
-  button:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-
-  /* A computer: side by side, the main button last (the mockup's dialog). */
-  @media (min-width: 768px) {
-    .buttons {
-      flex-direction: row-reverse;
-      flex-wrap: wrap;
-      justify-content: flex-start;
-      align-items: center;
-      padding-top: var(--space-3);
-    }
-
-    .save,
-    .stay {
-      min-height: var(--touch-target);
-      padding: 0 var(--space-7);
-      border-radius: var(--radius-full);
-    }
-
-    .discard {
-      padding: 0 var(--space-5);
-    }
   }
 </style>

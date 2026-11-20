@@ -1,27 +1,37 @@
 <script lang="ts">
-  // The main action on a page: big, dark on light (light on dark). `quiet` is the same
-  // button for the other choice beside it, on a soft fill (the onboarding mockup's Back).
+  // The one button (FE16). `main` (the default) is the action the page is for: big, dark on light
+  // (light on dark). `quiet` is the other choice beside it, on a soft fill (the onboarding
+  // mockup's Back). `danger` is for taking something away. `small` is the same button at the
+  // 44 px touch size and the width of its words, for a row or a card. Anything else a button
+  // may carry (autofocus, data-testid, aria-*, form, name) is passed straight on.
   import type { Snippet } from 'svelte';
+  import type { HTMLButtonAttributes } from 'svelte/elements';
 
   let {
     type = 'button',
     quiet = false,
+    danger = false,
+    small = false,
     disabled = false,
     onclick,
-    children
-  }: {
+    children,
+    ...rest
+  }: Omit<HTMLButtonAttributes, 'children' | 'class' | 'style'> & {
     type?: 'button' | 'submit';
     quiet?: boolean;
+    danger?: boolean;
+    small?: boolean;
     disabled?: boolean;
-    onclick?: () => void;
     children: Snippet;
   } = $props();
 </script>
 
-<button class="primary" class:quiet {type} {disabled} {onclick}>{@render children()}</button>
+<button class="mw-button" class:quiet class:danger class:small {type} {disabled} {onclick} {...rest}
+  >{@render children()}</button
+>
 
 <style>
-  .primary {
+  .mw-button {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -42,7 +52,18 @@
     color: var(--color-text);
   }
 
-  .primary:disabled {
+  .danger {
+    background: var(--color-danger);
+    color: var(--color-danger-text);
+  }
+
+  .small {
+    width: auto;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-6);
+  }
+
+  .mw-button:disabled {
     cursor: progress;
     opacity: 0.7;
   }
