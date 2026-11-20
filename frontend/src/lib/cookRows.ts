@@ -1,6 +1,7 @@
 // The "Cooked it" review's rows: what each one shows and what it sends back. Pure, so the
 // rules are tested without a screen. The words are proposed, for cabledrawer (words.md section 28).
 
+import { readNumber } from './amountText.js';
 import type { CookChoice, CookRow, Need } from './client/cook';
 import type { Answer, Ask } from './client/types';
 
@@ -220,20 +221,13 @@ export function withAnswer(answers: Answer[], next: Answer): Answer[] {
 export const unitLabel = (row: CookRow): string =>
   row.unit === 'g' || row.unit === 'ml' ? row.unit : (row.unit_word ?? row.food?.name ?? '');
 
-const GLYPHS: Record<string, number> = { '¼': 0.25, '½': 0.5, '¾': 0.75 };
-
-/** A typed amount: "2", "1,5", "¼", "1½", "1/2". NaN when it isn't one. */
+/** A typed amount: "2", "1,5", "¼", "1½", "1/2", "10/3". NaN when it isn't one. The reader is
+ * the one in amountText.ts (FE3), so "10/3" is ten thirds here too. */
 export function parseAmountText(text: string): number {
-  const t = text.trim().replace(',', '.');
-  if (t === '') return NaN;
-  const glyph = /^(\d+)?\s*([¼½¾])$/.exec(t);
-  if (glyph) return Number(glyph[1] ?? 0) + (GLYPHS[glyph[2]!] ?? 0);
-  const fraction = /^(\d+)?\s*(\d+)\/(\d+)$/.exec(t);
-  if (fraction) {
-    const value = Number(fraction[1] ?? 0) + Number(fraction[2]) / Number(fraction[3]);
-    return Number(fraction[3]) > 0 && Number.isFinite(value) ? value : NaN;
-  }
-  return /^\d*\.?\d+$/.test(t) ? Number(t) : NaN;
+  const t = text.trim();
+  if (/^\.\d+$/.test(t)) return Number(t);
+  if (/^0+(?:[.,]0+)?$/.test(t)) return 0; // nothing taken is a real answer here
+  return readNumber(t) ?? NaN;
 }
 
 /** The recipe's own words for a row, "1½ tbsp jaggery": each side keeps its own unit (F106). */

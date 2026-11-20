@@ -4,7 +4,53 @@
 
 import type { AmountIn, Food } from './client/types';
 
-const FRACTIONS: Record<string, number> = { '¼': 0.25, '½': 0.5, '¾': 0.75 };
+/** The one list of fraction glyphs every typed-amount reader accepts (FE3). */
+export const FRACTION_GLYPHS: Record<string, number> = {
+  '¼': 0.25,
+  '½': 0.5,
+  '¾': 0.75,
+  '⅓': 1 / 3,
+  '⅔': 2 / 3
+};
+
+/**
+ * The number part of a typed amount, as a pattern source with named groups plain, whole, glyph
+ * and slash. A plain fraction is tried first and a whole number needs a space before a fraction
+ * written with a slash: "10/3" is ten thirds, never 1 and 0/3 (RF4 I10).
+ */
+export const NUMBER_PATTERN = String.raw`(?:(?<plain>\d+\/\d+)|(?<whole>\d+(?:[.,]\d+)?)?(?:\s*(?<glyph>[¼½¾⅓⅔])|\s+(?<slash>\d+\/\d+))?)`;
+
+/** The value of the groups a match of NUMBER_PATTERN made; null when there is no number or a
+ * fraction has nothing under the line. Not checked for being above nothing. */
+export function numberFromGroups(groups: Record<string, string | undefined>): number | null {
+  const { plain, whole, glyph, slash } = groups;
+  const part = plain ?? glyph ?? slash;
+  if (!whole && !part) return null;
+  let amount = whole ? Number(whole.replace(',', '.')) : 0;
+  if (part) {
+    if (part in FRACTION_GLYPHS) amount += FRACTION_GLYPHS[part]!;
+    else {
+      const [top, bottom] = part.split('/').map(Number) as [number, number];
+      if (!bottom) return null;
+      amount += top / bottom;
+    }
+  }
+  return Number.isFinite(amount) ? amount : null;
+}
+
+const NUMBER_ONLY = new RegExp(`^${NUMBER_PATTERN}$`, 'u');
+
+/** A typed number alone ("2", "1,5", "¼", "1½", "1 1/2", "10/3"): above nothing, or null. */
+export function readNumber(text: string): number | null {
+  const typed = text.trim();
+  if (typed === '' || typed.length > MAX_AMOUNT_TEXT) return null;
+  const match = NUMBER_ONLY.exec(typed);
+  if (!match?.groups) return null;
+  const amount = numberFromGroups(match.groups);
+  return amount !== null && amount > 0 ? amount : null;
+}
+
+const WITH_UNIT = new RegExp(`^${NUMBER_PATTERN}\\s*(?<unit>[\\p{L} ]*?)\\.?$`, 'u');
 
 /** The most characters an amount's number may have ("1 1/2", "0,75"): the server's limit too. */
 export const MAX_AMOUNT_TEXT = 20;
@@ -27,25 +73,12 @@ export function parseAmount(
 ): AmountIn | null {
   const typed = text.trim().toLowerCase();
   if (typed.length > MAX_TYPED_AMOUNT) return null;
-  if (/^[\d.,¼½¾/\s]*/u.exec(typed)![0].trimEnd().length > MAX_AMOUNT_TEXT) return null;
-  // A plain fraction first, and a space before a fraction with a slash after a whole number:
-  // "10/3" is ten thirds, never 1 and 0/3 (RF4 I10, as in importAmount.ts).
-  const match = typed.match(
-    /^(?:(?<plain>\d+\/\d+)|(?<whole>\d+(?:[.,]\d+)?)?(?:\s*(?<glyph>[¼½¾])|\s+(?<slash>\d+\/\d+))?)\s*(?<unit>[\p{L} ]*?)\.?$/u
-  );
+  if (/^[\d.,¼½¾⅓⅔/\s]*/u.exec(typed)![0].trimEnd().length > MAX_AMOUNT_TEXT) return null;
+  const match = WITH_UNIT.exec(typed);
   if (!match?.groups) return null;
-  const { plain, whole, glyph, slash, unit: unitText = '' } = match.groups;
-  const part = plain ?? glyph ?? slash;
-  if (!whole && !part) return null;
-  let amount = whole ? Number(whole.replace(',', '.')) : 0;
-  if (part) {
-    if (part in FRACTIONS) amount += FRACTIONS[part]!;
-    else {
-      const [top, bottom] = part.split('/').map(Number) as [number, number];
-      if (!bottom) return null;
-      amount += top / bottom;
-    }
-  }
+  const amount = numberFromGroups(match.groups);
+  if (amount === null) return null;
+  const unitText = match.groups.unit ?? '';
   if (!(amount > 0) || !Number.isFinite(amount)) return null;
   const unit = unitText.trim();
   if (!unit) return { amount, unit: defaultUnit(food) };

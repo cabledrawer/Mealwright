@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_AMOUNT_TEXT, manyOf, parseAmount } from './amountText';
+import { MAX_AMOUNT_TEXT, manyOf, parseAmount, readNumber } from './amountText';
 import type { Size } from './client/types';
 
 const packet: Size = {
@@ -123,5 +123,22 @@ describe('manyOf, the list shared with the server', () => {
     ['Eggs', 'eggs']
   ])('%s → %s', (name, many) => {
     expect(manyOf(name)).toBe(many);
+  });
+});
+
+describe('readNumber (FE3: the one number reader)', () => {
+  it('reads whole numbers, glyphs and fractions the same everywhere', () => {
+    expect(readNumber('2')).toBe(2);
+    expect(readNumber('1,5')).toBe(1.5);
+    expect(readNumber('1½')).toBe(1.5);
+    expect(readNumber('⅔')).toBeCloseTo(2 / 3);
+    expect(readNumber('1 1/2')).toBe(1.5);
+    expect(readNumber('10/3')).toBeCloseTo(10 / 3);
+    expect(readNumber('11/2')).toBe(5.5);
+  });
+  it('says no to anything else', () => {
+    for (const bad of ['', '0', 'abc', '1/0', '2 1/0', '123456789012345678901']) {
+      expect(readNumber(bad), bad).toBeNull();
+    }
   });
 });

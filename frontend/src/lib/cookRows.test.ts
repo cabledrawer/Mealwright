@@ -257,6 +257,12 @@ describe('at most 20 answers', () => {
       parseAmountText('1/2'),
       parseAmountText('2,5')
     ]).toEqual([0.25, 1.5, 0.5, 2.5]);
+    // "10/3" is ten thirds and "11/2" five and a half, as in the other two readers (FE3).
+    expect(parseAmountText('10/3')).toBeCloseTo(10 / 3);
+    expect(parseAmountText('11/2')).toBe(5.5);
+    expect(parseAmountText('2 1/2')).toBe(2.5);
+    expect(parseAmountText('⅓')).toBeCloseTo(1 / 3);
+    expect(parseAmountText('0')).toBe(0);
     expect(parseAmountText('1/0')).toBeNaN();
     expect(parseAmountText('0/0')).toBeNaN();
     expect(parseAmountText('2 1/0')).toBeNaN();
