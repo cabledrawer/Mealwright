@@ -2,6 +2,25 @@
 
 All notable changes to Mealwright are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the plan in `docs/spec.md` section 8: 0.N.0 per build milestone (not published), then MAJOR.MINOR.PATCH from 1.0.0.
 
+## [0.9.5-beta.3] (unreleased)
+
+The third 0.9.5 test version. This block holds the words-and-docs changes; the other beta.3 changes are added to it as they merge. No database change in these.
+
+### Changed
+
+- **Settings names everywhere (cabledrawer 19 and 20 Nov).** Guides, server messages, screens, the word list and the spec use the same six names: Outside connections, People, Backups & your data, Your sign-in, Sign-in for everyone and API tokens, with one separator, "Settings ›". The old Privacy, Household, Your data and Sign-in are gone from sentences that sent you somewhere.
+- **"Remove" everywhere (FE4, cabledrawer 20 Nov).** The recipe editor says Remove line, Remove step 3 and Remove this heading, with the toasts "Removed step 3", "Removed the heading" and "Removed <the line>", the same words as Check. It used to say "Take out".
+- **The recipe-link message for your own network names the right page (F263).** "An admin can allow it in Settings › Outside connections, under "Your own network"."
+- **The beta.2 notes that were marked "proposed" are now credited (cabledrawer 19 Nov):** the Collapse sidebar button, the folding of the menu and the one answer a member gets for a link that cannot be opened.
+- **The CHANGELOG is stated plainly:** the release guide now fixes the headings, their order and the one credit form; the stale "Unreleased" block of beta.1 is gone and beta.2 has its date (19 Nov 2026).
+
+### Fixed
+
+- **The docs agree with the program.** One compose example with one proxy subnet, one image name form, the upgrade steps, the proxy guides, and SECURITY.md (what is encrypted and what is not, what is not built yet) are brought to 0.9.5. No "proposed" or "TODO" is left in a user guide; the open points are in `docs/dev/guide-open-points.md`.
+- **The spec no longer contradicts itself:** the onboarding steps are stated once (six on the phone, five counted by the Finish setup ring), the undo window and history length are fixed, not settings, and the single sign-on section says Authlib makes no connection of its own.
+- **The word list** has every section number once, an index, and its superseded lines marked; the "Are you sure?" summary lists every agreed exception.
+- **Smaller stale statements:** the developer API doc is `docs/dev/api-endpoints.md` (it was "api-0.2"); the Finish setup step words are in one place in the code; comments on the outbound gate and the job switch say what is built.
+
 ## [0.9.5-beta.2] - 2026-11-19
 
 The second 0.9.5 test version: the fixes from cabledrawer's hand test of beta.1 (F235–F251), the break-it review's findings (B7), Mealie drafts fixed by ingredient (B6), Settings redesigned (B8), and a password before anything deletes backups (R6). Lines marked "proposed, for cabledrawer" are words or rules I chose that still need your yes.
