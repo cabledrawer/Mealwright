@@ -54,7 +54,7 @@ def test_lowering_keep_so_backups_go_needs_the_password(kitchen: TestClient) -> 
     _make(kitchen, 4)
     refused = kitchen.patch(API, json={"keep": 2})
     assert refused.status_code == 403
-    assert refused.json()["code"] == "password_wrong"
+    assert refused.json()["code"] == "wrong_password"
     assert _count(kitchen) == 4
     assert _household(kitchen).backup_keep == 7  # nothing changed, not even the setting
 
@@ -183,7 +183,7 @@ def test_back_up_now_at_a_full_folder_needs_the_password_and_makes_nothing(
     before = {b.path for b in backups.backups(_folder(kitchen))}
     refused = kitchen.post(API)
     assert refused.status_code == 403
-    assert refused.json()["code"] == "password_wrong"
+    assert refused.json()["code"] == "wrong_password"
     wrong = kitchen.post(API, json={"password": "nope"})
     assert wrong.status_code == 403
     assert {b.path for b in backups.backups(_folder(kitchen))} == before  # none made or lost

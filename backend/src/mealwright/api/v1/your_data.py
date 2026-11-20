@@ -32,7 +32,7 @@ from mealwright.auth import (
     cookie_name,
     counted_check,
 )
-from mealwright.errors import Problem
+from mealwright.errors import Problem, password_length, wrong_password
 from mealwright.household import today
 from mealwright.models import Household, Login, Session, utcnow
 from mealwright.photos import household_folder, store_of
@@ -148,7 +148,7 @@ class BackupsChange(BaseModel):
 @router.patch("/backups")
 def change_backups(body: BackupsChange, kitchen: Here, request: Request) -> BackupsOut:
     """Change how often, how many and whether photos are included. Keeping fewer than there are
-    removes the oldest backups, so it asks first: 403 `password_wrong` or `confirm_first` (the
+    removes the oldest backups, so it asks first: 403 `wrong_password` or `confirm_first` (the
     admin's password, or the single sign-on confirm step), and nothing is changed or deleted
     until that is given. Keeping as many or more asks for nothing. Including photos changes the
     backups made from now on, not those made."""
@@ -194,7 +194,7 @@ class BackUpNow(BaseModel):
 def back_up_now(kitchen: Here, request: Request, body: BackUpNow | None = None) -> BackupsOut:
     """Back up now ("Back up now"). Admins only. When the folder already holds Keep backups or
     more, the new one pushes the oldest out, so it asks first (the admin's password or the
-    single sign-on confirm step: 403 `password_wrong` or `confirm_first`) and makes nothing
+    single sign-on confirm step: 403 `wrong_password` or `confirm_first`) and makes nothing
     until that is given; below Keep it asks for nothing. A failure is answered as the settings
     with `problem` set, as the screen shows it, not as an error."""
     kitchen.admin_only(Action.YOUR_DATA)
@@ -280,11 +280,9 @@ def export_everything_with_password(body: ExportWithPassword, kitchen: Here) -> 
     except UnicodeEncodeError:
         length = 0
     if not export_crypto.PASSWORD_LEAST <= length <= export_crypto.PASSWORD_MOST:
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "password_length",
+        raise password_length(
             f"Use a password of {export_crypto.PASSWORD_LEAST} to "
-            f"{export_crypto.PASSWORD_MOST:,} characters.",
+            f"{export_crypto.PASSWORD_MOST:,} characters."
         )
     try:
         # Only the key-making (64 MiB of work) is one at a time, and it comes first: a busy
@@ -468,7 +466,7 @@ def confirm_admin(
     tries = Tries(name=login.username, personal=f"change:{login.id}")
     if not counted_check(slow, tries, lambda: check_password(login, password)):
         sign_in_log.warning("%s: wrong password for %s", what, login.username)
-        raise Problem(status.HTTP_403_FORBIDDEN, "password_wrong", "That password isn’t right.")
+        raise wrong_password()
 
 
 @router.post("/delete-everything", status_code=status.HTTP_204_NO_CONTENT)

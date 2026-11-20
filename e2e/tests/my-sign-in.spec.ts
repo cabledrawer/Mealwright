@@ -246,7 +246,7 @@ test.describe("Change password", () => {
       tries += 1;
       return tries === 1
         ? route.fulfill({
-            status: 422,
+            status: 403,
             contentType: "application/json",
             body: JSON.stringify({
               detail: "That isn’t your current password.",

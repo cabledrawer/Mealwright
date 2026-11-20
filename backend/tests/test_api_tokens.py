@@ -409,7 +409,7 @@ def test_a_token_cant_start_a_wrong_password_pause_on_the_admin(kitchen: TestCli
         f"{API}/delete-everything",
         json={"words": "delete everything", "password": "still not the password"},
     )
-    _refused(again, 403, "password_wrong")
+    _refused(again, 403, "wrong_password")
 
 
 def test_the_export_isnt_readable_with_a_read_only_token(kitchen: TestClient) -> None:

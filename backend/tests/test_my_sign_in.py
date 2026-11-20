@@ -190,7 +190,7 @@ def test_change_password_needs_the_current_one(
     body = {"current_password": "not my password", "new_password": NEW}
     with caplog.at_level(logging.INFO, logger="mealwright"):
         answer = kitchen.put("/api/v1/me/password", json=body)
-    assert answer.status_code == 422
+    assert answer.status_code == 403
     assert answer.json() == {
         "detail": "That isn’t your current password.",
         "code": "wrong_password",
@@ -207,7 +207,7 @@ def test_change_password_needs_the_current_one(
 def test_wrong_current_passwords_count_towards_the_pause(kitchen: TestClient) -> None:
     body = {"current_password": "not my password", "new_password": NEW}
     for _ in range(5):
-        assert kitchen.put("/api/v1/me/password", json=body).status_code == 422
+        assert kitchen.put("/api/v1/me/password", json=body).status_code == 403
     paused = kitchen.put(
         "/api/v1/me/password", json={**body, "current_password": ADMIN["password"]}
     )
@@ -220,7 +220,7 @@ def test_a_new_password_needs_12_characters(kitchen: TestClient) -> None:
     body = {"current_password": ADMIN["password"], "new_password": "eleven-char"}
     answer = kitchen.put("/api/v1/me/password", json=body)
     assert answer.status_code == 422
-    assert answer.json() == {"detail": "Use at least 12 characters.", "code": "password_too_short"}
+    assert answer.json() == {"detail": "Use at least 12 characters.", "code": "password_length"}
 
 
 def test_these_need_sign_in(client: TestClient) -> None:

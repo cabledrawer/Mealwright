@@ -89,7 +89,7 @@ def test_an_ordinary_422_never_repeats_what_was_sent(client: TestClient) -> None
     answer = client.post(f"{API}/setup", json=body)
     assert answer.status_code == 422
     assert secret not in answer.text
-    assert answer.json() == {"detail": "Use at least 12 characters.", "code": "password_too_short"}
+    assert answer.json() == {"detail": "Use at least 12 characters.", "code": "password_length"}
     # Any other refused field: pydantic's list, without what was sent.
     secret = "a name far too long " * 6
     answer = client.post(f"{API}/setup", json=ADMIN | {"name": secret})

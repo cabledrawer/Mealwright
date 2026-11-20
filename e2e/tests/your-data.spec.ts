@@ -114,7 +114,7 @@ test('Delete everything waits for the words, and a wrong password deletes nothin
   await expect(button).toBeEnabled();
   await checkPage(page);
   await button.click();
-  await expect(page.getByRole('alert')).toHaveText('That password isn’t right.');
+  await expect(page.getByRole('alert')).toHaveText('That isn’t your current password.');
   await expect(page.getByLabel('Your password')).toHaveValue('');
   // Nothing was deleted: still signed in, and Settings still opens.
   await page.goto('/settings/your-data');

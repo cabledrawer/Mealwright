@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -34,7 +34,7 @@ from mealwright.auth import (
     start_session,
 )
 from mealwright.devices import device_label
-from mealwright.errors import Problem
+from mealwright.errors import ALREADY_SET_UP, Problem
 from mealwright.household import add_default_places, add_default_slots
 from mealwright.models import Household, Login
 from mealwright.names import one_line
@@ -140,7 +140,7 @@ def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
     default admin, so the first person to set up becomes the admin (spec section 7)."""
     needs_https(request, request.app.state.settings)
     if db.scalar(select(func.count()).select_from(Login)):
-        raise HTTPException(status.HTTP_409_CONFLICT, "Mealwright is already set up.")
+        raise Problem(status.HTTP_409_CONFLICT, "already_set_up", ALREADY_SET_UP)
     # Wrong setup codes are slowed down like wrong passwords, per address (PR A2).
     slow: SlowDown = request.app.state.slow_down
     address = client_address(request)
@@ -172,7 +172,7 @@ def setup(body: SetupIn, request: Request, response: Response, db: Db) -> Me:
         db.flush()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "Mealwright is already set up.") from None
+        raise Problem(status.HTTP_409_CONFLICT, "already_set_up", ALREADY_SET_UP) from None
     settings = request.app.state.settings
     start_session(db, response, settings, login, remember=False, device=_device(request))
     db.commit()
@@ -236,13 +236,13 @@ def sign_in(body: SignIn, request: Request, response: Response, db: Db) -> Me:
 
     right = counted_check(slow, tries, password_right, failed)
     if not right or not login:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, WRONG)
+        raise Problem(status.HTTP_401_UNAUTHORIZED, "wrong_sign_in", WRONG)
     # Asked again under the household's write lock, the one removing someone takes: a removal
     # that committed while the password was checked wins, and one that comes later deletes the
     # session added here (0.9.0-alpha.1 security pass).
     lock_db(db, db.get_one(Household, login.household_id))
     if removed(db, login):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, WRONG)
+        raise Problem(status.HTTP_401_UNAUTHORIZED, "wrong_sign_in", WRONG)
     slow.succeeded(user_key)
     if device:
         slow.succeeded(device)

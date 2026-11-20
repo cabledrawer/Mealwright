@@ -159,7 +159,7 @@ def test_a_wrong_password_deletes_nothing_and_is_slowed_down(kitchen: TestClient
     for _ in range(5):
         response = kitchen.post(API, json=wrong)
         assert response.status_code == 403
-        assert response.json()["detail"] == "That password isn’t right."
+        assert response.json()["detail"] == "That isn’t your current password."
     assert kitchen.post(API, json=wrong).status_code == 429
     assert kitchen.post(API, json=RIGHT).status_code == 429  # even the right one, for now
     assert _rows(kitchen) == rows
@@ -210,7 +210,7 @@ def test_wrong_passwords_here_and_in_change_password_are_one_count(kitchen: Test
     for _ in range(3):
         assert kitchen.post(API, json=wrong).status_code == 403
     for _ in range(2):
-        assert kitchen.put("/api/v1/me/password", json=change).status_code == 422
+        assert kitchen.put("/api/v1/me/password", json=change).status_code == 403
     assert kitchen.post(API, json=RIGHT).status_code == 429
     assert kitchen.put("/api/v1/me/password", json=change).status_code == 429
 

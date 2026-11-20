@@ -39,7 +39,7 @@ import anyio.from_thread
 import anyio.to_thread
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
-from fastapi import Depends, HTTPException, Request, Response, Security, status
+from fastapi import Depends, Request, Response, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import AfterValidator, Field
 from sqlalchemy import delete, select
@@ -49,7 +49,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from mealwright import api_tokens
 from mealwright import db as database
 from mealwright.config import Settings
-from mealwright.errors import Problem
+from mealwright.errors import OTHER_SITE, Problem, password_length, signed_out
 from mealwright.models import ApiToken, Login, Member, Session, utcnow
 
 log = logging.getLogger(__name__)
@@ -110,9 +110,11 @@ _waiting = 0
 _waiting_lock = threading.Lock()
 
 
-def _busy() -> HTTPException:
+def _busy() -> Problem:
     log.warning("Sign-in busy: too many passwords being checked at once")
-    return HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, BUSY, headers={"Retry-After": "5"})
+    busy = Problem(status.HTTP_503_SERVICE_UNAVAILABLE, "busy", BUSY)
+    busy.headers = {"Retry-After": "5"}
+    return busy
 
 
 @contextmanager
@@ -161,7 +163,7 @@ def check_password(login: Login | None, password: str) -> bool:
 def _long_enough(value: str) -> str:
     # Raised as a Problem so the answer is one plain sentence, not pydantic's list.
     if len(value) < MIN_PASSWORD:
-        raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "password_too_short", TOO_SHORT)
+        raise password_length(TOO_SHORT)
     return value
 
 
@@ -761,7 +763,7 @@ def same_origin(request: Request) -> None:
     if origin is None:
         return
     if origin == "null" or urlsplit(origin).netloc != request.headers.get("host"):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "This request came from another site.")
+        raise Problem(status.HTTP_403_FORBIDDEN, "other_site", OTHER_SITE)
 
 
 @dataclass
@@ -809,7 +811,7 @@ def current(
         return Caller(login=by_token.login, token=by_token.token)
     found = find_session(db, session_token(request))
     if found is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Please sign in.")
+        raise signed_out()
     return Caller(login=found.login, session=found.session)
 
 
@@ -847,7 +849,7 @@ def needs_https(request: Request, settings: Settings) -> None:
         return
     origin = urlsplit(request.headers.get("origin", ""))
     if origin.scheme == "http" and origin.hostname not in _LOOPBACK:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, HTTPS_NEEDED)
+        raise Problem(status.HTTP_400_BAD_REQUEST, "https_needed", HTTPS_NEEDED)
 
 
 def client_address(request: Request) -> str:

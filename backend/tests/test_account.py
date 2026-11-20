@@ -109,7 +109,7 @@ def test_setup_says_how_long_a_password_must_be(client: TestClient) -> None:
     assert response.status_code == 422
     assert response.json() == {
         "detail": "Use at least 12 characters.",
-        "code": "password_too_short",
+        "code": "password_length",
     }
     assert (
         client.post("/api/v1/setup", json=ADMIN | {"password": "twelve-chars"}).status_code == 201
@@ -207,7 +207,14 @@ def test_wrong_password_and_unknown_user_look_the_same(client: TestClient) -> No
     wrong = client.post("/api/v1/session", json={"username": "tess", "password": "nope"})
     unknown = client.post("/api/v1/session", json={"username": "nobody", "password": "nope"})
     assert wrong.status_code == unknown.status_code == 401
-    assert wrong.json() == unknown.json() == {"detail": "That username and password don’t match."}
+    assert (
+        wrong.json()
+        == unknown.json()
+        == {
+            "detail": "That username and password don’t match.",
+            "code": "wrong_sign_in",
+        }
+    )
 
 
 def test_session_cookie_is_locked_down(client: TestClient) -> None:

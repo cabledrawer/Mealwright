@@ -477,12 +477,17 @@ describe('Settings › Backups & your data', () => {
 
     it('a wrong password says so, empties the box, and deletes nothing', async () => {
       open(DeleteEverything, {
-        'POST /delete-everything': [403, { detail: 'That password isn’t right.' }]
+        'POST /delete-everything': [
+          403,
+          { detail: 'That isn’t your current password.', code: 'wrong_password' }
+        ]
       });
       await userEvent.fill(page.getByLabelText(/to confirm/), 'delete everything');
       await userEvent.fill(page.getByLabelText('Your password'), 'wrong');
       await button().click();
-      await expect.element(page.getByRole('alert')).toHaveTextContent('That password isn’t right.');
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent('That isn’t your current password.');
       await expect.element(page.getByLabelText('Your password')).toHaveValue('');
       expect(navigation.goto).not.toHaveBeenCalled();
       expect(session.me).not.toBeNull();
@@ -674,12 +679,17 @@ describe('Settings › Backups & your data', () => {
     it('a wrong password is said, and nothing changes', async () => {
       open(YourData, {
         'GET /delete-everything': [200, { confirm_with: 'password', confirmed: false }],
-        'PATCH /backups': [403, { detail: 'That password isn’t right.', code: 'password_wrong' }]
+        'PATCH /backups': [
+          403,
+          { detail: 'That isn’t your current password.', code: 'wrong_password' }
+        ]
       });
       await page.getByLabelText('Keep').selectOptions('Last 2');
       await userEvent.fill(page.getByLabelText('Your password'), 'nope');
       await go().click();
-      await expect.element(page.getByRole('alert')).toHaveTextContent('That password isn’t right.');
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent('That isn’t your current password.');
       await expect.element(page.getByLabelText('Keep')).toHaveValue('2');
       await expect.element(page.getByLabelText('Your password')).toHaveValue('');
     });

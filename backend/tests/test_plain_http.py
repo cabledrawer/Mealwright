@@ -43,7 +43,7 @@ def test_plain_http_setup_is_refused_with_a_clear_message(app: object) -> None:
     lan = browser(app, LAN)
     response = lan.post("/api/v1/setup", json=ADMIN)
     assert response.status_code == 400
-    assert response.json() == {"detail": HTTPS_NEEDED}
+    assert response.json() == {"detail": HTTPS_NEEDED, "code": "https_needed"}
     assert "https://" in HTTPS_NEEDED and "MEALWRIGHT_ALLOW_PLAIN_HTTP" in HTTPS_NEEDED
     assert COOKIE not in response.headers.get("set-cookie", "")
     # Nothing was created, so setup can still happen over HTTPS.
@@ -59,7 +59,7 @@ def test_plain_http_sign_in_is_refused_with_a_clear_message(app: object) -> None
         "/api/v1/session", json={"username": "tess", "password": ADMIN["password"]}
     )
     assert response.status_code == 400
-    assert response.json() == {"detail": HTTPS_NEEDED}
+    assert response.json() == {"detail": HTTPS_NEEDED, "code": "https_needed"}
 
 
 @pytest.mark.parametrize("address", ["http://localhost:8080", "http://127.0.0.1:8080"])

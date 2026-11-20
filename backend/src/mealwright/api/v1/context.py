@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from mealwright.api_tokens import not_for_tokens
 from mealwright.auth import SEEN_EVERY, CurrentLogin, Db
-from mealwright.errors import Problem
+from mealwright.errors import Problem, admins_only, signed_out
 from mealwright.limits import body_hash
 from mealwright.models import Household, Login, Member, Session, utcnow
 from mealwright.roles import Action, allowed
@@ -56,11 +56,7 @@ class Kitchen:
         if not allowed(self.login.role, action, self.by_token):
             if self.by_token and allowed(self.login.role, action):
                 raise not_for_tokens()
-            raise Problem(
-                status.HTTP_403_FORBIDDEN,
-                "admins_only",
-                "Only the household’s admin can change this.",
-            )
+            raise admins_only()
 
 
 def kitchen(
@@ -83,7 +79,7 @@ def kitchen(
         )
     household = db.get(Household, signed_in.login.household_id)
     if household is None:  # pragma: no cover (a login always has a household)
-        raise Problem(status.HTTP_401_UNAUTHORIZED, "signed_out", "Please sign in.")
+        raise signed_out()
     member_id = acting_member(db, signed_in.login, household, signed_in.session)
     if signed_in.session is not None and signed_in.login.shared and member_id is not None:
         # Any request from the device keeps the pick going, as `last_seen_at` does for the

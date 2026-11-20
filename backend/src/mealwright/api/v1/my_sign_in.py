@@ -30,7 +30,7 @@ from mealwright.auth import (
     now,
     remember_device,
 )
-from mealwright.errors import Problem, StoredInt
+from mealwright.errors import Problem, StoredInt, wrong_password
 from mealwright.models import JoinLink, Session
 
 # These lines name an account or an address: Mealwright's own log file only (mealwright.logs).
@@ -38,7 +38,6 @@ log = logging.getLogger("mealwright.sign_in")
 
 router = APIRouter(tags=["account"], dependencies=[SameOrigin])
 
-WRONG_CURRENT = "That isn’t your current password."
 NOTHING_TO_CHANGE = "This login has no password to change: it signs in with single sign-on."
 THIS_ONE = "That’s this device. Use Sign out at the bottom of Settings."
 
@@ -139,7 +138,7 @@ def change_password(
         log.warning(
             "Password change refused for %s from %s (wrong password)", login.username, address
         )
-        raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "wrong_password", WRONG_CURRENT)
+        raise wrong_password()
     login.password_hash = hash_password(body.new_password)
     login.password_changed_at = now()
     people.drop_links(db, login)  # no link made before outlives the change (S-M1)

@@ -6,13 +6,14 @@ import time
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from mealwright.auth import peek_session, session_token
+from mealwright.errors import signed_out
 from mealwright.events import Broadcaster, Event, Subscription
 from mealwright.models import Household
 
@@ -121,7 +122,7 @@ async def get_events(request: Request) -> StreamingResponse:
 
     who = await run_in_threadpool(signed_in)
     if who is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Please sign in.")
+        raise signed_out()
     household_id, session_id = who
     # Subscribe first, then read the counter: a change in between is announced again
     # with a cursor at least as high, never missed. Past the limit for one sign-in, this
@@ -142,7 +143,7 @@ async def get_events(request: Request) -> StreamingResponse:
         raise
     if cursor is None:
         broadcaster.unsubscribe(subscription)
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Please sign in.")
+        raise signed_out()
     return StreamingResponse(
         stream(
             factory,

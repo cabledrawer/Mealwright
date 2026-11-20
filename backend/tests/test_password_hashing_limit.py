@@ -74,7 +74,10 @@ def test_a_sign_in_that_gets_no_turn_is_told_to_try_again(
     body = {"username": ADMIN["username"], "password": ADMIN["password"]}
     response = kitchen.post("/api/v1/session", json=body)
     assert response.status_code == 503
-    assert response.json() == {"detail": "Mealwright is busy. Try again in a few seconds."}
+    assert response.json() == {
+        "detail": "Mealwright is busy. Try again in a few seconds.",
+        "code": "busy",
+    }
     assert response.headers["retry-after"] == "5"
     # A busy answer isn't a wrong guess: it doesn't count towards the slow-down.
     assert kitchen.app.state.slow_down.wait_seconds([f"user:{ADMIN['username']}"]) == 0  # type: ignore[attr-defined]

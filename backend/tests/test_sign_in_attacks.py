@@ -24,11 +24,11 @@ from typing import Any
 
 import pytest
 from conftest import ADMIN
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from mealwright import auth
 from mealwright.config import Settings
+from mealwright.errors import Problem
 from mealwright.main import create_app
 from mealwright.reset_admin import reset_admin
 
@@ -310,7 +310,7 @@ def test_sign_in_guessing_doesnt_block_changing_your_password(kitchen: TestClien
 def test_change_password_guessing_doesnt_pause_signing_in(kitchen: TestClient) -> None:
     body = {"current_password": "not it", "new_password": "a brand new password"}
     for _ in range(5):
-        assert kitchen.put("/api/v1/me/password", json=body).status_code == 422
+        assert kitchen.put("/api/v1/me/password", json=body).status_code == 403
     assert kitchen.put("/api/v1/me/password", json=body).status_code == 429
     assert guess(kitchen, "testclient", RIGHT) == 200
 
@@ -383,7 +383,7 @@ def test_only_a_few_wait_for_a_hash_turn(monkeypatch: pytest.MonkeyPatch) -> Non
         try:
             auth.check_password(None, "a guess")
             done.append(time.monotonic() - started)
-        except HTTPException as refused:
+        except Problem as refused:
             assert refused.status_code == 503
             busy.append(time.monotonic() - started)
 
@@ -478,7 +478,7 @@ def test_a_burst_of_change_password_guesses_gets_five_and_no_more(
     body = {"current_password": "not it", "new_password": "a brand new password"}
     answers = burst(40, lambda: kitchen.put("/api/v1/me/password", json=body).status_code)
     assert slow.judged == auth.SlowDown.FREE
-    assert answers.count(422) == auth.SlowDown.FREE
+    assert answers.count(403) == auth.SlowDown.FREE
 
 
 def test_a_right_password_gives_its_try_back(kitchen: TestClient) -> None:

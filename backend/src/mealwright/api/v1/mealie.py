@@ -24,7 +24,7 @@ from mealwright import mealie_import
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api_tokens import not_for_tokens
 from mealwright.auth import SameOrigin, current
-from mealwright.errors import Problem, StoredInt
+from mealwright.errors import Problem, StoredInt, admins_only
 from mealwright.history import as_utc
 from mealwright.limits import MAX_MEALIE_BYTES, MEALIE_TOO_BIG
 from mealwright.mealie_file import MAX_RECIPES
@@ -39,7 +39,6 @@ UPLOAD_BUSY = "Another Mealie file is being sent. Try again in a moment."
 log = logging.getLogger(__name__)
 
 NO_FILE = "Choose the Mealie file (.zip)."
-ADMINS_ONLY = "Only the household’s admin can change this."  # as Kitchen.admin_only says
 
 # One upload at a time (cabledrawer 14 Nov) in this one server process: a 1 GB file is plenty to be
 # writing.
@@ -206,7 +205,7 @@ def _signed_in(request: Request) -> int:
         if not allowed(caller.login.role, Action.YOUR_DATA, caller.by_token):
             if caller.by_token and allowed(caller.login.role, Action.YOUR_DATA):
                 raise not_for_tokens()
-            raise Problem(status.HTTP_403_FORBIDDEN, "admins_only", ADMINS_ONLY)
+            raise admins_only()
         return caller.login.household_id
 
 

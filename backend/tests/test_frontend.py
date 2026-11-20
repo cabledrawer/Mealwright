@@ -80,7 +80,7 @@ def test_missing_files_are_404_not_the_app(web: TestClient) -> None:
 def test_api_addresses_never_get_the_app(web: TestClient) -> None:
     response = web.get("/api/v1/no-such-thing")
     assert response.status_code == 404
-    assert response.json() == {"detail": "Not found"}
+    assert response.json() == {"detail": "That isn’t here any more.", "code": "not_found"}
     assert web.get("/api").status_code == 404
 
 
