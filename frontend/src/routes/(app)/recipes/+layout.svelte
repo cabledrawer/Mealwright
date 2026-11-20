@@ -18,7 +18,7 @@
   import { page } from '$app/state';
   import ChooseRecipe from '#lib/components/ChooseRecipe.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
-  import RecipeListScreen from '#lib/components/RecipeListScreen.svelte';
+  import Lazy from '#lib/components/Lazy.svelte';
   import { RECIPES_PAGES, isCurrentRecipesPage } from '#lib/nav.js';
   import { network } from '#lib/network.svelte.js';
   import { recipePanes } from '#lib/recipePanes.svelte.js';
@@ -72,7 +72,15 @@
       </div>
     {/if}
     <div class="row" hidden={paneNote && !editing}>
-      <RecipeListScreen pane {list} {currentId} alone={currentId === null && !editing} />
+      <!-- The list's code is fetched when the panes show (size limit): a phone's recipe page never
+           needs it. -->
+      <Lazy
+        load={() => import('#lib/components/RecipeListScreen.svelte')}
+        pane
+        {list}
+        {currentId}
+        alone={currentId === null && !editing}
+      />
       <div class="reading" role="region" aria-label="Recipe" bind:this={reading}>
         {#if currentId === null && !editing}
           {#if !none}
