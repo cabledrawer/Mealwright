@@ -17,6 +17,7 @@ from mealwright.amounts import (
     checked,
     exact_text,
     from_milli,
+    round_half_up,
     to_milli,
 )
 from mealwright.api.v1.context import Kitchen
@@ -401,7 +402,7 @@ def known(kitchen: Kitchen, food: Food, answers: list[Answer] | None = None) -> 
 
 
 def grams_per_cup_to_mg_per_ml(grams: Decimal, cup: int) -> int:
-    return max(1, round(grams * MILLI / cup))
+    return max(1, round_half_up(grams * MILLI / cup))
 
 
 def set_conversion(kitchen: Kitchen, food: Food, kind: str, value_milli: int | None) -> None:

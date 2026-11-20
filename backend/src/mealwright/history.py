@@ -14,6 +14,7 @@ import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from fractions import Fraction
 from typing import Any, Literal
 
 from fastapi import status
@@ -22,6 +23,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright import change_kinds, events, restock, roles
+from mealwright.amounts import round_half_up
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import KEY_REUSED, Problem
 from mealwright.household import UNDO_DAYS, UNDO_WINDOW
@@ -796,7 +798,7 @@ def undo_lot_amounts(kitchen: Kitchen, amounts: dict[str, list[Any]]) -> None:
         if lot is None or food is None or food.counted_as != counted_as:
             continue
         if after and before != after:
-            lot.amount_milli = max(0, round(lot.amount_milli * before / after))
+            lot.amount_milli = max(0, round_half_up(Fraction(lot.amount_milli * before, after)))
 
 
 @dataclass

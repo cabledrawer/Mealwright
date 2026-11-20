@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 
 from mealwright import batches, date_kinds, restock
-from mealwright.amounts import quarters_text
+from mealwright.amounts import quarters_text, round_half_up
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import names_by_food
 from mealwright.api.v1.schemas import (
@@ -667,7 +667,7 @@ def add_stock(body: AddStock, kitchen: Here, response: Response) -> StockWrite:
                 )
             amounts = [resolved.size.amount_milli] * whole
             if rest > 0:
-                amounts.append(round(rest * resolved.size.amount_milli))
+                amounts.append(round_half_up(rest * resolved.size.amount_milli))
         else:
             amounts = [resolved.milli]
         put_in(kitchen, edit, food, place, amounts, resolved.size, body.use_by)
@@ -715,7 +715,7 @@ def set_left(stock_id: StoredInt, body: SetLeft, kitchen: Here, response: Respon
                 raise Problem(
                     422, "needs_amount", f"{food.name} has no packet size: type an amount."
                 )
-            milli = round(body.fraction * size.amount_milli)
+            milli = round_half_up(body.fraction * size.amount_milli)
         else:
             typed = body.amount
             if typed is None:  # pragma: no cover (validated)

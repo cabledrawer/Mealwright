@@ -12,11 +12,14 @@ import csv
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from decimal import Decimal
+from fractions import Fraction
 from functools import cache
 from importlib.resources import files
 from typing import Literal
 
 from mealwright.aisles import AISLE_KEYS
+from mealwright.amounts import round_half_up
 from mealwright.conversions import TableRow
 from mealwright.conversions import table as conversion_table
 from mealwright.names import normalise
@@ -120,7 +123,7 @@ def parse_size(text: str) -> Size:
     if not found or found.group(2) not in _UNITS:
         raise ValueError(f"pack size {text!r}")
     counted_as, per = _UNITS[found.group(2)]
-    return Size(counted_as, round(float(found.group(1)) * per))
+    return Size(counted_as, round_half_up(Decimal(found.group(1)) * per))
 
 
 @cache
@@ -180,7 +183,7 @@ def shop_size(amount_milli: int) -> int:
         step = 100
     else:
         step = 250
-    return max(5, round(value / step) * step) * 1000
+    return max(5, round_half_up(Fraction(amount_milli, 1000 * step)) * step) * 1000
 
 
 def _convert(size: Size, counted_as: CountedAs, density: TableRow | None) -> int | None:
@@ -192,9 +195,9 @@ def _convert(size: Size, counted_as: CountedAs, density: TableRow | None) -> int
     if density is None or not density.mg_per_ml:
         return None
     if size.counted_as == "weight" and counted_as == "volume":
-        return shop_size(round(size.amount_milli * 1000 / density.mg_per_ml))
+        return shop_size(round_half_up(Fraction(size.amount_milli * 1000, density.mg_per_ml)))
     if size.counted_as == "volume" and counted_as == "weight":
-        return shop_size(round(size.amount_milli * density.mg_per_ml / 1000))
+        return shop_size(round_half_up(Fraction(size.amount_milli * density.mg_per_ml, 1000)))
     return None
 
 

@@ -11,6 +11,7 @@ to the nearest ½; "about" figures to 2 significant figures. Halfway rounds up.
 
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
+from fractions import Fraction
 from typing import Literal
 
 CountedAs = Literal["weight", "volume", "count"]
@@ -93,7 +94,18 @@ def from_milli(milli: int) -> float:
     return float(Decimal(milli) / MILLI)
 
 
-def round_half_up(value: Decimal) -> int:
+def round_half_up(value: Decimal | Fraction | int | float) -> int:
+    """The one rounding of an amount to a whole number (D4, BE22): half away from zero, as
+    `to_milli`, never Python's round() (half to even). A ratio of whole numbers is best given as
+    a Fraction, which is exact; a float is read as it prints (as `to_milli` reads one)."""
+    if isinstance(value, int):
+        return value
+    if isinstance(value, Fraction):
+        whole, rest = divmod(abs(value.numerator), value.denominator)
+        whole += 2 * rest >= value.denominator
+        return whole if value.numerator >= 0 else -whole
+    if isinstance(value, float):
+        value = Decimal(str(value))
     return int(value.quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
 

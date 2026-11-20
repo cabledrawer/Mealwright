@@ -5,6 +5,7 @@ Online only, like the Pantry."""
 from collections.abc import Callable
 from datetime import date, timedelta
 from datetime import time as clock
+from fractions import Fraction
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query, Response, status
@@ -14,6 +15,7 @@ from sqlalchemy import and_, or_, select
 from mealwright import batches as batch_service
 from mealwright import cooking, kitchen_changes, methods, plan, start_ahead
 from mealwright import recipes as recipe_service
+from mealwright.amounts import round_half_up
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.recipe_schemas import StepWaitOut
 from mealwright.api.v1.schemas import ChangeOut, Ref
@@ -470,7 +472,11 @@ def get_plan(
         number[tub.id] = seen[tub.batch_id]
 
     def kcal_of(recipe: Recipe | None) -> int | None:
-        return round(recipe.kcal_milli / 1000) if recipe and recipe.kcal_milli is not None else None
+        return (
+            round_half_up(Fraction(recipe.kcal_milli, 1000))
+            if recipe and recipe.kcal_milli is not None
+            else None
+        )
 
     def item_kcal(i: MealItem) -> int | None:
         if i.recipe_id and i.recipe_id in recipes:

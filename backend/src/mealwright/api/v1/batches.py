@@ -3,12 +3,14 @@ from a planned recipe, placing its tubs, whose they are, the freezer, and "tubs 
 only, like the rest of the plan; each write has its Undo (`POST /changes/{id}/undo`)."""
 
 from datetime import date, timedelta
+from fractions import Fraction
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, Response, status
 from pydantic import BaseModel, Field
 
 from mealwright import batches, people, plan
+from mealwright.amounts import round_half_up
 from mealwright.api.v1.context import Here
 from mealwright.api.v1.plan import PlanWrite, _run
 from mealwright.auth import SameOrigin
@@ -113,7 +115,7 @@ class BatchPreviewOut(BaseModel):
 
 def _per_tub(recipe: Recipe) -> PerTubOut:
     def part(milli: int | None) -> int | None:
-        return None if milli is None else round(milli / 1000)
+        return None if milli is None else round_half_up(Fraction(milli, 1000))
 
     return PerTubOut(
         kcal=part(recipe.kcal_milli),

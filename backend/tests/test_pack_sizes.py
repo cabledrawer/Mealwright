@@ -224,7 +224,7 @@ def test_f183_counts_stay_counts_and_are_never_turned_into_grams() -> None:
         (1_183_000, 1_200_000),
         (246_000, 250_000),
         (382_000, 400_000),
-        (62_500, 60_000),
+        (62_500, 65_000),  # half way: up, as every amount (D4, BE22)
         (3_000, 5_000),
         (12_300, 10_000),
     ],

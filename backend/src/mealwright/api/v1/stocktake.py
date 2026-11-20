@@ -12,6 +12,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
+from fractions import Fraction
 from typing import Annotated
 
 from fastapi import APIRouter, Response, status
@@ -20,7 +21,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 
 from mealwright import restock
-from mealwright.amounts import NBSP, exact_text
+from mealwright.amounts import NBSP, exact_text, round_half_up
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.foods import NewSize, _size_amount, names_by_food
 from mealwright.api.v1.pantry import FoodBrief, PlaceRef
@@ -272,7 +273,7 @@ class Stocktake:
         if total <= 0:
             return Decimal(0), 0
         whole, rest = divmod(total, size.amount_milli)
-        quarters = round(rest * 4 / size.amount_milli)
+        quarters = round_half_up(Fraction(rest * 4, size.amount_milli))
         if quarters == 4:
             whole, quarters = whole + 1, 0
         if quarters == 0:
@@ -505,7 +506,7 @@ def answer(
                 if food.counted_as == "count"
                 else body.count.quantize(Decimal(1), ROUND_HALF_UP)
             )
-            target = round(count * unit[0])
+            target = round_half_up(count * unit[0])
         else:
             if unit is not None:
                 raise Problem(
@@ -520,7 +521,7 @@ def answer(
                     "needs_size",
                     f"{food.name} has no pack size yet: pick one first.",
                 )
-            target = round((fraction + body.more) * size.amount_milli) if size else 0
+            target = round_half_up((fraction + body.more) * size.amount_milli) if size else 0
         entry = _entry(kitchen, place.id, food.id)
         lots = lots_of(kitchen, [food.id], place.id)
         total = sum(lot.amount_milli for lot in lots)
