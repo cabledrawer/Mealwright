@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FilterChips from '#lib/components/FilterChips.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Pantry (mockups Phone-Pantry, Desktop-Pantry and their dark versions, plus the
   // lead's rulings of 17 Oct):
@@ -495,16 +496,12 @@
   <div class="desk">
     <div class="tools">
       {@render searchBox('Find in pantry')}
-      <div class="filters" role="group" aria-label="Show">
-        {#each FILTERS as f (f.value)}
-          <button
-            type="button"
-            class="filter"
-            aria-pressed={model.filter === f.value}
-            onclick={() => (model.filter = f.value)}>{f.label()}</button
-          >
-        {/each}
-      </div>
+      <FilterChips
+        label="Show"
+        options={FILTERS.map((f) => ({ value: f.value, label: f.label() }))}
+        selected={model.filter}
+        onselect={(value) => (model.filter = value)}
+      />
     </div>
     {#if searching}
       {@render results()}
@@ -961,32 +958,6 @@
 
   .search input:focus {
     outline: none;
-  }
-
-  .filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-  }
-
-  .filter {
-    min-width: var(--touch-target);
-    min-height: var(--touch-target);
-    padding: 0 14px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-  }
-
-  .filter[aria-pressed='true'] {
-    border-color: var(--color-inverse);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-bold);
   }
 
   /* The places fill the width: two across, three when there's room (F66). */

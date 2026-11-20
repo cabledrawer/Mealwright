@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FilterChips from '#lib/components/FilterChips.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Ingredients (mockups Ingredients-Phone, Ingredients-Desktop): every food, searchable
   // by any name, with the editor. Desktop shows the editor beside the list; phones open
@@ -280,25 +281,24 @@
             }}
           />
         </label>
-        <div class="filters" role="group" aria-label="Show">
-          {#each FILTERS as f (f.value)}
-            <button
-              type="button"
-              class="filter"
-              aria-pressed={list.filter === f.value}
-              onclick={() => (list.filter = f.value)}>{f.label}{chipCount(f.value)}</button
-            >
-          {/each}
-          {#if list.counts.maybe_same_pairs || list.filter === 'maybe_same'}
-            <button
-              type="button"
-              class="filter maybe"
-              aria-pressed={list.filter === 'maybe_same'}
-              onclick={() => (list.filter = list.filter === 'maybe_same' ? 'all' : 'maybe_same')}
-              >Maybe the same · {list.counts.maybe_same_pairs}</button
-            >
-          {/if}
-        </div>
+        <FilterChips
+          label="Show"
+          options={[
+            ...FILTERS.map((f) => ({ value: f.value, label: `${f.label}${chipCount(f.value)}` })),
+            ...(list.counts.maybe_same_pairs || list.filter === 'maybe_same'
+              ? [
+                  {
+                    value: 'maybe_same' as FoodFilter,
+                    label: `Maybe the same · ${list.counts.maybe_same_pairs}`,
+                    attention: true
+                  }
+                ]
+              : [])
+          ]}
+          selected={list.filter}
+          onselect={(value) =>
+            (list.filter = value === 'maybe_same' && list.filter === value ? 'all' : value)}
+        />
         {#if !network.offline}
           <button type="button" class="starter" onclick={() => starterPacks.show()}
             >Add a starter pack</button
@@ -529,44 +529,6 @@
 
   .search input:focus {
     outline: none;
-  }
-
-  .filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-  }
-
-  .filter {
-    min-width: var(--touch-target);
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-  }
-
-  .filter[aria-pressed='true'] {
-    border-color: var(--color-inverse);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-bold);
-  }
-
-  .filter.maybe {
-    border-color: var(--color-maybe-chip-border);
-    background: var(--color-maybe-chip);
-    color: var(--color-maybe-chip-text);
-    font-weight: var(--weight-bold);
-  }
-
-  .filter.maybe[aria-pressed='true'] {
-    outline: 2px solid var(--color-maybe-chip-text);
-    outline-offset: -2px;
   }
 
   .card {

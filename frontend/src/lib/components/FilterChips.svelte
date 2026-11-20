@@ -9,7 +9,8 @@
     label,
     onselect
   }: {
-    options: { value: T; label: string }[];
+    /** `attention`: a chip that asks to be looked at ("Maybe the same"), in the maybe colours. */
+    options: { value: T; label: string; attention?: boolean }[];
     selected: T;
     /** What the group is, for a screen reader: "Show". */
     label: string;
@@ -22,6 +23,7 @@
     <button
       type="button"
       class="chip"
+      class:attention={option.attention}
       aria-pressed={selected === option.value}
       onclick={() => onselect(option.value)}>{option.label}</button
     >
@@ -67,5 +69,17 @@
     background: var(--color-inverse);
     color: var(--color-inverse-text);
     font-weight: var(--weight-bold);
+  }
+
+  .chip.attention {
+    border-color: var(--color-maybe-chip-border);
+    background: var(--color-maybe-chip);
+    color: var(--color-maybe-chip-text);
+    font-weight: var(--weight-bold);
+  }
+
+  .chip.attention[aria-pressed='true'] {
+    outline: 2px solid var(--color-maybe-chip-text);
+    outline-offset: -2px;
   }
 </style>

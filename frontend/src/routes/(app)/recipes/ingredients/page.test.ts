@@ -146,7 +146,7 @@ describe('the Ingredients page', () => {
   it('“Not in any recipe · 9” is a filter beside Staples, and asks the server for it', async () => {
     const chip = page.getByRole('button', { name: 'Not in any recipe · 9' });
     await expect.element(chip).toBeVisible();
-    const chips = Array.from(document.querySelectorAll('.filters button')).map((b) =>
+    const chips = Array.from(document.querySelectorAll('.chips button')).map((b) =>
       b.textContent?.trim()
     );
     expect(chips.slice(0, 3)).toEqual(['All', 'Staples', 'Not in any recipe · 9']);

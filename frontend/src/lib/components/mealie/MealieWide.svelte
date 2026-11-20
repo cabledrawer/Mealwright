@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FilterChips from '#lib/components/FilterChips.svelte';
   // Import from Mealie on a computer (mockup Dark-MealieImport095-Desktop): the four steps,
   // a drop zone, and on the preview a table of every recipe in the file with tick boxes to
   // leave some out, chips and a search (cabledrawer 13 Nov). Fetched the first time it's needed.
@@ -203,27 +204,16 @@
         </div>
       </div>
       <div class="filters">
-        <div class="chips" role="group" aria-label="Show">
-          <button
-            type="button"
-            class="chip"
-            aria-pressed={show === 'all'}
-            onclick={() => ((show = 'all'), (limit = PAGE))}>All {count(recipes.length)}</button
-          >
-          <button
-            type="button"
-            class="chip"
-            aria-pressed={show === 'new'}
-            onclick={() => ((show = 'new'), (limit = PAGE))}>New {count(preview.new)}</button
-          >
-          <button
-            type="button"
-            class="chip"
-            aria-pressed={show === 'already'}
-            onclick={() => ((show = 'already'), (limit = PAGE))}
-            >Already here {count(preview.already)}</button
-          >
-        </div>
+        <FilterChips
+          label="Show"
+          options={[
+            { value: 'all', label: `All ${count(recipes.length)}` },
+            { value: 'new', label: `New ${count(preview.new)}` },
+            { value: 'already', label: `Already here ${count(preview.already)}` }
+          ]}
+          selected={show}
+          onselect={(value) => ((show = value), (limit = PAGE))}
+        />
         <input
           type="search"
           class="search"
@@ -641,31 +631,6 @@
     gap: 8px;
     align-items: center;
     justify-content: space-between;
-  }
-
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .chip {
-    min-height: var(--touch-target);
-    padding: 0 12px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font: var(--weight-semibold) var(--text-md) var(--font-ui);
-    white-space: nowrap;
-    cursor: pointer;
-  }
-
-  .chip[aria-pressed='true'] {
-    border-color: var(--color-inverse);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-bold);
   }
 
   .search {
