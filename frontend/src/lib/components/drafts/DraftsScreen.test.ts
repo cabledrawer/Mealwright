@@ -616,6 +616,41 @@ describe('the Drafts screen', () => {
       const lines = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
       expect(lines.size).toBe(1);
     });
+
+    it('F253: with the main menu open at 1019 px, Carry on, Delete and Save recipe keep their words on one line', async () => {
+      await page.viewport(1019, 844);
+      const long = draft({
+        id: 15,
+        name: 'Slow-cooker chicken tikka masala',
+        source: { kind: 'mealie', site: null },
+        started_by: 'Samantha',
+        lines_total: 14,
+        lines_checked: 3,
+        waiting: ['2 tablespoons garam masala, or to taste', 'a thumb of ginger, grated']
+      });
+      fakeApi({ 'GET /recipes/drafts': list([...MEALIE, long, ...THREE]) });
+      // 1019 − 248 px menu − 2 × 40 px page margins.
+      const room = document.body.appendChild(document.createElement('div'));
+      room.style.width = '691px';
+      component = mount(DraftsScreen, { target: room, props: { fromMealie: false } });
+      flushSync();
+      await expect.element(page.getByRole('table', { name: 'Drafts' })).toBeVisible();
+      const buttons = [
+        ...document.querySelectorAll<HTMLElement>('.table .carry, .table .delete, .table .save')
+      ];
+      expect(buttons.length).toBe(13);
+      for (const button of buttons) {
+        const range = document.createRange();
+        range.selectNodeContents(button);
+        const lines = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+        expect(lines.size, `${button.textContent} on one line`).toBe(1);
+      }
+      // ...and the table still fits the room: nothing scrolls sideways.
+      const table = page.getByRole('table', { name: 'Drafts' }).element();
+      expect(table.getBoundingClientRect().right).toBeLessThanOrEqual(
+        room.getBoundingClientRect().right + 0.5
+      );
+    });
   });
 
   describe('the By recipe | By ingredient switch', () => {

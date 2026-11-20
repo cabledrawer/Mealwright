@@ -49,44 +49,47 @@
   onDestroy(() => settingsKnown.forget());
 </script>
 
-<div class="layout">
-  <nav class="list" aria-label="Settings">
-    <h2 class="list-title">Settings</h2>
-    {#if finishSetup}
-      <a class="finish" href={resolve('/(app)/onboarding')}
-        ><span class="finish-ring"><FinishRing done={settingsKnown.done} /></span><span
-          class="finish-text"
-          >{FINISH_SETUP}<span class="finish-words">{FINISH_SETUP_WORDS}</span></span
-        ><span class="finish-count">{ringWords(settingsKnown.done)}</span></a
-      >
-    {/if}
-    {#each groups as group (group.name)}
-      <div class="group" role="group" aria-label={group.label}>
-        <div class="group-name">
-          {group.name}{#if group.adminOnly}<span class="adm">admins only</span>{/if}
+<div class="room">
+  <div class="layout">
+    <nav class="list" aria-label="Settings">
+      <h2 class="list-title">Settings</h2>
+      {#if finishSetup}
+        <a class="finish" href={resolve('/(app)/onboarding')}
+          ><span class="finish-ring"><FinishRing done={settingsKnown.done} /></span><span
+            class="finish-text"
+            >{FINISH_SETUP}<span class="finish-words">{FINISH_SETUP_WORDS}</span></span
+          ><span class="finish-count">{ringWords(settingsKnown.done)}</span></a
+        >
+      {/if}
+      {#each groups as group (group.name)}
+        <div class="group" role="group" aria-label={group.label}>
+          <div class="group-name">
+            {group.name}{#if group.adminOnly}<span class="adm">admins only</span>{/if}
+          </div>
+          {#each group.items as item (item.id)}
+            <a href={resolve(item.route)} aria-current={here?.id === item.id ? 'page' : undefined}
+              >{item.label}
+              {#if item.id === 'about' && updates.available}<span class="badge"
+                  >{UPDATE_AVAILABLE}</span
+                >{/if}</a
+            >
+          {/each}
         </div>
-        {#each group.items as item (item.id)}
-          <a href={resolve(item.route)} aria-current={here?.id === item.id ? 'page' : undefined}
-            >{item.label}
-            {#if item.id === 'about' && updates.available}<span class="badge"
-                >{UPDATE_AVAILABLE}</span
-              >{/if}</a
-          >
-        {/each}
-      </div>
-    {/each}
-  </nav>
-  <div class="content">
-    {#if refused && here}
-      <PageHeader title={here.label} parent={{ href: '/(app)/settings', label: 'Settings' }} />
-      <p class="admins-only" role="status">{ADMIN_ONLY}</p>
-    {:else}
-      {@render children()}
-    {/if}
+      {/each}
+    </nav>
+    <div class="content">
+      {#if refused && here}
+        <PageHeader title={here.label} parent={{ href: '/(app)/settings', label: 'Settings' }} />
+        <p class="admins-only" role="status">{ADMIN_ONLY}</p>
+      {:else}
+        {@render children()}
+      {/if}
+    </div>
   </div>
 </div>
 
 <style>
+  .room,
   .layout {
     display: contents;
   }
@@ -118,6 +121,13 @@
   }
 
   @media (min-width: 768px) {
+    /* The room beside the main menu decides the layout (F253): it is narrow with the menu
+       unfolded on a small computer screen. */
+    .room {
+      display: block;
+      container-type: inline-size;
+    }
+
     .layout {
       display: grid;
       grid-template-columns: 240px minmax(0, 760px);
@@ -139,6 +149,24 @@
       font-size: var(--text-title-desktop);
       font-weight: var(--weight-extrabold);
       letter-spacing: var(--tracking-tight);
+    }
+  }
+
+  /* F253 (0.9.5-beta.3): with the main menu unfolded at 768 px there are only about 440 px
+     beside it. The list narrows and the page's title steps down to the phone's size, so no word
+     is cut in two and the page's cards keep their edges. Proposed, for cabledrawer. */
+  @container (max-width: 599px) {
+    .layout {
+      grid-template-columns: 176px minmax(0, 1fr);
+      gap: var(--space-7);
+    }
+
+    .list-title {
+      font-size: var(--text-title);
+    }
+
+    .content :global(h1) {
+      font-size: var(--text-title);
     }
   }
 

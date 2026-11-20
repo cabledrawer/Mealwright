@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { test, expect, type Page } from './clock.ts';
-import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
+import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 
 // Settings' layout (beta 2, B8, F252): on a computer the main menu folds to its icons and the
 // grouped list of Settings sits beside the page, the open item marked; on the phone /settings is
@@ -74,6 +74,47 @@ test('a computer: the main menu folds to icons with names and tooltips, and the 
   await expect(side.getByRole('button', { name: 'Collapse sidebar' })).toBeVisible();
   await page.goto('/settings/amounts');
   await expect(side.getByRole('button', { name: 'Show the menu' })).toHaveAttribute('aria-expanded', 'false');
+});
+
+/** The words of the page's heading that are broken over two lines (F253). */
+async function cutWords(page: Page) {
+  return page.getByRole('heading', { level: 1 }).evaluate((heading) => {
+    const text = heading.firstChild!;
+    const cut: string[] = [];
+    for (const word of text.textContent!.matchAll(/\S+/g)) {
+      const range = document.createRange();
+      range.setStart(text, word.index);
+      range.setEnd(text, word.index + word[0].length);
+      if (new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size > 1) cut.push(word[0]);
+    }
+    return cut;
+  });
+}
+
+test('F253: at 768 px with the menu unfolded, no heading is cut mid-word and the theme switch keeps off the card edge', async ({ page }) => {
+  test.skip(isPhone(page), 'the computer’s layout');
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto('/settings/appearance');
+  const side = page.getByRole('complementary', { name: 'Sidebar' });
+  await side.getByRole('button', { name: 'Show the menu' }).click();
+  await expect(side.getByRole('button', { name: 'Collapse sidebar' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Appearance' })).toBeVisible();
+  expect(await cutWords(page)).toEqual([]);
+  const theme = page.getByRole('main').getByRole('group', { name: 'Theme' });
+  const edges = await theme.evaluate((group) => {
+    const card = group.closest('.card')!.getBoundingClientRect();
+    const box = group.getBoundingClientRect();
+    return { left: box.left - card.left, right: card.right - box.right };
+  });
+  expect(edges.left).toBeGreaterThanOrEqual(12);
+  expect(edges.right).toBeGreaterThanOrEqual(12);
+  await expectNoSidewaysScroll(page);
+  for (const item of ['Amounts', 'Your kitchen', 'Outside connections', 'Backups & your data', 'Recent changes']) {
+    await list(page).getByRole('link', { name: item, exact: true }).click();
+    await expect(page.getByRole('heading', { level: 1, name: item })).toBeVisible();
+    expect(await cutWords(page), item).toEqual([]);
+    await expectNoSidewaysScroll(page);
+  }
 });
 
 test('a computer: /settings opens Appearance, and each item shows only its own page', async ({ page }) => {

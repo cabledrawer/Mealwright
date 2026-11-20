@@ -691,6 +691,9 @@
   .table .carry,
   .table .delete,
   .table .save {
+    /* F253: a button's words stay on one line; when the room runs out the buttons wrap instead
+       (with the main menu open at 1019 px "Carry on" broke in two). */
+    white-space: nowrap;
     min-height: var(--touch-target);
     padding: 0 var(--space-6);
     border-radius: var(--radius-full);
