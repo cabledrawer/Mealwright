@@ -691,14 +691,14 @@
                 aria-label="Earlier week"
                 disabled={atEarliestWeek}
                 onclick={() => (weekOf = addDays(weekOf, -7))}
-                ><Icon name="back" size={22} stroke={2.4} /></button
+                ><Icon name="back" size={24} stroke={2.4} /></button
               >
               <span>{weekWords(weekOf, model.today.slice(0, 4))}</span>
               <button
                 type="button"
                 aria-label="Later week"
                 onclick={() => (weekOf = addDays(weekOf, 7))}
-                ><span class="flip"><Icon name="back" size={22} stroke={2.4} /></span></button
+                ><span class="flip"><Icon name="back" size={24} stroke={2.4} /></span></button
               >
             </div>
             <div class="days" role="group" aria-label="Day">

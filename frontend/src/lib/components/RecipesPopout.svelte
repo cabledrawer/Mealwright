@@ -121,7 +121,7 @@
     onclick={() => (open ? hide(true) : show())}
     onkeydown={onTriggerKeydown}
   >
-    <Icon name="recipes" size={22} />
+    <Icon name="recipes" size={24} />
   </button>
   {#if open}
     <div class="menu" id="{uid}-menu" role="menu" aria-label="Recipes" bind:this={menu}>

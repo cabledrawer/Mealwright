@@ -349,7 +349,7 @@
     {/if}
     {#if awake.refused}
       <p class="asleep" role="status" data-testid="cook-asleep">
-        <Icon name="dark" size={18} stroke={2.2} />Couldn’t keep the screen awake.
+        <Icon name="dark" size={18} stroke={2} />Couldn’t keep the screen awake.
       </p>
     {/if}
     {#if notice}
@@ -464,7 +464,7 @@
       <div class="head">
         <span class="what" id="{uid}-perstep">
           <span class="label">Ingredients for each step</span>
-          <span class="badge"><Icon name="flask" size={13} stroke={2.4} />Experimental</span>
+          <span class="badge"><Icon name="flask" size={14} stroke={2.4} />Experimental</span>
         </span>
         <Switch checked={perStep} large labelledby="{uid}-perstep" onchange={onperstep} />
       </div>
@@ -490,7 +490,7 @@
     </section>
 
     <button type="button" class="show" onclick={() => (sheetOpen = true)}>
-      <Icon name="note" size={18} stroke={2.2} />Show ingredients
+      <Icon name="note" size={18} stroke={2} />Show ingredients
     </button>
 
     <section class="options" aria-label="Options">

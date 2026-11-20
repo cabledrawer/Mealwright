@@ -256,7 +256,7 @@
           class="new-round"
           aria-label="New ingredient"
           title="New ingredient"
-          onclick={() => void makeNew()}><Icon name="plus" size={20} stroke={2.6} /></button
+          onclick={() => void makeNew()}><Icon name="plus" size={20} stroke={2.4} /></button
         >
       {/if}
     {/if}
@@ -273,7 +273,7 @@
     <section class="list-side" aria-label="All ingredients">
       <div class="tools">
         <label class="search">
-          <Icon name="search" size={18} stroke={2.2} />
+          <Icon name="search" size={18} stroke={2} />
           <input
             type="search"
             placeholder="Search by any name, e.g. arhar dal"

@@ -66,7 +66,7 @@
       disabled={network.offline}
       onclick={() => picker.click()}
     >
-      <span class="camera"><Icon name="photo" size={26} /></span>
+      <span class="camera"><Icon name="photo" size={24} /></span>
       <span class="title">Add a photo</span>
       {#if !photo.error}<span class="sub">Take one or choose from your photos</span>{/if}
     </button>

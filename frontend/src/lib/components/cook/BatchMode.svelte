@@ -114,7 +114,7 @@
     </div>
     {#if awake.refused}
       <p class="asleep" role="status">
-        <Icon name="dark" size={18} stroke={2.2} />Couldn’t keep the screen awake.
+        <Icon name="dark" size={18} stroke={2} />Couldn’t keep the screen awake.
       </p>
     {/if}
     {#if network.offline || model.pending.length}

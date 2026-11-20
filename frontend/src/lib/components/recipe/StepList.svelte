@@ -76,7 +76,7 @@
 <section class="steps" aria-labelledby="{uid}-title" bind:this={root}>
   <div class="title">
     <h2 id="{uid}-title">Method</h2>
-    <span class="exp"><Icon name="flask" size={13} stroke={2.4} />Experimental</span>
+    <span class="exp"><Icon name="flask" size={14} stroke={2.4} />Experimental</span>
     <span class="note">Plain text, one step per box</span>
   </div>
 
@@ -197,7 +197,7 @@
                   <span class="tag yours">set by you</span>
                 {:else}
                   <span class="exp-tag"
-                    ><Icon name="flask" size={13} stroke={2.4} />{shown.mark}</span
+                    ><Icon name="flask" size={14} stroke={2.4} />{shown.mark}</span
                   >
                 {/if}
               {/if}

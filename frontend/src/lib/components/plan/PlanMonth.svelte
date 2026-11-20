@@ -153,7 +153,7 @@
                 item,
                 model.plan
               )}, {model.slotName(meal.slot_id)} on {dayFull(day)}. Open menu"
-              >{#if show === 'cook'}<Icon name="pan" size={13} stroke={2.4} />{/if}<span
+              >{#if show === 'cook'}<Icon name="pan" size={14} stroke={2.4} />{/if}<span
                 class="chip-name">{itemName(item, model.plan)}</span
               ></button
             >

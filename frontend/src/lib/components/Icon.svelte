@@ -42,10 +42,22 @@
     | 'play'
     | 'cog'
     | 'shield';
+
+  // The short fixed lists of sizes and strokes (beta.3 FE21/FE22; list proposed, for cabledrawer):
+  // 14 small mark, 16 inline, 18 buttons and rows, 20 menu and tabs, 24 the drawing's own size,
+  // 32 big. Strokes: 2 regular, 2.4 bold, 3 heavy (the little marks and the grip's dots).
+  export const ICON_SIZES = [14, 16, 18, 20, 24, 32] as const;
+  export const ICON_STROKES = [2, 2.4, 3] as const;
+  export type IconSize = (typeof ICON_SIZES)[number];
+  export type IconStroke = (typeof ICON_STROKES)[number];
 </script>
 
 <script lang="ts">
-  let { name, size = 24, stroke = 2 }: { name: Name; size?: number; stroke?: number } = $props();
+  let {
+    name,
+    size = 24,
+    stroke = 2
+  }: { name: Name; size?: IconSize; stroke?: IconStroke } = $props();
 </script>
 
 <svg

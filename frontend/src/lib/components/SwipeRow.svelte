@@ -95,7 +95,7 @@
       data-tone={right.tone}
       onclick={() => press(right)}
     >
-      <Icon name={right.icon} size={20} stroke={2.3} />{right.label}{#if right.describe}<span
+      <Icon name={right.icon} size={20} stroke={2.4} />{right.label}{#if right.describe}<span
           class="visually-hidden"
         >
           {right.describe}</span
@@ -114,7 +114,7 @@
       <Icon
         name={rightMore.icon}
         size={20}
-        stroke={2.3}
+        stroke={2.4}
       />{rightMore.label}{#if rightMore.describe}<span class="visually-hidden">
           {rightMore.describe}</span
         >{/if}
@@ -122,7 +122,7 @@
   {/if}
   {#if live && offset < 0 && left}
     <button type="button" class="act on-right" data-tone={left.tone} onclick={() => press(left)}>
-      <Icon name={left.icon} size={20} stroke={2.3} />{left.label}{#if left.describe}<span
+      <Icon name={left.icon} size={20} stroke={2.4} />{left.label}{#if left.describe}<span
           class="visually-hidden"
         >
           {left.describe}</span

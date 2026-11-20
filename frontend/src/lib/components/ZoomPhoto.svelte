@@ -54,7 +54,7 @@
 >
   <img {src} {alt} {width} {height} decoding="async" {onerror} />
   <span class="pill" aria-hidden="true"
-    ><Icon name="full-size" size={13} stroke={2.4} />Full size</span
+    ><Icon name="full-size" size={14} stroke={2.4} />Full size</span
   >
   {@render children?.()}
 </button>

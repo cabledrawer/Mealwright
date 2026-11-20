@@ -106,7 +106,7 @@
       <strong>Batch cook · {batches.length} {plural(batches.length, 'recipe', 'recipes')}</strong>
       {#if when}<span class="when">{when}</span>{/if}
     </span>
-    <span class="exp"><Icon name="flask" size={13} stroke={2.4} />Experimental</span>
+    <span class="exp"><Icon name="flask" size={14} stroke={2.4} />Experimental</span>
   </div>
   <ul>
     {#each batches as batch (batch.id)}

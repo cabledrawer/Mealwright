@@ -51,7 +51,7 @@
           class="x"
           aria-label="Dismiss staples check"
           disabled={offline}
-          onclick={() => void model.gotAll()}><Icon name="close" size={18} stroke={2.2} /></button
+          onclick={() => void model.gotAll()}><Icon name="close" size={18} stroke={2} /></button
         >
       {/if}
     </div>

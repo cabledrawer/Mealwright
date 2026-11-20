@@ -21,7 +21,7 @@
     title="Theme: Auto · Light · Dark"
     onclick={() => theme.cycle()}
   >
-    <Icon name={theme.choice} size={20} stroke={2.2} />
+    <Icon name={theme.choice} size={20} stroke={2} />
   </button>
 {:else}
   <div class="group {variant}" role="group" aria-label="Theme">
@@ -32,7 +32,7 @@
         title={THEME_HINTS[choice]}
         onclick={() => theme.set(choice)}
       >
-        {#if variant === 'sidebar'}<Icon name={choice} size={15} stroke={2.2} />{/if}
+        {#if variant === 'sidebar'}<Icon name={choice} size={16} stroke={2} />{/if}
         {THEME_LABELS[choice]}
       </button>
     {/each}

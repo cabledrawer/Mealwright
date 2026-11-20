@@ -243,7 +243,7 @@
   {#if phone}
     <PageHeader title="Plan">
       {#snippet actions()}
-        <span class="exp"><Icon name="flask" size={13} stroke={2.4} />Experimental</span>
+        <span class="exp"><Icon name="flask" size={14} stroke={2.4} />Experimental</span>
       {/snippet}
     </PageHeader>
     <div class="view" role="group" aria-label="Plan views">
@@ -259,7 +259,7 @@
   {:else}
     <PageHeader title="Batch cook">
       {#snippet actions()}
-        <span class="exp"><Icon name="flask" size={13} stroke={2.4} />Experimental</span>
+        <span class="exp"><Icon name="flask" size={14} stroke={2.4} />Experimental</span>
       {/snippet}
     </PageHeader>
     <p class="muted">Picks come only from your own recipes.</p>

@@ -508,14 +508,14 @@
         <button
           type="button"
           aria-label={model.view === 'week' ? 'Previous week' : 'Previous month'}
-          onclick={() => model.step(-1)}><Icon name="back" size={22} stroke={2.4} /></button
+          onclick={() => model.step(-1)}><Icon name="back" size={24} stroke={2.4} /></button
         >
         <span class="range" aria-live="polite">{range}</span>
         <button
           type="button"
           aria-label={model.view === 'week' ? 'Next week' : 'Next month'}
           onclick={() => model.step(1)}
-          ><span class="flip"><Icon name="back" size={22} stroke={2.4} /></span></button
+          ><span class="flip"><Icon name="back" size={24} stroke={2.4} /></span></button
         >
       </div>
       <button

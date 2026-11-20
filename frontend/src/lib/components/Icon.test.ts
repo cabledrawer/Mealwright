@@ -1,7 +1,7 @@
 import { mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SECTION_ICONS } from '../../routes/(app)/settings/sectionIcons.js';
-import Icon, { type Name } from './Icon.svelte';
+import Icon, { ICON_SIZES, ICON_STROKES, type Name } from './Icon.svelte';
 
 // The beta.3 icon pack (agreed 20 Nov): the drawings below are the agreed path data.
 const mounted: ReturnType<typeof mount>[] = [];
@@ -66,5 +66,12 @@ describe('the Settings list pictures', () => {
   });
   it('draws your-kitchen as a hob', () => {
     expect(SECTION_ICONS['your-kitchen'].paths).toHaveLength(4);
+  });
+});
+
+describe('the fixed sizes and strokes', () => {
+  it('keeps short lists', () => {
+    expect([...ICON_SIZES]).toEqual([14, 16, 18, 20, 24, 32]);
+    expect([...ICON_STROKES]).toEqual([2, 2.4, 3]);
   });
 });

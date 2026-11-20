@@ -343,7 +343,7 @@
             aria-label="Rename"
             title="Rename"
             disabled={network.offline}
-            onclick={() => (renaming = true)}><Icon name="pencil" size={16} stroke={2.2} /></button
+            onclick={() => (renaming = true)}><Icon name="pencil" size={16} stroke={2} /></button
           >
         </span>
       {/if}
@@ -405,7 +405,7 @@
                 class="remove"
                 aria-label="Remove {name.name}"
                 onclick={() => void model.removeName(name)}
-                ><Icon name="close" size={12} stroke={3} /></button
+                ><Icon name="close" size={14} stroke={3} /></button
               >
             </li>
           {/each}
@@ -471,7 +471,7 @@
                   class="remove"
                   aria-label="Remove the {size.name} size"
                   onclick={() => void model.removeSize(size)}
-                  ><Icon name="close" size={12} stroke={3} /></button
+                  ><Icon name="close" size={14} stroke={3} /></button
                 >
               </span>
             </li>
@@ -672,7 +672,7 @@
                 class="remove"
                 aria-label="Remove {other.name}"
                 onclick={() => void model.removeStandIn(other)}
-                ><Icon name="close" size={12} stroke={3} /></button
+                ><Icon name="close" size={14} stroke={3} /></button
               >
             </li>
           {/each}

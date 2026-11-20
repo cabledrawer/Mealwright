@@ -5,7 +5,7 @@
 </script>
 
 <section class="choose" aria-labelledby="choose-title">
-  <Icon name="recipes" size={32} stroke={1.6} />
+  <Icon name="recipes" size={32} stroke={2} />
   <h2 id="choose-title">Choose a recipe</h2>
   <p>Pick one from the list to read it here.</p>
 </section>

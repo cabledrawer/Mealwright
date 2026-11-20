@@ -8,7 +8,7 @@
 </script>
 
 <button type="button" class="add" {onclick}>
-  <Icon name="plus" size={16} stroke={2.6} />{label}
+  <Icon name="plus" size={16} stroke={2.4} />{label}
 </button>
 
 <style>

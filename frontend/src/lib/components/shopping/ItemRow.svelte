@@ -388,8 +388,8 @@
               onclick={() => (model.placing = placing ? null : item.id)}
               >→ {putAway.place ?? 'Pantry'}<Icon
                 name="chevron-down"
-                size={12}
-                stroke={2.8}
+                size={14}
+                stroke={3}
               /></button
             >
           {:else if putAway?.kind === 'none'}

@@ -141,7 +141,7 @@
     {/if}
   {:else if flow.step === 'preview' && job && preview}
     <div class="file">
-      <span class="ic"><Icon name="note" size={18} stroke={2.2} /></span>
+      <span class="ic"><Icon name="note" size={18} stroke={2} /></span>
       <span class="rn"><b>{job.file_name}</b><span>{fileWords(job)}</span></span>
       {#if flow.admin}
         <Button outline small disabled={flow.busy || offline} onclick={() => picker?.click()}
@@ -273,7 +273,7 @@
   {:else if flow.step === 'done' && job}
     {#if job.state === 'failed'}
       <div class="warn" role="status">
-        <Icon name="alert" size={20} stroke={2.2} />
+        <Icon name="alert" size={20} stroke={2} />
         <span><strong>{NOTE_FAILED}</strong><br />{NOTE_FAILED_LINE}</span>
       </div>
     {:else}

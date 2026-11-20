@@ -952,7 +952,7 @@
           {:else if line.label === 'staple'}
             Staple
           {:else if line.label === 'matched'}
-            <Icon name="check" size={14} stroke={2.6} />{line.place ?? 'In your ingredients'}
+            <Icon name="check" size={14} stroke={2.4} />{line.place ?? 'In your ingredients'}
           {/if}
         </span>
         <button

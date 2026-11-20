@@ -176,7 +176,7 @@
   {:else}
     <div class="screen">
       <label class="search">
-        <Icon name="search" size={18} stroke={2.2} />
+        <Icon name="search" size={18} stroke={2} />
         <input
           type="search"
           placeholder="Search recipes"

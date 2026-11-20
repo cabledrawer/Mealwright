@@ -329,7 +329,7 @@
       <button type="submit" class="plus wide" disabled={!typed}>Add</button>
     {:else}
       <button type="submit" class="plus" aria-label="Add item" disabled={!typed}
-        ><Icon name="plus" size={20} stroke={2.6} /></button
+        ><Icon name="plus" size={20} stroke={2.4} /></button
       >
     {/if}
   </form>

@@ -323,7 +323,7 @@
   {:else if flow.step === 'done' && job}
     {#if job.state === 'failed'}
       <div class="warn" role="status">
-        <Icon name="alert" size={20} stroke={2.2} />
+        <Icon name="alert" size={20} stroke={2} />
         <span><strong>{NOTE_FAILED}</strong> · {NOTE_FAILED_LINE}</span>
       </div>
     {:else}

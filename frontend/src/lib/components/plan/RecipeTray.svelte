@@ -92,7 +92,7 @@
       aria-label={open ? 'Collapse recipe tray' : 'Open recipe tray'}
       title={open ? 'Collapse tray' : 'Open tray'}
       onclick={() => onopen(!open)}
-      ><span class:up={!open} class="chev"><Icon name="chevron-down" size={22} stroke={2.4} /></span
+      ><span class:up={!open} class="chev"><Icon name="chevron-down" size={24} stroke={2.4} /></span
       ></button
     >
   </div>

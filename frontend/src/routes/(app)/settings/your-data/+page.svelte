@@ -426,7 +426,7 @@
       {/if}
       <p class="note">{SAFETY_COPY_NOTE}</p>
       <div class="disk">
-        <Icon name="alert" size={18} stroke={2.2} />
+        <Icon name="alert" size={18} stroke={2} />
         <p>{SAME_DISK}</p>
       </div>
       <a class="card row to" href={resolve('/(app)/settings/your-data/restore')}>

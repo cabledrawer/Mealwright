@@ -83,7 +83,7 @@
           aria-label="Remove tag {tag}"
           onclick={() => tags.splice(tags.indexOf(tag), 1)}
         >
-          <Icon name="close" size={14} stroke={2.6} />
+          <Icon name="close" size={14} stroke={2.4} />
         </button>
       </span>
     {/each}

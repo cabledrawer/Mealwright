@@ -81,7 +81,7 @@
                 disabled={frozen}
                 onclick={() => onremove(entry)}
               >
-                <Icon name="trash" size={20} stroke={2.2} />
+                <Icon name="trash" size={20} stroke={2} />
                 <span class="remove-text">Remove</span>
               </button>
             {/if}

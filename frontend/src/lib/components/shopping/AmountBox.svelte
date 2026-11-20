@@ -231,7 +231,7 @@
   {#if problem}<p id="{uid}-p" class="problem" role="alert">{problem}</p>{/if}
   <div class="foot">
     <button type="button" class="move" onclick={onmove}>
-      <Icon name="arrow-right" size={20} stroke={2.2} />Move to…
+      <Icon name="arrow-right" size={20} stroke={2} />Move to…
     </button>
     {#if onsizes && !food.staple}
       <button
@@ -254,11 +254,11 @@
           else input?.focus();
         }}
       >
-        <Icon name="check" size={20} stroke={2.2} />Already have it
+        <Icon name="check" size={20} stroke={2} />Already have it
       </button>
     {/if}
     <button type="button" class="remove" onclick={onremove}>
-      <Icon name="trash" size={20} stroke={2.2} />Remove from list
+      <Icon name="trash" size={20} stroke={2} />Remove from list
     </button>
     {#if !network.offline && food.id > 0}
       <button type="button" class="edit" onclick={editIngredient}>Edit ingredient</button>

@@ -282,11 +282,11 @@
       <!-- F240: nothing to add to while the page only says the server is needed. -->
     {:else if phone}
       <button type="button" class="add-round" aria-label="Add to pantry" onclick={addClicked}
-        ><Icon name="plus" size={20} stroke={2.6} /></button
+        ><Icon name="plus" size={20} stroke={2.4} /></button
       >
     {:else}
       <button type="button" class="add-pill" aria-label="+ Add to pantry" onclick={addClicked}
-        ><Icon name="plus" size={16} stroke={2.6} />Add to pantry</button
+        ><Icon name="plus" size={16} stroke={2.4} />Add to pantry</button
       >
     {/if}
   {/snippet}
@@ -344,7 +344,7 @@
 
 {#snippet searchBox(label: string)}
   <label class="search">
-    <Icon name="search" size={18} stroke={2.2} />
+    <Icon name="search" size={18} stroke={2} />
     <input type="search" placeholder="{label}…" aria-label={label} bind:value={model.query} />
   </label>
 {/snippet}
@@ -470,7 +470,7 @@
           Add what’s in your fridge and cupboards, and Mealwright keeps count.
           {#snippet action()}
             <button type="button" class="add-pill" aria-label="+ Add to pantry" onclick={addClicked}
-              ><Icon name="plus" size={16} stroke={2.6} />Add to pantry</button
+              ><Icon name="plus" size={16} stroke={2.4} />Add to pantry</button
             >
           {/snippet}
         </EmptyState>
@@ -526,7 +526,7 @@
           Add what’s in your fridge and cupboards, and Mealwright keeps count.
           {#snippet action()}
             <button type="button" class="add-pill" aria-label="+ Add to pantry" onclick={addClicked}
-              ><Icon name="plus" size={16} stroke={2.6} />Add to pantry</button
+              ><Icon name="plus" size={16} stroke={2.4} />Add to pantry</button
             >
           {/snippet}
         </EmptyState>

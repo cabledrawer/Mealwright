@@ -114,7 +114,7 @@
             <span class="eyebrow"
               ><Icon
                 name={card.role === 'cook' ? 'pan' : 'plate'}
-                size={13}
+                size={14}
                 stroke={2.4}
               />{card.eyebrow}</span
             >
@@ -126,11 +126,11 @@
             {#if card.prep}<span class="meta">{card.prep}</span>{/if}
           {:else if card.meta}
             <span class="meta"
-              >{#if card.role === 'fresh'}<Icon name="pan" size={13} stroke={2.4} />Fresh ·
+              >{#if card.role === 'fresh'}<Icon name="pan" size={14} stroke={2.4} />Fresh ·
               {/if}{card.meta}</span
             >
           {:else if card.role === 'fresh'}
-            <span class="meta"><Icon name="pan" size={13} stroke={2.4} />Fresh</span>
+            <span class="meta"><Icon name="pan" size={14} stroke={2.4} />Fresh</span>
           {/if}
           {#if card.who.length}
             <span class="who"
@@ -160,7 +160,7 @@
           aria-label="Add to {where}"
           title="Add to this meal"
           onclick={() => actions.add(day, slot.id)}
-          ><Icon name="plus" size={20} stroke={2.6} /></button
+          ><Icon name="plus" size={20} stroke={2.4} /></button
         >
       </div>
     </div>

@@ -345,7 +345,7 @@
                   onclick={openPicker}
                 >
                   {#if when === 'pick'}
-                    <Icon name="calendar" size={16} stroke={2.2} />{pickedDateWords(picked)}
+                    <Icon name="calendar" size={16} stroke={2} />{pickedDateWords(picked)}
                   {:else}
                     Pick a date
                   {/if}

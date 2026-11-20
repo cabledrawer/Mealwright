@@ -81,7 +81,7 @@
     title="Settings"
   >
     <span class="avatar" aria-hidden="true">{initial(session.me?.name ?? '')}</span>
-    <span class="cog" aria-hidden="true"><Icon name="cog" size={22} stroke={2} /></span>
+    <span class="cog" aria-hidden="true"><Icon name="cog" size={24} stroke={2} /></span>
   </a>
   {#if count}<div class="count">{@render count()}</div>{/if}
 </header>

@@ -91,7 +91,7 @@
                 disabled={actions.readonly}
                 aria-label="Add to {slot.name} on {dayFull(day)}"
                 onclick={() => actions.add(day, slot.id)}
-                ><Icon name="plus" size={20} stroke={2.6} /></button
+                ><Icon name="plus" size={20} stroke={2.4} /></button
               >
             {:else}
               <button

@@ -100,17 +100,17 @@
       {#if kind === 'link' && linksOff}
         <!-- F239: the green "your server visits this page" is true only while the switch is on. -->
         <span class="chip"
-          ><Icon name="link" size={18} stroke={2.2} />Importing from links is switched off</span
+          ><Icon name="link" size={18} stroke={2} />Importing from links is switched off</span
         >
       {:else if kind === 'link'}
         <span class="chip good"
-          ><Icon name="link" size={18} stroke={2.2} />{#if several}{linksHeading(
+          ><Icon name="link" size={18} stroke={2} />{#if several}{linksHeading(
               flow.linkCount
             )}{:else}A link · your server visits this page once{/if}</span
         >
       {:else if kind === 'text'}
         <span class="chip"
-          ><Icon name="note" size={18} stroke={2.2} />Pasted text · nothing goes online</span
+          ><Icon name="note" size={18} stroke={2} />Pasted text · nothing goes online</span
         >
       {/if}
     </p>

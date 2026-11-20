@@ -76,7 +76,7 @@
       title={toggleName}
       onclick={() => (settingsCurrent ? (unfolded = !unfolded) : sidebar.toggle())}
     >
-      <Icon name={collapsed ? 'expand' : 'collapse'} size={18} stroke={2.2} />
+      <Icon name={collapsed ? 'expand' : 'collapse'} size={18} stroke={2} />
     </button>
   </div>
 
@@ -99,7 +99,7 @@
           aria-label={collapsed ? item.label : undefined}
           title={collapsed ? item.label : undefined}
         >
-          <Icon name={item.icon} size={collapsed ? 22 : 20} />
+          <Icon name={item.icon} size={collapsed ? 24 : 20} />
           {#if !collapsed}<span class="label">{item.label}</span>{/if}
           {#if tree}<Icon name="chevron-down" size={16} stroke={2.4} />{/if}
         </a>
@@ -114,7 +114,7 @@
           aria-label={collapsed ? `${BATCH_COOK.label}, Experimental` : undefined}
           title={collapsed ? `${BATCH_COOK.label} (Experimental)` : undefined}
         >
-          <Icon name={BATCH_COOK.icon} size={collapsed ? 22 : 20} />
+          <Icon name={BATCH_COOK.icon} size={collapsed ? 24 : 20} />
           {#if !collapsed}
             <span class="label">{BATCH_COOK.label}</span>
             <span class="flask" title="Experimental"
@@ -134,7 +134,7 @@
           aria-label={collapsed ? INGREDIENTS.label : undefined}
           title={collapsed ? INGREDIENTS.label : undefined}
         >
-          <Icon name={INGREDIENTS.icon} size={collapsed ? 22 : 20} />
+          <Icon name={INGREDIENTS.icon} size={collapsed ? 24 : 20} />
           {#if !collapsed}<span class="label">{INGREDIENTS.label}</span>{/if}
         </a>
       {/if}

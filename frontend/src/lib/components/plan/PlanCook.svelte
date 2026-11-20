@@ -136,7 +136,7 @@
         {#each cook.entries as entry (entry.key)}
           <div class="entry" class:batch={entry.batch !== null}>
             <div class="top">
-              <span class="icon" aria-hidden="true"><Icon name="pan" size={18} stroke={2.2} /></span
+              <span class="icon" aria-hidden="true"><Icon name="pan" size={18} stroke={2} /></span
               >
               <span class="what">
                 <span class="tag">{entry.batch ? 'Cook · Batch' : 'Fresh'} · {entry.slotName}</span>

@@ -283,7 +283,7 @@
         </div>
       {:else if review.photo.state !== 'none'}
         <div class="photo none" role="img" aria-label="No photo">
-          <Icon name="photo" size={phone ? 24 : 28} stroke={2} />
+          <Icon name="photo" size={24} stroke={2} />
         </div>
       {/if}
       <div class="fields">
