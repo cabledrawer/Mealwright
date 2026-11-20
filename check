@@ -943,7 +943,7 @@ targeted_run() {
   # The test servers run the backend with `uv run`: without this, a copy with no backend/.venv
   # built it inside Playwright's server start-up, unseen and untimed (~2 min of a 1-test run).
   # On a copy that has it, this takes about a second.
-  step "backend: sync" backend uv sync --frozen
+  step "backend: sync" backend uv sync --locked
   frontend_install
   rm -rf "$ROOT/frontend/build"
   step "frontend: build"         sh -c 'cd frontend && npm run -s build'
@@ -1109,7 +1109,7 @@ if need uv; then
   if ((FAST)) && [[ -d "$ROOT/backend/.venv" ]]; then
     skip "backend: sync" "fast run"
   else
-    step "backend: sync"         backend uv sync --frozen
+    step "backend: sync"         backend uv sync --locked
   fi
   step "backend: ruff format"    backend uv run --frozen ruff format --check .
   step "backend: ruff lint"      backend uv run --frozen ruff check .

@@ -11,7 +11,7 @@ Linux (WSL on Windows works), Git, Docker, Python 3.14 with [uv](https://docs.as
 Install the libraries from the lock files (never edit the lock files by hand):
 
 ```bash
-cd backend && uv sync --frozen        # Python libraries into backend/.venv
+cd backend && uv sync --locked        # Python libraries into backend/.venv
 cd ../frontend && npm ci              # web app libraries
 ```
 
