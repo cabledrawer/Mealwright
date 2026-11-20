@@ -200,7 +200,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
-    max-width: 640px;
+    max-width: var(--settings-width);
   }
 
   .intro {

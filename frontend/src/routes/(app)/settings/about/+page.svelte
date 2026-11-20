@@ -63,7 +63,11 @@
   const privacyHref = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
 </script>
 
-<PageHeader title="About" parent={{ href: '/(app)/settings', label: 'Settings' }} />
+<PageHeader
+  title="About"
+  overline="Mealwright"
+  parent={{ href: '/(app)/settings', label: 'Settings' }}
+/>
 
 <div class="page">
   {#if newVersion.ready}
@@ -195,7 +199,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
-    max-width: 640px;
+    max-width: var(--settings-width);
   }
 
   .ready,

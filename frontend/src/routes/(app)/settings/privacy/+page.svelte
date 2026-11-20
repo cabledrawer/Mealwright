@@ -132,7 +132,7 @@
   }
 
   .problem {
-    max-width: 640px;
+    max-width: var(--settings-width);
     padding: var(--space-5) 14px;
     border-radius: var(--radius-field);
     background: var(--color-warning);
