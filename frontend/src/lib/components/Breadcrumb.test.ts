@@ -19,5 +19,8 @@ describe('Breadcrumb', () => {
     expect(document.body.querySelectorAll('a[href="/recipes"]').length).toBe(2);
     expect(document.body.querySelector('[aria-current="page"]')?.textContent).toBe('Sambar');
     expect(document.body.querySelector('nav')?.getAttribute('aria-label')).toBe('Breadcrumb');
+    // The separator is the Icon chevron, not a typed ›.
+    expect(document.body.querySelector('.sep svg')).not.toBeNull();
+    expect(document.body.querySelector('.sep')?.textContent?.trim()).toBe('');
   });
 });

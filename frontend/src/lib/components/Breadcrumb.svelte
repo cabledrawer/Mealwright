@@ -13,7 +13,7 @@
   <nav class="crumbs" aria-label="Breadcrumb">
     <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- as above -->
     <a {href}>{label}</a>
-    <span class="sep" aria-hidden="true">›</span>
+    <span class="sep" aria-hidden="true"><Icon name="chevron-right" size={14} stroke={2.4} /></span>
     <span class="here" aria-current="page">{current}</span>
   </nav>
 </div>
@@ -46,6 +46,10 @@
 
   .crumbs a {
     text-decoration: none;
+  }
+
+  .sep {
+    display: flex;
   }
 
   .sep,
