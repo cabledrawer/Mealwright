@@ -202,10 +202,11 @@ test('give a login: the sign-in link opens "Choose a password", which then lets 
     await expect(them.getByRole('alert')).toHaveText('Use at least 12 characters.');
     await them.getByLabel('Password', { exact: true }).fill(PASSWORD);
     await them.getByRole('button', { name: 'Save my password' }).click();
-    await expect(them.getByRole('heading', { level: 1, name: 'You’re all set' })).toBeVisible();
-    await expect(them.getByText(`Your password is saved. Sign in as ${username}.`)).toBeVisible();
-    await them.getByRole('link', { name: 'Sign in' }).click();
-    await signIn(them, username);
+    // Signed in straight away, in the app (F254, cabledrawer 20 Nov).
+    await expect(them).toHaveURL('/');
+    const me = await them.request.get('/api/v1/me');
+    expect(me.status()).toBe(200);
+    expect((await me.json()).username).toBe(username);
     // The link works once.
     const again = await theirs.newPage();
     await theirs.clearCookies();
@@ -258,8 +259,10 @@ test('Reset password: a one-time link where they choose a new password; the Pers
     await checkPage(them);
     await them.getByLabel('Password', { exact: true }).fill(NEW_PASSWORD);
     await them.getByRole('button', { name: 'Save my password' }).click();
-    await expect(them.getByText(`Your password is saved. Sign in as ${username}.`)).toBeVisible();
-    // The new password signs in; the old one doesn't.
+    // Signed in straight away (F254); then signed out, the new password signs in and the old
+    // one doesn't.
+    await expect(them).toHaveURL('/');
+    expect((await them.request.delete('/api/v1/session')).status()).toBe(204);
     const old = await them.request.post('/api/v1/session', {
       data: { username, password: PASSWORD, remember: false },
     });

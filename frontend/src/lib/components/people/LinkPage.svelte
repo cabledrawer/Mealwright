@@ -2,15 +2,18 @@
   import Loading from '#lib/components/Loading.svelte';
   // A one-time sign-in link (0.9 A1, cabledrawer 12 Nov): an admin gives someone a login in
   // Settings › People, and sends them this link. Here they choose their own password; the
-  // link then stops working, and they sign in like anyone else (so the sign-in page's checks
-  // for changes waiting on this device apply to them too). Works once, for 24 hours.
+  // link then stops working, and they are signed in on this device straight away (F254,
+  // cabledrawer 20 Nov). The sign-in page's checks for changes waiting on this device still
+  // apply: when another login's changes wait here, this session ends again and they sign in on
+  // the sign-in page, which warns them. Works once, for 24 hours.
   // Link hardening (cabledrawer 13 Nov): the secret follows a `#` and is taken from the address
   // before anything else; nobody is named before the password is set, the username only after.
   // A Reset password link ("/reset#<secret>", Pe1) is the same page: the server says which kind.
   // Opened where someone is already signed in (Pe2, cabledrawer 13 Nov), it simply refuses: no
   // names, no sign-out, and the link stays unused (the server refuses too).
+  import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { ApiError, cantReach, SOMETHING_WENT_WRONG } from '#lib/api.js';
+  import { ApiError, cantReach, SOMETHING_WENT_WRONG, type Me } from '#lib/api.js';
   import Button from '#lib/components/Button.svelte';
   import ConnectionNotice from '#lib/components/ConnectionNotice.svelte';
   import Icon from '#lib/components/Icon.svelte';
@@ -18,7 +21,12 @@
   import { getJoinLink, join, type JoinLink } from '#lib/client/people.js';
   import { cantReachWords } from '#lib/api.js';
   import { takeLinkSecret } from '#lib/linkSecret.js';
-  import { connection } from '#lib/session.svelte.js';
+  import { turnAway } from '#lib/offline/held.js';
+  import { endSession } from '#lib/offline/signOut.js';
+  import { signOutState } from '#lib/offline/unfinished.svelte.js';
+  import { wipeIfAnotherLogin } from '#lib/offline/wipe.js';
+  import { connection, session } from '#lib/session.svelte.js';
+  import { theme } from '#lib/theme.svelte.js';
 
   let {
     plainHttpAllowed,
@@ -91,6 +99,25 @@
     void look();
   });
 
+  /**
+   * The link signed them in (F254): into the app, as the sign-in page does, unless another
+   * login's changes wait on this device or it couldn't check. Then the session ends again and
+   * the sign-in page, named for them, gives its warning. True once they are in the app.
+   */
+  async function signedInNow(me: Me, name: string): Promise<boolean> {
+    const result = await wipeIfAnotherLogin(me, null);
+    if (result !== 'kept' && result !== 'wiped') {
+      await endSession();
+      turnAway(name);
+      return false;
+    }
+    signOutState.unfinished = false;
+    session.me = me;
+    theme.adopt(me.theme, undefined, me.id);
+    await goto(resolve('/(app)'), { replace: true, refreshAll: true });
+    return true;
+  }
+
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     if (busy || !link) return;
@@ -101,8 +128,10 @@
     }
     busy = true;
     try {
-      username = (await join(token, password)).username;
+      const joined = await join(token, password);
       password = '';
+      if (joined.me && (await signedInNow(joined.me, joined.username))) return;
+      username = joined.username;
     } catch (error) {
       if (signedInHere(error)) return;
       problem = cantReach(error)

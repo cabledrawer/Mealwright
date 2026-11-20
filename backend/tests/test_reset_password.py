@@ -69,10 +69,11 @@ def test_an_admin_resets_a_password_and_the_person_chooses_a_new_one(kitchen: Te
     page = ok(_look(_fresh(kitchen), token))
     assert page["kind"] == "reset" and set(page) == {"kind", "expires_at", "min_password"}
     done = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": NEW})
-    assert done.status_code == 200 and done.json() == {"username": "lorna"}, done.text
-    with db(kitchen) as session:  # no sign-in of hers is left anywhere
+    assert done.status_code == 200 and done.json()["username"] == "lorna", done.text
+    assert done.json()["me"]["username"] == "lorna"  # signed in here (F254)
+    with db(kitchen) as session:  # no other sign-in of hers is left anywhere
         login = session.scalars(select(Login).where(Login.username == "lorna")).one()
-        assert session.scalars(select(Session).where(Session.login_id == login.id)).all() == []
+        assert len(session.scalars(select(Session).where(Session.login_id == login.id)).all()) == 1
     assert _signs_in(kitchen, NEW) and not _signs_in(kitchen, FIRST)
     # The link works once.
     _problem(_look(_fresh(kitchen), token), 404, "link_gone")

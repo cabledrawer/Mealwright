@@ -429,9 +429,10 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
     assert short.status_code == 422
     joined = sams.post(f"{API}/join", json={"token": token, "password": "sam's own password"})
     # Only now is the username given, to sign in with.
-    assert joined.status_code == 200 and joined.json() == {"username": "sam"}, joined.text
-    # Joining sets the password only: they sign in on the sign-in page like anyone else.
-    assert sams.get(f"{API}/me").status_code == 401
+    assert joined.status_code == 200 and joined.json()["username"] == "sam", joined.text
+    # Joining signs them in straight away on this device (F254, cabledrawer 20 Nov).
+    assert joined.json()["me"]["username"] == "sam"
+    assert ok(sams.get(f"{API}/me"))["username"] == "sam"
     # The link works once.
     _problem(_look(_fresh(kitchen), token), 404, "link_gone")
     again = _fresh(kitchen).post(
@@ -829,11 +830,11 @@ def test_removing_a_person_ends_their_open_event_streams(
                 .where(Login.username == "sam")
             )
         )
-    assert len(ids) == 1
+    assert len(ids) == 2  # the link's own sign-in (F254) and this one
     ended: list[int] = []
     monkeypatch.setattr(kitchen.app.state.events, "end_session", ended.append)  # type: ignore[attr-defined]
     ok(kitchen.delete(f"{API}/people/{sam}"))
-    assert ended == ids
+    assert sorted(ended) == sorted(ids)
 
 
 def test_a_link_opened_where_someone_is_signed_in_is_refused_and_stays_unused(

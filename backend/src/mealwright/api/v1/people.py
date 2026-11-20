@@ -15,7 +15,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm.exc import StaleDataError
 
 from mealwright import api_tokens, people, sso_people
-from mealwright.api.v1.account import USERNAME
+from mealwright.api.v1.account import USERNAME, Me, _device, _me
 from mealwright.api.v1.context import Here, acting_member
 from mealwright.api.v1.schemas import ChangeOut
 from mealwright.auth import (
@@ -24,21 +24,36 @@ from mealwright.auth import (
     CurrentSession,
     Db,
     SameOrigin,
+    Tries,
+    address_key,
     client_address,
+    counted_check,
     hash_password,
     needs_https,
     peek_session,
+    remember_device,
     session_token,
+    start_session,
 )
 from mealwright.errors import USERNAME_RULE, Problem, StoredInt, not_found
 from mealwright.foods import change_out
 from mealwright.history import commit, replayed
 from mealwright.kitchen_changes import key_kept
-from mealwright.models import Change, JoinLink, Login, Member, Session, as_utc, utcnow
+from mealwright.models import (
+    Change,
+    Household,
+    JoinLink,
+    Login,
+    Member,
+    Session,
+    as_utc,
+    utcnow,
+)
 from mealwright.moment import Moment
 from mealwright.names import one_line
 from mealwright.roles import ADMIN, Action
 from mealwright.shopping import lock_db
+from mealwright.sso_accounts import password_sign_in_on
 
 log = logging.getLogger("mealwright.sign_in")
 
@@ -565,9 +580,24 @@ def _nobody_signed_in(request: Request, db: Db) -> None:
         raise Problem(status.HTTP_409_CONFLICT, "signed_in_here", SIGNED_IN_HERE)
 
 
-def _link(db: Db, token: str) -> tuple[JoinLink, Login, Member]:
-    found = people.find_link(db, token) if len(token) <= 100 else None
-    if found is None:
+def _link(request: Request, db: Db, token: str) -> tuple[JoinLink, Login, Member]:
+    """The link this secret opens. A wrong secret is counted against the address like a wrong
+    password, and paused the same way (F254: a link now signs in, so it is guessed at like a
+    password; proposed, for cabledrawer). A right one takes its try back."""
+    found: tuple[JoinLink, Login, Member] | None = None
+
+    def right() -> bool:
+        nonlocal found
+        found = people.find_link(db, token) if len(token) <= 100 else None
+        return found is not None
+
+    address = client_address(request)
+    tries = Tries(address=address_key(address))
+
+    def wrong() -> None:
+        log.warning("Sign-in link refused from %s", address)  # never the secret
+
+    if not counted_check(request.app.state.slow_down, tries, right, wrong) or found is None:
         raise _link_gone()
     return found
 
@@ -579,7 +609,7 @@ def join_link(body: LinkSecretIn, request: Request, db: Db) -> JoinOut:
     is signed in."""
     # No names before the password is set: cabledrawer 13 Nov.
     _nobody_signed_in(request, db)
-    link, _login, _member = _link(db, body.token)
+    link, _login, _member = _link(request, db, body.token)
     return JoinOut(
         kind="reset" if link.kind == people.RESET else "join",
         expires_at=as_utc(link.expires_at),
@@ -594,34 +624,54 @@ class JoinIn(LinkSecretIn):
 class JoinDone(BaseModel):
     # The username to sign in with: named only now the password is set (cabledrawer 13 Nov).
     username: str
+    # F254 (cabledrawer 20 Nov): signed in straight away, on this device. Null when password
+    # sign-in is off for single sign-on: the password is saved, and nobody is signed in.
+    me: Me | None
+
+
+def _sign_in_here(request: Request, response: Response, db: Db, login: Login) -> bool:
+    """F254: the session a link's redemption makes, in the commit that spends the link. Not while
+    password sign-in is off, and never for a removed person (asked under the household's write
+    lock, as a sign-in does). A new session with a new secret: never one the request carried."""
+    settings = request.app.state.settings
+    if not password_sign_in_on(db, settings.data_dir):
+        return False
+    lock_db(db, db.get_one(Household, login.household_id))
+    if people.removed(db, login):
+        return False
+    start_session(db, response, settings, login, remember=False, device=_device(request))
+    remember_device(request, response, settings, login)
+    return True
 
 
 @router.post("/join")
-def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
-    """Choose a password with a sign-in or Reset password link. The link works once. Refused
-    where someone is signed in."""
-    # The person then signs in on the sign-in page like anyone else, so a phone holding
-    # someone else's waiting changes warns first there (cabledrawer 12 Nov).
-    needs_https(request, request.app.state.settings)
+def join(body: JoinIn, request: Request, response: Response, db: Db) -> JoinDone:
+    """Choose a password with a sign-in or Reset password link, and be signed in on this device.
+    The link works once. Refused where someone is signed in."""
+    # The session is made by this one redemption of the link, in the same commit that spends
+    # it: a link that is gone, cancelled meanwhile or claimed by another request makes none.
+    # Every other sign-in of the login ends first, as a reset always did. A phone holding
+    # someone else's waiting changes is checked by the page, which signs out again and sends
+    # the person to the sign-in page's warning (cabledrawer 12 Nov).
+    settings = request.app.state.settings
+    needs_https(request, settings)
     _nobody_signed_in(request, db)
-    link, login, _member = _link(db, body.token)
+    link, login, _member = _link(request, db, body.token)
     link_id = link.id
     # Claim the link first, so of two requests at once only one sets a password.
     if not people.claim_link(db, link):
         raise _link_gone()
     ended: list[int] = []
+    signed_in = False
     try:
         login.password_hash = hash_password(body.password)
         login.link_used_at = utcnow()
         if link.kind == people.RESET:
             # Like a password changed in Settings: the Person page's "Set" date, and the
-            # username's pause doesn't keep them out of it. And like reset-admin, the login is
-            # signed out everywhere and its API tokens stop (proposed, for cabledrawer): someone who
-            # used a link meant for this person loses the login when they reset again.
+            # username's pause doesn't keep them out of it. And like reset-admin, its API tokens
+            # stop (proposed, for cabledrawer): someone who used a link meant for this person
+            # loses the login when they reset again.
             login.password_changed_at = login.link_used_at
-            # Their open live-update streams end too, as when a person is removed (S-L3).
-            ended = list(db.scalars(select(Session.id).where(Session.login_id == login.id)))
-            db.execute(delete(Session).where(Session.login_id == login.id))
             api_tokens.stop_for(db, login.id)
         # The hash is slow: the link may have been cancelled meanwhile (a new link, a password
         # change, an admin made a member...). Checked again after the writes, which hold the
@@ -638,6 +688,13 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
         if still is None:
             db.rollback()
         else:
+            # The login is signed out everywhere, as a reset always was (and now a first
+            # password too, F254; proposed, for cabledrawer). Their open live-update streams end
+            # too, as when a person is removed (S-L3). After the flush, so a login gone
+            # meanwhile is found there first.
+            ended = list(db.scalars(select(Session.id).where(Session.login_id == login.id)))
+            db.execute(delete(Session).where(Session.login_id == login.id))
+            signed_in = _sign_in_here(request, response, db, login)
             db.commit()
     except Exception:
         people.give_back_link(db, link)
@@ -651,5 +708,9 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
         if link.kind == people.RESET
         else "Joined with a sign-in link"
     )
-    log.info("%s: %s from %s", how, login.username, client_address(request))
-    return JoinDone(username=login.username)
+    address = client_address(request)
+    log.info("%s: %s from %s", how, login.username, address)
+    if not signed_in:
+        return JoinDone(username=login.username, me=None)
+    log.info("Signed in: %s from %s", login.username, address)
+    return JoinDone(username=login.username, me=_me(login))

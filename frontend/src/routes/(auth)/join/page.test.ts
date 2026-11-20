@@ -1,17 +1,26 @@
-// A one-time sign-in link (0.9 A1): the person chooses their password, then signs in as anyone
-// else; a used or run-out link says so. Link hardening (cabledrawer 13 Nov): the secret is after a
+// A one-time sign-in link (0.9 A1): the person chooses their password and is signed in straight
+// away (F254, cabledrawer 20 Nov); a used or run-out link says so. Link hardening (cabledrawer 13 Nov): the secret is after a
 // `#`, taken out of the address bar first, and posted in the body; nobody is named before the
 // password is set, the username only after.
 
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
+import { goto } from '$app/navigation';
+import type { Me } from '#lib/api.js';
+import { takeTurnedAway, type Held } from '#lib/offline/held.js';
+import { wipeIfAnotherLogin } from '#lib/offline/wipe.js';
+import { session } from '#lib/session.svelte.js';
 import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
 import Join from './+page.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), beforeNavigate: vi.fn() }));
+vi.mock('#lib/offline/wipe.js', async (real) => ({
+  ...(await real<typeof import('#lib/offline/wipe.js')>()),
+  wipeIfAnotherLogin: vi.fn()
+}));
 
 const LINK = { kind: 'join', expires_at: '2026-11-12T10:00:00Z', min_password: 12 };
 const SECRET = 'Xp4secret-token_9';
@@ -43,10 +52,14 @@ describe('Join with a sign-in link', () => {
     document.body.innerHTML = '';
     history.replaceState(history.state, '', before);
     vi.unstubAllGlobals();
+    vi.mocked(goto).mockReset();
+    vi.mocked(wipeIfAnotherLogin).mockReset();
+    session.me = null;
+    takeTurnedAway();
   });
 
   it('takes the secret out of the address bar and sends it only in the body', async () => {
-    open({ 'POST /join': [200, { username: 'sam' }] });
+    open({ 'POST /join': [200, { username: 'sam', me: null }] });
     expect(location.href).not.toContain(SECRET);
     await expect.element(page.getByRole('heading', { name: 'Welcome' })).toBeVisible();
     expect(requests).toHaveLength(1);
@@ -56,7 +69,7 @@ describe('Join with a sign-in link', () => {
   });
 
   it('names nobody before the password is set, and saves one of 12 characters or more', async () => {
-    open({ 'POST /join': [200, { username: 'sam' }] });
+    open({ 'POST /join': [200, { username: 'sam', me: null }] });
     await expect.element(page.getByRole('heading', { name: 'Welcome' })).toBeVisible();
     expect(document.body.textContent).not.toContain('Username');
     expect(document.body.textContent).not.toContain('sam');
@@ -74,6 +87,40 @@ describe('Join with a sign-in link', () => {
     await expect
       .element(page.getByRole('link', { name: 'Sign in' }))
       .toHaveAttribute('href', '/sign-in');
+  });
+
+  const SAM: Me = { id: 7, username: 'sam', name: 'Sam', role: 'member', theme: 'auto' };
+
+  it('F254: saving the password signs them in and goes to Today', async () => {
+    vi.mocked(wipeIfAnotherLogin).mockResolvedValue('kept');
+    open({ 'POST /join': [200, { username: 'sam', me: SAM }] });
+    await page.getByLabelText('Password').fill('a long kitchen password');
+    await page.getByRole('button', { name: 'Save my password' }).click();
+    await vi.waitFor(() =>
+      expect(goto).toHaveBeenCalledWith('/', { replace: true, refreshAll: true })
+    );
+    expect(wipeIfAnotherLogin).toHaveBeenCalledWith(SAM, null);
+    expect(session.me).toEqual(SAM);
+    // Nothing else asked of the server: the link's answer is the sign-in.
+    expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /join/look', 'POST /join']);
+  });
+
+  it("F254: with another login's changes waiting here, signs out again and sends them to sign in", async () => {
+    const alexs: Held = {
+      who: { id: 3, username: 'alex', name: 'Alex', role: 'member' },
+      count: 2,
+      ids: ['a', 'b']
+    };
+    vi.mocked(wipeIfAnotherLogin).mockResolvedValue(alexs);
+    open({ 'POST /join': [200, { username: 'sam', me: SAM }], 'DELETE /session': [204, null] });
+    await page.getByLabelText('Password').fill('a long kitchen password');
+    await page.getByRole('button', { name: 'Save my password' }).click();
+    await expect.element(page.getByRole('heading', { name: 'You’re all set' })).toBeVisible();
+    expect(requests.some((r) => r.method === 'DELETE' && r.path === '/session')).toBe(true);
+    expect(goto).not.toHaveBeenCalled();
+    expect(session.me).toBeNull();
+    // The sign-in page is filled in for them, so its warning names them.
+    expect(takeTurnedAway()).toBe('sam');
   });
 
   it('says so when the link has been used or has run out', async () => {

@@ -2,7 +2,7 @@
 // colours and portions, who signs in, and "Who's this?" on a shared login. Everyone can look;
 // only an admin can change anything.
 
-import { api } from '#lib/api.js';
+import { api, type Me } from '#lib/api.js';
 import type { Change } from './types';
 
 export const COLOURS = ['amber', 'green', 'violet', 'blue', 'peach'] as const;
@@ -106,9 +106,11 @@ export interface JoinLink {
   min_password: number;
 }
 
-/** After the password is set: the username to sign in with. */
+/** After the password is set: the username, and the sign-in this device now has (F254,
+ *  cabledrawer 20 Nov), or null when password sign-in is off for single sign-on. */
 export interface Joined {
   username: string;
+  me: Me | null;
 }
 
 export const getPeople = () => api<People>('GET', '/people');
