@@ -20,10 +20,11 @@ export interface PlanCard {
 }
 
 /** Bring the main list up to date with the plan and the pantry; give back the card. */
-export const fromPlan = () => api<PlanCard>('POST', '/shopping/from-plan');
-export const gotIt = (foodId: number) => api<PlanCard>('PUT', `/shopping/staples/${foodId}/got-it`);
+export const fromPlan = () => api<PlanCard>('POST', '/shopping/add-from-plan');
+export const gotIt = (foodId: number) =>
+  api<PlanCard>('PATCH', `/shopping/staples/${foodId}`, { got_it: true });
 export const notGotIt = (foodId: number) =>
-  api<PlanCard>('DELETE', `/shopping/staples/${foodId}/got-it`);
+  api<PlanCard>('PATCH', `/shopping/staples/${foodId}`, { got_it: false });
 
 /** "Sambar", "Sambar and Dosa", "Sambar, Dosa and Upma", "Sambar, Dosa and 2 more". */
 export function usedIn(names: string[]): string {

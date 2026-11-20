@@ -47,7 +47,7 @@ def eaten_today(client: TestClient, in_stock: int = 800) -> tuple[dict[str, Any]
 
 def answer_cooked(client: TestClient, meal_id: int, tubs: int = 0) -> dict[str, Any]:
     body: dict[str, Any] = {"leftovers": {"count": tubs}} if tubs else {}
-    result: dict[str, Any] = ok(client.post(f"{API}/plan/meals/{meal_id}/cooked", json=body))
+    result: dict[str, Any] = ok(client.post(f"{API}/plan/meals/{meal_id}/mark-cooked", json=body))
     return result
 
 

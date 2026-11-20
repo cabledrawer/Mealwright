@@ -1013,7 +1013,12 @@ test('Cooked it follows the way picked in Cook mode, even when the pick could no
   };
   try {
     // The pick is made while the save fails: the meal still says Stovetop.
-    await page.route('**/api/v1/plan/items/*/method', (route) => route.abort('connectionfailed'));
+    await page.route('**/api/v1/plan/items/*', (route) =>
+      // Only the change of way (a PATCH with `method_id`, D3) fails; anything else goes through.
+      route.request().method() === 'PATCH' && 'method_id' in (route.request().postDataJSON() ?? {})
+        ? route.abort('connectionfailed')
+        : route.continue()
+    );
     await page.goto('/plan');
     await page.getByRole('button', { name: 'Next week' }).click();
     await page.getByRole('group', { name: 'Show', exact: true }).getByRole('button', { name: 'Cook', exact: true }).click();
@@ -1024,7 +1029,7 @@ test('Cooked it follows the way picked in Cook mode, even when the pick could no
     await expect(text(page)).toContainText('Pressure cook.');
     expect(await methodNow()).toBe('Stovetop');
     // Cooked it sets it again before it opens.
-    await page.unroute('**/api/v1/plan/items/*/method');
+    await page.unroute('**/api/v1/plan/items/*');
     await lastStep(page);
     await page.getByRole('button', { name: 'Cooked it' }).click();
     await expect(page.getByRole('dialog', { name: `Cooked ${name}`, exact: true })).toBeVisible();

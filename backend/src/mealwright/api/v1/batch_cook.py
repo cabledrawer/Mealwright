@@ -10,7 +10,7 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Path, Query, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 
 from mealwright import batch_mode, batch_sessions, batch_suggest, cooking, deduction, plan, today
 from mealwright.api.v1.batches import BatchIn, BatchPreviewOut, preview_out, spots_of
@@ -544,46 +544,44 @@ class MarkIn(BaseModel):
     )
 
 
-@router.put("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/done")
-def mark_task_done(
+class TaskPatch(MarkIn):
+    """D3 (BE14): one way to set one thing, a PATCH on it (was `PUT` and `DELETE`
+    `.../tasks/{task_id}/done`)."""
+
+    done: StrictBool = Field(
+        description="true: the task is done (done already: it stays as it was; `at` is when it"
+        ' was pressed). false: "done" is taken back, the task is as if untouched and a timer it'
+        " had is cleared (`at` is not used)."
+    )
+
+
+@router.patch("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}")
+def edit_task(
     session_id: StoredInt,
     task_id: TaskId,
+    body: TaskPatch,
     kitchen: Here,
-    body: MarkIn | None = None,
     brief: BriefQuery = False,
 ) -> ScheduleOut | ScheduleProgressOut:
-    """Mark a task done (done already: it stays as it was). Every open screen of the household
-    hears `batch_cook` and asks again. The optional body's `at` is when it was pressed."""
+    """Mark a task done, or take that back. Every open screen of the household hears
+    `batch_cook` and asks again."""
+    if not body.done:
+        return _progress_write(
+            kitchen,
+            session_id,
+            lambda s: batch_mode.undo_done(kitchen, s, task_id, body.made_at),
+            brief,
+        )
     now = utcnow()
-    at = body.at if body else None
     return _progress_write(
         kitchen,
         session_id,
-        lambda s: batch_mode.mark_done(
-            kitchen, s, task_id, now, at, body.made_at if body else None
-        ),
+        lambda s: batch_mode.mark_done(kitchen, s, task_id, now, body.at, body.made_at),
         brief,
     )
 
 
-@router.delete("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/done")
-def undo_task_done(
-    session_id: StoredInt,
-    task_id: TaskId,
-    kitchen: Here,
-    made_at: Annotated[
-        datetime | None,
-        Query(description="The `made_at` of the schedule the phone holds (see `MarkIn`)."),
-    ] = None,
-    brief: BriefQuery = False,
-) -> ScheduleOut | ScheduleProgressOut:
-    """Take "done" back: the task is as if untouched, and a timer it had is cleared."""
-    return _progress_write(
-        kitchen, session_id, lambda s: batch_mode.undo_done(kitchen, s, task_id, made_at), brief
-    )
-
-
-@router.put("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/timer")
+@router.post("/batch-cook/sessions/{session_id}/schedule/tasks/{task_id}/start-timer")
 def start_task_timer(
     session_id: StoredInt,
     task_id: TaskId,

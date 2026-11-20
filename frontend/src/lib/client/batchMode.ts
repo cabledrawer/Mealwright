@@ -90,17 +90,21 @@ export const getSchedule = (id: number) => api<Schedule>('GET', base(id));
 const marked = (at?: string, madeAt?: string) =>
   at || madeAt ? { ...(at ? { at } : {}), ...(madeAt ? { made_at: madeAt } : {}) } : undefined;
 
+/** Mark a task done, or take that back: a PATCH on the task (D3). */
 export const markTaskDone = (id: number, task: string, at?: string, madeAt?: string) =>
-  api<Progress>('PUT', `${base(id)}/tasks/${task}/done?brief=true`, marked(at, madeAt));
+  api<Progress>('PATCH', `${base(id)}/tasks/${task}?brief=true`, {
+    done: true,
+    ...marked(at, madeAt)
+  });
 
 export const undoTaskDone = (id: number, task: string, madeAt?: string) =>
-  api<Progress>(
-    'DELETE',
-    `${base(id)}/tasks/${task}/done?brief=true${madeAt ? `&made_at=${encodeURIComponent(madeAt)}` : ''}`
-  );
+  api<Progress>('PATCH', `${base(id)}/tasks/${task}?brief=true`, {
+    done: false,
+    ...marked(undefined, madeAt)
+  });
 
 export const startTaskTimer = (id: number, task: string, at?: string, madeAt?: string) =>
-  api<Progress>('PUT', `${base(id)}/tasks/${task}/timer?brief=true`, marked(at, madeAt));
+  api<Progress>('POST', `${base(id)}/tasks/${task}/start-timer?brief=true`, marked(at, madeAt));
 
 export interface SessionProposal {
   session_id: number;

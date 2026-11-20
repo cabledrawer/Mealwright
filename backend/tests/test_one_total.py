@@ -51,7 +51,7 @@ def test_running_low_looks_at_the_total_in_every_place(kitchen: TestClient) -> N
     # 200 g in each is under 300 g in either place, but 400 g together is not low.
     assert [g["running_low"] for g in _groups(kitchen, "Spread dal")] == [False, False]
     lot = _groups(kitchen, "Spread dal")[0]["lots"][0]
-    kitchen.post(f"{API}/stock/{lot['id']}/left", json={"amount": {"amount": 50, "unit": "g"}})
+    kitchen.post(f"{API}/stock/{lot['id']}/set-left", json={"amount": {"amount": 50, "unit": "g"}})
     assert [g["running_low"] for g in _groups(kitchen, "Spread dal")] == [True, True]
     assert group(kitchen, "Spread dal")["running_low"] is True
 

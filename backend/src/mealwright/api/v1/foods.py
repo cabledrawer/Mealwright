@@ -1295,7 +1295,7 @@ class NotSame(BaseModel):
     food_id: StoredInt
 
 
-@router.post("/foods/{food_id}/not-the-same", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/foods/{food_id}/mark-not-same", status_code=status.HTTP_204_NO_CONTENT)
 def not_the_same(food_id: StoredInt, body: NotSame, kitchen: Here) -> None:
     """Never suggest these two as "Maybe the same" again. Quiet: no Undo."""
     food = find(kitchen, food_id)

@@ -281,7 +281,7 @@ def test_a_meal_with_a_batch_is_refused_and_a_retry_takes_once(kitchen: TestClie
 
 
 def used_by_hand(client: TestClient, food_id: int, grams: int) -> None:
-    ok(client.post(f"{API}/foods/{food_id}/used", json={"amount": {"amount": grams, "unit": "g"}}))
+    ok(client.post(f"{API}/foods/{food_id}/use", json={"amount": {"amount": grams, "unit": "g"}}))
 
 
 def test_undo_puts_back_what_was_taken_even_after_a_newer_use(kitchen: TestClient) -> None:
@@ -382,11 +382,7 @@ def test_the_pantry_takes_the_opened_packet_first_among_equal_use_by_dates(
         lots[1].amount_milli = 300_000
         opened = lots[1].id
         db.commit()
-    ok(
-        kitchen.post(
-            f"{API}/foods/{rice['id']}/used", json={"amount": {"amount": 100, "unit": "g"}}
-        )
-    )
+    ok(kitchen.post(f"{API}/foods/{rice['id']}/use", json={"amount": {"amount": 100, "unit": "g"}}))
     with db_of(kitchen) as db:
         assert db.get(StockLot, opened).amount_milli == 200_000  # type: ignore[union-attr]
         from mealwright.api.v1.context import Kitchen

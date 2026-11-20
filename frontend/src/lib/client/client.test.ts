@@ -141,7 +141,7 @@ describe('first run: time zone and cup size', () => {
     const calls = fakeServer([200, {}]);
     expect(await settleHousehold(admin, device)).toBe(true);
     expect(calls[0]).toMatchObject({
-      url: '/api/v1/household/from-browser',
+      url: '/api/v1/household/fill-from-browser',
       method: 'POST',
       body: { time_zone: 'Europe/London', cup_ml: 250 }
     });

@@ -443,7 +443,7 @@ def test_empty_packets_kept_for_undo_do_not_count_and_do_not_block(kitchen: Test
     stock(kitchen, rice["id"], cupboard, 100)
     with db(kitchen) as session:
         lot_id = session.scalars(select(StockLot.id)).one()
-    ok(kitchen.post(f"{API}/stock/{lot_id}/used"))
+    ok(kitchen.post(f"{API}/stock/{lot_id}/use"))
     ok(kitchen.delete(f"{API}/places/{cupboard}"))
     with db(kitchen) as session:
         lots = list(session.scalars(select(StockLot)))

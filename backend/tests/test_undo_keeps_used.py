@@ -71,7 +71,7 @@ def use_pantry(kitchen: TestClient, food: dict[str, Any]) -> None:
 
 def use_staple(kitchen: TestClient, food: dict[str, Any]) -> None:
     ok(kitchen.patch(f"{API}/foods/{food['id']}", json={"staple": True}))
-    ok(kitchen.put(f"{API}/shopping/staples/{food['id']}/got-it"))
+    ok(kitchen.patch(f"{API}/shopping/staples/{food['id']}", json={"got_it": True}))
 
 
 def use_restocked_on_the_list(kitchen: TestClient, food: dict[str, Any]) -> None:

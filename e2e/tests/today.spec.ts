@@ -29,7 +29,7 @@ async function start(page: Page, slotName: string) {
   const slot = Object.fromEntries(slots.map((s) => [s.name, s.id])) as Record<string, number>;
   // Anything left waiting by another test is answered first, so this meal is the card.
   const read = (await (await page.request.get('/api/v1/today')).json()) as { waiting: { meal_id: number }[] };
-  for (const w of read.waiting) await call(page, 'POST', `/plan/meals/${w.meal_id}/didnt`);
+  for (const w of read.waiting) await call(page, 'POST', `/plan/meals/${w.meal_id}/mark-not-cooked`);
   const project = test.info().project.name;
   const back = project.includes('phone') ? 1 : project.includes('desktop') ? 2 : 3;
   const name = `Sambar ${stamp()}`;

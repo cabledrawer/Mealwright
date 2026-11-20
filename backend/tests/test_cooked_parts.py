@@ -208,7 +208,7 @@ def test_the_batch_first_then_the_recipe(kitchen: TestClient) -> None:
 def test_didnt_cook_it_acts_on_a_part_cooked_meal(kitchen: TestClient) -> None:
     _dal, meal, _khichdi, soup = two_in_a_meal(kitchen)
     press(kitchen, meal, soup)
-    ok(kitchen.post(f"{API}/plan/meals/{meal}/didnt"))
+    ok(kitchen.post(f"{API}/plan/meals/{meal}/mark-not-cooked"))
     assert status_of(kitchen, meal) == "didnt"
 
 
@@ -231,7 +231,7 @@ def test_leftovers_of_a_part_cooked_meal_dont_stop_it_being_cooked(kitchen: Test
     ok(cook(kitchen, soup), 201)
     ok(
         kitchen.post(
-            f"{API}/plan/meals/{meal}/cooked",
+            f"{API}/plan/meals/{meal}/mark-cooked",
             json={"leftovers": {"count": 2, "place_kind": "fridge", "item_id": soup}},
         )
     )
@@ -288,7 +288,7 @@ def test_move_it_on_a_part_cooked_meal_names_only_what_moves(kitchen: TestClient
     press(kitchen, meal, soup)
     tomorrow = date.today() + timedelta(days=2)
     body = {"date": tomorrow.isoformat(), "slot_id": slot_ids(kitchen)["Dinner"]}
-    moved = ok(kitchen.post(f"{API}/plan/meals/{meal}/moved", json=body))["change"]
+    moved = ok(kitchen.post(f"{API}/plan/meals/{meal}/mark-moved", json=body))["change"]
     assert moved["summary"].startswith("Moved Zorba khichdi from Dinner on ")
     assert "more" not in moved["summary"] and khichdi
 

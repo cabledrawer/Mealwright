@@ -152,7 +152,7 @@ describe('Plan shopping', () => {
 
   it('folds Check you have these until Show', async () => {
     await render(1300, {
-      'POST /shopping/from-plan': [
+      'POST /shopping/add-from-plan': [
         200,
         {
           days: 7,

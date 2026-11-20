@@ -44,14 +44,14 @@ describe('the Pantry page', () => {
         200,
         { result: 'done', message: '', change: changeOf(702, 'Undid'), food: null }
       ],
-      [`POST /stock/${sample.spinach.id}/used`]: () => {
+      [`POST /stock/${sample.spinach.id}/use`]: () => {
         gone.add(sample.spinach.id);
         return written('Used 200 g spinach');
       },
       [`POST /stock/${sample.paneer[0]!.id}/move`]: written('Moved Paneer → Freezer'),
-      [`POST /stock/${sample.yoghurt.id}/left`]: written('Yoghurt: ½ tub → about ¼ tub'),
+      [`POST /stock/${sample.yoghurt.id}/set-left`]: written('Yoghurt: ½ tub → about ¼ tub'),
       'GET /foods/7': [200, toorDal()],
-      'POST /foods/7/used': written('Used 200 g Toor dal'),
+      'POST /foods/7/use': written('Used 200 g Toor dal'),
       'GET /places': [200, PLACES],
       'POST /places': [201, { id: 9, name: 'Garage freezer', kind: 'freezer' }],
       'POST /stock': [
@@ -616,13 +616,13 @@ describe('the Pantry page', () => {
       await page.getByRole('radio', { name: 'All' }).click();
       await page.getByRole('button', { name: 'Used all of it' }).click();
       await vi.waitFor(() =>
-        expect(requests.find((r) => r.path === `/stock/${sample.spinach.id}/used`)).toBeDefined()
+        expect(requests.find((r) => r.path === `/stock/${sample.spinach.id}/use`)).toBeDefined()
       );
       await vi.waitFor(() => expect(toasts.current?.message).toBe('Used 200 g spinach'));
     });
 
     it('How much? takes a quarter or an exact amount, for the whole ingredient in that place', async () => {
-      routes({ 'POST /foods/20/used': written('Used 50 g Spinach') });
+      routes({ 'POST /foods/20/use': written('Used 50 g Spinach') });
       await render(390);
       swipe(await slideOf(spinachRow()), 110);
       await page.getByRole('button', { name: 'Used… Spinach' }).click();
@@ -631,13 +631,13 @@ describe('the Pantry page', () => {
       await sheet.getByRole('textbox').fill('50');
       await sheet.getByRole('button', { name: /^Used 50/ }).click();
       await vi.waitFor(() => {
-        const sent = requests.find((r) => r.path === '/foods/20/used');
+        const sent = requests.find((r) => r.path === '/foods/20/use');
         expect(sent?.body).toMatchObject({ amount: { amount: 50, unit: 'g' }, place_id: 1 });
       });
     });
 
     it('swipe left shows Binned, which bins at once with an Undo toast and asks nothing', async () => {
-      routes({ [`POST /stock/${sample.spinach.id}/binned`]: written('Binned 200 g Spinach') });
+      routes({ [`POST /stock/${sample.spinach.id}/bin`]: written('Binned 200 g Spinach') });
       await render(390);
       swipe(await slideOf(spinachRow()), -110);
       const binned = page.getByRole('button', { name: 'Binned Spinach' });
@@ -646,7 +646,7 @@ describe('the Pantry page', () => {
       await binned.click();
       expect(page.getByRole('alertdialog').elements()).toEqual([]);
       await vi.waitFor(() =>
-        expect(requests.find((r) => r.path === `/stock/${sample.spinach.id}/binned`)).toBeDefined()
+        expect(requests.find((r) => r.path === `/stock/${sample.spinach.id}/bin`)).toBeDefined()
       );
       await vi.waitFor(() => expect(toasts.current?.message).toBe('Binned 200 g Spinach'));
       expect(toasts.current?.action?.label).toBe('Undo');
@@ -691,12 +691,10 @@ describe('the Pantry page', () => {
     await usedAllOnSpinach(side);
     await expect.element(side.getByRole('button', { name: /^Spinach/ })).not.toBeInTheDocument();
     await vi.waitFor(() =>
-      expect(requests.find((r) => r.path === `/stock/${sample.spinach.id}/used`)).toBeDefined()
+      expect(requests.find((r) => r.path === `/stock/${sample.spinach.id}/use`)).toBeDefined()
     );
     expect(
-      requests.find((r) => r.path === `/stock/${sample.spinach.id}/used`)!.headers[
-        'idempotency-key'
-      ]
+      requests.find((r) => r.path === `/stock/${sample.spinach.id}/use`)!.headers['idempotency-key']
     ).toMatch(UUID);
     await vi.waitFor(() => expect(toasts.current?.message).toBe('Used 200 g spinach'));
     expect(toasts.current?.action?.label).toBe('Undo');
@@ -716,7 +714,7 @@ describe('the Pantry page', () => {
   });
 
   it('a failed change puts it back and says so calmly', async () => {
-    routes({ [`POST /stock/${sample.spinach.id}/used`]: [503, { detail: 'Busy' }] });
+    routes({ [`POST /stock/${sample.spinach.id}/use`]: [503, { detail: 'Busy' }] });
     await render(1300);
     const side = page.getByRole('region', { name: /^Use soon/ });
     await usedAllOnSpinach(side);
@@ -740,9 +738,11 @@ describe('the Pantry page', () => {
       .element(picks.getByRole('radio', { name: '¼ left' }))
       .toHaveAttribute('aria-checked', 'true');
     await vi.waitFor(() =>
-      expect(requests.find((r) => r.path === `/stock/${sample.yoghurt.id}/left`)?.body).toEqual({
-        fraction: 0.25
-      })
+      expect(requests.find((r) => r.path === `/stock/${sample.yoghurt.id}/set-left`)?.body).toEqual(
+        {
+          fraction: 0.25
+        }
+      )
     );
   });
 
@@ -751,7 +751,7 @@ describe('the Pantry page', () => {
     const rice = sample.pantry.places
       .flatMap((p) => p.groups)
       .find((g) => g.food.name === 'Basmati rice')!.lots[0]!;
-    routes({ [`POST /stock/${rice.id}/left`]: written('Basmati rice: 300 g → 120 g') });
+    routes({ [`POST /stock/${rice.id}/set-left`]: written('Basmati rice: 300 g → 120 g') });
     await page.getByRole('button', { name: /^Basmati rice/ }).click();
     // No size and not open: no picks, but a way to type it, beside "Used some".
     expect(page.getByRole('radiogroup').elements()).toHaveLength(0);
@@ -761,7 +761,7 @@ describe('the Pantry page', () => {
     await menu.getByRole('textbox', { name: /What’s left/ }).fill('120');
     await menu.getByRole('button', { name: 'Save' }).click();
     await vi.waitFor(() =>
-      expect(requests.find((r) => r.path === `/stock/${rice.id}/left`)?.body).toEqual({
+      expect(requests.find((r) => r.path === `/stock/${rice.id}/set-left`)?.body).toEqual({
         amount: { amount: 120, unit: 'g' }
       })
     );
@@ -770,7 +770,7 @@ describe('the Pantry page', () => {
   it('a pick the server answers needs_amount to opens the typed-amount step (round 3)', async () => {
     await render(1300);
     routes({
-      [`POST /stock/${sample.yoghurt.id}/left`]: [
+      [`POST /stock/${sample.yoghurt.id}/set-left`]: [
         422,
         { detail: 'That’s more than one tub: type an amount.', code: 'needs_amount' }
       ]
@@ -804,9 +804,9 @@ describe('the Pantry page', () => {
     await expect.element(picks.getByRole('radio', { name: '½ left' })).toBeVisible();
     await picks.getByRole('radio', { name: '½ left' }).click();
     await vi.waitFor(() =>
-      expect(requests.some((r) => r.path.startsWith('/stock/') && r.path.endsWith('/left'))).toBe(
-        true
-      )
+      expect(
+        requests.some((r) => r.path.startsWith('/stock/') && r.path.endsWith('/set-left'))
+      ).toBe(true)
     );
   });
 
@@ -1152,7 +1152,7 @@ describe('the Pantry page', () => {
       .last()
       .click();
     await vi.waitFor(() =>
-      expect(requests.find((r) => r.path === '/foods/7/used')?.body).toEqual({
+      expect(requests.find((r) => r.path === '/foods/7/use')?.body).toEqual({
         amount: { amount: 200, unit: 'g' },
         place_id: 3
       })
@@ -1161,7 +1161,7 @@ describe('the Pantry page', () => {
 
   it('shows the server’s sentence when there’s nothing left to use', async () => {
     routes({
-      'POST /foods/7/used': [
+      'POST /foods/7/use': [
         409,
         { detail: 'There’s no Toor dal in the Cupboard to use.', code: 'nothing_left' }
       ]
@@ -1338,8 +1338,8 @@ describe('the Pantry page', () => {
     });
 
     for (const [button, path, summary] of [
-      ['To freezer', 'to-freezer', 'Paneer → Freezer'],
-      ['Binned', 'binned', 'Binned 2 packs Paneer']
+      ['To freezer', 'freeze', 'Paneer → Freezer'],
+      ['Binned', 'bin', 'Binned 2 packs Paneer']
     ] as const) {
       it(`${button} on a row of 2 packets takes both, in one change (S5 review r1 M1)`, async () => {
         const paneer = sample.useSoon[1]!;

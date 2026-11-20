@@ -18,7 +18,7 @@ from mealwright.models import Change
 
 
 def answer(client: TestClient, meal: int) -> Any:
-    return client.post(f"{API}/plan/meals/{meal}/cooked", json={})
+    return client.post(f"{API}/plan/meals/{meal}/mark-cooked", json={})
 
 
 def change_count(client: TestClient) -> int:

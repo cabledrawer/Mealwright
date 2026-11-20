@@ -370,7 +370,7 @@ test('Places: add with a kind; a place with things in it asks where to move them
     const pantry = (await (await page.request.get('/api/v1/pantry')).json()) as Json;
     for (const p of pantry.places) {
       for (const g of p.groups.filter((g: Json) => g.food.id === food.id)) {
-        for (const lot of g.lots) await page.request.post(`/api/v1/stock/${lot.id}/used`, { headers: key() });
+        for (const lot of g.lots) await page.request.post(`/api/v1/stock/${lot.id}/use`, { headers: key() });
       }
     }
   }
@@ -479,7 +479,7 @@ test('one Cooked it is one row in Recent changes, with one Undo (cabledrawer 7 N
   const recipe = await post('/recipes', { name, serves: 4, lines: [{ words: 'moong', food_id: food.id, amount: 200, unit: 'g' }] }, 201);
   const planned = await post('/plan/items', { date: ownDay(today, 1), slot_id: dinner.id, recipe_id: recipe.id }, 201);
   await post(`/plan/items/${planned.item_id}/cook`, { choices: [] }, 201);
-  await post(`/plan/meals/${planned.meal_id}/cooked`, {}, 200); // the meal's own answer, the second change
+  await post(`/plan/meals/${planned.meal_id}/mark-cooked`, {}, 200); // the meal's own answer, the second change
 
   await page.goto('/settings/recent-changes');
   const recent = section(page, 'Recent changes');
@@ -502,7 +502,7 @@ test('an ingredient brought back by a Pantry Undo says so in Recent changes, and
   });
   expect(stocked.status(), await stocked.text()).toBe(201);
   const lot = ((await stocked.json()) as { groups: { lots: { id: number }[] }[] }).groups[0].lots[0];
-  const used = await page.request.post(`/api/v1/stock/${lot.id}/used`, { headers: key() });
+  const used = await page.request.post(`/api/v1/stock/${lot.id}/use`, { headers: key() });
   expect(used.ok(), await used.text()).toBe(true);
   const usedId = ((await used.json()) as { change: { id: number } }).change.id;
   const removed = await page.request.delete(`/api/v1/foods/${food.id}`, { headers: key() });

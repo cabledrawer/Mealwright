@@ -61,8 +61,12 @@ def tubs_left(kitchen: TestClient) -> list[dict[str, Any]]:
     return ok(kitchen.get(f"{API}/plan/tubs-left"))["tubs"]  # type: ignore[no-any-return]
 
 
+# The answer word, and its route (D3, BE13: actions are imperative, kebab-case).
+ROUTE = {"cooked": "mark-cooked", "didnt": "mark-not-cooked", "moved": "mark-moved"}
+
+
 def answer(kitchen: TestClient, meal_id: int, what: str, body: Any = None, code: int = 200) -> Any:
-    r = kitchen.post(f"{API}/plan/meals/{meal_id}/{what}", json=body)
+    r = kitchen.post(f"{API}/plan/meals/{meal_id}/{ROUTE[what]}", json=body)
     assert r.status_code == code, r.text
     return r.json()
 
@@ -470,8 +474,8 @@ def test_move_it_refusals(
 
 def test_an_idempotent_retry_answers_once(kitchen: TestClient, yesterday: dict[str, Any]) -> None:
     key = {"Idempotency-Key": "answer-1"}
-    first = kitchen.post(f"{API}/plan/meals/{yesterday['meal_id']}/didnt", headers=key)
-    again = kitchen.post(f"{API}/plan/meals/{yesterday['meal_id']}/didnt", headers=key)
+    first = kitchen.post(f"{API}/plan/meals/{yesterday['meal_id']}/mark-not-cooked", headers=key)
+    again = kitchen.post(f"{API}/plan/meals/{yesterday['meal_id']}/mark-not-cooked", headers=key)
     assert first.status_code == again.status_code == 200
     assert again.headers["Idempotent-Replayed"] == "true"
     assert again.json()["change"]["id"] == first.json()["change"]["id"]
@@ -720,7 +724,7 @@ def test_another_households_ids_get_404_and_nothing_changes(
     theirs = slot_ids(kitchen, 2)
     to = {"date": str(ahead(kitchen, 1)), "slot_id": slots["Dinner"]}
     for what, body in (("cooked", {}), ("didnt", None), ("moved", to)):
-        r = neighbour.post(f"{API}/plan/meals/{meal}/{what}", json=body)
+        r = neighbour.post(f"{API}/plan/meals/{meal}/{ROUTE[what]}", json=body)
         assert r.status_code == 404 and r.json()["code"] == "not_found", what
     # My meal, their slot.
     their_slot = {"date": str(ahead(kitchen, 1)), "slot_id": theirs["Dinner"]}
@@ -881,7 +885,7 @@ def test_move_it_keeps_a_long_wait_that_was_already_started(
     )
     yesterday = ago(kitchen, 1)
     added = plan_recipe(kitchen, soaked["id"], yesterday, slots["Breakfast"])
-    started = kitchen.put(f"{API}/plan/items/{added['item_id']}/started", json={"started": True})
+    started = kitchen.patch(f"{API}/plan/items/{added['item_id']}", json={"started": True})
     assert started.status_code == 200, started.text
     to = {"date": str(ahead(kitchen, 1)), "slot_id": slots["Breakfast"]}
     done = answer(kitchen, added["meal_id"], "moved", to)

@@ -240,7 +240,7 @@ def test_household_settings(kitchen: TestClient) -> None:
 
 
 def test_time_zone_is_set_once_from_the_browser(kitchen: TestClient) -> None:
-    url = f"{API}/household/from-browser"
+    url = f"{API}/household/fill-from-browser"
     first = kitchen.post(url, json={"time_zone": "Europe/London", "cup_ml": 240}).json()
     assert first["time_zone"] == "Europe/London"
     assert first["cup_ml_used"] == 240
@@ -256,7 +256,7 @@ def test_household_today_follows_its_time_zone(kitchen: TestClient) -> None:
     from datetime import UTC, datetime
     from zoneinfo import ZoneInfo
 
-    kitchen.post(f"{API}/household/from-browser", json={"time_zone": "Pacific/Kiritimati"})
+    kitchen.post(f"{API}/household/fill-from-browser", json={"time_zone": "Pacific/Kiritimati"})
     expected = datetime.now(UTC).astimezone(ZoneInfo("Pacific/Kiritimati")).date().isoformat()
     assert kitchen.get(f"{API}/household").json()["today"] == expected
 
@@ -273,12 +273,14 @@ def test_household_today_follows_its_time_zone(kitchen: TestClient) -> None:
     ],
 )
 def test_browser_values_are_checked(kitchen: TestClient, body: dict[str, object]) -> None:
-    assert kitchen.post(f"{API}/household/from-browser", json=body).status_code == 422
+    assert kitchen.post(f"{API}/household/fill-from-browser", json=body).status_code == 422
     assert kitchen.get(f"{API}/household").json()["time_zone"] is None
 
 
 def test_only_admins_set_the_time_zone(member: TestClient) -> None:
-    response = member.post(f"{API}/household/from-browser", json={"time_zone": "Europe/London"})
+    response = member.post(
+        f"{API}/household/fill-from-browser", json={"time_zone": "Europe/London"}
+    )
     assert response.status_code == 403
     assert response.json()["code"] == "admins_only"
     assert member.get(f"{API}/household").json()["time_zone"] is None
@@ -287,7 +289,7 @@ def test_only_admins_set_the_time_zone(member: TestClient) -> None:
 def test_cup_size_changes_the_cup(kitchen: TestClient) -> None:
     food = kitchen.post(f"{API}/foods", json={"name": "Toor dal"}).json()["food"]
     kitchen.patch(f"{API}/foods/{food['id']}", json={"cup_weight": 200})
-    kitchen.post(f"{API}/household/from-browser", json={"cup_ml": 240})
+    kitchen.post(f"{API}/household/fill-from-browser", json={"cup_ml": 240})
     shown = kitchen.get(f"{API}/foods/{food['id']}").json()["cup_weight"]
     assert shown == {"grams": 192.0, "from": "you", "cup_ml": 240}  # 0.8 g/ml times 240 ml
     units = {u["unit"]: u["amount"] for u in kitchen.get(f"{API}/units").json()}
@@ -316,5 +318,5 @@ def test_another_households_ids_are_404(kitchen: TestClient) -> None:
 
 @pytest.mark.parametrize("zone", ["UTC", "Europe/London", "America/Argentina/Buenos_Aires"])
 def test_real_time_zones_are_accepted(kitchen: TestClient, zone: str) -> None:
-    response = kitchen.post(f"{API}/household/from-browser", json={"time_zone": zone})
+    response = kitchen.post(f"{API}/household/fill-from-browser", json={"time_zone": zone})
     assert response.json()["time_zone"] == zone

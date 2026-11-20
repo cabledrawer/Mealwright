@@ -22,7 +22,7 @@ def test_leftovers_with_no_item_are_the_recipe_this_press_cooked(kitchen: TestCl
     ok(cook(kitchen, soup), 201)
     ok(
         kitchen.post(
-            f"{API}/plan/meals/{meal}/cooked",
+            f"{API}/plan/meals/{meal}/mark-cooked",
             json={"leftovers": {"count": 2, "place_kind": "fridge"}},
         )
     )
@@ -54,7 +54,7 @@ def test_move_it_doesnt_copy_a_recipe_already_cooked(kitchen: TestClient) -> Non
     _dal, meal, khichdi, soup = two_in_a_meal(kitchen)
     press(kitchen, meal, soup)
     to = {"date": str(ago(kitchen, -1)), "slot_id": slot_ids(kitchen)["Lunch"]}
-    moved = ok(kitchen.post(f"{API}/plan/meals/{meal}/moved", json=to))
+    moved = ok(kitchen.post(f"{API}/plan/meals/{meal}/mark-moved", json=to))
     plan = ok(kitchen.get(f"{API}/plan", params={"from": to["date"], "to": to["date"]}))
     names = [i["recipe"]["name"] for m in plan["meals"] for i in m["items"]]
     assert names == ["Zorba khichdi"], (names, moved)

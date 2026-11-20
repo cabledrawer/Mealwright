@@ -142,7 +142,7 @@ describe('a meal on the plan', () => {
   it('changing its way changes nothing and toasts when the code fails; the next try asks', async () => {
     const requests = fakeApi({
       'GET /recipes/5': [200, CURRY],
-      'PUT /plan/items/77/method': WRITE
+      'PATCH /plan/items/77': WRITE
     });
     const spy = failOnce('methodAsk');
     const model = planModel();
@@ -155,13 +155,13 @@ describe('a meal on the plan', () => {
     expect(spy).toHaveBeenCalledTimes(2);
     methodAsk.answer(10);
     await again;
-    expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ method_id: 10 });
+    expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({ method_id: 10 });
   });
 
   it('changing its start changes nothing and toasts when the code fails; the next try asks', async () => {
     const requests = fakeApi({
       'GET /plan/start-options': [200, OPTIONS],
-      'PUT /plan/items/77/start': WRITE
+      'PATCH /plan/items/77': WRITE
     });
     const spy = failOnce('startAsk');
     const model = planModel();
@@ -174,7 +174,7 @@ describe('a meal on the plan', () => {
     expect(spy).toHaveBeenCalledTimes(2);
     startAsk.answer({ day: '2026-11-13', time: '21:00' });
     await again;
-    expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({
+    expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({
       start: { day: '2026-11-13', time: '21:00' }
     });
   });
@@ -203,7 +203,7 @@ describe('a meal on the plan', () => {
   });
 
   it('Done already marks nothing and toasts when the code fails; the next try marks it', async () => {
-    const requests = fakeApi({ 'PUT /plan/items/77/started': WRITE });
+    const requests = fakeApi({ 'PATCH /plan/items/77': WRITE });
     const spy = failOnce('startNow');
     const model = planModel();
     const outcome = await model.markStarted(item);

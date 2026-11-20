@@ -109,7 +109,7 @@ def test_a_note_sits_beside_other_things_and_moves_and_copies_like_them(
 
 def test_a_note_needs_nothing_bought(kitchen: TestClient, slots: dict[str, int]) -> None:
     add_note(kitchen, D1, slots["Dinner"])
-    ok(kitchen.post(f"{API}/shopping/from-plan"))
+    ok(kitchen.post(f"{API}/shopping/add-from-plan"))
     assert [r for r in changes(kitchen)["items"] if r["source"] == "plan"] == []
 
 

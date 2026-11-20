@@ -36,7 +36,7 @@ def stocked_then_used(client: TestClient, food_id: int) -> dict[str, Any]:
     """100 g put in the pantry and used up: the change whose Undo puts it back."""
     body = {"food_id": food_id, "amount": {"amount": 100, "unit": "g"}}
     lot = ok(client.post(f"{API}/stock", json=body), 201)["groups"][0]["lots"][0]
-    used: dict[str, Any] = ok(client.post(f"{API}/stock/{lot['id']}/used"))["change"]
+    used: dict[str, Any] = ok(client.post(f"{API}/stock/{lot['id']}/use"))["change"]
     return used
 
 
@@ -145,7 +145,7 @@ def test_removed_back_and_removed_again_only_the_newest_removal_has_undo(
         if group["food"]["id"] == lemon["id"]
         for lot in group["lots"]
     ]
-    ok(kitchen.post(f"{API}/stock/{lots[0]['id']}/used"))
+    ok(kitchen.post(f"{API}/stock/{lots[0]['id']}/use"))
     second = remove(kitchen, lemon["id"])
     lines = [line for line in ingredients_lines(kitchen) if "Lemon" in line[1]]
     assert lines[:3] == [

@@ -177,7 +177,7 @@ def test_the_api_description_shows_the_amounts() -> None:
     found = {case.id for case in CASES}
     assert f"{API}/foods/{{food_id}}/convert ?amount" in found
     assert f"patch {API}/foods/{{food_id}} cup_weight" in found
-    assert f"post {API}/stock/{{lot_id}}/left fraction" in found
+    assert f"post {API}/stock/{{lot_id}}/set-left fraction" in found
     assert f"post {API}/recipes nutrition.kcal" in found
     assert len(found) == len(CASES) > 40
 

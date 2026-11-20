@@ -173,12 +173,14 @@ describe('Move it asks when to start a recipe with a long wait (FX5)', () => {
   }
 
   it('asks "When will you start it?" and sends the time with the move', async () => {
-    const sent = open({ 'POST /plan/meals/5/moved': [200, { change: null, meal_id: 6 }] });
+    const sent = open({ 'POST /plan/meals/5/mark-moved': [200, { change: null, meal_id: 6 }] });
     await moveToToday();
     await expect.element(page.getByText('When will you start it?')).toBeVisible();
     await page.getByRole('button', { name: 'Move', exact: true }).click();
-    await vi.waitFor(() => expect(sent.some((r) => r.path === '/plan/meals/5/moved')).toBe(true));
-    expect(sent.find((r) => r.path === '/plan/meals/5/moved')!.body).toMatchObject({
+    await vi.waitFor(() =>
+      expect(sent.some((r) => r.path === '/plan/meals/5/mark-moved')).toBe(true)
+    );
+    expect(sent.find((r) => r.path === '/plan/meals/5/mark-moved')!.body).toMatchObject({
       date: '2026-10-17',
       slot_id: 2,
       starts: [{ item_id: 9, day: '2026-10-17', time: '08:00' }]
@@ -186,16 +188,18 @@ describe('Move it asks when to start a recipe with a long wait (FX5)', () => {
   });
 
   it('No time yet moves it with no start, and Cancel moves nothing', async () => {
-    const sent = open({ 'POST /plan/meals/5/moved': [200, { change: null, meal_id: 6 }] });
+    const sent = open({ 'POST /plan/meals/5/mark-moved': [200, { change: null, meal_id: 6 }] });
     await moveToToday();
     await page.getByRole('button', { name: 'Cancel' }).last().click();
     await vi.waitFor(() => expect(startAsk.current).toBeNull());
-    expect(sent.some((r) => r.path === '/plan/meals/5/moved')).toBe(false);
+    expect(sent.some((r) => r.path === '/plan/meals/5/mark-moved')).toBe(false);
     await page.getByRole('button', { name: 'Move it' }).click();
     await page.getByRole('button', { name: /^Move to / }).click();
     await page.getByRole('button', { name: 'No time yet' }).click();
-    await vi.waitFor(() => expect(sent.some((r) => r.path === '/plan/meals/5/moved')).toBe(true));
-    expect(sent.find((r) => r.path === '/plan/meals/5/moved')!.body).toEqual({
+    await vi.waitFor(() =>
+      expect(sent.some((r) => r.path === '/plan/meals/5/mark-moved')).toBe(true)
+    );
+    expect(sent.find((r) => r.path === '/plan/meals/5/mark-moved')!.body).toEqual({
       date: '2026-10-17',
       slot_id: 2
     });

@@ -153,7 +153,7 @@ describe('every way a recipe is added to the plan asks, through PlanModel.add', 
   it('changing the way from the meal sends the new one, and the same way sends nothing', async () => {
     const requests = fakeApi({
       'GET /recipes/5': [200, CURRY],
-      'PUT /plan/items/77/method': [200, { change: null, meal_id: 1, item_id: 77 }]
+      'PATCH /plan/items/77': [200, { change: null, meal_id: 1, item_id: 77 }]
     });
     const model = new PlanModel();
     const item = {
@@ -167,12 +167,12 @@ describe('every way a recipe is added to the plan asks, through PlanModel.add', 
     expect(methodAsk.current!.question.picked).toBe(11);
     methodAsk.answer(10);
     await changed;
-    expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ method_id: 10 });
+    expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({ method_id: 10 });
     const again = model.changeMethod({ ...item, method_id: 10 } as PlanItem, '2026-11-14');
     await vi.waitFor(() => expect(methodAsk.current).not.toBeNull());
     methodAsk.answer(10);
     await again;
-    expect(requests.filter((r) => r.method === 'PUT')).toHaveLength(1);
+    expect(requests.filter((r) => r.method === 'PATCH')).toHaveLength(1);
   });
 
   it('changing the optional lines from a meal asks about the meal’s own way, not the one used last', async () => {
@@ -183,7 +183,7 @@ describe('every way a recipe is added to the plan asks, through PlanModel.add', 
         200,
         { lines: [], counted: 0, missing: 0, stock_unchecked: false }
       ],
-      'PUT /plan/items/77/optional': [200, { change: null, meal_id: 1, item_id: 77 }]
+      'PATCH /plan/items/77': [200, { change: null, meal_id: 1, item_id: 77 }]
     });
     const model = new PlanModel();
     const item = {
@@ -199,6 +199,6 @@ describe('every way a recipe is added to the plan asks, through PlanModel.add', 
     expect(requests.some((r) => r.url.includes('/stock?method=10'))).toBe(true);
     optionalAsk.answer([4]);
     await changed;
-    expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ use: [4] });
+    expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({ optional_use: [4] });
   });
 });

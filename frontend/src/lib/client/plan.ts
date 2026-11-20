@@ -192,11 +192,11 @@ export interface StartAt {
 
 /** When a planned recipe's long wait will be started (M3); null takes the time away. */
 export const setPlanStart = (id: number, start: StartAt | null, key: string) =>
-  api<PlanWrite>('PUT', `/plan/items/${id}/start`, { start }, { idempotencyKey: key });
+  api<PlanWrite>('PATCH', `/plan/items/${id}`, { start }, { idempotencyKey: key });
 
 /** The long wait is begun (M3): "Done already", or Cook mode past its step. */
 export const setPlanStarted = (id: number, started: boolean, key: string) =>
-  api<PlanWrite>('PUT', `/plan/items/${id}/started`, { started }, { idempotencyKey: key });
+  api<PlanWrite>('PATCH', `/plan/items/${id}`, { started }, { idempotencyKey: key });
 
 export interface StartOption extends StartAt {
   /** The time the dish is ready by if it is started then ("08:00"). */
@@ -230,16 +230,11 @@ export const getStartOptions = (
 
 /** Which Optional ingredients a planned recipe will use (R3). */
 export const setPlanOptional = (id: number, use: number[], key: string) =>
-  api<PlanWrite>('PUT', `/plan/items/${id}/optional`, { use }, { idempotencyKey: key });
+  api<PlanWrite>('PATCH', `/plan/items/${id}`, { optional_use: use }, { idempotencyKey: key });
 
 /** Which way of cooking a planned recipe uses (M2). */
 export const setPlanMethod = (id: number, methodId: number, key: string) =>
-  api<PlanWrite>(
-    'PUT',
-    `/plan/items/${id}/method`,
-    { method_id: methodId },
-    { idempotencyKey: key }
-  );
+  api<PlanWrite>('PATCH', `/plan/items/${id}`, { method_id: methodId }, { idempotencyKey: key });
 
 /** Serves − N +: how many people a planned recipe is for. */
 export const setPlanServings = (id: number, servings: number, key: string) =>
@@ -248,8 +243,8 @@ export const setPlanServings = (id: number, servings: number, key: string) =>
 /** Who is eating a meal (an empty list: everyone). */
 export const setPlanEaters = (mealId: number, memberIds: number[], key: string) =>
   api<PlanWrite>(
-    'PUT',
-    `/plan/meals/${mealId}/eaters`,
+    'PATCH',
+    `/plan/meals/${mealId}`,
     { member_ids: memberIds },
     { idempotencyKey: key }
   );
@@ -388,7 +383,7 @@ export const binTub = (id: number, key: string) =>
   api<PlanWrite>('POST', `/plan/tubs/${id}/bin`, undefined, { idempotencyKey: key });
 
 export const tubToFreezer = (id: number, key: string) =>
-  api<PlanWrite>('POST', `/plan/tubs/${id}/freezer`, undefined, { idempotencyKey: key });
+  api<PlanWrite>('POST', `/plan/tubs/${id}/freeze`, undefined, { idempotencyKey: key });
 
 export const fillFromFreezer = (from: string, to: string, key: string) =>
   api<PlanWrite>('POST', '/plan/fill-from-freezer', { from, to }, { idempotencyKey: key });

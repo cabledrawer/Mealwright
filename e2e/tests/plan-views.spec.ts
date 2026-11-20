@@ -100,7 +100,7 @@ async function seedWeek(page: Page, k: { today: string; slot: Record<string, num
   const fresh = await planned(page, await makeRecipe(page, pongal, { serves: 2, time_minutes: 30 }), day, k.slot.Breakfast);
   const cook = await planned(page, await makeRecipe(page, biryani, { serves: 2, time_minutes: 95 }), day, k.slot.Dinner);
   const made = await call(page, 'POST', `/plan/items/${cook.item_id}/batch`, { tub_count: 3, pattern: 'pick', prep_note: 'Soak the rice' });
-  await call(page, 'PUT', `/plan/meals/${cook.meal_id}/eaters`, { member_ids: [k.me.member_id] });
+  await call(page, 'PATCH', `/plan/meals/${cook.meal_id}`, { member_ids: [k.me.member_id] });
   const sunday = addDays(day, 1);
   const plan = await planRange(page, day, sunday);
   const tubs = plan.tubs.filter((t: any) => t.batch_id === made.batch_id) as { id: number }[];

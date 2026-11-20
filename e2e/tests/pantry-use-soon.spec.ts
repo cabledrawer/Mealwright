@@ -363,7 +363,7 @@ test("on the computer a long amount never cuts the name, and the row stays insid
   test.skip(isPhone(page), "the one-line row is the computer's (F66)");
   // An open, running-low packet has the longest amount line: "about 50 g · ¼ pack · open · running low".
   const food = await stockedAt(page, "Chickpeas dried", 40, "Fridge");
-  await api(page, "POST", `/stock/${food.lot}/left`, { fraction: "0.25" });
+  await api(page, "POST", `/stock/${food.lot}/set-left`, { fraction: "0.25" });
   await api(page, "PATCH", `/foods/${food.id}`, {
     running_low_at: { amount: 500, unit: "g" },
   });

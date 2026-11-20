@@ -606,7 +606,7 @@ def _top_up(
         put_in(kitchen, edit, food, place, lot_amounts(more, size), size)
 
 
-@router.post("/stocktake/places/{place_id}/foods/{food_id}/staple")
+@router.post("/stocktake/places/{place_id}/foods/{food_id}/make-staple")
 def make_staple(
     place_id: StoredInt, food_id: StoredInt, kitchen: Here, response: Response
 ) -> StocktakeWrite:
@@ -632,7 +632,7 @@ def make_staple(
     return _write(kitchen, response, place, food, apply)
 
 
-@router.post("/stocktake/places/{place_id}/foods/{food_id}/size")
+@router.post("/stocktake/places/{place_id}/foods/{food_id}/set-size")
 def set_pack_size(
     place_id: StoredInt, food_id: StoredInt, body: NewSize, kitchen: Here, response: Response
 ) -> StocktakeWrite:

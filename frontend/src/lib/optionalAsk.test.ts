@@ -206,7 +206,7 @@ describe('every way a recipe is added to the plan asks, through PlanModel.add', 
     const requests = fakeApi({
       'GET /recipes/5': [200, BIRYANI],
       'GET /recipes/5/stock': [200, STOCK],
-      'PUT /plan/items/77/optional': [200, { change: null, meal_id: 1, item_id: 77 }]
+      'PATCH /plan/items/77': [200, { change: null, meal_id: 1, item_id: 77 }]
     });
     const model = new PlanModel();
     const item = {
@@ -220,6 +220,6 @@ describe('every way a recipe is added to the plan asks, through PlanModel.add', 
     expect(optionalAsk.current!.question.ticked).toEqual([2]);
     optionalAsk.answer([2, 3]);
     await changed;
-    expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ use: [2, 3] });
+    expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({ optional_use: [2, 3] });
   });
 });

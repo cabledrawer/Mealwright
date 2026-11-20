@@ -920,110 +920,75 @@ def add_plan_item(body: PlanItemIn, kitchen: Here, response: Response) -> PlanWr
     return out
 
 
-class ServingsIn(BaseModel):
-    servings: Annotated[int, Field(ge=1, le=99)]
+class PlanItemPatch(BaseModel):
+    """Change one thing about a planned item (D3, BE14: one field at a time, as for an
+    ingredient's PATCH; several, or none, is `422 one_field`). Each is recorded with its own
+    Undo; already that way → `change: null`."""
+
+    servings: Annotated[int, Field(ge=1, le=99)] | None = Field(
+        default=None,
+        description="Serves - N +: how many people a planned recipe is for. Amounts and the"
+        " shopping list follow. Works on meals planned before 0.7 (no number set) too.",
+    )
+    optional_use: Annotated[list[StoredInt], Field(max_length=200)] | None = Field(
+        default=None,
+        description="Which Optional ingredient lines the meal will use (R3): their ids; the"
+        " Optional lines not listed are left out. Replaces the whole choice. The shopping list and"
+        " Cooked it follow. An id that is not one of its Optional lines is `422 not_optional`.",
+    )
+    method_id: StoredInt | None = Field(
+        default=None,
+        description="Which way of cooking it (M2), from the recipe's `methods`: the shopping"
+        " list, Can cook now and Cooked it follow, and the Optional picks start again. Only a"
+        " recipe with two ways (`422 one_method`); an id that is not one of its ways is"
+        " `422 not_a_method`.",
+    )
+    start: StartIn | None = Field(
+        default=None,
+        description="When the long wait will be started (M3), a day and a clock time in the"
+        " household's time; null takes the time away. Only a recipe with a wait of four hours or"
+        " more (`422 no_wait`), before the meal (`422 bad_start`). Changing the way of cooking it"
+        " takes the time away.",
+    )
+    started: StrictBool | None = Field(
+        default=None,
+        description="true: the long wait is begun now (Cook mode past its step, or Done"
+        " already); the moment is kept, so Cook mode the next day starts after its step. false:"
+        " it is not. Same refusals as `start`.",
+    )
+
+
+PLAN_ITEM_FIELDS = ("servings", "optional_use", "method_id", "start", "started")
 
 
 @router.patch("/plan/items/{plan_item_id}")
-def set_plan_item_servings(
-    plan_item_id: StoredInt, body: ServingsIn, kitchen: Here, response: Response
+def edit_plan_item(
+    plan_item_id: StoredInt, body: PlanItemPatch, kitchen: Here, response: Response
 ) -> PlanWrite:
-    """Serves - N +: how many people a planned recipe is for. Amounts and the shopping list
-    follow. Already that number → `change: null`. Works on meals planned before 0.7 (no number
-    set) too. Only a recipe (`422 not_a_recipe`) in a planned meal (`409 meal_done`)."""
-    return _run(
-        kitchen,
-        response,
-        lambda: plan.set_servings(kitchen, plan.find_item(kitchen, plan_item_id), body.servings),
-    )
+    """Change one thing about a planned item: how many it serves, its Optional ingredients, its
+    way of cooking, or when its long wait is started (and whether it has been). Only a recipe
+    (`422 not_a_recipe`) in a planned meal (`409 meal_done`). Replaces the 0.9.5-beta.2 routes
+    `PUT /plan/items/{id}/optional|method|start|started` (D3, BE14)."""
+    given = [name for name in PLAN_ITEM_FIELDS if name in body.model_fields_set]
+    if len(given) != 1:
+        raise one_field()
+    field = given[0]
+    if field != "start" and getattr(body, field) is None:
+        raise one_field()  # only `start` may be null (it takes the time away)
 
+    def make() -> Change | None:
+        item = plan.find_item(kitchen, plan_item_id)
+        if field == "servings":
+            return plan.set_servings(kitchen, item, body.servings or 0)
+        if field == "optional_use":
+            return plan.set_optional(kitchen, item, body.optional_use or [])
+        if field == "method_id":
+            return plan.set_method(kitchen, item, body.method_id or 0)
+        if field == "start":
+            return plan.set_start(kitchen, item, body.start.at() if body.start else None)
+        return plan.set_started(kitchen, item, bool(body.started))
 
-class OptionalIn(BaseModel):
-    use: Annotated[list[StoredInt], Field(max_length=200)] = Field(
-        description="The ids of the recipe's Optional ingredient lines the meal will use. The"
-        " Optional lines not listed are left out. Replaces the whole choice."
-    )
-
-
-@router.put("/plan/items/{plan_item_id}/optional")
-def set_plan_item_optional(
-    plan_item_id: StoredInt, body: OptionalIn, kitchen: Here, response: Response
-) -> PlanWrite:
-    """Which Optional ingredients a planned recipe will use (R3): the shopping list and Cooked
-    it follow. Already that way → `change: null`. Only a recipe (`422 not_a_recipe`) in a
-    planned meal (`409 meal_done`); an id that is not one of its Optional lines is
-    `422 not_optional`."""
-    return _run(
-        kitchen,
-        response,
-        lambda: plan.set_optional(kitchen, plan.find_item(kitchen, plan_item_id), body.use),
-    )
-
-
-class PlanMethodIn(BaseModel):
-    method_id: StoredInt = Field(
-        description="The id of the way of cooking it, from the recipe's `methods`."
-    )
-
-
-@router.put("/plan/items/{plan_item_id}/method")
-def set_plan_item_method(
-    plan_item_id: StoredInt, body: PlanMethodIn, kitchen: Here, response: Response
-) -> PlanWrite:
-    """Which way of cooking a planned recipe uses (M2): the shopping list, Can cook now and
-    Cooked it follow. The Optional picks start again. Already that way → `change: null`. Only
-    a recipe (`422 not_a_recipe`) with two ways (`422 one_method`) in a planned meal
-    (`409 meal_done`); an id that is not one of its ways is `422 not_a_method`."""
-    return _run(
-        kitchen,
-        response,
-        lambda: plan.set_method(kitchen, plan.find_item(kitchen, plan_item_id), body.method_id),
-    )
-
-
-class PlanStartIn(BaseModel):
-    start: StartIn | None = Field(
-        description="When the wait will be started, a day and a clock time in the household's"
-        " time; null takes the time away."
-    )
-
-
-@router.put("/plan/items/{plan_item_id}/start")
-def set_plan_item_start(
-    plan_item_id: StoredInt, body: PlanStartIn, kitchen: Here, response: Response
-) -> PlanWrite:
-    """When a planned recipe's long wait will be started (M3), changed from the meal. Already
-    that time → `change: null`. Only a recipe with a wait of four hours or more
-    (`422 no_wait`, `422 not_a_recipe`) in a planned meal (`409 meal_done`), before the meal
-    (`422 bad_start`). Changing the meal's way of cooking it takes the time away."""
-    return _run(
-        kitchen,
-        response,
-        lambda: plan.set_start(
-            kitchen, plan.find_item(kitchen, plan_item_id), body.start.at() if body.start else None
-        ),
-    )
-
-
-class PlanStartedIn(BaseModel):
-    started: StrictBool = Field(
-        description="true: the wait is begun now (Cook mode past its step, or Done already). false:"
-        " it is not."
-    )
-
-
-@router.put("/plan/items/{plan_item_id}/started")
-def set_plan_item_started(
-    plan_item_id: StoredInt, body: PlanStartedIn, kitchen: Here, response: Response
-) -> PlanWrite:
-    """The long wait of a planned recipe is begun (M3): the moment is kept, so Cook mode the next
-    day starts after its step and says how long it has waited. Already that way →
-    `change: null`. Same refusals as `/start`."""
-    return _run(
-        kitchen,
-        response,
-        lambda: plan.set_started(kitchen, plan.find_item(kitchen, plan_item_id), body.started),
-    )
+    return _run(kitchen, response, make)
 
 
 class StartOptionOut(BaseModel):
@@ -1105,15 +1070,17 @@ def get_start_options(
     )
 
 
-class EatersIn(BaseModel):
+class PlanMealPatch(BaseModel):
+    """Change a planned meal (D3, BE14: a PATCH on the thing; was `PUT /plan/meals/{id}/eaters`)."""
+
     member_ids: Annotated[list[StoredInt], Field(max_length=20)] = Field(
         description="Who is eating: people of the household (`GET /plan/people`). Empty: everyone."
     )
 
 
-@router.put("/plan/meals/{plan_meal_id}/eaters")
-def set_plan_meal_eaters(
-    plan_meal_id: StoredInt, body: EatersIn, kitchen: Here, response: Response
+@router.patch("/plan/meals/{plan_meal_id}")
+def edit_plan_meal(
+    plan_meal_id: StoredInt, body: PlanMealPatch, kitchen: Here, response: Response
 ) -> PlanWrite:
     """Who is eating a meal. Replaces the whole list; already that way → `change: null`. A
     person of another household, or one removed and not already ticked → `404`."""

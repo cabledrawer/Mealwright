@@ -344,7 +344,7 @@ def test_another_recipes_method_is_refused_too(
     theirs = make(kitchen, "Meth theirs", method_name="A", second_method=second(), time_minutes=10)
     item = plan_with(kitchen, mine, 1)["item_id"]
     stray = theirs["methods"][1]["id"]
-    r = kitchen.put(f"{API}/plan/items/{item}/method", json={"method_id": stray})
+    r = kitchen.patch(f"{API}/plan/items/{item}", json={"method_id": stray})
     assert (r.status_code, r.json()["code"]) == (422, "not_a_method"), r.text
     r = kitchen.post(
         f"{API}/plan/items",
@@ -367,7 +367,7 @@ def test_another_households_method_is_refused_too(
     theirs = make(neighbour, "Meth next door", method_name="A", second_method=second())
     stray = theirs["methods"][1]["id"]
     item = plan_with(kitchen, mine, 1)["item_id"]
-    r = kitchen.put(f"{API}/plan/items/{item}/method", json={"method_id": stray})
+    r = kitchen.patch(f"{API}/plan/items/{item}", json={"method_id": stray})
     assert (r.status_code, r.json()["code"]) == (422, "not_a_method"), r.text
     r = kitchen.post(
         f"{API}/plan/items",
@@ -415,11 +415,11 @@ def test_the_method_can_be_changed_from_the_meal_and_undone(
     item_id = plan_with(kitchen, recipe, 1, method_id=first)["item_id"]
     from_plan(kitchen)
     assert set(amounts(kitchen)) == {chicken, water}
-    changed = ok(kitchen.put(f"{API}/plan/items/{item_id}/method", json={"method_id": other}))
+    changed = ok(kitchen.patch(f"{API}/plan/items/{item_id}", json={"method_id": other}))
     assert meal_item(kitchen, item_id)["method"] == "Instant Pot"
     assert set(amounts(kitchen)) == {chicken, stock_}  # the list followed, with no extra press
     assert (
-        ok(kitchen.put(f"{API}/plan/items/{item_id}/method", json={"method_id": other}))["change"]
+        ok(kitchen.patch(f"{API}/plan/items/{item_id}", json={"method_id": other}))["change"]
         is None
     )  # already that way
     undone = undo(kitchen, changed)
@@ -427,7 +427,7 @@ def test_the_method_can_be_changed_from_the_meal_and_undone(
     assert meal_item(kitchen, item_id)["method_id"] == first
     assert set(amounts(kitchen)) == {chicken, water}
     # Only a recipe's own methods, and only on a meal not yet cooked.
-    r = kitchen.put(f"{API}/plan/items/{item_id}/method", json={"method_id": other + 999})
+    r = kitchen.patch(f"{API}/plan/items/{item_id}", json={"method_id": other + 999})
     assert r.status_code == 422, r.text
 
 
@@ -469,7 +469,7 @@ def test_undo_of_a_changed_way_puts_the_way_used_last_back_and_the_toast_says_th
     first, other = recipe["methods"][0]["id"], recipe["methods"][1]["id"]
     item_id = plan_with(kitchen, recipe, 1, method_id=first, optional_use=[])["item_id"]
     assert meal_item(kitchen, item_id)["optional_skipped"] == [water_line]
-    changed = ok(kitchen.put(f"{API}/plan/items/{item_id}/method", json={"method_id": other}))
+    changed = ok(kitchen.patch(f"{API}/plan/items/{item_id}", json={"method_id": other}))
     assert changed["change"]["summary"].endswith(
         "cooked to Instant Pot. Its optional ingredients start again"
     )
@@ -479,7 +479,7 @@ def test_undo_of_a_changed_way_puts_the_way_used_last_back_and_the_toast_says_th
     assert meal_item(kitchen, item_id)["optional_skipped"] == [water_line]
     # With nothing skipped there was nothing to start again: the words stay as they were.
     plain_id = plan_with(kitchen, recipe, 2, method_id=first)["item_id"]
-    plain = ok(kitchen.put(f"{API}/plan/items/{plain_id}/method", json={"method_id": other}))
+    plain = ok(kitchen.patch(f"{API}/plan/items/{plain_id}", json={"method_id": other}))
     assert plain["change"]["summary"].endswith("cooked to Instant Pot")
 
 
@@ -711,7 +711,7 @@ def test_setting_a_meal_to_the_way_it_already_uses_changes_nothing(
         save(kitchen, fresh, method_name="Stovetop", second_method=second()),
     )
     first = saved["methods"][0]["id"]
-    answer = ok(kitchen.put(f"{API}/plan/items/{item_id}/method", json={"method_id": first}))
+    answer = ok(kitchen.patch(f"{API}/plan/items/{item_id}", json={"method_id": first}))
     assert answer["change"] is None
     assert meal_item(kitchen, item_id)["optional_skipped"] == [water_line]
 

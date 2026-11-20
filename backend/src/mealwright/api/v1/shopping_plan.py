@@ -5,7 +5,7 @@ The list itself is read and written like any other (`/shopping/...`): plan-made 
 card for staples. "+ Add" on the card is the ordinary `add` action; "Got it" is here."""
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StrictBool
 
 from mealwright import shop_from_plan
 from mealwright.api.v1.context import Here, Kitchen
@@ -41,7 +41,7 @@ def _out(kitchen: Kitchen, outcome: shop_from_plan.Outcome) -> FromPlanOut:
     )
 
 
-@router.post("/shopping/from-plan")
+@router.post("/shopping/add-from-plan")
 def from_plan(kitchen: Here) -> FromPlanOut:
     """Bring the main list up to date with the plan and the pantry (it is also done after
     every plan write), and give back the staples card. Changes nothing when the list is already
@@ -52,18 +52,26 @@ def from_plan(kitchen: Here) -> FromPlanOut:
     return answer
 
 
-@router.put("/shopping/staples/{food_id}/got-it")
-def got_it(food_id: StoredInt, kitchen: Here) -> FromPlanOut:
-    """ "Got it" on the staples card: the staple stays off the card until the plan's use of it
-    changes. Saying it twice changes nothing more."""
-    answer = _out(kitchen, shop_from_plan.got_it(kitchen, find(kitchen, food_id)))
-    kitchen.db.commit()
-    return answer
+class StaplePatch(BaseModel):
+    """D3 (BE14): one way to set one thing, a PATCH on it (was `PUT` and `DELETE`
+    `/shopping/staples/{food_id}/got-it`)."""
+
+    got_it: StrictBool = Field(
+        description='true: "Got it" on the staples card, the staple stays off the card until'
+        " the plan's use of it changes; saying it twice changes nothing more. false: its Undo,"
+        " the staple is on the card again."
+    )
 
 
-@router.delete("/shopping/staples/{food_id}/got-it")
-def not_got_it(food_id: StoredInt, kitchen: Here) -> FromPlanOut:
-    """Undo of "Got it": the staple is on the card again."""
-    answer = _out(kitchen, shop_from_plan.not_got_it(kitchen, find(kitchen, food_id)))
+@router.patch("/shopping/staples/{food_id}")
+def edit_staple(food_id: StoredInt, body: StaplePatch, kitchen: Here) -> FromPlanOut:
+    """ "Got it" on the staples card, or taking it back. Answers the card as it is now."""
+    food = find(kitchen, food_id)
+    worked = (
+        shop_from_plan.got_it(kitchen, food)
+        if body.got_it
+        else shop_from_plan.not_got_it(kitchen, food)
+    )
+    answer = _out(kitchen, worked)
     kitchen.db.commit()
     return answer

@@ -207,7 +207,7 @@ def _use(s: S0, which: int, amount: int) -> None:
     frozen = [lot for lot in s.lots(name) if lot[0] == "Freezer"]
     had = s.total(name) - sum(left for _, left in frozen)
     answer = s.kitchen.post(
-        f"{API}/foods/{s.foods[name]}/used", json={"amount": {"amount": amount, "unit": unit}}
+        f"{API}/foods/{s.foods[name]}/use", json={"amount": {"amount": amount, "unit": unit}}
     )
     if answer.status_code == 409:
         assert had == 0, answer.text

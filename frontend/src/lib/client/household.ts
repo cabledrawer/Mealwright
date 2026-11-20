@@ -57,7 +57,7 @@ const SENT_KEY = 'mealwright.household-from-browser';
 
 /**
  * First run: an admin's browser offers the server the household's time zone and cup
- * size (POST /household/from-browser). The server keeps each only while it has none,
+ * size (POST /household/fill-from-browser). The server keeps each only while it has none,
  * so this never changes a setting already made. Once per sign-in (remembered for this
  * tab's session), never for members. The time zone is the device's setting, never its
  * location. Returns whether it was sent.
@@ -76,7 +76,7 @@ export async function settleHousehold(
   } catch {
     // Storage blocked: send it; the server ignores values it already has.
   }
-  await api<Household>('POST', '/household/from-browser', {
+  await api<Household>('POST', '/household/fill-from-browser', {
     time_zone: device.timeZone,
     cup_ml: defaultCupMl(device.language)
   });

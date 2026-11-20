@@ -54,12 +54,14 @@ export interface Leftovers {
 export const getToday = () => api<TodayData>('GET', '/today');
 
 export const cookedIt = (mealId: number, leftovers: Leftovers | null, key: string) =>
-  api<PlanWrite>('POST', `/plan/meals/${mealId}/cooked`, leftovers ? { leftovers } : {}, {
+  api<PlanWrite>('POST', `/plan/meals/${mealId}/mark-cooked`, leftovers ? { leftovers } : {}, {
     idempotencyKey: key
   });
 
 export const didntCook = (mealId: number, key: string) =>
-  api<PlanWrite>('POST', `/plan/meals/${mealId}/didnt`, undefined, { idempotencyKey: key });
+  api<PlanWrite>('POST', `/plan/meals/${mealId}/mark-not-cooked`, undefined, {
+    idempotencyKey: key
+  });
 
 export const moveIt = (
   mealId: number,
@@ -70,7 +72,7 @@ export const moveIt = (
     starts?: { item_id: number; day: string; time: string }[];
   },
   key: string
-) => api<PlanWrite>('POST', `/plan/meals/${mealId}/moved`, to, { idempotencyKey: key });
+) => api<PlanWrite>('POST', `/plan/meals/${mealId}/mark-moved`, to, { idempotencyKey: key });
 
 /** Today's note for an import from Mealie that finished in the last day. */
 export interface MealieNote {

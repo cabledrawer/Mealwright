@@ -63,7 +63,7 @@ async function kitchen(page: Page) {
     async cleanUp() {
       for (const id of items) await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key() });
       for (const id of lines) await page.request.fetch(`/api/v1/shopping/items/${id}`, { method: 'DELETE', headers: key() });
-      await page.request.fetch('/api/v1/shopping/from-plan', { method: 'POST' });
+      await page.request.fetch('/api/v1/shopping/add-from-plan', { method: 'POST' });
     },
   };
 }

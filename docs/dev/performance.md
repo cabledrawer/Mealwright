@@ -84,10 +84,10 @@ Tables from `node perf/table.ts` (times in ms, median / slowest of 5 runs).
 |---|---|---|---|
 | Sign in | 8196 / 8199 | n/a | 806 (/session) |
 | Today | 7369 / 7807 | 955 / 987 | 581 (/setup) |
-| Recipe list | 8191 / 8591 | 1778 / 1817 | 614 (/household/from-browser) |
+| Recipe list | 8191 / 8591 | 1778 / 1817 | 614 (/household/fill-from-browser) |
 | One recipe | 8329 / 8412 | 1483 / 1511 | 609 (/recipes/8/stock) |
 | Plan (week) | 9620 / 10078 | 2753 / 2774 | 611 (/recipes) |
-| Shopping list | 9133 / 9150 | 974 / 1072 | 607 (/household/from-browser) |
+| Shopping list | 9133 / 9150 | 974 / 1072 | 607 (/household/fill-from-browser) |
 | Pantry | 8598 / 8632 | 2263 / 2296 | 608 (/pantry) |
 | Plan (month) | 10682 / 11723 | 3820 / 3862 | 611 (/recipes/tags) |
 
@@ -115,7 +115,7 @@ Tables from `node perf/table.ts` (times in ms, median / slowest of 5 runs).
 | What | First load | Repeat load | Slowest API wait seen (first load) |
 |---|---|---|---|
 | Sign in | 2788 / 2840 | n/a | 676 (/session) |
-| Today | 2006 / 2042 | 136 / 232 | 202 (/household/from-browser) |
+| Today | 2006 / 2042 | 136 / 232 | 202 (/household/fill-from-browser) |
 | Recipe list | 903 / 2818 | 263 / 297 | 388 (/recipes) |
 | One recipe | 1458 / 1995 | 336 / 350 | 518 (/recipes) |
 | Plan (week) | 985 / 1068 | 294 / 319 | 278 (/recipes) |

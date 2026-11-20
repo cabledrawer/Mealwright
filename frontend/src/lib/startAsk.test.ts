@@ -391,7 +391,7 @@ describe('from the meal', () => {
   it('starts with the meal’s own time, shown first when it is not one of the suggestions, and sends the new one', async () => {
     const requests = fakeApi({
       'GET /plan/start-options': [200, OPTIONS],
-      'PUT /plan/items/77/start': WRITE
+      'PATCH /plan/items/77': WRITE
     });
     const model = new PlanModel();
     model.plan = {
@@ -418,7 +418,7 @@ describe('from the meal', () => {
     expect(startAsk.current!.question.button).toBe('Save');
     startAsk.answer({ day: '2026-11-13', time: '19:00' });
     await changed;
-    expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({
+    expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({
       start: { day: '2026-11-13', time: '19:00' }
     });
   });
@@ -426,7 +426,7 @@ describe('from the meal', () => {
   it('the same time sends nothing', async () => {
     const requests = fakeApi({
       'GET /plan/start-options': [200, OPTIONS],
-      'PUT /plan/items/77/start': WRITE
+      'PATCH /plan/items/77': WRITE
     });
     const model = new PlanModel();
     model.plan = {
@@ -451,11 +451,11 @@ describe('from the meal', () => {
     await vi.waitFor(() => expect(startAsk.current).not.toBeNull());
     startAsk.answer({ day: '2026-11-13', time: '20:00' });
     await changed;
-    expect(requests.filter((r) => r.method === 'PUT')).toHaveLength(0);
+    expect(requests.filter((r) => r.method === 'PATCH')).toHaveLength(0);
   });
 
   it('Done already marks the wait as begun', async () => {
-    const requests = fakeApi({ 'PUT /plan/items/77/started': WRITE });
+    const requests = fakeApi({ 'PATCH /plan/items/77': WRITE });
     await new PlanModel().markStarted(item(AHEAD));
     expect(requests[0]!.body).toEqual({ started: true });
   });

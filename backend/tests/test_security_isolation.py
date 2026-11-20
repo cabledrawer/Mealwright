@@ -416,7 +416,7 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     # Two cooking methods (M2): a method id that is not one of the recipe's own is refused,
     # whoever's it is (test_recipe_methods, test_a_method_that_is_not_the_recipes_is_refused).
     ("PlanItemIn", "method_id"): "test_recipe_methods",
-    ("PlanMethodIn", "method_id"): "test_recipe_methods",
+    ("PlanItemPatch", "method_id"): "test_recipe_methods",
     # Cook once (0.6 PR 4): test_plan_batches.py,
     # test_another_households_ids_get_404_on_every_new_route.
     # Batch cook (0.8 wave 6, B2): test_batch_sessions.py,
@@ -432,7 +432,7 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     ("TubPlaceIn", "slot_id"): "test_plan_batches",
     ("TubEditIn", "member_id"): "test_plan_batches",
     # Portions and who's eating (0.7 P1): test_plan_portions.py, test_plan_serves.py.
-    ("EatersIn", "member_ids"): "test_plan_serves",
+    ("PlanMealPatch", "member_ids"): "test_plan_serves",
     # People and roles (0.9 A1): test_people.py, test_a_shared_login_cant_pick_a_neighbours_person.
     ("PickIn", "member_id"): "test_people",
     # "Who is this?" (0.9.5 Pe3/M2): test_sso_waiting.py,

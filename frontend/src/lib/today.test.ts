@@ -127,7 +127,7 @@ describe('the first toast after Cooked it (F161)', () => {
     const { toasts } = await import('./toast.svelte');
     const { changeOf, fakeApi } = await import('./testing/fakeApi');
     fakeApi({
-      'POST /plan/meals/5/cooked': [
+      'POST /plan/meals/5/mark-cooked': [
         201,
         {
           change: {

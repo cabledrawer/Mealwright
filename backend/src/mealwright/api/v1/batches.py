@@ -284,7 +284,7 @@ def bin_tub(plan_tub_id: StoredInt, kitchen: Here, response: Response) -> PlanWr
     )
 
 
-@router.post("/plan/tubs/{plan_tub_id}/freezer")
+@router.post("/plan/tubs/{plan_tub_id}/freeze")
 def tub_to_freezer(plan_tub_id: StoredInt, kitchen: Here, response: Response) -> PlanWrite:
     """To freezer: the tub leaves its meal, goes in the freezer and gets a use-by the
     household's freezer life from today. A tub whose use-by has passed (from the day after) is

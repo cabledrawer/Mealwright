@@ -214,7 +214,7 @@ describe('the meal’s menu (0.7 P1)', () => {
       meal = mealOf(1, '2026-10-20', 4, [recipeItem(11, 'Sambar')]);
       model.plan = plan([meal]);
       requests = fakeApi({
-        'PUT /plan/meals/1/eaters': () => [200, written('Changed who is eating Sambar')],
+        'PATCH /plan/meals/1': () => [200, written('Changed who is eating Sambar')],
         'GET /plan': [200, plan([meal])]
       });
     });
@@ -226,7 +226,7 @@ describe('the meal’s menu (0.7 P1)', () => {
       await dialog.getByRole('button', { name: 'Wren' }).click();
       await expect.element(everyone).toHaveAttribute('aria-pressed', 'false');
       await expect
-        .poll(() => requests.filter((r) => r.method === 'PUT').map((r) => r.body))
+        .poll(() => requests.filter((r) => r.method === 'PATCH').map((r) => r.body))
         .toEqual([{ member_ids: [2] }]);
     });
 
@@ -235,7 +235,7 @@ describe('the meal’s menu (0.7 P1)', () => {
       const dialog = open({ kind: 'meal', meal });
       await dialog.getByRole('button', { name: 'Tess' }).click();
       await expect
-        .poll(() => requests.filter((r) => r.method === 'PUT').map((r) => r.body))
+        .poll(() => requests.filter((r) => r.method === 'PATCH').map((r) => r.body))
         .toEqual([{ member_ids: [] }]);
     });
 
@@ -246,7 +246,7 @@ describe('the meal’s menu (0.7 P1)', () => {
       await expect.element(dialog.getByText('Lorna (removed)')).toBeVisible();
       await dialog.getByRole('button', { name: 'Tess' }).click();
       await expect
-        .poll(() => requests.filter((r) => r.method === 'PUT').map((r) => r.body))
+        .poll(() => requests.filter((r) => r.method === 'PATCH').map((r) => r.body))
         .toEqual([{ member_ids: [1, 99] }]);
     });
 

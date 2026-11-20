@@ -58,7 +58,7 @@ async function kitchen(page: Page) {
     async cleanUp() {
       for (const id of items) await page.request.fetch(`/api/v1/plan/items/${id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
       for (const id of lines) await page.request.fetch(`/api/v1/shopping/items/${id}`, { method: 'DELETE', headers: key(), maxRetries: 3 });
-      await page.request.fetch('/api/v1/shopping/from-plan', { method: 'POST', maxRetries: 3 });
+      await page.request.fetch('/api/v1/shopping/add-from-plan', { method: 'POST', maxRetries: 3 });
     },
   };
 }

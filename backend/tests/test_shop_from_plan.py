@@ -76,7 +76,7 @@ def amounts(kitchen: TestClient) -> dict[int, Any]:
 
 
 def from_plan(kitchen: TestClient) -> dict[str, Any]:
-    result: dict[str, Any] = ok(kitchen.post(f"{API}/shopping/from-plan"))
+    result: dict[str, Any] = ok(kitchen.post(f"{API}/shopping/add-from-plan"))
     return result
 
 
@@ -677,10 +677,12 @@ def test_got_it_hides_a_staple_until_the_plans_use_of_it_changes(
     oil = new_food(kitchen, "Plan oil", staple=True)
     stew = recipe(kitchen, "Stew", line(oil["id"], 1, "tbsp"))
     plan(kitchen, stew, 1)
-    card = ok(kitchen.put(f"{API}/shopping/staples/{oil['id']}/got-it"))["staples"]
+    card = ok(kitchen.patch(f"{API}/shopping/staples/{oil['id']}", json={"got_it": True}))[
+        "staples"
+    ]
     assert card == []
     assert from_plan(kitchen)["staples"] == []
-    ok(kitchen.put(f"{API}/shopping/staples/{oil['id']}/got-it"))  # twice is fine
+    ok(kitchen.patch(f"{API}/shopping/staples/{oil['id']}", json={"got_it": True}))  # twice is fine
     with db(kitchen) as session:
         assert len(list(session.scalars(select(StapleCheck)))) == 1
     # The same meals, a different day: nothing changed about the need.
@@ -690,8 +692,10 @@ def test_got_it_hides_a_staple_until_the_plans_use_of_it_changes(
     plan(kitchen, stew, 2)
     assert [s["food"]["name"] for s in from_plan(kitchen)["staples"]] == ["Plan oil"]
     # Undo of Got it.
-    ok(kitchen.put(f"{API}/shopping/staples/{oil['id']}/got-it"))
-    back = ok(kitchen.delete(f"{API}/shopping/staples/{oil['id']}/got-it"))["staples"]
+    ok(kitchen.patch(f"{API}/shopping/staples/{oil['id']}", json={"got_it": True}))
+    back = ok(kitchen.patch(f"{API}/shopping/staples/{oil['id']}", json={"got_it": False}))[
+        "staples"
+    ]
     assert [s["food"]["name"] for s in back] == ["Plan oil"]
     with db(kitchen) as session:
         assert list(session.scalars(select(StapleCheck))) == []
@@ -701,7 +705,7 @@ def test_got_it_is_forgotten_when_the_meal_that_used_it_goes(kitchen: TestClient
     oil = new_food(kitchen, "Plan oil", staple=True)
     stew = recipe(kitchen, "Stew", line(oil["id"], 1, "tbsp"))
     made = plan(kitchen, stew, 1)
-    ok(kitchen.put(f"{API}/shopping/staples/{oil['id']}/got-it"))
+    ok(kitchen.patch(f"{API}/shopping/staples/{oil['id']}", json={"got_it": True}))
     ok(kitchen.delete(f"{API}/plan/meals/{made['meal_id']}"))
     assert from_plan(kitchen)["staples"] == []
     plan(kitchen, stew, 1)  # a new meal is a new use
@@ -764,7 +768,7 @@ def test_another_households_plan_and_stock_are_never_counted(
     plan(neighbour, their_stew, 1)
     plan(neighbour, their_stew, 2)
     stock(neighbour, theirs["id"], 5, "kg")
-    ok(kitchen.post(f"{API}/shopping/from-plan"))
+    ok(kitchen.post(f"{API}/shopping/add-from-plan"))
     assert plan_lines(kitchen) == [] and plan_actions(kitchen) != []  # theirs is logged, ours not
     assert all(a.household_id == 2 for a in plan_actions(kitchen))
     # Household 1 plans a little: its sums use only its own pantry (none), not household 2's 5 kg.
@@ -781,9 +785,12 @@ def test_the_staples_card_and_got_it_stay_inside_the_household(
     plan(kitchen, recipe(kitchen, "Stew", line(oil["id"], 1, "tbsp")))
     assert [s["food"]["id"] for s in from_plan(kitchen)["staples"]] == [oil["id"]]
     assert from_plan(neighbour)["staples"] == []
-    refused = neighbour.put(f"{API}/shopping/staples/{oil['id']}/got-it")
+    refused = neighbour.patch(f"{API}/shopping/staples/{oil['id']}", json={"got_it": True})
     assert refused.status_code == 404
-    assert neighbour.delete(f"{API}/shopping/staples/{oil['id']}/got-it").status_code == 404
+    assert (
+        neighbour.patch(f"{API}/shopping/staples/{oil['id']}", json={"got_it": False}).status_code
+        == 404
+    )
     assert [s["food"]["id"] for s in from_plan(kitchen)["staples"]] == [oil["id"]]
     with db(kitchen) as session:
         assert list(session.scalars(select(StapleCheck))) == []
@@ -837,7 +844,7 @@ def test_got_it_stays_hidden_as_days_pass_and_comes_back_for_a_new_meal(
     stew = recipe(kitchen, "Stew", line(oil["id"], 1, "tbsp"))
     monday = plan(kitchen, stew, 0)
     plan(kitchen, stew, 2)
-    ok(kitchen.put(f"{API}/shopping/staples/{oil['id']}/got-it"))
+    ok(kitchen.patch(f"{API}/shopping/staples/{oil['id']}", json={"got_it": True}))
     # Tuesday: Monday's meal is behind us (the window starts today), nothing new is planned.
     with db(kitchen) as session:
         session.get(Meal, monday["meal_id"]).day = day(kitchen, -1)  # type: ignore[union-attr]
@@ -947,9 +954,9 @@ def test_one_recipe_over_the_limit_leaves_the_ingredient_with_no_amount_in_eithe
 def test_two_phones_saying_got_it_at_once_both_get_an_answer(kitchen: TestClient) -> None:
     salt = new_food(kitchen, "Race salt", staple=True)
     plan(kitchen, recipe(kitchen, "Salty", line(salt["id"], 1, "tsp")), 1)
-    url = f"{API}/shopping/staples/{salt['id']}/got-it"
+    url = f"{API}/shopping/staples/{salt['id']}"
     for _ in range(5):
-        ok(kitchen.delete(url))
+        ok(kitchen.patch(url, json={"got_it": False}))
         start = threading.Barrier(2)
         codes: list[int] = []
 
@@ -957,7 +964,7 @@ def test_two_phones_saying_got_it_at_once_both_get_an_answer(kitchen: TestClient
             other = TestClient(kitchen.app, base_url="https://testserver")
             other.cookies.update(kitchen.cookies)
             start.wait()
-            codes.append(other.put(url).status_code)
+            codes.append(other.patch(url, json={"got_it": True}).status_code)
 
         threads = [threading.Thread(target=say_it) for _ in range(2)]
         for thread in threads:
@@ -1008,3 +1015,18 @@ def test_a_deep_wide_recipe_tree_is_worked_out_in_bounded_steps(
     calls["n"] = 0
     ok(kitchen.get(f"{API}/shopping/lists/{main_id(kitchen)}"))  # the list read
     assert calls["n"] <= 1000
+
+
+def test_got_it_is_a_patch_on_the_staple_with_a_true_or_false(kitchen: TestClient) -> None:
+    """D3 (BE14): `PATCH /shopping/staples/{food_id}` `{got_it}` replaces `PUT` and `DELETE
+    .../got-it`; anything but a true or false is refused and the card is as it was."""
+    oil = new_food(kitchen, "Patch oil", staple=True)
+    plan(kitchen, recipe(kitchen, "Patch stew", line(oil["id"], 1, "tbsp")), 1)
+    url = f"{API}/shopping/staples/{oil['id']}"
+    for body in ({}, {"got_it": None}, {"got_it": "yes"}, {"got_it": 1}):
+        assert kitchen.patch(url, json=body).status_code == 422, body
+    assert [s["food"]["name"] for s in from_plan(kitchen)["staples"]] == ["Patch oil"]
+    assert kitchen.put(f"{url}/got-it").status_code in (404, 405)
+    assert ok(kitchen.patch(url, json={"got_it": True}))["staples"] == []
+    back = ok(kitchen.patch(url, json={"got_it": False}))["staples"]
+    assert [s["food"]["name"] for s in back] == ["Patch oil"]

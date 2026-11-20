@@ -69,7 +69,7 @@ def plain(kitchen: TestClient) -> dict[str, Any]:
 
 
 def london(kitchen: TestClient) -> None:
-    kitchen.post(f"{API}/household/from-browser", json={"time_zone": "Europe/London"})
+    kitchen.post(f"{API}/household/fill-from-browser", json={"time_zone": "Europe/London"})
 
 
 def options(
@@ -111,7 +111,9 @@ def plan_dosa(
 
 
 def put(kitchen: TestClient, item_id: int, what: str, body: dict[str, Any]) -> Any:
-    return kitchen.put(f"{API}/plan/items/{item_id}/{what}", json=body)
+    """Set one thing on a planned item: a PATCH on the item, with that one field (D3, BE14)."""
+    assert set(body) == {what}
+    return kitchen.patch(f"{API}/plan/items/{item_id}", json=body)
 
 
 # --- The question ----------------------------------------------------------------------------
@@ -338,7 +340,7 @@ def test_a_start_cannot_be_set_on_a_meal_that_cannot_wait(kitchen: TestClient) -
     item = plan_dosa(kitchen, plain(kitchen))["item_id"]
     r = put(kitchen, item, "start", {"start": start_of(FRI, "21:00")})
     assert (r.status_code, r.json()["code"]) == (422, "no_wait")
-    gone = kitchen.put(f"{API}/plan/items/99999/start", json={"start": None})
+    gone = kitchen.patch(f"{API}/plan/items/99999", json={"start": None})
     assert gone.status_code == 404
 
 
@@ -544,7 +546,7 @@ def test_the_start_belongs_to_the_way_of_cooking_it_and_a_change_of_way_asks_aga
     item = plan_dosa(kitchen, recipe, method_id=first, start=start_of(FRI, "21:00"))["item_id"]
     # Only the way with the long wait has anything to start ahead.
     assert item_of(kitchen, item)["ahead"]["start_time"] == "21:00"
-    changed = ok(put(kitchen, item, "method", {"method_id": other}))
+    changed = ok(put(kitchen, item, "method_id", {"method_id": other}))
     assert item_of(kitchen, item)["ahead"] is None
     undo(kitchen, changed)
     assert item_of(kitchen, item)["ahead"]["start_time"] == "21:00"
@@ -809,7 +811,7 @@ def test_a_time_with_another_zone_is_kept_as_utc_text_in_an_undo_step() -> None:
 def test_a_start_in_year_one_or_9999_is_refused_not_a_crash(kitchen: TestClient, zone: str) -> None:
     """Release 0.8.0-beta.1 security pass L2: a day at the calendar's ends overflowed when it was
     turned into an instant (500). Every way a start comes in, and the question's own day."""
-    kitchen.post(f"{API}/household/from-browser", json={"time_zone": zone})
+    kitchen.post(f"{API}/household/fill-from-browser", json={"time_zone": zone})
     with db_of(kitchen) as db:
         db.query(models.Household).update({"time_zone": zone})
         db.commit()
@@ -1061,3 +1063,26 @@ def test_the_days_the_plan_is_read_past_its_edge_match_the_screens() -> None:
     """H6: the longest start is ten days of wait and a day more: 11 (the Plan screen's
     START_DAYS_AHEAD in plan.svelte.ts is the same number)."""
     assert start_ahead.MOST_DAYS_AHEAD == 11
+
+
+def test_a_planned_item_is_changed_one_field_at_a_time(kitchen: TestClient) -> None:
+    """D3 (BE14): one way to set one thing, `PATCH /plan/items/{id}` with exactly one field;
+    none, two, or a null other than `start` is `422 one_field`, and nothing changes. The old
+    `PUT /plan/items/{id}/start|started|optional|method` routes are gone."""
+    item = plan_dosa(kitchen, dosa(kitchen))["item_id"]
+    url = f"{API}/plan/items/{item}"
+    for body in (
+        {},
+        {"servings": 3, "started": True},
+        {"start": None, "started": False},
+        {"servings": None},
+        {"started": None},
+        {"method_id": None},
+        {"optional_use": None},
+    ):
+        r = kitchen.patch(url, json=body)
+        assert (r.status_code, r.json()["code"]) == (422, "one_field"), body
+    assert item_of(kitchen, item)["servings"] != 3
+    for old in ("start", "started", "optional", "method"):
+        assert kitchen.put(f"{url}/{old}", json={}).status_code in (404, 405), old
+    assert ok(kitchen.patch(url, json={"start": None}))["change"] is None  # null clears

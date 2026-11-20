@@ -204,7 +204,7 @@ class MovedIn(BaseModel):
         return starts
 
 
-@router.post("/plan/meals/{plan_meal_id}/cooked")
+@router.post("/plan/meals/{plan_meal_id}/mark-cooked")
 def cooked_it(
     plan_meal_id: StoredInt, body: CookedIn, kitchen: Here, response: Response
 ) -> PlanWrite:
@@ -227,7 +227,7 @@ def cooked_it(
     )
 
 
-@router.post("/plan/meals/{plan_meal_id}/didnt")
+@router.post("/plan/meals/{plan_meal_id}/mark-not-cooked")
 def didnt_cook(plan_meal_id: StoredInt, kitchen: Here, response: Response) -> PlanWrite:
     """“Didn't”: the meal was not cooked. Nothing is taken from the pantry, and the meal's
     ingredients leave the shopping list."""
@@ -238,7 +238,7 @@ def didnt_cook(plan_meal_id: StoredInt, kitchen: Here, response: Response) -> Pl
     )
 
 
-@router.post("/plan/meals/{plan_meal_id}/moved")
+@router.post("/plan/meals/{plan_meal_id}/mark-moved")
 def move_it(plan_meal_id: StoredInt, body: MovedIn, kitchen: Here, response: Response) -> PlanWrite:
     """“Move it”: to a day and a meal. The old meal is marked moved and keeps its place; a
     meal that already has food gets it alongside. `meal_id` is the meal it went to."""

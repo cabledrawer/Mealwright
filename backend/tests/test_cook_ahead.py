@@ -49,7 +49,7 @@ def test_cooked_it_on_a_later_days_meal_works(kitchen: TestClient) -> None:
 
 def test_didnt_on_a_later_days_meal_is_still_refused(kitchen: TestClient) -> None:
     _dal, meal, _item, _day = plan_ahead(kitchen)
-    r = kitchen.post(f"{API}/plan/meals/{meal}/didnt")
+    r = kitchen.post(f"{API}/plan/meals/{meal}/mark-not-cooked")
     assert r.status_code == 422 and r.json()["code"] == "not_yet"
     assert status_of(kitchen, meal) == "planned"
 

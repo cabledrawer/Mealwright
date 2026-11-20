@@ -132,11 +132,13 @@ def test_a_recipe_still_cooks_in_its_steps_order(kitchen: TestClient, session: i
 def test_done_moves_now_on_and_undo_takes_it_back(kitchen: TestClient, session: int) -> None:
     made = start(kitchen, session)
     first = made["now_id"]
-    after = ok(kitchen.put(url(session, f"/tasks/{first}/done")))
+    after = ok(kitchen.patch(url(session, f"/tasks/{first}"), json={"done": True}))
     assert task(after, first)["state"] == "done" and task(after, first)["done_at"]
     assert after["done_count"] == 1 and after["now_id"] != first
-    assert ok(kitchen.put(url(session, f"/tasks/{first}/done")))["done_count"] == 1  # once
-    back = ok(kitchen.delete(url(session, f"/tasks/{first}/done")))
+    assert (
+        ok(kitchen.patch(url(session, f"/tasks/{first}"), json={"done": True}))["done_count"] == 1
+    )  # once
+    back = ok(kitchen.patch(url(session, f"/tasks/{first}"), json={"done": False}))
     assert back["now_id"] == first and back["done_count"] == 0
     assert task(back, first)["done_at"] is None
 
@@ -145,19 +147,19 @@ def test_a_waiting_task_starts_its_timer_and_ends_by_itself(
     kitchen: TestClient, session: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     made = start(kitchen, session)
-    ok(kitchen.put(url(session, f"/tasks/{made['now_id']}/done")))
+    ok(kitchen.patch(url(session, f"/tasks/{made['now_id']}"), json={"done": True}))
     waiting = next(
         t
         for t in ok(kitchen.get(url(session)))["tasks"]
         if t["hands"] == "waiting" and t["state"] == "ready"
     )
-    running = ok(kitchen.put(url(session, f"/tasks/{waiting['id']}/timer")))
+    running = ok(kitchen.post(url(session, f"/tasks/{waiting['id']}/start-timer")))
     t = task(running, waiting["id"])
     assert t["state"] == "running" and t["started_at"] and t["ends_at"]
     assert running["in_use"]["pressure"] + running["in_use"]["hob"] >= 1
     first = t["started_at"]
     assert (
-        task(ok(kitchen.put(url(session, f"/tasks/{waiting['id']}/timer"))), waiting["id"])[
+        task(ok(kitchen.post(url(session, f"/tasks/{waiting['id']}/start-timer"))), waiting["id"])[
             "started_at"
         ]
         == first
@@ -181,23 +183,23 @@ def _kitchen(db: Any) -> Kitchen:
 
 def test_a_hands_on_task_has_no_timer(kitchen: TestClient, session: int) -> None:
     made = start(kitchen, session)
-    refused = kitchen.put(url(session, f"/tasks/{made['now_id']}/timer"))
+    refused = kitchen.post(url(session, f"/tasks/{made['now_id']}/start-timer"))
     assert refused.status_code == 422 and refused.json()["code"] == "not_a_wait"
 
 
 def test_a_task_that_is_not_there_is_a_404(kitchen: TestClient, session: int) -> None:
     start(kitchen, session)
-    assert kitchen.put(url(session, "/tasks/t99/done")).status_code == 404
-    assert kitchen.put(url(session, "/tasks/nope/done")).status_code == 422
+    assert kitchen.patch(url(session, "/tasks/t99"), json={"done": True}).status_code == 404
+    assert kitchen.patch(url(session, "/tasks/nope"), json={"done": True}).status_code == 422
 
 
 def test_another_phone_carries_on_where_the_first_was(kitchen: TestClient, session: int) -> None:
     made = start(kitchen, session)
-    ok(kitchen.put(url(session, f"/tasks/{made['now_id']}/done")))
+    ok(kitchen.patch(url(session, f"/tasks/{made['now_id']}"), json={"done": True}))
     wren = person(kitchen)
     seen = ok(wren.get(url(session)))
     assert seen["done_count"] == 1 and seen["now_id"] != made["now_id"]
-    ok(wren.put(url(session, f"/tasks/{seen['now_id']}/done")))
+    ok(wren.patch(url(session, f"/tasks/{seen['now_id']}"), json={"done": True}))
     assert ok(kitchen.get(url(session)))["done_count"] == 2
 
 
@@ -208,7 +210,7 @@ def test_a_changed_kitchen_or_recipe_says_plan_again_and_plan_again_clears_the_p
     kitchen: TestClient, session: int
 ) -> None:
     made = start(kitchen, session)
-    ok(kitchen.put(url(session, f"/tasks/{made['now_id']}/done")))
+    ok(kitchen.patch(url(session, f"/tasks/{made['now_id']}"), json={"done": True}))
     assert ok(kitchen.get(url(session)))["stale"] is False
     ok(kitchen.patch(f"{API}/household/kitchen", json={"hob_rings": 2}))
     stale = ok(kitchen.get(url(session)))
@@ -271,9 +273,9 @@ def test_the_other_household_gets_404_on_every_route(
     tid = made["now_id"]
     assert neighbour.post(url(session)).status_code == 404
     assert neighbour.get(url(session)).status_code == 404
-    assert neighbour.put(url(session, f"/tasks/{tid}/done")).status_code == 404
-    assert neighbour.delete(url(session, f"/tasks/{tid}/done")).status_code == 404
-    assert neighbour.put(url(session, f"/tasks/{tid}/timer")).status_code == 404
+    assert neighbour.patch(url(session, f"/tasks/{tid}"), json={"done": True}).status_code == 404
+    assert neighbour.patch(url(session, f"/tasks/{tid}"), json={"done": False}).status_code == 404
+    assert neighbour.post(url(session, f"/tasks/{tid}/start-timer")).status_code == 404
     assert ok(kitchen.get(url(session)))["done_count"] == 0
 
 
@@ -288,7 +290,7 @@ def test_every_open_screen_hears_a_change_of_progress(kitchen: TestClient, sessi
         import asyncio
 
         mine, theirs = broadcaster(kitchen).subscribe(1), broadcaster(kitchen).subscribe(2)
-        await asyncio.to_thread(kitchen.put, url(session, f"/tasks/{tid}/done"))
+        await asyncio.to_thread(kitchen.patch, url(session, f"/tasks/{tid}"), json={"done": True})
         item = await heard(mine)
         assert item is not None and item.name == "batch_cook"
         assert item.data == {"session_id": session}
@@ -328,13 +330,16 @@ def test_a_second_timer_for_the_one_pressure_cooker_is_refused_until_the_first_i
     assert len(cooks) == 2 and {t["state"] for t in cooks} == {"ready", "later"}
     first = next(t for t in cooks if t["state"] == "ready")["id"]
     second = next(t for t in cooks if t["state"] == "later")["id"]
-    refused = kitchen.put(url(session, f"/tasks/{second}/timer"))
+    refused = kitchen.post(url(session, f"/tasks/{second}/start-timer"))
     assert refused.status_code == 409 and refused.json()["code"] == "not_ready"
-    assert ok(kitchen.put(url(session, f"/tasks/{first}/timer")))["in_use"]["pressure"] == 1
-    assert kitchen.put(url(session, f"/tasks/{second}/timer")).status_code == 409
-    ok(kitchen.put(url(session, f"/tasks/{first}/done")))  # taken off: the cooker is free
+    assert ok(kitchen.post(url(session, f"/tasks/{first}/start-timer")))["in_use"]["pressure"] == 1
+    assert kitchen.post(url(session, f"/tasks/{second}/start-timer")).status_code == 409
+    ok(
+        kitchen.patch(url(session, f"/tasks/{first}"), json={"done": True})
+    )  # taken off: the cooker is free
     assert (
-        task(ok(kitchen.put(url(session, f"/tasks/{second}/timer"))), second)["state"] == "running"
+        task(ok(kitchen.post(url(session, f"/tasks/{second}/start-timer"))), second)["state"]
+        == "running"
     )
 
 
@@ -347,14 +352,18 @@ def test_a_timer_pressed_offline_counts_from_when_it_was_pressed_and_never_from_
     made_at = datetime.fromisoformat(made["made_at"]).replace(tzinfo=UTC)
     pressed = made_at + (datetime.now(UTC) - made_at) / 2  # between the two
     body = {"at": pressed.isoformat()}
-    got = task(ok(kitchen.put(url(session, f"/tasks/{first['id']}/timer"), json=body)), first["id"])
+    got = task(
+        ok(kitchen.post(url(session, f"/tasks/{first['id']}/start-timer"), json=body)), first["id"]
+    )
     assert datetime.fromisoformat(got["started_at"]).replace(tzinfo=UTC) == pressed
     # Done too: a time before the schedule was made, or in the future, is the server's own clock.
     for at in (made_at - timedelta(days=1), datetime.now(UTC) + timedelta(days=1)):
-        ok(kitchen.delete(url(session, f"/tasks/{first['id']}/done")))
+        ok(kitchen.patch(url(session, f"/tasks/{first['id']}"), json={"done": False}))
         sent = task(
             ok(
-                kitchen.put(url(session, f"/tasks/{first['id']}/done"), json={"at": at.isoformat()})
+                kitchen.patch(
+                    url(session, f"/tasks/{first['id']}"), json={"done": True, "at": at.isoformat()}
+                )
             ),
             first["id"],
         )
@@ -369,10 +378,10 @@ def test_removing_the_session_and_undo_bring_back_its_schedule_and_progress(
     was done and a running timer back, as they were."""
     made = start(kitchen, session)
     first = made["now_id"]
-    ok(kitchen.put(url(session, f"/tasks/{first}/done")))
+    ok(kitchen.patch(url(session, f"/tasks/{first}"), json={"done": True}))
     after = ok(kitchen.get(url(session)))
     waiting = next(t for t in after["tasks"] if t["hands"] == "waiting" and t["state"] == "ready")
-    ok(kitchen.put(url(session, f"/tasks/{waiting['id']}/timer")))
+    ok(kitchen.post(url(session, f"/tasks/{waiting['id']}/start-timer")))
     before = ok(kitchen.get(url(session)))
     removed = ok(kitchen.delete(f"{API}/batch-cook/sessions/{session}"))
     assert kitchen.get(url(session)).status_code == 404
@@ -398,21 +407,24 @@ def test_a_mark_for_an_older_schedule_is_refused_after_plan_again(
     tid = old["now_id"]
     sent = {"made_at": old["made_at"]}
     for refused in (
-        kitchen.put(url(session, f"/tasks/{tid}/done"), json=sent),
-        kitchen.put(url(session, f"/tasks/{tid}/timer"), json=sent),
-        kitchen.delete(url(session, f"/tasks/{tid}/done"), params=sent),
+        kitchen.patch(url(session, f"/tasks/{tid}"), json={"done": True, **sent}),
+        kitchen.post(url(session, f"/tasks/{tid}/start-timer"), json=sent),
+        kitchen.patch(url(session, f"/tasks/{tid}"), json={"done": False, **sent}),
     ):
         assert refused.status_code == 409, refused.text
         assert refused.json()["code"] == "schedule_replaced"
     assert ok(kitchen.get(url(session)))["done_count"] == 0
     # The current schedule's own made_at is accepted, and a mark without one still works.
     assert (
-        kitchen.put(
-            url(session, f"/tasks/{tid}/done"), json={"made_at": again["made_at"]}
+        kitchen.patch(
+            url(session, f"/tasks/{tid}"), json={"done": True, "made_at": again["made_at"]}
         ).status_code
         == 200
     )
-    assert kitchen.put(url(session, f"/tasks/{again['next_id']}/done")).status_code == 200
+    assert (
+        kitchen.patch(url(session, f"/tasks/{again['next_id']}"), json={"done": True}).status_code
+        == 200
+    )
 
 
 def test_a_marinade_in_the_middle_of_a_recipe_is_left_for_the_night_before(
@@ -458,22 +470,28 @@ def test_a_mark_can_be_answered_with_the_progress_only_so_no_step_words_are_sent
     times but not the steps' words; without it the answer is the whole schedule as before."""
     made = start(kitchen, session)
     tid = made["now_id"]
-    whole = ok(kitchen.put(url(session, f"/tasks/{tid}/done")))
+    whole = ok(kitchen.patch(url(session, f"/tasks/{tid}"), json={"done": True}))
     assert "title" in whole["tasks"][0] and "before" in whole
-    brief = ok(kitchen.put(url(session, f"/tasks/{tid}/done"), params={"brief": "true"}))
+    brief = ok(
+        kitchen.patch(url(session, f"/tasks/{tid}"), json={"done": True}, params={"brief": "true"})
+    )
     assert set(brief["tasks"][0]) == {"id", "state", "started_at", "done_at", "ends_at"}
     assert "before" not in brief and "recipes" not in brief
     assert brief["made_at"] == made["made_at"] and brief["done_count"] == whole["done_count"]
     assert [t["state"] for t in brief["tasks"]] == [t["state"] for t in whole["tasks"]]
-    undone = ok(kitchen.delete(url(session, f"/tasks/{tid}/done"), params={"brief": "true"}))
+    undone = ok(
+        kitchen.patch(url(session, f"/tasks/{tid}"), json={"done": False}, params={"brief": "true"})
+    )
     assert undone["done_count"] == 0 and "title" not in undone["tasks"][0]
     waiting = next(t["id"] for t in made["tasks"] if t["hands"] == "waiting")
     # A timer can only start when the wait is ready: do what is before it first.
     for t in made["tasks"]:
         if t["id"] == waiting:
             break
-        kitchen.put(url(session, f"/tasks/{t['id']}/done"))
-    timed = ok(kitchen.put(url(session, f"/tasks/{waiting}/timer"), params={"brief": "true"}))
+        kitchen.patch(url(session, f"/tasks/{t['id']}"), json={"done": True})
+    timed = ok(
+        kitchen.post(url(session, f"/tasks/{waiting}/start-timer"), params={"brief": "true"})
+    )
     assert next(t for t in timed["tasks"] if t["id"] == waiting)["state"] == "running"
 
 
@@ -489,3 +507,17 @@ def test_a_steps_optional_mark_is_not_part_of_the_schedules_fingerprint() -> Non
     plain = RecipeIn(id=1, name="Sambar", steps=(step,))
     marked = RecipeIn(id=1, name="Sambar", steps=(replace(step, optional=True),))
     assert basis_of([plain], kit) == basis_of([marked], kit)
+
+
+def test_a_task_is_marked_with_a_patch_and_its_timer_with_start_timer(
+    kitchen: TestClient, session: int
+) -> None:
+    """D3 (BE14): `PATCH .../tasks/{task_id}` `{done}` replaces `PUT` and `DELETE .../done`, and
+    `POST .../start-timer` replaces `PUT .../timer`; `done` must be a true or false."""
+    made = start(kitchen, session)
+    tid = made["now_id"]
+    for body in ({}, {"done": None}, {"done": "yes"}):
+        assert kitchen.patch(url(session, f"/tasks/{tid}"), json=body).status_code == 422, body
+    assert ok(kitchen.get(url(session)))["done_count"] == 0
+    for old in ("done", "timer"):
+        assert kitchen.put(url(session, f"/tasks/{tid}/{old}")).status_code in (404, 405), old

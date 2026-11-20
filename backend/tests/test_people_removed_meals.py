@@ -55,7 +55,7 @@ def _remove(kitchen: TestClient, member_id: int) -> dict[str, Any]:
 
 
 def _tick(kitchen: TestClient, meal_id: int, ids: list[int]) -> None:
-    ok(kitchen.put(f"{API}/plan/meals/{meal_id}/eaters", json={"member_ids": ids}))
+    ok(kitchen.patch(f"{API}/plan/meals/{meal_id}", json={"member_ids": ids}))
 
 
 def test_a_removed_person_is_off_future_meals_and_undo_puts_them_back(
@@ -88,7 +88,7 @@ def test_today_counts_as_future_and_yesterday_does_not(
     past_meal = plan_recipe(kitchen, sambar, ago(kitchen, 1), slots["Dinner"])["meal_id"]
     _tick(kitchen, today_meal, [1, lorna])
     _tick(kitchen, past_meal, [1, lorna])
-    ok(kitchen.post(f"{API}/plan/meals/{past_meal}/didnt"))
+    ok(kitchen.post(f"{API}/plan/meals/{past_meal}/mark-not-cooked"))
     _remove(kitchen, lorna)
     assert _eaters(kitchen, today_meal, ahead(kitchen, 0)) == [1]
     assert _eaters(kitchen, past_meal, ago(kitchen, 1)) == [1, lorna]
@@ -124,7 +124,7 @@ def test_a_removed_person_cannot_be_ticked(
     meal = plan_recipe(kitchen, sambar, day, slots["Dinner"])["meal_id"]
     _tick(kitchen, meal, [1, lorna])
     _remove(kitchen, lorna)
-    r = kitchen.put(f"{API}/plan/meals/{meal}/eaters", json={"member_ids": [1, lorna]})
+    r = kitchen.patch(f"{API}/plan/meals/{meal}", json={"member_ids": [1, lorna]})
     assert r.status_code == 404
 
 

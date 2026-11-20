@@ -40,7 +40,7 @@ const dayShort = (iso: string) => weekdayShort.format(new Date(`${iso}T12:00:00Z
 async function setup(page: Page) {
   // The household's time zone is the admin's browser's, kept the first time it is sent: say it
   // here so the times read the same whichever test comes first (the server's clock is London's).
-  await call(page, 'POST', '/household/from-browser', { time_zone: 'Europe/London' });
+  await call(page, 'POST', '/household/fill-from-browser', { time_zone: 'Europe/London' });
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
   const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
   const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;

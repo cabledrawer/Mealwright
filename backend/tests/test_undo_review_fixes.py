@@ -115,7 +115,7 @@ def test_undo_of_planning_puts_the_used_last_way_back_after_another_way_was_pick
         201,
     )
     other = recipe["methods"][1]["id"]
-    ok(kitchen.put(f"{API}/plan/items/{planned['item_id']}/method", json={"method_id": other}))
+    ok(kitchen.patch(f"{API}/plan/items/{planned['item_id']}", json={"method_id": other}))
     assert last_used() != before
     ok(kitchen.post(f"{API}/changes/{planned['change']['id']}/undo"))
     assert last_used() == before

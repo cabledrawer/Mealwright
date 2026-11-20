@@ -42,7 +42,7 @@ def food(kitchen: TestClient, name: str, **extra: Any) -> dict[str, Any]:
 def used_up(kitchen: TestClient, food_id: int, grams: int) -> None:
     body = {"food_id": food_id, "amount": {"amount": grams, "unit": "g"}}
     lot = kitchen.post(f"{API}/stock", json=body).json()["groups"][0]["lots"][0]
-    kitchen.post(f"{API}/stock/{lot['id']}/used")
+    kitchen.post(f"{API}/stock/{lot['id']}/use")
 
 
 def remove(kitchen: TestClient, food_id: int) -> dict[str, Any]:
@@ -92,7 +92,7 @@ def test_deleted_for_good_after_seven_days(kitchen: TestClient) -> None:
     kitchen.post(f"{API}/foods/{toor['id']}/stand-ins", json={"food_id": moong["id"]})
     kitchen.post(f"{API}/foods/{moong['id']}/stand-ins", json={"food_id": toor["id"]})
     kitchen.patch(f"{API}/foods/{toor['id']}", json={"cup_weight": 200})
-    kitchen.post(f"{API}/foods/{toor['id']}/not-the-same", json={"food_id": moong["id"]})
+    kitchen.post(f"{API}/foods/{toor['id']}/mark-not-same", json={"food_id": moong["id"]})
     used_up(kitchen, toor["id"], 500)
     remove(kitchen, toor["id"])
     removed_days_ago(kitchen, toor["id"], 8)
@@ -225,7 +225,7 @@ def test_undo_puts_stock_back_into_a_removed_ingredient(kitchen: TestClient) -> 
     ghee = food(kitchen, "Ghee")
     body = {"food_id": ghee["id"], "amount": {"amount": 100, "unit": "g"}}
     lot = kitchen.post(f"{API}/stock", json=body).json()["groups"][0]["lots"][0]
-    used = kitchen.post(f"{API}/stock/{lot['id']}/used").json()["change"]
+    used = kitchen.post(f"{API}/stock/{lot['id']}/use").json()["change"]
     removed = remove(kitchen, ghee["id"])
     undo = kitchen.post(f"{API}/changes/{used['id']}/undo").json()
     assert undo["result"] == "done"
@@ -267,10 +267,10 @@ def test_other_undos_bring_it_back_too(kitchen: TestClient, how: str) -> None:
     body = {"food_id": ghee["id"], "amount": {"amount": 100, "unit": "g"}}
     lot = kitchen.post(f"{API}/stock", json=body).json()["groups"][0]["lots"][0]
     if how == "binned":
-        change = kitchen.post(f"{API}/stock/{lot['id']}/binned").json()["change"]
+        change = kitchen.post(f"{API}/stock/{lot['id']}/bin").json()["change"]
     else:
         change = kitchen.post(
-            f"{API}/foods/{ghee['id']}/left", json={"amount": {"amount": 0, "unit": "g"}}
+            f"{API}/foods/{ghee['id']}/set-left", json={"amount": {"amount": 0, "unit": "g"}}
         ).json()["change"]
     remove(kitchen, ghee["id"])
     undo = kitchen.post(f"{API}/changes/{change['id']}/undo").json()

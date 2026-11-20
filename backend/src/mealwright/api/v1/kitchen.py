@@ -689,7 +689,7 @@ def change_kitchen(body: KitchenChange, kitchen: Here, response: Response) -> Ki
     return _kitchen_out(kitchen)
 
 
-@router.post("/household/from-browser")
+@router.post("/household/fill-from-browser")
 def fill_in_from_browser(body: FromBrowser, kitchen: Here) -> HouseholdOut:
     """Admins only. The web app calls this after sign-in with the browser's time zone and
     cup size. Each is stored only while the household has none: once set, it's never

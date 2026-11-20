@@ -463,7 +463,7 @@ def test_the_pantry_gives_each_staple_its_date(kitchen: TestClient) -> None:
 
 def test_a_day_picked_in_the_editor_is_the_households_own_day(kitchen: TestClient) -> None:
     food = _staple(kitchen)
-    ok(kitchen.post(f"{API}/household/from-browser", json={"time_zone": "Pacific/Auckland"}))
+    ok(kitchen.post(f"{API}/household/fill-from-browser", json={"time_zone": "Pacific/Auckland"}))
     today = ok(kitchen.get(f"{API}/household"))["today"]
     day = (datetime.fromisoformat(today) - timedelta(days=22)).date().isoformat()
     done = ok(kitchen.patch(f"{API}/foods/{food}", json={"restocked_on": day}))
@@ -514,7 +514,11 @@ def test_a_year_one_value_stored_directly_breaks_no_page_in_a_western_zone(
     kitchen: TestClient,
 ) -> None:
     food = _staple(kitchen)
-    ok(kitchen.post(f"{API}/household/from-browser", json={"time_zone": "America/Los_Angeles"}))
+    ok(
+        kitchen.post(
+            f"{API}/household/fill-from-browser", json={"time_zone": "America/Los_Angeles"}
+        )
+    )
     with db(kitchen) as session:
         session.execute(
             update(Food).where(Food.id == food).values(restocked_at=datetime(1, 1, 1, tzinfo=UTC))

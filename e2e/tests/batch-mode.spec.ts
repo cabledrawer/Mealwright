@@ -109,7 +109,7 @@ test('cooks a session: shared prep, a timer that survives a reload, Done, next, 
   for (let guard = 0; guard < 12; guard++) {
     const found = await schedule(page, s.id);
     const waiting = found.tasks.filter((t) => t.hands === 'waiting' && t.state !== 'done');
-    for (const t of waiting) await call(page, 'PUT', `/batch-cook/sessions/${s.id}/schedule/tasks/${t.id}/done`);
+    for (const t of waiting) await call(page, 'PATCH', `/batch-cook/sessions/${s.id}/schedule/tasks/${t.id}`, { done: true });
     await page.reload();
     const cooked = page.getByRole('button', { name: 'Cooked it', exact: true });
     await expect(done(page).or(cooked)).toBeVisible();
@@ -253,7 +253,7 @@ test('a recipe cooked on its own is left out of the one Cooked it, and said so',
   await call(page, 'POST', `/plan/batches/${alone.batch_id}/cook`, {});
   await call(page, 'POST', `/batch-cook/sessions/${s.id}/schedule`, {});
   const tasks = (await schedule(page, s.id)).tasks;
-  for (const t of tasks) await call(page, 'PUT', `/batch-cook/sessions/${s.id}/schedule/tasks/${t.id}/done`);
+  for (const t of tasks) await call(page, 'PATCH', `/batch-cook/sessions/${s.id}/schedule/tasks/${t.id}`, { done: true });
   await page.goto(`/batch-cook/session/${s.id}/cook`);
   await page.getByRole('button', { name: 'Cooked it', exact: true }).click();
   const review = page.getByTestId('session-cooked');

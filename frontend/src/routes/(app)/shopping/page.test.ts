@@ -1010,7 +1010,8 @@ describe('the Shopping page', () => {
       expect(
         server.requests.some(
           (r) =>
-            r.method === 'POST' && !['/shopping/actions', '/shopping/from-plan'].includes(r.path)
+            r.method === 'POST' &&
+            !['/shopping/actions', '/shopping/add-from-plan'].includes(r.path)
         )
       ).toBe(false);
     });

@@ -87,9 +87,9 @@ def test_who_is_eating_changed_twice_undo_of_the_first_leaves_the_second(
     slots: dict[str, int],
 ) -> None:
     plan = plan_recipe(kitchen, sambar, D1, slots["Dinner"])
-    url = f"{API}/plan/meals/{plan['meal_id']}/eaters"
-    first = ok(kitchen.put(url, json={"member_ids": [wren]}))
-    second = ok(kitchen.put(url, json={"member_ids": [1, wren]}))
+    url = f"{API}/plan/meals/{plan['meal_id']}"
+    first = ok(kitchen.patch(url, json={"member_ids": [wren]}))
+    second = ok(kitchen.patch(url, json={"member_ids": [1, wren]}))
     assert undo(kitchen, first)["result"] == "nothing"
     assert view(kitchen)["meals"][0]["eater_member_ids"] == [1, wren]
     assert undo(kitchen, second)["result"] == "done"
@@ -148,7 +148,7 @@ def test_undo_of_to_the_freezer_keeps_a_use_by_set_since(
     the fridge but keeps a use-by (and whose) set since."""
     make(kitchen, cook["item_id"], tub_count=1, pattern="pick")
     tub = view(kitchen)["tubs"][0]
-    frozen = ok(kitchen.post(f"{API}/plan/tubs/{tub['id']}/freezer"))
+    frozen = ok(kitchen.post(f"{API}/plan/tubs/{tub['id']}/freeze"))
     later = (D1 + timedelta(days=40)).isoformat()
     url = f"{API}/plan/tubs/{tub['id']}"
     ok(kitchen.patch(url, json={"use_by": later, "member_id": wren}))

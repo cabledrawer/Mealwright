@@ -102,7 +102,7 @@ def test_eggs_by_the_dozen(kitchen: TestClient) -> None:
     eggs = food(kitchen, "Eggs")
     size(kitchen, eggs["id"], "dozen", 12)
     add(kitchen, eggs["id"], 1, "dozen")
-    kitchen.post(f"{API}/foods/{eggs['id']}/used", json={"amount": {"amount": 3, "unit": "count"}})
+    kitchen.post(f"{API}/foods/{eggs['id']}/use", json={"amount": {"amount": 3, "unit": "count"}})
     assert group(kitchen, "Eggs")["stock"]["display"] == "9\u00a0left · bought as a dozen"
 
 
@@ -119,14 +119,14 @@ def test_cups_need_a_weight(kitchen: TestClient, toor: dict[str, Any]) -> None:
 
 def test_set_left_with_quick_picks(kitchen: TestClient, toor: dict[str, Any]) -> None:
     lot = add(kitchen, toor["id"], 1, "packet")["groups"][0]["lots"][0]
-    body = kitchen.post(f"{API}/stock/{lot['id']}/left", json={"fraction": 0.5}).json()
+    body = kitchen.post(f"{API}/stock/{lot['id']}/set-left", json={"fraction": 0.5}).json()
     assert body["groups"][0]["lots"][0]["stock"]["display"] == "about 250\u00a0g · ½\u00a0packet"
     assert body["groups"][0]["lots"][0]["open"] is True
     assert body["change"]["summary"] == "Toor dal: 1\u00a0packet → about ½\u00a0packet"
-    body = kitchen.post(f"{API}/stock/{lot['id']}/left", json={"fraction": 1}).json()
+    body = kitchen.post(f"{API}/stock/{lot['id']}/set-left", json={"fraction": 1}).json()
     assert body["groups"][0]["lots"][0]["open"] is False
     body = kitchen.post(
-        f"{API}/stock/{lot['id']}/left", json={"amount": {"amount": 120, "unit": "g"}}
+        f"{API}/stock/{lot['id']}/set-left", json={"amount": {"amount": 120, "unit": "g"}}
     ).json()
     assert body["groups"][0]["stock"]["amount"] == 120.0
 
@@ -134,7 +134,7 @@ def test_set_left_with_quick_picks(kitchen: TestClient, toor: dict[str, Any]) ->
 def test_fraction_needs_a_size(kitchen: TestClient) -> None:
     spinach = food(kitchen, "Spinach")
     lot = add(kitchen, spinach["id"], 200, "g")["groups"][0]["lots"][0]
-    response = kitchen.post(f"{API}/stock/{lot['id']}/left", json={"fraction": 0.5})
+    response = kitchen.post(f"{API}/stock/{lot['id']}/set-left", json={"fraction": 0.5})
     assert response.status_code == 422
 
 
@@ -142,20 +142,20 @@ def test_used_never_below_zero(kitchen: TestClient) -> None:
     spinach = food(kitchen, "Spinach")
     lot = add(kitchen, spinach["id"], 200, "g")["groups"][0]["lots"][0]
     body = kitchen.post(
-        f"{API}/stock/{lot['id']}/used", json={"amount": {"amount": 300, "unit": "g"}}
+        f"{API}/stock/{lot['id']}/use", json={"amount": {"amount": 300, "unit": "g"}}
     ).json()
     assert body["groups"][0]["stock"]["amount"] == 0.0
     assert body["groups"][0]["lots"] == []
     assert body["short_by"]["amount"] == 100.0
     assert body["change"]["summary"] == "Used 200\u00a0g Spinach"
-    assert kitchen.post(f"{API}/stock/{lot['id']}/used").status_code == 404  # empty now
+    assert kitchen.post(f"{API}/stock/{lot['id']}/use").status_code == 404  # empty now
 
 
 def test_used_all_and_binned(kitchen: TestClient, toor: dict[str, Any]) -> None:
     lots = add(kitchen, toor["id"], 2, "packet")["groups"][0]["lots"]
-    body = kitchen.post(f"{API}/stock/{lots[0]['id']}/used").json()
+    body = kitchen.post(f"{API}/stock/{lots[0]['id']}/use").json()
     assert body["change"]["summary"] == "Used 1\u00a0packet Toor dal"
-    body = kitchen.post(f"{API}/stock/{lots[1]['id']}/binned").json()
+    body = kitchen.post(f"{API}/stock/{lots[1]['id']}/bin").json()
     assert body["change"]["kind"] == "binned"
     assert body["groups"][0]["lots_count"] == 0
 
@@ -167,7 +167,7 @@ def test_food_used_takes_the_oldest_first(kitchen: TestClient) -> None:
     later = add(kitchen, milk["id"], 1, "bottle", use_by=str(day + timedelta(days=5)))
     sooner = add(kitchen, milk["id"], 1, "bottle", use_by=str(day + timedelta(days=2)))
     body = kitchen.post(
-        f"{API}/foods/{milk['id']}/used", json={"amount": {"amount": 1.5, "unit": "l"}}
+        f"{API}/foods/{milk['id']}/use", json={"amount": {"amount": 1.5, "unit": "l"}}
     ).json()
     by_id = {lot["id"]: lot["stock"]["amount"] for lot in body["groups"][0]["lots"]}
     sooner_id = sooner["groups"][0]["lots"][0]["id"]
@@ -180,11 +180,11 @@ def test_food_used_leaves_the_freezer_alone(kitchen: TestClient) -> None:
     add(kitchen, peas["id"], 300, "g", place_id=place(kitchen, "Freezer"))
     add(kitchen, peas["id"], 100, "g", place_id=place(kitchen, "Fridge"))
     body = kitchen.post(
-        f"{API}/foods/{peas['id']}/used", json={"amount": {"amount": 250, "unit": "g"}}
+        f"{API}/foods/{peas['id']}/use", json={"amount": {"amount": 250, "unit": "g"}}
     ).json()
     assert body["short_by"]["amount"] == 150.0
     freezer = kitchen.post(
-        f"{API}/foods/{peas['id']}/used",
+        f"{API}/foods/{peas['id']}/use",
         json={"amount": {"amount": 100, "unit": "g"}, "place_id": place(kitchen, "Freezer")},
     ).json()
     assert freezer["groups"][0]["stock"]["amount"] == 200.0
@@ -193,7 +193,7 @@ def test_food_used_leaves_the_freezer_alone(kitchen: TestClient) -> None:
 def test_food_left_down_and_up(kitchen: TestClient) -> None:
     onion = food(kitchen, "Onion")
     add(kitchen, onion["id"], 5, "count")
-    url = f"{API}/foods/{onion['id']}/left"
+    url = f"{API}/foods/{onion['id']}/set-left"
     body = kitchen.post(url, json={"amount": {"amount": 3, "unit": "count"}}).json()
     assert body["groups"][0]["stock"]["display"] == "3\u00a0left"
     assert body["change"]["summary"] == "Onion: 5 → 3"
@@ -209,7 +209,7 @@ def test_food_left_down_and_up(kitchen: TestClient) -> None:
 def test_to_freezer(kitchen: TestClient) -> None:
     paneer = food(kitchen, "Paneer", place_id=place(kitchen, "Fridge"))
     lot = add(kitchen, paneer["id"], 200, "g")["groups"][0]["lots"][0]
-    body = kitchen.post(f"{API}/stock/{lot['id']}/to-freezer").json()
+    body = kitchen.post(f"{API}/stock/{lot['id']}/freeze").json()
     day = today(kitchen)
     month = (day.month + 2) % 12 + 1
     year = day.year + (day.month + 2) // 12
@@ -219,7 +219,7 @@ def test_to_freezer(kitchen: TestClient) -> None:
     assert body["change"]["summary"].startswith("Paneer → Freezer, use by ")
     fridge = next(g for g in body["groups"] if g["place"]["name"] == "Fridge")
     assert fridge["lots"] == []
-    again = kitchen.post(f"{API}/stock/{lot['id']}/to-freezer")
+    again = kitchen.post(f"{API}/stock/{lot['id']}/freeze")
     assert again.status_code == 409
 
 
@@ -269,7 +269,7 @@ def test_running_low(kitchen: TestClient, toor: dict[str, Any]) -> None:
     )
     lot = add(kitchen, toor["id"], 1, "packet")["groups"][0]["lots"][0]
     assert group(kitchen, "Toor dal")["running_low"] is False
-    kitchen.post(f"{API}/stock/{lot['id']}/left", json={"fraction": 0.5})
+    kitchen.post(f"{API}/stock/{lot['id']}/set-left", json={"fraction": 0.5})
     assert group(kitchen, "Toor dal")["running_low"] is True
     low = pantry(kitchen, filter="running_low")
     assert low["counts"]["running_low"] == 1
@@ -294,7 +294,7 @@ def test_a_filtered_place_counts_only_what_it_shows(kitchen: TestClient) -> None
 
 
 def test_use_soon_is_two_days_in_the_households_time_zone(kitchen: TestClient) -> None:
-    kitchen.post(f"{API}/household/from-browser", json={"time_zone": "Pacific/Kiritimati"})
+    kitchen.post(f"{API}/household/fill-from-browser", json={"time_zone": "Pacific/Kiritimati"})
     day = today(kitchen)  # UTC+14: often already tomorrow in UTC terms
     fridge = place(kitchen, "Fridge")
     for days in (-1, 0, 1, 2, 3):  # a Use by date per ingredient (the fridge's default)
@@ -348,7 +348,7 @@ def test_binned_on_a_use_soon_row_takes_every_soon_packet_with_one_undo(
     """S5 review r1 M1: Binned on "Paneer · 2 packs" bins both soon packets, not just the
     soonest; the packet that isn't soon stays; one Undo brings both back."""
     row, _ = _two_soon_paneer(kitchen)
-    body = kitchen.post(f"{API}/stock/{row['id']}/binned", json={"soon": True})
+    body = kitchen.post(f"{API}/stock/{row['id']}/bin", json={"soon": True})
     assert body.status_code == 200, body.text
     assert body.json()["change"]["summary"] == "Binned 2\u00a0packs Paneer"
     assert kitchen.get(f"{API}/pantry/use-soon").json()["lots"] == []
@@ -361,7 +361,7 @@ def test_binned_on_a_use_soon_row_takes_every_soon_packet_with_one_undo(
 def test_binned_soon_is_refused_with_an_amount(kitchen: TestClient) -> None:
     row, _ = _two_soon_paneer(kitchen)
     body = {"soon": True, "amount": {"amount": 50, "unit": "g"}}
-    refused = kitchen.post(f"{API}/stock/{row['id']}/binned", json=body)
+    refused = kitchen.post(f"{API}/stock/{row['id']}/bin", json=body)
     assert refused.status_code == 422
     assert refused.json()["code"] == "soon_with_amount"
 
@@ -372,7 +372,7 @@ def test_to_freezer_on_a_use_soon_row_moves_every_soon_packet_with_one_undo(
     """S5 review r1 M1: To freezer on a rolled-up row moves both soon packets (none passed:
     a passed Use by one is too late to freeze)."""
     row, _ = _two_soon_paneer(kitchen, passed=False)
-    body = kitchen.post(f"{API}/stock/{row['id']}/to-freezer", json={"soon": True})
+    body = kitchen.post(f"{API}/stock/{row['id']}/freeze", json={"soon": True})
     assert body.status_code == 200, body.text
     freezer = place(kitchen, "Freezer")
     moved = [g for p in pantry(kitchen)["places"] if p["id"] == freezer for g in p["groups"]]
@@ -384,7 +384,7 @@ def test_to_freezer_on_a_use_soon_row_moves_every_soon_packet_with_one_undo(
 
 def test_binned_without_soon_still_takes_only_that_packet(kitchen: TestClient) -> None:
     row, _ = _two_soon_paneer(kitchen)
-    kitchen.post(f"{API}/stock/{row['id']}/binned")
+    kitchen.post(f"{API}/stock/{row['id']}/bin")
     assert kitchen.get(f"{API}/pantry/use-soon").json()["lots"][0]["lots_count"] == 1
 
 
@@ -406,7 +406,7 @@ def test_cannot_remove_a_food_with_stock(kitchen: TestClient, toor: dict[str, An
 
 def test_recent_changes_for_the_pantry(kitchen: TestClient, toor: dict[str, Any]) -> None:
     lot = add(kitchen, toor["id"], 1, "packet")["groups"][0]["lots"][0]
-    kitchen.post(f"{API}/stock/{lot['id']}/left", json={"fraction": 0.5})
+    kitchen.post(f"{API}/stock/{lot['id']}/set-left", json={"fraction": 0.5})
     listed = kitchen.get(f"{API}/changes", params={"area": "pantry"}).json()["changes"]
     assert [c["kind"] for c in listed] == ["set_left", "added"]
     [line] = listed[0]["lines"]
@@ -419,7 +419,7 @@ def test_recent_changes_for_the_pantry(kitchen: TestClient, toor: dict[str, Any]
 def test_undo_used(kitchen: TestClient) -> None:
     spinach = food(kitchen, "Spinach")
     lot = add(kitchen, spinach["id"], 200, "g")["groups"][0]["lots"][0]
-    used = kitchen.post(f"{API}/stock/{lot['id']}/used").json()
+    used = kitchen.post(f"{API}/stock/{lot['id']}/use").json()
     body = kitchen.post(f"{API}/changes/{used['change']['id']}/undo").json()
     assert body["result"] == "done"
     assert body["groups"][0]["stock"]["amount"] == 200.0
@@ -429,8 +429,8 @@ def test_undo_used(kitchen: TestClient) -> None:
 
 def test_undo_reverses_just_that_change(kitchen: TestClient, toor: dict[str, Any]) -> None:
     lot = add(kitchen, toor["id"], 1, "packet")["groups"][0]["lots"][0]
-    half = kitchen.post(f"{API}/stock/{lot['id']}/left", json={"fraction": 0.5}).json()
-    kitchen.post(f"{API}/stock/{lot['id']}/used", json={"amount": {"amount": 50, "unit": "g"}})
+    half = kitchen.post(f"{API}/stock/{lot['id']}/set-left", json={"fraction": 0.5}).json()
+    kitchen.post(f"{API}/stock/{lot['id']}/use", json={"amount": {"amount": 50, "unit": "g"}})
     body = kitchen.post(f"{API}/changes/{half['change']['id']}/undo").json()
     assert body["result"] == "done"
     assert body["groups"][0]["stock"]["amount"] == 450.0  # 500 - 50: the later use stays
@@ -439,7 +439,7 @@ def test_undo_reverses_just_that_change(kitchen: TestClient, toor: dict[str, Any
 def test_undo_partly_when_used_since(kitchen: TestClient, toor: dict[str, Any]) -> None:
     added = add(kitchen, toor["id"], 1, "packet")
     lot = added["groups"][0]["lots"][0]
-    kitchen.post(f"{API}/stock/{lot['id']}/left", json={"amount": {"amount": 150, "unit": "g"}})
+    kitchen.post(f"{API}/stock/{lot['id']}/set-left", json={"amount": {"amount": 150, "unit": "g"}})
     body = kitchen.post(f"{API}/changes/{added['change']['id']}/undo").json()
     assert body["result"] == "partly"
     assert (
@@ -451,7 +451,7 @@ def test_undo_partly_when_used_since(kitchen: TestClient, toor: dict[str, Any]) 
 def test_undo_move_and_freezer(kitchen: TestClient) -> None:
     paneer = food(kitchen, "Paneer", place_id=place(kitchen, "Fridge"))
     lot = add(kitchen, paneer["id"], 200, "g", use_by="2030-01-01")["groups"][0]["lots"][0]
-    frozen = kitchen.post(f"{API}/stock/{lot['id']}/to-freezer").json()
+    frozen = kitchen.post(f"{API}/stock/{lot['id']}/freeze").json()
     body = kitchen.post(f"{API}/changes/{frozen['change']['id']}/undo").json()
     assert body["result"] == "done"
     back = group(kitchen, "Paneer")
@@ -496,7 +496,7 @@ def test_merge_moves_stock_and_undo_brings_it_back(kitchen: TestClient) -> None:
     assert merged["food"]["stock"]["amount"] == 300.0
     assert group(kitchen, "Drumsticks")["stock"]["amount"] == 300.0
     lot_id = group(kitchen, "Drumsticks")["lots"][0]["id"]
-    kitchen.post(f"{API}/stock/{lot_id}/used", json={"amount": {"amount": 100, "unit": "g"}})
+    kitchen.post(f"{API}/stock/{lot_id}/use", json={"amount": {"amount": 100, "unit": "g"}})
     body = kitchen.post(f"{API}/changes/{merged['change']['id']}/undo").json()
     assert body["result"] == "done"
     assert group(kitchen, "Moringa")["stock"]["amount"] == 200.0  # what's left comes back
@@ -527,7 +527,7 @@ def test_used_with_nothing_left_records_nothing(kitchen: TestClient) -> None:
     ghee = food(kitchen, "Ghee")
     add(kitchen, ghee["id"], 500, "g", place_id=place(kitchen, "Freezer"))
     response = kitchen.post(
-        f"{API}/foods/{ghee['id']}/used", json={"amount": {"amount": 50, "unit": "g"}}
+        f"{API}/foods/{ghee['id']}/use", json={"amount": {"amount": 50, "unit": "g"}}
     )
     assert response.status_code == 409
     assert response.json() == {"detail": "There’s no Ghee left.", "code": "nothing_left"}
@@ -544,7 +544,7 @@ def test_none_left(kitchen: TestClient) -> None:
     add(kitchen, onion["id"], 2, "count")
     add(kitchen, onion["id"], 4, "count", place_id=place(kitchen, "Freezer"))
     body = kitchen.post(
-        f"{API}/foods/{onion['id']}/left", json={"amount": {"amount": 0, "unit": "count"}}
+        f"{API}/foods/{onion['id']}/set-left", json={"amount": {"amount": 0, "unit": "count"}}
     ).json()
     assert body["change"]["summary"] == "Onion: 5 → 0"
     assert body["groups"][0]["lots"] == []
@@ -557,7 +557,7 @@ def test_none_left(kitchen: TestClient) -> None:
 def test_an_undo_has_lines_of_what_it_put_back(kitchen: TestClient, toor: dict[str, Any]) -> None:
     added = add(kitchen, toor["id"], 1, "packet")
     lot = added["groups"][0]["lots"][0]
-    kitchen.post(f"{API}/stock/{lot['id']}/left", json={"amount": {"amount": 150, "unit": "g"}})
+    kitchen.post(f"{API}/stock/{lot['id']}/set-left", json={"amount": {"amount": 150, "unit": "g"}})
     undo = kitchen.post(f"{API}/changes/{added['change']['id']}/undo").json()
     assert undo["result"] == "partly"
     rows = kitchen.get(f"{API}/changes", params={"area": "pantry"}).json()["changes"]
@@ -587,10 +587,10 @@ def test_names_appear_exactly_as_typed(kitchen: TestClient) -> None:
     lot = add(kitchen, masala["id"], 1, "box")
     assert lot["change"]["summary"] == "Added 1\u00a0box MDH sambar masala → Cupboard"
     lot_id = lot["groups"][0]["lots"][0]["id"]
-    used = kitchen.post(f"{API}/stock/{lot_id}/used").json()
+    used = kitchen.post(f"{API}/stock/{lot_id}/use").json()
     assert used["change"]["summary"] == "Used 1\u00a0box MDH sambar masala"
     empty = kitchen.post(
-        f"{API}/foods/{masala['id']}/used", json={"amount": {"amount": 5, "unit": "g"}}
+        f"{API}/foods/{masala['id']}/use", json={"amount": {"amount": 5, "unit": "g"}}
     )
     assert empty.json()["detail"] == "There’s no MDH sambar masala left."
     asked = kitchen.post(
@@ -641,7 +641,7 @@ def test_totals_count_stock_that_was_already_there(kitchen: TestClient) -> None:
     second = add(kitchen, paneer["id"], 1, "pack")
     assert _shown(kitchen) == ("200\u00a0g · 1\u00a0pack", "400\u00a0g · 2\u00a0packs")
     lot = second["groups"][0]["lots"][-1]["id"]
-    kitchen.post(f"{API}/stock/{lot}/used")
+    kitchen.post(f"{API}/stock/{lot}/use")
     assert _shown(kitchen) == ("400\u00a0g · 2\u00a0packs", "200\u00a0g · 1\u00a0pack")
 
 
@@ -650,7 +650,7 @@ def test_totals_stay_right_after_later_changes(kitchen: TestClient) -> None:
     add(kitchen, paneer["id"], 1, "pack")
     add(kitchen, paneer["id"], 1, "pack")
     add(kitchen, paneer["id"], 1, "pack")
-    kitchen.post(f"{API}/foods/{paneer['id']}/used", json={"amount": {"amount": 100, "unit": "g"}})
+    kitchen.post(f"{API}/foods/{paneer['id']}/use", json={"amount": {"amount": 100, "unit": "g"}})
     # Newest first: used, then the three adds.
     assert _shown(kitchen, 0) == ("600\u00a0g · 3\u00a0packs", "about 500\u00a0g · 2½\u00a0packs")
     assert _shown(kitchen, 1) == ("400\u00a0g · 2\u00a0packs", "600\u00a0g · 3\u00a0packs")
@@ -664,7 +664,7 @@ def test_undo_lines_show_the_whole_amount_and_restore_the_right_stock(
     paneer = _paneer(kitchen)
     add(kitchen, paneer["id"], 200, "g")
     second = add(kitchen, paneer["id"], 1, "pack")
-    used = kitchen.post(f"{API}/stock/{second['groups'][0]['lots'][-1]['id']}/used").json()
+    used = kitchen.post(f"{API}/stock/{second['groups'][0]['lots'][-1]['id']}/use").json()
     assert kitchen.get(f"{API}/foods/{paneer['id']}").json()["stock"]["amount"] == 200.0
     # Undo the use: back to 400 g, and the Undo's own line reads 200 g → 400 g.
     kitchen.post(f"{API}/changes/{used['change']['id']}/undo")
@@ -708,7 +708,7 @@ def test_recent_changes_totals_a_move(kitchen: TestClient) -> None:
 def test_recent_changes_totals_a_partial_undo(kitchen: TestClient, toor: dict[str, Any]) -> None:
     added = add(kitchen, toor["id"], 2, "packet")
     lot = added["groups"][0]["lots"][0]
-    kitchen.post(f"{API}/stock/{lot['id']}/left", json={"amount": {"amount": 100, "unit": "g"}})
+    kitchen.post(f"{API}/stock/{lot['id']}/set-left", json={"amount": {"amount": 100, "unit": "g"}})
     undo = kitchen.post(f"{API}/changes/{added['change']['id']}/undo").json()
     assert undo["result"] == "partly"
     [total] = _totals(kitchen)
@@ -723,19 +723,19 @@ def test_summaries_for_counted_ingredients(kitchen: TestClient) -> None:
     assert added["change"]["summary"] == "Added 5\u00a0onions → Cupboard"
     lot = added["groups"][0]["lots"][0]["id"]
     used = kitchen.post(
-        f"{API}/stock/{lot}/used", json={"amount": {"amount": 2, "unit": "count"}}
+        f"{API}/stock/{lot}/use", json={"amount": {"amount": 2, "unit": "count"}}
     ).json()
     assert used["change"]["summary"] == "Used 2\u00a0onions"
     binned = kitchen.post(
-        f"{API}/stock/{lot}/binned", json={"amount": {"amount": 1, "unit": "count"}}
+        f"{API}/stock/{lot}/bin", json={"amount": {"amount": 1, "unit": "count"}}
     ).json()
     assert binned["change"]["summary"] == "Binned 1\u00a0onion"
     left = kitchen.post(
-        f"{API}/foods/{onion['id']}/left", json={"amount": {"amount": 1, "unit": "count"}}
+        f"{API}/foods/{onion['id']}/set-left", json={"amount": {"amount": 1, "unit": "count"}}
     ).json()
     assert left["change"]["summary"] == "Onion: 2 → 1"
     by_food = kitchen.post(
-        f"{API}/foods/{onion['id']}/used", json={"amount": {"amount": 0.5, "unit": "count"}}
+        f"{API}/foods/{onion['id']}/use", json={"amount": {"amount": 0.5, "unit": "count"}}
     ).json()
     assert by_food["change"]["summary"] == "Used ½\u00a0onion"
 
@@ -745,11 +745,11 @@ def test_summaries_for_counted_ingredients(kitchen: TestClient) -> None:
     assert added["change"]["summary"] == "Added 5\u00a0slices of Bread → Cupboard"
     lot = added["groups"][0]["lots"][0]["id"]
     used = kitchen.post(
-        f"{API}/stock/{lot}/used", json={"amount": {"amount": 1, "unit": "count"}}
+        f"{API}/stock/{lot}/use", json={"amount": {"amount": 1, "unit": "count"}}
     ).json()
     assert used["change"]["summary"] == "Used 1\u00a0slice of Bread"
     left = kitchen.post(
-        f"{API}/foods/{bread['id']}/left", json={"amount": {"amount": 2, "unit": "count"}}
+        f"{API}/foods/{bread['id']}/set-left", json={"amount": {"amount": 2, "unit": "count"}}
     ).json()
     assert left["change"]["summary"] == "Bread: 4\u00a0slices → 2\u00a0slices"
 

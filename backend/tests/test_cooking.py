@@ -311,7 +311,7 @@ def test_a_meal_that_was_skipped_or_moved_a_removed_recipe_and_a_plain_item_cann
         ),
         201,
     )
-    ok(kitchen.post(f"{API}/plan/meals/{planned['meal_id']}/didnt"))
+    ok(kitchen.post(f"{API}/plan/meals/{planned['meal_id']}/mark-not-cooked"))
     answer = cook(kitchen, planned["item_id"])
     assert (answer.status_code, answer.json()["code"]) == (409, "meal_done")
 
@@ -352,7 +352,7 @@ def test_a_meal_already_marked_cooked_on_today_can_still_be_given_its_record(
         ),
         201,
     )
-    ok(kitchen.post(f"{API}/plan/meals/{planned['meal_id']}/cooked", json={}))
+    ok(kitchen.post(f"{API}/plan/meals/{planned['meal_id']}/mark-cooked", json={}))
     ok(cook(kitchen, planned["item_id"], portions=4), 201)
     assert amounts(kitchen, dal["id"]) == [600_000]
 

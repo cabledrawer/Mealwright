@@ -32,23 +32,22 @@ describe('Shopping: the list from the plan', () => {
   let card: PlanCard;
   let server: ReturnType<typeof fakeShopping>;
 
+  const gotItOrNot = (request: { path: string; body: unknown }) => {
+    const id = Number(request.path.split('/')[3]);
+    if ((request.body as { got_it: boolean }).got_it) {
+      card = { ...card, staples: card.staples.filter((s) => s.food.id !== id) };
+    } else {
+      const back = CARD.staples.find((s) => s.food.id === id)!;
+      card = { ...card, staples: [...card.staples, back] };
+    }
+    return [200, structuredClone(card)] as [number, unknown];
+  };
+
   async function render(width: number, extra: Parameters<typeof fakeShopping>[1] = {}) {
-    const putOrDelete = (request: { method: string; path: string }) => {
-      const id = Number(request.path.split('/')[3]);
-      if (request.method === 'PUT') {
-        card = { ...card, staples: card.staples.filter((s) => s.food.id !== id) };
-      } else {
-        const back = CARD.staples.find((s) => s.food.id === id)!;
-        card = { ...card, staples: [...card.staples, back] };
-      }
-      return [200, structuredClone(card)] as [number, unknown];
-    };
     server = fakeShopping(copy, {
-      'POST /shopping/from-plan': () => [200, structuredClone(card)],
-      'PUT /shopping/staples/8/got-it': putOrDelete,
-      'PUT /shopping/staples/9/got-it': putOrDelete,
-      'DELETE /shopping/staples/8/got-it': putOrDelete,
-      'DELETE /shopping/staples/9/got-it': putOrDelete,
+      'POST /shopping/add-from-plan': () => [200, structuredClone(card)],
+      'PATCH /shopping/staples/8': gotItOrNot,
+      'PATCH /shopping/staples/9': gotItOrNot,
       ...extra
     });
     await page.viewport(width, 1000);
@@ -63,6 +62,11 @@ describe('Shopping: the list from the plan', () => {
 
   const asked = (method: string, path: string) =>
     server.requests.filter((r) => r.method === method && r.path === path);
+  /** "Got it" (true) or its Undo (false) for one staple: a PATCH on it (D3). */
+  const gotIt = (id: number, got: boolean) =>
+    asked('PATCH', `/shopping/staples/${id}`).filter(
+      (r) => (r.body as { got_it: boolean }).got_it === got
+    );
 
   beforeEach(() => {
     freshPhone();
@@ -89,7 +93,7 @@ describe('Shopping: the list from the plan', () => {
   it('asks the server to bring the list up to date when Shopping opens', async () => {
     await render(390);
     await expect.element(page.getByRole('heading', { name: 'Check you have these' })).toBeVisible();
-    expect(asked('POST', '/shopping/from-plan').length).toBeGreaterThanOrEqual(1);
+    expect(asked('POST', '/shopping/add-from-plan').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows the card on a phone: each staple with the recipes that use it, Got it and + Add', async () => {
@@ -140,12 +144,12 @@ describe('Shopping: the list from the plan', () => {
       .element(page.getByRole('button', { name: 'Got it, Turmeric' }))
       .not.toBeInTheDocument();
     await expect.element(page.getByRole('button', { name: 'Got it, Sunflower oil' })).toBeVisible();
-    expect(asked('PUT', '/shopping/staples/8/got-it')).toHaveLength(1);
+    expect(gotIt(8, true)).toHaveLength(1);
     const toast = page.getByRole('status').filter({ hasText: 'Turmeric: got it' });
     await expect.element(toast).toBeVisible();
     await toast.getByRole('button', { name: 'Undo' }).click();
     await expect.element(page.getByRole('button', { name: 'Got it, Turmeric' })).toBeVisible();
-    expect(asked('DELETE', '/shopping/staples/8/got-it')).toHaveLength(1);
+    expect(gotIt(8, false)).toHaveLength(1);
     await expect
       .element(page.getByRole('status').filter({ hasText: 'Undone: Turmeric: got it' }))
       .toBeVisible();
@@ -154,7 +158,8 @@ describe('Shopping: the list from the plan', () => {
   it('the ✕ is Got it for every staple on the card, with one Undo, and the card stays away meanwhile', async () => {
     const seen: boolean[] = [];
     await render(390, {
-      'PUT /shopping/staples/9/got-it': () => {
+      'PATCH /shopping/staples/9': (request) => {
+        if (!(request.body as { got_it: boolean }).got_it) return gotItOrNot(request); // Undo
         // The second answer is being asked for: the card must not have come back for it.
         flushSync();
         seen.push(!!document.querySelector('[aria-label="Got it, Sunflower oil"]'));
@@ -166,8 +171,8 @@ describe('Shopping: the list from the plan', () => {
     await expect
       .element(page.getByRole('heading', { name: 'Check you have these' }))
       .not.toBeInTheDocument();
-    expect(asked('PUT', '/shopping/staples/8/got-it')).toHaveLength(1);
-    expect(asked('PUT', '/shopping/staples/9/got-it')).toHaveLength(1);
+    expect(gotIt(8, true)).toHaveLength(1);
+    expect(gotIt(9, true)).toHaveLength(1);
     expect(seen).toEqual([false]);
     await page
       .getByRole('status')
@@ -216,7 +221,7 @@ describe('Shopping: the list from the plan', () => {
 
   it('Got it that the server refuses puts the staple back and says so', async () => {
     await render(390, {
-      'PUT /shopping/staples/8/got-it': [500, { detail: 'Couldn’t save. Try again.' }]
+      'PATCH /shopping/staples/8': [500, { detail: 'Couldn’t save. Try again.' }]
     });
     await page.getByRole('button', { name: 'Got it, Turmeric' }).click();
     await expect.element(page.getByText('Couldn’t save. Try again.')).toBeVisible();
@@ -239,10 +244,10 @@ describe('Shopping: the list from the plan', () => {
     // cabledrawer 27 Oct: the list shows at once, online, slow or offline; the plan's update runs
     // afterwards, in the background.
     await render(390);
-    await vi.waitFor(() => expect(asked('POST', '/shopping/from-plan').length).toBe(1));
+    await vi.waitFor(() => expect(asked('POST', '/shopping/add-from-plan').length).toBe(1));
     const order = server.requests.map((r) => `${r.method} ${r.path}`);
     expect(order.indexOf('GET /shopping/changes')).toBeGreaterThanOrEqual(0);
-    expect(order.indexOf('POST /shopping/from-plan')).toBeGreaterThan(
+    expect(order.indexOf('POST /shopping/add-from-plan')).toBeGreaterThan(
       order.indexOf('GET /shopping/changes')
     );
   });

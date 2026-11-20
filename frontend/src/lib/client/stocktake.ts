@@ -95,7 +95,7 @@ export const answerFood = (
 ) => api<StocktakeWrite>('POST', `${at(placeId, foodId)}/answer`, body, key(idempotencyKey));
 
 export const makeStapleHere = (placeId: number, foodId: number, idempotencyKey: string) =>
-  api<StocktakeWrite>('POST', `${at(placeId, foodId)}/staple`, {}, key(idempotencyKey));
+  api<StocktakeWrite>('POST', `${at(placeId, foodId)}/make-staple`, {}, key(idempotencyKey));
 
 /** The pack size asked once: it becomes the Usual size. */
 export const setPackSize = (
@@ -103,7 +103,7 @@ export const setPackSize = (
   foodId: number,
   size: { name: string; amount: number | { amount: number; unit: string } },
   idempotencyKey: string
-) => api<StocktakeWrite>('POST', `${at(placeId, foodId)}/size`, size, key(idempotencyKey));
+) => api<StocktakeWrite>('POST', `${at(placeId, foodId)}/set-size`, size, key(idempotencyKey));
 
 /** "+ Something else in the Cupboard": count this ingredient here too. */
 export const addSomethingElse = (placeId: number, foodId: number) =>

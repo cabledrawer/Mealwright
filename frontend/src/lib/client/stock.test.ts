@@ -39,9 +39,9 @@ describe('stock', () => {
 
   it('sends each packet change to its own address', async () => {
     const requests = fakeApi({
-      'POST /stock/5/left': [200, ok],
-      'POST /stock/5/used': [200, ok],
-      'POST /stock/5/to-freezer': [200, ok],
+      'POST /stock/5/set-left': [200, ok],
+      'POST /stock/5/use': [200, ok],
+      'POST /stock/5/freeze': [200, ok],
       'POST /stock/5/move': [200, ok],
       'PATCH /stock/5': [200, ok]
     });
@@ -51,9 +51,9 @@ describe('stock', () => {
     await moveLot(5, 2, 'd');
     await setUseBy(5, '2026-10-22', 'e');
     expect(requests.map((r) => [r.method, r.path, r.body])).toEqual([
-      ['POST', '/stock/5/left', { fraction: 0.5 }],
-      ['POST', '/stock/5/used', {}],
-      ['POST', '/stock/5/to-freezer', {}],
+      ['POST', '/stock/5/set-left', { fraction: 0.5 }],
+      ['POST', '/stock/5/use', {}],
+      ['POST', '/stock/5/freeze', {}],
       ['POST', '/stock/5/move', { place_id: 2 }],
       ['PATCH', '/stock/5', { use_by: '2026-10-22' }]
     ]);

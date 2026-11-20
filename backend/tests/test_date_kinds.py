@@ -190,7 +190,7 @@ def test_a_frozen_packet_has_the_freezers_date_and_its_old_use_by_no_longer_coun
     paneer = food(kitchen, "Paneer", place_id=place(kitchen, "Fridge"))
     lot = add(kitchen, paneer["id"], 200, "g", use_by=str(day))["groups"][0]["lots"][0]
     assert [r["place"]["name"] for r in soon(kitchen)] == ["Fridge"]
-    kitchen.post(f"{API}/stock/{lot['id']}/to-freezer")
+    kitchen.post(f"{API}/stock/{lot['id']}/freeze")
     assert soon(kitchen) == []  # the freezer life is months away
     assert kind_of(kitchen, paneer["id"])[0] == USE_BY
 
@@ -212,12 +212,12 @@ def test_a_use_by_packet_can_be_frozen_the_day_before_and_on_the_day(kitchen: Te
     paneer = _paneer(kitchen)
     for offset in (1, 0):
         lot_id = _packet(kitchen, paneer, offset)
-        assert kitchen.post(f"{API}/stock/{lot_id}/to-freezer").status_code == 200
+        assert kitchen.post(f"{API}/stock/{lot_id}/freeze").status_code == 200
 
 
 def test_a_use_by_packet_the_day_after_its_date_is_too_late_to_freeze(kitchen: TestClient) -> None:
     lot_id = _packet(kitchen, _paneer(kitchen), -1)
-    refused = kitchen.post(f"{API}/stock/{lot_id}/to-freezer")
+    refused = kitchen.post(f"{API}/stock/{lot_id}/freeze")
     assert refused.status_code == 422
     assert refused.json()["code"] == "too_late_to_freeze"
     assert "Too late to freeze" in refused.json()["detail"]
@@ -229,7 +229,7 @@ def test_the_soon_form_refuses_a_row_with_a_passed_packet(kitchen: TestClient) -
     _packet(kitchen, paneer, 1)
     _packet(kitchen, paneer, -2)
     row = soon(kitchen)[0]
-    refused = kitchen.post(f"{API}/stock/{row['id']}/to-freezer", json={"soon": True})
+    refused = kitchen.post(f"{API}/stock/{row['id']}/freeze", json={"soon": True})
     assert refused.status_code == 422
     assert refused.json()["code"] == "too_late_to_freeze"
 
@@ -239,7 +239,7 @@ def test_best_before_food_can_always_be_frozen(kitchen: TestClient) -> None:
     assert kind_of(kitchen, butter["id"])[0] == "best_before"
     past = str(today(kitchen) - timedelta(days=5))
     lot = add(kitchen, butter["id"], 250, "g", use_by=past)["groups"][0]["lots"][0]
-    assert kitchen.post(f"{API}/stock/{lot['id']}/to-freezer").status_code == 200
+    assert kitchen.post(f"{API}/stock/{lot['id']}/freeze").status_code == 200
 
 
 def test_a_switched_use_by_food_is_too_late_once_passed(kitchen: TestClient) -> None:
@@ -247,14 +247,14 @@ def test_a_switched_use_by_food_is_too_late_once_passed(kitchen: TestClient) -> 
     past = str(today(kitchen) - timedelta(days=1))
     lot = add(kitchen, tofu["id"], 400, "g", use_by=past)["groups"][0]["lots"][0]
     if kind_of(kitchen, tofu["id"])[0] == "use_by":
-        assert kitchen.post(f"{API}/stock/{lot['id']}/to-freezer").status_code == 422
+        assert kitchen.post(f"{API}/stock/{lot['id']}/freeze").status_code == 422
     assert edit(kitchen, tofu["id"], date_kind="best_before").status_code == 200
-    assert kitchen.post(f"{API}/stock/{lot['id']}/to-freezer").status_code == 200
+    assert kitchen.post(f"{API}/stock/{lot['id']}/freeze").status_code == 200
 
 
 def test_the_openapi_document_names_the_refusal(kitchen: TestClient) -> None:
     schema = kitchen.get(f"{API}/openapi.json").json()
-    post = schema["paths"]["/api/v1/stock/{lot_id}/to-freezer"]["post"]
+    post = schema["paths"]["/api/v1/stock/{lot_id}/freeze"]["post"]
     assert "too_late_to_freeze" in post["description"]
 
 

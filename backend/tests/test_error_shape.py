@@ -102,10 +102,10 @@ def test_a_move_or_change_to_where_it_already_is_is_one_code(kitchen: TestClient
     lot = group["lots"][0]
     here = kitchen.post(f"{API}/stock/{lot['id']}/move", json={"place_id": group["place"]["id"]})
     assert _problem(here, 409, "already_there")["detail"].startswith("That’s already in ")
-    same = kitchen.post(f"{url}/left", json={"amount": {"amount": 200, "unit": "g"}})
+    same = kitchen.post(f"{url}/set-left", json={"amount": {"amount": 200, "unit": "g"}})
     assert _problem(same, 409, "already_there")["detail"] == "That’s how much there is already."
-    kitchen.post(f"{API}/stock/{lot['id']}/to-freezer")
-    frozen = kitchen.post(f"{API}/stock/{lot['id']}/to-freezer")
+    kitchen.post(f"{API}/stock/{lot['id']}/freeze")
+    frozen = kitchen.post(f"{API}/stock/{lot['id']}/freeze")
     assert _problem(frozen, 409, "already_there")["detail"] == "That’s already in the freezer."
     named = kitchen.post(f"{url}/other-names", json={"name": "spinach"})
     assert _problem(named, 409, "already_there")["detail"] == "Spinach already has that name."

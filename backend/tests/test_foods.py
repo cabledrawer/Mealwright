@@ -171,7 +171,7 @@ def test_maybe_the_same(kitchen: TestClient) -> None:
 
     assert (
         kitchen.post(
-            f"{API}/foods/{drumsticks['id']}/not-the-same", json={"food_id": moringa["id"]}
+            f"{API}/foods/{drumsticks['id']}/mark-not-same", json={"food_id": moringa["id"]}
         ).status_code
         == 204
     )

@@ -72,7 +72,10 @@ def fill(client: TestClient, app: Any, has: Any, made: dict[str, Any]) -> None:
 
     if not has("/foods"):
         return  # 0.1: an admin and nothing else yet
-    ok(client.post(f"{API}/household/from-browser", json={"time_zone": "Europe/London"}))
+    # 0.9.5-beta.3 (D3) renamed some routes: use whichever this release has.
+    browser = "/household/fill-from-browser" if has("/household/fill-from-browser") else None
+    browser = browser or "/household/from-browser"
+    ok(client.post(f"{API}{browser}", json={"time_zone": "Europe/London"}))
     shops = {
         name: ok(client.post(f"{API}/shops", json={"name": name}), 201)
         for name in ("Corner shop", "Big supermarket")
@@ -139,8 +142,9 @@ def fill(client: TestClient, app: Any, has: Any, made: dict[str, Any]) -> None:
         plan(client, has, recipes, made)
     if has("/batch-cook/sessions") and recipes:
         batch_session(client, recipes, made)
-    if has("/shopping/from-plan") and recipes:
-        ok(client.post(f"{API}/shopping/from-plan"), None)
+    from_plan = [p for p in ("/shopping/add-from-plan", "/shopping/from-plan") if has(p)]
+    if from_plan and recipes:
+        ok(client.post(f"{API}{from_plan[0]}"), None)
 
 
 def shopping(

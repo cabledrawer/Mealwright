@@ -583,7 +583,7 @@ test('F65 on Today: the same "Eat it on…", and Undo takes the placement back w
     waiting: { meal_id: number }[];
   };
   for (const w of waiting.waiting)
-    await call(page, "POST", `/plan/meals/${w.meal_id}/didnt`);
+    await call(page, "POST", `/plan/meals/${w.meal_id}/mark-not-cooked`);
   const name = `${stamp()} Soup`;
   // Yesterday's Snack: phone today.spec plans and answers yesterday's Dinner on this server, and no other test plans this Snack.
   const cooked = addDays(today, -1);

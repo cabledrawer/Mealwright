@@ -22,7 +22,7 @@ ADMIN_ROUTES: list[tuple[str, str, dict[str, Any] | None, Action]] = [
     ("PATCH", "/household", {"name": "Ours"}, Action.HOUSEHOLD_SETTINGS),
     ("PATCH", "/household", {"onboarding_done": True}, Action.HOUSEHOLD_SETTINGS),
     ("PATCH", "/household", {"amounts_shown": "metric"}, Action.HOUSEHOLD_SETTINGS),
-    ("POST", "/household/from-browser", {"cup_ml": 250}, Action.HOUSEHOLD_SETTINGS),
+    ("POST", "/household/fill-from-browser", {"cup_ml": 250}, Action.HOUSEHOLD_SETTINGS),
     ("PATCH", "/meal-slots/{slot}", {"name": "Supper"}, Action.HOUSEHOLD_SETTINGS),
     ("POST", "/meal-slots", {"name": "Elevenses"}, Action.HOUSEHOLD_SETTINGS),
     ("PUT", "/meal-slots/order", {"ids": []}, Action.HOUSEHOLD_SETTINGS),

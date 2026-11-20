@@ -59,15 +59,13 @@ def test_error_paths_say_ingredient(kitchen: TestClient) -> None:
         kitchen.get(f"{API}/foods/9999"),
         kitchen.post(f"{API}/foods/{toor['id']}/merge", json={"into_id": toor["id"]}),
         kitchen.post(f"{API}/foods/{toor['id']}/stand-ins", json={"food_id": toor["id"]}),
-        kitchen.post(f"{API}/foods/{toor['id']}/not-the-same", json={"food_id": toor["id"]}),
+        kitchen.post(f"{API}/foods/{toor['id']}/mark-not-same", json={"food_id": toor["id"]}),
         kitchen.patch(f"{API}/foods/{toor['id']}", json={"name": "Moong dal"}),
         kitchen.patch(
             f"{API}/foods/{toor['id']}", json={"running_low_at": {"amount": 1, "unit": "cup"}}
         ),
-        kitchen.post(
-            f"{API}/foods/{other['id']}/used", json={"amount": {"amount": 1, "unit": "g"}}
-        ),
-        kitchen.post(f"{API}/stock/9999/used"),
+        kitchen.post(f"{API}/foods/{other['id']}/use", json={"amount": {"amount": 1, "unit": "g"}}),
+        kitchen.post(f"{API}/stock/9999/use"),
     ]
     kitchen.post(
         f"{API}/stock", json={"food_id": toor["id"], "amount": {"amount": 1, "unit": "kg"}}

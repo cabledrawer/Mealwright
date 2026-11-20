@@ -55,25 +55,25 @@ export const setLeft = (
 ) =>
   api<StockWrite>(
     'POST',
-    `/stock/${lotId}/left`,
+    `/stock/${lotId}/set-left`,
     'amount' in left ? { amount: withAnswers(left.amount, answers) } : left,
     key(idempotencyKey)
   );
 
 /** Used it (all of it, unless an amount is given). */
 export const usedLot = (lotId: number, idempotencyKey: string) =>
-  api<StockWrite>('POST', `/stock/${lotId}/used`, {}, key(idempotencyKey));
+  api<StockWrite>('POST', `/stock/${lotId}/use`, {}, key(idempotencyKey));
 
 /** Binned it all. `soon`: every packet of its Use soon row (0.8), in one change. */
 export const binnedLot = (lotId: number, idempotencyKey: string, soon = false) =>
-  api<StockWrite>('POST', `/stock/${lotId}/binned`, soon ? { soon } : {}, key(idempotencyKey));
+  api<StockWrite>('POST', `/stock/${lotId}/bin`, soon ? { soon } : {}, key(idempotencyKey));
 
 /** To the freezer, with a new use-by (3 months unless given). `soon`: every packet of its Use
  * soon row (0.8), in one change. */
 export const toFreezer = (lotId: number, idempotencyKey: string, useBy?: string, soon = false) =>
   api<StockWrite>(
     'POST',
-    `/stock/${lotId}/to-freezer`,
+    `/stock/${lotId}/freeze`,
     { ...(useBy ? { use_by: useBy } : {}), ...(soon ? { soon } : {}) },
     key(idempotencyKey)
   );
@@ -94,7 +94,7 @@ export const foodUsed = (
 ) =>
   api<StockWrite>(
     'POST',
-    `/foods/${foodId}/used`,
+    `/foods/${foodId}/use`,
     { amount: withAnswers(amount, answers), place_id: placeId },
     key(idempotencyKey)
   );
@@ -109,7 +109,7 @@ export const foodLeft = (
 ) =>
   api<StockWrite>(
     'POST',
-    `/foods/${foodId}/left`,
+    `/foods/${foodId}/set-left`,
     { amount: withAnswers(amount, answers), place_id: placeId },
     key(idempotencyKey)
   );

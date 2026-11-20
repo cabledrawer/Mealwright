@@ -235,7 +235,7 @@ def test_a_fraction_needs_a_pack_size_and_the_size_is_asked_once(kitchen: TestCl
     assert answer(kitchen, cupboard, tamarind["id"], {"fraction": 0}).status_code == 200  # None
     pick = row["pack_suggestions"][0]
     made = kitchen.post(
-        f"{STOCKTAKE}/places/{cupboard}/foods/{tamarind['id']}/size",
+        f"{STOCKTAKE}/places/{cupboard}/foods/{tamarind['id']}/set-size",
         json={"name": pick["name"], "amount": pick["amount"]},
     )
     assert made.status_code == 200, made.text
@@ -247,7 +247,7 @@ def test_a_fraction_needs_a_pack_size_and_the_size_is_asked_once(kitchen: TestCl
     assert ok.status_code == 200 and ok.json()["row"]["answer"]["fraction"] == "0.5"
     # Not asked again: it has a size now.
     again = kitchen.post(
-        f"{STOCKTAKE}/places/{cupboard}/foods/{tamarind['id']}/size",
+        f"{STOCKTAKE}/places/{cupboard}/foods/{tamarind['id']}/set-size",
         json={"name": "tub", "amount": 100},
     )
     assert (again.status_code, again.json()["code"]) == (409, "has_size")
@@ -260,7 +260,7 @@ def test_a_size_typed_with_a_unit_becomes_the_usual_size(kitchen: TestClient) ->
     cupboard = place(kitchen, "Cupboard")
     jaggery = food(kitchen, "Jaggery", place_id=cupboard)
     made = kitchen.post(
-        f"{STOCKTAKE}/places/{cupboard}/foods/{jaggery['id']}/size",
+        f"{STOCKTAKE}/places/{cupboard}/foods/{jaggery['id']}/set-size",
         json={"name": "block", "amount": {"amount": 1, "unit": "kg"}},
     )
     assert made.status_code == 200, made.text
@@ -275,7 +275,7 @@ def test_a_counted_ingredient_or_a_staple_has_no_pack_to_ask(kitchen: TestClient
     salt = food(kitchen, "Salt", staple=True, place_id=cupboard)
     for where, found in ((fridge, eggs), (cupboard, salt)):
         response = kitchen.post(
-            f"{STOCKTAKE}/places/{where}/foods/{found['id']}/size",
+            f"{STOCKTAKE}/places/{where}/foods/{found['id']}/set-size",
             json={"name": "bag", "amount": 500},
         )
         assert (response.status_code, response.json()["code"]) == (422, "no_pack")
@@ -287,7 +287,7 @@ def test_a_counted_ingredient_or_a_staple_has_no_pack_to_ask(kitchen: TestClient
 def test_its_a_staple_is_recorded_and_undone(kitchen: TestClient) -> None:
     cupboard = place(kitchen, "Cupboard")
     sambar = food(kitchen, "Sambar powder", place_id=cupboard)
-    made = kitchen.post(f"{STOCKTAKE}/places/{cupboard}/foods/{sambar['id']}/staple")
+    made = kitchen.post(f"{STOCKTAKE}/places/{cupboard}/foods/{sambar['id']}/make-staple")
     assert made.status_code == 200, made.text
     body = made.json()
     assert body["change"]["kind"] == "stocktake"
@@ -298,7 +298,7 @@ def test_its_a_staple_is_recorded_and_undone(kitchen: TestClient) -> None:
     # A staple isn't counted, and can't be made one twice.
     refused = answer(kitchen, cupboard, sambar["id"], {"fraction": 0.5})
     assert (refused.status_code, refused.json()["code"]) == (409, "staple")
-    twice = kitchen.post(f"{STOCKTAKE}/places/{cupboard}/foods/{sambar['id']}/staple")
+    twice = kitchen.post(f"{STOCKTAKE}/places/{cupboard}/foods/{sambar['id']}/make-staple")
     assert (twice.status_code, twice.json()["code"]) == (409, "already_there")
     # Undo: not a staple, row unanswered again.
     assert kitchen.post(f"{API}/changes/{body['change']['id']}/undo").status_code == 200
@@ -414,7 +414,9 @@ def test_nothing_crosses_into_another_household(kitchen: TestClient, neighbour: 
     assert answer(neighbour, cupboard, dal["id"], {"fraction": 1}).status_code == 404
     assert answer(neighbour, their_cupboard, dal["id"], {"fraction": 1}).status_code == 404
     assert (
-        neighbour.post(f"{STOCKTAKE}/places/{their_cupboard}/foods/{dal['id']}/staple").status_code
+        neighbour.post(
+            f"{STOCKTAKE}/places/{their_cupboard}/foods/{dal['id']}/make-staple"
+        ).status_code
         == 404
     )
     assert (
@@ -638,7 +640,7 @@ def test_a_pack_size_of_tin_picked_while_counting_makes_the_row_counted(
     before = rows(kitchen, cupboard)["Peas"]
     assert before["counted"] is False and before["pack"] is None
     size = {"name": "tin", "amount": {"amount": 400, "unit": "g"}}
-    done = kitchen.post(f"{STOCKTAKE}/places/{cupboard}/foods/{peas['id']}/size", json=size)
+    done = kitchen.post(f"{STOCKTAKE}/places/{cupboard}/foods/{peas['id']}/set-size", json=size)
     assert done.status_code == 200, done.text
     assert done.json()["row"]["counted"] is True
     assert done.json()["row"]["pack"]["name"] == "tin"

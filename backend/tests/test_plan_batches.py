@@ -488,7 +488,7 @@ def test_to_freezer_takes_the_tub_out_of_its_meal_and_sets_the_freezer_use_by(
 ) -> None:
     make(kitchen, cook["item_id"], tub_count=2)
     tub = view(kitchen)["tubs"][0]
-    frozen = kitchen.post(f"{API}/plan/tubs/{tub['id']}/freezer")
+    frozen = kitchen.post(f"{API}/plan/tubs/{tub['id']}/freeze")
     assert frozen.status_code == 200, frozen.text
     now = view(kitchen)["tubs"][0]
     assert now["place_kind"] == "freezer"
@@ -496,7 +496,7 @@ def test_to_freezer_takes_the_tub_out_of_its_meal_and_sets_the_freezer_use_by(
     assert [m["date"] for m in view(kitchen)["meals"]].count(day(1)) == 1
     # Numbered in date order (F50): the tub still in a meal is 1, the one in no meal is last.
     assert where_tubs_are(kitchen, slots)[0] == (2, None, "freezer")
-    twice = kitchen.post(f"{API}/plan/tubs/{tub['id']}/freezer")
+    twice = kitchen.post(f"{API}/plan/tubs/{tub['id']}/freeze")
     assert twice.status_code == 409 and twice.json()["code"] == "already_there"
     assert undo(kitchen, frozen.json())["result"] == "done"
     assert where_tubs_are(kitchen, slots)[0] == (1, day(1), "Lunch")
@@ -916,7 +916,7 @@ def test_another_households_ids_get_404_on_every_new_route(
     assert neighbour.delete(f"{API}/plan/batches/{made['batch_id']}").status_code == 404
     assert neighbour.post(f"{API}/plan/tubs/{tub}/place", json=spot).status_code == 404
     assert neighbour.patch(f"{API}/plan/tubs/{tub}", json={"use_by": day(8)}).status_code == 404
-    assert neighbour.post(f"{API}/plan/tubs/{tub}/freezer").status_code == 404
+    assert neighbour.post(f"{API}/plan/tubs/{tub}/freeze").status_code == 404
     # My tub, their slot; my batch, their login.
     assert kitchen.post(f"{API}/plan/tubs/{tub}/place", json=their_spot).status_code == 404
     other_item = plan_recipe(kitchen, stuff["dosa"], D3 + timedelta(1), slots["Dinner"])
@@ -967,7 +967,7 @@ def test_the_new_routes_need_signing_in(client: TestClient) -> None:
     assert client.delete(f"{API}/plan/batches/1").status_code == 401
     assert client.get(f"{API}/plan/tubs-left").status_code == 401
     assert client.get(f"{API}/plan/people").status_code == 401
-    assert client.post(f"{API}/plan/tubs/1/freezer").status_code == 401
+    assert client.post(f"{API}/plan/tubs/1/freeze").status_code == 401
 
 
 def test_batch_changes_are_in_recent_changes_with_their_undo(
@@ -1663,15 +1663,15 @@ def test_a_tub_past_its_use_by_is_too_late_to_freeze(
     make(kitchen, cook["item_id"], tub_count=3, pattern="pick")
     tubs = [t["id"] for t in view(kitchen)["tubs"]]
     _set_tub_use_by(kitchen, -1)
-    refused = kitchen.post(f"{API}/plan/tubs/{tubs[0]}/freezer")
+    refused = kitchen.post(f"{API}/plan/tubs/{tubs[0]}/freeze")
     assert refused.status_code == 422, refused.text
     assert refused.json()["code"] == "too_late_to_freeze"
     assert "Too late to freeze" in refused.json()["detail"]
     assert {t["place_kind"] for t in view(kitchen)["tubs"]} == {"fridge"}
     _set_tub_use_by(kitchen, 0)
-    assert kitchen.post(f"{API}/plan/tubs/{tubs[0]}/freezer").status_code == 200
+    assert kitchen.post(f"{API}/plan/tubs/{tubs[0]}/freeze").status_code == 200
     _set_tub_use_by(kitchen, 1)
-    assert kitchen.post(f"{API}/plan/tubs/{tubs[1]}/freezer").status_code == 200
+    assert kitchen.post(f"{API}/plan/tubs/{tubs[1]}/freeze").status_code == 200
 
 
 # --- Binned on a tub (cabledrawer 8 Nov, 0.8) -----------------

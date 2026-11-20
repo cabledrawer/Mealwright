@@ -63,7 +63,7 @@ async function have(page: Page, name: string): Promise<number> {
 /** Anything left waiting by another test is answered first, so a test's meal is the card. */
 async function clearWaiting(page: Page) {
   const read = (await (await page.request.get('/api/v1/today')).json()) as { waiting: { meal_id: number }[] };
-  for (const w of read.waiting) await call(page, 'POST', `/plan/meals/${w.meal_id}/didnt`);
+  for (const w of read.waiting) await call(page, 'POST', `/plan/meals/${w.meal_id}/mark-not-cooked`);
 }
 
 /** A day that Today asks about (4 to 6 days back: today.spec uses 1 to 3), of this project's own. */
@@ -518,7 +518,7 @@ test('F163: the Plan menu of a meal cooked in parts lists its recipes with Cooke
   try {
     // The bread is cooked (the pantry's part and the meal's answer); the soup is not.
     await call(page, 'POST', `/plan/items/${a.item_id}/cook`, { choices: [] });
-    await call(page, 'POST', `/plan/meals/${a.meal_id}/cooked`, {});
+    await call(page, 'POST', `/plan/meals/${a.meal_id}/mark-cooked`, {});
     await openMealOnPlan(page, k.today, day, k.slot.Dinner!, 'Dinner', bread);
     const sheet = page.getByRole('dialog');
     if (isPhone(page)) {
@@ -572,7 +572,7 @@ test('F166: Serves in the Plan menu of a meal cooked in parts names the recipe i
   const b = await k.plan(await k.recipe(soup, []), day, k.slot.Dinner!);
   try {
     await call(page, 'POST', `/plan/items/${a.item_id}/cook`, { choices: [] });
-    await call(page, 'POST', `/plan/meals/${a.meal_id}/cooked`, {});
+    await call(page, 'POST', `/plan/meals/${a.meal_id}/mark-cooked`, {});
     await openMealOnPlan(page, k.today, day, k.slot.Dinner!, 'Dinner', soup);
     const sheet = page.getByRole('dialog');
     // The one still to cook is the one Serves changes, and the label says so.
@@ -604,6 +604,6 @@ test('F170: a recipe with no Serves has no Portions cooked and says how to scale
     await expect(dialog.getByText('as planned')).toHaveCount(0);
     await checkPage(page); // both themes
   } finally {
-    await page.request.fetch(`/api/v1/plan/meals/${planned.meal_id}/didnt`, { method: 'POST', headers: key() });
+    await page.request.fetch(`/api/v1/plan/meals/${planned.meal_id}/mark-not-cooked`, { method: 'POST', headers: key() });
   }
 });

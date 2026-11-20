@@ -15,16 +15,16 @@ afterEach(() => {
 describe('setMealWay', () => {
   it('sets the meal to the way, and does nothing when it already is', async () => {
     const requests = fakeApi({
-      'PUT /plan/items/77/method': [200, { change: null, meal_id: 1, item_id: 77 }]
+      'PATCH /plan/items/77': [200, { change: null, meal_id: 1, item_id: 77 }]
     });
     expect(await setMealWay({ id: 77, method_id: 10 }, 11)).toBe(true);
-    expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ method_id: 11 });
+    expect(requests.find((r) => r.method === 'PATCH')?.body).toEqual({ method_id: 11 });
     expect(await setMealWay({ id: 77, method_id: 11 }, 11)).toBe(true);
-    expect(requests.filter((r) => r.method === 'PUT')).toHaveLength(1);
+    expect(requests.filter((r) => r.method === 'PATCH')).toHaveLength(1);
   });
 
   it('says false when the server refuses, or when it is offline (nothing is asked)', async () => {
-    fakeApi({ 'PUT /plan/items/77/method': [409, { detail: 'No', code: 'meal_done' }] });
+    fakeApi({ 'PATCH /plan/items/77': [409, { detail: 'No', code: 'meal_done' }] });
     expect(await setMealWay({ id: 77, method_id: 10 }, 11)).toBe(false);
     const requests = fakeApi({});
     network.offline = true;

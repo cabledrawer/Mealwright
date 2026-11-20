@@ -72,7 +72,7 @@ def test_leftovers_and_move_it_skip_a_recipe_cooked_through_a_batch(kitchen: Tes
     ok(cook(kitchen, stew["item_id"]), 201)
     ok(
         kitchen.post(
-            f"{API}/plan/meals/{rice['meal_id']}/cooked",
+            f"{API}/plan/meals/{rice['meal_id']}/mark-cooked",
             json={"leftovers": {"count": 2, "place_kind": "fridge"}},
         )
     )
@@ -136,7 +136,7 @@ def test_leftovers_after_a_batch_press_are_the_batchs_recipes(kitchen: TestClien
     before = {t["id"] for t in tubs_left(kitchen)}
     ok(
         kitchen.post(
-            f"{API}/plan/meals/{meal}/cooked",
+            f"{API}/plan/meals/{meal}/mark-cooked",
             json={"leftovers": {"count": 2, "place_kind": "fridge"}},
         )
     )
@@ -210,7 +210,7 @@ def test_undo_of_leftovers_added_to_a_cooked_batch_takes_them_back(kitchen: Test
     assert len(tub_ids(kitchen)) == 1
     answer = ok(
         kitchen.post(
-            f"{API}/plan/meals/{meal}/cooked",
+            f"{API}/plan/meals/{meal}/mark-cooked",
             json={"leftovers": {"count": 2, "place_kind": "fridge"}},
         )
     )["change"]
@@ -231,7 +231,7 @@ def test_undo_of_an_answer_not_joined_to_a_press_takes_its_tubs_back(kitchen: Te
     for _ in range(2):
         answer = ok(
             kitchen.post(
-                f"{API}/plan/meals/{meal}/cooked",
+                f"{API}/plan/meals/{meal}/mark-cooked",
                 json={"leftovers": {"count": 2, "place_kind": "fridge", "item_id": khichdi}},
             )
         )["change"]

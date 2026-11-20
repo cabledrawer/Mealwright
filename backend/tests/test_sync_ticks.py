@@ -480,7 +480,7 @@ def test_sy16_different_pack_after_some_was_used(kitchen: TestClient) -> None:
     t = tick(kitchen, s, "Paneer")
     ok(
         s.wren.post(
-            f"{API}/foods/{s.foods['Paneer']}/used", json={"amount": {"amount": 100, "unit": "g"}}
+            f"{API}/foods/{s.foods['Paneer']}/use", json={"amount": {"amount": 100, "unit": "g"}}
         )
     )
     one(
@@ -678,7 +678,7 @@ def test_sy24_sy24u_just_one_after_some_was_used(kitchen: TestClient) -> None:
     s = s0(kitchen)
     _, _, card = _after_sy01(s)
     used = {"amount": {"amount": 800, "unit": "g"}}
-    ok(s.wren.post(f"{API}/foods/{s.foods['Toor dal']}/used", json=used))
+    ok(s.wren.post(f"{API}/foods/{s.foods['Toor dal']}/use", json=used))
     assert s.lots("Toor dal") == [("Cupboard", 200)]
     done = _answer(kitchen, s, card, "one")
     assert done["message"] == (
@@ -717,7 +717,7 @@ def test_sy26_sy26u_untick_after_some_was_used(kitchen: TestClient) -> None:
     s = s0(kitchen)
     t = tick(kitchen, s, "Toor dal")
     used = {"amount": {"amount": 200, "unit": "g"}}
-    ok(s.wren.post(f"{API}/foods/{s.foods['Toor dal']}/used", json=used))
+    ok(s.wren.post(f"{API}/foods/{s.foods['Toor dal']}/use", json=used))
     off = one(kitchen, "untick", s.c0, item_id=s.items["Toor dal"], tick_ids=[t["id"]])
     assert off["message"] == (
         "Took back 300\u00a0g of the 500\u00a0g: the rest has been used since."
@@ -917,7 +917,7 @@ def test_sy38_no_n5_when_it_had_all_been_used(kitchen: TestClient) -> None:
     s.c0 = int(changes(kitchen)["cursor"])
     one(kitchen, "clear_ticked", s.c0, list_id=s.main, item_ids=[s.items["Toor dal"]])
     used = {"amount": {"amount": 500, "unit": "g"}}
-    ok(kitchen.post(f"{API}/foods/{s.foods['Toor dal']}/used", json=used))
+    ok(kitchen.post(f"{API}/foods/{s.foods['Toor dal']}/use", json=used))
     off = one(s.wren, "untick", s.c0, PHONE_R, item_id=s.items["Toor dal"], tick_ids=[t["id"]])
     assert off["status"] == "applied"
     assert s.ticks("Toor dal") == []
@@ -1034,7 +1034,7 @@ def _repacked_with_use_between(kitchen: TestClient) -> dict[str, Any]:
     item = s.items["Paneer"]
     first = one(kitchen, "different_pack", s.c0, item_id=item, tick_id=t["id"], count=1, pack=400)
     used = {"amount": {"amount": 100, "unit": "g"}}
-    ok(kitchen.post(f"{API}/foods/{s.foods['Paneer']}/used", json=used))
+    ok(kitchen.post(f"{API}/foods/{s.foods['Paneer']}/use", json=used))
     one(kitchen, "different_pack", s.c0, item_id=item, tick_id=t["id"], count=1, pack=1000)
     return first
 
@@ -1201,7 +1201,7 @@ def test_sy15e_an_undo_for_a_count_is_worded_without_left(kitchen: TestClient) -
         kitchen, "different_pack", counter(kitchen), item_id=item, tick_id=t["id"], count=1, pack=6
     )
     used = {"amount": {"amount": 2, "unit": "count"}}
-    ok(kitchen.post(f"{API}/foods/{onions}/used", json=used))
+    ok(kitchen.post(f"{API}/foods/{onions}/use", json=used))
     done = _undo(kitchen, first["id"])
     assert done["status"] == "applied", done
     assert done["message"] == (

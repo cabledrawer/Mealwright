@@ -115,7 +115,7 @@ export const removeStandIn = (id: number, standInId: number, idempotencyKey: str
 
 /** "Not the same": hides a Maybe-the-same pair for good. Quiet; no Undo. */
 export const notTheSame = (id: number, otherId: number) =>
-  api<void>('POST', `/foods/${id}/not-the-same`, { food_id: otherId });
+  api<void>('POST', `/foods/${id}/mark-not-same`, { food_id: otherId });
 
 export const mergeFood = (
   id: number,

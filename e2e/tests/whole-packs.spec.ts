@@ -45,12 +45,12 @@ async function needing(
     slot_id: slots.find((s) => s.name === 'Dinner')!.id,
     recipe_id: recipe.id,
   });
-  await call(page, 'POST', '/shopping/from-plan');
+  await call(page, 'POST', '/shopping/add-from-plan');
   return {
     foodId,
     async cleanUp() {
       await page.request.fetch(`/api/v1/plan/items/${planned.item_id}`, { method: 'DELETE', headers: key() });
-      await page.request.fetch('/api/v1/shopping/from-plan', { method: 'POST' });
+      await page.request.fetch('/api/v1/shopping/add-from-plan', { method: 'POST' });
     },
   };
 }

@@ -683,7 +683,7 @@ class SetLeft(BaseModel):
         return self
 
 
-@router.post("/stock/{lot_id}/left")
+@router.post("/stock/{lot_id}/set-left")
 def set_left(lot_id: StoredInt, body: SetLeft, kitchen: Here, response: Response) -> StockWrite:
     """How much is left in this packet. Best guess is fine; it can go up too (Full)."""
 
@@ -774,7 +774,7 @@ def _use(
     return edit.record(kind, summary, food.id), wanted - taken
 
 
-@router.post("/stock/{lot_id}/used")
+@router.post("/stock/{lot_id}/use")
 def used(
     lot_id: StoredInt, kitchen: Here, response: Response, body: UsedSome | None = None
 ) -> StockWrite:
@@ -782,7 +782,7 @@ def used(
     return stock_write(kitchen, response, lambda: _use("used", lot_id, body or UsedSome(), kitchen))
 
 
-@router.post("/stock/{lot_id}/binned")
+@router.post("/stock/{lot_id}/bin")
 def binned(
     lot_id: StoredInt, kitchen: Here, response: Response, body: BinnedSome | None = None
 ) -> StockWrite:
@@ -805,7 +805,7 @@ class ToFreezer(BaseModel):
     soon: bool = False  # every packet of the Use soon row (0.8), not just this one
 
 
-@router.post("/stock/{lot_id}/to-freezer")
+@router.post("/stock/{lot_id}/freeze")
 def to_freezer(
     lot_id: StoredInt, kitchen: Here, response: Response, body: ToFreezer | None = None
 ) -> StockWrite:
@@ -918,7 +918,7 @@ def _scope(kitchen: Kitchen, food: Food, place_id: int | None) -> tuple[list[Sto
     return lots_of(kitchen, [food.id]), False
 
 
-@router.post("/foods/{food_id}/used")
+@router.post("/foods/{food_id}/use")
 def food_used(
     food_id: StoredInt, body: FoodAmount, kitchen: Here, response: Response
 ) -> StockWrite:
@@ -945,7 +945,7 @@ def food_used(
     return stock_write(kitchen, response, apply)
 
 
-@router.post("/foods/{food_id}/left")
+@router.post("/foods/{food_id}/set-left")
 def food_left(food_id: StoredInt, body: FoodLeft, kitchen: Here, response: Response) -> StockWrite:
     """ "3 left" on a group: takes from the packets that go off first, or tops up the
     newest one if the number is higher. 0 is "None left": every packet is emptied

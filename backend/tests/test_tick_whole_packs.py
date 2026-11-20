@@ -290,10 +290,10 @@ def test_a_capped_lot_has_no_size_and_no_quarter_picks(kitchen: TestClient) -> N
     [(lot, size_id)] = _lot_ids(s, "Ghee")
     assert size_id is None
     # Three quarters of "a jar" would set 375 g on a 30 kg lot: it asks for an amount instead.
-    refused = kitchen.post(f"{API}/stock/{lot}/left", json={"fraction": 0.75})
+    refused = kitchen.post(f"{API}/stock/{lot}/set-left", json={"fraction": 0.75})
     assert refused.status_code == 422 and refused.json()["code"] == "needs_amount"
     assert "more than one jar" in refused.json()["detail"]
-    ok(kitchen.post(f"{API}/stock/{lot}/left", json={"amount": {"amount": 100, "unit": "g"}}))
+    ok(kitchen.post(f"{API}/stock/{lot}/set-left", json={"amount": {"amount": 100, "unit": "g"}}))
     assert s.total("Ghee") == 100
 
 

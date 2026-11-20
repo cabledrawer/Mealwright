@@ -27,8 +27,8 @@ def make_history(kitchen: TestClient) -> tuple[int, int]:
     spinach = kitchen.post(f"{API}/foods", json={"name": "Spinach"}).json()["food"]
     body = {"food_id": spinach["id"], "amount": {"amount": 200, "unit": "g"}}
     lot = kitchen.post(f"{API}/stock", json=body).json()["groups"][0]["lots"][0]
-    kitchen.post(f"{API}/stock/{lot['id']}/used", json={"amount": {"amount": 50, "unit": "g"}})
-    kitchen.post(f"{API}/stock/{lot['id']}/used", json={"amount": {"amount": 30, "unit": "g"}})
+    kitchen.post(f"{API}/stock/{lot['id']}/use", json={"amount": {"amount": 50, "unit": "g"}})
+    kitchen.post(f"{API}/stock/{lot['id']}/use", json={"amount": {"amount": 30, "unit": "g"}})
     return spinach["id"], lot["id"]
 
 
@@ -64,7 +64,7 @@ def test_recent_history_is_kept(kitchen: TestClient) -> None:
 
 def test_thinning_an_undone_change(kitchen: TestClient) -> None:
     _food_id, lot_id = make_history(kitchen)
-    used = kitchen.post(f"{API}/stock/{lot_id}/used").json()["change"]
+    used = kitchen.post(f"{API}/stock/{lot_id}/use").json()["change"]
     kitchen.post(f"{API}/changes/{used['id']}/undo")
     with db(kitchen) as session:
         session.execute(update(Change).values(at=utcnow() - timedelta(days=400)))
@@ -74,7 +74,7 @@ def test_thinning_an_undone_change(kitchen: TestClient) -> None:
 
 def test_empty_packets_go_after_the_undo_window(kitchen: TestClient) -> None:
     _food_id, lot_id = make_history(kitchen)
-    kitchen.post(f"{API}/stock/{lot_id}/used")
+    kitchen.post(f"{API}/stock/{lot_id}/use")
     with db(kitchen) as session:
         household = session.get(Household, 1)
         thin(session, household)
@@ -363,7 +363,7 @@ def test_an_undo_next_month_counts_in_the_changes_month(
 
     monkeypatch.setattr(history, "THIN_CHUNK", 1)  # the change and its Undo in separate runs
     if zone:
-        kitchen.post(f"{API}/household/from-browser", json={"time_zone": zone})
+        kitchen.post(f"{API}/household/fill-from-browser", json={"time_zone": zone})
     toor = kitchen.post(f"{API}/foods", json={"name": "Toor dal"}).json()["food"]
     big = _add(kitchen, toor["id"], 500)["change"]["id"]
     small = _add(kitchen, toor["id"], 10)["change"]["id"]
@@ -384,7 +384,7 @@ def test_a_partial_undo_still_counts_the_change(kitchen: TestClient) -> None:
     added = _add(kitchen, toor["id"], 500)
     lot = added["groups"][0]["lots"][0]["id"]
     left = kitchen.post(
-        f"{API}/stock/{lot}/left", json={"amount": {"amount": 150, "unit": "g"}}
+        f"{API}/stock/{lot}/set-left", json={"amount": {"amount": 150, "unit": "g"}}
     ).json()["change"]["id"]
     undo = kitchen.post(f"{API}/changes/{added['change']['id']}/undo").json()
     assert undo["result"] == "partly"

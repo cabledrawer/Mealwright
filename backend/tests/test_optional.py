@@ -303,13 +303,17 @@ def test_the_pick_can_be_changed_from_the_meal_and_undone(
     planned = plan(kitchen, recipe["id"], 1, optional_use=[])
     assert amounts(kitchen) == {pantry["Opt rice"]["id"]: 500}
     changed = ok(
-        kitchen.put(f"{API}/plan/items/{planned['item_id']}/optional", json={"use": [ids["kewra"]]})
+        kitchen.patch(
+            f"{API}/plan/items/{planned['item_id']}", json={"optional_use": [ids["kewra"]]}
+        )
     )
     assert changed["change"]["kind"] == "plan_optional"
     assert amounts(kitchen) == {pantry["Opt rice"]["id"]: 500, pantry["Opt kewra"]["id"]: 50}
     # The same pick again changes nothing.
     same = ok(
-        kitchen.put(f"{API}/plan/items/{planned['item_id']}/optional", json={"use": [ids["kewra"]]})
+        kitchen.patch(
+            f"{API}/plan/items/{planned['item_id']}", json={"optional_use": [ids["kewra"]]}
+        )
     )
     assert same["change"] is None
     assert undo(kitchen, changed)["result"] == "done"
@@ -322,9 +326,9 @@ def test_undoing_a_pick_that_was_changed_again_leaves_the_later_pick(
     recipe = biryani(kitchen, pantry)
     ids = lines_of(recipe)
     planned = plan(kitchen, recipe["id"], 1, optional_use=[])
-    url = f"{API}/plan/items/{planned['item_id']}/optional"
-    first = ok(kitchen.put(url, json={"use": [ids["kewra"]]}))
-    ok(kitchen.put(url, json={"use": [ids["kewra"], ids["papaya"]]}))
+    url = f"{API}/plan/items/{planned['item_id']}"
+    first = ok(kitchen.patch(url, json={"optional_use": [ids["kewra"]]}))
+    ok(kitchen.patch(url, json={"optional_use": [ids["kewra"], ids["papaya"]]}))
     assert undo(kitchen, first)["result"] != "done"
     assert set(amounts(kitchen)) == set(pantry[n]["id"] for n in pantry)
 
@@ -339,12 +343,12 @@ def test_only_a_recipe_in_a_planned_meal_has_a_pick_to_change(
         ),
         201,
     )
-    refused = kitchen.put(f"{API}/plan/items/{note['item_id']}/optional", json={"use": []})
+    refused = kitchen.patch(f"{API}/plan/items/{note['item_id']}", json={"optional_use": []})
     assert refused.status_code == 422 and refused.json()["code"] == "not_a_recipe"
     recipe = biryani(kitchen, pantry)
     other = plan_recipe(kitchen, recipe["id"], D2, slot)
-    refused = kitchen.put(
-        f"{API}/plan/items/{other['item_id']}/optional", json={"use": [lines_of(recipe)["rice"]]}
+    refused = kitchen.patch(
+        f"{API}/plan/items/{other['item_id']}", json={"optional_use": [lines_of(recipe)["rice"]]}
     )
     assert refused.status_code == 422 and refused.json()["code"] == "not_optional"
 
@@ -465,9 +469,13 @@ def test_changing_the_pick_changes_what_cooked_it_proposes(
     kitchen: TestClient, pantry: dict[str, dict[str, Any]]
 ) -> None:
     recipe, item = curry(kitchen, pantry)
-    ok(kitchen.put(f"{API}/plan/items/{item}/optional", json={"use": []}))
+    ok(kitchen.patch(f"{API}/plan/items/{item}", json={"optional_use": []}))
     assert [r["food"]["name"] for r in propose(kitchen, item)["rows"]] == ["Opt rice"]
-    ok(kitchen.put(f"{API}/plan/items/{item}/optional", json={"use": [lines_of(recipe)["kewra"]]}))
+    ok(
+        kitchen.patch(
+            f"{API}/plan/items/{item}", json={"optional_use": [lines_of(recipe)["kewra"]]}
+        )
+    )
     assert sorted(r["food"]["name"] for r in propose(kitchen, item)["rows"]) == [
         "Opt kewra",
         "Opt rice",
@@ -565,9 +573,9 @@ def test_the_skip_list_is_sorted_whatever_order_the_lines_are_in(
         stored = db.get(MealItem, planned["item_id"]).optional_skipped  # type: ignore[union-attr]
     assert stored == sorted([ids["papaya"], ids["kewra"]])
     # The same answer again is no change, and Undo of a real change puts the sorted list back.
-    url = f"{API}/plan/items/{planned['item_id']}/optional"
-    assert ok(kitchen.put(url, json={"use": []}))["change"] is None
-    changed = ok(kitchen.put(url, json={"use": [ids["kewra"]]}))
+    url = f"{API}/plan/items/{planned['item_id']}"
+    assert ok(kitchen.patch(url, json={"optional_use": []}))["change"] is None
+    changed = ok(kitchen.patch(url, json={"optional_use": [ids["kewra"]]}))
     assert undo(kitchen, changed)["result"] == "done"
     with db_of(kitchen) as db:
         assert db.get(MealItem, planned["item_id"]).optional_skipped == stored  # type: ignore[union-attr]
