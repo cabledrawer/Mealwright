@@ -88,7 +88,7 @@
         {/each}
       </ul>
     {:else}
-      <p class="empty">{NETWORK_EMPTY}</p>
+      <p class="mw-quiet">{NETWORK_EMPTY}</p>
     {/if}
 
     {#if removeProblem}
@@ -258,15 +258,6 @@
     .remove-text {
       display: inline;
     }
-  }
-
-  .empty {
-    padding: 14px;
-    border: 1px dashed var(--color-field-border);
-    border-radius: var(--radius-lg);
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
-    text-align: center;
   }
 
   form {

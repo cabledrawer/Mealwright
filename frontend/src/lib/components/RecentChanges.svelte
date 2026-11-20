@@ -80,7 +80,7 @@
     {/each}
   </ul>
 {:else}
-  <p class="none">{none}</p>
+  <p class="mw-quiet">{none}</p>
 {/if}
 
 <style>
@@ -130,10 +130,5 @@
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
     cursor: pointer;
-  }
-
-  .none {
-    color: var(--color-text-muted);
-    font-size: var(--text-md);
   }
 </style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EmptyState from '#lib/components/EmptyState.svelte';
   import FilterChips from '#lib/components/FilterChips.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Ingredients (mockups Ingredients-Phone, Ingredients-Desktop): every food, searchable
@@ -380,23 +381,22 @@
             <button type="button" class="more" onclick={() => void list.more()}>Show more</button>
           {/if}
         {:else if list.problem}
-          <div class="nothing" role="alert">
+          <div class="mw-quiet" role="alert">
             <p>{list.problem}</p>
             <button type="button" class="again" onclick={() => void list.load()}>Try again</button>
           </div>
         {:else if !list.loaded}
           <Loading />
         {:else if list.query.trim()}
-          <p class="nothing">{nothingMatches('ingredient', list.query)}</p>
+          <p class="mw-quiet">{nothingMatches('ingredient', list.query)}</p>
         {:else if list.filter === 'unused'}
-          <p class="nothing">Every ingredient is in a recipe.</p>
+          <p class="mw-quiet">Every ingredient is in a recipe.</p>
         {:else if list.filter !== 'all'}
-          <p class="nothing">Nothing here right now.</p>
+          <p class="mw-quiet">Nothing here right now.</p>
         {:else}
-          <p class="nothing">
-            No ingredients yet. They’re added when you put something in the pantry or import a
-            recipe.
-          </p>
+          <EmptyState title="No ingredients yet">
+            They’re added when you put something in the pantry or import a recipe.
+          </EmptyState>
         {/if}
         {#if offered}
           <button type="button" class="new-from-search" onclick={() => void makeNew(offered ?? '')}>
@@ -690,13 +690,6 @@
     color: var(--color-accent-on-soft); /* accent on the grey chip is 4.47:1, under 4.5 */
     font: var(--weight-bold) var(--text-base) var(--font-ui);
     cursor: pointer;
-  }
-
-  .nothing {
-    padding: var(--space-8) 0;
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
-    text-align: center;
   }
 
   /* "Try again" after a load that failed: a real button, not more grey words (0.5.1). */

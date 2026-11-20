@@ -174,3 +174,11 @@ svg {
     display: none !important;
   }
 }
+
+/* A short line in a screen that has other things: "Nothing in the Fridge.", "No batch cooks this
+   month." One look everywhere (FE8). A whole screen with nothing on it is an EmptyState. */
+.mw-quiet {
+  padding: var(--space-6) 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-md);
+}

@@ -98,9 +98,9 @@
   </div>
   {#if open}
     {#if list.problem}
-      <p class="none" role="alert">{list.problem}</p>
+      <p class="mw-quiet" role="alert">{list.problem}</p>
     {:else if list.loaded && !list.recipes.length}
-      <p class="none">
+      <p class="mw-quiet">
         {list.filter === 'all'
           ? 'You have no recipes yet. Add one under Recipes.'
           : 'No recipes match.'}
@@ -357,11 +357,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .none {
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
   }
 
   .label {

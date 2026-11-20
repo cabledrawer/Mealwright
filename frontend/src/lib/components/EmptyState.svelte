@@ -1,13 +1,17 @@
 <script lang="ts">
-  // A calm card for a page that has nothing on it yet.
+  // A calm card for a whole screen that has nothing on it yet (FE8): a title, a line of words and,
+  // when there is one thing to do about it, a button (`action`). A short "nothing here" line inside
+  // a screen that has other things is not this: it is a paragraph with the class `mw-quiet`.
   import type { Snippet } from 'svelte';
 
-  let { title, children }: { title: string; children: Snippet } = $props();
+  let { title, children, action }: { title: string; children: Snippet; action?: Snippet } =
+    $props();
 </script>
 
 <section class="empty">
   <h2>{title}</h2>
   <p>{@render children()}</p>
+  {#if action}<div class="action">{@render action()}</div>{/if}
 </section>
 
 <style>
@@ -24,6 +28,11 @@
   h2 {
     font-size: var(--text-3xl);
     font-weight: var(--weight-extrabold);
+  }
+
+  .action {
+    display: flex;
+    align-self: flex-start;
   }
 
   p {

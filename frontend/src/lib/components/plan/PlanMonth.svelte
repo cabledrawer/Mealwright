@@ -194,7 +194,7 @@
           {/each}
         </ul>
       {:else}
-        <p class="none">No batch cooks this month.</p>
+        <p class="mw-quiet">No batch cooks this month.</p>
       {/if}
     </section>
     <section>
@@ -207,7 +207,7 @@
           model.tubsLeft.every((t) => t.place_kind !== 'freezer')}
         onclick={() => void fillFromFreezer()}>Fill from freezer first</button
       >
-      {#if fillNote}<p class="none" role="status">{fillNote}</p>{/if}
+      {#if fillNote}<p class="mw-quiet" role="status">{fillNote}</p>{/if}
       {#if emptyAhead.length}
         <ul class="empty">
           {#each emptyAhead as day (day)}
@@ -221,7 +221,7 @@
           {/each}
         </ul>
       {:else}
-        <p class="none">Every day ahead has something planned.</p>
+        <p class="mw-quiet">Every day ahead has something planned.</p>
       {/if}
     </section>
   </aside>
@@ -516,11 +516,6 @@
   }
 
   .b-when,
-  .none {
-    color: var(--color-text-muted);
-    font-size: var(--text-md);
-  }
-
   .empty {
     flex-direction: row !important;
     flex-wrap: wrap;

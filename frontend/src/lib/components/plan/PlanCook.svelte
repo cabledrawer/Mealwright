@@ -207,7 +207,7 @@
         {/each}
       </section>
     {:else}
-      <p class="empty">Nothing to cook in these days.</p>
+      <p class="mw-quiet">Nothing to cook in these days.</p>
     {/each}
   </div>
 
@@ -444,11 +444,6 @@
     color: var(--color-text);
     font-size: var(--text-md);
     overflow-wrap: break-word;
-  }
-
-  .empty {
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
   }
 
   .week {

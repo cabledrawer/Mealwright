@@ -39,7 +39,6 @@
     onclose: () => void;
   } = $props();
 
-  const uid = $props.id();
   let picked = $state<number | null>(null);
   let problem = $state<string | null>(null);
 

@@ -310,7 +310,7 @@
           >
         {/if}
         {#if offer.pastUseBy > 0}
-          <p class="none">Fridge tubs that are past their use-by by then aren’t offered.</p>
+          <p class="mw-quiet">Fridge tubs that are past their use-by by then aren’t offered.</p>
         {/if}
       {/if}
 
@@ -366,13 +366,13 @@
           {/each}
         </ul>
         {#if recipes.loaded && !recipes.recipes.length && !foods.length}
-          <p class="none">
+          <p class="mw-quiet">
             {query.trim()
               ? nothingMatches('recipe or ingredient', query)
               : 'You have no recipes yet. Add one under Recipes.'}
           </p>
         {:else if !query.trim() && !cooking}
-          <p class="none">Type to find an ingredient, such as Fruit.</p>
+          <p class="mw-quiet">Type to find an ingredient, such as Fruit.</p>
         {/if}
       {/if}
 
@@ -500,11 +500,6 @@
   }
 
   .meta,
-  .none {
-    color: var(--color-text-muted);
-    font-size: var(--text-md);
-  }
-
   .note {
     padding: var(--space-4) var(--space-6);
     border-radius: var(--radius-md);

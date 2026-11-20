@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EmptyState from '#lib/components/EmptyState.svelte';
   import FilterChips from '#lib/components/FilterChips.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Pantry (mockups Phone-Pantry, Desktop-Pantry and their dark versions, plus the
@@ -336,9 +337,7 @@
         >
       {/if}
     {:else}
-      <p class="empty">
-        Nothing in the {place.name}.
-      </p>
+      <p class="mw-quiet">Nothing in the {place.name}.</p>
     {/if}
   </section>
 {/snippet}
@@ -369,7 +368,7 @@
         {/each}
       </ul>
     {:else}
-      <p class="empty">{nothingMatches('ingredient', model.searched)}</p>
+      <p class="mw-quiet">{nothingMatches('ingredient', model.searched)}</p>
     {/if}
   </div>
 {/snippet}
@@ -464,13 +463,14 @@
         />
       {/if}
       {#if pantry.counts.items === 0 && pantry.counts.tubs === 0}
-        <div class="card first">
-          <h2>Nothing in the pantry yet</h2>
-          <p class="hint">Add what’s in your fridge and cupboards, and Mealwright keeps count.</p>
-          <button type="button" class="add-pill" aria-label="+ Add to pantry" onclick={addClicked}
-            ><Icon name="plus" size={16} stroke={2.6} />Add to pantry</button
-          >
-        </div>
+        <EmptyState title="Nothing in the pantry yet">
+          Add what’s in your fridge and cupboards, and Mealwright keeps count.
+          {#snippet action()}
+            <button type="button" class="add-pill" aria-label="+ Add to pantry" onclick={addClicked}
+              ><Icon name="plus" size={16} stroke={2.6} />Add to pantry</button
+            >
+          {/snippet}
+        </EmptyState>
       {:else}
         {#each places as place (place.id)}
           {#if !hasRows(place)}
@@ -516,13 +516,14 @@
         oneaton={(tub) => (eatingTub = tub)}
       />
       {#if pantry.counts.items === 0 && pantry.counts.tubs === 0 && model.filter === 'all'}
-        <div class="card first">
-          <h2>Nothing in the pantry yet</h2>
-          <p class="hint">Add what’s in your fridge and cupboards, and Mealwright keeps count.</p>
-          <button type="button" class="add-pill" aria-label="+ Add to pantry" onclick={addClicked}
-            ><Icon name="plus" size={16} stroke={2.6} />Add to pantry</button
-          >
-        </div>
+        <EmptyState title="Nothing in the pantry yet">
+          Add what’s in your fridge and cupboards, and Mealwright keeps count.
+          {#snippet action()}
+            <button type="button" class="add-pill" aria-label="+ Add to pantry" onclick={addClicked}
+              ><Icon name="plus" size={16} stroke={2.6} />Add to pantry</button
+            >
+          {/snippet}
+        </EmptyState>
       {:else}
         <section class="columns" aria-label="What’s in the pantry">
           {#each places as place (place.id)}
@@ -658,19 +659,6 @@
     background: var(--color-surface);
   }
 
-  .card.first {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-4);
-    padding: var(--space-8);
-  }
-
-  .first h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-  }
-
   /* The phone's search sits above the tabs and runs the width of the screen. */
   .phone-search {
     margin-bottom: var(--space-4);
@@ -796,12 +784,6 @@
   .groups {
     margin: 0;
     padding: 0;
-  }
-
-  .empty {
-    padding: var(--space-6) 0;
-    color: var(--color-text-muted);
-    font-size: var(--text-md);
   }
 
   .show-all,

@@ -4,7 +4,6 @@
   // refuse (cabledrawer 13 Nov). A phone sheet: a real modal dialog, Esc closes it and the focus
   // goes back where it came from. On a computer it is a box in the middle of the screen.
   import Button from '#lib/components/Button.svelte';
-  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Sheet from '#lib/components/Sheet.svelte';
   import PersonAvatar from '#lib/components/people/PersonAvatar.svelte';
   import type { Person, WaitingSignIn } from '#lib/client/people.js';
@@ -42,7 +41,6 @@
     onclose: () => void;
   } = $props();
 
-  const uid = $props.id();
   let picked = $state<number | 'new' | null>(null);
   let problem = $state<string | null>(null);
 

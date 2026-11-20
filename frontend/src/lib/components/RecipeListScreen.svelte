@@ -225,7 +225,7 @@
         {:else if !list.loaded}
           <Loading />
         {:else}
-          <p class="nothing">{nothing}</p>
+          <p class="mw-quiet">{nothing}</p>
         {/if}
       </div>
     </div>
@@ -371,13 +371,6 @@
 
   li:last-child {
     border-bottom: none;
-  }
-
-  .nothing {
-    padding: var(--space-8) 0;
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
-    text-align: center;
   }
 
   .more-problem {

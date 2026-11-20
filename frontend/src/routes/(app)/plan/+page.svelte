@@ -1,4 +1,5 @@
 <script lang="ts">
+  import EmptyState from '#lib/components/EmptyState.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Plan (mockups Plan, Desktop-Plan, Month-Desktop, Month-Phone and their dark twins).
@@ -569,12 +570,11 @@
       <p class="note">All meals are switched off. Turn one on under Meals to plan it.</p>
     {:else}
       {#if empty && model.view === 'week'}
-        <p class="empty">
-          Nothing planned this week.
+        <EmptyState title="Nothing planned this week.">
           {weekAsList
             ? 'Tap + Add on a day to plan a meal.'
             : 'Drag a recipe up from the tray, or press + Add.'}
-        </p>
+        </EmptyState>
       {/if}
       {#if model.view === 'week'}
         <!-- Batch cook (Experimental): each session's card sits in its cook day, above that day's
@@ -937,7 +937,6 @@
   }
 
   .note,
-  .empty,
   .note {
     padding: var(--space-4) var(--space-6);
     border-radius: var(--radius-md);

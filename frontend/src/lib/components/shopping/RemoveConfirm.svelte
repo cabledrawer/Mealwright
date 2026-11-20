@@ -32,7 +32,6 @@
   <ButtonRow>
     <Button danger onclick={onremove}>Remove</Button>
     <!-- The safe choice has the focus. -->
-    <!-- svelte-ignore a11y_autofocus -->
     <Button quiet autofocus onclick={onkeep}>Keep it</Button>
   </ButtonRow>
 </Sheet>
