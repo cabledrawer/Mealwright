@@ -120,6 +120,19 @@ describe('the stocktake', () => {
     expect(model.overview?.complete).toBe(true);
   });
 
+  it('FE11: a place that would not open says so with a Try again that opens it again', async () => {
+    api.getStocktake.mockResolvedValue(overview(4));
+    api.getStocktakePlace.mockResolvedValueOnce(place([], 2));
+    const model = new StocktakeModel();
+    await model.open();
+    api.getStocktakePlace.mockRejectedValueOnce(new Error('down'));
+    expect(await model.goTo(3)).toBe(false);
+    expect(toasts.current?.action?.label).toBe('Try again');
+    api.getStocktakePlace.mockResolvedValueOnce(place([], 3));
+    toasts.act();
+    await vi.waitFor(() => expect(model.place?.number).toBe(3));
+  });
+
   it('says so when the server cannot be reached', async () => {
     api.getStocktake.mockRejectedValue(new Error('down'));
     const model = new StocktakeModel();
@@ -319,7 +332,15 @@ describe('the stocktake', () => {
     api.finishPlace.mockRejectedValue(new Error('down'));
     expect(await model.next()).toBe(false);
     expect(show).toHaveBeenCalledTimes(3);
-    expect(show).toHaveBeenCalledWith('Couldn’t save. Try again.', { tone: 'problem' });
+    // FE11: each carries a real Try again button.
+    expect(show).toHaveBeenNthCalledWith(
+      3,
+      'Couldn’t save. Try again.',
+      expect.objectContaining({
+        tone: 'problem',
+        action: { label: 'Try again', run: expect.any(Function) }
+      })
+    );
     show.mockRestore();
   });
 });

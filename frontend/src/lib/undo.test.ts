@@ -215,6 +215,16 @@ describe('Ctrl+Z after a reload', () => {
     await vi.waitFor(() => expect(undo).toHaveBeenCalledOnce());
   });
 
+  it('FE11: when the server cannot be asked, the toast has a Try again that asks again', async () => {
+    const undo = vi.fn();
+    undoHistory.fallback = vi.fn().mockRejectedValueOnce(new Error('down'));
+    expect(await undoHistory.undoLast()).toBe(false);
+    expect(toasts.current?.action?.label).toBe('Try again');
+    undoHistory.fallback = async () => ({ label: 'Used 200 g spinach', undo });
+    toasts.act();
+    await vi.waitFor(() => expect(undo).toHaveBeenCalledOnce());
+  });
+
   it('does nothing when the server has nothing either', async () => {
     undoHistory.fallback = async () => null;
     expect(await undoHistory.undoLast()).toBe(false);

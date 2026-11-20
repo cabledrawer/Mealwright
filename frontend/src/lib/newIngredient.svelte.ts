@@ -8,6 +8,7 @@ import { newChangeId } from './changeId';
 import { addSize, createFood, getFood } from './client/foods';
 import type { CountedAs, Ref } from './client/types';
 import { kitchen } from './freshness.svelte';
+import { couldntOpen } from './lazyCode.svelte';
 import { toasts } from './toast.svelte';
 
 export type HowCounted = CountedAs | 'staple';
@@ -92,7 +93,7 @@ class NewIngredientFlow {
         if (waiting) {
           this.current = null;
           waiting.resolve(null);
-          toasts.problem('Couldn’t open that. Try again.');
+          couldntOpen(() => this.#fetch());
         }
         return null;
       }

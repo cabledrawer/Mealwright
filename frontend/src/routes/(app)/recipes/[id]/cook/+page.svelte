@@ -157,7 +157,8 @@
       if (!(await ways.setMealWay(item, pick))) {
         // proposed, for cabledrawer
         toasts.problem(
-          'Couldn’t tell the Plan which way you cooked it. Check the connection and try again.'
+          'Couldn’t tell the Plan which way you cooked it. Check the connection and try again.',
+          () => void openCooked()
         );
         return;
       }

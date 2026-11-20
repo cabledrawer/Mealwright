@@ -318,7 +318,7 @@
       wrens = await getRecipe(recipeId);
       seeing = true;
     } catch {
-      toasts.problem('Couldn’t open their version. Try again.');
+      toasts.problem('Couldn’t open their version. Try again.', () => void seeTheirs());
     }
   }
 

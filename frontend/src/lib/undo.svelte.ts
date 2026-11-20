@@ -75,7 +75,7 @@ class UndoHistory {
       try {
         entry = (await this.fallback()) ?? undefined;
       } catch {
-        toasts.problem(COULDNT_UNDO);
+        toasts.problem(COULDNT_UNDO, () => void this.undoLast());
         return false;
       }
       if (entry) {

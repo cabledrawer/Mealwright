@@ -61,7 +61,10 @@ export class PantryList {
         // The list hasn't arrived yet (a moment after opening, or never on this phone).
         await this.refresh();
         if (!this.#shopping.list) {
-          toasts.problem('Your shopping list isn’t ready yet. Try again in a moment.');
+          toasts.problem(
+            'Your shopping list isn’t ready yet. Try again in a moment.',
+            () => void this.tap(food)
+          );
           return;
         }
         if (this.onList(food.id)) return say();
@@ -89,7 +92,10 @@ export class PantryList {
       if (!this.#shopping.list) {
         await this.refresh();
         if (!this.#shopping.list) {
-          toasts.problem('Your shopping list isn’t ready yet. Try again in a moment.');
+          toasts.problem(
+            'Your shopping list isn’t ready yet. Try again in a moment.',
+            () => void this.tapMany(foods)
+          );
           return;
         }
       }

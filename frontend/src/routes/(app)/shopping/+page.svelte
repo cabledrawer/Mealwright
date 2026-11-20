@@ -172,7 +172,10 @@
       newShopName = '';
       await model.load();
     } catch (error) {
-      toasts.problem(error instanceof ApiError ? error.detail : couldntAdd('the shop'));
+      toasts.problem(
+        error instanceof ApiError ? error.detail : couldntAdd('the shop'),
+        error instanceof ApiError ? undefined : () => void addShop()
+      );
     }
   }
 

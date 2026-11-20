@@ -242,10 +242,14 @@
     const name = valueOf(event).trim();
     addingShop = false;
     if (!name) return;
+    await addShopNamed(name);
+  }
+
+  async function addShopNamed(name: string) {
     try {
       setShop(await placesAndShops.addShop(name));
     } catch {
-      toasts.problem(couldntAdd('that shop'));
+      toasts.problem(couldntAdd('that shop'), () => void addShopNamed(name));
     }
   }
 

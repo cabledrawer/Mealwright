@@ -98,13 +98,14 @@ export class StocktakeModel {
       this.overview = await getStocktake();
       return true;
     } catch {
-      return this.#failed();
+      return this.#failed(() => void this.goTo(placeId));
     }
   }
 
-  /** The usual words when something could not be saved or opened; false, for the caller. */
-  #failed(): false {
-    toasts.problem(COULDNT_SAVE);
+  /** The usual words when something could not be saved or opened, with a real Try again that
+   *  asks again (FE11); false, for the caller. */
+  #failed(retry: () => void): false {
+    toasts.problem(COULDNT_SAVE, retry);
     return false;
   }
 
@@ -119,7 +120,7 @@ export class StocktakeModel {
       kitchen.changed({ elsewhere: true });
       return true;
     } catch {
-      return this.#failed();
+      return this.#failed(() => void this.next());
     }
   }
 
@@ -130,7 +131,7 @@ export class StocktakeModel {
       if (first) this.place = await getStocktakePlace(first.id);
       return true;
     } catch {
-      return this.#failed();
+      return this.#failed(() => void this.restart());
     }
   }
 
@@ -286,7 +287,7 @@ export class StocktakeModel {
     try {
       write = await addSomethingElse(place.place.id, foodId);
     } catch {
-      return this.#failed();
+      return this.#failed(() => void this.addHere(foodId));
     }
     if (!place.rows.some((r) => r.food.id === write.row.food.id)) {
       place.rows = [...place.rows, write.row].sort((a, b) =>

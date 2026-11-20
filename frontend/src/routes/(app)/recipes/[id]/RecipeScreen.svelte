@@ -102,7 +102,7 @@
       await planModel.loadAhead();
       if (stale(wanted)) return;
       if (!planModel.loaded) {
-        toasts.problem(planModel.problem ?? couldntLoad('the plan'));
+        toasts.problem(planModel.problem ?? couldntLoad('the plan'), () => void planIt());
         return;
       }
       planning = { kind: 'recipe', recipe: { id: wanted, name: wantedName }, ahead: true };

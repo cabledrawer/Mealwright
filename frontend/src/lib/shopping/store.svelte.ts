@@ -284,7 +284,10 @@ export class ShoppingModel {
       this.planCard = await gotIt(staple.food.id);
     } catch (error) {
       this.planCard = before;
-      toasts.problem(error instanceof ApiError ? error.detail : COULDNT_SAVE);
+      toasts.problem(
+        error instanceof ApiError ? error.detail : COULDNT_SAVE,
+        error instanceof ApiError ? undefined : () => void this.gotIt(staple)
+      );
       return;
     }
     toasts.show(`${staple.food.name}: got it`, {
@@ -308,7 +311,10 @@ export class ShoppingModel {
       if (last) this.planCard = last;
     } catch (error) {
       void this.refreshPlan();
-      toasts.problem(error instanceof ApiError ? error.detail : COULDNT_SAVE);
+      toasts.problem(
+        error instanceof ApiError ? error.detail : COULDNT_SAVE,
+        error instanceof ApiError ? undefined : () => void this.gotAll()
+      );
       return;
     }
     const label = 'Staples check dismissed';
@@ -325,7 +331,10 @@ export class ShoppingModel {
       for (const staple of staples) this.planCard = await notGotIt(staple.food.id);
       toasts.show(undoneWords(label));
     } catch (error) {
-      toasts.problem(error instanceof ApiError ? error.detail : COULDNT_UNDO);
+      toasts.problem(
+        error instanceof ApiError ? error.detail : COULDNT_UNDO,
+        error instanceof ApiError ? undefined : () => void this.#putBack(staples, label)
+      );
     }
   }
 
