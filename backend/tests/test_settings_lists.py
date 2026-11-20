@@ -1126,7 +1126,7 @@ def test_a_retried_new_meal_with_the_same_key_answers_the_stored_answer(
     first = kitchen.post(f"{API}/meal-slots", json={"name": "Elevenses"}, headers=key)
     assert first.status_code == 201, first.text
     retry = kitchen.post(f"{API}/meal-slots", json={"name": "Elevenses"}, headers=key)
-    assert retry.status_code == 201, retry.text
+    assert retry.status_code == 200, retry.text  # a replay is 200 (D2, BE15)
     assert retry.headers.get("Idempotent-Replayed") == "true"
     assert retry.json() == first.json()
     assert names(slots(kitchen)).count("Elevenses") == 1

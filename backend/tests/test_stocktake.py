@@ -327,10 +327,10 @@ def test_something_else_joins_the_place_and_stays_when_asked_again(kitchen: Test
     jam = food(kitchen, "Jam", place_id=fridge)
     assert "Jam" not in rows(kitchen, cupboard)
     made = kitchen.post(f"{STOCKTAKE}/places/{cupboard}/foods", json={"food_id": jam["id"]})
-    assert made.status_code == 201, made.text
+    assert made.status_code == 200, made.text  # it may make nothing: 200 (D2, BE15)
     assert made.json()["row"]["added"] is True and made.json()["change"] is None
     again = kitchen.post(f"{STOCKTAKE}/places/{cupboard}/foods", json={"food_id": jam["id"]})
-    assert again.status_code == 201
+    assert again.status_code == 200
     listed = kitchen.get(f"{STOCKTAKE}/places/{cupboard}").json()
     assert [r["food"]["name"] for r in listed["rows"]].count("Jam") == 1
     assert (listed["answered"], listed["total"]) == (0, 1)

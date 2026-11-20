@@ -39,30 +39,50 @@ Added 25 Oct (cabledrawer 25 Oct), so nobody reads the whole file: read this pag
 
 ### 1.1 Errors
 
-Same shape as 0.1, plus a machine-readable `code` where the client must react:
+Every error answer is a Problem: a `detail` the web app can show as is, and a machine-readable `code` (0.9.5-beta.3, D2: no answer without a code, FastAPI's own 404, 405 and validation errors included; a test walks every route to prove it). Some carry more fields.
 
 ```json
-{ "detail": "There's already an ingredient called Toor dal.", "code": "name_taken", "food_id": 7 }
+{ "detail": "There’s already an ingredient called Toor dal.", "code": "name_taken", "food_id": 7 }
 ```
 
-| Status | `code` | When |
-|---|---|---|
-| 401 | — | not signed in ("Please sign in.") |
-| 403 | `admins_only` | a member tries an admin-only change |
-| 404 | `not_found` | no such thing in this household |
-| 409 | `name_taken` | food name already used (`food_id` says which) |
-| 409 | `ask_once` | the server needs a conversion it doesn't know (section 4.4; carries `ask`) |
-| 409 | `already_undone` | Undo pressed twice |
-| 409 | `cannot_undo` | Undo pressed on an Undo (no redo in 0.2); from 0.4 also on a `food_back` line, or on a removal line that isn't the ingredient's newest or whose ingredient is back (cabledrawer 21 Oct) |
-| 422 | `too_big` | an amount over 1,000,000 g, ml or items (typed, or worked out by a conversion); cup weights are at most 2 kg and item weights at most 50 kg |
-| 422 | `bad_number` | an ID, cursor or version bigger than the database can hold (over 2^63 − 1, or under −2^63; security audit, 0.4), in the path, the query or the body. Each is refused where the request is read; any other number overflow is a server error (500). In a sync action, IDs and `seen` over 2^53 − 1 are refused `bad_action` instead |
-| 422 | `one_field` | a route that takes exactly one field (a food PATCH, a size PATCH, a plan item's recipe / ingredient / note) got none or several |
-| 422 | `nothing_to_change` | a PATCH (or an import) with nothing in it: "There’s nothing to change." (0.9.5-beta.3) |
-| 422 | `bad_key` | an `Idempotency-Key` that isn't 1 to 64 letters, digits, `.`, `-`, `_` or `:` |
-| 409 | `key_reused` | an `Idempotency-Key` was reused for a different request: another method or path, or (0.9.5, proposed, for cabledrawer) the same route with a different body |
-| 410 | `too_old` | Undo after the undo window: "Too late to undo: changes can be undone for N days." (N is the household's window; 0.9.5-beta.3) |
-| 413 | `body_too_big` | a request body over 4 MiB, on any endpoint, signed in or not (security audit, 0.4) |
-| 422 | — | validation: a list of `{type, loc, msg}` (FastAPI's list form without `input` and `ctx`, so a mistake never repeats what was sent, and a lone surrogate such as `"\ud800"` is a 422, not a 500; 0.5). The web app's `detailOf` reads `msg` only |
+**One status and one code per situation (0.9.5-beta.3, D2; the rule is proposed, for cabledrawer).** Use the row for the situation; a route-specific code (such as `slot_off` or `tub_taken`) is used only where no row fits, with the status its situation takes here.
+
+| Situation | Status | `code` | Sentence |
+|---|---|---|---|
+| Not signed in, or the sign-in has ended (live stream too) | 401 | `signed_out` | "Please sign in." |
+| Wrong username or password (one answer for both, so it never says which) | 401 | `wrong_sign_in` | "That username and password don’t match." |
+| A member tries an admin-only change | 403 | `admins_only` | "Only the household’s admin can change this." |
+| The current password, asked again for a big change, is wrong | 403 | `wrong_password` | "That isn’t your current password." |
+| A browser write from another site | 403 | `other_site` | "This request came from another site." |
+| No such thing in this household (an id of another household too: the same answer) | 404 | `not_found` | "That … isn’t here any more." (also any unknown path) |
+| A join or reset link that is unknown, used or run out (the three look the same) | 404 | `link_gone` | its own sentence |
+| A method the path doesn’t take | 405 | `cant_do_here` | "That can’t be done here." |
+| A new thing with a name the household already uses (ignoring case) | 409 | `name_taken` | carries the one that has it: `food_id`, `place`, `shop`, `tag`, `slot` or `member` |
+| A sign-in name already used (anywhere on the server; carries nothing) | 409 | `username_taken` | |
+| Asking for what is already so (moved to where it is, frozen when frozen, the amount it has, a name it has, a staple that is one, an entry on the list) | 409 | `already_there` | its own sentence |
+| A household cap is reached (meals, things in a meal, tubs, batches a day, places, tokens, drafts, the own-network list…) | 409 | `too_many_<things>` | e.g. `too_many_slots`, `too_many_items`, `too_many_tubs`, `too_many_batches`, `too_many_places`, `too_many_entries` |
+| A thing that is there but not in the state asked for (not cooked yet, a tub all eaten, a schedule not started…) | 409 | its state, e.g. `not_cooked`, `tub_eaten`, `schedule_not_started` | |
+| Undo pressed twice / on an Undo | 409 | `already_undone` / `cannot_undo` | |
+| The server needs a conversion it doesn’t know (section 4.4; carries `ask`) | 409 | `ask_once` | |
+| An `Idempotency-Key` reused for a different request | 409 | `key_reused` | "That change ID was already used for something else." |
+| Setting up twice | 409 | `already_set_up` | "Mealwright is already set up." |
+| Undo after the undo window | 410 | `too_old` | "Too late to undo: changes can be undone for N days." (N is the household’s window) |
+| A request body over 4 MiB (security audit, 0.4) | 413 | `body_too_big` | |
+| More than 100 actions in one sync batch (phones halve the batch on 413) | 413 | `too_many` | |
+| Too many in one request (a field’s own limit, not the household’s) | 422 | `too_many` | |
+| A request with nothing in it to change | 422 | `nothing_to_change` | "There’s nothing to change." (or the route’s own, e.g. an empty import box) |
+| A route that takes exactly one field got none or several (a food PATCH, a size PATCH, a plan item’s recipe / ingredient / note) | 422 | `one_field` | "Send one field at a time." (or the route’s own) |
+| A new password too short or too long | 422 | `password_length` | |
+| An amount over 1,000,000 g, ml or items (typed, or worked out by a conversion); cup weights at most 2 kg, item weights at most 50 kg | 422 | `too_big` | |
+| An ID, cursor or version bigger than the database can hold (over 2^63 − 1, or under −2^63; security audit, 0.4), in the path, the query or the body. In a sync action, IDs and `seen` over 2^53 − 1 are `bad_action` instead | 422 | `bad_number` | |
+| An `Idempotency-Key` that isn’t 1 to 64 letters, digits, `.`, `-`, `_` or `:` | 422 | `bad_key` | |
+| Anything else the request’s shape refuses (validation) | 422 | `invalid` | `detail` is a list of `{type, loc, msg}` (FastAPI’s list form without `input` and `ctx`, so a mistake never repeats what was sent, and a lone surrogate such as `"\ud800"` is a 422, not a 500; 0.5). The web app’s `detailOf` reads `msg` only |
+| Sign-in password checks all busy (keeps `Retry-After`) | 503 | `busy` | |
+| Signing in or setting up over plain http:// | 400 | `https_needed` | |
+
+**Success answers (BE15, BE16; proposed, for cabledrawer).** `201` when the request always makes a new thing that can be fetched or listed afterwards by its id, and the answer carries it (alone, or in a write answer with its change). `200` for everything else: an action on what exists, signing in, and a call that may make nothing (sending it again changes nothing). A replay (section 1.2) is always `200` with `Idempotent-Replayed: true`, whichever route answers it. A DELETE answers `200` with the change it recorded (for its Undo) or the refreshed view the screen shows, or `204` with nothing; one route always answers the same way.
+
+Before 0.9.5-beta.3 the 401 and several other answers had no code; `one_of`, `same_place` (bar a place removal naming itself), `meal_full`, `batch_full`, `list_full`, `already_frozen`, `already_staple`, `already_listed`, `no_change`, `name_already_here`, `place_exists`, `shop_exists`, `tag_exists`, `slot_exists`, `password_too_short`, `password_wrong` and `nothing_given` are gone (the CHANGELOG lists each).
 
 `detail` is always a plain-English sentence the web app can show as is. On screen it's always "ingredient", never "food" (cabledrawer 17 Oct): every `detail`, change summary, undo message, ask-once question and display text says "ingredient". "Food" stays the word in field names, codes and paths (`food_id`, `/foods`). A test scans the code for sentences that say "food".
 
@@ -782,7 +802,7 @@ Place by place, each ingredient answered None · ¼ · ½ · ¾ · Full (or a co
 - **`POST /api/v1/stocktake/places/{place_id}/foods/{food_id}/answer`** body `{ "fraction": 0 | 0.25 | 0.5 | 0.75 | 1, "more": 0–20 }` or, for an ingredient counted one by one, `{ "count": 6 }`. `fraction` is the open packet's, `more` the whole packets besides it ("Full" and `more` 1 is 2 packets; 0 is None). The stock **in that place** becomes the answer: taken from the packets that go off first, or the newest topped up and new packets made. Answers `{ change, row, answered, total }`; `change` is null when nothing changed (it was already so; the row still counts as answered). Errors: `422 needs_size` (no pack size yet), `422 not_counted` / `counted`, `409 staple`, `422` for a fraction that isn't one of the five.
 - **`POST /api/v1/stocktake/places/{place_id}/foods/{food_id}/size`** body as `POST /foods/{id}/sizes` (`name`, `amount`): the pack size asked once; it becomes the Usual size, as one `stocktake` change. `409 has_size` when it has one, `422 no_pack` for a staple or an ingredient counted one by one.
 - **`POST /api/v1/stocktake/places/{place_id}/foods/{food_id}/staple`**: "It's a staple" (one `stocktake` change; Undo makes it a counted ingredient again). `409 already_there` (already a staple).
-- **`POST /api/v1/stocktake/places/{place_id}/foods`** body `{ "food_id" }` (`201`): "+ Something else in the Cupboard". The ingredient is made first with `POST /foods`, or picked. No stock change; again changes nothing.
+- **`POST /api/v1/stocktake/places/{place_id}/foods`** body `{ "food_id" }` (`200`; it may make nothing): "+ Something else in the Cupboard". The ingredient is made first with `POST /foods`, or picked. No stock change; again changes nothing.
 - **`POST /api/v1/stocktake/places/{place_id}/finish`**: "Next →" (or Finish): the place is finished, and every non-staple ingredient in it not answered yet is recorded as checked and correct (cabledrawer 7 Nov: Next means right): no stock change and no change in Recent changes. Answers `GET /stocktake`. Again changes nothing.
 - **Counted rows (cabledrawer 7 Nov).** A row has `counted` (true for an ingredient counted as a count, and for one whose Usual size has the pack word "tin"), `count_now` (how many there are now; tins to the nearest whole one) and `count_word` / `count_word_plural`. A counted row is answered with `{ "count": n }` (a tin count is rounded to whole tins; `fraction` gives `422 counted`); every other row keeps the picks and `{ "count" }` gives `422 not_counted`. The rule is one server-side set (`COUNTED_WHOLE` in `stocktake.py`); the screen follows `counted`.
 - **`POST /api/v1/stocktake/restart`**: a new stocktake (forgets the progress; the stock stays). Answers `GET /stocktake`.

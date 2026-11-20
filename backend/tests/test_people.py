@@ -131,7 +131,7 @@ def test_each_change_answers_with_its_change_and_a_retry_changes_nothing_more(
     change = first.json()["change"]
     assert change["summary"] == "Added Joss to the household" and change["can_undo"]
     again = kitchen.post(f"{API}/people", json={"name": "Joss"}, headers=key)
-    assert again.status_code == 201 and again.headers["Idempotent-Replayed"] == "true"
+    assert again.status_code == 200 and again.headers["Idempotent-Replayed"] == "true"
     assert again.json()["change"]["id"] == change["id"]
     assert [p["name"] for p in again.json()["people"]] == ["Tess", "Joss"]
     joss = _id(kitchen, "Joss")

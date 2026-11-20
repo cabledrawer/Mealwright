@@ -675,7 +675,7 @@ class StocktakeNewFood(BaseModel):
     food_id: StoredInt
 
 
-@router.post("/stocktake/places/{place_id}/foods", status_code=status.HTTP_201_CREATED)
+@router.post("/stocktake/places/{place_id}/foods")
 def add_something_else(
     place_id: StoredInt, body: StocktakeNewFood, kitchen: Here, response: Response
 ) -> StocktakeWrite:

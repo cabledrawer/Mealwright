@@ -1,6 +1,7 @@
 """Every error answer is `{detail, code}`: one status and one code per situation (0.9.5-beta.3,
 D2; docs/dev/api-endpoints.md section 1.1)."""
 
+import re
 from datetime import timedelta
 from typing import Any
 
@@ -139,3 +140,60 @@ def test_nothing_sent_is_one_of_two_codes(kitchen: TestClient) -> None:
     assert (
         _problem(blank, 422, "nothing_to_change")["detail"] == "Paste a link or the recipe’s text."
     )
+
+
+# Routes the walk leaves out: signing out ends the walk's own sign-in, and the live stream
+# never ends while signed in (it is walked signed out, above, where it answers 401).
+_NOT_WALKED = {("DELETE", "/api/v1/session"), ("GET", "/api/v1/events")}
+
+
+def _walk(client: TestClient) -> tuple[int, list[str]]:
+    """Send every route of the API a request it must refuse (ids that aren't there, an empty
+    body) and list every refusal that isn't `{detail, code}`."""
+    refused, wrong = 0, []
+    paths = client.app.openapi()["paths"]  # type: ignore[attr-defined]
+    for path, operations in paths.items():
+        for method in sorted(m.upper() for m in operations):
+            if (method, path) in _NOT_WALKED:
+                continue
+            url = re.sub(r"\{[^}]+\}", "999999", path)
+            body = {} if method in {"POST", "PUT", "PATCH"} else None
+            answer = client.request(method, url, json=body)
+            if answer.status_code < 400:
+                continue
+            refused += 1
+            try:
+                shown = answer.json()
+            except ValueError:
+                shown = None
+            if not (isinstance(shown, dict) and shown.get("code") and shown.get("detail")):
+                wrong.append(f"{method} {path}: {answer.status_code} {answer.text[:80]}")
+    return refused, wrong
+
+
+def test_every_route_refuses_with_a_detail_and_a_code(client: TestClient) -> None:
+    """D2 point 2: walk every /api/v1 route signed out, then as an admin of a set-up
+    household, and check that every refusal is a Problem with a `code`."""
+    refused, wrong = _walk(client)
+    assert wrong == []
+    assert refused > 150  # every route but the open few refuses someone signed out
+    client.post(f"{API}/setup", json={**ADMIN, "setup_code": SETUP_CODE})
+    refused, wrong = _walk(client)
+    assert wrong == []
+    assert refused > 100  # no such ids, empty bodies
+
+
+def test_a_replay_is_200_whichever_route_answers_it(kitchen: TestClient) -> None:
+    """BE15: a request sent again with the same `Idempotency-Key` makes nothing new, so it
+    answers 200 with `Idempotent-Replayed: true`, even from a route whose first answer is 201."""
+    for path, body in (("/shops", {"name": "Aldi"}), ("/people", {"name": "Asha"})):
+        key = {"Idempotency-Key": f"5f0c4c1e-0000-4000-8000-00000000000{len(path)}"}
+        first = kitchen.post(f"{API}{path}", json=body, headers=key)
+        assert first.status_code == 201, first.text
+        assert "idempotent-replayed" not in first.headers
+        again = kitchen.post(f"{API}{path}", json=body, headers=key)
+        assert again.status_code == 200, again.text
+        assert again.headers["idempotent-replayed"] == "true"
+        # The same answer; the change's time is left out (a replay reads it back from the
+        # database, without its zone).
+        assert {**again.json(), "change": None} == {**first.json(), "change": None}

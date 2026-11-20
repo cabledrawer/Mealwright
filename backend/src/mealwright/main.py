@@ -37,6 +37,7 @@ from mealwright.logs import DailyLogFile
 from mealwright.mealie_import import MealieRunner
 from mealwright.models import Login
 from mealwright.outbound import OutboundGate, install_network_guard
+from mealwright.replays import ReplayIsOkMiddleware
 from mealwright.security import SecurityHeadersMiddleware
 from mealwright.updates import UpdateChecks
 
@@ -159,6 +160,8 @@ def create_app(settings: Settings | None = None, log_file: DailyLogFile | None =
     errors.install(app)
     app.include_router(api_v1)
     mount_frontend(app, settings.frontend_dir)  # after the API, so it only gets the rest
+    # A replayed request (Idempotent-Replayed) answers 200, never 201 (mealwright.replays).
+    app.add_middleware(ReplayIsOkMiddleware)
     # JSON answers of 1 KB or more are gzipped for a client that accepts it
     # (mealwright.compression).
     app.add_middleware(JsonGzipMiddleware)
