@@ -65,7 +65,11 @@ export const useForAll = (n: number, phone = false): string =>
 export const SKIP = 'Skip for now';
 export const SKIP_PHONE = 'Skip';
 export const BACK_TO_LIST = 'Back to the list';
-export const WORKING = 'Saving…';
+/** F260–F262 (proposed, for cabledrawer): the answer saves in the background; the toast says so
+ *  at once, then gives the server's own summary with Undo. Undo says at once that it is working. */
+export const savingWords = (name: string): string => `Saving the answer for “${name}”…`;
+export const undoingWords = (name: string): string => `Undoing the answer for “${name}”…`;
+export const couldntSaveFor = (name: string): string => `Couldn’t save the answer for “${name}”.`;
 
 /** Everything is answered. */
 export const ALL_DONE_TITLE = 'Every ingredient is answered';
@@ -74,6 +78,5 @@ export const ALL_DONE =
 export const NONE_LEFT_BY_INGREDIENT = 'No ingredients to answer';
 
 export const COULDNT_LOAD = couldntLoad('the ingredients');
-export const COULDNT_ANSWER = 'Couldn’t save that answer. Try again.';
 /** The group had nothing left: another person answered it first. */
 export const ALREADY_ANSWERED = 'That ingredient was already answered. The list is up to date.';

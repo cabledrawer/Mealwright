@@ -250,6 +250,119 @@ describe('Drafts, by ingredient', () => {
     await expect.element(page.getByText('Every ingredient is answered')).toBeVisible();
   });
 
+  // F260–F262 (hand test 20 Nov): "after saving and moving on to the next ingredient it still
+  // shows saving", "saving is too slow can it be done in the bg", "undo has no feedback, toast is
+  // delayed". The answer is saved in the background: the next ingredient opens at once, the count
+  // of ingredients left goes down at once, and Undo says at once that it is working.
+  describe('answers save in the background (F260–F262)', () => {
+    /** Hold back the server's answer to the requests `held` picks, until `release` is called. */
+    function holdBack(hold: (path: string, method: string) => boolean) {
+      let release!: () => void;
+      const released = new Promise<void>((resolve) => (release = resolve));
+      const held: string[] = [];
+      const server = globalThis.fetch;
+      vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
+        if (hold(String(input), init.method ?? 'GET')) {
+          held.push(String(input));
+          await released;
+        }
+        return server(input, init);
+      });
+      return { release, held };
+    }
+
+    const AFTER: Groups = {
+      ...GROUPS,
+      groups: [GROUPS.groups[1]!],
+      total: 1,
+      drafts: 44,
+      recipes_ready: 6
+    };
+
+    it('moves on at once, the count goes down at once, and the save finishes behind', async () => {
+      let saved = false;
+      const requests = await open({
+        'GET /recipes/drafts/by-food': () => [200, saved ? AFTER : GROUPS],
+        'POST /recipes/drafts/by-food/answer': () => {
+          saved = true;
+          return [200, ANSWERED];
+        }
+      });
+      await expect.element(page.getByText('2 ingredients still to answer')).toBeVisible();
+      const { release, held } = holdBack(
+        (path, method) => method === 'POST' && path.includes('/answer')
+      );
+      await page.getByRole('button', { name: 'Use for all 46 drafts' }).click();
+      // While the server is still saving: the next ingredient, ready to answer.
+      await expect.element(page.getByRole('heading', { name: 'galangal' })).toBeVisible();
+      await expect.element(page.getByText('1 ingredient still to answer')).toBeVisible();
+      await expect.element(page.getByRole('button', { name: 'Use for all 1 draft' })).toBeEnabled();
+      expect(page.getByText('Saving…').elements()).toHaveLength(0);
+      expect(toasts.current?.message).toBe('Saving the answer for “soya sauce”…');
+      // A second answer while the first is saving waits its turn, in order.
+      await page.getByRole('button', { name: /Keep it as plain text/ }).click();
+      await page.getByRole('button', { name: 'Use for all 1 draft' }).click();
+      // The second is sent only once the first is saved.
+      await expect.element(page.getByText('Every ingredient is answered')).toBeVisible();
+      expect(held).toHaveLength(1);
+      release();
+      await vi.waitFor(() =>
+        expect(requests.filter((r) => r.method === 'POST').map((r) => r.body)).toEqual([
+          { key: 'soya sauce', kind: 'ingredient', food_id: 9 },
+          { key: 'galangal', kind: 'text' }
+        ])
+      );
+      await vi.waitFor(() => expect(toasts.current?.action?.label).toBe('Undo'));
+      await expect.element(page.getByText('· 6 recipes ready so far')).toBeVisible();
+    });
+
+    it('a save that fails brings its ingredient back, says why, and a press again retries it', async () => {
+      let calls = 0;
+      const requests = await open({
+        'GET /recipes/drafts/by-food': [200, GROUPS],
+        'POST /recipes/drafts/by-food/answer': () => {
+          calls += 1;
+          return calls === 1 ? [500, { detail: 'Something went wrong.' }] : [200, ANSWERED];
+        }
+      });
+      await page.getByRole('button', { name: 'Use for all 46 drafts' }).click();
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent('Couldn’t save the answer for “soya sauce”. Something went wrong.');
+      await expect.element(page.getByRole('heading', { name: 'soya sauce' })).toBeVisible();
+      await expect.element(page.getByText('2 ingredients still to answer')).toBeVisible();
+      await page.getByRole('button', { name: 'Use for all 46 drafts' }).click();
+      await vi.waitFor(() => expect(requests.filter((r) => r.method === 'POST')).toHaveLength(2));
+      await vi.waitFor(() => expect(toasts.current?.action?.label).toBe('Undo'));
+    });
+
+    it('Undo says at once that it is working, then what it did', async () => {
+      await open({
+        'GET /recipes/drafts/by-food': [200, GROUPS],
+        'POST /recipes/drafts/by-food/answer': [200, ANSWERED],
+        'POST /changes/40/undo': [
+          200,
+          {
+            result: 'done',
+            message: '“soya sauce” is unanswered again.',
+            change: changeOf(41, 'Undid')
+          }
+        ]
+      });
+      await page.getByRole('button', { name: 'Use for all 46 drafts' }).click();
+      await vi.waitFor(() => expect(toasts.current?.action?.label).toBe('Undo'));
+      const { release } = holdBack((path) => path.includes('/undo'));
+      toasts.current?.action?.run();
+      await vi.waitFor(() =>
+        expect(toasts.current?.message).toBe('Undoing the answer for “soya sauce”…')
+      );
+      release();
+      await vi.waitFor(() =>
+        expect(toasts.current?.message).toMatch(/^Undone: Answered “soya sauce” in 46 drafts/)
+      );
+    });
+  });
+
   // F259 (hand test 20 Nov): "when i press more i need to see more". "+ more" under the group's
   // two lines is a button: it asks the server for every way the lines are written and shows them.
   describe('+ more (F259)', () => {

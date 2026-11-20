@@ -164,6 +164,8 @@ test('one answer goes into every draft that uses the ingredient; Undo puts it ba
   await page.getByRole('button', { name: 'Fridge' }).click();
   await checkPage(page);
   await page.getByRole('button', { name: /^Use for all/ }).click();
+  // F260–F262: the answer saves in the background; its row leaves the list at once.
+  await expect(rows.filter({ hasText: herb })).toHaveCount(0);
   await expect(page.getByText(/Answered .* in 2 drafts · 1 recipe moved to Recipes/)).toBeVisible();
   // Lorna's soup had only that line: it is a recipe now; Sam's stew still waits for the root.
   expect(await recipeNames(page, tag)).toContain('Lorna’s soup');
@@ -175,6 +177,8 @@ test('one answer goes into every draft that uses the ingredient; Undo puts it ba
   await expect
     .poll(async () => JSON.stringify(await (await page.request.get('/api/v1/recipes/drafts')).json()))
     .toContain('Lorna’s soup');
+  await expect(page.getByText(/Undone: Answered |is unanswered again/)).toBeVisible();
+  await expect(rows.filter({ hasText: herb })).toBeVisible();
 });
 
 // F259 (hand test 20 Nov): "+ more" under the group's two lines as written is a button that

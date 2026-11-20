@@ -18,6 +18,7 @@
   import {
     answerGroup,
     groupLines,
+    type GroupAnswer,
     listGroups,
     type GroupLines,
     type IngredientGroup,
@@ -26,6 +27,7 @@
   import type { Ref } from '#lib/client/types.js';
   import { drafts } from '#lib/drafts.svelte.js';
   import { network } from '#lib/network.svelte.js';
+  import { toasts } from '#lib/toast.svelte.js';
   import { undoHistory } from '#lib/undo.svelte.js';
   import * as words from '#lib/groupWords.js';
   import EmptyState from '../EmptyState.svelte';
@@ -66,7 +68,9 @@
     if (!network.offline) untrack(() => void load());
   });
 
-  const groups = $derived(found?.groups ?? []);
+  /** The groups whose answers are being saved (F260–F262): out of the list at once. */
+  let saving = $state<string[]>([]);
+  const groups = $derived((found?.groups ?? []).filter((g) => !saving.includes(g.key)));
   const places = $derived(found?.places ?? []);
 
   /** Which group is open. The computer always has one (the first, until another is chosen); the
@@ -108,11 +112,10 @@
       (mode === 'new' && !!newName.trim())
   );
 
-  let working = $state(false);
   let failed = $state<string | null>(null);
-  /** The change ID of the answer being sent (one per answer): a press again after a dropped
+  /** The change ID of each answer not yet saved (one per answer): a press again after a dropped
    * connection sends the same ID, so the server gives the first result, not a second answer. */
-  let attempt: { sent: string; id: string } | null = null;
+  const attempts: Record<string, string> = {};
 
   function openRow(group: IngredientGroup) {
     chosen = group.key;
@@ -161,53 +164,89 @@
     chosen = phone ? null : (after(group)?.key ?? null);
   }
 
-  async function answer() {
+  /** How long "Saving…" and "Undoing…" toasts may stay: until the server's answer replaces them. */
+  const WAITING_MS = 120_000;
+  /** The answers being saved, one after another in the order given. */
+  let queue: Promise<void> = Promise.resolve();
+
+  function refresh() {
+    void Promise.all([load(), drafts.load()]);
+  }
+
+  /** F260–F262: the answer is saved in the background. The next group opens at once and the
+   *  count of groups left goes down at once; the toast says it is saving, then gives the
+   *  server's summary with Undo. A save that fails brings its group back, saying why. */
+  function answer() {
     const group = selected;
-    if (!group || !ready || working || network.offline) return;
-    working = true;
+    if (!group || !ready || network.offline) return;
+    const body =
+      mode === 'ingredient' && food
+        ? ({ key: group.key, kind: 'ingredient', food_id: food.id } as const)
+        : mode === 'new'
+          ? ({ key: group.key, kind: 'new', name: newName.trim(), place_id: placeId } as const)
+          : ({ key: group.key, kind: 'text' } as const);
+    const sent = JSON.stringify(body);
+    const id = (attempts[sent] ??= newChangeId());
     failed = null;
+    chosen = phone ? null : (after(group)?.key ?? null);
+    saving = [...saving, group.key];
+    const toast = toasts.show(words.savingWords(group.name), { duration: WAITING_MS });
+    queue = queue.then(() => save(group, body, sent, id, toast));
+  }
+
+  async function save(
+    group: IngredientGroup,
+    body: GroupAnswer,
+    sent: string,
+    id: string,
+    toast: number
+  ) {
     try {
-      const body =
-        mode === 'ingredient' && food
-          ? ({ key: group.key, kind: 'ingredient', food_id: food.id } as const)
-          : mode === 'new'
-            ? ({ key: group.key, kind: 'new', name: newName.trim(), place_id: placeId } as const)
-            : ({ key: group.key, kind: 'text' } as const);
-      const sent = JSON.stringify(body);
-      if (attempt?.sent !== sent) attempt = { sent, id: newChangeId() };
-      const done = await answerGroup(body, attempt.id);
-      attempt = null;
+      const done = await answerGroup(body, id);
+      delete attempts[sent];
       const change = done.change;
       undoHistory.record({
         label: change.summary,
         needsServer: true,
         undo: async () => {
+          toasts.show(words.undoingWords(group.name), { duration: WAITING_MS });
           const message = await serverUndo(change.id)();
           formFor = '';
-          await Promise.all([load(), drafts.load()]);
+          refresh();
           return message;
         }
       });
-      chosen = phone ? null : (after(group)?.key ?? null);
-      formFor = '';
-      await Promise.all([load(), drafts.load()]);
+      if (found) {
+        const gone = found.groups.some((g) => g.key === group.key);
+        found = {
+          ...found,
+          groups: found.groups.filter((g) => g.key !== group.key),
+          total: Math.max(0, found.total - (gone ? 1 : 0)),
+          drafts: Math.max(0, found.drafts - done.moved),
+          recipes_ready: found.recipes_ready + done.moved
+        };
+      }
+      saving = saving.filter((k) => k !== group.key);
+      refresh();
     } catch (error) {
+      toasts.dismiss(toast);
+      saving = saving.filter((k) => k !== group.key);
       if (error instanceof ApiError && error.status === 404) {
         // Another person got there first.
-        attempt = null;
+        delete attempts[sent];
         failed = words.ALREADY_ANSWERED;
-        chosen = null;
-        formFor = '';
-        await load();
       } else {
-        failed = wordsFor(error);
+        // Back to the group that didn't save, with why; a press again sends the same change ID.
+        chosen = group.key;
+        failed = `${words.couldntSaveFor(group.name)} ${wordsFor(error)}`;
       }
-    } finally {
-      working = false;
+      void load();
     }
   }
 
-  const left = $derived(found?.total ?? 0);
+  const left = $derived(
+    (found?.total ?? 0) - saving.filter((k) => found?.groups.some((g) => g.key === k)).length
+  );
   const readyRecipes = $derived(found?.recipes_ready ?? 0);
   const percent = $derived.by(() => {
     const total = readyRecipes + (found?.drafts ?? 0);
@@ -387,8 +426,8 @@
   <div class="actions" class:sticky={phone}>
     <ButtonRow>
       <Button quiet onclick={skip}>{phone ? words.SKIP_PHONE : words.SKIP}</Button>
-      <Button disabled={!ready || working || network.offline} onclick={() => void answer()}
-        >{working ? words.WORKING : words.useForAll(group.drafts, phone)}</Button
+      <Button disabled={!ready || network.offline} onclick={answer}
+        >{words.useForAll(group.drafts, phone)}</Button
       >
     </ButtonRow>
   </div>
