@@ -267,7 +267,7 @@
   }
 
   .day.today {
-    outline: 2px solid var(--color-accent);
+    outline: var(--focus-width) solid var(--color-focus);
   }
 
   .head {

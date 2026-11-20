@@ -21,7 +21,7 @@
     min-height: 48px;
     padding: 0 var(--space-5);
     border: 1px dashed var(--color-add-border);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: transparent;
     color: var(--color-accent);
     font-size: var(--text-md);

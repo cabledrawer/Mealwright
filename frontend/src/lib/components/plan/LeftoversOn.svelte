@@ -439,7 +439,7 @@
     border-radius: 6px;
     background: var(--color-field);
     color: var(--color-inverse-text);
-    font-size: 14px;
+    font-size: var(--text-base);
     line-height: 1;
   }
 
@@ -458,7 +458,7 @@
   }
 
   input:focus-visible + .box {
-    outline: 3px solid var(--color-focus);
+    outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 2px;
   }
 
@@ -527,7 +527,7 @@
     gap: 2px;
     min-height: 64px;
     padding: var(--space-3);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     font: inherit;
     font-size: var(--text-base);
     font-weight: var(--weight-extrabold);
@@ -559,7 +559,7 @@
   }
 
   .choices button[aria-pressed='true'] {
-    outline: 3px solid var(--color-focus);
+    outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 2px;
   }
 

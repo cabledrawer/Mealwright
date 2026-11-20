@@ -108,7 +108,7 @@
     place-items: center;
     width: 32px;
     height: 32px;
-    border-radius: 9px;
+    border-radius: var(--radius-sm);
   }
 
   /* One tone per kind of setting: a soft background and its own colour. */
@@ -126,7 +126,7 @@
   .ico.ring {
     width: 36px;
     height: 36px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: var(--color-caution);
     color: var(--color-caution-text);
   }

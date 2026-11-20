@@ -232,7 +232,7 @@
   .quick button {
     min-height: 52px;
     border: 1px solid var(--color-border-strong);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: transparent;
     color: var(--color-text);
     font: var(--weight-bold) 1rem var(--font-ui);
@@ -267,7 +267,7 @@
     min-height: 48px;
     padding: 0 var(--space-6);
     border: 1px solid var(--color-field-border);
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: var(--color-field);
     color: var(--color-text);
     font: var(--weight-semibold) 1rem var(--font-ui);

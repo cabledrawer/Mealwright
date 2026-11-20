@@ -295,7 +295,7 @@
 
   /* The day clips what overflows it, so the focus ring is drawn inside it. */
   .hit:focus-visible {
-    outline: 3px solid var(--color-accent);
+    outline: var(--focus-width) solid var(--color-focus);
     outline-offset: -4px;
   }
 
@@ -323,7 +323,7 @@
   }
 
   .day.over {
-    outline: 2px solid var(--color-accent);
+    outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 1px;
   }
 

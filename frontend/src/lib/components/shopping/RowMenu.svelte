@@ -134,7 +134,7 @@
     width: 250px;
     padding: 6px;
     border: 1px solid var(--color-divider);
-    border-radius: 16px;
+    border-radius: var(--radius-button);
     background: var(--color-surface);
     box-shadow: var(--shadow-toast);
   }

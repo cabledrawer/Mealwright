@@ -244,7 +244,7 @@
             {/each}
           </div>
           {#if ends === 'pick'}
-            <label class="sr" for="{uid}-date">Last day it works</label>
+            <label class="visually-hidden" for="{uid}-date">Last day it works</label>
             <input
               id="{uid}-date"
               class="input"
@@ -544,14 +544,6 @@
   }
 
   .said,
-  .sr {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
 
   dialog {
     max-width: min(420px, calc(100vw - 32px));

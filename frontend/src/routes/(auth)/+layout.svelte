@@ -98,7 +98,7 @@
 
     .card {
       padding: var(--space-10);
-      border-radius: 28px;
+      border-radius: var(--radius-sheet);
       background: var(--color-surface);
       box-shadow: 0 1px 0 var(--color-border);
     }

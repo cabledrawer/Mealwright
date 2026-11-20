@@ -1038,7 +1038,7 @@
     margin-top: var(--space-3);
     padding: var(--space-4);
     border: 1px solid var(--color-border-strong);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
   }
 
   .preview {

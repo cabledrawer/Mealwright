@@ -731,7 +731,7 @@
     gap: var(--space-5);
     margin: 0;
     padding: 10px 12px;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: var(--color-timer);
     color: var(--color-timer-text);
     font-size: var(--text-base);
@@ -763,7 +763,7 @@
     justify-content: space-between;
     gap: var(--space-5);
     padding: var(--space-7);
-    border-radius: 20px;
+    border-radius: var(--radius-2xl);
     background: var(--color-timer);
     color: var(--color-timer-text);
   }
@@ -864,7 +864,7 @@
     gap: var(--space-6);
     padding: var(--space-7);
     border: 1px solid var(--color-border);
-    border-radius: 18px;
+    border-radius: var(--radius-xl);
     background: var(--color-ground);
   }
 
@@ -970,7 +970,7 @@
     min-height: 64px;
     padding: 0 var(--space-6);
     border: none;
-    border-radius: 18px;
+    border-radius: var(--radius-xl);
     font-size: 1.0625rem;
     font-weight: var(--weight-bold);
     cursor: pointer;
@@ -992,7 +992,7 @@
   }
 
   button:focus-visible {
-    outline: 3px solid var(--color-accent);
+    outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 2px;
   }
 

@@ -66,7 +66,7 @@
     justify-content: center;
     width: 36px;
     height: 36px;
-    border-radius: 18px;
+    border-radius: var(--radius-xl);
     background: var(--color-accent-soft);
     color: var(--color-accent-on-soft);
   }

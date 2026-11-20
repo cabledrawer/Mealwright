@@ -176,7 +176,7 @@
 
   button {
     min-height: 48px;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     font: var(--weight-bold) var(--text-lg) var(--font-ui);
     cursor: pointer;
   }

@@ -618,7 +618,7 @@
     min-height: var(--touch-target);
     padding: var(--space-4) var(--space-5);
     border: 1px solid var(--color-border-strong);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: var(--color-field);
     color: var(--color-text);
     font: var(--weight-semibold) var(--text-lg) var(--font-ui);

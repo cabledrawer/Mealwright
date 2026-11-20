@@ -427,7 +427,7 @@
   }
 
   .rn b {
-    font-size: 15px;
+    font-size: var(--text-lg);
     font-weight: var(--weight-bold);
     overflow-wrap: anywhere;
   }
@@ -550,7 +550,7 @@
     place-items: center;
     width: 36px;
     height: 36px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: var(--color-fill);
     color: var(--color-text-soft);
   }
@@ -570,7 +570,7 @@
 
   .of {
     color: var(--color-text-soft);
-    font-size: 15px;
+    font-size: var(--text-lg);
   }
 
   .bar {

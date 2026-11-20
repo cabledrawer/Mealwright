@@ -512,7 +512,7 @@
   }
 
   .search:focus-within {
-    outline: 2px solid var(--color-focus);
+    outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 1px;
   }
 
@@ -639,7 +639,7 @@
   }
 
   .row:focus-visible::after {
-    outline: 2px solid var(--color-focus);
+    outline: var(--focus-width) solid var(--color-focus);
     outline-offset: -2px;
     border-radius: var(--radius-md);
   }

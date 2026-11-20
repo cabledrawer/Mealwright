@@ -981,7 +981,7 @@
 
   .maybe {
     padding: var(--space-6);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: var(--color-maybe-row);
   }
 
@@ -1019,7 +1019,7 @@
   .sold {
     padding: var(--space-1) var(--space-6);
     border: 1px solid var(--color-border);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
   }
 
   .sold li {

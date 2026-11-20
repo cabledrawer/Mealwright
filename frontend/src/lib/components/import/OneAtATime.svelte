@@ -762,7 +762,7 @@
     gap: var(--space-3);
     padding: var(--space-5) var(--space-6);
     border: 2px solid var(--color-accent);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     font-size: var(--text-md);
   }
 
@@ -798,7 +798,7 @@
   .primary {
     min-height: 52px;
     border: none;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: var(--color-accent-soft);
     color: var(--color-accent-on-soft);
     font-weight: var(--weight-extrabold);

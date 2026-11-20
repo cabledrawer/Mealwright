@@ -93,13 +93,13 @@
     }
     .meta {
       margin: 6px 0 0;
-      font-size: 13px;
+      font-size: var(--text-md);
       color: #4a524d;
     }
     h2,
     h3 {
       margin: 28px 0 8px;
-      font-size: 18px;
+      font-size: var(--text-2xl);
       font-weight: 800;
       text-wrap: balance;
       break-after: avoid;
@@ -125,7 +125,7 @@
       padding: 7px 6px;
       border-bottom: 1px solid #c9cfcb;
       vertical-align: top;
-      font-size: 15px;
+      font-size: var(--text-lg);
     }
     td.box {
       width: 22px;
@@ -148,7 +148,7 @@
       margin-top: 32px;
       padding-top: 10px;
       border-top: 1px solid #c9cfcb;
-      font-size: 12px;
+      font-size: var(--text-sm);
       color: #4a524d;
       break-inside: avoid;
     }

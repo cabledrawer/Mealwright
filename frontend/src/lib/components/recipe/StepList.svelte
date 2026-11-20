@@ -277,7 +277,7 @@
 
   .row:global([data-dragging]) {
     box-shadow: var(--shadow-toast);
-    outline: 2px solid var(--color-focus);
+    outline: var(--focus-width) solid var(--color-focus);
   }
 
   .handle,
@@ -317,7 +317,7 @@
     width: 28px;
     height: 28px;
     margin-top: var(--space-5);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: var(--color-inverse);
     color: var(--color-inverse-text);
     font-size: var(--text-md);

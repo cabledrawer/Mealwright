@@ -177,7 +177,7 @@
     min-height: 56px;
     padding: var(--space-3) 14px;
     border: 1px solid var(--color-border-strong);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: var(--color-surface);
     color: var(--color-text);
     font: var(--weight-bold) 1rem var(--font-ui);

@@ -467,7 +467,7 @@
   /* While it is being dragged. */
   .row:global([data-dragging]) {
     box-shadow: var(--shadow-toast);
-    outline: 2px solid var(--color-focus);
+    outline: var(--focus-width) solid var(--color-focus);
   }
 
   .handle,

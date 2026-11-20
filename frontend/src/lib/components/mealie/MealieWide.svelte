@@ -236,7 +236,7 @@
       <table>
         <thead>
           <tr>
-            <th scope="col" class="tick"><span class="sr">Bring in</span></th>
+            <th scope="col" class="tick"><span class="visually-hidden">Bring in</span></th>
             <th scope="col">Recipe</th>
             <th scope="col">Mealie tags</th>
             <th scope="col">Photo</th>
@@ -395,8 +395,8 @@
             <tr>
               <th scope="col">Recipe</th>
               <th scope="col">Lines it couldn’t read</th>
-              <th scope="col"><span class="sr">How many</span></th>
-              <th scope="col"><span class="sr">Check</span></th>
+              <th scope="col"><span class="visually-hidden">How many</span></th>
+              <th scope="col"><span class="visually-hidden">Check</span></th>
             </tr>
           </thead>
           <tbody>
@@ -455,14 +455,6 @@
     display: none;
   }
 
-  .sr {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
 
   .steps {
     display: flex;
@@ -541,7 +533,7 @@
   }
 
   .drop strong {
-    font-size: 17px;
+    font-size: var(--text-xl);
   }
 
   .drop.dragging {
@@ -593,14 +585,14 @@
     border: 1px solid var(--color-accent);
     background: var(--color-accent-soft);
     color: var(--color-accent-on-soft);
-    font-size: 15px;
+    font-size: var(--text-lg);
   }
 
   .warn {
     border: 1px solid var(--color-warning-border);
     background: var(--color-warning);
     color: var(--color-warning-text);
-    font-size: 15px;
+    font-size: var(--text-lg);
   }
 
   .stats {

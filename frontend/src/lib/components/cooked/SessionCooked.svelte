@@ -288,7 +288,7 @@
     flex-direction: column;
     margin: 0;
     padding: var(--space-2) var(--space-6);
-    border-radius: 18px;
+    border-radius: var(--radius-xl);
     background: var(--color-fill);
     list-style: none;
   }
@@ -328,7 +328,7 @@
     gap: var(--space-4);
     padding: var(--space-5);
     border: 1px solid var(--color-border);
-    border-radius: 18px;
+    border-radius: var(--radius-xl);
   }
 
   .edit.busy {
@@ -391,7 +391,7 @@
   }
 
   button:focus-visible {
-    outline: 3px solid var(--color-accent);
+    outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 2px;
   }
 </style>

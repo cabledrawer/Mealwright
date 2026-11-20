@@ -180,7 +180,7 @@
     display: flex;
     flex-direction: column;
     border: 1px solid var(--color-divider);
-    border-radius: 16px;
+    border-radius: var(--radius-button);
     overflow: hidden;
   }
 

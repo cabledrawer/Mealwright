@@ -309,7 +309,7 @@
     {:else}
       <div class="tablebox">
         <table class="table">
-          <caption class="sr">Drafts</caption>
+          <caption class="visually-hidden">Drafts</caption>
           <thead>
             <tr>
               <th scope="col">Recipe</th>
@@ -317,7 +317,7 @@
               <th scope="col">Started by</th>
               <th scope="col">Checked</th>
               <th scope="col">Left</th>
-              <th scope="col"><span class="sr">Actions</span></th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
             </tr>
           </thead>
           <tbody>
@@ -382,7 +382,7 @@
     min-height: var(--touch-target);
     padding: 0 var(--space-6);
     border: none;
-    border-radius: 9px;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--color-text-soft);
     font: var(--weight-bold) var(--text-base) var(--font-ui);
@@ -394,14 +394,6 @@
     color: var(--color-accent-on-soft);
   }
 
-  .sr {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
 
   .import {
     display: flex;

@@ -228,7 +228,7 @@
 
   .card {
     padding: var(--space-2) var(--space-7);
-    border-radius: 18px;
+    border-radius: var(--radius-xl);
     background: var(--color-fill);
   }
 

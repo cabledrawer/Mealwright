@@ -998,7 +998,7 @@
     align-items: flex-start;
     padding: 12px 14px;
     border: 1px solid var(--color-border);
-    border-radius: 16px;
+    border-radius: var(--radius-button);
     background: var(--color-surface);
   }
 

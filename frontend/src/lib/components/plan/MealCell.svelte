@@ -201,7 +201,7 @@
   }
 
   .cell.over {
-    outline: 2px solid var(--color-accent);
+    outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 1px;
     background: var(--color-accent-soft);
   }

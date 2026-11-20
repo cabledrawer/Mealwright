@@ -504,7 +504,7 @@
     flex-direction: column;
     margin: 0;
     padding: var(--space-2) var(--space-6);
-    border-radius: 18px;
+    border-radius: var(--radius-xl);
     background: var(--color-fill);
     list-style: none;
   }
@@ -615,7 +615,7 @@
     min-height: 64px;
     padding: 0 var(--space-6);
     border: none;
-    border-radius: 18px;
+    border-radius: var(--radius-xl);
     font-size: 1.0625rem;
     font-weight: var(--weight-bold);
     cursor: pointer;
@@ -637,7 +637,7 @@
   }
 
   button:focus-visible {
-    outline: 3px solid var(--color-accent);
+    outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 2px;
   }
 

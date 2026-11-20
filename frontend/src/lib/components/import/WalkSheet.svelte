@@ -300,13 +300,13 @@
   }
 
   h2 {
-    font-size: 20px;
+    font-size: var(--text-3xl);
     font-weight: var(--weight-extrabold);
   }
 
   .head p {
     color: var(--color-text-soft);
-    font-size: 14px;
+    font-size: var(--text-base);
     line-height: 1.45;
   }
 
@@ -346,7 +346,7 @@
     gap: 6px;
     padding: 14px;
     border: 1px solid var(--color-warning-border);
-    border-radius: 16px;
+    border-radius: var(--radius-button);
   }
 
   .card.confirm {
@@ -360,20 +360,20 @@
   }
 
   .name {
-    font-size: 17px;
+    font-size: var(--text-xl);
     font-weight: var(--weight-extrabold);
     overflow-wrap: anywhere;
   }
 
   .amount {
     color: var(--color-text-soft);
-    font-size: 14px;
+    font-size: var(--text-base);
     font-weight: var(--weight-semibold);
   }
 
   .not {
     color: var(--color-warning-text);
-    font-size: 13px;
+    font-size: var(--text-md);
     font-weight: var(--weight-bold);
   }
 
@@ -406,26 +406,26 @@
     gap: 1px;
     min-height: 52px;
     border: none;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: #2a7353; /* the mockup's green: white words on it pass AA */
     color: #fff;
-    font-size: 15px;
+    font-size: var(--text-lg);
     font-weight: var(--weight-extrabold);
   }
 
   .sub {
     color: #d7f2e3;
-    font-size: 12px;
+    font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
   }
 
   .outline {
     min-height: 48px;
     border: 1px solid var(--color-border-strong);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: transparent;
     color: var(--color-text);
-    font-size: 14px;
+    font-size: var(--text-base);
     font-weight: var(--weight-bold);
   }
 
@@ -434,7 +434,7 @@
     border: none;
     background: transparent;
     color: var(--color-text-muted);
-    font-size: 14px;
+    font-size: var(--text-base);
     font-weight: var(--weight-bold);
   }
 
@@ -455,7 +455,7 @@
     flex: 1;
     min-height: 48px;
     border-radius: var(--radius-full);
-    font-size: 14px;
+    font-size: var(--text-base);
   }
 
   .back {

@@ -882,7 +882,7 @@
   }
 
   .tick input:focus-visible + .box {
-    outline: 2px solid var(--color-focus);
+    outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 2px;
   }
 

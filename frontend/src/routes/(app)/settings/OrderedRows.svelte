@@ -112,7 +112,7 @@
             void save(item);
           }}
         >
-          <label class="sr" for="rename-{noun}-{item.id}">Name of {item.name}</label>
+          <label class="visually-hidden" for="rename-{noun}-{item.id}">Name of {item.name}</label>
           <input
             id="rename-{noun}-{item.id}"
             type="text"
@@ -287,8 +287,4 @@
     cursor: pointer;
   }
 
-  .sr {
-    position: absolute;
-    left: -9999px;
-  }
 </style>

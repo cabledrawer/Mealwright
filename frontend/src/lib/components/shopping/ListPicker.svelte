@@ -193,7 +193,7 @@
     width: min(320px, calc(100vw - 2 * var(--space-7)));
     padding: var(--space-3);
     border: 1px solid var(--color-border);
-    border-radius: 16px;
+    border-radius: var(--radius-button);
     background: var(--color-surface);
     box-shadow: 0 12px 30px rgba(23, 32, 28, 0.14);
   }

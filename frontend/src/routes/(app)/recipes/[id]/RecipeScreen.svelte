@@ -999,7 +999,7 @@
     }
     .recipe {
       display: block;
-      font-size: 15px;
+      font-size: var(--text-lg);
     }
     .recipe h1 {
       font-size: 32px;
@@ -1010,7 +1010,7 @@
     }
     .recipe h2 {
       margin: 28px 0 8px;
-      font-size: 18px;
+      font-size: var(--text-2xl);
       font-weight: 800;
       break-after: avoid;
     }
@@ -1019,7 +1019,7 @@
     }
     .meta {
       margin: 6px 0 0;
-      font-size: 13px;
+      font-size: var(--text-md);
       color: #4a524d !important;
     }
     .card {
@@ -1038,7 +1038,7 @@
     .method ol {
       gap: 0;
       margin: 0;
-      font-size: 15px;
+      font-size: var(--text-lg);
     }
     .method li {
       margin: 0 0 10px;
@@ -1050,7 +1050,7 @@
     }
     .source {
       margin-top: 16px;
-      font-size: 12px;
+      font-size: var(--text-sm);
       color: #4a524d !important;
     }
     .foot {
@@ -1058,7 +1058,7 @@
       margin-top: 32px;
       padding-top: 10px;
       border-top: 1px solid #c9cfcb;
-      font-size: 12px;
+      font-size: var(--text-sm);
       color: #4a524d !important;
       break-inside: avoid;
     }

@@ -237,7 +237,7 @@
     align-items: center;
     justify-content: center;
     min-height: 48px;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     font-size: var(--text-lg);
     font-weight: var(--weight-bold);
     text-decoration: none;

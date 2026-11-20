@@ -119,7 +119,7 @@
     gap: 2px;
     min-height: 64px;
     padding: var(--space-3);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     font: inherit;
     font-size: var(--text-base);
     font-weight: var(--weight-extrabold);

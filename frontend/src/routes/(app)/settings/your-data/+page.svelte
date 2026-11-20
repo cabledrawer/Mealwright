@@ -605,7 +605,7 @@
   }
 
   .pick select:focus-visible {
-    outline: 2px solid var(--color-focus);
+    outline: var(--focus-width) solid var(--color-focus);
   }
 
   .pick :global(svg) {
@@ -681,7 +681,7 @@
   }
 
   .askfield input:focus-visible {
-    outline: 2px solid var(--color-focus);
+    outline: var(--focus-width) solid var(--color-focus);
   }
 
   .buttons {
@@ -766,7 +766,7 @@
   }
 
   .field input:focus-visible {
-    outline: 2px solid var(--color-focus);
+    outline: var(--focus-width) solid var(--color-focus);
   }
 
   .hint {

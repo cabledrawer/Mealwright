@@ -205,7 +205,7 @@
     place-items: center;
     width: 36px;
     height: 36px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: var(--color-caution);
     color: var(--color-caution-text);
   }

@@ -166,7 +166,7 @@
   </OrderedRows>
   {#if adding}
     <form class="add" onsubmit={add}>
-      <label class="sr" for="new-slot">New meal</label>
+      <label class="visually-hidden" for="new-slot">New meal</label>
       <input
         id="new-slot"
         use:focusOnMount
@@ -282,8 +282,4 @@
     font-weight: var(--weight-semibold);
   }
 
-  .sr {
-    position: absolute;
-    left: -9999px;
-  }
 </style>

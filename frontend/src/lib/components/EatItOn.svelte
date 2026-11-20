@@ -165,7 +165,7 @@
     width: 100%;
     min-height: 52px;
     border: 1px solid var(--color-border-strong);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: transparent;
     color: var(--color-text);
     font: var(--weight-bold) 1rem var(--font-ui);

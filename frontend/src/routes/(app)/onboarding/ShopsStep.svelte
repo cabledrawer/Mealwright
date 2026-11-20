@@ -105,7 +105,7 @@
 {/if}
 {#if adding}
   <form class="add-form" onsubmit={add}>
-    <label class="sr" for="{uid}-shop">New shop</label>
+    <label class="visually-hidden" for="{uid}-shop">New shop</label>
     <input
       id="{uid}-shop"
       use:focusOnMount

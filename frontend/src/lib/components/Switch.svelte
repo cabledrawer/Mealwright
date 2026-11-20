@@ -54,7 +54,7 @@
     height: 28px;
     padding: 0;
     border: none;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: var(--color-switch-off);
     cursor: pointer;
     transition: background-color 150ms ease;
@@ -79,7 +79,7 @@
   .switch.large {
     width: 52px;
     height: 32px;
-    border-radius: 16px;
+    border-radius: var(--radius-button);
   }
 
   .knob {
@@ -88,7 +88,7 @@
     left: 2px;
     width: 24px;
     height: 24px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: var(--color-switch-knob);
     box-shadow: var(--shadow-switch-knob);
     transition: transform 150ms ease;

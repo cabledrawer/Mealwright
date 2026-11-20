@@ -255,7 +255,7 @@
     align-items: center;
     justify-content: center;
     min-height: 52px;
-    border-radius: 16px;
+    border-radius: var(--radius-button);
     font-size: 1rem;
     font-weight: var(--weight-bold);
     cursor: pointer;

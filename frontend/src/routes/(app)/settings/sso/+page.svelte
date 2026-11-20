@@ -566,7 +566,7 @@
   .problem {
     margin: 0;
     padding: 12px 14px;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     font-size: var(--text-sm);
     line-height: 1.45;
   }
@@ -644,7 +644,7 @@
     max-width: 220px;
     padding: 3px;
     border: 1px solid var(--color-border-strong);
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: var(--color-ground);
   }
 
@@ -655,7 +655,7 @@
   .seg button {
     min-height: 38px;
     border: none;
-    border-radius: 9px;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--color-text-muted);
     font: var(--weight-bold) var(--text-sm) var(--font-ui);
@@ -672,7 +672,7 @@
     min-height: 44px;
     padding: 0 14px;
     border: 1px dashed var(--color-add-border);
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: transparent;
     color: var(--color-accent);
     font: var(--weight-bold) var(--text-base) var(--font-ui);
@@ -731,7 +731,7 @@
     gap: var(--space-3);
     padding: var(--space-5) 14px;
     border: 1px solid var(--color-border-strong);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
   }
 
   .link-question {

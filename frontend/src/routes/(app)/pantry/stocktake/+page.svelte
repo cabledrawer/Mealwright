@@ -592,7 +592,7 @@
   .forward {
     min-height: 56px;
     border: none;
-    border-radius: 18px;
+    border-radius: var(--radius-xl);
     font-size: var(--text-lg);
     font-weight: var(--weight-bold);
   }

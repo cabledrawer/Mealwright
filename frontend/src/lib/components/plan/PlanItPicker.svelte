@@ -37,7 +37,7 @@
       ><span>{dayShort(d)}</span><b>{dayOfMonth(d)}</b>{#if anything(d)}<i
           class="dot"
           aria-hidden="true"
-        ></i><span id="plan-it-day-{d}" class="sr">Something planned</span>{/if}</button
+        ></i><span id="plan-it-day-{d}" class="visually-hidden">Something planned</span>{/if}</button
     >
   {/each}
 </div>
@@ -57,14 +57,6 @@
 </div>
 
 <style>
-  .sr {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
 
   .days {
     display: grid;

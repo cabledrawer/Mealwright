@@ -304,7 +304,7 @@
     border-radius: 6px;
     background: var(--color-field);
     color: var(--color-inverse-text);
-    font-size: 14px;
+    font-size: var(--text-base);
     line-height: 1;
   }
 
@@ -318,7 +318,7 @@
   }
 
   input:focus-visible + .box {
-    outline: 3px solid var(--color-focus);
+    outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 2px;
   }
 

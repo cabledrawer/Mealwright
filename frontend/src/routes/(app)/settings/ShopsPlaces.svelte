@@ -265,7 +265,7 @@
   />
   {#if addingShop}
     <form class="add" onsubmit={addShop}>
-      <label class="sr" for="new-shop">New shop</label>
+      <label class="visually-hidden" for="new-shop">New shop</label>
       <input
         id="new-shop"
         use:focusOnMount
@@ -322,7 +322,7 @@
         {moving.place.name} has {moving.things}
         {plural(moving.things, 'thing', 'things')} in it. Move them to…
       </p>
-      <label class="sr" for="move-to">Move them to</label>
+      <label class="visually-hidden" for="move-to">Move them to</label>
       <select id="move-to" bind:value={moveTo}>
         {#each places.filter((p) => p.id !== moving?.place.id) as place (place.id)}
           <option value={place.id}>{place.name}</option>
@@ -336,7 +336,7 @@
   {/if}
   {#if addingPlace}
     <form class="add" onsubmit={addPlace}>
-      <label class="sr" for="new-place">New place</label>
+      <label class="visually-hidden" for="new-place">New place</label>
       <input
         id="new-place"
         use:focusOnMount
@@ -345,7 +345,7 @@
         placeholder="Place name"
         bind:value={newPlace}
       />
-      <label class="sr" for="new-place-kind">Kind</label>
+      <label class="visually-hidden" for="new-place-kind">Kind</label>
       <select id="new-place-kind" bind:value={newKind}>
         {#each KINDS as kind (kind.value)}
           <option value={kind.value}>{kind.label}</option>
@@ -497,8 +497,4 @@
     font-weight: var(--weight-semibold);
   }
 
-  .sr {
-    position: absolute;
-    left: -9999px;
-  }
 </style>
