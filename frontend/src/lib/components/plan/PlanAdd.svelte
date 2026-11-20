@@ -18,6 +18,9 @@
   import { dayFull, dayLong, dayOfMonth } from '#lib/planDates.js';
   import { RecipeList } from '#lib/recipes.svelte.js';
   import { timePlusWait } from '#lib/timeWords.js';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
 
   let {
     actions,
@@ -31,7 +34,6 @@
 
   const model = $derived(actions.model);
   const recipes = new RecipeList();
-  let dialog: HTMLDialogElement;
   let query = $state('');
   let foods = $state<FoodRow[]>([]);
   let slotId = $state<number | null>(null);
@@ -42,11 +44,6 @@
   let noteText = $state('');
   // "Cook once here…" (F52): the recipe picked is planned in this meal and Cook once opens for it.
   let cooking = $state(false);
-
-  $effect(() => {
-    if (target !== null && !dialog.open) dialog.showModal();
-    else if (target === null && dialog.open) dialog.close();
-  });
 
   // A new target starts again: nothing typed, its meal (or none yet).
   $effect(() => {
@@ -186,29 +183,12 @@
     void model.placeTub(tub.id, `${tub.recipe_name} tub`, target.day, slotId);
     onclose();
   }
-
-  function closeOnBackdrop(event: MouseEvent) {
-    if (event.target === dialog) onclose();
-  }
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-label="Add to the plan"
-  oncancel={(event) => {
-    event.preventDefault();
-    onclose();
-  }}
-  onclick={closeOnBackdrop}
-  data-testid="plan-add"
->
-  {#if target}
+{#if target}
+  <Sheet title={heading.title} {onclose} testid="plan-add">
     <div class="body">
-      <span class="handle" aria-hidden="true"></span>
-      <header>
-        <p class="sub">{heading.sub}</p>
-        <h2>{heading.title}</h2>
-      </header>
+      <p class="sub">{heading.sub}</p>
 
       {#if slotId === null || model.slotsOn.length > 1}
         <div class="slots" role="group" aria-label="Meal">
@@ -247,10 +227,10 @@
               >
             {/each}
           </div>
-          <div class="pair">
-            <button type="button" class="quiet" onclick={() => (noting = false)}>Back</button>
-            <button type="submit" class="go" disabled={!noteReady}>Add note</button>
-          </div>
+          <ButtonRow>
+            <Button type="submit" disabled={!noteReady}>Add note</Button>
+            <Button quiet onclick={() => (noting = false)}>Back</Button>
+          </ButtonRow>
         </form>
       {:else}
         <input
@@ -376,54 +356,23 @@
         {/if}
       {/if}
 
-      <button type="button" class="close" onclick={onclose}>Close</button>
+      <ButtonRow>
+        <Button quiet onclick={onclose}>Close</Button>
+      </ButtonRow>
     </div>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    max-width: none;
-    max-height: none;
-    padding: 0;
-    border: none;
-    background: var(--color-surface);
-    color: var(--color-text);
-    overscroll-behavior: contain;
-    scrollbar-width: none;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
   }
 
-  .handle {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  header {
-    text-align: center;
-  }
-
   .sub {
     color: var(--color-text-muted);
     font-size: var(--text-base);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-    overflow-wrap: break-word;
   }
 
   .slots {
@@ -513,44 +462,6 @@
     color: var(--color-warning-text);
   }
 
-  .close {
-    min-height: 54px;
-    border: none;
-    border-radius: var(--radius-button);
-    background: var(--color-fill-strong);
-    color: var(--color-text);
-    font: inherit;
-    font-size: var(--text-xl);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  @media (max-width: 767px) {
-    dialog {
-      inset: auto 0 0 0;
-      width: 100%;
-      max-height: min(720px, calc(100dvh - 80px));
-      margin: 0;
-      padding: var(--space-5) var(--space-8) max(28px, env(safe-area-inset-bottom));
-      border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-      overflow-y: auto;
-    }
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: min(480px, calc(100vw - 2 * var(--space-7)));
-      max-height: calc(100dvh - 2 * var(--space-7));
-      margin: auto;
-      padding: var(--space-8) 22px;
-      border-radius: var(--radius-panel);
-      overflow-y: auto;
-    }
-    .handle {
-      display: none;
-    }
-  }
-
   .add-note {
     align-self: flex-start;
     min-height: var(--touch-target);
@@ -582,8 +493,7 @@
     gap: var(--space-5);
   }
 
-  .quick,
-  .pair {
+  .quick {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-3);
@@ -602,31 +512,7 @@
     cursor: pointer;
   }
 
-  .pair .quiet,
-  .pair .go {
-    min-height: 54px;
-    border: none;
-    border-radius: var(--radius-button);
-    font: inherit;
-    font-size: var(--text-xl);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .pair .quiet {
-    padding: 0 var(--space-8);
-    background: var(--color-fill-strong);
-    color: var(--color-text);
-  }
-
-  .pair .go {
-    flex: 1;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .quick button:disabled,
-  .pair .go:disabled {
+  .quick button:disabled {
     opacity: 0.5;
     cursor: default;
   }

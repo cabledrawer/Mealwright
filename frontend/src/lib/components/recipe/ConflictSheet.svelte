@@ -5,7 +5,9 @@
   // brings you back to your own edit, untouched. Nothing here can be edited.
   import { downLine } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
-  import { onMount } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import type { RecipeOut } from '#lib/client/recipes.js';
   import { compareLines, compareSteps, otherChanges } from '#lib/recipes/compare.js';
   import { plural } from '#lib/words.js';
@@ -32,16 +34,6 @@
     onsave: () => void;
   } = $props();
 
-  const uid = $props.id();
-  let dialog: HTMLDialogElement;
-
-  onMount(() => {
-    dialog.showModal();
-    return () => {
-      if (dialog.open) dialog.close();
-    };
-  });
-
   const lines = $derived(compareLines(opened.lines, theirs.lines));
   const changedLines = $derived(lines.filter((l) => l.status !== 'same'));
   const sameLines = $derived(lines.length - changedLines.length);
@@ -59,28 +51,13 @@
   );
 </script>
 
-<dialog
-  bind:this={dialog}
-  class:phone
-  aria-labelledby="{uid}-title"
-  oncancel={(e) => {
-    e.preventDefault();
-    onclose();
-  }}
-  onclick={(e) => {
-    if (e.target === dialog) onclose();
-  }}
->
+<Sheet title="{who}’s version" {onclose}>
   <div class="body">
-    {#if phone}<span class="grip" aria-hidden="true"></span>{/if}
-    <div class="head">
-      <h2 id="{uid}-title">{who}’s version</h2>
-      <p class="sub">
-        Saved by {who} after you opened this recipe. Your edit is still here, {phone
-          ? 'underneath'
-          : 'untouched'}.
-      </p>
-    </div>
+    <p class="sub">
+      Saved by {who} after you opened this recipe. Your edit is still here, {phone
+        ? 'underneath'
+        : 'untouched'}.
+    </p>
 
     <div class="recipe">
       <p class="name">{theirs.name}</p>
@@ -135,46 +112,18 @@
         {downLine(network.deviceOffline, (b) => `Save ${b.when}.`)}
       </p>{/if}
 
-    <div class="buttons">
-      <button type="button" class="back" onclick={onclose}>Back to my edit</button>
-      <button type="button" class="mine" disabled={busy} onclick={onsave}>Save mine anyway</button>
-    </div>
+    <ButtonRow>
+      <Button onclick={onclose}>Back to my edit</Button>
+      <Button quiet disabled={busy} onclick={onsave}>Save mine anyway</Button>
+    </ButtonRow>
   </div>
-</dialog>
+</Sheet>
 
 <style>
-  dialog {
-    max-width: none;
-    max-height: none;
-    padding: 0;
-    border: none;
-    background: var(--color-surface);
-    color: var(--color-text);
-    overscroll-behavior: contain;
-    scrollbar-width: none;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
-  }
-
-  .grip {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
   }
 
   .sub,
@@ -240,59 +189,5 @@
   .section {
     font-size: var(--text-lg);
     font-weight: var(--weight-extrabold);
-  }
-
-  .buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-4);
-  }
-
-  .buttons button {
-    flex: 1 1 10rem;
-    min-height: 48px;
-    padding: 0 var(--space-6);
-    border-radius: var(--radius-lg);
-    font-size: 1rem;
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .back {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .mine {
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  .mine:disabled {
-    cursor: progress;
-    opacity: 0.7;
-  }
-
-  /* Phone: a sheet from the bottom. */
-  dialog.phone {
-    inset: auto 0 0 0;
-    width: 100%;
-    max-height: min(660px, calc(100dvh - 80px));
-    margin: 0;
-    padding: var(--space-5) var(--space-8) max(28px, env(safe-area-inset-bottom));
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    overflow-y: auto;
-  }
-
-  /* Computer: a panel from the right, the full height. */
-  dialog:not(.phone) {
-    inset: 0 0 0 auto;
-    width: min(460px, 100vw);
-    height: 100dvh;
-    margin: 0;
-    padding: var(--space-10) 28px;
-    overflow-y: auto;
   }
 </style>

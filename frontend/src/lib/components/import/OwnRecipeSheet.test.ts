@@ -1,8 +1,8 @@
 // The sheet that makes a section its own recipe refuses a name another section already uses
 // (RF4 I12): Save would otherwise refuse the second one with no line marked.
 import { flushSync, mount, unmount } from 'svelte';
-import { afterEach, describe, expect, it } from 'vitest';
-import { page } from 'vitest/browser';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { page, userEvent } from 'vitest/browser';
 import type { ReviewLine } from '#lib/client/imports.js';
 import { OWN_NAME_TAKEN } from '#lib/importOwn.js';
 import { reviewFlow } from '#lib/testing/importSamples.js';
@@ -57,5 +57,23 @@ describe('the section sheet', () => {
     await page.getByRole('button', { name: 'Make it its own recipe' }).click();
     expect(closed).toBe(true);
     expect(flow.review!.lines[2]!.own?.name).toBe('Chutney');
+  });
+
+  it('Escape and Cancel both close it without changing anything', async () => {
+    const flow = twoSections();
+    const onclose = vi.fn();
+    component = mount(OwnRecipeSheet, {
+      target: document.body,
+      props: { flow, heading: 2, onclose }
+    });
+    flushSync();
+    await expect
+      .element(page.getByRole('dialog', { name: 'Make “For the chutney” its own recipe?' }))
+      .toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    await vi.waitFor(() => expect(onclose).toHaveBeenCalledTimes(1));
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await vi.waitFor(() => expect(onclose).toHaveBeenCalledTimes(2));
+    expect(flow.review!.lines[2]!.own).toBeFalsy();
   });
 });

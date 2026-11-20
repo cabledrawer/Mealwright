@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
   import Stepper from '#lib/components/Stepper.svelte';
   // One "Cooked it" review for a whole Batch cook session (mockup Dark-BatchCooked08; spec section
   // 6, "Batch cook (Experimental)"; cabledrawer 11 Nov): each recipe's ingredients as a short list,
@@ -145,11 +146,9 @@
       </div>
 
       <footer>
-        <button
-          type="button"
-          class="main"
+        <Button
           disabled={review.saving || network.offline || review.tabs.some((t) => !t.proposal)}
-          onclick={() => void confirm()}>Cooked it</button
+          onclick={() => void confirm()}>Cooked it</Button
         >
       </footer>
     </div>
@@ -348,23 +347,6 @@
   footer {
     padding: var(--space-6) var(--space-7) max(var(--space-9), env(safe-area-inset-bottom));
     border-top: 1px solid var(--color-border);
-  }
-
-  .main {
-    width: 100%;
-    min-height: 56px;
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-size: 1rem;
-    font-weight: 800;
-    cursor: pointer;
-  }
-
-  .main:disabled {
-    opacity: 0.5;
-    cursor: default;
   }
 
   button:focus-visible {

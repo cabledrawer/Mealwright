@@ -11,6 +11,7 @@
   import type { PantryModel } from '#lib/pantry.svelte.js';
   import { pickFor } from '#lib/picks.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+  import Button from '#lib/components/Button.svelte';
   import NewPlace from './NewPlace.svelte';
   import PackPicks from './PackPicks.svelte';
   import { PHONE_QUERY } from '#lib/layout.js';
@@ -236,11 +237,12 @@
           </label>
           {#if dateProblem}<p class="problem" role="alert">{dateProblem}</p>{/if}
           <span class="buttons">
-            <button type="submit" class="main">Save</button>
-            <button
-              type="button"
+            <Button type="submit" small>Save</Button>
+            <Button
+              small
+              quiet
               onclick={() => act(() => lot?.use_by !== null && model.setUseBy(id, name, null))}
-              >No date</button
+              >No date</Button
             >
           </span>
         </form>
@@ -250,7 +252,7 @@
             What’s left{baseUnit === 'count' ? '' : ` (${baseUnit})`}
             <input name="left" inputmode="decimal" maxlength="20" data-first />
           </label>
-          <span class="buttons"><button type="submit" class="main">Save</button></span>
+          <span class="buttons"><Button type="submit" small>Save</Button></span>
         </form>
       {/if}
 
@@ -307,8 +309,7 @@
   }
 
   .actions button,
-  .cancel,
-  .buttons button {
+  .cancel {
     width: 100%;
     min-height: var(--touch-target);
     padding: 0 var(--space-6);
@@ -394,17 +395,6 @@
   .buttons {
     display: flex;
     gap: var(--space-3);
-  }
-
-  .buttons button {
-    width: auto;
-    text-align: center;
-    background: var(--color-fill);
-  }
-
-  .buttons .main {
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
   }
 
   /* Phone: a sheet from the bottom. */

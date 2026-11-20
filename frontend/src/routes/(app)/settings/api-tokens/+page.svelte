@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   // Settings › API tokens (0.9 O2; the mockup Dark-ApiTokens09). Admins only. The
   // list, "New token" (name, Read only / Read and change, Expires: Never, 30 days, 1 year or
   // Pick a date) and, once made, the token shown this once with Copy and Done. Deleting asks
@@ -21,7 +21,10 @@
   } from '#lib/apiTokens.js';
   import { CopyFeedback } from '#lib/copyFeedback.svelte.js';
   import { addDays } from '#lib/dates.js';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import { network } from '#lib/network.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
@@ -41,8 +44,6 @@
   let made = $state<string | null>(null);
   let asking = $state<ApiToken | null>(null);
   let said = $state('');
-  let dialog = $state<HTMLDialogElement>();
-  let keep = $state<HTMLButtonElement>();
 
   const today = $derived(list?.today ?? '');
   const nameError = $derived.by(() => {
@@ -61,10 +62,8 @@
   });
 
   $effect(() => {
-    if (asking && dialog && !dialog.open) {
-      dialog.showModal();
-      keep?.focus();
-    }
+    // "Keep it" is the safe choice: the focus starts there, not on Delete.
+    if (asking) void tick().then(() => document.getElementById(`${uid}-keep`)?.focus());
   });
 
   function why(error: unknown): string {
@@ -124,7 +123,6 @@
 
   function closeAsk() {
     asking = null;
-    if (dialog?.open) dialog.close();
   }
 
   async function remove() {
@@ -167,12 +165,12 @@
             <span class="label">{token.name}</span>
             <span class="detail">{tokenDetail(token, list.today)}</span>
           </span>
-          <button
-            type="button"
-            class="small danger"
+          <Button
+            small
+            danger
             aria-label="Delete {token.name} token"
             disabled={network.offline}
-            onclick={() => (asking = token)}>Delete</button
+            onclick={() => (asking = token)}>Delete</Button
           >
         </li>
       {/each}
@@ -192,12 +190,10 @@
           >
         </p>
         <output class="mono" aria-label="Your new token">{made}</output>
-        <div class="two">
-          <button type="button" class="main" onclick={() => void copy()}
-            >{copier.label('Copy')}</button
-          >
-          <button type="button" class="other" onclick={done}>Done</button>
-        </div>
+        <ButtonRow>
+          <Button onclick={() => void copy()}>{copier.label('Copy')}</Button>
+          <Button quiet onclick={done}>Done</Button>
+        </ButtonRow>
       </div>
     {:else}
       <form class="card pad" aria-labelledby="{uid}-new" onsubmit={submit} novalidate>
@@ -261,8 +257,8 @@
           {/if}
         </div>
         {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-        <button type="submit" class="main" disabled={busy || network.offline}
-          >{busy ? 'Making…' : 'Make token'}</button
+        <Button type="submit" disabled={busy || network.offline}
+          >{busy ? 'Making…' : 'Make token'}</Button
         >
       </form>
     {/if}
@@ -272,23 +268,20 @@
 </div>
 
 {#if asking}
-  <dialog
-    bind:this={dialog}
+  <Sheet
+    title="Delete the {asking.name} token?"
+    size="small"
     role="alertdialog"
-    aria-labelledby="{uid}-ask"
-    aria-describedby="{uid}-ask-d"
-    oncancel={(event) => {
-      event.preventDefault();
-      closeAsk();
-    }}
+    describedby="{uid}-ask-d"
+    outside={false}
+    onclose={closeAsk}
   >
-    <h2 id="{uid}-ask">Delete the {asking.name} token?</h2>
-    <p id="{uid}-ask-d">Apps using it stop at once. It can’t be brought back.</p>
-    <div class="two">
-      <button type="button" class="other" bind:this={keep} onclick={closeAsk}>Keep it</button>
-      <button type="button" class="main danger-fill" onclick={() => void remove()}>Delete</button>
-    </div>
-  </dialog>
+    <p class="ask" id="{uid}-ask-d">Apps using it stop at once. It can’t be brought back.</p>
+    <ButtonRow>
+      <Button danger onclick={() => void remove()}>Delete</Button>
+      <Button quiet id="{uid}-keep" onclick={closeAsk}>Keep it</Button>
+    </ButtonRow>
+  </Sheet>
 {/if}
 
 <style>
@@ -447,62 +440,6 @@
     color: var(--color-accent-on-soft);
   }
 
-  .main,
-  .other,
-  .small {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-7);
-    border-radius: var(--radius-button);
-    font: var(--weight-bold) var(--text-base) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .main {
-    min-height: 48px;
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .other,
-  .small {
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  .small {
-    flex: none;
-    padding: 0 var(--space-6);
-    font-size: var(--text-sm);
-  }
-
-  /* Red words on a card: the lighter red that passes 4.5:1 in both themes, as "Remove from list" (the
-     solid --color-danger is for a button's fill). */
-  .danger {
-    color: var(--color-warning-text);
-  }
-
-  .main.danger-fill {
-    background: var(--color-danger);
-    color: var(--color-danger-text);
-  }
-
-  .main:disabled,
-  .small:disabled {
-    opacity: 0.55;
-    cursor: default;
-  }
-
-  .two {
-    display: flex;
-    gap: var(--space-5);
-  }
-
-  .two > * {
-    flex: 1;
-  }
-
   .warn {
     display: flex;
     gap: var(--space-5);
@@ -543,8 +480,7 @@
     font-weight: var(--weight-semibold);
   }
 
-  .said,
-  dialog {
+  .said {
     max-width: min(420px, calc(100vw - 32px));
     padding: var(--space-8);
     border: none;
@@ -553,18 +489,8 @@
     color: var(--color-text);
   }
 
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
-  dialog h2 {
-    margin: 0 0 var(--space-3);
-    font-size: var(--text-xl);
-    font-weight: var(--weight-extrabold);
-  }
-
-  dialog p {
-    margin: 0 0 var(--space-7);
+  .ask {
+    margin: 0;
     color: var(--color-text-muted);
     font-size: var(--text-base);
     line-height: 1.45;

@@ -10,6 +10,9 @@
   import type { TodayModel } from '#lib/today.svelte.js';
   import { dayInSentence, spotAt, spotWords, plannedDayWords } from '#lib/todayWords.js';
   import { untrack } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
 
   let {
     model,
@@ -17,7 +20,6 @@
     onclose
   }: { model: TodayModel; waiting: WaitingMeal | null; onclose: () => void } = $props();
 
-  let dialog: HTMLDialogElement;
   let day = $state<string | null>(null);
   let slotId = $state<number | null>(null);
 
@@ -36,11 +38,6 @@
       day = today;
       slotId = waiting.slot_id;
     });
-  });
-
-  $effect(() => {
-    if (waiting !== null && !dialog.open) dialog.showModal();
-    else if (waiting === null && dialog.open) dialog.close();
   });
 
   const subtitle = $derived(
@@ -75,29 +72,12 @@
     void model.move(waiting, day, slotId);
     onclose();
   }
-
-  function closeOnBackdrop(event: MouseEvent) {
-    if (event.target === dialog) onclose();
-  }
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-label={name ? `Move ${name} to` : 'Move it'}
-  oncancel={(event) => {
-    event.preventDefault();
-    onclose();
-  }}
-  onclick={closeOnBackdrop}
-  data-testid="move-sheet"
->
-  {#if waiting && data}
+{#if waiting && data}
+  <Sheet title="Move {name} to…" {onclose} size="large" testid="move-sheet">
     <div class="body">
-      <span class="handle" aria-hidden="true"></span>
-      <header>
-        <p class="sub">{subtitle}</p>
-        <h2>Move {name} to…</h2>
-      </header>
+      <p class="sub">{subtitle}</p>
 
       <h3>Quick picks</h3>
       <div class="quick">
@@ -159,61 +139,25 @@
         <p class="note">You can undo a move.</p>
       {/if}
 
-      <div class="buttons">
-        <button type="button" class="back" onclick={onclose}>Cancel</button>
-        <button type="button" class="go" disabled={!ready} onclick={go}>{confirmWords}</button>
-      </div>
+      <ButtonRow>
+        <Button disabled={!ready} onclick={go}>{confirmWords}</Button>
+        <Button quiet onclick={onclose}>Cancel</Button>
+      </ButtonRow>
     </div>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    max-width: none;
-    max-height: none;
-    padding: 0;
-    border: none;
-    background: var(--color-surface);
-    color: var(--color-text);
-    overscroll-behavior: contain;
-    scrollbar-width: none;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
   }
 
-  .handle {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  header {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    text-align: center;
-  }
-
   .sub {
     color: var(--color-text-muted);
     font-size: var(--text-base);
     font-weight: var(--weight-medium);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-    overflow-wrap: anywhere;
   }
 
   h3 {
@@ -310,57 +254,5 @@
 
   button[aria-pressed='true'] .state {
     color: inherit;
-  }
-
-  .buttons {
-    display: flex;
-    gap: var(--space-4);
-  }
-
-  .back,
-  .go {
-    min-height: 54px;
-    border: none;
-    border-radius: var(--radius-button);
-    font-size: var(--text-xl);
-    font-weight: var(--weight-bold);
-  }
-
-  .back {
-    padding: 0 var(--space-8);
-    background: var(--color-fill-strong);
-    color: var(--color-text);
-  }
-
-  .go {
-    flex: 1;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  @media (max-width: 767px) {
-    dialog {
-      inset: auto 0 0 0;
-      width: 100%;
-      max-height: min(720px, calc(100dvh - 80px));
-      margin: 0;
-      padding: var(--space-5) var(--space-8) max(28px, env(safe-area-inset-bottom));
-      border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-      overflow-y: auto;
-    }
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: min(500px, calc(100vw - 2 * var(--space-7)));
-      max-height: calc(100dvh - 2 * var(--space-7));
-      margin: auto;
-      padding: var(--space-8) 22px;
-      border-radius: var(--radius-panel);
-      overflow-y: auto;
-    }
-    .handle {
-      display: none;
-    }
   }
 </style>

@@ -3,7 +3,10 @@
   // cookers and the oven, asked once on first use (B2 opens it) and changed in Settings, under
   // Kitchen. A phone sheet: a real modal dialog, Esc closes it, the focus goes back where it
   // came from. On a computer it is a box in the middle of the screen.
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import Stepper from '#lib/components/Stepper.svelte';
   import { ApiError, cantReach } from '#lib/api.js';
   import {
@@ -35,7 +38,7 @@
   } = $props();
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
+  let form = $state<HTMLFormElement>();
   let rings = $state(4);
   let cookers = $state(1);
   let oven = $state(true);
@@ -43,16 +46,15 @@
   let problem = $state<string | null>(null);
 
   $effect(() => {
-    if (open && !dialog.open) {
-      rings = kitchen.hob_rings;
-      cookers = kitchen.pressure_cookers;
-      oven = kitchen.oven;
-      problem = null;
-      saving = false;
-      dialog.showModal();
-      void tick().then(() => dialog.querySelector<HTMLElement>('.stepper button')?.focus());
-    } else if (!open && dialog.open) {
-      dialog.close();
+    if (open) {
+      untrack(() => {
+        rings = kitchen.hob_rings;
+        cookers = kitchen.pressure_cookers;
+        oven = kitchen.oven;
+        problem = null;
+        saving = false;
+      });
+      void tick().then(() => form?.querySelector<HTMLElement>('.stepper button')?.focus());
     }
   });
 
@@ -74,27 +76,12 @@
   }
 </script>
 
-<dialog
-  bind:this={dialog}
-  class="kitchen-sheet"
-  aria-labelledby="{uid}-title"
-  oncancel={(event) => {
-    event.preventDefault();
-    onclose();
-  }}
-  onclick={(event) => {
-    if (event.target === dialog) onclose();
-  }}
->
-  {#if open}
-    <form class="body" onsubmit={submit}>
-      <span class="grab" aria-hidden="true"></span>
-      <div class="head">
-        <h2 class="title" id="{uid}-title">Your kitchen</h2>
-        <button type="button" class="close" aria-label="Close" onclick={onclose}>
-          <Icon name="close" size={18} stroke={2.4} />
-        </button>
-      </div>
+{#if open}
+  <Sheet title="Your kitchen" {onclose}>
+    <form class="body" bind:this={form} onsubmit={submit}>
+      <button type="button" class="close" aria-label="Close" onclick={onclose}>
+        <Icon name="close" size={18} stroke={2.4} />
+      </button>
       <p class="about">
         Batch cook never plans more at once than your kitchen has. Asked once; change it any time in
         Settings › Your kitchen.
@@ -139,57 +126,25 @@
         </div>
       </div>
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-      <button type="submit" class="main" disabled={saving}>Save</button>
+      <ButtonRow>
+        <Button type="submit" disabled={saving}>Save</Button>
+      </ButtonRow>
     </form>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    inset: auto 0 0 0;
-    width: 100%;
-    max-width: none;
-    max-height: none;
-    margin: 0;
-    padding: var(--space-4) var(--space-8) max(32px, env(safe-area-inset-bottom));
-    border: none;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-    box-shadow: var(--shadow-toast);
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
   }
 
-  .grab {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  .head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-  }
-
-  .title {
-    font-size: var(--text-2xl);
-    font-weight: var(--weight-extrabold);
-  }
-
+  /* The title is the Sheet's; the close button sits in its top corner. */
   .close {
+    position: absolute;
+    top: var(--space-4);
+    right: var(--space-4);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -274,34 +229,5 @@
     margin: 0;
     color: var(--color-warning-text);
     font-size: var(--text-base);
-  }
-
-  .main {
-    min-height: 52px;
-    border: none;
-    border-radius: var(--radius-button);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font: var(--weight-extrabold) 1rem var(--font-ui);
-    cursor: pointer;
-  }
-
-  .main:disabled {
-    cursor: default;
-    opacity: 0.6;
-  }
-
-  /* A computer: a box in the middle of the screen, not a sheet the width of it. */
-  @media (min-width: 768px) {
-    dialog {
-      inset: 0;
-      width: min(440px, 100%);
-      margin: auto;
-      border-radius: var(--radius-xl);
-    }
-
-    .grab {
-      display: none;
-    }
   }
 </style>

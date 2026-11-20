@@ -1,6 +1,6 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { SERVER_DOWN_TRY_LATER } from '#lib/downWords.js';
 import { network } from '#lib/network.svelte.js';
 import { newIngredient } from '#lib/newIngredient.svelte.js';
@@ -42,5 +42,16 @@ describe('"Pantry keeps it by" with the server down', () => {
     void newIngredient.ask('Curry leaves');
     await expect.element(page.getByRole('button', { name: 'Add', exact: true })).toBeDisabled();
     await expect.element(page.getByText(SERVER_DOWN_TRY_LATER)).toBeVisible();
+  });
+
+  it('Escape cancels the question and a tap outside does nothing', async () => {
+    const answer = newIngredient.choose('Curry leaves');
+    const dialog = page.getByRole('dialog', { name: 'Pantry keeps it by' });
+    await expect.element(dialog).toBeVisible();
+    const box = document.querySelector('dialog')!;
+    box.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await expect.element(dialog).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    expect(await answer).toBeNull();
   });
 });

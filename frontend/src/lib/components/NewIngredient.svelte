@@ -11,9 +11,11 @@
   import { newIngredient, type HowCounted, type NewSize } from '#lib/newIngredient.svelte.js';
   import { radioKeys } from '#lib/radioKeys.js';
   import { couldntAdd } from '#lib/errorWords.js';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
 
   const OPTIONS: { value: HowCounted; label: string; hint: string }[] = [
     { value: 'weight', label: 'By weight', hint: 'Grams and kilos: rice, flour, paneer' },
@@ -67,9 +69,6 @@
       sizeProblem = null;
       problem = null;
       busy = false;
-      if (!dialog.open) dialog.showModal();
-    } else if (dialog.open) {
-      dialog.close();
     }
   });
 
@@ -156,15 +155,9 @@
   }
 </script>
 
-<dialog
-  bind:this={dialog}
-  data-new-ingredient
-  aria-labelledby="{uid}-q"
-  oncancel={() => newIngredient.cancel()}
->
-  {#if pending}
+{#if pending}
+  <Sheet title={KEPT_BY} outside={false} onclose={() => newIngredient.cancel()}>
     <form onsubmit={submit}>
-      <h2 id="{uid}-q">{KEPT_BY}</h2>
       {#if pending.name}
         <p class="name">{pending.name}</p>
       {:else}
@@ -178,7 +171,7 @@
       <div
         class="options"
         role="radiogroup"
-        aria-labelledby="{uid}-q"
+        aria-label={KEPT_BY}
         aria-describedby="{uid}-hint"
         use:radioKeys
       >
@@ -251,10 +244,8 @@
                 </label>
               {/if}
               <span class="size-buttons">
-                <button type="button" class="small-main" onclick={addSize}>Add size</button>
-                <button type="button" class="quiet" onclick={() => (addingSize = false)}
-                  >Cancel</button
-                >
+                <Button small onclick={addSize}>Add size</Button>
+                <Button small quiet onclick={() => (addingSize = false)}>Cancel</Button>
               </span>
               {#if sizeProblem}<p class="problem" role="alert">{sizeProblem}</p>{/if}
             </div>
@@ -266,45 +257,24 @@
       {/if}
 
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-      <div class="buttons">
-        <button type="button" class="quiet" onclick={() => newIngredient.cancel()}>Cancel</button>
-        <button
+      <ButtonRow>
+        <Button
           type="submit"
-          class="main"
           aria-describedby={needsNetwork ? `${uid}-down` : undefined}
-          disabled={!typed || busy || needsNetwork}>Add</button
+          disabled={!typed || busy || needsNetwork}>Add</Button
         >
-      </div>
+        <Button quiet onclick={() => newIngredient.cancel()}>Cancel</Button>
+      </ButtonRow>
       {#if needsNetwork}<p class="hint down" id="{uid}-down">{offlineReason}</p>{/if}
     </form>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    width: min(460px, calc(100vw - 2 * var(--space-7)));
-    max-height: calc(100dvh - 2 * var(--space-7));
-    padding: var(--space-9);
-    border: none;
-    border-radius: var(--radius-panel);
-    background: var(--color-surface);
-    color: var(--color-text);
-    overflow-y: auto;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   form {
     display: flex;
     flex-direction: column;
     gap: var(--space-7);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
   }
 
   h3 {
@@ -446,38 +416,5 @@
     color: var(--color-warning-text);
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
-  }
-
-  .buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-4);
-  }
-
-  .buttons button,
-  .size-buttons button {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-8);
-    border: none;
-    border-radius: var(--radius-full);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .quiet {
-    background: var(--color-fill);
-    color: var(--color-text);
-  }
-
-  .main,
-  .small-main {
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .main:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
   }
 </style>

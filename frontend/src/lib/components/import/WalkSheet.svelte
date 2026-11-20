@@ -1,5 +1,8 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   // "2 lines aren’t linked yet" (mockup Dark-ImportSave07-Phone, spec "Importer consistency",
   // F4): Save found lines with no ingredient behind them. This goes through them one at a time:
   // New ingredient · Pick another · Treat as staple, with Skip this line, Back to Check and Save
@@ -19,18 +22,14 @@
   let { flow, onsave }: { flow: ImportFlow; onsave: () => void } = $props();
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
+  let body: HTMLElement | undefined = $state();
   let picking = $state(false);
   /** The pick-list starts with recipes only ("Made in another recipe"). */
   let pickingRecipes = $state(false);
 
   onMount(() => {
     const letGo = holdUndo(); // Ctrl+Z must not move the lines behind this sheet
-    dialog.showModal();
-    return () => {
-      letGo();
-      if (dialog.open) dialog.close();
-    };
+    return letGo;
   });
 
   const walk = $derived(flow.walk);
@@ -40,6 +39,12 @@
   /** Null on the last card, when every line has had its turn. */
   const line = $derived(flow.walkLine === null ? undefined : flow.review?.lines[index]);
   const guess = $derived(flow.guessFor(index));
+  /** The last card says how many lines are left; a line card, how many are still to do. */
+  const title = $derived(
+    line
+      ? `${total} ${plural(total, 'line isn’t', 'lines aren’t')} linked yet`
+      : `${flow.unlinkedLines().length} ${plural(flow.unlinkedLines().length, 'line', 'lines')} left unlinked`
+  );
 
   const amount = $derived.by(() => {
     if (!line || line.amount === null) return '';
@@ -55,13 +60,6 @@
   $effect(() => {
     void index;
     picking = false;
-  });
-
-  // On the last card the button just pressed has gone with the line card: focus Back to Check,
-  // so a keyboard or screen-reader user keeps their place (C2 review 2).
-  let lastBack: HTMLButtonElement | undefined = $state();
-  $effect(() => {
-    if (!line && lastBack) lastBack.focus();
   });
 
   $effect(() => {
@@ -98,7 +96,7 @@
   async function closePick() {
     picking = false;
     await tick();
-    const back = [...(dialog?.querySelectorAll<HTMLElement>('button') ?? [])].find(
+    const back = [...(body?.querySelectorAll<HTMLElement>('button') ?? [])].find(
       (b) => b.textContent?.trim() === opener
     );
     back?.focus();
@@ -106,31 +104,13 @@
   }
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-labelledby="{uid}-title"
-  aria-describedby="{uid}-text"
-  oncancel={(e) => {
-    e.preventDefault();
-    flow.walkClose();
-  }}
-  onclick={(e) => {
-    if (e.target === dialog) flow.walkClose();
-  }}
->
+<Sheet {title} describedby="{uid}-text" onclose={() => flow.walkClose()}>
   {#if line}
-    <div class="body">
-      <span class="grip" aria-hidden="true"></span>
-      <div class="head">
-        <h2 id="{uid}-title">
-          {total}
-          {plural(total, 'line isn’t', 'lines aren’t')} linked yet
-        </h2>
-        <p id="{uid}-text">
-          Unlinked lines can’t be counted in your pantry or added to the shopping list properly.
-          Sort them now, or save anyway and link them later in the recipe.
-        </p>
-      </div>
+    <div class="body" bind:this={body}>
+      <p id="{uid}-text">
+        Unlinked lines can’t be counted in your pantry or added to the shopping list properly. Sort
+        them now, or save anyway and link them later in the recipe.
+      </p>
 
       <div class="progress">
         <span class="count">Line {at + 1} of {total}</span>
@@ -171,140 +151,68 @@
         <div class="choices">
           {#if flow.offersMadeHere(index)}
             <!-- The note says "from the …", or the name is a section heading (F108). -->
-            <button type="button" class="main" onclick={madeHere}>Made in this recipe</button>
+            <Button onclick={madeHere}>Made in this recipe</Button>
           {/if}
           {#if line.label === 'to_confirm' && line.food}
-            <button
-              type="button"
-              class="main"
-              onclick={() => pick({ kind: 'ingredient', food: line.food! })}
-              >Same as “{line.food.name}”</button
+            <Button onclick={() => pick({ kind: 'ingredient', food: line.food! })}
+              >Same as “{line.food.name}”</Button
             >
           {:else}
-            <button type="button" class="main" onclick={() => newIngredient(false)}>
-              New ingredient{guess?.name ? ` “${guess.name}”` : ''}
-              {#if sub}<span class="sub">{sub}</span>{/if}
-            </button>
+            <Button onclick={() => newIngredient(false)}>
+              <span class="words">
+                New ingredient{guess?.name ? ` “${guess.name}”` : ''}
+                {#if sub}<span class="sub">{sub}</span>{/if}
+              </span>
+            </Button>
           {/if}
           <div class="grid">
             {#if !flow.offersMadeHere(index)}
-              <button type="button" class="outline" onclick={madeHere}>Made in this recipe</button>
+              <Button quiet onclick={madeHere}>Made in this recipe</Button>
             {/if}
-            <button type="button" class="outline" onclick={() => openPick(false)}
-              >Pick another</button
-            >
-            <button type="button" class="outline" onclick={() => openPick(true)}
-              >Made in another recipe</button
-            >
+            <Button quiet onclick={() => openPick(false)}>Pick another</Button>
+            <Button quiet onclick={() => openPick(true)}>Made in another recipe</Button>
             {#if line.label === 'to_confirm' && line.food}
-              <button type="button" class="outline" onclick={() => newIngredient(false)}
-                >New ingredient</button
-              >
+              <Button quiet onclick={() => newIngredient(false)}>New ingredient</Button>
             {/if}
-            <button type="button" class="outline" onclick={() => newIngredient(true)}
-              >Treat as staple</button
-            >
+            <Button quiet onclick={() => newIngredient(true)}>Treat as staple</Button>
           </div>
           <button type="button" class="skip" onclick={() => flow.walkNext()}>Skip this line</button>
         </div>
       {/if}
 
       <div class="foot">
-        <button type="button" class="back" onclick={() => flow.walkClose()}>Back to Check</button>
-        <button
-          type="button"
-          class="anyway"
-          disabled={flow.saving || network.offline}
-          onclick={onsave}>Save anyway</button
-        >
+        <ButtonRow>
+          <Button disabled={flow.saving || network.offline} onclick={onsave}>Save anyway</Button>
+          <Button quiet onclick={() => flow.walkClose()}>Back to Check</Button>
+        </ButtonRow>
       </div>
     </div>
   {:else if walk}
     <!-- The last card: every line has had its turn, and some are still not linked. -->
     {@const left = flow.unlinkedLines().length}
     <div class="body">
-      <span class="grip" aria-hidden="true"></span>
-      <div class="head">
-        <h2 id="{uid}-title">
-          {left}
-          {plural(left, 'line', 'lines')} left unlinked
-        </h2>
-        <p id="{uid}-text">
-          You can save now and link {plural(left, 'it', 'them')} later in the recipe, or go back to Check
-          and sort {plural(left, 'it', 'them')} there.
-        </p>
-      </div>
-      <div class="foot last">
-        <button type="button" class="back" bind:this={lastBack} onclick={() => flow.walkClose()}
-          >Back to Check</button
-        >
-        <button
-          type="button"
-          class="anyway"
-          disabled={flow.saving || network.offline}
-          onclick={onsave}>Save anyway</button
-        >
-      </div>
+      <p id="{uid}-text">
+        You can save now and link {plural(left, 'it', 'them')} later in the recipe, or go back to Check
+        and sort {plural(left, 'it', 'them')} there.
+      </p>
+      <!-- On the last card the button just pressed has gone with the line card: focus Back to
+           Check, so a keyboard or screen-reader user keeps their place (C2 review 2). -->
+      <ButtonRow>
+        <Button disabled={flow.saving || network.offline} onclick={onsave}>Save anyway</Button>
+        <Button quiet autofocus onclick={() => flow.walkClose()}>Back to Check</Button>
+      </ButtonRow>
     </div>
   {/if}
-</dialog>
+</Sheet>
 
 <style>
-  dialog {
-    width: min(100vw, 30rem);
-    max-width: 100vw;
-    max-height: 100dvh;
-    margin: auto auto 0;
-    padding: 10px 20px 28px;
-    border: none;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: min(100vw - 48px, 460px);
-      margin: auto;
-      padding: var(--space-9);
-      border-radius: var(--radius-3xl);
-    }
-
-    .grip {
-      display: none;
-    }
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: 14px;
   }
 
-  .grip {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  .head {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .head p {
+  p {
     color: var(--color-text-soft);
     font-size: var(--text-base);
     line-height: 1.45;
@@ -393,43 +301,9 @@
     gap: 8px;
   }
 
-  button {
+  .skip {
     cursor: pointer;
     font-family: inherit;
-  }
-
-  .main {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1px;
-    min-height: 52px;
-    border: none;
-    border-radius: var(--radius-lg);
-    background: #2a7353; /* the mockup's green: white words on it pass AA */
-    color: #fff;
-    font-size: var(--text-lg);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .sub {
-    color: #d7f2e3;
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
-  }
-
-  .outline {
-    min-height: 48px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-lg);
-    background: transparent;
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-  }
-
-  .skip {
     min-height: 44px;
     border: none;
     background: transparent;
@@ -439,41 +313,20 @@
   }
 
   .foot {
-    display: flex;
-    gap: 10px;
     padding-top: 12px;
     border-top: 1px solid var(--color-border);
   }
 
-  .foot.last {
-    flex-direction: column-reverse;
-    border-top: none;
+  .words {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
   }
 
-  .back,
-  .anyway {
-    flex: 1;
-    min-height: 48px;
-    border-radius: var(--radius-full);
-    font-size: var(--text-base);
-  }
-
-  .back {
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text);
-    font-weight: var(--weight-bold);
-  }
-
-  .anyway {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-extrabold);
-  }
-
-  button:disabled {
-    opacity: 0.6;
-    cursor: default;
+  .sub {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    opacity: 0.8;
   }
 </style>

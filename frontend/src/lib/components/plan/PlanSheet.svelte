@@ -36,6 +36,9 @@
   import { BAD_DATE, isSaneDay } from '#lib/dates.js';
   import type { PlanItem, PlanMeal } from '#lib/client/plan.js';
   import { cookedStaysNote } from '#lib/cookTargets.js';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import LeftoversOn from './LeftoversOn.svelte';
   import MealWho from './MealWho.svelte';
   import PlanDays from './PlanDays.svelte';
@@ -48,7 +51,6 @@
   }: { actions: PlanActions; target: Target | null; onclose: () => void } = $props();
 
   const model = $derived(actions.model);
-  let dialog: HTMLDialogElement;
 
   // Which step, and what has been picked so far.
   let mode = $state<DropMode | 'plan' | 'whose' | 'useby' | null>(null);
@@ -71,11 +73,6 @@
           ? target.day
           : model.anchor || model.today;
     weekOf = weekStart(from, model.startsOn);
-  });
-
-  $effect(() => {
-    if (target !== null && !dialog.open) dialog.showModal();
-    else if (target === null && dialog.open) dialog.close();
   });
 
   const heading = $derived.by(() => {
@@ -465,29 +462,12 @@
     if (target.kind === 'item') void model.removeItem(target.item.id);
     onclose();
   }
-
-  function closeOnBackdrop(event: MouseEvent) {
-    if (event.target === dialog) onclose();
-  }
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-label={heading || 'Plan'}
-  oncancel={(event) => {
-    event.preventDefault();
-    onclose();
-  }}
-  onclick={closeOnBackdrop}
-  data-testid="plan-sheet"
->
-  {#if target}
+{#if target}
+  <Sheet title={heading || 'Plan'} {onclose} testid="plan-sheet">
     <div class="body">
-      <span class="handle" aria-hidden="true"></span>
-      <header>
-        {#if subheading}<p class="sub">{subheading}</p>{/if}
-        <h2>{heading}</h2>
-      </header>
+      {#if subheading}<p class="sub">{subheading}</p>{/if}
 
       {#if actions.readonly}
         <p class="note" role="status">
@@ -671,15 +651,12 @@
         {:else if tooEarly}
           <p id="tub-use-by-early" class="early">Pick the cook day or later.</p>
         {/if}
-        <div class="buttons">
-          <button type="button" class="back" onclick={() => (mode = null)}>Back</button>
-          <button
-            type="button"
-            class="go"
-            disabled={!useBy || badDay || tooEarly || actions.readonly}
-            onclick={saveUseBy}>Save</button
+        <ButtonRow>
+          <Button disabled={!useBy || badDay || tooEarly || actions.readonly} onclick={saveUseBy}
+            >Save</Button
           >
-        </div>
+          <Button quiet onclick={() => (mode = null)}>Back</Button>
+        </ButtonRow>
       {:else if mode === 'leftovers' && leftoverItem && aboutMeal}
         <LeftoversOn
           {actions}
@@ -760,69 +737,31 @@
         {#if samePlace}<p class="note" role="status">
             It’s already there. Pick another day or meal.
           </p>{/if}
-        <div class="buttons">
-          <button
-            type="button"
-            class="back"
+        <ButtonRow>
+          <Button disabled={!ready} onclick={choose}>{confirmWords}</Button>
+          <Button
+            quiet
             onclick={() =>
               target?.kind === 'recipe' || target?.kind === 'tubleft' ? onclose() : (mode = null)}
-            >Back</button
+            >Back</Button
           >
-          <button type="button" class="go" disabled={!ready} onclick={choose}>{confirmWords}</button
-          >
-        </div>
+        </ButtonRow>
       {/if}
     </div>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    max-width: none;
-    max-height: none;
-    padding: 0;
-    border: none;
-    background: var(--color-surface);
-    color: var(--color-text);
-    overscroll-behavior: contain;
-    scrollbar-width: none;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
   }
 
-  .handle {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  header {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    text-align: center;
-  }
-
   .sub {
     color: var(--color-text-muted);
     font-size: var(--text-base);
     font-weight: var(--weight-medium);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-    overflow-wrap: break-word;
   }
 
   h3 {
@@ -1030,55 +969,9 @@
     color: var(--color-inverse-text);
   }
 
-  .buttons {
-    display: flex;
-    gap: var(--space-4);
-  }
-
-  .back,
-  .go {
-    min-height: 54px;
-    border: none;
-    border-radius: var(--radius-button);
-    font-size: var(--text-xl);
-    font-weight: var(--weight-bold);
-  }
-
   .back {
     padding: 0 var(--space-8);
     background: var(--color-fill-strong);
     color: var(--color-text);
-  }
-
-  .go {
-    flex: 1;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  @media (max-width: 767px) {
-    dialog {
-      inset: auto 0 0 0;
-      width: 100%;
-      max-height: min(680px, calc(100dvh - 120px));
-      margin: 0;
-      padding: var(--space-5) var(--space-8) max(28px, env(safe-area-inset-bottom));
-      border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-      overflow-y: auto;
-    }
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: min(460px, calc(100vw - 2 * var(--space-7)));
-      max-height: calc(100dvh - 2 * var(--space-7));
-      margin: auto;
-      padding: var(--space-8) 22px;
-      border-radius: var(--radius-panel);
-      overflow-y: auto;
-    }
-    .handle {
-      display: none;
-    }
   }
 </style>

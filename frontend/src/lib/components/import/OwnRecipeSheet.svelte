@@ -3,6 +3,9 @@
   // 8 Nov): the new recipe's name and what it makes, asked and prefilled from the heading and the
   // lines. A sheet on a phone, a dialog on a computer. Loaded when first opened.
   import { onMount, untrack } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import type { ImportFlow } from '#lib/import.svelte.js';
   import {
     OWN_NAME_TAKEN,
@@ -35,14 +38,9 @@
   let problem = $state<string | null>(null);
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
   onMount(() => {
     const letGo = holdUndo(); // Ctrl+Z must not move the lines behind this sheet
-    dialog.showModal();
-    return () => {
-      letGo();
-      if (dialog.open) dialog.close();
-    };
+    return letGo;
   });
 
   const section = $derived(sectionOf(review, heading));
@@ -85,18 +83,7 @@
   }
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-labelledby="{uid}-title"
-  aria-describedby="{uid}-text"
-  oncancel={(e) => {
-    e.preventDefault();
-    onclose();
-  }}
-  onclick={(e) => {
-    if (e.target === dialog) onclose();
-  }}
->
+<Sheet title="Make “{line.words}” its own recipe?" describedby="{uid}-text" {onclose}>
   <form
     class="body"
     onsubmit={(e) => {
@@ -104,8 +91,6 @@
       done();
     }}
   >
-    <span class="grip" aria-hidden="true"></span>
-    <h2 id="{uid}-title">Make “{line.words}” its own recipe?</h2>
     <p id="{uid}-text">
       It becomes a new recipe, <b>{name.trim() || 'the new recipe'}</b>, with its {words}, kept as
       <b>Made ahead</b>. {flow.name.trim() || 'This recipe'} then uses it as one line: “{preview}”.
@@ -142,61 +127,18 @@
     </div>
     <p class="foot">Both recipes are checked here and saved together.</p>
     {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-    <div class="buttons">
-      <button type="submit" class="go">{kept ? 'Done' : 'Make it its own recipe'}</button>
-      <button type="button" class="cancel" onclick={onclose}>Cancel</button>
-    </div>
+    <ButtonRow>
+      <Button type="submit">{kept ? 'Done' : 'Make it its own recipe'}</Button>
+      <Button quiet onclick={onclose}>Cancel</Button>
+    </ButtonRow>
   </form>
-</dialog>
+</Sheet>
 
 <style>
-  dialog {
-    width: min(100vw, 30rem);
-    max-width: 100vw;
-    max-height: none;
-    margin: auto auto 0;
-    padding: var(--space-5) var(--space-8) var(--space-9);
-    border: none;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: min(100vw - 48px, 460px);
-      margin: auto;
-      padding: var(--space-9);
-      border-radius: var(--radius-3xl);
-    }
-
-    .grip {
-      display: none;
-    }
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
-  }
-
-  .grip {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-    overflow-wrap: anywhere;
   }
 
   p {
@@ -241,50 +183,5 @@
   .problem {
     color: var(--color-warning-text);
     font-weight: var(--weight-semibold);
-  }
-
-  .buttons {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .go,
-  .cancel {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 52px;
-    border-radius: var(--radius-button);
-    font-size: 1rem;
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .go {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .cancel {
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-text);
-  }
-
-  @media (min-width: 768px) {
-    .buttons {
-      flex-direction: row-reverse;
-      justify-content: flex-start;
-      align-items: center;
-    }
-
-    .go {
-      min-height: var(--touch-target);
-      padding: 0 var(--space-7);
-      border-radius: var(--radius-full);
-    }
   }
 </style>

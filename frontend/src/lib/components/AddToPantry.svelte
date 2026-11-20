@@ -1,10 +1,14 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Loading from '#lib/components/Loading.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   // "+ Add to pantry" (spec "Decided for 0.2"; no mockup yet): pick or type a food; how
   // much, as sold (1 packet, 2 packets…) or typed; where (filled in from the food's
   // usual place); and an optional use-by (none · today · +3 days · +1 week · pick a date,
   // which opens the device's own date picker and then shows the date it chose).
-  // A sheet from the bottom on phones, a dialog on desktop.
+  // A sheet from the bottom on phones, a dialog on desktop (the shared Sheet).
+  import { tick } from 'svelte';
   import { cantReach } from '#lib/api.js';
   import { cantReachText, needsServer } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
@@ -25,7 +29,7 @@
   let { model, places, today }: { model: PantryModel; places: Place[]; today: string } = $props();
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
+  let form = $state<HTMLFormElement>();
   let food = $state<Food | null>(null);
   let loading = $state(false);
   /** "size:12:2" = 2 of size 12; "typed" = the amount box. */
@@ -45,14 +49,14 @@
   ]);
 
   $effect(() => {
-    if (addToPantry.open && !dialog.open) {
+    if (addToPantry.open) {
       reset();
-      dialog.showModal();
       if (addToPantry.foodId !== null) void choose({ id: addToPantry.foodId, name: '' });
       // Start in the "What" box, not on Cancel.
-      else dialog.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
-    } else if (!addToPantry.open && dialog.open) {
-      dialog.close();
+      else
+        void tick().then(() =>
+          form?.querySelector<HTMLInputElement>('input[type="search"]')?.focus()
+        );
     }
   });
 
@@ -213,26 +217,11 @@
     // fills in when the server answers.
     void model.add(stock, label);
   }
-
-  function closeOnBackdrop(event: MouseEvent) {
-    if (event.target === dialog) addToPantry.close();
-  }
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-labelledby="{uid}-title"
-  oncancel={() => addToPantry.close()}
-  onclick={closeOnBackdrop}
->
-  {#if addToPantry.open}
-    <form class="body" onsubmit={submit}>
-      <span class="handle" aria-hidden="true"></span>
-      <header>
-        <h2 id="{uid}-title">Add to pantry</h2>
-        <button type="button" class="quiet" onclick={() => addToPantry.close()}>Cancel</button>
-      </header>
-
+{#if addToPantry.open}
+  <Sheet title="Add to pantry" size="large" onclose={() => addToPantry.close()}>
+    <form class="body" bind:this={form} onsubmit={submit}>
       <section aria-labelledby="{uid}-what">
         <h3 id="{uid}-what">What</h3>
         {#if food}
@@ -380,52 +369,21 @@
 
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
 
-      <button type="submit" class="add" disabled={!food || food.staple || network.offline}
-        >Add to pantry</button
-      >
+      <ButtonRow>
+        <Button type="submit" disabled={!food || food.staple || network.offline}
+          >Add to pantry</Button
+        >
+        <Button quiet onclick={() => addToPantry.close()}>Cancel</Button>
+      </ButtonRow>
     </form>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    max-width: none;
-    max-height: none;
-    padding: 0;
-    border: none;
-    background: var(--color-surface);
-    color: var(--color-text);
-    overscroll-behavior: contain;
-    scrollbar-width: none;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-7);
-  }
-
-  .handle {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  h2 {
-    font-size: 1.375rem;
-    font-weight: var(--weight-extrabold);
   }
 
   section {
@@ -561,18 +519,6 @@
     font-weight: var(--weight-bold);
   }
 
-  .quiet {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-7);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-fill);
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
   .link {
     min-height: var(--touch-target);
     padding: 0;
@@ -582,46 +528,5 @@
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
     cursor: pointer;
-  }
-
-  .add {
-    min-height: 54px;
-    border: none;
-    border-radius: var(--radius-button);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-size: 1rem;
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .add:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
-
-  @media (max-width: 767px) {
-    dialog {
-      inset: auto 0 0 0;
-      width: 100%;
-      max-height: calc(100dvh - 60px);
-      margin: 0;
-      padding: var(--space-5) var(--space-8) max(28px, env(safe-area-inset-bottom));
-      border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-      overflow-y: auto;
-    }
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: min(480px, calc(100vw - 2 * var(--space-7)));
-      max-height: calc(100dvh - 2 * var(--space-10));
-      padding: var(--space-9);
-      border-radius: var(--radius-panel);
-      overflow-y: auto;
-    }
-    .handle {
-      display: none;
-    }
   }
 </style>

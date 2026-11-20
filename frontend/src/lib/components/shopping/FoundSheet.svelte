@@ -4,7 +4,10 @@
   // home, not bought. It starts from the list's amount, offers the pack's ½ and ¼, Other…, and
   // where it goes. A sheet from the bottom on a phone, a small dialog on a computer. Works offline:
   // the answer is one `found_at_home` action in the queue.
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import { radioKeys } from '#lib/radioKeys.js';
   import { readDraft, unitChoices } from '#lib/shopping/amountBox.js';
   import { localDisplay } from '#lib/shopping/applyLocal.js';
@@ -25,8 +28,7 @@
     onclose: () => void;
   } = $props();
 
-  const uid = $props.id();
-  let dialog: HTMLDialogElement;
+  let choicesEl: HTMLElement | undefined;
 
   let fetched = $state<FoodSize[] | null>(null);
   const sizes = $derived(food.sizes ?? fetched ?? []);
@@ -151,35 +153,21 @@
     onclose();
   }
 
-  $effect(() => {
-    if (!dialog.open) {
-      dialog.showModal();
-      void tick().then(() => dialog.querySelector<HTMLElement>('[role="radio"]')?.focus());
-    }
+  onMount(() => {
+    void tick().then(() => choicesEl?.querySelector<HTMLElement>('[role="radio"]')?.focus());
   });
 </script>
 
-<dialog
-  bind:this={dialog}
-  class="found-sheet"
-  aria-label="Already have {food.name}"
-  oncancel={(event) => {
-    event.preventDefault();
-    onclose();
-  }}
-  onclick={(event) => {
-    if (event.target === dialog) onclose();
-  }}
->
+<Sheet title="How much {food.name} is at home?" size="small" {onclose}>
   <div class="body">
-    <span class="grab" aria-hidden="true"></span>
-    <div class="head">
-      <p class="title" id="{uid}-t">How much {food.name} is at home?</p>
-      <p class="sub">
-        It comes off the list and goes into the pantry as found at home, not bought.
-      </p>
-    </div>
-    <div class="choices" role="radiogroup" aria-label="Amount at home" use:radioKeys>
+    <p class="sub">It comes off the list and goes into the pantry as found at home, not bought.</p>
+    <div
+      class="choices"
+      role="radiogroup"
+      aria-label="Amount at home"
+      use:radioKeys
+      bind:this={choicesEl}
+    >
       {#each choices as choice (choice.key)}
         <button
           type="button"
@@ -219,55 +207,20 @@
         {/each}
       </select>
     </label>
-    <button type="button" class="put" disabled={picked !== 'other' && !chosen} onclick={put}
-      >Put {chosen ? words(chosen.amount, chosen.sizeId) : 'it'} in the pantry</button
-    >
-    <button type="button" class="cancel" onclick={onclose}>Cancel</button>
+    <ButtonRow>
+      <Button disabled={picked !== 'other' && !chosen} onclick={put}
+        >Put {chosen ? words(chosen.amount, chosen.sizeId) : 'it'} in the pantry</Button
+      >
+      <Button quiet onclick={onclose}>Cancel</Button>
+    </ButtonRow>
   </div>
-</dialog>
+</Sheet>
 
 <style>
-  dialog {
-    max-width: none;
-    max-height: min(90dvh, 40rem);
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: var(--color-surface);
-    color: var(--color-text);
-    box-shadow: var(--shadow-toast);
-    overflow-y: auto;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
-  }
-
-  .grab {
-    display: none;
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  .head {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-  }
-
-  .title {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-    overflow-wrap: anywhere;
   }
 
   .sub {
@@ -327,52 +280,5 @@
   .problem {
     color: var(--color-warning-text);
     font-size: var(--text-md);
-  }
-
-  .put {
-    min-height: 52px;
-    border: none;
-    border-radius: var(--radius-lg);
-    background: var(--color-text);
-    color: var(--color-surface);
-    font: var(--weight-extrabold) 1rem var(--font-ui);
-    cursor: pointer;
-  }
-
-  .put:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-
-  .cancel {
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-accent);
-    font: var(--weight-bold) var(--text-lg) var(--font-ui);
-    cursor: pointer;
-  }
-
-  @media (max-width: 767px) {
-    dialog {
-      inset: auto 0 0 0;
-      width: 100%;
-      padding: var(--space-4) var(--space-8) max(28px, env(safe-area-inset-bottom));
-      border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    }
-
-    .grab {
-      display: block;
-    }
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: 380px;
-      margin: auto;
-      padding: var(--space-8);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-    }
   }
 </style>

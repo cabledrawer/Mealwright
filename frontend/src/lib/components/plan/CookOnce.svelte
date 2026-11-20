@@ -21,6 +21,9 @@
   import type { PlanActions } from '#lib/planActions.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
   import { colourOfBatch, itemName } from '#lib/planMeals.js';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import Switch from '../Switch.svelte';
   import { plural } from '#lib/words.js';
 
@@ -40,7 +43,6 @@
   const open = $derived(target !== null || ahead !== null);
 
   const model = $derived(actions.model);
-  let dialog: HTMLDialogElement;
   let cook = $state<CookOnceModel | null>(null);
   /** The tub picked up to move (tap it, then tap the meal). */
   let moving = $state<number | null>(null);
@@ -63,11 +65,6 @@
       cook = made;
       void made.refresh();
     });
-  });
-
-  $effect(() => {
-    if (open && !dialog.open) dialog.showModal();
-    else if (!open && dialog.open) dialog.close();
   });
 
   const name = $derived(target ? itemName(target.item, model.plan) : (ahead?.name ?? ''));
@@ -159,29 +156,17 @@
   const whose = (id: number | null) => (id === null ? null : (names.get(id) ?? null));
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-label={ahead ? `Cook once, eat for… ${ahead.position}` : 'Cook once, eat for…'}
-  oncancel={(event) => {
-    event.preventDefault();
-    onclose();
-  }}
-  onclick={(event) => {
-    if (event.target === dialog) onclose();
-  }}
-  data-testid="cook-once"
->
-  {#if open && cook}
+{#if open && cook}
+  <Sheet
+    title={ahead ? `Cook once, eat for… ${ahead.position}` : 'Cook once, eat for…'}
+    size="wide"
+    {onclose}
+    testid="cook-once"
+  >
     <div class="body">
-      <span class="handle" aria-hidden="true"></span>
-      <header>
-        <p class="sub">
-          {name} · cooking {dayFull(cookDay)} · {model.slotName(cookSlot)}
-        </p>
-        <h2>
-          Cook once, eat for…{#if ahead}<span class="of"> {ahead.position}</span>{/if}
-        </h2>
-      </header>
+      <p class="sub">
+        {name} · cooking {dayFull(cookDay)} · {model.slotName(cookSlot)}
+      </p>
 
       {#if actions.readonly}
         <p class="note" role="status">
@@ -388,51 +373,22 @@
         </section>
       </div>
 
-      <div class="buttons">
-        <button type="button" class="back" onclick={onclose}>Cancel</button>
-        <button type="button" class="go" disabled={actions.readonly || !cook.preview} onclick={save}
+      <ButtonRow>
+        <Button disabled={actions.readonly || !cook.preview} onclick={save}
           >{#if ahead}{ahead.last ? 'Plan this batch' : 'Next recipe'}{:else}Add {cook.count}
-            {plural(cook.count, 'tub', 'tubs')} to the plan{/if}</button
+            {plural(cook.count, 'tub', 'tubs')} to the plan{/if}</Button
         >
-      </div>
+        <Button quiet onclick={onclose}>Cancel</Button>
+      </ButtonRow>
     </div>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    max-width: none;
-    max-height: none;
-    padding: 0;
-    border: none;
-    background: var(--color-ground);
-    color: var(--color-text);
-    overscroll-behavior: contain;
-    scrollbar-width: none;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
-  }
-
-  .handle {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  header {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
   }
 
   .sub,
@@ -441,16 +397,6 @@
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     overflow-wrap: break-word;
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .of {
-    color: var(--color-text-muted);
-    font-weight: var(--weight-bold);
   }
 
   h3 {
@@ -731,63 +677,12 @@
     cursor: default;
   }
 
-  .buttons {
-    display: flex;
-    gap: var(--space-4);
-  }
-
-  .back,
-  .go {
-    min-height: 54px;
-    border: none;
-    border-radius: var(--radius-button);
-    font: inherit;
-    font-size: var(--text-xl);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .back {
-    padding: 0 var(--space-8);
-    background: var(--color-fill-strong);
-    color: var(--color-text);
-  }
-
-  .go {
-    flex: 1;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
   @media (max-width: 767px) {
-    dialog {
-      inset: auto 0 0 0;
-      width: 100%;
-      max-height: calc(100dvh - 48px);
-      margin: 0;
-      padding: var(--space-5) var(--space-8) max(28px, env(safe-area-inset-bottom));
-      border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-      overflow-y: auto;
-    }
     .days {
       grid-template-columns: 1fr;
     }
     .land {
       padding: var(--space-5);
-    }
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: min(1040px, calc(100vw - 2 * var(--space-7)));
-      max-height: calc(100dvh - 2 * var(--space-7));
-      margin: auto;
-      padding: var(--space-8) 28px;
-      border-radius: var(--radius-panel);
-      overflow-y: auto;
-    }
-    .handle {
-      display: none;
     }
   }
 </style>

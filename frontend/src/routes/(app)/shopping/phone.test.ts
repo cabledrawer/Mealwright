@@ -315,7 +315,7 @@ describe('Shopping on the phone', () => {
     it('asks how much is at home, starting from the list amount, and where', async () => {
       await render();
       await openHave('Toor dal');
-      const sheet = page.getByRole('dialog', { name: 'Already have Toor dal' });
+      const sheet = page.getByRole('dialog', { name: 'How much Toor dal is at home?' });
       await expect.element(sheet).toBeVisible();
       await vi.waitFor(() =>
         expect(sheet.element().textContent).toMatch(/How much Toor dal is at home\?/)
@@ -331,10 +331,20 @@ describe('Shopping on the phone', () => {
       await expect.element(sheet.getByRole('combobox', { name: 'Where' })).toBeVisible();
     });
 
+    it('closes on Escape and sends nothing', async () => {
+      await render();
+      await openHave('Toor dal');
+      const sheet = page.getByRole('dialog', { name: 'How much Toor dal is at home?' });
+      await expect.element(sheet).toBeVisible();
+      await userEvent.keyboard('{Escape}');
+      await expect.element(sheet).not.toBeInTheDocument();
+      expect(server.actions).toEqual([]);
+    });
+
     it('sends one found_at_home with the amount and place, and the line goes to the trolley', async () => {
       await render();
       await openHave('Toor dal');
-      const sheet = page.getByRole('dialog', { name: 'Already have Toor dal' });
+      const sheet = page.getByRole('dialog', { name: 'How much Toor dal is at home?' });
       await sheet.getByRole('radio', { name: /^250/ }).click();
       await sheet.getByRole('combobox', { name: 'Where' }).selectOptions('Fridge');
       await sheet.getByRole('button', { name: /^Put .* in the pantry$/ }).click();
@@ -357,7 +367,7 @@ describe('Shopping on the phone', () => {
       copy.items.find((i) => i.id === 'i-onions')!.amount = 0.25;
       await render();
       await openHave('Onions');
-      const sheet = page.getByRole('dialog', { name: 'Already have Onions' });
+      const sheet = page.getByRole('dialog', { name: 'How much Onions is at home?' });
       const radios = await vi.waitFor(() => {
         const found = sheet.getByRole('radio').elements();
         if (found.length < 4) throw new Error('chips not shown yet');
@@ -380,7 +390,7 @@ describe('Shopping on the phone', () => {
     it('Other… takes a typed amount', async () => {
       await render();
       await openHave('Toor dal');
-      const sheet = page.getByRole('dialog', { name: 'Already have Toor dal' });
+      const sheet = page.getByRole('dialog', { name: 'How much Toor dal is at home?' });
       await sheet.getByRole('radio', { name: 'Other…' }).click();
       await sheet.getByRole('textbox').fill('120 g');
       await sheet.getByRole('button', { name: /^Put .* in the pantry$/ }).click();
@@ -392,7 +402,7 @@ describe('Shopping on the phone', () => {
     it('Other… with something unreadable says why and sends nothing', async () => {
       await render();
       await openHave('Toor dal');
-      const sheet = page.getByRole('dialog', { name: 'Already have Toor dal' });
+      const sheet = page.getByRole('dialog', { name: 'How much Toor dal is at home?' });
       await sheet.getByRole('radio', { name: 'Other…' }).click();
       await sheet.getByRole('textbox').fill('lots');
       await sheet.getByRole('button', { name: /^Put .* in the pantry$/ }).click();
@@ -407,7 +417,7 @@ describe('Shopping on the phone', () => {
       await expect.element(page.getByRole('button', { name: 'This week main list' })).toBeVisible();
       await openHave('Toor dal');
       await page
-        .getByRole('dialog', { name: 'Already have Toor dal' })
+        .getByRole('dialog', { name: 'How much Toor dal is at home?' })
         .getByRole('button', { name: /^Put .* in the pantry$/ })
         .click();
       await vi.waitFor(async () => {

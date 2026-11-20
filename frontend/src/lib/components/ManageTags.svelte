@@ -13,6 +13,9 @@
   import { kitchen } from '#lib/freshness.svelte.js';
   import { holdUndo, undoHistory } from '#lib/undo.svelte.js';
 
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import '#lib/styles/fields.css';
   import { plural } from '#lib/words.js';
   import { couldntLoad } from '#lib/errorWords.js';
@@ -20,7 +23,7 @@
   let { onclose }: { onclose: () => void } = $props();
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
+  let body: HTMLDivElement;
   let tags = $state<TagCount[]>([]);
   let loaded = $state(false);
   let problem = $state<string | null>(null);
@@ -53,11 +56,9 @@
 
   onMount(() => {
     const letGo = holdUndo(); // Ctrl+Z must not move anything behind this sheet
-    dialog.showModal();
     void load();
     return () => {
       letGo();
-      if (dialog.open) dialog.close();
     };
   });
 
@@ -77,7 +78,7 @@
     renaming = tag.id;
     typed = tag.name;
     await tick();
-    dialog.querySelector<HTMLInputElement>('input.rename')?.select();
+    body.querySelector<HTMLInputElement>('input.rename')?.select();
   }
 
   async function saveRename(tag: TagCount) {
@@ -105,7 +106,7 @@
     renaming = null;
     problem = null;
     merging = tag.id;
-    dialog.scrollTop = 0; // the picker replaces the list, so it is the first thing in view
+    body.closest('dialog')?.scrollTo(0, 0); // the picker replaces the list, so it is the first thing in view
     into = (lookalike(tag) ?? tags.find((t) => t.id !== tag.id))?.id ?? null;
     // The button pressed is gone with the list: the keyboard goes to the picker (FX4 review r1).
     void tick().then(() => document.getElementById(`${uid}-into`)?.focus());
@@ -115,9 +116,7 @@
   function cancelMerge() {
     const id = merging;
     merging = null;
-    void tick().then(() =>
-      dialog.querySelector<HTMLButtonElement>(`[data-merge="${id}"]`)?.focus()
-    );
+    void tick().then(() => body.querySelector<HTMLButtonElement>(`[data-merge="${id}"]`)?.focus());
   }
 
   async function doMerge() {
@@ -146,23 +145,9 @@
   const count = (n: number) => `${n} ${plural(n, 'recipe', 'recipes')}`;
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-labelledby="{uid}-title"
-  oncancel={(e) => {
-    e.preventDefault();
-    onclose();
-  }}
-  onclick={(e) => {
-    if (e.target === dialog) onclose();
-  }}
->
-  <div class="body">
-    <span class="grip" aria-hidden="true"></span>
-    <div class="head">
-      <h2 id="{uid}-title">Manage tags</h2>
-      {#if loaded}<span class="total">{tags.length} {plural(tags.length, 'tag', 'tags')}</span>{/if}
-    </div>
+<Sheet title="Manage tags" {onclose}>
+  <div class="body" bind:this={body}>
+    {#if loaded}<p class="total">{tags.length} {plural(tags.length, 'tag', 'tags')}</p>{/if}
 
     {#if loaded && tags.length === 0 && !problem}
       <p class="muted">No tags yet. Add one to a recipe and it shows here.</p>
@@ -189,11 +174,8 @@
                   bind:value={typed}
                   autocomplete="off"
                 />
-                <button type="button" class="small" onclick={() => (renaming = null)}>Cancel</button
-                >
-                <button type="submit" class="small main" disabled={busy || !typed.trim()}
-                  >Save</button
-                >
+                <Button small quiet onclick={() => (renaming = null)}>Cancel</Button>
+                <Button type="submit" small disabled={busy || !typed.trim()}>Save</Button>
               </form>
             {:else}
               <span class="what">
@@ -203,20 +185,19 @@
                 >
               </span>
               <span class="buttons">
-                <button
-                  type="button"
-                  class="small"
+                <Button
+                  small
+                  quiet
                   aria-label="Rename {tag.name}"
-                  onclick={() => void startRename(tag)}>Rename</button
+                  onclick={() => void startRename(tag)}>Rename</Button
                 >
                 {#if tags.length > 1}
-                  <button
-                    type="button"
-                    class="small"
-                    class:main={like !== undefined}
+                  <Button
+                    small
+                    quiet={like === undefined}
                     aria-label="Merge {tag.name} into…"
                     data-merge={tag.id}
-                    onclick={() => startMerge(tag)}>Merge into…</button
+                    onclick={() => startMerge(tag)}>Merge into…</Button
                   >
                 {/if}
               </span>
@@ -241,80 +222,26 @@
             goes. You can Undo.
           </p>
         {/if}
-        <div class="two">
-          <button type="button" class="outline" onclick={cancelMerge}>Cancel</button>
-          <button
-            type="button"
-            class="solid"
-            disabled={busy || !intoTag}
-            onclick={() => void doMerge()}>Merge</button
-          >
-        </div>
+        <ButtonRow>
+          <Button disabled={busy || !intoTag} onclick={() => void doMerge()}>Merge</Button>
+          <Button quiet onclick={cancelMerge}>Cancel</Button>
+        </ButtonRow>
       </div>
     {/if}
 
     {#if problem}<p class="error" role="alert">{problem}</p>{/if}
 
     {#if !mergingTag}
-      <button type="button" class="outline" onclick={onclose}>Close</button>
+      <Button quiet onclick={onclose}>Close</Button>
     {/if}
   </div>
-</dialog>
+</Sheet>
 
 <style>
-  dialog {
-    width: min(100vw, 32rem);
-    max-width: 100vw;
-    max-height: 90vh;
-    margin: auto auto 0;
-    padding: var(--space-5) var(--space-8) var(--space-9);
-    border: none;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-    overflow-y: auto;
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      margin: auto;
-      padding-top: var(--space-8);
-      border-radius: var(--radius-3xl);
-    }
-
-    .grip {
-      display: none;
-    }
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
-  }
-
-  .grip {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  .head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-4);
-  }
-
-  h2 {
-    font-size: var(--text-xl);
-    font-weight: var(--weight-extrabold);
   }
 
   .total,
@@ -378,39 +305,6 @@
     min-width: 8rem;
   }
 
-  .small,
-  .outline,
-  .solid {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-lg);
-    background: transparent;
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .small.main,
-  .solid {
-    border-color: var(--color-inverse);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .outline,
-  .solid {
-    min-height: 52px;
-    border-radius: var(--radius-button);
-    font-size: 1rem;
-  }
-
-  button:disabled {
-    opacity: 0.55;
-    cursor: default;
-  }
-
   .ask {
     display: flex;
     flex-direction: column;
@@ -431,12 +325,6 @@
     background: var(--color-ground);
     font-size: var(--text-md);
     line-height: 1.45;
-  }
-
-  .two {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-4);
   }
 
   .error {

@@ -1,5 +1,8 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Loading from '#lib/components/Loading.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   // Batch cook mode (mockup Dark-BatchSession08; spec section 6, "Batch cook (Experimental)";
   // cabledrawer 11 Nov): Cook mode for a whole session. Big text, the one hands-on task for now, a
   // timer for each recipe, what is in use, the quiet next line, Show ingredients and Done, next.
@@ -54,14 +57,9 @@
   );
 
   // Show ingredients: every ingredient of the recipes the task is for, read when first asked.
-  let sheet = $state<HTMLDialogElement>();
   let sheetOpen = $state(false);
   let read = $state<Record<number, Recipe>>({});
   let failed = $state(false);
-  $effect(() => {
-    if (sheet && sheetOpen && !sheet.open) sheet.showModal();
-    else if (sheet && !sheetOpen && sheet.open) sheet.close();
-  });
 
   async function showIngredients() {
     sheetOpen = true;
@@ -280,23 +278,8 @@
   </p>
 </div>
 
-<dialog
-  bind:this={sheet}
-  aria-label="All ingredients"
-  oncancel={(event) => {
-    event.preventDefault();
-    sheetOpen = false;
-  }}
-  onclick={(event) => {
-    if (event.target === sheet) sheetOpen = false;
-  }}
->
-  <div class="sheet">
-    <span class="handle" aria-hidden="true"></span>
-    <div class="sheethead">
-      <h2>Ingredients</h2>
-      <button type="button" class="done" onclick={() => (sheetOpen = false)}>Done</button>
-    </div>
+{#if sheetOpen}
+  <Sheet title="Ingredients" onclose={() => (sheetOpen = false)}>
     {#each shownRecipes as recipe (recipe.id)}
       <h3>{recipe.name}</h3>
       <ul class="all">
@@ -311,8 +294,11 @@
       </ul>
     {/each}
     {#if failed}<p class="quiet">Couldn’t read every recipe. Try again when you’re online.</p>{/if}
-  </div>
-</dialog>
+    <ButtonRow>
+      <Button onclick={() => (sheetOpen = false)}>Done</Button>
+    </ButtonRow>
+  </Sheet>
+{/if}
 
 <style>
   .batch {
@@ -640,58 +626,6 @@
   button:focus-visible {
     outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 2px;
-  }
-
-  dialog {
-    max-width: none;
-    padding: 0;
-    border: none;
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
-  .sheet {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    padding: var(--space-5) var(--space-8) var(--space-9);
-  }
-
-  .handle {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  .sheethead {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-5);
-  }
-
-  .sheethead h2 {
-    color: var(--color-text);
-    font-size: var(--text-2xl);
-    letter-spacing: 0;
-    text-transform: none;
-  }
-
-  .done {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-fill);
-    color: var(--color-text);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   h3 {

@@ -200,6 +200,19 @@ describe('Settings › API tokens', () => {
     await expect.element(page.getByRole('status')).toHaveTextContent('Deleted Home Assistant.');
   });
 
+  it('Escape on the delete question keeps the token, and nothing is sent', async () => {
+    open();
+    await userEvent.click(page.getByRole('button', { name: 'Delete Home Assistant token' }));
+    await expect
+      .element(page.getByRole('alertdialog', { name: 'Delete the Home Assistant token?' }))
+      .toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    await expect
+      .element(page.getByRole('alertdialog', { name: 'Delete the Home Assistant token?' }))
+      .not.toBeInTheDocument();
+    expect(sent('DELETE', '/api-tokens/1')).toHaveLength(0);
+  });
+
   it('says why when the list can’t be had (a member, say)', async () => {
     open({
       'GET /api-tokens': [403, { detail: 'Only an admin can do this.', code: 'admins_only' }]

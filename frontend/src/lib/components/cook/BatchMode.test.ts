@@ -2,6 +2,7 @@
 // End timer sit in one row, buttons of the same size; on a phone they stay in the row.
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { page, userEvent } from 'vitest/browser';
 import type { Schedule, ScheduleTask } from '#lib/client/batchMode.js';
 
 const calls = vi.hoisted(() => ({ start: vi.fn(), timer: vi.fn(), done: vi.fn() }));
@@ -11,6 +12,9 @@ vi.mock('#lib/client/batchMode', () => ({
   markTaskDone: calls.done,
   undoTaskDone: vi.fn(),
   startTaskTimer: calls.timer
+}));
+vi.mock('#lib/client/recipes.js', () => ({
+  getRecipe: vi.fn().mockRejectedValue(new Error('no recipes in this test'))
 }));
 vi.mock('#lib/chime', () => ({ primeChime: vi.fn(), playChime: vi.fn() }));
 
@@ -146,5 +150,18 @@ describe('the recipe timers of a Batch cook session', () => {
     expect(found[0]!.classList.contains('go')).toBe(true);
     expect(found[0]!.parentElement!.className).toContain('acts');
     expect(row.querySelector('[role="timer"]')).not.toBeNull();
+  });
+});
+
+describe('Show ingredients', () => {
+  it('opens the Ingredients sheet, and Escape and Done both close it', async () => {
+    await show([task({ id: 't2' })]);
+    await page.getByRole('button', { name: 'Show ingredients' }).click();
+    await expect.element(page.getByRole('dialog', { name: 'Ingredients' })).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    await vi.waitFor(() => expect(document.querySelector('dialog')).toBeNull());
+    await page.getByRole('button', { name: 'Show ingredients' }).click();
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await vi.waitFor(() => expect(document.querySelector('dialog')).toBeNull());
   });
 });

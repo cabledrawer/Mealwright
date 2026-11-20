@@ -1,6 +1,6 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import type { PlanActions } from '#lib/planActions.js';
 import PlanAdd from './PlanAdd.svelte';
 import '#lib/styles/tokens.css';
@@ -197,5 +197,29 @@ describe('Use a tub never offers a tub not cooked yet (F230, spec F50)', () => {
     // offered, because the meal on Sat 14 is not the day the tub was cooked.
     open('2026-11-13', 1, [tub(1, 'Khichdi', '2026-11-13', 10)]);
     await expect.element(page.getByText('Khichdi', { exact: false })).toBeVisible();
+  });
+});
+
+describe('closing the sheet', () => {
+  it('Escape and the Close button both close it', async () => {
+    const onclose = vi.fn();
+    const model = {
+      slotsOn: [{ id: 1, name: 'Dinner' }],
+      slotName: () => 'Dinner',
+      tubsLeft: [],
+      today: '2026-11-02',
+      add: async () => ({ ok: true })
+    };
+    const actions = { model, readonly: false } as unknown as PlanActions;
+    component = mount(PlanAdd, {
+      target: document.body,
+      props: { actions, target: { day: '2026-11-11', slotId: 1 }, onclose }
+    });
+    flushSync();
+    await expect.element(page.getByRole('dialog')).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    await vi.waitFor(() => expect(onclose).toHaveBeenCalledTimes(1));
+    await page.getByRole('button', { name: 'Close' }).click();
+    await vi.waitFor(() => expect(onclose).toHaveBeenCalledTimes(2));
   });
 });
