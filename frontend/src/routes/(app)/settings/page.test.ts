@@ -1,4 +1,4 @@
-// Settings → Sign out (docs/dev/sync-protocol.md section 12): send what's waiting first, and
+// Settings › Your sign-in › Sign out (docs/dev/sync-protocol.md section 12): send what's waiting first, and
 // warn before losing what still can't be sent.
 
 import { flushSync, mount, unmount } from 'svelte';

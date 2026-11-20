@@ -46,10 +46,12 @@
   }
 
   function takeOut(index: number) {
+    const number = numberOf(index);
     const [step] = draft.steps.splice(index, 1);
     if (!step) return;
+    // "Remove" everywhere, with the step's number, the same as on Check (FE4, cabledrawer 20 Nov).
     const entry: UndoEntry = {
-      label: step.kind === 'heading' ? 'Took out the heading' : 'Took out a step',
+      label: step.kind === 'heading' ? 'Removed the heading' : `Removed step ${number}`,
       undo: () => {
         draft.steps.splice(Math.min(index, draft.steps.length), 0, step);
       }
@@ -123,8 +125,8 @@
           type="button"
           class="mw-icon take-out"
           aria-label={step.kind === 'heading'
-            ? 'Take out this heading'
-            : `Take out step ${numberOf(i)}`}
+            ? 'Remove this heading'
+            : `Remove step ${numberOf(i)}`}
           onclick={() => takeOut(i)}
         >
           <Icon name="close" size={18} />

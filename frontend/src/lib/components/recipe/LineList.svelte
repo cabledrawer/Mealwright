@@ -115,7 +115,7 @@
     if (active === line.key) close();
     const name = line.words.trim() || (line.kind === 'heading' ? 'the heading' : 'the line');
     const entry: UndoEntry = {
-      label: `Took out ${name}`,
+      label: `Removed ${name}`,
       undo: () => {
         draft.lines.splice(Math.min(index, draft.lines.length), 0, line);
       }
@@ -378,7 +378,7 @@
         <button
           type="button"
           class="mw-icon take-out"
-          aria-label={line.kind === 'heading' ? 'Take out this heading' : 'Take out of this recipe'}
+          aria-label={line.kind === 'heading' ? 'Remove this heading' : 'Remove line'}
           onclick={() => takeOut(i)}
         >
           <Icon name="close" size={18} />

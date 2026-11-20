@@ -22,7 +22,7 @@ The existing artboards are the prototype: their buttons are real links, so there
 
 **Linked paths (all four sets: phone/desktop × light/dark)**
 
-- Sign in → Today; Sign in → "First time here?" → Onboarding → Today; Settings → Sign out → Sign in
+- Sign in → Today; Sign in → "First time here?" → Onboarding → Today; Settings › Your sign-in › Sign out → Sign in
 - Bottom tabs (phone) and sidebar (desktop) between Today · Plan · Shopping · Pantry · Recipes
 - Avatar → Settings (phone: Today avatar only; desktop: sidebar avatar)
 - Today → "Did you cook Sambar?" → Cooked it → "Cooked it" review; Move it → Plan; Didn't → card goes away

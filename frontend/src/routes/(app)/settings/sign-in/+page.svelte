@@ -61,7 +61,7 @@
     return waiting === UNREADABLE ? 0 : waiting.count;
   }
 
-  // Settings → Sign out returns to Sign in (spec). Changes still waiting are sent first, for
+  // Settings › Your sign-in › Sign out returns to Sign in (spec). Changes still waiting are sent first, for
   // up to 5 seconds; if any are left, the one "Are you sure?" of the app says so, because
   // unsent changes can't be undone (docs/dev/sync-protocol.md section 12). When the phone
   // couldn't check what's waiting, it doesn't sign out (nothing is wiped) and says so, with

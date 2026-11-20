@@ -258,13 +258,13 @@ test('lines can be put in a new order with the keyboard and the mouse', async ({
   expect((await getRecipe(page, recipe.id)).lines.map((l: Json) => l.words)).toEqual(['charlie', 'bravo', 'alpha']);
 });
 
-test('taking out a line has Undo', async ({ page }) => {
-  const recipe = await makeRecipe(page, { name: unique('Take out'), lines: [{ words: 'alpha' }, { words: 'bravo' }] });
+test('removing a line has Undo', async ({ page }) => {
+  const recipe = await makeRecipe(page, { name: unique('Remove line'), lines: [{ words: 'alpha' }, { words: 'bravo' }] });
   await page.goto(`/recipes/${recipe.id}/edit`);
-  await page.getByRole('button', { name: 'Take out of this recipe' }).first().click();
-  await expect(page.getByText('Took out alpha')).toBeVisible();
+  await page.getByRole('button', { name: 'Remove line' }).first().click();
+  await expect(page.getByText('Removed alpha')).toBeVisible();
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(page.getByText('Undone: Took out alpha')).toBeVisible();
+  await expect(page.getByText('Undone: Removed alpha')).toBeVisible();
   await expect(page.locator('[data-line]')).toHaveCount(2);
 });
 

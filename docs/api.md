@@ -6,7 +6,7 @@ Everything the Mealwright web app does, it does through the same public API, so 
 
 - **Base address:** `https://<your Mealwright address>/api/v1`, for example `https://mealwright.example.com/api/v1`.
 - **The OpenAPI description:** `https://<your Mealwright address>/api/v1/openapi.json`. It lists every call, what it takes and what it gives back, and it needs no sign-in. Mealwright serves no web page for browsing it, because the usual pages load scripts from a third-party site, which Mealwright never does. Open the JSON in any OpenAPI viewer on your own computer, or in a tool you trust.
-- **The version:** `GET /api/v1/version` answers `{"version": "…"}` with no sign-in. Update tools such as Diun and Renovate can use it.
+- **The version:** `GET /api/v1/version` answers `{"version": "…"}` with no sign-in. Update tools such as Diun and Renovate can use it. **Pre-releases use Python's spelling:** a test version such as `0.9.5-beta.2` answers `0.9.5b2` (the CHANGELOG, the tag, the image and the About screen say `0.9.5-beta.2`). A tool that compares the answer with image tags has to treat the two spellings as the same version; releases from 1.0.0 have only the plain form (`1.0.0`), so nothing differs for them.
 - **The health check:** `GET /api/v1/health` answers `{"status": "ok"}` with no sign-in when the database answers a trivial query, and 503 `{"status": "unavailable"}` when it does not. It says nothing else (no version, no counts, no reason). The image's health check calls it.
 
 ## Make an API token
