@@ -5,9 +5,14 @@ import type { GroupName, IconKey } from './items.js';
 
 export const SECTION_ICONS: Record<
   IconKey,
-  { tone: 'you' | 'kitchen' | 'quiet'; paths: string[] }
+  { tone: 'you' | 'kitchen' | 'quiet'; paths: string[]; filled?: string[] }
 > = {
-  appearance: { tone: 'you', paths: ['M12 3a9 9 0 1 0 0 18z', 'M12 3v18'] },
+  // The same drawing as the Icon's "auto" (beta.3 icon pack): a circle with its right half filled.
+  appearance: {
+    tone: 'you',
+    paths: ['M4 12a8 8 0 1 0 16 0 8 8 0 1 0-16 0z'],
+    filled: ['M12 4a8 8 0 0 1 0 16z']
+  },
   amounts: { tone: 'you', paths: ['M12 3v18M5 7h14M5 7l-3 7h6zM19 7l-3 7h6z'] },
   'meal-slots': {
     tone: 'kitchen',
@@ -22,7 +27,13 @@ export const SECTION_ICONS: Record<
   },
   'your-kitchen': {
     tone: 'kitchen',
-    paths: ['M5 10h14v8a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z', 'M3 10h18', 'M10 6.5h4M8 3.5h8']
+    // A hob: two rings and three knobs (beta.3 icon pack).
+    paths: [
+      'M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      'M6 10.5a2.5 2.5 0 1 0 5 0 2.5 2.5 0 1 0-5 0z',
+      'M13 10.5a2.5 2.5 0 1 0 5 0 2.5 2.5 0 1 0-5 0z',
+      'M7 16.5h.01M12 16.5h.01M17 16.5h.01'
+    ]
   },
   'recent-changes': {
     tone: 'kitchen',
@@ -36,7 +47,8 @@ export const SECTION_ICONS: Record<
       'M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14.5c1.8.9 3 2.9 3 5.5'
     ]
   },
-  privacy: { tone: 'quiet', paths: ['M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z'] },
+  // The same shield as the Icon's "shield".
+  privacy: { tone: 'quiet', paths: ['M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z'] },
   // A database: stacked discs (cabledrawer 12 Nov).
   'your-data': {
     tone: 'quiet',

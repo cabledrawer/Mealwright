@@ -62,22 +62,25 @@
   {#if name === 'today'}
     <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
   {:else if name === 'plan'}
-    <rect x="3" y="5" width="18" height="16" rx="2" />
-    <path d="M3 10h18M8 3v4M16 3v4" />
+    <!-- Plan and calendar are one drawing (beta.3 icon pack, agreed 20 Nov). -->
+    <rect x="3" y="4.5" width="18" height="16.5" rx="2" />
+    <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
+    <path d="M7.5 13.5h.01M12 13.5h.01M16.5 13.5h.01M7.5 17h.01M12 17h.01" />
   {:else if name === 'shopping'}
-    <path d="M5 8h14l-1 12H6z" />
-    <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+    <path d="M4 8h16l-1.2 12.1a1 1 0 0 1-.9.9H6.2a1 1 0 0 1-.9-.9z" />
+    <path d="M8.5 8V6.5a3.5 3.5 0 0 1 7 0V8" />
   {:else if name === 'pantry'}
-    <path d="M3 4h18v4H3z" />
+    <rect x="3" y="4" width="18" height="4" rx="1" />
     <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
     <path d="M10 12h4" />
   {:else if name === 'recipes'}
-    <path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" />
-    <path d="M9 9h6M9 13h4" />
+    <path d="M3 5.5c3-1 6-1 9 1 3-2 6-2 9-1V19c-3-1-6-1-9 1-3-2-6-2-9-1z" />
+    <path d="M12 6.5V20" />
   {:else if name === 'ingredients'}
-    <!-- Ingredients in the main menu (F251; the icon the Settings mockup draws): a round token with a plus. -->
-    <circle cx="12" cy="12" r="8" />
-    <path d="M12 8v8M8 12h8" />
+    <!-- Ingredients everywhere (F255, beta.3 icon pack): a carrot. -->
+    <path d="M4 20c1-4 4.5-9.5 7-12a2.5 2.5 0 0 1 3.5 3.5C12 14 7 18 4 20z" />
+    <path d="M15 9l4.5-4.5M13.5 7.5l.8-4.3M16.5 10.5l4.3-.8" />
+    <path d="M8 15.5l1.5 1M10.5 12.5l1.5 1" />
   {:else if name === 'auto'}
     <circle cx="12" cy="12" r="8" />
     <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" />
@@ -92,10 +95,10 @@
     <path d="M10 3v6.2L5.2 18.4A1.8 1.8 0 0 0 6.8 21h10.4a1.8 1.8 0 0 0 1.6-2.6L14 9.2V3" />
     <path d="M7.3 15h9.4" />
   {:else if name === 'batch'}
-    <!-- Batch cook (mockup BatchPick08-Desktop): a pot with its lid steaming. -->
-    <path d="M4 11h13v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" />
-    <path d="M17 13h3" />
-    <path d="M8 4v3M12 4v3" />
+    <!-- Batch cook (beta.3 icon pack): stacked tubs. The pan stays for Cook. -->
+    <rect x="4" y="12" width="16" height="8" rx="2" />
+    <rect x="6" y="5" width="12" height="7" rx="2" />
+    <path d="M9 8.5h6M9 16h6" />
   {:else if name === 'dark'}
     <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
   {:else if name === 'expand'}
@@ -114,9 +117,9 @@
     <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" />
     <path d="M13.5 6.5l4 4" />
   {:else if name === 'calendar'}
-    <rect x="4" y="5" width="16" height="15" rx="2.5" />
-    <path d="M4 10h16M8.5 3v4M15.5 3v4" />
-    <path d="M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01" />
+    <rect x="3" y="4.5" width="18" height="16.5" rx="2" />
+    <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
+    <path d="M7.5 13.5h.01M12 13.5h.01M16.5 13.5h.01M7.5 17h.01M12 17h.01" />
   {:else if name === 'plus'}
     <path d="M12 5v14M5 12h14" />
   {:else if name === 'trash'}
