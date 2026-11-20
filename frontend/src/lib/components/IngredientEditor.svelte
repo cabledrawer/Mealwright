@@ -634,7 +634,8 @@
               onkeydown={boxKeys(() => (addingShop = false))}
             />
           {:else}
-            <button type="button" class="add" onclick={() => (addingShop = true)}>+ New shop</button>
+            <button type="button" class="add" onclick={() => (addingShop = true)}>+ New shop</button
+            >
           {/if}
         </div>
       </div>
