@@ -30,6 +30,12 @@
     background: var(--color-fill);
   }
 
+  .bar :global(.mw-button) {
+    padding: 0 14px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-md);
+  }
+
   .count {
     flex: 1;
     min-width: 6em;

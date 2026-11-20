@@ -4,7 +4,6 @@
   // and a line saying how many more are waiting behind it. Nothing changes in the pantry until
   // it is answered (spec, "Meals nobody cooked"). The words are proposed, for cabledrawer.
   import Button from '#lib/components/Button.svelte';
-  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import { downLine } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
   import type { TodayModel } from '#lib/today.svelte.js';
@@ -38,12 +37,13 @@
     <span class="title" id="{uid}-t">Did you cook {name}?</span>
     <span class="note">Nothing changes in the pantry until you say.</span>
   </div>
-  <ButtonRow>
-    <Button disabled={model.readonly} onclick={oncooked}>Cooked it</Button>
-    <Button quiet disabled={model.readonly} onclick={() => void model.didnt(waiting)}>Didn’t</Button
+  <div class="buttons">
+    <Button small disabled={model.readonly} onclick={oncooked}>Cooked it</Button>
+    <Button small quiet disabled={model.readonly} onclick={() => void model.didnt(waiting)}
+      >Didn’t</Button
     >
-    <Button quiet disabled={model.readonly} onclick={onmove}>Move it</Button>
-  </ButtonRow>
+    <Button small quiet disabled={model.readonly} onclick={onmove}>Move it</Button>
+  </div>
   {#if model.readonly}
     <p class="offline" role="status">
       {downLine(network.deviceOffline, (b) => `Today changes ${b.when}.`)}
@@ -89,6 +89,23 @@
   .note {
     color: var(--color-text-muted);
     font-size: var(--text-base);
+  }
+
+  /* Three equal buttons across the card, as before the shared Button (the look is kept). */
+  .buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+    gap: var(--space-3);
+  }
+
+  .buttons :global(.mw-button) {
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-lg);
+    font-size: var(--text-base);
+  }
+
+  .buttons :global(.mw-button.quiet) {
+    background: var(--color-fill);
   }
 
   .offline,

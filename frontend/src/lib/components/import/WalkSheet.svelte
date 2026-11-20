@@ -176,7 +176,9 @@
             {/if}
             <Button quiet onclick={() => newIngredient(true)}>Treat as staple</Button>
           </div>
-          <Button quiet small onclick={() => flow.walkNext()}>Skip this line</Button>
+          <span class="skip"
+            ><Button plain small onclick={() => flow.walkNext()}>Skip this line</Button></span
+          >
         </div>
       {/if}
 
@@ -206,6 +208,15 @@
 </Sheet>
 
 <style>
+  /* "Skip this line" keeps its words-only size from before the shared Button. */
+  .skip {
+    display: contents;
+  }
+
+  .skip :global(.mw-button) {
+    font-size: 14px;
+  }
+
   .body {
     display: flex;
     flex-direction: column;

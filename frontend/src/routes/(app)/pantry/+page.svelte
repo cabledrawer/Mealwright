@@ -929,6 +929,8 @@
   }
 
   .tools {
+    /* The filter chips keep their old width here. */
+    --chip-pad: 14px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;

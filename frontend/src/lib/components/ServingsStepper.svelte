@@ -34,6 +34,7 @@
 <style>
   .words {
     display: inline-block;
-    min-width: 4.5em;
+    /* The old box was 4.5em wide with its padding inside it. */
+    min-width: calc(4.5em - var(--space-6));
   }
 </style>

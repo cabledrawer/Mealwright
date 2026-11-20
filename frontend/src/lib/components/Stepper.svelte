@@ -15,6 +15,7 @@
     onmore,
     lessOff = false,
     moreOff = false,
+    wide = false,
     children
   }: {
     /** What is counted, lower case: "servings", "portions", "tubs", "hob rings". */
@@ -27,12 +28,14 @@
     onmore: () => void;
     lessOff?: boolean;
     moreOff?: boolean;
+    /** A form field: the full width of its column, the number in the middle (New recipe's Serves). */
+    wide?: boolean;
     /** The number, or the box that holds it. */
     children: Snippet;
   } = $props();
 </script>
 
-<span class="stepper" role="group" aria-label={label ?? what}>
+<span class="stepper" class:wide role="group" aria-label={label ?? what}>
   <button type="button" aria-label="{less} {what}" disabled={lessOff} onclick={onless}>−</button>
   <span class="now" aria-live="polite">{@render children()}</span>
   <button type="button" aria-label="More {what}" disabled={moreOff} onclick={onmore}>+</button>
@@ -73,6 +76,23 @@
     font-size: var(--text-base);
     font-weight: var(--weight-bold);
     text-align: center;
+  }
+
+  .wide {
+    display: flex;
+    justify-content: space-between;
+    min-height: 52px;
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+  }
+
+  .wide button {
+    border-radius: 10px;
+  }
+
+  .wide .now {
+    font-size: 1rem;
+    font-weight: var(--weight-extrabold);
   }
 
   /* On paper only the words stay. */

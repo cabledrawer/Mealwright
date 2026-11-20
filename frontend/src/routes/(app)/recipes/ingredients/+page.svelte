@@ -247,7 +247,9 @@
       <!-- A phone shows the round + as Pantry does: the words beside the title squeezed it
            until "Ingredients" broke inside the word at 390 px. -->
       {#if desktop}
-        <Button small onclick={() => void makeNew()}>+ New ingredient</Button>
+        <span class="new"
+          ><Button small onclick={() => void makeNew()}>+ New ingredient</Button></span
+        >
       {:else}
         <button
           type="button"
@@ -302,7 +304,10 @@
             (list.filter = value === 'maybe_same' && list.filter === value ? 'all' : value)}
         />
         {#if !network.offline}
-          <Button small quiet onclick={() => starterPacks.show()}>Add a starter pack</Button>
+          <span class="starter"
+            ><Button small outline onclick={() => starterPacks.show()}>Add a starter pack</Button
+            ></span
+          >
         {/if}
       </div>
 
@@ -451,6 +456,26 @@
     background: var(--color-inverse);
     color: var(--color-inverse-text);
     cursor: pointer;
+  }
+
+  /* The two buttons keep their looks from before the shared Button. */
+  .new,
+  .starter {
+    display: contents;
+  }
+
+  .new :global(.mw-button) {
+    padding: 0 18px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-base);
+  }
+
+  .starter :global(.mw-button) {
+    border-color: var(--color-field-border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    color: var(--color-accent);
+    font-size: var(--text-base);
   }
 
   .layout {

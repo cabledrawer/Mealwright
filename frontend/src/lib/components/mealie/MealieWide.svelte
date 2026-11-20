@@ -170,7 +170,7 @@
       <div class="head">
         <h2>{job.file_name} <span class="sub light">· {fileWords(job)}</span></h2>
         {#if flow.admin}
-          <Button quiet small disabled={flow.busy || offline} onclick={() => picker?.click()}
+          <Button outline small disabled={flow.busy || offline} onclick={() => picker?.click()}
             >{flow.sending ? 'Reading the file…' : 'Choose another file'}</Button
           >
         {/if}
@@ -255,7 +255,7 @@
       <div class="showing">
         <span class="sub">{showingWords(shown.length, found.length)}</span>
         {#if shown.length < found.length}
-          <Button quiet small onclick={() => (limit += PAGE)}>Show more</Button>
+          <Button outline small onclick={() => (limit += PAGE)}>Show more</Button>
         {/if}
       </div>
       {#if preview.with_photo}
@@ -282,7 +282,7 @@
             disabled={flow.busy || offline || flow.chosen === 0}
             onclick={() => void flow.start()}>{bringInWords(flow.chosen)}</Button
           >
-          <Button quiet disabled={flow.busy || offline} onclick={() => void flow.cancel()}
+          <Button outline disabled={flow.busy || offline} onclick={() => void flow.cancel()}
             >Cancel</Button
           >
         </ButtonRow>
@@ -360,8 +360,11 @@
         <div class="head">
           <h2>{recipesWords(job.counts.drafts)} to check</h2>
           {#if flow.admin}
-            <Button quiet small disabled={flow.busy || offline} onclick={() => void flow.saveAll()}
-              >{saveAllWords()}</Button
+            <Button
+              outline
+              small
+              disabled={flow.busy || offline}
+              onclick={() => void flow.saveAll()}>{saveAllWords()}</Button
             >
           {/if}
         </div>
@@ -403,7 +406,7 @@
       <section class="dcard">
         <div class="row">
           <span class="lbl">Undo this import<small>{undoWords(job)}</small></span>
-          <Button quiet small disabled={flow.busy || offline} onclick={() => void flow.undo()}
+          <Button outline small disabled={flow.busy || offline} onclick={() => void flow.undo()}
             >Undo</Button
           >
         </div>
@@ -417,6 +420,14 @@
 </div>
 
 <style>
+  /* The buttons keep their round shape, size and (for the second choice) line-only look from
+     before the shared Button. */
+  .wide :global(.mw-button) {
+    padding: 0 16px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-base);
+  }
+
   .wide {
     display: flex;
     flex-direction: column;

@@ -53,7 +53,7 @@
     min-width: var(--touch-target);
     min-height: var(--touch-target);
     flex: none;
-    padding: 0 var(--space-6);
+    padding: 0 var(--chip-pad, var(--space-6));
     white-space: nowrap;
     border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-full);

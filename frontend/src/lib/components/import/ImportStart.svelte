@@ -137,7 +137,7 @@
                 >Open Settings</a
               >
             {/if}
-            <Button quiet small onclick={() => void pasteInstead()}>Paste text instead</Button>
+            <Button outline small onclick={() => void pasteInstead()}>Paste text instead</Button>
           </p>
         </div>
       {:else}
@@ -150,7 +150,7 @@
           {/if}
           {#if flow.problem.code === 'import_switched_off' || /^(bad_link|not_a_page|no_recipe|cant_read)$/.test(flow.problem.code)}
             <p class="actions">
-              <Button quiet small onclick={() => void pasteInstead()}>Paste text instead</Button>
+              <Button outline small onclick={() => void pasteInstead()}>Paste text instead</Button>
             </p>
           {/if}
         </div>
@@ -375,6 +375,13 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-4);
+  }
+
+  /* "Paste text instead" keeps its line-only look and size from before the shared Button. */
+  .actions :global(.mw-button) {
+    padding: 0 var(--space-7);
+    border-radius: var(--radius-lg);
+    font-size: var(--text-base);
   }
 
   .button,

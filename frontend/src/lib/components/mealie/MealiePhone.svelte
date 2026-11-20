@@ -144,7 +144,7 @@
       <span class="ic"><Icon name="note" size={18} stroke={2.2} /></span>
       <span class="rn"><b>{job.file_name}</b><span>{fileWords(job)}</span></span>
       {#if flow.admin}
-        <Button quiet small disabled={flow.busy || offline} onclick={() => picker?.click()}
+        <Button outline small disabled={flow.busy || offline} onclick={() => picker?.click()}
           >{flow.sending ? 'Reading…' : 'Change'}</Button
         >
       {/if}
@@ -225,7 +225,7 @@
             disabled={flow.busy || offline || flow.chosen === 0}
             onclick={() => void flow.start()}>{bringInWords(flow.chosen)}</Button
           >
-          <Button quiet disabled={flow.busy || offline} onclick={() => void flow.cancel()}
+          <Button outline disabled={flow.busy || offline} onclick={() => void flow.cancel()}
             >Cancel</Button
           >
         </ButtonRow>
@@ -318,7 +318,7 @@
       <div class="card">
         <div class="r">
           <span class="rn"><b>Undo this import</b><span>{undoWords(job)}</span></span>
-          <Button quiet small disabled={flow.busy || offline} onclick={() => void flow.undo()}
+          <Button outline small disabled={flow.busy || offline} onclick={() => void flow.undo()}
             >Undo</Button
           >
         </div>
@@ -342,6 +342,13 @@
 </div>
 
 <style>
+  /* The buttons keep their round shape and line-only second choice from before the shared Button. */
+  .mealie :global(.mw-button) {
+    border-radius: var(--radius-full);
+    font-size: 15px;
+    font-weight: var(--weight-extrabold);
+  }
+
   .mealie {
     display: flex;
     flex-direction: column;

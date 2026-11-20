@@ -21,6 +21,7 @@
   <Stepper
     what="servings"
     label="Serves"
+    wide
     onless={less}
     onmore={more}
     lessOff={serves === null || serves <= 1}
