@@ -262,7 +262,10 @@ for (const width of [1100, 1300]) {
 
       await menu.getByRole('menuitem', { name: 'Move to…' }).click();
       await expect(page.getByRole('menu', { name: names[0]! })).toHaveCount(0);
+      // The picker's code is fetched on first use: Esc goes to it once it is open.
+      await expect(page.getByRole('dialog', { name: `Move ${names[0]} to…` })).toBeVisible();
       await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog', { name: `Move ${names[0]} to…` })).toHaveCount(0);
 
       await more.click();
       await page.getByRole('menu', { name: names[0]! }).getByRole('menuitem', { name: 'Remove from list…' }).click();
