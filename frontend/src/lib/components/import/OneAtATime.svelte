@@ -427,11 +427,12 @@
       {#if editing !== step}
         <div class="actions">
           {#if previewing}
-            <Button onclick={() => flow.keepSplit(stepAt)}>Keep the split</Button>
-            <Button quiet onclick={() => (flow.previewStep = null)}>Keep as one</Button>
+            <Button soft onclick={() => flow.keepSplit(stepAt)}>Keep the split</Button>
+            <Button plain small onclick={() => (flow.previewStep = null)}>Keep as one</Button>
           {:else}
             {#if pieces}
               <Button
+                soft
                 onclick={() => {
                   flow.previewStep = stepAt;
                 }}>Split into shorter steps</Button
@@ -439,17 +440,18 @@
             {/if}
             <div class="two">
               <Button
-                quiet
+                outline
+                small
                 onclick={() => {
                   flow.previewStep = null;
                   editing = step;
                 }}>Change the words</Button
               >
-              <Button quiet onclick={() => void takeOut()}>Remove step</Button>
+              <Button outline small onclick={() => void takeOut()}>Remove step</Button>
             </div>
           {/if}
           {#if flow.stepsBefore}
-            <Button quiet small onclick={() => flow.putStepsBack()}
+            <Button plain small onclick={() => flow.putStepsBack()}
               >Put the steps back as they were</Button
             >
           {/if}
@@ -506,7 +508,7 @@
              kept: the draft stays as it was last kept. A review never kept is left with Discard
              draft below. -->
         {#if flow.draftId !== null}
-          <Button quiet disabled={flow.saving || editing !== null} onclick={onleave}
+          <Button plain disabled={flow.saving || editing !== null} onclick={onleave}
             >Discard changes</Button
           >
         {/if}
@@ -520,13 +522,13 @@
           >{last ? (flow.saving ? 'Saving…' : 'Save recipe') : 'Next →'}</Button
         >
         {#if item}
-          <Button quiet disabled={at === 0 || editing !== null} onclick={() => void go(at - 1)}
+          <Button outline disabled={at === 0 || editing !== null} onclick={() => void go(at - 1)}
             >← Back</Button
           >
         {/if}
       </ButtonRow>
       <Button
-        quiet
+        plain
         disabled={flow.saving ||
           closing ||
           editing !== null ||

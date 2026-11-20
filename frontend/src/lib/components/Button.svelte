@@ -2,7 +2,12 @@
   // The one button (FE16). `main` (the default) is the action the page is for: big, dark on light
   // (light on dark). `quiet` is the other choice beside it, on a soft fill (the onboarding
   // mockup's Back). `danger` is for taking something away. `small` is the same button at the
-  // 44 px touch size and the width of its words, for a row or a card. Anything else a button
+  // 44 px touch size and the width of its words, for a row or a card.
+  // Where the screen's own mockup asks for another look, one more variant gives it (kept from the
+  // looks before the shared button): `outline` (a line, no fill), `plain` (words only, muted),
+  // `soft` (the accent's soft fill), `yes` (green, "Yes, it waits"), `stop` and `warn` (the soft
+  // red and amber boxes of Delete everything and Remove from household); `danger` with `outline`
+  // or `plain` is words in the warning colour. Anything else a button
   // may carry (autofocus, data-testid, aria-*, form, name) is passed straight on.
   import type { Snippet } from 'svelte';
   import type { HTMLButtonAttributes } from 'svelte/elements';
@@ -12,6 +17,12 @@
     quiet = false,
     danger = false,
     small = false,
+    outline = false,
+    plain = false,
+    soft = false,
+    yes = false,
+    stop = false,
+    warn = false,
     disabled = false,
     onclick,
     children,
@@ -21,13 +32,32 @@
     quiet?: boolean;
     danger?: boolean;
     small?: boolean;
+    outline?: boolean;
+    plain?: boolean;
+    soft?: boolean;
+    yes?: boolean;
+    stop?: boolean;
+    warn?: boolean;
     disabled?: boolean;
     children: Snippet;
   } = $props();
 </script>
 
-<button class="mw-button" class:quiet class:danger class:small {type} {disabled} {onclick} {...rest}
-  >{@render children()}</button
+<button
+  class="mw-button"
+  class:quiet
+  class:danger
+  class:small
+  class:outline
+  class:plain
+  class:soft
+  class:yes
+  class:stop
+  class:warn
+  {type}
+  {disabled}
+  {onclick}
+  {...rest}>{@render children()}</button
 >
 
 <style>
@@ -55,6 +85,46 @@
   .danger {
     background: var(--color-danger);
     color: var(--color-danger-text);
+  }
+
+  .outline {
+    border: 1px solid var(--color-border-strong);
+    background: transparent;
+    color: var(--color-text);
+  }
+
+  .plain {
+    background: transparent;
+    color: var(--color-text-muted);
+  }
+
+  .soft {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-on-soft);
+    font-weight: var(--weight-extrabold);
+  }
+
+  .yes {
+    background: var(--color-wait-yes);
+    color: var(--color-wait-yes-text);
+  }
+
+  .stop {
+    border: 1px solid var(--color-stop-border);
+    background: var(--color-stop);
+    color: var(--color-stop-title);
+  }
+
+  .warn {
+    border: 1px solid var(--color-warning-border);
+    background: var(--color-warning);
+    color: var(--color-warning-text);
+  }
+
+  .danger.outline,
+  .danger.plain {
+    background: transparent;
+    color: var(--color-warning-text);
   }
 
   .small {

@@ -63,7 +63,7 @@
       {#if chosen}
         <button type="button" class="chip" onclick={onback}>Back to how it was read</button>
       {/if}
-      <Button quiet small onclick={oncancel}>Cancel</Button>
+      <Button plain small onclick={oncancel}>Cancel</Button>
     </p>
   {:else}
     <label class="field" for="{uid}-name">
@@ -92,7 +92,7 @@
     <p class="hint">Mealwright looks for an ingredient with this name.</p>
     <ButtonRow>
       <Button disabled={busy} onclick={() => void done()}>Done</Button>
-      <Button quiet onclick={oncancel}>Cancel</Button>
+      <Button plain small onclick={oncancel}>Cancel</Button>
     </ButtonRow>
   {/if}
 </div>

@@ -558,7 +558,7 @@
           <p class="done-row">
             <span class="hint">The amount and note can be left empty.</span>
             <span class="two-buttons">
-              <Button quiet small onclick={giveUp}>Cancel</Button>
+              <Button plain small onclick={giveUp}>Cancel</Button>
               <Button small onclick={() => void nameIt()}>Add line</Button>
             </span>
           </p>
@@ -604,7 +604,7 @@
                 : `Each gets no amount: “${quantity} together” goes in its note.`}</span
             >
             <span class="two-buttons">
-              <Button quiet small onclick={() => (splitting = false)}>Cancel</Button>
+              <Button plain small onclick={() => (splitting = false)}>Cancel</Button>
               <Button small onclick={() => void doSplit()}>Split</Button>
             </span>
           </p>
@@ -776,7 +776,7 @@
               </span>
             {/if}
             <span class="two-buttons">
-              <Button quiet small onclick={cancelForm}>Cancel</Button>
+              <Button plain small onclick={cancelForm}>Cancel</Button>
               <Button small onclick={doneForm}>Done</Button>
             </span>
           </div>

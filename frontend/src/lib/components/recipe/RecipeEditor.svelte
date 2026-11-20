@@ -651,7 +651,7 @@
 
         {#if editing}
           <div class="delete">
-            <Button danger small disabled={network.offline} onclick={() => void remove()}
+            <Button danger plain small disabled={network.offline} onclick={() => void remove()}
               >Delete recipe</Button
             >
             <span class="mw-hint">No “Are you sure?”: you can undo it for {UNDO_SPAN}.</span>

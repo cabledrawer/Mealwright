@@ -96,7 +96,7 @@
     {/if}
   </ul>
   {#if oncancel}
-    <Button small quiet onclick={oncancel}>Cancel</Button>
+    <Button small plain onclick={oncancel}>Cancel</Button>
   {/if}
 </div>
 

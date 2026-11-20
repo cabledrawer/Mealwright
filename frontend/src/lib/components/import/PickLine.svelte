@@ -210,7 +210,7 @@
   {:else if onlyRecipes && current && typed && rows.length === 0}
     <p class="muted">No recipe has that name. Import or write it first, then come back.</p>
   {/if}
-  <Button quiet small onclick={oncancel}>Cancel</Button>
+  <Button plain small onclick={oncancel}>Cancel</Button>
 </div>
 
 <style>

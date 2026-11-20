@@ -174,7 +174,7 @@
                   bind:value={typed}
                   autocomplete="off"
                 />
-                <Button small quiet onclick={() => (renaming = null)}>Cancel</Button>
+                <Button small outline onclick={() => (renaming = null)}>Cancel</Button>
                 <Button type="submit" small disabled={busy || !typed.trim()}>Save</Button>
               </form>
             {:else}
@@ -224,7 +224,7 @@
         {/if}
         <ButtonRow>
           <Button disabled={busy || !intoTag} onclick={() => void doMerge()}>Merge</Button>
-          <Button quiet onclick={cancelMerge}>Cancel</Button>
+          <Button outline onclick={cancelMerge}>Cancel</Button>
         </ButtonRow>
       </div>
     {/if}

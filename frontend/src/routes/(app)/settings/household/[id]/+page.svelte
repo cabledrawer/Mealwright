@@ -616,7 +616,7 @@
     {#if household.canChange}
       <Button disabled={locked || picking > 0} onclick={() => void save()}>Save</Button>
       {#if !person.is_me}
-        <Button danger disabled={locked || picking > 0} onclick={() => void remove()}
+        <Button warn disabled={locked || picking > 0} onclick={() => void remove()}
           >Remove {person.name}</Button
         >
         <p class="note">

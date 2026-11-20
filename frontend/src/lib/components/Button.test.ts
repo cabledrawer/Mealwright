@@ -48,4 +48,16 @@ describe('Button', () => {
     const main = page.getByRole('button', { name: 'Save' }).element() as HTMLElement;
     expect(small.getBoundingClientRect().height).toBeLessThan(main.getBoundingClientRect().height);
   });
+
+  it('has the older looks as variants: a line, words only, soft, green, stop and warn', async () => {
+    render({ looks: true });
+    const style = (name: string) =>
+      getComputedStyle(page.getByRole('button', { name, exact: true }).element());
+    expect(style('Outline').borderTopWidth).toBe('1px');
+    expect(style('Outline').backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(style('Plain').backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(style('Plain').borderTopWidth).toBe('0px');
+    const fills = ['Soft', 'Yes', 'Stop', 'Warn', 'Save'].map((n) => style(n).backgroundColor);
+    expect(new Set(fills).size).toBe(fills.length);
+  });
 });

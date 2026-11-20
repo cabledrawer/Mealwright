@@ -449,7 +449,7 @@ describe('Import a recipe', () => {
       await add.click();
       // The added line's own Cancel (the page has a Cancel too).
       await expect.element(page.getByRole('textbox', { name: 'Name' }).last()).toBeVisible();
-      document.querySelector<HTMLElement>('li[data-added] button.quiet')!.click();
+      document.querySelector<HTMLElement>('li[data-added] button.plain')!.click();
       await expect.element(page.getByRole('button', { name: /^Add a line/ }).last()).toHaveFocus();
     });
 

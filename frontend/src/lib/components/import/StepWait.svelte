@@ -47,6 +47,7 @@
       <WaitFields bind:wait={step.wait!} bind:invalid {name} onchange={() => reworkMinutes(flow)} />
       <span class="buttons">
         <Button
+          yes
           small
           disabled={invalid}
           onclick={() => {
@@ -58,10 +59,10 @@
     {:else}
       <span class="buttons">
         {#if !step.wait_confirmed}
-          <Button small onclick={() => confirmWait(flow, step)}>Yes, it waits</Button>
+          <Button yes small onclick={() => confirmWait(flow, step)}>Yes, it waits</Button>
         {/if}
-        <Button quiet small onclick={() => (changing = true)}>Change</Button>
-        <Button quiet small onclick={() => takeOffWait(flow, step)}>No wait</Button>
+        <Button outline small onclick={() => (changing = true)}>Change</Button>
+        <Button outline small onclick={() => takeOffWait(flow, step)}>No wait</Button>
       </span>
     {/if}
   </div>

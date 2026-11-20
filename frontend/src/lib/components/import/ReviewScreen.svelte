@@ -553,7 +553,7 @@
                           flow.keepSplit(step.at);
                         }}>Keep the split</Button
                       >
-                      <Button quiet small onclick={() => (flow.previewStep = null)}
+                      <Button plain small onclick={() => (flow.previewStep = null)}
                         >Keep as one</Button
                       >
                     </span>
@@ -567,7 +567,7 @@
       {#if flow.stepsBefore}
         <p class="note">
           Some long steps were split into shorter ones.
-          <Button quiet small onclick={() => flow.putStepsBack()}
+          <Button plain small onclick={() => flow.putStepsBack()}
             >Put the steps back as they were</Button
           >
         </p>
@@ -658,7 +658,7 @@
                kept: the draft stays as it was last kept. A review never kept is left with Discard
                draft below. -->
           {#if flow.draftId !== null}
-            <Button quiet disabled={flow.saving || editing !== null} onclick={discardAndLeave}
+            <Button plain disabled={flow.saving || editing !== null} onclick={discardAndLeave}
               >Discard changes</Button
             >
           {/if}
@@ -682,7 +682,7 @@
           </Button>
         </ButtonRow>
         <Button
-          quiet
+          plain
           disabled={flow.saving || flow.keeping || editing !== null || discardOff}
           onclick={askDiscard}>Discard draft</Button
         >
@@ -712,7 +712,7 @@
         {flow.saving ? 'Saving…' : 'Save recipe'}
       </Button>
       <Button quiet disabled={editing !== null} onclick={leave}>Back to drafts</Button>
-      <Button quiet disabled={flow.saving || editing !== null || discardOff} onclick={askDiscard}
+      <Button plain disabled={flow.saving || editing !== null || discardOff} onclick={askDiscard}
         >Discard draft</Button
       >
     </ButtonRow>

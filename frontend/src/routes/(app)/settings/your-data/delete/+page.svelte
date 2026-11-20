@@ -266,7 +266,7 @@
       {#if problem}
         <p class="problem" role="alert">{problem}</p>
       {/if}
-      <Button type="submit" danger disabled={!ready}
+      <Button type="submit" stop disabled={!ready}
         >{busy ? 'Deleting…' : 'Delete everything'}</Button
       >
     </form>
