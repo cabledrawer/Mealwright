@@ -24,6 +24,8 @@
     type SsoSetup
   } from '#lib/client/sso.js';
   import Button from '#lib/components/Button.svelte';
+  import NeedsServer from '#lib/components/NeedsServer.svelte';
+  import { network } from '#lib/network.svelte.js';
   import Segmented from '#lib/components/Segmented.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
@@ -370,8 +372,10 @@
     <section class="card full" aria-labelledby="sso-try">
       <h2 id="sso-try">3 · Try it, then decide about passwords</h2>
       <div class="test">
-        <Button small disabled={!saved?.secret_set || testing} onclick={() => void test()}
-          >Test sign-in</Button
+        <Button
+          small
+          disabled={!saved?.secret_set || testing || network.offline}
+          onclick={() => void test()}>Test sign-in</Button
         >
         <span class="sub">
           {saved?.secret_set
@@ -399,9 +403,13 @@
                 {linkNote(myUsername)}
               </p>
               <div class="actions">
-                <Button disabled={linking} onclick={() => void answerLink(true)}>{LINK}</Button>
-                <Button quiet disabled={linking} onclick={() => void answerLink(false)}
-                  >{NOT_NOW}</Button
+                <Button disabled={linking || network.offline} onclick={() => void answerLink(true)}
+                  >{LINK}</Button
+                >
+                <Button
+                  quiet
+                  disabled={linking || network.offline}
+                  onclick={() => void answerLink(false)}>{NOT_NOW}</Button
                 >
               </div>
             </div>
@@ -436,8 +444,10 @@
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
       {#if notice}<p class="warn" role="status">{notice}</p>{/if}
       <p class="done" role="status">{done}</p>
+      <NeedsServer />
       <div class="actions">
-        <Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</Button>
+        <Button type="submit" disabled={busy || network.offline}>{busy ? 'Saving…' : 'Save'}</Button
+        >
         <Button quiet disabled={busy} onclick={cancel}>Cancel</Button>
       </div>
     </section>

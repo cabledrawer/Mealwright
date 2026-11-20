@@ -7,6 +7,7 @@
   import { tick, untrack } from 'svelte';
   import Button from '#lib/components/Button.svelte';
   import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import NeedsServer from '#lib/components/NeedsServer.svelte';
   import Segmented from '#lib/components/Segmented.svelte';
   import Sheet from '#lib/components/Sheet.svelte';
   import Stepper from '#lib/components/Stepper.svelte';
@@ -129,8 +130,9 @@
         </div>
       </div>
       {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
+      <NeedsServer />
       <ButtonRow>
-        <Button type="submit" disabled={saving}>Save</Button>
+        <Button type="submit" disabled={saving || network.offline}>Save</Button>
       </ButtonRow>
     </form>
   </Sheet>

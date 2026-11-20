@@ -11,10 +11,12 @@
   import { serverUndo } from '#lib/client/changes.js';
   import { listTags, mergeTag, renameTag, type TagCount } from '#lib/client/recipes.js';
   import { kitchen } from '#lib/freshness.svelte.js';
+  import { network } from '#lib/network.svelte.js';
   import { holdUndo, undoHistory } from '#lib/undo.svelte.js';
 
   import Button from '#lib/components/Button.svelte';
   import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import NeedsServer from '#lib/components/NeedsServer.svelte';
   import Sheet from '#lib/components/Sheet.svelte';
   import '#lib/styles/fields.css';
   import { plural } from '#lib/words.js';
@@ -147,6 +149,7 @@
 
 <Sheet title="Manage tags" {onclose}>
   <div class="body" bind:this={body}>
+    <NeedsServer />
     {#if loaded}<p class="total">{tags.length} {plural(tags.length, 'tag', 'tags')}</p>{/if}
 
     {#if loaded && tags.length === 0 && !problem}
@@ -175,7 +178,9 @@
                   autocomplete="off"
                 />
                 <Button small outline onclick={() => (renaming = null)}>Cancel</Button>
-                <Button type="submit" small disabled={busy || !typed.trim()}>Save</Button>
+                <Button type="submit" small disabled={busy || !typed.trim() || network.offline}
+                  >Save</Button
+                >
               </form>
             {:else}
               <span class="what">
@@ -189,6 +194,7 @@
                   small
                   quiet
                   aria-label="Rename {tag.name}"
+                  disabled={network.offline}
                   onclick={() => void startRename(tag)}>Rename</Button
                 >
                 {#if tags.length > 1}
@@ -197,6 +203,7 @@
                     quiet={like === undefined}
                     aria-label="Merge {tag.name} into…"
                     data-merge={tag.id}
+                    disabled={network.offline}
                     onclick={() => startMerge(tag)}>Merge into…</Button
                   >
                 {/if}
@@ -224,7 +231,9 @@
         {/if}
         <ButtonRow>
           <Button outline onclick={cancelMerge}>Cancel</Button>
-          <Button disabled={busy || !intoTag} onclick={() => void doMerge()}>Merge</Button>
+          <Button disabled={busy || !intoTag || network.offline} onclick={() => void doMerge()}
+            >Merge</Button
+          >
         </ButtonRow>
       </div>
     {/if}

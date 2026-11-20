@@ -8,6 +8,8 @@
   // many left?". A phone sheet: a real modal dialog, Esc closes it, and the focus goes back
   // where it came from. On a computer it is a box in the middle of the screen.
   import Button from '#lib/components/Button.svelte';
+  import NeedsServer from '#lib/components/NeedsServer.svelte';
+  import { network } from '#lib/network.svelte.js';
   import Sheet from '#lib/components/Sheet.svelte';
   import type { CountedAs } from '#lib/client/types.js';
 
@@ -151,11 +153,12 @@
         </span>
       </label>
       {#if problem}<p class="mw-error" id="{uid}-problem" role="alert">{problem}</p>{/if}
+      <NeedsServer />
       {#if countedAs === 'count'}
-        <Button type="submit">Save</Button>
-        <Button onclick={onall}>Used all {allWords}</Button>
+        <Button type="submit" disabled={network.offline}>Save</Button>
+        <Button disabled={network.offline} onclick={onall}>Used all {allWords}</Button>
       {:else}
-        <Button type="submit" disabled={!ready}>{mainWords}</Button>
+        <Button type="submit" disabled={!ready || network.offline}>{mainWords}</Button>
       {/if}
       <Button link onclick={onclose}>Cancel</Button>
     </form>

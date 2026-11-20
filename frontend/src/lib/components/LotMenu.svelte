@@ -6,6 +6,7 @@
   // bottom on phones. A real modal dialog: focus stays inside, Esc closes it, and focus
   // goes back to the packet's row.
   import { tick } from 'svelte';
+  import { blockedWhileDown } from '#lib/serverNeeded.js';
   import type { Lot, Place } from '#lib/client/types.js';
   import { BAD_DATE, isSaneDay, useByWords } from '#lib/dates.js';
   import { TOO_LATE_TO_FREEZE, tooLateToFreeze } from '#lib/tooLateToFreeze.js';
@@ -95,6 +96,8 @@
   }
 
   function act(run: () => unknown) {
+    // Offline a tap says why and changes nothing, like the rest of the Pantry (cabledrawer 18 Oct).
+    if (blockedWhileDown()) return;
     run();
     close();
   }
