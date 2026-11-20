@@ -67,10 +67,18 @@ class PlacesAndShops {
     this.shops = [];
   }
 
-  /** "+ Shop": adds it, or finds the one already called that. */
+  /** "+ Shop": adds it, or finds the one already called that (the server says so with a 409
+   * `name_taken` carrying it, as for "+ Place"). */
   async addShop(name: string): Promise<Shop> {
     const generation = this.#generation;
-    const shop = await addShop(name.trim());
+    let shop: Shop;
+    try {
+      shop = await addShop(name.trim());
+    } catch (error) {
+      const found = error instanceof ApiError ? existing<Shop>(error, 'shop') : null;
+      if (!found) throw error;
+      shop = found;
+    }
     // Forgotten (signed out) while asking: the shop is the last login's, so it isn't kept.
     if (generation !== this.#generation) return shop;
     this.#addedShops.push(shop);
@@ -79,14 +87,14 @@ class PlacesAndShops {
   }
 
   /** "+ Place": adds it last, or finds the one already called that (the server says so with a
-   * 409 `place_exists`), so the screen can just pick it. A network failure is thrown. */
+   * 409 `name_taken`), so the screen can just pick it. A network failure is thrown. */
   async addPlace(name: string, kind: PlaceKind): Promise<Place> {
     const generation = this.#generation;
     let place: Place;
     try {
       place = await addPlace(name.trim(), kind);
     } catch (error) {
-      const found = error instanceof ApiError ? existingPlace(error) : null;
+      const found = error instanceof ApiError ? existing<Place>(error, 'place') : null;
       if (!found) throw error;
       place = found;
     }
@@ -108,11 +116,11 @@ function withLater<T extends { id: number }>(list: T[], later: T[]): T[] {
   return [...list, ...missing];
 }
 
-/** The place a 409 `place_exists` names. */
-function existingPlace(error: ApiError): Place | null {
-  if (error.status !== 409 || codeOf(error.body) !== 'place_exists') return null;
-  const place = (error.body as { place?: Place }).place;
-  return place && typeof place.id === 'number' ? place : null;
+/** The place or shop a 409 `name_taken` carries (the one already called that). */
+function existing<T extends { id: number }>(error: ApiError, key: 'place' | 'shop'): T | null {
+  if (error.status !== 409 || codeOf(error.body) !== 'name_taken') return null;
+  const found = (error.body as Record<string, T | undefined>)[key];
+  return found && typeof found.id === 'number' ? found : null;
 }
 
 export const placesAndShops = new PlacesAndShops();

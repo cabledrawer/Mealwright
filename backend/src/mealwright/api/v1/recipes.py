@@ -110,7 +110,7 @@ class TagMerged(BaseModel):
 @router.patch("/recipes/tags/{tag_id}")
 def rename_tag(tag_id: StoredInt, body: RenameTag, kitchen: Here) -> TagOut:
     """Rename a tag, on every recipe that has it. A name another tag has (ignoring case and
-    accents) is a 409 `tag_exists` that carries that tag: use the merge instead. Not in Recent
+    accents) is a 409 `name_taken` that carries that tag: use the merge instead. Not in Recent
     changes (as a shop's rename isn't). Anyone in the household can."""
     lock_household(kitchen)
     tag = recipe_tags.rename(kitchen, recipe_tags.find(kitchen, tag_id), body.name)

@@ -98,9 +98,9 @@ def test_renaming_to_the_same_name_changes_nothing(kitchen: TestClient) -> None:
 def test_a_meal_name_the_household_has_is_refused(kitchen: TestClient) -> None:
     lunch = next(s for s in slots(kitchen) if s["name"] == "Lunch")
     refused = kitchen.patch(f"{API}/meal-slots/{lunch['id']}", json={"name": "dinner"})
-    assert refused.status_code == 409 and refused.json()["code"] == "slot_exists"
+    assert refused.status_code == 409 and refused.json()["code"] == "name_taken"
     added = kitchen.post(f"{API}/meal-slots", json={"name": "DINNER"})
-    assert added.status_code == 409 and added.json()["code"] == "slot_exists"
+    assert added.status_code == 409 and added.json()["code"] == "name_taken"
 
 
 def test_a_patch_with_nothing_in_it_is_refused(kitchen: TestClient) -> None:
@@ -204,7 +204,7 @@ def test_a_shop_name_another_shop_has_is_a_409(kitchen: TestClient) -> None:
     a = ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
     b = ok(kitchen.post(f"{API}/shops", json={"name": "Butcher"}), 201)
     refused = kitchen.patch(f"{API}/shops/{b['id']}", json={"name": "aldi"})
-    assert refused.status_code == 409 and refused.json()["code"] == "shop_exists"
+    assert refused.status_code == 409 and refused.json()["code"] == "name_taken"
     assert refused.json()["shop"] == {"id": a["id"], "name": "Aldi"}
     # Its own name, in other letters, is a rename.
     ok(kitchen.patch(f"{API}/shops/{b['id']}", json={"name": "BUTCHER"}))
@@ -313,7 +313,7 @@ def test_rename_and_order_places(member: TestClient, kitchen: TestClient) -> Non
     renamed = ok(member.patch(f"{API}/places/{spice}", json={"name": " Spices "}))
     assert renamed == {"id": spice, "name": "Spices", "kind": "cupboard"}
     clash = kitchen.patch(f"{API}/places/{spice}", json={"name": "cupboard"})
-    assert clash.status_code == 409 and clash.json()["code"] == "place_exists"
+    assert clash.status_code == 409 and clash.json()["code"] == "name_taken"
     ids = [p["id"] for p in ok(kitchen.get(f"{API}/places"))]
     wanted = [ids[3], ids[0], ids[1], ids[2]]
     order = ok(member.put(f"{API}/places/order", json={"ids": wanted}))
@@ -529,7 +529,7 @@ def test_adding_a_shop_is_in_recent_changes_and_undo_takes_it_away(kitchen: Test
 
 def test_adding_a_shop_that_is_already_there_records_nothing(kitchen: TestClient) -> None:
     ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
-    ok(kitchen.post(f"{API}/shops", json={"name": "aldi"}), 200)
+    ok(kitchen.post(f"{API}/shops", json={"name": "aldi"}), 409)
     summaries = [c["summary"] for c in ok(kitchen.get(f"{API}/changes"))["changes"]]
     assert summaries == ["Added the shop Aldi"]
 
@@ -1132,7 +1132,7 @@ def test_a_retried_new_meal_with_the_same_key_answers_the_stored_answer(
     assert names(slots(kitchen)).count("Elevenses") == 1
     # Without the key, or with another, the same name is still refused.
     again = kitchen.post(f"{API}/meal-slots", json={"name": "Elevenses"})
-    assert again.status_code == 409 and again.json()["code"] == "slot_exists"
+    assert again.status_code == 409 and again.json()["code"] == "name_taken"
     listed = [c["kind"] for c in ok(kitchen.get(f"{API}/changes"))["changes"]]
     assert "setting_kept" not in listed  # remembered, never listed
 

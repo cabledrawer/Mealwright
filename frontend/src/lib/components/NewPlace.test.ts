@@ -64,7 +64,7 @@ describe('"+ Place"', () => {
     fakeApi({
       'POST /places': [
         409,
-        { code: 'place_exists', detail: 'x', place: { id: 1, name: 'Fridge', kind: 'fridge' } }
+        { code: 'name_taken', detail: 'x', place: { id: 1, name: 'Fridge', kind: 'fridge' } }
       ]
     });
     await page.getByRole('textbox', { name: 'Place’s name' }).fill('fridge');

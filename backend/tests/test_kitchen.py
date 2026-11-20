@@ -68,9 +68,14 @@ def test_shop_by_name(kitchen: TestClient) -> None:
     assert response.status_code == 201
     tesco = response.json()
     assert tesco["name"] == "Tesco"
+    # A name it already has is refused and carries that shop, as "+ Place" is (BE1).
     again = kitchen.post(f"{API}/shops", json={"name": "tesco"})
-    assert again.status_code == 200
-    assert again.json() == tesco
+    assert again.status_code == 409
+    assert again.json() == {
+        "detail": "There’s already a shop called Tesco.",
+        "code": "name_taken",
+        "shop": tesco,
+    }
     kitchen.post(f"{API}/shops", json={"name": "Lidl"})
     assert [s["name"] for s in kitchen.get(f"{API}/shops").json()] == ["Tesco", "Lidl"]
 
@@ -98,7 +103,7 @@ def test_a_place_name_the_household_has_is_a_409_with_that_place(kitchen: TestCl
     response = kitchen.post(f"{API}/places", json={"name": "fridge", "kind": "cupboard"})
     assert response.status_code == 409
     body = response.json()
-    assert body["code"] == "place_exists"
+    assert body["code"] == "name_taken"
     assert body["place"] == {"id": 1, "name": "Fridge", "kind": "fridge"}
     assert len(kitchen.get(f"{API}/places").json()) == 4
 
@@ -163,7 +168,7 @@ def test_a_household_has_at_most_fifty_places(kitchen: TestClient, neighbour: Te
     # A name the household already has still gives that place, so the screen can pick it.
     again = kitchen.post(f"{API}/places", json={"name": "shelf 3", "kind": "cupboard"})
     assert again.status_code == 409
-    assert again.json()["code"] == "place_exists"
+    assert again.json()["code"] == "name_taken"
     # Another household is not held back by this one's places.
     theirs = neighbour.post(f"{API}/places", json={"name": "One too many", "kind": "cupboard"})
     assert theirs.status_code == 201

@@ -189,7 +189,7 @@ describe('Meal slots', () => {
     open({
       'POST /meal-slots': [
         409,
-        { code: 'slot_exists', detail: 'There’s already a meal called Dinner.' }
+        { code: 'name_taken', detail: 'There’s already a meal called Dinner.' }
       ]
     });
     await page.getByRole('button', { name: '+ New meal' }).click();
@@ -233,7 +233,7 @@ describe('Shops', () => {
     open({
       'PATCH /shops/1': [
         409,
-        { code: 'shop_exists', detail: 'There’s already a shop called Indian grocer.' }
+        { code: 'name_taken', detail: 'There’s already a shop called Indian grocer.' }
       ]
     });
     await page.getByRole('button', { name: 'Rename Supermarket' }).click();

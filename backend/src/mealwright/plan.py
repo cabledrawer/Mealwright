@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from mealwright import cooked, events, methods, start_ahead
 from mealwright.api.v1.context import Kitchen
-from mealwright.errors import Problem, not_found
+from mealwright.errors import Problem, name_taken, not_found
 from mealwright.history import Tally, as_utc, record, undo_message
 from mealwright.household import meal_slots, today
 from mealwright.models import (
@@ -1293,10 +1293,9 @@ def rename_slot(kitchen: Kitchen, slot: MealSlot, name: str) -> Change | None:
         return None
     for other in meal_slots(kitchen.db, kitchen.household_id):
         if other.id != slot.id and fold(other.name) == fold(name):
-            raise Problem(
-                status.HTTP_409_CONFLICT,
-                "slot_exists",
+            raise name_taken(
                 f"There’s already a meal called {other.name}.",  # proposed, for cabledrawer
+                slot={"id": other.id, "name": other.name},
             )
     before = slot.name
     slot.name = name

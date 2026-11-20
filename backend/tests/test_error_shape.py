@@ -49,3 +49,29 @@ def test_fastapis_own_errors_have_the_shape_too(kitchen: TestClient) -> None:
     assert wrong_method["detail"] == CANT_DO_HERE
     invalid = _problem(kitchen.post(f"{API}/foods", json={}), 422, "invalid")
     assert {"type", "loc", "msg"} <= set(invalid["detail"][0])
+
+
+def test_a_new_thing_with_a_used_name_is_one_code_carrying_the_one_there_is(
+    kitchen: TestClient,
+) -> None:
+    """BE1: "+ New" with a name the household already has (ignoring case) is refused the same
+    way everywhere: 409 `name_taken`, carrying what already has the name."""
+    food = kitchen.post(f"{API}/foods", json={"name": "Toor dal"}).json()["food"]
+    again = _problem(kitchen.post(f"{API}/foods", json={"name": "toor DAL"}), 409, "name_taken")
+    assert again["food_id"] == food["id"]
+
+    place = kitchen.post(f"{API}/places", json={"name": "Garage", "kind": "cupboard"}).json()
+    again = kitchen.post(f"{API}/places", json={"name": "garage", "kind": "fridge"})
+    assert _problem(again, 409, "name_taken")["place"] == place
+
+    shop = kitchen.post(f"{API}/shops", json={"name": "Aldi"}).json()
+    again = _problem(kitchen.post(f"{API}/shops", json={"name": "ALDI"}), 409, "name_taken")
+    assert again["shop"] == {"id": shop["id"], "name": "Aldi"}
+
+    slot = kitchen.post(f"{API}/meal-slots", json={"name": "Elevenses"}).json()
+    again = kitchen.post(f"{API}/meal-slots", json={"name": "elevenses"})
+    assert _problem(again, 409, "name_taken")["slot"] == {"id": slot["id"], "name": "Elevenses"}
+
+    kitchen.post(f"{API}/people", json={"name": "Asha"})
+    again = _problem(kitchen.post(f"{API}/people", json={"name": "asha"}), 409, "name_taken")
+    assert again["member"]["name"] == "Asha"

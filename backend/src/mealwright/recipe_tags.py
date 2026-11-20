@@ -7,7 +7,7 @@ from fastapi import status
 from sqlalchemy import delete, select
 
 from mealwright.api.v1.context import Kitchen
-from mealwright.errors import Problem, not_found
+from mealwright.errors import Problem, name_taken, not_found
 from mealwright.history import as_utc, bump_recipes_by, record
 from mealwright.models import Change, Recipe, RecipeTag, Tag
 from mealwright.names import fold
@@ -46,9 +46,7 @@ def recipes_with(kitchen: Kitchen, tag_id: int) -> list[int]:
 
 def _exists(name: str, other: Tag, undoing: bool = False) -> Problem:
     then = "Rename or merge it first." if undoing else "Use Merge into… to join them."
-    return Problem(
-        status.HTTP_409_CONFLICT,
-        "tag_exists",
+    return name_taken(
         f"There’s already a tag called {other.name}. {then}",
         tag={"id": other.id, "name": other.name},
     )
@@ -56,7 +54,7 @@ def _exists(name: str, other: Tag, undoing: bool = False) -> Problem:
 
 def absorb_orphans(kitchen: Kitchen, keep: Tag, name: str, undoing: bool = False) -> None:
     """Another tag with this name (ignoring case and accents). If a recipe shown has it, it is a
-    409 `tag_exists` that carries that tag: refused. If none has (the list and the sheet hide
+    409 `name_taken` that carries that tag: refused. If none has (the list and the sheet hide
     it, so the person can't see or pick it), it is folded into `keep` without a word: its links
     move over (a deleted recipe keeps the tag for when it comes back) and the empty row goes."""
     db = kitchen.db
@@ -79,7 +77,7 @@ def absorb_orphans(kitchen: Kitchen, keep: Tag, name: str, undoing: bool = False
 
 
 def rename(kitchen: Kitchen, tag: Tag, name: str) -> Tag:
-    """A name another tag has (ignoring case and accents) is a 409 `tag_exists` that carries
+    """A name another tag has (ignoring case and accents) is a 409 `name_taken` that carries
     that tag: it is refused, and the person is pointed to Merge. A tag no recipe shows doesn't
     count: it is folded in (`absorb_orphans`)."""
     absorb_orphans(kitchen, tag, name)

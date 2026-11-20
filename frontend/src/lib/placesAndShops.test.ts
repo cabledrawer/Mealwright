@@ -140,7 +140,7 @@ describe('signing out forgets the household’s shops and places', () => {
       'POST /places': [
         409,
         {
-          code: 'place_exists',
+          code: 'name_taken',
           detail: 'There’s already a place called Wren’s fridge.',
           place: { id: 1, name: 'Wren’s fridge', kind: 'fridge' }
         }
@@ -151,12 +151,28 @@ describe('signing out forgets the household’s shops and places', () => {
     expect(placesAndShops.places.map((p) => p.name)).toEqual(['Wren’s fridge']);
   });
 
+  it('a shop the household already has is picked, not added twice (409 name_taken)', async () => {
+    await wrensLoaded({
+      'POST /shops': [
+        409,
+        {
+          code: 'name_taken',
+          detail: 'There’s already a shop called Wren’s corner shop.',
+          shop: { id: 1, name: 'Wren’s corner shop' }
+        }
+      ]
+    });
+    const made = await placesAndShops.addShop('wren’s CORNER shop');
+    expect(made).toEqual({ id: 1, name: 'Wren’s corner shop' });
+    expect(placesAndShops.shops.map((s) => s.name)).toEqual(['Wren’s corner shop']);
+  });
+
   it('a place that is already held by the other server list is put in once', async () => {
     await wrensLoaded({
       'POST /places': [
         409,
         {
-          code: 'place_exists',
+          code: 'name_taken',
           detail: 'x',
           place: { id: 9, name: 'Larder', kind: 'cupboard' }
         }

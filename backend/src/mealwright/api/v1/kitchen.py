@@ -11,7 +11,7 @@ from mealwright import amounts, kitchen_changes, removals
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, StoredInt, not_found
+from mealwright.errors import Problem, StoredInt, name_taken, not_found
 from mealwright.foods import change_out, find
 from mealwright.history import FoodEdit, commit, record, replayed
 from mealwright.household import amounts_shown, cup_ml, places, today, valid_time_zone
@@ -74,7 +74,7 @@ def _added_before(earlier: Any, response: Response) -> PlaceOut:
 def add_place(body: NewPlace, kitchen: Here, response: Response) -> PlaceOut:
     """ "+ Place": add a place, last in the order. `kind` (fridge, freezer or cupboard) drives
     the rules ("freezer last"). A name the household already has (ignoring case) is a 409
-    `place_exists` that carries that place, so the screen just picks it. In Recent changes with
+    `name_taken` that carries that place, so the screen just picks it. In Recent changes with
     an Undo, as "+ Shop" is (`place_added`; RF5, H8). Under the household's lock, so two phones
     at once can't pass the cap or add one name twice."""
     earlier = replayed(kitchen)
@@ -87,9 +87,7 @@ def add_place(body: NewPlace, kitchen: Here, response: Response) -> PlaceOut:
     existing = places(kitchen.db, kitchen.household_id)
     for old in existing:
         if fold(old.name) == fold(body.name):
-            raise Problem(
-                status.HTTP_409_CONFLICT,
-                "place_exists",
+            raise name_taken(
                 f"There’s already a place called {old.name}.",
                 place={"id": old.id, "name": old.name, "kind": old.kind},
             )
@@ -156,7 +154,7 @@ def rename_place(
     place_id: StoredInt, body: RenamePlace, kitchen: Here, response: Response
 ) -> PlaceOut:
     """Rename a place. Its kind (and so its rules) stays. A name another place of the
-    household has (ignoring case) is a 409 `place_exists`. In Recent changes with an Undo
+    household has (ignoring case) is a 409 `name_taken`. In Recent changes with an Undo
     (`place_renamed`). Anyone in the household can."""
     earlier = replayed(kitchen)
     if earlier is None:
@@ -167,9 +165,7 @@ def rename_place(
     place = _find_place(kitchen, place_id)
     for other in places(kitchen.db, kitchen.household_id):
         if other.id != place.id and fold(other.name) == fold(body.name):
-            raise Problem(
-                status.HTTP_409_CONFLICT,
-                "place_exists",
+            raise name_taken(
                 f"There’s already a place called {other.name}.",
                 place={"id": other.id, "name": other.name, "kind": other.kind},
             )
@@ -288,8 +284,9 @@ class NewShop(BaseModel):
 
 @router.post("/shops", status_code=status.HTTP_201_CREATED)
 def add_shop(body: NewShop, kitchen: Here, response: Response) -> Ref:
-    """ "+ Shop": add a shop by name. A name that's already there gives that shop (200).
-    Under the household's lock, so two phones at once can't add one name twice."""
+    """ "+ Shop": add a shop by name. A name the household already has (ignoring case) is a 409
+    `name_taken` that carries that shop, so the screen just picks it. Under the household's lock,
+    so two phones at once can't add one name twice."""
     earlier = replayed(kitchen)
     if earlier is None:
         lock_db(kitchen.db, kitchen.household)
@@ -303,8 +300,12 @@ def add_shop(body: NewShop, kitchen: Here, response: Response) -> Ref:
     )
     for shop in existing:
         if fold(shop.name) == fold(body.name):
-            response.status_code = status.HTTP_200_OK
-            return Ref(id=shop.id, name=shop.name)
+            # Refused and carrying the shop, as "+ Place" and every "+ New" is (BE1, 0.9.5-beta.3):
+            # the screen picks the one there is.
+            raise name_taken(
+                f"There’s already a shop called {shop.name}.",
+                shop={"id": shop.id, "name": shop.name},
+            )
     shop = Shop(
         household_id=kitchen.household_id,
         name=body.name,
@@ -362,7 +363,7 @@ def _shop_renamed_before(
 
 @router.patch("/shops/{shop_id}")
 def rename_shop(shop_id: StoredInt, body: RenameShop, kitchen: Here, response: Response) -> Ref:
-    """Rename a shop. A name another shop has (ignoring case) is a 409 `shop_exists` that
+    """Rename a shop. A name another shop has (ignoring case) is a 409 `name_taken` that
     carries that shop. Anyone in the household can."""
     earlier = replayed(kitchen)
     if earlier is None:
@@ -373,9 +374,7 @@ def rename_shop(shop_id: StoredInt, body: RenameShop, kitchen: Here, response: R
     shop = _find_shop(kitchen, shop_id)
     for other in kitchen.db.scalars(select(Shop).where(Shop.household_id == kitchen.household_id)):
         if other.id != shop.id and fold(other.name) == fold(body.name):
-            raise Problem(
-                status.HTTP_409_CONFLICT,
-                "shop_exists",
+            raise name_taken(
                 f"There’s already a shop called {other.name}.",
                 shop={"id": other.id, "name": other.name},
             )

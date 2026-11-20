@@ -358,7 +358,7 @@ export const deleteRecipe = (id: number, idempotencyKey: string) =>
   api<{ change: Change }>('DELETE', `/recipes/${id}`, undefined, key(idempotencyKey));
 
 /** Rename a tag on every recipe that has it (Manage tags). A name another tag has is a 409
- *  `tag_exists`, which carries that tag. */
+ *  `name_taken`, which carries that tag. */
 export const renameTag = (id: number, name: string) =>
   api<TagCount>('PATCH', `/recipes/tags/${id}`, { name });
 

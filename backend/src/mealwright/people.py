@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright import api_tokens, events, kitchen_changes
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Who
-from mealwright.errors import Problem, not_found
+from mealwright.errors import Problem, name_taken, not_found
 from mealwright.history import PURGE_MARGIN, as_utc, record
 from mealwright.household import undo_window
 from mealwright.models import (
@@ -212,7 +212,10 @@ def check_name(kitchen: Kitchen, name: str, apart_from: int | None = None) -> No
         )
     ):
         if other.id != apart_from and fold(other.name) == fold(name):
-            raise _refused("name_taken", f"There’s already someone called {other.name}.")
+            raise name_taken(
+                f"There’s already someone called {other.name}.",
+                member={"id": other.id, "name": other.name},
+            )
 
 
 def mine(kitchen: Kitchen, member_id: int) -> Member:

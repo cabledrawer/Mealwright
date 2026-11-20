@@ -133,10 +133,11 @@ export const getPlaces = () => api<Place[]>('GET', '/places');
 
 export const getShops = () => api<Shop[]>('GET', '/shops');
 
-/** Adds a shop, or returns the one already called that, so "+ Shop" never makes doubles. */
+/** Adds a shop. A name the household already has is a 409 `name_taken` carrying that shop, so
+ *  "+ Shop" picks it instead of making a double (placesAndShops.addShop). */
 export const addShop = (name: string) => api<Shop>('POST', '/shops', { name });
 
-/** Adds a place (last in the order). A name the household already has is a 409 `place_exists`
+/** Adds a place (last in the order). A name the household already has is a 409 `name_taken`
  *  carrying that place, so "+ Place" picks it instead of making a double. */
 export const addPlace = (name: string, kind: PlaceKind) =>
   api<Place>('POST', '/places', { name, kind });

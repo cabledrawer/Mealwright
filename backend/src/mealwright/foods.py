@@ -8,7 +8,7 @@ from typing import Literal, cast
 from fastapi import status
 from sqlalchemy import select
 
-from mealwright import amounts
+from mealwright import amounts, errors
 from mealwright.amounts import (
     MILLI,
     CountedAs,
@@ -295,12 +295,7 @@ def name_owner(kitchen: Kitchen, name: str, except_id: int | None = None) -> Foo
 
 
 def name_taken(name: str, food: Food) -> Problem:
-    return Problem(
-        status.HTTP_409_CONFLICT,
-        "name_taken",
-        f"There’s already an ingredient called {food.name}.",
-        food_id=food.id,
-    )
+    return errors.name_taken(f"There’s already an ingredient called {food.name}.", food_id=food.id)
 
 
 def shop_choices(kitchen: Kitchen) -> list[tuple[int, str]]:

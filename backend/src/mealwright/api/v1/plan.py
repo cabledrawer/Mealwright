@@ -18,7 +18,7 @@ from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.recipe_schemas import StepWaitOut
 from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, StoredInt, not_found
+from mealwright.errors import Problem, StoredInt, name_taken, not_found
 from mealwright.foods import change_out
 from mealwright.history import KEY_ONLY_KINDS, commit, replayed
 from mealwright.household import add_slot, meal_slots
@@ -1284,8 +1284,8 @@ class NewSlot(BaseModel):
 @router.post("/meal-slots", status_code=status.HTTP_201_CREATED)
 def add_meal_slot(body: NewSlot, kitchen: Here, response: Response) -> MealSlotOut:
     """Add a meal, last in the order and switched on (admins only). At most 12 meals; a name
-    the household already has is a 409 `slot_exists`. Not logged as a change, like "+ Shop". A
-    retry with the same Idempotency-Key answers what the first one did, not `slot_exists`."""
+    the household already has is a 409 `name_taken`. Not logged as a change, like "+ Shop". A
+    retry with the same Idempotency-Key answers what the first one did, not `name_taken`."""
     kitchen.admin_only(Action.HOUSEHOLD_SETTINGS)
     lock_household(kitchen)
     earlier = replayed(kitchen)
@@ -1293,10 +1293,9 @@ def add_meal_slot(body: NewSlot, kitchen: Here, response: Response) -> MealSlotO
         return _slot_replayed(earlier, response)
     for other in meal_slots(kitchen.db, kitchen.household_id):
         if fold(other.name) == fold(body.name):
-            raise Problem(
-                status.HTTP_409_CONFLICT,
-                "slot_exists",
+            raise name_taken(
                 f"There’s already a meal called {other.name}.",  # proposed, for cabledrawer
+                slot={"id": other.id, "name": other.name},
             )
     slot = add_slot(kitchen.db, kitchen.household_id, body.name)
     answer = MealSlotOut(id=slot.id, name=slot.name, position=slot.position, enabled=slot.enabled)
