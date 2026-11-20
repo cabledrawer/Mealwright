@@ -233,8 +233,8 @@ def _room(kitchen: Kitchen, meal: Meal, more: int = 1) -> None:
     count = len(items_of(kitchen, meal))
     if count + more > MOST_ITEMS_IN_MEAL:
         raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "meal_full",
+            status.HTTP_409_CONFLICT,
+            "too_many_items",
             f"A meal holds at most {MOST_ITEMS_IN_MEAL} things.",  # proposed, for cabledrawer
         )
 

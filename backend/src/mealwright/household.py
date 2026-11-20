@@ -90,7 +90,7 @@ def add_slot(db: DbSession, household_id: int, name: str, enabled: bool = True) 
     have = list(meal_slots(db, household_id))
     if len(have) >= MOST_SLOTS:
         raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status.HTTP_409_CONFLICT,
             "too_many_slots",
             f"A household can have at most {MOST_SLOTS} meals.",  # proposed, for cabledrawer
         )

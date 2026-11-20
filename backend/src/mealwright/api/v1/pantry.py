@@ -648,7 +648,11 @@ def add_stock(body: AddStock, kitchen: Here, response: Response) -> StockWrite:
             whole = int(count)
             rest = count - whole
             if whole > MAX_LOTS:
-                raise Problem(422, "too_many", f"Add at most {MAX_LOTS} at a time.")
+                raise Problem(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    "too_many",
+                    f"Add at most {MAX_LOTS} at a time.",
+                )
             amounts = [resolved.size.amount_milli] * whole
             if rest > 0:
                 amounts.append(round(rest * resolved.size.amount_milli))

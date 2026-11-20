@@ -322,7 +322,7 @@ def _batches_that_day(kitchen: Kitchen, day: date) -> None:
     )
     if (count or 0) >= MOST_BATCHES_A_DAY:
         raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status.HTTP_409_CONFLICT,
             "too_many_batches",
             f"At most {MOST_BATCHES_A_DAY} batches can be cooked on one day.",  # proposed
         )
@@ -345,7 +345,7 @@ def work_out(
     if not 1 <= tub_count <= MOST_TUBS_IN_BATCH:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "too_many_tubs",
+            "too_many",
             f"A batch can have 1 to {MOST_TUBS_IN_BATCH} tubs.",  # proposed, for cabledrawer
         )
     recipe, meal = recipe_item(kitchen, item)
@@ -386,8 +386,8 @@ def work_out(
                 _room(kitchen, target, adding.get(spot, 0) + 1)
             elif adding.get(spot, 0) + 1 > MOST_ITEMS_IN_MEAL:
                 raise Problem(
-                    status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    "meal_full",
+                    status.HTTP_409_CONFLICT,
+                    "too_many_items",
                     f"A meal holds at most {MOST_ITEMS_IN_MEAL} things.",
                 )
             adding[spot] = adding.get(spot, 0) + 1
@@ -823,7 +823,7 @@ def move_cook_day(
         )
         if (there or 0) + len(batches) > MOST_BATCHES_A_DAY:
             raise Problem(
-                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status.HTTP_409_CONFLICT,
                 "too_many_batches",
                 f"At most {MOST_BATCHES_A_DAY} batches can be cooked on one day.",  # proposed
             )
@@ -1088,8 +1088,8 @@ def leftover_tub(
     if spare is None:
         if made >= MOST_TUBS_IN_BATCH:
             raise Problem(
-                status.HTTP_422_UNPROCESSABLE_CONTENT,
-                "batch_full",
+                status.HTTP_409_CONFLICT,
+                "too_many_tubs",
                 f"{batch.recipe_name} already has {MOST_TUBS_IN_BATCH} tubs.",  # proposed
             )
         fridge = places_of_kind(db, kitchen.household_id, "fridge")

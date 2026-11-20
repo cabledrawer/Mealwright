@@ -297,7 +297,7 @@ def test_a_full_meal_takes_no_more_tubs(
     spot = {"date": D2.isoformat(), "slot_id": slots["Dinner"]}
     url = f"{API}/plan/items/{cook['item_id']}/batch"
     r = kitchen.post(url, json={"tub_count": 2, "placements": [spot, spot]})
-    assert r.status_code == 422 and r.json()["code"] == "meal_full"
+    assert r.status_code == 409 and r.json()["code"] == "too_many_items"
     assert kitchen.post(url, json={"tub_count": 1, "placements": [spot]}).status_code == 201
 
 
@@ -437,7 +437,7 @@ def test_a_tub_added_to_a_full_meal_or_a_far_day_is_refused(
         plan_recipe(kitchen, stuff["dosa"], D2, slots["Dinner"])
     url = f"{API}/plan/tubs/{tub}/place"
     full = kitchen.post(url, json={"date": D2.isoformat(), "slot_id": slots["Dinner"]})
-    assert full.status_code == 422 and full.json()["code"] == "meal_full"
+    assert full.status_code == 409 and full.json()["code"] == "too_many_items"
     far = kitchen.post(url, json={"date": "2090-01-01", "slot_id": slots["Dinner"]})
     assert far.json()["code"] == "bad_day"
 
@@ -698,7 +698,7 @@ def test_a_batch_holds_at_most_the_most_tubs_and_a_day_the_most_batches(
             "if_none_left": "cook_more",
         },
     )
-    assert full.status_code == 422 and full.json()["code"] == "batch_full"
+    assert full.status_code == 409 and full.json()["code"] == "too_many_tubs"
     # Ten batches cooked on one day is the most.
     other = D1 + timedelta(days=20)
     with db_of(kitchen) as db:
@@ -707,7 +707,7 @@ def test_a_batch_holds_at_most_the_most_tubs_and_a_day_the_most_batches(
         db.commit()
     meal = plan_recipe(kitchen, stuff["dosa"], other, slots["Dinner"])
     r = kitchen.post(f"{API}/plan/items/{meal['item_id']}/batch", json={"tub_count": 1})
-    assert r.status_code == 422 and r.json()["code"] == "too_many_batches"
+    assert r.status_code == 409 and r.json()["code"] == "too_many_batches"
 
 
 def test_undo_of_a_deleted_batch_keeps_to_the_days_cap(
@@ -722,7 +722,7 @@ def test_undo_of_a_deleted_batch_keeps_to_the_days_cap(
             db.add(BatchCook(household_id=1, recipe_name=f"R{n}", cooked_on=D1, tub_count=1))
         db.commit()
     r = kitchen.post(f"{API}/changes/{gone.json()['change']['id']}/undo")
-    assert r.status_code == 422 and r.json()["code"] == "too_many_batches"
+    assert r.status_code == 409 and r.json()["code"] == "too_many_batches"
     with db_of(kitchen) as db:
         on_d1 = db.scalar(select(func.count(BatchCook.id)).where(BatchCook.cooked_on == D1))
     assert on_d1 == batches_module.MOST_BATCHES_A_DAY
@@ -1318,7 +1318,7 @@ def test_a_cook_meal_cannot_move_to_a_day_with_ten_batches(
             )
         db.commit()
     r = _move_meal(kitchen, cook["meal_id"], day(5), slots["Dinner"])
-    assert r.status_code == 422 and r.json()["code"] == "too_many_batches"
+    assert r.status_code == 409 and r.json()["code"] == "too_many_batches"
 
 
 def _cook_meal_of(kitchen: TestClient, batch_id: int) -> int | None:

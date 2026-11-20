@@ -397,7 +397,7 @@ describe('Settings › Outside connections', () => {
       ],
       [422, 'too_wide', 'That range is too wide. Add a smaller one, like 192.168.1.0/24.'],
       [409, 'already_there', 'That’s already on the list.'],
-      [409, 'list_full', 'The list is full: it holds up to 100 entries. Remove one first.']
+      [409, 'too_many_entries', 'The list is full: it holds up to 100 entries. Remove one first.']
     ])(
       'shows the server’s own sentence for %i %s and keeps what was typed',
       async (status, code, detail) => {

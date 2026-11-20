@@ -211,8 +211,8 @@ def _make_tubs(
     if have + leftovers.count > MOST_LEFTOVER_TUBS:
         name = batch.recipe_name if batch else (recipe.name if recipe else item.name or "it")
         raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "batch_full",
+            status.HTTP_409_CONFLICT,
+            "too_many_tubs",
             f"{name} already has {have} tubs, and a batch holds at most {MOST_TUBS_IN_BATCH}.",
         )  # proposed, for cabledrawer
     new_batch = batch is None

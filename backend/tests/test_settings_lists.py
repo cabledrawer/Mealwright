@@ -131,7 +131,7 @@ def test_a_household_has_at_most_twelve_meals(kitchen: TestClient) -> None:
     for number in range(8):
         ok(kitchen.post(f"{API}/meal-slots", json={"name": f"Extra {number}"}), 201)
     refused = kitchen.post(f"{API}/meal-slots", json={"name": "One too many"})
-    assert refused.status_code == 422 and refused.json()["code"] == "too_many_slots"
+    assert refused.status_code == 409 and refused.json()["code"] == "too_many_slots"
 
 
 def test_reordering_the_meals_and_undo(kitchen: TestClient) -> None:

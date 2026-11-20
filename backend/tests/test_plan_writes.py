@@ -368,11 +368,12 @@ def test_the_caps(kitchen: TestClient, stuff: dict[str, int], slots: dict[str, i
         f"{API}/plan/items",
         json={"date": D1.isoformat(), "slot_id": slots["Dinner"], "recipe_id": stuff["dosa"]},
     )
-    assert over.status_code == 422 and "at most 20" in over.json()["detail"]
+    assert over.status_code == 409 and "at most 20" in over.json()["detail"]
+    assert over.json()["code"] == "too_many_items"
     other = plan_recipe(kitchen, stuff["dosa"], D2, slots["Dinner"])
     to_full = {"date": D1.isoformat(), "slot_id": slots["Dinner"], "mode": "copy"}
     refused = kitchen.post(f"{API}/plan/meals/{other['meal_id']}/move", json=to_full)
-    assert refused.status_code == 422
+    assert (refused.status_code, refused.json()["code"]) == (409, "too_many_items")
 
 
 def test_the_caps_keep_a_full_range_under_sqlites_variable_limit() -> None:
@@ -541,7 +542,7 @@ def test_a_household_cannot_have_more_than_the_most_slots(kitchen: TestClient) -
             add_slot(db, 1, f"Extra {n}")
         with pytest.raises(Problem) as refused:
             add_slot(db, 1, "One too many")
-        assert refused.value.status_code == 422 and refused.value.code == "too_many_slots"
+        assert refused.value.status_code == 409 and refused.value.code == "too_many_slots"
         assert "at most 12" in refused.value.detail
         db.rollback()
     assert len(kitchen.get(f"{API}/meal-slots").json()) == 4

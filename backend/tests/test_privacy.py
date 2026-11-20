@@ -366,7 +366,7 @@ def test_the_list_holds_a_hundred_and_then_says_so(
         assert kitchen.post(LIST, json={"value": f"host{i}.home.example"}).status_code == 201
     response = kitchen.post(LIST, json={"value": "one-more.home.example"})
     assert response.status_code == 409
-    assert response.json()["code"] == "list_full"
+    assert response.json()["code"] == "too_many_entries"
     assert response.json()["detail"] == own_network.FULL
     assert len(values(kitchen)) == 100
     # A repeat is "already on the list", not "full": the sentence names the real reason.

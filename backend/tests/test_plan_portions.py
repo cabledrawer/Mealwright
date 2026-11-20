@@ -251,7 +251,7 @@ def test_cook_more_stops_at_a_full_batch(
     make(kitchen, cook["item_id"], tub_count=12, pattern="lunches")
     # The tubs went to 12 lunches; one more portion would be the 13th tub.
     r = leftovers(kitchen, cook["item_id"], [spot(3, slots, "Dinner")], if_none_left="cook_more")
-    assert r.status_code == 422 and r.json()["code"] == "batch_full"
+    assert r.status_code == 409 and r.json()["code"] == "too_many_tubs"
 
 
 def test_two_phones_taking_the_last_portion(

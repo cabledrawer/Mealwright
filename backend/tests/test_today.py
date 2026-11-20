@@ -302,7 +302,7 @@ def test_a_batch_holds_at_most_twelve_tubs(kitchen: TestClient, yesterday: dict[
             db.add(Tub(household_id=1, batch_id=batch.id, use_by=ahead(kitchen, 2)))
         db.commit()
     body = {"leftovers": {"count": 2}}
-    assert answer(kitchen, meal, "cooked", body, 422)["code"] == "batch_full"
+    assert answer(kitchen, meal, "cooked", body, 409)["code"] == "too_many_tubs"
     assert meal_status(kitchen, meal) == "planned"
 
 
@@ -464,7 +464,7 @@ def test_move_it_refusals(
             db.add(MealItem(household_id=1, meal_id=crowd, position=1, recipe_id=1))
         db.commit()
     full = {"date": str(ahead(kitchen, 2)), "slot_id": slots["Dinner"]}
-    assert answer(kitchen, meal, "moved", full, 422)["code"] == "meal_full"
+    assert answer(kitchen, meal, "moved", full, 409)["code"] == "too_many_items"
     assert meal_status(kitchen, meal) == "planned"
 
 
