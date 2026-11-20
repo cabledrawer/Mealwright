@@ -468,6 +468,7 @@
     padding: 0 18px;
     border-radius: var(--radius-full);
     font-size: var(--text-base);
+    display: inline-block;
   }
 
   .starter :global(.mw-button) {
@@ -476,6 +477,7 @@
     background: var(--color-surface);
     color: var(--color-accent);
     font-size: var(--text-base);
+    line-height: normal;
   }
 
   .layout {

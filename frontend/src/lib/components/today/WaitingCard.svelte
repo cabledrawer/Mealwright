@@ -102,6 +102,7 @@
     padding: 0 var(--space-2);
     border-radius: var(--radius-lg);
     font-size: var(--text-base);
+    line-height: normal;
   }
 
   .buttons :global(.mw-button.quiet) {
