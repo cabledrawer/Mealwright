@@ -438,7 +438,7 @@ seconds" above). Every refusal is 422 with a `code` and a sentence from
 `words.md` section 18: `bad_link`, `always_blocked`, `own_network`, `odd_port` (an admin's answer; a
 member gets `cant_open_link` for all three and also for `cant_reach` and `timeout` (cabledrawer 18 Nov,
 Q10), byte for byte the same answer, and the same sentence on the photo, so no member can map
-internal names; proposed, for cabledrawer). Proposed, for cabledrawer: this is for members only; what a member can still tell apart (the other reasons for an address an admin listed on the Privacy screen, and how long a refusal takes) is left as it is, to decide before 1.0,
+internal names; cabledrawer 19 Nov). Proposed, for cabledrawer: this is for members only; what a member can still tell apart (the other reasons for an address an admin listed on the Privacy screen, and how long a refusal takes) is left as it is, to decide before 1.0,
 `too_many_redirects`, `cant_reach` (also anything the fetch did not expect), `timeout`, `site_error`, `not_a_page`, `page_too_big`,
 `cant_read` (over a budget, a crash, or anything the reader did not expect: the log has the
 connection's label and the kind of error, never an address), `busy`, `no_recipe` (a page without a

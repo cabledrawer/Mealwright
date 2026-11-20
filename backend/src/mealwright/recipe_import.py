@@ -127,8 +127,8 @@ ALREADY = "You already have this recipe"
 # (refused as a network address, name not found, connection refused, too slow, TLS failure), so no
 # member can map the home network by the answer (B7 low; cabledrawer 18 Nov, Q10: one message for
 # "can't reach" and "can't open the link"). The cause stays in the local log only. The same
-# sentence as before, which stays true for both. Proposed, for cabledrawer.
-MEMBER_CANT_OPEN = (  # proposed, for cabledrawer
+# sentence as before, which stays true for both (cabledrawer 19 Nov).
+MEMBER_CANT_OPEN = (  # cabledrawer 19 Nov
     "Mealwright can’t open that link. Ask an admin if it should be allowed."
 )
 _NETWORK_REASONS = (

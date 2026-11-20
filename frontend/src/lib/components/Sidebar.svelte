@@ -32,7 +32,7 @@
   const settingsCurrent = $derived(page.url.pathname.startsWith('/settings'));
   // In Settings the menu folds to its icons and the Settings list takes its place beside the page
   // (F252, cabledrawer 15 Nov). "Show the menu" unfolds it in place (Q3, cabledrawer 18 Nov); leaving
-  // Settings folds it back for next time (proposed, for cabledrawer). The saved choice
+  // Settings folds it back for next time (cabledrawer 19 Nov). The saved choice
   // (sidebar.collapsed) is never changed here.
   let unfolded = $state(false);
   const collapsed = $derived(settingsCurrent ? !unfolded : sidebar.collapsed);

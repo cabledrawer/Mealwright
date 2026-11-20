@@ -2,18 +2,11 @@
 
 All notable changes to Mealwright are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the plan in `docs/spec.md` section 8: 0.N.0 per build milestone (not published), then MAJOR.MINOR.PATCH from 1.0.0.
 
-## [Unreleased]
-
-### Added
-
-- **Drafts from Mealie can be fixed by ingredient (cabledrawer 15 Nov, 0.9.5-beta.2).** On Drafts, when Mealie drafts wait, a By recipe | By ingredient switch appears. By ingredient groups the lines that couldn't be matched by ingredient across all drafts, most-used first; one answer (an ingredient you have, a new ingredient with its pantry place, or plain text) goes into every draft that uses it, and a recipe whose lines are all answered moves to Recipes. Nothing is saved until you answer; Skip for now changes nothing. Undo (7 days, in the toast and in Recent changes) puts the answers back and the recipes back in Drafts; recipes changed, cooked or planned since stay in Recipes. New API: `GET /api/v1/recipes/drafts/by-ingredient` and `POST /api/v1/recipes/drafts/by-ingredient/answer`.
-- **A new ingredient brought in from Mealie now gets a pantry place (F249)**, the same first guess as the import check (Fridge for milk and the like, otherwise Cupboard), instead of none.
-
-## [0.9.5-beta.2] - 2026-11-17
+## [0.9.5-beta.2] - 2026-11-19
 
 The second 0.9.5 test version: the fixes from cabledrawer's hand test of beta.1 (F235–F251), the break-it review's findings (B7), Mealie drafts fixed by ingredient (B6), Settings redesigned (B8), and a password before anything deletes backups (R6). Lines marked "proposed, for cabledrawer" are words or rules I chose that still need your yes.
 
-**Before you install it: back up your data.** The database changes once since beta.1: an imported recipe's wait is taken off only once (`d7a3e1b5c924`). The steps are the same as before (`docs/dev/test-on-homelab.md`, section 4.1); beta.1 cannot open a database this version has touched.
+**Before you install it: back up your data.** The database changes twice since beta.1: an imported recipe's wait is taken off only once (`d7a3e1b5c924`), and the ids of changes, lines and merges are never reused (`e5b9c3a7d1f2`). The steps are the same as before (`docs/dev/test-on-homelab.md`, section 4.1); beta.1 cannot open a database this version has touched.
 
 ### Added
 
@@ -27,7 +20,7 @@ The second 0.9.5 test version: the fixes from cabledrawer's hand test of beta.1 
 - **The Mealie preview says "N recipes ready, M go to Drafts to check"** over the recipes still ticked (F247), and the import's Undo names the recipes it kept (F248) (both proposed, for cabledrawer).
 - Ingredients is its own main-menu item after Pantry (F251). A passed date just says **Date passed** (F250). Every Copy button says Copied for two seconds (F237). The only admin's own page says why Member can't be picked (F238). Printing: no blank last page, and a printed recipe has no "N missing" or "Add to the list" (F235, F236). Offline pages hide buttons that need the server (F240).
 - The plan questions (method, start, Who's this) retry after a failed load instead of going on without an answer (B4).
-- **Settings: Show the menu unfolds the main menu in place (Q3, cabledrawer 18 Nov)** instead of leaving Settings; the same button folds it again, and leaving Settings folds it back (that last part proposed, for cabledrawer).
+- **Settings: Show the menu unfolds the main menu in place (Q3, cabledrawer 18 Nov)** instead of leaving Settings; the same button folds it again, and leaving Settings folds it back (that last part cabledrawer 19 Nov).
 - **Members no longer see the Mealie import page (Q13, cabledrawer 18 Nov):** opening its address says "Only admins can change this."; Today's note and Check them stay.
 - **Recipe import: a member gets one answer** whether a link can't be reached or isn't allowed (Q10, cabledrawer 18 Nov); an admin still sees each reason.
 - **Scanner exceptions (Q14, cabledrawer 18 Nov):** the picomatch warning (GHSA-fc5q-39xc-vjpf, High 8.7, dev tools only) is allowed until 28 Nov 2026; the deepmerge one is gone.
@@ -36,7 +29,7 @@ The second 0.9.5 test version: the fixes from cabledrawer's hand test of beta.1 
 ### Fixed
 
 - **Break-it review of beta.1 (B7):** an upgrade is all or nothing; a restored copy ends its sign-ins at start-up; unlinking single sign-on stops that person's API tokens; signed-out single sign-on tries are counted per address; Mealie import Undo no longer takes out your ingredients merged with the import's; Save all keeps recipes added during its pauses; photo files of half-saved changes are cleared.
-- **24 low findings** from the same review (#257, #258): 19 fixed, 2 were not real, and the rest are listed in the handover.
+- **24 low findings** from the same review (#257, #258): all 24 were handled; 2 were not real.
 - An imported recipe's wait is taken off its total only once (L6).
 - **A single sign-on confirmation is sealed to the one action it was started for (Q2, cabledrawer 18 Nov):** a second request can no longer turn a Keep confirmation into Delete everything.
 - **Mealie drafts answered by ingredient:** drafts a server stop left in Drafts are finished by the next answer (once each; Undo works as usual).
