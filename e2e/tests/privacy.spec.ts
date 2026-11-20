@@ -5,9 +5,9 @@ import { workerReady } from './worker.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 
 // Settings › Outside connections (0.5 PR 4): the switches for outside connections and "Your own network",
-// against the real server, signed in as the test admin. A member (who sees the same page and
-// changes nothing) and the failed, slow and offline states are covered with answers made up
-// in the browser, because the app has no way to add a member until 0.8. The server's own
+// against the real server, signed in as the test admin. The read-only page and the failed,
+// slow and offline states are covered with answers made up in the browser. A member is not
+// shown the page (settings-layout.spec.ts). The server's own
 // permission rules are in backend/tests/test_privacy.py.
 // Runs in the "phone 0.5 privacy" and "desktop 0.5 privacy" projects.
 
@@ -237,7 +237,11 @@ test.describe('states made up in the browser', () => {
     can_change: can,
   });
 
-  test('a member sees the switches and the list, with a note, and can change neither', async ({ page }) => {
+  // A member is no longer shown this page (cabledrawer 15 Nov) nor sent the list (D4, BE12):
+  // this is the page when the server says nothing here can be changed.
+  test('when the server says they can’t be changed, the switches and the list have a note and no buttons', async ({
+    page,
+  }) => {
     await page.route('**/api/v1/privacy/switches', (route) => route.fulfill({ json: SWITCHES(false) }));
     await page.route('**/api/v1/privacy/own-network', (route) => route.fulfill({ json: LIST(false) }));
     await page.goto('/settings/privacy');

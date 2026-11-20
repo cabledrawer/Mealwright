@@ -8,6 +8,8 @@ import type { OwnNetworkEntry, OwnNetworkList, PrivacySwitches } from '#lib/clie
 import type { Change, UndoResult } from '#lib/client/types.js';
 import { network } from '#lib/network.svelte.js';
 import { privacy } from '#lib/privacy.svelte.js';
+import { session } from '#lib/session.svelte.js';
+import { ME } from '#lib/testing/fakeShopping.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
 import { fakeApi, type FakeRequest } from '#lib/testing/fakeApi.js';
@@ -102,6 +104,7 @@ describe('Settings › Outside connections', () => {
     privacy.forget();
     undoHistory.clear();
     toasts.dismiss();
+    session.me = { ...ME, role: 'admin' }; // a Household page: an admin's (D4, BE12)
   });
 
   afterEach(() => {
@@ -113,6 +116,7 @@ describe('Settings › Outside connections', () => {
     privacy.forget();
     undoHistory.clear();
     toasts.dismiss();
+    session.me = null;
   });
 
   const sent = (method: string, path: string) =>
@@ -610,8 +614,9 @@ describe('Settings › Outside connections', () => {
     });
   });
 
-  describe('as a member', () => {
-    it('sees the switches and the list, and can change neither', async () => {
+  // A member never opens this page (D4, BE12): what an admin sees when the server says no.
+  describe('when the server says they can’t be changed', () => {
+    it('shows the switches and the list, and can change neither', async () => {
       open({
         'GET /privacy/switches': switches(true, false, false),
         'GET /privacy/own-network': list([wiki, lan], false)

@@ -24,6 +24,7 @@ import type { Change, UndoResult } from './client/types';
 import { nothingChanged } from './downWords';
 import { rememberToForget } from './forgetWhenLoaded';
 import { network } from './network.svelte';
+import { session } from './session.svelte';
 import { undoHistory } from './undo.svelte';
 
 /** Chosen by the cause, the same on every page (cabledrawer 30 Oct). */
@@ -98,13 +99,19 @@ class Privacy {
     return this.loaded && !this.loading && this.problem === null && !this.switches.recipe_import;
   }
 
-  /** Fetch both (again, if already loaded: what's shown stays until the answer). */
+  /** Fetch both (again, if already loaded: what's shown stays until the answer). Only an admin
+   *  is sent "Your own network" (D4, BE12): a member's screen (Import) needs the switches
+   *  alone, and the server refuses a member the list. */
   async load(): Promise<void> {
     const generation = this.#generation;
     this.loading = true;
     this.problem = null;
     try {
-      const [switches, list] = await Promise.all([getSwitches(), getOwnNetwork()]);
+      const admin = session.me?.role === 'admin';
+      const [switches, list] = await Promise.all([
+        getSwitches(),
+        admin ? getOwnNetwork() : Promise.resolve({ entries: [], limit: 0, can_change: false })
+      ]);
       if (generation !== this.#generation) return;
       for (const s of switches.switches) this.#confirmed[s.connection] = s.on;
       // A switch being changed right now keeps what was chosen until its own answer comes.

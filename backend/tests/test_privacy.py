@@ -277,13 +277,16 @@ def test_an_admin_adds_a_name_an_address_and_a_range(kitchen: TestClient) -> Non
     ]
 
 
-def test_a_member_sees_the_list_but_cannot_change_it(
+def test_a_member_neither_sees_the_list_nor_changes_it(
     kitchen: TestClient, member: TestClient
 ) -> None:
+    """D4, BE12 (proposed, for cabledrawer): the list is the Household group's, which a member
+    never sees (cabledrawer 15 Nov), and it would map the home network (spec, Q10)."""
     entry = kitchen.post(LIST, json={"value": "wiki.home.example"}).json()
-    body = member.get(LIST).json()
-    assert body["can_change"] is False
-    assert [e["value"] for e in body["entries"]] == ["wiki.home.example"]
+    seen = member.get(LIST)
+    assert seen.status_code == 403
+    assert seen.json()["code"] == "admins_only"
+    assert "wiki.home.example" not in seen.text
     added = member.post(LIST, json={"value": "192.168.1.20"})
     assert added.status_code == 403
     assert added.json()["code"] == "admins_only"

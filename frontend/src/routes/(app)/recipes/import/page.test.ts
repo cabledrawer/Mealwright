@@ -55,6 +55,15 @@ describe('Import a recipe: the note about photos', () => {
     vi.unstubAllGlobals();
   });
 
+  it('for a member, reads the switches alone, never Your own network (D4, BE12)', async () => {
+    session.me = { ...ME, role: 'member' };
+    const requests = fakeApi({ 'GET /privacy/switches': switches(false) });
+    component = mount(ImportPage, { target: document.body });
+    flushSync();
+    await expect.element(page.getByText(NOTE)).toBeVisible();
+    expect(requests.map((r) => r.path)).not.toContain('/privacy/own-network');
+  });
+
   it('says photos are not downloaded, and links to Settings › Outside connections, while the switch is off', async () => {
     open({ 'GET /privacy/switches': switches(false), 'GET /privacy/own-network': OWN });
     await expect.element(page.getByText(NOTE)).toBeVisible();

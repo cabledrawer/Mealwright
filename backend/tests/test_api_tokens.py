@@ -437,6 +437,7 @@ NEVER_ROUTES = [
     ("DELETE", "/people/{person}/sso", None),
     # Privacy (and the update check, which connects out)
     ("PUT", "/privacy/switches/{switch}", {"on": True}),
+    ("GET", "/privacy/own-network", None),  # a Household page, admins only (D4, BE12)
     ("POST", "/privacy/own-network", {"value": "wiki.home"}),
     ("DELETE", "/privacy/own-network/{entry}", None),
     ("POST", "/updates/check", None),
@@ -518,7 +519,6 @@ def test_taking_an_action_out_of_tokens_never_is_noticed(
 # Read-only routes a token may use, each with why that is fine.
 A_TOKEN_MAY_READ = {
     ("GET", "/people"): "names and roles, no sign-in details: the household's own page shows them",
-    ("GET", "/privacy/own-network"): "the list of names, no secrets; changing it is token-never",
     ("GET", "/privacy/switches"): "which switches are on; changing one is token-never",
     ("GET", "/updates"): "the version and the last answer; checking now is token-never",
 }

@@ -8,8 +8,10 @@ never `login.role == "admin"` by hand, so an admin's API token sees on the read-
 import re
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 from test_api_tokens import _app, _make
+from test_privacy import member  # noqa: F401
 
 API = "/api/v1"
 ROUTES = Path(__file__).resolve().parents[1] / "src" / "mealwright" / "api" / "v1"
@@ -51,3 +53,36 @@ def test_an_admins_token_gets_no_server_errors_in_the_report(kitchen: TestClient
     assert answer.status_code == 200, answer.text
     assert answer.json()["errors"] == [] and answer.json()["errors_included"] is False
     assert kitchen.get(f"{API}/problem-report").json()["errors_included"] is True
+
+
+# --- One rule for a member (D4, BE12; proposed, for cabledrawer) -------------------------------
+# cabledrawer 15 Nov: a member doesn't see the Household group at all. A member is answered what
+# a screen a member can open reads, with the may-change flag false and nothing an admin alone is
+# told; a Household page's own data answers 403 `admins_only`.
+
+_HOUSEHOLD_PAGES_ONLY = [
+    "/api-tokens",
+    "/sso/settings",
+    "/privacy/own-network",
+    "/your-data/backups",
+    "/your-data/delete-everything",
+]
+
+
+@pytest.mark.parametrize("path", _HOUSEHOLD_PAGES_ONLY)
+def test_a_member_is_refused_a_household_page(member: TestClient, path: str) -> None:  # noqa: F811
+    refused = member.get(f"{API}{path}")
+    assert refused.status_code == 403, refused.text
+    assert refused.json()["code"] == "admins_only"
+
+
+def test_what_a_members_screens_read_says_they_cant_change_it(
+    kitchen: TestClient,
+    member: TestClient,  # noqa: F811
+) -> None:
+    people = member.get(f"{API}/people").json()  # the plan's eaters
+    assert people["can_change"] is False
+    switches = member.get(f"{API}/privacy/switches").json()  # the import screen
+    assert switches["can_change"] is False
+    updates = member.get(f"{API}/updates").json()  # About, in the Mealwright group
+    assert updates["can_check"] is False and updates["daily"] is None

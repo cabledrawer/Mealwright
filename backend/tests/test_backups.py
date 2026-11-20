@@ -258,12 +258,12 @@ def test_out_of_range_is_refused(kitchen: TestClient, body: dict[str, object]) -
     assert kitchen.get(API).json()["keep"] == 7
 
 
-def test_a_member_can_look_but_not_change_or_back_up(member: TestClient) -> None:
-    assert member.get(API).status_code == 200
-    for response in (member.patch(API, json={"keep": 3}), member.post(API)):
+def test_a_member_cannot_look_change_or_back_up(kitchen: TestClient, member: TestClient) -> None:
+    # D4, BE12 (proposed, for cabledrawer): the Household group is for admins only.
+    for response in (member.get(API), member.patch(API, json={"keep": 3}), member.post(API)):
         assert response.status_code == 403
         assert response.json()["detail"] == ADMINS_ONLY
-    assert member.get(API).json()["keep"] == 7
+    assert kitchen.get(API).json()["keep"] == 7
     assert not _folder(member).exists()
 
 

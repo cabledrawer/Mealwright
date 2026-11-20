@@ -22,7 +22,6 @@ from sqlalchemy import Engine, delete, func, select
 from mealwright import backups, export, export_crypto, mealie_import, setup_code, sso_accounts
 from mealwright.api.v1 import sso as sso_api
 from mealwright.api.v1.context import Here
-from mealwright.api_tokens import not_for_tokens
 from mealwright.auth import (
     SameOrigin,
     SlowDown,
@@ -67,13 +66,13 @@ class BackupsOut(BaseModel):
         description="Include the recipe photos in backups and in the safety copy made before "
         "an upgrade (on by default; D2, 0.9.5)."
     )
-    photos_size: int | None = Field(
+    photos_size: int = Field(
         description="What this household's recipe photos come to, in bytes: what including them "
-        "adds to a backup. Null for a member (only an admin is told sizes of the server)."
+        "adds to a backup. Only an admin reads this page (D4, BE12)."
     )
-    database_size: int | None = Field(
+    database_size: int = Field(
         description="The database's own size on the server, in bytes: about what a backup "
-        "without photos comes to. Null for a member."
+        "without photos comes to."
     )
     last: BackupOut | None = Field(description="The newest backup, or null when there's none.")
     problem: str | None = Field(
@@ -84,9 +83,9 @@ class BackupsOut(BaseModel):
     folder: str = Field(description="Where the backups are, on the server.")
 
 
-def _last(newest: backups.Backup, admin: bool) -> BackupOut:
-    size = newest.size  # a member sees the database file's size, as before 0.9.5
-    if newest.photos and admin:
+def _last(newest: backups.Backup) -> BackupOut:
+    size = newest.size
+    if newest.photos:
         size += backups.photos_size(backups.photos_beside(newest.path))
     return BackupOut(at=newest.made_at, size=size, photos=newest.photos)
 
@@ -102,18 +101,15 @@ def _database_size(request: Request) -> int:
 def _out(kitchen: Here, request: Request) -> BackupsOut:
     folder = _folder(request)
     household = kitchen.household
-    admin = kitchen.may(Action.YOUR_DATA)
     found = backups.backups(folder)
     every = household.backup_every if household.backup_every in backups.EVERY else "daily"
     return BackupsOut(
         every=backups.API_EVERY[every],  # type: ignore[arg-type]
         keep=household.backup_keep,
         photos=household.backup_photos,
-        photos_size=(
-            backups.photos_size(backups.photo_store(folder), household.id) if admin else None
-        ),
-        database_size=_database_size(request) if admin else None,
-        last=_last(found[0], admin) if found else None,
+        photos_size=backups.photos_size(backups.photo_store(folder), household.id),
+        database_size=_database_size(request),
+        last=_last(found[0]) if found else None,
         problem=household.backup_problem,
         problem_at=household.backup_problem_at,
         count=len(found),
@@ -123,10 +119,11 @@ def _out(kitchen: Here, request: Request) -> BackupsOut:
 
 @router.get("/your-data/backups")
 def get_backups(kitchen: Here, request: Request) -> BackupsOut:
-    """How often Mealwright backs up, how many it keeps, and how the last backup went. Not for
-    API tokens: it also names the server's backups folder, which the screen doesn't show."""
-    if kitchen.by_token:
-        raise not_for_tokens()  # O2 review r1, finding 1 (proposed, for cabledrawer)
+    """How often Mealwright backs up, how many it keeps, and how the last backup went. Admins
+    only: a member never sees the Household group. Not for API tokens: it also names the
+    server's backups folder (O2 review r1, finding 1)."""
+    # D4, BE12 (cabledrawer 15 Nov). Not in the docstring: the API description names nobody.
+    kitchen.admin_only(Action.YOUR_DATA)
     return _out(kitchen, request)
 
 
@@ -534,7 +531,7 @@ def delete_everything(
     for session_id in sessions:  # open live-update streams end now
         request.app.state.events.end_session(session_id)
     _sign_out(request, response)
-    sign_in_log.warning(
+    sign_in_log.info(  # done as asked: a success (D4, BE25)
         "Deleted everything (by %s); safety backup %s; everyone signed out",
         username,
         safety.name,

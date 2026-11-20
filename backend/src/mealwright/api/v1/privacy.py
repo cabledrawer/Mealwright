@@ -235,7 +235,12 @@ class PasswordsBackOn(BaseModel):
 
 @router.get("/privacy/own-network")
 def get_own_network(kitchen: Here) -> OwnNetworkOut:
-    """The household's "Your own network" list, oldest first. It starts empty."""
+    """The household's "Your own network" list, oldest first. It starts empty. Admins only: a
+    member's screens never show it, and a member must not be able to map the home network. Not
+    for API tokens."""
+    # D4, BE12; spec Q10 (cabledrawer 18 Nov). Not in the docstring: the API description
+    # names nobody.
+    kitchen.admin_only(Action.PRIVACY)
     return _list(kitchen)
 
 

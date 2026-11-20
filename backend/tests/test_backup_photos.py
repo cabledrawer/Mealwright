@@ -158,7 +158,7 @@ def test_the_switch_changes_nothing_else_and_only_what_is_sent(kitchen: TestClie
 
 
 def test_only_an_admin_changes_the_switch(kitchen: TestClient, member: TestClient) -> None:
-    assert member.get(API).json()["photos"] is True  # a member can look
+    assert member.get(API).status_code == 403  # nor look (D4, BE12)
     assert member.patch(API, json={"photos": False}).status_code == 403
     assert kitchen.get(API).json()["photos"] is True
 
@@ -710,7 +710,7 @@ def test_a_photo_swapped_for_a_link_after_the_listing_is_left_out(
     assert made.photos is False  # nothing of the link's target was copied
 
 
-def test_a_member_is_told_no_sizes_and_an_admin_only_their_own_households_photos(
+def test_a_member_is_told_nothing_and_an_admin_only_their_own_households_photos(
     kitchen: TestClient, member: TestClient
 ) -> None:
     _photo(_store(kitchen), "a", b"x" * 1000)
@@ -720,11 +720,9 @@ def test_a_member_is_told_no_sizes_and_an_admin_only_their_own_households_photos
     body = kitchen.get(API).json()
     assert body["photos_size"] == 1000
     assert body["last"]["size"] == backup.size + 8000  # the backup holds both households'
-    seen = member.get(API).json()
-    assert seen["photos_size"] is None
-    assert seen["database_size"] is None
-    assert seen["last"]["size"] == backup.size  # as a member saw it before 0.9.5
-    assert seen["last"]["photos"] is True
+    seen = member.get(API)  # D4, BE12: the page is for admins only
+    assert seen.status_code == 403
+    assert seen.json()["code"] == "admins_only"
 
 
 def test_delete_everything_always_keeps_the_photos_in_its_safety_copy(
