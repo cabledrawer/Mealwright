@@ -69,6 +69,11 @@ log = logging.getLogger(__name__)
 
 FOLDER = "backups"
 EVERY = ("daily", "twice-daily", "weekly")
+# The API says "twice_daily" (snake_case like every other value it sends; D3, BE29); the database
+# keeps "twice-daily" as stored since 0.9.5, so nothing stored is rewritten (proposed, for
+# cabledrawer). These two turn one into the other at the API's edge.
+API_EVERY = {"daily": "daily", "twice-daily": "twice_daily", "weekly": "weekly"}
+STORED_EVERY = {api: stored for stored, api in API_EVERY.items()}
 KEEP_DEFAULT = 7
 KEEP_MOST = 30
 AT = time(3, 0)  # 03:00 in the household's own time

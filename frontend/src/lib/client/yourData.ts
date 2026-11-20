@@ -4,7 +4,7 @@
 
 import { api, ApiError, cantReachWords, codeOf, detailOf, sessionEnded } from '#lib/api.js';
 
-export type BackupEvery = 'daily' | 'twice-daily' | 'weekly';
+export type BackupEvery = 'daily' | 'twice_daily' | 'weekly';
 
 export interface Backups {
   every: BackupEvery;

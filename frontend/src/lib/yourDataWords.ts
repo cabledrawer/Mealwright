@@ -6,7 +6,7 @@ import type { BackupEvery, Backups } from '#lib/client/yourData.js';
 
 export const EVERY_WORDS: Record<BackupEvery, string> = {
   daily: 'Daily, 03:00',
-  'twice-daily': 'Twice a day, 03:00 and 15:00',
+  twice_daily: 'Twice a day, 03:00 and 15:00',
   weekly: 'Weekly, Mondays 03:00'
 };
 

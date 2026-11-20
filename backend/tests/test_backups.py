@@ -241,6 +241,17 @@ def test_an_admin_changes_how_often_and_how_many(kitchen: TestClient) -> None:
     assert (household.backup_every, household.backup_keep) == ("weekly", 2)
 
 
+def test_twice_a_day_is_twice_daily_in_the_api(kitchen: TestClient) -> None:
+    """D3 (BE29): the API says `twice_daily`, snake_case like every other value; the database
+    keeps "twice-daily" as stored before, so a household that chose it still reads right."""
+    response = kitchen.patch(API, json={"every": "twice_daily"})
+    assert response.status_code == 200, response.text
+    assert response.json()["every"] == "twice_daily"
+    assert _household(kitchen).backup_every == "twice-daily"
+    assert kitchen.get(API).json()["every"] == "twice_daily"
+    assert kitchen.patch(API, json={"every": "twice-daily"}).status_code == 422
+
+
 @pytest.mark.parametrize("body", [{"keep": 0}, {"keep": 31}, {"every": "hourly"}])
 def test_out_of_range_is_refused(kitchen: TestClient, body: dict[str, object]) -> None:
     assert kitchen.patch(API, json=body).status_code == 422

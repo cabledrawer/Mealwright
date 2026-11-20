@@ -58,7 +58,7 @@ class BackupOut(BaseModel):
 class BackupsOut(BaseModel):
     """How Mealwright backs itself up, and how the last backup went."""
 
-    every: Literal["daily", "twice-daily", "weekly"] = Field(
+    every: Literal["daily", "twice_daily", "weekly"] = Field(
         description="How often: daily at 03:00, twice a day (03:00 and 15:00), or weekly "
         "(Mondays 03:00), in the household's time."
     )
@@ -106,7 +106,7 @@ def _out(kitchen: Here, request: Request) -> BackupsOut:
     found = backups.backups(folder)
     every = household.backup_every if household.backup_every in backups.EVERY else "daily"
     return BackupsOut(
-        every=every,  # type: ignore[arg-type]
+        every=backups.API_EVERY[every],  # type: ignore[arg-type]
         keep=household.backup_keep,
         photos=household.backup_photos,
         photos_size=(
@@ -133,7 +133,7 @@ def get_backups(kitchen: Here, request: Request) -> BackupsOut:
 class BackupsChange(BaseModel):
     """Only what is sent changes. Admins only."""
 
-    every: Literal["daily", "twice-daily", "weekly"] | None = None
+    every: Literal["daily", "twice_daily", "weekly"] | None = None
     keep: int | None = Field(default=None, ge=1, le=backups.KEEP_MOST)
     photos: bool | None = None
     password: str = Field(
@@ -164,7 +164,7 @@ def change_backups(body: BackupsChange, kitchen: Here, request: Request) -> Back
                 request, kitchen, body.password, "Keeping fewer backups", "keep", body.keep
             )
         if body.every is not None:
-            household.backup_every = body.every
+            household.backup_every = backups.STORED_EVERY[body.every]
         if body.keep is not None:
             household.backup_keep = body.keep
         if body.photos is not None:
