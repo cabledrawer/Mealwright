@@ -15,7 +15,7 @@
   import LotMenu from './LotMenu.svelte';
   import PackPicks from './PackPicks.svelte';
   import SwipeRow from './SwipeRow.svelte';
-  import UsedSheet from './UsedSheet.svelte';
+  import Lazy from './Lazy.svelte';
   import { pickFor } from '#lib/picks.js';
 
   let {
@@ -84,6 +84,8 @@
 
   // --- Swipes (phone) ------------------------------------------------------------------------------
   let usedOpen = $state(false);
+  /** "Used…" was asked at least once: the sheet's code is fetched then, and kept (size limit). */
+  let usedEver = $state(false);
   let swiped = $state<'left' | 'right' | null>(null);
   /** Binned takes the packet that goes first: the soonest use-by (the list is oldest first). */
   const first = $derived(group.lots[0]);
@@ -207,7 +209,10 @@
         icon: 'check',
         tone: 'used',
         run: () => {
-          if (!blockedWhileDown()) usedOpen = true;
+          if (!blockedWhileDown()) {
+            usedEver = true;
+            usedOpen = true;
+          }
         }
       }}
       left={{
@@ -314,8 +319,13 @@
     </div>
   {/if}
 
-  {#if swipes}
-    <UsedSheet
+  {#if swipes && usedEver}
+    <Lazy
+      load={() => import('./UsedSheet.svelte')}
+      onfail={() => {
+        usedOpen = false;
+        usedEver = false;
+      }}
       open={usedOpen}
       {name}
       {detail}

@@ -25,7 +25,7 @@
     UseSoonLot,
     UseSoonTub
   } from '#lib/client/types.js';
-  import AddToPantry from '#lib/components/AddToPantry.svelte';
+  import Lazy from '#lib/components/Lazy.svelte';
   import FoodPicker from '#lib/components/FoodPicker.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
@@ -33,9 +33,7 @@
   import PageHeader from '#lib/components/PageHeader.svelte';
   import PantryGroup from '#lib/components/PantryGroup.svelte';
   import PantryTub from '#lib/components/PantryTub.svelte';
-  import EatItOn from '#lib/components/EatItOn.svelte';
   import UseSoon from '#lib/components/UseSoon.svelte';
-  import UsedSheet from '#lib/components/UsedSheet.svelte';
   import { whenWords } from '#lib/dates.js';
   import { chipWords } from '#lib/restockWords.js';
   import type { Name as IconName } from '#lib/components/Icon.svelte';
@@ -68,6 +66,8 @@
   let usedOpen = $state(false);
   /** The Use soon tub card whose "Eat it on…" is open. */
   let eatingTub = $state<UseSoonTub | null>(null);
+  /** "Eat it on…" was asked at least once: its code is fetched then, and kept (size limit). */
+  let eatEver = $state(false);
 
   let addingStaple = $state(false);
   /** Place columns showing every food, not just the first few (desktop). */
@@ -459,7 +459,10 @@
           {model}
           phone
           onhowmuch={openUsed}
-          oneaton={(tub) => (eatingTub = tub)}
+          oneaton={(tub) => {
+            eatEver = true;
+            eatingTub = tub;
+          }}
         />
       {/if}
       {#if pantry.counts.items === 0 && pantry.counts.tubs === 0}
@@ -513,7 +516,10 @@
         {model}
         phone={false}
         onhowmuch={openUsed}
-        oneaton={(tub) => (eatingTub = tub)}
+        oneaton={(tub) => {
+          eatEver = true;
+          eatingTub = tub;
+        }}
       />
       {#if pantry.counts.items === 0 && pantry.counts.tubs === 0 && model.filter === 'all'}
         <EmptyState title="Nothing in the pantry yet">
@@ -536,20 +542,32 @@
   </div>
 {/if}
 
-<EatItOn
-  tub={eatingTub}
-  today={pantry?.today ?? ''}
-  onclose={() => (eatingTub = null)}
-  onpick={(day, slotId, slotName) => {
-    const tub = eatingTub;
-    eatingTub = null;
-    if (tub && !blockedWhileDown()) void model.eatTubOn(tub, day, slotId, slotName);
-  }}
-/>
+{#if eatEver}
+  <Lazy
+    load={() => import('#lib/components/EatItOn.svelte')}
+    onfail={() => {
+      eatEver = false;
+      eatingTub = null;
+    }}
+    tub={eatingTub}
+    today={pantry?.today ?? ''}
+    onclose={() => (eatingTub = null)}
+    onpick={(day, slotId, slotName) => {
+      const tub = eatingTub;
+      eatingTub = null;
+      if (tub && !blockedWhileDown()) void model.eatTubOn(tub, day, slotId, slotName);
+    }}
+  />
+{/if}
 
 {#if usedFor}
   {@const lot = usedFor}
-  <UsedSheet
+  <Lazy
+    load={() => import('#lib/components/UsedSheet.svelte')}
+    onfail={() => {
+      usedDone();
+      usedFor = null;
+    }}
     open={usedOpen}
     name={lot.food.name}
     detail={[
@@ -587,7 +605,15 @@
   />
 {/if}
 
-<AddToPantry {model} {places} today={pantry?.today ?? new Date().toISOString().slice(0, 10)} />
+{#if addToPantry.wanted}
+  <Lazy
+    load={() => import('#lib/components/AddToPantry.svelte')}
+    onfail={() => addToPantry.fail()}
+    {model}
+    {places}
+    today={pantry?.today ?? new Date().toISOString().slice(0, 10)}
+  />
+{/if}
 
 <style>
   .add-round {

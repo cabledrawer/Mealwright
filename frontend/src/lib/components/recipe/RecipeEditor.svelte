@@ -10,7 +10,7 @@
   import { beforeNavigate } from '$app/navigation';
   import { resolve } from '$app/paths';
   import Switch from '../Switch.svelte';
-  import ConflictSheet from './ConflictSheet.svelte';
+  import Lazy from '../Lazy.svelte';
   import EditorNote from './EditorNote.svelte';
   import LineList from './LineList.svelte';
   import MethodBar from './MethodBar.svelte';
@@ -668,7 +668,9 @@
   </form>
 
   {#if seeing && wrens && conflict && draft.opened}
-    <ConflictSheet
+    <Lazy
+      load={() => import('./ConflictSheet.svelte')}
+      onfail={() => (seeing = false)}
       who={conflict.who}
       opened={draft.opened}
       theirs={wrens}

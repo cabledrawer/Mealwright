@@ -672,8 +672,10 @@ describe('the Shopping page', () => {
     await page.getByRole('button', { name: 'In the trolley · 1' }).click();
     await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
     await expect.element(page.getByText('How much?')).toBeVisible();
-    const names = radioNames();
-    expect(names).toEqual(['100 g', '250 g', '500 g', '1 kg', 'Type an amount']);
+    // The pack sheet's code is fetched when first opened (the size limit).
+    await vi.waitFor(() =>
+      expect(radioNames()).toEqual(['100 g', '250 g', '500 g', '1 kg', 'Type an amount'])
+    );
     await page.getByRole('radio', { name: '500 g', exact: true }).click();
     await expect.element(page.getByText('Pantry gets 1 pack · 500 g.')).toBeVisible();
     await page.getByRole('button', { name: 'Done' }).click();
@@ -688,8 +690,10 @@ describe('the Shopping page', () => {
     await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 1' }).click();
     await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
-    const names = radioNames();
-    expect(names).toEqual(['250 ml', '500 ml', '1 L', 'Type an amount']);
+    // The pack sheet's code is fetched when first opened (the size limit).
+    await vi.waitFor(() =>
+      expect(radioNames()).toEqual(['250 ml', '500 ml', '1 L', 'Type an amount'])
+    );
     await page.getByRole('radio', { name: '1 L', exact: true }).click();
     await page.getByRole('button', { name: 'Done' }).click();
     await vi.waitFor(() =>
@@ -703,8 +707,8 @@ describe('the Shopping page', () => {
     await render(1000);
     await page.getByRole('button', { name: 'In the trolley · 1' }).click();
     await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
-    const names = radioNames();
-    expect(names).toEqual(['1', '2', '6', '12', 'Type an amount']);
+    // The pack sheet's code is fetched when first opened (the size limit).
+    await vi.waitFor(() => expect(radioNames()).toEqual(['1', '2', '6', '12', 'Type an amount']));
     await page.getByRole('radio', { name: '6', exact: true }).click();
     // Six whole things, not "1 pack · 6".
     await expect.element(page.getByText('Pantry gets 6 items.')).toBeVisible();
@@ -724,8 +728,8 @@ describe('the Shopping page', () => {
     await page.getByRole('button', { name: 'In the trolley · 1' }).click();
     await page.getByRole('button', { name: 'Add amount for Kitchen roll' }).click();
     await expect.element(page.getByRole('radio', { name: '1 × 2' })).toBeVisible();
-    const names = radioNames();
-    expect(names).toEqual(['1 × 2', 'Type an amount']);
+    // The pack sheet's code is fetched when first opened (the size limit).
+    await vi.waitFor(() => expect(radioNames()).toEqual(['1 × 2', 'Type an amount']));
   });
 
   it('Different pack? keeps “Other…” (only How much? says Type an amount)', async () => {

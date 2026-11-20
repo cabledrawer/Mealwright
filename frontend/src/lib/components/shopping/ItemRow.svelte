@@ -15,9 +15,9 @@
   import type { Note } from '#lib/shopping/types.js';
   import { joinAmounts, linesOf, type ViewItem } from '#lib/shopping/view.js';
   import Icon from '../Icon.svelte';
+  import Lazy from '../Lazy.svelte';
   import SwipeRow from '../SwipeRow.svelte';
   import AmountBox from './AmountBox.svelte';
-  import MovePicker from './MovePicker.svelte';
   import NewPlace from '../NewPlace.svelte';
   import { addSuggestedSize } from '#lib/client/foods.js';
   import { serverUndo } from '#lib/client/changes.js';
@@ -27,8 +27,6 @@
   import { save } from '#lib/save.js';
   import { needLine, packLine, packParts, usualSize } from '#lib/shopping/packLine.js';
   import { useSize } from '#lib/shopping/useSize.js';
-  import FoundSheet from './FoundSheet.svelte';
-  import PackSheet from './PackSheet.svelte';
   import RemoveConfirm from './RemoveConfirm.svelte';
   import RowMenu from './RowMenu.svelte';
 
@@ -86,17 +84,11 @@
   /** A size is known, so "Which size?" has something to compare against. */
   const sizeKnown = $derived(!trolley && !food.staple && item.pack?.packs != null);
   let sizesOpen = $state(false);
-  let SizesSheet = $state<(typeof import('./PackSizes.svelte'))['default'] | null>(null);
   let usingAlternative = $state(false);
 
   /** The sizes sheet loads the first time it is asked for (the page size limit). */
-  async function openSizes() {
-    try {
-      SizesSheet ??= (await import('./PackSizes.svelte')).default;
-      sizesOpen = true;
-    } catch {
-      /* the sheet's code could not be fetched: the row stays as it is */
-    }
+  function openSizes() {
+    sizesOpen = true;
   }
 
   async function useAlternative() {
@@ -296,7 +288,7 @@
     name={food.name}
     items={[
       { label: 'Change amount', run: () => openBox() },
-      ...(sizeKnown ? [{ label: 'Which size?…', run: () => void openSizes() }] : []),
+      ...(sizeKnown ? [{ label: 'Which size?…', run: () => openSizes() }] : []),
       { label: 'Move to…', run: (from) => openMove(from) },
       { label: 'Remove from list…', danger: true, run: (from) => ask(from) }
     ]}
@@ -318,7 +310,7 @@
       onsizes={sizeKnown
         ? () => {
             editing = false;
-            void openSizes();
+            openSizes();
           }
         : undefined}
     />
@@ -555,7 +547,9 @@
   {/if}
 
   {#if packOpen && trolley && view.ticks.length}
-    <PackSheet
+    <Lazy
+      load={() => import('./PackSheet.svelte')}
+      onfail={() => (packOpen = false)}
       {model}
       {item}
       {food}
@@ -581,7 +575,12 @@
   {/each}
 
   {#if moving || moveFrom}
-    <MovePicker
+    <Lazy
+      load={() => import('./MovePicker.svelte')}
+      onfail={() => {
+        moving = false;
+        moveFrom = null;
+      }}
       open={moving}
       name={food.name}
       {...model.movePlaces(item)}
@@ -592,12 +591,26 @@
     />
   {/if}
 
-  {#if sizesOpen && SizesSheet}
-    <SizesSheet {model} {item} {food} onclose={() => (sizesOpen = false)} />
+  {#if sizesOpen}
+    <Lazy
+      load={() => import('./PackSizes.svelte')}
+      onfail={() => (sizesOpen = false)}
+      {model}
+      {item}
+      {food}
+      onclose={() => (sizesOpen = false)}
+    />
   {/if}
 
   {#if haveOpen}
-    <FoundSheet {model} {item} {food} onclose={() => (haveOpen = false)} />
+    <Lazy
+      load={() => import('./FoundSheet.svelte')}
+      onfail={() => (haveOpen = false)}
+      {model}
+      {item}
+      {food}
+      onclose={() => (haveOpen = false)}
+    />
   {/if}
 
   {#if asking}

@@ -11,9 +11,8 @@
   import { downLine } from '#lib/downWords.js';
   import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
-  import CookedReview, { type LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
+  import type { LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
   import FirstDay from '#lib/components/today/FirstDay.svelte';
-  import MoveSheet from '#lib/components/today/MoveSheet.svelte';
   import WaitingCard from '#lib/components/today/WaitingCard.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
@@ -158,6 +157,16 @@
     answering = null;
   }
   let moving = $state<WaitingMeal | null>(null);
+  // The review and the move sheet are fetched when first wanted, then kept so closing one
+  // hands focus back as before (size limit).
+  let reviewEver = $state(false);
+  let moveEver = $state(false);
+  $effect(() => {
+    if (review.target) reviewEver = true;
+  });
+  $effect(() => {
+    if (moving) moveEver = true;
+  });
 
   const data = $derived(model.data);
   const today = $derived(data?.today ?? '');
@@ -414,27 +423,39 @@
   </div>
 {/if}
 
-<CookedReview
-  {review}
-  {leftover}
-  readonly={model.readonly}
-  onclose={closeCooked}
-  onconfirmed={async (leftovers, undoCooked, eatOn) => {
-    const waiting = answering;
-    if (!waiting) return true;
-    const placed: Placed = { undo: null };
-    const title = review.target?.title; // F161: only what this press cooked
-    const result = answered(
-      await model.cooked(waiting, leftovers, undoCooked, async () => placed.undo?.(), title)
-    );
-    const meal = model.mealOf(waiting);
-    const name = meal?.items.find((i) => i.id === leftovers?.item_id)?.recipe?.name;
-    if (result === true && meal && eatOn && leftovers && name)
-      await eatLeftover(placed, name, meal.date, leftovers.count, eatOn);
-    return result;
-  }}
-/>
-<MoveSheet {model} waiting={moving} onclose={() => (moving = null)} />
+{#if reviewEver}
+  <Lazy
+    load={() => import('#lib/components/cooked/CookedReview.svelte')}
+    onfail={closeCooked}
+    {review}
+    {leftover}
+    readonly={model.readonly}
+    onclose={closeCooked}
+    onconfirmed={async (leftovers, undoCooked, eatOn) => {
+      const waiting = answering;
+      if (!waiting) return true;
+      const placed: Placed = { undo: null };
+      const title = review.target?.title; // F161: only what this press cooked
+      const result = answered(
+        await model.cooked(waiting, leftovers, undoCooked, async () => placed.undo?.(), title)
+      );
+      const meal = model.mealOf(waiting);
+      const name = meal?.items.find((i) => i.id === leftovers?.item_id)?.recipe?.name;
+      if (result === true && meal && eatOn && leftovers && name)
+        await eatLeftover(placed, name, meal.date, leftovers.count, eatOn);
+      return result;
+    }}
+  />
+{/if}
+{#if moveEver}
+  <Lazy
+    load={() => import('#lib/components/today/MoveSheet.svelte')}
+    onfail={() => (moving = null)}
+    {model}
+    waiting={moving}
+    onclose={() => (moving = null)}
+  />
+{/if}
 
 <style>
   .today {
