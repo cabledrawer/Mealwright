@@ -7,7 +7,7 @@ Notes for whoever writes or fixes a browser test (the Playwright tests in `e2e/`
 Two things differ in a full run.
 
 1. **The machine is busy.** A full `./check` builds images and runs scanners, and other work may be running too. A browser test that takes 7 seconds on a quiet machine can take 20 seconds or more. Every test has 30 seconds in all, and most waits inside a test have 5 seconds (10 where a test says so).
-2. **The app holds more data.** All the tests in one run share one app and one database. By the time a late test runs, the Shopping list, Pantry and Ingredients hold everything the earlier tests added. A page with 500 or more elements takes noticeably longer to scan than the same page in a fresh app.
+2. **The app holds more data.** Each Playwright worker starts its own app and database (`tests/clock.ts`, ports in `tests/servers.ts`), and all the tests that worker runs share them. By the time a late test runs, the Shopping list, Pantry and Ingredients hold everything the earlier tests on that worker added. A page with 500 or more elements takes noticeably longer to scan than the same page in a fresh app.
 
 So when a test only fails in a full run, look for work that grows with load or with data, and cut it.
 
