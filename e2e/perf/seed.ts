@@ -107,9 +107,9 @@ const ctx: APIRequestContext = await request.newContext({ baseURL: values.base!,
 const made = await ctx.post('/api/v1/setup', { data: { ...ADMIN, setup_code: values['setup-code'] } });
 if (made.status() !== 201) throw new Error(`Setup → ${made.status()} ${await made.text()}`);
 const api = new Api(ctx);
-await api.post('/household/from-browser', { time_zone: 'Europe/London', cup_ml: 250 });
+await api.post('/household/fill-from-browser', { time_zone: 'Europe/London', cup_ml: 250 });
 const today = (await api.get('/household')).today as string;
-const places = ((await api.get('/places')).items as { id: number; name: string }[]).map((p) => p.id);
+const places = ((await api.get('/places')).places as { id: number; name: string }[]).map((p) => p.id);
 
 // Pantry: N ingredients, each with one lot in stock.
 const nPantry = Number(values.pantry);
@@ -156,7 +156,7 @@ for (let i = 0; i < nRecipes; i++) {
 }
 
 // A month of plan: breakfast, lunch and dinner on each of 31 days from today.
-const slots = (await api.get('/meal-slots')).items as { id: number; name: string }[];
+const slots = (await api.get('/meal-slots')).meal_slots as { id: number; name: string }[];
 const wanted = slots.filter((s) => ['Breakfast', 'Lunch', 'Dinner'].includes(s.name));
 let planned = 0;
 for (let d = 0; d < 31; d++) {

@@ -17,7 +17,7 @@ API = "/api/v1"
 
 
 def places(client: TestClient) -> dict[str, int]:
-    return {p["name"]: p["id"] for p in ok(client.get(f"{API}/places"))}
+    return {p["name"]: p["id"] for p in ok(client.get(f"{API}/places"))["places"]}
 
 
 def _lot_of(client: TestClient, food_id: int) -> int:

@@ -33,7 +33,7 @@ async function stock(page: Page, foodId: number, placeId: number, grams = 100) {
 }
 
 async function placeId(page: Page, name: string) {
-  const places = (await (await page.request.get('/api/v1/places')).json()) as Json[];
+  const places = (await (await page.request.get('/api/v1/places')).json()).places as Json[];
   return places.find((p) => p.name === name)!.id as number;
 }
 
@@ -219,7 +219,7 @@ test('Meal slots: rename, reorder with Move down, switch off, and add; Undo of a
   await page.keyboard.press('Enter');
   await expect(rowOf(page, 'Meal slots', name)).toBeVisible();
   await expect
-    .poll(async () => ((await (await page.request.get('/api/v1/meal-slots')).json()) as Json[]).map((s) => s.name))
+    .poll(async () => ((await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as Json[]).map((s) => s.name))
     .toContain(name);
   await undoFromToast(page, `Undone: Renamed Snack to ${name}`);
   await expect(rowOf(page, 'Meal slots', 'Snack')).toBeVisible();
@@ -227,7 +227,7 @@ test('Meal slots: rename, reorder with Move down, switch off, and add; Undo of a
   await slots.getByRole('button', { name: 'Move Breakfast down' }).click();
   await expect(slots.getByRole('listitem').first()).toContainText('Lunch');
   await expect
-    .poll(async () => ((await (await page.request.get('/api/v1/meal-slots')).json()) as Json[])[0].name)
+    .poll(async () => ((await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as Json[])[0].name)
     .toBe('Lunch');
   await slots.getByRole('button', { name: 'Move Breakfast up' }).click();
   await expect(slots.getByRole('listitem').first()).toContainText('Breakfast');
@@ -282,7 +282,7 @@ test('Shops: add, rename, reorder; removing one sends its ingredients to Any sho
     await shops.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(rowOf(page, 'Shops', name)).toBeVisible();
   }
-  const list = (await (await page.request.get('/api/v1/shops')).json()) as Json[];
+  const list = (await (await page.request.get('/api/v1/shops')).json()).shops as Json[];
   const aldi = list.find((x) => x.name === first)!;
   // An ingredient that is usually bought there.
   const milk = await makeFood(page, `Milk ${s}`, { shop_id: aldi.id });
@@ -297,7 +297,7 @@ test('Shops: add, rename, reorder; removing one sends its ingredients to Any sho
   // Ask the server until the move has landed (the row moves on screen before the server has it).
   await expect
     .poll(async () => {
-      const order = ((await (await page.request.get('/api/v1/shops')).json()) as Json[]).map((x) => x.name);
+      const order = ((await (await page.request.get('/api/v1/shops')).json()).shops as Json[]).map((x) => x.name);
       return order.includes(renamed) && order.indexOf(second) >= 0 && order.indexOf(second) < order.indexOf(renamed);
     })
     .toBe(true);
@@ -383,7 +383,7 @@ test('Places: add with a kind; a place with things in it asks where to move them
 test('Places: the last Fridge and the last Freezer stay, and the screen says why', async ({ page }) => {
   // Other specs add their own fridges and freezers to the shared household; move their things
   // into Fridge and Freezer and remove them, so those two are the last of their kind again.
-  const all = (await (await page.request.get('/api/v1/places')).json()) as Json[];
+  const all = (await (await page.request.get('/api/v1/places')).json()).places as Json[];
   for (const [kind, keep] of [['fridge', 'Fridge'], ['freezer', 'Freezer']]) {
     const kept = all.find((p) => p.name === keep)!;
     for (const extra of all.filter((p) => p.kind === kind && p.id !== kept.id)) {
@@ -404,11 +404,11 @@ test('Places: the last Fridge and the last Freezer stay, and the screen says why
   // Order: Spice rack up, then down again.
   await places.getByRole('button', { name: 'Move Spice rack up' }).click();
   await expect
-    .poll(async () => ((await (await page.request.get('/api/v1/places')).json()) as Json[]).map((p) => p.name))
+    .poll(async () => ((await (await page.request.get('/api/v1/places')).json()).places as Json[]).map((p) => p.name))
     .not.toEqual(['Fridge', 'Freezer', 'Cupboard', 'Spice rack']);
   await places.getByRole('button', { name: 'Move Spice rack down' }).click();
   await expect
-    .poll(async () => ((await (await page.request.get('/api/v1/places')).json()) as Json[]).map((p) => p.name))
+    .poll(async () => ((await (await page.request.get('/api/v1/places')).json()).places as Json[]).map((p) => p.name))
     .toEqual(['Fridge', 'Freezer', 'Cupboard', 'Spice rack']);
 });
 
@@ -419,7 +419,7 @@ test('Recent changes lists a pantry change, a plan change and a removal, newest 
   const food = await makeFood(page, `Lentils ${s}`);
   const cupboard = await placeId(page, 'Cupboard');
   await stock(page, food.id, cupboard, 250); // a pantry change
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as Json[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as Json[];
   const dinner = slots.find((x) => x.name === 'Dinner')!;
   const today = ((await (await page.request.get('/api/v1/household')).json()) as Json).today as string;
   const planned = await page.request.post('/api/v1/plan/items', {
@@ -444,7 +444,7 @@ test('Recent changes lists a pantry change, a plan change and a removal, newest 
   await expect(page.getByRole('status').filter({ hasText: `Undone: Removed the shop Shop ${s}` })).toBeVisible();
   await expect(recent.getByText(`Undid: Removed the shop Shop ${s}`)).toBeVisible();
   await expect(recent.getByRole('button', { name: `Undo: Removed the shop Shop ${s}` })).toHaveCount(0);
-  expect(((await (await page.request.get('/api/v1/shops')).json()) as Json[]).map((x) => x.name)).toContain(`Shop ${s}`);
+  expect(((await (await page.request.get('/api/v1/shops')).json()).shops as Json[]).map((x) => x.name)).toContain(`Shop ${s}`);
   // Clean up the plan and the shop.
   const item = ((await planned.json()) as Json).item_id;
   await page.request.delete(`/api/v1/plan/items/${item}`, { headers: key() });
@@ -467,7 +467,7 @@ test('one Cooked it is one row in Recent changes, with one Undo (cabledrawer 7 N
   const s = stamp();
   const food = await makeFood(page, `Moong ${s}`);
   await stock(page, food.id, await placeId(page, 'Cupboard'), 800);
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as Json[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as Json[];
   const dinner = slots.find((x) => x.name === 'Dinner')!;
   const today = ((await (await page.request.get('/api/v1/household')).json()) as Json).today as string;
   const post = async (path: string, data: Json, status: number) => {

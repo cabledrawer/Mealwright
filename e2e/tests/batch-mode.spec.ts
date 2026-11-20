@@ -28,7 +28,7 @@ function addDays(iso: string, days: number): string {
 /** Two recipes that both chop onions (so the chopping is one shared task), planned as a session. */
 async function session(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const dinner = slots.find((s) => s.name === 'Dinner')!.id;
   const onion = (await call(page, 'POST', '/foods', { name: `Onion ${stamp()}`, counted_as: 'count' })).food.id as number;
   const sambar = `Sambar ${stamp()}`;
@@ -225,7 +225,7 @@ test('Start batch cook on the Plan card opens batch cook mode for that session',
 test('one pressure cooker is never offered twice, and the screen says what is in use', async ({ page }) => {
   await call(page, 'PATCH', '/household/kitchen', { pressure_cookers: 1 });
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const dals = [];
   for (const n of [1, 2]) {
     dals.push(await call(page, 'POST', '/recipes', { name: `Dal ${n} ${stamp()}`, serves: 4, steps: [{ text: 'Pressure cook the dal for 3 whistles.' }, { text: 'Fry the onions.' }] }));

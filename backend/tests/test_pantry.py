@@ -32,7 +32,9 @@ def add(kitchen: TestClient, food_id: int, amount: float, unit: str, **extra: An
 
 
 def place(kitchen: TestClient, name: str) -> int:
-    found: int = next(p["id"] for p in kitchen.get(f"{API}/places").json() if p["name"] == name)
+    found: int = next(
+        p["id"] for p in kitchen.get(f"{API}/places").json()["places"] if p["name"] == name
+    )
     return found
 
 

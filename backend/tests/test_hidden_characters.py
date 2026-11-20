@@ -82,7 +82,7 @@ def test_shop_and_list_names_refuse_hidden_characters(kitchen: TestClient) -> No
     made = ok(kitchen.post(f"{API}/shopping/lists", json={"name": "Party"}), 201)
     list_id = made["shopping_list"]["id"]
     refused(kitchen.patch(f"{API}/shopping/lists/{list_id}", json={"name": "Par\u200bty"}))
-    assert [s["name"] for s in ok(kitchen.get(f"{API}/shops"))] == []
+    assert [s["name"] for s in ok(kitchen.get(f"{API}/shops"))["shops"]] == []
 
 
 def test_the_offline_queue_refuses_hidden_characters_in_names(kitchen: TestClient) -> None:

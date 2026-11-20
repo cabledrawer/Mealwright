@@ -129,9 +129,10 @@ export const mergeFood = (
 export const splitFood = (id: number, otherNameId: number, idempotencyKey: string) =>
   api<FoodWrite>('POST', `/foods/${id}/split`, { other_name_id: otherNameId }, key(idempotencyKey));
 
-export const getPlaces = () => api<Place[]>('GET', '/places');
+// D3 (BE17): every list comes in an object named after what it holds.
+export const getPlaces = () => api<{ places: Place[] }>('GET', '/places').then((r) => r.places);
 
-export const getShops = () => api<Shop[]>('GET', '/shops');
+export const getShops = () => api<{ shops: Shop[] }>('GET', '/shops').then((r) => r.shops);
 
 /** Adds a shop. A name the household already has is a 409 `name_taken` carrying that shop, so
  *  "+ Shop" picks it instead of making a double (placesAndShops.addShop). */

@@ -63,7 +63,7 @@ class TodayOut(BaseModel):
     people: list[PersonOut]
     waiting: list[WaitingOut]  # newest first
     tubs_left: list[TubLeftOut]
-    tubs_left_more: bool
+    tubs_left_next: str | None  # D3 (BE17): the `next` of GET /plan/tubs-left
     use_soon_lots: list[UseSoonLot]  # packets, soonest first
     # One row per batch and place, the way the Pantry counts them (F203): the batch's tubs in
     # that place when its soonest is within the Use soon days (or passed).
@@ -152,10 +152,10 @@ def get_today(kitchen: Here) -> TodayOut:
         first_day=not (has_recipes or has_stock or has_meals),
         slots=[MealSlotOut(id=s.id, name=s.name, position=s.position, enabled=True) for s in slots],
         plan=plan_out,
-        people=list_people(kitchen),
+        people=list_people(kitchen).people,
         waiting=waiting,
         tubs_left=left.tubs,
-        tubs_left_more=left.more,
+        tubs_left_next=left.next,
         use_soon_lots=lots.lots,
         use_soon_tubs=lots.tubs,
         next_cook=next_cook,

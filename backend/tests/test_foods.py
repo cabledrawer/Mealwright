@@ -23,7 +23,7 @@ def patch(kitchen: TestClient, food_id: int, **field: Any) -> dict[str, Any]:
 
 
 def place_id(kitchen: TestClient, name: str) -> int:
-    return next(p["id"] for p in kitchen.get(f"{API}/places").json() if p["name"] == name)
+    return next(p["id"] for p in kitchen.get(f"{API}/places").json()["places"] if p["name"] == name)
 
 
 # --- Create and read -------------------------------------------------------------------------

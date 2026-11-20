@@ -128,7 +128,7 @@ function serve(plan: PlanMeal[], options: { failWrite?: boolean } = {}) {
   vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
     calls.push(`${init.method} ${url}`);
     if (url === '/api/v1/household') return json({ today: TODAY });
-    if (url === '/api/v1/meal-slots') return json(slots);
+    if (url === '/api/v1/meal-slots') return json({ meal_slots: slots });
     if (url.startsWith('/api/v1/plan?'))
       return json({ start: TODAY, end: TODAY, meals: plan, batch_cooks: [], tubs: [] });
     if (url === '/api/v1/plan/items' && init.method === 'POST') {
@@ -239,7 +239,7 @@ describe('Cook now plans first', () => {
     let items = 0;
     vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
       if (url === '/api/v1/household') return json({ today: TODAY });
-      if (url === '/api/v1/meal-slots') return json(slots);
+      if (url === '/api/v1/meal-slots') return json({ meal_slots: slots });
       if (url.startsWith('/api/v1/plan?'))
         return json({ start: TODAY, end: TODAY, meals: [], batch_cooks: [], tubs: [] });
       if (url === '/api/v1/plan/items') {
@@ -270,7 +270,7 @@ describe('Cook now plans first', () => {
     let posts = 0;
     vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
       if (url === '/api/v1/household') return json({ today: TODAY });
-      if (url === '/api/v1/meal-slots') return json(slots);
+      if (url === '/api/v1/meal-slots') return json({ meal_slots: slots });
       if (url.startsWith('/api/v1/plan?'))
         return json({ start: TODAY, end: TODAY, meals: [], batch_cooks: [], tubs: [] });
       if (url === '/api/v1/plan/items' && init.method === 'POST') {
@@ -304,7 +304,7 @@ describe('Cook now plans first', () => {
   it('when the second try can’t reach the server either, the “wasn’t planned” line', async () => {
     vi.stubGlobal('fetch', async (url: string) => {
       if (url === '/api/v1/household') return json({ today: TODAY });
-      if (url === '/api/v1/meal-slots') return json(slots);
+      if (url === '/api/v1/meal-slots') return json({ meal_slots: slots });
       if (url.startsWith('/api/v1/plan?'))
         return json({ start: TODAY, end: TODAY, meals: [], batch_cooks: [], tubs: [] });
       throw new TypeError('down');

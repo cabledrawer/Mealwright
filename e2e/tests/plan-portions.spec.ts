@@ -54,7 +54,7 @@ const dayWords = (iso: string) => {
 
 async function setup(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
-  const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const list = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
   const me = (await (await page.request.get('/api/v1/me')).json()) as { id: number; name: string; member_id: number };
   return { today: household.today, slot, me };
@@ -251,10 +251,12 @@ test('who’s eating: shown when the household has more than one person, nobody 
   // chips. Only the real person is ticked, so the server takes it.
   await page.route('**/api/v1/plan/people', (route) =>
     route.fulfill({
-      json: [
-        { member_id: me.member_id, name: me.name, colour: null, portion_quarters: 4 },
-        { member_id: 987654, name: 'Wren', colour: null, portion_quarters: 4 },
-      ],
+      json: {
+        people: [
+          { member_id: me.member_id, name: me.name, colour: null, portion_quarters: 4 },
+          { member_id: 987654, name: 'Wren', colour: null, portion_quarters: 4 },
+        ],
+      },
     }),
   );
   await openWeekOf(page, today, day);

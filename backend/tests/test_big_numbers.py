@@ -37,7 +37,7 @@ def quiet_client(kitchen: TestClient) -> TestClient:
         ("GET", f"{API}/foods/{HUGE}", None),
         ("PATCH", f"{API}/foods/{HUGE}", {"staple": True}),
         ("POST", f"{API}/changes/{HUGE}/undo", None),
-        ("GET", f"{API}/changes?before={HUGE}", None),
+        ("GET", f"{API}/changes?after={HUGE}", None),
         ("GET", f"{API}/changes?food_id={HUGE}", None),
         ("POST", f"{API}/foods", {"name": "Butter", "place_id": HUGE}),
         ("POST", f"{API}/foods", {"name": "Butter", "shop_id": HUGE}),

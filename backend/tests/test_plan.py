@@ -92,7 +92,7 @@ def plan_one_day(client: TestClient) -> dict[str, int]:
 
 
 def test_a_new_household_has_the_default_slots(kitchen: TestClient) -> None:
-    slots = kitchen.get(f"{API}/meal-slots").json()
+    slots = kitchen.get(f"{API}/meal-slots").json()["meal_slots"]
     assert [(s["name"], s["position"], s["enabled"]) for s in slots] == [
         ("Breakfast", 0, True),
         ("Lunch", 1, True),
@@ -181,8 +181,8 @@ def test_another_household_cannot_read_my_plan(kitchen: TestClient, neighbour: T
     plan_one_day(kitchen)
     plan = neighbour.get(f"{API}/plan", params={"from": "2026-11-02", "to": "2026-11-08"}).json()
     assert plan["meals"] == [] and plan["tubs"] == [] and plan["batch_cooks"] == []
-    mine = {s["id"] for s in kitchen.get(f"{API}/meal-slots").json()}
-    theirs = {s["id"] for s in neighbour.get(f"{API}/meal-slots").json()}
+    mine = {s["id"] for s in kitchen.get(f"{API}/meal-slots").json()["meal_slots"]}
+    theirs = {s["id"] for s in neighbour.get(f"{API}/meal-slots").json()["meal_slots"]}
     assert mine and theirs and not mine & theirs
 
 

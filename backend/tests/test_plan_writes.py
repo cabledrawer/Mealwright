@@ -545,7 +545,7 @@ def test_a_household_cannot_have_more_than_the_most_slots(kitchen: TestClient) -
         assert refused.value.status_code == 409 and refused.value.code == "too_many_slots"
         assert "at most 12" in refused.value.detail
         db.rollback()
-    assert len(kitchen.get(f"{API}/meal-slots").json()) == 4
+    assert len(kitchen.get(f"{API}/meal-slots").json()["meal_slots"]) == 4
 
 
 def _cook(kitchen: TestClient, meal_id: int) -> None:

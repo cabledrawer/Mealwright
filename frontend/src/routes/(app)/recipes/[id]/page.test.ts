@@ -872,10 +872,10 @@ describe('the recipe page', () => {
     };
     const planRoutes = (): Parameters<typeof fakeShopping>[1] => ({
       'GET /household': [200, { today: '2026-10-17', week_starts_on: 1 }],
-      'GET /meal-slots': [200, SLOTS],
+      'GET /meal-slots': [200, { meal_slots: SLOTS }],
       'GET /plan': [200, EMPTY_PLAN],
-      'GET /plan/tubs-left': [200, { tubs: [], more: false }],
-      'GET /plan/people': [200, []],
+      'GET /plan/tubs-left': [200, { tubs: [], next: null }],
+      'GET /plan/people': [200, { people: [] }],
       'POST /plan/items': [200, { change, meal_id: 9, item_id: 10 }],
       'POST /changes/61/undo': [200, { message: 'Undone', change: { ...change, undone: {} } }]
     });

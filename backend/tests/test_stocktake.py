@@ -14,7 +14,7 @@ STOCKTAKE = f"{API}/stocktake"
 
 
 def place(kitchen: TestClient, name: str) -> int:
-    return next(p["id"] for p in kitchen.get(f"{API}/places").json() if p["name"] == name)
+    return next(p["id"] for p in kitchen.get(f"{API}/places").json()["places"] if p["name"] == name)
 
 
 def food(kitchen: TestClient, name: str, **extra: Any) -> dict[str, Any]:
@@ -62,7 +62,7 @@ def total(kitchen: TestClient, food_id: int, place_id: int) -> int:
 def test_places_come_in_the_settings_order_and_start_at_the_first(kitchen: TestClient) -> None:
     found = kitchen.get(STOCKTAKE).json()
     names = [p["name"] for p in found["places"]]
-    assert names == [p["name"] for p in kitchen.get(f"{API}/places").json()]
+    assert names == [p["name"] for p in kitchen.get(f"{API}/places").json()["places"]]
     assert found["current_place_id"] == found["places"][0]["id"]
     assert (found["started"], found["complete"]) == (False, False)
     detail = kitchen.get(f"{STOCKTAKE}/places/{found['places'][2]['id']}").json()

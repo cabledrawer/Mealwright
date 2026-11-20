@@ -51,12 +51,17 @@ function open(
       200,
       { hob_rings: 4, pressure_cookers: 1, oven: true, asked: false }
     ],
-    'GET /meal-slots': [200, []],
+    'GET /meal-slots': [200, { meal_slots: [] }],
     'GET /shops': [
       200,
-      Array.from({ length: counts.shops }, (_, i) => ({ id: i + 1, name: `Shop ${i + 1}` }))
+      {
+        shops: Array.from({ length: counts.shops }, (_, i) => ({
+          id: i + 1,
+          name: `Shop ${i + 1}`
+        }))
+      }
     ],
-    'GET /places': [200, PLACES],
+    'GET /places': [200, { places: PLACES }],
     'GET /changes': [200, { changes: [], next: null }],
     'GET /people': [
       200,

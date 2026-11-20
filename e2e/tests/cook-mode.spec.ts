@@ -590,7 +590,7 @@ test('Cook now adds nothing to the plan when the recipe is already planned today
   await fakeBrowserThings(page);
   const { id } = await makeRecipe(page, FOUR);
   const today = ((await (await page.request.get('/api/v1/household')).json()) as { today: string }).today;
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; position: number; enabled: boolean }[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; position: number; enabled: boolean }[];
   // Another test may have dealt with a meal today already: plan into the last one still open.
   const open = slots.filter((s) => s.enabled).sort((a, b) => b.position - a.position);
   let placed = false;
@@ -770,7 +770,7 @@ test('F157: cooking one recipe of a meal cooks only it; the meal is Cooked when 
   const back = new Date(`${household.today}T12:00:00Z`);
   back.setUTCDate(back.getUTCDate() - 7);
   const day = back.toISOString().slice(0, 10);
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const slot = slots.find((s) => s.name === ['Breakfast', 'Lunch', 'Dinner'][Math.max(index, 0)])!.id;
   const khichdi = await makeRecipe(page, FOUR, `Khichdi ${stamp()}`);
   const soup = await makeRecipe(page, FOUR, `Lentil soup ${stamp()}`);
@@ -859,7 +859,7 @@ test('F157: reloading the cook address, Cooked it still reviews only this recipe
   const back = new Date(`${household.today}T12:00:00Z`);
   back.setUTCDate(back.getUTCDate() - 7);
   const day = back.toISOString().slice(0, 10);
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const slot = slots.find((s) => s.name === ['Breakfast', 'Lunch', 'Dinner'][Math.max(index, 0)])!.id;
   const khichdi = await makeRecipe(page, FOUR, `Khichdi ${stamp()}`);
   const soup = await makeRecipe(page, FOUR, `Lentil soup ${stamp()}`);
@@ -905,7 +905,7 @@ test('F159: Plan, Cook, a later day\'s meal, Start cooking, Confirm: it is cooke
   const ahead = new Date(`${household.today}T12:00:00Z`);
   ahead.setUTCDate(ahead.getUTCDate() + 2); // Monday: next week, whatever the project
   const day = ahead.toISOString().slice(0, 10);
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const slot = slots.find((s) => s.name === ['Breakfast', 'Lunch', 'Dinner'][Math.max(index, 0)])!.id;
   const soup = await makeRecipe(page, FOUR, `Lentil soup ${stamp()}`);
   const planned = await call(page, '/plan/items', { date: day, slot_id: slot, recipe_id: soup.id, servings: 2 });
@@ -993,7 +993,7 @@ test('Cooked it follows the way picked in Cook mode, even when the pick could no
   const ahead = new Date(`${household.today}T12:00:00Z`);
   ahead.setUTCDate(ahead.getUTCDate() + 2);
   const day = ahead.toISOString().slice(0, 10);
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const slot = slots.find((s) => s.name === ['Breakfast', 'Lunch', 'Dinner'][Math.max(index, 0)])!.id;
   const name = `Curry ${stamp()}`;
   const recipe = await call(page, '/recipes', {

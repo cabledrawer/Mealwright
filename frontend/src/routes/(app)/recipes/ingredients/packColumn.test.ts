@@ -87,8 +87,8 @@ describe('the Pack column', () => {
         }
       ],
       'GET /foods/3': [200, toorDal({ id: 3, name: 'Tamarind' })],
-      'GET /places': [200, []],
-      'GET /shops': [200, []],
+      'GET /places': [200, { places: [] }],
+      'GET /shops': [200, { shops: [] }],
       'GET /changes?limit=10&area=ingredients': [200, { changes: [], next: null }],
       'POST /foods/3/sizes': [
         201,

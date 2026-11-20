@@ -59,7 +59,7 @@ async function seed(page: Page, tag: string) {
 }
 
 async function mealSlot(page: Page, name: string) {
-  const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const list = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   return list.find((s) => s.name === name)!.id;
 }
 

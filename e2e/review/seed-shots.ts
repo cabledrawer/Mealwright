@@ -134,7 +134,7 @@ export async function seed(request: APIRequestContext) {
   // Today: yesterday's dinner was planned and not answered, so "Did you cook …?" shows. A past
   // meal makes nothing for the shopping list, so the other saved screens are the same.
   const { today } = (await api.get('/household')) as { today: string };
-  const { items: slots } = (await api.get('/meal-slots')) as { items: { id: number; name: string }[] };
+  const { meal_slots: slots } = (await api.get('/meal-slots')) as { meal_slots: { id: number; name: string }[] };
   const found = (await api.get('/recipes')) as { items?: { id: number }[]; recipes?: { id: number }[] };
   const recipe = (found.items ?? found.recipes ?? [])[0];
   const dinner = slots.find((slot) => slot.name === 'Dinner');
@@ -167,7 +167,7 @@ export async function stress(request: APIRequestContext) {
   const list = await mainList(api);
   const places = ['Fridge', 'Freezer', 'Cupboard', 'Spice rack'];
   const placeId = new Map(
-    ((await api.get('/places')).items as { id: number; name: string }[]).map((p) => [p.name, p.id]),
+    ((await api.get('/places')).places as { id: number; name: string }[]).map((p) => [p.name, p.id]),
   );
   for (let i = 1; i <= TOTAL; i++) {
     const long = i <= LONG_NAMES.length;

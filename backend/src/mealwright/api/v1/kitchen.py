@@ -36,13 +36,21 @@ class PlaceOut(BaseModel):
     kind: Literal["fridge", "freezer", "cupboard"]
 
 
+class PlacesOut(BaseModel):
+    """D3 (BE17): every list comes in an object, named after what it holds."""
+
+    places: list[PlaceOut]
+
+
 @router.get("/places")
-def list_places(kitchen: Here) -> list[PlaceOut]:
+def list_places(kitchen: Here) -> PlacesOut:
     """Where food lives at home, in order."""
-    return [
-        PlaceOut(id=p.id, name=p.name, kind=p.kind)  # type: ignore[arg-type]
-        for p in places(kitchen.db, kitchen.household_id)
-    ]
+    return PlacesOut(
+        places=[
+            PlaceOut(id=p.id, name=p.name, kind=p.kind)  # type: ignore[arg-type]
+            for p in places(kitchen.db, kitchen.household_id)
+        ]
+    )
 
 
 class NewPlace(BaseModel):
@@ -192,7 +200,7 @@ class Order(BaseModel):
 
 
 @router.put("/places/order")
-def order_places(body: Order, kitchen: Here, response: Response) -> list[PlaceOut]:
+def order_places(body: Order, kitchen: Here, response: Response) -> PlacesOut:
     """Put the places in this order: every id of the household's places, once each. Answers
     with the places in their new order. In Recent changes with an Undo (`places_ordered`)
     unless the order is the same."""
@@ -263,14 +271,18 @@ def remove_place(
     return Removed(change=change_out(kitchen, earlier))
 
 
+class ShopsOut(BaseModel):
+    shops: list[Ref]
+
+
 @router.get("/shops")
-def list_shops(kitchen: Here) -> list[Ref]:
+def list_shops(kitchen: Here) -> ShopsOut:
     rows = kitchen.db.scalars(
         select(Shop)
         .where(Shop.household_id == kitchen.household_id)
         .order_by(Shop.position, Shop.id)
     )
-    return [Ref(id=s.id, name=s.name) for s in rows]
+    return ShopsOut(shops=[Ref(id=s.id, name=s.name) for s in rows])
 
 
 class NewShop(BaseModel):
@@ -403,7 +415,7 @@ def rename_shop(shop_id: StoredInt, body: RenameShop, kitchen: Here, response: R
 
 
 @router.put("/shops/order")
-def order_shops(body: Order, kitchen: Here, response: Response) -> list[Ref]:
+def order_shops(body: Order, kitchen: Here, response: Response) -> ShopsOut:
     """Put the shops in the order you visit them: every id of the household's shops, once
     each. Answers with the shops in their new order. In Recent changes with an Undo
     (`shops_ordered`) unless the order is the same."""
@@ -714,8 +726,12 @@ class UnitOut(BaseModel):
     amount: float  # in g, ml or items
 
 
+class UnitsOut(BaseModel):
+    units: list[UnitOut]
+
+
 @router.get("/units")
-def list_units(kitchen: Here) -> list[UnitOut]:
+def list_units(kitchen: Here) -> UnitsOut:
     """The units Mealwright understands, with the household's own cup size."""
     cup = cup_ml(kitchen.household)
     found = [
@@ -726,7 +742,7 @@ def list_units(kitchen: Here) -> list[UnitOut]:
     ]
     found.append(UnitOut(unit="cup", kind="volume", amount=float(cup)))
     found.append(UnitOut(unit="count", kind="count", amount=1.0))
-    return found
+    return UnitsOut(units=found)
 
 
 class RememberedOut(BaseModel):
@@ -738,8 +754,12 @@ class RememberedOut(BaseModel):
     answered_at: datetime
 
 
+class ConversionsOut(BaseModel):
+    conversions: list[RememberedOut]
+
+
 @router.get("/conversions")
-def list_conversions(kitchen: Here) -> list[RememberedOut]:
+def list_conversions(kitchen: Here) -> ConversionsOut:
     """The household's remembered "ask once" answers (Settings › Amounts, 0.8)."""
     cup = cup_ml(kitchen.household)
     rows = kitchen.db.execute(
@@ -769,7 +789,7 @@ def list_conversions(kitchen: Here) -> list[RememberedOut]:
                 answered_at=row.answered_at,
             )
         )
-    return result
+    return ConversionsOut(conversions=result)
 
 
 class Forgotten(BaseModel):

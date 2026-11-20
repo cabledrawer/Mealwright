@@ -1263,7 +1263,7 @@ def _s_recipe_deleted_and_purged(k: TestClient) -> list[str]:
 
 
 def _s_slot_renamed(k: TestClient) -> list[str]:
-    slots = _ok(k.get(f"{API}/meal-slots"))
+    slots = _ok(k.get(f"{API}/meal-slots"))["meal_slots"]
     first = (slots if isinstance(slots, list) else slots["slots"])[0]["id"]
     _ok(k.patch(f"{API}/meal-slots/{first}", json={"name": "Ravindra tiffin box"}))
     _ok(k.patch(f"{API}/meal-slots/{first}", json={"name": "Brekkie"}))
@@ -1322,7 +1322,7 @@ def _s_tag_merged(k: TestClient) -> list[str]:
 def _s_plan_note_removed(k: TestClient) -> list[str]:
     from datetime import date
 
-    slots = _ok(k.get(f"{API}/meal-slots"))
+    slots = _ok(k.get(f"{API}/meal-slots"))["meal_slots"]
     slot = (slots if isinstance(slots, list) else slots["slots"])[0]["id"]
     day = (date.today() + timedelta(days=3)).isoformat()
     made = _ok(

@@ -42,7 +42,7 @@ async function setup(page: Page) {
   // here so the times read the same whichever test comes first (the server's clock is London's).
   await call(page, 'POST', '/household/fill-from-browser', { time_zone: 'Europe/London' });
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
-  const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const list = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
   return { today: household.today, breakfast: slot['Breakfast']! };
 }
@@ -150,7 +150,7 @@ test('Plan it on a recipe with a long wait asks when it will be started, and the
 test('moving a meal that has a start time asks when to start it on its new day, with Undo', async ({ page }) => {
   test.setTimeout(90_000);
   const { today } = await setup(page);
-  const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const list = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const dinner = list.find((s) => s.name === 'Dinner')!.id;
   const recipe = await dosa(page);
   // Mon to Wed, moved two days on (Wed to Fri): the same week however the week starts.

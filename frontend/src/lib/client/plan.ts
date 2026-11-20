@@ -161,7 +161,9 @@ export interface PlanWrite {
 
 export type DropMode = 'move' | 'copy' | 'leftovers';
 
-export const getMealSlots = () => api<MealSlot[]>('GET', '/meal-slots');
+// D3 (BE17): every list comes in an object named after what it holds.
+export const getMealSlots = () =>
+  api<{ meal_slots: MealSlot[] }>('GET', '/meal-slots').then((r) => r.meal_slots);
 
 export const getPlan = (from: string, to: string) =>
   api<Plan>('GET', `/plan?from=${from}&to=${to}`);
@@ -353,9 +355,11 @@ export interface TubLeft {
   use_by: string;
 }
 
-export const getPeople = () => api<Person[]>('GET', '/plan/people');
+export const getPeople = () =>
+  api<{ people: Person[] }>('GET', '/plan/people').then((r) => r.people);
 
-export const getTubsLeft = () => api<{ tubs: TubLeft[]; more: boolean }>('GET', '/plan/tubs-left');
+export const getTubsLeft = () =>
+  api<{ tubs: TubLeft[]; next: string | null }>('GET', '/plan/tubs-left');
 
 export const previewBatch = (itemId: number, body: BatchBody) =>
   api<BatchPreview>('POST', `/plan/items/${itemId}/batch/preview`, body);

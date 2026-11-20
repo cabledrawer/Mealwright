@@ -19,7 +19,7 @@ PHONE_2 = "22222222-2222-4222-8222-222222222222"
 
 
 def places(client: TestClient) -> dict[str, int]:
-    return {p["name"]: p["id"] for p in ok(client.get(f"{API}/places"))}
+    return {p["name"]: p["id"] for p in ok(client.get(f"{API}/places"))["places"]}
 
 
 def found(client: TestClient, device: str, name: str, tick_id: str, place_id: int) -> None:

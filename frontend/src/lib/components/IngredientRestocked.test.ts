@@ -27,8 +27,8 @@ describe('the editor’s Restocked date', () => {
     food = toorDal(overrides);
     requests = fakeApi({
       'GET /foods/7': () => [200, food],
-      'GET /places': [200, PLACES],
-      'GET /shops': [200, SHOPS],
+      'GET /places': [200, { places: PLACES }],
+      'GET /shops': [200, { shops: SHOPS }],
       'GET /household': [200, { today: '2026-11-02' }],
       'PATCH /foods/7': (request) => {
         const day = (request.body as { restocked_on: string }).restocked_on;

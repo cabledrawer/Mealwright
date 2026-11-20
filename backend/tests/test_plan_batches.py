@@ -213,7 +213,7 @@ def test_use_by_comes_from_the_household_tub_life_counted_from_the_cook_day(
 def test_who_is_eating_decides_whose_each_tub_is(
     kitchen: TestClient, cook: dict[str, Any], wren: int
 ) -> None:
-    people = kitchen.get(f"{API}/plan/people").json()
+    people = kitchen.get(f"{API}/plan/people").json()["people"]
     assert len(people) == 2 and people[1] == {
         "member_id": wren,
         "name": "Wren",
@@ -948,7 +948,7 @@ def test_another_households_ids_get_404_on_every_new_route(
     )
     # The neighbour sees none of my tubs, people or changes, and cannot undo mine.
     assert neighbour.get(f"{API}/plan/tubs-left").json()["tubs"] == []
-    seen = [p["name"] for p in neighbour.get(f"{API}/plan/people").json()]
+    seen = [p["name"] for p in neighbour.get(f"{API}/plan/people").json()["people"]]
     assert seen == ["Neighbour", "Their cook"]  # their own household's people, none of mine
     assert neighbour.post(f"{API}/changes/{made['change']['id']}/undo").status_code == 404
     assert (

@@ -31,7 +31,7 @@ async function stocked(
   placeName = "Fridge",
 ) {
   const unique = `${name} ${test.info().project.name.replace(/\W/g, "")} ${Date.now()}`;
-  const places = (await (await page.request.get("/api/v1/places")).json()) as {
+  const places = (await (await page.request.get("/api/v1/places")).json()).places as {
     id: number;
     name: string;
   }[];
@@ -116,7 +116,7 @@ test("phone: no place tabs; every place has a card or a chip, and both lead to i
   ).toBeVisible();
   await expect(page.getByRole("tablist")).toHaveCount(0);
   await expect(page.getByRole("tab")).toHaveCount(0);
-  const places = (await (await page.request.get("/api/v1/places")).json()) as {
+  const places = (await (await page.request.get("/api/v1/places")).json()).places as {
     name: string;
   }[];
   const chips = page
@@ -277,7 +277,7 @@ test("F101: + Place in Add to pantry makes the place and puts the stock there", 
   await expect(
     page.getByRole("status").getByText(new RegExp(`→ ${where}`)),
   ).toBeVisible();
-  const places = (await (await page.request.get("/api/v1/places")).json()) as {
+  const places = (await (await page.request.get("/api/v1/places")).json()).places as {
     name: string;
     kind: string;
   }[];
@@ -293,7 +293,7 @@ test("F101: + Place in Add to pantry can be cancelled, and a name the household 
   page,
 }) => {
   const food = await stocked(page, "Millet", null);
-  const before = (await (await page.request.get("/api/v1/places")).json())
+  const before = (await (await page.request.get("/api/v1/places")).json()).places
     .length;
   await page.goto("/pantry");
   await page
@@ -320,7 +320,7 @@ test("F101: + Place in Add to pantry can be cancelled, and a name the household 
   await box.getByRole("textbox", { name: "Place’s name" }).fill("spice RACK");
   await box.getByRole("button", { name: "Add place" }).click();
   await expect(where.locator("option:checked")).toHaveText("Spice rack");
-  expect((await (await page.request.get("/api/v1/places")).json()).length).toBe(
+  expect((await (await page.request.get("/api/v1/places")).json()).places.length).toBe(
     before,
   );
 });

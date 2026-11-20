@@ -39,7 +39,7 @@ async function tidy(page: Page, person: string, shop: string) {
     const gone = await page.request.delete(`/api/v1/people/${p.id}`, { headers: key() });
     expect(gone.ok(), await gone.text()).toBe(true);
   }
-  for (const s of (await (await page.request.get('/api/v1/shops')).json()) as Json[]) {
+  for (const s of (await (await page.request.get('/api/v1/shops')).json()).shops as Json[]) {
     if (s.name !== shop) continue;
     const gone = await page.request.delete(`/api/v1/shops/${s.id}`, { headers: key() });
     expect(gone.ok(), await gone.text()).toBe(true);

@@ -158,9 +158,9 @@ const byName = (list: unknown) => new Map((list as { id: number; name: string }[
 export async function seed(request: APIRequestContext) {
   const api = new Api(request);
   // Stored only while the household has none (captured once, never changed silently).
-  await api.post('/household/from-browser', { time_zone: 'Europe/London', cup_ml: 250 });
+  await api.post('/household/fill-from-browser', { time_zone: 'Europe/London', cup_ml: 250 });
   const today = (await api.get('/household')).today as string;
-  const placeId = byName((await api.get('/places')).items);
+  const placeId = byName((await api.get('/places')).places);
 
   const shops = new Map<string, number>();
   for (const name of ['Spice Bazaar', 'Tesco', 'Lidl']) {
@@ -217,9 +217,9 @@ export async function seed(request: APIRequestContext) {
       // The add answers `groups` (one per place touched); older drafts said `group`.
       const group = (added.group ?? (added.groups as Json[])[0]) as Json;
       const lot = (group.lots as { id: number }[]).at(-1)!;
-      await api.post(`/stock/${lot.id}/left`, { fraction: s.left });
+      await api.post(`/stock/${lot.id}/set-left`, { fraction: s.left });
     }
-    if (s.used) await api.post(`/foods/${id}/used`, { amount: s.used });
+    if (s.used) await api.post(`/foods/${id}/use`, { amount: s.used });
   }
 }
 

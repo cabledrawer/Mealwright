@@ -73,8 +73,8 @@ describe('the Ingredients page', () => {
           change: changeOf(960, 'Added Tahini')
         }
       ],
-      'GET /places': [200, PLACES],
-      'GET /shops': [200, SHOPS],
+      'GET /places': [200, { places: PLACES }],
+      'GET /shops': [200, { shops: SHOPS }],
       'POST /foods/40/merge': [
         200,
         {
@@ -279,8 +279,8 @@ describe('the Ingredients page', () => {
             }
           ];
         },
-        'GET /places': [200, PLACES],
-        'GET /shops': [200, SHOPS]
+        'GET /places': [200, { places: PLACES }],
+        'GET /shops': [200, { shops: SHOPS }]
       });
       await search().fill('jalapeno');
       await expect.element(page.getByRole('button', { name: /^Jalapeño/ })).toBeVisible();

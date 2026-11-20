@@ -468,12 +468,12 @@ describe('the plan on screen', () => {
         200,
         { today: '2026-10-17', week_starts_on: 1, tub_fridge_days: 3, tub_freezer_months: 3 }
       ],
-      'GET /meal-slots': [200, []],
+      'GET /meal-slots': [200, { meal_slots: [] }],
       'GET /plan': [
         200,
         { start: '2026-10-12', end: '2026-10-21', meals: [], batch_cooks: [], tubs: [] }
       ],
-      'GET /plan/tubs-left': [200, { tubs: [], more: false }],
+      'GET /plan/tubs-left': [200, { tubs: [], next: null }],
       'GET /people': [200, []]
     });
     const model = new PlanModel();

@@ -35,7 +35,7 @@ const projectIndex = () => INDEX[test.info().project.name] ?? 0;
 
 async function setup(page: Page) {
   const today = ((await (await page.request.get('/api/v1/household')).json()) as { today: string }).today;
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const slot = Object.fromEntries(slots.map((s) => [s.name, s.id])) as Record<string, number>;
   return {
     today,
@@ -428,7 +428,7 @@ test('F128: on Today, "Eat it on…" for a meal eaten today offers no meal past 
   // Other tests on this server switch Snack on (none switches a meal off), so switch it on here too
   // and fill every meal that is on, whatever ran first; today, only the meals after lunch.
   await call(page, 'PATCH', `/meal-slots/${k.slot.Snack}`, { enabled: true });
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as {
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as {
     id: number;
     position: number;
     enabled: boolean;

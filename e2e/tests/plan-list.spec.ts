@@ -32,7 +32,7 @@ function addDays(iso: string, days: number): string {
 /** What a test needs, and the clean-up that puts the shared list and plan back. */
 async function kitchen(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const slot = Object.fromEntries(slots.map((s) => [s.name, s.id])) as Record<string, number>;
   const items: number[] = [];
   const lines: string[] = [];

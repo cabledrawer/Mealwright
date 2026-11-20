@@ -62,8 +62,8 @@ const foodRow = (over: Partial<FoodRow> & { id: number; name: string }): FoodRow
 });
 
 const FOODS: Record<string, [number, unknown]> = {
-  'GET /places': [200, PLACES],
-  'GET /shops': [200, SHOPS]
+  'GET /places': [200, { places: PLACES }],
+  'GET /shops': [200, { shops: SHOPS }]
 };
 
 describe('Change on every row', () => {

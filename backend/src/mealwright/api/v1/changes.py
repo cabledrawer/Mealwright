@@ -241,7 +241,8 @@ def _lines(kitchen: Kitchen, view: Pantry, changes: list[Change]) -> list[LineOu
 def list_changes(
     kitchen: Here,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    before: StoredInt | None = None,
+    # D3 (BE17): every paged list takes the `next` of the page before as `after`.
+    after: StoredInt | None = None,
     food_id: StoredInt | None = None,
     area: Literal["pantry", "ingredients"] | None = None,
     mine: bool = False,
@@ -283,8 +284,8 @@ def list_changes(
             Change.kind.not_in(NOTE_KINDS),
         )
     whole = query  # every change this list could show, from any page: a press folds into its first
-    if before is not None:
-        query = query.where(Change.id < before)
+    if after is not None:
+        query = query.where(Change.id < after)
     rows: list[Change] = []
     cursor: int | None = None
     while len(rows) <= limit:

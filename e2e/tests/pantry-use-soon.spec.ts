@@ -50,7 +50,7 @@ async function stockedAt(
   placeName: string,
 ) {
   const unique = `${name} ${stamp()}`;
-  const places = (await (await page.request.get("/api/v1/places")).json()) as {
+  const places = (await (await page.request.get("/api/v1/places")).json()).places as {
     id: number;
     name: string;
   }[];
@@ -252,7 +252,7 @@ test("tubs left show on the Pantry page in their place, with their use-by", asyn
   const base = await today(page);
   const slots = (await (
     await page.request.get("/api/v1/meal-slots")
-  ).json()) as {
+  ).json()).meal_slots as {
     id: number;
     name: string;
   }[];
@@ -295,7 +295,7 @@ test("a tub that is soon shows in Use soon on both screens, even with nothing el
   const base = await today(page);
   const slots = (await (
     await page.request.get("/api/v1/meal-slots")
-  ).json()) as {
+  ).json()).meal_slots as {
     id: number;
     name: string;
   }[];

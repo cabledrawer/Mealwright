@@ -52,7 +52,7 @@ describe('the Pantry page', () => {
       [`POST /stock/${sample.yoghurt.id}/set-left`]: written('Yoghurt: ½ tub → about ¼ tub'),
       'GET /foods/7': [200, toorDal()],
       'POST /foods/7/use': written('Used 200 g Toor dal'),
-      'GET /places': [200, PLACES],
+      'GET /places': [200, { places: PLACES }],
       'POST /places': [201, { id: 9, name: 'Garage freezer', kind: 'freezer' }],
       'POST /stock': [
         201,
@@ -1428,10 +1428,12 @@ describe('the Pantry page', () => {
         routes({
           'GET /meal-slots': [
             200,
-            [
-              { id: 1, name: 'Lunch', position: 0, enabled: true },
-              { id: 2, name: 'Dinner', position: 1, enabled: true }
-            ]
+            {
+              meal_slots: [
+                { id: 1, name: 'Lunch', position: 0, enabled: true },
+                { id: 2, name: 'Dinner', position: 1, enabled: true }
+              ]
+            }
           ],
           'GET /plan': [
             200,
@@ -1534,7 +1536,10 @@ describe('the Pantry page', () => {
       it('a tub that went into a meal meanwhile is refused, the toast says so and the card is looked at again', async () => {
         sample.useSoonTubs = [tubCard()];
         routes({
-          'GET /meal-slots': [200, [{ id: 2, name: 'Dinner', position: 1, enabled: true }]],
+          'GET /meal-slots': [
+            200,
+            { meal_slots: [{ id: 2, name: 'Dinner', position: 1, enabled: true }] }
+          ],
           'GET /plan': [
             200,
             { start: '2026-10-17', end: '2026-10-19', meals: [], batch_cooks: [], tubs: [] }

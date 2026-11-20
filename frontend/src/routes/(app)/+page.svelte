@@ -161,7 +161,7 @@
   const usedSoon = $derived((data?.use_soon_lots.length ?? 0) + (data?.use_soon_tubs.length ?? 0));
   const toBuy = $derived(shop.loaded ? String(shop.counts.toBuy) : '–');
   const tubsLeft = $derived(
-    data ? `${data.tubs_left.length}${data.tubs_left_more ? '+' : ''}` : '0'
+    data ? `${data.tubs_left.length}${data.tubs_left_next ? '+' : ''}` : '0'
   );
 
   /** M3: recipes whose long wait is to be started today (or should have been), not begun yet. */

@@ -28,14 +28,22 @@ class PersonOut(BaseModel):
     portion_quarters: int = Field(description="How much they eat, in quarter portions (4: one).")
 
 
+class PlanPeopleOut(BaseModel):
+    people: list[PersonOut]
+
+
 @router.get("/plan/people")
-def list_people(kitchen: Here) -> list[PersonOut]:
+def list_people(kitchen: Here) -> PlanPeopleOut:
     """Who can be eating: the household's people (0.9 A1), oldest first. Removed people and a
     shared login's own person ("Kitchen tablet") aren't listed."""
-    return [
-        PersonOut(member_id=m.id, name=m.name, colour=m.colour, portion_quarters=m.portion_quarters)
-        for m in people.eaters(kitchen)
-    ]
+    return PlanPeopleOut(
+        people=[
+            PersonOut(
+                member_id=m.id, name=m.name, colour=m.colour, portion_quarters=m.portion_quarters
+            )
+            for m in people.eaters(kitchen)
+        ]
+    )
 
 
 class SpotIn(BaseModel):
@@ -332,13 +340,19 @@ class TubLeftOut(BaseModel):
 
 class TubsLeftOut(BaseModel):
     tubs: list[TubLeftOut]
-    more: bool  # there are more than `limit`
+    # D3 (BE17): paged like every list, `after` the `next` of the page before; null on the last.
+    next: str | None
 
 
 @router.get("/plan/tubs-left")
-def get_tubs_left(kitchen: Here, limit: Annotated[int, Query(ge=1, le=200)] = 100) -> TubsLeftOut:
+def get_tubs_left(
+    kitchen: Here,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    after: Annotated[str | None, Query(pattern=r"^\d{1,9}$")] = None,
+) -> TubsLeftOut:
     """Tubs in no meal that still have some in them, soonest use-by first."""
-    found, more = batches.tubs_left(kitchen, limit)
+    start = int(after) if after else 0
+    found, more = batches.tubs_left(kitchen, limit, start)
     return TubsLeftOut(
         tubs=[
             TubLeftOut(
@@ -357,7 +371,7 @@ def get_tubs_left(kitchen: Here, limit: Annotated[int, Query(ge=1, le=200)] = 10
             )
             for t in found
         ],
-        more=more,
+        next=str(start + limit) if more else None,
     )
 
 

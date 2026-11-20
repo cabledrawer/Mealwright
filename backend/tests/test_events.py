@@ -277,7 +277,7 @@ def test_the_check_does_not_extend_the_session(kitchen: TestClient) -> None:
 def _plan_kit(kitchen: TestClient) -> tuple[int, int, str]:
     """A recipe-less plan write needs an ingredient, a meal slot and a day."""
     food = kitchen.post("/api/v1/foods", json={"name": "Rice"}).json()["food"]["id"]
-    slot = kitchen.get("/api/v1/meal-slots").json()[-1]["id"]
+    slot = kitchen.get("/api/v1/meal-slots").json()["meal_slots"][-1]["id"]
     return food, slot, kitchen.get("/api/v1/household").json()["today"]
 
 
@@ -325,7 +325,11 @@ def test_every_plan_write_announces_a_plan_event(kitchen: TestClient) -> None:
         calls: dict[str, Callable[[], Any]] = {
             "eaters": lambda: kitchen.patch(
                 f"{api}/plan/meals/{meal_id}",
-                json={"member_ids": [kitchen.get(f"{api}/plan/people").json()[0]["member_id"]]},
+                json={
+                    "member_ids": [
+                        kitchen.get(f"{api}/plan/people").json()["people"][0]["member_id"]
+                    ]
+                },
             ),
             "remove item": lambda: kitchen.delete(f"{api}/plan/items/{item_id}"),
             "remove meal": lambda: kitchen.delete(f"{api}/plan/meals/{meal_id}"),

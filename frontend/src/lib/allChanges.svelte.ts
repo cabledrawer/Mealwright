@@ -45,7 +45,7 @@ export class AllChanges {
     this.loadingMore = true;
     this.moreProblem = null;
     try {
-      const list = await listChanges({ limit: RECENT_PAGE, before: this.next });
+      const list = await listChanges({ limit: RECENT_PAGE, after: this.next });
       if (asked !== this.#asked) return;
       const have = new Set<number>(this.changes.map((c) => c.id)); // eslint-disable-line svelte/prefer-svelte-reactivity -- local, not state
       this.changes = [...this.changes, ...list.changes.filter((c) => !have.has(c.id))];

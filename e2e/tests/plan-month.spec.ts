@@ -95,7 +95,7 @@ async function setup(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as {
     today: string;
   };
-  const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as {
+  const list = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as {
     id: number;
     name: string;
   }[];

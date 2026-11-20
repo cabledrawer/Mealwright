@@ -25,7 +25,7 @@ function addDays(iso: string, days: number): string {
 /** Today's server data, the slots by name, and a meal planned in the past for this project. */
 async function start(page: Page, slotName: string) {
   const today = (await (await page.request.get('/api/v1/household')).json()).today as string;
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const slot = Object.fromEntries(slots.map((s) => [s.name, s.id])) as Record<string, number>;
   // Anything left waiting by another test is answered first, so this meal is the card.
   const read = (await (await page.request.get('/api/v1/today')).json()) as { waiting: { meal_id: number }[] };
@@ -158,7 +158,7 @@ test.describe('the tubs left number', () => {
     await page.route('**/api/v1/today', async (route) => {
       const response = await route.fetch();
       const body = await response.json();
-      await route.fulfill({ response, json: { ...body, first_day: false, tubs_left: tubs, tubs_left_more: false } });
+      await route.fulfill({ response, json: { ...body, first_day: false, tubs_left: tubs, tubs_left_next: null } });
     });
     await page.goto('/');
   };
@@ -331,7 +331,7 @@ test.describe('F150: This week', () => {
 
   /** Meals at breakfast, lunch and dinner on today+2 … today+6, so the week's list is long. */
   async function longWeek(page: Page, today: string) {
-    const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+    const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
     const slot = Object.fromEntries(slots.map((x) => [x.name, x.id])) as Record<string, number>;
     const recipe = (await call(page, 'POST', '/recipes', { name: `Pongal ${stamp()}`, serves: 2, lines: [] })).id as number;
     const meals: number[] = [];

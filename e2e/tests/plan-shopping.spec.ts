@@ -26,7 +26,7 @@ const weekday = (iso: string) => DAYS[new Date(`${iso}T12:00:00Z`).getUTCDay()]!
 
 async function kitchen(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const dinner = slots.find((s) => s.name === 'Dinner')!.id;
   const items: number[] = [];
   const lines: string[] = [];

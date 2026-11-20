@@ -90,7 +90,7 @@ describe('Today with the server down behind the proxy (F67)', () => {
     people: [],
     waiting: [],
     tubs_left: [],
-    tubs_left_more: false,
+    tubs_left_next: null,
     use_soon_lots: [],
     use_soon_tubs: [],
     next_cook: null

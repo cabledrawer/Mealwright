@@ -1,4 +1,5 @@
-[
+{
+"people": [
 {
 "colour": null,
 "member_id": 1,
@@ -6,3 +7,4 @@
 "portion_quarters": 4
 }
 ]
+}

@@ -28,7 +28,8 @@ export const orderMealSlots = (ids: number[], idempotencyKey: string) =>
 export const renameShop = (id: number, name: string) =>
   api<Shop>('PATCH', `/shops/${id}`, { name });
 
-export const orderShops = (ids: number[]) => api<Shop[]>('PUT', '/shops/order', { ids });
+export const orderShops = (ids: number[]) =>
+  api<{ shops: Shop[] }>('PUT', '/shops/order', { ids }).then((r) => r.shops);
 
 export const removeShop = (id: number, idempotencyKey: string) =>
   api<Removed>('DELETE', `/shops/${id}`, undefined, key(idempotencyKey));
@@ -38,7 +39,8 @@ export const removeShop = (id: number, idempotencyKey: string) =>
 export const renamePlace = (id: number, name: string) =>
   api<Place>('PATCH', `/places/${id}`, { name });
 
-export const orderPlaces = (ids: number[]) => api<Place[]>('PUT', '/places/order', { ids });
+export const orderPlaces = (ids: number[]) =>
+  api<{ places: Place[] }>('PUT', '/places/order', { ids }).then((r) => r.places);
 
 /** Removes a place. With things in it the server answers 409 `place_not_empty` (with `things`);
  *  send `moveTo` and they go there first. */

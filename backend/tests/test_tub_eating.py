@@ -82,7 +82,7 @@ def test_more_than_is_left_and_an_empty_tub_are_refused(kitchen: TestClient) -> 
     assert (empty.status_code, empty.json()["code"]) == (409, "tub_eaten")
     assert quarters(kitchen, tubs[0]) == 0
     # Placed in a meal or binned, an empty tub is the same answer (D2, BE4).
-    slot = kitchen.get(f"{API}/meal-slots").json()[0]["id"]
+    slot = kitchen.get(f"{API}/meal-slots").json()["meal_slots"][0]["id"]
     day = (DAY + timedelta(days=1)).isoformat()
     placed = kitchen.post(f"{API}/plan/tubs/{tubs[0]}/place", json={"date": day, "slot_id": slot})
     binned = kitchen.post(f"{API}/plan/tubs/{tubs[0]}/bin")

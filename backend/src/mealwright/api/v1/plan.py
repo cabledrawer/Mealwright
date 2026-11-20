@@ -72,13 +72,19 @@ class MealSlotOut(BaseModel):
     enabled: bool
 
 
+class MealSlotsOut(BaseModel):
+    meal_slots: list[MealSlotOut]
+
+
 @router.get("/meal-slots")
-def list_meal_slots(kitchen: Here) -> list[MealSlotOut]:
+def list_meal_slots(kitchen: Here) -> MealSlotsOut:
     """Breakfast, Lunch, Snack and Dinner (or the household's own), in order, hidden ones too."""
-    return [
-        MealSlotOut(id=s.id, name=s.name, position=s.position, enabled=s.enabled)
-        for s in meal_slots(kitchen.db, kitchen.household_id)
-    ]
+    return MealSlotsOut(
+        meal_slots=[
+            MealSlotOut(id=s.id, name=s.name, position=s.position, enabled=s.enabled)
+            for s in meal_slots(kitchen.db, kitchen.household_id)
+        ]
+    )
 
 
 class PlanRecipeRef(Ref):

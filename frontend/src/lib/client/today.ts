@@ -35,7 +35,7 @@ export interface TodayData {
   people: Person[];
   waiting: WaitingMeal[];
   tubs_left: TubLeft[];
-  tubs_left_more: boolean;
+  tubs_left_next: string | null;
   use_soon_lots: UseSoonLot[];
   /** One row per batch and place, the same rows as the Pantry's Use soon (F203). */
   use_soon_tubs: UseSoonTub[];

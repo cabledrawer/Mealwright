@@ -120,7 +120,7 @@ describe('Import a recipe', () => {
     await page.viewport(390, 844);
     network.reset();
     placesAndShops.forget();
-    fakeApi({ 'GET /places': [200, PLACES], 'GET /shops': [200, SHOPS] });
+    fakeApi({ 'GET /places': [200, { places: PLACES }], 'GET /shops': [200, { shops: SHOPS }] });
   });
 
   afterEach(() => {
@@ -336,8 +336,8 @@ describe('Import a recipe', () => {
       flow.text = 'https://kitchen.example/dal';
       fakeApi({
         'POST /recipes/import': [200, REVIEW],
-        'GET /places': [200, PLACES],
-        'GET /shops': [200, SHOPS]
+        'GET /places': [200, { places: PLACES }],
+        'GET /shops': [200, { shops: SHOPS }]
       });
       await flow.read();
       show(flow, ReviewScreen);
@@ -351,8 +351,11 @@ describe('Import a recipe', () => {
       flow.text = 'https://kitchen.example/dal';
       fakeApi({
         'POST /recipes/import': [200, REVIEW],
-        'GET /places': [200, [...PLACES, { id: 9, name: 'Garage freezer', kind: 'freezer' }]],
-        'GET /shops': [200, SHOPS]
+        'GET /places': [
+          200,
+          { places: [...PLACES, { id: 9, name: 'Garage freezer', kind: 'freezer' }] }
+        ],
+        'GET /shops': [200, { shops: SHOPS }]
       });
       await flow.read();
       show(flow, ReviewScreen);
@@ -596,8 +599,8 @@ describe('Import a recipe', () => {
     it('“+ Place” in Usually kept in makes the place and keeps the new ingredient there (L5)', async () => {
       const flow = await reviewing();
       fakeApi({
-        'GET /places': [200, PLACES],
-        'GET /shops': [200, SHOPS],
+        'GET /places': [200, { places: PLACES }],
+        'GET /shops': [200, { shops: SHOPS }],
         'POST /places': [201, { id: 9, name: 'Garage freezer', kind: 'freezer' }]
       });
       await page.getByRole('button', { name: /^New ingredient “Asafoetida”/ }).click();
@@ -1022,8 +1025,8 @@ describe('Import a recipe', () => {
         learn_name: null
       };
       fakeApi({
-        'GET /places': [200, PLACES],
-        'GET /shops': [200, SHOPS],
+        'GET /places': [200, { places: PLACES }],
+        'GET /shops': [200, { shops: SHOPS }],
         'GET /foods?q=water&limit=8': [200, { foods: [] }],
         'GET /foods?q=broth&limit=8': [200, { foods: [] }]
       });
@@ -1163,7 +1166,9 @@ describe('Import a recipe', () => {
   });
 
   describe('a US recipe (pints)', () => {
-    beforeEach(() => fakeApi({ 'GET /places': [200, PLACES], 'GET /shops': [200, SHOPS] }));
+    beforeEach(() =>
+      fakeApi({ 'GET /places': [200, { places: PLACES }], 'GET /shops': [200, { shops: SHOPS }] })
+    );
 
     it('says it looks like a US recipe, with the pints switch on, and reads US pints', async () => {
       show(reviewFlow(PINTS_REVIEW), ReviewScreen);
@@ -1253,8 +1258,8 @@ describe('Import a recipe', () => {
       flow.text = 'https://kitchen.example/dal';
       fakeApi({
         'POST /recipes/import': [200, REVIEW],
-        'GET /places': [200, PLACES],
-        'GET /shops': [200, SHOPS]
+        'GET /places': [200, { places: PLACES }],
+        'GET /shops': [200, { shops: SHOPS }]
       });
       await flow.read();
       show(flow, ReviewScreen);
@@ -1403,8 +1408,8 @@ describe('Import a recipe', () => {
           200,
           { ...REVIEW, photo: { state: 'downloaded', photo: PHOTO, message: null } }
         ],
-        'GET /places': [200, PLACES],
-        'GET /shops': [200, SHOPS]
+        'GET /places': [200, { places: PLACES }],
+        'GET /shops': [200, { shops: SHOPS }]
       });
       await flow.read();
       show(flow, ReviewScreen);
@@ -1445,8 +1450,8 @@ describe('Import a recipe', () => {
           200,
           { ...REVIEW, photo: { state: 'downloaded', photo: PHOTO, message: null } }
         ],
-        'GET /places': [200, PLACES],
-        'GET /shops': [200, SHOPS]
+        'GET /places': [200, { places: PLACES }],
+        'GET /shops': [200, { shops: SHOPS }]
       });
       await flow.read();
       show(flow, ReviewScreen);
@@ -1481,7 +1486,7 @@ describe('Import a recipe', () => {
     it('a draft opened and left alone just leaves; one that was changed asks in its own words', async () => {
       const flow = new ImportFlow();
       flow.load(KEPT);
-      fakeApi({ 'GET /places': [200, PLACES], 'GET /shops': [200, SHOPS] });
+      fakeApi({ 'GET /places': [200, { places: PLACES }], 'GET /shops': [200, { shops: SHOPS }] });
       show(flow, ReviewScreen);
       expect(leaveFor('/recipes/drafts')).not.toHaveBeenCalled();
       flow.minutes = '40';

@@ -54,7 +54,7 @@ def recipe(kitchen: TestClient, name: str, *lines: dict[str, Any], **fields: Any
 def plan(
     kitchen: TestClient, recipe_id: int, n: int = 1, slot: str = "Dinner", **extra: Any
 ) -> dict[str, Any]:
-    slots = {m["name"]: m["id"] for m in ok(kitchen.get(f"{API}/meal-slots"))}
+    slots = {m["name"]: m["id"] for m in ok(kitchen.get(f"{API}/meal-slots"))["meal_slots"]}
     return plan_recipe(kitchen, recipe_id, day(kitchen, n), slots[slot], **extra)
 
 
@@ -368,7 +368,7 @@ def test_leftovers_are_bought_for_on_top_of_the_meal(
 ) -> None:
     sambar = recipe(kitchen, "Sambar", line(rice["id"], 200, "g"), serves=4)
     cook = plan(kitchen, sambar, 1)
-    slots = {m["name"]: m["id"] for m in ok(kitchen.get(f"{API}/meal-slots"))}
+    slots = {m["name"]: m["id"] for m in ok(kitchen.get(f"{API}/meal-slots"))["meal_slots"]}
     ok(
         kitchen.post(
             f"{API}/plan/items/{cook['item_id']}/move",

@@ -19,7 +19,7 @@ def seed(kitchen: TestClient, size: int) -> dict[str, Any]:
     """`size` ingredients (weights, volumes and counts, two places, some with a use-by date,
     some with two packets), `size` lines on the main list (some from a recipe's plan), `size`
     // 2 recipes that use them, and a meal in each slot of `size` // 2 days."""
-    places = ok(kitchen.get(f"{API}/places"))
+    places = ok(kitchen.get(f"{API}/places"))["places"]
     place_ids = [p["id"] for p in places]
     day0 = date.fromisoformat(ok(kitchen.get(f"{API}/household"))["today"])
     foods: list[dict[str, Any]] = []
@@ -101,7 +101,7 @@ def seed(kitchen: TestClient, size: int) -> dict[str, Any]:
                 201,
             )
         )
-    slots = ok(kitchen.get(f"{API}/meal-slots"))
+    slots = ok(kitchen.get(f"{API}/meal-slots"))["meal_slots"]
     slot_ids = [s["id"] for s in slots if s["name"] in ("Breakfast", "Lunch", "Dinner")]
     for d in range(max(1, size // 2)):
         for k, slot in enumerate(slot_ids):

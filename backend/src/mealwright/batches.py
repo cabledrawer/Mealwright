@@ -1462,9 +1462,9 @@ class TubLeft:
     place_kind: str | None
 
 
-def tubs_left(kitchen: Kitchen, limit: int) -> tuple[list[TubLeft], bool]:
-    """Tubs in no meal that still have some in them, soonest use-by first. One more than
-    `limit` is read, to say whether there are more."""
+def tubs_left(kitchen: Kitchen, limit: int, start: int = 0) -> tuple[list[TubLeft], bool]:
+    """Tubs in no meal that still have some in them, soonest use-by first, from the `start`th.
+    One more than `limit` is read, to say whether there are more."""
     db = kitchen.db
     other = aliased(Tub)
     number = (
@@ -1485,6 +1485,7 @@ def tubs_left(kitchen: Kitchen, limit: int) -> tuple[list[TubLeft], bool]:
             ~exists().where(MealItem.tub_id == Tub.id),
         )
         .order_by(Tub.use_by, Tub.id)
+        .offset(start)
         .limit(limit + 1)
     ).all()
     out = [TubLeft(tub=t, batch=b, number=n, place_kind=k) for t, b, n, k in rows[:limit]]

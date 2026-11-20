@@ -60,7 +60,7 @@ beforeEach(() => {
   nav.guard = null;
   localStorage.removeItem(CHECK_MODE_STORAGE_KEY);
   checkMode.reload();
-  fakeApi({ 'GET /places': [200, PLACES], 'GET /shops': [200, SHOPS] });
+  fakeApi({ 'GET /places': [200, { places: PLACES }], 'GET /shops': [200, { shops: SHOPS }] });
 });
 
 afterEach(() => {
@@ -94,8 +94,8 @@ for (const screen of screens) {
       return {
         flow,
         requests: fakeApi({
-          'GET /places': [200, PLACES],
-          'GET /shops': [200, SHOPS],
+          'GET /places': [200, { places: PLACES }],
+          'GET /shops': [200, { shops: SHOPS }],
           ...extra
         })
       };
@@ -150,8 +150,8 @@ for (const screen of screens) {
       const flow = reviewFlow({ photo: { state: 'downloaded', photo, message: null } });
       show(flow, screen.phone);
       const requests = fakeApi({
-        'GET /places': [200, PLACES],
-        'GET /shops': [200, SHOPS],
+        'GET /places': [200, { places: PLACES }],
+        'GET /shops': [200, { shops: SHOPS }],
         'DELETE /recipes/photos/41': [204, null]
       });
       await discardButton().click();
@@ -184,8 +184,8 @@ for (const screen of screens) {
       const flow = reviewFlow({ ...PINTS_REVIEW });
       show(flow, screen.phone);
       const requests = fakeApi({
-        'GET /places': [200, PLACES],
-        'GET /shops': [200, SHOPS],
+        'GET /places': [200, { places: PLACES }],
+        'GET /shops': [200, { shops: SHOPS }],
         'POST /recipes/import/save': [
           201,
           {

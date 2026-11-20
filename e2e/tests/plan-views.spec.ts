@@ -45,7 +45,7 @@ const dayWords = (iso: string) => `${dayShort(iso)} ${Number(iso.slice(8, 10))}`
 
 async function setup(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
-  const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const list = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
   const me = (await (await page.request.get('/api/v1/me')).json()) as { id: number; name: string; member_id: number };
   return { today: household.today, slot, me };

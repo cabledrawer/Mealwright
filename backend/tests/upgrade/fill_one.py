@@ -81,7 +81,9 @@ def fill(client: TestClient, app: Any, has: Any, made: dict[str, Any]) -> None:
         for name in ("Corner shop", "Big supermarket")
     }
     shop_id = {name: row.get("id") or row["shop"]["id"] for name, row in shops.items()}
-    places = {row["name"]: row["id"] for row in ok(client.get(f"{API}/places"))}
+    listed = ok(client.get(f"{API}/places"))
+    listed = listed if isinstance(listed, list) else listed["places"]  # an object from D3
+    places = {row["name"]: row["id"] for row in listed}
     foods: dict[str, int] = {}
     for name, counted, staple, place, shop in (
         ("Red lentils", "weight", False, "Cupboard", "Big supermarket"),
@@ -285,7 +287,7 @@ def second_login(client: TestClient, app: Any, has: Any, made: dict[str, Any]) -
 
 def plan(client: TestClient, has: Any, recipes: dict[str, int], made: dict[str, Any]) -> None:
     slots = ok(client.get(f"{API}/meal-slots"))
-    slots = slots if isinstance(slots, list) else slots["slots"]
+    slots = slots if isinstance(slots, list) else slots.get("meal_slots") or slots["slots"]
     dinner = next(row["id"] for row in slots if row["name"] == "Dinner")
     lunch = next(row["id"] for row in slots if row["name"] == "Lunch")
     today = date.today()
@@ -328,7 +330,7 @@ def plan(client: TestClient, has: Any, recipes: dict[str, int], made: dict[str, 
 
 def batch_session(client: TestClient, recipes: dict[str, int], made: dict[str, Any]) -> None:
     slots = ok(client.get(f"{API}/meal-slots"))
-    slots = slots if isinstance(slots, list) else slots["slots"]
+    slots = slots if isinstance(slots, list) else slots.get("meal_slots") or slots["slots"]
     dinner = next(row["id"] for row in slots if row["name"] == "Dinner")
     when = str(date.today() + timedelta(days=5))
     ok(

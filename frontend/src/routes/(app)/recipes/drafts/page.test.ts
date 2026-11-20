@@ -79,8 +79,8 @@ describe('carrying on with a draft', () => {
   async function open(routes: Parameters<typeof fakeApi>[0]) {
     await page.viewport(390, 844);
     const requests = fakeApi({
-      'GET /places': [200, PLACES],
-      'GET /shops': [200, SHOPS],
+      'GET /places': [200, { places: PLACES }],
+      'GET /shops': [200, { shops: SHOPS }],
       ...routes
     });
     component = mount(DraftPage, { target: document.body });
@@ -133,8 +133,8 @@ describe('carrying on with a draft', () => {
     await expect.element(page.getByText('Something went wrong.')).toBeVisible();
     fakeApi({
       'GET /recipes/drafts/7': [200, DRAFT],
-      'GET /places': [200, PLACES],
-      'GET /shops': [200, SHOPS]
+      'GET /places': [200, { places: PLACES }],
+      'GET /shops': [200, { shops: SHOPS }]
     });
     await page.getByRole('button', { name: 'Try again' }).click();
     await expect.element(page.getByLabelText('Name')).toHaveValue('Rava dosa with extra');

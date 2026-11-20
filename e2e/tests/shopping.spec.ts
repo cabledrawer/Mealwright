@@ -610,7 +610,7 @@ test("removing a line from the list keeps keyboard focus in the list", async ({
 // --- Ticking, put away, Different pack?, "Did you buy 2?", notes (PR 3's actions) ------------------
 
 async function place(page: Page, name: string): Promise<number> {
-  const places = (await (await page.request.get("/api/v1/places")).json()) as {
+  const places = (await (await page.request.get("/api/v1/places")).json()).places as {
     id: number;
     name: string;
   }[];
@@ -757,7 +757,7 @@ async function typeNewPlace(page: Page, name: string, kind = "Fridge") {
 }
 
 async function kindOf(page: Page, name: string) {
-  const places = (await (await page.request.get("/api/v1/places")).json()) as {
+  const places = (await (await page.request.get("/api/v1/places")).json()).places as {
     name: string;
     kind: string;
   }[];
@@ -811,7 +811,7 @@ test("F101: a place name the household has is picked, not made twice", async ({
   test.skip(isPhone(page), "the desktop panel");
   const name = `NewPlaceTwice ${tag()}`;
   const { foodId } = await packs(page, name);
-  const before = (await (await page.request.get("/api/v1/places")).json())
+  const before = (await (await page.request.get("/api/v1/places")).json()).places
     .length;
   await page.goto("/shopping");
   await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
@@ -820,7 +820,7 @@ test("F101: a place name the household has is picked, not made twice", async ({
     .selectOption({ label: "+ Place" });
   await typeNewPlace(page, "freezer", "Cupboard");
   await expect.poll(() => stockOf(page, foodId)).toEqual({ Freezer: 400 });
-  expect((await (await page.request.get("/api/v1/places")).json()).length).toBe(
+  expect((await (await page.request.get("/api/v1/places")).json()).places.length).toBe(
     before,
   );
 });
@@ -833,7 +833,7 @@ test("F101: offline, + Place says it needs the server and makes nothing", async 
   const name = `NewPlaceOffline ${tag()}`;
   const where = newPlaceName();
   await packs(page, name);
-  const before = (await (await page.request.get("/api/v1/places")).json())
+  const before = (await (await page.request.get("/api/v1/places")).json()).places
     .length;
   await page.goto("/shopping");
   await page.getByRole("checkbox", { name: `Tick ${name}` }).click();
@@ -854,7 +854,7 @@ test("F101: offline, + Place says it needs the server and makes nothing", async 
     page.getByRole("combobox", { name: "Where" }).locator("option:checked"),
   ).toHaveText("Freezer");
   await context.setOffline(false);
-  expect((await (await page.request.get("/api/v1/places")).json()).length).toBe(
+  expect((await (await page.request.get("/api/v1/places")).json()).places.length).toBe(
     before,
   );
 });

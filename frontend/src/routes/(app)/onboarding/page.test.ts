@@ -38,8 +38,8 @@ function open(routes: Parameters<typeof fakeApi>[0] = {}) {
     'GET /household': [200, household()],
     'PATCH /household': (request) => [200, household(request.body as Record<string, unknown>)],
     'GET /people': [200, peopleList([TESS])],
-    'GET /shops': [200, []],
-    'GET /places': [200, []],
+    'GET /shops': [200, { shops: [] }],
+    'GET /places': [200, { places: [] }],
     ...routes
   });
   component = mount(Onboarding, {
@@ -149,7 +149,7 @@ describe('on the phone', () => {
 
   it('adds a shop and takes one away', async () => {
     open({
-      'GET /shops': [200, [{ id: 1, name: 'Supermarket' }]],
+      'GET /shops': [200, { shops: [{ id: 1, name: 'Supermarket' }] }],
       'POST /shops': [201, { id: 2, name: 'Indian grocer' }],
       'DELETE /shops/1': [200, { change: null }]
     });

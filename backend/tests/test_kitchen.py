@@ -38,7 +38,7 @@ def member(kitchen: TestClient) -> Iterator[TestClient]:
 
 
 def test_four_default_places(kitchen: TestClient) -> None:
-    assert kitchen.get(f"{API}/places").json() == [
+    assert kitchen.get(f"{API}/places").json()["places"] == [
         {"id": 1, "name": "Fridge", "kind": "fridge"},
         {"id": 2, "name": "Freezer", "kind": "freezer"},
         {"id": 3, "name": "Cupboard", "kind": "cupboard"},
@@ -77,7 +77,7 @@ def test_shop_by_name(kitchen: TestClient) -> None:
         "shop": tesco,
     }
     kitchen.post(f"{API}/shops", json={"name": "Lidl"})
-    assert [s["name"] for s in kitchen.get(f"{API}/shops").json()] == ["Tesco", "Lidl"]
+    assert [s["name"] for s in kitchen.get(f"{API}/shops").json()["shops"]] == ["Tesco", "Lidl"]
 
 
 def test_add_a_place(kitchen: TestClient) -> None:
@@ -85,7 +85,7 @@ def test_add_a_place(kitchen: TestClient) -> None:
     assert response.status_code == 201
     made = response.json()
     assert made == {"id": made["id"], "name": "Garage fridge", "kind": "fridge"}
-    listed = kitchen.get(f"{API}/places").json()
+    listed = kitchen.get(f"{API}/places").json()["places"]
     assert [p["name"] for p in listed] == [
         "Fridge",
         "Freezer",
@@ -96,7 +96,7 @@ def test_add_a_place(kitchen: TestClient) -> None:
     assert listed[-1] == made
     # The next one goes after it.
     kitchen.post(f"{API}/places", json={"name": "Chest freezer", "kind": "freezer"})
-    assert kitchen.get(f"{API}/places").json()[-1]["name"] == "Chest freezer"
+    assert kitchen.get(f"{API}/places").json()["places"][-1]["name"] == "Chest freezer"
 
 
 def test_a_place_name_the_household_has_is_a_409_with_that_place(kitchen: TestClient) -> None:
@@ -105,7 +105,7 @@ def test_a_place_name_the_household_has_is_a_409_with_that_place(kitchen: TestCl
     body = response.json()
     assert body["code"] == "name_taken"
     assert body["place"] == {"id": 1, "name": "Fridge", "kind": "fridge"}
-    assert len(kitchen.get(f"{API}/places").json()) == 4
+    assert len(kitchen.get(f"{API}/places").json()["places"]) == 4
 
 
 @pytest.mark.parametrize(
@@ -121,7 +121,7 @@ def test_a_place_name_the_household_has_is_a_409_with_that_place(kitchen: TestCl
 )
 def test_a_bad_place_is_refused(kitchen: TestClient, body: dict[str, str]) -> None:
     assert kitchen.post(f"{API}/places", json=body).status_code == 422
-    assert len(kitchen.get(f"{API}/places").json()) == 4
+    assert len(kitchen.get(f"{API}/places").json()["places"]) == 4
 
 
 def test_a_forty_character_place_name_is_fine(kitchen: TestClient) -> None:
@@ -142,8 +142,8 @@ def test_places_are_the_households_own(kitchen: TestClient, neighbour: TestClien
     assert theirs.status_code == 201
     assert theirs.json()["id"] != made.json()["id"]
     assert theirs.json()["kind"] == "freezer"
-    ours = [p["name"] for p in kitchen.get(f"{API}/places").json()]
-    their_names = [p["name"] for p in neighbour.get(f"{API}/places").json()]
+    ours = [p["name"] for p in kitchen.get(f"{API}/places").json()["places"]]
+    their_names = [p["name"] for p in neighbour.get(f"{API}/places").json()["places"]]
     assert "Garage" in ours and "garage" not in ours
     assert "garage" in their_names and "Garage" not in their_names
     # A 409 only ever names the caller's own place.
@@ -157,14 +157,14 @@ def test_a_household_has_at_most_fifty_places(kitchen: TestClient, neighbour: Te
     for number in range(46):
         made = kitchen.post(f"{API}/places", json={"name": f"Shelf {number}", "kind": "cupboard"})
         assert made.status_code == 201
-    assert len(kitchen.get(f"{API}/places").json()) == 50
+    assert len(kitchen.get(f"{API}/places").json()["places"]) == 50
     refused = kitchen.post(f"{API}/places", json={"name": "One too many", "kind": "cupboard"})
     assert refused.status_code == 409
     assert refused.json()["code"] == "too_many_places"
     assert refused.json()["detail"] == (
         "You have 50 places, the most Mealwright keeps. Rename or remove one in Settings."
     )
-    assert len(kitchen.get(f"{API}/places").json()) == 50
+    assert len(kitchen.get(f"{API}/places").json()["places"]) == 50
     # A name the household already has still gives that place, so the screen can pick it.
     again = kitchen.post(f"{API}/places", json={"name": "shelf 3", "kind": "cupboard"})
     assert again.status_code == 409
@@ -197,7 +197,7 @@ def test_two_phones_adding_the_fiftieth_place_at_once_keep_the_cap(kitchen: Test
     for number in range(45):
         kitchen.post(f"{API}/places", json={"name": f"Shelf {number}", "kind": "cupboard"})
     for turn in range(5):
-        assert len(kitchen.get(f"{API}/places").json()) == 49
+        assert len(kitchen.get(f"{API}/places").json()["places"]) == 49
         codes = _at_once(
             kitchen,
             "/places",
@@ -207,7 +207,7 @@ def test_two_phones_adding_the_fiftieth_place_at_once_keep_the_cap(kitchen: Test
             ],
         )
         assert codes == [201, 409]
-        assert len(kitchen.get(f"{API}/places").json()) == 50
+        assert len(kitchen.get(f"{API}/places").json()["places"]) == 50
         with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
             last = db.scalars(select(Place).order_by(Place.position.desc())).first()
             assert last is not None
@@ -223,7 +223,7 @@ def test_two_phones_adding_the_same_name_at_once_make_one(
         name = f"Corner {turn}"
         codes = _at_once(kitchen, path, [{"name": name, **body}, {"name": name.upper(), **body}])
         assert codes in ([200, 201], [201, 409])
-        names = [row["name"] for row in kitchen.get(f"{API}{path}").json()]
+        names = [row["name"] for row in kitchen.get(f"{API}{path}").json()[path.strip("/")]]
         assert len([n for n in names if n.lower() == name.lower()]) == 1
 
 
@@ -292,22 +292,22 @@ def test_cup_size_changes_the_cup(kitchen: TestClient) -> None:
     kitchen.post(f"{API}/household/fill-from-browser", json={"cup_ml": 240})
     shown = kitchen.get(f"{API}/foods/{food['id']}").json()["cup_weight"]
     assert shown == {"grams": 192.0, "from": "you", "cup_ml": 240}  # 0.8 g/ml times 240 ml
-    units = {u["unit"]: u["amount"] for u in kitchen.get(f"{API}/units").json()}
+    units = {u["unit"]: u["amount"] for u in kitchen.get(f"{API}/units").json()["units"]}
     assert units["cup"] == 240.0 and units["tbsp"] == 15.0 and units["tsp"] == 5.0
 
 
 def test_remembered_answers(kitchen: TestClient) -> None:
     food = kitchen.post(f"{API}/foods", json={"name": "Toor dal"}).json()["food"]
     kitchen.patch(f"{API}/foods/{food['id']}", json={"cup_weight": 200})
-    remembered = kitchen.get(f"{API}/conversions").json()
+    remembered = kitchen.get(f"{API}/conversions").json()["conversions"]
     assert [(r["food"]["name"], r["display"], r["answered_by"]) for r in remembered] == [
         ("Toor dal", "1\u00a0cup = 200\u00a0g", "Tess")
     ]
     forgotten = kitchen.delete(f"{API}/conversions/{remembered[0]['id']}").json()
     assert forgotten["change"]["can_undo"] is True
-    assert kitchen.get(f"{API}/conversions").json() == []
+    assert kitchen.get(f"{API}/conversions").json()["conversions"] == []
     kitchen.post(f"{API}/changes/{forgotten['change']['id']}/undo")
-    assert len(kitchen.get(f"{API}/conversions").json()) == 1
+    assert len(kitchen.get(f"{API}/conversions").json()["conversions"]) == 1
 
 
 def test_another_households_ids_are_404(kitchen: TestClient) -> None:

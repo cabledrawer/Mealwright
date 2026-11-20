@@ -68,14 +68,16 @@ async function openPhoneList(role: 'admin' | 'member', at = '/settings') {
     ],
     'GET /meal-slots': [
       200,
-      [
-        { id: 1, name: 'Breakfast', enabled: true },
-        { id: 2, name: 'Dinner', enabled: true },
-        { id: 3, name: 'Snack', enabled: false }
-      ]
+      {
+        meal_slots: [
+          { id: 1, name: 'Breakfast', enabled: true },
+          { id: 2, name: 'Dinner', enabled: true },
+          { id: 3, name: 'Snack', enabled: false }
+        ]
+      }
     ],
-    'GET /shops': [200, [{ id: 1, name: 'Shop' }]],
-    'GET /places': [200, PLACES],
+    'GET /shops': [200, { shops: [{ id: 1, name: 'Shop' }] }],
+    'GET /places': [200, { places: PLACES }],
     'GET /people': [
       200,
       { people: [{ id: 1 }, { id: 2 }], can_change: true, ask_whos_this: false }

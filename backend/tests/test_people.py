@@ -117,7 +117,7 @@ def test_adding_a_person_without_a_login_and_undo(kitchen: TestClient) -> None:
     change = _newest(kitchen)
     assert change["summary"] == "Added Joss to the household" and change["can_undo"]
     # Joss now eats: she's offered in who's eating.
-    assert "Joss" in [p["name"] for p in ok(kitchen.get(f"{API}/plan/people"))]
+    assert "Joss" in [p["name"] for p in ok(kitchen.get(f"{API}/plan/people"))["people"]]
     _undo(kitchen, change)
     assert [p["name"] for p in _people(kitchen)["people"]] == ["Tess"]
 
@@ -311,7 +311,7 @@ def test_removing_a_person_keeps_their_history_and_ends_their_sign_in(kitchen: T
     removed = _newest(kitchen)
     assert removed["summary"] == "Removed Wren from the household" and removed["can_undo"]
     assert [p["name"] for p in _people(kitchen)["people"]] == ["Tess"]
-    assert "Wren" not in [p["name"] for p in ok(kitchen.get(f"{API}/plan/people"))]
+    assert "Wren" not in [p["name"] for p in ok(kitchen.get(f"{API}/plan/people"))["people"]]
     # Their change stays, under "Wren (removed)".
     shown = next(c for c in ok(kitchen.get(f"{API}/changes"))["changes"] if c["id"] == theirs["id"])
     assert shown["who"]["name"] == "Wren (removed)"
@@ -596,7 +596,9 @@ def test_a_shared_login_doesnt_eat_and_asks_only_when_switched_on(kitchen: TestC
     asked = ok(tablet.get(f"{API}/whos-this"))
     assert asked["ask"] is False and asked["picked"] is None
     assert [p["name"] for p in asked["people"]] == ["Tess", "Joss"]
-    assert "Kitchen tablet" not in [p["name"] for p in ok(kitchen.get(f"{API}/plan/people"))]
+    assert "Kitchen tablet" not in [
+        p["name"] for p in ok(kitchen.get(f"{API}/plan/people"))["people"]
+    ]
     ok(kitchen.put(f"{API}/people/ask-whos-this", json={"on": True}))
     switched = _newest(kitchen)
     assert switched["summary"] == "Switched Ask “Who’s this?” on"

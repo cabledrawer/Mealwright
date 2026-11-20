@@ -18,7 +18,7 @@ describe('"Eat it on…" refused after Cooked it was saved (F128)', () => {
 
   it('says plainly that the cooking is saved and the tub stays in Tubs left, with the server’s reason', async () => {
     fakeApi({
-      'GET /plan/tubs-left': [200, { tubs: [TUB], more: false }],
+      'GET /plan/tubs-left': [200, { tubs: [TUB], next: null }],
       'POST /plan/tubs/41/place': [
         409,
         { code: 'after_use_by', detail: 'That is after the use-by date of this batch.' }
@@ -38,7 +38,7 @@ describe('"Eat it on…" refused after Cooked it was saved (F128)', () => {
 
   it('places the tub of a meal cooked ahead, whose tubs count from the day it was really cooked', async () => {
     const requests = fakeApi({
-      'GET /plan/tubs-left': [200, { tubs: [{ ...TUB, cooked_on: '2026-11-01' }], more: false }],
+      'GET /plan/tubs-left': [200, { tubs: [{ ...TUB, cooked_on: '2026-11-01' }], next: null }],
       'POST /plan/tubs/41/place': [200, { change: { id: 9, can_undo: true } }]
     });
     const placed: Placed = { undo: null };

@@ -63,7 +63,7 @@ beforeEach(async () => {
   nav.guard = null;
   localStorage.removeItem(CHECK_MODE_STORAGE_KEY);
   checkMode.reload();
-  fakeApi({ 'GET /places': [200, PLACES], 'GET /shops': [200, SHOPS] });
+  fakeApi({ 'GET /places': [200, { places: PLACES }], 'GET /shops': [200, { shops: SHOPS }] });
 });
 
 afterEach(() => {
@@ -571,8 +571,8 @@ describe('One at a time', () => {
     it('Split into two opens the two names, and splits the line', async () => {
       const flow = await opened();
       fakeApi({
-        'GET /places': [200, PLACES],
-        'GET /shops': [200, SHOPS],
+        'GET /places': [200, { places: PLACES }],
+        'GET /shops': [200, { shops: SHOPS }],
         'GET /foods?q=red&limit=8': [200, { foods: [] }],
         'GET /foods?q=onion&limit=8': [200, { foods: [] }]
       });
@@ -618,8 +618,8 @@ describe('One at a time', () => {
     expect(await undoHistory.undoLast()).toBe(true);
     flushSync();
     fakeApi({
-      'GET /places': [200, PLACES],
-      'GET /shops': [200, SHOPS],
+      'GET /places': [200, { places: PLACES }],
+      'GET /shops': [200, { shops: SHOPS }],
       'GET /foods?q=red&limit=8': [200, { foods: [] }],
       'GET /foods?q=onion&limit=8': [200, { foods: [] }]
     });

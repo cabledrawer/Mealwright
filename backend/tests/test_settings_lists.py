@@ -46,7 +46,7 @@ def member(kitchen: TestClient) -> Iterator[TestClient]:
 
 
 def slots(kitchen: TestClient) -> list[dict[str, Any]]:
-    found: list[dict[str, Any]] = ok(kitchen.get(f"{API}/meal-slots"))
+    found: list[dict[str, Any]] = ok(kitchen.get(f"{API}/meal-slots"))["meal_slots"]
     return found
 
 
@@ -62,7 +62,7 @@ def food(kitchen: TestClient, name: str, **extra: Any) -> dict[str, Any]:
 
 
 def place_id(kitchen: TestClient, name: str) -> int:
-    return next(p["id"] for p in ok(kitchen.get(f"{API}/places")) if p["name"] == name)
+    return next(p["id"] for p in ok(kitchen.get(f"{API}/places"))["places"] if p["name"] == name)
 
 
 def stock(kitchen: TestClient, food_id: int, place: int, grams: float = 100) -> None:
@@ -185,7 +185,7 @@ def test_another_households_meals_are_not_found(kitchen: TestClient, neighbour: 
 
 
 def shops(kitchen: TestClient) -> list[dict[str, Any]]:
-    found: list[dict[str, Any]] = ok(kitchen.get(f"{API}/shops"))
+    found: list[dict[str, Any]] = ok(kitchen.get(f"{API}/shops"))["shops"]
     return found
 
 
@@ -196,7 +196,7 @@ def test_a_member_renames_and_orders_shops(member: TestClient, kitchen: TestClie
         "id": a["id"],
         "name": "Lidl",
     }
-    order = ok(member.put(f"{API}/shops/order", json={"ids": [b["id"], a["id"]]}))
+    order = ok(member.put(f"{API}/shops/order", json={"ids": [b["id"], a["id"]]}))["shops"]
     assert names(order) == ["Butcher", "Lidl"] and names(shops(kitchen)) == ["Butcher", "Lidl"]
 
 
@@ -314,11 +314,11 @@ def test_rename_and_order_places(member: TestClient, kitchen: TestClient) -> Non
     assert renamed == {"id": spice, "name": "Spices", "kind": "cupboard"}
     clash = kitchen.patch(f"{API}/places/{spice}", json={"name": "cupboard"})
     assert clash.status_code == 409 and clash.json()["code"] == "name_taken"
-    ids = [p["id"] for p in ok(kitchen.get(f"{API}/places"))]
+    ids = [p["id"] for p in ok(kitchen.get(f"{API}/places"))["places"]]
     wanted = [ids[3], ids[0], ids[1], ids[2]]
-    order = ok(member.put(f"{API}/places/order", json={"ids": wanted}))
+    order = ok(member.put(f"{API}/places/order", json={"ids": wanted}))["places"]
     assert [p["id"] for p in order] == wanted
-    assert [p["id"] for p in ok(kitchen.get(f"{API}/places"))] == wanted
+    assert [p["id"] for p in ok(kitchen.get(f"{API}/places"))["places"]] == wanted
     bad = kitchen.put(f"{API}/places/order", json={"ids": ids[:2]})
     assert bad.status_code == 422 and bad.json()["code"] == "not_all_places"
 
@@ -327,9 +327,9 @@ def test_an_empty_place_is_removed_and_undo_makes_it_again(kitchen: TestClient) 
     spice = place_id(kitchen, "Spice rack")
     removed = ok(kitchen.delete(f"{API}/places/{spice}"))
     assert removed["change"]["summary"] == "Removed the place Spice rack"
-    assert "Spice rack" not in names(ok(kitchen.get(f"{API}/places")))
+    assert "Spice rack" not in names(ok(kitchen.get(f"{API}/places"))["places"])
     ok(kitchen.post(f"{API}/changes/{removed['change']['id']}/undo"))
-    back = ok(kitchen.get(f"{API}/places"))
+    back = ok(kitchen.get(f"{API}/places"))["places"]
     assert names(back) == ["Fridge", "Freezer", "Cupboard", "Spice rack"]
     assert back[3] == {"id": spice, "name": "Spice rack", "kind": "cupboard"}
 
@@ -343,7 +343,7 @@ def test_a_place_with_things_in_it_says_how_many_and_stays(kitchen: TestClient) 
     assert refused.status_code == 409 and body["code"] == "place_not_empty"
     assert body["things"] == 3
     assert body["detail"] == "Cupboard has 3 things in it. Move them to…"
-    assert "Cupboard" in names(ok(kitchen.get(f"{API}/places")))
+    assert "Cupboard" in names(ok(kitchen.get(f"{API}/places"))["places"])
 
 
 def test_things_in_a_place_move_then_it_goes_and_undo_puts_everything_back(
@@ -356,7 +356,7 @@ def test_things_in_a_place_move_then_it_goes_and_undo_puts_everything_back(
     stock(kitchen, rice["id"], cupboard, 500)
     stock(kitchen, lentils["id"], cupboard, 300)
     removed = ok(kitchen.delete(f"{API}/places/{cupboard}", params={"move_to": spice}))
-    assert "Cupboard" not in names(ok(kitchen.get(f"{API}/places")))
+    assert "Cupboard" not in names(ok(kitchen.get(f"{API}/places"))["places"])
     with db(kitchen) as session:
         lots = list(session.scalars(select(StockLot)))
         assert lots and all(lot.place_id == spice for lot in lots)
@@ -395,7 +395,7 @@ def test_the_last_fridge_and_the_last_freezer_stay(kitchen: TestClient) -> None:
     for name in ("Fridge", "Freezer"):
         refused = kitchen.delete(f"{API}/places/{place_id(kitchen, name)}")
         assert refused.status_code == 409 and refused.json()["code"] == "last_of_kind"
-        assert name in names(ok(kitchen.get(f"{API}/places")))
+        assert name in names(ok(kitchen.get(f"{API}/places"))["places"])
     assert refused.json()["detail"] == (
         "Mealwright needs a freezer, and Freezer is your last one, so it stays."
     )
@@ -460,19 +460,19 @@ def test_move_to_must_be_another_place_of_the_household(
     stolen = kitchen.delete(f"{API}/places/{cupboard}", params={"move_to": theirs})
     assert stolen.status_code == 404
     assert kitchen.delete(f"{API}/places/{theirs}").status_code == 404
-    assert "Cupboard" in names(ok(neighbour.get(f"{API}/places")))
+    assert "Cupboard" in names(ok(neighbour.get(f"{API}/places"))["places"])
 
 
 def test_a_member_removes_a_place(member: TestClient, kitchen: TestClient) -> None:
     ok(member.delete(f"{API}/places/{place_id(kitchen, 'Spice rack')}"))
-    assert "Spice rack" not in names(ok(kitchen.get(f"{API}/places")))
+    assert "Spice rack" not in names(ok(kitchen.get(f"{API}/places"))["places"])
 
 
 def test_the_other_households_places_are_not_in_an_order(
     kitchen: TestClient, neighbour: TestClient
 ) -> None:
-    ids = [p["id"] for p in ok(kitchen.get(f"{API}/places"))]
-    theirs = [p["id"] for p in ok(neighbour.get(f"{API}/places"))]
+    ids = [p["id"] for p in ok(kitchen.get(f"{API}/places"))["places"]]
+    theirs = [p["id"] for p in ok(neighbour.get(f"{API}/places"))["places"]]
     refused = kitchen.put(f"{API}/places/order", json={"ids": [*ids[:-1], theirs[0]]})
     assert refused.status_code == 422
     with db(kitchen) as session:
@@ -508,7 +508,7 @@ def test_recent_changes_lists_every_kind_newest_first_and_pages(kitchen: TestCli
     # Paging: the next page starts below the first page's last change.
     first = ok(kitchen.get(f"{API}/changes", params={"limit": 2}))
     assert len(first["changes"]) == 2 and first["next"] is not None
-    second = ok(kitchen.get(f"{API}/changes", params={"limit": 2, "before": first["next"]}))
+    second = ok(kitchen.get(f"{API}/changes", params={"limit": 2, "after": first["next"]}))
     assert second["changes"][0]["id"] < first["changes"][-1]["id"]
     # The old filters still work.
     pantry = ok(kitchen.get(f"{API}/changes", params={"area": "pantry"}))["changes"]
@@ -589,7 +589,7 @@ def test_adding_a_place_is_in_recent_changes_and_undo_takes_it_away(kitchen: Tes
     assert top["kind"] == "place_added" and top["summary"] == "Added the place Garage"
     assert top["can_undo"] is True
     assert ok(undo(kitchen, top))["result"] == "done"
-    assert made["id"] not in [p["id"] for p in ok(kitchen.get(f"{API}/places"))]
+    assert made["id"] not in [p["id"] for p in ok(kitchen.get(f"{API}/places"))["places"]]
 
 
 def test_a_place_in_use_cannot_have_its_adding_undone(kitchen: TestClient) -> None:
@@ -599,7 +599,7 @@ def test_a_place_in_use_cannot_have_its_adding_undone(kitchen: TestClient) -> No
     stock(kitchen, rice["id"], made["id"])
     refused = undo(kitchen, top)
     assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
-    assert "Garage" in names(ok(kitchen.get(f"{API}/places")))
+    assert "Garage" in names(ok(kitchen.get(f"{API}/places"))["places"])
 
 
 def test_adding_a_place_twice_with_one_key_is_one_place(kitchen: TestClient) -> None:
@@ -621,7 +621,7 @@ def test_renaming_a_place_is_in_recent_changes_and_undo_puts_the_old_name_back(
     assert top["kind"] == "place_renamed"
     assert top["summary"] == "Renamed the place Spice rack to Larder" and top["can_undo"] is True
     assert ok(undo(kitchen, top))["result"] == "done"
-    assert "Spice rack" in names(ok(kitchen.get(f"{API}/places")))
+    assert "Spice rack" in names(ok(kitchen.get(f"{API}/places"))["places"])
 
 
 def test_a_place_rename_to_the_same_name_records_nothing_and_a_stale_one_cannot_be_undone(
@@ -635,7 +635,7 @@ def test_a_place_rename_to_the_same_name_records_nothing_and_a_stale_one_cannot_
     ok(kitchen.patch(f"{API}/places/{spice}", json={"name": "Pantry shelf"}))
     refused = undo(kitchen, first)
     assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
-    assert "Pantry shelf" in names(ok(kitchen.get(f"{API}/places")))
+    assert "Pantry shelf" in names(ok(kitchen.get(f"{API}/places"))["places"])
 
 
 def test_reordering_the_shops_is_in_recent_changes_and_undo_puts_the_order_back(
@@ -643,7 +643,7 @@ def test_reordering_the_shops_is_in_recent_changes_and_undo_puts_the_order_back(
 ) -> None:
     a = ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
     b = ok(kitchen.post(f"{API}/shops", json={"name": "Lidl"}), 201)
-    ok(kitchen.put(f"{API}/shops/order", json={"ids": [b["id"], a["id"]]}))
+    ok(kitchen.put(f"{API}/shops/order", json={"ids": [b["id"], a["id"]]}))["shops"]
     top = latest(kitchen)
     assert top["kind"] == "shops_ordered" and top["summary"] == "Changed the order of the shops"
     assert names(shops(kitchen)) == ["Lidl", "Aldi"]
@@ -654,13 +654,13 @@ def test_reordering_the_shops_is_in_recent_changes_and_undo_puts_the_order_back(
 def test_reordering_the_places_is_in_recent_changes_and_undo_puts_the_order_back(
     kitchen: TestClient,
 ) -> None:
-    ids = [p["id"] for p in ok(kitchen.get(f"{API}/places"))]
+    ids = [p["id"] for p in ok(kitchen.get(f"{API}/places"))["places"]]
     wanted = [ids[3], ids[0], ids[1], ids[2]]
-    ok(kitchen.put(f"{API}/places/order", json={"ids": wanted}))
+    ok(kitchen.put(f"{API}/places/order", json={"ids": wanted}))["places"]
     top = latest(kitchen)
     assert top["kind"] == "places_ordered" and top["summary"] == "Changed the order of the places"
     assert ok(undo(kitchen, top))["result"] == "done"
-    assert [p["id"] for p in ok(kitchen.get(f"{API}/places"))] == ids
+    assert [p["id"] for p in ok(kitchen.get(f"{API}/places"))["places"]] == ids
 
 
 def test_the_same_order_records_nothing_and_a_stale_order_cannot_be_undone(
@@ -668,12 +668,12 @@ def test_the_same_order_records_nothing_and_a_stale_order_cannot_be_undone(
 ) -> None:
     a = ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
     b = ok(kitchen.post(f"{API}/shops", json={"name": "Lidl"}), 201)
-    ok(kitchen.put(f"{API}/shops/order", json={"ids": [a["id"], b["id"]]}))
+    ok(kitchen.put(f"{API}/shops/order", json={"ids": [a["id"], b["id"]]}))["shops"]
     kinds = [c["kind"] for c in ok(kitchen.get(f"{API}/changes"))["changes"]]
     assert "shops_ordered" not in kinds
-    ok(kitchen.put(f"{API}/shops/order", json={"ids": [b["id"], a["id"]]}))
+    ok(kitchen.put(f"{API}/shops/order", json={"ids": [b["id"], a["id"]]}))["shops"]
     first = latest(kitchen)
-    ok(kitchen.put(f"{API}/shops/order", json={"ids": [a["id"], b["id"]]}))
+    ok(kitchen.put(f"{API}/shops/order", json={"ids": [a["id"], b["id"]]}))["shops"]
     refused = undo(kitchen, first)
     assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
     assert names(shops(kitchen)) == ["Aldi", "Lidl"]
@@ -682,7 +682,7 @@ def test_the_same_order_records_nothing_and_a_stale_order_cannot_be_undone(
 def test_a_shop_added_after_an_order_does_not_stop_its_undo(kitchen: TestClient) -> None:
     a = ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
     b = ok(kitchen.post(f"{API}/shops", json={"name": "Lidl"}), 201)
-    ok(kitchen.put(f"{API}/shops/order", json={"ids": [b["id"], a["id"]]}))
+    ok(kitchen.put(f"{API}/shops/order", json={"ids": [b["id"], a["id"]]}))["shops"]
     first = latest(kitchen)
     ok(kitchen.post(f"{API}/shops", json={"name": "Spar"}), 201)
     assert ok(undo(kitchen, first))["result"] == "done"
@@ -763,10 +763,10 @@ def test_undoing_the_adding_of_a_place_cannot_leave_no_fridge_or_freezer(
     ok(kitchen.post(f"{API}/places", json={"name": "Chest freezer", "kind": "freezer"}), 201)
     added = latest(kitchen)
     ok(kitchen.delete(f"{API}/places/{place_id(kitchen, 'Freezer')}"))
-    before = ok(kitchen.get(f"{API}/places"))
+    before = ok(kitchen.get(f"{API}/places"))["places"]
     refused = undo(kitchen, added)
     assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
-    assert ok(kitchen.get(f"{API}/places")) == before
+    assert ok(kitchen.get(f"{API}/places"))["places"] == before
     assert "Chest freezer" in names(before)
 
 
@@ -801,7 +801,7 @@ def test_a_place_added_at_the_same_moment_with_one_key_answers_with_the_first_on
     )
     assert second.status_code == 200, second.text
     assert second.json() == first
-    assert names(ok(kitchen.get(f"{API}/places"))).count("Garage") == 1
+    assert names(ok(kitchen.get(f"{API}/places"))["places"]).count("Garage") == 1
 
 
 def test_a_place_added_at_the_same_moment_with_one_key_and_another_body_is_refused(
@@ -819,7 +819,7 @@ def test_a_place_added_at_the_same_moment_with_one_key_and_another_body_is_refus
     )
     assert second.status_code == 409, second.text
     assert second.json()["code"] == "key_reused"
-    listed = names(ok(kitchen.get(f"{API}/places")))
+    listed = names(ok(kitchen.get(f"{API}/places"))["places"])
     assert "Shed" not in listed and listed.count("Garage") == 1
 
 
@@ -834,7 +834,7 @@ def test_a_place_renamed_at_the_same_moment_with_one_key_answers_with_the_first_
     second = kitchen.patch(f"{API}/places/{spice}", json={"name": "Larder"}, headers=headers)
     assert second.status_code == 200, second.text
     assert second.json() == first
-    assert names(ok(kitchen.get(f"{API}/places"))).count("Larder") == 1
+    assert names(ok(kitchen.get(f"{API}/places"))["places"]).count("Larder") == 1
 
 
 def test_a_retried_kitchen_key_after_another_change_changes_nothing(kitchen: TestClient) -> None:
@@ -864,7 +864,7 @@ def test_undoing_an_added_place_is_refused_when_a_stocktake_used_it(kitchen: Tes
         session.commit()
     refused = undo(kitchen, top)
     assert refused.status_code == 409 and refused.json()["code"] == "cannot_undo"
-    assert "Garage" in names(ok(kitchen.get(f"{API}/places")))
+    assert "Garage" in names(ok(kitchen.get(f"{API}/places"))["places"])
     with db(kitchen) as session:
         assert session.scalar(select(StocktakePlace).where(StocktakePlace.place_id == made["id"]))
         assert session.scalar(select(StocktakeEntry).where(StocktakeEntry.place_id == made["id"]))
@@ -1071,7 +1071,7 @@ def test_a_no_op_place_rename_keeps_its_key(kitchen: TestClient) -> None:
     retry = kitchen.patch(f"{API}/places/{spice}", json={"name": "Spice rack"}, headers=key)
     _replayed(retry)
     assert retry.json()["name"] == "Larder"
-    assert "Larder" in names(ok(kitchen.get(f"{API}/places")))
+    assert "Larder" in names(ok(kitchen.get(f"{API}/places"))["places"])
 
 
 def test_a_no_op_shop_rename_keeps_its_key(kitchen: TestClient) -> None:
@@ -1082,7 +1082,7 @@ def test_a_no_op_shop_rename_keeps_its_key(kitchen: TestClient) -> None:
     retry = kitchen.patch(f"{API}/shops/{aldi['id']}", json={"name": "Aldi"}, headers=key)
     _replayed(retry)
     assert retry.json()["name"] == "Lidl"
-    assert names(ok(kitchen.get(f"{API}/shops"))) == ["Lidl"]
+    assert names(ok(kitchen.get(f"{API}/shops"))["shops"]) == ["Lidl"]
 
 
 @pytest.mark.parametrize("what", ["places", "shops"])
@@ -1091,14 +1091,14 @@ def test_a_no_op_order_of_places_or_shops_keeps_its_key(kitchen: TestClient, wha
         ok(kitchen.post(f"{API}/shops", json={"name": "Aldi"}), 201)
         ok(kitchen.post(f"{API}/shops", json={"name": "Lidl"}), 201)
     url = f"{API}/{what}/order"
-    ids = [r["id"] for r in ok(kitchen.get(f"{API}/{what}"))]
+    ids = [r["id"] for r in ok(kitchen.get(f"{API}/{what}"))[what]]
     key = {"Idempotency-Key": f"noop-{what}-order"}
     ok(kitchen.put(url, json={"ids": ids}, headers=key))  # the order it already has
     ok(kitchen.put(url, json={"ids": ids[::-1]}))
     retry = kitchen.put(url, json={"ids": ids}, headers=key)
     _replayed(retry)
-    assert [r["id"] for r in retry.json()] == ids[::-1]
-    assert [r["id"] for r in ok(kitchen.get(f"{API}/{what}"))] == ids[::-1]
+    assert [r["id"] for r in retry.json()[what]] == ids[::-1]
+    assert [r["id"] for r in ok(kitchen.get(f"{API}/{what}"))[what]] == ids[::-1]
 
 
 def test_a_no_op_meal_slot_save_keeps_its_key(kitchen: TestClient) -> None:

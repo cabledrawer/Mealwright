@@ -46,7 +46,7 @@ const data = (): TodayData => ({
   people: [],
   waiting: [],
   tubs_left: [],
-  tubs_left_more: false,
+  tubs_left_next: null,
   use_soon_lots: [spinach],
   use_soon_tubs: [lemonRice],
   next_cook: null

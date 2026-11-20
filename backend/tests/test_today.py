@@ -93,7 +93,9 @@ def yesterday(kitchen: TestClient, sambar: int, slots: dict[str, int]) -> dict[s
 def fridge_id(kitchen: TestClient) -> int:
     """Packets of a fridge ingredient have a Use by date (0.8); in a cupboard it is Best before,
     which Use soon counts only once passed."""
-    return next(p["id"] for p in kitchen.get(f"{API}/places").json() if p["kind"] == "fridge")
+    return next(
+        p["id"] for p in kitchen.get(f"{API}/places").json()["places"] if p["kind"] == "fridge"
+    )
 
 
 def test_cooked_it_marks_the_meal_and_locks_it(
@@ -598,7 +600,7 @@ def test_today_reads_tubs_use_soon_and_the_next_cook(
     ok(kitchen.post(f"{API}/plan/items/{cook['item_id']}/batch", json={"tub_count": 4}), 201)
     out = get_today(kitchen)
     # The two made by hand, and the four of the cook-once (the pattern puts none in a meal).
-    assert len(out["tubs_left"]) == 6 and not out["tubs_left_more"]
+    assert len(out["tubs_left"]) == 6 and out["tubs_left_next"] is None
     # One row for the batch, soonest date first, counting both of its tubs (F203).
     assert [(t["use_by"], t["tubs"], t["words"]) for t in out["use_soon_tubs"]] == [
         (str(ahead(kitchen, 1)), 2, "2 tubs")

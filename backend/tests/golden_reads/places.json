@@ -1,4 +1,5 @@
-[
+{
+"places": [
 {
 "id": 1,
 "kind": "fridge",
@@ -20,3 +21,4 @@
 "name": "Spice rack"
 }
 ]
+}

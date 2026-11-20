@@ -49,9 +49,9 @@ function open(routes: Record<string, Parameters<typeof fakeApi>[0][string]> = {}
   const requests = fakeApi({
     'GET /household': [200, { name: 'Home', pints: 'uk' }],
     'GET /household/kitchen': [200, KITCHEN],
-    'GET /meal-slots': [200, SLOTS],
-    'GET /shops': [200, SHOPS],
-    'GET /places': [200, PLACES],
+    'GET /meal-slots': [200, { meal_slots: SLOTS }],
+    'GET /shops': [200, { shops: SHOPS }],
+    'GET /places': [200, { places: PLACES }],
     'GET /changes': [200, { changes: [], next: null }],
     'GET /people': [
       200,
@@ -125,7 +125,7 @@ describe('Meal slots', () => {
     const NEW = { id: 5, name: 'Supper', position: 4, enabled: true };
     let all = SLOTS;
     const requests = open({
-      'GET /meal-slots': () => [200, all],
+      'GET /meal-slots': () => [200, { meal_slots: all }],
       'PUT /meal-slots/order': (request) => {
         const ids = (request.body as { ids: number[] }).ids;
         return ids.length === all.length
@@ -246,7 +246,7 @@ describe('Shops', () => {
   });
 
   it('puts shops in order with Move down', async () => {
-    const requests = open({ 'PUT /shops/order': [200, [SHOPS[1], SHOPS[0]]] });
+    const requests = open({ 'PUT /shops/order': [200, { shops: [SHOPS[1], SHOPS[0]] }] });
     await page.getByRole('button', { name: 'Move Supermarket down' }).click();
     expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ ids: [2, 1] });
   });
@@ -256,11 +256,11 @@ describe('Shops', () => {
     const NEW = { id: 3, name: 'Market stall' };
     let all = SHOPS;
     const requests = open({
-      'GET /shops': () => [200, all],
+      'GET /shops': () => [200, { shops: all }],
       'PUT /shops/order': (request) => {
         const ids = (request.body as { ids: number[] }).ids;
         return ids.length === all.length
-          ? [200, ids.map((id) => all.find((s) => s.id === id))]
+          ? [200, { shops: ids.map((id) => all.find((s) => s.id === id)) }]
           : [
               422,
               { code: 'not_all_shops', detail: 'Send every shop once, in the order you want.' }
@@ -294,7 +294,7 @@ describe('Shops', () => {
           { result: 'done', message: 'Undone.', brought_back: [], undone: changeOf(90, 'x') }
         ];
       },
-      'GET /shops': () => [200, gone ? [SHOPS[1]] : SHOPS]
+      'GET /shops': () => [200, { shops: gone ? [SHOPS[1]] : SHOPS }]
     });
     await page.getByRole('button', { name: 'Remove Supermarket' }).click();
     await vi.waitFor(() => expect(toasts.current?.message).toBe('Removed the shop Supermarket'));
@@ -414,14 +414,17 @@ describe('Places', () => {
 
   it('a second Fridge can go', async () => {
     open({
-      'GET /places': [200, [...PLACES, { id: 8, name: 'Garage fridge', kind: 'fridge' }]]
+      'GET /places': [
+        200,
+        { places: [...PLACES, { id: 8, name: 'Garage fridge', kind: 'fridge' }] }
+      ]
     });
     await expect.element(page.getByRole('button', { name: 'Remove Fridge' })).toBeEnabled();
     await expect.element(page.getByRole('button', { name: 'Remove Garage fridge' })).toBeEnabled();
   });
 
   it('puts places in order with Move up', async () => {
-    const requests = open({ 'PUT /places/order': [200, PLACES] });
+    const requests = open({ 'PUT /places/order': [200, { places: PLACES }] });
     await page.getByRole('button', { name: 'Move Spice rack up' }).click();
     expect(requests.find((r) => r.method === 'PUT')?.body).toEqual({ ids: [1, 2, 4, 3] });
   });
@@ -430,11 +433,11 @@ describe('Places', () => {
     const NEW = { id: 9, name: 'Pantry shelf', kind: 'cupboard' };
     let all = PLACES;
     const requests = open({
-      'GET /places': () => [200, all],
+      'GET /places': () => [200, { places: all }],
       'PUT /places/order': (request) => {
         const ids = (request.body as { ids: number[] }).ids;
         return ids.length === all.length
-          ? [200, ids.map((id) => all.find((p) => p.id === id))]
+          ? [200, { places: ids.map((id) => all.find((p) => p.id === id)) }]
           : [
               422,
               { code: 'not_all_places', detail: 'Send every place once, in the order you want.' }
@@ -525,7 +528,7 @@ describe('Recent changes', () => {
         200,
         { changes: [made(60, 'used', 'Used 100 g Rice')], next: '60' }
       ],
-      'GET /changes?limit=20&before=60': [
+      'GET /changes?limit=20&after=60': [
         200,
         { changes: [made(59, 'cooked', 'Cooked Rasam (1 portion)')], next: null }
       ]
@@ -535,7 +538,7 @@ describe('Recent changes', () => {
     await list.getByRole('button', { name: 'Show more' }).click();
     await expect.element(list.getByText('Cooked Rasam (1 portion)')).toBeVisible();
     expect(list.getByRole('button', { name: 'Show more' }).elements()).toHaveLength(0);
-    expect(requests.some((r) => r.url === '/changes?limit=20&before=60')).toBe(true);
+    expect(requests.some((r) => r.url === '/changes?limit=20&after=60')).toBe(true);
   });
 
   it('says so when there is nothing yet, and when it can’t load', async () => {

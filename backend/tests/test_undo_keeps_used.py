@@ -48,7 +48,7 @@ def use_recipe(kitchen: TestClient, food: dict[str, Any]) -> None:
 
 def use_plan(kitchen: TestClient, food: dict[str, Any]) -> None:
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        slot = ok(kitchen.get(f"{API}/meal-slots"))[0]["id"]
+        slot = ok(kitchen.get(f"{API}/meal-slots"))["meal_slots"][0]["id"]
         meal = Meal(household_id=1, day=date(2026, 11, 9), slot_id=slot)
         db.add(meal)
         db.flush()

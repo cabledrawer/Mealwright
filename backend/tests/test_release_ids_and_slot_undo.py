@@ -38,7 +38,9 @@ def test_undo_never_shows_another_households_place(
     garage = ok(kitchen.post(f"{API}/places", json={"name": "Garage", "kind": "cupboard"}), 201)
     rice = ok(kitchen.post(f"{API}/foods", json={"name": "Rice", "place_id": garage["id"]}), 201)
     food_id = rice["food"]["id"]
-    fridge = next(p["id"] for p in ok(kitchen.get(f"{API}/places")) if p["name"] == "Fridge")
+    fridge = next(
+        p["id"] for p in ok(kitchen.get(f"{API}/places"))["places"] if p["name"] == "Fridge"
+    )
     moved = ok(kitchen.patch(f"{API}/foods/{food_id}", json={"place_id": fridge}))
     ok(kitchen.delete(f"{API}/places/{garage['id']}"))
     shed = ok(
@@ -88,14 +90,18 @@ def test_a_member_cannot_undo_an_admins_meal_slot_change(
     kitchen: TestClient,
     member: TestClient,  # noqa: F811
 ) -> None:
-    lunch = next(s for s in ok(kitchen.get(f"{API}/meal-slots")) if s["name"] == "Lunch")
+    lunch = next(
+        s for s in ok(kitchen.get(f"{API}/meal-slots"))["meal_slots"] if s["name"] == "Lunch"
+    )
     hid = ok(kitchen.patch(f"{API}/meal-slots/{lunch['id']}", json={"enabled": False}))
     change_id = hid["change"]["id"]
     assert (
         member.patch(f"{API}/meal-slots/{lunch['id']}", json={"enabled": True}).status_code == 403
     )
     assert member.post(f"{API}/changes/{change_id}/undo").status_code == 403
-    now = next(s for s in ok(kitchen.get(f"{API}/meal-slots")) if s["id"] == lunch["id"])
+    now = next(
+        s for s in ok(kitchen.get(f"{API}/meal-slots"))["meal_slots"] if s["id"] == lunch["id"]
+    )
     assert now["enabled"] is False
     # Recent changes does not offer the member an Undo on it; the admin still has it.
     for client, offered in ((member, False), (kitchen, True)):

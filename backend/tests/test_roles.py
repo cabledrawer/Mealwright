@@ -55,7 +55,7 @@ def member(kitchen: TestClient) -> TestClient:
 
 
 def _slot(kitchen: TestClient) -> int:
-    return int(kitchen.get(f"{API}/meal-slots").json()[0]["id"])
+    return int(kitchen.get(f"{API}/meal-slots").json()["meal_slots"][0]["id"])
 
 
 def test_the_table_says_admins_only_for_people_and_household_privacy_and_sign_in() -> None:

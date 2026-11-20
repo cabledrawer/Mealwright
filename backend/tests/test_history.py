@@ -163,7 +163,7 @@ def test_recent_changes(kitchen: TestClient, wren: TestClient) -> None:
     assert [c["summary"] for c in mine["changes"]] == ["Toor dal is now a staple"]
     assert mine["next"] is not None
     older = kitchen.get(
-        f"{API}/changes", params={"mine": True, "limit": 1, "before": mine["next"]}
+        f"{API}/changes", params={"mine": True, "limit": 1, "after": mine["next"]}
     ).json()
     assert [c["summary"] for c in older["changes"]] == ["Added Toor dal"]
 

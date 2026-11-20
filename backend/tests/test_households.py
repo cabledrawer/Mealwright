@@ -100,7 +100,7 @@ def mine(kitchen: TestClient, tmp_path: Path) -> dict[str, Any]:
     ok(kitchen.patch(f"{API}/foods/{toor['id']}", json={"cup_weight": 200}))
     shop = ok(kitchen.post(f"{API}/shops", json={"name": "Spice Bazaar"}), 201)
     ok(kitchen.patch(f"{API}/foods/{toor['id']}", json={"shop_id": shop["id"]}))
-    places = {p["name"]: p["id"] for p in ok(kitchen.get(f"{API}/places"))}
+    places = {p["name"]: p["id"] for p in ok(kitchen.get(f"{API}/places"))["places"]}
     added = ok(
         kitchen.post(
             f"{API}/stock",
@@ -112,7 +112,7 @@ def mine(kitchen: TestClient, tmp_path: Path) -> dict[str, Any]:
         ),
         201,
     )
-    conversions = ok(kitchen.get(f"{API}/conversions"))
+    conversions = ok(kitchen.get(f"{API}/conversions"))["conversions"]
     lists = ok(kitchen.get(f"{API}/shopping/lists"))["lists"]
     extra = ok(kitchen.post(f"{API}/shopping/lists", json={"name": "Party"}), 201)
     item = ok(
@@ -124,7 +124,7 @@ def mine(kitchen: TestClient, tmp_path: Path) -> dict[str, Any]:
     )
     recipe = ok(kitchen.post(f"{API}/recipes", json={"name": "Sambar", "tags": ["Quick"]}), 201)
     tag_id = ok(kitchen.get(f"{API}/recipes/tags"))["tags"][0]["id"]
-    slots = {s["name"]: s["id"] for s in ok(kitchen.get(f"{API}/meal-slots"))}
+    slots = {s["name"]: s["id"] for s in ok(kitchen.get(f"{API}/meal-slots"))["meal_slots"]}
     planned = ok(
         kitchen.post(
             f"{API}/plan/items",
@@ -546,8 +546,8 @@ def test_lists_and_search_show_nothing_of_the_other_household(
         listed = ok(neighbour.get(f"{API}/foods", params=query))
         assert listed["foods"] == [] and listed["total"] == 0, query
         assert listed["counts"]["all"] == 0
-    assert ok(neighbour.get(f"{API}/shops")) == []
-    their_places = ok(neighbour.get(f"{API}/places"))
+    assert ok(neighbour.get(f"{API}/shops"))["shops"] == []
+    their_places = ok(neighbour.get(f"{API}/places"))["places"]
     assert [p["name"] for p in their_places] == ["Fridge", "Freezer", "Cupboard", "Spice rack"]
     assert mine["place_id"] not in {p["id"] for p in their_places}
     pantry = ok(neighbour.get(f"{API}/pantry"))
@@ -557,12 +557,12 @@ def test_lists_and_search_show_nothing_of_the_other_household(
     assert ok(neighbour.get(f"{API}/changes"))["changes"] == []
     assert ok(neighbour.get(f"{API}/changes", params={"food_id": mine["food_id"]}))["changes"] == []
     assert ok(neighbour.get(f"{API}/changes", params={"area": "ingredients"}))["changes"] == []
-    assert ok(neighbour.get(f"{API}/conversions")) == []
+    assert ok(neighbour.get(f"{API}/conversions"))["conversions"] == []
     # Cursors: the next page after or before household 1's own ids is still empty.
     assert ok(neighbour.get(f"{API}/foods", params={"after": "0"}))["foods"] == []
     assert ok(neighbour.get(f"{API}/foods", params={"after": "1"}))["foods"] == []
     newest = ok(kitchen.get(f"{API}/changes", params={"limit": 1}))["changes"][0]["id"]
-    assert ok(neighbour.get(f"{API}/changes", params={"before": newest + 1}))["changes"] == []
+    assert ok(neighbour.get(f"{API}/changes", params={"after": newest + 1}))["changes"] == []
     # Shopping lists: only their own main list, with nothing on it.
     theirs = ok(neighbour.get(f"{API}/shopping/lists"))["lists"]
     assert [(x["name"], x["main"], x["to_buy"]) for x in theirs] == [("This week", True, 0)]

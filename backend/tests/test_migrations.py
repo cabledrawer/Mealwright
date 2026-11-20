@@ -294,7 +294,9 @@ def test_upgrading_a_0_2_0_database_keeps_everything_and_old_changes_read_as_bef
             "Toor dal"
         )
 
-        fridge = next(p["id"] for p in app.get("/api/v1/places").json() if p["name"] == "Fridge")
+        fridge = next(
+            p["id"] for p in app.get("/api/v1/places").json()["places"] if p["name"] == "Fridge"
+        )
         # A change made after the upgrade shows the whole amount; the old ones stay as they were.
         added = app.post(
             "/api/v1/stock",

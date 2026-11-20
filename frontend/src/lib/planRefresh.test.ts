@@ -30,10 +30,10 @@ function server() {
   const state = { today: '2026-11-11' };
   const requests = fakeApi({
     'GET /household': () => [200, household(state.today)],
-    'GET /meal-slots': [200, []],
+    'GET /meal-slots': [200, { meal_slots: [] }],
     'GET /plan': [200, PLAN],
-    'GET /plan/tubs-left': [200, { tubs: [], more: false }],
-    'GET /plan/people': [200, []]
+    'GET /plan/tubs-left': [200, { tubs: [], next: null }],
+    'GET /plan/people': [200, { people: [] }]
   });
   return { state, requests };
 }

@@ -276,7 +276,7 @@ async function post(page: Page, path: string, data: object) {
 // F80 review round 2: nothing that writes to the server is live while it is down.
 // cabledrawer 31 Oct: the Pantry may show the "Can't reach" note instead of its list; whatever stays is greyed out.
 test('Pantry: when the server stops, the packet menu, Edit link and Undo of an opened row are greyed out or gone', async ({ page }) => {
-  const places = (await (await page.request.get('/api/v1/places')).json()) as { id: number; name: string }[];
+  const places = (await (await page.request.get('/api/v1/places')).json()).places as { id: number; name: string }[];
   const name = `Dal ${test.info().project.name.replace(/\W/g, '')} ${Date.now()}`;
   const { food } = await post(page, '/foods', { name, place_id: places[0]!.id });
   await post(page, `/foods/${food.id}/sizes`, { name: 'pack', amount: 200 });
@@ -401,7 +401,7 @@ const CANT_REACH = 'Can’t reach your Mealwright server. Check your connection.
 
 // Things already open when the server drops (A2 last round): the guard under the greyed buttons.
 test('Pantry: a packet menu already open when the server stops sends nothing when Used is tapped', async ({ page }) => {
-  const places = (await (await page.request.get('/api/v1/places')).json()) as { id: number; name: string }[];
+  const places = (await (await page.request.get('/api/v1/places')).json()).places as { id: number; name: string }[];
   const name = `Moong ${test.info().project.name.replace(/\W/g, '')} ${Date.now()}`;
   const { food } = await post(page, '/foods', { name, place_id: places[0]!.id });
   await post(page, `/foods/${food.id}/sizes`, { name: 'pack', amount: 200 });

@@ -1356,7 +1356,7 @@ def test_ids_inside_a_drafts_review_and_choices_give_nothing_of_another_househol
     followed: its name isn't shown back, the line goes back to "needs you", and Save refuses
     the place and the ingredient as not found."""
     ghee = ok(neighbour.post(f"{API}/foods", json={"name": "Ghee"}), 201)["food"]
-    their_place = next(p["id"] for p in ok(neighbour.get(f"{API}/places")))
+    their_place = next(p["id"] for p in ok(neighbour.get(f"{API}/places"))["places"])
     their_batter = ok(neighbour.post(f"{API}/recipes", json={"name": "Dosa batter"}), 201)
     shown = review(kitchen, PASTED)
     lines = list(shown["lines"])

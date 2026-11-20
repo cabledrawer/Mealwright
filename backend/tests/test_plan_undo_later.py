@@ -103,7 +103,11 @@ def test_a_meal_slot_hidden_then_shown_undo_of_the_hide_leaves_it_shown(
     hide = ok(kitchen.patch(url, json={"enabled": False}))
     ok(kitchen.patch(url, json={"enabled": True}))
     assert undo(kitchen, hide)["result"] == "nothing"
-    dinner = next(s for s in kitchen.get(f"{API}/meal-slots").json() if s["id"] == slots["Dinner"])
+    dinner = next(
+        s
+        for s in kitchen.get(f"{API}/meal-slots").json()["meal_slots"]
+        if s["id"] == slots["Dinner"]
+    )
     assert dinner["enabled"] is True
 
 
@@ -186,6 +190,10 @@ def test_renaming_and_hiding_a_meal_slot_in_one_call_with_a_key_applies_both_and
     again = kitchen.patch(url, json=body, headers=headers)
     assert again.status_code == 200, again.text
     assert again.headers.get("Idempotent-Replayed") == "true"
-    now = next(s for s in kitchen.get(f"{API}/meal-slots").json() if s["id"] == slots["Dinner"])
+    now = next(
+        s
+        for s in kitchen.get(f"{API}/meal-slots").json()["meal_slots"]
+        if s["id"] == slots["Dinner"]
+    )
     assert now["name"] == "Supper"
     assert now["enabled"] is False

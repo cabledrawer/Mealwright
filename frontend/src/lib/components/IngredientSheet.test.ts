@@ -30,8 +30,8 @@ describe('the ingredient editor, opened from anywhere', () => {
     toasts.dismiss();
     requests = fakeApi({
       'GET /foods/7': () => [200, food],
-      'GET /places': [200, PLACES],
-      'GET /shops': [200, SHOPS],
+      'GET /places': [200, { places: PLACES }],
+      'GET /shops': [200, { shops: SHOPS }],
       'PATCH /foods/7': (request) => {
         food = { ...food, ...(request.body as object) } as typeof food;
         return [200, { food, change: changeOf(900, 'Changed Toor dal') }];
@@ -99,8 +99,11 @@ describe('the ingredient editor, opened from anywhere', () => {
     await placesAndShops.load();
     requests = fakeApi({
       'GET /foods/7': () => [200, food],
-      'GET /places': [200, [...PLACES, { id: 9, name: 'Garage freezer', kind: 'freezer' }]],
-      'GET /shops': [200, SHOPS]
+      'GET /places': [
+        200,
+        { places: [...PLACES, { id: 9, name: 'Garage freezer', kind: 'freezer' }] }
+      ],
+      'GET /shops': [200, { shops: SHOPS }]
     });
     const dialog = await openToorDal();
     await expect
@@ -111,8 +114,8 @@ describe('the ingredient editor, opened from anywhere', () => {
   it('“+ Place” in Lives in makes the place and sets it as the ingredient’s place (L5)', async () => {
     requests = fakeApi({
       'GET /foods/7': () => [200, food],
-      'GET /places': [200, PLACES],
-      'GET /shops': [200, SHOPS],
+      'GET /places': [200, { places: PLACES }],
+      'GET /shops': [200, { shops: SHOPS }],
       'POST /places': [201, { id: 9, name: 'Garage freezer', kind: 'freezer' }],
       // The server answers with the food as stored: its place is the new one.
       'PATCH /foods/7': () => {
@@ -311,8 +314,8 @@ describe('the ingredient editor, opened from anywhere', () => {
   it('a failed save puts the switch back and says so calmly', async () => {
     fakeApi({
       'GET /foods/7': [200, food],
-      'GET /places': [200, PLACES],
-      'GET /shops': [200, SHOPS],
+      'GET /places': [200, { places: PLACES }],
+      'GET /shops': [200, { shops: SHOPS }],
       'PATCH /foods/7': [503, { detail: 'Busy' }]
     });
     const dialog = await openToorDal();

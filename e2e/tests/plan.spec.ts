@@ -51,7 +51,7 @@ const dayName = (iso: string) => {
 
 async function setup(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string; week_starts_on: number };
-  const list = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string; enabled: boolean }[];
+  const list = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string; enabled: boolean }[];
   const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
   return { today: household.today, slot };
 }

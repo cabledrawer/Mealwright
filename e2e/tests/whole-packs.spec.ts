@@ -34,7 +34,7 @@ async function needing(
     await call(page, 'POST', `/foods/${foodId}/sizes`, index === 0 ? { name: word, amount, usual: true } : { name: word, amount });
   }
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
-  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()) as { id: number; name: string }[];
+  const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
   const recipe = await call(page, 'POST', '/recipes', {
     name: `Dish ${name}`,
     serves: 4,

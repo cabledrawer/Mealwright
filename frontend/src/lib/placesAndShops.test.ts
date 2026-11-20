@@ -18,12 +18,12 @@ import { placesAndShops } from './placesAndShops.svelte';
 type Routes = Parameters<typeof fakeApi>[0];
 
 const WRENS: Routes = {
-  'GET /places': [200, [{ id: 1, name: 'Wren’s fridge', kind: 'fridge' }]],
-  'GET /shops': [200, [{ id: 1, name: 'Wren’s corner shop' }]]
+  'GET /places': [200, { places: [{ id: 1, name: 'Wren’s fridge', kind: 'fridge' }] }],
+  'GET /shops': [200, { shops: [{ id: 1, name: 'Wren’s corner shop' }] }]
 };
 const ARLOS: Routes = {
-  'GET /places': [200, [{ id: 7, name: 'Arlo’s freezer', kind: 'freezer' }]],
-  'GET /shops': [200, [{ id: 7, name: 'Arlo’s market' }]]
+  'GET /places': [200, { places: [{ id: 7, name: 'Arlo’s freezer', kind: 'freezer' }] }],
+  'GET /shops': [200, { shops: [{ id: 7, name: 'Arlo’s market' }] }]
 };
 
 /** Wren is signed in and her shops and places have been fetched. */
@@ -204,10 +204,12 @@ describe('signing out forgets the household’s shops and places', () => {
       ...WRENS,
       'GET /places': [
         200,
-        [
-          { id: 1, name: 'Wren’s fridge', kind: 'fridge' },
-          { id: 2, name: 'Shed', kind: 'cupboard' }
-        ]
+        {
+          places: [
+            { id: 1, name: 'Wren’s fridge', kind: 'fridge' },
+            { id: 2, name: 'Shed', kind: 'cupboard' }
+          ]
+        }
       ],
       'POST /places': [201, { id: 2, name: 'Shed', kind: 'cupboard' }]
     });
@@ -220,12 +222,14 @@ describe('signing out forgets the household’s shops and places', () => {
     const WITH_SHED: Routes = {
       'GET /places': [
         200,
-        [
-          { id: 1, name: 'Wren’s fridge', kind: 'fridge' },
-          { id: 5, name: 'Shed', kind: 'cupboard' }
-        ]
+        {
+          places: [
+            { id: 1, name: 'Wren’s fridge', kind: 'fridge' },
+            { id: 5, name: 'Shed', kind: 'cupboard' }
+          ]
+        }
       ],
-      'GET /shops': [200, []]
+      'GET /shops': [200, { shops: [] }]
     };
 
     it('load(true) fetches again after they are loaded', async () => {

@@ -54,7 +54,7 @@ describe('"Eat it on…" after Cooked it', () => {
           tubs: [
             { id: 41, recipe_name: 'Banana bread', cooked_on: '2026-11-02', use_by: '2026-11-05' }
           ],
-          more: false
+          next: null
         }
       ],
       'POST /plan/tubs/41/place': [...TAKEN]
