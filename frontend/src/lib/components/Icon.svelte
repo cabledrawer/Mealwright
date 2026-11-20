@@ -118,20 +118,16 @@
     <path d="M9 8.5h6M9 16h6" />
   {:else if name === 'dark'}
     <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
-  {:else if name === 'expand'}
+  {:else if name === 'expand' || name === 'chevron-right'}
     <path d="M9 6l6 6-6 6" />
-    <path d="M4 4v16" />
+    {#if name === 'expand'}<path d="M4 4v16" />{/if}
   {:else if name === 'full-size'}
     <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-  {:else if name === 'collapse'}
+  {:else if name === 'collapse' || name === 'back'}
     <path d="M15 6l-6 6 6 6" />
-    <path d="M20 4v16" />
-  {:else if name === 'back'}
-    <path d="M15 6l-6 6 6 6" />
+    {#if name === 'collapse'}<path d="M20 4v16" />{/if}
   {:else if name === 'chevron-down'}
     <path d="M6 9l6 6 6-6" />
-  {:else if name === 'chevron-right'}
-    <path d="M9 6l6 6-6 6" />
   {:else if name === 'clock'}
     <circle cx="12" cy="12" r="9" />
     <path d="M12 7v5l3 2" />
@@ -162,12 +158,9 @@
   {:else if name === 'photo'}
     <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
     <circle cx="12" cy="13" r="3.5" />
-  {:else if name === 'info'}
+  {:else if name === 'info' || name === 'alert'}
     <circle cx="12" cy="12" r="9" />
-    <path d="M12 11v5M12 8h.01" />
-  {:else if name === 'alert'}
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 7v6M12 16.5h.01" />
+    <path d={name === 'info' ? 'M12 11v5M12 8h.01' : 'M12 7v6M12 16.5h.01'} />
   {:else if name === 'cloud-off'}
     <path d="M3 3l18 18" />
     <path d="M8.5 8.6A5 5 0 0 0 6 18h11" />
