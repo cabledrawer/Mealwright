@@ -73,7 +73,7 @@ test('Export with a password saves an encrypted file, under the page\'s own secu
     if (/content security policy|refused to/i.test(message.text())) refused.push(message.text());
   });
   await page.goto('/settings/your-data');
-  await page.getByLabel('Password (optional)').fill('noor and lorna 2026');
+  await page.getByLabel('Password for the export file').fill('noor and lorna 2026');
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export' }).click();
   const saved = await download;
@@ -83,13 +83,13 @@ test('Export with a password saves an encrypted file, under the page\'s own secu
   const bytes = readFileSync(path);
   expect(bytes.subarray(0, 8).toString('latin1')).toBe('MWEXPORT');
   expect(bytes.includes(Buffer.from('mealwright-export.json'))).toBe(false);
-  await expect(page.getByLabel('Password (optional)')).toHaveValue('');
+  await expect(page.getByLabel('Password for the export file')).toHaveValue('');
   expect(refused).toEqual([]);
 });
 
 test('a password that is too short is refused on the page and nothing is saved', async ({ page }) => {
   await page.goto('/settings/your-data');
-  await page.getByLabel('Password (optional)').fill('short');
+  await page.getByLabel('Password for the export file').fill('short');
   await page.getByRole('button', { name: 'Export' }).click();
   await expect(page.getByRole('alert')).toHaveText('Use a password of 8 to 1,024 characters.');
 });
@@ -179,10 +179,10 @@ test('screenshots of the export password, dark (by hand only)', async ({ page })
   for (const width of [428, 768, 1100, 1300]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/settings/your-data');
-    await page.getByLabel('Password (optional)').fill('noor and lorna');
+    await page.getByLabel('Password for the export file').fill('noor and lorna');
     await page.locator('#export').scrollIntoViewIfNeeded();
     await page.screenshot({ path: join(dir, `your-data-export-${width}.png`), fullPage: true });
-    await page.getByLabel('Password (optional)').fill('short');
+    await page.getByLabel('Password for the export file').fill('short');
     await page.getByRole('button', { name: 'Export' }).click();
     await expect(page.getByRole('alert')).toBeVisible();
     await page.screenshot({ path: join(dir, `your-data-export-too-short-${width}.png`), fullPage: true });
@@ -206,16 +206,40 @@ test('lowering Keep so that backups go asks for the password, and Cancel changes
     if (request.method() === 'PATCH' && request.url().endsWith('/api/v1/your-data/backups')) sent.push(request.postData() ?? '');
   });
   await page.goto('/settings/your-data');
+  // F257: no password box stands on the page; it is asked in a pop-up, only now.
+  await expect(page.getByLabel('Your password')).toHaveCount(0);
   await page.getByLabel('Keep').selectOption('2');
-  await expect(page.getByText('This deletes the 2 oldest backups.')).toBeVisible();
-  await expect(page.getByLabel('Your password')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Keep fewer backups' })).toBeDisabled();
+  const sheet = page.getByRole('dialog', { name: 'Keep fewer backups?' });
+  await expect(sheet.getByText('This deletes the 2 oldest backups.')).toBeVisible();
+  await expect(sheet.getByLabel('Your password')).toBeFocused();
+  await expect(sheet.getByRole('button', { name: 'Keep fewer backups' })).toBeDisabled();
   await checkPage(page);
   expect(sent).toEqual([]);
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByLabel('Keep')).toHaveValue('7');
   await expect(page.getByLabel('Your password')).toHaveCount(0);
   expect(sent).toEqual([]);
+});
+
+test('F257: a wrong password in the pop-up keeps the one answer, empties the box and deletes nothing', async ({ page }) => {
+  await pretendThereAreFour(page);
+  const answers: { status: number; code: unknown }[] = [];
+  page.on('response', async (response) => {
+    if (response.request().method() === 'PATCH' && response.url().endsWith('/api/v1/your-data/backups'))
+      answers.push({ status: response.status(), code: (await response.json()).code });
+  });
+  await page.goto('/settings/your-data');
+  await page.getByLabel('Keep').selectOption('2');
+  const sheet = page.getByRole('dialog', { name: 'Keep fewer backups?' });
+  await sheet.getByLabel('Your password').fill('not the password');
+  await sheet.getByRole('button', { name: 'Keep fewer backups' }).click();
+  await expect(sheet.getByRole('alert')).toHaveText('That isn’t your current password.');
+  await expect(sheet.getByLabel('Your password')).toHaveValue('');
+  expect(answers).toEqual([{ status: 403, code: 'wrong_password' }]);
+  await sheet.getByRole('button', { name: 'Cancel' }).click();
+  await expect(sheet).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByLabel('Keep')).toHaveValue('7');
 });
 
 test('Back up now at a full folder asks for the password first, and Cancel makes nothing', async ({ page }) => {
@@ -226,8 +250,9 @@ test('Back up now at a full folder asks for the password first, and Cancel makes
   });
   await page.goto('/settings/your-data');
   await page.getByRole('button', { name: 'Back up now' }).click();
-  await expect(page.getByText('This replaces the oldest backup.')).toBeVisible();
-  await expect(page.getByLabel('Your password')).toBeVisible();
+  const sheet = page.getByRole('dialog', { name: 'Back up now?' });
+  await expect(sheet.getByText('This replaces the oldest backup.')).toBeVisible();
+  await expect(sheet.getByLabel('Your password')).toBeVisible();
   await checkPage(page);
   expect(sent).toEqual([]);
   await page.getByRole('button', { name: 'Cancel' }).click();

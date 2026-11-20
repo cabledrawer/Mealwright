@@ -105,8 +105,10 @@ export function includePhotosWords(photosSize: number | null, databaseSize: numb
 
 export const EXPORT_LEAD = 'One file with all recipes, plans, lists, pantry, people and settings.';
 
-/** The password box on Export everything (mockup Dark-YourData09-Phone). */
-export const EXPORT_PASSWORD_LABEL = 'Password (optional)';
+/** The password box on Export everything. The mockup (Dark-YourData09-Phone) said "Password
+ * (optional)"; cabledrawer 20 Nov (F257): "Password for the export file", so a sign-in password
+ * isn't typed there by mistake. */
+export const EXPORT_PASSWORD_LABEL = 'Password for the export file';
 
 export const EXPORT_PASSWORD_HINT =
   'With a password, the file is encrypted. Without it you can’t open the file, so keep it safe.';
@@ -158,3 +160,9 @@ export const CONFIRMED_SSO_KEEP =
 export const REPLACES_OLDEST = 'This replaces the oldest backup.';
 export const BACK_UP_NOW_CONFIRM = 'Back up now';
 export const CONFIRMED_SSO_BACKUP = 'Confirmed at your sign-in server. Back up within 10 minutes.';
+// F257 (cabledrawer 20 Nov: "Your password" only in a pop-up when it's needed). The pop-up's
+// titles and the busy words of Back up now are proposed, for cabledrawer.
+export const YOUR_PASSWORD = 'Your password';
+export const KEEP_FEWER_TITLE = 'Keep fewer backups?';
+export const BACK_UP_NOW_TITLE = 'Back up now?';
+export const BACKING_UP = 'Backing up…';

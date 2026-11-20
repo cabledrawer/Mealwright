@@ -14,8 +14,8 @@
   import { resolve } from '$app/paths';
 
   import Button from '#lib/components/Button.svelte';
-  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Icon from '#lib/components/Icon.svelte';
+  import Lazy from '#lib/components/Lazy.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import { labelOf } from '../items.js';
   import PageHeader from '#lib/components/PageHeader.svelte';
@@ -51,15 +51,14 @@
   import {
     ADMINS_ONLY,
     BACK_UP_NOW_CONFIRM,
+    BACK_UP_NOW_TITLE,
+    BACKING_UP,
     CONFIRMED_SSO_BACKUP,
     CONFIRMED_SSO_KEEP,
-    CONFIRMING_SSO,
-    CONFIRM_SSO_BUTTON,
-    CONFIRM_SSO_LINE,
     deletesBackupsWords,
     KEEP_FEWER_BUSY,
     KEEP_FEWER_BUTTON,
-    KEEP_FEWER_CANCEL,
+    KEEP_FEWER_TITLE,
     REPLACES_OLDEST,
     EVERY_WORDS,
     EXPORT_LEAD,
@@ -119,21 +118,15 @@
   }
 
   // R6: a Keep that would delete backups, or a Back up now that would push the oldest one out,
-  // waits here for the admin's password (or the single sign-on confirm step, as Delete everything
-  // asks); nothing is sent until then.
+  // waits for the admin's password (or the single sign-on confirm step, as Delete everything
+  // asks); nothing is sent until then. F257: it asks in a pop-up, opened only then, that holds the
+  // password itself; this page never sees it except for the one request.
   type Ask = { keep: number } | { backUpNow: true };
   let ask = $state<Ask | null>(null);
-  let keepPassword = $state('');
   let keepBusy = $state(false);
   let how = $state<HowToConfirm | null>(null);
   let confirming = $state(false);
   const withSso = $derived(how?.confirm_with === 'single_sign_on');
-  const keepReady = $derived(
-    how !== null &&
-      (withSso ? how.confirmed : keepPassword.length > 0) &&
-      !keepBusy &&
-      !network.offline
-  );
   const pendingKeep = $derived(ask && 'keep' in ask ? ask.keep : null);
   const goingWords = $derived(
     !backups || ask === null
@@ -142,16 +135,10 @@
         ? deletesBackupsWords(backups.count - ask.keep)
         : REPLACES_OLDEST
   );
-  const confirmedWords = $derived(
-    ask !== null && 'backUpNow' in ask ? CONFIRMED_SSO_BACKUP : CONFIRMED_SSO_KEEP
-  );
-  const goWords = $derived(
-    ask !== null && 'backUpNow' in ask ? BACK_UP_NOW_CONFIRM : KEEP_FEWER_BUTTON
-  );
+  const backingUp = $derived(ask !== null && 'backUpNow' in ask);
 
   function openAsk(what: Ask) {
     ask = what;
-    keepPassword = '';
     problem = null;
     how = null;
     getHowToConfirm(
@@ -175,16 +162,13 @@
 
   function cancelKeep() {
     ask = null;
-    keepPassword = '';
     problem = null;
   }
 
-  async function keepFewer(event: SubmitEvent) {
-    event.preventDefault();
-    if (!keepReady || ask === null || !backups) return;
+  async function keepFewer(password: string | undefined) {
+    if (ask === null || !backups || keepBusy) return;
     keepBusy = true;
     problem = null;
-    const password = withSso ? undefined : keepPassword;
     try {
       if ('keep' in ask) {
         backups = await changeBackups(
@@ -201,7 +185,6 @@
       if (withSso && error instanceof ApiError && error.code === 'confirm_first' && how)
         how = { ...how, confirmed: false };
     } finally {
-      keepPassword = '';
       keepBusy = false;
     }
   }
@@ -390,39 +373,27 @@
         </div>
       </div>
       {#if ask !== null}
-        <form class="ask" onsubmit={(event) => void keepFewer(event)}>
-          <strong>{goingWords}</strong>
-          {#if withSso}
-            {#if how?.confirmed}
-              <p class="sub" role="status">{confirmedWords}</p>
-            {:else}
-              <p class="sub">{CONFIRM_SSO_LINE}</p>
-              <Button
-                small
-                quiet
-                disabled={confirming || keepBusy || network.offline}
-                onclick={() => void confirmAtServer()}
-                >{confirming ? CONFIRMING_SSO : CONFIRM_SSO_BUTTON}</Button
-              >
-            {/if}
-          {:else if how}
-            <label class="askfield">
-              Your password
-              <input type="password" bind:value={keepPassword} autocomplete="current-password" />
-            </label>
-          {/if}
-          <ButtonRow>
-            <Button quiet disabled={keepBusy} onclick={cancelKeep}>{KEEP_FEWER_CANCEL}</Button>
-            <Button type="submit" disabled={!keepReady}
-              >{keepBusy ? KEEP_FEWER_BUSY : goWords}</Button
-            >
-          </ButtonRow>
-        </form>
+        <Lazy
+          load={() => import('#lib/components/backups/ConfirmBackups.svelte')}
+          onfail={cancelKeep}
+          title={backingUp ? BACK_UP_NOW_TITLE : KEEP_FEWER_TITLE}
+          going={goingWords}
+          goWords={backingUp ? BACK_UP_NOW_CONFIRM : KEEP_FEWER_BUTTON}
+          busyWords={backingUp ? BACKING_UP : KEEP_FEWER_BUSY}
+          confirmedWords={backingUp ? CONFIRMED_SSO_BACKUP : CONFIRMED_SSO_KEEP}
+          {how}
+          busy={keepBusy}
+          {confirming}
+          {problem}
+          oncancel={cancelKeep}
+          onconfirm={(password: string | undefined) => void keepFewer(password)}
+          onsso={() => void confirmAtServer()}
+        />
       {/if}
       {#if failure}
         <p class="problem" role="alert">{failure}</p>
       {/if}
-      {#if problem}
+      {#if problem && ask === null}
         <p class="problem" role="alert">{problem}</p>
       {/if}
       <p class="note">{SAFETY_COPY_NOTE}</p>
@@ -629,46 +600,6 @@
     flex: none;
     color: var(--color-text-muted);
     transform: scaleX(-1);
-  }
-
-  .ask {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-5);
-    padding: var(--space-5) 14px;
-    border: 1px solid var(--color-stop-border);
-    border-radius: var(--radius-field);
-    background: var(--color-stop);
-    color: var(--color-stop-text);
-    font-size: var(--text-md);
-  }
-
-  .ask strong {
-    color: var(--color-stop-title);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .askfield {
-    display: flex;
-    flex-direction: column;
-    align-self: stretch;
-    gap: var(--space-3);
-    font-weight: var(--weight-bold);
-  }
-
-  .askfield input {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-5);
-    border: 1px solid var(--color-field-border);
-    border-radius: var(--radius-field);
-    background: var(--color-field);
-    color: var(--color-text);
-    font: var(--weight-medium) 1rem var(--font-ui);
-  }
-
-  .askfield input:focus-visible {
-    outline: var(--focus-width) solid var(--color-focus);
   }
 
   .disk {

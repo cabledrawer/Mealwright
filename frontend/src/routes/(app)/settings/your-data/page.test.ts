@@ -126,7 +126,7 @@ describe('Settings › Backups & your data', () => {
       .element(page.getByRole('link', { name: 'Delete everything…' }))
       .toHaveAttribute('href', '/settings/your-data/delete');
     // The optional password for the export, with the mockup's words and the rule.
-    const box = page.getByLabelText('Password (optional)');
+    const box = page.getByLabelText('Password for the export file');
     await expect.element(box).toHaveAttribute('type', 'password');
     await expect.element(box).toHaveAttribute('autocomplete', 'new-password');
     await expect.element(box).toHaveValue('');
@@ -149,7 +149,7 @@ describe('Settings › Backups & your data', () => {
   });
 
   describe('Export with a password', () => {
-    const box = () => page.getByLabelText('Password (optional)');
+    const box = () => page.getByLabelText('Password for the export file');
 
     it('sends the password in the body only, then empties the box', async () => {
       const made = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:made');
@@ -657,6 +657,60 @@ describe('Settings › Backups & your data', () => {
       await expect.element(go()).not.toBeInTheDocument();
     });
 
+    it('F257: no password box stands on the page; the export box says what its password is for', async () => {
+      open(YourData);
+      await expect.element(page.getByLabelText('Keep')).toHaveValue('7');
+      await expect.element(page.getByLabelText('Your password')).not.toBeInTheDocument();
+      await expect.element(page.getByLabelText('Password for the export file')).toBeVisible();
+      expect(page.getByLabelText('Password (optional)').elements()).toEqual([]);
+    });
+
+    it('F257: the password is asked in a pop-up, and the export box can’t be reached meanwhile', async () => {
+      open(YourData, {
+        'GET /your-data/delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+      });
+      await page.getByLabelText('Keep').selectOptions('Last 2');
+      const sheet = page.getByRole('dialog', { name: 'Keep fewer backups?' });
+      await expect.element(sheet).toBeVisible();
+      expect(document.querySelector('dialog')?.matches(':modal')).toBe(true);
+      await expect.element(sheet.getByText('This deletes the oldest backup.')).toBeVisible();
+      await expect.element(sheet.getByLabelText('Your password')).toHaveFocus();
+      // The modal pop-up leaves the rest of the page out of reach, the export box with it.
+      expect(document.getElementById('export-password')?.closest('dialog')).toBeNull();
+      expect(document.querySelector('dialog')?.contains(document.activeElement)).toBe(true);
+      await userEvent.keyboard('{Escape}');
+      await expect.element(sheet).not.toBeInTheDocument();
+      await expect.element(page.getByLabelText('Keep')).toHaveValue('7');
+      expect(patches()).toEqual([]);
+    });
+
+    it('F257: the box is empty while the request goes, and the password is never logged', async () => {
+      const logged = (['log', 'info', 'warn', 'error', 'debug'] as const).map((name) =>
+        vi.spyOn(console, name)
+      );
+      let answer: (value: Response) => void = () => {};
+      open(YourData, {
+        'GET /your-data/delete-everything': [200, { confirm_with: 'password', confirmed: false }]
+      });
+      const fake = globalThis.fetch;
+      vi.stubGlobal('fetch', (input: string, init: RequestInit = {}) =>
+        init.method === 'PATCH'
+          ? new Promise<Response>((resolve) => (answer = resolve))
+          : fake(input, init)
+      );
+      await page.getByLabelText('Keep').selectOptions('Last 2');
+      await userEvent.fill(page.getByLabelText('Your password'), 'correct horse battery');
+      await go().click();
+      await expect.element(page.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
+      await expect.element(page.getByLabelText('Your password')).toHaveValue('');
+      answer(new Response(JSON.stringify({ ...BACKUPS, keep: 2, count: 2 }), { status: 200 }));
+      await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+      await expect.element(page.getByLabelText('Keep')).toHaveValue('2');
+      const said = logged.flatMap((spy) => spy.mock.calls.flat().map(String)).join(' ');
+      expect(said).not.toContain('correct horse battery');
+      logged.forEach((spy) => spy.mockRestore());
+    });
+
     it('says how many go', async () => {
       open(YourData, {
         'GET /your-data/delete-everything': [200, { confirm_with: 'password', confirmed: false }]
@@ -795,9 +849,10 @@ describe('Settings › Backups & your data', () => {
         'GET /your-data/delete-everything': [200, { confirm_with: 'password', confirmed: false }]
       });
       await page.getByRole('button', { name: 'Back up now' }).click();
-      await expect.element(page.getByText('This replaces the oldest backup.')).toBeVisible();
+      const sheet = page.getByRole('dialog', { name: 'Back up now?' });
+      await expect.element(sheet.getByText('This replaces the oldest backup.')).toBeVisible();
       expect(posts()).toEqual([]);
-      await userEvent.fill(page.getByLabelText('Your password'), 'correct horse battery');
+      await userEvent.fill(sheet.getByLabelText('Your password'), 'correct horse battery');
       await page.getByRole('button', { name: 'Back up now' }).last().click();
       await vi.waitFor(() =>
         expect(posts().map((r) => r.body)).toEqual([{ password: 'correct horse battery' }])
