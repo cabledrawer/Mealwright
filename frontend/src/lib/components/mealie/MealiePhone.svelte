@@ -2,6 +2,8 @@
   // Import from Mealie on a phone (mockups Dark-Mealie{Start,Preview,Running,Done}095-Phone):
   // the simple version, with no table (cabledrawer 13 Nov). The words: words.md section 81.
   import { resolve } from '$app/paths';
+  import Button from '../Button.svelte';
+  import ButtonRow from '../ButtonRow.svelte';
   import Icon from '../Icon.svelte';
   import Switch from '../Switch.svelte';
   import type { MealieFlow } from '#lib/mealieFlow.svelte.js';
@@ -128,13 +130,11 @@
     {@render problem()}
     {#if flow.admin}
       <div class="foot">
-        <button
-          type="button"
-          class="primary"
-          disabled={flow.busy || offline}
-          onclick={() => picker?.click()}
-          >{flow.sending ? 'Reading the file…' : 'Choose the Mealie file (.zip)'}</button
-        >
+        <ButtonRow>
+          <Button disabled={flow.busy || offline} onclick={() => picker?.click()}
+            >{flow.sending ? 'Reading the file…' : 'Choose the Mealie file (.zip)'}</Button
+          >
+        </ButtonRow>
       </div>
     {:else}
       <p class="fine" data-testid="mealie-admins-only">{ADMINS_ONLY}</p>
@@ -144,11 +144,8 @@
       <span class="ic"><Icon name="note" size={18} stroke={2.2} /></span>
       <span class="rn"><b>{job.file_name}</b><span>{fileWords(job)}</span></span>
       {#if flow.admin}
-        <button
-          type="button"
-          class="small"
-          disabled={flow.busy || offline}
-          onclick={() => picker?.click()}>{flow.sending ? 'Reading…' : 'Change'}</button
+        <Button quiet small disabled={flow.busy || offline} onclick={() => picker?.click()}
+          >{flow.sending ? 'Reading…' : 'Change'}</Button
         >
       {/if}
     </div>
@@ -223,18 +220,15 @@
     {@render problem()}
     {#if flow.admin}
       <div class="foot">
-        <button
-          type="button"
-          class="outline"
-          disabled={flow.busy || offline}
-          onclick={() => void flow.cancel()}>Cancel</button
-        >
-        <button
-          type="button"
-          class="primary grow"
-          disabled={flow.busy || offline || flow.chosen === 0}
-          onclick={() => void flow.start()}>{bringInWords(flow.chosen)}</button
-        >
+        <ButtonRow>
+          <Button
+            disabled={flow.busy || offline || flow.chosen === 0}
+            onclick={() => void flow.start()}>{bringInWords(flow.chosen)}</Button
+          >
+          <Button quiet disabled={flow.busy || offline} onclick={() => void flow.cancel()}
+            >Cancel</Button
+          >
+        </ButtonRow>
       </div>
     {:else}
       <p class="fine" data-testid="mealie-admins-only">{ADMINS_ONLY}</p>
@@ -324,11 +318,8 @@
       <div class="card">
         <div class="r">
           <span class="rn"><b>Undo this import</b><span>{undoWords(job)}</span></span>
-          <button
-            type="button"
-            class="small"
-            disabled={flow.busy || offline}
-            onclick={() => void flow.undo()}>Undo</button
+          <Button quiet small disabled={flow.busy || offline} onclick={() => void flow.undo()}
+            >Undo</Button
           >
         </div>
       </div>
@@ -596,56 +587,9 @@
   .foot {
     position: sticky;
     bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
-    display: flex;
-    gap: var(--space-5);
     padding: var(--space-5) 0;
     border-top: 1px solid var(--color-border);
     background: var(--color-ground);
-  }
-
-  .grow,
-  .foot .primary:only-child {
-    flex: 1;
-  }
-
-  .primary,
-  .outline {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 52px;
-    padding: 0 18px;
-    border-radius: var(--radius-full);
-    font: var(--weight-extrabold) 15px var(--font-ui);
-    text-align: center;
-    text-decoration: none;
-    cursor: pointer;
-  }
-
-  .primary {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .outline {
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text);
-    font-weight: var(--weight-bold);
-  }
-
-  button.small {
-    flex: none;
-    min-height: var(--touch-target);
-    margin: 0;
-    padding: 0 14px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-field);
-    background: transparent;
-    color: var(--color-text);
-    font: var(--weight-semibold) var(--text-md) var(--font-ui);
-    cursor: pointer;
   }
 
   .link {

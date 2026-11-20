@@ -5,6 +5,8 @@
   // and Done already (the wait is marked begun at this moment; Undo is in the toast). In the app
   // only: nothing is sent and nothing sounds. Loaded when there is one to show (size limit).
   // Words: docs/dev/words.md section 58 (the mockup's are agreed, the rest proposed, for cabledrawer).
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { markStarted } from '#lib/startNow.js';
@@ -96,14 +98,10 @@
     >
   </div>
   <span class="note">{late ?? readyBy}</span>
-  <div class="buttons">
-    <button type="button" class="main" {disabled} onclick={() => void cookMode()}
-      >Start it in Cook mode</button
-    >
-    <button type="button" class="quiet" {disabled} onclick={() => void doneAlready()}
-      >Done already</button
-    >
-  </div>
+  <ButtonRow>
+    <Button {disabled} onclick={() => void cookMode()}>Start it in Cook mode</Button>
+    <Button quiet {disabled} onclick={() => void doneAlready()}>Done already</Button>
+  </ButtonRow>
 </section>
 
 <style>
@@ -166,36 +164,5 @@
   .note {
     color: var(--color-text-muted);
     font-size: var(--text-sm);
-  }
-
-  .buttons {
-    display: grid;
-    grid-template-columns: 1.4fr 1fr;
-    gap: var(--space-3);
-  }
-
-  button {
-    min-height: 48px;
-    border-radius: var(--radius-lg);
-    font: var(--weight-bold) var(--text-lg) var(--font-ui);
-    cursor: pointer;
-  }
-
-  button:disabled {
-    cursor: default;
-    opacity: 0.55;
-  }
-
-  .main {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .quiet {
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text);
   }
 </style>

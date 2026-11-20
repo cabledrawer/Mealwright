@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Drafts, "By ingredient" (cabledrawer 15 Nov, 0.9.5-beta.2; mockups
   // Dark-MealieByIngredient2-Desktop and -Phone; the words: groupWords.ts, proposed, for
@@ -320,19 +322,12 @@
   </div>
   {#if failed}<p class="failed-line" role="alert">{failed}</p>{/if}
   <div class="actions" class:sticky={phone}>
-    {#if phone}
-      <button type="button" class="btn2" onclick={skip}>{words.SKIP_PHONE}</button>
-    {/if}
-    <button
-      type="button"
-      class="btn"
-      disabled={!ready || working || network.offline}
-      onclick={() => void answer()}
-      >{working ? words.WORKING : words.useForAll(group.drafts, phone)}</button
-    >
-    {#if !phone}
-      <button type="button" class="btn2" onclick={skip}>{words.SKIP}</button>
-    {/if}
+    <ButtonRow>
+      <Button disabled={!ready || working || network.offline} onclick={() => void answer()}
+        >{working ? words.WORKING : words.useForAll(group.drafts, phone)}</Button
+      >
+      <Button quiet onclick={skip}>{phone ? words.SKIP_PHONE : words.SKIP}</Button>
+    </ButtonRow>
   </div>
 {/snippet}
 
@@ -343,7 +338,7 @@
 {:else if problem && !found}
   <div class="failed" role="alert">
     <p>{problem}</p>
-    <button type="button" class="again" onclick={() => void load()}>Try again</button>
+    <Button quiet small onclick={() => void load()}>Try again</Button>
   </div>
 {:else if found}
   {#if network.offline}
@@ -409,18 +404,6 @@
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-4);
-  }
-
-  .again {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-7);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   .failed-line {
@@ -711,31 +694,7 @@
   }
 
   .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-5);
     margin-top: var(--space-2);
-  }
-
-  .btn,
-  .btn2 {
-    min-height: 48px;
-    padding: 0 var(--space-8);
-    border-radius: var(--radius-md);
-    font: var(--weight-extrabold) var(--text-lg) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .btn {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .btn2 {
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text);
   }
 
   button:disabled {
@@ -773,19 +732,6 @@
   .title {
     flex: 1;
     font-size: var(--text-xl);
-  }
-
-  .sheet .actions {
-    flex-wrap: nowrap;
-  }
-
-  .sheet .actions .btn,
-  .sheet .actions .btn2 {
-    min-height: 48px;
-  }
-
-  .sheet .actions .btn {
-    flex: 1;
   }
 
   .sticky {

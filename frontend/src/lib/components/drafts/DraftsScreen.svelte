@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Drafts (mockups Drafts05-Phone and Drafts05-Desktop, spec "Drafts (cabledrawer 21 Oct)"): the
   // imports your household hasn't finished, kept for 15 days. Each says where it came from, who
@@ -186,7 +187,7 @@
 {:else if drafts.problem && !drafts.loaded}
   <div class="failed" role="alert">
     <p>{drafts.problem}</p>
-    <button type="button" class="again" onclick={() => void drafts.load()}>Try again</button>
+    <Button quiet small onclick={() => void drafts.load()}>Try again</Button>
   </div>
 {:else if !drafts.loaded}
   <Loading />
@@ -236,12 +237,8 @@
       <div class="mealie">
         <p class="lead">{DRAFTS_LEAD}</p>
         {#if session.me?.role === 'admin'}
-          <button
-            type="button"
-            class="save-all"
-            disabled={savingAll || network.offline}
-            onclick={() => void saveAll()}
-            >{savingAll ? 'Saving…' : saveAllWords(mealie.length)}</button
+          <Button quiet small disabled={savingAll || network.offline} onclick={() => void saveAll()}
+            >{savingAll ? 'Saving…' : saveAllWords(mealie.length)}</Button
           >
         {/if}
         {#if saveAllProblem}<p class="failed-line" role="alert">{saveAllProblem}</p>{/if}
@@ -449,38 +446,10 @@
     display: block;
   }
 
-  .save-all {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-8);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--color-text);
-    font: var(--weight-bold) var(--text-base) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .save-all:disabled {
-    opacity: 0.55;
-    cursor: default;
-  }
-
   .failed-line {
     color: var(--color-warning-text);
     font-size: var(--text-base);
     font-weight: var(--weight-semibold);
-  }
-
-  .again {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-7);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   /* --- A phone: cards ----------------------------------------------------------------- */

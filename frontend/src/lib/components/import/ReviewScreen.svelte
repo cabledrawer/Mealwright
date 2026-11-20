@@ -17,6 +17,8 @@
   import { resolve } from '$app/paths';
   import { drafts } from '#lib/drafts.svelte.js';
   import { nextDraft } from '#lib/nextDraft.svelte.js';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import { changesToast } from '#lib/import.save.js';
   import { CLOSE_OFFLINE, isBlank, leftOutWords, type ImportFlow } from '#lib/import.svelte.js';
   import { sentenceCount, stepRuns } from '#lib/importSteps.js';
@@ -545,15 +547,14 @@
                       <span class="piece"><b>{n + 1}.</b> {piece}</span>
                     {/each}
                     <span class="preview-buttons">
-                      <button
-                        type="button"
-                        class="keep"
+                      <Button
+                        small
                         onclick={() => {
                           flow.keepSplit(step.at);
-                        }}>Keep the split</button
+                        }}>Keep the split</Button
                       >
-                      <button type="button" class="quiet" onclick={() => (flow.previewStep = null)}
-                        >Keep as one</button
+                      <Button quiet small onclick={() => (flow.previewStep = null)}
+                        >Keep as one</Button
                       >
                     </span>
                   </span>
@@ -566,8 +567,8 @@
       {#if flow.stepsBefore}
         <p class="note">
           Some long steps were split into shorter ones.
-          <button type="button" class="quiet" onclick={() => flow.putStepsBack()}
-            >Put the steps back as they were</button
+          <Button quiet small onclick={() => flow.putStepsBack()}
+            >Put the steps back as they were</Button
           >
         </p>
       {/if}
@@ -657,40 +658,33 @@
                kept: the draft stays as it was last kept. A review never kept is left with Discard
                draft below. -->
           {#if flow.draftId !== null}
-            <button
-              type="button"
-              class="leave"
-              disabled={flow.saving || editing !== null}
-              onclick={discardAndLeave}>Discard changes</button
+            <Button quiet disabled={flow.saving || editing !== null} onclick={discardAndLeave}
+              >Discard changes</Button
             >
           {/if}
         {/if}
         {#if discardProblem}<p class="error" role="alert">{discardProblem}</p>{/if}
-        <div class="buttons">
-          <button
-            type="button"
-            class="close"
+        <ButtonRow>
+          <Button
+            disabled={flow.saving || flow.keeping || editing !== null || network.offline}
+            onclick={() => void save()}
+          >
+            {flow.saving ? 'Saving…' : 'Save recipe'}
+          </Button>
+          <Button
+            quiet
             disabled={(flow.keeping && !(network.offline || network.deviceOffline)) ||
               flow.saving ||
               editing !== null}
             onclick={() => void close()}
           >
-            Back to drafts <span class="sub">Kept in Drafts</span>
-          </button>
-          <button
-            type="button"
-            class="save"
-            disabled={flow.saving || flow.keeping || editing !== null || network.offline}
-            onclick={() => void save()}
-          >
-            {flow.saving ? 'Saving…' : 'Save recipe'}
-          </button>
-        </div>
-        <button
-          type="button"
-          class="leave"
+            <span class="stack">Back to drafts <span class="sub">Kept in Drafts</span></span>
+          </Button>
+        </ButtonRow>
+        <Button
+          quiet
           disabled={flow.saving || flow.keeping || editing !== null || discardOff}
-          onclick={askDiscard}>Discard draft</button
+          onclick={askDiscard}>Discard draft</Button
         >
         {#if network.offline}
           <p class="muted" role="status">
@@ -710,25 +704,18 @@
       <p class="error" role="alert">Line {flow.saveProblem.line + 1}: {flow.saveProblem.message}</p>
     {/if}
     {#if discardProblem}<p class="error" role="alert">{discardProblem}</p>{/if}
-    <div class="buttons">
-      <button type="button" class="cancel" disabled={editing !== null} onclick={leave}
-        >Back to drafts</button
-      >
-      <button
-        type="button"
-        class="leave"
-        disabled={flow.saving || editing !== null || discardOff}
-        onclick={askDiscard}>Discard draft</button
-      >
-      <button
-        type="button"
-        class="save"
+    <ButtonRow>
+      <Button
         disabled={flow.saving || editing !== null || network.offline}
         onclick={() => void save()}
       >
         {flow.saving ? 'Saving…' : 'Save recipe'}
-      </button>
-    </div>
+      </Button>
+      <Button quiet disabled={editing !== null} onclick={leave}>Back to drafts</Button>
+      <Button quiet disabled={flow.saving || editing !== null || discardOff} onclick={askDiscard}
+        >Discard draft</Button
+      >
+    </ButtonRow>
     {#if network.offline}
       <p class="muted" role="status">{downLine(network.deviceOffline, (b) => `Save ${b.when}.`)}</p>
     {/if}
@@ -1072,35 +1059,17 @@
     align-items: center;
   }
 
-  .chip,
-  .keep,
-  .quiet {
+  .chip {
     min-height: var(--touch-target);
     padding: 0 var(--space-6);
     border-radius: var(--radius-full);
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
     cursor: pointer;
-  }
-
-  .chip {
     align-self: flex-start;
     border: 1px solid var(--color-border-strong);
     background: transparent;
     color: var(--color-text);
-  }
-
-  .keep {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .quiet {
-    border: none;
-    background: transparent;
-    color: var(--color-text-muted);
   }
 
   .method ol {
@@ -1210,46 +1179,16 @@
     text-align: center;
   }
 
-  .leave {
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .close {
+  .stack {
     display: flex;
-    flex: 1;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    min-height: 52px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--color-text);
-    font-size: 1rem;
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
-  .close:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-
-  .close .sub {
+  .sub {
     color: var(--color-text-muted);
     font-size: var(--text-xs);
     font-weight: var(--weight-semibold);
-  }
-
-  .fbar .save {
-    flex: 1.4;
-    border-radius: var(--radius-full);
   }
 
   /* On a phone the bottom tabs are fixed over the foot of the screen: the bar rests on top of
@@ -1281,50 +1220,6 @@
     color: var(--color-warning-text);
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
-  }
-
-  .buttons {
-    display: flex;
-    gap: var(--space-4);
-  }
-
-  .save,
-  .cancel {
-    min-height: 52px;
-    border-radius: var(--radius-button);
-    font-size: 1rem;
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .save {
-    flex: 1;
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .save:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-
-  .cancel {
-    padding: 0 var(--space-7);
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text);
-  }
-
-  /* A blocked button looks blocked, the same as Save recipe (F154). */
-  .bar .leave {
-    padding: 0 var(--space-5);
-  }
-
-  .cancel:disabled,
-  .leave:disabled {
-    opacity: 0.6;
-    cursor: default;
   }
   .time-split {
     margin: 0;

@@ -1,5 +1,7 @@
 <script lang="ts">
   import Sheet from '#lib/components/Sheet.svelte';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   // "This recipe has 2 optional ingredients. Will you use them?" (R3, mockup PlanOptional08):
   // each optional line with its amount and where it is in the pantry, a box to tick it, and "Add
   // to plan" (or "Save", when the meal's answer is being changed). Shown over everything by the
@@ -65,8 +67,10 @@
           cook. You can change this from the meal later.
         </p>
       </fieldset>
-      <button type="submit" class="main">{question.button}</button>
-      <button type="button" class="quiet" onclick={() => optionalAsk.dismiss()}>Cancel</button>
+      <ButtonRow>
+        <Button type="submit">{question.button}</Button>
+        <Button quiet onclick={() => optionalAsk.dismiss()}>Cancel</Button>
+      </ButtonRow>
     </form>
   </Sheet>
 {/if}
@@ -189,26 +193,5 @@
     color: var(--color-text-muted);
     font-size: var(--text-md);
     line-height: 1.4;
-  }
-
-  button {
-    min-height: 52px;
-    border-radius: var(--radius-full);
-    font: var(--weight-bold) var(--text-xl) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .main {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .quiet {
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-text);
   }
 </style>

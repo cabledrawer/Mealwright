@@ -2,6 +2,8 @@
   // The Batch cook (Experimental) card on a cook day (mockup Dark-PlanBatch08-Phone): "Batch cook
   // · 3 recipes", the rough time and when it starts, each recipe in its batch colour with its tubs,
   // Start batch cook (batch cook mode), Change. Remove takes the whole session off in one change with one Undo.
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
   import { batchCook } from '#lib/batchCook.svelte.js';
@@ -117,21 +119,17 @@
   <!-- While an admin has Batch cook hidden, the card has no buttons: every Batch cook route,
        taking a session off included, is refused then (cabledrawer 11 Nov). -->
   {#if batchCook.shown}
-    <div class="buttons">
-      <button
-        type="button"
-        class="go"
-        disabled={actions.readonly || batches.length === 0}
-        onclick={start}>{underWay ? 'Carry on batch cook' : 'Start batch cook'}</button
+    <ButtonRow>
+      <Button disabled={actions.readonly || batches.length === 0} onclick={start}
+        >{underWay ? 'Carry on batch cook' : 'Start batch cook'}</Button
       >
-      <button type="button" class="btn" disabled={actions.readonly} onclick={change}>Change</button>
-      <button
-        type="button"
-        class="btn"
+      <Button quiet disabled={actions.readonly} onclick={change}>Change</Button>
+      <Button
+        quiet
         disabled={actions.readonly}
-        onclick={() => void actions.model.removeBatch(session.id)}>Remove</button
+        onclick={() => void actions.model.removeBatch(session.id)}>Remove</Button
       >
-    </div>
+    </ButtonRow>
   {/if}
 </section>
 
@@ -149,11 +147,6 @@
   .card.dense {
     gap: var(--space-4);
     padding: var(--space-5);
-  }
-
-  .dense .buttons > * {
-    flex: 1 1 100%;
-    padding: 0 var(--space-4);
   }
 
   .dense strong {
@@ -217,39 +210,5 @@
     height: 10px;
     border-radius: 5px;
     flex: none;
-  }
-
-  .buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-4);
-  }
-
-  .go,
-  .btn {
-    min-height: var(--touch-target);
-    border-radius: var(--radius-full);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .go {
-    padding: 0 22px;
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .btn {
-    padding: 0 var(--space-6);
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text-soft);
-  }
-
-  button:disabled {
-    opacity: 0.5;
-    cursor: default;
   }
 </style>

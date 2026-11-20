@@ -5,6 +5,7 @@
   import { dayMonthOf } from '#lib/dates.js';
   import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
   import Sheet from '#lib/components/Sheet.svelte';
   import { holdUndo } from '#lib/undo.svelte.js';
   import { resolve } from '$app/paths';
@@ -45,10 +46,8 @@
   <a class="primary" href={resolve('/(app)/recipes/[id]', { id: String(already.recipe.id) })}
     >Open it</a
   >
-  <button type="button" class="secondary" disabled={busy || network.offline} onclick={oncopy}
-    >Import again as a copy</button
-  >
-  <button type="button" class="cancel" onclick={onclose}>Cancel</button>
+  <Button quiet disabled={busy || network.offline} onclick={oncopy}>Import again as a copy</Button>
+  <Button quiet onclick={onclose}>Cancel</Button>
 </Sheet>
 
 <style>
@@ -89,9 +88,7 @@
     overflow-wrap: anywhere;
   }
 
-  .primary,
-  .secondary,
-  .cancel {
+  .primary {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -101,23 +98,7 @@
     font-weight: var(--weight-bold);
     text-decoration: none;
     cursor: pointer;
-  }
-
-  .primary {
     background: var(--color-inverse);
     color: var(--color-inverse-text);
-  }
-
-  .secondary {
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text);
-  }
-
-  .cancel {
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-accent);
   }
 </style>

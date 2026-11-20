@@ -14,6 +14,7 @@
   // Used by a line's Pick an ingredient and Made in another recipe, and by the Save walk-through.
   // Loaded the first time it is used, so the import page stays small. Words are the mockup's,
   // except where marked proposed, for cabledrawer.
+  import Button from '#lib/components/Button.svelte';
   import type { FoodRow } from '#lib/client/types.js';
   import type { RecipeBrief } from '#lib/client/recipes.js';
   import { arrange, lineSearch, recipeSearch } from '#lib/recipes/search.js';
@@ -203,15 +204,13 @@
   {/if}
   {#if !onlyRecipes && onnew}
     <div class="two">
-      <button type="button" class="out" onclick={onnew}>New ingredient</button>
-      <button type="button" class="out" onclick={() => (onlyRecipes = true)}
-        >Made in another recipe…</button
-      >
+      <Button quiet small onclick={onnew}>New ingredient</Button>
+      <Button quiet small onclick={() => (onlyRecipes = true)}>Made in another recipe…</Button>
     </div>
   {:else if onlyRecipes && current && typed && rows.length === 0}
     <p class="muted">No recipe has that name. Import or write it first, then come back.</p>
   {/if}
-  <button type="button" class="cancel" onclick={oncancel}>Cancel</button>
+  <Button quiet small onclick={oncancel}>Cancel</Button>
 </div>
 
 <style>
@@ -324,27 +323,5 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-3);
-  }
-
-  .out {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-4);
-    border: 1px solid var(--color-field-border);
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-  }
-
-  .cancel {
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-text-muted);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 </style>

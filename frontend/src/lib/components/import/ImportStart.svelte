@@ -8,6 +8,7 @@
   // for the links switch: the link chip says it is off instead of "your server visits this page".
   import { resolve } from '$app/paths';
   import { tick } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import { network } from '#lib/network.svelte.js';
   import { session } from '#lib/session.svelte.js';
@@ -136,9 +137,7 @@
                 >Open Settings</a
               >
             {/if}
-            <button type="button" class="ghost" onclick={() => void pasteInstead()}
-              >Paste text instead</button
-            >
+            <Button quiet small onclick={() => void pasteInstead()}>Paste text instead</Button>
           </p>
         </div>
       {:else}
@@ -151,18 +150,16 @@
           {/if}
           {#if flow.problem.code === 'import_switched_off' || /^(bad_link|not_a_page|no_recipe|cant_read)$/.test(flow.problem.code)}
             <p class="actions">
-              <button type="button" class="ghost" onclick={() => void pasteInstead()}
-                >Paste text instead</button
-              >
+              <Button quiet small onclick={() => void pasteInstead()}>Paste text instead</Button>
             </p>
           {/if}
         </div>
       {/if}
     {/if}
 
-    <button class="read" type="submit" disabled={reading || !typed || network.offline}>
+    <Button type="submit" disabled={reading || !typed || network.offline}>
       {reading ? 'Reading…' : several ? 'Read the recipes' : 'Read the recipe'}
-    </button>
+    </Button>
     <p class="visually-hidden" role="status">{reading ? 'Reading the recipe' : ''}</p>
   </div>
 
@@ -207,17 +204,15 @@
             {:else if row.state === 'waiting'}
               <span class="status">{WAITING}</span>
             {:else if canPaste(row)}
-              <button type="button" class="ghost small" onclick={() => void pasteInstead()}
-                >Paste text</button
-              >
+              <Button quiet small onclick={() => void pasteInstead()}>Paste text</Button>
             {:else if row.state === 'failed' && row.code !== 'already_imported'}
               <!-- RF4 I3: this one link is read again; the others are left as they are. -->
-              <button
-                type="button"
-                class="ghost small"
+              <Button
+                quiet
+                small
                 disabled={reading}
                 aria-label="{TRY_AGAIN}: {row.title}"
-                onclick={() => void importLinks.retry(row)}>{TRY_AGAIN}</button
+                onclick={() => void importLinks.retry(row)}>{TRY_AGAIN}</Button
               >
             {/if}
           </li>
@@ -227,12 +222,8 @@
         <!-- Quick import (F216, cabledrawer 10 Nov): the drafts whose ingredients all matched, saved
              in one go; the rest stay in Drafts for checking. -->
         <p class="actions">
-          <button
-            type="button"
-            class="button"
-            disabled={importLinks.saving}
-            onclick={() => void saveReady()}
-            >{importLinks.saving ? 'Saving…' : saveReadyWords(importLinks.ready.length)}</button
+          <Button small disabled={importLinks.saving} onclick={() => void saveReady()}
+            >{importLinks.saving ? 'Saving…' : saveReadyWords(importLinks.ready.length)}</Button
           >
         </p>
         <p class="help">{QUICK_HELP}</p>
@@ -409,22 +400,6 @@
     border: 1px solid var(--color-border-strong);
     background: transparent;
     color: var(--color-text);
-  }
-
-  .read {
-    min-height: 54px;
-    border: none;
-    border-radius: var(--radius-button);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-size: 1rem;
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .read:disabled {
-    opacity: 0.55;
-    cursor: default;
   }
 
   .how {

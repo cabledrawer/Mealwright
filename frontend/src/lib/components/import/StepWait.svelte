@@ -4,6 +4,7 @@
   // answers: Yes, it waits · Change · No wait. Nothing is saved here: the step's own `wait` goes
   // with Save. Loaded only when a step has a wait (it stays out of the page's size). Words are
   // proposed, for cabledrawer (docs/dev/words.md, steps that wait).
+  import Button from '#lib/components/Button.svelte';
   import type { ImportFlow } from '#lib/import.svelte.js';
   import type { ReviewStep } from '#lib/client/imports.js';
   import { confirmWait, reworkMinutes, takeOffWait } from '#lib/importStepEdits.js';
@@ -45,25 +46,22 @@
     {#if changing}
       <WaitFields bind:wait={step.wait!} bind:invalid {name} onchange={() => reworkMinutes(flow)} />
       <span class="buttons">
-        <button
-          type="button"
-          class="yes"
+        <Button
+          small
           disabled={invalid}
           onclick={() => {
             confirmWait(flow, step);
             changing = false;
-          }}>Done</button
+          }}>Done</Button
         >
       </span>
     {:else}
       <span class="buttons">
         {#if !step.wait_confirmed}
-          <button type="button" class="yes" onclick={() => confirmWait(flow, step)}
-            >Yes, it waits</button
-          >
+          <Button small onclick={() => confirmWait(flow, step)}>Yes, it waits</Button>
         {/if}
-        <button type="button" class="no" onclick={() => (changing = true)}>Change</button>
-        <button type="button" class="no" onclick={() => takeOffWait(flow, step)}>No wait</button>
+        <Button quiet small onclick={() => (changing = true)}>Change</Button>
+        <Button quiet small onclick={() => takeOffWait(flow, step)}>No wait</Button>
       </span>
     {/if}
   </div>
@@ -106,26 +104,5 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-3);
-  }
-
-  button {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-5);
-    border-radius: var(--radius-md);
-    font: var(--weight-semibold) var(--text-md) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .yes {
-    border: none;
-    background: var(--color-wait-yes);
-    color: var(--color-wait-yes-text);
-    font-weight: var(--weight-bold);
-  }
-
-  .no {
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text);
   }
 </style>

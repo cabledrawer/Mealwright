@@ -1,5 +1,7 @@
 <script lang="ts">
   import Sheet from '#lib/components/Sheet.svelte';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   // "When will you start it?" (M3, F124; cabledrawer 9 Nov, mockup PlanStart08): the times offered
   // (Fri 21:00 · ready by 08:00), Another time…, and "Add to plan" (or "Save", when the meal's
   // time is being changed). Shown over everything by the app layout, fetched when first asked
@@ -174,12 +176,14 @@
           You can change the time from the meal.
         </p>
       </fieldset>
-      <button type="submit" class="main">{question.button}</button>
-      {#if question.adding}
-        <!-- proposed, for cabledrawer -->
-        <button type="button" class="quiet" onclick={() => startAsk.skip()}>No time yet</button>
-      {/if}
-      <button type="button" class="quiet" onclick={() => startAsk.dismiss()}>Cancel</button>
+      <ButtonRow>
+        <Button type="submit">{question.button}</Button>
+        {#if question.adding}
+          <!-- proposed, for cabledrawer -->
+          <Button quiet onclick={() => startAsk.skip()}>No time yet</Button>
+        {/if}
+        <Button quiet onclick={() => startAsk.dismiss()}>Cancel</Button>
+      </ButtonRow>
     </form>
   </Sheet>
 {/if}
@@ -342,31 +346,5 @@
     color: var(--color-text-muted);
     font-size: var(--text-md);
     line-height: 1.4;
-  }
-
-  button {
-    min-height: 52px;
-    border-radius: var(--radius-full);
-    font: var(--weight-bold) var(--text-xl) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .another {
-    border-radius: var(--radius-md);
-    font-size: var(--text-lg);
-  }
-
-  .main {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .quiet {
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-text);
   }
 </style>

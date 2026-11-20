@@ -903,8 +903,9 @@ describe('an existing recipe', () => {
         .toBeVisible();
       await page.getByRole('button', { name: 'Back to my edit' }).click();
       await expect.element(page.getByRole('button', { name: 'Save mine anyway' })).toBeDisabled();
-      document
-        .querySelector<HTMLButtonElement>('button.mine')!
+      page
+        .getByRole('button', { name: 'Save mine anyway' })
+        .element()
         .dispatchEvent(new MouseEvent('click', { bubbles: true }));
       await new Promise((resolve) => setTimeout(resolve, 50));
       expect(requests.filter((r) => r.method === 'PUT')).toHaveLength(1);
@@ -922,8 +923,9 @@ describe('an existing recipe', () => {
       await userEvent.upload(document.querySelector<HTMLInputElement>('input[type=file]')!, file);
       await expect.element(page.getByText('Uploading photo…')).toBeVisible();
       await expect.element(page.getByRole('button', { name: 'Save mine anyway' })).toBeDisabled();
-      document
-        .querySelector<HTMLButtonElement>('button.mine')!
+      page
+        .getByRole('button', { name: 'Save mine anyway' })
+        .element()
         .dispatchEvent(new MouseEvent('click', { bubbles: true }));
       await new Promise((resolve) => setTimeout(resolve, 50));
       expect(requests.filter((r) => r.method === 'PUT')).toHaveLength(1);

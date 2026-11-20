@@ -176,7 +176,7 @@
             {/if}
             <Button quiet onclick={() => newIngredient(true)}>Treat as staple</Button>
           </div>
-          <button type="button" class="skip" onclick={() => flow.walkNext()}>Skip this line</button>
+          <Button quiet small onclick={() => flow.walkNext()}>Skip this line</Button>
         </div>
       {/if}
 
@@ -299,17 +299,6 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-  }
-
-  .skip {
-    cursor: pointer;
-    font-family: inherit;
-    min-height: 44px;
-    border: none;
-    background: transparent;
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
   }
 
   .foot {

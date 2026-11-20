@@ -5,6 +5,7 @@
   // drags to another day (it keeps its meal, so a dinner stays a dinner); Alt copies; the
   // Leftovers zone plans leftovers. There is no recipe tray here: the day's own sheet offers the
   // recipes and the tubs left.
+  import Button from '#lib/components/Button.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import type { PlanActions } from '#lib/planActions.js';
   import type { PlanShow } from '#lib/planShow.js';
@@ -199,13 +200,12 @@
     </section>
     <section>
       <h3>Empty days ahead</h3>
-      <button
-        type="button"
-        class="fill"
+      <Button
+        small
         disabled={actions.readonly ||
           emptyAhead.length === 0 ||
           model.tubsLeft.every((t) => t.place_kind !== 'freezer')}
-        onclick={() => void fillFromFreezer()}>Fill from freezer first</button
+        onclick={() => void fillFromFreezer()}>Fill from freezer first</Button
       >
       {#if fillNote}<p class="mw-quiet" role="status">{fillNote}</p>{/if}
       {#if emptyAhead.length}
@@ -528,19 +528,6 @@
     border-radius: var(--radius-full);
     background: none;
     color: var(--color-accent);
-    font: inherit;
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .fill {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
     font: inherit;
     font-size: var(--text-md);
     font-weight: var(--weight-bold);

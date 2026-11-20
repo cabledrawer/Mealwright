@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
   import { KEPT_BY, KEPT_BY_HINT, keptBySaid } from '#lib/keptByWords.js';
   // One ingredient line on the review, as a card (mockup Dark-ImportCheck07-Desktop, spec "The
@@ -557,14 +558,14 @@
           <p class="done-row">
             <span class="hint">The amount and note can be left empty.</span>
             <span class="two-buttons">
-              <button type="button" class="quiet" onclick={giveUp}>Cancel</button>
-              <button type="button" class="done" onclick={() => void nameIt()}>Add line</button>
+              <Button quiet small onclick={giveUp}>Cancel</Button>
+              <Button small onclick={() => void nameIt()}>Add line</Button>
             </span>
           </p>
         {:else}
           <p class="done-row">
             <span class="hint">Tap the amount or note on any line to fix what was read.</span>
-            <button type="button" class="done" onclick={doneEditor}>Done</button>
+            <Button small onclick={doneEditor}>Done</Button>
           </p>
         {/if}
       {/if}
@@ -603,9 +604,8 @@
                 : `Each gets no amount: “${quantity} together” goes in its note.`}</span
             >
             <span class="two-buttons">
-              <button type="button" class="quiet" onclick={() => (splitting = false)}>Cancel</button
-              >
-              <button type="button" class="done" onclick={() => void doSplit()}>Split</button>
+              <Button quiet small onclick={() => (splitting = false)}>Cancel</Button>
+              <Button small onclick={() => void doSplit()}>Split</Button>
             </span>
           </p>
         {/if}
@@ -776,8 +776,8 @@
               </span>
             {/if}
             <span class="two-buttons">
-              <button type="button" class="quiet" onclick={cancelForm}>Cancel</button>
-              <button type="button" class="done" onclick={doneForm}>Done</button>
+              <Button quiet small onclick={cancelForm}>Cancel</Button>
+              <Button small onclick={doneForm}>Done</Button>
             </span>
           </div>
         {:else if made}
@@ -1294,27 +1294,6 @@
     align-items: center;
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
-  }
-
-  .done,
-  .quiet {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: none;
-    border-radius: var(--radius-full);
-    font-size: var(--text-md);
-    font-weight: var(--weight-extrabold);
-    cursor: pointer;
-  }
-
-  .done {
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .quiet {
-    background: transparent;
-    color: var(--color-text-muted);
   }
 
   .error {

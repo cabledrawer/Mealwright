@@ -3,6 +3,7 @@
   // Oct, editor brief). Nothing changes until Save; Cancel with changes closes at once with
   // "Changes not saved" and Undo. Recipes are online only in 0.4: offline, the editor keeps
   // what was typed and Save waits.
+  import Button from '#lib/components/Button.svelte';
   import { downLine } from '#lib/downWords.js';
   import { UNDO_SPAN } from '#lib/undoWords.js';
   import '#lib/styles/fields.css';
@@ -417,17 +418,12 @@
       <EditorNote tone="conflict">
         <span>{conflict.detail}</span>
         <span class="choices">
-          <button type="button" class="mw-pill" onclick={() => void seeTheirs()}>
+          <Button quiet small onclick={() => void seeTheirs()}>
             See {conflict.who}’s version
-          </button>
-          <button
-            type="button"
-            class="mine"
-            disabled={!canOverwrite}
-            onclick={() => void save(true)}
-          >
+          </Button>
+          <Button small disabled={!canOverwrite} onclick={() => void save(true)}>
             Save mine anyway
-          </button>
+          </Button>
         </span>
       </EditorNote>
     {/if}
@@ -655,8 +651,8 @@
 
         {#if editing}
           <div class="delete">
-            <button type="button" disabled={network.offline} onclick={() => void remove()}
-              >Delete recipe</button
+            <Button danger small disabled={network.offline} onclick={() => void remove()}
+              >Delete recipe</Button
             >
             <span class="mw-hint">No “Are you sure?”: you can undo it for {UNDO_SPAN}.</span>
           </div>
@@ -785,22 +781,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-4);
-  }
-
-  .mine {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-7);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font: var(--weight-bold) var(--text-base) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .mine:disabled {
-    cursor: progress;
-    opacity: 0.7;
   }
 
   .grid {
@@ -943,17 +923,6 @@
     gap: var(--space-2);
     padding-top: var(--space-7);
     border-top: 1px solid var(--color-divider);
-  }
-
-  .delete button {
-    min-height: var(--touch-target);
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: var(--color-warning-text);
-    font-size: var(--text-lg);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   @media (min-width: 768px) {

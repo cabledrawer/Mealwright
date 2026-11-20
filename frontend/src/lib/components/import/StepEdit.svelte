@@ -3,6 +3,8 @@
   // Done, Escape is Cancel. Nothing here is saved: the words go to the Check screen's own steps,
   // and Save sends them. Loaded only when a step is first tapped (it stays out of the page's size).
   // Words are proposed, for cabledrawer (docs/dev/words.md section 35).
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Switch from '#lib/components/Switch.svelte';
   import type { ImportFlow } from '#lib/import.svelte.js';
   import { changeStep } from '#lib/importStepEdits.js';
@@ -80,15 +82,13 @@
       {heading ? 'A heading' : 'A step'} can’t be empty. Write something, or remove it.
     </p>
   {/if}
-  <div class="buttons">
-    <button type="button" class="done" onclick={done}>Done</button>
-    <button type="button" class="cancel" onclick={onclose}>Cancel</button>
+  <ButtonRow>
+    <Button onclick={done}>Done</Button>
+    <Button quiet onclick={onclose}>Cancel</Button>
     {#if empty}
-      <button type="button" class="cancel" onclick={onremove}>
-        Remove {heading ? 'heading' : 'step'}
-      </button>
+      <Button quiet onclick={onremove}>Remove {heading ? 'heading' : 'step'}</Button>
     {/if}
-  </div>
+  </ButtonRow>
 </div>
 
 <style>
@@ -125,34 +125,5 @@
     color: var(--color-warning-text);
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
-  }
-
-  .buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-  }
-
-  .done,
-  .cancel {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border-radius: var(--radius-full);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .done {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .cancel {
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text);
   }
 </style>

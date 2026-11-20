@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
   // "Make this its own recipe" under a section heading on Check (F190, cabledrawer 8 Nov; mockups
   // Dark-CheckSections08-Phone and Dark-CheckOwnRecipe08-Phone). Chosen by hand, never automatic.
@@ -37,8 +38,8 @@
     {#if own}
       <p class="said">Its own recipe: <b>{ownLineWords(own)}</b></p>
       <span class="buttons">
-        <button type="button" onclick={() => (asking = true)}>Change</button>
-        <button type="button" onclick={() => void keepIn()}>Keep in this recipe</button>
+        <Button quiet small onclick={() => (asking = true)}>Change</Button>
+        <Button quiet small onclick={() => void keepIn()}>Keep in this recipe</Button>
       </span>
     {:else}
       <button type="button" class="make" onclick={() => (asking = true)}
@@ -84,21 +85,13 @@
     gap: var(--space-3);
   }
 
-  button {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-5);
-    border: 1px solid var(--color-border-strong);
-    border-radius: 10px;
-    background: transparent;
-    color: var(--color-text-soft);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-  }
-
   .make {
+    min-height: var(--touch-target);
     border: none;
+    background: transparent;
     padding: 0;
+    font-size: var(--text-sm);
+    cursor: pointer;
     color: var(--color-accent);
     font-weight: var(--weight-bold);
   }

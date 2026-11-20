@@ -3,6 +3,8 @@
   // day has come, with Cooked it · Didn't · Move it. One card at a time: the newest meal first,
   // and a line saying how many more are waiting behind it. Nothing changes in the pantry until
   // it is answered (spec, "Meals nobody cooked"). The words are proposed, for cabledrawer.
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import { downLine } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
   import type { TodayModel } from '#lib/today.svelte.js';
@@ -36,14 +38,12 @@
     <span class="title" id="{uid}-t">Did you cook {name}?</span>
     <span class="note">Nothing changes in the pantry until you say.</span>
   </div>
-  <div class="buttons">
-    <button type="button" class="yes" disabled={model.readonly} onclick={oncooked}>Cooked it</button
+  <ButtonRow>
+    <Button disabled={model.readonly} onclick={oncooked}>Cooked it</Button>
+    <Button quiet disabled={model.readonly} onclick={() => void model.didnt(waiting)}>Didn’t</Button
     >
-    <button type="button" disabled={model.readonly} onclick={() => void model.didnt(waiting)}
-      >Didn’t</button
-    >
-    <button type="button" disabled={model.readonly} onclick={onmove}>Move it</button>
-  </div>
+    <Button quiet disabled={model.readonly} onclick={onmove}>Move it</Button>
+  </ButtonRow>
   {#if model.readonly}
     <p class="offline" role="status">
       {downLine(network.deviceOffline, (b) => `Today changes ${b.when}.`)}
@@ -89,33 +89,6 @@
   .note {
     color: var(--color-text-muted);
     font-size: var(--text-base);
-  }
-
-  .buttons {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
-    gap: var(--space-3);
-  }
-
-  button {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-2);
-    border: none;
-    border-radius: var(--radius-lg);
-    background: var(--color-fill);
-    color: var(--color-text);
-    font: var(--weight-bold) var(--text-base) var(--font-ui);
-    cursor: pointer;
-  }
-
-  button.yes {
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  button:disabled {
-    opacity: 0.5;
-    cursor: default;
   }
 
   .offline,

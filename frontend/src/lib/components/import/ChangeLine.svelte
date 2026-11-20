@@ -5,6 +5,8 @@
   // and the form); Edit the name read corrects what the reader found and looks for an ingredient
   // by that name. Cancel leaves the row as it was. The buttons' words are cabledrawer's; the
   // hint and the box's label are accepted, cabledrawer 11 Nov.
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import { focusOnMount } from '#lib/focusOnMount.js';
 
   function focusFirst(node: HTMLElement) {
@@ -61,7 +63,7 @@
       {#if chosen}
         <button type="button" class="chip" onclick={onback}>Back to how it was read</button>
       {/if}
-      <button type="button" class="quiet" onclick={oncancel}>Cancel</button>
+      <Button quiet small onclick={oncancel}>Cancel</Button>
     </p>
   {:else}
     <label class="field" for="{uid}-name">
@@ -87,13 +89,11 @@
       />
     </label>
     {#if error}<p class="error" role="alert">Type a name.</p>{/if}
-    <p class="done-row">
-      <span class="hint">Mealwright looks for an ingredient with this name.</span>
-      <span class="two-buttons">
-        <button type="button" class="quiet" onclick={oncancel}>Cancel</button>
-        <button type="button" class="done" disabled={busy} onclick={() => void done()}>Done</button>
-      </span>
-    </p>
+    <p class="hint">Mealwright looks for an ingredient with this name.</p>
+    <ButtonRow>
+      <Button disabled={busy} onclick={() => void done()}>Done</Button>
+      <Button quiet onclick={oncancel}>Cancel</Button>
+    </ButtonRow>
   {/if}
 </div>
 
@@ -155,45 +155,5 @@
     color: var(--color-warning-text);
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
-  }
-
-  .done-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-4);
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .two-buttons {
-    display: inline-flex;
-    gap: var(--space-4);
-    align-items: center;
-  }
-
-  .done,
-  .quiet {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: none;
-    border-radius: var(--radius-full);
-    font-size: var(--text-md);
-    font-weight: var(--weight-extrabold);
-    cursor: pointer;
-  }
-
-  .done {
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .quiet {
-    background: transparent;
-    color: var(--color-text-muted);
-  }
-
-  button:disabled {
-    opacity: 0.6;
-    cursor: default;
   }
 </style>

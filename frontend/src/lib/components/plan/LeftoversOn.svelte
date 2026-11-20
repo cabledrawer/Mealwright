@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // "Leftovers on…" (0.7 P1; mockup Leftovers07-Phone; cabledrawer 28 Oct): tick several meals at
   // once, see the portions left, and when there are none left choose Cook more (a bigger batch;
@@ -148,7 +150,7 @@
 
   {#if problem}
     <p class="note problem" role="alert">{problem}</p>
-    <button type="button" class="back" onclick={load}>Try again</button>
+    <Button quiet small onclick={load}>Try again</Button>
   {:else if !portions}
     <Loading what="Loading the leftovers…" />
   {:else}
@@ -270,12 +272,10 @@
     {/if}
   {/if}
 
-  <div class="buttons">
-    <button type="button" class="back" onclick={onback}>Back</button>
-    <button type="button" class="go" disabled={!ready} onclick={plan}
-      >{planWords(tubCount, picked.length)}</button
-    >
-  </div>
+  <ButtonRow>
+    <Button disabled={!ready} onclick={plan}>{planWords(tubCount, picked.length)}</Button>
+    <Button quiet onclick={onback}>Back</Button>
+  </ButtonRow>
 </div>
 
 <style>
@@ -563,34 +563,6 @@
   .choices button[aria-pressed='true'] {
     outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 2px;
-  }
-
-  .buttons {
-    display: flex;
-    gap: var(--space-4);
-  }
-
-  .back,
-  .go {
-    min-height: 54px;
-    border: none;
-    border-radius: var(--radius-button);
-    font: inherit;
-    font-size: var(--text-xl);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .back {
-    padding: 0 var(--space-8);
-    background: var(--color-fill-strong);
-    color: var(--color-text);
-  }
-
-  .go {
-    flex: 1;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
   }
 
   button:disabled {

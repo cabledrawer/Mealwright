@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
   // One at a time (F141, cabledrawer 3 Nov; mockups Dark-ImportCheckOne07-Phone and
   // Dark-ImportCheckOneStep07-Phone): each line that needs the person, then every method step
@@ -425,39 +427,30 @@
       {#if editing !== step}
         <div class="actions">
           {#if previewing}
-            <button type="button" class="primary" onclick={() => flow.keepSplit(stepAt)}
-              >Keep the split</button
-            >
-            <button type="button" class="quiet" onclick={() => (flow.previewStep = null)}
-              >Keep as one</button
-            >
+            <Button onclick={() => flow.keepSplit(stepAt)}>Keep the split</Button>
+            <Button quiet onclick={() => (flow.previewStep = null)}>Keep as one</Button>
           {:else}
             {#if pieces}
-              <button
-                type="button"
-                class="primary"
+              <Button
                 onclick={() => {
                   flow.previewStep = stepAt;
-                }}>Split into shorter steps</button
+                }}>Split into shorter steps</Button
               >
             {/if}
             <div class="two">
-              <button
-                type="button"
-                class="option"
+              <Button
+                quiet
                 onclick={() => {
                   flow.previewStep = null;
                   editing = step;
-                }}>Change the words</button
+                }}>Change the words</Button
               >
-              <button type="button" class="option" onclick={() => void takeOut()}
-                >Remove step</button
-              >
+              <Button quiet onclick={() => void takeOut()}>Remove step</Button>
             </div>
           {/if}
           {#if flow.stepsBefore}
-            <button type="button" class="quiet" onclick={() => flow.putStepsBack()}
-              >Put the steps back as they were</button
+            <Button quiet small onclick={() => flow.putStepsBack()}
+              >Put the steps back as they were</Button
             >
           {/if}
           <span class="hint"
@@ -513,41 +506,32 @@
              kept: the draft stays as it was last kept. A review never kept is left with Discard
              draft below. -->
         {#if flow.draftId !== null}
-          <button
-            type="button"
-            class="leave"
-            disabled={flow.saving || editing !== null}
-            onclick={onleave}>Discard changes</button
+          <Button quiet disabled={flow.saving || editing !== null} onclick={onleave}
+            >Discard changes</Button
           >
         {/if}
       {/if}
       {#if discardProblem}<p class="error" role="alert">{discardProblem}</p>{/if}
-      <div class="buttons">
-        {#if item}
-          <button
-            type="button"
-            class="back"
-            disabled={at === 0 || editing !== null}
-            onclick={() => void go(at - 1)}>← Back</button
-          >
-        {/if}
+      <ButtonRow>
         <!-- One button for Next and Save recipe, so the focus stays on it at the last screen. -->
-        <button
-          type="button"
-          class="next"
+        <Button
           disabled={editing !== null || (last && (flow.saving || closing || network.offline))}
           onclick={() => (last ? onsave() : void go(at + 1))}
-          >{last ? (flow.saving ? 'Saving…' : 'Save recipe') : 'Next →'}</button
+          >{last ? (flow.saving ? 'Saving…' : 'Save recipe') : 'Next →'}</Button
         >
-      </div>
-      <button
-        type="button"
-        class="leave"
+        {#if item}
+          <Button quiet disabled={at === 0 || editing !== null} onclick={() => void go(at - 1)}
+            >← Back</Button
+          >
+        {/if}
+      </ButtonRow>
+      <Button
+        quiet
         disabled={flow.saving ||
           closing ||
           editing !== null ||
           (flow.draftId !== null && network.offline)}
-        onclick={ondiscard}>Discard draft</button
+        onclick={ondiscard}>Discard draft</Button
       >
       {#if network.offline}
         <p class="muted" role="status">
@@ -783,38 +767,6 @@
     gap: var(--space-4);
   }
 
-  .primary,
-  .option,
-  .quiet {
-    min-height: var(--touch-target);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .primary {
-    min-height: 52px;
-    border: none;
-    border-radius: var(--radius-lg);
-    background: var(--color-accent-soft);
-    color: var(--color-accent-on-soft);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .option {
-    padding: 0 var(--space-6);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-lg);
-    background: transparent;
-    color: var(--color-text);
-  }
-
-  .quiet {
-    border: none;
-    background: transparent;
-    color: var(--color-text-muted);
-  }
-
   .hint,
   .empty {
     color: var(--color-text-muted);
@@ -844,51 +796,9 @@
     font-weight: var(--weight-semibold);
   }
 
-  .buttons {
-    display: flex;
-    gap: var(--space-5);
-  }
-
-  .back,
-  .next {
-    min-height: 52px;
-    border-radius: var(--radius-full);
-    font-size: 1rem;
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .back {
-    flex: 1;
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text);
-  }
-
-  .next {
-    flex: 1.4;
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .leave {
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
   /* A blocked button looks blocked, the same as Save recipe (F154): Close and See all too. */
   .x:disabled,
-  .see-all:disabled,
-  .leave:disabled,
-  .back:disabled,
-  .next:disabled {
+  .see-all:disabled {
     opacity: 0.6;
     cursor: default;
   }

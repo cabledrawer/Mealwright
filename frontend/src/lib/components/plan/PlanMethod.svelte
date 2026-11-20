@@ -1,5 +1,7 @@
 <script lang="ts">
   import Sheet from '#lib/components/Sheet.svelte';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   // "Which way will you cook it?" (M2, cabledrawer 9 Nov): each way of cooking the recipe with its
   // time, the one used last picked, and "Add to plan" (or "Save", when the meal's way is being
   // changed). Shown over everything by the app layout, fetched when first asked (size limit);
@@ -55,8 +57,10 @@
           The shopping list and Cooked it follow it. You can change it from the meal later.
         </p>
       </fieldset>
-      <button type="submit" class="main">{question.button}</button>
-      <button type="button" class="quiet" onclick={() => methodAsk.dismiss()}>Cancel</button>
+      <ButtonRow>
+        <Button type="submit">{question.button}</Button>
+        <Button quiet onclick={() => methodAsk.dismiss()}>Cancel</Button>
+      </ButtonRow>
     </form>
   </Sheet>
 {/if}
@@ -111,27 +115,6 @@
     color: var(--color-text-muted);
     font-size: var(--text-md);
     line-height: 1.4;
-  }
-
-  button {
-    min-height: 52px;
-    border-radius: var(--radius-full);
-    font: var(--weight-bold) var(--text-xl) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .main {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .quiet {
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-text);
   }
 
   .way {

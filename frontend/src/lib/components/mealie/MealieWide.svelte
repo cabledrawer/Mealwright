@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import FilterChips from '#lib/components/FilterChips.svelte';
   // Import from Mealie on a computer (mockup Dark-MealieImport095-Desktop): the four steps,
   // a drop zone, and on the preview a table of every recipe in the file with tick boxes to
@@ -134,12 +136,8 @@
         >
           <strong>Drop the Mealie backup (.zip) here</strong>
           <span class="sub">or</span>
-          <button
-            type="button"
-            class="btn"
-            disabled={flow.busy || offline}
-            onclick={() => picker?.click()}
-            >{flow.sending ? 'Reading the file…' : 'Choose file…'}</button
+          <Button small disabled={flow.busy || offline} onclick={() => picker?.click()}
+            >{flow.sending ? 'Reading the file…' : 'Choose file…'}</Button
           >
         </div>
       {:else}
@@ -172,12 +170,8 @@
       <div class="head">
         <h2>{job.file_name} <span class="sub light">· {fileWords(job)}</span></h2>
         {#if flow.admin}
-          <button
-            type="button"
-            class="btn2"
-            disabled={flow.busy || offline}
-            onclick={() => picker?.click()}
-            >{flow.sending ? 'Reading the file…' : 'Choose another file'}</button
+          <Button quiet small disabled={flow.busy || offline} onclick={() => picker?.click()}
+            >{flow.sending ? 'Reading the file…' : 'Choose another file'}</Button
           >
         {/if}
       </div>
@@ -261,7 +255,7 @@
       <div class="showing">
         <span class="sub">{showingWords(shown.length, found.length)}</span>
         {#if shown.length < found.length}
-          <button type="button" class="btn2" onclick={() => (limit += PAGE)}>Show more</button>
+          <Button quiet small onclick={() => (limit += PAGE)}>Show more</Button>
         {/if}
       </div>
       {#if preview.with_photo}
@@ -283,20 +277,15 @@
       {#if leftOut}<p class="sub">{leftOut}</p>{/if}
       {@render problem()}
       {#if flow.admin}
-        <div class="buttons">
-          <button
-            type="button"
-            class="btn2"
-            disabled={flow.busy || offline}
-            onclick={() => void flow.cancel()}>Cancel</button
-          >
-          <button
-            type="button"
-            class="btn"
+        <ButtonRow>
+          <Button
             disabled={flow.busy || offline || flow.chosen === 0}
-            onclick={() => void flow.start()}>{bringInWords(flow.chosen)}</button
+            onclick={() => void flow.start()}>{bringInWords(flow.chosen)}</Button
           >
-        </div>
+          <Button quiet disabled={flow.busy || offline} onclick={() => void flow.cancel()}
+            >Cancel</Button
+          >
+        </ButtonRow>
       {:else}
         <p class="sub" data-testid="mealie-admins-only">{ADMINS_ONLY}</p>
       {/if}
@@ -371,11 +360,8 @@
         <div class="head">
           <h2>{recipesWords(job.counts.drafts)} to check</h2>
           {#if flow.admin}
-            <button
-              type="button"
-              class="btn2"
-              disabled={flow.busy || offline}
-              onclick={() => void flow.saveAll()}>{saveAllWords()}</button
+            <Button quiet small disabled={flow.busy || offline} onclick={() => void flow.saveAll()}
+              >{saveAllWords()}</Button
             >
           {/if}
         </div>
@@ -417,11 +403,8 @@
       <section class="dcard">
         <div class="row">
           <span class="lbl">Undo this import<small>{undoWords(job)}</small></span>
-          <button
-            type="button"
-            class="btn2"
-            disabled={flow.busy || offline}
-            onclick={() => void flow.undo()}>Undo</button
+          <Button quiet small disabled={flow.busy || offline} onclick={() => void flow.undo()}
+            >Undo</Button
           >
         </div>
       </section>
@@ -741,39 +724,6 @@
     border-radius: 5px;
     background: var(--color-accent);
     transition: width 0.4s ease;
-  }
-
-  .buttons {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-  }
-
-  .btn,
-  .btn2 {
-    display: inline-flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    min-height: var(--touch-target);
-    padding: 0 16px;
-    border-radius: var(--radius-full);
-    font: var(--weight-bold) var(--text-base) var(--font-ui);
-    text-decoration: none;
-    white-space: nowrap;
-    cursor: pointer;
-  }
-
-  .btn {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .btn2 {
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text);
   }
 
   .link {

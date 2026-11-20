@@ -117,8 +117,9 @@ describe('Focus (the phone’s default)', () => {
 
   it('puts the header and the bar on the screen and lets only the list scroll', async () => {
     show(reviewFlow(), true);
-    const save = page.getByRole('button', { name: 'Save recipe' }).element();
-    const bottom = save.getBoundingClientRect().bottom;
+    // The bar's last button (Discard draft, under Save recipe and Back to drafts) rests at the foot.
+    const last = page.getByRole('button', { name: 'Discard draft' }).element();
+    const bottom = last.getBoundingClientRect().bottom;
     const heading = page.getByRole('heading', { level: 1 }).element();
     expect(heading.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
     expect(bottom).toBeLessThanOrEqual(844);
