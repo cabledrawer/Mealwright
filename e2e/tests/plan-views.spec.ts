@@ -1,5 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme, THEMES } from './a11y.ts';
+import { addDays, call } from './helpers.ts';
 
 // The Plan's switch Both · Eat · Cook, Plan it on the recipe page, the phone Plan that opens on
 // today, and the Plan at 768–1100 px wide (0.7, P2). Runs on Chromium, phone and computer. Every
@@ -11,14 +12,6 @@ import { checkPage, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme, T
 //   plan-views Plan it tests 0 and 1 (today's 14 days), plan.spec.ts 2 to 34, plan-cook-once.spec.ts 35 to 64,
 //   plan-views.spec.ts 65 to 79, plan-portions.spec.ts 84 to 104.
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
-
-async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', path: string, data?: object) {
-  const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
-  expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBe(true);
-  return (await response.json()) as Record<string, any>;
-}
-
 const INDEX: Record<string, number> = { 'desktop 0.7 plan views': 0, 'phone 0.7 plan views': 1, 'webkit 0.7 plan views': 2 };
 const projectIndex = () => INDEX[test.info().project.name] ?? 0;
 /** A Saturday far from the other plan tests' weeks: this project's own, and the test's own (k 0 to 4: 0 to 2 here, 3 and 4 the width tests). */
@@ -27,11 +20,6 @@ const far = (today: string, k: number) => addDays(today, 7 * (65 + projectIndex(
 const short = () => Math.floor(Date.now() * 1000 + Math.random() * 1000).toString(36).slice(-6);
 const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
 
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 const weekdayLong = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: 'UTC' });
 const weekdayShort = new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'UTC' });
 const monthLong = new Intl.DateTimeFormat('en-GB', { month: 'long', timeZone: 'UTC' });

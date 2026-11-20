@@ -1,4 +1,5 @@
 import { test, expect, testNow, type Page } from "./clock.ts";
+import { key, stamp } from './helpers.ts';
 import { checkPage, setAccountTheme } from "./a11y.ts";
 
 // The Stocktake (0.8 S6, F118): place by place, None · ¼ · ½ · ¾ · Full, a count, a staple, the
@@ -6,8 +7,6 @@ import { checkPage, setAccountTheme } from "./a11y.ts";
 // (390 px) and the computer (1280 px) projects. The household's stocktake is shared, so each test
 // starts a new one and makes its own places (and, in the end, removes them), with names no other
 // test uses; every other place is marked finished, so the screen opens at the test's own.
-
-const key = () => ({ "idempotency-key": crypto.randomUUID() });
 
 async function api(
   page: Page,
@@ -28,9 +27,6 @@ async function api(
 
 const get = async (page: Page, path: string) =>
   (await page.request.get(`/api/v1${path}`)).json();
-
-const stamp = () =>
-  `${test.info().project.name.replace(/\W/g, "")}${Date.now().toString(36)}`;
 
 interface Mine {
   places: { id: number; name: string }[];

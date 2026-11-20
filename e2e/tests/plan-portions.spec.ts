@@ -1,5 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { expectNoAxeViolations, expectNoSidewaysScroll, expectTouchTargets, inTheme, isPhone, setAccountTheme } from './a11y.ts';
+import { addDays, call, stamp } from './helpers.ts';
 
 // The phone opens the Plan on Eat; these tests are about the cards, which are Both (0.7, P2).
 test.beforeEach(async ({ page }) => {
@@ -20,25 +21,11 @@ test.beforeEach(async ({ page }) => {
 //   plan-views Plan it tests 0 and 1 (today's 14 days), plan.spec.ts 2 to 34, plan-cook-once.spec.ts 35 to 64,
 //   plan-views.spec.ts 65 to 79, plan-portions.spec.ts 84 to 104.
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
-
-async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', path: string, data?: object) {
-  const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
-  expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBe(true);
-  return (await response.json()) as Record<string, any>;
-}
-
 const INDEX: Record<string, number> = { 'desktop 0.7 portions': 0, 'phone 0.7 portions': 1, 'webkit 0.7 portions': 2 };
 const projectIndex = () => INDEX[test.info().project.name] ?? 0;
 /** A Saturday far from the other plan tests' weeks: this project's own, and the test's own (k 0 to 6; the last weeks the plan allows). */
 const far = (today: string, k: number) => addDays(today, 7 * (84 + projectIndex() * 7 + k));
-const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}`;
 
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 const weekdayLong = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: 'UTC' });
 const weekdayShort = new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'UTC' });
 const monthLong = new Intl.DateTimeFormat('en-GB', { month: 'long', timeZone: 'UTC' });

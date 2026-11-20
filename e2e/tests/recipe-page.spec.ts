@@ -1,13 +1,12 @@
 import { test, expect, type BrowserContext, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
+import { key } from './helpers.ts';
 
 // The recipe page (0.4, PR 3b), against the real server: what it shows, where each ingredient
 // is, servings, "N missing · Add to the list", Cook now, and every state of the screen
 // (spec "Keeping the UI good", item 2): loading, failed, offline, not found, one line, many
 // lines, long names, text at 200%, no nutrition, no servings. Runs in the "phone 0.4 recipe
 // page" and "desktop 0.4 recipe page" projects, signed in as the test admin.
-
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
 async function call(page: Page, method: 'POST' | 'PUT', path: string, data: object, status = 201) {
   const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });

@@ -8,11 +8,11 @@ import {
   setAccountTheme,
   THEMES,
 } from './a11y.ts';
+import { key } from './helpers.ts';
 
 // Live updates and the connection bar (0.3, PR 5), against the real server, on phone and
 // desktop (sync protocol 10 and 11.4; UX principle 16).
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 const tag = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now()}`;
 
 async function call(page: Page, method: 'POST', path: string, data?: object) {

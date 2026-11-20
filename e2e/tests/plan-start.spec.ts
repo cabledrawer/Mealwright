@@ -1,5 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, setAccountTheme } from './a11y.ts';
+import { addDays, call, key } from './helpers.ts';
 
 // The plan works backwards (0.8 M3, F124; cabledrawer 31 Oct and 9 Nov): adding a recipe with a long
 // wait asks when it will be started (Plan it on the recipe page), the meal's menu changes the
@@ -11,23 +12,10 @@ import { checkPage, setAccountTheme } from './a11y.ts';
 // London. Each project plans on days of its own (tomorrow plus its own number), in the Breakfast
 // meal, and every test takes what it planned off the plan again.
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
-
-async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', path: string, data?: object) {
-  const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
-  expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBe(true);
-  return (await response.json()) as Record<string, any>;
-}
-
 const INDEX: Record<string, number> = { 'desktop 0.8 plan start': 0, 'phone 0.8 plan start': 1, 'webkit 0.8 plan start': 2 };
 const projectIndex = () => INDEX[test.info().project.name] ?? 0;
 const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
 
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 const weekdayLong = new Intl.DateTimeFormat('en-GB', { weekday: 'long', timeZone: 'UTC' });
 const weekdayShort = new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'UTC' });
 const monthLong = new Intl.DateTimeFormat('en-GB', { month: 'long', timeZone: 'UTC' });

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, expectTouchTargets, isPhone, setAccountTheme } from './a11y.ts';
+import { key } from './helpers.ts';
 
 // Restock dates, "How much?" and navigation (0.7: K5, N1, F113), against the real server, signed
 // in as the test admin. Runs on a phone, a desktop and WebKit.
@@ -7,7 +8,6 @@ import { checkPage, expectNoSidewaysScroll, expectTouchTargets, isPhone, setAcco
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const unique = (name: string) => `${name} ${test.info().project.name.replace(/\D/g, '')}${Date.now() % 100000}`;
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
 async function makeStaple(page: Page, name: string): Promise<number> {
   const made = await page.request.post('/api/v1/foods', { data: { name, staple: true }, headers: key() });

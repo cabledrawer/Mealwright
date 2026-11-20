@@ -1,10 +1,9 @@
 import { test, expect, type Page } from "./clock.ts";
+import { key } from './helpers.ts';
 import { checkPage, isPhone, setAccountTheme } from "./a11y.ts";
 
 // The Pantry (0.2), against the real server, on phone and desktop. Each test makes its
 // own foods with unique names, so tests don't trip over each other.
-
-const key = () => ({ "idempotency-key": crypto.randomUUID() });
 
 async function api(
   page: Page,

@@ -2,6 +2,7 @@ import { test, expect, type Page } from './clock.ts';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
+import { key } from './helpers.ts';
 
 // Full Onboarding (0.9 U2), against the real server, signed in as the test admin. This worker's
 // server was set up through /api/v1/setup, so its household hasn't finished onboarding yet: these
@@ -12,7 +13,6 @@ import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 /** A short mark of its own for each test and project, so names never clash. */
 const mark = () => `${test.info().project.name.slice(0, 1)}${Date.now().toString(36).slice(-4)}`;
 

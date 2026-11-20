@@ -5,6 +5,7 @@ import {
   inTheme,
   setAccountTheme,
 } from "./a11y.ts";
+import { addDays, key } from './helpers.ts';
 import { uploadPhoto } from "../review/photos.ts";
 
 // The Plan's cards in Both (0.7, P3): COOK and EAT are separate cards, cells are only as tall as
@@ -13,8 +14,6 @@ import { uploadPhoto } from "../review/photos.ts";
 // photo (F39, F40), and the words of F49 and F65. Computer only. Every test plans in weeks of its
 // own (weeks 80 to 83 ahead), named with a word no other test uses. The tests' day is a Saturday;
 // the day after (Sunday) is in the same week.
-
-const key = () => ({ "idempotency-key": crypto.randomUUID() });
 
 async function call(
   page: Page,
@@ -39,12 +38,6 @@ async function call(
 const far = (today: string, k: number) =>
   addDays(today, 7 * (80 + (k % 4)) - [0, 2, 5][Math.floor(k / 4)]!);
 const stamp = () => `Cards${Date.now().toString(36)}`;
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 async function setup(page: Page) {
   const household = (await (

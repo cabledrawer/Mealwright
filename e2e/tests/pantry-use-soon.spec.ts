@@ -1,12 +1,11 @@
 import { test, expect, type Page } from "./clock.ts";
+import { addDays, key, stamp } from './helpers.ts';
 import { checkPage, isPhone, setAccountTheme } from "./a11y.ts";
 
 // Pantry and Use soon (0.8 S5): Use by and Best before in their own words, the How much? sheet
 // and its one main button, and tubs in their place. Runs on the phone (390 px) and the computer
 // (1280 px) projects of the Pantry, in both themes (checkPage). Each test makes its own foods
 // with names no other test uses.
-
-const key = () => ({ "idempotency-key": crypto.randomUUID() });
 
 async function api(
   page: Page,
@@ -23,15 +22,6 @@ async function api(
     true,
   );
   return response.json();
-}
-
-const stamp = () =>
-  `${test.info().project.name.replace(/\W/g, "")}${Date.now().toString(36)}`;
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
 }
 
 async function today(page: Page): Promise<string> {

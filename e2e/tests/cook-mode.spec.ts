@@ -1,5 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme } from './a11y.ts';
+import { key } from './helpers.ts';
 
 // Cook mode (0.7, K4), against the real server: Cook now from the recipe page, big text one step
 // at a time with Back and Next (buttons, keys, swipe), headings as section titles, a recipe with
@@ -7,8 +8,6 @@ import { checkPage, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme } 
 // end with the chime, "Stop the timer and leave?", Keep screen awake, the Experimental per-step
 // ingredients, and the screen at 200% text in both themes. Runs on Chromium (phone and computer)
 // and WebKit (computer), see playwright.config.ts. Time is the test clock's (no real waiting).
-
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
 async function call(page: Page, path: string, data: object) {
   const response = await page.request.fetch(`/api/v1${path}`, { method: 'POST', data, headers: key() });

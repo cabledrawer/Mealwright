@@ -1,5 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { checkPage } from './a11y.ts';
+import { addDays, key, stamp } from './helpers.ts';
 
 // Today (0.6, PR 6), against the real server: "Did you cook Sambar?" with Cooked it (and "Any
 // left over?"), Didn't and Move it (to tomorrow, alongside a meal that has food), and the
@@ -7,19 +8,10 @@ import { checkPage } from './a11y.ts';
 // playwright.config.ts. The projects share one server, and an answered meal keeps its slot, so
 // each project and test plans on a day and meal of its own and answers its own meal.
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
-const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}`;
-
 async function call(page: Page, method: 'POST' | 'DELETE', path: string, data?: object) {
   const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
   expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBe(true);
   return (await response.json()) as Record<string, any>;
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
 }
 
 /** Today's server data, the slots by name, and a meal planned in the past for this project. */

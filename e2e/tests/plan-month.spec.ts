@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from './clock.ts';
 import { expectNoSidewaysScroll, inTheme, setAccountTheme } from './a11y.ts';
+import { addDays, call, key } from './helpers.ts';
 
 // The Plan's Month and day (0.7, P4): the COOK and Today tags stay inside their day (F84), the
 // month scrolls rather than squeeze a day, which shows 3 items then "+N more" (F47), a click anywhere in a
@@ -19,29 +20,6 @@ import { expectNoSidewaysScroll, inTheme, setAccountTheme } from './a11y.ts';
 // a-recipe test (C) is on a past day too, 9, 14 or 19 weeks back. Everything is named with a word
 // no other test uses ("Moon…"). The test that mocks "Fill from freezer first" plans nothing. A
 // test that counts what is on its day clears the day first, so a retry starts from the same day.
-
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
-
-async function call(
-  page: Page,
-  method: 'POST' | 'PUT' | 'DELETE' | 'PATCH',
-  path: string,
-  data?: object
-) {
-  const response = await page.request.fetch(`/api/v1${path}`, {
-    method,
-    data,
-    headers: key()
-  });
-  expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBe(true);
-  return (await response.json()) as Record<string, any>;
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 type Which = 'A' | 'B' | 'C' | 'D' | 'F' | 'K' | 'L' | 'M' | 'T' | 'U';
 const kind = () => {

@@ -1,12 +1,11 @@
 import { test, expect, type BrowserContext, type Locator, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, setAccountTheme } from './a11y.ts';
+import { key } from './helpers.ts';
 
 // Recipes on a computer (0.4, PR 4): the three panes (sidebar · All recipes · the recipe being
 // read), against the real server. Runs in the "desktop 0.4 panes" project (1280 × 900); the
 // tests that are about width set their own. The phone's pages are covered by recipes.spec.ts,
 // recipe-page.spec.ts and the saved phone screenshots.
-
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
 async function call(page: Page, method: 'POST' | 'PUT', path: string, data: object, status = 201) {
   const response = await page.request.fetch(`/api/v1${path}`, {

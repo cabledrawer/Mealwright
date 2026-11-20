@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { test, expect, request, type Browser, type Page } from './clock.ts';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
+import { key } from './helpers.ts';
 
 // Settings › People (0.9 A1): the household's people, the Person screen, giving someone a
 // login (sign-in link → choose a password → sign in), removing someone and Undo, and "Who's this?"
@@ -11,7 +12,6 @@ import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 /** A short mark of its own for each test and project, so names and usernames never clash. */
 const mark = () => `${test.info().project.name.split(' ')[0].slice(0, 1)}${Date.now().toString(36).slice(-5)}`;
 const PASSWORD = 'a-long-kitchen-password';

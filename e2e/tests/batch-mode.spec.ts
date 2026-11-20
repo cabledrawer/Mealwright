@@ -1,6 +1,7 @@
 import { test, expect, type Page } from './clock.ts';
 import { workerReady } from './worker.ts';
 import { checkPage, expectNoSidewaysScroll, inTheme, isPhone } from './a11y.ts';
+import { addDays, call } from './helpers.ts';
 
 // Batch cook mode (0.8 wave 6, B3), against the real server: one session of two recipes cooked
 // together from its own address, Now and Next, a timer for each recipe that the server keeps (so
@@ -8,22 +9,8 @@ import { checkPage, expectNoSidewaysScroll, inTheme, isPhone } from './a11y.ts';
 // Cooked it for the whole session with one Undo. Runs on Chromium (phone and computer) and WebKit
 // (computer), see playwright.config.ts. The Plan card that opens it comes with B2's screens.
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
-
-async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', path: string, data?: object) {
-  const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
-  expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBe(true);
-  return (await response.json()) as Record<string, any>;
-}
-
 const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
 const INDEX: Record<string, number> = { 'desktop 0.8 batch mode': 0, 'phone 0.8 batch mode': 1, 'webkit 0.8 batch mode': 2 };
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 /** Two recipes that both chop onions (so the chopping is one shared task), planned as a session. */
 async function session(page: Page) {

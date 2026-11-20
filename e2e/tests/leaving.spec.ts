@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from './clock.ts';
+import { key } from './helpers.ts';
 
 // Leaving a page while it still talks to the server (T1, cabledrawer 11 Nov). A request the page
 // starts after the browser has begun to leave it is refused by WebKit (Safari's engine), which
@@ -7,7 +8,6 @@ import { test, expect, type Page, type Route } from './clock.ts';
 // being left must not say "Can’t reach your Mealwright server" while the next one loads.
 // Runs on Chromium (phone and computer) and on WebKit (computer), see playwright.config.ts.
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 const stamp = () => `${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
 
 /** Every script error and console error the page raises, as text. */

@@ -7,11 +7,11 @@ import {
   isPhone,
   setAccountTheme,
 } from "./a11y.ts";
+import { key } from './helpers.ts';
 
 // The Shopping screen working online (0.3, PR 4), against the real server, on phone and
 // desktop: lists, adding, ticking, put away, "Different pack?", "Did you buy 2?" and notes.
 
-const key = () => ({ "idempotency-key": crypto.randomUUID() });
 const tag = () => `${test.info().project.name.replace(/\W/g, "")}${Date.now()}`;
 
 async function call(

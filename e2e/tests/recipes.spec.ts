@@ -8,6 +8,7 @@ import {
   isPhone,
   setAccountTheme,
 } from './a11y.ts';
+import { key } from './helpers.ts';
 
 // The All recipes page (0.4, PR 3a), against the real server: the rows and their stock lines,
 // search, the filter row, and every state of the screen (spec "Keeping the UI good", item 2):
@@ -16,8 +17,6 @@ import {
 //
 // Recipes and ingredients are made through the API with names that are unique to the test, and
 // each test searches for its own, so tests don't trip over each other or over other files.
-
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
 async function call(page: Page, method: 'POST' | 'PUT', path: string, data: object, status = 201) {
   const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });

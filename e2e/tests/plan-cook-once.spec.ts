@@ -6,6 +6,7 @@ import {
   isPhone,
   setAccountTheme,
 } from "./a11y.ts";
+import { addDays, key, stamp } from './helpers.ts';
 
 // Cook once, eat for… (0.6, PR 4): the sheet and its preview (add, remove, move a tub), saving
 // and Undo; tubs on the week and the day list; Whose tub?, To freezer, back to tubs left, the
@@ -20,8 +21,6 @@ import {
 // the free weeks 80 to 83:
 //   plan-views Plan it tests 0 and 1 (today's 14 days), plan.spec.ts 2 to 34, plan-cook-once.spec.ts 35 to 64,
 //   plan-views.spec.ts 65 to 79, plan-portions.spec.ts 84 to 104.
-
-const key = () => ({ "idempotency-key": crypto.randomUUID() });
 
 async function call(
   page: Page,
@@ -49,14 +48,7 @@ const projectIndex = () => INDEX[test.info().project.name] ?? 0;
 /** A Saturday far from the other plan tests' weeks: this project's own, and the test's own (k 0 to 4; two weeks apart, as a test reads 11 days). */
 const far = (today: string, k: number) =>
   addDays(today, 7 * (35 + 2 * (5 * projectIndex() + k)));
-const stamp = () =>
-  `${test.info().project.name.replace(/\W/g, "")}${Date.now().toString(36)}`;
 
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 const weekday = new Intl.DateTimeFormat("en-GB", {
   weekday: "long",
   timeZone: "UTC",

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { isPhone } from './a11y.ts';
+import { key } from './helpers.ts';
 
 // Shopping on the phone, "in the shop" (0.8, S4), against the real server at 390 px, on Chromium
 // and on WebKit: Already have it, Add as bought, How many?, the trolley most recent first, swipe
@@ -7,7 +8,6 @@ import { isPhone } from './a11y.ts';
 // "Different pack?" going back to the planned amount. The offline versions are in offline.spec.ts.
 // Every test makes its own ingredients (the list is shared by the tests on the server).
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 const tag = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now()}`;
 // The plural question of a counted ingredient (F197): lower case, the last word plural (a tag ends in a digit).
 const howMany = (name: string) => `How many ${name.toLowerCase()}s?`;

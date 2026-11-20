@@ -1,5 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, setAccountTheme } from './a11y.ts';
+import { addDays, call, key, stamp } from './helpers.ts';
 
 // The phone opens the Plan on Eat; these tests are about the cards, which are Both (0.7, P2).
 test.beforeEach(async ({ page }) => {
@@ -13,21 +14,6 @@ test.beforeEach(async ({ page }) => {
 //
 // The projects share one server and one main list, so each test uses ingredients of its own, plans
 // only its own recipe, and takes its meals and lines away again at the end.
-
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
-const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}`;
-
-async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', path: string, data?: object) {
-  const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
-  expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBe(true);
-  return (await response.json()) as Record<string, any>;
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 /** What a test needs, and the clean-up that puts the shared list and plan back. */
 async function kitchen(page: Page) {

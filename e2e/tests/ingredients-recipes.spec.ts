@@ -1,12 +1,11 @@
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme } from './a11y.ts';
+import { key } from './helpers.ts';
 
 // Ingredients and the recipes that use them (0.4, PR 6), against the real server: "Used in N
 // recipes" on each row, the "Not in any recipe" filter, the recipes listed in the ingredient
 // editor (each a link), removing an ingredient that recipes use ("not linked", and Undo), and a
 // recipe's own made-ahead ingredient. Runs in the "phone 0.2" and "desktop 0.2" projects.
-
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
 async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE', path: string, data?: object, status = 201) {
   const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });

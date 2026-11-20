@@ -2,6 +2,7 @@ import { test, expect, testNow, type Page } from './clock.ts';
 import { newIngredientDialogReady, workerReady } from './worker.ts';
 import { isPhone } from './a11y.ts';
 import { ADMIN } from './servers.ts';
+import { key } from './helpers.ts';
 
 // The offline queue end to end (0.3, PR 6): sync protocol section 14, E1, E2 and E3, against
 // the real server and service worker, on phone and desktop. Each test signs in a session of
@@ -11,7 +12,6 @@ import { ADMIN } from './servers.ts';
 // Tess. The two-person E1 (Tess and Wren) stays for 0.8, when a second login can be
 // made in the app.
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 const tag = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now()}`;
 // The plural question of a counted ingredient (F197): lower case, the last word plural (a tag ends in a digit).
 const howMany = (name: string) => `How many ${name.toLowerCase()}s?`;

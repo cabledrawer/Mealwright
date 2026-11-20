@@ -2,6 +2,7 @@ import { test, expect, type Page } from './clock.ts';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
+import { key } from './helpers.ts';
 
 // Settings (0.8, S1; F252: each item its own page, a list beside it): the list, Meal slots, Shops & places and Recent changes, against the
 // real server, signed in as the test admin. A member (who cannot see Meal slots) is covered by
@@ -10,7 +11,6 @@ import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 // Cooking, importing, planning and the pantry's Undo from Recent changes are in cooked.spec.ts,
 // import.spec.ts and below. Runs in the "phone 0.8 settings" and "desktop 0.8 settings" projects.
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 const stamp = () => `${test.info().project.name.split(' ')[0]} ${Date.now()}`;
 
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any

@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone } from './a11y.ts';
+import { addDays, call, key, stamp } from './helpers.ts';
 
 // The phone opens the Plan on Eat; these tests are about the cards, which are Both (0.7, P2).
 test.beforeEach(async ({ page }) => {
@@ -14,21 +15,6 @@ test.beforeEach(async ({ page }) => {
 //
 // The three projects share one server, so every test makes ingredients and recipes with names of
 // its own and plans in days of its own (the Plan tests in the weeks before the one Today asks about).
-
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
-const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}`;
-
-async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', path: string, data?: object) {
-  const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
-  expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBe(true);
-  return (await response.json()) as Record<string, any>;
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 const INDEX: Record<string, number> = { 'desktop 0.7 cooked': 0, 'phone 0.7 cooked': 1, 'webkit 0.7 cooked': 2 };
 const projectIndex = () => INDEX[test.info().project.name] ?? 0;

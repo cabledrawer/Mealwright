@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from './clock.ts';
+import { key } from './helpers.ts';
 
 // Speed is checked, not assumed (spec "Keeping the UI good", item 5). On a simulated slow
 // phone (the CPU four times slower, and a slow mobile network), the common actions show
@@ -24,7 +25,6 @@ const STRAIGHT_AWAY = 2000;
 /** Loading the whole app over the slow network. */
 const LOAD = 60_000;
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 const tag = () => `Slow${Date.now()}`;
 
 async function call(page: Page, method: 'GET' | 'POST', path: string, data?: object) {

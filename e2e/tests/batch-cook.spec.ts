@@ -1,6 +1,7 @@
 import { test, expect, type Page } from './clock.ts';
 import { workerReady } from './worker.ts';
 import { expectNoAxeViolations, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme } from './a11y.ts';
+import { call, key } from './helpers.ts';
 
 // Batch cook (Experimental; 0.8 wave 6, B2): the sidebar entry on a computer and the Plan's third
 // tab on a phone, the first-time note, Your kitchen on first use, the picks (swap, show me others),
@@ -10,14 +11,6 @@ import { expectNoAxeViolations, expectNoSidewaysScroll, inTheme, isPhone, setAcc
 //
 // The three projects share one server. Each plans on days of its own, far ahead (the plan accepts
 // 731 days), with recipes named for the project so another project's picks never mix with its own.
-
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
-
-async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', path: string, data?: object) {
-  const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
-  expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBe(true);
-  return (await response.json()) as Record<string, any>;
-}
 
 const INDEX: Record<string, number> = { 'desktop 0.8 batch cook': 0, 'phone 0.8 batch cook': 1, 'webkit 0.8 batch cook': 2 };
 const addDays = (iso: string, days: number) => {

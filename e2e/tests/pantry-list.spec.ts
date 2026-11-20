@@ -1,5 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { isPhone } from './a11y.ts';
+import { key } from './helpers.ts';
 
 // Tap a staple, and "+ List" on a running-low row (0.3, PR 6b; cabledrawer 18 Oct): both add to
 // the main shopping list through the same action and waiting list as Shopping, so a tap made
@@ -7,7 +8,6 @@ import { isPhone } from './a11y.ts';
 // itself still shows its offline note once the bar says Offline (spec section 6), so the taps
 // are made at the moment the connection fails.
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 const tag = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now()}`;
 
 async function call(page: Page, method: 'POST' | 'PATCH', path: string, data: object) {

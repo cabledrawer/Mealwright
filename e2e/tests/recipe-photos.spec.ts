@@ -2,6 +2,7 @@ import { test, expect, type Locator, type Page } from './clock.ts';
 import { workerReady } from './worker.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 import { photoPng, uploadPhoto, type Shape } from '../review/photos.ts';
+import { key } from './helpers.ts';
 
 // Recipe photos on All recipes (the 52 px square at the start of each row) and on the recipe page
 // (a box above the name on a phone, beside the nutrition figures in the computer's reading pane),
@@ -10,8 +11,6 @@ import { photoPng, uploadPhoto, type Shape } from '../review/photos.ts';
 // fetched (and tries again when the connection comes back), a name that wraps (the square stays at
 // the top), the text at 200%, and Edit → Save with a new photo and with none. Runs in the
 // "phone 0.4 photos" and "desktop 0.4 photos" projects, signed in as the test admin.
-
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 
 async function call(page: Page, method: 'POST' | 'PUT', path: string, data: object, status = 201) {
   const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });

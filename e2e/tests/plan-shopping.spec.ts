@@ -1,26 +1,13 @@
 import { test, expect, type Page } from './clock.ts';
 import { inTheme, setAccountTheme, THEMES } from './a11y.ts';
+import { addDays, call, key, stamp } from './helpers.ts';
 
 // Plan shopping (0.8, S3): from 1100 px the Shopping page is one column grouped by shop and
 // aisle, one-line rows (tick · name · amount · why · ⋯), and a column of panels (Shops, Check
 // you have these, In the trolley). Against the real server; the projects share one server and
 // one main list, so each test uses ingredients of its own and takes its plan and lines away.
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
-const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}`;
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', path: string, data?: object) {
-  const response = await page.request.fetch(`/api/v1${path}`, { method, data, headers: key() });
-  expect(response.ok(), `${method} ${path}: ${await response.text()}`).toBe(true);
-  return (await response.json()) as Record<string, any>;
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 const weekday = (iso: string) => DAYS[new Date(`${iso}T12:00:00Z`).getUTCDay()]!;
 

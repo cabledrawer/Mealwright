@@ -3,6 +3,7 @@ import { inflateSync } from 'node:zlib';
 import { test, expect, type Page } from './clock.ts';
 import { isPhone, setAccountTheme } from './a11y.ts';
 import { uploadPhoto } from '../review/photos.ts';
+import { key } from './helpers.ts';
 
 // The print layouts (0.9.5 step 12; docs/spec.md "Print", cabledrawer 13 Nov; mockups
 // Print-ShoppingList095-A4 and Print-Recipe095-A4, proposed): with the print media on, the page
@@ -10,7 +11,6 @@ import { uploadPhoto } from '../review/photos.ts';
 // what is still to buy, a recipe has no photo. Runs on the phone and the computer (and
 // WebKit); the PDF checks run on Chromium only. PRINT_SHOTS=<folder> also saves the PDFs.
 
-const key = () => ({ 'idempotency-key': crypto.randomUUID() });
 const unique = (word: string) =>
   `${word} ${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}`;
 
