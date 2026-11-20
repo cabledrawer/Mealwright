@@ -19,6 +19,7 @@
   import { onDestroy, tick, untrack } from 'svelte';
   import Breadcrumb from '#lib/components/Breadcrumb.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   import MissingBar from '#lib/components/MissingBar.svelte';
   import NutritionStrip from '#lib/components/NutritionStrip.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
@@ -433,17 +434,7 @@
                         >
                         {#if group.waits[j]}
                           <span class="wait-chip" data-step-wait
-                            ><svg
-                              aria-hidden="true"
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-width="2.4"
-                              stroke-linecap="round"
-                              ><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg
-                            >{waitName(group.waits[j]!.kind)} · {waitLength(group.waits[j]!)}</span
+                            ><Icon name="clock" size={14} stroke={2.4} />{waitName(group.waits[j]!.kind)} · {waitLength(group.waits[j]!)}</span
                           >
                         {/if}
                       </li>

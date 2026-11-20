@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/components/Icon.svelte';
   // Full Onboarding (0.9 U2; spec "Layout decisions": Onboarding, and section 2 "Onboarding";
   // mockups Dark-Onboard09-Phone and Dark-Onboard09-Desktop). First-run
   // setup makes the admin account (step 1) and comes here once. The phone shows one step per
@@ -171,18 +172,7 @@
           <PacksStep />
         {:else}
           <p class="ok">
-            <svg
-              aria-hidden="true"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              ><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"></path></svg
-            >
+            <Icon name="shield" size={18} />
             <span
               >Everything stays on your server. Nothing connects outside until you switch it on in
               Outside connections.</span
@@ -218,17 +208,7 @@
           <section class="card" aria-labelledby="ob-account">
             <h2 id="ob-account">1 · Your account</h2>
             <p class="done">
-              <svg
-                aria-hidden="true"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.4"
-                stroke-linecap="round"
-                stroke-linejoin="round"><path d="M5 12l5 5L20 7"></path></svg
-              >
+              <Icon name="check" size={18} stroke={2.4} />
               <span>Made: {session.me?.name}, the admin.</span>
             </p>
           </section>
@@ -429,7 +409,7 @@
     line-height: 1.45;
   }
 
-  .ok svg {
+  .ok :global(svg) {
     flex: none;
   }
 

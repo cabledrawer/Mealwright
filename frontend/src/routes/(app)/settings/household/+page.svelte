@@ -1,5 +1,6 @@
 <script lang="ts">
   import Loading from '#lib/components/Loading.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   // Settings › People (0.9 A1, mockup Dark-Household09-Phone): the household's name, its
   // people (each opens their Person screen), "+ Add a person", and the "Who's this?" switch for
   // shared logins. Everyone in the household sees it; only an admin changes it. Offline it shows
@@ -145,18 +146,7 @@
     {#if household.canChange && nextWaiting}
       <div class="waiting">
         <div class="warn" role="status">
-          <svg
-            aria-hidden="true"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            ><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 16.5v.5"></path></svg
-          >
+          <Icon name="alert" size={20} />
           <span class="warn-words">
             <strong>{waitingTitle(household.waiting.length)}</strong>
             {#each household.waiting as waiting (waiting.id)}
@@ -209,18 +199,7 @@
                 <span class="label">{person.is_me ? `${person.name} (you)` : person.name}</span>
                 <span class="detail">{personLine(person)}</span>
               </span>
-              <svg
-                class="chev"
-                aria-hidden="true"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg
-              >
+              <span class="chev"><Icon name="chevron-right" size={18} /></span>
             </a>
           </li>
         {/each}
@@ -338,7 +317,7 @@
     line-height: 1.45;
   }
 
-  .warn svg {
+  .warn :global(svg) {
     flex: none;
     margin-top: 1px;
   }
