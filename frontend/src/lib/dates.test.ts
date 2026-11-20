@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  dayMonthOf,
+  dayMonthYearWords,
+  weekdayOf,
   addedWords,
   boughtWords,
   compactDateWords,
@@ -127,5 +130,19 @@ describe('odd dates from a date box (F220)', () => {
     expect(dateWords('2101-01-01', 40000)).toBe('1 Jan');
     expect(dateWords('1999-12-31', -9000)).toBe('Date passed');
     expect(pickedDateWords('0202-03-04')).not.toBe('');
+  });
+});
+
+describe('one date shape (FE13, FE24)', () => {
+  it('says a moment as "12 Nov", never as "Nov 12", whatever the browser language', () => {
+    expect(dayMonthOf(new Date('2026-11-12T12:00:00Z'), 'UTC')).toBe('12 Nov');
+    expect(dayMonthOf(Date.UTC(2026, 0, 2, 12), 'UTC')).toBe('2 Jan');
+  });
+  it('says a day with its year', () => {
+    expect(dayMonthYearWords('2026-11-12')).toBe('12 Nov 2026');
+    expect(dayMonthYearWords('2026-13-40')).toBe('');
+  });
+  it('says the short weekday of a moment', () => {
+    expect(weekdayOf(new Date('2026-11-15T12:00:00Z'))).toBe('Sun');
   });
 });

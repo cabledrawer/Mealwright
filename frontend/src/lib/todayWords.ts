@@ -9,7 +9,7 @@ import { cookDays } from './planCook';
 import { eatenItems, itemName } from './planMeals';
 
 /** The day a meal was planned for, from the card's point of view: "Yesterday", "Fri 23". */
-export function whenWords(day: string, today: string): string {
+export function plannedDayWords(day: string, today: string): string {
   if (day === addDays(today, -1)) return 'Yesterday';
   if (day === today) return 'Today';
   return `${dayShort(day)} ${dayOfMonth(day)}`;

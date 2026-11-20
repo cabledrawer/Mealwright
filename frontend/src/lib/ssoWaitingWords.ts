@@ -3,7 +3,7 @@
 // 13 Nov). The mockup's words; the ones it doesn't show are proposed, for cabledrawer
 // (docs/dev/words.md, section 81).
 
-import { whenWords } from '#lib/yourDataWords.js';
+import { momentWords } from '#lib/yourDataWords.js';
 import type { Person, WaitingSignIn } from '#lib/client/people.js';
 
 /** "1 sign-in waiting", "3 sign-ins waiting". */
@@ -13,7 +13,7 @@ export const waitingTitle = (count: number): string =>
 /** "today at 20:10", "yesterday at 09:00", "Mon at 20:10", "12 Nov at 20:10": in the
  *  household's time zone, like every time in the app. */
 export function atWords(iso: string, now: Date, zone: string | null): string {
-  const when = whenWords(iso, now, zone);
+  const when = momentWords(iso, now, zone);
   const clock = when.slice(when.lastIndexOf(' ') + 1);
   const day = when.slice(0, when.lastIndexOf(' '));
   const said = day === 'Today' || day === 'Yesterday' ? day.toLowerCase() : day;

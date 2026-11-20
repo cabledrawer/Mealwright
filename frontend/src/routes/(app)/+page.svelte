@@ -38,7 +38,7 @@
   import { cookedUseBy, eatOnUntil, type TubLife } from '#lib/tubUseBy.js';
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { TodayModel } from '#lib/today.svelte.js';
-  import { dayWords, partsCooked, weekRows, whenWords } from '#lib/todayWords.js';
+  import { dayWords, partsCooked, plannedDayWords, weekRows } from '#lib/todayWords.js';
   import type { PlanItem, PlanMeal } from '#lib/client/plan.js';
   import type { WaitingMeal } from '#lib/client/today.js';
   import { plural } from '#lib/words.js';
@@ -119,7 +119,7 @@
             ...useBy
           }
         : null;
-    const when = `${whenWords(w.date, model.data.today)} · ${model.slotName(w.slot_id).toLowerCase()}`;
+    const when = `${plannedDayWords(w.date, model.data.today)} · ${model.slotName(w.slot_id).toLowerCase()}`;
     void review.open(cookTarget(model.data.plan, meal, when, only));
   }
 

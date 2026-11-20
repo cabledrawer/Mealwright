@@ -2,6 +2,7 @@
   // "You already have this recipe" (mockup ImportAlready-Phone, spec "The same link twice",
   // cabledrawer 21 Oct): Open it · Import again as a copy. A sheet on a phone, a dialog on a
   // computer. The server answered before fetching anything, so nothing was visited.
+  import { dayMonthOf } from '#lib/dates.js';
   import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
   import { holdUndo } from '#lib/undo.svelte.js';
@@ -34,10 +35,7 @@
 
   const when = $derived(
     already.importedAt
-      ? new Date(already.importedAt).toLocaleDateString(undefined, {
-          day: 'numeric',
-          month: 'short'
-        })
+      ? dayMonthOf(new Date(already.importedAt))
       : ''
   );
 </script>

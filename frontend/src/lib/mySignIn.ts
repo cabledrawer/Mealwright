@@ -1,6 +1,7 @@
 // Your own sign-in (Settings › Your sign-in and Change password, PR A2): your password's date,
 // where you're signed in, and signing out one device or everywhere else.
 import { api } from '#lib/api.js';
+import { dayMonthOf } from './dates.js';
 import { plural } from './words.js';
 
 /** One device where you're signed in. */
@@ -57,7 +58,7 @@ export function lastUsedText(at: string, now: Date = new Date()): string {
 
 /** "2 Oct" (in this device's time zone). */
 export function dayMonth(at: Date): string {
-  return at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return dayMonthOf(at);
 }
 
 /** The line under a device's name: "Now · remembered for 30 days", "2 hours ago". */

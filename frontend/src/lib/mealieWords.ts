@@ -5,7 +5,7 @@
 
 import type { MealieImport, MealiePreview, MealieResult, MealieUndone } from './client/mealie';
 import { UNDO_SPAN } from '#lib/undoWords.js';
-import { sizeWords, whenWords } from './yourDataWords';
+import { sizeWords, momentWords } from './yourDataWords';
 import { plural as oneOrMany } from './words.js';
 
 export { sizeWords };
@@ -92,7 +92,7 @@ export function fromFileWords(
   now: Date = new Date()
 ): string {
   if (!job.finished_at) return `From ${job.file_name}`;
-  const when = whenWords(job.finished_at, now);
+  const when = momentWords(job.finished_at, now);
   return `From ${job.file_name}, ${when.charAt(0).toLowerCase()}${when.slice(1)}`;
 }
 

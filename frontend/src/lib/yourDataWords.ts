@@ -3,6 +3,7 @@
 // cabledrawer): docs/dev/words.md, section 72.
 
 import type { BackupEvery, Backups } from '#lib/client/yourData.js';
+import { dayMonthOf, weekdayOf } from './dates.js';
 import { UNDO_SPAN } from '#lib/undoWords.js';
 import { NBSP } from './words.js';
 
@@ -22,9 +23,6 @@ export function sizeWords(bytes: number): string {
   if (bytes < 1_000_000_000) return `${(bytes / 1_000_000).toFixed(1)}${NBSP}MB`;
   return `${(bytes / 1_000_000_000).toFixed(1)}${NBSP}GB`;
 }
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /** A moment's calendar day (as a number of days) and clock, in `zone`, or this device's own
  * time when it has none (or one this browser doesn't know). */
@@ -58,14 +56,14 @@ function dayAndClock(at: Date, zone?: string | null): { day: number; clock: stri
  * the last 6 days ("Mon 03:00"), then "12 Nov 03:00". In `zone` (the household's time zone, for
  * "Link used"; 16b review R-L4), or this device's own time without one (Your data).
  */
-export function whenWords(iso: string, now: Date = new Date(), zone?: string | null): string {
+export function momentWords(iso: string, now: Date = new Date(), zone?: string | null): string {
   const at = dayAndClock(new Date(iso), zone);
   const daysAgo = dayAndClock(now, zone).day - at.day;
   const date = new Date(at.day * 86_400_000);
   if (daysAgo === 0) return `Today ${at.clock}`;
   if (daysAgo === 1) return `Yesterday ${at.clock}`;
-  if (daysAgo > 1 && daysAgo < 7) return `${DAYS[date.getUTCDay()]} ${at.clock}`;
-  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${at.clock}`;
+  if (daysAgo > 1 && daysAgo < 7) return `${weekdayOf(date)} ${at.clock}`;
+  return `${dayMonthOf(date, 'UTC')} ${at.clock}`;
 }
 
 /** The "Last backup" row's line: "Today 03:00 · 2.1 MB · all fine". */
@@ -73,7 +71,7 @@ export function lastBackupWords(backups: Backups, now: Date = new Date()): strin
   if (!backups.last) return backups.problem ? 'None yet' : 'None yet · the first is made soon';
   const size = sizeWords(backups.last.size);
   const parts = [
-    whenWords(backups.last.at, now),
+    momentWords(backups.last.at, now),
     backups.last.photos ? `${size} with photos` : size
   ];
   if (!backups.problem) parts.push('all fine');
@@ -83,7 +81,7 @@ export function lastBackupWords(backups: Backups, now: Date = new Date()): strin
 /** The last try failed: what to show under the row. */
 export function problemWords(backups: Backups, now: Date = new Date()): string | null {
   if (!backups.problem) return null;
-  const when = backups.problem_at ? ` (${whenWords(backups.problem_at, now)})` : '';
+  const when = backups.problem_at ? ` (${momentWords(backups.problem_at, now)})` : '';
   return `The last backup failed${when}: ${backups.problem}`;
 }
 

@@ -8,7 +8,7 @@
   import { addDays } from '#lib/dates.js';
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
   import type { TodayModel } from '#lib/today.svelte.js';
-  import { dayInSentence, spotAt, spotWords, whenWords } from '#lib/todayWords.js';
+  import { dayInSentence, spotAt, spotWords, plannedDayWords } from '#lib/todayWords.js';
   import { untrack } from 'svelte';
 
   let {
@@ -45,7 +45,7 @@
 
   const subtitle = $derived(
     waiting
-      ? `was ${whenWords(waiting.date, today).replace('Yesterday', 'yesterday')} ${model.slotName(waiting.slot_id).toLowerCase()}`
+      ? `was ${plannedDayWords(waiting.date, today).replace('Yesterday', 'yesterday')} ${model.slotName(waiting.slot_id).toLowerCase()}`
       : ''
   );
 

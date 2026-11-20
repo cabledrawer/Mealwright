@@ -17,7 +17,7 @@ import {
   takeAction,
   wasConfirming
 } from '#lib/client/sso.js';
-import { whenWords } from '#lib/yourDataWords.js';
+import { momentWords } from '#lib/yourDataWords.js';
 import YourData from './+page.svelte';
 import DeleteEverything from './delete/+page.svelte';
 import Restore from './restore/+page.svelte';
@@ -49,7 +49,7 @@ const BACKUPS: Backups = {
   folder: '/data/backups'
 };
 
-const WHEN = whenWords(BACKUPS.last!.at);
+const WHEN = momentWords(BACKUPS.last!.at);
 
 const HOUSEHOLD = { history_months: 12, undo_days: 7 };
 

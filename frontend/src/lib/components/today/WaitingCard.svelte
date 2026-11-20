@@ -7,7 +7,7 @@
   import { network } from '#lib/network.svelte.js';
   import type { TodayModel } from '#lib/today.svelte.js';
   import type { WaitingMeal } from '#lib/client/today.js';
-  import { moreWords, whenWords } from '#lib/todayWords.js';
+  import { moreWords, plannedDayWords } from '#lib/todayWords.js';
 
   let {
     model,
@@ -25,7 +25,7 @@
   const name = $derived(model.nameOf(waiting));
   const when = $derived(
     model.data
-      ? `${whenWords(waiting.date, model.data.today)} · ${model.slotName(waiting.slot_id).toLowerCase()}`
+      ? `${plannedDayWords(waiting.date, model.data.today)} · ${model.slotName(waiting.slot_id).toLowerCase()}`
       : ''
   );
 </script>

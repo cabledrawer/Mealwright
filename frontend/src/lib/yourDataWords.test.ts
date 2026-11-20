@@ -7,7 +7,7 @@ import {
   lastBackupWords,
   problemWords,
   sizeWords,
-  whenWords,
+  momentWords,
   wordsMatch
 } from './yourDataWords';
 
@@ -65,25 +65,25 @@ describe('Your data words', () => {
   });
 
   it('says when as Today, Yesterday, a weekday, then a date', () => {
-    expect(whenWords(at(13, 3), NOW)).toBe('Today 03:00');
-    expect(whenWords(at(12, 15), NOW)).toBe('Yesterday 15:00');
-    expect(whenWords(at(9, 3), NOW)).toBe('Mon 03:00');
-    expect(whenWords(at(2, 3), NOW)).toBe('2 Nov 03:00');
+    expect(momentWords(at(13, 3), NOW)).toBe('Today 03:00');
+    expect(momentWords(at(12, 15), NOW)).toBe('Yesterday 15:00');
+    expect(momentWords(at(9, 3), NOW)).toBe('Mon 03:00');
+    expect(momentWords(at(2, 3), NOW)).toBe('2 Nov 03:00');
   });
 
   it('says when in a time zone it is given: the day turns there, not here', () => {
     // 16b review R-L4. 11:30 UTC on Fri 13 Nov 2026 is already Sat 14 Nov 01:30 at UTC+14,
     // and 01:30 the same Friday at UTC-10 (neither has summer time).
     const now = new Date('2026-11-13T11:30:00Z');
-    expect(whenWords('2026-11-13T10:40:00Z', now, 'Pacific/Kiritimati')).toBe('Today 00:40');
-    expect(whenWords('2026-11-13T09:40:00Z', now, 'Pacific/Kiritimati')).toBe('Yesterday 23:40');
-    expect(whenWords('2026-11-13T09:40:00Z', now, 'Pacific/Honolulu')).toBe('Yesterday 23:40');
-    expect(whenWords('2026-11-13T10:40:00Z', now, 'Pacific/Honolulu')).toBe('Today 00:40');
-    expect(whenWords('2026-11-09T20:00:00Z', now, 'Pacific/Kiritimati')).toBe('Tue 10:00');
-    expect(whenWords('2026-11-02T20:00:00Z', now, 'Pacific/Kiritimati')).toBe('3 Nov 10:00');
+    expect(momentWords('2026-11-13T10:40:00Z', now, 'Pacific/Kiritimati')).toBe('Today 00:40');
+    expect(momentWords('2026-11-13T09:40:00Z', now, 'Pacific/Kiritimati')).toBe('Yesterday 23:40');
+    expect(momentWords('2026-11-13T09:40:00Z', now, 'Pacific/Honolulu')).toBe('Yesterday 23:40');
+    expect(momentWords('2026-11-13T10:40:00Z', now, 'Pacific/Honolulu')).toBe('Today 00:40');
+    expect(momentWords('2026-11-09T20:00:00Z', now, 'Pacific/Kiritimati')).toBe('Tue 10:00');
+    expect(momentWords('2026-11-02T20:00:00Z', now, 'Pacific/Kiritimati')).toBe('3 Nov 10:00');
     // A zone this browser doesn't know: this device's own time, as without one.
-    expect(whenWords('2026-11-13T10:40:00Z', now, 'Not/AZone')).toBe(
-      whenWords('2026-11-13T10:40:00Z', now)
+    expect(momentWords('2026-11-13T10:40:00Z', now, 'Not/AZone')).toBe(
+      momentWords('2026-11-13T10:40:00Z', now)
     );
   });
 

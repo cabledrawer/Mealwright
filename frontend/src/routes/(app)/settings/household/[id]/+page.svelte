@@ -37,7 +37,7 @@
     linkedParts
   } from '#lib/ssoWaitingWords.js';
   import { toasts } from '#lib/toast.svelte.js';
-  import { whenWords } from '#lib/yourDataWords.js';
+  import { momentWords } from '#lib/yourDataWords.js';
   import { plural } from '#lib/words.js';
 
   const id = $derived(Number(page.params.id));
@@ -145,7 +145,7 @@
    */
   const linkUsed = $derived.by(() => {
     if (!login?.link_used_at) return null;
-    const when = whenWords(login.link_used_at, new Date(), household.zone).replace(
+    const when = momentWords(login.link_used_at, new Date(), household.zone).replace(
       /^(Today|Yesterday) /,
       (w) => w.toLowerCase()
     );

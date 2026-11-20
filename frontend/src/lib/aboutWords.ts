@@ -2,21 +2,15 @@
 // sentence here was accepted by cabledrawer on 12 Nov (docs/dev/words.md, "About").
 
 import type { CheckOutcome, LastCheck } from './client/updates';
+import { dayMonthYearWords } from './dates.js';
 import { tagForm } from './version';
 
 /** After this many whole months About says how old the version is (cabledrawer 12 Nov). */
 export const OLD_AFTER_MONTHS = 3;
 
-const dayMonthYear = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC'
-});
-
 /** "Released 12 Nov 2026". */
 export function releasedWords(iso: string): string {
-  return `Released ${dayMonthYear.format(new Date(`${iso}T12:00:00Z`))}`;
+  return `Released ${dayMonthYearWords(iso)}`;
 }
 
 /** Whole months from `released` to `today` (both "2026-11-12"): 12 Nov to 11 Feb is 2. */

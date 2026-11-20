@@ -14,7 +14,7 @@
   import { cookedTitle } from '#lib/cookTargets.js';
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
-  import { dayShort, dayWords } from '#lib/planDates.js';
+  import { pickedDateWords } from '#lib/dates.js';
   import { ScreenAwake } from '#lib/screenAwake.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
 
@@ -23,15 +23,6 @@
   const awake = new ScreenAwake();
   const review = new CookReview();
   let confirmed = false;
-
-  /** "Sun 15 Nov". */
-  function dayOf(iso: string): string {
-    const month = new Date(`${iso}T12:00:00Z`).toLocaleString('en-GB', {
-      month: 'short',
-      timeZone: 'UTC'
-    });
-    return `${dayShort(iso)} ${dayWords(iso).split(' ')[1]} ${month}`;
-  }
 
   onMount(() => {
     model.start();
@@ -70,7 +61,7 @@
       return;
     }
     void review.open({
-      title: `Cooked it · ${dayOf(schedule.cook_day)}`,
+      title: `Cooked it · ${pickedDateWords(schedule.cook_day)}`,
       subtitle: cookedTitle(todo.map((r) => r.recipe_name)),
       already: left.map((r) => ({ name: r.recipe_name, why: r.left_out as 'cooked' | 'removed' })),
       mealId: null,

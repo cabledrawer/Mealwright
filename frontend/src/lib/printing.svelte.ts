@@ -2,6 +2,7 @@
 // few lines that only exist on paper (a heading with the date, a footer). They are drawn only
 // while printing, so a screen never holds a second copy of the list's words.
 import { flushSync } from 'svelte';
+import { dayMonthOf } from './dates.js';
 
 class Printing {
   on = $state(false);
@@ -37,5 +38,5 @@ export function watchPrinting(): () => void {
 
 /** "13 Nov": the day of printing, in the words of the print layouts. */
 export function printedOn(now: number = Date.now()): string {
-  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(now);
+  return dayMonthOf(now);
 }

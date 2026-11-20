@@ -39,6 +39,37 @@ const dayMonth = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'UTC'
 });
 
+const dayMonthYear = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC'
+});
+
+/** A date with its year: "12 Nov 2026" (hover text, release dates). */
+export function dayMonthYearWords(iso: string): string {
+  if (!isRealDay(iso)) return '';
+  return dayMonthYear.format(noonUtc(iso));
+}
+
+/**
+ * A moment (not a household day) as day and month, "12 Nov": in this device's time zone, or in
+ * `timeZone` when one is given. The one place a Date becomes "12 Nov" (FE13, FE24), so a
+ * browser set to another language never shows "Nov 12".
+ */
+export function dayMonthOf(at: Date | number, timeZone?: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    ...(timeZone ? { timeZone } : {})
+  }).format(at);
+}
+
+/** "Mon": the short weekday of a moment, in UTC (callers pass a day already moved to the zone). */
+export function weekdayOf(at: Date | number): string {
+  return weekday.format(at);
+}
+
 /** "Today", "Tomorrow", "Mon" (this week), "12 Nov"; "Date passed" when it's gone. */
 export function dateWords(iso: string | null, daysLeft: number | null): string {
   if (!iso || daysLeft === null || !isRealDay(iso)) return '';

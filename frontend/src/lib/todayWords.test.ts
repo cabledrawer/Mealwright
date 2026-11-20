@@ -9,7 +9,7 @@ import {
   spotWords,
   tubsWords,
   weekRows,
-  whenWords
+  plannedDayWords
 } from './todayWords';
 
 const TODAY = '2026-10-25';
@@ -54,9 +54,9 @@ const meal = (
 
 describe('the words on Today', () => {
   it('says when a waiting meal was', () => {
-    expect(whenWords('2026-10-24', TODAY)).toBe('Yesterday');
-    expect(whenWords('2026-10-23', TODAY)).toBe('Fri 23');
-    expect(whenWords(TODAY, TODAY)).toBe('Today');
+    expect(plannedDayWords('2026-10-24', TODAY)).toBe('Yesterday');
+    expect(plannedDayWords('2026-10-23', TODAY)).toBe('Fri 23');
+    expect(plannedDayWords(TODAY, TODAY)).toBe('Today');
   });
 
   it('names days for the next cook and the Move button', () => {
