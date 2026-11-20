@@ -27,6 +27,12 @@ SAFE = {"GET", "HEAD", "OPTIONS"}
 
 @dataclass
 class Kitchen:
+    """One request's signed-in household: the database session, who is signed in, their
+    household and the request's Idempotency-Key. The name is the code's own and older than the
+    screens' words (D3, CL13): on screen the group of people is the household, and "your
+    kitchen" is only the equipment (`household.kitchen_*`). Renaming the class would touch
+    nearly every module for no change in behaviour, so it stays (proposed, for cabledrawer)."""
+
     db: DbSession
     login: Login
     household: Household

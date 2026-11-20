@@ -420,9 +420,9 @@ def test_a_new_change_kind_follows_the_rule_and_fits_the_column() -> None:
 def test_shops_are_recorded_through_kitchen_changes() -> None:
     from pathlib import Path
 
-    from mealwright.api.v1 import kitchen
+    from mealwright.api.v1 import household
 
-    source = Path(kitchen.__file__).read_text()
+    source = Path(household.__file__).read_text()
     assert '"shop_added"' not in source and '"shop_renamed"' not in source
     assert "kitchen_changes.shop_added(" in source and "kitchen_changes.shop_renamed(" in source
 

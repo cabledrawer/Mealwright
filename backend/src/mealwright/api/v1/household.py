@@ -1,4 +1,7 @@
-"""Places, shops, units and the household's settings (docs/dev/api-endpoints.md 4.1, 4.5, 6.3)."""
+"""Places, shops, units and the household's settings (docs/dev/api-endpoints.md 4.1, 4.5, 6.3).
+
+Named after the household (D3, CL13; was `kitchen.py`): on screen "your kitchen" is only the
+equipment (hob rings, pressure cookers, oven), which lives here too as one household setting."""
 
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
@@ -24,7 +27,7 @@ from mealwright.shopping import lock_db
 NAME_THE_SHOP = "Type the shop’s name."
 NAME_THE_PLACE = "Type the place’s name."
 
-router = APIRouter(tags=["kitchen"], dependencies=[SameOrigin])
+router = APIRouter(tags=["household"], dependencies=[SameOrigin])
 
 
 # --- Places and shops -----------------------------------------------------------------------

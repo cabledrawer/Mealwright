@@ -773,16 +773,16 @@ def test_undoing_the_adding_of_a_place_cannot_leave_no_fridge_or_freezer(
 def _first_replay_check_misses(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make the route's own early "was this key already used?" look miss once, as it does when
     two requests with one key run at the same moment: the second then finds out at commit."""
-    from mealwright.api.v1 import kitchen as kitchen_routes
+    from mealwright.api.v1 import household as household_routes
 
-    real = kitchen_routes.replayed
+    real = household_routes.replayed
     calls: list[int] = []
 
     def once(kitchen: Any) -> Any:
         calls.append(1)
         return None if len(calls) == 1 else real(kitchen)
 
-    monkeypatch.setattr(kitchen_routes, "replayed", once)
+    monkeypatch.setattr(household_routes, "replayed", once)
 
 
 def test_a_place_added_at_the_same_moment_with_one_key_answers_with_the_first_one(

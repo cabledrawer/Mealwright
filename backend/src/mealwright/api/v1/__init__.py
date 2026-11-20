@@ -12,8 +12,8 @@ from mealwright.api.v1 import (
     events,
     foods,
     health,
+    household,
     imports,
-    kitchen,
     mealie,
     my_sign_in,
     pantry,
@@ -45,7 +45,7 @@ router.include_router(account.router)
 router.include_router(sso.router)
 router.include_router(my_sign_in.router)
 router.include_router(tokens.router)
-router.include_router(kitchen.router)
+router.include_router(household.router)
 router.include_router(foods.router)
 router.include_router(starter_packs.router)
 router.include_router(pantry.router)

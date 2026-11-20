@@ -1108,7 +1108,7 @@ def test_every_undo_name_is_handled() -> None:
             2,
         ),
         "shop_removed / place_removed (removals)": ({"removed": {"id": 1, "name": "Aaa"}}, 1),
-        "shop_renamed / place_renamed (api/v1/kitchen, kitchen_changes)": (
+        "shop_renamed / place_renamed (kitchen_changes)": (
             {"shop": {"id": 1, "old": "Aaa", "new": "Bbb"}},
             2,
         ),
@@ -1140,7 +1140,7 @@ def test_every_undo_name_is_handled() -> None:
 # data in review r2 (every kind listed above comes from one of them). A new module that
 # records changes must be checked the same way and added here.
 _RECORDS_CHANGES = {
-    "api/v1/changes.py", "api/v1/drafts.py", "api/v1/foods.py", "api/v1/kitchen.py",
+    "api/v1/changes.py", "api/v1/drafts.py", "api/v1/foods.py", "api/v1/household.py",
     "api/v1/pantry.py", "api/v1/starter_packs.py", "api/v1/stocktake.py", "cooking.py",
     "drafts.py", "foods.py", "history.py", "kitchen_changes.py", "people.py", "plan.py",
     "mealie_answers.py", "recipe_import.py", "recipe_tags.py", "recipes.py", "removals.py",
