@@ -240,7 +240,7 @@ def test_the_preview_changes_nothing_and_matches_what_is_saved(
     assert shape(kitchen) == before and view(kitchen)["batch_cooks"] == []
     assert got["per_tub"] == {"kcal": 410, "protein_g": 12, "fibre_g": 6}
     assert got["recipe_name"] == "Veg biryani" and got["recipe_serves"] == 4
-    assert got["cook_date"] == D1.isoformat() and got["cook_meal_id"] == cook["meal_id"]
+    assert got["cook_day"] == D1.isoformat() and got["cook_meal_id"] == cook["meal_id"]
     make(kitchen, cook["item_id"], prep_note="Soak the rice")
     saved = view(kitchen)
     assert saved["batch_cooks"][0]["prep_note"] == "Soak the rice"

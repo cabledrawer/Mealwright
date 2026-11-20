@@ -55,7 +55,7 @@
   });
 
   const info = $derived(updates.info);
-  const age = $derived(info ? ageWords(info.released, todayHere()) : null);
+  const age = $derived(info ? ageWords(info.released_on, todayHere()) : null);
   const last = $derived(info?.last ? lastWords(info.last) : null);
   const daily = $derived(dailyWords(info?.daily === true));
   const source = $derived(info ? sourceAtVersion(info.releases_page, info.version) : null);
@@ -76,7 +76,7 @@
     <Logo size={56} />
     <div class="words">
       <span class="name">{versionHeading(info?.version ?? VERSION)}</span>
-      {#if info}<span class="sub">{releasedWords(info.released)}</span>{/if}
+      {#if info}<span class="sub">{releasedWords(info.released_on)}</span>{/if}
     </div>
   </div>
 

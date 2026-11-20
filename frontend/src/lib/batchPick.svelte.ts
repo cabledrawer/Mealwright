@@ -29,7 +29,7 @@ export class BatchPickModel {
 
   /** The day shown: the person's choice, else the server's default. */
   get cookDay(): string | null {
-    return this.day ?? this.result?.day ?? null;
+    return this.day ?? this.result?.date ?? null;
   }
 
   /** The days offered as chips: the next free ones, with the chosen day among them. */

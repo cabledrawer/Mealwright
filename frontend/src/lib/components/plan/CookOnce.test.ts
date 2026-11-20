@@ -44,7 +44,7 @@ function preview(tubs: PreviewTub[]): BatchPreview {
     recipe_id: 2,
     recipe_name: 'Khichdi',
     recipe_serves: 4,
-    cook_date: COOK_DAY,
+    cook_day: COOK_DAY,
     cook_meal_id: 1,
     cook_slot_id: 2,
     colour: 'sage',

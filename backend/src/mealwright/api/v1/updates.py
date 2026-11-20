@@ -37,7 +37,7 @@ class LastCheckOut(BaseModel):
 
 class UpdatesOut(BaseModel):
     version: str
-    released: date
+    released_on: date
     releases_page: str
     # An admin: sees the two below. can_check: may use Check now (an API token never may).
     can_check: bool
@@ -56,7 +56,7 @@ def _out(kitchen: Here, checks: UpdateChecks) -> UpdatesOut:
     daily = stored_switches(kitchen.db, kitchen.household_id)[Connection.UPDATE_CHECK]
     return UpdatesOut(
         version=__version__,
-        released=RELEASED,
+        released_on=RELEASED,
         releases_page=RELEASES_PAGE,
         can_check=allowed(kitchen.login.role, Action.PRIVACY, kitchen.by_token),
         daily=daily if admin else None,

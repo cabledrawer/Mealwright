@@ -225,7 +225,7 @@ describe('the list beside the page (computer)', () => {
     200,
     {
       version: '0.9.0',
-      released: '2026-11-12',
+      released_on: '2026-11-12',
       releases_page: 'https://github.com/placeholder_until_1_0/mealwright/releases',
       can_check: canCheck,
       daily: canCheck ? true : null,

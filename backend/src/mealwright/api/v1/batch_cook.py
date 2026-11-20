@@ -61,7 +61,7 @@ class KitchenBrief(BaseModel):
 
 
 class SuggestionsOut(BaseModel):
-    day: Day
+    date: Day  # the cook day (D3: one name with POST /batch-cook/sessions)
     count: int
     picks: list[PickOut]
     # Rough times: all the picks cooked together, and one after another.
@@ -79,7 +79,8 @@ class SuggestionsOut(BaseModel):
 def get_suggestions(
     kitchen: Here,
     day: Annotated[
-        date | None, Query(description="The cook day. Left out: the next day with no cooking.")
+        date | None,
+        Query(alias="date", description="The cook day. Left out: the next day with no cooking."),
     ] = None,
     count: Annotated[int, Query(ge=2, le=4, description="How many recipes (2 to 4).")] = 3,
     keep: Annotated[
@@ -105,7 +106,7 @@ def get_suggestions(
     found = batch_suggest.suggest(kitchen, day, count, keep, skip)
     household = kitchen.household
     return SuggestionsOut(
-        day=found.day,
+        date=found.day,
         count=found.count,
         picks=[
             PickOut(

@@ -15,7 +15,8 @@ export interface BatchPick {
 }
 
 export interface BatchSuggestions {
-  day: string;
+  /** The cook day. */
+  date: string;
   count: number;
   picks: BatchPick[];
   together_minutes: number;
@@ -36,7 +37,7 @@ export interface SuggestionAsk {
 
 export function getSuggestions(ask: SuggestionAsk): Promise<BatchSuggestions> {
   const query = new URLSearchParams();
-  if (ask.day) query.set('day', ask.day);
+  if (ask.day) query.set('date', ask.day);
   if (ask.count) query.set('count', String(ask.count));
   for (const id of ask.keep ?? []) query.append('keep', String(id));
   for (const id of ask.skip ?? []) query.append('skip', String(id));

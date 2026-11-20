@@ -132,3 +132,66 @@ def test_the_old_your_data_addresses_answer_404(kitchen: TestClient) -> None:
         assert kitchen.get(f"{API}{old}").status_code == 404, old
     assert ok(kitchen.get(f"{API}/your-data/backups"))["keep"] >= 1
     assert ok(kitchen.get(f"{API}/shopping/sync", params={"since": 0}))["cursor"] == 0
+
+
+# --- BE19: day names follow one rule ---------------------------------------------------------
+
+# The rule (proposed, for cabledrawer): a calendar day on its own is `date`; the day an event
+# happened or happens is `<event>_on`; a day that names whose it is, or pairs with a `_time`
+# field, is `<what>_day` (`{day, time}` is the bare pair); a range is `from`/`to` or
+# `start`/`end`; `today` is the household's today; `use_by...` keep the label's own words.
+# A moment is `<event>_at` (or `at`); `undo_until` and `server_time` say what they are.
+DAY_NAMES_KEPT = {"from", "to", "start", "end", "today", "day"}
+MOMENT_NAMES_KEPT = {"at", "undo_until", "server_time"}
+
+
+def _formatted(schema: dict[str, Any]) -> str | None:
+    found = schema.get("format")
+    for alt in schema.get("anyOf", []):
+        found = found or alt.get("format")
+    return found if isinstance(found, str) else None
+
+
+def _dated_fields() -> list[tuple[str, str, str]]:
+    spec = openapi()
+    fields = [
+        (name, _formatted(prop) or "", schema_name)
+        for schema_name, schema in spec["components"]["schemas"].items()
+        for name, prop in schema.get("properties", {}).items()
+    ]
+    fields += [
+        (param["name"], _formatted(param.get("schema", {})) or "", f"{method.upper()} {path}")
+        for path, ops in spec["paths"].items()
+        for method, op in ops.items()
+        for param in op.get("parameters", [])
+    ]
+    return fields
+
+
+def test_every_day_and_moment_field_follows_the_rule() -> None:
+    def day_ok(name: str, where: str) -> bool:
+        if name == "day":  # only as the day half of a {day, time} pair
+            props = openapi()["components"]["schemas"].get(where, {}).get("properties", {})
+            return "time" in props
+        return (
+            name == "date"
+            or name in DAY_NAMES_KEPT
+            or name.endswith(("_on", "_day"))
+            or name.startswith("use_by")
+        )
+
+    wrong = [
+        f"{where}.{name}"
+        for name, kind, where in _dated_fields()
+        if (kind == "date" and not day_ok(name, where))
+        or (kind == "date-time" and not (name.endswith("_at") or name in MOMENT_NAMES_KEPT))
+    ]
+    assert wrong == []
+
+
+def test_the_renamed_day_fields(kitchen: TestClient) -> None:
+    schemas = openapi()["components"]["schemas"]
+    assert "released_on" in schemas["UpdatesOut"]["properties"]
+    assert "cook_day" in schemas["BatchPreviewOut"]["properties"]
+    assert "date" in schemas["SuggestionsOut"]["properties"]
+    assert ok(kitchen.get(f"{API}/updates"))["released_on"]

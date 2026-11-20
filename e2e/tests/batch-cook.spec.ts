@@ -455,7 +455,7 @@ test('fewer recipes than asked: the set says so, and with one recipe there is no
     const day = '2026-11-15';
     await route.fulfill({
       json: {
-        day,
+        date: day,
         count: 3,
         picks: Array.from({ length: picks }, (_, i) => ({ recipe_id: i + 1, name: `Fake ${i + 1}`, minutes: 20, why: 'Fits your kitchen.', use_soon: null })),
         together_minutes: 30,

@@ -276,7 +276,7 @@ def test_the_preview_sees_the_meals_the_earlier_recipes_filled_and_saves_nothing
     assert one["recipe_name"] == "Chicken" and len(one["tubs"]) == 2
     two = body(kitchen, three[:2], tubs=2)
     second = ok(kitchen.post(f"{API}/batch-cook/sessions/preview", json=two))
-    assert second["recipe_name"] == "Sambar" and second["cook_date"] == D1.isoformat()
+    assert second["recipe_name"] == "Sambar" and second["cook_day"] == D1.isoformat()
     # The dinners the first recipe's tubs fill are taken, so the second's go to the next ones.
     assert {t["date"] for t in one["tubs"]} & {t["date"] for t in second["tubs"]} == set()
     assert (counts(kitchen), shape(kitchen)) == before

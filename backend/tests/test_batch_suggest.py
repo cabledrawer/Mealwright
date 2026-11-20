@@ -305,13 +305,13 @@ def test_a_removed_recipe_is_not_offered(kitchen: TestClient) -> None:
 def test_the_default_day_is_the_next_day_with_no_cooking_planned(kitchen: TestClient) -> None:
     a = recipe(kitchen, "A", [food(kitchen, "Rice")])
     now = today(kitchen)
-    assert suggest(kitchen)["day"] == now.isoformat()
+    assert suggest(kitchen)["date"] == now.isoformat()
     slots = slot_ids(kitchen)
     plan_recipe(kitchen, a["id"], now, slots["Dinner"])
     found = suggest(kitchen)
-    assert found["day"] == (now + timedelta(days=1)).isoformat()
-    assert found["free_days"][0] == found["day"] and len(found["free_days"]) == 3
-    assert suggest(kitchen, day=D1.isoformat())["day"] == D1.isoformat()
+    assert found["date"] == (now + timedelta(days=1)).isoformat()
+    assert found["free_days"][0] == found["date"] and len(found["free_days"]) == 3
+    assert suggest(kitchen, date=D1.isoformat())["date"] == D1.isoformat()
     # A day with only an ingredient planned has no cooking.
     assert (now + timedelta(days=1)).isoformat() in found["free_days"]
 
@@ -329,7 +329,7 @@ def test_the_answer_has_the_kitchen_and_whether_it_was_asked(kitchen: TestClient
 
 
 def test_bad_questions_are_refused(kitchen: TestClient) -> None:
-    for params in ({"count": 1}, {"count": 5}, {"day": "not a day"}, {"day": "1999-01-01"}):
+    for params in ({"count": 1}, {"count": 5}, {"date": "not a day"}, {"date": "1999-01-01"}):
         assert kitchen.get(f"{API}/batch-cook/suggestions", params=params).status_code == 422
 
 

@@ -327,7 +327,7 @@ export interface BatchPreview {
   recipe_id: number;
   recipe_name: string;
   recipe_serves: number | null;
-  cook_date: string;
+  cook_day: string;
   cook_meal_id: number;
   /** The meal of the cook day (a Batch cook session may have it picked for the person). */
   cook_slot_id?: number | null;

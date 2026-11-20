@@ -24,7 +24,7 @@ const daysAgo = (days: number) => {
 function info(over: Partial<Updates> = {}): Updates {
   return {
     version: '0.9.0',
-    released: '2026-11-12',
+    released_on: '2026-11-12',
     releases_page: PAGE,
     can_check: true,
     daily: false,
@@ -44,7 +44,7 @@ let requests: FakeRequest[] = [];
 
 function open(routes: Parameters<typeof fakeApi>[0] = {}) {
   requests = fakeApi({
-    'GET /updates': [200, info({ released: daysAgo(3) })],
+    'GET /updates': [200, info({ released_on: daysAgo(3) })],
     ...routes
   });
   component = mount(About, { target: document.body });
@@ -73,7 +73,7 @@ afterEach(() => {
 
 describe('Settings › About (X1)', () => {
   it('shows the version and its release day, with no note while it is new', async () => {
-    open({ 'GET /updates': [200, info({ released: '2026-11-12' })] });
+    open({ 'GET /updates': [200, info({ released_on: '2026-11-12' })] });
     await expect.element(page.getByRole('heading', { name: 'About', level: 1 })).toBeVisible();
     await expect.element(page.getByText('Mealwright 0.9.0')).toBeVisible();
     await expect.element(page.getByText('Released 12 Nov 2026')).toBeVisible();
@@ -82,7 +82,7 @@ describe('Settings › About (X1)', () => {
   });
 
   it('says how old the version is after three months, with the releases link', async () => {
-    open({ 'GET /updates': [200, info({ released: daysAgo(130) })] });
+    open({ 'GET /updates': [200, info({ released_on: daysAgo(130) })] });
     await expect.element(page.getByText(/^This version is 4 months old\./)).toBeVisible();
     const link = page.getByRole('link', { name: 'github.com/…/mealwright/releases' });
     await expect.element(link).toHaveAttribute('href', PAGE);
@@ -90,7 +90,7 @@ describe('Settings › About (X1)', () => {
   });
 
   it('no age note under three months', async () => {
-    open({ 'GET /updates': [200, info({ released: daysAgo(80) })] });
+    open({ 'GET /updates': [200, info({ released_on: daysAgo(80) })] });
     await expect.element(page.getByText('Mealwright 0.9.0')).toBeVisible();
     expect(page.getByText(/months old/).elements()).toEqual([]);
   });

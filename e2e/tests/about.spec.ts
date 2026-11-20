@@ -48,7 +48,7 @@ test.use({ serviceWorkers: "block" });
 function updates(over: Record<string, unknown> = {}) {
   return {
     version: "0.9.0",
-    released: "2026-10-01",
+    released_on: "2026-10-01",
     releases_page: PAGE,
     can_check: true,
     daily: true,
@@ -181,7 +181,7 @@ test('a newer version found shows "Update available" by About and the version on
 test("an old version says how old it is, with the releases link", async ({
   page,
 }) => {
-  await fake(page, "/updates", updates({ released: "2026-01-10" }));
+  await fake(page, "/updates", updates({ released_on: "2026-01-10" }));
   await page.goto("/settings/about");
   await expect(page.getByText(/^This version is 9 months old\./)).toBeVisible();
   await expect(
@@ -234,7 +234,7 @@ test("Licences and credits (16g): with a real address, the source row links to t
     "/updates",
     updates({
       version: "0.9.5",
-      released: "2026-11-13",
+      released_on: "2026-11-13",
       releases_page: "https://github.com/sam-kitchen/mealwright/releases",
     }),
   );
@@ -266,7 +266,7 @@ test("review pictures of About and Privacy (only with E2E_X1_SHOTS)", async ({
   await fake(
     page,
     "/updates",
-    updates({ released: "2026-01-10", daily: true, last: newer().last }),
+    updates({ released_on: "2026-01-10", daily: true, last: newer().last }),
   );
   for (const width of [428, 768, 1100, 1300]) {
     await page.setViewportSize({ width, height: 1000 });

@@ -12,7 +12,7 @@ const pick = (id: number, name: string) => ({
 });
 
 const answer = (ids: number[], extra: Partial<BatchSuggestions> = {}): BatchSuggestions => ({
-  day: '2026-11-15',
+  date: '2026-11-15',
   count: 3,
   picks: ids.map((id) => pick(id, `Recipe ${id}`)),
   together_minutes: 60,
@@ -74,7 +74,7 @@ describe('Batch cook picks', () => {
     const asked = fakeApi({ 'GET /batch-cook/suggestions': [200, answer([7, 8])] });
     const model = new BatchPickModel();
     await model.startFrom('2026-11-16', [7, 8]);
-    expect(asked[0]!.url).toBe('/batch-cook/suggestions?day=2026-11-16&count=2&keep=7&keep=8');
+    expect(asked[0]!.url).toBe('/batch-cook/suggestions?date=2026-11-16&count=2&keep=7&keep=8');
     expect(model.count).toBe(2);
   });
 

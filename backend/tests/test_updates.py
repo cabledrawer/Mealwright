@@ -529,7 +529,7 @@ def test_about_says_the_version_and_its_day_without_connecting(
     body = kitchen.get(f"{API}/updates").json()
     assert body == {
         "version": __version__,
-        "released": RELEASED.isoformat(),
+        "released_on": RELEASED.isoformat(),
         "releases_page": RELEASES_PAGE,
         "can_check": True,
         "daily": False,

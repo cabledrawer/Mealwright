@@ -20,7 +20,7 @@ export interface Updates {
   /** The server's version, as Python writes it ("0.9.0"). */
   version: string;
   /** The day it was released ("2026-11-11"), written into the code with the release. */
-  released: string;
+  released_on: string;
   /** Where new versions are listed (the person's own click). */
   releases_page: string;
   /** An admin: may use Check now, and sees `daily` and `last`. */
