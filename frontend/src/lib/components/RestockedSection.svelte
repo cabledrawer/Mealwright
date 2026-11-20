@@ -8,6 +8,7 @@
   import { BAD_DATE, addDays, dayMonthWords } from '#lib/dates.js';
   import type { FoodModel } from '#lib/foodEditor.svelte.js';
   import { network } from '#lib/network.svelte.js';
+  import Button from '#lib/components/Button.svelte';
   import { columnWords, fullDateWords } from '#lib/restockWords.js';
 
   let { food, model }: { food: Food; model: FoodModel } = $props();
@@ -101,8 +102,8 @@
       }}
       onblur={(event) => commit(event.currentTarget)}
     />
-    <button type="button" disabled={network.offline} onclick={() => void restockedToday()}
-      >Restocked</button
+    <Button small quiet disabled={network.offline} onclick={() => void restockedToday()}
+      >Restocked</Button
     >
   </div>
   <p class="hint" aria-live="polite">
@@ -147,18 +148,6 @@
     background: var(--color-field);
     color: var(--color-text);
     font: var(--weight-semibold) 1rem var(--font-ui);
-  }
-
-  button {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-fill);
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   .hint {

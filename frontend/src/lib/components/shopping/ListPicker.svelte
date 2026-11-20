@@ -2,6 +2,7 @@
   // The list picker under the title: This week (main list) · extra lists · + New list
   // (mockup Shop). Each list's "⋯" has Rename, and Remove for extra lists (Undo in the toast).
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
+  import Button from '#lib/components/Button.svelte';
 
   let { model }: { model: ShoppingModel } = $props();
 
@@ -104,7 +105,7 @@
             {#if renaming === row.id}
               <form class="inline" onsubmit={(e) => rename(e, row.id)}>
                 <input aria-label="List name" bind:value={renameText} use:focusOnShow />
-                <button type="submit" class="small">Save</button>
+                <Button small type="submit">Save</Button>
               </form>
             {:else}
               <button
@@ -130,11 +131,9 @@
           </div>
           {#if optionsFor === row.id}
             <div class="options">
-              <button type="button" class="small" onclick={() => startRename(row.id, row.name)}
-                >Rename</button
-              >
+              <Button small quiet onclick={() => startRename(row.id, row.name)}>Rename</Button>
               {#if !row.main}
-                <button type="button" class="small" onclick={() => remove(row.id)}>Remove</button>
+                <Button small quiet onclick={() => remove(row.id)}>Remove</Button>
               {/if}
             </div>
           {/if}
@@ -147,7 +146,7 @@
               bind:value={newName}
               use:focusOnShow
             />
-            <button type="submit" class="small">Make list</button>
+            <Button small type="submit">Make list</Button>
           </form>
         {:else}
           <button type="button" class="add" onclick={() => (making = true)}>+ New list</button>
@@ -252,17 +251,6 @@
     display: flex;
     gap: var(--space-4);
     padding: 0 var(--space-6) var(--space-4);
-  }
-
-  .small {
-    min-height: 40px;
-    padding: 0 var(--space-7);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font: var(--weight-bold) var(--text-base) var(--font-ui);
-    cursor: pointer;
   }
 
   .add {

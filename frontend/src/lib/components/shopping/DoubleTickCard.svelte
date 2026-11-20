@@ -3,6 +3,8 @@
   // everyone. The words come from the server (sync-protocol section 8).
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import type { Question } from '#lib/shopping/types.js';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
 
   let { model, question }: { model: ShoppingModel; question: Question } = $props();
   const uid = $props.id();
@@ -32,14 +34,10 @@
       <span class="text">{question.text}</span>
     </div>
   </div>
-  <div class="buttons">
-    <button type="button" class="yes" onclick={() => void model.answerCard(question.id, 'two')}
-      >{question.yes}</button
-    >
-    <button type="button" class="no" onclick={() => void model.answerCard(question.id, 'one')}
-      >{question.no}</button
-    >
-  </div>
+  <ButtonRow>
+    <Button onclick={() => void model.answerCard(question.id, 'two')}>{question.yes}</Button>
+    <Button quiet onclick={() => void model.answerCard(question.id, 'one')}>{question.no}</Button>
+  </ButtonRow>
 </section>
 
 <style>
@@ -86,29 +84,5 @@
     color: var(--color-text-muted);
     font-size: var(--text-base);
     line-height: 1.45;
-  }
-
-  .buttons {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-4);
-  }
-
-  .buttons button {
-    min-height: var(--touch-target);
-    border: none;
-    border-radius: var(--radius-lg);
-    font: var(--weight-bold) var(--text-lg) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .yes {
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .no {
-    background: var(--color-fill);
-    color: var(--color-text);
   }
 </style>

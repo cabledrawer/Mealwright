@@ -7,6 +7,7 @@
   import { resolve } from '$app/paths';
   import type { Ref } from '#lib/client/types.js';
   import { plural } from '#lib/words.js';
+  import Button from '#lib/components/Button.svelte';
 
   let {
     usedIn,
@@ -52,10 +53,8 @@
           : 'Their lines keep their words and show'} “not linked”.
       </p>
     {/if}
-    <button
-      type="button"
-      aria-describedby={usedIn > 0 ? `${uid}-hint` : undefined}
-      onclick={onremove}>Remove from Ingredients</button
+    <Button small quiet aria-describedby={usedIn > 0 ? `${uid}-hint` : undefined} onclick={onremove}
+      >Remove from Ingredients</Button
     >
   </div>
 {/if}
@@ -77,18 +76,5 @@
     color: var(--color-accent);
     font-weight: var(--weight-bold);
     text-decoration: underline;
-  }
-
-  button {
-    align-self: flex-start;
-    min-height: var(--touch-target);
-    padding: 0 14px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 </style>

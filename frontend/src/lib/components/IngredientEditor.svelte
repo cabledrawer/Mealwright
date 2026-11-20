@@ -26,6 +26,7 @@
   import Switch from './Switch.svelte';
   import UsedInRecipes from './UsedInRecipes.svelte';
   import { couldntAdd } from '#lib/errorWords.js';
+  import Button from '#lib/components/Button.svelte';
 
   let {
     foodId,
@@ -314,12 +315,12 @@
     <header>
       <h2>{model.problem ? 'Ingredient' : 'Loading…'}</h2>
       {#if variant === 'sheet'}
-        <button type="button" class="done" onclick={() => onclose?.()}>Done</button>
+        <Button small quiet onclick={() => onclose?.()}>Done</Button>
       {/if}
     </header>
     {#if model.problem}
       <p class="hint" role="alert">{model.problem}</p>
-      <button type="button" class="quiet" onclick={() => void model.load()}>Try again</button>
+      <Button small quiet onclick={() => void model.load()}>Try again</Button>
     {/if}
   {:else}
     <header>
@@ -347,7 +348,7 @@
         </span>
       {/if}
       {#if variant === 'sheet'}
-        <button type="button" class="done" onclick={() => onclose?.()}>Done</button>
+        <Button small quiet onclick={() => onclose?.()}>Done</Button>
       {:else}
         <span class="saves">Saves as you go</span>
       {/if}
@@ -378,8 +379,8 @@
                     onclick={() => void model.absorb(other)}>Merge</button
                   >
                 {/if}
-                <button type="button" class="quiet" onclick={() => void model.notTheSame(other)}
-                  >Not the same</button
+                <Button small quiet onclick={() => void model.notTheSame(other)}
+                  >Not the same</Button
                 >
               </span>
             </div>
@@ -427,14 +428,14 @@
           {@const name = splitting}
           <div class="split" id="{uid}-split">
             <span>“{name.name}”</span>
-            <button
-              type="button"
-              class="quiet"
+            <Button
+              small
+              quiet
               onclick={() => {
                 const target = name;
                 splitting = null;
                 void model.split(target);
-              }}>Make its own ingredient</button
+              }}>Make its own ingredient</Button
             >
             <button type="button" class="link muted" onclick={() => (splitting = null)}
               >Cancel</button
@@ -494,10 +495,8 @@
                   </select>
                 </label>
                 <span class="size-buttons">
-                  <button type="submit" class="small-main">Add</button>
-                  <button type="button" class="quiet" onclick={() => (addingSize = false)}
-                    >Cancel</button
-                  >
+                  <Button small type="submit">Add</Button>
+                  <Button small quiet onclick={() => (addingSize = false)}>Cancel</Button>
                 </span>
                 {#if sizeProblem}<p class="problem" role="alert">{sizeProblem}</p>{/if}
               </form>
@@ -703,9 +702,7 @@
             oncancel={() => (picking = null)}
           />
         {:else}
-          <button type="button" class="merge" onclick={() => (picking = 'merge')}>
-            Merge with another…
-          </button>
+          <Button small quiet onclick={() => (picking = 'merge')}>Merge with another…</Button>
         {/if}
         <button
           type="button"
@@ -789,19 +786,6 @@
     background: var(--color-field);
     color: var(--color-text);
     font: var(--weight-extrabold) 1.375rem var(--font-ui);
-  }
-
-  .done {
-    flex: none;
-    min-height: var(--touch-target);
-    padding: 0 var(--space-7);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-fill);
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   .saves {
@@ -954,30 +938,6 @@
     background: var(--color-field);
     color: var(--color-text);
     font: var(--weight-semibold) 1rem var(--font-ui);
-  }
-
-  .quiet {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-fill);
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .small-main {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-7);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   .maybe {
@@ -1164,18 +1124,6 @@
     gap: var(--space-4) var(--space-6);
     padding-top: 14px;
     border-top: 1px solid var(--color-divider);
-  }
-
-  .merge {
-    min-height: var(--touch-target);
-    padding: 0 14px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   /* The greyed-out wrapper adds no box of its own: the editor's layout is as it was. */

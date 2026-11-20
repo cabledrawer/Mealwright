@@ -3,6 +3,7 @@
   // Suggestions come from the server's search; Escape or leaving it empty closes it.
   import { listFoods } from '#lib/client/foods.js';
   import type { FoodRow, Ref } from '#lib/client/types.js';
+  import Button from '#lib/components/Button.svelte';
 
   let {
     label,
@@ -95,7 +96,7 @@
     {/if}
   </ul>
   {#if oncancel}
-    <button type="button" class="cancel" onclick={oncancel}>Cancel</button>
+    <Button small quiet onclick={oncancel}>Cancel</Button>
   {/if}
 </div>
 
@@ -134,8 +135,7 @@
     display: none;
   }
 
-  ul button,
-  .cancel {
+  ul button {
     min-height: var(--touch-target);
     padding: 0 var(--space-6);
     border: none;
@@ -145,11 +145,6 @@
     font-size: var(--text-md);
     font-weight: var(--weight-bold);
     cursor: pointer;
-  }
-
-  .cancel {
-    background: transparent;
-    color: var(--color-text-muted);
   }
 
   ul .new {

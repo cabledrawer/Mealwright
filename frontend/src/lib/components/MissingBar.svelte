@@ -3,6 +3,8 @@
   // question 23). The button adds each missing ingredient to the main shopping list the way
   // a tap on a staple does: it works offline, and one Undo takes them all back. It is only
   // there when something is left to add.
+  import Button from '#lib/components/Button.svelte';
+
   let {
     count,
     onadd
@@ -14,7 +16,7 @@
 
 <div class="bar">
   <span class="count">{count} missing</span>
-  <button type="button" onclick={onadd}>Add to the list</button>
+  <Button small onclick={onadd}>Add to the list</Button>
 </div>
 
 <style>
@@ -34,18 +36,6 @@
     color: var(--color-use-soon-text);
     font-size: var(--text-base);
     font-weight: var(--weight-bold);
-  }
-
-  button {
-    min-height: var(--touch-target);
-    padding: 0 14px;
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   /* A screen control: a printed recipe shows no "N missing" or "Add to the list" (F236). */

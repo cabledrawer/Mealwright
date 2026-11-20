@@ -17,6 +17,7 @@
     type Locked
   } from '#lib/privacyWords.js';
   import Icon from '../Icon.svelte';
+  import Button from '#lib/components/Button.svelte';
 
   let {
     entries,
@@ -114,8 +115,8 @@
             aria-invalid={problem ? true : undefined}
             aria-describedby={problem ? `${box}-problem` : undefined}
           />
-          <button type="submit" class="submit" disabled={frozen || adding}
-            >{adding ? 'Adding…' : 'Add'}</button
+          <Button small type="submit" disabled={frozen || adding}
+            >{adding ? 'Adding…' : 'Add'}</Button
           >
         </div>
         {#if problem}
@@ -300,23 +301,6 @@
   }
 
   input:disabled {
-    opacity: 0.6;
-  }
-
-  .submit {
-    flex: none;
-    min-height: 48px;
-    padding: 0 var(--space-7);
-    border: none;
-    border-radius: var(--radius-md);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font: var(--weight-bold) var(--text-lg) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .submit:disabled {
-    cursor: not-allowed;
     opacity: 0.6;
   }
 

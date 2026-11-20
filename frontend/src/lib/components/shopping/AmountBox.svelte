@@ -25,6 +25,7 @@
   import type { FoodSize } from '#lib/shopping/types.js';
   import type { ViewItem } from '#lib/shopping/view.js';
   import Icon from '../Icon.svelte';
+  import Button from '#lib/components/Button.svelte';
 
   let {
     model,
@@ -186,7 +187,7 @@
 >
   <div class="head">
     <span class="name">{food.name}</span>
-    <button type="submit" class="done">Done</button>
+    <Button small quiet type="submit">Done</Button>
   </div>
   <div class="row">
     <Stepper what="amount" less="Less" onless={() => step(-1)} onmore={() => step(1)}>
@@ -289,19 +290,6 @@
     font-size: 1rem;
     font-weight: var(--weight-bold);
     overflow-wrap: anywhere;
-  }
-
-  .done {
-    flex: none;
-    min-width: var(--touch-target);
-    min-height: var(--touch-target);
-    padding: 0 var(--space-7);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-fill);
-    color: var(--color-text);
-    font: var(--weight-bold) var(--text-base) var(--font-ui);
-    cursor: pointer;
   }
 
   /* In a narrow column the unit menu drops under the amount instead of squeezing it (F123). */

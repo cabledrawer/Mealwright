@@ -512,7 +512,9 @@ describe('the recipe page', () => {
     await expect.element(page.getByText('Toor dal', { exact: true })).toBeVisible();
     // "Tahini" is both the words and the name, so it is said once; the small texts are only
     // the names that differ, and the notes about a link that has gone.
-    const small = [...document.querySelectorAll('.small')].map((el) => el.textContent);
+    const small = [...document.querySelectorAll('.small:not(.mw-button)')].map(
+      (el) => el.textContent
+    );
     expect(small).toEqual(['Toor dal', 'Coriander', 'not linked', 'recipe removed']);
     await expect.element(page.getByText('rinsed', { exact: false })).toBeVisible();
     await expect.element(page.getByText('not linked')).toBeVisible();

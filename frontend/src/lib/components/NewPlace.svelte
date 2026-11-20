@@ -20,6 +20,8 @@
   import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { radioKeys } from '#lib/radioKeys.js';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
 
   let { onadded, oncancel }: { onadded: (place: Place) => void; oncancel: () => void } = $props();
 
@@ -120,10 +122,10 @@
     {/each}
   </div>
   {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-  <div class="buttons">
-    <button type="button" class="main" disabled={busy} onclick={() => void add()}>Add place</button>
-    <button type="button" class="quiet" onclick={cancel}>Cancel</button>
-  </div>
+  <ButtonRow>
+    <Button disabled={busy} onclick={() => void add()}>Add place</Button>
+    <Button quiet onclick={cancel}>Cancel</Button>
+  </ButtonRow>
 </div>
 
 <style>
@@ -194,36 +196,5 @@
     color: var(--color-warning-text);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
-  }
-
-  .buttons {
-    display: flex;
-    gap: var(--space-3);
-  }
-
-  .buttons button {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-7);
-    border: 1px solid var(--color-field-border);
-    border-radius: var(--radius-full);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .main {
-    border-color: transparent;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .main:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-
-  .quiet {
-    background: var(--color-surface);
-    color: var(--color-text);
   }
 </style>

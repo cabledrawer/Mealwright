@@ -19,6 +19,7 @@
   import { toBaseAmount } from '#lib/shopping/amountEdit.js';
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
+  import Button from '#lib/components/Button.svelte';
 
   let {
     model,
@@ -355,13 +356,14 @@
           placeholder="Another number"
           bind:value={howManyTyped}
         />
-        <button type="submit" disabled={!(Number(howManyTyped) >= 1)}>Add</button>
-        <button
-          type="button"
+        <Button small type="submit" disabled={!(Number(howManyTyped) >= 1)}>Add</Button>
+        <Button
+          small
+          quiet
           onclick={() => {
             howMany = null;
             howManyTyped = '';
-          }}>Cancel</button
+          }}>Cancel</Button
         >
       </form>
     </div>
@@ -544,9 +546,5 @@
     color: var(--color-text);
     font: var(--weight-bold) var(--text-base) var(--font-ui);
     cursor: pointer;
-  }
-
-  .howmany button:disabled {
-    opacity: 0.5;
   }
 </style>
