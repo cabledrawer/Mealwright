@@ -20,7 +20,7 @@ import { version } from '$app/env';
 import { assets, immutable } from '$app/manifest';
 import { answer, install, markFirstInstall, takeFirstInstallMark } from '#lib/offline/heal.js';
 import { SHELL, appFiles, cacheName, handling, mayClaim, oldCaches } from '#lib/offline/rules.js';
-import { MOST_WAIT_MS, PAGE_IS_QUIET } from '#lib/offline/precacheMessage.js';
+import { MAX_WAIT_MS, PAGE_IS_QUIET } from '#lib/offline/precacheMessage.js';
 
 const CACHE = cacheName(version);
 // `immutable` is what the old `build` was (the files Vite builds); `assets` is what the old
@@ -39,12 +39,12 @@ const pageIsQuiet = new Promise<void>((done) => {
 worker.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
-      // The very first install waits for the page to finish loading (or MOST_WAIT_MS), so
+      // The very first install waits for the page to finish loading (or MAX_WAIT_MS), so
       // its 300-odd files don't slow the page down; an update (a worker is already active)
       // installs at once. If nothing comes, the files are downloaded all the same.
       const first = !worker.registration.active;
       if (first) {
-        await Promise.race([pageIsQuiet, new Promise((done) => setTimeout(done, MOST_WAIT_MS))]);
+        await Promise.race([pageIsQuiet, new Promise((done) => setTimeout(done, MAX_WAIT_MS))]);
       }
       // "reload": ask the server, not the browser's own copy, so a new worker never keeps
       // an old file. A half-written cache of this name is dropped first and after a failure

@@ -49,7 +49,7 @@ export function tubsForDay(tubs: readonly TubLeft[], day: string, meal?: ForMeal
 }
 
 /** The most tubs the day sheet lists before "+N more tubs". */
-export const MOST_TUBS_LISTED = 12;
+export const MAX_TUBS_LISTED = 12;
 
 /**
  * The tubs to list now. Every tub that is not in the freezer (the fridge ones, still in date) is
@@ -60,7 +60,7 @@ export const MOST_TUBS_LISTED = 12;
 export function tubsListed(
   tubs: readonly TubLeft[],
   expanded: boolean,
-  limit = MOST_TUBS_LISTED
+  limit = MAX_TUBS_LISTED
 ): { shown: TubLeft[]; hidden: number } {
   if (expanded || tubs.length <= limit) return { shown: [...tubs], hidden: 0 };
   const others = tubs.filter((t) => t.place_kind !== 'freezer').length;

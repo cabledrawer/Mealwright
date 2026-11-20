@@ -4,6 +4,7 @@
   // onboarding (Amounts, Household, Shops) comes in 0.8. The setup code (0.9, A2) is printed in
   // the server's log at start-up, so only someone who can read that log can claim a fresh
   // install (the words are accepted (cabledrawer 12 Nov)).
+  import { MIN_PASSWORD } from '#lib/limits.js';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { ApiError, createAdmin } from '#lib/api.js';
@@ -17,7 +18,6 @@
   let { data }: PageProps = $props();
 
   // Same rules as the server (backend: account.py).
-  const MIN_PASSWORD = 12;
   const USERNAME = /^[a-z0-9][a-z0-9._-]{0,49}$/;
 
   let code = $state('');

@@ -5,7 +5,7 @@
   // can be changed or put back. The sheet that asks the name loads when first opened.
   import { tick } from 'svelte';
   import type { ImportFlow } from '#lib/import.svelte.js';
-  import { MOST_OWN, ownLineWords, sectionOf } from '#lib/importOwn.js';
+  import { MAX_OWN, ownLineWords, sectionOf } from '#lib/importOwn.js';
 
   let { flow, heading }: { flow: ImportFlow; heading: number } = $props();
 
@@ -13,7 +13,7 @@
   const own = $derived(review.lines[heading]?.own ?? null);
   const lines = $derived(sectionOf(review, heading).lines.length);
   /** A section with no lines has nothing to make; at most five sections can be made one. */
-  const offered = $derived(own === null && lines > 0 && flow.ownParts.length < MOST_OWN);
+  const offered = $derived(own === null && lines > 0 && flow.ownParts.length < MAX_OWN);
   let asking = $state(false);
   let root: HTMLElement | undefined = $state();
 

@@ -87,7 +87,7 @@ const PART = new RegExp(
   'giu'
 );
 /** The most a timer can be (a day): anything longer is not a cooking time. */
-const MOST_SECONDS = 24 * 3600;
+const MAX_SECONDS = 24 * 3600;
 
 function amountOf(words: string): number {
   const text = words.trim();
@@ -134,7 +134,7 @@ export function findTimers(text: string): FoundTimer[] {
     }
     last = part;
   }
-  return timers.filter((t) => t.seconds <= MOST_SECONDS);
+  return timers.filter((t) => t.seconds <= MAX_SECONDS);
 }
 
 /** 600 → "10:00", 5400 → "1:30:00". */

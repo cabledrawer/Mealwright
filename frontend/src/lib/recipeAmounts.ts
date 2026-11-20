@@ -9,11 +9,12 @@
 import type { RecipeLine } from './client/recipes';
 import { NBSP } from './words.js';
 import { plural } from './words.js';
+import { MAX_SERVES } from './limits';
+export { MAX_SERVES };
 
 /** A number and its unit stay on one line. */
 
 export const MIN_SERVES = 1;
-export const MAX_SERVES = 99;
 
 const GLYPH: Record<number, string> = { 0.25: '¼', 0.5: '½', 0.75: '¾' };
 

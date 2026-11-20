@@ -6,8 +6,8 @@
   import { tick } from 'svelte';
   import { ApiError, cantReach } from '#lib/api.js';
   import {
-    MOST_HOB_RINGS,
-    MOST_PRESSURE_COOKERS,
+    MAX_HOB_RINGS,
+    MAX_PRESSURE_COOKERS,
     saveKitchen,
     type Kitchen
   } from '#lib/client/household.js';
@@ -117,7 +117,7 @@
             type="button"
             class="step"
             aria-label="More hob rings"
-            disabled={rings >= MOST_HOB_RINGS}
+            disabled={rings >= MAX_HOB_RINGS}
             onclick={() => (rings += 1)}>+</button
           >
         </div>
@@ -138,7 +138,7 @@
             type="button"
             class="step"
             aria-label="More pressure cookers"
-            disabled={cookers >= MOST_PRESSURE_COOKERS}
+            disabled={cookers >= MAX_PRESSURE_COOKERS}
             onclick={() => (cookers += 1)}>+</button
           >
         </div>

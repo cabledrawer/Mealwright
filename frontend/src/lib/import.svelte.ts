@@ -27,7 +27,8 @@ import { SendKey } from './sendKey';
 import { toasts } from './toast.svelte';
 import { undoHistory, type UndoEntry } from './undo.svelte';
 import { renamedLine } from './importRename';
-import { MOST_STEPS, splitStep } from './importSteps';
+import { MAX_LINES, MAX_STEPS } from './limits';
+import { splitStep } from './importSteps';
 import { unitFor } from './recipeAmounts';
 import { activeTime, sumWaits, type StepWait } from './timeWords';
 import { leftOut, ownIndexOf, ownParts, ownSteps, type OwnPart } from './importOwn';
@@ -595,7 +596,7 @@ export class ImportFlow {
 
   /** How many lines the recipe may hold (the server's limit). */
   get canAddLine(): boolean {
-    return (this.review?.lines.length ?? 0) < MOST_LINES;
+    return (this.review?.lines.length ?? 0) < MAX_LINES;
   }
 
   /** A new, empty ingredient line at `at`: the person names it, and it gets the same choices as
@@ -1072,7 +1073,7 @@ export class ImportFlow {
     if (!review || !step || step.kind !== 'step') return null;
     const pieces = splitStep(step.text);
     if (!pieces) return null;
-    return review.steps.length - 1 + pieces.length > MOST_STEPS ? null : pieces;
+    return review.steps.length - 1 + pieces.length > MAX_STEPS ? null : pieces;
   }
 
   /** Keep the split of step `i`. */
@@ -1301,9 +1302,6 @@ function shorter(text: string): string {
 export function leftOutWords(heading: string, lines: number): string {
   return `${lines} ${plural(lines, 'line', 'lines')} after “${heading}” ${plural(lines, 'was', 'were')} left out`;
 }
-
-/** The ingredient lines and headings a recipe may hold: the server's limit. */
-export const MOST_LINES = 200;
 
 /** A line added on Check that has no name yet: not counted, not saved (F187). */
 export function isBlank(line: ReviewLine): boolean {

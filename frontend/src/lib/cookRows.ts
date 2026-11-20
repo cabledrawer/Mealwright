@@ -203,9 +203,9 @@ export function sizeAnswer(
 }
 
 /** Keep one answer for each question: a newer one replaces the older (same ingredient and kind). */
-export const MOST_ANSWERS = 20;
+export const MAX_ANSWERS = 20;
 
-/** Say so when an answer cannot be kept because the server takes at most MOST_ANSWERS. */
+/** Say so when an answer cannot be kept because the server takes at most MAX_ANSWERS. */
 export const TOO_MANY_ANSWERS = 'Too many questions at once. Answer these first, then Confirm.';
 
 export function withAnswer(answers: Answer[], next: Answer): Answer[] {
@@ -214,7 +214,7 @@ export function withAnswer(answers: Answer[], next: Answer): Answer[] {
     a.kind === next.kind &&
     (a.kind !== 'size' || (next.kind === 'size' && a.name === next.name));
   const rest = answers.filter((a) => !same(a));
-  return rest.length >= MOST_ANSWERS ? answers : [...rest, next];
+  return rest.length >= MAX_ANSWERS ? answers : [...rest, next];
 }
 
 /** The unit word next to a typed amount: "g", "ml", or the ingredient's count word. */

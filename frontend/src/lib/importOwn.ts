@@ -20,7 +20,7 @@ export function headingCore(heading: string): string {
 }
 
 /** The most sections of one recipe that can be made their own recipes in one save (the server's). */
-export const MOST_OWN = 5;
+export const MAX_OWN = 5;
 
 /** The heading of another section that is already making a recipe called `name` (any case, any
  *  spacing), or null. Two sections can't make recipes of one name: both would be looking for the

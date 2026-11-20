@@ -12,7 +12,7 @@
   import {
     CookOnceModel,
     type Ahead,
-    MOST_TUBS,
+    MAX_TUBS,
     PATTERNS,
     perTubWords,
     timesWords,
@@ -216,7 +216,7 @@
               <button
                 type="button"
                 aria-label="One tub more"
-                disabled={cook.count >= MOST_TUBS || actions.readonly}
+                disabled={cook.count >= MAX_TUBS || actions.readonly}
                 onclick={() => cook?.setCount(cook.count + 1)}>+</button
               >
             </div>

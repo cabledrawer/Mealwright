@@ -17,9 +17,9 @@ import {
 import { addDays } from './planDates';
 
 /** The most tubs in a batch (the server's cap). */
-export const MOST_TUBS = 12;
+export const MAX_TUBS = 12;
 /** How far ahead the grid can be shown. */
-const MOST_DAYS = 28;
+const MAX_DAYS = 28;
 
 export const PATTERNS: { value: Pattern; label: string }[] = [
   { value: 'lunches', label: 'Lunches' },
@@ -144,7 +144,7 @@ export class CookOnceModel {
         this.#preview(this.body()),
         this.plan
           ? Promise.resolve(this.plan)
-          : getPlan(this.cookDate, addDays(this.cookDate, MOST_DAYS + 6))
+          : getPlan(this.cookDate, addDays(this.cookDate, MAX_DAYS + 6))
       ]);
       if (asked !== this.#asked) return;
       this.preview = preview;
@@ -162,7 +162,7 @@ export class CookOnceModel {
   // --- The choices: the pattern picks again, so the person's own places are dropped ----------
 
   setCount(count: number): void {
-    this.count = Math.min(MOST_TUBS, Math.max(1, count));
+    this.count = Math.min(MAX_TUBS, Math.max(1, count));
     this.placements = null;
     void this.refresh();
   }
@@ -229,12 +229,12 @@ export class CookOnceModel {
         t.date ? Math.round((Date.parse(t.date) - Date.parse(this.cookDate)) / 86_400_000) + 1 : 0
       )
     );
-    const count = Math.min(MOST_DAYS, last + 1 + this.more);
+    const count = Math.min(MAX_DAYS, last + 1 + this.more);
     return Array.from({ length: count }, (_, i) => addDays(this.cookDate, i));
   }
 
   get canShowMore(): boolean {
-    return this.days.length < MOST_DAYS;
+    return this.days.length < MAX_DAYS;
   }
 
   showMore(): void {

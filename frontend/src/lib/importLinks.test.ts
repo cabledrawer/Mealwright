@@ -8,7 +8,7 @@ import { drafts } from './drafts.svelte';
 import {
   ImportLinks,
   type LinkRow,
-  MOST_LINKS,
+  MAX_LINKS,
   STOPPED_DRAFTS_FULL,
   STOPPED_SWITCHED_OFF,
   canPaste,
@@ -138,9 +138,9 @@ describe('several links at once (F110)', () => {
     });
     const reader = new ImportLinks();
     await reader.run(many(25));
-    expect(reader.rows).toHaveLength(MOST_LINKS);
+    expect(reader.rows).toHaveLength(MAX_LINKS);
     expect(reader.leftOut).toBe(5);
-    expect(requests.filter((r) => r.path === '/recipes/import')).toHaveLength(MOST_LINKS);
+    expect(requests.filter((r) => r.path === '/recipes/import')).toHaveLength(MAX_LINKS);
   });
 
   it('reads no more than the room Drafts has left', async () => {
@@ -265,7 +265,7 @@ describe('several links at once (F110)', () => {
     const second = reader.run(many(30)); // not awaited first
     await Promise.all([first, second]);
     expect(requests.filter((r) => r.path === '/recipes/import').length).toBeLessThanOrEqual(
-      MOST_LINKS
+      MAX_LINKS
     );
     expect(reader.running).toBe(false);
   });

@@ -29,7 +29,7 @@ export interface MadeToken {
   made: ApiToken;
 }
 
-export const LONGEST_NAME = 60;
+export const MAX_TOKEN_NAME = 60;
 
 export const getApiTokens = () => api<ApiTokens>('GET', '/api-tokens');
 

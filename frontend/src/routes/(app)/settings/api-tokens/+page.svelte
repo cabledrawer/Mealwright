@@ -8,7 +8,7 @@
   import { ApiError, cantReach, cantReachWords, detailOf } from '#lib/api.js';
   import {
     ENDS,
-    LONGEST_NAME,
+    MAX_TOKEN_NAME,
     deleteApiToken,
     getApiTokens,
     lastDay,
@@ -48,7 +48,7 @@
   const nameError = $derived.by(() => {
     const trimmed = name.trim();
     if (!trimmed) return 'Give the token a name.';
-    if ([...trimmed].length > LONGEST_NAME) return `Use at most ${LONGEST_NAME} characters.`;
+    if ([...trimmed].length > MAX_TOKEN_NAME) return `Use at most ${MAX_TOKEN_NAME} characters.`;
     return undefined;
   });
   const dateError = $derived(

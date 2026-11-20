@@ -5,4 +5,4 @@
 /** What the page posts to the installing worker. */
 export const PAGE_IS_QUIET = 'page-is-quiet';
 /** The longest the worker waits for it. */
-export const MOST_WAIT_MS = 25_000;
+export const MAX_WAIT_MS = 25_000;

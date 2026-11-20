@@ -2,11 +2,11 @@
 // (0.9.5 speed work; proposed, for cabledrawer). Its 329 files, fetched while the first page is
 // still loading, slowed that page by 10 to 12 seconds on a small server. The page tells the
 // worker when it has asked for nothing new for a moment; the worker gives up waiting after
-// MOST_WAIT_MS and goes on, so the files are always downloaded. Only the very first install
+// MAX_WAIT_MS and goes on, so the files are always downloaded. Only the very first install
 // waits: an update installs at once, as before.
-import { MOST_WAIT_MS, PAGE_IS_QUIET } from './precacheMessage';
+import { MAX_WAIT_MS, PAGE_IS_QUIET } from './precacheMessage';
 
-export { MOST_WAIT_MS, PAGE_IS_QUIET };
+export { MAX_WAIT_MS, PAGE_IS_QUIET };
 /** How long the page must ask for nothing new before it says so, and when it says so anyway. */
 export const QUIET_MS = 1500;
 export const PAGE_GIVES_UP_MS = 20_000;

@@ -19,11 +19,9 @@ import type { Ref } from '#lib/client/types.js';
 import { linkedWords } from './linkedWords';
 import { toasts } from '#lib/toast.svelte.js';
 import type { StepWait } from '#lib/timeWords.js';
+import { MAX_LINES, MAX_STEPS, MAX_TAGS, MAX_TAG_CHARS } from '../limits';
+export { MAX_LINES, MAX_STEPS, MAX_TAGS, MAX_TAG_CHARS };
 
-export const MAX_LINES = 200;
-export const MAX_STEPS = 100;
-export const MAX_TAGS = 20;
-export const MAX_TAG_CHARS = 40;
 export const LINE_UNITS = ['g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cup', 'pinch'] as const;
 export const NUTRIENTS: (keyof Nutrition)[] = ['kcal', 'protein', 'carbs', 'fat', 'fibre'];
 /** The "Makes" units with a button of their own; anything else is a count word ("dosas"). */

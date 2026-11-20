@@ -104,5 +104,5 @@ export const saveKitchen = (kitchen: Pick<Kitchen, 'hob_rings' | 'pressure_cooke
   api<Kitchen>('PATCH', '/household/kitchen', kitchen);
 
 /** The most a kitchen is asked for (the server's own limits). */
-export const MOST_HOB_RINGS = 12;
-export const MOST_PRESSURE_COOKERS = 6;
+export const MAX_HOB_RINGS = 12;
+export const MAX_PRESSURE_COOKERS = 6;

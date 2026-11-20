@@ -6,7 +6,6 @@ export const LONG_STEP = 4;
 /** The most sentences one piece holds after a split. */
 const PER_PIECE = 2;
 /** The server takes up to 100 steps. */
-export const MOST_STEPS = 100;
 
 /** Words that end in a full stop without ending the sentence ("tsp.", "approx."). */
 const ABBREVIATIONS = new Set(['tsp', 'tbsp', 'approx', 'oz', 'lb', 'lbs', 'vs']);

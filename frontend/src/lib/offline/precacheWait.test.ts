@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  MOST_WAIT_MS,
+  MAX_WAIT_MS,
   PAGE_GIVES_UP_MS,
   PAGE_IS_QUIET,
   QUIET_MS,
@@ -118,6 +118,6 @@ describe('telling the installing worker', () => {
   });
 
   it('keeps its waits shorter than the worker’s', () => {
-    expect(PAGE_GIVES_UP_MS).toBeLessThan(MOST_WAIT_MS);
+    expect(PAGE_GIVES_UP_MS).toBeLessThan(MAX_WAIT_MS);
   });
 });

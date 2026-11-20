@@ -3,6 +3,8 @@
 import { api } from '#lib/api.js';
 import { dayMonthOf } from './dates.js';
 import { plural } from './words.js';
+import { MIN_PASSWORD } from './limits';
+export { MIN_PASSWORD };
 
 /** One device where you're signed in. */
 export interface SignInPlace {
@@ -21,7 +23,6 @@ export interface MySignIn {
   sessions: SignInPlace[];
 }
 
-export const MIN_PASSWORD = 12;
 
 export const getMySignIn = () => api<MySignIn>('GET', '/me/sign-in');
 

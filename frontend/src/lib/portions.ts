@@ -22,7 +22,7 @@ export interface LeftoverRow {
 }
 
 /** The most days the sheet lists (a plan read is at most 62 days). */
-export const MOST_LEFTOVER_DAYS = 62;
+export const MAX_LEFTOVER_DAYS = 62;
 
 /** The first and last day of the meals offered: the cook day (or today, if later) to the use-by. */
 export function offeredDays(
@@ -31,7 +31,7 @@ export function offeredDays(
   useBy: string
 ): { first: string; last: string } {
   const first = cookDate > today ? cookDate : today;
-  const limit = addDays(first, MOST_LEFTOVER_DAYS - 1);
+  const limit = addDays(first, MAX_LEFTOVER_DAYS - 1);
   return { first, last: useBy < limit ? useBy : limit };
 }
 

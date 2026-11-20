@@ -6,6 +6,8 @@
 import type { StepEquipment, StepHands } from '#lib/client/recipes.js';
 import { timeWords } from '#lib/timeWords.js';
 import type { DraftStep } from './draft.svelte.js';
+import { MAX_MINUTES } from '../limits';
+export { MAX_MINUTES };
 
 export const HANDS_CHOICES: { value: StepHands; name: string }[] = [
   { value: 'hands', name: 'Hands-on' },
@@ -19,7 +21,6 @@ export const EQUIPMENT_CHOICES: { value: StepEquipment; name: string }[] = [
   { value: 'none', name: 'Nothing' }
 ];
 
-export const MOST_MINUTES = 14_400;
 
 export interface ShownTiming {
   hands: StepHands | null;
@@ -95,5 +96,5 @@ export function minutesFrom(text: string): number | null {
   const t = text.trim();
   if (!/^\d{1,5}$/.test(t)) return null;
   const n = Number(t);
-  return n >= 1 && n <= MOST_MINUTES ? n : null;
+  return n >= 1 && n <= MAX_MINUTES ? n : null;
 }

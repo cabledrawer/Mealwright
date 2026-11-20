@@ -47,19 +47,19 @@ export const QUICK_HELP =
 export const ALREADY_HAVE = 'You already have this recipe. It was not read again.';
 
 /** The most links one paste reads (proposed, for cabledrawer). */
-export const MOST_LINKS = 20;
+export const MAX_LINKS = 20;
 /** The household's most drafts (the server's `MAX_DRAFTS`). */
 export const DRAFT_LIMIT = 50;
 
 /** Said under the box before anything is pasted (F208, cabledrawer 10 Nov; the words are proposed,
- *  for cabledrawer). The number is `MOST_LINKS`, the one the paste is cut at. */
+ *  for cabledrawer). The number is `MAX_LINKS`, the one the paste is cut at. */
 export const pasteLimitWords = (): string =>
-  `You can paste up to ${MOST_LINKS} links at once. Mealwright reads them one after another.`;
+  `You can paste up to ${MAX_LINKS} links at once. Mealwright reads them one after another.`;
 
 /** Said under the list when a paste had more links than were read (proposed, for cabledrawer). */
 export const leftOutWords = (left: number, room: number | null): string =>
-  `${left} more ${plural(left, 'link was', 'links were')} left out. A paste reads up to ${MOST_LINKS} links${
-    room !== null && room < MOST_LINKS ? `, and Drafts has room for ${room} more` : ''
+  `${left} more ${plural(left, 'link was', 'links were')} left out. A paste reads up to ${MAX_LINKS} links${
+    room !== null && room < MAX_LINKS ? `, and Drafts has room for ${room} more` : ''
   }.`;
 
 /** Said when Drafts had no room at all, so no link was read (proposed, for cabledrawer). */
@@ -166,7 +166,7 @@ export class ImportLinks {
       };
       const fresh = unique.filter((link) => !kept(link));
       const room = drafts.count === null ? null : Math.max(0, DRAFT_LIMIT - drafts.count);
-      const allowed = Math.min(MOST_LINKS, room ?? MOST_LINKS);
+      const allowed = Math.min(MAX_LINKS, room ?? MAX_LINKS);
       this.leftOut = Math.max(0, fresh.length - allowed);
       this.room = room;
       const taken = fresh.slice(0, allowed);
