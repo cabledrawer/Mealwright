@@ -9,6 +9,7 @@
   import type { UseSoonTub } from '#lib/client/types.js';
   import { nextFreeMeals } from '#lib/planMeals.js';
   import { dayWords } from '#lib/todayWords.js';
+  import { couldntLoad } from '#lib/errorWords.js';
 
   let {
     tub,
@@ -87,7 +88,7 @@
       {#if loading}
         <p class="hint">Looking for free meals…</p>
       {:else if failed}
-        <p class="hint" role="alert">Couldn’t load the plan. Try again.</p>
+        <p class="hint" role="alert">{couldntLoad('the plan')}</p>
       {:else if options.length === 0}
         <p class="hint">No free meal before its use-by day.</p>
       {:else}

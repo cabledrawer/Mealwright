@@ -25,6 +25,7 @@
   import RestockedSection from './RestockedSection.svelte';
   import Switch from './Switch.svelte';
   import UsedInRecipes from './UsedInRecipes.svelte';
+  import { couldntAdd } from '#lib/errorWords.js';
 
   let {
     foodId,
@@ -243,7 +244,7 @@
     try {
       setShop(await placesAndShops.addShop(name));
     } catch {
-      toasts.show('Couldn’t add that shop. Try again.', { tone: 'problem' });
+      toasts.show(couldntAdd('that shop'), { tone: 'problem' });
     }
   }
 

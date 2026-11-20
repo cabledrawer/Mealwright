@@ -10,7 +10,7 @@
   // "Link" links them (O1 review r1 H1). Password sign-in can be turned off only once an admin
   // has signed in with single sign-on and its Privacy switch is on (cabledrawer 12 Nov).
   import { MediaQuery } from 'svelte/reactivity';
-  import { ApiError, cantReach, cantReachWords, detailOf } from '#lib/api.js';
+  import { ApiError, cantReach, cantReachWords, detailOf, wordsFor } from '#lib/api.js';
   import {
     callbackAddress,
     dropTestedLink,
@@ -107,7 +107,7 @@
       else saved = { ...saved, test: setup.test, admin_linked: setup.admin_linked };
       loadProblem = '';
     } catch (error) {
-      loadProblem = cantReach(error) ? cantReachWords() : detailOf(null);
+      loadProblem = wordsFor(error, detailOf(null));
       if (error instanceof ApiError && !cantReach(error)) loadProblem = error.detail;
     }
   }
@@ -192,11 +192,6 @@
     problem = '';
     done = '';
     notice = '';
-  }
-
-  function wordsFor(error: unknown): string {
-    if (cantReach(error)) return cantReachWords();
-    return error instanceof ApiError ? error.detail : detailOf(null);
   }
 
   /** The tab opens on the click itself (a browser blocks one opened later), blank and cut

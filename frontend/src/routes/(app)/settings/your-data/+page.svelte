@@ -14,7 +14,7 @@
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
-  import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
+  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
   import { getHousehold } from '#lib/client/household.js';
   import {
     markConfirming,
@@ -77,7 +77,7 @@
   let now = $state(new Date());
 
   const failed = (error: unknown) =>
-    error instanceof ApiError && !cantReach(error) ? error.detail : cantReachWords();
+    wordsFor(error);
 
   async function load() {
     loadProblem = null;

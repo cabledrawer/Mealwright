@@ -14,7 +14,7 @@
     type Portions,
     type WhenNoneLeft
   } from '#lib/client/plan.js';
-  import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
+  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
   import type { PlanActions } from '#lib/planActions.js';
   import { dayWords } from '#lib/planDates.js';
   import { itemName } from '#lib/planMeals.js';
@@ -29,6 +29,7 @@
     shortRows
   } from '#lib/portions.js';
   import { plural } from '#lib/words.js';
+  import { couldntLoad } from '#lib/errorWords.js';
 
   let {
     actions,
@@ -62,7 +63,7 @@
       portions = found;
       problem = null;
     } catch (error) {
-      problem = cantReach(error) ? cantReachWords() : 'Couldn’t load the leftovers. Try again.';
+      problem = wordsFor(error, couldntLoad('the leftovers'));
     }
   }
   onMount(() => void load());

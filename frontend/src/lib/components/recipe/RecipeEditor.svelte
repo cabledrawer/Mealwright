@@ -49,6 +49,7 @@
   import { toasts } from '#lib/toast.svelte.js';
   import { undoHistory } from '#lib/undo.svelte.js';
   import { PHONE_QUERY } from '#lib/layout.js';
+  import { couldntLoad } from '#lib/errorWords.js';
 
   let { recipeId = null }: { recipeId?: number | null } = $props();
 
@@ -367,7 +368,7 @@
       <p>That recipe isn’t here any more.</p>
       <a class="mw-pill" href={resolve('/(app)/recipes')}>All recipes</a>
     {:else}
-      <p>Couldn’t load this recipe. Check your connection and try again.</p>
+      <p>{couldntLoad('this recipe')}</p>
       <span class="choices">
         <button type="button" class="mw-pill" onclick={() => void open()}>Try again</button>
         <a class="mw-pill" href={resolve('/(app)/recipes')}>All recipes</a>

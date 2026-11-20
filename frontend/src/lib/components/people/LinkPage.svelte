@@ -9,7 +9,7 @@
   // Opened where someone is already signed in (Pe2, cabledrawer 13 Nov), it simply refuses: no
   // names, no sign-out, and the link stays unused (the server refuses too).
   import { resolve } from '$app/paths';
-  import { ApiError, cantReach } from '#lib/api.js';
+  import { ApiError, cantReach, SOMETHING_WENT_WRONG } from '#lib/api.js';
   import Button from '#lib/components/Button.svelte';
   import ConnectionNotice from '#lib/components/ConnectionNotice.svelte';
   import Icon from '#lib/components/Icon.svelte';
@@ -82,7 +82,7 @@
           ? error.code === 'link_gone' && kind === 'reset'
             ? RESET_GONE
             : error.detail
-          : 'Something went wrong. Try again.';
+          : SOMETHING_WENT_WRONG;
     }
   }
 
@@ -108,7 +108,7 @@
         ? cantReachWords()
         : error instanceof ApiError
           ? error.detail
-          : 'Something went wrong. Try again.';
+          : SOMETHING_WENT_WRONG;
     } finally {
       busy = false;
     }

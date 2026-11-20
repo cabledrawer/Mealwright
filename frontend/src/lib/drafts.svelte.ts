@@ -12,8 +12,9 @@ import { deleteDraft, listDrafts, type DraftBrief } from './client/drafts';
 import { newChangeId } from './changeId';
 import { toasts } from './toast.svelte';
 import { undoHistory, type UndoEntry } from './undo.svelte';
+import { couldntLoad } from './errorWords.js';
 
-const COULDNT_LOAD = 'Couldn’t load your drafts. Try again.';
+const COULDNT_LOAD = couldntLoad('your drafts');
 const COULDNT_DELETE = 'Couldn’t delete that draft. Try again.';
 
 class Drafts {

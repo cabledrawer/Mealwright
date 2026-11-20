@@ -5,11 +5,12 @@
 // is left. The stock marks follow the chosen servings (cabledrawer 19 Oct, Q22): after − / + the
 // page asks the server again, once the taps stop.
 
-import { ApiError, cantReachWords, cantReach } from './api';
+import { ApiError, cantReachWords, cantReach , wordsFor } from './api';
 import { getRecipe, getRecipeStock, type Recipe, type RecipeStock } from './client/recipes';
 import { withMethod } from './recipeMethods';
 import { MAX_SERVES, MIN_SERVES, factorOf } from './recipeAmounts';
 import type { StepWait } from './timeWords';
+import { couldntLoad } from './errorWords.js';
 
 /** How long to wait after the last − / + before asking for the stock again. */
 export const STOCK_WAIT_MS = 300;
@@ -129,9 +130,7 @@ export class RecipeView {
         this.full = null;
         this.stock = null;
       } else {
-        this.problem = cantReach(error)
-          ? cantReachWords()
-          : 'Couldn’t load this recipe. Try again.';
+        this.problem = wordsFor(error, couldntLoad('this recipe'));
       }
     } finally {
       if (asked === this.#asked) this.loaded = true;

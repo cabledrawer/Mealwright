@@ -6,7 +6,7 @@
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
   import { onDestroy, onMount } from 'svelte';
-  import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
+  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
   import { getRecipe, type Recipe } from '#lib/client/recipes.js';
   import { toasts } from '#lib/toast.svelte.js';
   import { withMethod } from '#lib/recipeMethods.js';
@@ -25,6 +25,7 @@
   import { PlanModel } from '#lib/plan.svelte.js';
   import { dayFull } from '#lib/planDates.js';
   import { ScreenAwake } from '#lib/screenAwake.svelte.js';
+  import { couldntLoad } from '#lib/errorWords.js';
 
   const id = $derived(Number(page.params.id));
   const here = $derived(resolve('/(app)/recipes/[id]', { id: String(id) }));
@@ -169,7 +170,7 @@
       problem = null;
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) gone = true;
-      else problem = cantReach(error) ? cantReachWords() : 'Couldn’t load this recipe. Try again.';
+      else problem = wordsFor(error, couldntLoad('this recipe'));
     }
   }
   onMount(() => {

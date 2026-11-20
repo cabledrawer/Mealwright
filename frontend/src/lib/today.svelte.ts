@@ -26,6 +26,7 @@ import { wipePending } from './offline/wipePending.svelte';
 import { leftName } from './planMeals';
 import { save } from './save';
 import { session } from './session.svelte';
+import { couldntLoad } from './errorWords.js';
 
 export const COPY_KEY = 'mealwright.today-copy';
 
@@ -146,7 +147,7 @@ export class TodayModel {
         if (unreachable) this.fromCopy = true;
         return;
       }
-      this.problem = unreachable ? cantReachWords() : 'Couldn’t load Today. Try again.';
+      this.problem = unreachable ? cantReachWords() : couldntLoad('Today');
     }
   }
 

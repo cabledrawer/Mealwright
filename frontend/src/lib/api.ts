@@ -1,12 +1,13 @@
 // The web app talks to the server only through the public API, /api/v1 (CLAUDE.md:
 // API-first). Same origin only: the session cookie goes along automatically.
 
-import { cantReachText } from './downWords';
+import { cantReachText, nothingChanged } from './downWords';
 import { isLeaving, whenStaying } from './leaving';
 import { network } from './network.svelte';
 import { endPendingSignOut } from './offline/signOutPending';
 import { forgetOnWipe } from './offline/wipeHooks';
 import { PROXY_GAP, proxyGap } from './proxyGap';
+import { couldntLoad } from './errorWords.js';
 
 export { PROXY_GAP };
 
@@ -69,6 +70,22 @@ export function cantReach(error: unknown): boolean {
  *  (word list, section 7; downWords.ts, cabledrawer 30 Oct). */
 export const cantReachWords = (): string => cantReachText(network.deviceOffline);
 
+/** The words for any failed call, one rule everywhere (FE23). No connection or a proxy gap: the
+ *  one "can't reach" sentence for the cause. Otherwise `fallback` when the screen has its own
+ *  sentence (couldntLoad("the plan")), or the server's own reason when it has none. */
+export function wordsFor(error: unknown, fallback?: string): string {
+  if (cantReach(error)) return cantReachWords();
+  if (fallback !== undefined) return fallback;
+  return error instanceof ApiError && error.detail ? error.detail : SOMETHING_WENT_WRONG;
+}
+
+/** The words for a failed save or change: the "nothing changed" version of "can't reach", else
+ *  the server's own reason (one rule for every save; FE23). */
+export function wordsForSave(error: unknown): string {
+  if (!(error instanceof ApiError)) return SOMETHING_WENT_WRONG;
+  return cantReach(error) ? nothingChanged(network.deviceOffline) : error.detail;
+}
+
 type Fetch = typeof fetch;
 
 let onUnauthorized: (() => void) | null = null;
@@ -78,7 +95,9 @@ export function setUnauthorizedHandler(handler: (() => void) | null): void {
   onUnauthorized = handler;
 }
 
-const FALLBACK = 'Something went wrong. Try again.';
+/** The sentence for a failure with nothing better to say (one copy; FE23). */
+export const SOMETHING_WENT_WRONG = 'Something went wrong. Try again.';
+const FALLBACK = SOMETHING_WENT_WRONG;
 
 /** The server's reason, as a sentence a person can read. */
 export function detailOf(body: unknown): string {

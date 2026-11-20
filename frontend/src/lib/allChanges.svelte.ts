@@ -3,9 +3,10 @@
 // "Show more" for older ones. The list comes from GET /changes with no `area`. Answers that
 // arrive late are ignored.
 
-import { cantReach, cantReachWords } from './api';
+import { cantReach, cantReachWords , wordsFor } from './api';
 import { listChanges, undoFromList } from './client/changes';
 import type { Change } from './client/types';
+import { couldntLoad } from './errorWords.js';
 
 /** How many changes one page shows. */
 export const RECENT_PAGE = 20;
@@ -32,7 +33,7 @@ export class AllChanges {
       this.problem = null;
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.problem = cantReach(error) ? cantReachWords() : 'Couldn’t load the recent changes.';
+      this.problem = wordsFor(error, couldntLoad('the recent changes'));
     } finally {
       if (asked === this.#asked) this.loaded = true;
     }
@@ -52,9 +53,7 @@ export class AllChanges {
       this.next = list.next;
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.moreProblem = cantReach(error)
-        ? cantReachWords()
-        : 'Couldn’t load more changes. Try again.';
+      this.moreProblem = wordsFor(error, couldntLoad('more changes'));
     } finally {
       this.loadingMore = false;
     }

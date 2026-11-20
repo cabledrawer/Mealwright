@@ -19,6 +19,7 @@
   import FoodPicker from './FoodPicker.svelte';
   import NewPlace, { NEW_PLACE } from './NewPlace.svelte';
   import Icon from './Icon.svelte';
+  import { couldntLoad } from '#lib/errorWords.js';
 
   let { model, places, today }: { model: PantryModel; places: Place[]; today: string } = $props();
 
@@ -98,7 +99,7 @@
       // The words follow the cause, like the pages (cabledrawer 30 Oct).
       problem = cantReach(error)
         ? needsServer(network.deviceOffline, cantReachText(true))
-        : 'Couldn’t load that ingredient. Try again.';
+        : couldntLoad('that ingredient');
     } finally {
       loading = false;
     }

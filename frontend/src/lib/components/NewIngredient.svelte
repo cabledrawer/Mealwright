@@ -10,6 +10,7 @@
   import { network } from '#lib/network.svelte.js';
   import { newIngredient, type HowCounted, type NewSize } from '#lib/newIngredient.svelte.js';
   import { radioKeys } from '#lib/radioKeys.js';
+  import { couldntAdd } from '#lib/errorWords.js';
 
   const uid = $props.id();
   let dialog: HTMLDialogElement;
@@ -145,7 +146,7 @@
     try {
       await newIngredient.make(typed, how, sizes);
     } catch (error) {
-      problem = error instanceof ApiError ? error.detail : 'Couldn’t add it. Try again.';
+      problem = error instanceof ApiError ? error.detail : couldntAdd('that ingredient');
       busy = false;
     }
   }

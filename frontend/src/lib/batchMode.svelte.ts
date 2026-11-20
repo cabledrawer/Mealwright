@@ -8,7 +8,7 @@
 // connection is back. The last schedule is kept on this phone, so a reload while offline carries
 // on. Starting for the first time and Cooked it need the server.
 
-import { ApiError, cantReach, cantReachWords } from './api';
+import { ApiError, cantReach, cantReachWords , wordsFor } from './api';
 import {
   getSchedule,
   markTaskDone,
@@ -234,7 +234,7 @@ export class BatchModeModel {
       void this.flush();
     } catch (error) {
       if (cantReach(error) && this.#remembered()) this.problem = null;
-      else this.problem = error instanceof ApiError ? error.detail : cantReachWords();
+      else this.problem = wordsFor(error);
     } finally {
       this.loading = false;
     }
@@ -335,7 +335,7 @@ export class BatchModeModel {
             return;
           }
           this.pending = this.pending.slice(1); // refused: the server's own state wins
-          this.problem = error instanceof ApiError ? error.detail : cantReachWords();
+          this.problem = wordsFor(error);
           if (error instanceof ApiError && error.code === 'schedule_replaced') {
             // Made again on another phone: nothing of ours fits the new one. Take it as it is.
             this.pending = [];

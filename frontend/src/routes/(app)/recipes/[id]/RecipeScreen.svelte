@@ -46,6 +46,7 @@
   import { lineAmount, makesAmount } from '#lib/recipeAmounts.js';
   import { RecipeView, stepGroups } from '#lib/recipePage.svelte.js';
   import { markFor, toAdd } from '#lib/recipeStock.js';
+  import { couldntLoad } from '#lib/errorWords.js';
 
   /** A source note that is just a web address shows as a link (the person opens it). */
   const webAddress = (note: string) => /^https?:\/\/\S+$/i.test(note);
@@ -95,7 +96,7 @@
       await planModel.loadAhead();
       if (stale(wanted)) return;
       if (!planModel.loaded) {
-        toasts.show(planModel.problem ?? 'Couldn’t load the plan. Try again.', { tone: 'problem' });
+        toasts.show(planModel.problem ?? couldntLoad('the plan'), { tone: 'problem' });
         return;
       }
       planning = { kind: 'recipe', recipe: { id: wanted, name: wantedName }, ahead: true };

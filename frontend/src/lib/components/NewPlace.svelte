@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import { couldntAdd } from '#lib/errorWords.js';
   /** The value of the "+ Place" choice at the end of a place picker. */
   export const NEW_PLACE = 'new-place';
   export const NEEDS_SERVER =
@@ -65,7 +66,7 @@
         ? NEEDS_SERVER
         : error instanceof ApiError && error.code === 'too_many_places'
           ? error.detail
-          : 'Couldn’t add that place. Try again.';
+          : couldntAdd('that place');
     } finally {
       busy = false;
     }

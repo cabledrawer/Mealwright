@@ -12,6 +12,7 @@
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import type { ListItem, ShopFood } from '#lib/shopping/types.js';
   import Switch from '../Switch.svelte';
+  import { couldntLoad } from '#lib/errorWords.js';
 
   let {
     model,
@@ -95,7 +96,7 @@
       <p class="sub">Sizes sold in UK shops</p>
     </div>
     {#if failed}
-      <p class="problem" role="alert">Couldn’t load the sizes. Try again.</p>
+      <p class="problem" role="alert">{couldntLoad('the sizes')}</p>
     {:else if !sheet}
       <p class="sub" aria-busy="true">Loading…</p>
     {:else}

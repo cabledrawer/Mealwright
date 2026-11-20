@@ -5,6 +5,7 @@
 
 import { count } from './mealieWords';
 import { plural } from './words.js';
+import { couldntLoad } from './errorWords.js';
 
 export const SWITCH_LABEL = 'Show';
 export const BY_RECIPE = 'By recipe';
@@ -68,7 +69,7 @@ export const ALL_DONE =
   'No Mealie draft is waiting on an ingredient. Recipes whose lines are all answered are in Recipes.';
 export const NONE_LEFT_BY_INGREDIENT = 'No ingredients to answer';
 
-export const COULDNT_LOAD = 'Couldn’t load the ingredients. Try again.';
+export const COULDNT_LOAD = couldntLoad('the ingredients');
 export const COULDNT_ANSWER = 'Couldn’t save that answer. Try again.';
 /** The group had nothing left: another person answered it first. */
 export const ALREADY_ANSWERED = 'That ingredient was already answered. The list is up to date.';

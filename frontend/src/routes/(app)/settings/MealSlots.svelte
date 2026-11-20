@@ -3,7 +3,7 @@
   // meal on or off, rename it, put the meals in order, add one. No removing: switching off is
   // the way, and a switched-off meal keeps its planned meals. The server refuses anyone else.
   import { onMount } from 'svelte';
-  import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
+  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
   import { serverUndo } from '#lib/client/changes.js';
   import { getMealSlots, switchMealSlot, type MealSlot } from '#lib/client/plan.js';
   import { addMealSlot, orderMealSlots, renameMealSlot } from '#lib/client/settingsLists.js';
@@ -15,6 +15,7 @@
   import { save } from '#lib/save.js';
   import { toasts } from '#lib/toast.svelte.js';
   import OrderedRows from './OrderedRows.svelte';
+  import { couldntLoad } from '#lib/errorWords.js';
 
   let slots = $state<MealSlot[]>([]);
   let loaded = $state(false);
@@ -28,7 +29,7 @@
       slots = await getMealSlots();
       problem = null;
     } catch (error) {
-      problem = cantReach(error) ? cantReachWords() : 'Couldn’t load your meals.';
+      problem = wordsFor(error, couldntLoad('your meals'));
       reached = !cantReach(error);
     } finally {
       loaded = true;

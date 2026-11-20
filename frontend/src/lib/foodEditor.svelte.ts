@@ -25,6 +25,7 @@ import { kitchen } from './freshness.svelte';
 import { save } from './save';
 import { toasts } from './toast.svelte';
 import { undoneWords } from './undo.svelte';
+import { couldntLoad } from './errorWords.js';
 
 type Write = { change: ServerChange | null; food?: Food };
 
@@ -63,7 +64,7 @@ export class FoodModel {
       this.problem =
         error instanceof ApiError && error.status === 404
           ? 'This ingredient isn’t here any more.'
-          : 'Couldn’t load this ingredient. Check your connection and try again.';
+          : couldntLoad('this ingredient');
     }
   }
 

@@ -3,7 +3,7 @@
 // through save() with its change ID, and is offered for Undo; then the plan is fetched
 // again so the server's version replaces the guess. Online only, like the Pantry.
 
-import { cantReachWords, cantReach, type ApiError } from './api';
+import { cantReachWords, cantReach, type ApiError , wordsFor } from './api';
 import { changeSession, makeSession, removeSession, type SessionBody } from './client/batch';
 import { serverUndo } from './client/changes';
 import { getHousehold } from './client/household';
@@ -73,6 +73,7 @@ import { optionalAsk } from './optionalAsk.svelte';
 import type { StepWait } from './timeWords';
 import { save, type Outcome } from './save';
 import { plural } from './words.js';
+import { couldntLoad } from './errorWords.js';
 
 export type PlanView = 'week' | 'month';
 
@@ -224,7 +225,7 @@ export class PlanModel {
       void this.#loadTubs();
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.problem = cantReach(error) ? cantReachWords() : 'Couldn’t load the plan. Try again.';
+      this.problem = wordsFor(error, couldntLoad('the plan'));
     }
   }
 
@@ -239,7 +240,7 @@ export class PlanModel {
     } catch (error) {
       if (asked === this.#asked) {
         this.loaded = false;
-        this.problem = cantReach(error) ? cantReachWords() : 'Couldn’t load the plan. Try again.';
+        this.problem = wordsFor(error, couldntLoad('the plan'));
       }
     }
   }

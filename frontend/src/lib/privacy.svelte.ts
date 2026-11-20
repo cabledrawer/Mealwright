@@ -9,7 +9,7 @@
 // back and says so, so the page never keeps showing a switch the server doesn't have. The
 // entry list answers in the server's own sentences (a refusal is shown as it is).
 
-import { ApiError, cantReachWords, cantReach, forgetWhenSessionEnds } from './api';
+import { ApiError, cantReachWords, cantReach, forgetWhenSessionEnds , wordsFor, wordsForSave } from './api';
 import { onUndoOf, serverUndo } from './client/changes';
 import {
   addEntry,
@@ -29,17 +29,12 @@ import { undoHistory } from './undo.svelte';
 
 /** Chosen by the cause, the same on every page (cabledrawer 30 Oct). */
 export const noConnection = (): string => nothingChanged(network.deviceOffline);
-const FALLBACK = 'Something went wrong. Try again.';
-
 /** The sentence to show for an error from the server or from not reaching it. */
-function sentence(error: unknown): string {
-  if (!(error instanceof ApiError)) return FALLBACK;
-  return cantReach(error) ? noConnection() : error.detail;
-}
+const sentence = wordsForSave;
 
 /** The sentence when the page itself couldn't be loaded: the same words as every page. */
 function loadSentence(error: unknown): string {
-  return cantReach(error) ? cantReachWords() : sentence(error);
+  return wordsFor(error, sentence(error));
 }
 
 const OFF: Record<SwitchName, boolean> = {

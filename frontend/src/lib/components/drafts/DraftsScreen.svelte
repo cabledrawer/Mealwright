@@ -17,7 +17,7 @@
   import { onMount } from 'svelte';
   import type { DraftBrief } from '#lib/client/drafts.js';
   import { saveAllMealieDrafts } from '#lib/client/mealie.js';
-  import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
+  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
   import { DRAFTS_LEAD, count, linesWords, saveAllWords, unreadWords } from '#lib/mealieWords.js';
   import {
     RUNNING_OUT,
@@ -130,7 +130,7 @@
       only = 'all';
     } catch (error) {
       saveAllProblem =
-        error instanceof ApiError && !cantReach(error) ? error.detail : cantReachWords();
+        wordsFor(error);
     } finally {
       savingAll = false;
     }

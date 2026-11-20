@@ -1,9 +1,10 @@
 // The Ingredients list: every food, searched by any name on the server (contract 6.2).
 // Answers that arrive late (an older search) are ignored.
 
-import { cantReachWords, cantReach } from './api';
+import { cantReachWords, cantReach , wordsFor } from './api';
 import { listFoods } from './client/foods';
 import type { FoodFilter, FoodList, FoodRow } from './client/types';
+import { couldntLoad } from './errorWords.js';
 
 const PAGE = 50;
 
@@ -52,7 +53,7 @@ export class IngredientsList {
       this.answeredFor = { query, filter };
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.problem = cantReach(error) ? cantReachWords() : 'Couldn’t load your ingredients.';
+      this.problem = wordsFor(error, couldntLoad('your ingredients'));
     } finally {
       if (asked === this.#asked) this.loaded = true;
     }

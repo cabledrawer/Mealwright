@@ -11,7 +11,7 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import PageHeader from '#lib/components/PageHeader.svelte';
-  import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
+  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
   import {
     markConfirming,
     rememberAction,
@@ -80,7 +80,7 @@
   }
 
   const failed = (error: unknown) =>
-    error instanceof ApiError && !cantReach(error) ? error.detail : cantReachWords();
+    wordsFor(error);
 
   // Back up now first. The password typed for Delete everything is never sent with it (B8b round
   // 2). At a full folder the new backup pushes the oldest out, so it asks on its own, as Your data

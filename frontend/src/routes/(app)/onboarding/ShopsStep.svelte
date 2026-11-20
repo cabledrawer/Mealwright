@@ -3,7 +3,7 @@
   // Undo, as in Settings) and "+ Add a shop". Optional. The same endpoints as Settings › Shops and
   // places; renaming and putting them in order stay in Settings.
   import { onMount } from 'svelte';
-  import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
+  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
   import { serverUndo } from '#lib/client/changes.js';
   import { getShops } from '#lib/client/foods.js';
   import { removeShop } from '#lib/client/settingsLists.js';
@@ -13,6 +13,7 @@
   import { network } from '#lib/network.svelte.js';
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { save } from '#lib/save.js';
+  import { couldntLoad } from '#lib/errorWords.js';
 
   const uid = $props.id();
   let shops = $state<Shop[]>([]);
@@ -24,7 +25,7 @@
     try {
       shops = await getShops();
     } catch (error) {
-      problem = cantReach(error) ? cantReachWords() : 'Couldn’t load your shops.';
+      problem = wordsFor(error, couldntLoad('your shops'));
     }
   }
   onMount(() => void load());

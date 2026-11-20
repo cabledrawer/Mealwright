@@ -12,6 +12,7 @@
   import { save } from '#lib/save.js';
   import { starterPacks } from '#lib/starterPacks.svelte.js';
   import { plural } from '#lib/words.js';
+  import { couldntLoad } from '#lib/errorWords.js';
 
   const uid = $props.id();
   let dialog: HTMLDialogElement;
@@ -34,7 +35,7 @@
       packs = (await getStarterPacks()).packs;
       loaded = true;
     } catch (error) {
-      problem = error instanceof ApiError ? error.detail : 'Couldn’t load the starter packs.';
+      problem = error instanceof ApiError ? error.detail : couldntLoad('the starter packs');
     }
   }
 

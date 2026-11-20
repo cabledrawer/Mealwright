@@ -2,7 +2,7 @@
 // and Person screens. Every change answers with the whole list and the change made, so its Undo
 // (the toast, Ctrl+Z, Recent changes) is the server's own. Admins only change; everyone looks.
 
-import { ApiError, cantReach, cantReachWords, forgetWhenSessionEnds } from './api';
+import { ApiError, cantReach, cantReachWords, forgetWhenSessionEnds , wordsFor, wordsForSave } from './api';
 import { lastOwnChange, onUndoOf, serverUndo } from './client/changes';
 import { changed, getHousehold } from './client/household';
 import {
@@ -25,13 +25,8 @@ import { undoHistory } from './undo.svelte';
 import { api } from './api';
 import type { Household } from './client/types';
 
-const FALLBACK = 'Something went wrong. Try again.';
-
-/** The sentence for an error: the server's own, or "can't reach". */
-export function sentence(error: unknown): string {
-  if (!(error instanceof ApiError)) return FALLBACK;
-  return cantReach(error) ? nothingChanged(network.deviceOffline) : error.detail;
-}
+/** The sentence for an error: the server's own, or "can't reach" (one copy, in api.ts). */
+export const sentence = wordsForSave;
 
 class Household_ {
   loaded = $state(false);
@@ -88,7 +83,7 @@ class Household_ {
       this.loaded = true;
     } catch (error) {
       if (generation !== this.#generation) return;
-      this.problem = cantReach(error) ? cantReachWords() : sentence(error);
+      this.problem = wordsFor(error, sentence(error));
     }
   }
 

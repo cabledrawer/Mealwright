@@ -3,7 +3,7 @@
 // through save() with its change ID and Undo, and then the screen is fetched again so
 // the server's wording ("about 750 g · 1½ packets") replaces any guess.
 
-import { ApiError, cantReachWords, cantReach } from './api';
+import { ApiError, cantReachWords, cantReach , wordsFor } from './api';
 import { serverUndo } from './client/changes';
 import { binTub, placeTub, type PlanWrite } from './client/plan';
 import { createFood, listFoods, patchFood } from './client/foods';
@@ -36,6 +36,7 @@ import type {
 import { kitchen } from './freshness.svelte';
 import { save } from './save';
 import { plural } from './words.js';
+import { couldntLoad } from './errorWords.js';
 
 /** Take a packet off the screen: it was used, binned or moved. */
 export function withoutLot(pantry: Pantry, lotId: number): void {
@@ -111,7 +112,7 @@ export class PantryModel {
       this.problem = null;
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.problem = cantReach(error) ? cantReachWords() : 'Couldn’t load the pantry. Try again.';
+      this.problem = wordsFor(error, couldntLoad('the pantry'));
     }
   }
 

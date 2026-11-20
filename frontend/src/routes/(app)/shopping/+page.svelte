@@ -28,6 +28,7 @@
   import { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import { inTrolleyOrder, joinTrolley, linesOf } from '#lib/shopping/view.js';
   import { DESKTOP_QUERY } from '#lib/layout.js';
+  import { couldntAdd } from '#lib/errorWords.js';
 
   const model = new ShoppingModel();
   // On paper the page is the plain sheet of what is left to buy (PrintSheet).
@@ -168,7 +169,7 @@
       newShopName = '';
       await model.load();
     } catch (error) {
-      toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t add the shop. Try again.', {
+      toasts.show(error instanceof ApiError ? error.detail : couldntAdd('the shop'), {
         tone: 'problem'
       });
     }

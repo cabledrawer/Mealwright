@@ -11,7 +11,7 @@
   import { onDestroy, onMount, tick } from 'svelte';
   import Icon from '#lib/components/Icon.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
-  import { ApiError, cantReach, cantReachWords } from '#lib/api.js';
+  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
   import { getProblemReport, type ProblemReport } from '#lib/client/problemReport.js';
   import {
     COPIED,
@@ -61,7 +61,7 @@
       lines = startingLines(answer).map((text) => ({ id: nextId++, text }));
       problem = null;
     } catch (error) {
-      problem = error instanceof ApiError && !cantReach(error) ? error.detail : cantReachWords();
+      problem = wordsFor(error);
     } finally {
       loading = false;
     }

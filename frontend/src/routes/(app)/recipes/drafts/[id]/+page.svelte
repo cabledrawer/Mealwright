@@ -14,6 +14,7 @@
   import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
   import { PHONE_QUERY } from '#lib/layout.js';
+  import { couldntLoad } from '#lib/errorWords.js';
 
   const flow = new ImportFlow();
   let phone = $state(matchMedia(PHONE_QUERY).matches);
@@ -36,7 +37,7 @@
         problem = '';
       } else {
         phase = 'problem';
-        problem = error instanceof ApiError ? error.detail : 'Couldn’t open that draft. Try again.';
+        problem = error instanceof ApiError ? error.detail : couldntLoad('that draft');
       }
     }
   }
@@ -84,7 +85,7 @@
     <a class="back" href={resolve('/(app)/recipes/drafts')}>Back to Drafts</a>
   {:else}
     <div class="failed" role="alert">
-      <p>{problem || 'Couldn’t reach your Mealwright server. Try again.'}</p>
+      <p>{problem || couldntLoad('this draft')}</p>
       <button type="button" onclick={() => void load()}>Try again</button>
     </div>
   {/if}

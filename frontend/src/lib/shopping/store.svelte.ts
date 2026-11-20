@@ -28,6 +28,7 @@ import type { FoodSize, ListItem, ShopFood, Tick } from './types';
 import { ANY_SHOP, groupByShop, listCounts, planWords, standingTicks, subtitle } from './view';
 import { fromPlan, gotIt, notGotIt, type PlanCard, type Staple } from './plan';
 import { plural } from '../words.js';
+import { couldntLoad } from '../errorWords.js';
 
 /** The last thing ticked, for the desktop "Put away" panel and the phone toast. */
 export interface Ticked {
@@ -239,7 +240,7 @@ export class ShoppingModel {
       if (!shoppingSync.copy) {
         this.#notHere = cantReach(error);
         this.#problem =
-          error instanceof ApiError ? error.detail : 'Couldn’t load your shopping list.';
+          error instanceof ApiError ? error.detail : couldntLoad('your shopping list');
       }
     }
     this.loaded = true;

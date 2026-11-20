@@ -3,8 +3,9 @@
 // ignored. The tags for the filter row come with it.
 
 import { getContext, setContext } from 'svelte';
-import { cantReachWords, cantReach } from './api';
+import { cantReachWords, cantReach , wordsFor } from './api';
 import { listRecipes, listTags, type RecipeRow, type TagCount } from './client/recipes';
+import { couldntLoad } from './errorWords.js';
 
 const PAGE = 50;
 
@@ -93,7 +94,7 @@ export class RecipeList {
       }
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.problem = cantReach(error) ? cantReachWords() : 'Couldn’t load your recipes. Try again.';
+      this.problem = wordsFor(error, couldntLoad('your recipes'));
     } finally {
       if (asked === this.#asked) this.loaded = true;
     }
@@ -111,9 +112,7 @@ export class RecipeList {
       this.moreProblem = null;
     } catch (error) {
       if (asked !== this.#asked) return;
-      this.moreProblem = cantReach(error)
-        ? cantReachWords()
-        : 'Couldn’t load more recipes. Try again.';
+      this.moreProblem = wordsFor(error, couldntLoad('more recipes'));
     }
   }
 }

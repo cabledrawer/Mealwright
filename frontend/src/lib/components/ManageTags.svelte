@@ -15,6 +15,7 @@
 
   import '#lib/styles/fields.css';
   import { plural } from '#lib/words.js';
+  import { couldntLoad } from '#lib/errorWords.js';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -45,7 +46,7 @@
       tags = (await listTags()).tags;
       problem = null;
     } catch {
-      problem = 'Couldn’t load the tags. Try again.';
+      problem = couldntLoad('the tags');
     }
     loaded = true;
   }
