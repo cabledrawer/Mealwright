@@ -128,7 +128,7 @@ test('the Settings row opens People; add a person, who opens to choose their col
   await page.getByLabel('Name', { exact: true }).fill(name);
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
-  await expect(page).toHaveURL(/\/settings\/household\/\d+$/);
+  await expect(page).toHaveURL(/\/settings\/people\/\d+$/);
   await checkPage(page);
 
   await page.getByRole('button', { name: 'Violet' }).click();

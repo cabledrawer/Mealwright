@@ -221,12 +221,19 @@ test('lowering Keep so that backups go asks for the password, and Cancel changes
   expect(sent).toEqual([]);
 });
 
-test('F257: a wrong password in the pop-up keeps the one answer, empties the box and deletes nothing', async ({ page }) => {
+test('F257: a wrong password in the pop-up shows the one answer, empties the box and deletes nothing', async ({ page }) => {
   await pretendThereAreFour(page);
-  const answers: { status: number; code: unknown }[] = [];
-  page.on('response', async (response) => {
-    if (response.request().method() === 'PATCH' && response.url().endsWith('/api/v1/your-data/backups'))
-      answers.push({ status: response.status(), code: (await response.json()).code });
+  // The server only asks for the password when backups really go, and this test has none to
+  // delete, so the server's wrong-password answer (its one status, code and words, checked in
+  // test_backup_keep_confirm.py) is stood in for here.
+  const sent: unknown[] = [];
+  await page.route('**/api/v1/your-data/backups', async (route) => {
+    if (route.request().method() !== 'PATCH') return route.fallback();
+    sent.push(route.request().postDataJSON());
+    await route.fulfill({
+      status: 403,
+      json: { detail: 'That isn’t your current password.', code: 'wrong_password' },
+    });
   });
   await page.goto('/settings/your-data');
   await page.getByLabel('Keep').selectOption('2');
@@ -235,7 +242,8 @@ test('F257: a wrong password in the pop-up keeps the one answer, empties the box
   await sheet.getByRole('button', { name: 'Keep fewer backups' }).click();
   await expect(sheet.getByRole('alert')).toHaveText('That isn’t your current password.');
   await expect(sheet.getByLabel('Your password')).toHaveValue('');
-  expect(answers).toEqual([{ status: 403, code: 'wrong_password' }]);
+  expect(sent).toHaveLength(1);
+  expect(sent[0]).toMatchObject({ keep: 2, password: 'not the password' });
   await sheet.getByRole('button', { name: 'Cancel' }).click();
   await expect(sheet).toHaveCount(0);
   await page.reload();

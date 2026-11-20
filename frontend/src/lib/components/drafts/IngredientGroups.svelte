@@ -696,6 +696,11 @@
     cursor: pointer;
   }
 
+  /* "+ more" and "Show fewer" on the phone: a finger-sized target, like every button there. */
+  .sheet .more {
+    min-height: var(--touch-target);
+  }
+
   .left {
     align-self: center;
   }

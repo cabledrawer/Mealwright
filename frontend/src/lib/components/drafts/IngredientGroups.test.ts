@@ -392,6 +392,9 @@ describe('Drafts, by ingredient', () => {
         if (width < 768) await page.getByRole('button', { name: /soya sauce/ }).click();
         const more = page.getByRole('button', { name: '+ more' });
         await expect.element(more).toHaveAttribute('aria-expanded', 'false');
+        // A finger-sized target on the phone (44 px), as every other button there.
+        const tall = (el: Element) => el.getBoundingClientRect().height;
+        if (width < 768) expect(tall(more.element())).toBeGreaterThanOrEqual(44);
         await more.click();
         await expect.element(page.getByText('a splash of soya sauce · 3 times')).toBeVisible();
         await expect.element(page.getByText('soya sauce to taste')).toBeVisible();
@@ -401,6 +404,7 @@ describe('Drafts, by ingredient', () => {
         ).toHaveLength(1);
         const fewer = page.getByRole('button', { name: 'Show fewer' });
         await expect.element(fewer).toHaveAttribute('aria-expanded', 'true');
+        if (width < 768) expect(tall(fewer.element())).toBeGreaterThanOrEqual(44);
         await fewer.click();
         await expect.element(page.getByText(/a splash of soya sauce/)).not.toBeInTheDocument();
         await expect.element(page.getByRole('button', { name: '+ more' })).toBeVisible();
