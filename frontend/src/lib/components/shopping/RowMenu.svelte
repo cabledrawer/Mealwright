@@ -7,7 +7,8 @@
 
   let {
     name,
-    items
+    items,
+    onopen
   }: {
     /** The ingredient: "More for Coriander". */
     name: string;
@@ -18,6 +19,8 @@
       divider?: boolean;
       run: (opener: HTMLElement) => void;
     }[];
+    /** Called when the menu opens: a choice's code can be fetched now, ready for the click. */
+    onopen?: () => void;
   } = $props();
 
   const uid = $props.id();
@@ -30,6 +33,7 @@
   async function toggle() {
     open = !open;
     if (open) {
+      onopen?.();
       await tick();
       entries()[0]?.focus();
     }

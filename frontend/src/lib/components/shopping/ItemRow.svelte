@@ -286,6 +286,7 @@
 {#snippet menu()}
   <RowMenu
     name={food.name}
+    onopen={() => void import('./MovePicker.svelte').catch(() => {})}
     items={[
       { label: 'Change amount', run: () => openBox() },
       ...(sizeKnown ? [{ label: 'Which size?…', run: () => openSizes() }] : []),
