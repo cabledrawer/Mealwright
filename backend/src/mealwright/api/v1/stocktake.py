@@ -494,7 +494,11 @@ def answer(
         unit = _counting(food, size)
         if body.count is not None:
             if unit is None:
-                raise Problem(422, "not_counted", f"{food.name} isn’t counted one by one.")
+                raise Problem(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    "not_counted",
+                    f"{food.name} isn’t counted one by one.",
+                )
             # Tins are whole ones; an ingredient counted as a count keeps its fractions.
             count = (
                 body.count
@@ -504,7 +508,11 @@ def answer(
             target = round(count * unit[0])
         else:
             if unit is not None:
-                raise Problem(422, "counted", f"{food.name} is counted one by one: give a count.")
+                raise Problem(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    "counted",
+                    f"{food.name} is counted one by one: give a count.",
+                )
             fraction = body.fraction or Decimal(0)
             if size is None and (fraction > 0 or body.more):
                 raise Problem(
@@ -635,7 +643,11 @@ def set_pack_size(
 
     def apply() -> Change | None:
         if food.staple or food.counted_as == "count":
-            raise Problem(422, "no_pack", f"{food.name} isn’t counted by the pack.")
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "no_pack",
+                f"{food.name} isn’t counted by the pack.",
+            )
         if _usual(kitchen, food.id) is not None:
             raise Problem(
                 status.HTTP_409_CONFLICT,
@@ -644,7 +656,9 @@ def set_pack_size(
             )
         milli = _size_amount(kitchen, food, body.amount)
         if milli <= 0:
-            raise Problem(422, "too_small", "That size is too small.")
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "too_small", "That size is too small."
+            )
         _entry(kitchen, place.id, food.id)
         with FoodEdit(kitchen, [food.id]) as edit:
             size = add_size(kitchen, food, body.name, milli)

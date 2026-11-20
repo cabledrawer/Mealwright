@@ -70,6 +70,14 @@ def nothing_to_change(detail: str = NOTHING_TO_CHANGE) -> Problem:
     return Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "nothing_to_change", detail)
 
 
+ONE_FIELD = "Send one field at a time."
+
+
+def one_field(detail: str = ONE_FIELD) -> Problem:
+    """A route that takes exactly one of its fields was sent none or several."""
+    return Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "one_field", detail)
+
+
 def already_there(detail: str) -> Problem:
     """It is already so: moving something where it already is, freezing what is frozen, adding a
     name it already has. 409, with the sentence of the route."""

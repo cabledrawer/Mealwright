@@ -12,7 +12,7 @@ from mealwright import batches, people, plan
 from mealwright.api.v1.context import Here
 from mealwright.api.v1.plan import PlanWrite, _run
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, StoredInt
+from mealwright.errors import Problem, StoredInt, nothing_to_change
 from mealwright.models import Recipe
 
 router = APIRouter(tags=["plan"], dependencies=[SameOrigin])
@@ -243,11 +243,7 @@ def edit_tub(
     `change: null`."""
     fields = {k: getattr(body, k) for k in body.model_fields_set}
     if not fields:
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "nothing_to_change",
-            "Say whose tub it is, or its use-by date.",  # proposed, for cabledrawer
-        )
+        raise nothing_to_change()
     return _run(
         kitchen,
         response,

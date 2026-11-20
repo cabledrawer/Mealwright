@@ -8,7 +8,14 @@ from conftest import ADMIN, SETUP_CODE
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 
-from mealwright.errors import ALREADY_SET_UP, CANT_DO_HERE, OTHER_SITE, SIGN_IN
+from mealwright.errors import (
+    ALREADY_SET_UP,
+    CANT_DO_HERE,
+    NOTHING_TO_CHANGE,
+    ONE_FIELD,
+    OTHER_SITE,
+    SIGN_IN,
+)
 from mealwright.history import too_old_sentence
 from mealwright.models import Change, Household, utcnow
 
@@ -115,3 +122,20 @@ def test_too_late_to_undo_is_one_sentence_with_the_households_window(kitchen: Te
     late = _problem(kitchen.post(f"{API}/changes/{change['id']}/undo"), 410, "too_old")
     assert late["detail"] == "Too late to undo: changes can be undone for 14 days."
     assert too_old_sentence(1) == "Too late to undo: changes can be undone for 1 day."
+
+
+def test_nothing_sent_is_one_of_two_codes(kitchen: TestClient) -> None:
+    """BE26: a request with nothing to change is 422 `nothing_to_change`; one that must carry
+    exactly one field is 422 `one_field`."""
+    slot = kitchen.post(f"{API}/meal-slots", json={"name": "Elevenses"}).json()
+    empty = _problem(
+        kitchen.patch(f"{API}/meal-slots/{slot['id']}", json={}), 422, "nothing_to_change"
+    )
+    assert empty["detail"] == NOTHING_TO_CHANGE
+    food = kitchen.post(f"{API}/foods", json={"name": "Toor dal"}).json()["food"]
+    two = kitchen.patch(f"{API}/foods/{food['id']}", json={"name": "Dal", "staple": True})
+    assert _problem(two, 422, "one_field")["detail"] == ONE_FIELD
+    blank = kitchen.post(f"{API}/recipes/import", json={"text": "  "})
+    assert (
+        _problem(blank, 422, "nothing_to_change")["detail"] == "Paste a link or the recipe’s text."
+    )

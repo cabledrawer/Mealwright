@@ -187,7 +187,7 @@ export class ImportFlow {
     if (this.phase === 'reading') return;
     const text = this.text.trim();
     if (!text) {
-      this.problem = problemOf('nothing_given', 'Paste a link or the recipe’s text.');
+      this.problem = problemOf('nothing_to_change', 'Paste a link or the recipe’s text.');
       return;
     }
     this.phase = 'reading';

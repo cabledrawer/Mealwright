@@ -39,7 +39,7 @@ from mealwright.conversions import (
     to_base_milli,
 )
 from mealwright.date_kinds import date_kind
-from mealwright.errors import Problem, StoredInt, already_there, not_found
+from mealwright.errors import Problem, StoredInt, already_there, not_found, one_field
 from mealwright.foods import (
     UNIT_WORDS,
     add_size,
@@ -838,11 +838,7 @@ def edit_food(food_id: StoredInt, body: FoodPatch, kitchen: Here, response: Resp
     """Change one thing about a food. Each change can be undone."""
     given = [name for name in FIELD_NAMES if name in body.model_fields_set]
     if len(given) != 1:
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "one_field",
-            "Send one field at a time.",
-        )
+        raise one_field()
     field_name = given[0]
 
     def apply() -> Change | None:
@@ -851,7 +847,9 @@ def edit_food(food_id: StoredInt, body: FoodPatch, kitchen: Here, response: Resp
         with FoodEdit(kitchen, [food.id]) as edit:
             if field_name == "name":
                 if body.name is None:
-                    raise Problem(422, "name_needed", "Type a name.")
+                    raise Problem(
+                        status.HTTP_422_UNPROCESSABLE_CONTENT, "name_needed", "Type a name."
+                    )
                 new_name = _name(body.name)
                 owner = name_owner(kitchen, new_name, except_id=food.id)
                 if owner is not None:
@@ -866,7 +864,11 @@ def edit_food(food_id: StoredInt, body: FoodPatch, kitchen: Here, response: Resp
                 summary = f"Renamed {name} to {new_name}"
             elif field_name == "counted_as":
                 if body.counted_as is None:
-                    raise Problem(422, "counted_as_needed", "Choose how it’s counted.")
+                    raise Problem(
+                        status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        "counted_as_needed",
+                        "Choose how it’s counted.",
+                    )
                 if body.counted_as == food.counted_as:
                     return None
                 edit.extra["lot_amounts"] = _change_counted_as(
@@ -916,14 +918,20 @@ def edit_food(food_id: StoredInt, body: FoodPatch, kitchen: Here, response: Resp
                 )
             elif field_name == "aisle":
                 if body.aisle is None:
-                    raise Problem(422, "aisle_needed", "Choose an aisle.")
+                    raise Problem(
+                        status.HTTP_422_UNPROCESSABLE_CONTENT, "aisle_needed", "Choose an aisle."
+                    )
                 if body.aisle == (food.aisle or DEFAULT_AISLE):
                     return None
                 food.aisle = body.aisle
                 summary = f"{name} is now in {AISLE_LABELS[body.aisle]}"
             elif field_name == "date_kind":
                 if body.date_kind is None:
-                    raise Problem(422, "date_kind_needed", "Choose Use by or Best before.")
+                    raise Problem(
+                        status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        "date_kind_needed",
+                        "Choose Use by or Best before.",
+                    )
                 food_names = [food.name, *(n.name for n in other_names(kitchen, food.id))]
                 if date_kinds.locked(food, food_names) and body.date_kind != "use_by":
                     raise Problem(
@@ -1135,7 +1143,9 @@ def add_food_size(
         food = find(kitchen, food_id)
         milli = _size_amount(kitchen, food, body.amount)
         if milli <= 0:
-            raise Problem(422, "too_small", "That size is too small.")
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "too_small", "That size is too small."
+            )
         with FoodEdit(kitchen, [food.id]) as edit:
             size = add_size(kitchen, food, body.name, milli)
             if body.usual:
@@ -1154,7 +1164,7 @@ def edit_food_size(
 ) -> FoodWrite:
     """Rename a size, change how much it holds, or make it the Usual one."""
     if len(body.model_fields_set) != 1:
-        raise Problem(422, "one_field", "Send one field at a time.")
+        raise one_field()
 
     def apply() -> Change | None:
         food = find(kitchen, food_id)
@@ -1225,7 +1235,11 @@ def add_stand_in(
         food = find(kitchen, food_id)
         other = find(kitchen, body.food_id)
         if other.id == food.id:
-            raise Problem(422, "same_food", "An ingredient can’t stand in for itself.")
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "same_food",
+                "An ingredient can’t stand in for itself.",
+            )
         pairs = [(food.id, other.id)] + ([(other.id, food.id)] if body.both_ways else [])
         missing = [p for p in pairs if kitchen.db.get(FoodStandIn, p) is None]
         if not missing:
@@ -1281,7 +1295,9 @@ def not_the_same(food_id: StoredInt, body: NotSame, kitchen: Here) -> None:
     food = find(kitchen, food_id)
     other = find(kitchen, body.food_id)
     if food.id == other.id:
-        raise Problem(422, "same_food", "That’s the same ingredient.")
+        raise Problem(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "same_food", "That’s the same ingredient."
+        )
     pair = (min(food.id, other.id), max(food.id, other.id))
     if kitchen.db.get(FoodNotSame, pair) is None:
         kitchen.db.add(
@@ -1427,7 +1443,9 @@ def merge(food_id: StoredInt, body: Merge, kitchen: Here, response: Response) ->
         gone = find(kitchen, food_id)
         into = find(kitchen, body.into_id)
         if gone.id == into.id:
-            raise Problem(422, "same_food", "That’s the same ingredient.")
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "same_food", "That’s the same ingredient."
+            )
         with FoodEdit(kitchen, [gone.id, into.id]) as edit:
             edit.extra["lot_amounts"] = merge_foods(kitchen, gone, into, body.answers)
             ops = shopping.move_items(kitchen, gone.id, into.id, edit.batch)

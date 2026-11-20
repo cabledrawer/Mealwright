@@ -442,7 +442,7 @@ internal names; cabledrawer 19 Nov). Proposed, for cabledrawer: this is for memb
 `too_many_redirects`, `cant_reach` (also anything the fetch did not expect), `timeout`, `site_error`, `not_a_page`, `page_too_big`,
 `cant_read` (over a budget, a crash, or anything the reader did not expect: the log has the
 connection's label and the kind of error, never an address), `busy`, `no_recipe` (a page without a
-recipe, or text without one), `text_too_long`, `nothing_given`. The photo never stops an import:
+recipe, or text without one), `text_too_long`, `nothing_to_change` (an empty box; was `nothing_given`). The photo never stops an import:
 if its switch is off the review says "Photo not downloaded" (`off`), and if the download is
 refused or fails it says why (`failed`).
 

@@ -239,7 +239,7 @@ def test_each_line_has_a_label_and_the_counts_add_up(
 
 def test_nothing_given_and_no_recipe_in_text(kitchen: TestClient, web: Web) -> None:
     response = start(kitchen, "   ")
-    assert response.status_code == 422 and response.json()["code"] == "nothing_given"
+    assert response.status_code == 422 and response.json()["code"] == "nothing_to_change"
     response = start(kitchen, "Hello there, this is not a recipe at all.")
     assert response.status_code == 422 and response.json()["code"] == "no_recipe"
     assert "Paste its title, ingredients and method" in response.json()["detail"]

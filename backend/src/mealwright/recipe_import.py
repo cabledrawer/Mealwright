@@ -59,7 +59,7 @@ from mealwright.api.v1.recipe_schemas import (
 )
 from mealwright.api.v1.schemas import Ref
 from mealwright.conversions import guess_aisle, table
-from mealwright.errors import Problem, not_found
+from mealwright.errors import Problem, not_found, nothing_to_change
 from mealwright.foods import find as find_food
 from mealwright.foods import name_owner, refresh_table_key, suggested_shop
 from mealwright.history import FoodEdit
@@ -239,7 +239,7 @@ def start(kitchen: Kitchen, gate: OutboundGate, text: str, again: bool = False) 
     """Read a link or pasted text and answer with the review. Raises Problem."""
     text = text.strip()
     if not text:
-        raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "nothing_given", NOTHING_GIVEN)
+        raise nothing_to_change(NOTHING_GIVEN)
     # Nothing is held open while a page is fetched or read.
     kitchen.db.commit()
     began = _now()

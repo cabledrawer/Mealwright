@@ -640,7 +640,9 @@ def add_stock(body: AddStock, kitchen: Here, response: Response) -> StockWrite:
         place = _place(kitchen, body.place_id) if body.place_id else default_place(kitchen, food)
         resolved = resolve(kitchen, food, body.amount)
         if resolved.milli <= 0:
-            raise Problem(422, "too_small", "That’s too small to add.")
+            raise Problem(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, "too_small", "That’s too small to add."
+            )
         edit = StockEdit(kitchen)
         amounts: list[int]
         if resolved.size is not None:
@@ -707,7 +709,9 @@ def set_left(lot_id: StoredInt, body: SetLeft, kitchen: Here, response: Response
         else:
             typed = body.amount
             if typed is None:  # pragma: no cover (validated)
-                raise Problem(422, "needs_amount", "Type an amount.")
+                raise Problem(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT, "needs_amount", "Type an amount."
+                )
             milli = resolve(kitchen, food, typed).milli
         edit = StockEdit(kitchen)
         before = lot.amount_milli

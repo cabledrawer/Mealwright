@@ -53,7 +53,7 @@ def test_a_note_needs_text_and_nothing_else(kitchen: TestClient, slots: dict[str
         f"{API}/plan/items",
         json={"date": D1.isoformat(), "slot_id": slots["Dinner"], "note": "Out", "recipe_id": 1},
     )
-    assert both.status_code == 422 and both.json()["code"] == "one_of"
+    assert both.status_code == 422 and both.json()["code"] == "one_field"
     too_long = kitchen.post(
         f"{API}/plan/items",
         json={"date": D1.isoformat(), "slot_id": slots["Dinner"], "note": "x" * 201},

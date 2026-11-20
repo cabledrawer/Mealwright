@@ -18,7 +18,14 @@ from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.recipe_schemas import StepWaitOut
 from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, StoredInt, name_taken, not_found
+from mealwright.errors import (
+    Problem,
+    StoredInt,
+    name_taken,
+    not_found,
+    nothing_to_change,
+    one_field,
+)
 from mealwright.foods import change_out
 from mealwright.history import KEY_ONLY_KINDS, commit, replayed
 from mealwright.household import add_slot, meal_slots
@@ -874,11 +881,9 @@ def add_plan_item(body: PlanItemIn, kitchen: Here, response: Response) -> PlanWr
     a filled one gets it alongside (at most 20 things in a meal). A retry with the same
     `Idempotency-Key` plans nothing more."""
     if sum(x is not None for x in (body.recipe_id, body.ingredient_id, body.note)) != 1:
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "one_of",
-            "Pick a recipe, an ingredient or a note to plan.",  # proposed, for cabledrawer
-        )
+        raise one_field(
+            "Pick a recipe, an ingredient or a note to plan."
+        )  # proposed, for cabledrawer
 
     def make() -> Change:
         recipe = recipe_service.find(kitchen, body.recipe_id) if body.recipe_id else None
@@ -1242,11 +1247,7 @@ def change_meal_slot(
     carries the last change made."""
     kitchen.admin_only(Action.HOUSEHOLD_SETTINGS)
     if body.enabled is None and body.name is None:
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "nothing_to_change",
-            "Send `enabled` or `name`.",
-        )
+        raise nothing_to_change()
 
     def make() -> Change | None:
         slot = plan.find_slot(kitchen, plan_slot_id, on=False)
