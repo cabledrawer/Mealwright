@@ -164,7 +164,7 @@
                 type="button"
                 class="remove"
                 aria-label={REMOVE_LINE}
-                onclick={() => void remove(index)}>✕</button
+                onclick={() => void remove(index)}><Icon name="close" size={14} stroke={2.4} /></button
               >
             </li>
           {/each}

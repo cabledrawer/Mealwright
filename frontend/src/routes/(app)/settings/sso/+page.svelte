@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/components/Icon.svelte';
   import { onDestroy } from 'svelte';
   // Settings › Sign-in for everyone (0.9 O1; the mockup Dark-SSO09-Desktop). Admins only,
   // and on a computer: a phone says "Set up on a computer" (cabledrawer 12 Nov). The client
@@ -340,7 +341,7 @@
                     type="button"
                     class="small"
                     aria-label="Remove this group"
-                    onclick={() => removeGroup(index)}>✕</button
+                    onclick={() => removeGroup(index)}><Icon name="close" size={14} stroke={2.4} /></button
                   >
                 </td>
               </tr>

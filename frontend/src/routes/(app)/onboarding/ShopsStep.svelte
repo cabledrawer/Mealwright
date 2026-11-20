@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '#lib/components/Icon.svelte';
   // Onboarding's "Where do you shop?" (0.9 U2): the household's shops, ✕ to remove one (with
   // Undo, as in Settings) and "+ Add a shop". Optional. The same endpoints as Settings › Shops and
   // places; renaming and putting them in order stay in Settings.
@@ -108,7 +109,7 @@
           class="remove"
           aria-label="Remove {shop.name}"
           disabled={network.offline}
-          onclick={() => remove(shop)}>✕</button
+          onclick={() => remove(shop)}><Icon name="close" size={14} stroke={2.4} /></button
         >
       </li>
     {/each}

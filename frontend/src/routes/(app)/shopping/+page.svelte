@@ -1,5 +1,6 @@
 <script lang="ts">
   import Loading from '#lib/components/Loading.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   // Shopping (mockups Shop, Desktop-Shop): the list split by shop, then by aisle, with ticked
   // items folded into "In the trolley" at the end of each shop. Ticking puts the item into the
   // pantry (phone: a toast with Change and Undo; desktop: the Put away panel). Every change
@@ -230,7 +231,7 @@
               <button
                 type="button"
                 aria-label="Dismiss: {note.text}"
-                onclick={() => void model.dismissNote(note.id)}>✕</button
+                onclick={() => void model.dismissNote(note.id)}><Icon name="close" size={14} stroke={2.4} /></button
               >
             </li>
           {/each}
@@ -278,7 +279,7 @@
               <button
                 type="button"
                 aria-label="Dismiss: {ghost.note.text}"
-                onclick={() => void model.dismissNote(ghost.note.id)}>✕</button
+                onclick={() => void model.dismissNote(ghost.note.id)}><Icon name="close" size={14} stroke={2.4} /></button
               >
             </p>
           {/each}
@@ -413,7 +414,7 @@
               <button
                 type="button"
                 aria-label="Dismiss: {note.text}"
-                onclick={() => void model.dismissNote(note.id)}>✕</button
+                onclick={() => void model.dismissNote(note.id)}><Icon name="close" size={14} stroke={2.4} /></button
               >
             </li>
           {/each}
@@ -461,7 +462,7 @@
               <button
                 type="button"
                 aria-label="Dismiss: {ghost.note.text}"
-                onclick={() => void model.dismissNote(ghost.note.id)}>✕</button
+                onclick={() => void model.dismissNote(ghost.note.id)}><Icon name="close" size={14} stroke={2.4} /></button
               >
             </p>
           {/each}
