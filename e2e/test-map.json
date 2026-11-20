@@ -247,7 +247,7 @@
         "frontend/src/routes/(app)/settings/your-data/mealie/**", "frontend/src/lib/components/mealie/**", "frontend/src/lib/client/mealie.ts",
         "frontend/src/lib/mealie*", "frontend/src/lib/groupWords*", "frontend/src/lib/components/drafts/IngredientGroups*", "frontend/src/lib/components/today/MealieNote*"
       ],
-      "backend": ["test_mealie_file.py", "test_mealie_import.py", "test_mealie_answers.py", "test_mealie_answers_fix1.py", "test_mealie_answers_fix2.py", "test_mealie_answers_left_behind.py", "test_group_lines.py", "test_mealie_photo_review_fixes.py", "test_b7_lows_files.py", "test_migration_mealie_import.py"],
+      "backend": ["test_mealie_file.py", "test_mealie_import.py", "test_mealie_answers.py", "test_mealie_answers_fix1.py", "test_mealie_answers_fix2.py", "test_mealie_answers_left_behind.py", "test_group_lines.py", "test_undo_while_saving.py", "test_mealie_photo_review_fixes.py", "test_b7_lows_files.py", "test_migration_mealie_import.py"],
       "browser": ["mealie.spec.ts", "mealie-groups.spec.ts"]
     },
     {

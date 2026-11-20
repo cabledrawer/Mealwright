@@ -570,11 +570,13 @@ def finish(kitchen: Kitchen, done: Answered) -> Answered:
         lock_household(kitchen)
         began, first = time.monotonic(), at
         change = db.get(Change, change_id)
-        if change is None or change.undone_by_change_id is not None:
+        if change is not None:
+            db.refresh(change)
+        data = (change.undo_data or {}) if change is not None else {}
+        if change is None or change.undone_by_change_id is not None or data.get("undoing"):
+            # Undone, or an Undo has begun (F262): nothing more is moved to Recipes.
             db.commit()
             break
-        db.refresh(change)
-        data = change.undo_data or {}
         before = {int(e["draft_id"]): e["lines"] for e in data.get("partial", [])}
         items: list[dict[str, Any]] = []
         while at < len(todo) and (
@@ -856,8 +858,11 @@ def _walk(
     first_look = db.get(Change, change_id)
     if first_look is None:
         return
+    db.refresh(first_look)
+    # Each item is found again by its draft in every stretch, never by its place in the list
+    # (F262): the list may have changed between stretches.
     pending = [
-        k for k, i in enumerate((first_look.undo_data or {}).get(key, [])) if not i.get("done")
+        int(i["draft_id"]) for i in (first_look.undo_data or {}).get(key, []) if not i.get("done")
     ]
     at = 0
     while at < len(pending):
@@ -869,6 +874,7 @@ def _walk(
         db.refresh(change)
         data = change.undo_data or {}
         items = list(data.get(key, []))
+        where = {int(item["draft_id"]): k for k, item in enumerate(items)}
         counts = dict(data.get("progress") or {})
         began, first = time.monotonic(), at
         while at < len(pending) and (
@@ -877,10 +883,10 @@ def _walk(
             chunk = pending[at : at + UNDO_BATCH]
             at += len(chunk)
             # Another Undo of the same change may have done some between stretches.
-            chunk = [k for k in chunk if not items[k].get("done")]
-            if not chunk:
+            places = [where[d] for d in chunk if d in where and not items[where[d]].get("done")]
+            if not places:
                 continue
-            for k, new in zip(chunk, handle([items[k] for k in chunk], counts), strict=True):
+            for k, new in zip(places, handle([items[k] for k in places], counts), strict=True):
                 items[k] = new
         change.undo_data = {**data, key: items, "progress": counts}
         db.flush()
@@ -940,6 +946,20 @@ def undo(kitchen: Kitchen, change: Change, stretched: bool = False) -> Change:
         for item in items:
             _unanswer(kitchen, item, chosen, now)
         return [{**item, "done": True} for item in items]
+
+    # First the mark (F262): from here the answer's own move of completed drafts to Recipes
+    # (`finish`, in its own stretches) stops, so nothing it moves is missed by this Undo.
+    if stretched:
+        lock_household(kitchen)
+    marked = db.get(Change, change_id) or change
+    db.refresh(marked)
+    if marked.undone_by_change_id is not None:
+        raise already_undone()
+    if not (marked.undo_data or {}).get("undoing"):
+        marked.undo_data = {**(marked.undo_data or {}), "undoing": True}
+        db.flush()
+    if stretched:
+        db.commit()
 
     _walk(kitchen, change_id, "saved", recipes_back, stretched)
     _walk(kitchen, change_id, "partial", answers_off, stretched)
