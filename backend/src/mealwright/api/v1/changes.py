@@ -873,7 +873,7 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
             )
             raise Problem(status.HTTP_409_CONFLICT, refused, message)
         if utcnow() >= undo_until(kitchen, change):
-            raise too_old()
+            raise too_old(kitchen.household.undo_days)
         if undo_standing_refusal(kitchen, change) is not None:
             raise Problem(status.HTTP_409_CONFLICT, "cannot_undo", "That can’t be undone.")
         from mealwright.ticks import pantry_undo

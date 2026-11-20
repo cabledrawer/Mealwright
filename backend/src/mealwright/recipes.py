@@ -49,7 +49,7 @@ from mealwright.api.v1.schemas import Ref, Who
 from mealwright.errors import Problem, not_found
 from mealwright.foods import make_food, name_owner, name_taken, suggested_shop
 from mealwright.foods import visible as food_visible
-from mealwright.history import Tally, as_utc, bump_recipes, bump_recipes_by, record
+from mealwright.history import Tally, as_utc, bump_recipes, bump_recipes_by, record, too_old
 from mealwright.household import undo_window
 from mealwright.models import (
     Change,
@@ -983,7 +983,7 @@ def undo_removal(kitchen: Kitchen, change: Change) -> Change:
     data = change.undo_data or {}
     recipe = kitchen.db.get(Recipe, data.get("recipe_id", 0))
     if recipe is None or recipe.household_id != kitchen.household_id:
-        raise Problem(status.HTTP_410_GONE, "too_old", "That’s too long ago to undo.")
+        raise too_old(kitchen.household.undo_days)
     # While it was deleted, recipes that use it (or ones it uses) may have been changed so
     # that bringing it back would make a loop: the same check as a save, with the same words.
     picks = []

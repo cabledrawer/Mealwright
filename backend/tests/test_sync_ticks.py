@@ -591,7 +591,7 @@ def test_sy22b_queued_undo_pressed_in_time(kitchen: TestClient) -> None:
     _age(kitchen, again["id"], 10)
     late = _undo_pressed(s.wren, again["id"], _at(days=-1), _at())
     assert (late["status"], late["reason"]) == ("ignored", "too_old")
-    assert late["message"]
+    assert late["message"] == "Too late to undo: changes can be undone for 7 days."
     assert s.total("Toor dal") == 500
 
 

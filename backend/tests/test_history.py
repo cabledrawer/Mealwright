@@ -122,7 +122,10 @@ def test_too_old_to_undo(kitchen: TestClient) -> None:
         db.commit()
     response = undo(kitchen, change["id"])
     assert response.status_code == 410
-    assert response.json()["code"] == "too_old"
+    assert response.json() == {
+        "detail": "Too late to undo: changes can be undone for 7 days.",
+        "code": "too_old",
+    }
     listed = kitchen.get(f"{API}/changes").json()["changes"]
     assert listed[0]["can_undo"] is False
 

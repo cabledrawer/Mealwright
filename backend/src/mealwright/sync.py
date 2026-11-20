@@ -29,14 +29,13 @@ from mealwright import roles, shopping
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import ShortAmount
 from mealwright.errors import Problem
-from mealwright.history import as_utc
+from mealwright.history import as_utc, too_old_sentence
 from mealwright.household import undo_window
 from mealwright.models import Change, ListItem, ShoppingList, SyncAction, utcnow
 from mealwright.names import clean_name, size_name
 from mealwright.shopping import Act, Batch, Refused
 
 KEY_REUSED = "That change ID was already used for something else."
-TOO_OLD = "Too late to undo: changes can be undone for 7 days."
 MAX_ACTIONS = 100
 # cabledrawer 11 Nov (RF2 Sh5): an amount sent with more than 3 decimal places.
 TOO_MANY_DECIMALS = "That amount has too many decimal places. Use at most 3."
@@ -498,7 +497,7 @@ def undo(act: Act) -> None:
         return
     window: timedelta = undo_window(kitchen.household)
     if pressed_at(act, target.applied_at) >= as_utc(target.applied_at) + window:
-        act.ignore("too_old", TOO_OLD)
+        act.ignore("too_old", too_old_sentence(kitchen.household.undo_days))
         return
     if _tidied(kitchen, target):
         act.ignore("gone")  # its list or item was tidied away for good (5.9)

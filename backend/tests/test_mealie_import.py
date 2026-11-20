@@ -472,7 +472,10 @@ def test_undo_stops_after_7_days(kitchen: TestClient, raw: bytes) -> None:
         db.commit()
     answer = kitchen.post(f"{API}/mealie-imports/{done['id']}/undo")
     assert answer.status_code == 410
-    assert answer.json()["code"] == "too_old"
+    assert answer.json() == {
+        "detail": "Too late to undo: changes can be undone for 7 days.",
+        "code": "too_old",
+    }
 
 
 # --- Save all as they are -----------------------------------------------------------------------

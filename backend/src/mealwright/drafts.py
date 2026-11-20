@@ -46,7 +46,7 @@ from mealwright.api.v1.draft_schemas import (
 from mealwright.api.v1.import_schemas import ImportReview, ReviewCounts, ReviewLine, ReviewPhoto
 from mealwright.api.v1.schemas import Ref
 from mealwright.errors import Problem, not_found
-from mealwright.history import as_utc, record
+from mealwright.history import as_utc, record, too_old
 from mealwright.household import undo_window
 from mealwright.models import (
     Change,
@@ -726,7 +726,7 @@ def undo_removal(kitchen: Kitchen, change: Change) -> Change:
     data = change.undo_data or {}
     draft = kitchen.db.get(ImportDraft, data.get("draft_id", 0))
     if draft is None or draft.household_id != kitchen.household_id:
-        raise Problem(status.HTTP_410_GONE, "too_old", "That’s too long ago to undo.")
+        raise too_old(kitchen.household.undo_days)
     if count(kitchen.db, kitchen.household_id) >= MAX_DRAFTS:
         raise _too_many()
     draft.removed_at = None

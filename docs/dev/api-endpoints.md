@@ -59,7 +59,7 @@ Same shape as 0.1, plus a machine-readable `code` where the client must react:
 | 422 | `one_field` | a food PATCH with more or less than one field |
 | 422 | `bad_key` | an `Idempotency-Key` that isn't 1 to 64 letters, digits, `.`, `-`, `_` or `:` |
 | 409 | `key_reused` | an `Idempotency-Key` was reused for a different request: another method or path, or (0.9.5, proposed, for cabledrawer) the same route with a different body |
-| 410 | `too_old` | Undo after the undo window |
+| 410 | `too_old` | Undo after the undo window: "Too late to undo: changes can be undone for N days." (N is the household's window; 0.9.5-beta.3) |
 | 413 | `body_too_big` | a request body over 4 MiB, on any endpoint, signed in or not (security audit, 0.4) |
 | 422 | — | validation: a list of `{type, loc, msg}` (FastAPI's list form without `input` and `ctx`, so a mistake never repeats what was sent, and a lone surrogate such as `"\ud800"` is a 422, not a 500; 0.5). The web app's `detailOf` reads `msg` only |
 

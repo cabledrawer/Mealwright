@@ -1,12 +1,16 @@
 """Every error answer is `{detail, code}`: one status and one code per situation (0.9.5-beta.3,
 D2; docs/dev/api-endpoints.md section 1.1)."""
 
+from datetime import timedelta
 from typing import Any
 
 from conftest import ADMIN, SETUP_CODE
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 
 from mealwright.errors import ALREADY_SET_UP, CANT_DO_HERE, OTHER_SITE, SIGN_IN
+from mealwright.history import too_old_sentence
+from mealwright.models import Change, Household, utcnow
 
 API = "/api/v1"
 
@@ -97,3 +101,17 @@ def test_a_move_or_change_to_where_it_already_is_is_one_code(kitchen: TestClient
     assert _problem(frozen, 409, "already_there")["detail"] == "That’s already in the freezer."
     named = kitchen.post(f"{url}/other-names", json={"name": "spinach"})
     assert _problem(named, 409, "already_there")["detail"] == "Spinach already has that name."
+
+
+def test_too_late_to_undo_is_one_sentence_with_the_households_window(kitchen: TestClient) -> None:
+    """BE7: one "too late" sentence, built from the household's own undo window."""
+    change = kitchen.post(f"{API}/foods", json={"name": "Toor dal"}).json()["change"]
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        db.execute(update(Household).values(undo_days=14))
+        db.execute(
+            update(Change).where(Change.id == change["id"]).values(at=utcnow() - timedelta(days=15))
+        )
+        db.commit()
+    late = _problem(kitchen.post(f"{API}/changes/{change['id']}/undo"), 410, "too_old")
+    assert late["detail"] == "Too late to undo: changes can be undone for 14 days."
+    assert too_old_sentence(1) == "Too late to undo: changes can be undone for 1 day."

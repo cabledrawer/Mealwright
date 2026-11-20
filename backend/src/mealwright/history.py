@@ -896,12 +896,14 @@ JOINED_BOUGHT_MESSAGES: dict[UndoResult, str] = {
 }
 
 
-def too_old() -> Problem:
-    return Problem(
-        status.HTTP_410_GONE,
-        "too_old",
-        "That’s too long ago to undo.",
-    )
+def too_old_sentence(days: int) -> str:
+    """The one "too late to undo" sentence (0.9.5-beta.3, D2; proposed, for cabledrawer), with
+    the window that applied: the household's undo days, or an import's own."""
+    return f"Too late to undo: changes can be undone for {days} day{'' if days == 1 else 's'}."
+
+
+def too_old(days: int) -> Problem:
+    return Problem(status.HTTP_410_GONE, "too_old", too_old_sentence(days))
 
 
 def already_undone() -> Problem:

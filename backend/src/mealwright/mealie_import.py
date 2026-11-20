@@ -107,7 +107,6 @@ CHUNK = 500
 # The words are proposed, for cabledrawer (words.md section 81).
 BUSY = "An import from Mealie is already running. Wait for it to finish first."
 NOT_READY = "That import has already started or was cancelled."
-TOO_LATE = "That import can’t be undone any more: it’s more than 7 days ago."
 NOT_DONE = "That import hasn’t finished yet."
 
 
@@ -1104,7 +1103,9 @@ def _undo_ready(row: MealieImport) -> None:
     if row.state == "running" or until is None:
         raise Problem(status.HTTP_409_CONFLICT, "mealie_not_done", NOT_DONE)
     if utcnow() > until:
-        raise Problem(status.HTTP_410_GONE, "too_old", TOO_LATE)
+        from mealwright.history import too_old
+
+        raise too_old(UNDO_DAYS)
 
 
 def undo(kitchen: Kitchen, row: MealieImport) -> Undone:
