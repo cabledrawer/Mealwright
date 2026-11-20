@@ -2,6 +2,7 @@
   // Settings › Recent changes (F172, cabledrawer 7 Nov): the only place with every kind of change
   // and its Undo (Ingredients and Pantry have no list of their own now). The toast still offers
   // Undo straight after each change.
+  import Loading from '#lib/components/Loading.svelte';
   import { cantReachWords } from '#lib/api.js';
   import { AllChanges } from '#lib/allChanges.svelte.js';
   import RecentChanges from '#lib/components/RecentChanges.svelte';
@@ -32,14 +33,14 @@
         <button type="button" class="link" onclick={() => void recent.load()}>Try again</button>
       {/if}
     </p>
+  {:else if !recent.loaded}
+    <Loading />
   {:else}
     <RecentChanges
       changes={recent.changes}
       onundo={(change) => void recent.undo(change)}
       verbFirst={false}
-      none={recent.loaded
-        ? `Nothing yet. Changes show here, with Undo for ${UNDO_SPAN}.`
-        : 'Loading…'}
+      none={`Nothing yet. Changes show here, with Undo for ${UNDO_SPAN}.`}
     />
   {/if}
   {#if recent.next !== null}

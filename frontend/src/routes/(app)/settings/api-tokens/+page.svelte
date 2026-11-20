@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   import { onDestroy, tick } from 'svelte';
   // Settings › API tokens (0.9 O2; the mockup Dark-ApiTokens09). Admins only. The
   // list, "New token" (name, Read only / Read and change, Expires: Never, 30 days, 1 year or
@@ -154,9 +155,11 @@
   </p>
 
   {#if list === null}
-    <p class="card row detail" role={loadProblem ? 'alert' : undefined}>
-      {loadProblem || 'Loading…'}
-    </p>
+    {#if loadProblem}
+      <p class="card row detail" role="alert">{loadProblem}</p>
+    {:else}
+      <div class="card row"><Loading /></div>
+    {/if}
   {:else if list.tokens.length > 0}
     <ul class="card" data-testid="api-tokens">
       {#each list.tokens as token (token.id)}

@@ -5,6 +5,7 @@
   // and "Sign out everywhere else". "Sign-in for everyone" (part "everyone", admins only):
   // single sign-on (set up on a computer) and the Password sign-in switch (0.9 O1). Signing out
   // another device has no "Are you sure?": nothing is lost, it only has to sign in again.
+  import Loading from '#lib/components/Loading.svelte';
   import { resolve } from '$app/paths';
   import { cantReach, cantReachWords, detailOf, ApiError } from '#lib/api.js';
   import Button from '#lib/components/Button.svelte';
@@ -135,7 +136,11 @@
   <h3 class="sub-title">Where you’re signed in</h3>
   <div class="card" data-testid="signed-in-places">
     {#if mine === null}
-      <p class="row detail">{loadProblem || 'Loading…'}</p>
+      {#if loadProblem}
+        <p class="row detail">{loadProblem}</p>
+      {:else}
+        <div class="row"><Loading /></div>
+      {/if}
     {:else}
       {#each mine.sessions as place (place.id)}
         <div class="row">

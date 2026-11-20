@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   import { KEPT_BY, KEPT_BY_HINT } from '#lib/keptByWords.js';
   // The ingredient editor (mockups Ingredients-Phone, Ingredients-Desktop). The same
   // component everywhere: in the phone sheet / desktop panel (IngredientSheet.svelte)
@@ -317,7 +318,7 @@
 <div class="editor {variant}">
   {#if !food}
     <header>
-      <h2>{model.problem ? 'Ingredient' : 'Loading…'}</h2>
+      <h2>Ingredient</h2>
       {#if variant === 'sheet'}
         <Button small quiet onclick={() => onclose?.()}>Done</Button>
       {/if}
@@ -325,6 +326,8 @@
     {#if model.problem}
       <p class="hint" role="alert">{model.problem}</p>
       <Button small quiet onclick={() => void model.load()}>Try again</Button>
+    {:else}
+      <Loading />
     {/if}
   {:else}
     <header>
