@@ -4,7 +4,8 @@
   // each; pressing one puts the tub's soonest tub in that meal, with Undo. The same meals
   // "Any left over?" offers (planMeals.nextFreeMeals). A phone sheet; a box on a computer. A
   // real modal dialog: Esc closes it and the focus goes back where it came from.
-  import { tick } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import { getMealSlots, getPlan, type MealSlot, type Plan } from '#lib/client/plan.js';
   import type { UseSoonTub } from '#lib/client/types.js';
   import { nextFreeMeals } from '#lib/planMeals.js';
@@ -25,21 +26,13 @@
     onclose: () => void;
   } = $props();
 
-  const uid = $props.id();
-  let dialog: HTMLDialogElement;
   let slots = $state<MealSlot[]>([]);
   let plan = $state<Plan | null>(null);
   let loading = $state(true);
   let failed = $state(false);
 
   $effect(() => {
-    if (tub && !dialog.open) {
-      dialog.showModal();
-      void load(tub);
-      void tick().then(() => dialog.querySelector<HTMLElement>('[data-first]')?.focus());
-    } else if (!tub && dialog.open) {
-      dialog.close();
-    }
+    if (tub) void load(tub);
   });
 
   async function load(wanted: UseSoonTub) {
@@ -69,85 +62,30 @@
   });
 </script>
 
-<dialog
-  bind:this={dialog}
-  class="eat-sheet"
-  aria-labelledby="{uid}-title"
-  oncancel={(event) => {
-    event.preventDefault();
-    onclose();
-  }}
-  onclick={(event) => {
-    if (event.target === dialog) onclose();
-  }}
->
-  {#if tub}
-    <div class="body">
-      <span class="grab" aria-hidden="true"></span>
-      <p class="title" id="{uid}-title">Eat {tub.recipe_name} on…</p>
-      {#if loading}
-        <p class="hint">Looking for free meals…</p>
-      {:else if failed}
-        <p class="hint" role="alert">{couldntLoad('the plan')}</p>
-      {:else if options.length === 0}
-        <p class="hint">No free meal before its use-by day.</p>
-      {:else}
-        <ul class="meals">
-          {#each options as option, i (`${option.day}-${option.slotId}`)}
-            <li>
-              <button
-                type="button"
-                data-first={i === 0 ? '' : undefined}
-                onclick={() => onpick(option.day, option.slotId, option.name)}
-                >{option.label}</button
-              >
-            </li>
-          {/each}
-        </ul>
-      {/if}
-      <button type="button" class="cancel" onclick={onclose}>Cancel</button>
-    </div>
-  {/if}
-</dialog>
+{#if tub}
+  <Sheet title="Eat {tub.recipe_name} on…" {onclose}>
+    {#if loading}
+      <p class="hint">Looking for free meals…</p>
+    {:else if failed}
+      <p class="hint" role="alert">{couldntLoad('the plan')}</p>
+    {:else if options.length === 0}
+      <p class="hint">No free meal before its use-by day.</p>
+    {:else}
+      <ul class="meals">
+        {#each options as option (`${option.day}-${option.slotId}`)}
+          <li>
+            <button type="button" onclick={() => onpick(option.day, option.slotId, option.name)}
+              >{option.label}</button
+            >
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    <Button quiet onclick={onclose}>Cancel</Button>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    inset: auto 0 0 0;
-    width: 100%;
-    max-width: none;
-    max-height: none;
-    margin: 0;
-    padding: var(--space-4) var(--space-8) max(28px, env(safe-area-inset-bottom));
-    border: none;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-    box-shadow: var(--shadow-toast);
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
-  .body {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
-  }
-
-  .grab {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  .title {
-    font-size: var(--text-2xl);
-    font-weight: var(--weight-extrabold);
-  }
-
   .hint {
     color: var(--color-text-muted);
     font-size: var(--text-base);
@@ -173,26 +111,5 @@
     cursor: pointer;
   }
 
-  .cancel {
-    min-height: var(--touch-target);
-    border: none;
-    background: transparent;
-    color: var(--color-accent);
-    font: var(--weight-bold) var(--text-md) var(--font-ui);
-    cursor: pointer;
-  }
-
   /* A computer: a box in the middle of the screen, not a sheet the width of it. */
-  @media (min-width: 768px) {
-    dialog {
-      inset: 0;
-      width: min(420px, 100%);
-      margin: auto;
-      border-radius: var(--radius-xl);
-    }
-
-    .grab {
-      display: none;
-    }
-  }
 </style>

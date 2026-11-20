@@ -4,6 +4,8 @@
   // timers and the time follow the pick, and the meal is set to it so Cooked it follows. Loaded
   // when Cook mode first has a recipe with two ways (size limit). Words are proposed, for cabledrawer,
   // except the question (docs/dev/words.md).
+  import Button from '#lib/components/Button.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import type { Recipe } from '#lib/client/recipes.js';
   import { setMealWay } from '#lib/cookWays.js';
   import { network } from '#lib/network.svelte.js';
@@ -66,34 +68,25 @@
   }
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
   // The start state is the prop; the person's tap changes this copy.
   let chosen = $state<number | null>(null);
   const now = $derived(chosen ?? picked);
   const name = $derived(ways.find((w) => w.id === now)?.name ?? '');
-
-  $effect(() => {
-    if (!dialog.open) dialog.showModal();
-  });
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-labelledby="{uid}-title"
-  oncancel={(event) => {
-    event.preventDefault();
-    void start(now); // closed: the way that was on (or pre-picked) stays
-  }}
-  data-testid="cook-method"
+<Sheet
+  title="How are you cooking it today?"
+  testid="cook-method"
+  outside={false}
+  onclose={() => void start(now)}
 >
+  <!-- Closed with Escape: the way that was on (or pre-picked) stays. -->
   <form
     onsubmit={(event) => {
       event.preventDefault();
       void start(now);
     }}
   >
-    <span class="handle" aria-hidden="true"></span>
-    <h2 id="{uid}-title">How are you cooking it today?</h2>
     <ul>
       {#each ways as way (way.id)}
         <li>
@@ -114,45 +107,15 @@
     <p class="hint">
       Steps, timers and the time follow your pick. You can switch on the first step.
     </p>
-    <button type="submit" class="main">Start · {name}</button>
+    <Button type="submit">Start · {name}</Button>
   </form>
-</dialog>
+</Sheet>
 
 <style>
-  dialog {
-    position: fixed;
-    inset: auto 0 0 0;
-    width: 100%;
-    max-width: 560px;
-    margin: 0 auto;
-    padding: var(--space-5) var(--space-9) var(--space-9);
-    border: none;
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   form {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
-  }
-
-  .handle {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
   }
 
   ul {
@@ -210,15 +173,5 @@
     margin: 0;
     color: var(--color-text-muted);
     font-size: var(--text-sm);
-  }
-
-  .main {
-    min-height: 52px;
-    border: none;
-    border-radius: var(--radius-lg);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font: var(--weight-extrabold) var(--text-lg) var(--font-ui);
-    cursor: pointer;
   }
 </style>
