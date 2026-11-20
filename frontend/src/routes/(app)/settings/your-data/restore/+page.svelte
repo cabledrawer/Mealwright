@@ -145,7 +145,7 @@ sudo chmod 600 &lt;folder&gt;/data/mealwright.db</code
     display: flex;
     flex-direction: column;
     gap: var(--space-8);
-    max-width: 760px;
+    max-width: var(--settings-width);
     color: var(--color-text);
     font-size: var(--text-lg);
     line-height: 1.5;

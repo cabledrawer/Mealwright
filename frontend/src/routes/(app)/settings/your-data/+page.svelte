@@ -521,7 +521,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-8);
-    max-width: 760px;
+    max-width: var(--settings-width);
   }
 
   .part {

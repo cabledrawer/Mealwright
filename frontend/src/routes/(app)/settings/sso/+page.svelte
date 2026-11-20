@@ -459,7 +459,7 @@
 
 <style>
   .intro {
-    max-width: 760px;
+    max-width: var(--settings-width);
     font-size: var(--text-md);
   }
 

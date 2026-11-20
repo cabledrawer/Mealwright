@@ -17,6 +17,6 @@
 
 <style>
   .section {
-    max-width: 760px;
+    max-width: var(--settings-width);
   }
 </style>

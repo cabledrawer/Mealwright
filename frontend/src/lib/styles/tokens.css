@@ -112,6 +112,7 @@
   --color-swipe-move: #2b5c8a;
   --color-swipe-text: #ffffff;
   --focus-width: 2px; /* the keyboard focus ring, everywhere (FE30) */
+  --settings-width: 760px;
   --radius-field: 14px;
   --radius-button: 16px;
 

@@ -66,7 +66,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    max-width: 760px;
+    max-width: var(--settings-width);
   }
 
   .card {
