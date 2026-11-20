@@ -271,7 +271,7 @@ describe('signing out', () => {
     const mend = breakPhone();
     await button('Sign out').click();
     await expect.element(button('Try again')).toBeVisible();
-    expect(button('Try again').element().classList.contains('primary')).toBe(true);
+    expect(button('Try again').element().classList.contains('mw-button')).toBe(true);
     expect(button('Try again').element().classList.contains('quiet')).toBe(false);
     const release = holdDatabaseList();
     await button('Try again').click();

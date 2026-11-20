@@ -3,7 +3,9 @@
   // sign-in that matches nobody, for an admin to link to a person, to a new person, or to
   // refuse (cabledrawer 13 Nov). A phone sheet: a real modal dialog, Esc closes it and the focus
   // goes back where it came from. On a computer it is a box in the middle of the screen.
-  import { tick } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import PersonAvatar from '#lib/components/people/PersonAvatar.svelte';
   import type { Person, WaitingSignIn } from '#lib/client/people.js';
   import { sentence } from '#lib/people.svelte.js';
@@ -41,7 +43,6 @@
   } = $props();
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
   let picked = $state<number | 'new' | null>(null);
   let problem = $state<string | null>(null);
 
@@ -50,14 +51,11 @@
     picked === 'new' ? 'new' : (choices.find((p) => p.id === picked) ?? null)
   );
 
+  const isOpen = $derived(waiting !== null);
   $effect(() => {
-    if (waiting && !dialog.open) {
+    if (isOpen) {
       picked = null;
       problem = null;
-      dialog.showModal();
-      void tick().then(() => dialog.querySelector<HTMLElement>('[role="radio"]')?.focus());
-    } else if (!waiting && dialog.open) {
-      dialog.close();
     }
   });
 
@@ -77,22 +75,9 @@
   }
 </script>
 
-<dialog
-  bind:this={dialog}
-  class="who-sheet"
-  aria-labelledby="{uid}-title"
-  oncancel={(event) => {
-    event.preventDefault();
-    onclose();
-  }}
-  onclick={(event) => {
-    if (event.target === dialog) onclose();
-  }}
->
-  {#if waiting}
+{#if waiting}
+  <Sheet title={whoTitle(waiting)} outside={true} {onclose}>
     <form class="body" onsubmit={link}>
-      <span class="grab" aria-hidden="true"></span>
-      <h2 class="title" id="{uid}-title">{whoTitle(waiting)}</h2>
       <p class="sub">{whoLine(waiting, new Date(), zone)}</p>
       <div class="picks" role="radiogroup" aria-label="Person" use:radioKeys>
         {#each choices as person (person.id)}
@@ -121,57 +106,19 @@
         </button>
       </div>
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-      <button class="main" type="submit" disabled={pickedPerson === null || busy || offline}
-        >{linkButton(pickedPerson)}</button
+      <Button type="submit" disabled={pickedPerson === null || busy || offline}
+        >{linkButton(pickedPerson)}</Button
       >
-      <button
-        class="refuse"
-        type="button"
-        disabled={busy || offline}
-        onclick={() => void act(onrefuse)}>{REFUSE}</button
-      >
+      <Button quiet disabled={busy || offline} onclick={() => void act(onrefuse)}>{REFUSE}</Button>
     </form>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    inset: auto 0 0 0;
-    width: 100%;
-    max-width: none;
-    max-height: 92dvh;
-    margin: 0;
-    padding: var(--space-4) var(--space-8) max(28px, env(safe-area-inset-bottom));
-    border: none;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-    box-shadow: var(--shadow-toast);
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
-  }
-
-  .grab {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  .title {
-    margin: 0;
-    font-size: var(--text-2xl);
-    font-weight: var(--weight-extrabold);
-    overflow-wrap: anywhere;
   }
 
   .sub {
@@ -236,49 +183,5 @@
     color: var(--color-warning-text);
     font-size: var(--text-base);
     font-weight: var(--weight-semibold);
-  }
-
-  .main {
-    min-height: 52px;
-    border: none;
-    border-radius: var(--radius-button);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font: var(--weight-extrabold) 1rem var(--font-ui);
-    cursor: pointer;
-  }
-
-  .main:disabled {
-    background: var(--color-fill);
-    color: var(--color-text-muted);
-    cursor: default;
-  }
-
-  .refuse {
-    min-height: 52px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-button);
-    background: transparent;
-    color: var(--color-text);
-    font: var(--weight-bold) 1rem var(--font-ui);
-    cursor: pointer;
-  }
-
-  .refuse:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      inset: 0;
-      width: min(460px, 100%);
-      margin: auto;
-      border-radius: var(--radius-xl);
-    }
-
-    .grab {
-      display: none;
-    }
   }
 </style>

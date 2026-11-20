@@ -1,4 +1,7 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // "Add a starter pack" (0.8 R4; spec section 2): pick one of the seven packs, see its
   // ingredients with every one ticked, untick any, then "Add N ingredients". Ingredients that
@@ -16,7 +19,6 @@
   import { couldntLoad } from '#lib/errorWords.js';
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
 
   let packs = $state<StarterPack[]>([]);
   let loaded = $state(false);
@@ -46,9 +48,6 @@
       unticked = new Set();
       loaded = false;
       void load();
-      if (!dialog.open) dialog.showModal();
-    } else if (dialog.open) {
-      dialog.close();
     }
   });
 
@@ -84,24 +83,25 @@
   }
 </script>
 
-<dialog bind:this={dialog} aria-labelledby="{uid}-title" oncancel={() => starterPacks.close()}>
-  <!-- Only while open: a closed dialog keeps no words in the page (its "Loading…" was found by
-       other screens' tests, and is read by nothing while shut). -->
-  {#if starterPacks.open}
+<!-- Only while open: a closed dialog keeps no words in the page. -->
+{#if starterPacks.open}
+  <Sheet
+    title={picked ? `${picked.name} starter pack` : 'Add a starter pack'}
+    outside={false}
+    onclose={() => starterPacks.close()}
+  >
     <form
       onsubmit={(event) => {
         event.preventDefault();
         add();
       }}
     >
-      <h2 id="{uid}-title">{picked ? `${picked.name} starter pack` : 'Add a starter pack'}</h2>
-
       {#if problem}
         <p class="problem" role="alert">{problem}</p>
-        <div class="buttons">
-          <button type="button" class="quiet" onclick={() => starterPacks.close()}>Close</button>
-          <button type="button" class="main" onclick={() => void load()}>Try again</button>
-        </div>
+        <ButtonRow>
+          <Button onclick={() => void load()}>Try again</Button>
+          <Button quiet onclick={() => starterPacks.close()}>Close</Button>
+        </ButtonRow>
       {:else if !loaded}
         <Loading />
       {:else if !picked}
@@ -123,9 +123,9 @@
             </li>
           {/each}
         </ul>
-        <div class="buttons">
-          <button type="button" class="quiet" onclick={() => starterPacks.close()}>Cancel</button>
-        </div>
+        <ButtonRow>
+          <Button quiet onclick={() => starterPacks.close()}>Cancel</Button>
+        </ButtonRow>
       {:else}
         {#if picked.items.some((i) => i.staple)}
           <p class="hint">These are added as “Don’t count it”: always assumed to be in stock.</p>
@@ -165,47 +165,26 @@
             </li>
           {/each}
         </ul>
-        <div class="buttons">
-          <button type="button" class="quiet" onclick={() => (pickedId = null)}>Back</button>
-          <button
+        <ButtonRow>
+          <Button
             type="submit"
-            class="main"
             aria-describedby={network.offline ? `${uid}-down` : undefined}
             disabled={!chosen.length || network.offline}
-            >{chosen.length === 1 ? 'Add 1 ingredient' : `Add ${chosen.length} ingredients`}</button
+            >{chosen.length === 1 ? 'Add 1 ingredient' : `Add ${chosen.length} ingredients`}</Button
           >
-        </div>
+          <Button quiet onclick={() => (pickedId = null)}>Back</Button>
+        </ButtonRow>
         {#if network.offline}<p class="hint" id="{uid}-down">{offlineReason}</p>{/if}
       {/if}
     </form>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    width: min(520px, calc(100vw - 2 * var(--space-7)));
-    max-height: calc(100dvh - 2 * var(--space-7));
-    padding: var(--space-9);
-    border: none;
-    border-radius: var(--radius-panel);
-    background: var(--color-surface);
-    color: var(--color-text);
-    overflow-y: auto;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   form {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
   }
 
   .hint {
@@ -349,36 +328,5 @@
     color: var(--color-accent);
     font: var(--weight-bold) var(--text-base) var(--font-ui);
     cursor: pointer;
-  }
-
-  .buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-4);
-  }
-
-  .buttons button {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-8);
-    border: none;
-    border-radius: var(--radius-full);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .quiet {
-    background: var(--color-fill);
-    color: var(--color-text);
-  }
-
-  .main {
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .main:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
   }
 </style>
