@@ -22,7 +22,8 @@ import logging
 from typing import Any
 
 from fastapi import status
-from sqlalchemy import select
+from sqlalchemy import Select, select
+from sqlalchemy.orm import aliased
 
 from mealwright import change_kinds, own_network, sso_accounts
 from mealwright.api.v1.context import Kitchen
@@ -30,6 +31,7 @@ from mealwright.errors import Problem
 from mealwright.history import record
 from mealwright.models import Change, OwnNetworkEntry
 from mealwright.outbound import LABELS, Connection, set_switch, switches
+from mealwright.roles import Action
 
 KINDS = change_kinds.PRIVACY
 
@@ -42,6 +44,54 @@ PASSWORDS_BACK_ON_OWN_NETWORK = (
     "entry: your sign-in server is no longer on Your own network. Add it back and "
     "passwords are off again."
 )
+
+
+# --- Who sees them (security review beta.3, finding 1) -----------------------------------------
+#
+# Proposed, for cabledrawer: an own-network change names its entry ("Added 192.168.1.0/24 to Your
+# own network"), and the list itself is read only by those with the Privacy permission (an admin
+# at a screen; never a member, never an API token: `GET /privacy/own-network`, D4, BE12). So those
+# changes, and the Undos of them, are left out of Recent changes for everyone else, and are "not
+# here" (404) when asked for by id. A switch change stays visible: the switches are readable by
+# everyone in the household anyway.
+OWN_NETWORK_KINDS = ("own_network_added", "own_network_removed")
+
+
+def can_see_own_network(kitchen: Kitchen) -> bool:
+    """Whether this caller may read Your own network, and so its changes: the same test as
+    `GET /privacy/own-network`."""
+    return kitchen.may(Action.PRIVACY)
+
+
+def leave_out_hidden(kitchen: Kitchen, query: Select[Any]) -> Select[Any]:
+    """Recent changes' query, without the own-network changes and the Undos of them when this
+    caller can't read Your own network. Done in the query, so paging and `next` are unchanged."""
+    if can_see_own_network(kitchen):
+        return query
+    target = aliased(Change)
+    own_network_ids = select(target.id).where(
+        target.household_id == kitchen.household_id, target.kind.in_(OWN_NETWORK_KINDS)
+    )
+    return query.where(
+        Change.kind.not_in(OWN_NETWORK_KINDS),
+        ~(
+            (Change.kind == "undo")
+            & Change.undoes_change_id.is_not(None)
+            & Change.undoes_change_id.in_(own_network_ids)
+        ),
+    )
+
+
+def hidden(kitchen: Kitchen, change: Change) -> bool:
+    """Whether this change is one `leave_out_hidden` leaves out for this caller."""
+    if can_see_own_network(kitchen):
+        return False
+    if change.kind in OWN_NETWORK_KINDS:
+        return True
+    if change.kind == "undo" and change.undoes_change_id is not None:
+        target = kitchen.db.get(Change, change.undoes_change_id)
+        return target is not None and target.kind in OWN_NETWORK_KINDS
+    return False
 
 
 def _cannot_undo(detail: str) -> Problem:

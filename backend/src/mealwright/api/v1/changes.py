@@ -234,6 +234,8 @@ def list_changes(
     query = select(Change).where(
         Change.household_id == kitchen.household_id, Change.kind.not_in(KEY_ONLY_KINDS)
     )
+    # Your own network's changes name its entries: only for those who may read the list.
+    query = privacy_changes.leave_out_hidden(kitchen, query)
     if food_id is not None:
         query = query.where(Change.food_id == food_id)
     if area is not None:
@@ -847,7 +849,12 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
         # The household's lock first (sync protocol 5.2): an Undo can change lists too.
         batch = shopping.Batch(kitchen)
         change = kitchen.db.get(Change, change_id)
-        if change is None or change.household_id != kitchen.household_id:
+        if (
+            change is None
+            or change.household_id != kitchen.household_id
+            # Not in this caller's Recent changes (Your own network): not here either.
+            or privacy_changes.hidden(kitchen, change)
+        ):
             raise not_found("That change")
         if change.kind in ADMIN_ONLY_KINDS:
             kitchen.admin_only(admin_kind_action(change.kind))  # undone by an admin, as it is made
@@ -885,6 +892,8 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
                 return _undo_out(kitchen, undone)
     if earlier is None:  # never: replayed, or committed by another request first
         raise already_undone()
+    if privacy_changes.hidden(kitchen, earlier):  # a retry answers only what its caller may see
+        raise not_found("That change")
     if earlier.kind != "undo":
         raise Problem(
             status.HTTP_409_CONFLICT,

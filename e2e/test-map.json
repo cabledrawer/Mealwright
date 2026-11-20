@@ -197,7 +197,7 @@
     {
       "name": "Settings and privacy",
       "paths": [
-        "backend/src/mealwright/outbound.py", "backend/src/mealwright/network_guard.py", "backend/src/mealwright/own_network.py",
+        "backend/src/mealwright/outbound.py", "backend/src/mealwright/network_guard.py", "backend/src/mealwright/own_network.py", "backend/src/mealwright/privacy_changes.py",
         "backend/src/mealwright/api/v1/privacy.py", "backend/src/mealwright/api/v1/kitchen.py",
         "frontend/src/routes/(app)/settings/**", "frontend/src/lib/components/YourKitchen.svelte", "frontend/src/lib/client/household.ts", "frontend/src/lib/components/privacy/**", "frontend/src/lib/components/RecentChanges.svelte",
         "frontend/src/lib/privacy*", "frontend/src/lib/proxyGap.ts", "frontend/src/lib/client/privacy.ts", "frontend/src/lib/client/settingsLists.ts",
@@ -287,7 +287,7 @@
         "frontend/src/lib/sendTwice.ts", "frontend/src/lib/serverNeeded.ts", "frontend/src/lib/downWords*", "frontend/src/service-worker/**",
         "frontend/src/routes/(app)/offline.test.ts", "frontend/src/lib/components/Connection*", "frontend/src/lib/components/OfflineNote.svelte"
       ],
-      "backend": ["test_sync_*.py", "test_event*.py", "test_events.py", "test_history.py", "test_key_body.py", "test_tick_time.py", "test_keep_alive.py"],
+      "backend": ["test_sync_*.py", "test_event*.py", "test_events.py", "test_history.py", "test_privacy_changes.py", "test_key_body.py", "test_tick_time.py", "test_keep_alive.py"],
       "browser": ["offline.spec.ts", "offline-writes.spec.ts", "live.spec.ts", "installable.spec.ts", "server-down.spec.ts", "version-check.spec.ts"]
     },
     {

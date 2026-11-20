@@ -151,6 +151,15 @@ not downloaded" and "switched off" links) and `/settings/outside-connections#you
   sign-on for the last admin who can only sign in with it is refused like the switch itself
   (`409 locked_out`); one that turns password sign-in back on says so in the Undo's `notice`
   (the same sentence as `DELETE`'s).
+- **Who sees them (security review beta.3, finding 1; proposed, for cabledrawer).** An
+  own-network change names its entry, so `own_network_added`, `own_network_removed` and the
+  Undos of them are listed in `GET /changes` only for a caller who may read
+  `GET /privacy/own-network` (an admin signed in on a device). A member and every API token
+  (read-only or full, an admin's too) never get them: they are left out of the list (paging and
+  `next` work as if they weren't there), and `POST /changes/{id}/undo` on one answers 404, like
+  a change of another household (a read-only token gets its usual `403 read_only_token` first).
+  Switch changes (`connection_changed`) stay listed for everyone, without Undo: the switches are
+  readable by the whole household anyway.
 
 Log lines go on the sign-in log (`mealwright.sign_in`) and say only "Privacy: recipe import
 switched on by tess" and "Your own network: added by tess" or "removed by tess" (an Undo adds

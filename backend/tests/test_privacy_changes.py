@@ -3,7 +3,8 @@
 cabledrawer 20 Nov: "outside-connection switches and Your own network go into Recent changes
 with Undo (as the spec said)". Each switch and each entry added or taken off is a change; an
 admin can undo it within the undo window while nothing has changed it since. A member and an
-API token can't. An Undo of "switched on" blocks the next outside connection at once.
+API token can't. An Undo of "switched on" blocks the next outside connection at once. A member
+and an API token don't see the own-network changes at all (security review beta.3, finding 1).
 """
 
 from typing import Any
@@ -186,10 +187,12 @@ def test_a_removal_sent_again_with_its_key_answers_as_the_first(kitchen: TestCli
 # --- Who may undo ------------------------------------------------------------------------------
 
 
-def test_a_member_sees_them_but_cant_undo(
+def test_a_member_sees_a_switch_change_but_cant_undo_it(
     kitchen: TestClient,
     member: TestClient,
 ) -> None:
+    # A switch's state is readable by a member anyway (GET /privacy/switches), so its change
+    # stays in their Recent changes, without Undo. Own-network changes don't: see below.
     change = _switch(kitchen, "recipe_import", True).json()["change"]
     listed = [c for c in _listed(member) if c["id"] == change["id"]]
     assert listed and listed[0]["can_undo"] is False
@@ -200,11 +203,97 @@ def test_a_member_sees_them_but_cant_undo(
 
 
 def test_an_admins_api_token_cant_undo_them(kitchen: TestClient) -> None:
+    switched = _switch(kitchen, "recipe_import", True).json()["change"]
     change = kitchen.post(LIST, json={"value": "wiki.home.example"}).json()["change"]
     app = _app(kitchen, _make(kitchen, "full"))
-    refused = _undo(app, change["id"])
+    refused = _undo(app, switched["id"])
     assert refused.status_code == 403, refused.text
+    assert refused.json()["code"] == "not_for_tokens"
+    # An own-network change isn't there at all for a token (security review beta.3, finding 1).
+    assert _undo(app, change["id"]).status_code == 404
     assert values(kitchen) == ["wiki.home.example"]
+    assert _is_on(kitchen, "recipe_import")
+
+
+# --- Who sees Your own network in Recent changes (security review beta.3, finding 1) ----------
+#
+# GET /privacy/own-network is for an admin at a screen only (D4, BE12): a member must not be able
+# to map the home network, and no API token reads it. Its changes name the entry, so they (and
+# the Undos of them) are left out of Recent changes for everyone who can't read the list itself.
+
+SECRETS = ("192.168.1.0/24", "nas.home.example", "wiki.home.example")
+
+
+def _own_network_history(kitchen: TestClient) -> dict[str, int]:
+    """An add, a removal, an Undo of each, and switch changes in between: the change ids."""
+    ids = {"switch_1": _switch(kitchen, "recipe_import", True).json()["change"]["id"]}
+    first = kitchen.post(LIST, json={"value": SECRETS[0]})
+    assert first.status_code == 201, first.text
+    ids["added"] = first.json()["change"]["id"]
+    second = kitchen.post(LIST, json={"value": SECRETS[1]}).json()
+    ids["switch_2"] = _switch(kitchen, "recipe_import", False).json()["change"]["id"]
+    ids["removed"] = kitchen.delete(f"{LIST}/{second['id']}").json()["change"]["id"]
+    ids["undo_removed"] = _undo(kitchen, ids["removed"]).json()["change"]["id"]
+    third = kitchen.post(LIST, json={"value": SECRETS[2]}).json()["change"]
+    ids["undo_added"] = _undo(kitchen, third["id"]).json()["change"]["id"]
+    ids["switch_3"] = _switch(kitchen, "recipe_import", True).json()["change"]["id"]
+    return ids
+
+
+def _every_page(
+    client: TestClient, limit: int, secrets_shown: bool = False
+) -> list[dict[str, Any]]:
+    """Recent changes, page by page, following `next` to the end (no page names an entry,
+    unless `secrets_shown`)."""
+    seen: list[dict[str, Any]] = []
+    after: str | None = None
+    for _ in range(50):
+        params: dict[str, Any] = {"limit": limit}
+        if after is not None:
+            params["after"] = after
+        page = client.get(f"{API}/changes", params=params)
+        assert page.status_code == 200, page.text
+        body = page.json()
+        seen += body["changes"]
+        for secret in SECRETS:
+            assert secrets_shown or secret not in page.text
+        after = body["next"]
+        if after is None:
+            return seen
+    raise AssertionError("Recent changes never ended")
+
+
+@pytest.mark.parametrize("who", ["member", "read token", "full token"])
+def test_own_network_changes_are_left_out_for_whoever_cant_read_the_list(
+    kitchen: TestClient, member: TestClient, who: str
+) -> None:
+    ids = _own_network_history(kitchen)
+    caller = member if who == "member" else _app(kitchen, _make(kitchen, who.split()[0]))
+    assert caller.get(LIST).status_code == 403  # the rule this follows
+    hidden = {ids["added"], ids["removed"], ids["undo_removed"], ids["undo_added"]}
+    switches = [ids["switch_3"], ids["switch_2"], ids["switch_1"]]
+    for limit in (1, 2, 20):
+        listed = _every_page(caller, limit)
+        assert [c["id"] for c in listed] == switches
+        assert not hidden & {c["id"] for c in listed}
+    for change_id in hidden:  # not there at all: the same answer as another household's
+        refused = _undo(caller, change_id)
+        if who == "read token":  # refused before any change is looked at, as for every write
+            assert refused.json()["code"] == "read_only_token", refused.text
+        else:
+            assert refused.status_code == 404, refused.text
+        assert all(secret not in refused.text for secret in SECRETS)
+    assert values(kitchen) == [SECRETS[0], SECRETS[1]]
+
+
+def test_an_admin_still_sees_them_and_can_undo(kitchen: TestClient) -> None:
+    ids = _own_network_history(kitchen)
+    listed = {c["id"]: c for c in _every_page(kitchen, 1, secrets_shown=True)}
+    assert set(ids.values()) <= set(listed)
+    assert listed[ids["added"]]["summary"] == f"Added {SECRETS[0]} to Your own network"
+    assert listed[ids["added"]]["can_undo"] is True
+    assert _undo(kitchen, ids["added"]).status_code == 200
+    assert values(kitchen) == [SECRETS[1]]
 
 
 def test_another_household_cant_see_or_undo_them(
