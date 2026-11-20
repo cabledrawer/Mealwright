@@ -11,7 +11,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from test_api_tokens import _app, _make
-from test_privacy import member  # noqa: F401
 
 API = "/api/v1"
 ROUTES = Path(__file__).resolve().parents[1] / "src" / "mealwright" / "api" / "v1"
@@ -70,7 +69,7 @@ _HOUSEHOLD_PAGES_ONLY = [
 
 
 @pytest.mark.parametrize("path", _HOUSEHOLD_PAGES_ONLY)
-def test_a_member_is_refused_a_household_page(member: TestClient, path: str) -> None:  # noqa: F811
+def test_a_member_is_refused_a_household_page(member: TestClient, path: str) -> None:
     refused = member.get(f"{API}{path}")
     assert refused.status_code == 403, refused.text
     assert refused.json()["code"] == "admins_only"
@@ -78,7 +77,7 @@ def test_a_member_is_refused_a_household_page(member: TestClient, path: str) -> 
 
 def test_what_a_members_screens_read_says_they_cant_change_it(
     kitchen: TestClient,
-    member: TestClient,  # noqa: F811
+    member: TestClient,
 ) -> None:
     people = member.get(f"{API}/people").json()  # the plan's eaters
     assert people["can_change"] is False

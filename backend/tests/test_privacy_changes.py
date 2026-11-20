@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from test_api_tokens import _app, _make
-from test_privacy import LIST, SWITCHES, member, neighbour, values  # noqa: F401
+from test_privacy import LIST, SWITCHES, values
 
 from mealwright.models import Change
 from mealwright.outbound import Connection, OutboundBlocked, OutboundGate
@@ -188,7 +188,7 @@ def test_a_removal_sent_again_with_its_key_answers_as_the_first(kitchen: TestCli
 
 def test_a_member_sees_them_but_cant_undo(
     kitchen: TestClient,
-    member: TestClient,  # noqa: F811
+    member: TestClient,
 ) -> None:
     change = _switch(kitchen, "recipe_import", True).json()["change"]
     listed = [c for c in _listed(member) if c["id"] == change["id"]]
@@ -209,7 +209,7 @@ def test_an_admins_api_token_cant_undo_them(kitchen: TestClient) -> None:
 
 def test_another_household_cant_see_or_undo_them(
     kitchen: TestClient,
-    neighbour: TestClient,  # noqa: F811
+    neighbour: TestClient,
 ) -> None:
     change = _switch(kitchen, "recipe_import", True).json()["change"]
     assert _undo(neighbour, change["id"]).status_code == 404
