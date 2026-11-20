@@ -34,7 +34,7 @@ from mealwright.auth import (
     start_session,
 )
 from mealwright.devices import device_label
-from mealwright.errors import ALREADY_SET_UP, Problem
+from mealwright.errors import ALREADY_SET_UP, USERNAME_RULE, Problem
 from mealwright.household import add_default_places, add_default_slots
 from mealwright.models import Household, Login
 from mealwright.names import one_line
@@ -119,9 +119,7 @@ class SetupIn(BaseModel):
     def _username(cls, value: str) -> str:
         value = _normalise_username(value)
         if not USERNAME.match(value):
-            raise ValueError(
-                "Use up to 50 lowercase letters, numbers, dots, dashes or underscores."
-            )
+            raise ValueError(USERNAME_RULE)
         return value
 
 

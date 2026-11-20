@@ -16,7 +16,7 @@ from mealwright.api.v1.import_schemas import (
 )
 from mealwright.api.v1.schemas import Ref
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem
+from mealwright.errors import KEY_REUSED, Problem
 from mealwright.foods import change_out
 from mealwright.history import commit, replayed
 from mealwright.models import Change, Food
@@ -95,7 +95,7 @@ def save_import(body: ImportSave, kitchen: Here, response: Response) -> ImportSa
         raise Problem(
             status.HTTP_409_CONFLICT,
             "key_reused",
-            "That change ID was already used for something else.",
+            KEY_REUSED,
         )
     response.status_code = status.HTTP_200_OK
     response.headers["Idempotent-Replayed"] = "true"

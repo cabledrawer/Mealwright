@@ -33,7 +33,7 @@ from mealwright.api.v1.schemas import (
     Who,
 )
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, StoredInt
+from mealwright.errors import TYPE_A_NAME, Problem, StoredInt
 from mealwright.foods import (
     PackReads,
     amount_out,
@@ -356,7 +356,7 @@ class NewList(BaseModel):
 
 
 def _blank() -> str:
-    raise ValueError("Type a name.")
+    raise ValueError(TYPE_A_NAME)
 
 
 class RenameList(BaseModel):

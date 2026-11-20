@@ -229,7 +229,7 @@ def start(kitchen: Kitchen, session: BatchSession, again: bool = False) -> bool:
         raise Problem(
             status.HTTP_409_CONFLICT,
             "nothing_to_schedule",
-            "None of this batch cook's recipes has a step to cook.",  # proposed, for cabledrawer
+            "None of this batch cook’s recipes has a step to cook.",  # proposed, for cabledrawer
         )
     kit = kitchen_in(kitchen)
     made = batch_schedule.schedule(recipes, kit)

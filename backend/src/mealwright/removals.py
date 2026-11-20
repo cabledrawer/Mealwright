@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from mealwright import shopping
 from mealwright.api.v1.context import Kitchen
-from mealwright.errors import Problem
+from mealwright.errors import CANT_UNDO, Problem
 from mealwright.history import FoodEdit, Tally, as_utc
 from mealwright.models import (
     Change,
@@ -433,7 +433,7 @@ def restore(kitchen: Kitchen, change: Change, batch: shopping.Batch, tally: Tall
             "That can’t be undone: a newer "
             f"{'shop' if model is Shop else 'place'} has taken its place."  # proposed
             if mine
-            else "That can’t be undone.",
+            else CANT_UNDO,
         )
     if model is Shop:
         db.add(

@@ -29,7 +29,7 @@ from mealwright.api.v1.foods import FoodOut, food_out
 from mealwright.api.v1.pantry import GroupOut, Pantry
 from mealwright.api.v1.schemas import AmountOut, ChangeOut, Ref
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, StoredInt, not_found
+from mealwright.errors import CANT_UNDO, KEY_REUSED, Problem, StoredInt, not_found
 from mealwright.foods import amount_out, change_out
 from mealwright.history import (
     ADMIN_ONLY_KINDS,
@@ -866,16 +866,12 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
         if refused == "already_undone":
             raise already_undone()
         if refused is not None:
-            message = (
-                "An Undo can’t itself be undone."
-                if change.kind == "undo"
-                else "That can’t be undone."
-            )
+            message = "An Undo can’t itself be undone." if change.kind == "undo" else CANT_UNDO
             raise Problem(status.HTTP_409_CONFLICT, refused, message)
         if utcnow() >= undo_until(kitchen, change):
             raise too_old(kitchen.household.undo_days)
         if undo_standing_refusal(kitchen, change) is not None:
-            raise Problem(status.HTTP_409_CONFLICT, "cannot_undo", "That can’t be undone.")
+            raise Problem(status.HTTP_409_CONFLICT, "cannot_undo", CANT_UNDO)
         from mealwright.ticks import pantry_undo
 
         if change.kind == mealie_answers.KIND:
@@ -904,7 +900,7 @@ def undo(change_id: StoredInt, kitchen: Here, response: Response) -> UndoOut:
         raise Problem(
             status.HTTP_409_CONFLICT,
             "key_reused",
-            "That change ID was already used for something else.",
+            KEY_REUSED,
         )
     response.headers["Idempotent-Replayed"] = "true"
     return _undo_out(kitchen, earlier)

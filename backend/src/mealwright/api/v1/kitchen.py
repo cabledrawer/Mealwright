@@ -21,6 +21,9 @@ from mealwright.pints import household_pints
 from mealwright.roles import Action
 from mealwright.shopping import lock_db
 
+NAME_THE_SHOP = "Type the shop’s name."
+NAME_THE_PLACE = "Type the place’s name."
+
 router = APIRouter(tags=["kitchen"], dependencies=[SameOrigin])
 
 
@@ -51,7 +54,7 @@ class NewPlace(BaseModel):
     def _clean(cls, value: str) -> str:
         value = clean_name(value)
         if not value:
-            raise ValueError("Type the place’s name.")
+            raise ValueError(NAME_THE_PLACE)
         return value
 
 
@@ -121,7 +124,7 @@ class RenamePlace(BaseModel):
     def _clean(cls, value: str) -> str:
         value = clean_name(value)
         if not value:
-            raise ValueError("Type the place’s name.")
+            raise ValueError(NAME_THE_PLACE)
         return value
 
 
@@ -278,7 +281,7 @@ class NewShop(BaseModel):
     def _clean(cls, value: str) -> str:
         value = clean_name(value)
         if not value:
-            raise ValueError("Type the shop’s name.")
+            raise ValueError(NAME_THE_SHOP)
         return value
 
 
@@ -337,7 +340,7 @@ class RenameShop(BaseModel):
     def _clean(cls, value: str) -> str:
         value = clean_name(value)
         if not value:
-            raise ValueError("Type the shop’s name.")
+            raise ValueError(NAME_THE_SHOP)
         return value
 
 

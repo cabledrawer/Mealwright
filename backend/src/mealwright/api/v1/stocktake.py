@@ -32,7 +32,7 @@ from mealwright.api.v1.schemas import (
     SizeOut,
 )
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, StoredInt, already_there, not_found
+from mealwright.errors import SIZE_TOO_SMALL, Problem, StoredInt, already_there, not_found
 from mealwright.events import note_pantry
 from mealwright.foods import (
     add_size,
@@ -656,9 +656,7 @@ def set_pack_size(
             )
         milli = _size_amount(kitchen, food, body.amount)
         if milli <= 0:
-            raise Problem(
-                status.HTTP_422_UNPROCESSABLE_CONTENT, "too_small", "That size is too small."
-            )
+            raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "too_small", SIZE_TOO_SMALL)
         _entry(kitchen, place.id, food.id)
         with FoodEdit(kitchen, [food.id]) as edit:
             size = add_size(kitchen, food, body.name, milli)

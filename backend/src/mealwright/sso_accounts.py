@@ -713,7 +713,7 @@ def kept_warning(db: DbSession, data_dir: Path | None, household_id: int) -> str
     ending = "turn password sign-in back on" if passwords_off(db, data_dir, household_id) else ""
     sentence = (
         f"The sign-in server no longer accepts {name}. Mealwright kept them signed in "
-        "because they're the only admin who can get in. Fix it at the sign-in server"
+        "because they’re the only admin who can get in. Fix it at the sign-in server"
     )
     return f"{sentence}, or {ending}." if ending else f"{sentence}."
 

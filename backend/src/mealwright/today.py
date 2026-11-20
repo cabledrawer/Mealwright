@@ -47,7 +47,14 @@ from mealwright.batches import (
     places_of_kind,
     tub_use_by,
 )
-from mealwright.errors import Problem, already_there, not_found
+from mealwright.errors import (
+    MEAL_ALREADY_THERE,
+    NO_FREEZER,
+    ONLY_A_RECIPE_LEFTOVERS,
+    Problem,
+    already_there,
+    not_found,
+)
 from mealwright.household import today
 from mealwright.models import (
     BatchCook,
@@ -152,13 +159,13 @@ def _leftover_item(
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "no_recipe",
-                "Only a recipe can have leftovers.",  # proposed, for cabledrawer
+                ONLY_A_RECIPE_LEFTOVERS,  # proposed, for cabledrawer
             )
     if item.kind != "recipe":
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "no_recipe",
-            "Only a recipe can have leftovers.",
+            ONLY_A_RECIPE_LEFTOVERS,
         )
     return item
 
@@ -179,7 +186,7 @@ def _make_tubs(
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "no_freezer" if leftovers.place_kind == "freezer" else "no_fridge",
-            "There’s no freezer in your places yet."
+            NO_FREEZER
             if leftovers.place_kind == "freezer"
             else "There’s no fridge in your places yet.",  # proposed, for cabledrawer
         )
@@ -352,7 +359,7 @@ def moved(
     check_day(kitchen, day)
     find_slot(kitchen, slot_id)
     if (meal.day, meal.slot_id) == (day, slot_id):
-        raise already_there("That meal is already there.")
+        raise already_there(MEAL_ALREADY_THERE)
     if day < today(kitchen.household):
         # A move is to today or later: a past day would only make another meal to answer.
         raise Problem(

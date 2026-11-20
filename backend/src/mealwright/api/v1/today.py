@@ -18,7 +18,7 @@ from mealwright.api.v1.pantry import UseSoonLot, UseSoonTub, use_soon
 from mealwright.api.v1.plan import ItemStartIn, MealSlotOut, PlanOut, PlanWrite, _run, get_plan
 from mealwright.auth import SameOrigin
 from mealwright.batches import tub_use_by
-from mealwright.errors import StoredInt
+from mealwright.errors import ONE_START_TIME, StoredInt
 from mealwright.household import meal_slots
 from mealwright.household import today as household_today
 from mealwright.models import BatchCook, Meal, MealItem, Recipe, StockLot
@@ -200,7 +200,7 @@ class MovedIn(BaseModel):
     @classmethod
     def _one_start_each(cls, starts: list[ItemStartIn]) -> list[ItemStartIn]:
         if len({s.item_id for s in starts}) != len(starts):
-            raise ValueError("One start time for each recipe.")  # accepted, cabledrawer 11 Nov
+            raise ValueError(ONE_START_TIME)  # accepted, cabledrawer 11 Nov
         return starts
 
 

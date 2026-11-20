@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field, model_validator
 
 from mealwright.api.v1.schemas import ChangeOut, Ref
-from mealwright.errors import StoredInt
+from mealwright.errors import NAME_THE_NEW_INGREDIENT, PICK_AN_INGREDIENT, StoredInt
 from mealwright.names import clean_name
 
 
@@ -49,11 +49,11 @@ class GroupAnswer(BaseModel):
     @model_validator(mode="after")
     def _make_sense(self) -> GroupAnswer:
         if self.kind == "ingredient" and self.food_id is None:
-            raise ValueError("Pick an ingredient.")
+            raise ValueError(PICK_AN_INGREDIENT)
         if self.kind == "new":
             self.name = clean_name(self.name or "")
             if not self.name:
-                raise ValueError("Type a name for the new ingredient.")
+                raise ValueError(NAME_THE_NEW_INGREDIENT)
         return self
 
 

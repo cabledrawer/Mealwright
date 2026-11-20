@@ -20,7 +20,7 @@ from mealwright.api.v1.recipe_schemas import (
 )
 from mealwright.api.v1.schemas import ChangeOut
 from mealwright.auth import SameOrigin
-from mealwright.errors import StoredInt
+from mealwright.errors import TAG_NEEDS_A_WORD, StoredInt
 from mealwright.foods import change_out
 from mealwright.history import commit, replayed
 from mealwright.models import Recipe, RecipeTag, Tag
@@ -94,7 +94,7 @@ class RenameTag(BaseModel):
     def _clean(cls, value: str) -> str:
         value = clean_name(value)
         if not value:
-            raise ValueError("A tag needs a word.")
+            raise ValueError(TAG_NEEDS_A_WORD)
         return value
 
 

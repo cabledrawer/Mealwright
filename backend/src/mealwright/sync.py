@@ -28,14 +28,13 @@ from sqlalchemy.exc import IntegrityError
 from mealwright import roles, shopping
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import ShortAmount
-from mealwright.errors import Problem
+from mealwright.errors import KEY_REUSED, TYPE_A_NAME, Problem
 from mealwright.history import as_utc, too_old_sentence
 from mealwright.household import undo_window
 from mealwright.models import Change, ListItem, ShoppingList, SyncAction, utcnow
 from mealwright.names import clean_name, size_name
 from mealwright.shopping import Act, Batch, Refused
 
-KEY_REUSED = "That change ID was already used for something else."
 MAX_ACTIONS = 100
 # cabledrawer 11 Nov (RF2 Sh5): an amount sent with more than 3 decimal places.
 TOO_MANY_DECIMALS = "That amount has too many decimal places. Use at most 3."
@@ -57,7 +56,7 @@ ListName = Annotated[str, Field(min_length=1, max_length=60)]
 def _name(value: str) -> str:
     cleaned = clean_name(value)
     if not cleaned:
-        raise ValueError("Type a name.")
+        raise ValueError(TYPE_A_NAME)
     return cleaned
 
 

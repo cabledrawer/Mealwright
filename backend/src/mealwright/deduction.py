@@ -41,7 +41,7 @@ from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.recipe_schemas import amount_text
 from mealwright.api.v1.schemas import AmountOut, Answer, Ask, Ref
 from mealwright.conversions import AskOnce, UnitAmount, to_base_milli
-from mealwright.errors import Problem
+from mealwright.errors import NOTHING_TO_TAKE_FROM, Problem
 from mealwright.foods import BASE_UNITS, amount_out, ask, find, known, usual_size, visible
 from mealwright.history import as_utc
 from mealwright.household import cup_ml, places
@@ -55,6 +55,8 @@ from mealwright.models import (
 )
 from mealwright.recipes import live_recipes
 from mealwright.stock import LotView, lots_of, opened_lots, place_kinds, plan_take
+
+STAPLES_NOT_COUNTED = "Staples aren’t counted, so nothing is taken."
 
 RowStatus = Literal[
     "take",  # something to take from the pantry
@@ -473,14 +475,14 @@ def work_out(
         if row.food is None or row.status == "staple":
             if choice is not None and choice.bought:
                 if row.status == "staple":
-                    raise _refuse("staple", "Staples aren’t counted, so nothing is taken.")
-                raise _refuse("no_ingredient", "There’s no ingredient to take that from.")
+                    raise _refuse("staple", STAPLES_NOT_COUNTED)
+                raise _refuse("no_ingredient", NOTHING_TO_TAKE_FROM)
             if choice is not None and (
                 choice.used_milli is not None or choice.left_milli is not None
             ):
                 if row.status == "staple":
-                    raise _refuse("staple", "Staples aren’t counted, so nothing is taken.")
-                raise _refuse("no_ingredient", "There’s no ingredient to take that from.")
+                    raise _refuse("staple", STAPLES_NOT_COUNTED)
+                raise _refuse("no_ingredient", NOTHING_TO_TAKE_FROM)
             continue
         food = row.food
         row.from_freezer = bool(choice and choice.from_freezer)

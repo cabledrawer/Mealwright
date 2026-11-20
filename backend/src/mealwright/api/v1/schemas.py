@@ -8,7 +8,7 @@ from pydantic import BaseModel, BeforeValidator, Field, field_validator, model_v
 from pydantic_core import PydanticCustomError
 
 from mealwright.amounts import MAX_AMOUNT_TEXT
-from mealwright.errors import StoredInt
+from mealwright.errors import UNIT_OR_SIZE, StoredInt
 from mealwright.names import size_name
 
 
@@ -187,7 +187,7 @@ class AmountIn(BaseModel):
     @model_validator(mode="after")
     def _one_unit(self) -> AmountIn:
         if (self.unit is None) == (self.size_id is None):
-            raise ValueError("Give either a unit or a size_id.")
+            raise ValueError(UNIT_OR_SIZE)
         return self
 
 

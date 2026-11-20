@@ -39,7 +39,15 @@ from mealwright.conversions import (
     to_base_milli,
 )
 from mealwright.date_kinds import date_kind
-from mealwright.errors import Problem, StoredInt, already_there, not_found, one_field
+from mealwright.errors import (
+    SIZE_TOO_SMALL,
+    TYPE_A_NAME,
+    Problem,
+    StoredInt,
+    already_there,
+    not_found,
+    one_field,
+)
 from mealwright.foods import (
     UNIT_WORDS,
     add_size,
@@ -98,6 +106,8 @@ from mealwright.names import clean, clean_name, fold, normalise, one_line, searc
 from mealwright.shopping import removed_recently
 from mealwright.stock import has_stock, lots_of
 
+SAME_INGREDIENT = "That’s the same ingredient."
+
 router = APIRouter(tags=["foods"], dependencies=[SameOrigin])
 
 Name = Annotated[str, Field(min_length=1, max_length=100)]
@@ -120,7 +130,7 @@ AisleName = Literal[
 def _name(value: str) -> str:
     value = clean_name(value)
     if not value:
-        raise ValueError("Type a name.")
+        raise ValueError(TYPE_A_NAME)
     return value
 
 
@@ -847,9 +857,7 @@ def edit_food(food_id: StoredInt, body: FoodPatch, kitchen: Here, response: Resp
         with FoodEdit(kitchen, [food.id]) as edit:
             if field_name == "name":
                 if body.name is None:
-                    raise Problem(
-                        status.HTTP_422_UNPROCESSABLE_CONTENT, "name_needed", "Type a name."
-                    )
+                    raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "name_needed", TYPE_A_NAME)
                 new_name = _name(body.name)
                 owner = name_owner(kitchen, new_name, except_id=food.id)
                 if owner is not None:
@@ -1143,9 +1151,7 @@ def add_food_size(
         food = find(kitchen, food_id)
         milli = _size_amount(kitchen, food, body.amount)
         if milli <= 0:
-            raise Problem(
-                status.HTTP_422_UNPROCESSABLE_CONTENT, "too_small", "That size is too small."
-            )
+            raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "too_small", SIZE_TOO_SMALL)
         with FoodEdit(kitchen, [food.id]) as edit:
             size = add_size(kitchen, food, body.name, milli)
             if body.usual:
@@ -1295,9 +1301,7 @@ def not_the_same(food_id: StoredInt, body: NotSame, kitchen: Here) -> None:
     food = find(kitchen, food_id)
     other = find(kitchen, body.food_id)
     if food.id == other.id:
-        raise Problem(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, "same_food", "That’s the same ingredient."
-        )
+        raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "same_food", SAME_INGREDIENT)
     pair = (min(food.id, other.id), max(food.id, other.id))
     if kitchen.db.get(FoodNotSame, pair) is None:
         kitchen.db.add(
@@ -1443,9 +1447,7 @@ def merge(food_id: StoredInt, body: Merge, kitchen: Here, response: Response) ->
         gone = find(kitchen, food_id)
         into = find(kitchen, body.into_id)
         if gone.id == into.id:
-            raise Problem(
-                status.HTTP_422_UNPROCESSABLE_CONTENT, "same_food", "That’s the same ingredient."
-            )
+            raise Problem(status.HTTP_422_UNPROCESSABLE_CONTENT, "same_food", SAME_INGREDIENT)
         with FoodEdit(kitchen, [gone.id, into.id]) as edit:
             edit.extra["lot_amounts"] = merge_foods(kitchen, gone, into, body.answers)
             ops = shopping.move_items(kitchen, gone.id, into.id, edit.batch)

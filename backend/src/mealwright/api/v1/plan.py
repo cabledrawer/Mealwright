@@ -19,6 +19,8 @@ from mealwright.api.v1.recipe_schemas import StepWaitOut
 from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.auth import SameOrigin
 from mealwright.errors import (
+    NOT_A_WAY,
+    ONE_START_TIME,
     Problem,
     StoredInt,
     name_taken,
@@ -51,6 +53,8 @@ from mealwright.models import (
 from mealwright.names import clean, clean_name, fold, one_line
 from mealwright.roles import Action
 from mealwright.shopping import lock_household
+
+NAME_THE_MEAL = "Type the meal’s name."
 
 router = APIRouter(tags=["plan"], dependencies=[SameOrigin])
 
@@ -1064,7 +1068,7 @@ def get_start_options(
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_a_method",
-            "That isn’t one of this recipe’s ways of cooking it.",  # proposed, for cabledrawer
+            NOT_A_WAY,  # proposed, for cabledrawer
         )
     way = (
         methods.named(found, method_id)
@@ -1175,7 +1179,7 @@ class PlanMoveIn(BaseModel):
     @classmethod
     def _one_start_each(cls, starts: list[ItemStartIn]) -> list[ItemStartIn]:
         if len({s.item_id for s in starts}) != len(starts):
-            raise ValueError("One start time for each recipe.")  # proposed, for cabledrawer
+            raise ValueError(ONE_START_TIME)  # proposed, for cabledrawer
         return starts
 
 
@@ -1234,7 +1238,7 @@ class SlotChangeIn(BaseModel):
             return None
         value = clean_name(value)
         if not value:
-            raise ValueError("Type the meal’s name.")  # proposed, for cabledrawer
+            raise ValueError(NAME_THE_MEAL)  # proposed, for cabledrawer
         return value
 
 
@@ -1278,7 +1282,7 @@ class NewSlot(BaseModel):
     def _clean(cls, value: str) -> str:
         value = clean_name(value)
         if not value:
-            raise ValueError("Type the meal’s name.")  # proposed, for cabledrawer
+            raise ValueError(NAME_THE_MEAL)  # proposed, for cabledrawer
         return value
 
 

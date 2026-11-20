@@ -20,8 +20,10 @@ from mealwright.api.v1.recipe_schemas import (
     StepWaitIn,
 )
 from mealwright.api.v1.schemas import ChangeOut, Ref
-from mealwright.errors import StoredInt
+from mealwright.errors import NAME_THE_NEW_INGREDIENT, PICK_AN_INGREDIENT, PICK_THE_MAKER, StoredInt
 from mealwright.names import clean_name
+
+NAME_THE_RECIPE = "Give the recipe a name."
 
 # Sections of one recipe that may be made their own recipes in one save (F190).
 MAX_OWN_RECIPES = 5
@@ -86,7 +88,7 @@ class OwnRecipeNote(BaseModel):
     def _tidy(cls, value: str) -> str:
         value = clean_name(value)
         if not value:
-            raise ValueError("Give the recipe a name.")
+            raise ValueError(NAME_THE_RECIPE)
         return value
 
 
@@ -269,13 +271,13 @@ class ImportLinkIn(BaseModel):
     @model_validator(mode="after")
     def _make_sense(self) -> ImportLinkIn:
         if self.kind == "ingredient" and self.food_id is None:
-            raise ValueError("Pick an ingredient.")
+            raise ValueError(PICK_AN_INGREDIENT)
         if self.kind in ("new", "staple") and not self.name:
-            raise ValueError("Type a name for the new ingredient.")
+            raise ValueError(NAME_THE_NEW_INGREDIENT)
         if self.kind == "recipe" and self.recipe_id is None:
-            raise ValueError("Pick the recipe that makes it.")
+            raise ValueError(PICK_THE_MAKER)
         if self.kind == "own_recipe" and self.own_recipe is None:
-            raise ValueError("Pick the recipe that makes it.")
+            raise ValueError(PICK_THE_MAKER)
         return self
 
 
@@ -312,7 +314,7 @@ class ImportOwnRecipe(BaseModel):
     def _tidy(cls, value: str) -> str:
         value = clean_name(value)
         if not value:
-            raise ValueError("Give the recipe a name.")
+            raise ValueError(NAME_THE_RECIPE)
         return value
 
 

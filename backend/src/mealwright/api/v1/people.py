@@ -31,7 +31,7 @@ from mealwright.auth import (
     peek_session,
     session_token,
 )
-from mealwright.errors import Problem, StoredInt, not_found
+from mealwright.errors import USERNAME_RULE, Problem, StoredInt, not_found
 from mealwright.foods import change_out
 from mealwright.history import as_utc, commit, replayed
 from mealwright.kitchen_changes import key_kept
@@ -64,7 +64,7 @@ def _name(value: str) -> str:
 def _username(value: str) -> str:
     value = value.strip().lower()
     if not USERNAME.match(value):
-        raise ValueError("Use up to 50 lowercase letters, numbers, dots, dashes or underscores.")
+        raise ValueError(USERNAME_RULE)
     return value
 
 

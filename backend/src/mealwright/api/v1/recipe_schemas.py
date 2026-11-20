@@ -17,9 +17,11 @@ from pydantic import (
 
 from mealwright.amounts import MAX_AMOUNT_TEXT
 from mealwright.api.v1.schemas import Ref, ShortAmount, Who
-from mealwright.errors import StoredInt
+from mealwright.errors import TAG_NEEDS_A_WORD, TYPE_A_NAME, StoredInt
 from mealwright.names import clean_name, one_line, text_block
 from mealwright.step_waits import MAX_WAIT_MINUTES, OVERNIGHT_MINUTES
+
+HEADING_ONLY_WORDS = "A heading has only words."
 
 # --- What people may type -------------------------------------------------------------------
 
@@ -256,7 +258,7 @@ class RecipeLineIn(BaseModel):
                 )
                 or self.optional
             ):
-                raise ValueError("A heading has only words.")
+                raise ValueError(HEADING_ONLY_WORDS)
             return self
         if self.food_id is not None and self.recipe_id is not None:
             raise ValueError("A line is linked to an ingredient or to a recipe, not both.")
@@ -290,7 +292,7 @@ class StepWaitIn(BaseModel):
         if self.overnight:
             longest = max(longest, OVERNIGHT_MINUTES)
         if longest < self.min_minutes:
-            raise ValueError("The longest wait can't be shorter than the shortest.")
+            raise ValueError("The longest wait can’t be shorter than the shortest.")
         self.max_minutes = longest
         return self
 
@@ -360,7 +362,7 @@ class RecipeStepIn(BaseModel):
             if len(self.text) > 200:
                 raise ValueError("A heading is at most 200 characters.")
             if self.optional or self.wait is not None or self.timing is not None:
-                raise ValueError("A heading has only words.")
+                raise ValueError(HEADING_ONLY_WORDS)
         else:
             self.text = text_block(self.text).strip()
         if not self.text:
@@ -416,7 +418,7 @@ def _step_lines_in_range(lines: list[RecipeLineIn], steps: list[RecipeStepIn]) -
     for step in steps:
         for index in step.lines or []:
             if not 0 <= index < len(lines) or lines[index].kind != "ingredient":
-                raise ValueError("A step can only use the recipe's own ingredient lines.")
+                raise ValueError("A step can only use the recipe’s own ingredient lines.")
 
 
 class SecondMethodIn(BaseModel):
@@ -489,7 +491,7 @@ class RecipeIn(BaseModel):
     def _name(cls, value: str) -> str:
         cleaned = clean_name(value)
         if not cleaned:
-            raise ValueError("Type a name.")
+            raise ValueError(TYPE_A_NAME)
         return cleaned
 
     @field_validator("description", "source_note")
@@ -509,7 +511,7 @@ class RecipeIn(BaseModel):
         for value in values:
             cleaned = clean_name(value)
             if not cleaned:
-                raise ValueError("A tag needs a word.")
+                raise ValueError(TAG_NEEDS_A_WORD)
             seen.setdefault(cleaned.casefold(), cleaned)
         return list(seen.values())
 

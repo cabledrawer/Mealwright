@@ -36,7 +36,7 @@ log = logging.getLogger(__name__)
 
 # Proposed, for cabledrawer (O1 review r2, finding 2; r3: worded from `sso_can_start`).
 PASSWORDS_BACK_ON_OWN_NETWORK = (
-    "Removed. Passwords work again for now, because single sign-on can't start without that "
+    "Removed. Passwords work again for now, because single sign-on can’t start without that "
     "entry: your sign-in server is no longer on Your own network. Add it back and "
     "passwords are off again."
 )

@@ -18,7 +18,15 @@ from sqlalchemy.orm import aliased
 from mealwright import cooked, together
 from mealwright.amounts import quarters_text
 from mealwright.api.v1.context import Kitchen
-from mealwright.errors import Problem, already_there, not_found
+from mealwright.errors import (
+    AFTER_USE_BY,
+    NO_FREEZER,
+    ONLY_A_RECIPE_LEFTOVERS,
+    TOO_LATE_TO_FREEZE,
+    Problem,
+    already_there,
+    not_found,
+)
 from mealwright.history import as_utc
 from mealwright.household import meal_slots, today, zone
 from mealwright.models import (
@@ -375,7 +383,7 @@ def work_out(
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
                     "after_use_by",
-                    "That’s after this batch’s use-by date.",  # cabledrawer 2 Nov
+                    AFTER_USE_BY,  # cabledrawer 2 Nov
                 )
             target = meal_at(kitchen, spot[0], spot[1])
             if target is not None:
@@ -396,7 +404,7 @@ def work_out(
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "no_freezer",
-                "There’s no freezer in your places yet.",  # proposed, for cabledrawer
+                NO_FREEZER,  # proposed, for cabledrawer
             )
         place = freezer if frozen else fridge
         kind = "freezer" if frozen else "fridge"
@@ -575,7 +583,7 @@ def place_tub(
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "after_use_by",
-            "That’s after this batch’s use-by date.",  # cabledrawer 2 Nov
+            AFTER_USE_BY,  # cabledrawer 2 Nov
         )
     steps: list[dict[str, Any]] = []
     _put_tub_in_meal(kitchen, tub, (day, slot_id), steps)
@@ -701,7 +709,7 @@ def to_freezer(kitchen: Kitchen, tub: Tub) -> Change:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "no_freezer",
-            "There’s no freezer in your places yet.",  # proposed, for cabledrawer
+            NO_FREEZER,  # proposed, for cabledrawer
         )
     if tub.place_id == freezer.id:
         raise already_there("That tub is already in the freezer.")
@@ -709,7 +717,7 @@ def to_freezer(kitchen: Kitchen, tub: Tub) -> Change:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "too_late_to_freeze",
-            "Too late to freeze: the use by date has passed.",  # cabledrawer 7 Nov, tubs 8 Nov
+            TOO_LATE_TO_FREEZE,  # cabledrawer 7 Nov, tubs 8 Nov
         )
     steps: list[dict[str, Any]] = []
     name = tub_name(kitchen, tub)
@@ -1094,7 +1102,7 @@ def leftover_tub(
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "after_use_by",
-                "That’s after this batch’s use-by date.",  # cabledrawer 2 Nov
+                AFTER_USE_BY,  # cabledrawer 2 Nov
             )
         spare = Tub(
             household_id=kitchen.household_id,
@@ -1275,7 +1283,7 @@ def recipe_meal_item(kitchen: Kitchen, item: MealItem) -> Meal:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_a_recipe",
-            "Only a recipe can have leftovers.",  # proposed, for cabledrawer
+            ONLY_A_RECIPE_LEFTOVERS,  # proposed, for cabledrawer
         )
     return meal
 
@@ -1311,7 +1319,7 @@ def leftovers_on(kitchen: Kitchen, item: MealItem, spots: list[Spot], if_none_le
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "after_use_by",
-                "That’s after this batch’s use-by date.",  # cabledrawer 2 Nov
+                AFTER_USE_BY,  # cabledrawer 2 Nov
             )
         target = meal_at(kitchen, day, slot_id)
         if target is not None:

@@ -170,7 +170,7 @@ def test_a_file_that_isnt_an_export_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "other.zip"
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr(export.DOCUMENT, json.dumps({"format": "something else"}))
-    with pytest.raises(ValueError, match="isn't a Mealwright export"):
+    with pytest.raises(ValueError, match="isn’t a Mealwright export"):
         export.read(path)
 
 

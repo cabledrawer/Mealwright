@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from mealwright import events, restock, roles
 from mealwright.api.v1.context import Kitchen
-from mealwright.errors import Problem
+from mealwright.errors import KEY_REUSED, Problem
 from mealwright.household import undo_window
 from mealwright.models import (
     Change,
@@ -86,7 +86,7 @@ def replayed(kitchen: Kitchen) -> Change | None:
         raise Problem(
             status.HTTP_409_CONFLICT,
             "key_reused",
-            "That change ID was already used for something else.",
+            KEY_REUSED,
         )
     if change is None:
         # Action IDs and Idempotency-Keys share one uniqueness (sync protocol 5.7): a key
@@ -96,7 +96,7 @@ def replayed(kitchen: Kitchen) -> Change | None:
             raise Problem(
                 status.HTTP_409_CONFLICT,
                 "key_reused",
-                "That change ID was already used for something else.",
+                KEY_REUSED,
             )
     return change
 

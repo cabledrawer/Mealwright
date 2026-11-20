@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright.amounts import MILLI, NBSP, TooBig, checked, to_milli
 from mealwright.api.v1.context import Kitchen
 from mealwright.conversions import guess_aisle, table
-from mealwright.errors import Problem, not_found
+from mealwright.errors import AMOUNT_TOO_BIG, Problem, not_found
 from mealwright.foods import add_size, find, name_owner, suggested_shop, usual_size
 from mealwright.history import Tally, diff, record, record_back, snapshot
 from mealwright.household import undo_window
@@ -372,7 +372,7 @@ def milli_of(amount: Any) -> int | None:
     try:
         return checked(to_milli(amount))
     except TooBig as err:
-        raise Refused("too_big", "That amount is too big.") from err
+        raise Refused("too_big", AMOUNT_TOO_BIG) from err
 
 
 # --- Notes (section 8) ---------------------------------------------------------------------------
@@ -1045,7 +1045,7 @@ def _join(
         try:
             line.amount_milli = checked((line.amount_milli or 0) + amount_milli)
         except TooBig as err:
-            raise Refused("too_big", "That amount is too big.") from err
+            raise Refused("too_big", AMOUNT_TOO_BIG) from err
         if line.size_id is None and line.amount_milli == amount_milli and size is not None:
             line.size_id = size.id
     if line.source == "plan":
@@ -1204,7 +1204,7 @@ def _stale_join_edit(act: Act, *, delete: bool) -> bool:
         try:
             total = checked(line.amount_milli - part + new_milli)
         except TooBig as err:
-            raise Refused("too_big", "That amount is too big.") from err
+            raise Refused("too_big", AMOUNT_TOO_BIG) from err
         if total == line.amount_milli:
             act.ignore("no_change")
             return True
@@ -1486,7 +1486,7 @@ def move_item(act: Act) -> None:
             try:
                 line.amount_milli = checked((had or 0) + item.amount_milli)
             except TooBig as err:
-                raise Refused("too_big", "That amount is too big.") from err
+                raise Refused("too_big", AMOUNT_TOO_BIG) from err
             if had is None:
                 line.size_id = item.size_id
             line.hand_edited = True

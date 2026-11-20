@@ -63,6 +63,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from mealwright.household import zone
 from mealwright.models import ApiToken, Household, utcnow
 
+NEEDS_OWN_DB = "Backups need Mealwright’s own database file."
+
 log = logging.getLogger(__name__)
 
 FOLDER = "backups"
@@ -510,7 +512,7 @@ def back_up(
     """Make one backup now and trim the old ones to `keep`. `photos` is the folder of photo files
     to include (None: the database only). Raises BackupFailed in plain words."""
     if sqlite_file(engine) is None:
-        raise BackupFailed("Backups need Mealwright’s own database file.")
+        raise BackupFailed(NEEDS_OWN_DB)
     with _ONE_AT_A_TIME:
         at = (now or utcnow()).astimezone(UTC)
         target = folder / f"backup-{at.strftime(_STAMP)}.db"
@@ -541,7 +543,7 @@ def before_delete_everything(
     the
     photos for good, so this copy is the only way back. Never trimmed."""
     if sqlite_file(engine) is None:
-        raise BackupFailed("Backups need Mealwright’s own database file.")
+        raise BackupFailed(NEEDS_OWN_DB)
     with _ONE_AT_A_TIME:
         at = (now or utcnow()).astimezone(UTC)
         try:

@@ -95,12 +95,13 @@ LEFT_OUT_TABLES = {
 }
 
 # Words (proposed, for cabledrawer 13 Nov; docs/dev/words.md section 81).
+NOT_A_BACKUP = "That isn’t a Mealie backup file. Choose the .zip file Mealie made."
 MESSAGES = {
-    "not_zip": "That isn't a Mealie backup file. Choose the .zip file Mealie made.",
-    "not_mealie": "That isn't a Mealie backup file. Choose the .zip file Mealie made.",
+    "not_zip": NOT_A_BACKUP,
+    "not_mealie": NOT_A_BACKUP,
     "too_big": "That Mealie file is too big for Mealwright to read.",
-    "too_many": f"That file has more than {MAX_RECIPES:,} recipes. Mealwright can't read it.",
-    "unreadable": "Mealwright couldn't read that Mealie file. Try making a new backup in Mealie.",
+    "too_many": f"That file has more than {MAX_RECIPES:,} recipes. Mealwright can’t read it.",
+    "unreadable": "Mealwright couldn’t read that Mealie file. Try making a new backup in Mealie.",
     "busy": "Mealwright is busy reading another Mealie file. Try again in a moment.",
 }
 

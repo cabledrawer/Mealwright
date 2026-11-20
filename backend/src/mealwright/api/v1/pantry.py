@@ -23,7 +23,7 @@ from mealwright.api.v1.schemas import (
     ShortAmount,
 )
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, StoredInt, already_there, not_found
+from mealwright.errors import TOO_LATE_TO_FREEZE, Problem, StoredInt, already_there, not_found
 from mealwright.foods import PackReads, amount_out, change_out, find, resolve, usual_of, usual_size
 from mealwright.history import as_utc, commit, replayed
 from mealwright.household import places, today, zone
@@ -830,7 +830,7 @@ def to_freezer(
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "too_late_to_freeze",
-                "Too late to freeze: the use by date has passed.",
+                TOO_LATE_TO_FREEZE,
             )
         edit = StockEdit(kitchen)
         for one in moving:

@@ -65,6 +65,8 @@ from mealwright.shop_from_plan import PLAN_KIND, base_amount, round_up
 from mealwright.shopping import Batch, ensure_main_list, payload_hash, server_action, tombstone
 from mealwright.stock import StockEdit
 
+ONLY_A_RECIPE_COOKED = "Only a recipe that is still there can be cooked."
+
 MOST_PORTIONS = 999
 
 
@@ -83,7 +85,7 @@ def _recipe(kitchen: Kitchen, recipe_id: int | None) -> Recipe:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_a_recipe",
-            "Only a recipe that is still there can be cooked.",  # proposed, for cabledrawer
+            ONLY_A_RECIPE_COOKED,  # proposed, for cabledrawer
         )
     return recipe
 
@@ -107,7 +109,7 @@ def _item_checked(kitchen: Kitchen, item: MealItem) -> tuple[Recipe, Meal]:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_a_recipe",
-            "Only a recipe that is still there can be cooked.",
+            ONLY_A_RECIPE_COOKED,
         )
     record = cooked.for_meal_item(kitchen.db, kitchen.household_id, item.id)
     if record is not None:

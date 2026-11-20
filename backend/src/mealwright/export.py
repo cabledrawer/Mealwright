@@ -236,7 +236,7 @@ def read(path_or_file: Any) -> tuple[dict[str, Any], dict[str, bytes]]:
     with zipfile.ZipFile(path_or_file) as archive:
         doc = json.loads(archive.read(DOCUMENT))
         if doc.get("format") != FORMAT or not isinstance(doc.get("version"), int):
-            raise ValueError("That isn't a Mealwright export.")
+            raise ValueError("That isn’t a Mealwright export.")
         photos = {
             name.removeprefix(PHOTOS): archive.read(name)
             for name in archive.namelist()

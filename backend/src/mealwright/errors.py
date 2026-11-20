@@ -36,6 +36,26 @@ ALREADY_SET_UP = "Mealwright is already set up."
 WRONG_PASSWORD = "That isn’t your current password."  # noqa: S105  # nosec B105 (words)
 NOTHING_TO_CHANGE = "There’s nothing to change."  # proposed, for cabledrawer
 CANT_DO_HERE = "That can’t be done here."  # an unknown method on a known path; proposed
+AMOUNT_TOO_BIG = "That amount is too big."
+NOT_A_WAY = "That isn’t one of this recipe’s ways of cooking it."
+MEAL_ALREADY_THERE = "That meal is already there."
+AFTER_USE_BY = "That’s after this batch’s use-by date."
+NO_FREEZER = "There’s no freezer in your places yet."
+TOO_LATE_TO_FREEZE = "Too late to freeze: the use by date has passed."
+ONLY_A_RECIPE_LEFTOVERS = "Only a recipe can have leftovers."
+CANT_UNDO = "That can’t be undone."
+KEY_REUSED = "That change ID was already used for something else."
+TYPE_A_NAME = "Type a name."
+NOTHING_TO_TAKE_FROM = "There’s no ingredient to take that from."
+PICK_AN_INGREDIENT = "Pick an ingredient."
+NAME_THE_NEW_INGREDIENT = "Type a name for the new ingredient."
+PICK_THE_MAKER = "Pick the recipe that makes it."
+SIZE_TOO_SMALL = "That size is too small."
+UNIT_OR_SIZE = "Give either a unit or a size_id."
+USERNAME_RULE = "Use up to 50 lowercase letters, numbers, dots, dashes or underscores."
+RECIPE_ONCE = "A recipe can be chosen only once."
+ONE_START_TIME = "One start time for each recipe."
+TAG_NEEDS_A_WORD = "A tag needs a word."
 
 
 def not_found(what: str = "That") -> Problem:

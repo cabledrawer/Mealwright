@@ -9,7 +9,15 @@ from sqlalchemy.orm import Session as DbSession
 
 from mealwright import cooked, events, methods, start_ahead
 from mealwright.api.v1.context import Kitchen
-from mealwright.errors import Problem, already_there, name_taken, not_found
+from mealwright.errors import (
+    AFTER_USE_BY,
+    MEAL_ALREADY_THERE,
+    NOT_A_WAY,
+    Problem,
+    already_there,
+    name_taken,
+    not_found,
+)
 from mealwright.history import Tally, as_utc, record, undo_message
 from mealwright.household import meal_slots, today
 from mealwright.models import (
@@ -31,6 +39,12 @@ from mealwright.models import (
 )
 from mealwright.names import fold
 from mealwright.people import own_members
+
+ONLY_A_RECIPE_WAYS = "Only a recipe has a way of cooking it."
+ONLY_A_RECIPE_OPTIONAL = "Only a recipe has optional ingredients."
+NO_LONG_WAIT = "This recipe has no long wait to start ahead."
+ONLY_A_RECIPE_STARTS = "Only a recipe has a start time."
+AFTER_THE_COOKING = "Pick a meal after the cooking, today or later."
 
 
 def delete_meal(db: DbSession, meal: Meal) -> None:
@@ -99,7 +113,7 @@ def check_after_cook(kitchen: Kitchen, cook: Meal, day: date, slot_id: int) -> N
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_after_cook",
-            "Pick a meal after the cooking, today or later.",  # proposed, for cabledrawer
+            AFTER_THE_COOKING,  # proposed, for cabledrawer
         )
     here, there = kitchen.db.get(MealSlot, cook.slot_id), kitchen.db.get(MealSlot, slot_id)
     if here is None or there is None:  # pragma: no cover (find_slot has checked the slot)
@@ -108,7 +122,7 @@ def check_after_cook(kitchen: Kitchen, cook: Meal, day: date, slot_id: int) -> N
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_after_cook",
-            "Pick a meal after the cooking, today or later.",  # proposed, for cabledrawer
+            AFTER_THE_COOKING,  # proposed, for cabledrawer
         )
 
 
@@ -129,7 +143,7 @@ def check_tub_after_cook(kitchen: Kitchen, tub: Tub, day: date, slot_id: int) ->
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "not_after_cook",
-                "Pick a meal after the cooking, today or later.",  # proposed, for cabledrawer
+                AFTER_THE_COOKING,  # proposed, for cabledrawer
             )
         return
     here, there = kitchen.db.get(MealSlot, cook.slot_id), kitchen.db.get(MealSlot, slot_id)
@@ -139,7 +153,7 @@ def check_tub_after_cook(kitchen: Kitchen, tub: Tub, day: date, slot_id: int) ->
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_after_cook",
-            "Pick a meal after the cooking, today or later.",  # proposed, for cabledrawer
+            AFTER_THE_COOKING,  # proposed, for cabledrawer
         )
 
 
@@ -524,13 +538,13 @@ def _start_instant(
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_a_recipe",
-            "Only a recipe has a start time.",  # proposed, for cabledrawer
+            ONLY_A_RECIPE_STARTS,  # proposed, for cabledrawer
         )
     if start_ahead.ahead_of(kitchen.db, recipe, method.id if method else None) is None:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "no_wait",
-            "This recipe has no long wait to start ahead.",  # proposed, for cabledrawer
+            NO_LONG_WAIT,  # proposed, for cabledrawer
         )
     household = kitchen.household
     try:
@@ -557,7 +571,7 @@ def _method_for(
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "not_a_recipe",
-                "Only a recipe has a way of cooking it.",  # proposed, for cabledrawer
+                ONLY_A_RECIPE_WAYS,  # proposed, for cabledrawer
             )
         return None
     found = methods.methods_of(kitchen.db, recipe.id)
@@ -565,7 +579,7 @@ def _method_for(
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_a_method",
-            "That isn’t one of this recipe’s ways of cooking it.",  # proposed, for cabledrawer
+            NOT_A_WAY,  # proposed, for cabledrawer
         )
     if len(found) < 2:
         return None
@@ -611,7 +625,7 @@ def _skipped_for(
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_a_recipe",
-            "Only a recipe has optional ingredients.",  # proposed, for cabledrawer
+            ONLY_A_RECIPE_OPTIONAL,  # proposed, for cabledrawer
         )
     optional = optional_lines(kitchen.db, recipe.id, method.id if method else None)
     if any(line_id not in optional for line_id in use):
@@ -646,7 +660,7 @@ def set_optional(kitchen: Kitchen, item: MealItem, use: list[int]) -> Change | N
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_a_recipe",
-            "Only a recipe has optional ingredients.",  # proposed, for cabledrawer
+            ONLY_A_RECIPE_OPTIONAL,  # proposed, for cabledrawer
         )
     recipe = kitchen.db.get(Recipe, item.recipe_id) if item.recipe_id else None
     method = (
@@ -683,7 +697,7 @@ def set_method(kitchen: Kitchen, item: MealItem, method_id: int) -> Change | Non
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_a_recipe",
-            "Only a recipe has a way of cooking it.",  # proposed, for cabledrawer
+            ONLY_A_RECIPE_WAYS,  # proposed, for cabledrawer
         )
     recipe = kitchen.db.get(Recipe, item.recipe_id) if item.recipe_id else None
     method = _method_for(kitchen, recipe, method_id)
@@ -742,13 +756,13 @@ def _wait_item(kitchen: Kitchen, item: MealItem) -> tuple[Meal, MealSlot | None]
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "not_a_recipe",
-            "Only a recipe has a start time.",  # proposed, for cabledrawer
+            ONLY_A_RECIPE_STARTS,  # proposed, for cabledrawer
         )
     if start_ahead.ahead_of(kitchen.db, recipe, item.method_id) is None:
         raise Problem(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "no_wait",
-            "This recipe has no long wait to start ahead.",  # proposed, for cabledrawer
+            NO_LONG_WAIT,  # proposed, for cabledrawer
         )
     return meal, kitchen.db.get(MealSlot, meal.slot_id)
 
@@ -989,7 +1003,7 @@ def move_meal(
     if mode == "move":
         refuse_cooked_items(kitchen, items_of(kitchen, meal), meal)
     if (meal.day, meal.slot_id) == (day, slot_id):
-        raise already_there("That meal is already there.")
+        raise already_there(MEAL_ALREADY_THERE)
     if mode == "leftovers":
         check_after_cook(kitchen, meal, day, slot_id)
     steps: list[dict[str, Any]] = []
@@ -1011,7 +1025,7 @@ def move_meal(
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
                     "after_use_by",
-                    "That’s after this batch’s use-by date.",  # cabledrawer 2 Nov
+                    AFTER_USE_BY,  # cabledrawer 2 Nov
                 )
     if mode == "leftovers":
         items = [i for i in items if i.kind != "note"]  # "Eating out" has no leftovers
@@ -1125,7 +1139,7 @@ def move_item(
             raise Problem(
                 status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "after_use_by",
-                "That’s after this batch’s use-by date.",  # cabledrawer 2 Nov
+                AFTER_USE_BY,  # cabledrawer 2 Nov
             )
     if mode == "leftovers" and item.kind == "note":
         raise Problem(

@@ -19,6 +19,7 @@ from sqlalchemy.orm import aliased
 from mealwright import shopping
 from mealwright.amounts import NBSP, TooBig, checked
 from mealwright.api.v1.context import Kitchen
+from mealwright.errors import AMOUNT_TOO_BIG
 from mealwright.foods import add_size, amount_out, pack_bought, sizes, usual_size
 from mealwright.history import as_utc
 from mealwright.models import (
@@ -1087,7 +1088,7 @@ def different_pack(act: Act) -> None:
     try:
         total = checked(pack * count)
     except TooBig as err:
-        raise Refused("too_big", "That amount is too big.") from err
+        raise Refused("too_big", AMOUNT_TOO_BIG) from err
     size = _pack_size(act, food, pack)
     size_id = size.id if size else None
     if [tick.bought_milli, tick.bought_size_id] == [total, size_id]:

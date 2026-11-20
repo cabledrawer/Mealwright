@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, TypeAdapter, field_validator, model_valid
 from mealwright.api.v1.import_schemas import CountedAs, ImportReview
 from mealwright.api.v1.recipe_schemas import MAX_LINES, MAX_STEP_CHARS, MAX_STEPS, MAX_TAGS
 from mealwright.api.v1.schemas import ChangeOut, Ref
-from mealwright.errors import StoredInt
+from mealwright.errors import NAME_THE_NEW_INGREDIENT, PICK_AN_INGREDIENT, PICK_THE_MAKER, StoredInt
 from mealwright.names import clean_name
 
 # What the box can hold: pasted text is refused over 100,000 characters (docs/dev/recipe-import.md),
@@ -77,13 +77,13 @@ class DraftChoice(BaseModel):
     @model_validator(mode="after")
     def _make_sense(self) -> DraftChoice:
         if self.kind == "ingredient" and self.food is None:
-            raise ValueError("Pick an ingredient.")
+            raise ValueError(PICK_AN_INGREDIENT)
         if self.kind == "here" and (self.food is not None or self.name or self.learn):
             raise ValueError("Made in this recipe has no ingredient, name or learned name.")
         if self.kind == "recipe" and (self.recipe is None or self.food is not None or self.learn):
-            raise ValueError("Pick the recipe that makes it.")
+            raise ValueError(PICK_THE_MAKER)
         if self.kind in ("new", "staple") and not self.name:
-            raise ValueError("Type a name for the new ingredient.")
+            raise ValueError(NAME_THE_NEW_INGREDIENT)
         return self
 
 

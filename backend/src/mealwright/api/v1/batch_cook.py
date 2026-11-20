@@ -27,7 +27,7 @@ from mealwright.api.v1.cooked import (
 from mealwright.api.v1.plan import PlanWrite, _run
 from mealwright.api.v1.schemas import Answer
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, StoredInt
+from mealwright.errors import RECIPE_ONCE, Problem, StoredInt
 from mealwright.models import BatchCook, BatchSession, Change, Meal, utcnow
 from mealwright.shopping import lock_db
 
@@ -660,7 +660,7 @@ def _session_entries(kitchen: Kitchen, session_id: int, body: SessionCookIn) -> 
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
                     "twice",
-                    "A recipe can be chosen only once.",  # proposed, for cabledrawer
+                    RECIPE_ONCE,  # proposed, for cabledrawer
                 )
             wanted[one.batch_id] = (one.portions, cook_choices(kitchen, one.choices, body.answers))
     return batch_sessions.cook_entries(kitchen, session, wanted)

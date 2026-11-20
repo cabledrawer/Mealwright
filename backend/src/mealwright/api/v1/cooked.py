@@ -15,7 +15,14 @@ from mealwright import batches, cooked, cooking, deduction, foods, plan
 from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api.v1.schemas import AmountIn, Answer, ChangeOut, ShortAmount, Who
 from mealwright.auth import SameOrigin
-from mealwright.errors import Problem, StoredInt
+from mealwright.errors import (
+    KEY_REUSED,
+    NOTHING_TO_TAKE_FROM,
+    RECIPE_ONCE,
+    UNIT_OR_SIZE,
+    Problem,
+    StoredInt,
+)
 from mealwright.foods import change_out
 from mealwright.history import as_utc, commit, replayed
 from mealwright.models import Change, CookedRecord
@@ -98,7 +105,7 @@ class ChoiceAmount(BaseModel):
     @model_validator(mode="after")
     def _one_unit(self) -> ChoiceAmount:
         if (self.unit is None) == (self.size_id is None):
-            raise ValueError("Give either a unit or a size_id.")
+            raise ValueError(UNIT_OR_SIZE)
         return self
 
 
@@ -175,7 +182,7 @@ def _choices(
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
                     "no_ingredient",
-                    "There’s no ingredient to take that from.",
+                    NOTHING_TO_TAKE_FROM,
                 )
             food = foods.find(kitchen, int(one.key[5:]))
             if typed.amount == 0:
@@ -263,7 +270,7 @@ def _meal_entries(kitchen: Kitchen, meal_id: int, body: CookMealIn) -> list[cook
                 raise Problem(
                     status.HTTP_422_UNPROCESSABLE_CONTENT,
                     "twice",
-                    "A recipe can be chosen only once.",  # proposed, for cabledrawer
+                    RECIPE_ONCE,  # proposed, for cabledrawer
                 )
             wanted[one.item_id] = (one.portions, _choices(kitchen, one.choices, body.answers))
     return cooking.meal_entries(kitchen, meal, wanted)
@@ -340,7 +347,7 @@ def _confirm[T](
         raise Problem(
             status.HTTP_409_CONFLICT,
             "key_reused",
-            "That change ID was already used for something else.",
+            KEY_REUSED,
         )
     response.status_code = status.HTTP_200_OK
     response.headers["Idempotent-Replayed"] = "true"
