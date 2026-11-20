@@ -244,7 +244,7 @@
     try {
       setShop(await placesAndShops.addShop(name));
     } catch {
-      toasts.show(couldntAdd('that shop'), { tone: 'problem' });
+      toasts.problem(couldntAdd('that shop'));
     }
   }
 

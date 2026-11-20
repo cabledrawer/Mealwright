@@ -311,7 +311,7 @@ export class CookReview {
       if (o.ok)
         undoHistory.record(this.#undoEntry([o.value], o.value.change.summary), { toast: false });
     }
-    toasts.show(COULDNT_REACH_COOK, { tone: 'problem' });
+    toasts.problem(COULDNT_REACH_COOK);
     kitchen.changed();
   }
 
@@ -336,7 +336,7 @@ export class CookReview {
     const words = refusedWords ?? COULDNT_COOK;
     refusedWords = null;
     if (stayed.length === 0) {
-      toasts.show(notes.length ? notes.join(' ') : words, { tone: 'problem' });
+      toasts.problem(notes.length ? notes.join(' ') : words);
       return;
     }
     for (const value of stayed) {

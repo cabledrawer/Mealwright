@@ -17,6 +17,22 @@ afterEach(() => {
 });
 
 describe('toasts', () => {
+  it('a problem toast with a retry has a real "Try again" button that runs it', () => {
+    let tries = 0;
+    toasts.problem('Couldn’t save. Try again.', () => tries++);
+    expect(toasts.current?.tone).toBe('problem');
+    expect(toasts.current?.action?.label).toBe('Try again');
+    toasts.act();
+    expect(tries).toBe(1);
+    expect(toasts.current).toBeNull();
+  });
+
+  it('a problem toast without a retry has no button', () => {
+    toasts.problem('Couldn’t copy.');
+    expect(toasts.current?.tone).toBe('problem');
+    expect(toasts.current?.action).toBeUndefined();
+  });
+
   it('shows one message at a time; a new one replaces the last', () => {
     toasts.show('Toor dal moved to Fridge');
     toasts.show('Milk used up');

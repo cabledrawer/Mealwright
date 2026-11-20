@@ -114,7 +114,7 @@
     if (await copier.copy(made)) {
       toasts.show('Token copied');
     } else {
-      toasts.show('Couldn’t copy. Select the token and copy it.', { tone: 'problem' });
+      toasts.problem('Couldn’t copy. Select the token and copy it.');
     }
   }
 
@@ -544,7 +544,6 @@
   }
 
   .said,
-
   dialog {
     max-width: min(420px, calc(100vw - 32px));
     padding: var(--space-8);

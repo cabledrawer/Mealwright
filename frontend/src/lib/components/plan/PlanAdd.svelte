@@ -172,11 +172,8 @@
       const next = cookTargetOf(outcome.value, day, slot, recipe);
       if (next) actions.openCookOnce(next.meal, next.item);
       else
-        toasts.show(
-          `Planned ${recipe.name}, but Cook once didn’t open. Open its menu to try again.`,
-          {
-            tone: 'problem'
-          }
+        toasts.problem(
+          `Planned ${recipe.name}, but Cook once didn’t open. Open its menu to try again.`
         ); // proposed, for cabledrawer
     } finally {
       planning = false;

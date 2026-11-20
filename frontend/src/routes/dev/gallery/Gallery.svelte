@@ -541,10 +541,7 @@
     });
   }
   function toastProblem() {
-    toasts.show('Couldn’t save that. Try again.', {
-      tone: 'problem',
-      action: { label: 'Try again', run: () => {} }
-    });
+    toasts.problem('Couldn’t save that. Try again.', () => {});
   }
   function toastPlain() {
     toasts.show('Back online — all saved');

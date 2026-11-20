@@ -333,10 +333,7 @@ export class ShoppingSync {
     } else {
       // A refusal of the whole batch is a bug: keep everything and say so.
       this.stopped = 'refused';
-      toasts.show(COULDNT_SEND, {
-        tone: 'problem',
-        action: { label: 'Try now', run: () => void this.tryAgain() }
-      });
+      toasts.problem(COULDNT_SEND, () => void this.tryAgain());
     }
     return 'stop';
   }
@@ -385,7 +382,7 @@ export class ShoppingSync {
         );
         if (waiter) waiter.reject(error);
         // Sent from an earlier visit, as below.
-        else if (!result.repeat) toasts.show(error.detail, { tone: 'problem' });
+        else if (!result.repeat) toasts.problem(error.detail);
       } else if (waiter) {
         waiter.resolve(result);
       } else if (result.status === 'ignored' && result.message && !result.repeat) {

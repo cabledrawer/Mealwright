@@ -185,9 +185,9 @@ function tellProblem<T>(error: unknown, change: Change<T>, retry: () => void): v
   if (change.quiet) return;
   if (error instanceof ApiError && change.refused?.(error)) return;
   if (worthRetrying(error)) {
-    toasts.show(COULDNT_SAVE, { tone: 'problem', action: { label: 'Try again', run: retry } });
+    toasts.problem(COULDNT_SAVE, retry);
   } else {
     // The server said no, with its reason in plain English; trying again won't help.
-    toasts.show(error instanceof ApiError ? error.detail : COULDNT_SAVE, { tone: 'problem' });
+    toasts.problem(error instanceof ApiError ? error.detail : COULDNT_SAVE);
   }
 }

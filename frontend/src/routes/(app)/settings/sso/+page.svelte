@@ -142,7 +142,7 @@
 
   async function copy() {
     if (!(await copier.copy(redirect))) {
-      toasts.show('Couldn’t copy. Select the address and copy it.', { tone: 'problem' });
+      toasts.problem('Couldn’t copy. Select the address and copy it.');
     }
   }
 

@@ -46,7 +46,7 @@ export async function eatLeftover(
     // The tub stays in Tubs left, where it was made; the server's words say why, after saying
     // plainly that Cooked it itself is saved (F128). A server that can't be reached has its own
     // message everywhere else, so nothing is added to it here.
-    if (error instanceof ApiError) toasts.show(refusedWords(error.detail), { tone: 'problem' });
+    if (error instanceof ApiError) toasts.problem(refusedWords(error.detail));
   }
 }
 

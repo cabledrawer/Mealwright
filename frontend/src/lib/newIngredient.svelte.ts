@@ -53,9 +53,7 @@ export async function addChosenSizes(foodId: number, sizes: NewSize[]): Promise<
         newChangeId()
       );
     } catch {
-      toasts.show(`Couldn’t add the ${size.name} size. You can add it in Ingredients.`, {
-        tone: 'problem'
-      });
+      toasts.problem(`Couldn’t add the ${size.name} size. You can add it in Ingredients.`);
     }
   }
 }
@@ -94,7 +92,7 @@ class NewIngredientFlow {
         if (waiting) {
           this.current = null;
           waiting.resolve(null);
-          toasts.show('Couldn’t open that. Try again.', { tone: 'problem' });
+          toasts.problem('Couldn’t open that. Try again.');
         }
         return null;
       }

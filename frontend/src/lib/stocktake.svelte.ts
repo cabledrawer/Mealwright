@@ -104,7 +104,7 @@ export class StocktakeModel {
 
   /** The usual words when something could not be saved or opened; false, for the caller. */
   #failed(): false {
-    toasts.show(COULDNT_SAVE, { tone: 'problem' });
+    toasts.problem(COULDNT_SAVE);
     return false;
   }
 

@@ -126,11 +126,8 @@
       const { setMealWay } = await import('#lib/cookWays.js');
       if (!(await setMealWay(item, pick))) {
         // proposed, for cabledrawer
-        toasts.show(
-          'Couldn’t tell the Plan which way you cooked it. Check the connection and try again.',
-          {
-            tone: 'problem'
-          }
+        toasts.problem(
+          'Couldn’t tell the Plan which way you cooked it. Check the connection and try again.'
         );
         return;
       }

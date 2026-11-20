@@ -6,7 +6,7 @@ import type { Component } from 'svelte';
 import { toasts } from './toast.svelte';
 
 export function couldntOpen() {
-  toasts.show('Couldn’t open that. Try again.', { tone: 'problem' });
+  toasts.problem('Couldn’t open that. Try again.');
 }
 
 export class LazyCode {

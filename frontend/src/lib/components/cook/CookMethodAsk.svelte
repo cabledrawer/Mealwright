@@ -61,9 +61,7 @@
     if (!item || item.method_id === id || network.offline) return;
     if (await setMealWay(item, id)) onchanged();
     else {
-      toasts.show('Couldn’t change how the meal is cooked. Try again from the Plan.', {
-        tone: 'problem'
-      }); // proposed, for cabledrawer
+      toasts.problem('Couldn’t change how the meal is cooked. Try again from the Plan.'); // proposed, for cabledrawer
     }
   }
 

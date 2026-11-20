@@ -127,7 +127,7 @@
       count_word_plural: null
     });
     if ('problem' in read) {
-      toasts.show(read.problem, { tone: 'problem' });
+      toasts.problem(read.problem);
       return null;
     }
     return read;
@@ -230,7 +230,7 @@
   /** "0 g butter": nothing is added, and the text stays so the amount can be fixed. */
   function zeroTyped(): boolean {
     if (!split?.zero) return false;
-    toasts.show(ZERO_AMOUNT, { tone: 'problem' });
+    toasts.problem(ZERO_AMOUNT);
     return true;
   }
 
@@ -289,7 +289,7 @@
     let amount: { amount: number; sizeId: number | null } | null = null;
     if (typedAmount) {
       const read = readForNew(typedAmount, chosen);
-      if ('problem' in read) toasts.show(read.problem, { tone: 'problem' });
+      if ('problem' in read) toasts.problem(read.problem);
       else amount = { amount: read.amount, sizeId: null };
     }
     reset();

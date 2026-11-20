@@ -75,7 +75,7 @@ class UndoHistory {
       try {
         entry = (await this.fallback()) ?? undefined;
       } catch {
-        toasts.show(COULDNT_UNDO, { tone: 'problem' });
+        toasts.problem(COULDNT_UNDO);
         return false;
       }
       if (entry) {
@@ -103,16 +103,13 @@ class UndoHistory {
       // "Already undone", "Too old to undo": the server's own words; nothing to retry.
       if (!worthRetrying(error)) {
         if (!(error instanceof ApiError && error.status === 401)) {
-          toasts.show(error instanceof ApiError ? error.detail : COULDNT_UNDO, { tone: 'problem' });
+          toasts.problem(error instanceof ApiError ? error.detail : COULDNT_UNDO);
         }
         return;
       }
       this.#entries.push(entry);
       this.size = this.#entries.length;
-      toasts.show(COULDNT_UNDO, {
-        tone: 'problem',
-        action: { label: 'Try again', run: () => void this.undo(entry) }
-      });
+      toasts.problem(COULDNT_UNDO, () => void this.undo(entry));
     }
   }
 

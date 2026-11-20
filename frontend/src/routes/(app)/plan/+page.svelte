@@ -290,7 +290,7 @@
 
   /** A recipe that was cooked can't be moved while its record stands (F157 review). */
   function cookedStays() {
-    toasts.show('This was cooked. Undo “Cooked it” first.', { tone: 'problem' }); // proposed, for cabledrawer
+    toasts.problem('This was cooked. Undo “Cooked it” first.'); // proposed, for cabledrawer
   }
 
   function carryMeal(meal: PlanMeal): Carried {
@@ -381,7 +381,7 @@
         if (day === meal.date && to === meal.slot_id) return;
         if (meal.items.some((i) => i.cooked)) return cookedStays();
         if (model.mealAt(day, to)) {
-          toasts.show('Cooking can only move to an empty meal.', { tone: 'problem' });
+          toasts.problem('Cooking can only move to an empty meal.');
           return;
         }
         void model.drop({ meal: meal.id }, day, to, 'move');

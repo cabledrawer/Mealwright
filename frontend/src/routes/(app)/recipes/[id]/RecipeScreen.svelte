@@ -97,7 +97,7 @@
       await planModel.loadAhead();
       if (stale(wanted)) return;
       if (!planModel.loaded) {
-        toasts.show(planModel.problem ?? couldntLoad('the plan'), { tone: 'problem' });
+        toasts.problem(planModel.problem ?? couldntLoad('the plan'));
         return;
       }
       planning = { kind: 'recipe', recipe: { id: wanted, name: wantedName }, ahead: true };
@@ -246,9 +246,10 @@
       kitchen.changed();
       void go(editPage(copy.id));
     } catch (error) {
-      toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t duplicate. Try again.', {
-        tone: 'problem'
-      });
+      toasts.problem(
+        error instanceof ApiError ? error.detail : 'Couldn’t duplicate. Try again.',
+        () => void duplicate()
+      );
     } finally {
       duplicating = false;
     }
@@ -261,9 +262,10 @@
       await removeRecipe(recipe.id, recipe.name);
       void go(RECIPES);
     } catch (error) {
-      toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t delete. Try again.', {
-        tone: 'problem'
-      });
+      toasts.problem(
+        error instanceof ApiError ? error.detail : 'Couldn’t delete. Try again.',
+        () => void remove()
+      );
     }
   }
 </script>

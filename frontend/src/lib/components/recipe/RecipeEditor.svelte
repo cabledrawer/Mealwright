@@ -317,7 +317,7 @@
       wrens = await getRecipe(recipeId);
       seeing = true;
     } catch {
-      toasts.show('Couldn’t open their version. Try again.', { tone: 'problem' });
+      toasts.problem('Couldn’t open their version. Try again.');
     }
   }
 
@@ -341,9 +341,10 @@
       void go(RECIPES);
     } catch (error) {
       leaving = false;
-      toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t delete. Try again.', {
-        tone: 'problem'
-      });
+      toasts.problem(
+        error instanceof ApiError ? error.detail : 'Couldn’t delete. Try again.',
+        () => void remove()
+      );
     }
   }
 

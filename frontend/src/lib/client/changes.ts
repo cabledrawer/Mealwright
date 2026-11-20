@@ -101,8 +101,9 @@ export async function undoFromList(change: Change, list: { changes: Change[] }):
     toasts.show(undoToast(change.summary, answer));
   } catch (error) {
     list.changes = before;
-    toasts.show(error instanceof ApiError ? error.detail : 'Couldn’t undo. Try again.', {
-      tone: 'problem'
-    });
+    toasts.problem(
+      error instanceof ApiError ? error.detail : 'Couldn’t undo. Try again.',
+      () => void undoFromList(change, list)
+    );
   }
 }

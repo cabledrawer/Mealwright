@@ -318,7 +318,7 @@ export class ImportLinks {
     void drafts.load();
     if (done.length === 0 && failed === 0) return; // every one was already gone
     if (done.length === 0) {
-      toasts.show('Couldn’t save those recipes. They stay in Drafts.', { tone: 'problem' });
+      toasts.problem('Couldn’t save those recipes. They stay in Drafts.');
       return;
     }
     kitchen.changed();

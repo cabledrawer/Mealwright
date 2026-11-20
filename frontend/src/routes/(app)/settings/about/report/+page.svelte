@@ -108,7 +108,7 @@
     if (await copier.copy(text)) {
       toasts.show(COPIED);
     } else {
-      toasts.show(COPY_FAILED, { tone: 'problem' });
+      toasts.problem(COPY_FAILED);
     }
   }
 

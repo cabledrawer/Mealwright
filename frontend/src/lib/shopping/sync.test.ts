@@ -322,7 +322,7 @@ describe('the server says no to the whole batch', () => {
     );
   });
 
-  it('422: stops, keeps the queue, and says so with Try now', async () => {
+  it('422: stops, keeps the queue, and says so with Try again', async () => {
     let fixed = false;
     const sent = server((one) => (fixed ? applied(one) : [422, { detail: 'bad' }]));
     const done = sendAction(tick('a'));
@@ -330,7 +330,7 @@ describe('the server says no to the whole batch', () => {
     const toast = toasts.current;
     expect(toast?.message).toBe(COULDNT_SEND);
     expect(toast?.tone).toBe('problem');
-    expect(toast?.action?.label).toBe('Try now');
+    expect(toast?.action?.label).toBe('Try again');
     await shoppingSync.send();
     expect(sent).toHaveLength(1); // stopped: no more tries by itself
     fixed = true;

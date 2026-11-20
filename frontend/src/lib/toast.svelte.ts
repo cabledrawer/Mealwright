@@ -19,6 +19,9 @@ export interface Toast {
   tone: 'calm' | 'problem';
 }
 
+/** The button on a problem toast that can be run again. */
+export const TRY_AGAIN = 'Try again';
+
 /** How long a toast stays, in milliseconds. */
 export const TOAST_MS = 6000;
 /** After a pause, at least this long is left, so it doesn't vanish the moment you look away. */
@@ -54,6 +57,18 @@ class Toaster {
     this.#paused = false;
     this.#start(options.duration ?? TOAST_MS);
     return id;
+  }
+
+  /**
+   * Say something didn't work (still calm). With `retry` the toast carries a real "Try again"
+   * button that runs it (FE11); without one it is just the words.
+   */
+  problem(message: string, retry?: () => void, options: { duration?: number } = {}): number {
+    return this.show(message, {
+      tone: 'problem',
+      action: retry ? { label: TRY_AGAIN, run: retry } : undefined,
+      duration: options.duration
+    });
   }
 
   /** Change the words of a toast that's still showing (e.g. to the server's own summary). */

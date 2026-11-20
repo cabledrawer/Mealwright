@@ -93,7 +93,7 @@
   function listChanged(error: ApiError): boolean {
     if (error.code !== 'not_all_shops' && error.code !== 'not_all_places') return false;
     void load();
-    toasts.show('The list changed. Try again.', { tone: 'problem' }); // proposed, for cabledrawer
+    toasts.problem('The list changed. Try again.'); // proposed, for cabledrawer
     return true;
   }
 
@@ -497,5 +497,4 @@
     font-size: var(--text-base);
     font-weight: var(--weight-semibold);
   }
-
 </style>

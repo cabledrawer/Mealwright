@@ -330,7 +330,7 @@
     if (await copier.copy(url)) {
       toasts.show('Link copied');
     } else {
-      toasts.show('Couldn’t copy. Select the link and copy it.', { tone: 'problem' });
+      toasts.problem('Couldn’t copy. Select the link and copy it.');
     }
   }
 </script>

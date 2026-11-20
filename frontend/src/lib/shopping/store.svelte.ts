@@ -284,7 +284,7 @@ export class ShoppingModel {
       this.planCard = await gotIt(staple.food.id);
     } catch (error) {
       this.planCard = before;
-      toasts.show(error instanceof ApiError ? error.detail : COULDNT_SAVE, { tone: 'problem' });
+      toasts.problem(error instanceof ApiError ? error.detail : COULDNT_SAVE);
       return;
     }
     toasts.show(`${staple.food.name}: got it`, {
@@ -308,7 +308,7 @@ export class ShoppingModel {
       if (last) this.planCard = last;
     } catch (error) {
       void this.refreshPlan();
-      toasts.show(error instanceof ApiError ? error.detail : COULDNT_SAVE, { tone: 'problem' });
+      toasts.problem(error instanceof ApiError ? error.detail : COULDNT_SAVE);
       return;
     }
     const label = 'Staples check dismissed';
@@ -325,7 +325,7 @@ export class ShoppingModel {
       for (const staple of staples) this.planCard = await notGotIt(staple.food.id);
       toasts.show(undoneWords(label));
     } catch (error) {
-      toasts.show(error instanceof ApiError ? error.detail : COULDNT_UNDO, { tone: 'problem' });
+      toasts.problem(error instanceof ApiError ? error.detail : COULDNT_UNDO);
     }
   }
 
@@ -413,7 +413,7 @@ export class ShoppingModel {
       if (entry) undoHistory.forget(entry);
       if (toastId !== undefined) toasts.dismiss(toastId);
       // The server said no, with its reason in plain English.
-      toasts.show(error instanceof ApiError ? error.detail : COULDNT_SAVE, { tone: 'problem' });
+      toasts.problem(error instanceof ApiError ? error.detail : COULDNT_SAVE);
       return { ok: false, error };
     }
   }
@@ -510,7 +510,7 @@ export class ShoppingModel {
         // Not queued at all (nobody signed in) is the Undo list's to say; a refusal is ours.
         if (toastId === undefined) return;
         toasts.dismiss(toastId);
-        toasts.show(error instanceof ApiError ? error.detail : COULDNT_UNDO, { tone: 'problem' });
+        toasts.problem(error instanceof ApiError ? error.detail : COULDNT_UNDO);
       }
     );
     await Promise.race([queued, answered]);
