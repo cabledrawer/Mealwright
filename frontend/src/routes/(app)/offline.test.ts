@@ -82,14 +82,14 @@ describe('the online-only screens, offline', () => {
     show(Appearance);
     // cabledrawer 18 Oct, "Keep it visible": the theme is saved on this device.
     await expect.element(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
-    const switcher = page.getByRole('radiogroup', { name: 'Theme' });
-    const dark = switcher.getByRole('radio', { name: 'Dark' });
+    const switcher = page.getByRole('group', { name: 'Theme' });
+    const dark = switcher.getByRole('button', { name: 'Dark' });
     await dark.click();
-    await expect.element(dark).toHaveAttribute('aria-checked', 'true');
+    await expect.element(dark).toHaveAttribute('aria-pressed', 'true');
     expect(document.documentElement.dataset.theme).toBe('dark');
     // Saved on this device; nothing needs the server.
     expect(localStorage.getItem('mealwright.theme')).toBe('dark');
-    await switcher.getByRole('radio', { name: 'Auto' }).click();
+    await switcher.getByRole('button', { name: 'Auto' }).click();
   });
 
   // F240 (cabledrawer 15 Nov): the page that only says "needs your server" has no + and no Stocktake.

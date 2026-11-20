@@ -244,9 +244,9 @@ test.describe('theme', () => {
       // The phone's Settings is a list of sections (F193): Appearance has the switch.
       await page.getByRole('link', { name: /^Appearance/ }).click();
       await expect(page.getByRole('heading', { level: 1 })).toHaveText('Appearance');
-      return page.locator('main').getByRole('radiogroup', { name: 'Theme' });
+      return page.locator('main').getByRole('group', { name: 'Theme' });
     }
-    return page.getByRole('complementary', { name: 'Sidebar' }).getByRole('radiogroup', {
+    return page.getByRole('complementary', { name: 'Sidebar' }).getByRole('group', {
       name: 'Theme',
     });
   }
@@ -263,14 +263,14 @@ test.describe('theme', () => {
   test('Dark and Light override the device, and are remembered', async ({ page }) => {
     await page.goto('/');
     const group = await themeControls(page);
-    await expect(group.getByRole('radio', { name: 'Auto' })).toHaveAttribute(
-      'aria-checked',
+    await expect(group.getByRole('button', { name: 'Auto' })).toHaveAttribute(
+      'aria-pressed',
       'true',
     );
 
-    await group.getByRole('radio', { name: 'Dark' }).click();
-    await expect(group.getByRole('radio', { name: 'Dark' })).toHaveAttribute(
-      'aria-checked',
+    await group.getByRole('button', { name: 'Dark' }).click();
+    await expect(group.getByRole('button', { name: 'Dark' })).toHaveAttribute(
+      'aria-pressed',
       'true',
     );
     // After a click the colour changes when the page has applied the choice: wait for it, as the
@@ -285,12 +285,12 @@ test.describe('theme', () => {
 
     await page.emulateMedia({ colorScheme: 'dark' });
     const group2 = await themeControls(page);
-    await group2.getByRole('radio', { name: 'Light' }).click();
+    await group2.getByRole('button', { name: 'Light' }).click();
     await expect.poll(() => ground(page)).toBe(GROUND.light);
     await page.reload();
     expect(await ground(page)).toBe(GROUND.light);
 
-    await (await themeControls(page)).getByRole('radio', { name: 'Auto' }).click();
+    await (await themeControls(page)).getByRole('button', { name: 'Auto' }).click();
     await expect.poll(() => ground(page)).toBe(GROUND.dark);
     await savedToAccount(page, 'auto');
   });
@@ -311,7 +311,7 @@ test.describe('theme', () => {
       }) => {
         await page.goto('/');
         let group = await themeControls(page);
-        await group.getByRole('radio', { name: 'Light' }).click();
+        await group.getByRole('button', { name: 'Light' }).click();
         await savedToAccount(page, 'light');
 
         // The reverse proxy answering 503 is "can't reach the server" (WebKit lets an aborted request through).
@@ -320,13 +320,13 @@ test.describe('theme', () => {
             ? route.fulfill({ status: 503, contentType: 'text/plain', body: 'Service Unavailable' })
             : route.continue();
         await page.route(glob, stop);
-        await group.getByRole('radio', { name: 'Dark' }).click();
+        await group.getByRole('button', { name: 'Dark' }).click();
         await expect.poll(() => ground(page)).toBe(GROUND.dark);
 
         // The account still says Light; the page is reloaded and asks it.
         await page.reload();
         group = await themeControls(page);
-        await expect(group.getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
+        await expect(group.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
         expect(await ground(page)).toBe(GROUND.dark);
         const account = async () =>
           ((await (await page.request.get('/api/v1/me')).json()) as { theme: string }).theme;
@@ -349,9 +349,9 @@ test.describe('theme', () => {
         await expect.poll(account).toBe('dark');
         await page.reload();
         group = await themeControls(page);
-        await expect(group.getByRole('radio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
+        await expect(group.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
 
-        await group.getByRole('radio', { name: 'Auto' }).click();
+        await group.getByRole('button', { name: 'Auto' }).click();
         await savedToAccount(page, 'auto');
       });
     }
@@ -363,7 +363,7 @@ test.describe('theme', () => {
     // cabledrawer 8 Nov: the person's most recent theme choice always wins (full check 3 on 8 Nov).
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/');
-    await (await themeControls(page)).getByRole('radio', { name: 'Light' }).click();
+    await (await themeControls(page)).getByRole('button', { name: 'Light' }).click();
     await expect.poll(() => ground(page)).toBe(GROUND.light);
     await savedToAccount(page, 'light');
 
@@ -384,9 +384,9 @@ test.describe('theme', () => {
     );
     await page.reload();
     const group = isPhone(page)
-      ? page.locator('main').getByRole('radiogroup', { name: 'Theme' })
-      : page.getByRole('complementary', { name: 'Sidebar' }).getByRole('radiogroup', { name: 'Theme' });
-    await group.getByRole('radio', { name: 'Auto' }).click();
+      ? page.locator('main').getByRole('group', { name: 'Theme' })
+      : page.getByRole('complementary', { name: 'Sidebar' }).getByRole('group', { name: 'Theme' });
+    await group.getByRole('button', { name: 'Auto' }).click();
     await expect.poll(() => ground(page)).toBe(GROUND.dark);
 
     // The app asks for the shopping list only once it has acted on the server's answer (the
