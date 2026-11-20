@@ -22,6 +22,7 @@ from fastapi import status
 from sqlalchemy import and_, func, or_, select, text, update
 from sqlalchemy.orm import Session as DbSession
 
+from mealwright import change_kinds
 from mealwright.amounts import MILLI, NBSP, TooBig, checked, to_milli
 from mealwright.api.v1.context import Kitchen
 from mealwright.conversions import guess_aisle, table
@@ -49,17 +50,8 @@ from mealwright.stock import has_stock
 MAIN_LIST_NAME = "This week"
 OTHER_PHONE = "Your other phone"  # {who} for the same login on another phone (section 8)
 
-# Change kinds, at most 20 letters (change.kind).
-LIST_KINDS = (
-    "list_made",
-    "list_renamed",
-    "list_removed",
-    "item_added",
-    "item_amount",
-    "item_deleted",
-    "item_place",
-    "item_moved",
-)
+# Change kinds (every kind is listed in `change_kinds.py`).
+LIST_KINDS = change_kinds.LISTS
 
 LOCKED = "mealwright.household_locked"
 

@@ -13,7 +13,7 @@ from mealwright.api.v1.schemas import ChangeOut, Ref
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, name_taken, not_found
 from mealwright.foods import change_out, find
-from mealwright.history import FoodEdit, commit, record, replayed
+from mealwright.history import FoodEdit, commit, replayed
 from mealwright.household import amounts_shown, cup_ml, places, today, valid_time_zone
 from mealwright.models import Food, FoodConversion, Place, Shop
 from mealwright.names import clean_name, fold
@@ -329,13 +329,7 @@ def add_shop(body: NewShop, kitchen: Here, response: Response) -> Ref:
     kitchen.db.add(shop)
     kitchen.db.flush()
     # In Recent changes, with an Undo (F225, cabledrawer 10 Nov).
-    record(
-        kitchen,
-        "shop_added",
-        f"Added the shop {shop.name}",
-        None,
-        {"shop": {"id": shop.id, "new": shop.name}},
-    )
+    kitchen_changes.shop_added(kitchen, shop)
     earlier = commit(kitchen)
     if earlier is not None:
         added = (earlier.undo_data or {}).get("shop") or {}
@@ -401,13 +395,7 @@ def rename_shop(shop_id: StoredInt, body: RenameShop, kitchen: Here, response: R
             return _shop_renamed_before(kitchen, earlier, response, shop_id, body.name)
         return Ref(id=shop.id, name=shop.name)
     shop.name = body.name
-    record(
-        kitchen,
-        "shop_renamed",
-        f"Renamed the shop {old} to {shop.name}",
-        None,
-        {"shop": {"id": shop.id, "old": old, "new": shop.name}},
-    )
+    kitchen_changes.shop_renamed(kitchen, shop, old)
     earlier = commit(kitchen)
     if earlier is not None:
         return _shop_renamed_before(kitchen, earlier, response, shop_id, body.name)

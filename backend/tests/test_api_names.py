@@ -226,3 +226,202 @@ def test_shopping_ids_in_the_address_are_uuids() -> None:
             for param in op.get("parameters", []):
                 if param["in"] == "path" and param["name"] in ("list_id", "item_id"):
                     assert param["schema"].get("pattern", "").startswith("^[0-9a-f]{8}-"), path
+
+
+# --- BE20: one registry of change kinds ------------------------------------------------------
+
+# Every kind there was before the rule (0.9.5-beta.3). Never add to this list.
+BEFORE_D3 = (
+    "added",
+    "amounts_shown_changed",
+    "batch_cook_switch",
+    "binned",
+    "cook_step_changed",
+    "cooked",
+    "draft_removed",
+    "draft_saved",
+    "food_back",
+    "food_created",
+    "food_edited",
+    "food_removed",
+    "found",
+    "household_renamed",
+    "item_added",
+    "item_amount",
+    "item_deleted",
+    "item_moved",
+    "item_place",
+    "kitchen_changed",
+    "list_made",
+    "list_removed",
+    "list_renamed",
+    "mealie_drafts_answered",
+    "merged",
+    "moved",
+    "person_added",
+    "person_changed",
+    "person_login",
+    "person_removed",
+    "pints_changed",
+    "place_added",
+    "place_removed",
+    "place_renamed",
+    "places_ordered",
+    "plan_added",
+    "plan_batch",
+    "plan_batch_removed",
+    "plan_batch_session",
+    "plan_batch_session_changed",
+    "plan_batch_session_removed",
+    "plan_cooked",
+    "plan_copied",
+    "plan_didnt",
+    "plan_eaters",
+    "plan_leftovers",
+    "plan_method",
+    "plan_moved",
+    "plan_moveit",
+    "plan_optional",
+    "plan_removed",
+    "plan_servings",
+    "plan_slot",
+    "plan_start",
+    "plan_started",
+    "plan_tub",
+    "recipe_created",
+    "recipe_imported",
+    "recipe_removed",
+    "recipe_saved",
+    "repacked",
+    "set_left",
+    "setting_kept",
+    "shop_added",
+    "shop_removed",
+    "shop_renamed",
+    "shopped",
+    "shops_ordered",
+    "split",
+    "stocktake",
+    "tags_merged",
+    "to_freezer",
+    "undo",
+    "use_by",
+    "used",
+    "whos_this_switch",
+)
+
+
+def _kinds_in_the_code() -> dict[str, str]:
+    """Every change kind the code names as a literal: the kind given to `record(...)`, a
+    `FoodEdit.record(...)`, `_finish(...)`, `kitchen_changes.ordered(...)`, `.done(...)`, a
+    `Change(kind=...)`, and a `change.kind == ...` or `change.kind in (...)` test."""
+    import ast
+    from pathlib import Path
+
+    import mealwright
+
+    root = Path(mealwright.__file__).parent
+    found: dict[str, str] = {}
+
+    def keep(node: ast.AST | None, where: str) -> None:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            found.setdefault(node.value, where)
+        elif isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+            for element in node.elts:
+                keep(element, where)
+
+    for path in sorted(root.rglob("*.py")):
+        if "migrations" in path.parts:
+            continue
+        for node in ast.walk(ast.parse(path.read_text())):
+            where = f"{path.relative_to(root)}:{getattr(node, 'lineno', 0)}"
+            if isinstance(node, ast.Compare):
+                left = node.left
+                if (
+                    isinstance(left, ast.Attribute)
+                    and left.attr == "kind"
+                    and isinstance(left.value, ast.Name)
+                    and left.value.id in ("change", "Change", "earlier")
+                ):
+                    for right in node.comparators:
+                        keep(right, where)
+                continue
+            if not isinstance(node, ast.Call):
+                continue
+            fn = node.func
+            name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", None)
+            arg: ast.AST | None = None
+            if name == "record":
+                # history.record(kitchen, kind, ...), or an edit's .record(kind, ...)
+                on_edit = isinstance(fn, ast.Attribute) and getattr(fn.value, "id", "") != "history"
+                index = 0 if on_edit else 1
+                arg = node.args[index] if len(node.args) > index else None
+            elif name in ("_finish", "ordered"):
+                arg = node.args[1] if len(node.args) > 1 else None
+            elif name == "done" and isinstance(fn, ast.Attribute):
+                arg = node.args[0] if node.args else None
+            elif name != "Change":
+                continue
+            for keyword in node.keywords:
+                if keyword.arg in ("kind", "change_kind"):
+                    arg = keyword.value
+            keep(arg, where)
+    return found
+
+
+def test_every_change_kind_the_code_names_is_in_the_registry() -> None:
+    from mealwright import change_kinds
+
+    found = _kinds_in_the_code()
+    assert len(found) > 60  # the scan still finds the kinds
+    assert {k: w for k, w in found.items() if k not in change_kinds.ALL} == {}
+
+
+def test_the_modules_use_the_registry() -> None:
+    from mealwright import (
+        change_kinds,
+        history,
+        kitchen_changes,
+        mealie_answers,
+        people,
+        plan,
+        recipe_tags,
+        removals,
+        roles,
+        shopping,
+    )
+    from mealwright.api.v1 import changes
+
+    assert changes.STOCK_KINDS is change_kinds.STOCK
+    assert changes.INGREDIENT_KINDS is change_kinds.INGREDIENTS
+    assert kitchen_changes.KINDS is change_kinds.SETTINGS
+    assert removals.KINDS is change_kinds.REMOVALS
+    assert people.KINDS is change_kinds.PEOPLE
+    assert history.KEY_ONLY_KINDS is change_kinds.KEY_ONLY
+    assert history.NOTE_KINDS is change_kinds.NOTES
+    assert shopping.LIST_KINDS is change_kinds.LISTS
+    assert {mealie_answers.KIND, recipe_tags.KIND} <= set(change_kinds.RECIPES)
+    assert set(plan._KINDS.values()) <= set(change_kinds.PLAN)
+    assert set(roles.ADMIN_KINDS) <= change_kinds.ALL
+
+
+def test_a_new_change_kind_follows_the_rule_and_fits_the_column() -> None:
+    """Kinds made before the rule are kept (they are stored, and named by queued Undos); a
+    kind added after them is `<thing>_added`, `_changed` or `_removed`, in 20 letters."""
+    from mealwright import change_kinds
+
+    new = change_kinds.ALL - set(BEFORE_D3)
+    assert [k for k in new if not change_kinds.RULE.match(k)] == []
+    too_long = {k for k in change_kinds.ALL if len(k) > change_kinds.LONGEST}
+    assert too_long == change_kinds.LONGER_THAN_THE_COLUMN  # no new one; see the module
+    assert set(BEFORE_D3) <= change_kinds.ALL  # none is dropped: they are stored
+
+
+def test_shops_are_recorded_through_kitchen_changes() -> None:
+    from pathlib import Path
+
+    from mealwright.api.v1 import kitchen
+
+    source = Path(kitchen.__file__).read_text()
+    assert '"shop_added"' not in source and '"shop_renamed"' not in source
+    assert "kitchen_changes.shop_added(" in source and "kitchen_changes.shop_renamed(" in source

@@ -9,7 +9,7 @@ from fastapi import status
 from sqlalchemy import ColumnElement, and_, delete, false, func, or_, select, update
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import api_tokens, events, kitchen_changes
+from mealwright import api_tokens, change_kinds, events, kitchen_changes
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Who
 from mealwright.errors import Problem, name_taken, not_found
@@ -90,9 +90,9 @@ def who_did(kitchen: Kitchen, change: Change) -> Who:
 
 # The colours a person can have, as the design names them (cabledrawer 12 Nov).
 COLOURS = ("amber", "green", "violet", "blue", "peach")
-KINDS = ("person_added", "person_changed", "person_removed", "whos_this_switch")
+KINDS = change_kinds.PEOPLE
 # A sign-in link was made: only there to be read in Recent changes, with no Undo of its own.
-LINK_KIND = "person_login"
+LINK_KIND = change_kinds.PERSON_LOGIN
 JOIN_FOR = timedelta(hours=24)  # cabledrawer 12 Nov
 # The two kinds of link (JoinLink.kind): a sign-in link sets a new login's first password; a
 # Reset password link (Pe1, cabledrawer 13 Nov) sets a new one for a login that has one.

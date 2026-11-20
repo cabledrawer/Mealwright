@@ -76,7 +76,7 @@ from mealwright.pack_sizes import usual_shop_id
 
 log = logging.getLogger(__name__)
 
-KIND = "mealie_drafts_answered"
+KIND = "mealie_drafts_answered"  # listed in `change_kinds.RECIPES`
 SUGGEST_FOR = 40  # the first groups get a fresh look at the household's ingredients
 EXAMPLES = 2
 EXAMPLE_CHARS = 100

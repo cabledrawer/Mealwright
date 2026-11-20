@@ -14,7 +14,7 @@ from fastapi import status
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import shopping
+from mealwright import change_kinds, shopping
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import CANT_UNDO, Problem
 from mealwright.history import FoodEdit, Tally, as_utc
@@ -34,7 +34,7 @@ from mealwright.models import (
 )
 from mealwright.names import fold
 
-KINDS = ("shop_removed", "place_removed", "shop_added", "shop_renamed")
+KINDS = change_kinds.REMOVALS
 # Ids per statement, well under SQLite's limit of 32,766 values.
 CHUNK = 500
 

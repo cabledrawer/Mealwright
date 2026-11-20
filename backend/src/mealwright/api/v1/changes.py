@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
 from mealwright import (
+    change_kinds,
     cooking,
     drafts,
     kitchen_changes,
@@ -73,32 +74,10 @@ from mealwright.stock import lots_of, place_totals
 
 router = APIRouter(tags=["history"], dependencies=[SameOrigin])
 
-# Changes to stock, shown in Pantry → Recent changes.
-STOCK_KINDS = (
-    "added",
-    "used",
-    "binned",
-    "set_left",
-    "moved",
-    "to_freezer",
-    "use_by",
-    "shopped",
-    "found",
-    "repacked",
-    "cooked",
-    "stocktake",
-)
-
-# Changes to ingredients, shown in Ingredients → Recent changes.
-INGREDIENT_KINDS = (
-    "food_created",
-    "food_edited",
-    "food_removed",
-    "food_back",
-    "merged",
-    "split",
-    "recipe_imported",
-)
+# Changes to stock, shown in Pantry → Recent changes; changes to ingredients, shown in
+# Ingredients → Recent changes (every kind lives in `change_kinds.py`).
+STOCK_KINDS = change_kinds.STOCK
+INGREDIENT_KINDS = change_kinds.INGREDIENTS
 
 
 class LineOut(BaseModel):

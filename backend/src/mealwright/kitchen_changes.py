@@ -1,7 +1,8 @@
 """Settings changes that are listed in Recent changes with an Undo (RF5, H8; cabledrawer 11 Nov):
 adding or renaming a place, putting the shops or the places in order, the kitchen's equipment,
 the Batch cook switch, the pint and Cook mode's ingredients for each step.
-Shops already were (F225, in `removals.py`).
+Adding or renaming a shop is recorded here too (D3, BE20); its Undo stays in `removals.py`
+(F225). Every kind is listed in `change_kinds.py`.
 
 Each change keeps what the Undo needs in `undo_data`, and the Undo is refused, with nothing
 changed, when what it would put back has been changed again since (the same rule as the
@@ -12,6 +13,7 @@ from typing import Any
 from fastapi import status
 from sqlalchemy import select
 
+from mealwright import change_kinds
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem
 from mealwright.history import record
@@ -30,18 +32,7 @@ from mealwright.models import (
 )
 from mealwright.names import fold
 
-KINDS = (
-    "place_added",
-    "place_renamed",
-    "shops_ordered",
-    "places_ordered",
-    "kitchen_changed",
-    "batch_cook_switch",
-    "pints_changed",
-    "cook_step_changed",
-    "household_renamed",
-    "amounts_shown_changed",
-)
+KINDS = change_kinds.SETTINGS
 
 
 def _cannot_undo(detail: str) -> Problem:
@@ -68,6 +59,28 @@ def place_renamed(kitchen: Kitchen, place: Place, old: str) -> Change:
         f"Renamed the place {old} to {place.name}",
         None,
         {"place": {"id": place.id, "old": old, "new": place.name, "kind": place.kind}},
+    )
+
+
+def shop_added(kitchen: Kitchen, shop: Shop) -> Change:
+    """A new shop (F225, cabledrawer 10 Nov). Its Undo lives in `removals.py`."""
+    return record(
+        kitchen,
+        "shop_added",
+        f"Added the shop {shop.name}",
+        None,
+        {"shop": {"id": shop.id, "new": shop.name}},
+    )
+
+
+def shop_renamed(kitchen: Kitchen, shop: Shop, old: str) -> Change:
+    """A shop's new name (F225). Its Undo lives in `removals.py`."""
+    return record(
+        kitchen,
+        "shop_renamed",
+        f"Renamed the shop {old} to {shop.name}",
+        None,
+        {"shop": {"id": shop.id, "old": old, "new": shop.name}},
     )
 
 

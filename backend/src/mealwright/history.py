@@ -21,7 +21,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright import events, restock, roles
+from mealwright import change_kinds, events, restock, roles
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import KEY_REUSED, Problem
 from mealwright.household import undo_window
@@ -153,12 +153,12 @@ def undo_until(kitchen: Kitchen, change: Change) -> datetime:
 
 # Changes that only remember a request's Idempotency-Key (a recipe made or saved, a draft
 # kept): there is nothing to undo, and they are not listed in Recent changes.
-KEY_ONLY_KINDS = ("recipe_created", "recipe_saved", "draft_saved", "setting_kept")
+KEY_ONLY_KINDS = change_kinds.KEY_ONLY
 
 # Changes that are only there to be read in Recent changes, with no Undo of their own: a
 # removed ingredient that came back ("Lemon is back in Ingredients"), and a sign-in link made
 # for a person (0.9 A1).
-NOTE_KINDS = ("food_back", "person_login")
+NOTE_KINDS = change_kinds.NOTES
 
 
 # Changes only the household's admin can undo, as only an admin can make them: the one list is

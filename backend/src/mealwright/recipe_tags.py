@@ -12,7 +12,7 @@ from mealwright.history import as_utc, bump_recipes_by, record
 from mealwright.models import Change, Recipe, RecipeTag, Tag
 from mealwright.names import fold
 
-KIND = "tags_merged"
+KIND = "tags_merged"  # listed in `change_kinds.RECIPES`
 
 
 def count_of(kitchen: Kitchen, tag_id: int) -> int:
