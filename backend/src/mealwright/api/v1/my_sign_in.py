@@ -22,7 +22,6 @@ from mealwright.auth import (
     SignedIn,
     SlowDown,
     Tries,
-    _as_utc,
     check_password,
     client_address,
     counted_check,
@@ -31,7 +30,7 @@ from mealwright.auth import (
     remember_device,
 )
 from mealwright.errors import Problem, StoredInt, not_found, wrong_password
-from mealwright.models import JoinLink, Session
+from mealwright.models import JoinLink, Session, as_utc
 
 # These lines name an account or an address: Mealwright's own log file only (mealwright.logs).
 log = logging.getLogger("mealwright.sign_in")
@@ -72,18 +71,18 @@ def _my_sign_in(db: DbSession, signed_in: SignedIn) -> MySignIn:
         SignInPlace(
             id=s.id,
             device=s.device,
-            last_used_at=_as_utc(s.last_seen_at),
+            last_used_at=as_utc(s.last_seen_at),
             remember=s.remember,
             this_device=s.id == signed_in.session.id,
         )
         for s in found
-        if _as_utc(s.expires_at) > at
+        if as_utc(s.expires_at) > at
     ]
     places.sort(key=lambda p: (not p.this_device, -p.last_used_at.timestamp()))
     changed = login.password_changed_at
     return MySignIn(
         has_password=login.password_hash is not None,
-        password_changed_at=_as_utc(changed) if changed else None,
+        password_changed_at=as_utc(changed) if changed else None,
         sessions=places,
     )
 

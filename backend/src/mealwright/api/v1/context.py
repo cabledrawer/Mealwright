@@ -3,7 +3,7 @@ the client-made change ID for retries (docs/dev/api-endpoints.md section 1.2).""
 
 import re
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Annotated
 
@@ -14,7 +14,7 @@ from mealwright.api_tokens import not_for_tokens
 from mealwright.auth import SEEN_EVERY, CurrentLogin, Db
 from mealwright.errors import Problem, admins_only, signed_out
 from mealwright.limits import body_hash
-from mealwright.models import Household, Login, Member, Session, utcnow
+from mealwright.models import Household, Login, Member, Session, as_utc, utcnow
 from mealwright.roles import Action, allowed
 
 _KEY = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
@@ -95,11 +95,7 @@ def kitchen(
         picked_at = signed_in.session.picked_at
         if request.method not in SAFE:
             signed_in.session.picked_at = utcnow()
-        elif (
-            picked_at is None
-            or utcnow() - (picked_at if picked_at.tzinfo else picked_at.replace(tzinfo=UTC))
-            >= SEEN_EVERY
-        ):
+        elif picked_at is None or utcnow() - as_utc(picked_at) >= SEEN_EVERY:
             signed_in.session.picked_at = utcnow()
             db.commit()
     return Kitchen(
@@ -139,15 +135,11 @@ def acting_member(
     return member.id
 
 
-def _utc(moment: datetime) -> datetime:
-    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
-
-
 def _fresh_pick(session: Session) -> bool:
     picked_at = session.picked_at
     if session.member_id is None or picked_at is None:
         return False
-    return utcnow() - _utc(picked_at) < PICK_FOR
+    return utcnow() - as_utc(picked_at) < PICK_FOR
 
 
 Here = Annotated[Kitchen, Depends(kitchen)]

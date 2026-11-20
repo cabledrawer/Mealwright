@@ -23,9 +23,8 @@ from mealwright import own_network, sso_accounts
 from mealwright.api.v1.context import Here
 from mealwright.auth import SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
-from mealwright.history import as_utc
 from mealwright.household import today
-from mealwright.models import Household, OwnNetworkEntry
+from mealwright.models import Household, OwnNetworkEntry, as_utc
 from mealwright.outbound import LABELS, Connection, set_switch
 from mealwright.outbound import switches as stored_switches
 from mealwright.roles import Action, allowed

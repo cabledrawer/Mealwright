@@ -59,7 +59,7 @@ from mealwright.api.v1.schemas import Ref
 from mealwright.conversions import guess_aisle, table
 from mealwright.errors import not_found
 from mealwright.foods import shop_choices
-from mealwright.history import already_undone, as_utc, record
+from mealwright.history import already_undone, record
 from mealwright.ingredient_match import _key
 from mealwright.models import (
     Change,
@@ -69,6 +69,7 @@ from mealwright.models import (
     Place,
     Recipe,
     RecipePhoto,
+    as_utc,
     utcnow,
 )
 from mealwright.names import cut_text, fold

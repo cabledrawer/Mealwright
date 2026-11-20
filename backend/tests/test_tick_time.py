@@ -9,8 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import API, PHONE_A, PHONE_B, PHONE_R, action, db, ok, s0, send
 
-from mealwright.history import as_utc
-from mealwright.models import ListItem, ListTick, StockLot, utcnow
+from mealwright.models import ListItem, ListTick, StockLot, as_utc, utcnow
 
 FIRST, LAST = "0001-01-01T00:00:00Z", "9999-12-31T23:59:59Z"
 

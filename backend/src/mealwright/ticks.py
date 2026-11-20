@@ -21,7 +21,6 @@ from mealwright.amounts import NBSP, TooBig, checked
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import AMOUNT_TOO_BIG
 from mealwright.foods import add_size, amount_out, pack_bought, sizes, usual_size
-from mealwright.history import as_utc
 from mealwright.models import (
     Change,
     ChangeLine,
@@ -33,6 +32,7 @@ from mealwright.models import (
     Place,
     StockLot,
     SyncAction,
+    as_utc,
     utcnow,
 )
 from mealwright.shopping import Act, Batch, Refused, who

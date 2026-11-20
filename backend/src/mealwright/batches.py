@@ -27,7 +27,6 @@ from mealwright.errors import (
     already_there,
     not_found,
 )
-from mealwright.history import as_utc
 from mealwright.household import meal_slots, today, zone
 from mealwright.models import (
     SPREAD_PATTERNS,
@@ -42,6 +41,7 @@ from mealwright.models import (
     Place,
     Recipe,
     Tub,
+    as_utc,
 )
 from mealwright.people import own_member, own_members
 from mealwright.plan import (

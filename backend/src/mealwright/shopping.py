@@ -42,6 +42,7 @@ from mealwright.models import (
     Shop,
     ShoppingList,
     SyncAction,
+    as_utc,
     utcnow,
 )
 from mealwright.names import clean, fold
@@ -590,8 +591,7 @@ def on_a_list(db: DbSession, household_id: int, food_id: int, cutoff: datetime) 
     for (removed_at,) in rows:
         if removed_at is None:
             return True
-        moment = removed_at if removed_at.tzinfo else removed_at.replace(tzinfo=cutoff.tzinfo)
-        if moment > cutoff:
+        if as_utc(removed_at) > cutoff:
             return True
     return False
 

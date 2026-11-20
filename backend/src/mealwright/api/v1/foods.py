@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from collections.abc import Callable
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Any, Literal, cast
 
@@ -100,6 +100,7 @@ from mealwright.models import (
     RecipeLine,
     Shop,
     StockLot,
+    as_utc,
     utcnow,
 )
 from mealwright.names import clean, clean_name, fold, normalise, one_line, search_match, size_name
@@ -826,7 +827,7 @@ def _restock(kitchen: Kitchen, food: Food, when: datetime) -> str | None:
             f"{food.name} isn’t a staple. Make it a staple first.",
         )
     try:
-        when = when.replace(tzinfo=UTC) if when.tzinfo is None else when.astimezone(UTC)
+        when = as_utc(when)
     except OverflowError:  # a zone offset pushes it past year 1 or 9999
         raise (_too_old() if when.year < 2000 else _future()) from None
     if when.year < RESTOCK_EARLIEST.year:

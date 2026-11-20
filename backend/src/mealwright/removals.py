@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session as DbSession
 from mealwright import change_kinds, shopping
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import CANT_UNDO, Problem
-from mealwright.history import FoodEdit, Tally, as_utc
+from mealwright.history import FoodEdit, Tally
 from mealwright.models import (
     Change,
     ChangeLine,
@@ -30,6 +30,7 @@ from mealwright.models import (
     StocktakeEntry,
     StocktakePlace,
     Tub,
+    as_utc,
     utcnow,
 )
 from mealwright.names import fold

@@ -49,7 +49,7 @@ from mealwright.api.v1.schemas import Ref, Who
 from mealwright.errors import Problem, not_found
 from mealwright.foods import make_food, name_owner, name_taken, suggested_shop
 from mealwright.foods import visible as food_visible
-from mealwright.history import Tally, as_utc, bump_recipes, bump_recipes_by, record, too_old
+from mealwright.history import Tally, bump_recipes, bump_recipes_by, record, too_old
 from mealwright.household import undo_window
 from mealwright.models import (
     Change,
@@ -66,6 +66,7 @@ from mealwright.models import (
     RecipeStepLine,
     RecipeTag,
     Tag,
+    as_utc,
     utcnow,
 )
 from mealwright.names import fold

@@ -29,9 +29,9 @@ from mealwright import roles, shopping
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import ShortAmount
 from mealwright.errors import KEY_REUSED, TYPE_A_NAME, Problem
-from mealwright.history import as_utc, too_old_sentence
+from mealwright.history import too_old_sentence
 from mealwright.household import undo_window
-from mealwright.models import Change, ListItem, ShoppingList, SyncAction, utcnow
+from mealwright.models import Change, ListItem, ShoppingList, SyncAction, as_utc, utcnow
 from mealwright.names import clean_name, size_name
 from mealwright.shopping import Act, Batch, Refused
 

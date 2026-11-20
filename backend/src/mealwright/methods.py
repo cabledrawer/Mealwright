@@ -20,7 +20,7 @@ from typing import Any, Protocol
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session as DbSession
 
-from mealwright.models import RecipeMethod
+from mealwright.models import RecipeMethod, as_utc
 
 MAX_METHODS = 2
 
@@ -28,9 +28,7 @@ MAX_METHODS = 2
 def utc_text(moment: datetime) -> str:
     """A moment as text in UTC with no zone (for an Undo step). A time with another zone is
     converted first (Postgres gives times back with their zone); one with none is already UTC."""
-    if moment.tzinfo is not None:
-        moment = moment.astimezone(UTC).replace(tzinfo=None)
-    return moment.isoformat()
+    return as_utc(moment).replace(tzinfo=None).isoformat()
 
 
 class InMethod(Protocol):

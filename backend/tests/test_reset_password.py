@@ -15,8 +15,7 @@ from sync_kit import API, db, ok
 from test_people import _add, _fresh, _join, _look, _newest, _people, _problem
 
 from mealwright.api.v1 import people as api_people
-from mealwright.history import as_utc
-from mealwright.models import ApiToken, JoinLink, Login, Session
+from mealwright.models import ApiToken, JoinLink, Login, Session, as_utc
 from mealwright.reset_admin import reset_admin
 
 FIRST = "lorna's first password"

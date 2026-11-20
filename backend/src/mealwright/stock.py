@@ -17,8 +17,8 @@ from sqlalchemy import select
 from mealwright.amounts import NBSP, counted_name
 from mealwright.api.v1.context import Kitchen
 from mealwright.foods import amount_out
-from mealwright.history import as_utc, record
-from mealwright.models import Change, ChangeLine, Food, FoodSize, Place, StockLot, utcnow
+from mealwright.history import record
+from mealwright.models import Change, ChangeLine, Food, FoodSize, Place, StockLot, as_utc, utcnow
 
 FREEZER_MONTHS = 3  # "To freezer": new use-by 3 months away (spec section 6)
 

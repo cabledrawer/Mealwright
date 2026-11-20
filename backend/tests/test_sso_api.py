@@ -18,8 +18,7 @@ from sqlalchemy import select
 
 from mealwright import sso, sso_accounts
 from mealwright.auth import hash_password, now
-from mealwright.history import as_utc
-from mealwright.models import Login, Member, Session, SsoSettings
+from mealwright.models import Login, Member, Session, SsoSettings, as_utc
 from mealwright.outbound import OutboundGate
 from mealwright.reset_admin import reset_admin
 

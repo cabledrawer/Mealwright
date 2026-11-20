@@ -13,7 +13,7 @@ from mealwright import api_tokens, change_kinds, events, kitchen_changes
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.schemas import Who
 from mealwright.errors import Problem, name_taken, not_found
-from mealwright.history import PURGE_MARGIN, as_utc, record
+from mealwright.history import PURGE_MARGIN, record
 from mealwright.household import undo_window
 from mealwright.models import (
     Change,
@@ -23,6 +23,7 @@ from mealwright.models import (
     Member,
     Session,
     SsoSettings,
+    as_utc,
     utcnow,
 )
 from mealwright.names import fold

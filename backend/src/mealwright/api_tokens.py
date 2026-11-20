@@ -20,14 +20,14 @@ import hashlib
 import re
 import secrets
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from fastapi import Request, status
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.errors import Problem
-from mealwright.models import ApiToken, Login, Member, utcnow
+from mealwright.models import ApiToken, Login, Member, as_utc, utcnow
 from mealwright.roles import ADMIN
 
 READ = "read"
@@ -111,9 +111,9 @@ def find(db: DbSession, token: str) -> TokenSignIn | None:
     if found is None:
         return None
     row, login = found[0], found[1]
-    if row.expires_at is not None and _as_utc(row.expires_at) <= at:
+    if row.expires_at is not None and as_utc(row.expires_at) <= at:
         return None
-    if row.last_used_at is None or at - _as_utc(row.last_used_at) >= USED_EVERY:
+    if row.last_used_at is None or at - as_utc(row.last_used_at) >= USED_EVERY:
         row.last_used_at = at
         db.commit()
     return TokenSignIn(login=login, token=row)
@@ -161,8 +161,3 @@ def clear_refused(db: DbSession, login: Login) -> None:
         .values(revoked_at=utcnow())
     )
     login.sso_refused_at = None
-
-
-def _as_utc(moment: datetime) -> datetime:
-    # SQLite gives back naive datetimes; everything stored is UTC.
-    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)

@@ -46,7 +46,7 @@ from mealwright.api.v1.draft_schemas import (
 from mealwright.api.v1.import_schemas import ImportReview, ReviewCounts, ReviewLine, ReviewPhoto
 from mealwright.api.v1.schemas import Ref
 from mealwright.errors import Problem, not_found
-from mealwright.history import as_utc, record, too_old
+from mealwright.history import record, too_old
 from mealwright.household import undo_window
 from mealwright.models import (
     Change,
@@ -57,6 +57,7 @@ from mealwright.models import (
     MealieImport,
     Recipe,
     RecipePhoto,
+    as_utc,
     utcnow,
 )
 from mealwright.names import fold

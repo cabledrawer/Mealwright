@@ -40,6 +40,7 @@ from sqlalchemy.pool import Pool
 from mealwright import __version__, models
 from mealwright.former_names import REPLACEMENTS, TITLE_KINDS
 from mealwright.logs import FILE_NAME
+from mealwright.models import as_utc, machine_now
 from mealwright.updates import RELEASES_PAGE
 
 # The project's new-issue page, from the same placeholder repository as the releases page
@@ -169,11 +170,10 @@ def recent_errors(
     """The last ERRORS_KEPT error lines of the last ERRORS_WITHIN, oldest first. Lines from
     before `installed` (when this household was set up, so after "Delete everything" the new
     set-up) are left out: they belong to the install that was deleted."""
-    now = now or datetime.now(UTC)
+    now = now or machine_now()  # log lines carry the machine's time
     since = now - ERRORS_WITHIN
     if installed is not None:
-        if installed.tzinfo is None:
-            installed = installed.replace(tzinfo=UTC)
+        installed = as_utc(installed)
         # Log times are whole seconds: round the set-up UP, so a line stamped in the same second
         # as the set-up (written before it, truncated) is left out.
         whole = installed.replace(microsecond=0)

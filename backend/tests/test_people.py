@@ -12,8 +12,7 @@ from sync_kit import API, db, ok, person
 
 from mealwright import api_tokens, people
 from mealwright.api.v1.context import Kitchen
-from mealwright.history import as_utc
-from mealwright.models import ApiToken, Household, JoinLink, Login, Member, Session, utcnow
+from mealwright.models import ApiToken, Household, JoinLink, Login, Member, Session, as_utc, utcnow
 
 
 def _people(client: TestClient) -> dict[str, Any]:

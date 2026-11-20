@@ -25,10 +25,9 @@ from mealwright.api.v1.context import Here, Kitchen
 from mealwright.api_tokens import not_for_tokens
 from mealwright.auth import SameOrigin, current
 from mealwright.errors import Problem, StoredInt, admins_only
-from mealwright.history import as_utc
 from mealwright.limits import MAX_MEALIE_BYTES, MEALIE_TOO_BIG
 from mealwright.mealie_file import MAX_RECIPES
-from mealwright.models import Food, MealieImport, utcnow
+from mealwright.models import Food, MealieImport, as_utc, utcnow
 from mealwright.roles import Action, allowed
 
 router = APIRouter(tags=["recipes"], dependencies=[SameOrigin])

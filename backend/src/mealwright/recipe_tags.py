@@ -8,8 +8,8 @@ from sqlalchemy import delete, select
 
 from mealwright.api.v1.context import Kitchen
 from mealwright.errors import Problem, name_taken, not_found
-from mealwright.history import as_utc, bump_recipes_by, record
-from mealwright.models import Change, Recipe, RecipeTag, Tag
+from mealwright.history import bump_recipes_by, record
+from mealwright.models import Change, Recipe, RecipeTag, Tag, as_utc
 from mealwright.names import fold
 
 KIND = "tags_merged"  # listed in `change_kinds.RECIPES`

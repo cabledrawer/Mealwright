@@ -360,7 +360,7 @@ def _check_duplicate(kitchen: Kitchen, url: str) -> None:
     )
     if found is None:
         return
-    from mealwright.history import as_utc
+    from mealwright.models import as_utc
     from mealwright.recipes import photo_out, site_of
 
     already = AlreadyImported(

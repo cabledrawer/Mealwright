@@ -66,7 +66,6 @@ from sqlalchemy import and_, or_, select
 from mealwright import methods
 from mealwright.amounts import MAX_MILLI, MILLI
 from mealwright.api.v1.context import Kitchen
-from mealwright.history import as_utc
 from mealwright.household import today
 from mealwright.models import (
     BatchCook,
@@ -80,6 +79,7 @@ from mealwright.models import (
     ShoppingList,
     StapleCheck,
     SyncAction,
+    as_utc,
     utcnow,
 )
 from mealwright.names import fold

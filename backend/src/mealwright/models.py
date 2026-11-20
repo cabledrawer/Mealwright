@@ -39,8 +39,24 @@ TEST_CLOCK_SHIFT = timedelta(0)
 
 
 def utcnow() -> datetime:
-    """Now, in UTC: every time the server stores or compares (moved only in browser tests)."""
+    """Now, in UTC: every time the server stores or compares (moved only in browser tests).
+    The one "now" of the app (0.9.5-beta.3, D4, BE23): only `machine_now` is another."""
     return datetime.now(UTC) + TEST_CLOCK_SHIFT
+
+
+def machine_now() -> datetime:
+    """The machine's own clock, in UTC, which the browser tests' clock never moves: only for
+    what runs on the machine's time, the scheduler's next run and the log files (named and
+    stamped by the machine's clock). Everything else uses `utcnow` (D4, BE23; proposed, for
+    cabledrawer)."""
+    return datetime.now(UTC)
+
+
+def as_utc(moment: datetime) -> datetime:
+    """A stored time with its zone. SQLite gives times back without it, and every time
+    Mealwright stores is UTC; a time that has a zone is turned into UTC. The one copy of this
+    rule (D4, BE23)."""
+    return moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)
 
 
 class Household(Base):

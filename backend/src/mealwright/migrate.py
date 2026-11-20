@@ -21,6 +21,7 @@ from mealwright.backups import (
     sqlite_file,
     tidy_photo_folders,
 )
+from mealwright.models import utcnow
 
 log = logging.getLogger(__name__)
 
@@ -149,7 +150,7 @@ def safety_copy(
     head = ScriptDirectory.from_config(alembic_config()).get_current_head()
     if revision is None or revision == head:
         return None
-    stamp = (now or datetime.now(UTC)).astimezone(UTC).strftime("%Y%m%d-%H%M%S")
+    stamp = (now or utcnow()).astimezone(UTC).strftime("%Y%m%d-%H%M%S")
     # Written under another name first, so a copy cut short never counts as one of the three
     # (with the process ID, so two Mealwrights started at once never write the same file), and
     # readable by Mealwright's own user only (mealwright.backups). Never over a copy already

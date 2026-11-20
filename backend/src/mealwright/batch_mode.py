@@ -47,7 +47,6 @@ from mealwright import (
 from mealwright.api.v1.context import Kitchen
 from mealwright.batch_schedule import KitchenIn, LineIn, RecipeIn, StepIn
 from mealwright.errors import Problem, not_found
-from mealwright.history import as_utc
 from mealwright.models import (
     BatchCook,
     BatchSession,
@@ -57,6 +56,7 @@ from mealwright.models import (
     RecipeLine,
     RecipeStep,
     RecipeStepLine,
+    as_utc,
     utcnow,
 )
 

@@ -24,8 +24,8 @@ from mealwright.errors import (
     StoredInt,
 )
 from mealwright.foods import change_out
-from mealwright.history import as_utc, commit, replayed
-from mealwright.models import Change, CookedRecord
+from mealwright.history import commit, replayed
+from mealwright.models import Change, CookedRecord, as_utc
 from mealwright.shopping import lock_household
 
 router = APIRouter(tags=["plan"], dependencies=[SameOrigin])

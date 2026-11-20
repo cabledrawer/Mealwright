@@ -18,7 +18,7 @@ from mealwright.errors import (
     name_taken,
     not_found,
 )
-from mealwright.history import Tally, as_utc, record, undo_message
+from mealwright.history import Tally, record, undo_message
 from mealwright.household import meal_slots, today
 from mealwright.models import (
     BatchCook,
@@ -35,6 +35,7 @@ from mealwright.models import (
     RecipeLine,
     RecipeMethod,
     Tub,
+    as_utc,
     utcnow,
 )
 from mealwright.names import fold

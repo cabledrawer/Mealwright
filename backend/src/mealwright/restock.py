@@ -21,14 +21,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright.household import today, zone
-from mealwright.models import Change, Food, Household, ListItem, ListTick, utcnow
+from mealwright.models import Change, Food, Household, ListItem, ListTick, as_utc, utcnow
 
 
 def aware(value: datetime | None) -> datetime | None:
-    # SQLite gives back naive datetimes; every time Mealwright stores is UTC.
-    if value is None or value.tzinfo is not None:
-        return value
-    return value.replace(tzinfo=UTC)
+    """`as_utc` that lets None through (D4, BE23: one rule for a stored time's zone)."""
+    return None if value is None else as_utc(value)
 
 
 def _ticks(db: DbSession, household_id: int, food_ids: list[int]) -> list[tuple[int, datetime]]:

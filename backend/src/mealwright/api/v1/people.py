@@ -33,9 +33,9 @@ from mealwright.auth import (
 )
 from mealwright.errors import USERNAME_RULE, Problem, StoredInt, not_found
 from mealwright.foods import change_out
-from mealwright.history import as_utc, commit, replayed
+from mealwright.history import commit, replayed
 from mealwright.kitchen_changes import key_kept
-from mealwright.models import Change, JoinLink, Login, Member, Session, utcnow
+from mealwright.models import Change, JoinLink, Login, Member, Session, as_utc, utcnow
 from mealwright.names import one_line
 from mealwright.roles import ADMIN, Action, allowed
 from mealwright.shopping import lock_db

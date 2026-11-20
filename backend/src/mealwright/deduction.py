@@ -43,7 +43,6 @@ from mealwright.api.v1.schemas import AmountOut, Answer, Ask, Ref
 from mealwright.conversions import AskOnce, UnitAmount, to_base_milli
 from mealwright.errors import NOTHING_TO_TAKE_FROM, Problem
 from mealwright.foods import BASE_UNITS, amount_out, ask, find, known, usual_size, visible
-from mealwright.history import as_utc
 from mealwright.household import cup_ml, places
 from mealwright.models import (
     Food,
@@ -52,6 +51,7 @@ from mealwright.models import (
     Recipe,
     RecipeLine,
     StockLot,
+    as_utc,
 )
 from mealwright.recipes import live_recipes
 from mealwright.stock import LotView, lots_of, opened_lots, place_kinds, plan_take

@@ -9,7 +9,7 @@ holds every household's errors, so only an admin's report includes them (propose
 cabledrawer); a member's has the version and the browser.
 """
 
-from datetime import UTC, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
@@ -18,6 +18,7 @@ from mealwright import backups
 from mealwright.api.v1.context import Here
 from mealwright.auth import SameOrigin
 from mealwright.config import Settings
+from mealwright.models import as_utc
 from mealwright.problem_report import (
     NEW_ISSUE_PAGE,
     browser_words,
@@ -61,9 +62,7 @@ def problem_report(kitchen: Here, request: Request) -> ProblemReportOut:
         deleted = backups.last_delete_everything(settings.data_dir / backups.FOLDER)
         if deleted is not None:
             deleted += timedelta(seconds=1)
-            if installed.tzinfo is None:
-                installed = installed.replace(tzinfo=UTC)
-            installed = max(installed, deleted)
+            installed = max(as_utc(installed), deleted)
         found = recent_errors(settings.data_dir / "logs", installed=installed)
         if found:
             server = server_address(request.url.hostname, request.url.port, settings.port)

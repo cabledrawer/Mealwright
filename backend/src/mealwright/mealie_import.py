@@ -997,7 +997,7 @@ class MealieRunner:
 
 
 def undo_until(row: MealieImport) -> datetime | None:
-    from mealwright.history import as_utc
+    from mealwright.models import as_utc
 
     if row.state not in ("done", "failed") or row.finished_at is None:
         return None
@@ -1112,7 +1112,8 @@ def undo(kitchen: Kitchen, row: MealieImport) -> Undone:
     """The import's one Undo, in short locked stretches of a few hundred rows each (S-M3):
     what to keep is checked again inside each stretch. A stop part-way leaves the import
     to be undone again, which carries on. Commits."""
-    from mealwright.history import as_utc, bump_recipes_by
+    from mealwright.history import bump_recipes_by
+    from mealwright.models import as_utc
     from mealwright.shopping import bump_foods, lock_household
 
     db = kitchen.db
@@ -1348,7 +1349,7 @@ def save_all_drafts(kitchen: Kitchen) -> int:
 
 def tidy(db: Session, now: datetime | None = None) -> int:
     """A file read but not brought in is deleted after a day. Returns how many."""
-    from mealwright.history import as_utc
+    from mealwright.models import as_utc
     from mealwright.shopping import lock_db
 
     now = now or utcnow()

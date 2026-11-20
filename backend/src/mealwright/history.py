@@ -13,7 +13,7 @@ import logging
 import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import status
@@ -49,16 +49,12 @@ from mealwright.models import (
     ShoppingList,
     StockLot,
     SyncAction,
+    as_utc,
     utcnow,
 )
 from mealwright.names import fold
 
 UndoResult = Literal["done", "partly", "nothing"]
-
-
-def as_utc(moment: datetime) -> datetime:
-    """SQLite gives times back without their zone; they're always stored in UTC."""
-    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 # --- Retries --------------------------------------------------------------------------------

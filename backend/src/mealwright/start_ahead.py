@@ -20,9 +20,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from mealwright import methods, step_waits
-from mealwright.history import as_utc
 from mealwright.household import zone
-from mealwright.models import Household, MealSlot, Recipe, RecipeMethod, RecipeStep
+from mealwright.models import Household, MealSlot, Recipe, RecipeMethod, RecipeStep, as_utc
 
 # A wait counts as "ahead" when even its shortest length is this long (four hours: marinate
 # 4-24 h, soak overnight, ferment 8-12 h). A rest of an hour or two is part of the cooking day.

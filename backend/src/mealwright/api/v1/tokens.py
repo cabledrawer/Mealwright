@@ -17,9 +17,8 @@ from mealwright import api_tokens
 from mealwright.api.v1.context import Here
 from mealwright.auth import CurrentSession, SameOrigin
 from mealwright.errors import Problem, StoredInt, not_found
-from mealwright.history import as_utc
 from mealwright.household import today, zone
-from mealwright.models import ApiToken, utcnow
+from mealwright.models import ApiToken, as_utc, utcnow
 from mealwright.names import one_line
 from mealwright.roles import Action
 from mealwright.shopping import lock_db

@@ -61,7 +61,7 @@ from sqlalchemy import Engine, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from mealwright.household import zone
-from mealwright.models import ApiToken, Household, utcnow
+from mealwright.models import ApiToken, Household, as_utc, utcnow
 
 NEEDS_OWN_DB = "Backups need Mealwright’s own database file."
 
@@ -498,11 +498,8 @@ def is_due(household: Household, folder: Path, now: datetime) -> bool:
     """A backup is due when the last slot that has passed has none yet, unless the last try
     failed less than an hour ago."""
     problem_at = household.backup_problem_at
-    if problem_at is not None:
-        if problem_at.tzinfo is None:
-            problem_at = problem_at.replace(tzinfo=UTC)
-        if now - problem_at < RETRY_AFTER:
-            return False
+    if problem_at is not None and now - as_utc(problem_at) < RETRY_AFTER:
+        return False
     newest = backups(folder)
     return not newest or newest[0].made_at < last_slot(household, now)
 

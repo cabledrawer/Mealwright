@@ -28,14 +28,14 @@ import re
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from mealwright import __version__
-from mealwright.models import Household
+from mealwright.models import Household, utcnow
 from mealwright.outbound import (
     Connection,
     OutboundBlocked,
@@ -149,7 +149,7 @@ def _suffix(key: Key) -> str:
 
 
 def _now() -> datetime:
-    return datetime.now(UTC)
+    return utcnow()
 
 
 class UpdateChecks:

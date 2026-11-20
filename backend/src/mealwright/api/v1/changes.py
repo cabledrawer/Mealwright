@@ -42,7 +42,6 @@ from mealwright.history import (
     Tally,
     UndoResult,
     already_undone,
-    as_utc,
     back_undone,
     commit,
     foods_in,
@@ -67,6 +66,7 @@ from mealwright.models import (
     RecipeLine,
     StapleCheck,
     StockLot,
+    as_utc,
     utcnow,
 )
 from mealwright.roles import admin_kind_action

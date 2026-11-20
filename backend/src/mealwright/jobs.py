@@ -54,7 +54,7 @@ from mealwright import backups
 from mealwright.events import Broadcaster
 from mealwright.former_names import remove_expired
 from mealwright.logs import DailyLogFile, tidy_once
-from mealwright.models import Household, utcnow
+from mealwright.models import Household, machine_now, utcnow
 from mealwright.outbound import OutboundGate  # at run time: APScheduler reads the job's signature
 from mealwright.updates import UpdateChecks
 
@@ -68,7 +68,7 @@ def tidy_logs(
 ) -> None:
     """Put yesterday's (UTC) log file aside and remove old ones, and with them the old names
     kept for them (mealwright.former_names): those older than the log files plus a day."""
-    now = now or datetime.now(UTC)
+    now = now or machine_now()  # the log files are named by the machine's clock
     tidy_once(handler, (now - timedelta(days=1)).date().isoformat())
     if factory is not None:
         try:
@@ -187,7 +187,7 @@ def scheduler(
         thin_history,
         CronTrigger(minute=30, timezone=UTC),
         args=[factory],
-        next_run_time=datetime.now(UTC),  # catch up straight away, off the start-up path
+        next_run_time=machine_now(),  # catch up straight away, off the start-up path
         id="history",
         name="Thin old history",
     )
@@ -195,7 +195,7 @@ def scheduler(
         purge_removed_ingredients,
         CronTrigger(minute=40, timezone=UTC),
         args=[factory],
-        next_run_time=datetime.now(UTC),
+        next_run_time=machine_now(),
         id="removed-ingredients",
         name="Delete removed ingredients and recipes for good",
     )
@@ -205,7 +205,7 @@ def scheduler(
             back_up_if_due,
             CronTrigger(minute="*/10", timezone=UTC),
             args=[factory, engine, backups_folder],
-            next_run_time=datetime.now(UTC),
+            next_run_time=machine_now(),
             id="backups",
             name="Back the database up when it's due",
         )
@@ -222,7 +222,7 @@ def scheduler(
             check_single_sign_on,
             IntervalTrigger(minutes=5, timezone=UTC),
             args=[single_sign_on[0], factory, single_sign_on[1], single_sign_on[2]],
-            next_run_time=datetime.now(UTC),  # at start too: a restart empties the memory
+            next_run_time=machine_now(),  # at start too: a restart empties the memory
             id="single-sign-on",
             name="Check single sign-on sign-ins with the sign-in server",
         )

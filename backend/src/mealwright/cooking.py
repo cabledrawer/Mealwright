@@ -46,7 +46,7 @@ from mealwright.deduction import (
 )
 from mealwright.errors import Problem, not_found
 from mealwright.foods import find, find_size, remember_answers
-from mealwright.history import Tally, as_utc
+from mealwright.history import Tally
 from mealwright.household import today
 from mealwright.models import (
     BatchCook,
@@ -58,6 +58,7 @@ from mealwright.models import (
     Meal,
     MealItem,
     Recipe,
+    as_utc,
     utcnow,
 )
 from mealwright.names import fold

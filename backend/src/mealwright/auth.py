@@ -30,7 +30,7 @@ from collections import defaultdict, deque
 from collections.abc import AsyncIterator, Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Annotated, Any
 from urllib.parse import urlsplit
 
@@ -50,7 +50,7 @@ from mealwright import api_tokens
 from mealwright import db as database
 from mealwright.config import Settings
 from mealwright.errors import OTHER_SITE, Problem, password_length, signed_out
-from mealwright.models import ApiToken, Login, Member, Session, utcnow
+from mealwright.models import ApiToken, Login, Member, Session, as_utc, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -87,11 +87,6 @@ _DUMMY_HASH = _hasher.hash(secrets.token_urlsafe(16))
 
 def now() -> datetime:
     return utcnow()
-
-
-def _as_utc(moment: datetime) -> datetime:
-    # SQLite gives back naive datetimes; everything we store is UTC.
-    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
 
 
 # --- Passwords -------------------------------------------------------------------------
@@ -327,7 +322,7 @@ NEW_PASSWORD_WINDOW = timedelta(minutes=10)
 def new_password(login: Login) -> bool:
     """True if `login`'s password was set less than NEW_PASSWORD_WINDOW ago."""
     changed = login.password_changed_at
-    return changed is not None and now() - _as_utc(changed) < NEW_PASSWORD_WINDOW
+    return changed is not None and now() - as_utc(changed) < NEW_PASSWORD_WINDOW
 
 
 # --- Counting a password check ------------------------------------------------------------
@@ -649,10 +644,10 @@ def last_moment(session: Session) -> datetime:
     one with no refresh token (S8) a day after it started, or, when a refresh token was dropped
     since (a saved sign-in server or client), a day after that (`sso_check_at` holds the moment
     it was dropped, which nothing else reads while there is no token)."""
-    started = _as_utc(session.created_at)
+    started = as_utc(session.created_at)
     if session.sso and session.sso_refresh_sealed is None:
         if session.sso_check_at is not None:
-            started = max(started, _as_utc(session.sso_check_at))
+            started = max(started, as_utc(session.sso_check_at))
         return started + SSO_UNCHECKED_FOR
     return started + LONGEST_SIGN_IN
 
@@ -660,7 +655,7 @@ def last_moment(session: Session) -> datetime:
 def _ended(session: Session, at: datetime) -> bool:
     """Run out: idle too long, or past its last moment (a refresh token dropped since it started
     starts the day from the drop, S8)."""
-    return _as_utc(session.expires_at) <= at or last_moment(session) <= at
+    return as_utc(session.expires_at) <= at or last_moment(session) <= at
 
 
 def find_session(db: DbSession, token: str | None) -> SignedIn | None:
@@ -675,7 +670,7 @@ def find_session(db: DbSession, token: str | None) -> SignedIn | None:
         db.delete(session)
         db.commit()
         return None
-    if at - _as_utc(session.last_seen_at) >= SEEN_EVERY:
+    if at - as_utc(session.last_seen_at) >= SEEN_EVERY:
         session.last_seen_at = at
         if not session.remember:
             ends_by = last_moment(session)
