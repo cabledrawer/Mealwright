@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Settings › People (0.9 A1, mockup Dark-Household09-Phone): the household's name, its
   // people (each opens their Person screen), "+ Add a person", and the "Who's this?" switch for
   // shared logins. Everyone in the household sees it; only an admin changes it. Offline it shows
@@ -128,7 +129,7 @@
       <button type="button" class="link" onclick={() => void household.load()}>Try again</button>
     </p>
   {:else}
-    <p class="loading" role="status">Loading…</p>
+    <Loading />
   {/if}
 {:else}
   <div class="page">
@@ -522,11 +523,6 @@
     color: var(--color-text-muted);
     font-size: var(--text-md);
     line-height: 1.45;
-  }
-
-  .loading {
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
   }
 
   .problem {

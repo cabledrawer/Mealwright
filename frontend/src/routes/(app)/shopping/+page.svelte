@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Shopping (mockups Shop, Desktop-Shop): the list split by shop, then by aisle, with ticked
   // items folded into "In the trolley" at the end of each shop. Ticking puts the item into the
   // pantry (phone: a toast with Change and Undo; desktop: the Put away panel). Every change
@@ -204,7 +205,7 @@
 {#if model.problem && !model.list}
   <p class="problem" role="alert">{model.problem}</p>
 {:else if !model.loaded || !model.list}
-  <p class="loading">Loading…</p>
+  <Loading />
 {:else if plan}
   <div class="plan">
     <section class="rows" aria-label="The list">
@@ -863,9 +864,5 @@
 
   .problem {
     color: var(--color-warning-text);
-  }
-
-  .loading {
-    color: var(--color-text-muted);
   }
 </style>

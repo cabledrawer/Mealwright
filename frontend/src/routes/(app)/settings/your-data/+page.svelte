@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Settings › Backups & your data (0.9, D1; spec section 7; mockup Dark-YourData09-Phone): backups,
   // How to restore, Export everything, History, and Start again.
   //
@@ -76,8 +77,7 @@
   let busy = $state(false);
   let now = $state(new Date());
 
-  const failed = (error: unknown) =>
-    wordsFor(error);
+  const failed = (error: unknown) => wordsFor(error);
 
   async function load() {
     loadProblem = null;
@@ -293,7 +293,7 @@
       <button type="button" class="link" onclick={() => void load()}>Try again</button>
     </p>
   {:else}
-    <p class="loading" role="status">Loading…</p>
+    <Loading />
   {/if}
 {:else}
   <div class="page">
@@ -786,11 +786,6 @@
     border: 1px solid var(--color-stop-border);
     background: var(--color-stop);
     color: var(--color-stop-title);
-  }
-
-  .loading {
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
   }
 
   .problem {

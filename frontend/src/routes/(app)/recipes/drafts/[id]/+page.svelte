@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Carrying on with a draft (spec "Drafts (cabledrawer 21 Oct)"): the review as it was kept, with
   // every choice made so far, in the same screen as Import a recipe. Anyone in the household can
   // carry on. Leaving after changing something asks to save the draft over (ReviewScreen).
@@ -77,7 +78,7 @@
 {:else}
   <PageHeader title="Draft" parent={{ href: '/(app)/recipes/drafts', label: 'Drafts' }} />
   {#if phase === 'loading'}
-    <p class="note" aria-busy="true">Loading…</p>
+    <Loading />
   {:else if phase === 'problem' && network.down}
     <OfflineNote screen="Drafts" />
   {:else if phase === 'gone'}

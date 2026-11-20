@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // "+ Add to pantry" (spec "Decided for 0.2"; no mockup yet): pick or type a food; how
   // much, as sold (1 packet, 2 packets…) or typed; where (filled in from the food's
   // usual place); and an optional use-by (none · today · +3 days · +1 week · pick a date,
@@ -242,7 +243,7 @@
             {/if}
           </div>
         {:else if loading}
-          <p class="hint">Loading…</p>
+          <Loading />
         {:else}
           <FoodPicker
             label="Find an ingredient"
@@ -543,11 +544,6 @@
     .native {
       pointer-events: auto;
     }
-  }
-
-  .hint {
-    color: var(--color-text-muted);
-    font-size: var(--text-md);
   }
 
   .note {

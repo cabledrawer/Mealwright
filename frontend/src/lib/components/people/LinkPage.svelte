@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // A one-time sign-in link (0.9 A1, cabledrawer 12 Nov): an admin gives someone a login in
   // Settings › People, and sends them this link. Here they choose their own password; the
   // link then stops working, and they sign in like anyone else (so the sign-in page's checks
@@ -188,7 +189,7 @@
   <p class="problem" role="alert">{gone}</p>
   <Button quiet onclick={() => void look()}>Try again</Button>
 {:else}
-  <p class="loading" role="status">Loading…</p>
+  <Loading />
 {/if}
 
 <style>
@@ -242,12 +243,6 @@
   }
 
   .note,
-  .loading {
-    color: var(--color-text-muted);
-    font-size: var(--text-md);
-    text-align: center;
-  }
-
   .go {
     display: flex;
     align-items: center;

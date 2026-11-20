@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Pantry (mockups Phone-Pantry, Desktop-Pantry and their dark versions, plus the
   // lead's rulings of 17 Oct):
   //   phone: search; jump chips; Use soon; a card per place (no place tabs, cabledrawer 24 Oct);
@@ -434,7 +435,7 @@
     <button type="button" class="link" onclick={() => void model.load()}>Try again</button>
   </p>
 {:else if !pantry}
-  <p class="loading">Loading…</p>
+  <Loading />
 {:else if phone}
   <div class="phone-search">{@render searchBox('Search pantry')}</div>
   <div class="phone-panel">
@@ -913,11 +914,6 @@
   }
 
   .problem,
-  .loading {
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
-  }
-
   /* Desktop: tools, Use soon as a strip, the places across the width, then Staples. */
   .desk {
     display: flex;

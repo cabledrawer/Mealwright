@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Stocktake (F118, 0.8; mockup Dark-Stocktake08-Phone): go through the home place by place,
   // and say how much of each ingredient there is: None · ¼ · ½ · ¾ · Full (or a count with
   // − / +, or "It's a staple"). The pack size is asked once. Every answer is saved as it is
@@ -143,7 +144,7 @@
 
 {#if model.loading}
   <PageHeader title="Stocktake" />
-  <p class="note">Loading…</p>
+  <Loading />
 {:else if model.failed || !overview}
   <PageHeader title="Stocktake" />
   <div class="card">
@@ -398,11 +399,6 @@
   }
 
   .hint,
-  .note {
-    color: var(--color-text-muted);
-    font-size: var(--text-sm);
-  }
-
   .rows {
     display: flex;
     flex-direction: column;

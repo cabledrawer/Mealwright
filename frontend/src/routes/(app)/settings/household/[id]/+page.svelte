@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Settings › People › a person (0.9 A1, mockup Dark-Person09-Phone): their name, colour and
   // portion, whether they sign in (a one-time sign-in link, and their role), Save, and Remove.
   // Everyone sees it; only an admin changes it. Save and Remove each have their Undo (the toast,
@@ -348,7 +349,7 @@
       <button type="button" class="link" onclick={() => void household.load()}>Try again</button>
     </p>
   {:else}
-    <p class="loading" role="status">Loading…</p>
+    <Loading />
   {/if}
 {:else if !person}
   <p class="problem" role="alert">
@@ -907,11 +908,6 @@
     color: var(--color-text-muted);
     font-size: var(--text-md);
     line-height: 1.45;
-  }
-
-  .loading {
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
   }
 
   .problem {

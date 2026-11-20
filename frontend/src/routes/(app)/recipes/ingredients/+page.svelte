@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Ingredients (mockups Ingredients-Phone, Ingredients-Desktop): every food, searchable
   // by any name, with the editor. Desktop shows the editor beside the list; phones open
   // it as a sheet. Each row says how many recipes use it ("5 recipes"; "Used in 5 recipes" for a
@@ -384,7 +385,7 @@
             <button type="button" class="again" onclick={() => void list.load()}>Try again</button>
           </div>
         {:else if !list.loaded}
-          <p class="nothing">Loading…</p>
+          <Loading />
         {:else if list.query.trim()}
           <p class="nothing">No ingredient called “{list.query.trim()}” yet.</p>
         {:else if list.filter === 'unused'}

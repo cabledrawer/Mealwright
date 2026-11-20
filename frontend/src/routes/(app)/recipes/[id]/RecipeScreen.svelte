@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   import { timeParts, timeWords, waitLength, waitName } from '#lib/timeWords.js';
   // The recipe page on the phone (mockups Recipe and Dark-Phone-Recipe, spec section 6 "Recipes"
   // and "Stock", cabledrawer's answers of 19 and 20 Oct): the name, the time, Cook now, nutrition per serving, the ingredients with where each one
@@ -510,10 +511,10 @@
         <h1>{peeked.name}</h1>
         {#if peekedMeta}<p class="meta">{peekedMeta}</p>{/if}
       </header>
-      <p class="quiet loading" aria-busy="true">Loading…</p>
+      <Loading />
     </article>
   {:else}
-    <p class="quiet loading" aria-busy="true">Loading…</p>
+    <Loading />
   {/if}
 </div>
 
@@ -937,11 +938,6 @@
   .source a {
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
-  }
-
-  .loading {
-    padding: var(--space-8) 0;
-    text-align: center;
   }
 
   .failed {

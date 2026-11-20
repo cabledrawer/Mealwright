@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Today (mockups Main, Desktop-Today and their dark twins): what we are eating, the tubs
   // left, what to use soon, what to buy, the next cook, and "Did you cook Sambar?" for a planned
   // meal whose day has come (Cooked it · Didn't · Move it). A household with nothing yet sees
@@ -204,7 +205,7 @@
 {:else if model.problem && !data}
   <p class="problem" role="alert">{model.problem}</p>
 {:else if !data}
-  <p class="loading">Loading…</p>
+  <Loading />
 {:else if data.first_day}
   <FirstDay />
 {:else}
@@ -443,7 +444,6 @@
     max-width: 1100px;
   }
 
-  .loading,
   .problem {
     color: var(--color-text-muted);
     font-size: var(--text-base);

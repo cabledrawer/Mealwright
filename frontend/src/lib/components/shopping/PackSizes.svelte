@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // "Which size?" for one Shopping line (mockup Dark-ShopPackAlt08-Phone; F183 + F204, cabledrawer
   // 9 Nov): every size the line could be bought in and how much each leaves over, with the one
   // that leaves least marked. Picking one changes the line to that many of that size ("Use
@@ -98,7 +99,7 @@
     {#if failed}
       <p class="problem" role="alert">{couldntLoad('the sizes')}</p>
     {:else if !sheet}
-      <p class="sub" aria-busy="true">Loading…</p>
+      <Loading />
     {:else}
       <div class="choices" role="radiogroup" aria-label="Sizes" use:radioKeys>
         {#each sheet.choices as c, index (c.name + c.amount)}

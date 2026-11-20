@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Drafts (mockups Drafts05-Phone and Drafts05-Desktop, spec "Drafts (cabledrawer 21 Oct)"): the
   // imports your household hasn't finished, kept for 15 days. Each says where it came from, who
   // started it, how many days it has left and how far the checking has got, with visible
@@ -129,8 +130,7 @@
       await saveAllMealieDrafts();
       only = 'all';
     } catch (error) {
-      saveAllProblem =
-        wordsFor(error);
+      saveAllProblem = wordsFor(error);
     } finally {
       savingAll = false;
     }
@@ -189,7 +189,7 @@
     <button type="button" class="again" onclick={() => void drafts.load()}>Try again</button>
   </div>
 {:else if !drafts.loaded}
-  <p class="loading" aria-busy="true">Loading…</p>
+  <Loading />
 {:else}
   {#if network.offline}
     <p class="stale" role="status">
@@ -394,7 +394,6 @@
     color: var(--color-accent-on-soft);
   }
 
-
   .import {
     display: flex;
     align-items: center;
@@ -408,7 +407,6 @@
     text-decoration: none;
   }
 
-  .loading,
   .stale,
   .foot {
     color: var(--color-text-muted);

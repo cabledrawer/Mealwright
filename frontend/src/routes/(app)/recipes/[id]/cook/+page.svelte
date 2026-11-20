@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Cook mode for one recipe (spec section 6, "Cook mode"). Full screen, over the app's own
   // menus. Leaving with a timer running asks "Stop the timer and leave?" (Stay · Leave), also for
   // the browser's Back and for a link; closing the tab asks the browser's own question.
@@ -242,7 +243,7 @@
     <button type="button" onclick={() => void load()}>Try again</button>
   </div>
 {:else}
-  <p class="loading" aria-busy="true">Loading…</p>
+  <Loading />
 {/if}
 
 {#if asking && twoWays && recipe}
@@ -279,7 +280,6 @@
 {/if}
 
 <style>
-  .loading,
   .failed {
     color: var(--color-text-muted);
   }

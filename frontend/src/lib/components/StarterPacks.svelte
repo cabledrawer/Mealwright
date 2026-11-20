@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // "Add a starter pack" (0.8 R4; spec section 2): pick one of the seven packs, see its
   // ingredients with every one ticked, untick any, then "Add N ingredients". Ingredients that
   // are already here (by name or another name) show "Already have" and are skipped. One toast
@@ -102,7 +103,7 @@
           <button type="button" class="main" onclick={() => void load()}>Try again</button>
         </div>
       {:else if !loaded}
-        <p class="hint">Loading…</p>
+        <Loading />
       {:else if !picked}
         <p class="hint">
           Pick a pack. You’ll see its ingredients first and can untick any. Only ingredients are

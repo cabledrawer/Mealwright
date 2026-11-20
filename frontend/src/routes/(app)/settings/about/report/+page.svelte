@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Settings › About › Report a problem (mockup Dark-Report09-Phone; spec section 7 "Bug
   // reports", cabledrawer 17 Oct; plan row X2).
   //
@@ -184,7 +185,7 @@
       <button type="button" class="btn2" onclick={download}>{DOWNLOAD}</button>
     </div>
   {:else if loading}
-    <p class="quiet" role="status">Loading…</p>
+    <Loading />
   {/if}
 </div>
 

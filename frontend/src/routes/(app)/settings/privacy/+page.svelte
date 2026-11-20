@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Settings › Outside connections (spec section 7 and section 6, "Recipe import, decided for 0.5"):
   // the switches for outside connections, and "Your own network". Two places on it can be
   // linked to: #outside-connections (the import screen's "Photo not downloaded" and
@@ -69,7 +70,7 @@
       <button type="button" class="link" onclick={() => void privacy.load()}>Try again</button>
     </p>
   {:else}
-    <p class="loading" role="status">Loading…</p>
+    <Loading />
   {/if}
 {:else}
   <div class="page">
@@ -128,11 +129,6 @@
     align-items: start;
     gap: var(--space-8) var(--space-9);
     max-width: 1100px;
-  }
-
-  .loading {
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
   }
 
   .problem {

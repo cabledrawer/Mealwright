@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Drafts, "By ingredient" (cabledrawer 15 Nov, 0.9.5-beta.2; mockups
   // Dark-MealieByIngredient2-Desktop and -Phone; the words: groupWords.ts, proposed, for
   // cabledrawer). The lines of the Mealie drafts that couldn't be matched are grouped by
@@ -338,7 +339,7 @@
 {#if network.offline && !found}
   <OfflineNote screen="Drafts" />
 {:else if loading && !found}
-  <p class="loading" aria-busy="true">Loading…</p>
+  <Loading />
 {:else if problem && !found}
   <div class="failed" role="alert">
     <p>{problem}</p>
@@ -398,7 +399,6 @@
 {/if}
 
 <style>
-  .loading,
   .stale {
     color: var(--color-text-muted);
     font-size: var(--text-base);

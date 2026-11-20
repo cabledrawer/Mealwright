@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Settings › Backups & your data › Import from Mealie (0.9.5, cabledrawer 13 Nov; mockups
   // Dark-Mealie{Start,Preview,Running,Done}095-Phone and Dark-MealieImport095-Desktop): Mealie's
   // backup file is read on the server and shown before anything is added; "Bring in" runs on
@@ -50,10 +51,10 @@
 {#if network.down && !flow.loaded}
   <OfflineNote screen="Settings" />
 {:else if !flow.loaded}
-  <p class="loading" aria-busy="true">Loading…</p>
+  <Loading />
 {:else if wide}
   {#await import('#lib/components/mealie/MealieWide.svelte')}
-    <p class="loading" aria-busy="true">Loading…</p>
+    <Loading />
   {:then { default: MealieWide }}
     <MealieWide {flow} />
   {:catch}
@@ -64,7 +65,4 @@
 {/if}
 
 <style>
-  .loading {
-    color: var(--color-text-muted);
-  }
 </style>

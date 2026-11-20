@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // All recipes (mockups Recipes-Phone and Dark-Recipes-Phone, spec "Recipes navigation" and
   // cabledrawer's answers of 19 and 20 Oct): the count in the title, the Ingredients button,
   // search, the filter row (All · Can cook now · the household's tags) and the list A to Z.
@@ -224,7 +225,7 @@
             <button type="button" class="again" onclick={() => void list.load()}>Try again</button>
           </div>
         {:else if !list.loaded}
-          <p class="nothing">Loading…</p>
+          <Loading />
         {:else}
           <p class="nothing">{nothing}</p>
         {/if}

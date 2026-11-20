@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Batch cook mode (mockup Dark-BatchSession08; spec section 6, "Batch cook (Experimental)";
   // cabledrawer 11 Nov): Cook mode for a whole session. Big text, the one hands-on task for now, a
   // timer for each recipe, what is in use, the quiet next line, Show ingredients and Done, next.
@@ -143,7 +144,7 @@
 
   <div class="body">
     {#if model.loading && !schedule}
-      <p class="quiet" aria-busy="true">Loading…</p>
+      <Loading />
     {:else if !schedule}
       <p class="quiet">{model.problem}</p>
     {:else}

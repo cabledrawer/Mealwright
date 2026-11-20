@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // "Leftovers on…" (0.7 P1; mockup Leftovers07-Phone; cabledrawer 28 Oct): tick several meals at
   // once, see the portions left, and when there are none left choose Cook more (a bigger batch;
   // amounts and the shopping list follow) or Add anyway (the meal is planned; the batch stays the
@@ -149,7 +150,7 @@
     <p class="note problem" role="alert">{problem}</p>
     <button type="button" class="back" onclick={load}>Try again</button>
   {:else if !portions}
-    <p class="note" role="status">Loading the leftovers…</p>
+    <Loading what="Loading the leftovers…" />
   {:else}
     {#if portions.has_batch}
       <div class="bar-wrap">

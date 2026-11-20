@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Loading from '#lib/components/Loading.svelte';
   // Plan (mockups Plan, Desktop-Plan, Month-Desktop, Month-Phone and their dark twins).
   //   computer / iPad: the week grid or the month, a recipe tray under it; drag by mouse or finger
   //     (Alt copies), and a menu on click, Enter or a held finger that does all of it;
@@ -74,7 +75,11 @@
   let compact = $state(browser && matchMedia(COMPACT).matches);
   let wideWeek = $state(browser && matchMedia(WIDE_WEEK).matches);
   $effect(() => {
-    const [small, medium, wide] = [matchMedia(PHONE_QUERY), matchMedia(COMPACT), matchMedia(WIDE_WEEK)];
+    const [small, medium, wide] = [
+      matchMedia(PHONE_QUERY),
+      matchMedia(COMPACT),
+      matchMedia(WIDE_WEEK)
+    ];
     const onSmall = () => (phone = small.matches);
     const onMedium = () => (compact = medium.matches);
     const onWide = () => (wideWeek = wide.matches);
@@ -528,8 +533,7 @@
             onclick={() => void model.switchSlot(slot, !slot.enabled)}>{slot.name}</button
           >
         {/each}
-        {#if session.me && !slotAdmin}<span class="meals-note">{ADMIN_ONLY}</span
-          >{/if}
+        {#if session.me && !slotAdmin}<span class="meals-note">{ADMIN_ONLY}</span>{/if}
       </div>
     {/if}
     {#if hasBatches}
@@ -555,7 +559,7 @@
       <button type="button" onclick={() => void model.load()}>Try again</button>
     </section>
   {:else if !model.loaded}
-    <p class="loading" role="status">Loading the plan…</p>
+    <Loading what="Loading the plan…" />
   {:else}
     {#if model.problem}
       <p class="note" role="alert">{model.problem}</p>
@@ -920,11 +924,6 @@
 
   .note,
   .empty,
-  .loading {
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
-  }
-
   .note {
     padding: var(--space-4) var(--space-6);
     border-radius: var(--radius-md);
