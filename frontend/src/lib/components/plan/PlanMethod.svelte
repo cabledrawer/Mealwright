@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Sheet from '#lib/components/Sheet.svelte';
   // "Which way will you cook it?" (M2, cabledrawer 9 Nov): each way of cooking the recipe with its
   // time, the one used last picked, and "Add to plan" (or "Save", when the meal's way is being
   // changed). Shown over everything by the app layout, fetched when first asked (size limit);
@@ -8,7 +9,6 @@
   import { timeWithWait } from '#lib/timeWords.js';
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
   let picked = $state(0);
 
   const pending = $derived(methodAsk.current);
@@ -17,9 +17,6 @@
   $effect(() => {
     if (question) {
       picked = question.picked;
-      if (!dialog.open) dialog.showModal();
-    } else if (dialog.open) {
-      dialog.close();
     }
   });
 
@@ -29,21 +26,14 @@
   }
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-labelledby="{uid}-title"
-  oncancel={(event) => {
-    event.preventDefault();
-    methodAsk.dismiss();
-  }}
-  data-testid="plan-method"
->
-  {#if question}
+{#if question}
+  <Sheet
+    title="{question.recipeName} · {question.where}"
+    testid="plan-method"
+    outside={false}
+    onclose={() => methodAsk.dismiss()}
+  >
     <form onsubmit={submit}>
-      <span class="handle" aria-hidden="true"></span>
-      <header>
-        <h2 id="{uid}-title">{question.recipeName} · {question.where}</h2>
-      </header>
       <fieldset>
         <legend>Which way will you cook it?</legend>
         <ul class="ways">
@@ -68,48 +58,14 @@
       <button type="submit" class="main">{question.button}</button>
       <button type="button" class="quiet" onclick={() => methodAsk.dismiss()}>Cancel</button>
     </form>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    max-width: none;
-    max-height: none;
-    padding: 0;
-    border: none;
-    background: var(--color-surface);
-    color: var(--color-text);
-    overscroll-behavior: contain;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   form {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
-  }
-
-  .handle {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  header {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-    overflow-wrap: anywhere;
   }
 
   fieldset {
@@ -176,33 +132,6 @@
     border: none;
     background: transparent;
     color: var(--color-text);
-  }
-
-  @media (max-width: 767px) {
-    dialog {
-      inset: auto 0 0 0;
-      width: 100%;
-      max-height: min(680px, calc(100dvh - 120px));
-      margin: 0;
-      padding: var(--space-5) var(--space-8) max(28px, env(safe-area-inset-bottom));
-      border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-      overflow-y: auto;
-    }
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: min(460px, calc(100vw - 2 * var(--space-7)));
-      max-height: calc(100dvh - 2 * var(--space-7));
-      margin: auto;
-      padding: var(--space-8) 22px;
-      border-radius: var(--radius-panel);
-      overflow-y: auto;
-    }
-
-    .handle {
-      display: none;
-    }
   }
 
   .way {

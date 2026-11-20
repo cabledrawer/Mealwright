@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Sheet from '#lib/components/Sheet.svelte';
   // "This recipe has 2 optional ingredients. Will you use them?" (R3, mockup PlanOptional08):
   // each optional line with its amount and where it is in the pantry, a box to tick it, and "Add
   // to plan" (or "Save", when the meal's answer is being changed). Shown over everything by the
@@ -8,7 +9,6 @@
   import { optionalQuestionWords } from '#lib/optionalQuestion.js';
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
   let ticked = $state<number[]>([]);
 
   const pending = $derived(optionalAsk.current);
@@ -17,9 +17,6 @@
   $effect(() => {
     if (question) {
       ticked = [...question.ticked];
-      if (!dialog.open) dialog.showModal();
-    } else if (dialog.open) {
-      dialog.close();
     }
   });
 
@@ -33,20 +30,15 @@
   }
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-labelledby="{uid}-title"
-  oncancel={(event) => {
-    event.preventDefault();
-    optionalAsk.dismiss();
-  }}
-  data-testid="plan-optional"
->
-  {#if question}
+{#if question}
+  <Sheet
+    title="{question.recipeName} · {question.where}"
+    testid="plan-optional"
+    outside={false}
+    onclose={() => optionalAsk.dismiss()}
+  >
     <form onsubmit={submit}>
-      <span class="handle" aria-hidden="true"></span>
       <header>
-        <h2 id="{uid}-title">{question.recipeName} · {question.where}</h2>
         {#if question.serves}<p class="sub">Serves {question.serves}</p>{/if}
       </header>
       <fieldset>
@@ -77,48 +69,20 @@
       <button type="submit" class="main">{question.button}</button>
       <button type="button" class="quiet" onclick={() => optionalAsk.dismiss()}>Cancel</button>
     </form>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    max-width: none;
-    max-height: none;
-    padding: 0;
-    border: none;
-    background: var(--color-surface);
-    color: var(--color-text);
-    overscroll-behavior: contain;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   form {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
   }
 
-  .handle {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
   header {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-    overflow-wrap: anywhere;
   }
 
   .sub {
@@ -247,32 +211,5 @@
     border: none;
     background: transparent;
     color: var(--color-text);
-  }
-
-  @media (max-width: 767px) {
-    dialog {
-      inset: auto 0 0 0;
-      width: 100%;
-      max-height: min(680px, calc(100dvh - 120px));
-      margin: 0;
-      padding: var(--space-5) var(--space-8) max(28px, env(safe-area-inset-bottom));
-      border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-      overflow-y: auto;
-    }
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: min(460px, calc(100vw - 2 * var(--space-7)));
-      max-height: calc(100dvh - 2 * var(--space-7));
-      margin: auto;
-      padding: var(--space-8) 22px;
-      border-radius: var(--radius-panel);
-      overflow-y: auto;
-    }
-
-    .handle {
-      display: none;
-    }
   }
 </style>

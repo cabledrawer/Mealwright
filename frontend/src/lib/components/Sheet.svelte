@@ -22,6 +22,7 @@
     locked = false,
     role = 'dialog',
     describedby,
+    testid,
     element = $bindable(),
     children
   }: {
@@ -33,6 +34,8 @@
     role?: 'dialog' | 'alertdialog';
     /** The id of the paragraph that explains it, for a screen reader. */
     describedby?: string;
+    /** For a test that finds this sheet by id. */
+    testid?: string;
     /** The <dialog>, for a caller that needs to move the focus. */
     element?: HTMLDialogElement;
     children: Snippet;
@@ -76,6 +79,7 @@
   aria-describedby={describedby}
   oncancel={cancel}
   onclick={tapOutside}
+  data-testid={testid}
 >
   <div class="body">
     <span class="grip" aria-hidden="true"></span>

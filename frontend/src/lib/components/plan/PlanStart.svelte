@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Sheet from '#lib/components/Sheet.svelte';
   // "When will you start it?" (M3, F124; cabledrawer 9 Nov, mockup PlanStart08): the times offered
   // (Fri 21:00 · ready by 08:00), Another time…, and "Add to plan" (or "Save", when the meal's
   // time is being changed). Shown over everything by the app layout, fetched when first asked
@@ -18,7 +19,6 @@
   } from '#lib/startWords.js';
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
   /** The option ticked ("2026-11-13 21:00"), or "other". */
   let picked = $state('');
   let otherDay = $state('');
@@ -53,9 +53,6 @@
       otherDay = start?.day ?? question.day;
       otherTime = start?.time ?? '';
       problem = null;
-      if (!dialog.open) dialog.showModal();
-    } else if (dialog.open) {
-      dialog.close();
     }
   });
 
@@ -112,20 +109,15 @@
   }
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-labelledby="{uid}-title"
-  oncancel={(event) => {
-    event.preventDefault();
-    startAsk.dismiss();
-  }}
-  data-testid="plan-start"
->
-  {#if question}
+{#if question}
+  <Sheet
+    title="{question.recipeName} · {question.where}"
+    testid="plan-start"
+    outside={false}
+    onclose={() => startAsk.dismiss()}
+  >
     <form onsubmit={submit}>
-      <span class="handle" aria-hidden="true"></span>
       <header>
-        <h2 id="{uid}-title">{question.recipeName} · {question.where}</h2>
         <p class="sub">{question.eatsWords}</p>
       </header>
       <div class="first">
@@ -189,48 +181,20 @@
       {/if}
       <button type="button" class="quiet" onclick={() => startAsk.dismiss()}>Cancel</button>
     </form>
-  {/if}
-</dialog>
+  </Sheet>
+{/if}
 
 <style>
-  dialog {
-    max-width: none;
-    max-height: none;
-    padding: 0;
-    border: none;
-    background: var(--color-surface);
-    color: var(--color-text);
-    overscroll-behavior: contain;
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
   form {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
   }
 
-  .handle {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
   header {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-    overflow-wrap: anywhere;
   }
 
   .sub {
@@ -404,32 +368,5 @@
     border: none;
     background: transparent;
     color: var(--color-text);
-  }
-
-  @media (max-width: 767px) {
-    dialog {
-      inset: auto 0 0 0;
-      width: 100%;
-      max-height: min(680px, calc(100dvh - 120px));
-      margin: 0;
-      padding: var(--space-5) var(--space-8) max(28px, env(safe-area-inset-bottom));
-      border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-      overflow-y: auto;
-    }
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: min(460px, calc(100vw - 2 * var(--space-7)));
-      max-height: calc(100dvh - 2 * var(--space-7));
-      margin: auto;
-      padding: var(--space-8) 22px;
-      border-radius: var(--radius-panel);
-      overflow-y: auto;
-    }
-
-    .handle {
-      display: none;
-    }
   }
 </style>
