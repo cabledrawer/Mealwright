@@ -1,7 +1,7 @@
 import { test, expect, type Locator, type Page } from './clock.ts';
 import { workerReady } from './worker.ts';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
-import { addDays, call, stamp } from './helpers.ts';
+import { addDays, call, stamp, type SlotIds } from './helpers.ts';
 
 // The Plan (0.6, PR 3): the week and the month; drag by mouse and by finger, Alt to copy, the
 // Leftovers zone, the recipe tray, the keyboard way (the menu), the phone's long-press sheet,
@@ -37,7 +37,7 @@ const dayName = (iso: string) => {
 async function setup(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string; week_starts_on: number };
   const list = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string; enabled: boolean }[];
-  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
+  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as SlotIds;
   return { today: household.today, slot };
 }
 

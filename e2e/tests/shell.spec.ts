@@ -550,7 +550,7 @@ test.describe('desktop sidebar', () => {
     for (const item of await menu.getByRole('menuitem').all()) {
       const box = (await item.boundingBox())!;
       const onTop = await page.evaluate(
-        ([x, y]) => document.elementFromPoint(x, y)?.closest('[role="menuitem"]')?.textContent?.trim() ?? null,
+        ([x = 0, y = 0]) => document.elementFromPoint(x, y)?.closest('[role="menuitem"]')?.textContent?.trim() ?? null,
         [box.x + box.width / 2, box.y + box.height / 2],
       );
       expect(onTop).toBe((await item.textContent())?.trim());

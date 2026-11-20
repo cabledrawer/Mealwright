@@ -6,7 +6,7 @@ import {
   isPhone,
   setAccountTheme,
 } from "./a11y.ts";
-import { addDays, key, stamp } from './helpers.ts';
+import { addDays, key, stamp, type SlotIds } from './helpers.ts';
 
 // Cook once, eat for… (0.6, PR 4): the sheet and its preview (add, remove, move a tub), saving
 // and Undo; tubs on the week and the day list; Whose tub?, To freezer, back to tubs left, the
@@ -76,10 +76,7 @@ async function setup(page: Page) {
   const list = (await (
     await page.request.get("/api/v1/meal-slots")
   ).json()).meal_slots as { id: number; name: string }[];
-  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<
-    string,
-    number
-  >;
+  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as SlotIds;
   // Snack is off in a new household; these tests plan it, so they switch it on themselves
   // (they used to rely on plan.spec.ts having run first).
   await call(page, "PATCH", `/meal-slots/${slot.Snack}`, { enabled: true });
@@ -612,7 +609,7 @@ test('F45 and F46: Month shows the cooking first and "+N more", and a batch whos
     slot.Lunch,
   );
   for (const s of ["Breakfast", "Dinner", "Snack"])
-    await planned(page, await makeRecipe(page, `${others} ${s}`), day, slot[s]);
+    await planned(page, await makeRecipe(page, `${others} ${s}`), day, slot[s]!);
   const dec = nov(30);
   const late = await planned(
     page,

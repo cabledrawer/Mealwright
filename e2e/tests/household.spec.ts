@@ -13,7 +13,7 @@ import { key } from './helpers.ts';
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /** A short mark of its own for each test and project, so names and usernames never clash. */
-const mark = () => `${test.info().project.name.split(' ')[0].slice(0, 1)}${Date.now().toString(36).slice(-5)}`;
+const mark = () => `${test.info().project.name.split(' ')[0]!.slice(0, 1)}${Date.now().toString(36).slice(-5)}`;
 const PASSWORD = 'a-long-kitchen-password';
 
 async function addPerson(page: Page, name: string, extra: Json = {}) {

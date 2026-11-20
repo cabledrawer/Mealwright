@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from './clock.ts';
 import { expectNoSidewaysScroll, inTheme, setAccountTheme } from './a11y.ts';
-import { addDays, call, key } from './helpers.ts';
+import { addDays, call, key, type SlotIds } from './helpers.ts';
 
 // The Plan's Month and day (0.7, P4): the COOK and Today tags stay inside their day (F84), the
 // month scrolls rather than squeeze a day, which shows 3 items then "+N more" (F47), a click anywhere in a
@@ -77,7 +77,7 @@ async function setup(page: Page) {
     id: number;
     name: string;
   }[];
-  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
+  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as SlotIds;
   await call(page, 'PATCH', `/meal-slots/${slot.Snack}`, { enabled: true });
   return { today: household.today, slot };
 }
@@ -95,7 +95,7 @@ const planned = async (page: Page, recipeId: number, day: string, slotId: number
   };
 
 /** A batch cooked on `day` at dinner, its one tub in no meal (so no other day gets anything). */
-async function cookedOnce(page: Page, name: string, day: string, slot: Record<string, number>) {
+async function cookedOnce(page: Page, name: string, day: string, slot: SlotIds) {
   const cook = await planned(page, await makeRecipe(page, name), day, slot.Dinner);
   await call(page, 'POST', `/plan/items/${cook.item_id}/batch`, {
     tub_count: 1,
@@ -167,7 +167,7 @@ async function pastBatch(
   page: Page,
   name: string,
   day: string,
-  slot: Record<string, number>,
+  slot: SlotIds,
   where: 'freezer' | 'fridge'
 ) {
   const cook = await planned(page, await makeRecipe(page, name), day, slot.Dinner);
@@ -724,7 +724,7 @@ test.describe('on a computer', () => {
 // --- F149: Eat · Cook · Both on the Month (phone and computer) ----------------------------------
 
 /** A batch cooking (dinner) and a fresh meal (lunch) on the same day, with names of their own. */
-async function cookAndEat(page: Page, day: string, slot: Record<string, number>) {
+async function cookAndEat(page: Page, day: string, slot: SlotIds) {
   await clearDay(page, day); // a retry starts from the same day
   const word = stamp();
   const batch = `${word} Batch`;
@@ -862,7 +862,7 @@ test.describe('F149: the Show switch on the computer’s Month', () => {
 // --- F167: Month → Cook marks every day with cooking, a fresh recipe as well as a batch ---------
 
 /** A day with one fresh recipe and no batch, with a name of its own. */
-async function freshOnly(page: Page, day: string, slot: Record<string, number>) {
+async function freshOnly(page: Page, day: string, slot: SlotIds) {
   await clearDay(page, day);
   const fresh = `${stamp()} Fresh`;
   await planned(page, await makeRecipe(page, fresh), day, slot.Dinner);

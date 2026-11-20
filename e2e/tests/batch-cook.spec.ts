@@ -303,8 +303,8 @@ test('Change reopens the picks with the session’s recipes, and Remove takes th
   await expect(page.getByTestId('batch-card')).toContainText('Batch cook · 2 recipes');
   const after = (await planRange(page, day)).batch_sessions as { id: number }[];
   expect(after).toHaveLength(1);
-  expect(after[0].id).not.toBe(made.session_id);
-  const changed = (await (await page.request.get(`/api/v1/batch-cook/sessions/${after[0].id}`)).json()) as { slot_id: number };
+  expect(after[0]!.id).not.toBe(made.session_id);
+  const changed = (await (await page.request.get(`/api/v1/batch-cook/sessions/${after[0]!.id}`)).json()) as { slot_id: number };
   expect(changed.slot_id).toBe(slot);
   await page.goto(`/plan?day=${day}`);
   await page.getByTestId('batch-card').getByRole('button', { name: 'Remove' }).click();

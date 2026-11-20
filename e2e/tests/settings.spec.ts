@@ -43,7 +43,7 @@ const section = (page: Page, name: string) => page.getByRole('region', { name, e
 const OWN_DAY: Record<string, number> = { phone: 0, desktop: 1 };
 function ownDay(today: string, offset: number): string {
   const d = new Date(`${today}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - (60 + 2 * offset + (OWN_DAY[test.info().project.name.split(' ')[0]] ?? 0)));
+  d.setUTCDate(d.getUTCDate() - (60 + 2 * offset + (OWN_DAY[test.info().project.name.split(' ')[0]!] ?? 0)));
   return d.toISOString().slice(0, 10);
 }
 const rowOf = (page: Page, within: string, name: string) =>
@@ -227,7 +227,7 @@ test('Meal slots: rename, reorder with Move down, switch off, and add; Undo of a
   await slots.getByRole('button', { name: 'Move Breakfast down' }).click();
   await expect(slots.getByRole('listitem').first()).toContainText('Lunch');
   await expect
-    .poll(async () => ((await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as Json[])[0].name)
+    .poll(async () => ((await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as Json[])[0]!.name)
     .toBe('Lunch');
   await slots.getByRole('button', { name: 'Move Breakfast up' }).click();
   await expect(slots.getByRole('listitem').first()).toContainText('Breakfast');
@@ -501,7 +501,7 @@ test('an ingredient brought back by a Pantry Undo says so in Recent changes, and
     headers: key(),
   });
   expect(stocked.status(), await stocked.text()).toBe(201);
-  const lot = ((await stocked.json()) as { groups: { lots: { id: number }[] }[] }).groups[0].lots[0];
+  const lot = ((await stocked.json()) as { groups: { lots: { id: number }[] }[] }).groups[0]!.lots[0]!;
   const used = await page.request.post(`/api/v1/stock/${lot.id}/use`, { headers: key() });
   expect(used.ok(), await used.text()).toBe(true);
   const usedId = ((await used.json()) as { change: { id: number } }).change.id;

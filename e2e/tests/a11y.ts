@@ -159,7 +159,7 @@ export async function expectTouchTargets(page: Page, allow: string[] = []) {
           const p = getComputedStyle(el, pseudo);
           if (p.content === 'none' || p.position !== 'absolute' || p.pointerEvents === 'none') continue;
           const px = (v: string) => (v.endsWith('px') ? parseFloat(v) : NaN);
-          const [top, right, bottom, left] = [p.top, p.right, p.bottom, p.left].map(px);
+          const [top = NaN, right = NaN, bottom = NaN, left = NaN] = [p.top, p.right, p.bottom, p.left].map(px);
           if ([top, right, bottom, left].some(Number.isNaN)) continue;
           width = Math.max(width, box.width - left - right);
           height = Math.max(height, box.height - top - bottom);

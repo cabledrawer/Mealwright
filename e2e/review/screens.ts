@@ -325,7 +325,7 @@ async function main() {
     console.error('Give --screen, --mockup or --path. See the top of review/screens.ts.');
     process.exit(2);
   }
-  const slug = (values.screen ?? values.path ?? values.mockup[0]).replace(/^\/+/, '').replace(/[^\w-]+/g, '-') || 'today';
+  const slug = (values.screen ?? values.path ?? values.mockup[0]!).replace(/^\/+/, '').replace(/[^\w-]+/g, '-') || 'today';
   const out = resolve(values.out ?? join(E2E, 'review-shots', slug));
   mkdirSync(out, { recursive: true });
 

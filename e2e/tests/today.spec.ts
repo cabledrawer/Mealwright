@@ -1,6 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { checkPage } from './a11y.ts';
-import { addDays, key, stamp } from './helpers.ts';
+import { addDays, key, stamp, type SlotIds } from './helpers.ts';
 
 // Today (0.6, PR 6), against the real server: "Did you cook Sambar?" with Cooked it (and "Any
 // left over?"), Didn't and Move it (to tomorrow, alongside a meal that has food), and the
@@ -18,7 +18,7 @@ async function call(page: Page, method: 'POST' | 'DELETE', path: string, data?: 
 async function start(page: Page, slotName: string) {
   const today = (await (await page.request.get('/api/v1/household')).json()).today as string;
   const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
-  const slot = Object.fromEntries(slots.map((s) => [s.name, s.id])) as Record<string, number>;
+  const slot = Object.fromEntries(slots.map((s) => [s.name, s.id])) as SlotIds;
   // Anything left waiting by another test is answered first, so this meal is the card.
   const read = (await (await page.request.get('/api/v1/today')).json()) as { waiting: { meal_id: number }[] };
   for (const w of read.waiting) await call(page, 'POST', `/plan/meals/${w.meal_id}/mark-not-cooked`);
@@ -229,7 +229,7 @@ test.describe('F150: This week', () => {
 
   async function openWithPlan(page: Page) {
     const real = (await (await page.request.get('/api/v1/today')).json()) as { today: string; slots: { id: number; name: string }[] };
-    const slot = Object.fromEntries(real.slots.map((s) => [s.name, s.id])) as Record<string, number>;
+    const slot = Object.fromEntries(real.slots.map((s) => [s.name, s.id])) as SlotIds;
     const today = real.today;
     const long = Array(6).fill('Roasted aubergine and chickpea stew with preserved lemon and tahini').join(' ');
     const plan = {
@@ -324,7 +324,7 @@ test.describe('F150: This week', () => {
   /** Meals at breakfast, lunch and dinner on today+2 … today+6, so the week's list is long. */
   async function longWeek(page: Page, today: string) {
     const slots = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
-    const slot = Object.fromEntries(slots.map((x) => [x.name, x.id])) as Record<string, number>;
+    const slot = Object.fromEntries(slots.map((x) => [x.name, x.id])) as SlotIds;
     const recipe = (await call(page, 'POST', '/recipes', { name: `Pongal ${stamp()}`, serves: 2, lines: [] })).id as number;
     const meals: number[] = [];
     for (let n = 2; n <= 6; n++)

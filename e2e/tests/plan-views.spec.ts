@@ -1,6 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, inTheme, isPhone, setAccountTheme, THEMES } from './a11y.ts';
-import { addDays, call } from './helpers.ts';
+import { addDays, call, type SlotIds } from './helpers.ts';
 
 // The Plan's switch Both · Eat · Cook, Plan it on the recipe page, the phone Plan that opens on
 // today, and the Plan at 768–1100 px wide (0.7, P2). Runs on Chromium, phone and computer. Every
@@ -34,7 +34,7 @@ const dayWords = (iso: string) => `${dayShort(iso)} ${Number(iso.slice(8, 10))}`
 async function setup(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
   const list = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
-  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
+  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as SlotIds;
   const me = (await (await page.request.get('/api/v1/me')).json()) as { id: number; name: string; member_id: number };
   return { today: household.today, slot, me };
 }
@@ -81,7 +81,7 @@ test.afterEach(() => {
  * dinner (3 tubs, so 4 portions: 1 eaten now); two tubs go in Sunday's lunch, the third is spare.
  * The person is ticked as eating the cook-day dinner and owns the two tubs.
  */
-async function seedWeek(page: Page, k: { today: string; slot: Record<string, number>; me: { id: number; name: string; member_id: number } }, day: string) {
+async function seedWeek(page: Page, k: { today: string; slot: SlotIds; me: { id: number; name: string; member_id: number } }, day: string) {
   const s = short();
   const pongal = `Pongal ${s}`;
   const biryani = `Biryani ${s}`;

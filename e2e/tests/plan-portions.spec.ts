@@ -1,6 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { expectNoAxeViolations, expectNoSidewaysScroll, expectTouchTargets, inTheme, isPhone, setAccountTheme } from './a11y.ts';
-import { addDays, call, stamp } from './helpers.ts';
+import { addDays, call, stamp, type SlotIds } from './helpers.ts';
 
 // The phone opens the Plan on Eat; these tests are about the cards, which are Both (0.7, P2).
 test.beforeEach(async ({ page }) => {
@@ -42,7 +42,7 @@ const dayWords = (iso: string) => {
 async function setup(page: Page) {
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
   const list = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
-  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
+  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as SlotIds;
   const me = (await (await page.request.get('/api/v1/me')).json()) as { id: number; name: string; member_id: number };
   return { today: household.today, slot, me };
 }

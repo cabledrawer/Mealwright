@@ -16,8 +16,9 @@ export function addDays(iso: string, days: number): string {
  *  other's rows. */
 export const stamp = () => `${test.info().project.name.replace(/\W/g, '')}${Date.now().toString(36)}`;
 
-/** A meal slot's name, as the household's meal slots have them (Snack is off in a new household). */
-export type SlotIds = Record<'Breakfast' | 'Lunch' | 'Dinner' | 'Snack', number>;
+/** The household's meal slot ids by name (Snack is off in a new household). The four standard names
+ *  are known to exist; any other name may be missing. */
+export type SlotIds = Record<'Breakfast' | 'Lunch' | 'Dinner' | 'Snack', number> & Record<string, number>;
 
 /** An API call as the signed-in page, which must succeed (any 2xx). */
 export async function call(page: Page, method: 'POST' | 'PUT' | 'DELETE' | 'PATCH', path: string, data?: object) {

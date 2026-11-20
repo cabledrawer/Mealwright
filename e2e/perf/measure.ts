@@ -107,7 +107,7 @@ async function newPage(browser: Browser, signedIn = true): Promise<{ context: Br
   return { context, page };
 }
 
-const results: Record<string, Record<string, Sample[]>> = { first: {}, repeat: {}, action: {}, ready: {} };
+const results: Record<'first' | 'repeat' | 'action' | 'ready', Record<string, Sample[]>> = { first: {}, repeat: {}, action: {}, ready: {} };
 const wanted = (name: string) => !values.only || values.only.split(',').includes(name);
 
 const browser = await chromium.launch();

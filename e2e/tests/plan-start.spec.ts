@@ -1,6 +1,6 @@
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, setAccountTheme } from './a11y.ts';
-import { addDays, call, key } from './helpers.ts';
+import { addDays, call, key, type SlotIds } from './helpers.ts';
 
 // The plan works backwards (0.8 M3, F124; cabledrawer 31 Oct and 9 Nov): adding a recipe with a long
 // wait asks when it will be started (Plan it on the recipe page), the meal's menu changes the
@@ -31,7 +31,7 @@ async function setup(page: Page) {
   await call(page, 'POST', '/household/fill-from-browser', { time_zone: 'Europe/London' });
   const household = (await (await page.request.get('/api/v1/household')).json()) as { today: string };
   const list = (await (await page.request.get('/api/v1/meal-slots')).json()).meal_slots as { id: number; name: string }[];
-  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<string, number>;
+  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as SlotIds;
   return { today: household.today, breakfast: slot['Breakfast']! };
 }
 

@@ -5,7 +5,7 @@ import {
   inTheme,
   setAccountTheme,
 } from "./a11y.ts";
-import { addDays, key } from './helpers.ts';
+import { addDays, key, type SlotIds } from './helpers.ts';
 import { uploadPhoto } from "../review/photos.ts";
 
 // The Plan's cards in Both (0.7, P3): COOK and EAT are separate cards, cells are only as tall as
@@ -46,10 +46,7 @@ async function setup(page: Page) {
   const list = (await (
     await page.request.get("/api/v1/meal-slots")
   ).json()).meal_slots as { id: number; name: string }[];
-  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as Record<
-    string,
-    number
-  >;
+  const slot = Object.fromEntries(list.map((s) => [s.name, s.id])) as SlotIds;
   await call(page, "PATCH", `/meal-slots/${slot.Snack}`, { enabled: true });
   return { today: household.today, slot };
 }
@@ -123,7 +120,7 @@ async function batchWithTubs(
   page: Page,
   name: string,
   day: string,
-  slot: Record<string, number>,
+  slot: SlotIds,
 ) {
   const cook = await planned(
     page,

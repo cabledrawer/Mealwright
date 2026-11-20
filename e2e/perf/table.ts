@@ -12,7 +12,7 @@ for (const file of process.argv.slice(2)) {
   const r = JSON.parse(readFileSync(file, 'utf8')) as {
     profile: string;
     runs: number;
-    results: Record<string, Record<string, { ms: number; api: { path: string; wait: number }[] }[]>>;
+    results: Record<'first' | 'repeat' | 'action' | 'ready', Record<string, { ms: number; api: { path: string; wait: number }[] }[]>>;
     server: Record<string, number[]>;
   };
   console.log(`\n### ${r.profile}: median / slowest, in ms, of ${r.runs} runs\n`);
