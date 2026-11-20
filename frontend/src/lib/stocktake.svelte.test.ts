@@ -13,6 +13,7 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock('./client/stocktake', () => api);
 
+import { network } from './network.svelte';
 import { toasts } from './toast.svelte';
 import {
   countOf,
@@ -118,6 +119,32 @@ describe('the stocktake', () => {
     await model.open();
     expect(api.getStocktakePlace).toHaveBeenCalledWith(4);
     expect(model.overview?.complete).toBe(true);
+  });
+
+  it('FE12: offline, counting, moving and adding send nothing and say why', async () => {
+    api.getStocktake.mockResolvedValue(overview(3));
+    api.getStocktakePlace.mockResolvedValue(place([row(7, 'Toor dal')]));
+    const model = new StocktakeModel();
+    await model.open();
+    network.offline = true;
+    try {
+      toasts.dismiss();
+      await model.pick(7, 'Toor dal', 0.5);
+      await model.count(7, 'Toor dal', 2);
+      await model.staple(7, 'Toor dal');
+      expect(await model.goTo(2)).toBe(false);
+      expect(await model.addHere(9)).toBe(false);
+      expect(api.answerFood).not.toHaveBeenCalled();
+      expect(api.makeStapleHere).not.toHaveBeenCalled();
+      expect(api.addSomethingElse).not.toHaveBeenCalled();
+      expect(api.getStocktakePlace).toHaveBeenCalledTimes(1);
+      expect(toasts.current?.message).toMatch(
+        /^(You’re offline|Can’t reach your Mealwright server)/
+      );
+      expect(model.place?.rows[0]?.answered).toBe(false);
+    } finally {
+      network.reset();
+    }
   });
 
   it('FE11: a place that would not open says so with a Try again that opens it again', async () => {

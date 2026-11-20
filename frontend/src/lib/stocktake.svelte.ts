@@ -22,6 +22,7 @@ import {
 import type { PackSuggestion } from './client/types';
 import { kitchen } from './freshness.svelte';
 import { COULDNT_SAVE, save } from './save';
+import { blockedWhileDown } from './serverNeeded';
 import { toasts } from './toast.svelte';
 
 /** The pick that matches the row now: null while it isn't answered. */
@@ -93,6 +94,7 @@ export class StocktakeModel {
 
   /** Go to a place (Back, or Next once the one before is finished). */
   async goTo(placeId: number): Promise<boolean> {
+    if (blockedWhileDown()) return false;
     try {
       this.place = await getStocktakePlace(placeId);
       this.overview = await getStocktake();
@@ -162,6 +164,9 @@ export class StocktakeModel {
     send: (key: string) => Promise<StocktakeWrite>,
     label: string
   ) {
+    // FE12: counting needs the server; offline a tap says why and changes nothing (the same as
+    // the Pantry's + button: cabledrawer 18 Oct).
+    if (blockedWhileDown()) return Promise.resolve();
     const row = this.#row(foodId);
     if (!row) return Promise.resolve();
     const before = $state.snapshot(row) as StocktakeRow;
@@ -282,7 +287,7 @@ export class StocktakeModel {
   /** "+ Something else in the Cupboard": count this ingredient here too. */
   async addHere(foodId: number): Promise<boolean> {
     const place = this.place;
-    if (!place) return false;
+    if (!place || blockedWhileDown()) return false;
     let write: StocktakeWrite;
     try {
       write = await addSomethingElse(place.place.id, foodId);
