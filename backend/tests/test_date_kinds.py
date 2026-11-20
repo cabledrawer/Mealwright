@@ -254,7 +254,7 @@ def test_a_switched_use_by_food_is_too_late_once_passed(kitchen: TestClient) -> 
 
 def test_the_openapi_document_names_the_refusal(kitchen: TestClient) -> None:
     schema = kitchen.get(f"{API}/openapi.json").json()
-    post = schema["paths"]["/api/v1/stock/{lot_id}/freeze"]["post"]
+    post = schema["paths"]["/api/v1/stock/{stock_id}/freeze"]["post"]
     assert "too_late_to_freeze" in post["description"]
 
 

@@ -182,15 +182,17 @@ def mine(kitchen: TestClient, tmp_path: Path) -> dict[str, Any]:
     return {
         "account_id": account_id,
         "token_id": token["id"],
-        "member_id": joss["id"],
-        "sign_in_id": sign_in,
+        "person_id": joss["id"],
+        # /me/sessions/{session_id} is a sign-in, not a batch cook session (D3 named both
+        # after their noun), so the case below names it apart.
+        "sign_in_session_id": sign_in,
         "draft_id": draft["id"],
         "import_id": mealie["id"],
         "recipe_id": recipe["id"],
         "tag_id": tag_id,
         "plan_item_id": planned["item_id"],
         "plan_meal_id": planned["meal_id"],
-        "plan_slot_id": slots["Dinner"],
+        "meal_slot_id": slots["Dinner"],
         "plan_batch_id": batch["batch_id"],
         "session_id": session["session_id"],
         "plan_tub_id": tub["id"],
@@ -205,7 +207,7 @@ def mine(kitchen: TestClient, tmp_path: Path) -> dict[str, Any]:
         "name_id": named["food"]["other_names"][0]["id"],
         "size_id": sized["food"]["sizes"][0]["id"],
         "stand_in_id": moong["id"],
-        "lot_id": added["groups"][0]["lots"][0]["id"],
+        "stock_id": added["groups"][0]["lots"][0]["id"],
         "change_id": added["change"]["id"],
         "conversion_id": conversions[0]["id"],
         "shop_id": shop["id"],
@@ -246,7 +248,7 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("POST", "/api/v1/foods/{food_id}/split"): {"other_name_id": 0},
     ("POST", "/api/v1/foods/{food_id}/stand-ins"): {"food_id": 0},
     ("DELETE", "/api/v1/foods/{food_id}/stand-ins/{stand_in_id}"): None,
-    ("PATCH", "/api/v1/stock/{lot_id}"): {"use_by": "2031-01-01"},
+    ("PATCH", "/api/v1/stock/{stock_id}"): {"use_by": "2031-01-01"},
     ("GET", "/api/v1/stocktake/places/{place_id}"): None,
     ("POST", "/api/v1/stocktake/places/{place_id}/finish"): None,
     ("POST", "/api/v1/stocktake/places/{place_id}/foods"): {"food_id": 0},
@@ -256,11 +258,11 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
         "name": "bag",
         "amount": 1000,
     },
-    ("POST", "/api/v1/stock/{lot_id}/use"): {},
-    ("POST", "/api/v1/stock/{lot_id}/bin"): {},
-    ("POST", "/api/v1/stock/{lot_id}/set-left"): {"fraction": 0.5},
-    ("POST", "/api/v1/stock/{lot_id}/move"): {"place_id": 0},
-    ("POST", "/api/v1/stock/{lot_id}/freeze"): {},
+    ("POST", "/api/v1/stock/{stock_id}/use"): {},
+    ("POST", "/api/v1/stock/{stock_id}/bin"): {},
+    ("POST", "/api/v1/stock/{stock_id}/set-left"): {"fraction": 0.5},
+    ("POST", "/api/v1/stock/{stock_id}/move"): {"place_id": 0},
+    ("POST", "/api/v1/stock/{stock_id}/freeze"): {},
     ("POST", "/api/v1/changes/{change_id}/undo"): None,
     ("DELETE", "/api/v1/conversions/{conversion_id}"): None,
     ("GET", "/api/v1/shopping/lists/{list_id}"): None,
@@ -296,7 +298,7 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("DELETE", "/api/v1/plan/meals/{plan_meal_id}"): None,
     ("POST", "/api/v1/plan/items/{plan_item_id}/move"): {"date": "2030-01-01", "slot_id": 1},
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/move"): {"date": "2030-01-01", "slot_id": 1},
-    ("PATCH", "/api/v1/meal-slots/{plan_slot_id}"): {"enabled": True},
+    ("PATCH", "/api/v1/meal-slots/{meal_slot_id}"): {"enabled": True},
     # Settings › Shops & places (0.8). Also tried in test_settings_lists.py.
     ("PATCH", "/api/v1/places/{place_id}"): {"name": "Mine now"},
     ("DELETE", "/api/v1/places/{place_id}"): None,
@@ -348,19 +350,19 @@ PATH_CASES: dict[tuple[str, str], dict[str, Any] | None] = {
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/mark-not-cooked"): None,
     ("POST", "/api/v1/plan/meals/{plan_meal_id}/mark-moved"): {"date": "2030-01-01", "slot_id": 1},
     # Settings › People (0.9 A1). Also tried in test_people.py.
-    ("PATCH", "/api/v1/people/{member_id}"): {"portion_quarters": 2},
-    ("DELETE", "/api/v1/people/{member_id}"): None,
-    ("POST", "/api/v1/people/{member_id}/login"): {"username": "joss"},
-    ("DELETE", "/api/v1/people/{member_id}/login"): None,
+    ("PATCH", "/api/v1/people/{person_id}"): {"portion_quarters": 2},
+    ("DELETE", "/api/v1/people/{person_id}"): None,
+    ("POST", "/api/v1/people/{person_id}/login"): {"username": "joss"},
+    ("DELETE", "/api/v1/people/{person_id}/login"): None,
     # Reset password (0.9.5 Pe1). Also tried in test_reset_password.py.
-    ("POST", "/api/v1/people/{member_id}/reset-password"): None,
+    ("POST", "/api/v1/people/{person_id}/reset-password"): None,
     # "Who is this?" and the Person page's single sign-on row (0.9.5 Pe3/M2). Also tried in
     # test_sso_waiting.py and test_sso_unlink.py.
     ("POST", "/api/v1/people/sso-accounts/{account_id}/link"): {"member_id": None},
     ("POST", "/api/v1/people/sso-accounts/{account_id}/refuse"): None,
-    ("DELETE", "/api/v1/people/{member_id}/sso"): None,
+    ("DELETE", "/api/v1/people/{person_id}/sso"): None,
     # Signing out one device (0.9 A2): another household's sign-in is "not found".
-    ("DELETE", "/api/v1/me/sessions/{sign_in_id}"): None,
+    ("DELETE", "/api/v1/me/sessions/{sign_in_session_id}"): None,
     # Deleting an API token (0.9 O2): another household's token is "not found".
     ("DELETE", "/api/v1/api-tokens/{token_id}"): None,
 }
@@ -389,7 +391,15 @@ def endpoints_with_ids(client: TestClient) -> set[tuple[str, str]]:
 
 
 def test_every_endpoint_with_an_id_has_a_case(kitchen: TestClient) -> None:
-    wanted = {(method, path.replace("{extra_list_id}", "{list_id}")) for method, path in PATH_CASES}
+    wanted = {
+        (
+            method,
+            path.replace("{extra_list_id}", "{list_id}").replace(
+                "{sign_in_session_id}", "{session_id}"
+            ),
+        )
+        for method, path in PATH_CASES
+    }
     assert endpoints_with_ids(kitchen) == wanted
 
 

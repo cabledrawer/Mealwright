@@ -257,16 +257,16 @@ class PersonChange(BaseModel):
         return None if value is None else _name(value)
 
 
-@router.patch("/people/{member_id}")
+@router.patch("/people/{person_id}")
 def change_person(
-    member_id: StoredInt, body: PersonChange, kitchen: Here, response: Response
+    person_id: StoredInt, body: PersonChange, kitchen: Here, response: Response
 ) -> PeopleOut:
     """Change a person's name, colour, portion, role or whether their login is shared. The
     household's only admin can't be made a member. Admins only."""
     earlier = _start(kitchen, response)
     if earlier is not None:
         return _out(kitchen, earlier)
-    member = people.mine(kitchen, member_id)
+    member = people.mine(kitchen, person_id)
     # Null means "no colour"; for the others it means "as it is".
     wanted = {
         key: value
@@ -279,9 +279,9 @@ def change_person(
     return _finish(kitchen, response, made)
 
 
-@router.delete("/people/{member_id}")
+@router.delete("/people/{person_id}")
 def remove_person(
-    member_id: StoredInt, kitchen: Here, response: Response, request: Request
+    person_id: StoredInt, kitchen: Here, response: Response, request: Request
 ) -> PeopleOut:
     """Remove a person: their meals, tubs and history stay, Recent changes shows "Joss
     (removed)", and their login can't sign in. Undo puts them back. Admins only; nobody can
@@ -289,7 +289,7 @@ def remove_person(
     earlier = _start(kitchen, response)
     if earlier is not None:
         return _out(kitchen, earlier)
-    member = people.mine(kitchen, member_id)
+    member = people.mine(kitchen, person_id)
     # Their sign-ins end with them: so do their open live-update streams (O2 review r4, finding 4).
     ended = list(
         kitchen.db.scalars(
@@ -321,13 +321,13 @@ class LinkOut(BaseModel):
     expires_at: datetime
 
 
-@router.post("/people/{member_id}/login", status_code=status.HTTP_201_CREATED)
-def give_login(member_id: StoredInt, body: LoginIn, kitchen: Here) -> LinkOut:
+@router.post("/people/{person_id}/login", status_code=status.HTTP_201_CREATED)
+def give_login(person_id: StoredInt, body: LoginIn, kitchen: Here) -> LinkOut:
     """Give a person a login: a one-time sign-in link, for 24 hours, where they choose their
     own password. Asking again makes a new link and the old one stops working. Admins only."""
     kitchen.admin_only(Action.PEOPLE)
     lock_db(kitchen.db, kitchen.household)
-    member = people.mine(kitchen, member_id)
+    member = people.mine(kitchen, person_id)
     token, link = people.give_login(kitchen, member, body.username, body.role)
     kitchen.idempotency_key = None  # a retry makes a new link: the token is never stored
     kitchen.db.commit()
@@ -335,8 +335,8 @@ def give_login(member_id: StoredInt, body: LoginIn, kitchen: Here) -> LinkOut:
     return LinkOut(path=f"/join#{token}", expires_at=as_utc(link.expires_at))
 
 
-@router.post("/people/{member_id}/reset-password", status_code=status.HTTP_201_CREATED)
-def reset_password(member_id: StoredInt, kitchen: Here) -> LinkOut:
+@router.post("/people/{person_id}/reset-password", status_code=status.HTTP_201_CREATED)
+def reset_password(person_id: StoredInt, kitchen: Here) -> LinkOut:
     """Reset password: a one-time link, for 24 hours, where the person chooses a new password;
     their recipes, plans and history stay as they are. Asking again makes a new link and the old
     one stops working, as does any unused sign-in link. Not for your own password. Admins
@@ -344,7 +344,7 @@ def reset_password(member_id: StoredInt, kitchen: Here) -> LinkOut:
     # Pe1, cabledrawer 13 Nov.
     kitchen.admin_only(Action.PEOPLE)
     lock_db(kitchen.db, kitchen.household)
-    member = people.mine(kitchen, member_id)
+    member = people.mine(kitchen, person_id)
     token, link = people.give_reset_link(kitchen, member)
     kitchen.idempotency_key = None  # a retry makes a new link: the token is never stored
     kitchen.db.commit()
@@ -352,13 +352,13 @@ def reset_password(member_id: StoredInt, kitchen: Here) -> LinkOut:
     return LinkOut(path=f"/reset#{token}", expires_at=as_utc(link.expires_at))
 
 
-@router.delete("/people/{member_id}/login", status_code=status.HTTP_204_NO_CONTENT)
-def take_back_login(member_id: StoredInt, kitchen: Here) -> None:
+@router.delete("/people/{person_id}/login", status_code=status.HTTP_204_NO_CONTENT)
+def take_back_login(person_id: StoredInt, kitchen: Here) -> None:
     """ "Profile only" again, while the person's sign-in link is unused: the link stops working.
     Admins only."""
     kitchen.admin_only(Action.PEOPLE)
     lock_db(kitchen.db, kitchen.household)
-    people.take_back_login(kitchen, people.mine(kitchen, member_id))
+    people.take_back_login(kitchen, people.mine(kitchen, person_id))
     kitchen.db.commit()
 
 
@@ -400,9 +400,9 @@ def refuse_sso_account(account_id: StoredInt, kitchen: Here, response: Response)
     return _finish(kitchen, response, made)
 
 
-@router.delete("/people/{member_id}/sso")
+@router.delete("/people/{person_id}/sso")
 def unlink_sso(
-    member_id: StoredInt, request: Request, kitchen: Here, response: Response
+    person_id: StoredInt, request: Request, kitchen: Here, response: Response
 ) -> PeopleOut:
     """Unlink a person from their account at the sign-in server (0.9.5 Pe3/M2, Person page). The
     account waits for an admin at its next sign-in, and the person's single sign-on sign-ins end.
@@ -416,13 +416,13 @@ def unlink_sso(
             select(Session.id)
             .join(Login, Login.id == Session.login_id)
             .where(
-                Login.member_id == member_id,
+                Login.member_id == person_id,
                 Login.household_id == kitchen.household_id,
                 Session.sso.is_(True),
             )
         )
     )
-    made = sso_people.unlink(kitchen, member_id)
+    made = sso_people.unlink(kitchen, person_id)
     log.info("Single sign-on: a person unlinked by an admin")
     answer = _finish(kitchen, response, made)
     for session_id in ended:  # their open live-update streams end with their sign-ins

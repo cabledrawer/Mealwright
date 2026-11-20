@@ -195,3 +195,34 @@ def test_the_renamed_day_fields(kitchen: TestClient) -> None:
     assert "cook_day" in schemas["BatchPreviewOut"]["properties"]
     assert "date" in schemas["SuggestionsOut"]["properties"]
     assert ok(kitchen.get(f"{API}/updates"))["released_on"]
+
+
+# --- BE27 and CL12: path parameters are named after their noun -------------------------------
+
+
+def test_path_parameters_are_named_after_their_noun() -> None:
+    import re
+
+    paths = openapi()["paths"]
+    found = {
+        (m.group(1), m.group(2))
+        for path in paths
+        for m in re.finditer(r"/([a-z-]+)/\{(\w+)\}", path)
+    }
+    assert ("people", "person_id") in found  # a person, who may have no login (CL12)
+    assert ("meal-slots", "meal_slot_id") in found
+    assert ("stock", "stock_id") in found
+    assert ("sessions", "session_id") in found
+    old = {"member_id", "plan_slot_id", "lot_id", "sign_in_id"}
+    assert not [pair for pair in found if pair[1] in old]
+
+
+def test_shopping_ids_in_the_address_are_uuids() -> None:
+    paths = openapi()["paths"]
+    for path, ops in paths.items():
+        if not path.startswith(f"{API}/shopping/"):
+            continue
+        for op in ops.values():
+            for param in op.get("parameters", []):
+                if param["in"] == "path" and param["name"] in ("list_id", "item_id"):
+                    assert param["schema"].get("pattern", "").startswith("^[0-9a-f]{8}-"), path

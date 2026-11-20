@@ -253,4 +253,4 @@ def test_in_the_api_description(client: TestClient) -> None:
     assert "get" in paths["/api/v1/me/sign-in"]
     assert "put" in paths["/api/v1/me/password"]
     assert "delete" in paths["/api/v1/me/sessions/others"]
-    assert "delete" in paths["/api/v1/me/sessions/{sign_in_id}"]
+    assert "delete" in paths["/api/v1/me/sessions/{session_id}"]

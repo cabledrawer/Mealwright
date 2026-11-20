@@ -15,7 +15,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Path, Response, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 
@@ -50,6 +50,10 @@ from mealwright.names import clean_name, fold
 from mealwright.shop_from_plan import work_out
 from mealwright.shop_why import tiny_need, why_text
 from mealwright.shopping import Act
+
+# A shopping list or line ID in the address: a UUID, as every one is made (by a phone, sync
+# protocol 3.2, or by the server). Checked like `device_id` (D3, BE27).
+ClientId = Annotated[str, Path(pattern=sync.UUID_PATTERN)]
 
 router = APIRouter(tags=["shopping"], dependencies=[SameOrigin])
 
@@ -343,7 +347,7 @@ def get_lists(kitchen: Here) -> ListsOut:
 
 
 @router.get("/shopping/lists/{list_id}")
-def get_list(list_id: str, kitchen: Here) -> ListView:
+def get_list(list_id: ClientId, kitchen: Here) -> ListView:
     """One list, grouped by shop and aisle."""
     return list_view(kitchen, shopping.find_list(kitchen, list_id))
 
@@ -392,7 +396,9 @@ def create_list(body: NewList, kitchen: Here, response: Response) -> ListWrite:
 
 
 @router.patch("/shopping/lists/{list_id}")
-def rename_list(list_id: str, body: RenameList, kitchen: Here, response: Response) -> ListWrite:
+def rename_list(
+    list_id: ClientId, body: RenameList, kitchen: Here, response: Response
+) -> ListWrite:
     """Rename a list (the action `rename_list`). The main list can be renamed too."""
     shopping_list = shopping.find_list(kitchen, list_id)
 
@@ -413,7 +419,7 @@ def rename_list(list_id: str, body: RenameList, kitchen: Here, response: Respons
 
 
 @router.delete("/shopping/lists/{list_id}")
-def remove_list(list_id: str, kitchen: Here, response: Response) -> ListWrite:
+def remove_list(list_id: ClientId, kitchen: Here, response: Response) -> ListWrite:
     """Remove an extra list, with Undo (the action `remove_list`). The main list can never
     be removed."""
     shopping_list = shopping.find_list(kitchen, list_id)
@@ -459,7 +465,7 @@ def _resolved_amount(kitchen: Kitchen, food: Food, value: AmountIn) -> tuple[int
 
 
 @router.post("/shopping/lists/{list_id}/items", status_code=status.HTTP_201_CREATED)
-def add_item(list_id: str, body: NewItem, kitchen: Here, response: Response) -> ItemWrite:
+def add_item(list_id: ClientId, body: NewItem, kitchen: Here, response: Response) -> ItemWrite:
     """Add an ingredient to a list (the action `add`). If the same ingredient is already a
     line on that list for that shop and isn't ticked, the amounts are added to that line
     instead (`merged`)."""
@@ -497,7 +503,7 @@ def add_item(list_id: str, body: NewItem, kitchen: Here, response: Response) -> 
 
 
 @router.get("/shopping/items/{item_id}/pack-sizes")
-def pack_sizes(item_id: str, kitchen: Here) -> PackSizesOut:
+def pack_sizes(item_id: ClientId, kitchen: Here) -> PackSizesOut:
     """Every size this line could be bought in, with how much each leaves over. Read-only; the
     pick is the usual `set_amount`, after the size is made (POST /foods/{id}/sizes) when it is
     one of the table's common sizes."""
@@ -512,7 +518,9 @@ def pack_sizes(item_id: str, kitchen: Here) -> PackSizesOut:
 
 
 @router.patch("/shopping/items/{item_id}")
-def change_amount(item_id: str, body: ItemAmount, kitchen: Here, response: Response) -> ItemWrite:
+def change_amount(
+    item_id: ClientId, body: ItemAmount, kitchen: Here, response: Response
+) -> ItemWrite:
     """Change how much to buy (the action `set_amount`). An item someone already took off
     the list gives `409 item_deleted`; only Undo brings it back."""
     item = shopping.find_item(kitchen, item_id)
@@ -543,7 +551,7 @@ def change_amount(item_id: str, body: ItemAmount, kitchen: Here, response: Respo
 
 
 @router.delete("/shopping/items/{item_id}")
-def delete_item(item_id: str, kitchen: Here, response: Response) -> ItemWrite:
+def delete_item(item_id: ClientId, kitchen: Here, response: Response) -> ItemWrite:
     """Take an item off the list (the action `delete`; it leaves a hidden tombstone).
     Deleting it again does nothing. Undo brings it back."""
     item = shopping.find_item(kitchen, item_id)
@@ -564,7 +572,9 @@ def delete_item(item_id: str, kitchen: Here, response: Response) -> ItemWrite:
 
 
 @router.post("/shopping/lists/{list_id}/clear-ticked")
-def clear_ticked(list_id: str, body: ClearTicked, kitchen: Here, response: Response) -> ClearWrite:
+def clear_ticked(
+    list_id: ClientId, body: ClearTicked, kitchen: Here, response: Response
+) -> ClearWrite:
     """Remove the ticked items from the list in one go, with one Undo (the action
     `clear_ticked`)."""
     shopping_list = shopping.find_list(kitchen, list_id)

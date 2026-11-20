@@ -27,7 +27,7 @@ SESSION_ONLY = {
     ("PUT", f"{API}/me/password"),
     ("DELETE", f"{API}/me/sessions/others"),
     ("DELETE", f"{API}/me/reset-link"),
-    ("DELETE", f"{API}/me/sessions/{{sign_in_id}}"),
+    ("DELETE", f"{API}/me/sessions/{{session_id}}"),
     ("GET", f"{API}/whos-this"),
     ("PUT", f"{API}/whos-this"),
 }
@@ -160,7 +160,7 @@ def test_a_token_never_uses_the_session_only_endpoints(
     kitchen: TestClient, method: str, path: str
 ) -> None:
     app = _app(kitchen, _make(kitchen, "full"))
-    r = app.request(method, path.replace("{token_id}", "1").replace("{sign_in_id}", "1"), json={})
+    r = app.request(method, path.replace("{token_id}", "1").replace("{session_id}", "1"), json={})
     _refused(r, 403, "not_for_tokens")
 
 
@@ -632,7 +632,7 @@ def test_the_token_may_read_routes_are_only_reads_a_token_can_make(kitchen: Test
 
 def test_a_new_route_fails_the_walk_until_it_is_listed(kitchen: TestClient) -> None:
     """O2 review r3, finding 4: the reviewer's scratch routes. A route with a new path, a new
-    method on a listed path (PUT /people/{member_id}), a path variable in an area the walk
+    method on a listed path (PUT /people/{person_id}), a path variable in an area the walk
     named only by prefix before (GET /sso/{peek}) and a plain Starlette route are all found."""
     from fastapi import APIRouter
     from starlette.routing import Route
@@ -641,7 +641,7 @@ def test_a_new_route_fails_the_walk_until_it_is_listed(kitchen: TestClient) -> N
     extra = APIRouter()
     extra.add_api_route("/sso/secret-peek", lambda: {}, methods=["GET"])
     extra.add_api_route("/sso/{peek}", lambda peek: {}, methods=["GET"])
-    extra.add_api_route("/people/{member_id}", lambda member_id: {}, methods=["PUT"])
+    extra.add_api_route("/people/{person_id}", lambda person_id: {}, methods=["PUT"])
     app.include_router(extra, prefix=API)  # type: ignore[attr-defined]
     app.router.routes.append(Route("/api/v1/sso/plain", lambda request: None))  # type: ignore[attr-defined]
     found = unlisted_routes(app)

@@ -1215,9 +1215,9 @@ class SlotChangeIn(BaseModel):
         return value
 
 
-@router.patch("/meal-slots/{plan_slot_id}")
+@router.patch("/meal-slots/{meal_slot_id}")
 def change_meal_slot(
-    plan_slot_id: StoredInt, body: SlotChangeIn, kitchen: Here, response: Response
+    meal_slot_id: StoredInt, body: SlotChangeIn, kitchen: Here, response: Response
 ) -> PlanWrite:
     """Turn a meal (Breakfast, Lunch…) on or off for the household, or rename it (admins only).
     Its planned meals are kept while it is off and when it is renamed. With both, the answer
@@ -1227,7 +1227,7 @@ def change_meal_slot(
         raise nothing_to_change()
 
     def make() -> Change | None:
-        slot = plan.find_slot(kitchen, plan_slot_id, on=False)
+        slot = plan.find_slot(kitchen, meal_slot_id, on=False)
         change = None
         key = kitchen.idempotency_key
         kitchen.idempotency_key = None  # the last change made takes the key, the other carries none

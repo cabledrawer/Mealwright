@@ -180,18 +180,18 @@ def cancel_my_reset_link(signed_in: CurrentSession, db: Db) -> None:
     log.info("Reset link cancelled by %s", signed_in.login.username)
 
 
-@router.delete("/me/sessions/{sign_in_id}")
+@router.delete("/me/sessions/{session_id}")
 def sign_out_one(
-    sign_in_id: StoredInt, request: Request, signed_in: CurrentSession, db: Db
+    session_id: StoredInt, request: Request, signed_in: CurrentSession, db: Db
 ) -> MySignIn:
     """Sign out one of your other devices. Someone else's session is "not found"."""
-    found = db.get(Session, sign_in_id)
+    found = db.get(Session, session_id)
     if found is None or found.login_id != signed_in.login.id:
         raise not_found("That sign-in")
     if found.id == signed_in.session.id:
         raise Problem(status.HTTP_409_CONFLICT, "this_device", THIS_ONE)
     db.delete(found)
     db.commit()
-    _tell_streams(request, [sign_in_id])
+    _tell_streams(request, [session_id])
     log.info("Signed out one device: %s", signed_in.login.username)
     return _my_sign_in(db, signed_in)

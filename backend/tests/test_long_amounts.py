@@ -177,7 +177,7 @@ def test_the_api_description_shows_the_amounts() -> None:
     found = {case.id for case in CASES}
     assert f"{API}/foods/{{food_id}}/convert ?amount" in found
     assert f"patch {API}/foods/{{food_id}} cup_weight" in found
-    assert f"post {API}/stock/{{lot_id}}/set-left fraction" in found
+    assert f"post {API}/stock/{{stock_id}}/set-left fraction" in found
     assert f"post {API}/recipes nutrition.kcal" in found
     assert len(found) == len(CASES) > 40
 
@@ -187,11 +187,11 @@ def test_every_amount_the_api_reads_is_at_most_20_characters(
     kitchen: TestClient, method: str, route: str, query: str | None, body_path: Any
 ) -> None:
     url = (
-        route.replace("{list_id}", "main")
+        route.replace("{list_id}", "00000000-0000-4000-8000-000000000002")
         .replace("{item_id}", ITEM)
         .replace("{food_id}", "1")
         .replace("{size_id}", "1")
-        .replace("{lot_id}", "1")
+        .replace("{stock_id}", "1")
         .replace("{recipe_id}", "1")
     )
     # A web address can't hold 800k characters (the client refuses one over 64 KiB), so a

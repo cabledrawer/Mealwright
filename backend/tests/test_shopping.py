@@ -230,10 +230,11 @@ def test_add_refuses_other_things(kitchen: TestClient) -> None:
         url, json={"food_id": dal["id"], "amount": {"amount": 1, "unit": "cup"}}
     )  # weight per cup unknown: asked once, like the rest of the API
     assert asks.status_code == 409 and asks.json()["code"] == "ask_once"
-    assert (
-        kitchen.post(f"{API}/shopping/lists/nope/items", json={"food_id": dal["id"]}).status_code
-        == 404
-    )
+    unknown = f"{API}/shopping/lists/00000000-0000-4000-8000-00000000abcd/items"
+    assert kitchen.post(unknown, json={"food_id": dal["id"]}).status_code == 404
+    # Not a list ID at all (D3, BE27: shopping IDs are UUIDs, as device_id is).
+    not_an_id = kitchen.post(f"{API}/shopping/lists/nope/items", json={"food_id": dal["id"]})
+    assert not_an_id.status_code == 422
     kitchen.delete(f"{API}/foods/{dal['id']}")
     assert kitchen.post(url, json={"food_id": dal["id"]}).status_code == 404  # removed
 
@@ -330,9 +331,14 @@ def test_change_the_amount(kitchen: TestClient) -> None:  # SY-44
     )
     assert same["change"] is None
     missing = kitchen.patch(
-        f"{API}/shopping/items/nope", json={"amount": {"amount": 4, "unit": "l"}}
+        f"{API}/shopping/items/00000000-0000-4000-8000-00000000abcd",
+        json={"amount": {"amount": 4, "unit": "l"}},
     )
     assert missing.status_code == 404
+    not_an_id = kitchen.patch(
+        f"{API}/shopping/items/nope", json={"amount": {"amount": 4, "unit": "l"}}
+    )
+    assert not_an_id.status_code == 422
 
 
 def test_undo_change_amount_only_if_it_is_still_that_amount(kitchen: TestClient) -> None:

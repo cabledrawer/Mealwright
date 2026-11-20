@@ -683,12 +683,12 @@ class SetLeft(BaseModel):
         return self
 
 
-@router.post("/stock/{lot_id}/set-left")
-def set_left(lot_id: StoredInt, body: SetLeft, kitchen: Here, response: Response) -> StockWrite:
+@router.post("/stock/{stock_id}/set-left")
+def set_left(stock_id: StoredInt, body: SetLeft, kitchen: Here, response: Response) -> StockWrite:
     """How much is left in this packet. Best guess is fine; it can go up too (Full)."""
 
     def apply() -> tuple[Change, int]:
-        lot = _lot(kitchen, lot_id)
+        lot = _lot(kitchen, stock_id)
         food = find(kitchen, lot.food_id)
         size = (kitchen.db.get(FoodSize, lot.size_id) if lot.size_id else None) or usual_size(
             kitchen, food.id
@@ -774,17 +774,19 @@ def _use(
     return edit.record(kind, summary, food.id), wanted - taken
 
 
-@router.post("/stock/{lot_id}/use")
+@router.post("/stock/{stock_id}/use")
 def used(
-    lot_id: StoredInt, kitchen: Here, response: Response, body: UsedSome | None = None
+    stock_id: StoredInt, kitchen: Here, response: Response, body: UsedSome | None = None
 ) -> StockWrite:
     """Used it (all of it, or an amount). Never below zero: `short_by` says what was missing."""
-    return stock_write(kitchen, response, lambda: _use("used", lot_id, body or UsedSome(), kitchen))
+    return stock_write(
+        kitchen, response, lambda: _use("used", stock_id, body or UsedSome(), kitchen)
+    )
 
 
-@router.post("/stock/{lot_id}/bin")
+@router.post("/stock/{stock_id}/bin")
 def binned(
-    lot_id: StoredInt, kitchen: Here, response: Response, body: BinnedSome | None = None
+    stock_id: StoredInt, kitchen: Here, response: Response, body: BinnedSome | None = None
 ) -> StockWrite:
     """Binned it (all of it, or an amount). With `soon`, every packet of the Use soon row."""
     if body and body.soon:
@@ -794,9 +796,9 @@ def binned(
                 "soon_with_amount",
                 "Bin all of a Use soon row, or an amount of one packet.",
             )
-        return stock_write(kitchen, response, lambda: _bin_soon(lot_id, kitchen))
+        return stock_write(kitchen, response, lambda: _bin_soon(stock_id, kitchen))
     return stock_write(
-        kitchen, response, lambda: _use("binned", lot_id, body or UsedSome(), kitchen)
+        kitchen, response, lambda: _use("binned", stock_id, body or UsedSome(), kitchen)
     )
 
 
@@ -805,16 +807,16 @@ class ToFreezer(BaseModel):
     soon: bool = False  # every packet of the Use soon row (0.8), not just this one
 
 
-@router.post("/stock/{lot_id}/freeze")
+@router.post("/stock/{stock_id}/freeze")
 def to_freezer(
-    lot_id: StoredInt, kitchen: Here, response: Response, body: ToFreezer | None = None
+    stock_id: StoredInt, kitchen: Here, response: Response, body: ToFreezer | None = None
 ) -> StockWrite:
     """Move the whole packet to the Freezer, with a new use-by 3 months away. With `soon`,
     every packet of the Use soon row. A Use by packet whose date has passed (from the day after)
     is refused: `422 too_late_to_freeze`. Best before food can always be frozen."""
 
     def apply() -> tuple[Change, int]:
-        lot = _lot(kitchen, lot_id)
+        lot = _lot(kitchen, stock_id)
         food = find(kitchen, lot.food_id)
         freezer = first_place(kitchen, "freezer")
         if freezer is None:  # pragma: no cover (every household has a freezer)
@@ -848,12 +850,12 @@ class Move(BaseModel):
     place_id: StoredInt
 
 
-@router.post("/stock/{lot_id}/move")
-def move(lot_id: StoredInt, body: Move, kitchen: Here, response: Response) -> StockWrite:
+@router.post("/stock/{stock_id}/move")
+def move(stock_id: StoredInt, body: Move, kitchen: Here, response: Response) -> StockWrite:
     """Move the whole packet. Its use-by stays as it is."""
 
     def apply() -> tuple[Change, int]:
-        lot = _lot(kitchen, lot_id)
+        lot = _lot(kitchen, stock_id)
         food = find(kitchen, lot.food_id)
         place = _place(kitchen, body.place_id)
         if place.id == lot.place_id:
@@ -872,14 +874,14 @@ class LotPatch(BaseModel):
     use_by: date | None
 
 
-@router.patch("/stock/{lot_id}")
+@router.patch("/stock/{stock_id}")
 def change_use_by(
-    lot_id: StoredInt, body: LotPatch, kitchen: Here, response: Response
+    stock_id: StoredInt, body: LotPatch, kitchen: Here, response: Response
 ) -> StockWrite:
     """Change (or clear) the use-by date."""
 
     def apply() -> tuple[Change, int]:
-        lot = _lot(kitchen, lot_id)
+        lot = _lot(kitchen, stock_id)
         food = find(kitchen, lot.food_id)
         edit = StockEdit(kitchen)
         edit.touch(lot).use_by = body.use_by
