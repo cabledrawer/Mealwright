@@ -27,7 +27,7 @@ const line = (recipe: string, at: number, text: string) => ({
   original_text: text,
 });
 
-function database(tag: string, herb: string, root: string) {
+function database(tag: string, herb: string, root: string, more = false) {
   const recipe = (id: string, name: string) => ({ id, slug: id, name: `${name} ${tag}`, recipe_yield: '4', org_url: null });
   return {
     recipes: [recipe(SOUP, 'Lorna’s soup'), recipe(STEW, 'Sam’s stew')],
@@ -35,6 +35,7 @@ function database(tag: string, herb: string, root: string) {
       line(SOUP, 0, `2 tbsp ${herb}`),
       line(STEW, 0, `${herb}, dark`),
       line(STEW, 1, `a thumb of ${root}`),
+      ...(more ? [line(SOUP, 1, `a pinch of ${herb}`)] : []),
     ],
     recipe_instructions: [
       { recipe_id: SOUP, position: 0, title: '', text: 'Cook it.' },
@@ -102,9 +103,9 @@ test.afterEach(async ({ page }) => {
   await undoAny(page);
 });
 
-async function bringIn(page: import('@playwright/test').Page, tag: string, herb: string, root: string) {
+async function bringIn(page: import('@playwright/test').Page, tag: string, herb: string, root: string, more = false) {
   const sent = await page.request.post('/api/v1/mealie-imports?file_name=mealie_2026.11.10.zip', {
-    data: zip(database(tag, herb, root)),
+    data: zip(database(tag, herb, root, more)),
     headers: { 'content-type': 'application/zip' },
   });
   expect(sent.status(), await sent.text()).toBe(201);
@@ -174,4 +175,29 @@ test('one answer goes into every draft that uses the ingredient; Undo puts it ba
   await expect
     .poll(async () => JSON.stringify(await (await page.request.get('/api/v1/recipes/drafts')).json()))
     .toContain('Lorna’s soup');
+});
+
+// F259 (hand test 20 Nov): "+ more" under the group's two lines as written is a button that
+// shows every way the lines are written, from the server.
+test('+ more shows every way an ingredient is written, and Show fewer hides them again', async ({ page }) => {
+  const tag = word();
+  const herb = `zorbo${word()}`;
+  const root = `quimby${word()}`;
+  await bringIn(page, tag, herb, root, true);
+  await page.goto('/recipes/drafts?from=mealie');
+  await page.getByRole('button', { name: 'By ingredient' }).click();
+  const rows = page.getByRole('group', { name: 'Ingredients to answer' }).getByRole('button');
+  await rows.filter({ hasText: herb }).click();
+  const more = page.getByRole('button', { name: '+ more' });
+  await expect(more).toHaveAttribute('aria-expanded', 'false');
+  const ways = page.waitForResponse((r) => r.url().includes('/api/v1/recipes/drafts/by-food/lines?key='));
+  await more.click();
+  expect((await ways).status()).toBe(200);
+  for (const written of [`2 tbsp ${herb}`, `${herb}, dark`, `a pinch of ${herb}`]) {
+    await expect(page.getByText(written, { exact: true })).toBeVisible();
+  }
+  await expectNoSidewaysScroll(page);
+  await checkPage(page);
+  await page.getByRole('button', { name: 'Show fewer' }).click();
+  await expect(page.getByRole('button', { name: '+ more' })).toBeVisible();
 });

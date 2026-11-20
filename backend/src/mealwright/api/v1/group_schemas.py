@@ -35,6 +35,20 @@ class IngredientGroups(BaseModel):
     places: list[Ref]  # the household's places, for "Where it's kept"
 
 
+class WrittenLine(BaseModel):
+    written: str  # one way the group's lines are written ("2 tbsp soya sauce")
+    count: int  # how many unanswered lines write it this way
+
+
+class GroupLines(BaseModel):
+    """Every way one group's unanswered lines are written, most-used first: what "+ more" under
+    the group's two examples shows (F259, proposed, for cabledrawer)."""
+
+    key: str
+    lines: list[WrittenLine]  # the first 200
+    total: int  # every different way it is written
+
+
 class GroupAnswer(BaseModel):
     """One answer for a whole group: an ingredient the household has (`ingredient`, with
     `food_id`), a new one (`new`, with `name` and `place_id`), or plain text (`text`: shown in

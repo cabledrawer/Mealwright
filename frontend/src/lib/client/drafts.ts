@@ -105,6 +105,15 @@ export interface IngredientGroups {
   places: Ref[];
 }
 
+/** Every way one group's lines are written, most-used first (F259: what "+ more" shows). */
+export interface GroupLines {
+  key: string;
+  /** The first 200, each with how many lines write it that way. */
+  lines: { written: string; count: number }[];
+  /** Every different way it is written. */
+  total: number;
+}
+
 /** One answer for a group: an ingredient the household has, a new one, or plain text. */
 export type GroupAnswer =
   | { key: string; kind: 'ingredient'; food_id: number }
@@ -120,6 +129,9 @@ export interface GroupAnswered {
 
 export const listGroups = (limit?: number) =>
   api<IngredientGroups>('GET', `/recipes/drafts/by-food${limit ? `?limit=${limit}` : ''}`);
+
+export const groupLines = (key: string) =>
+  api<GroupLines>('GET', `/recipes/drafts/by-food/lines?key=${encodeURIComponent(key)}`);
 
 export const answerGroup = (body: GroupAnswer, idempotencyKey: string) =>
   api<GroupAnswered>('POST', '/recipes/drafts/by-food/answer', body, { idempotencyKey });

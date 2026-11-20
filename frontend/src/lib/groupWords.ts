@@ -43,6 +43,10 @@ export const SHOW_ALL = 'Show all';
 export const usedIn = (n: number): string => `Used in ${draftsWords(n)}, written as`;
 export const WRITTEN_AS = 'Written as';
 export const MORE_LINES = '+ more';
+/** "+ more" pressed (F259, proposed, for cabledrawer): every way the lines are written. */
+export const FEWER_LINES = 'Show fewer';
+export const timesWords = (n: number): string => `${n} times`;
+export const moreWaysWords = (n: number): string => `and ${n} more ${n === 1 ? 'way' : 'ways'}`;
 export const OPTION_HAVE = 'It’s an ingredient I already have';
 export const OPTION_HAVE_PHONE = 'An ingredient I already have';
 export const OPTION_NEW = 'A new ingredient';

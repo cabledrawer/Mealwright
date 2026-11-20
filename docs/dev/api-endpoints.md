@@ -954,6 +954,7 @@ code.
 - `/api/v1/recipes/drafts`: GET, POST (`recipe-import.md`)
 - `/api/v1/recipes/drafts/by-food`: GET (OpenAPI)
 - `/api/v1/recipes/drafts/by-food/answer`: POST (OpenAPI)
+- `/api/v1/recipes/drafts/by-food/lines`: GET (OpenAPI; 0.9.5-beta.3, F259: every way one group's lines are written)
 - `/api/v1/recipes/drafts/{draft_id}`: GET, PUT, DELETE (`recipe-import.md`)
 - `/api/v1/recipes`: GET, POST (`recipe-import.md`)
 - `/api/v1/recipes/tags`: GET (`api-0.4-recipes.md`)

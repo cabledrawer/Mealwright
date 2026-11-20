@@ -17,7 +17,9 @@
   import { serverUndo } from '#lib/client/changes.js';
   import {
     answerGroup,
+    groupLines,
     listGroups,
+    type GroupLines,
     type IngredientGroup,
     type IngredientGroups
   } from '#lib/client/drafts.js';
@@ -88,6 +90,10 @@
     picking = false;
     newName = group.new_name;
     placeId = group.new_place?.id ?? places[0]?.id ?? null;
+    // Another group (or this one after an answer or Undo): its lines as written start short.
+    more = null;
+    moreFor = null;
+    moreFailed = null;
   }
   $effect(() => {
     const group = selected;
@@ -111,6 +117,34 @@
   function openRow(group: IngredientGroup) {
     chosen = group.key;
     failed = null;
+  }
+
+  /** "+ more" (F259): every way the open group's lines are written, once asked for. Shown only
+   *  while that group stays open. */
+  let more = $state<GroupLines | null>(null);
+  let moreFor = $state<string | null>(null);
+  let moreFailed = $state<string | null>(null);
+  let fetching = false;
+  const shownMore = $derived(more && selected && more.key === selected.key ? more : null);
+
+  async function showMore(group: IngredientGroup) {
+    if (fetching) return;
+    fetching = true;
+    moreFailed = null;
+    moreFor = group.key;
+    try {
+      const found = await groupLines(group.key);
+      if (moreFor === group.key) more = found;
+    } catch (error) {
+      if (moreFor === group.key) moreFailed = wordsFor(error);
+    } finally {
+      fetching = false;
+    }
+  }
+
+  function showFewer() {
+    more = null;
+    moreFor = null;
   }
 
   /** The next group in the list after this one (null at the end). */
@@ -247,6 +281,35 @@
   </section>
 {/snippet}
 
+{#snippet examples(group: IngredientGroup)}
+  <div class="examples">
+    {#if shownMore}
+      {#each shownMore.lines as line (line.written)}<span class="q"
+          >{line.written}{#if line.count > 1}<span class="times"
+              >{` · ${words.timesWords(line.count)}`}</span
+            >{/if}</span
+        >{/each}
+      {#if shownMore.total > shownMore.lines.length}<span class="small left"
+          >{words.moreWaysWords(shownMore.total - shownMore.lines.length)}</span
+        >{/if}
+      <button type="button" class="q more" aria-expanded="true" onclick={showFewer}
+        >{words.FEWER_LINES}</button
+      >
+    {:else}
+      {#each group.examples as line (line)}<span class="q">{line}</span>{/each}
+      {#if group.lines > group.examples.length}<button
+          type="button"
+          class="q more"
+          aria-expanded="false"
+          onclick={() => void showMore(group)}>{words.MORE_LINES}</button
+        >{/if}
+    {/if}
+  </div>
+  {#if moreFailed && moreFor === group.key}<p class="failed-line" role="alert">
+      {moreFailed}
+    </p>{/if}
+{/snippet}
+
 {#snippet panel(group: IngredientGroup)}
   <div class="options">
     <button
@@ -357,9 +420,7 @@
         <span class="cnt">{words.draftsWords(selected.drafts)}</span>
       </div>
       <p class="small caps">{words.WRITTEN_AS}</p>
-      <div class="examples">
-        {#each selected.examples as line (line)}<span class="q">{line}</span>{/each}
-      </div>
+      {@render examples(selected)}
       {@render panel(selected)}
     </div>
   {:else}
@@ -379,12 +440,7 @@
               <span class="small caps">{words.usedIn(selected.drafts)}</span>
               <h2>{selected.name}</h2>
             </div>
-            <div class="examples">
-              {#each selected.examples as line (line)}<span class="q">{line}</span>{/each}
-              {#if selected.lines > selected.examples.length}<span class="q"
-                  >{words.MORE_LINES}</span
-                >{/if}
-            </div>
+            {@render examples(selected)}
             {@render panel(selected)}
           </section>
         {/if}
@@ -585,6 +641,24 @@
     font-family: ui-monospace, Menlo, Consolas, monospace;
     font-size: var(--text-sm);
     overflow-wrap: anywhere;
+  }
+
+  .times {
+    color: var(--color-text-muted);
+    font-family: var(--font-ui);
+    white-space: nowrap;
+  }
+
+  .more {
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-accent-on-soft);
+    font-family: var(--font-ui);
+    font-weight: var(--weight-bold);
+    cursor: pointer;
+  }
+
+  .left {
+    align-self: center;
   }
 
   .options {

@@ -53,7 +53,13 @@ from sqlalchemy import select
 from mealwright import drafts
 from mealwright.api.v1.context import Kitchen
 from mealwright.api.v1.draft_schemas import DraftChoice, DraftChoices
-from mealwright.api.v1.group_schemas import GroupAnswer, IngredientGroup, IngredientGroups
+from mealwright.api.v1.group_schemas import (
+    GroupAnswer,
+    GroupLines,
+    IngredientGroup,
+    IngredientGroups,
+    WrittenLine,
+)
 from mealwright.api.v1.import_schemas import ImportReview
 from mealwright.api.v1.schemas import Ref
 from mealwright.conversions import guess_aisle, table
@@ -81,6 +87,7 @@ KIND = "mealie_drafts_answered"  # listed in `change_kinds.RECIPES`
 SUGGEST_FOR = 40  # the first groups get a fresh look at the household's ingredients
 EXAMPLES = 2
 EXAMPLE_CHARS = 100
+WRITTEN_LIMIT = 200  # ways one group is written that "+ more" lists (F259)
 LIST_LIMIT = 50  # groups shown before "Show all"
 MAX_LIMIT = 5_000
 READY_STATES = ("saved", "saved_all", "answered")
@@ -300,6 +307,30 @@ def listing(kitchen: Kitchen, limit: int = LIST_LIMIT) -> IngredientGroups:
         drafts=len(rows),
         recipes_ready=_recipes_ready(kitchen),
         places=places,
+    )
+
+
+def written(kitchen: Kitchen, key: str) -> GroupLines:
+    """Every way one group's unanswered lines are written, most-used first (the first
+    `WRITTEN_LIMIT`), as the groups' examples are cut. Changes nothing. A group nobody's drafts
+    use any more (answered, or never there) is "not found", as for an answer."""
+    rows = mealie_rows(kitchen)
+    alive = _alive(kitchen, _foods_used(rows))
+    counts: Counter[str] = Counter()
+    for draft in rows:
+        for _index, line in unanswered(draft, alive):
+            line_key, name = _name_key(line)
+            if line_key != key:
+                continue
+            text = cut_text(str(line.get("written") or name), EXAMPLE_CHARS).strip()
+            if text:
+                counts[text] += 1
+    if not counts:
+        raise not_found("That ingredient")
+    return GroupLines(
+        key=key,
+        lines=[WrittenLine(written=text, count=n) for text, n in counts.most_common(WRITTEN_LIMIT)],
+        total=len(counts),
     )
 
 

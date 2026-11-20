@@ -249,4 +249,78 @@ describe('Drafts, by ingredient', () => {
     });
     await expect.element(page.getByText('Every ingredient is answered')).toBeVisible();
   });
+
+  // F259 (hand test 20 Nov): "when i press more i need to see more". "+ more" under the group's
+  // two lines is a button: it asks the server for every way the lines are written and shows them.
+  describe('+ more (F259)', () => {
+    const LINES = {
+      key: 'soya sauce',
+      lines: [
+        { written: '2 tbsp soya sauce', count: 40 },
+        { written: 'soya sauce, dark', count: 6 },
+        { written: 'a splash of soya sauce', count: 3 },
+        { written: 'soya sauce to taste', count: 1 }
+      ],
+      total: 4
+    };
+
+    for (const [name, width] of [
+      ['on a computer', 1100],
+      ['on a phone', 390]
+    ] as const) {
+      it(`${name}: shows every way the lines are written, and fewer again`, async () => {
+        const requests = await open(
+          {
+            'GET /recipes/drafts/by-food': [200, GROUPS],
+            'GET /recipes/drafts/by-food/lines?key=soya%20sauce': [200, LINES]
+          },
+          width
+        );
+        if (width < 768) await page.getByRole('button', { name: /soya sauce/ }).click();
+        const more = page.getByRole('button', { name: '+ more' });
+        await expect.element(more).toHaveAttribute('aria-expanded', 'false');
+        await more.click();
+        await expect.element(page.getByText('a splash of soya sauce · 3 times')).toBeVisible();
+        await expect.element(page.getByText('soya sauce to taste')).toBeVisible();
+        await expect.element(page.getByText('2 tbsp soya sauce · 40 times')).toBeVisible();
+        expect(
+          requests.filter((r) => r.url === '/recipes/drafts/by-food/lines?key=soya%20sauce')
+        ).toHaveLength(1);
+        const fewer = page.getByRole('button', { name: 'Show fewer' });
+        await expect.element(fewer).toHaveAttribute('aria-expanded', 'true');
+        await fewer.click();
+        await expect.element(page.getByText(/a splash of soya sauce/)).not.toBeInTheDocument();
+        await expect.element(page.getByRole('button', { name: '+ more' })).toBeVisible();
+      });
+    }
+
+    it('says how many more ways there are past the first 200', async () => {
+      await open({
+        'GET /recipes/drafts/by-food': [200, GROUPS],
+        'GET /recipes/drafts/by-food/lines?key=soya%20sauce': [200, { ...LINES, total: 250 }]
+      });
+      await page.getByRole('button', { name: '+ more' }).click();
+      await expect.element(page.getByText('and 246 more ways')).toBeVisible();
+    });
+
+    it('a group with every line shown has no + more', async () => {
+      await open({ 'GET /recipes/drafts/by-food': [200, GROUPS] });
+      await page.getByRole('button', { name: /galangal/ }).click();
+      await expect.element(page.getByRole('heading', { name: 'galangal' })).toBeVisible();
+      expect(page.getByRole('button', { name: '+ more' }).elements()).toHaveLength(0);
+    });
+
+    it('says why when the lines can’t be fetched, and the button stays', async () => {
+      await open({
+        'GET /recipes/drafts/by-food': [200, GROUPS],
+        'GET /recipes/drafts/by-food/lines?key=soya%20sauce': [
+          404,
+          { detail: 'That ingredient was not found.', code: 'not_found' }
+        ]
+      });
+      await page.getByRole('button', { name: '+ more' }).click();
+      await expect.element(page.getByRole('alert')).toBeVisible();
+      await expect.element(page.getByRole('button', { name: '+ more' })).toBeEnabled();
+    });
+  });
 });

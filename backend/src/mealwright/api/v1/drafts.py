@@ -11,7 +11,12 @@ from fastapi import APIRouter, Query, Response, status
 from mealwright import drafts, mealie_answers
 from mealwright.api.v1.context import Here
 from mealwright.api.v1.draft_schemas import DraftIn, DraftList, DraftOut, DraftRemoved
-from mealwright.api.v1.group_schemas import GroupAnswer, GroupAnswered, IngredientGroups
+from mealwright.api.v1.group_schemas import (
+    GroupAnswer,
+    GroupAnswered,
+    GroupLines,
+    IngredientGroups,
+)
 from mealwright.auth import SameOrigin
 from mealwright.errors import StoredInt
 from mealwright.foods import change_out
@@ -74,6 +79,19 @@ def drafts_by_ingredient(
     count, two lines as written and, where matching has one, an ingredient it may be. Changes
     nothing."""
     return mealie_answers.listing(kitchen, limit)
+
+
+@router.get(
+    "/recipes/drafts/by-food/lines",
+    responses={404: {"description": "No draft from Mealie uses that ingredient any more."}},
+)
+def group_lines(
+    kitchen: Here, key: Annotated[str, Query(min_length=1, max_length=300)]
+) -> GroupLines:
+    """Every way one group's unanswered lines are written (`key` as the group gives it), most-used
+    first, with how many lines write it that way: what "+ more" under the group's two examples
+    shows (F259, 0.9.5-beta.3). The first 200; `total` is every way. Changes nothing."""
+    return mealie_answers.written(kitchen, key)
 
 
 @router.post(
