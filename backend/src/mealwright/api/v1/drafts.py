@@ -4,7 +4,7 @@ A draft belongs to the household; anyone in it can read, change, delete or carry
 Every query is for the signed-in household only, so another household's draft is a plain
 "not found". Nothing here changes Ingredients."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Response, status
 
@@ -24,6 +24,11 @@ from mealwright.history import commit, record, replayed
 from mealwright.shopping import lock_household
 
 router = APIRouter(tags=["recipes"], dependencies=[SameOrigin])
+
+# The 404 both By ingredient routes describe: the group was answered (or undone) meanwhile.
+NO_DRAFT_USES_IT: dict[int | str, dict[str, Any]] = {
+    404: {"description": "No draft from Mealie uses that ingredient any more."}
+}
 
 
 @router.get("/recipes/drafts")
@@ -83,7 +88,7 @@ def drafts_by_ingredient(
 
 @router.get(
     "/recipes/drafts/by-food/lines",
-    responses={404: {"description": "No draft from Mealie uses that ingredient any more."}},
+    responses=NO_DRAFT_USES_IT,
 )
 def group_lines(
     kitchen: Here, key: Annotated[str, Query(min_length=1, max_length=300)]
@@ -96,7 +101,7 @@ def group_lines(
 
 @router.post(
     "/recipes/drafts/by-food/answer",
-    responses={404: {"description": "No draft from Mealie uses that ingredient any more."}},
+    responses=NO_DRAFT_USES_IT,
 )
 def answer_by_ingredient(body: GroupAnswer, kitchen: Here, response: Response) -> GroupAnswered:
     """One answer for a group, applied to every draft from Mealie that uses it: an ingredient

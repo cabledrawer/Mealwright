@@ -40,9 +40,10 @@ class WrittenLine(BaseModel):
     count: int  # how many unanswered lines write it this way
 
 
+# F259: the route and its 200-line cap are proposed, for cabledrawer.
 class GroupLines(BaseModel):
     """Every way one group's unanswered lines are written, most-used first: what "+ more" under
-    the group's two examples shows (F259, proposed, for cabledrawer)."""
+    the group's two examples shows (F259)."""
 
     key: str
     lines: list[WrittenLine]  # the first 200
