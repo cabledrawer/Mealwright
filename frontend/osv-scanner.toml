@@ -1,16 +1,16 @@
-# Scanner exceptions (cabledrawer, 31 Oct and 18 Nov 2026; spec section 8, "Scanner warnings that
+# Scanner exceptions (cabledrawer, 31 Oct, 18 Nov and 20 Nov 2026; spec section 8, "Scanner warnings that
 # don't affect Mealwright"). Only these two: minimatch 10.2.6 (fixed only in 11, a new major) and
-# picomatch 4.0.7 (no fixed version yet). Both stop being ignored on 28 Nov 2026, so ./check fails
+# picomatch 4.0.7 (no fixed version yet). Both stop being ignored on 31 Dec 2026 (moved from 28 Nov by cabledrawer on 20 Nov, same reason), so ./check fails
 # on them again from then unless a fixed version is in. (The deepmerge exception of 28 Oct went on
 # 18 Nov: the scanner no longer finds that warning. The two 13 Nov SvelteKit exceptions went with
 # the frontend security PR: @sveltejs/kit 3.1.1 and @sveltejs/adapter-static 4.0.1.)
 
 [[IgnoredVulns]]
 id = "GHSA-g3hv-75wg-m249"
-ignoreUntil = 2026-11-28T00:00:00Z
+ignoreUntil = 2026-12-31T00:00:00Z
 reason = "Lint tools only: eslint and typescript-eslint use minimatch to match Mealwright's own file names while linting; it is not in the built app or the image. The fix is only in minimatch 11, a new major from 27 Oct."
 
 [[IgnoredVulns]]
 id = "GHSA-fc5q-39xc-vjpf"
-ignoreUntil = 2026-11-28T00:00:00Z
+ignoreUntil = 2026-12-31T00:00:00Z
 reason = "Dev tools only: vite, vitest and svelte-check use picomatch to match Mealwright's own file names while building, testing and type-checking; no outside input reaches it, and it is not in the built app or the image. No fixed version yet."
