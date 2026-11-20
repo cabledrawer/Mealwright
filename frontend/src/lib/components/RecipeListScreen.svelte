@@ -31,6 +31,7 @@
   import { live } from '#lib/live.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { RecipeList, searchOf, type RecipeFilter } from '#lib/recipes.svelte.js';
+  import { plural } from '#lib/words.js';
 
   let {
     pane = false,
@@ -128,7 +129,7 @@
 
   const count = $derived(
     list.loaded && !list.problem
-      ? `${list.all} ${list.all === 1 ? 'recipe' : 'recipes'}`
+      ? `${list.all} ${plural(list.all, 'recipe', 'recipes')}`
       : undefined
   );
   const searching = $derived(list.query.trim() !== '');

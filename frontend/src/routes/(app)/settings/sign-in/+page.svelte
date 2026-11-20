@@ -18,6 +18,7 @@
   import { toasts } from '#lib/toast.svelte.js';
   import { session } from '#lib/session.svelte.js';
   import SignInSection from '../SignInSection.svelte';
+  import { plural } from '#lib/words.js';
 
   // Who is shown stays put while signing out (session.me goes first).
   const who = untrack(() => session.me);
@@ -193,7 +194,7 @@
       >
       <Button quiet disabled={busy} onclick={stay}>Stay signed in</Button>
       <button type="button" class="lose" disabled={busy} onclick={() => void signOutNow()}
-        >Sign out and lose {left === 1 ? 'it' : 'them'}</button
+        >Sign out and lose {plural(left, 'it', 'them')}</button
       >
     </div>
   {/if}

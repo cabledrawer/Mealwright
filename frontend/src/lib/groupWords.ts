@@ -4,6 +4,7 @@
 // docs/dev/words.md, section 82. One place, so the phone and the computer say the same thing.
 
 import { count } from './mealieWords';
+import { plural } from './words.js';
 
 export const SWITCH_LABEL = 'Show';
 export const BY_RECIPE = 'By recipe';
@@ -11,11 +12,11 @@ export const BY_INGREDIENT = 'By ingredient';
 export const TITLE = 'Drafts · From Mealie';
 
 /** "1 ingredient", "46 ingredients". */
-const ingredients = (n: number) => `${count(n)} ${n === 1 ? 'ingredient' : 'ingredients'}`;
+const ingredients = (n: number) => `${count(n)} ${plural(n, 'ingredient', 'ingredients')}`;
 /** "1 draft", "46 drafts". */
-export const draftsWords = (n: number) => `${count(n)} ${n === 1 ? 'draft' : 'drafts'}`;
+export const draftsWords = (n: number) => `${count(n)} ${plural(n, 'draft', 'drafts')}`;
 /** "1 recipe", "3 recipes". */
-const recipes = (n: number) => `${count(n)} ${n === 1 ? 'recipe' : 'recipes'}`;
+const recipes = (n: number) => `${count(n)} ${plural(n, 'recipe', 'recipes')}`;
 
 /** The progress line on a computer: "47 ingredients still to answer". */
 export const leftWords = (n: number): string => `${ingredients(n)} still to answer`;

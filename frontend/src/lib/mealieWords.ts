@@ -6,6 +6,7 @@
 import type { MealieImport, MealiePreview, MealieResult, MealieUndone } from './client/mealie';
 import { UNDO_SPAN } from '#lib/undoWords.js';
 import { sizeWords, whenWords } from './yourDataWords';
+import { plural as oneOrMany } from './words.js';
 
 export { sizeWords };
 
@@ -100,7 +101,7 @@ export function fromFileWords(
 export function undoWords(job: Pick<MealieImport, 'counts'>): string {
   const recipes = `the ${recipesWords(broughtIn(job))}`;
   const foods = job.counts.new_foods
-    ? ` and the ${count(job.counts.new_foods)} new ${job.counts.new_foods === 1 ? 'ingredient' : 'ingredients'}`
+    ? ` and the ${count(job.counts.new_foods)} new ${oneOrMany(job.counts.new_foods, 'ingredient', 'ingredients')}`
     : '';
   return `Takes out ${recipes}${foods}. Works for ${UNDO_SPAN}; recipes you’ve changed or cooked since are kept.`;
 }
@@ -138,7 +139,7 @@ export function readyWords(
   const toDrafts = ticked.filter((r) => r.to_drafts === true).length;
   const ready = ticked.filter((r) => r.to_drafts === false).length;
   if (toDrafts + ready <= 0) return null;
-  const drafts = `${count(toDrafts)} ${toDrafts === 1 ? 'goes' : 'go'}`;
+  const drafts = `${count(toDrafts)} ${oneOrMany(toDrafts, 'goes', 'go')}`;
   return `${recipesWords(ready)} ready, ${drafts} to Drafts to check`;
 }
 
@@ -204,7 +205,7 @@ export const showingWords = (shown: number, all: number): string =>
 export const noteWords = (recipes: number): string =>
   `${recipesWords(recipes)} brought in from Mealie`;
 export const noteCheckWords = (n: number): string =>
-  `${count(n)} ${n === 1 ? 'has' : 'have'} lines to check`;
+  `${count(n)} ${oneOrMany(n, 'has', 'have')} lines to check`;
 export const NOTE_FAILED = 'The import from Mealie stopped';
 export const NOTE_FAILED_LINE = 'Recipes brought in before it stopped are kept.';
 export const UNDONE = 'Import undone';

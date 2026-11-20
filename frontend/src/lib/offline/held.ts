@@ -9,6 +9,7 @@ import { readSignedIn, type SignedIn } from './device';
 import { phoneExists, readPhone, UNREADABLE, type QueueEntry, type Unreadable } from './phone';
 import { signOutPending } from './signOutPending';
 import { wipePending } from './wipePending.svelte';
+import { plural } from '../words.js';
 
 export { UNREADABLE, type Unreadable } from './phone';
 
@@ -59,18 +60,18 @@ export async function storedWaiting(loginId: number): Promise<string[] | Unreada
   }
 }
 
-const changes = (n: number) => `${n} ${n === 1 ? 'change' : 'changes'}`;
+const changes = (n: number) => `${n} ${plural(n, 'change', 'changes')}`;
 
 /** "phone" with the bottom tabs, "computer" with the sidebar (by layout, as everywhere). */
 export type Device = 'phone' | 'computer';
 
 /** The sign-in ran out; the same person is signing back in. */
 export const keptText = (n: number, device: Device = 'phone') =>
-  `Please sign in again. Your ${changes(n)} ${n === 1 ? 'is' : 'are'} kept on this ${device}.`;
+  `Please sign in again. Your ${changes(n)} ${plural(n, 'is', 'are')} kept on this ${device}.`;
 
 /** Someone else is about to sign in on a device holding `name`'s changes. */
 export const waitingForText = (name: string, n: number, device: Device = 'phone') =>
-  `${name}’s ${changes(n)} ${n === 1 ? 'is' : 'are'} waiting on this ${device}. Sign in as ${name} to send ${n === 1 ? 'it' : 'them'}.`;
+  `${name}’s ${changes(n)} ${plural(n, 'is', 'are')} waiting on this ${device}. Sign in as ${name} to send ${plural(n, 'it', 'them')}.`;
 
 /**
  * Right after the app signed someone out over `name`'s changes, in place of the line above
@@ -104,11 +105,11 @@ export const unfinishedText = (device: Device = 'phone') =>
 
 /** The warning before a different login carries on. */
 export const loseOthersText = (name: string, n: number) =>
-  `${name}’s ${changes(n)} ${n === 1 ? 'hasn’t' : 'haven’t'} been sent yet. If you carry on, ${n === 1 ? 'it’s' : 'they’re'} lost.`;
+  `${name}’s ${changes(n)} ${plural(n, 'hasn’t', 'haven’t')} been sent yet. If you carry on, ${plural(n, 'it’s', 'they’re')} lost.`;
 
 /** The warning before signing out (section 12). */
 export const loseOnSignOutText = (n: number) =>
-  `${changes(n)} ${n === 1 ? 'hasn’t' : 'haven’t'} been sent yet. If you sign out now, ${n === 1 ? 'it’s' : 'they’re'} lost.`;
+  `${changes(n)} ${plural(n, 'hasn’t', 'haven’t')} been sent yet. If you sign out now, ${plural(n, 'it’s', 'they’re')} lost.`;
 
 /** Added to that warning when "Try sending now" didn't get them all through. */
 export const STILL_CANT_REACH = 'Still can’t reach your server.';

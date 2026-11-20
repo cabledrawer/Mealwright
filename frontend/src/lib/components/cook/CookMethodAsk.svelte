@@ -9,6 +9,7 @@
   import { network } from '#lib/network.svelte.js';
   import { timeWithWait } from '#lib/timeWords.js';
   import { toasts } from '#lib/toast.svelte.js';
+  import { plural } from '#lib/words.js';
 
   let {
     recipe,
@@ -36,7 +37,7 @@
         name: m.name,
         detail: [
           timeWithWait(m.time_minutes, m.wait),
-          `${count} ${count === 1 ? 'step' : 'steps'}`,
+          `${count} ${plural(count, 'step', 'steps')}`,
           m.used_last ? 'last time' : ''
         ]
           .filter(Boolean)

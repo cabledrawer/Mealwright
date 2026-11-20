@@ -22,6 +22,7 @@
   import { dayFull, dayOfMonth, dayShort } from '#lib/planDates.js';
   import { colourOfBatch, itemName } from '#lib/planMeals.js';
   import Switch from '../Switch.svelte';
+  import { plural } from '#lib/words.js';
 
   let {
     actions,
@@ -391,7 +392,7 @@
         <button type="button" class="back" onclick={onclose}>Cancel</button>
         <button type="button" class="go" disabled={actions.readonly || !cook.preview} onclick={save}
           >{#if ahead}{ahead.last ? 'Plan this batch' : 'Next recipe'}{:else}Add {cook.count}
-            {cook.count === 1 ? 'tub' : 'tubs'} to the plan{/if}</button
+            {plural(cook.count, 'tub', 'tubs')} to the plan{/if}</button
         >
       </div>
     </div>

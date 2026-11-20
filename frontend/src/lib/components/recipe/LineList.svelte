@@ -26,6 +26,7 @@
   import { linkedWords } from '#lib/recipes/linkedWords.js';
   import { move, reorder } from '#lib/recipes/reorder.js';
   import { undoHistory, type UndoEntry } from '#lib/undo.svelte.js';
+  import { plural } from '#lib/words.js';
 
   let {
     draft,
@@ -218,7 +219,7 @@
     <h2 id="{uid}-title">Ingredients</h2>
     <span class="count">
       {count}
-      {count === 1 ? 'line' : 'lines'} ·
+      {plural(count, 'line', 'lines')} ·
       {#if phone}drag to reorder{:else}drag, or Alt+↑ / Alt+↓ to move{/if}
     </span>
   </div>

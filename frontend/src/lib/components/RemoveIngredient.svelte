@@ -6,6 +6,7 @@
   // on, and the editor says why, with the recipe's name as a link.
   import { resolve } from '$app/paths';
   import type { Ref } from '#lib/client/types.js';
+  import { plural } from '#lib/words.js';
 
   let {
     usedIn,
@@ -46,7 +47,7 @@
     {#if usedIn > 0}
       <p id="{uid}-hint">
         Used in {usedIn}
-        {usedIn === 1 ? 'recipe' : 'recipes'}. {usedIn === 1
+        {plural(usedIn, 'recipe', 'recipes')}. {usedIn === 1
           ? 'Its line keeps its words and shows'
           : 'Their lines keep their words and show'} “not linked”.
       </p>

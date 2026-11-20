@@ -1,6 +1,7 @@
 // Your own sign-in (Settings › Your sign-in and Change password, PR A2): your password's date,
 // where you're signed in, and signing out one device or everywhere else.
 import { api } from '#lib/api.js';
+import { plural } from './words.js';
 
 /** One device where you're signed in. */
 export interface SignInPlace {
@@ -47,7 +48,7 @@ export function lastUsedText(at: string, now: Date = new Date()): string {
   if (minutes < 2) return 'Now';
   if (minutes < 60) return `${minutes} minutes ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  if (hours < 24) return `${hours} hour${plural(hours, '', 's')} ago`;
   const days = Math.floor(gone / DAY);
   if (days === 1) return 'Yesterday';
   if (days < 7) return `${days} days ago`;

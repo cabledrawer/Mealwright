@@ -42,6 +42,7 @@
   import { keepShow, readShow, type PlanShow } from '#lib/planShow.js';
   import { RecipeList } from '#lib/recipes.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
+  import { plural } from '#lib/words.js';
 
   const model = new PlanModel();
   const recipes = new RecipeList();
@@ -580,7 +581,7 @@
             onclick={() => (earlier = !earlier)}
             >{earlier
               ? 'Hide earlier days'
-              : `Earlier this week (${past.length} ${past.length === 1 ? 'day' : 'days'})`}</button
+              : `Earlier this week (${past.length} ${plural(past.length, 'day', 'days')})`}</button
           >
         {/if}
         {#if show === 'cook'}

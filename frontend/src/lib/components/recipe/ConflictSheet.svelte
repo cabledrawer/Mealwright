@@ -8,6 +8,7 @@
   import { onMount } from 'svelte';
   import type { RecipeOut } from '#lib/client/recipes.js';
   import { compareLines, compareSteps, otherChanges } from '#lib/recipes/compare.js';
+  import { plural } from '#lib/words.js';
 
   let {
     who,
@@ -105,7 +106,7 @@
       {#if sameLines > 0}
         <li class="quiet">
           {changedLines.length ? '+ ' : ''}{sameLines}
-          {changedLines.length ? 'more ' : ''}{sameLines === 1 ? 'line' : 'lines'}, unchanged
+          {changedLines.length ? 'more ' : ''}{plural(sameLines, 'line', 'lines')}, unchanged
         </li>
       {/if}
     </ul>

@@ -1,8 +1,9 @@
 // Amount wording for the pack sheet: base amounts (g, ml, items) in plain words.
 
 import type { ShopFood } from './types';
+import { NBSP } from '../words.js';
+import { plural } from '../words.js';
 
-const NBSP = '\u00a0';
 const trim = (n: number) => String(Math.round(n * 100) / 100).replace(/\.0+$/, '');
 
 export function baseText(amount: number, countedAs: ShopFood['counted_as']): string {
@@ -45,5 +46,5 @@ export function unitsFor(countedAs: ShopFood['counted_as']): { name: string; fac
 /** "Pantry gets 1 pack · 400 g." */
 export function pantryGets(count: number, pack: number, countedAs: ShopFood['counted_as']): string {
   const total = baseText(count * pack, countedAs);
-  return `Pantry gets ${count} ${count === 1 ? 'pack' : 'packs'} · ${total}.`;
+  return `Pantry gets ${count} ${plural(count, 'pack', 'packs')} · ${total}.`;
 }

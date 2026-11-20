@@ -11,6 +11,7 @@
   import { network } from '#lib/network.svelte.js';
   import { save } from '#lib/save.js';
   import { starterPacks } from '#lib/starterPacks.svelte.js';
+  import { plural } from '#lib/words.js';
 
   const uid = $props.id();
   let dialog: HTMLDialogElement;
@@ -64,7 +65,7 @@
     if (!picked || !chosen.length || network.offline) return;
     const pack = picked;
     const keys = chosen.map((item) => item.key);
-    const many = `${keys.length} ${keys.length === 1 ? 'ingredient' : 'ingredients'}`;
+    const many = `${keys.length} ${plural(keys.length, 'ingredient', 'ingredients')}`;
     starterPacks.close();
     let undoer: (() => Promise<string | void>) | null = null;
     void save({

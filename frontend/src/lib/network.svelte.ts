@@ -19,6 +19,7 @@ import { isLeaving, whenStaying } from './leaving';
 import { endPendingSignOut } from './offline/signOutPending';
 import { proxyGap } from './proxyGap';
 import { toasts } from './toast.svelte';
+import { plural } from './words.js';
 
 /** A failure shorter than this shows nothing. */
 export const OFFLINE_AFTER_MS = 3000;
@@ -30,7 +31,7 @@ export const CHECK_TIMEOUT_MS = 8000;
 /** The toast when the connection is back and every waiting change has been sent. */
 export const BACK_ONLINE = 'Back online — all saved';
 
-const changes = (n: number) => `${n} ${n === 1 ? 'change' : 'changes'}`;
+const changes = (n: number) => `${n} ${plural(n, 'change', 'changes')}`;
 
 /** The words in the offline bar. `detail` is the second line on desktop, if there is one.
  *  `device`: network.deviceOffline. The word follows the cause, like the page notes (cabledrawer

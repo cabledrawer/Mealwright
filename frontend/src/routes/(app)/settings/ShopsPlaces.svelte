@@ -25,6 +25,7 @@
   import { save } from '#lib/save.js';
   import { toasts } from '#lib/toast.svelte.js';
   import OrderedRows from './OrderedRows.svelte';
+  import { plural } from '#lib/words.js';
 
   const KINDS: { value: PlaceKind; label: string }[] = [
     { value: 'fridge', label: 'Fridge' },
@@ -319,7 +320,7 @@
     >
       <p class="note-line" tabindex="-1" use:askedMove>
         {moving.place.name} has {moving.things}
-        {moving.things === 1 ? 'thing' : 'things'} in it. Move them to…
+        {plural(moving.things, 'thing', 'things')} in it. Move them to…
       </p>
       <label class="sr" for="move-to">Move them to</label>
       <select id="move-to" bind:value={moveTo}>

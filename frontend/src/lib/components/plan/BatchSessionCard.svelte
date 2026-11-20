@@ -13,6 +13,7 @@
   import { colourOfBatch } from '#lib/planMeals.js';
   import { timeWords } from '#lib/timeWords.js';
   import { toasts } from '#lib/toast.svelte.js';
+  import { plural } from '#lib/words.js';
 
   let {
     actions,
@@ -62,7 +63,7 @@
       }
     );
   });
-  const tubs = (b: PlanBatch) => `${b.tub_count} ${b.tub_count === 1 ? 'tub' : 'tubs'}`;
+  const tubs = (b: PlanBatch) => `${b.tub_count} ${plural(b.tub_count, 'tub', 'tubs')}`;
 
   /**
    * Start batch cook: batch cook mode for the whole session (B3). The plan is read again first
@@ -100,7 +101,7 @@
 >
   <div class="head">
     <span class="title">
-      <strong>Batch cook · {batches.length} {batches.length === 1 ? 'recipe' : 'recipes'}</strong>
+      <strong>Batch cook · {batches.length} {plural(batches.length, 'recipe', 'recipes')}</strong>
       {#if when}<span class="when">{when}</span>{/if}
     </span>
     <span class="exp"><Icon name="flask" size={13} stroke={2.4} />Experimental</span>

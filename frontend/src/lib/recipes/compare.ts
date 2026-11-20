@@ -3,6 +3,7 @@
 
 import type { LineOut, RecipeOut } from '#lib/client/recipes.js';
 import { linkedWords } from './linkedWords';
+import { NBSP } from '../words.js';
 
 export interface ShownLine {
   /** "300 g" (empty for a line with no amount). */
@@ -16,7 +17,6 @@ export interface ShownLine {
   was: string | null;
 }
 
-const NBSP = ' ';
 
 /** "1½ tbsp", "2 packets", "10", or nothing. */
 export function quantityOf(line: LineOut): string {

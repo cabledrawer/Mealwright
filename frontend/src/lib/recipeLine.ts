@@ -5,9 +5,9 @@
 import type { RecipeRow } from './client/recipes';
 import { dateWords } from './dates';
 import { timeParts } from './timeWords';
+import { NBSP } from './words.js';
 
 /** A number and its unit stay on one line. */
-const NBSP = ' ';
 
 export interface Part {
   text: string;

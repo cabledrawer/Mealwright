@@ -9,6 +9,7 @@
   import type { ShoppingModel } from '#lib/shopping/store.svelte.js';
   import type { FoodSize, ListItem, ShopFood, Tick } from '#lib/shopping/types.js';
   import { radioKeys } from '#lib/radioKeys.js';
+  import { plural } from '#lib/words.js';
 
   let {
     model,
@@ -230,7 +231,7 @@
   {#if chosen}
     <span class="gets" role="status"
       >{'ready' in chosen && chosen.ready && food.counted_as === 'count'
-        ? `Pantry gets ${chosen.pack} ${chosen.pack === 1 ? 'item' : 'items'}.`
+        ? `Pantry gets ${chosen.pack} ${plural(chosen.pack, 'item', 'items')}.`
         : pantryGets(chosen.count, chosen.pack, food.counted_as)}</span
     >
   {/if}

@@ -7,9 +7,10 @@
 // exactly as it was typed.
 
 import type { RecipeLine } from './client/recipes';
+import { NBSP } from './words.js';
+import { plural } from './words.js';
 
 /** A number and its unit stay on one line. */
-const NBSP = '\u00a0';
 
 export const MIN_SERVES = 1;
 export const MAX_SERVES = 99;
@@ -90,7 +91,7 @@ export function makesAmount(
     factor === 1
       ? { text: makes.amount_text, value: makes.amount }
       : scaled(makes.amount * factor, known ? makes.unit : null, makes.amount_text);
-  const unit = makes.unit === 'l' ? (now.value === 1 ? 'litre' : 'litres') : makes.unit;
+  const unit = makes.unit === 'l' ? (plural(now.value, 'litre', 'litres')) : makes.unit;
   return `${now.text}${NBSP}${unit}`;
 }
 

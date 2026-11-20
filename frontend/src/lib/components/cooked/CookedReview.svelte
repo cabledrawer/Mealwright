@@ -14,6 +14,7 @@
   import { eatOnUpTo } from '#lib/tubUseBy.js';
   import { tubsWords } from '#lib/todayWords.js';
   import CookRowView from './CookRowView.svelte';
+  import { plural } from '#lib/words.js';
 
   /** "Any left over?": only for a meal answered from Today or the Plan. */
   export interface LeftoverOptions {
@@ -92,7 +93,7 @@
     [
       changes === 0
         ? 'Nothing will be taken from the pantry'
-        : `${changes} ${changes === 1 ? 'ingredient' : 'ingredients'} will change`,
+        : `${changes} ${plural(changes, 'ingredient', 'ingredients')} will change`,
       count > 0 ? `${tubsWords(count)} → ${place === 'fridge' ? 'Fridge' : 'Freezer'}` : ''
     ]
       .filter(Boolean)

@@ -23,6 +23,7 @@
   import { linkedWords } from '#lib/recipes/linkedWords.js';
   import Icon from '../Icon.svelte';
   import KeepAwake from '../KeepAwake.svelte';
+  import { plural } from '#lib/words.js';
 
   let {
     model,
@@ -98,7 +99,7 @@
         <Icon name="close" size={20} stroke={2.4} />
       </button>
       <div class="who">
-        <h1>Batch cook · {recipes.length} {recipes.length === 1 ? 'recipe' : 'recipes'}</h1>
+        <h1>Batch cook · {recipes.length} {plural(recipes.length, 'recipe', 'recipes')}</h1>
         <p class="count" data-testid="batch-progress">
           {progressWords(done, total, worked?.minutesLeft ?? 0)}
         </p>

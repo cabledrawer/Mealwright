@@ -41,6 +41,7 @@
   import { dayWords, partsCooked, weekRows, whenWords } from '#lib/todayWords.js';
   import type { PlanItem, PlanMeal } from '#lib/client/plan.js';
   import type { WaitingMeal } from '#lib/client/today.js';
+  import { plural } from '#lib/words.js';
 
   const model = new TodayModel();
   // The shopping list's own copy: "to buy", and the "Did you buy 2?" cards.
@@ -368,7 +369,7 @@
           <span class="overline">Next cook · {dayWords(data.next_cook.date, today)}</span>
           <span class="name"
             >{data.next_cook.recipe_name} · {data.next_cook.tub_count}
-            {data.next_cook.tub_count === 1 ? 'tub' : 'tubs'}</span
+            {plural(data.next_cook.tub_count, 'tub', 'tubs')}</span
           >
         </div>
         <a href={resolve('/(app)/shopping')}>Shop list</a>

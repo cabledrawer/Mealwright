@@ -27,6 +27,7 @@ import { sendAction, shoppingSync } from './sync.svelte';
 import type { FoodSize, ListItem, ShopFood, Tick } from './types';
 import { ANY_SHOP, groupByShop, listCounts, planWords, standingTicks, subtitle } from './view';
 import { fromPlan, gotIt, notGotIt, type PlanCard, type Staple } from './plan';
+import { plural } from '../words.js';
 
 /** The last thing ticked, for the desktop "Put away" panel and the phone toast. */
 export interface Ticked {
@@ -962,7 +963,7 @@ export class ShoppingModel {
     return this.#act(
       { kind: 'clear_ticked', list_id: list.id, item_ids: gone },
       {
-        label: `Cleared ${rows} ticked ${rows === 1 ? 'item' : 'items'}`
+        label: `Cleared ${rows} ticked ${plural(rows, 'item', 'items')}`
       }
     );
   }

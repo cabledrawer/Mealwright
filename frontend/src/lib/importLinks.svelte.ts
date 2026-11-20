@@ -17,6 +17,7 @@ import { ImportFlow } from './import.svelte';
 import { toasts } from './toast.svelte';
 import { undoHistory } from './undo.svelte';
 import { forgetOnWipe } from './offline/wipeHooks';
+import { plural } from './words.js';
 
 /** Words on the screen (mockup Dark-ImportLinks08-Phone; "in Drafts" is agreed; "✓ All matched" and
  *  "Needs checking" are cabledrawer 11 Nov; the rest is proposed, for cabledrawer). */
@@ -34,9 +35,9 @@ export const LINKS_SERVER_NOTE =
   'Only Mealwright’s server fetches these pages, and only because Recipe import is switched on in Settings.';
 /** Quick import (F216, cabledrawer 10 Nov; the words are accepted, cabledrawer 11 Nov). */
 export const savedWords = (count: number): string =>
-  `Saved ${count} ${count === 1 ? 'recipe' : 'recipes'}`;
+  `Saved ${count} ${plural(count, 'recipe', 'recipes')}`;
 export const saveReadyWords = (count: number): string =>
-  `Save ${count} ready ${count === 1 ? 'recipe' : 'recipes'}`;
+  `Save ${count} ready ${plural(count, 'recipe', 'recipes')}`;
 /** After the one Undo of a quick import when some of the saves couldn't be taken back (proposed,
  *  for cabledrawer). */
 export const undidWords = (done: number, total: number): string => `Undid ${done} of ${total}`;
@@ -57,7 +58,7 @@ export const pasteLimitWords = (): string =>
 
 /** Said under the list when a paste had more links than were read (proposed, for cabledrawer). */
 export const leftOutWords = (left: number, room: number | null): string =>
-  `${left} more ${left === 1 ? 'link was' : 'links were'} left out. A paste reads up to ${MOST_LINKS} links${
+  `${left} more ${plural(left, 'link was', 'links were')} left out. A paste reads up to ${MOST_LINKS} links${
     room !== null && room < MOST_LINKS ? `, and Drafts has room for ${room} more` : ''
   }.`;
 
@@ -324,7 +325,7 @@ export class ImportLinks {
     const words = savedWords(done.length);
     undoHistory.record({
       label:
-        failed > 0 ? `${words}. ${failed} ${failed === 1 ? 'stays' : 'stay'} in Drafts` : words,
+        failed > 0 ? `${words}. ${failed} ${plural(failed, 'stays', 'stay')} in Drafts` : words,
       needsServer: true,
       undo: async () => {
         let message: string | void = undefined;

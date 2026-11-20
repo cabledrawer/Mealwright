@@ -15,6 +15,7 @@ import {
   whoseTub
 } from './planMeals';
 import { timeWords } from './timeWords';
+import { plural } from './words.js';
 
 export interface WeekCard {
   key: string;
@@ -71,7 +72,7 @@ export function beforeCook(
 
 /** "Makes 6 · 4 tubs". */
 export function makesWords(batch: PlanBatch): string {
-  const tubs = `${batch.tub_count} ${batch.tub_count === 1 ? 'tub' : 'tubs'}`;
+  const tubs = `${batch.tub_count} ${plural(batch.tub_count, 'tub', 'tubs')}`;
   return `Makes ${batch.portions} · ${tubs}`;
 }
 

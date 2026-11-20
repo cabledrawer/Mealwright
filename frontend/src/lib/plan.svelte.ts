@@ -72,6 +72,7 @@ import { cookBatchOfItem, itemName, leftName, mealName } from './planMeals';
 import { optionalAsk } from './optionalAsk.svelte';
 import type { StepWait } from './timeWords';
 import { save, type Outcome } from './save';
+import { plural } from './words.js';
 
 export type PlanView = 'week' | 'month';
 
@@ -684,7 +685,7 @@ export class PlanModel {
 
   /** Make a batch cook from a planned recipe, with its tubs placed as the preview showed. */
   cookOnce(itemId: number, recipeName: string, body: BatchBody) {
-    const word = body.tub_count === 1 ? 'tub' : 'tubs';
+    const word = plural(body.tub_count, 'tub', 'tubs');
     return this.#send({
       label: `Planned ${recipeName} once for ${body.tub_count} ${word}`,
       send: (key) => makeBatch(itemId, body, key)

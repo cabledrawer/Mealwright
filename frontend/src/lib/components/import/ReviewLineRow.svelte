@@ -39,6 +39,7 @@
   import { unitFor } from '#lib/recipeAmounts.js';
 
   import '#lib/styles/fields.css';
+  import { plural } from '#lib/words.js';
   let {
     flow,
     index,
@@ -803,7 +804,7 @@
         {#if choice && (followers.length > 0 || sharedFrom !== undefined)}
           <p class="also" role="status">
             {#if followers.length > 0}
-              Also used for {followers.length} more {followers.length === 1 ? 'line' : 'lines'}: “{followers
+              Also used for {followers.length} more {plural(followers.length, 'line', 'lines')}: “{followers
                 .map((j) => flow.review?.lines[j]?.written)
                 .join('”, “')}”
             {:else}

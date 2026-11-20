@@ -13,6 +13,7 @@
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
   import { amountWords } from '#lib/import.svelte.js';
   import { unitFor } from '#lib/recipeAmounts.js';
+  import { plural } from '#lib/words.js';
 
   let { flow, onsave }: { flow: ImportFlow; onsave: () => void } = $props();
 
@@ -122,7 +123,7 @@
       <div class="head">
         <h2 id="{uid}-title">
           {total}
-          {total === 1 ? 'line isn’t' : 'lines aren’t'} linked yet
+          {plural(total, 'line isn’t', 'lines aren’t')} linked yet
         </h2>
         <p id="{uid}-text">
           Unlinked lines can’t be counted in your pantry or added to the shopping list properly.
@@ -226,11 +227,11 @@
       <div class="head">
         <h2 id="{uid}-title">
           {left}
-          {left === 1 ? 'line' : 'lines'} left unlinked
+          {plural(left, 'line', 'lines')} left unlinked
         </h2>
         <p id="{uid}-text">
-          You can save now and link {left === 1 ? 'it' : 'them'} later in the recipe, or go back to Check
-          and sort {left === 1 ? 'it' : 'them'} there.
+          You can save now and link {plural(left, 'it', 'them')} later in the recipe, or go back to Check
+          and sort {plural(left, 'it', 'them')} there.
         </p>
       </div>
       <div class="foot last">

@@ -4,6 +4,7 @@
 
 import type { BackupEvery, Backups } from '#lib/client/yourData.js';
 import { UNDO_SPAN } from '#lib/undoWords.js';
+import { NBSP } from './words.js';
 
 export const EVERY_WORDS: Record<BackupEvery, string> = {
   daily: 'Daily, 03:00',
@@ -13,7 +14,6 @@ export const EVERY_WORDS: Record<BackupEvery, string> = {
 
 export const keepWords = (keep: number): string => (keep === 1 ? 'Last 1' : `Last ${keep}`);
 
-const NBSP = '\u00a0'; // between a number and its unit, so they never part
 
 /** A file's size the way people read it: "2.1 MB", "640 KB", "900 bytes". */
 export function sizeWords(bytes: number): string {

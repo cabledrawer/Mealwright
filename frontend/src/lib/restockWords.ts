@@ -3,6 +3,7 @@
 // depends on this device's clock or time zone.
 
 import { dayMonthWords, isRealDay } from './dates.js';
+import { plural as oneOrMany } from './words.js';
 
 const full = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
@@ -22,7 +23,7 @@ export function agoWords(days: number): string {
 }
 
 function plural(n: number, unit: string): string {
-  return `${n} ${unit}${n === 1 ? '' : 's'} ago`;
+  return `${n} ${unit}${oneOrMany(n, '', 's')} ago`;
 }
 
 /** The pantry chip's line: "Restocked 12 Oct" ("Restocked today" on the day). */

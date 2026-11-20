@@ -16,6 +16,7 @@
   import { forMeal, startWords, stepTitle, type StartEntry } from '#lib/startWords.js';
   import { untrack } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
+  import { plural } from '#lib/words.js';
 
   let {
     actions,
@@ -191,7 +192,7 @@
                     class="chip spare"
                     disabled={actions.readonly}
                     onclick={() => actions.openItem(entry.meal, entry.item)}
-                    >+ {entry.spare} spare {entry.spare === 1 ? 'tub' : 'tubs'}</button
+                    >+ {entry.spare} spare {plural(entry.spare, 'tub', 'tubs')}</button
                   >
                 {/if}
               </div>
@@ -215,11 +216,11 @@
       <h3>This week’s cooking</h3>
       <dl>
         <div>
-          <dt>{batches.length === 1 ? 'batch' : 'batches'}</dt>
+          <dt>{plural(batches.length, 'batch', 'batches')}</dt>
           <dd>{batches.length}{portions ? ` · ${portions} portions` : ''}</dd>
         </div>
         <div>
-          <dt>fresh {fresh.length === 1 ? 'meal' : 'meals'}</dt>
+          <dt>fresh {plural(fresh.length, 'meal', 'meals')}</dt>
           <dd>{fresh.length}</dd>
         </div>
         {#if stove > 0}

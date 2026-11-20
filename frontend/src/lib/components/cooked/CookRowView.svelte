@@ -25,6 +25,7 @@
   } from '#lib/cookRows.js';
   import type { CookReview, CookTab } from '#lib/cookReview.svelte.js';
   import Switch from '../Switch.svelte';
+  import { plural } from '#lib/words.js';
 
   let {
     review,
@@ -271,12 +272,12 @@
         {#if countNote}
           {#if counted}
             {numberWords(countNote.count)}
-            {countNote.word}{countNote.count === 1 ? '' : 's'} is how many {row.unit_word
+            {countNote.word}{plural(countNote.count, '', 's')} is how many {row.unit_word
               ? `${row.unit_word} of ${name}`
               : name}?
           {:else}
             How much is {numberWords(countNote.count)}
-            {countNote.word}{countNote.count === 1 ? '' : 's'} of {nameInSentence(name)}?
+            {countNote.word}{plural(countNote.count, '', 's')} of {nameInSentence(name)}?
           {/if}
         {:else}
           How much {name} did you use?

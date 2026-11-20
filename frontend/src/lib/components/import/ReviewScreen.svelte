@@ -34,6 +34,7 @@
   import ReviewLineRow from './ReviewLineRow.svelte';
 
   import '#lib/styles/fields.css';
+  import { plural } from '#lib/words.js';
   let {
     flow,
     phone = false,
@@ -389,9 +390,9 @@
             <span class="count warn">{counts.to_confirm} to confirm</span>
             <span class="count bad"
               >{counts.needs_you}
-              {counts.needs_you === 1 ? 'needs' : 'need'} you</span
+              {plural(counts.needs_you, 'needs', 'need')} you</span
             >
-            <span class="count">{counts.staple} {counts.staple === 1 ? 'staple' : 'staples'}</span>
+            <span class="count">{counts.staple} {plural(counts.staple, 'staple', 'staples')}</span>
           </div>
         {/if}
       </div>
@@ -576,7 +577,7 @@
       {#if review.steps_shortened}
         <p class="note">
           {review.steps_shortened}
-          {review.steps_shortened === 1 ? 'step was' : 'steps were'} shortened to 5,000 characters.
+          {plural(review.steps_shortened, 'step was', 'steps were')} shortened to 5,000 characters.
         </p>
       {/if}
       {#each review.left_out as left (left.heading)}
@@ -630,9 +631,9 @@
         <span class="count good">{counts.matched} ok</span>
         <span class="count warn">{counts.to_confirm} to confirm</span>
         <span class="count bad"
-          >{counts.needs_you} {counts.needs_you === 1 ? 'needs' : 'need'} you</span
+          >{counts.needs_you} {plural(counts.needs_you, 'needs', 'need')} you</span
         >
-        <span class="count">{counts.staple} {counts.staple === 1 ? 'staple' : 'staples'}</span>
+        <span class="count">{counts.staple} {plural(counts.staple, 'staple', 'staples')}</span>
       </div>
     {/snippet}
     {@render reviewBody()}

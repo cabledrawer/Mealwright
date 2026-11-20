@@ -1,5 +1,6 @@
 <script lang="ts" module>
   import type { Ref } from '#lib/client/types.js';
+  import { plural } from '#lib/words.js';
 
   export type Pick =
     { kind: 'ingredient'; food: Ref; otherNames?: string[] } | { kind: 'recipe'; recipe: Ref };
@@ -132,7 +133,7 @@
     if (other) parts.push(`also called ${other}`);
     const n = food.used_in_recipes;
     if (n !== undefined)
-      parts.push(n === 0 ? 'in no recipes' : `in ${n} ${n === 1 ? 'recipe' : 'recipes'}`);
+      parts.push(n === 0 ? 'in no recipes' : `in ${n} ${plural(n, 'recipe', 'recipes')}`);
     return parts.join(' · ');
   }
 

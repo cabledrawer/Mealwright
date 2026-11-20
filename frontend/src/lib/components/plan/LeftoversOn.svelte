@@ -28,6 +28,7 @@
     rowKey,
     shortRows
   } from '#lib/portions.js';
+  import { plural } from '#lib/words.js';
 
   let {
     actions,
@@ -259,7 +260,7 @@
           >
             Add anyway
             <small
-              >{short.length === 1 ? 'Plans it' : 'Plans them'}; the batch stays at {portions.portions}</small
+              >{plural(short.length, 'Plans it', 'Plans them')}; the batch stays at {portions.portions}</small
             >
           </button>
         </div>

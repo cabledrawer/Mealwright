@@ -3,6 +3,7 @@
 // has got. One place, so the phone's rows and the computer's table say the same thing.
 
 import type { DraftBrief } from './client/drafts';
+import { plural } from './words.js';
 
 /** "bbcgoodfood.com", "Pasted text", or "Mealie" (0.9.5: Import from Mealie). */
 export function fromWords(draft: Pick<DraftBrief, 'source'>): string {
@@ -20,7 +21,7 @@ export function phoneSource(draft: DraftBrief): string {
 
 /** "13 days left" (a phone), "13 days" (a computer's column), "1 day left". */
 export function daysWords(days: number, left = true): string {
-  const count = `${days} ${days === 1 ? 'day' : 'days'}`;
+  const count = `${days} ${plural(days, 'day', 'days')}`;
   return left ? `${count} left` : count;
 }
 
@@ -42,7 +43,7 @@ export function progressWords(draft: DraftBrief): string {
   if (draft.lines_total === 0) return 'No ingredients found';
   const need = needYou(draft);
   if (need === 0) return 'All checked · ready to save';
-  return `${draft.lines_checked} of ${draft.lines_total} ingredients checked · ${need} ${need === 1 ? 'needs' : 'need'} you`;
+  return `${draft.lines_checked} of ${draft.lines_total} ingredients checked · ${need} ${plural(need, 'needs', 'need')} you`;
 }
 
 /** The computer's column: "6 of 9 · 3 need you" · "All checked · ready to save". */
@@ -50,7 +51,7 @@ export function shortProgress(draft: DraftBrief): string {
   if (draft.lines_total === 0) return 'No ingredients found';
   const need = needYou(draft);
   if (need === 0) return 'All checked · ready to save';
-  return `${draft.lines_checked} of ${draft.lines_total} · ${need} ${need === 1 ? 'needs' : 'need'} you`;
+  return `${draft.lines_checked} of ${draft.lines_total} · ${need} ${plural(need, 'needs', 'need')} you`;
 }
 
 /** The share of the bar that is filled. */

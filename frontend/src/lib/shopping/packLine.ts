@@ -4,8 +4,8 @@
 // 120 g needed". With no Usual size known, the line says nothing here: the need is the amount.
 
 import type { FoodSize, ShopFood } from './types';
+import { NBSP } from '../words.js';
 
-const NBSP = ' ';
 
 /** Python's amounts.exact_text: "123 g", "7.3 g", "1.235 kg", "a tiny amount" (half up). */
 export function exactText(amount: number, countedAs: 'weight' | 'volume'): string {

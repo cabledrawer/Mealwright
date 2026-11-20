@@ -6,6 +6,7 @@
 import type { MealSlot, Plan, PlanMeal, Portions } from './client/plan';
 import { addDays } from './planDates';
 import { afterCook, mealName } from './planMeals';
+import { plural } from './words.js';
 
 /** One meal the sheet lists. */
 export interface LeftoverRow {
@@ -93,7 +94,7 @@ export function portionBar(
   ];
 }
 
-const tubs = (n: number) => `${n} ${n === 1 ? 'tub' : 'tubs'}`;
+const tubs = (n: number) => `${n} ${plural(n, 'tub', 'tubs')}`;
 
 /** "6 portions: 2 eaten on the cook day, 3 tubs planned, 1 left" (read aloud with the bar). */
 export function barLabel(p: Portions): string {
@@ -159,5 +160,5 @@ export const rowKey = (r: { day: string; slotId: number }) => `${r.day}|${r.slot
  * when there are only those, "Plan 1 meal". */
 export const planWords = (tubCount: number, meals = tubCount) =>
   tubCount === 0 && meals > 0
-    ? `Plan ${meals} ${meals === 1 ? 'meal' : 'meals'}`
+    ? `Plan ${meals} ${plural(meals, 'meal', 'meals')}`
     : `Plan ${tubs(tubCount)}`;

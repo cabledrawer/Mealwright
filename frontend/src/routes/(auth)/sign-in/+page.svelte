@@ -48,6 +48,7 @@
   import { OR, signInWith, ssoMessage } from '#lib/ssoWords.js';
   import { theme } from '#lib/theme.svelte.js';
   import type { PageProps } from './$types';
+  import { plural } from '#lib/words.js';
 
   let { data }: PageProps = $props();
 
@@ -409,7 +410,7 @@
           >Sign in as {waiting.who.name} instead</Button
         >
         <button type="button" class="lose" disabled={busy} onclick={() => void carryOn()}>
-          Carry on and lose {waiting.count === 1 ? 'it' : 'them'}
+          Carry on and lose {plural(waiting.count, 'it', 'them')}
         </button>
       </div>
     {:else if cantWarning && unreadable && !locked}

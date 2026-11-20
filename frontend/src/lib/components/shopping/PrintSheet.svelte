@@ -6,6 +6,7 @@
   import { printedOn } from '#lib/printing.svelte.js';
   import { packParts } from '#lib/shopping/packLine.js';
   import type { ShopGroup } from '#lib/shopping/view.js';
+  import { plural } from '#lib/words.js';
 
   let {
     groups,
@@ -25,7 +26,7 @@
   const meta = $derived(
     [
       builtFrom ? `For ${builtFrom}` : null,
-      `${total} ${total === 1 ? 'thing' : 'things'}`,
+      `${total} ${plural(total, 'thing', 'things')}`,
       `printed ${printedOn()}`
     ]
       .filter(Boolean)

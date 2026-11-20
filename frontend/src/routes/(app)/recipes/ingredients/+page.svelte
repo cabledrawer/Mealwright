@@ -30,6 +30,7 @@
   import { save } from '#lib/save.js';
   import { starterPacks } from '#lib/starterPacks.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
+  import { plural } from '#lib/words.js';
 
   const list = new IngredientsList();
   let selectedId = $state<number | null>(null);
@@ -153,7 +154,7 @@
   /** "121 ingredients · shared by recipes, pantry and shopping", once the list has loaded. */
   const countText = $derived(
     list.loaded && !list.problem
-      ? `${list.counts.all} ${list.counts.all === 1 ? 'ingredient' : 'ingredients'} · ${desktop ? 'shared by your recipes, pantry and shopping list' : 'shared by recipes, pantry and shopping'}`
+      ? `${list.counts.all} ${plural(list.counts.all, 'ingredient', 'ingredients')} · ${desktop ? 'shared by your recipes, pantry and shopping list' : 'shared by recipes, pantry and shopping'}`
       : ''
   );
 

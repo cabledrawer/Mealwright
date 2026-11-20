@@ -31,6 +31,7 @@ import { MOST_STEPS, splitStep } from './importSteps';
 import { unitFor } from './recipeAmounts';
 import { activeTime, sumWaits, type StepWait } from './timeWords';
 import { leftOut, ownIndexOf, ownParts, ownSteps, type OwnPart } from './importOwn';
+import { plural } from './words.js';
 
 /** What a line was set to on the review (a line that is matched needs no choice). */
 export type Choice =
@@ -1298,7 +1299,7 @@ function shorter(text: string): string {
 
 /** "4 lines after “Tips” were left out": the sentence for the review (spec Q17). */
 export function leftOutWords(heading: string, lines: number): string {
-  return `${lines} ${lines === 1 ? 'line' : 'lines'} after “${heading}” ${lines === 1 ? 'was' : 'were'} left out`;
+  return `${lines} ${plural(lines, 'line', 'lines')} after “${heading}” ${plural(lines, 'was', 'were')} left out`;
 }
 
 /** The ingredient lines and headings a recipe may hold: the server's limit. */

@@ -29,6 +29,7 @@
   import ReviewLineRow from './ReviewLineRow.svelte';
   import StepEdit from './StepEdit.svelte';
   import '#lib/styles/fields.css';
+  import { plural } from '#lib/words.js';
 
   let {
     flow,
@@ -487,7 +488,7 @@
     {#if review.steps_shortened && item?.kind === 'step' && last}
       <p class="hint">
         {review.steps_shortened}
-        {review.steps_shortened === 1 ? 'step was' : 'steps were'} shortened to 5,000 characters.
+        {plural(review.steps_shortened, 'step was', 'steps were')} shortened to 5,000 characters.
       </p>
     {/if}
     {#if review.steps_cut && item?.kind === 'step' && last}

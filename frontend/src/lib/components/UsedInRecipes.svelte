@@ -5,6 +5,7 @@
   // ingredient used in thirty recipes doesn't take over the editor. With none, it says so calmly.
   import { resolve } from '$app/paths';
   import type { Ref } from '#lib/client/types.js';
+  import { plural } from '#lib/words.js';
 
   let {
     recipes,
@@ -37,7 +38,7 @@
 
 <section aria-labelledby="{uid}-heading">
   <h3 id="{uid}-heading">
-    {count === 0 ? 'Used in recipes' : `Used in ${count} ${count === 1 ? 'recipe' : 'recipes'}`}
+    {count === 0 ? 'Used in recipes' : `Used in ${count} ${plural(count, 'recipe', 'recipes')}`}
   </h3>
   {#if recipes.length}
     <ul>
@@ -53,7 +54,7 @@
           <!-- One button for both ways, so keyboard focus stays on it. -->
           <button type="button" aria-expanded={all} onclick={() => (all = !all)}
             >{#if all}Show fewer{:else}+ {folded} more<span class="visually-hidden"
-                >{folded === 1 ? ' recipe' : ' recipes'}</span
+                >{plural(folded, ' recipe', ' recipes')}</span
               >{/if}</button
           >
         </li>

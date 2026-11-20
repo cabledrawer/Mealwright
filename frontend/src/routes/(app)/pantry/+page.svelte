@@ -45,6 +45,7 @@
   import { PantryList, listLabel } from '#lib/pantryList.svelte.js';
   import { searchResults } from '#lib/pantrySearch.js';
   import { toasts } from '#lib/toast.svelte.js';
+  import { plural } from '#lib/words.js';
 
   const model = new PantryModel();
   const shopping = new PantryList();
@@ -162,14 +163,14 @@
   const found = $derived(searching ? searchResults(places, model.matches) : []);
   const itemsText = $derived(
     pantry
-      ? `${pantry.counts.items} ${pantry.counts.items === 1 ? 'ingredient' : 'ingredients'}`
+      ? `${pantry.counts.items} ${plural(pantry.counts.items, 'ingredient', 'ingredients')}`
       : ''
   );
   const soonText = $derived(pantry?.counts.use_soon ? `${pantry.counts.use_soon} use soon` : '');
   const summary = $derived(
     pantry
       ? [
-          `${pantry.counts.items} ${pantry.counts.items === 1 ? 'ingredient' : 'ingredients'}`,
+          `${pantry.counts.items} ${plural(pantry.counts.items, 'ingredient', 'ingredients')}`,
           pantry.counts.use_soon ? `${pantry.counts.use_soon} use soon` : ''
         ]
           .filter(Boolean)
@@ -304,7 +305,7 @@
           ><Icon name={placeIcon(place)} size={20} stroke={2} /></span
         >{/if}
       <h2 id="{uid}-place-{place.id}">{place.name}</h2>
-      <span class="count">{place.items} {place.items === 1 ? 'ingredient' : 'ingredients'}</span>
+      <span class="count">{place.items} {plural(place.items, 'ingredient', 'ingredients')}</span>
     </div>
     {#if rows.length}
       <ul class="groups">

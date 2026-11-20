@@ -26,6 +26,7 @@
   import { settingsKnown } from './finishSetup.svelte.js';
   import { GROUPS, ITEMS, adminOnly, itemForOldSection, type Item } from './items.js';
   import type { Group, Row } from './sectionIcons.js';
+  import { plural as oneOrMany } from '#lib/words.js';
 
   const admin = $derived(session.me?.role === 'admin');
 
@@ -113,7 +114,7 @@
       case 'your-kitchen':
         return kitchenNow === null
           ? undefined
-          : `${kitchenNow.hob_rings} hob ${kitchenNow.hob_rings === 1 ? 'ring' : 'rings'}`;
+          : `${kitchenNow.hob_rings} hob ${oneOrMany(kitchenNow.hob_rings, 'ring', 'rings')}`;
       case 'people':
         return peopleCount === null ? undefined : plural(peopleCount, 'person', 'people');
       case 'privacy':

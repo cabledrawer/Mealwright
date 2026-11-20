@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { plural } from '#lib/words.js';
   // How many recipes use an ingredient, at the end of its row in Ingredients (mockups
   // Ingredients-Phone and Ingredients-Desktop): "5 recipes" on a phone, just "5" in the
   // Recipes column on a computer. A screen reader hears "Used in 5 recipes" on both. Says
@@ -7,7 +8,7 @@
 
   // Spaces at the edge of an element are dropped by the template, so these are strings.
   const USED_IN = 'Used in ';
-  const word = $derived(count === 1 ? ' recipe' : ' recipes');
+  const word = $derived(plural(count, ' recipe', ' recipes'));
 </script>
 
 {#if count > 0}

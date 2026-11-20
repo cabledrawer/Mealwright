@@ -35,6 +35,7 @@ import type {
 } from './client/types';
 import { kitchen } from './freshness.svelte';
 import { save } from './save';
+import { plural } from './words.js';
 
 /** Take a packet off the screen: it was used, binned or moved. */
 export function withoutLot(pantry: Pantry, lotId: number): void {
@@ -227,7 +228,7 @@ export class PantryModel {
           if (row.tub_id !== tub.tub_id) return [row];
           if (row.tubs <= 1) return [];
           const tubs = row.tubs - 1;
-          return [{ ...row, tubs, words: `${tubs} ${tubs === 1 ? 'tub' : 'tubs'}` }];
+          return [{ ...row, tubs, words: `${tubs} ${plural(tubs, 'tub', 'tubs')}` }];
         });
       },
       rollback: () => {
@@ -266,7 +267,7 @@ export class PantryModel {
           if (row.tub_id !== tub.tub_id) return [row];
           if (row.tubs <= 1) return [];
           const tubs = row.tubs - 1;
-          return [{ ...row, tubs, words: `${tubs} ${tubs === 1 ? 'tub' : 'tubs'}` }];
+          return [{ ...row, tubs, words: `${tubs} ${plural(tubs, 'tub', 'tubs')}` }];
         });
       },
       rollback: () => {

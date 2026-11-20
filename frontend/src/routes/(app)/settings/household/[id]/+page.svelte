@@ -38,6 +38,7 @@
   } from '#lib/ssoWaitingWords.js';
   import { toasts } from '#lib/toast.svelte.js';
   import { whenWords } from '#lib/yourDataWords.js';
+  import { plural } from '#lib/words.js';
 
   const id = $derived(Number(page.params.id));
   const person: Person | undefined = $derived(household.people.find((p) => p.id === id));
@@ -638,7 +639,7 @@
         <p class="note">
           Removing someone keeps their meals and history; Recent changes shows “{person.name} (removed)”.
           Undo for {household.undoDays}
-          {household.undoDays === 1 ? 'day' : 'days'}.
+          {plural(household.undoDays, 'day', 'days')}.
         </p>
       {/if}
     {:else}

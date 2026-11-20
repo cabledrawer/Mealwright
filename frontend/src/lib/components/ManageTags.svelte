@@ -14,6 +14,7 @@
   import { holdUndo, undoHistory } from '#lib/undo.svelte.js';
 
   import '#lib/styles/fields.css';
+  import { plural } from '#lib/words.js';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -141,7 +142,7 @@
     }
   }
 
-  const count = (n: number) => `${n} ${n === 1 ? 'recipe' : 'recipes'}`;
+  const count = (n: number) => `${n} ${plural(n, 'recipe', 'recipes')}`;
 </script>
 
 <dialog
@@ -159,7 +160,7 @@
     <span class="grip" aria-hidden="true"></span>
     <div class="head">
       <h2 id="{uid}-title">Manage tags</h2>
-      {#if loaded}<span class="total">{tags.length} {tags.length === 1 ? 'tag' : 'tags'}</span>{/if}
+      {#if loaded}<span class="total">{tags.length} {plural(tags.length, 'tag', 'tags')}</span>{/if}
     </div>
 
     {#if loaded && tags.length === 0 && !problem}
@@ -235,7 +236,7 @@
         {#if intoTag}
           <p class="note">
             Merge “{mergingTag.name}” into “{intoTag.name}”? Its {count(mergingTag.recipes)}
-            {mergingTag.recipes === 1 ? 'gets' : 'get'} “{intoTag.name}”, and “{mergingTag.name}”
+            {plural(mergingTag.recipes, 'gets', 'get')} “{intoTag.name}”, and “{mergingTag.name}”
             goes. You can Undo.
           </p>
         {/if}
