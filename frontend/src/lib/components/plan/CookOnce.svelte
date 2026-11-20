@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from '../Icon.svelte';
   // "Cook once, eat for…" (mockups CookOnce-Desktop, CookOnce-Phone and their dark twins): how many
   // tubs, which meals to spread them over, who is eating, whether tubs with no meal go to the
   // freezer, and a preview of where the tubs land. The server works the preview out. A tub is
@@ -334,7 +335,7 @@
                             class="x"
                             disabled={actions.readonly}
                             aria-label="Take tub {tub.number} out of {slot.name} on {dayFull(day)}"
-                            onclick={() => cook?.removeTub(tub.number)}>✕</button
+                            onclick={() => cook?.removeTub(tub.number)}><Icon name="close" size={14} stroke={2.4} /></button
                           >
                         </span>
                       {/each}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import '#lib/styles/fields.css';
+  import Icon from './Icon.svelte';
   import { KEPT_BY, KEPT_BY_HINT } from '#lib/keptByWords.js';
   // "Pantry keeps it by" (newIngredient.svelte.ts): By weight · By volume · One by one ·
   // Don't count it, with the bundled table's guess first. Packet sizes can be added right
@@ -211,7 +212,7 @@
                     type="button"
                     class="remove"
                     aria-label="Remove the {size.name} size"
-                    onclick={() => (sizes = sizes.filter((_, j) => j !== i))}>✕</button
+                    onclick={() => (sizes = sizes.filter((_, j) => j !== i))}><Icon name="close" size={14} stroke={2.4} /></button
                   >
                 </li>
               {/each}
