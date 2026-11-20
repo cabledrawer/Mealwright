@@ -518,7 +518,7 @@ describe('One at a time', () => {
       await expect.element(page.getByLabelText('Search')).toBeVisible();
       await expect.element(page.getByText('As written: 1 red onion, sliced')).toBeVisible();
       await expect
-        .element(page.getByRole('button', { name: 'New ingredient', exact: true }).last())
+        .element(page.getByRole('button', { name: '+ New ingredient', exact: true }).last())
         .toBeVisible();
       await expect
         .element(page.getByRole('button', { name: 'Made in another recipe…' }))
@@ -527,7 +527,7 @@ describe('One at a time', () => {
 
     it('New ingredient opens its form, with Done', async () => {
       const flow = await opened();
-      await page.getByRole('button', { name: 'New ingredient', exact: true }).click();
+      await page.getByRole('button', { name: '+ New ingredient', exact: true }).click();
       expect(flow.choices[1]).toMatchObject({ kind: 'new' });
       // The recipe's own Name box is at the top of this first screen; the form's is the last.
       await expect.element(page.getByLabelText('Name').last()).toBeVisible();

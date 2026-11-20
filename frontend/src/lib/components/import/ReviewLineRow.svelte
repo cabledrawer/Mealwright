@@ -878,7 +878,7 @@
                   >Pick another</button
                 >
                 <button type="button" class="chip" onclick={() => makeNew(false)}
-                  >New ingredient</button
+                  >+ New ingredient</button
                 >
               {:else}
                 <button

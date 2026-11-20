@@ -172,7 +172,7 @@
             <Button quiet onclick={() => openPick(false)}>Pick another</Button>
             <Button quiet onclick={() => openPick(true)}>Made in another recipe</Button>
             {#if line.label === 'to_confirm' && line.food}
-              <Button quiet onclick={() => newIngredient(false)}>New ingredient</Button>
+              <Button quiet onclick={() => newIngredient(false)}>+ New ingredient</Button>
             {/if}
             <Button quiet onclick={() => newIngredient(true)}>Treat as staple</Button>
           </div>

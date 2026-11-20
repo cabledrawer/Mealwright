@@ -204,7 +204,7 @@
   {/if}
   {#if !onlyRecipes && onnew}
     <div class="two">
-      <Button quiet small onclick={onnew}>New ingredient</Button>
+      <Button quiet small onclick={onnew}>+ New ingredient</Button>
       <Button quiet small onclick={() => (onlyRecipes = true)}>Made in another recipe…</Button>
     </div>
   {:else if onlyRecipes && current && typed && rows.length === 0}

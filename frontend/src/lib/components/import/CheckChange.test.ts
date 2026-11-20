@@ -82,7 +82,7 @@ describe('Change on every row', () => {
     const sheet = page.getByRole('group', { name: 'Change Toor dal' });
     await expect.element(sheet.getByRole('button', { name: 'Pick an ingredient' })).toBeVisible();
     await expect.element(sheet.getByRole('button', { name: 'Edit the name read' })).toBeVisible();
-    await expect.element(sheet.getByRole('button', { name: 'New ingredient' })).toBeVisible();
+    await expect.element(sheet.getByRole('button', { name: '+ New ingredient' })).toBeVisible();
     // Nothing is taken back on a row with no choice.
     expect(sheet.getByRole('button', { name: 'Back to how it was read' }).elements()).toEqual([]);
     await sheet.getByRole('button', { name: 'Cancel' }).click();
@@ -115,7 +115,7 @@ describe('Change on every row', () => {
     await change('1 cup (200 g) thuvaram paruppu').click();
     await page
       .getByRole('group', { name: 'Change Toor dal' })
-      .getByRole('button', { name: 'New ingredient' })
+      .getByRole('button', { name: '+ New ingredient' })
       .click();
     expect(flow.choices[1]).toMatchObject({ kind: 'new', name: 'Thuvaram paruppu' });
     await expect.element(page.getByLabelText('Name').first()).toBeVisible();
@@ -194,7 +194,7 @@ describe('Change, New ingredient, Cancel puts the row back (review M3)', () => {
     await change('1 red onion, sliced').click();
     await page
       .getByRole('group', { name: 'Change Onions' })
-      .getByRole('button', { name: 'New ingredient' })
+      .getByRole('button', { name: '+ New ingredient' })
       .click();
     expect(flow.choices[3]).toMatchObject({ kind: 'new' });
     await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();
@@ -212,7 +212,7 @@ describe('Change, New ingredient, Cancel puts the row back (review M3)', () => {
     await change('¼ tsp asafoetida').click();
     await page
       .getByRole('group', { name: /^Change / })
-      .getByRole('button', { name: 'New ingredient' })
+      .getByRole('button', { name: '+ New ingredient' })
       .click();
     expect(Object.keys(flow.choices).map(Number).sort()).toContain(flow.review!.lines.length - 1);
     await page.getByRole('button', { name: 'Cancel', exact: true }).first().click();

@@ -59,7 +59,7 @@
     <p class="buttons">
       <button type="button" class="chip" use:focusFirst onclick={onpick}>Pick an ingredient</button>
       <button type="button" class="chip" onclick={() => (mode = 'name')}>Edit the name read</button>
-      <button type="button" class="chip" onclick={onnew}>New ingredient</button>
+      <button type="button" class="chip" onclick={onnew}>+ New ingredient</button>
       {#if chosen}
         <button type="button" class="chip" onclick={onback}>Back to how it was read</button>
       {/if}

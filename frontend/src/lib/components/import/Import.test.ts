@@ -455,7 +455,7 @@ describe('Import a recipe', () => {
 
     it('asks “Pantry keeps it by” with its hint on a new ingredient (F119)', async () => {
       await reviewing();
-      await page.getByRole('button', { name: 'New ingredient' }).first().click();
+      await page.getByRole('button', { name: '+ New ingredient' }).first().click();
       await expect.element(page.getByLabelText(/^Pantry keeps it by/)).toBeVisible();
       await expect
         .element(page.getByText(/The way you buy it: a 500.g jar → by weight\. Recipes can still/))
