@@ -22,7 +22,7 @@ import { drafts } from '#lib/drafts.svelte.js';
 import { forgetAll } from '../forgetAll';
 import { forgetLoaded } from '#lib/forgetWhenLoaded.js';
 import { updates } from '#lib/updates.svelte.js';
-import { forgetToday } from '#lib/today.svelte.js';
+import { forgetToday } from '#lib/todayCopy.js';
 import { shoppingSync } from '#lib/shopping/sync.svelte.js';
 import { forgetDeviceId, rememberedLogin, storedLoginId } from './device';
 import { heldChanges, UNREADABLE, type Held, type Unreadable } from './held';

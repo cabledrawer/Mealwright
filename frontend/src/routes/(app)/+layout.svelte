@@ -15,7 +15,7 @@
   import { settleHousehold } from '#lib/client/household.js';
   import { drafts } from '#lib/drafts.svelte.js';
   import { forgetAll } from '#lib/forgetAll.js';
-  import { forgetToday } from '#lib/today.svelte.js';
+  import { forgetToday } from '#lib/todayCopy.js';
   import { askAgain } from '#lib/offline/opening.js';
   import { onWipedElsewhere } from '#lib/offline/otherTabs.js';
   import { askToKeepDataHere } from '#lib/offline/persist.js';

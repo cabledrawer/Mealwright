@@ -4,7 +4,7 @@
 // the answer buttons switched off. An answer shows at once (the card goes), is saved with its
 // change ID, and is offered for Undo; then Today is fetched again.
 
-import { cantReachWords, cantReach, forgetWhenSessionEnds } from './api';
+import { cantReachWords, cantReach } from './api';
 import { serverUndo } from './client/changes';
 import type { PlanMeal } from './client/plan';
 import {
@@ -21,69 +21,13 @@ import { fetchCode } from './lazyCode.svelte';
 import { loaders } from './lazyModules';
 import { sendTwice } from './sendTwice';
 import { network } from './network.svelte';
-import { rememberedLogin } from './offline/device';
-import { wipePending } from './offline/wipePending.svelte';
+import { COPY_KEY, forgetToday, readCopy, wipeCount, writeCopy } from './todayCopy';
 import { leftName } from './planMeals';
 import { save } from './save';
 import { session } from './session.svelte';
 import { couldntLoad } from './errorWords.js';
 
-export const COPY_KEY = 'mealwright.today-copy';
-
-/** Counts the wipes: a read that began before one must not write its copy after it. */
-let wipes = 0;
-
-/** Who the copy belongs to: the signed-in login, else (opening offline) the one this browser last knew. */
-function owner(): number | null {
-  return session.me?.id ?? rememberedLogin()?.id ?? null;
-}
-
-/**
- * What was saved last time Today was read, but only the signed-in login's own (the copy is
- * saved with its owner). Another login's copy, or one in the old format (v 3 since the Use soon tubs became one row per batch and place, F203), is refused and removed.
- * Null when there is none.
- */
-export function readCopy(): TodayData | null {
-  try {
-    const text = localStorage.getItem(COPY_KEY);
-    if (!text) return null;
-    const me = owner();
-    if (me === null) return null; // can't tell whose it is: shown to nobody
-    const copy = JSON.parse(text) as { v?: number; login_id?: number; data?: TodayData };
-    if (copy.v === 3 && copy.login_id === me && copy.data && Array.isArray(copy.data.waiting)) {
-      return copy.data;
-    }
-    localStorage.removeItem(COPY_KEY);
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Keep an answer as the copy, for the login that asked, unless that login has signed out or the
- * browser has been wiped since the request began (`began` is `wipes` then).
- */
-function writeCopy(data: TodayData, login: number, began: number): void {
-  if (began !== wipes || session.me?.id !== login || wipePending()) return;
-  try {
-    localStorage.setItem(COPY_KEY, JSON.stringify({ v: 3, login_id: login, data }));
-  } catch {
-    // Storage blocked or full: Today just won't open offline.
-  }
-}
-
-/** Forget the copy (sign-out, a wipe in any tab): another login may be next. */
-export function forgetToday(): void {
-  wipes += 1;
-  try {
-    localStorage.removeItem(COPY_KEY);
-  } catch {
-    // Storage blocked: nothing kept there.
-  }
-}
-
-forgetWhenSessionEnds(forgetToday);
+export { COPY_KEY, forgetToday, readCopy };
 
 export class TodayModel {
   data = $state<TodayData | null>(null);
@@ -118,11 +62,11 @@ export class TodayModel {
 
   async load(): Promise<void> {
     const asked = ++this.#asked;
-    const began = wipes;
+    const began = wipeCount();
     const login = session.me?.id ?? null;
     try {
       const data = await getToday();
-      if (began !== wipes) return; // signed out or wiped meanwhile: nothing of it is kept
+      if (began !== wipeCount()) return; // signed out or wiped meanwhile: nothing of it is kept
       if (asked !== this.#asked) return;
       this.data = data;
       this.fromCopy = false;
