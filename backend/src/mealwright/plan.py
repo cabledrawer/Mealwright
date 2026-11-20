@@ -1288,7 +1288,7 @@ def set_slot(kitchen: Kitchen, slot: MealSlot, enabled: bool) -> Change | None:
 
 
 def rename_slot(kitchen: Kitchen, slot: MealSlot, name: str) -> Change | None:
-    """Rename a meal (Settings → Meal slots, admins). Its planned meals stay with it."""
+    """Rename a meal (Settings › Meal slots, admins). Its planned meals stay with it."""
     if slot.name == name:
         return None
     for other in meal_slots(kitchen.db, kitchen.household_id):
@@ -1310,7 +1310,7 @@ def rename_slot(kitchen: Kitchen, slot: MealSlot, name: str) -> Change | None:
 
 
 def order_slots(kitchen: Kitchen, ids: list[int]) -> Change | None:
-    """Put the household's meals in this order (Settings → Meal slots, admins): `ids` must be
+    """Put the household's meals in this order (Settings › Meal slots, admins): `ids` must be
     every one of them, once each."""
     slots = meal_slots(kitchen.db, kitchen.household_id)
     if sorted(ids) != sorted(s.id for s in slots):

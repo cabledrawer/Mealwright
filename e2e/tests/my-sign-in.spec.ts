@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { test, expect, request, testNow, type Page } from "./clock.ts";
 import { ADMIN } from "./servers.ts";
 
-// Settings → Sign-in (0.9, A2): your password, where you're signed in, signing out one device or
+// Settings › Your sign-in (0.9, A2): your password, where you're signed in, signing out one device or
 // everywhere else, and Change password. Against the worker's own server, signed in as the admin.
 // Changing the password and "Sign out everywhere else" are answered here (page.route) rather than
 // by the server: the other tests in this worker sign in with the same password and session. The

@@ -533,7 +533,7 @@ class HouseholdChange(BaseModel):
     # Batch cook (Experimental; 0.8 wave 6, B2): shown (true) or hidden (false). Admins only: it
     # takes the sidebar entry and the Plan tab away from everyone, and its suggestions are refused.
     batch_cook: StrictBool | None = None
-    # The household's name (0.9 A1, Settings → Household). Admins only.
+    # The household's name (0.9 A1, Settings › People). Admins only.
     name: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     # Onboarding finished or skipped (0.9 U2). Admins only, and only ever true: it never opens
     # again. Not in Recent changes: there is nothing to undo.
@@ -738,7 +738,7 @@ class RememberedOut(BaseModel):
 
 @router.get("/conversions")
 def list_conversions(kitchen: Here) -> list[RememberedOut]:
-    """The household's remembered "ask once" answers (Settings → Amounts, 0.8)."""
+    """The household's remembered "ask once" answers (Settings › Amounts, 0.8)."""
     cup = cup_ml(kitchen.household)
     rows = kitchen.db.execute(
         select(FoodConversion, Food)

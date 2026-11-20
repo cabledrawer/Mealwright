@@ -117,7 +117,7 @@ becomes a server-level setting (spec section 6); a comment on the table says so.
 
 ### The API and the screen (0.5 PR 4)
 
-Settings → Privacy (`/settings/privacy`) uses `api/v1/privacy.py`. Everyone in the household
+Settings › Outside connections (`/settings/privacy`) uses `api/v1/privacy.py`. Everyone in the household
 can read; only an admin can change (a member gets 403 `admins_only`). Two places on the
 screen can be linked to: `/settings/privacy#outside-connections` (the import screen's "Photo
 not downloaded" and "switched off" links) and `/settings/privacy#your-own-network`.
@@ -617,7 +617,7 @@ Written by Claude Code on 27 Oct. cabledrawer OK'd every choice here on 27 Oct, 
 
 **Pints (cabledrawer 24 Oct, answers 3 and 5).** A pint is 568 ml in the UK and 473 ml in the US (`pints.PINT_ML`).
 
-- **The setting:** `household.pints`, "uk" (default) or "us". Settings → Amounts → "Read pints as US pints" (a switch, off = UK). Admins change it (`PATCH /api/v1/household`); a member sees it and a note. It is the household's, so another household's choice is never used (the importer reads `kitchen.household`).
+- **The setting:** `household.pints`, "uk" (default) or "us". Settings › Amounts › "Read pints as US pints" (a switch, off = UK). Admins change it (`PATCH /api/v1/household`); a member sees it and a note. It is the household's, so another household's choice is never used (the importer reads `kitchen.household`).
 - **The reader:** `read_line(text, size_words, pint_ml)`. With `pint_ml`, "pint", "pints" and "pt" are an amount in ml ("2 pints milk" is 1,136 ml with UK pints, 946 ml with US), kept as written (`chosen`), and the line reports how many pints it said (`ReadLine.pints`). Without `pint_ml` a pint stays in the note as in 0.5. Next to a metric amount ("1 pint (568 ml) milk") the metric one is still the amount. **Quarts, gallons and fluid ounces are not read** (they stay in the note, as in 0.5): nobody asked, and a quart would need its own pair of sizes.
 - **Pasted text** is read with the household's pint, always.
 - **A US site** (`pints.looks_american`): the link's host is on `US_RECIPE_SITES` (a short list in `pints.py`, sub-domains count), or the page says `<html lang="en-US">` (`PageRecipe.language`, lower case, not part of what makes two recipes equal). Both are in one file so they are easy to change. A listed site is US whatever its page says. A US household needs no card.

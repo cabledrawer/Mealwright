@@ -8,7 +8,7 @@ import {
   setAccountTheme,
 } from "./a11y.ts";
 
-// Settings → About, the update parts (0.9, X1; mockup Dark-About09-Phone), and the "Check for
+// Settings › About, the update parts (0.9, X1; mockup Dark-About09-Phone), and the "Check for
 // updates daily" switch in Privacy (Dark-Privacy09-Phone), against the real server, signed in as
 // the test admin. The real server is never let out: Check now runs for real only while the
 // release list is still the placeholder (it answers "couldn't check" and connects nowhere; Check

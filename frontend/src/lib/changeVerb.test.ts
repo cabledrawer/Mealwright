@@ -3,7 +3,7 @@ import { startsWithVerb } from './changeVerb';
 
 const edit = (summary: string) => ({ kind: 'food_edited', summary });
 
-describe('the kinds in Settings → Recent changes (F172)', () => {
+describe('the kinds in Settings › Recent changes (F172)', () => {
   it('stock, plan, cooking and removals start with a verb', () => {
     for (const kind of [
       'used',

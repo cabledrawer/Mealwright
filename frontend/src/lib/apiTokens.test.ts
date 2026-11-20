@@ -1,4 +1,4 @@
-// The words on Settings › Sign-in › API tokens (0.9 O2; proposed, for cabledrawer).
+// The words on Settings › API tokens (0.9 O2; proposed, for cabledrawer).
 import { describe, expect, it } from 'vitest';
 import {
   endsWords,

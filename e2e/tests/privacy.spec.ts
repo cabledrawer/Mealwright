@@ -4,7 +4,7 @@ import { test, expect, type Page } from './clock.ts';
 import { workerReady } from './worker.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 
-// Settings → Privacy (0.5 PR 4): the switches for outside connections and "Your own network",
+// Settings › Outside connections (0.5 PR 4): the switches for outside connections and "Your own network",
 // against the real server, signed in as the test admin. A member (who sees the same page and
 // changes nothing) and the failed, slow and offline states are covered with answers made up
 // in the browser, because the app has no way to add a member until 0.8. The server's own

@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → Household → a person (0.9 A1, mockup Dark-Person09-Phone): their name, colour and
+  // Settings › People › a person (0.9 A1, mockup Dark-Person09-Phone): their name, colour and
   // portion, whether they sign in (a one-time sign-in link, and their role), Save, and Remove.
   // Everyone sees it; only an admin changes it. Save and Remove each have their Undo (the toast,
   // Ctrl+Z, Recent changes).
@@ -151,7 +151,7 @@
     return `Link used ${when}`;
   });
 
-  /** Only an admin resets someone else's password; their own is Settings → Sign-in. */
+  /** Only an admin resets someone else's password; their own is Settings › Your sign-in. */
   const canReset = $derived(household.canChange && !!person && !person.is_me);
 
   /**
@@ -352,7 +352,7 @@
 {:else if !person}
   <p class="problem" role="alert">
     This person isn’t in the household any more.
-    <a class="link" href={resolve('/(app)/settings/household')}>Household</a>
+    <a class="link" href={resolve('/(app)/settings/household')}>People</a>
   </p>
 {:else}
   <div class="page">

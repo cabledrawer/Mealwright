@@ -244,7 +244,7 @@ export interface Household {
   today: string;
   /** Full Onboarding (0.9 U2): false until the first admin finishes or skips it after setup. */
   onboarding_done: boolean;
-  /** Settings → Amounts (0.9 U2): stored only; nothing on screen converts yet. */
+  /** Settings › Amounts (0.9 U2): stored only; nothing on screen converts yet. */
   amounts_shown: AmountsShown;
 }
 

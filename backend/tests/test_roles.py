@@ -45,7 +45,7 @@ ADMIN_ROUTES: list[tuple[str, str, dict[str, Any] | None, Action]] = [
     ),
 ]
 
-# Actions with no route yet: Settings → Sign-in comes with 0.9's sign-in work.
+# Actions with no route yet: Settings › Your sign-in comes with 0.9's sign-in work.
 NO_ROUTE_YET = {Action.SIGN_IN}
 
 

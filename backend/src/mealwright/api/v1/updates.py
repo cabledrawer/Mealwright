@@ -1,4 +1,4 @@
-"""Settings → About: how old this version is, and (admins) Check now (spec section 7, "Updates").
+"""Settings › About: how old this version is, and (admins) Check now (spec section 7, "Updates").
 
 `GET /updates` makes no connection: it says which version is running, the day it was released
 and where new versions are listed, so About can say how old it is (level 1, for everyone). For

@@ -1,4 +1,4 @@
-"""Settings → Sign-in → API tokens (0.9 O2): make, list and delete the household's tokens.
+"""Settings › API tokens (0.9 O2): make, list and delete the household's tokens.
 
 Admins only, and only from a signed-in device: a token can never make, list or delete tokens
 (cabledrawer 12 Nov). The token itself is in the answer to making it, once, and never again.

@@ -1,4 +1,4 @@
-"""Settings → Your data (0.9, D1; spec section 7): backups, export, delete everything.
+"""Settings › Backups & your data (0.9, D1; spec section 7): backups, export, delete everything.
 
 Everyone in the household can look; only an admin changes anything (cabledrawer's rule for
 household settings). Nothing here makes a network connection.

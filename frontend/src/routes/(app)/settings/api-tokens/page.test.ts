@@ -1,4 +1,4 @@
-// Settings → Sign-in → API tokens (0.9 O2): the list, making a token (shown once, with Copy
+// Settings › API tokens (0.9 O2): the list, making a token (shown once, with Copy
 // and Done), and deleting one, which asks first.
 
 import { flushSync, mount, unmount } from 'svelte';
@@ -28,7 +28,7 @@ const backup: ApiToken = { ...ha, id: 2, name: 'Backup script', scope: 'full' };
 
 const listOf = (tokens: ApiToken[]): [number, ApiTokens] => [200, { tokens, today: TODAY }];
 
-describe('Settings → Sign-in → API tokens', () => {
+describe('Settings › API tokens', () => {
   let component: ReturnType<typeof mount> | null = null;
   let requests: FakeRequest[] = [];
   let tokens: ApiToken[] = [];

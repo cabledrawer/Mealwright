@@ -183,7 +183,7 @@ async function mealwright(browser, method, path, json) {
 }
 
 /** A person of the household with a login of this username and no password yet, as an admin
- *  adds one in Settings › Household: the sign-in server's account of the same username is linked
+ *  adds one in Settings › People: the sign-in server's account of the same username is linked
  *  to them on its first sign-in (Pe3/M2, cabledrawer 13 Nov). */
 async function addPerson(admin, name, username) {
   const added = await mealwright(admin, 'POST', '/people', { name });

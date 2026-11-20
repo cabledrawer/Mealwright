@@ -1,4 +1,4 @@
-"""Settings → About → Report a problem (spec section 7, "Bug reports", cabledrawer 17 Oct).
+"""Settings › About › Report a problem (spec section 7, "Bug reports", cabledrawer 17 Oct).
 
 The server builds a short report and hands it to the web app; it never sends it anywhere and
 makes no connection for it. The person reads all of it, changes or removes any line, and sends

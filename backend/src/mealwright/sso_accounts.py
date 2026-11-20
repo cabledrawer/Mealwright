@@ -5,7 +5,7 @@
   username is exactly its username at the sign-in server (Pe3/M2, cabledrawer 13 Nov:
   `same_username`); nobody is ever made at a sign-in. Anyone else waits (`Waiting`, the
   `sso_account` table) until an admin links them to a person, makes them a new person, or
-  refuses them ("Who is this?" on Settings → Household).
+  refuses them ("Who is this?" on Settings › People).
 - **Which role.** On every sign-in, the groups the provider sends decide: any group mapped to
   Admin gives Admin, else any mapped to Member gives Member, else "Anyone else" (Not let in, the
   default, or Member; cabledrawer 12 Nov). The household's last admin who can sign in is
@@ -374,7 +374,7 @@ def _refused_known(
 
 def member_name(db: DbSession, household_id: int, name: str | None, username: str) -> str:
     """The name of a new person made at first sign-in. Tidied as a typed name is, and, when
-    someone of the household already has that name (Settings → Household refuses two the same),
+    someone of the household already has that name (Settings › People refuses two the same),
     "<name> (<username>)" (whole-0.9 S4)."""
     tidy = cut_text(tidy_one_line(name or ""), 100) or username
     taken = {

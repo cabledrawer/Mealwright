@@ -1,4 +1,4 @@
-// Settings → About's update parts (spec section 7 "Updates"; plan row X1): what the server says
+// Settings › About's update parts (spec section 7 "Updates"; plan row X1): what the server says
 // about its version, and an admin's Check now. Loading it never connects anywhere outside;
 // Check now asks the server, which asks the release list through its outbound gate as a
 // person's press, whatever the Privacy switch says (it controls only the daily check).

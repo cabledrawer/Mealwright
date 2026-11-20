@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { test, expect, type Page } from './clock.ts';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
-// Settings → Your data (0.9, D1), against the real server, signed in as the test admin: the
+// Settings › Backups & your data (0.9, D1), against the real server, signed in as the test admin: the
 // page from Settings, How often and Keep sent and kept, Back up now, the export download, How to
 // restore, and Delete everything's guard (the words, then a wrong password). Delete everything
 // itself is not run here: it would empty this worker's server under the other tests. The

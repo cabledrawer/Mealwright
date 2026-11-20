@@ -15,7 +15,7 @@ const VERB_KINDS = new Set([
   'recipe_imported',
   // Mealie drafts answered by ingredient (0.9.5-beta.2): "Answered “soya sauce” in 46 drafts".
   'mealie_drafts_answered',
-  // The rest of Settings → Recent changes (F172): stock, plan, cooking, recipes and removals.
+  // The rest of Settings › Recent changes (F172): stock, plan, cooking, recipes and removals.
   'added',
   'used',
   'binned',
@@ -44,9 +44,9 @@ const VERB_KINDS = new Set([
   'batch_cook_switch',
   'pints_changed',
   'cook_step_changed',
-  // Settings → Amounts and Onboarding (0.9 U2): how amounts are shown.
+  // Settings › Amounts and Onboarding (0.9 U2): how amounts are shown.
   'amounts_shown_changed',
-  // Settings → Household (0.9 A1): people added, changed and removed, sign-in links, the
+  // Settings › People (0.9 A1): people added, changed and removed, sign-in links, the
   // "Who's this?" switch and the household's name.
   'person_added',
   'person_changed',

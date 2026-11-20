@@ -127,7 +127,7 @@ test('each step saves through the same settings: Amounts, people, shops and a st
       await expect(page.getByRole('button', { name: 'Go to Today' })).toBeVisible();
     }
 
-    // Every choice shows where it lives: Settings → Amounts, Household, Shops and Ingredients.
+    // Every choice shows where it lives: Settings › Amounts, Household, Shops and Ingredients.
     await page.goto('/settings/amounts');
     await expect(page.getByRole('radio', { name: 'Metric: grams and ml' })).toBeChecked();
     await page.goto('/settings/household');

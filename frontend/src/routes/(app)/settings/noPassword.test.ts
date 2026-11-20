@@ -1,4 +1,4 @@
-// A login made by single sign-on has no password (L7, whole-0.9 review): Settings → Your sign-in leaves
+// A login made by single sign-on has no password (L7, whole-0.9 review): Settings › Your sign-in leaves
 // out "Change password", and the Change password page says so (the words are cabledrawer's, 12 Nov)
 // instead of asking for a current password the person doesn't have.
 

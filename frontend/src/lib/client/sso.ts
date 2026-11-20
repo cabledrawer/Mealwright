@@ -64,7 +64,7 @@ export interface SsoSetup {
   password_sign_in_stored: boolean;
   /** An admin has signed in with single sign-on (or passed the test). */
   admin_linked: boolean;
-  /** The Single sign-on switch in Settings → Privacy. */
+  /** The Single sign-on switch in Settings › Outside connections. */
   switch_on: boolean;
   test: TestResult | null;
   /** After a save: password sign-in was off and is on again, because the save changed who

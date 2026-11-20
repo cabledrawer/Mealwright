@@ -786,7 +786,7 @@ def _has_cookie(request: Request) -> bool:
 _BEARER = HTTPBearer(
     auto_error=False,
     scheme_name="ApiToken",
-    description="An API token from Settings, Sign-in, API tokens: `Authorization: Bearer mw_…`. "
+    description="An API token from Settings › API tokens: `Authorization: Bearer mw_…`. "
     "Read-only tokens (`mw_ro_`) can only read. Without one, the sign-in cookie is used.",
 )
 

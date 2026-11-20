@@ -21,7 +21,7 @@
   });
 
   // The box's note about photos needs to know whether that switch is on. It reads it through
-  // Settings → Privacy's own client; if that can't be had, the box shows no note.
+  // Settings › Outside connections's own client; if that can't be had, the box shows no note.
   onMount(() => {
     void privacy.load();
   });

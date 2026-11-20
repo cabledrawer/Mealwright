@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → Your data (0.9, D1; spec section 7; mockup Dark-YourData09-Phone): backups,
+  // Settings › Backups & your data (0.9, D1; spec section 7; mockup Dark-YourData09-Phone): backups,
   // How to restore, Export everything, History, and Start again.
   //
   // Everyone in the household can look; only an admin changes anything (the server refuses

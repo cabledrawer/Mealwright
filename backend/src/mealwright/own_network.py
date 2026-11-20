@@ -2,7 +2,7 @@
 
 Recipe import (0.5), and notifications and single sign-on later (0.8), may only visit
 ordinary public addresses, unless an admin has put a place on the household's own network
-on the list in Settings → Privacy, under "Your own network" (spec section 6, "Recipe
+on the list in Settings › Outside connections, under "Your own network" (spec section 6, "Recipe
 import, decided for 0.5"). That stops a pasted link reaching the household's router, other
 home servers or this server itself (SSRF).
 

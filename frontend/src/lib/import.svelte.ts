@@ -48,7 +48,7 @@ export type Choice =
 export interface ImportProblem {
   code: string;
   message: string;
-  /** The link switch is off: the screen links to Settings → Privacy (for an admin). */
+  /** The link switch is off: the screen links to Settings › Outside connections (for an admin). */
   switchedOff: boolean;
   /** Whether the person can switch it on themselves. */
   admin: boolean;

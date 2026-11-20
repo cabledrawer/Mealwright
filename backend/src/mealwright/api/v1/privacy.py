@@ -1,4 +1,4 @@
-"""Settings → Privacy: the switches for outside connections and "Your own network".
+"""Settings › Outside connections: the switches for outside connections and "Your own network".
 
 Everyone in the household can read both; only an admin can change them (spec section 6,
 "Recipe import, decided for 0.5": the photo switch and the allow list). Both are stored with

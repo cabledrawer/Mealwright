@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → Household (0.9 A1, mockup Dark-Household09-Phone): the household's name, its
+  // Settings › People (0.9 A1, mockup Dark-Household09-Phone): the household's name, its
   // people (each opens their Person screen), "+ Add a person", and the "Who's this?" switch for
   // shared logins. Everyone in the household sees it; only an admin changes it. Offline it shows
   // what was last loaded and can't be changed. An admin sees single sign-on sign-ins that match

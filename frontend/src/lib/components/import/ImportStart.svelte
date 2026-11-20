@@ -124,14 +124,14 @@
           <p class="title">Importing from links is switched off</p>
           <p>
             Nothing was fetched.
-            {#if flow.problem.admin}Switch it on in Settings → Outside connections, or paste the
+            {#if flow.problem.admin}Switch it on in Settings › Outside connections, or paste the
               recipe’s text instead; pasted text never goes online.{:else}An admin can switch it on
-              in Settings → Outside connections. You can paste the recipe’s text instead; pasted
+              in Settings › Outside connections. You can paste the recipe’s text instead; pasted
               text never goes online.{/if}
           </p>
           <p class="actions">
             {#if flow.problem.admin}
-              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Outside connections is built beside this page -->
+              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings › Outside connections is built beside this page -->
               <a class="button" href="/settings/privacy#{OUTSIDE_CONNECTIONS_ANCHOR}"
                 >Open Settings</a
               >
@@ -268,12 +268,12 @@
     <p class="photos">
       Recipe photos: not downloaded.
       {#if session.me?.role === 'admin'}
-        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Outside connections is built beside this page -->
+        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings › Outside connections is built beside this page -->
         <a href="/settings/privacy#{OUTSIDE_CONNECTIONS_ANCHOR}"
-          >Change in Settings → Outside connections</a
+          >Change in Settings › Outside connections</a
         >
       {:else}
-        An admin can switch them on in Settings → Outside connections.
+        An admin can switch them on in Settings › Outside connections.
       {/if}
     </p>
   {/if}

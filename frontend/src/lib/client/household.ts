@@ -29,7 +29,7 @@ export const changed = <T>(answer: Promise<T>): Promise<T> => {
 export const changePints = (pints: Pints) =>
   changed(api<Household>('PATCH', '/household', { pints }));
 
-/** Settings → Amounts and Onboarding: how amounts are shown (an admin only). */
+/** Settings › Amounts and Onboarding: how amounts are shown (an admin only). */
 export const changeAmountsShown = (amounts_shown: AmountsShown) =>
   changed(api<Household>('PATCH', '/household', { amounts_shown }));
 

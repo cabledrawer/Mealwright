@@ -291,7 +291,7 @@ def test_a_meal_with_a_batch_and_a_recipe_is_one_row_with_one_undo(kitchen: Test
 
 
 def all_list(client: TestClient, query: str = "") -> dict[str, Any]:
-    """Settings → Recent changes: every kind of change, not one area."""
+    """Settings › Recent changes: every kind of change, not one area."""
     return dict(ok(client.get(f"{API}/changes{query}")))
 
 

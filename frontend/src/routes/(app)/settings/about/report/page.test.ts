@@ -1,4 +1,4 @@
-// Settings → About → Report a problem (X2; mockup Dark-Report09-Phone): every line can be
+// Settings › About › Report a problem (X2; mockup Dark-Report09-Phone): every line can be
 // changed or removed (with Undo), "What were you doing?" is typed here, and Copy, Download and
 // Open on GitHub all carry the same text.
 

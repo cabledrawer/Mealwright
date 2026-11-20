@@ -6,7 +6,7 @@ Mealwright converts between cups, spoons, grams and items using two layers (spec
 
 - **Dataset:** USDA FoodData Central, **SR Legacy**, April 2018 release (the final release of the USDA National Nutrient Database for Standard Reference, Legacy). File: `FoodData_Central_sr_legacy_food_csv_2018-04.zip` (CSV), downloaded 17 Oct 2026 from `https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food_csv_2018-04.zip`. SHA-256 of the file used: `b80817294b8850530aaedf2e515c02593b1824f763a0ff356e5c2081643e6fd0`.
 - **Licence:** public domain, under **CC0 1.0** (FoodData Central's own licence statement). No values come from any other source. Rejected (cabledrawer 17 Oct): Open Food Facts (ODbL), FAO density tables (licence unclear).
-- **Credit** (USDA asks for it; shown here and later in Settings → About): "Food conversion data: U.S. Department of Agriculture, Agricultural Research Service. FoodData Central, SR Legacy, 2018. fdc.nal.usda.gov."
+- **Credit** (USDA asks for it; shown here and later in Settings › About): "Food conversion data: U.S. Department of Agriculture, Agricultural Research Service. FoodData Central, SR Legacy, 2018. fdc.nal.usda.gov."
 
 ## What's in it
 

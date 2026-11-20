@@ -1,4 +1,4 @@
-// Settings › Sign-in › API tokens (0.9 O2; the mockup Dark-ApiTokens09): an admin makes a
+// Settings › API tokens (0.9 O2; the mockup Dark-ApiTokens09): an admin makes a
 // token for another app, sees it once, and deletes tokens. The words are accepted (cabledrawer 12 Nov).
 import { api } from '#lib/api.js';
 import { addDays, dayMonthWords, isRealDay } from '#lib/dates.js';

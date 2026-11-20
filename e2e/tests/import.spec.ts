@@ -126,7 +126,7 @@ test('Recipes has an Import item (the sidebar, or a button on a phone) that open
   await expect(page.getByText('How it works')).toBeVisible();
   // Photo downloads start off, so the box says so (and checkPage scans it in both themes).
   await expect(page.getByText('Recipe photos: not downloaded.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Change in Settings → Outside connections' })).toHaveAttribute('href', '/settings/privacy#outside-connections');
+  await expect(page.getByRole('link', { name: 'Change in Settings › Outside connections' })).toHaveAttribute('href', '/settings/privacy#outside-connections');
   await checkPage(page);
 });
 
@@ -248,7 +248,7 @@ test('the review: counts, each line as written → read → in your kitchen, Pho
   await expect(page.getByText('1 to confirm')).toBeVisible();
   await expect(page.getByText('2 need you')).toBeVisible();
   await expect(page.getByText('Photo not downloaded.', { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Settings → Outside connections' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Settings › Outside connections' })).toBeVisible();
   // The phone's Check says it in its header ("nothing saved yet"), the computer's has it by Save.
   if (!onPhone()) await expect(page.getByText('Nothing is saved until you choose.').first()).toBeVisible();
   await expect(page.getByText('4 lines after “Tips” were left out. You can add them by hand.')).toBeVisible();
@@ -401,7 +401,7 @@ test('the Check screen that cannot be fetched says so, keeps its header, and Try
   await expect(page.getByRole('alert').getByText('Couldn’t open the Check screen. Try again.')).toHaveCount(0);
 });
 
-test('F144: an import is undone from Settings → Recent changes once its toast has gone, on a phone too', async ({ page }) => {
+test('F144: an import is undone from Settings › Recent changes once its toast has gone, on a phone too', async ({ page }) => {
   const title = unique('Dal tadka');
   const spice = unique('Hing');
   await page.goto('/recipes/import');
@@ -416,7 +416,7 @@ test('F144: an import is undone from Settings → Recent changes once its toast 
   await expect(undo).toBeVisible();
   await page.mouse.move(0, 0); // a toast under the pointer waits; move it away
   await expect(undo).toBeHidden({ timeout: 15_000 }); // let the toast go
-  // The import is in Settings → Recent changes (F172: the only place), on a phone and a computer.
+  // The import is in Settings › Recent changes (F172: the only place), on a phone and a computer.
   await page.goto('/settings/recent-changes');
   const recent = page.getByRole('region', { name: 'Recent changes' });
   await expect(recent.getByText(`Imported ${title}`, { exact: false })).toBeVisible();

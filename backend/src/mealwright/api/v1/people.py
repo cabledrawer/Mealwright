@@ -1,4 +1,4 @@
-"""Settings → Household: the people of the household, their logins, and "Who's this?" (0.9 A1).
+"""Settings › People: the people of the household, their logins, and "Who's this?" (0.9 A1).
 
 Everyone in the household can see the people; only an admin can add, change or remove them, give
 one a login or switch "Who's this?" (`mealwright.roles`, Action.PEOPLE). A person gets a login

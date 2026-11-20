@@ -1,6 +1,6 @@
 // How the Check screen looks on a phone (F141, cabledrawer 3 Nov): "Focus" (the whole list with the
 // app's menu hidden; the default) or "One at a time" (each line that needs you, then every step).
-// Chosen in Settings → Appearance and remembered on this device only, like the sidebar's
+// Chosen in Settings › Appearance and remembered on this device only, like the sidebar's
 // collapsed state. A computer always shows the whole list, whatever this says.
 
 export type CheckMode = 'focus' | 'one';

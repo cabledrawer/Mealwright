@@ -1,4 +1,4 @@
-// Settings → Sign-in → Single sign-on (0.9 O1): set up on a computer, the secret never shown,
+// Settings › Sign-in for everyone (0.9 O1): set up on a computer, the secret never shown,
 // the callback address from this browser, groups to roles, the test's result, and password
 // sign-in turned off only once an admin signs in with single sign-on.
 import { flushSync, mount, unmount } from 'svelte';

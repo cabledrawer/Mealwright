@@ -363,7 +363,7 @@ describe('Import a recipe', () => {
       await reviewing('member');
       await expect
         .element(
-          page.getByText(/Photo downloads are off in Settings → Outside connections; an admin/)
+          page.getByText(/Photo downloads are off in Settings › Outside connections; an admin/)
         )
         .toBeVisible();
       expect(page.getByRole('link', { name: /Outside connections/ }).elements()).toEqual([]);
@@ -382,11 +382,11 @@ describe('Import a recipe', () => {
         .toBeVisible();
       await expect
         .element(
-          page.getByText(/Settings → Outside connections\. You can add your own photo later\.$/)
+          page.getByText(/Settings › Outside connections\. You can add your own photo later\.$/)
         )
         .toBeVisible();
       await expect
-        .element(page.getByRole('link', { name: 'Settings → Outside connections' }))
+        .element(page.getByRole('link', { name: 'Settings › Outside connections' }))
         .toBeVisible();
       await expect.element(page.getByText('Nothing is saved until you choose.')).toBeVisible();
       await expect

@@ -120,7 +120,7 @@ test('Today: the review shows what comes out, Confirm takes it, one Undo gives i
   await expect.poll(() => have(page, `Toor dal ${s}`)).toBe(800);
 });
 
-test('F125: Undo of Cooked it in Settings → Recent changes also undoes the meal’s Cooked', async ({ page }) => {
+test('F125: Undo of Cooked it in Settings › Recent changes also undoes the meal’s Cooked', async ({ page }) => {
   test.skip(projectIndex() !== 0, 'Chromium on the computer; the others share the waiting card');
   const k = await setup(page);
   await clearWaiting(page);

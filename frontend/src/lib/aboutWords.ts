@@ -1,4 +1,4 @@
-// The words of Settings → About's update parts (mockup Dark-About09-Phone; plan row X1). Every
+// The words of Settings › About's update parts (mockup Dark-About09-Phone; plan row X1). Every
 // sentence here was accepted by cabledrawer on 12 Nov (docs/dev/words.md, "About").
 
 import type { CheckOutcome, LastCheck } from './client/updates';
@@ -63,7 +63,7 @@ export const CHECK_NOW_DETAIL =
   'One request to GitHub’s public release list; nothing about you is sent';
 export const DAILY = 'Daily check';
 export const UPDATE_TAG = 'Update';
-/** The badge on Settings → About for an admin (the brief's words). */
+/** The badge on Settings › About for an admin (the brief's words). */
 export const UPDATE_AVAILABLE = 'Update available';
 
 /** "just now", "5 minutes ago", "3 hours ago", "2 days ago". */

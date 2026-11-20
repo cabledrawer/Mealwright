@@ -2,7 +2,7 @@
 
 A first single sign-on sign-in is linked automatically only to the person with exactly the same
 username (`mealwright.sso_accounts`). Anyone else waits, with no session, until an admin says
-who they are on Settings → Household. cabledrawer 13 Nov: "Who is this?" offers link to a person, a
+who they are on Settings › People. cabledrawer 13 Nov: "Who is this?" offers link to a person, a
 new person, or refuse. A refusal lasts until an admin links that account after all.
 
 Everything here is for an admin of the household (the API checks `Action.PEOPLE`), and only for

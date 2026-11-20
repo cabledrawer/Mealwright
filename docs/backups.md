@@ -18,14 +18,14 @@ Only the user Mealwright runs as (UID 10001) can read these files. See [hardenin
 
 ## Mealwright backs up its database by itself
 
-Settings → Your data shows it. An admin can change how often and how many.
+Settings › Backups & your data shows it. An admin can change how often and how many.
 
 - **How often:** daily at 03:00 (the default), twice a day (03:00 and 15:00) or weekly (Mondays, 03:00). The time is the household's own.
 - **Keep:** "Last 7" by default. An admin can choose from the last 1 to the last 30. Older ones are deleted.
 - **Back up now** makes one straight away.
-- **Include photos** (on by default; an admin can switch it off) puts the recipe photos in each backup. The switch is in Settings → Your data, next to How often and Keep, and it applies to the daily and by-hand backups and to the safety copy made before an upgrade. It changes the backups made from then on, not the ones already there.
+- **Include photos** (on by default; an admin can switch it off) puts the recipe photos in each backup. The switch is in Settings › Backups & your data, next to How often and Keep, and it applies to the daily and by-hand backups and to the safety copy made before an upgrade. It changes the backups made from then on, not the ones already there.
 - **Where:** `data/backups/backup-<date>-<time>.db` (the date and time in UTC). Each is one whole file that opens on its own, made while Mealwright is running and safe to copy. With photos, a folder of the same name with `-photos` in place of `.db` sits beside it (`backup-<date>-<time>-photos`), in the same layout as `data/photos`. It is deleted with its backup when old ones are trimmed.
-- **A server that was off at 03:00** backs up when it starts. After a failed backup it tries again an hour later, and Settings → Your data says the last one failed.
+- **A server that was off at 03:00** backs up when it starts. After a failed backup it tries again an hour later, and Settings › Backups & your data says the last one failed.
 - Mealwright also keeps other copies in the same folder, which the "Keep" setting never deletes: `pre-upgrade-….db` (made before a version changes the database; the newest three are kept, see [upgrade.md](upgrade.md)) and `before-delete-everything-….db` (made before Delete everything).
 
 **The photos are in a folder beside the backup, not in the `.db` file.** With Include photos on (the usual) every backup and the safety copy before an upgrade has one; the copy before Delete everything always has one, whatever the switch says (proposed, for cabledrawer), because Delete everything removes the photos for good. With it off, a backup holds everything but the photos, and restoring it keeps the photos already on the server; a recipe whose photo file is missing just shows no photo.
@@ -57,7 +57,7 @@ Either way, leave out `logs`, and keep at least the last three copies. A copy th
 
 ## Export is not a backup
 
-Settings → Your data → Export everything gives a zip of your recipes, plans, lists, pantry, people and settings, with the photos, so you can read your data without Mealwright. It leaves out passwords, API tokens, who is signed in where, and the single sign-on secret. It is made for taking your data away, not for restoring a server. The format is in `docs/export-format.md`.
+Settings › Backups & your data › Export everything gives a zip of your recipes, plans, lists, pantry, people and settings, with the photos, so you can read your data without Mealwright. It leaves out passwords, API tokens, who is signed in where, and the single sign-on secret. It is made for taking your data away, not for restoring a server. The format is in `docs/export-format.md`.
 
 TODO(cabledrawer): I found no screen or command in the code that loads an export back into Mealwright. Is that right for 0.9.5? If so, say it here in your own words.
 

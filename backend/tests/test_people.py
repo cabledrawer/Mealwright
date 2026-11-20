@@ -1,4 +1,4 @@
-"""Settings → Household (0.9 A1): the people of the household, their logins and roles, the
+"""Settings › People (0.9 A1): the people of the household, their logins and roles, the
 one-time sign-in link, removing with Undo, and "Who's this?" on a shared login."""
 
 import threading

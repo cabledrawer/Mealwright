@@ -1,4 +1,4 @@
-// "Who is this?" on Settings → Household (0.9.5 Pe3/M2; mockup Dark-HouseholdWaiting095-Phone):
+// "Who is this?" on Settings › People (0.9.5 Pe3/M2; mockup Dark-HouseholdWaiting095-Phone):
 // a single sign-on sign-in that matches nobody waits until an admin says who it is (cabledrawer
 // 13 Nov). The mockup's words; the ones it doesn't show are proposed, for cabledrawer
 // (docs/dev/words.md, section 81).

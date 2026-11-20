@@ -1,4 +1,4 @@
-// Settings → Household (backend api/v1/people.py, 0.9 A1): the people of the household, their
+// Settings › People (backend api/v1/people.py, 0.9 A1): the people of the household, their
 // colours and portions, who signs in, and "Who's this?" on a shared login. Everyone can look;
 // only an admin can change anything.
 

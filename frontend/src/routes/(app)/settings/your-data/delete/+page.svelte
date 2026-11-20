@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → Your data → Delete everything (0.9, D1; mockup Dark-DeleteAll09-Phone; the whole
+  // Settings › Backups & your data › Delete everything (0.9, D1; mockup Dark-DeleteAll09-Phone; the whole
   // of it is accepted (cabledrawer 12 Nov)). Admins only: the typed words and the admin's own password.
   // The server makes a safety backup first and deletes nothing if it can't; the backups folder
   // is kept; everyone is signed out. This browser's own copy is wiped too, as signing out does,

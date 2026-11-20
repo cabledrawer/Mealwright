@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { test, expect, request, type Page } from './clock.ts';
 
-// Settings → Sign-in → API tokens (0.9, O2): an admin makes a token, sees it once, and another
+// Settings › API tokens (0.9, O2): an admin makes a token, sees it once, and another
 // app uses it with "Authorization: Bearer"; deleting asks first and stops it at once. Against
 // the worker's own server, signed in as the admin. The rules a token meets (read only, what it
 // can never do, ending, its admin made a member) are in backend/tests/test_api_tokens.py.

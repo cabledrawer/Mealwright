@@ -1,4 +1,4 @@
-// Settings → Your data → Import from Mealie (0.9.5, cabledrawer 13 Nov): choose the file, see what's
+// Settings › Backups & your data › Import from Mealie (0.9.5, cabledrawer 13 Nov): choose the file, see what's
 // in it before anything is added, bring it in (on the server), then Done with one Undo. A phone
 // has the simple screens; a computer the steps, the table with its tick boxes, chips and search.
 

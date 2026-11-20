@@ -1,7 +1,7 @@
 <script lang="ts">
   // Onboarding's "Who eats here?" (0.9 U2): the household's people, and "+ Add a person" by name
-  // only. Logins, colours and portions are given later in Settings → Household (the brief: names
-  // only here). The same people store and endpoint as Settings → Household.
+  // only. Logins, colours and portions are given later in Settings › People (the brief: names
+  // only here). The same people store and endpoint as Settings › People.
   import { onMount } from 'svelte';
   import PersonAvatar from '#lib/components/people/PersonAvatar.svelte';
   import { focusOnMount } from '#lib/focusOnMount.js';
@@ -22,7 +22,7 @@
     if (household.busy || !newName.trim()) return false;
     problem = null;
     try {
-      // 4 quarters: one portion, as Settings → Household adds a person.
+      // 4 quarters: one portion, as Settings › People adds a person.
       if (!(await household.add(newName, null, 4))) return false;
       newName = '';
       adding = false;

@@ -35,7 +35,7 @@ def test_each_household_has_its_own(kitchen: TestClient, neighbour: TestClient) 
     assert ok(neighbour.get(f"{API}/household"))["onboarding_done"] is False
 
 
-# --- Amounts (Onboarding's Amounts step and Settings -> Amounts are the same setting) -----------
+# --- Amounts (Onboarding's Amounts step and Settings › Amounts are the same setting) -----------
 
 
 def test_amounts_start_as_written_and_the_choice_is_kept(kitchen: TestClient) -> None:

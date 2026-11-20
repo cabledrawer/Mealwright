@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { test, expect, type Page } from './clock.ts';
 
-// Single sign-on (0.9 O1): the "Sign in with …" button, the callback page, Settings › Sign-in's
+// Single sign-on (0.9 O1): the "Sign in with …" button, the callback page, Settings › Your sign-in's
 // rows and the setup screen. The sign-in server is a fake one: the requests that would reach it
 // (start, finish) are answered here (page.route), as are the setup's answers, so nothing in the
 // worker's server changes for the other tests. The server's side, with fake providers, is in

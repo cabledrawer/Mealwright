@@ -131,7 +131,7 @@ def test_only_an_admin_resets_and_never_their_own_password(kitchen: TestClient) 
     assert _reset(sams, sam).status_code == 403
     me = next(p["id"] for p in _people(kitchen)["people"] if p["is_me"])
     detail = _problem(_reset(kitchen, me), 409, "own_password")
-    assert detail == "To change your own password, use Settings → Sign-in."
+    assert detail == "To change your own password, use Settings › Your sign-in."
     with db(kitchen) as session:
         assert session.scalars(select(JoinLink).where(JoinLink.kind == "reset")).all() == []
 

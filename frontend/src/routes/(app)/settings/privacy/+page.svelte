@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → Privacy (spec section 7 and section 6, "Recipe import, decided for 0.5"):
+  // Settings › Outside connections (spec section 7 and section 6, "Recipe import, decided for 0.5"):
   // the switches for outside connections, and "Your own network". Two places on it can be
   // linked to: #outside-connections (the import screen's "Photo not downloaded" and
   // "switched off" links) and #your-own-network.

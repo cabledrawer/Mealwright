@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { test, expect, request, type Browser, type Page } from './clock.ts';
 import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 
-// Settings → Household (0.9 A1): the household's people, the Person screen, giving someone a
+// Settings › People (0.9 A1): the household's people, the Person screen, giving someone a
 // login (sign-in link → choose a password → sign in), removing someone and Undo, and "Who's this?"
 // on a shared login, against the real server, signed in as the test admin. Every test removes the
 // people it added, so the Plan's "Who's eating" on this worker's server is as it was.

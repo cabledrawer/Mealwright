@@ -1,4 +1,4 @@
-"""Settings, Sign-in (PR A2): change your password, where you're signed in, signing out one
+"""Settings › Your sign-in (PR A2): change your password, where you're signed in, signing out one
 device or everywhere else."""
 
 import logging

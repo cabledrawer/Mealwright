@@ -1,4 +1,4 @@
-// Settings → Recent changes (F172, cabledrawer 7 Nov): every kind of change (pantry, shopping, plan,
+// Settings › Recent changes (F172, cabledrawer 7 Nov): every kind of change (pantry, shopping, plan,
 // cooking, recipes, imports, ingredients), newest first, each with Undo for 7 days, and
 // "Show more" for older ones. The list comes from GET /changes with no `area`. Answers that
 // arrive late are ignored.

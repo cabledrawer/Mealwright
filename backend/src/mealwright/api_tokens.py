@@ -41,7 +41,7 @@ LONGEST_NAME = 60
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 # The answer for every token that doesn't work, whatever the reason (cabledrawer 12 Nov).
-DOESNT_WORK = "That API token doesn’t work. Make a new one in Settings, Sign-in."
+DOESNT_WORK = "That API token doesn’t work. Make a new one in Settings › Your sign-in."
 READ_ONLY = "This API token can only read. Make one that can read and change."
 NOT_FOR_TOKENS = "API tokens can’t do this. Sign in to Mealwright to do it."
 BOTH = "Send an API token or a sign-in cookie, not both."

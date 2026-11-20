@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → Meal slots (spec "Settings (drawn 17 Oct)"; admins only, cabledrawer 7 Nov): switch a
+  // Settings › Meal slots (spec "Settings (drawn 17 Oct)"; admins only, cabledrawer 7 Nov): switch a
   // meal on or off, rename it, put the meals in order, add one. No removing: switching off is
   // the way, and a switched-off meal keeps its planned meals. The server refuses anyone else.
   import { onMount } from 'svelte';

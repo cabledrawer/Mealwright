@@ -901,7 +901,7 @@ class PasswordsIn(BaseModel):
 
 @router.put("/sso/password-sign-in")
 def put_passwords(body: PasswordsIn, request: Request, kitchen: Here) -> SsoSetupOut:
-    """Admins only. Settings → Sign-in's "Password sign-in" switch on its own."""
+    """Admins only. Settings › Your sign-in's "Password sign-in" switch on its own."""
     kitchen.admin_only(Action.SIGN_IN)
     row = sso_accounts.settings_row(kitchen.db, kitchen.household_id)
     if row is None:

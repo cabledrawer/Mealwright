@@ -1,4 +1,4 @@
-"""Settings → Meal slots, Shops & places: renaming, ordering, adding, removing, and Undo."""
+"""Settings › Meal slots, Shops & places: renaming, ordering, adding, removing, and Undo."""
 
 from collections.abc import Iterator
 from typing import Any

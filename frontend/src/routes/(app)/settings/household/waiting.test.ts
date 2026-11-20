@@ -1,4 +1,4 @@
-// "Who is this?" on Settings → Household (0.9.5 Pe3/M2, mockup Dark-HouseholdWaiting095-Phone):
+// "Who is this?" on Settings › People (0.9.5 Pe3/M2, mockup Dark-HouseholdWaiting095-Phone):
 // a single sign-on sign-in that matches nobody waits until an admin links it to a person, makes
 // a new person for it, or refuses it (cabledrawer 13 Nov). A member never sees it.
 
@@ -41,7 +41,7 @@ const WAITING: WaitingSignIn = {
 };
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-describe('"Who is this?" on Settings → Household', () => {
+describe('"Who is this?" on Settings › People', () => {
   let component: ReturnType<typeof mount> | null = null;
   let requests: FakeRequest[] = [];
 

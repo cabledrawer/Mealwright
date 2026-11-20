@@ -150,7 +150,7 @@ AMOUNTS_WORDS = {"as_written": "as the recipe says", "metric": "grams and ml"}
 
 
 def amounts_shown_changed(kitchen: Kitchen, old: str, new: str) -> Change:
-    """How amounts are shown (admins only; 0.9 U2, Onboarding and Settings → Amounts)."""
+    """How amounts are shown (admins only; 0.9 U2, Onboarding and Settings › Amounts)."""
     return record(
         kitchen,
         "amounts_shown_changed",
@@ -162,7 +162,7 @@ def amounts_shown_changed(kitchen: Kitchen, old: str, new: str) -> Change:
 
 
 def household_renamed(kitchen: Kitchen, old: str, new: str) -> Change:
-    """The household's name (admins only; 0.9 A1, Settings → Household)."""
+    """The household's name (admins only; 0.9 A1, Settings › People)."""
     return record(
         kitchen,
         "household_renamed",

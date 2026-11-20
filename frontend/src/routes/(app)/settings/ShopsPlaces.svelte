@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → Shops & places (F74, F101; mockup Dark-Settings08-Desktop; spec "Shops & places
+  // Settings › Shops & places (F74, F101; mockup Dark-Settings08-Desktop; spec "Shops & places
   // in Settings"). Anyone in the household can manage them. Shops in the order you visit them;
   // places in order, each with its kind (Fridge, Freezer, Cupboard). Removing a shop moves its
   // ingredients to "Any shop"; a place with things in it says how many and asks where to move

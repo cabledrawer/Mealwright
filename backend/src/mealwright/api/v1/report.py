@@ -1,4 +1,4 @@
-"""Settings → About → Report a problem (spec section 7, "Bug reports", cabledrawer 17 Oct).
+"""Settings › About › Report a problem (spec section 7, "Bug reports", cabledrawer 17 Oct).
 
 `GET /problem-report` builds the report on the server, with personal details already removed
 (see mealwright.problem_report), and hands it to the web app. It makes no connection: the

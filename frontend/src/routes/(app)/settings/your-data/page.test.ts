@@ -1,4 +1,4 @@
-// Settings → Your data (0.9, D1): an admin changes the backups and backs up now; a member only
+// Settings › Backups & your data (0.9, D1): an admin changes the backups and backs up now; a member only
 // looks; Delete everything waits for the words and the password, and says why it was refused.
 // D3: an admin who signs in only with single sign-on confirms at the sign-in server instead.
 
@@ -53,7 +53,7 @@ const WHEN = whenWords(BACKUPS.last!.at);
 
 const HOUSEHOLD = { history_months: 12, undo_days: 7 };
 
-describe('Settings → Your data', () => {
+describe('Settings › Backups & your data', () => {
   let component: ReturnType<typeof mount> | null = null;
   let requests: FakeRequest[] = [];
 

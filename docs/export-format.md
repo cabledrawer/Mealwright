@@ -1,6 +1,6 @@
 # Mealwright export format, version 1
 
-Settings → Your data → **Export everything** (Admins only) gives one zip file,
+Settings › Backups & your data › **Export everything** (Admins only) gives one zip file,
 `mealwright-export-YYYY-MM-DD.zip`. It holds everything of one household, so the data can be
 read without Mealwright or brought into another program. (Spec section 7, "Export".)
 
@@ -97,7 +97,7 @@ A photo's name is the `file_key` of its row in the `recipe_photo` table.
 The format below is **proposed, for cabledrawer** (his decision, 13 Nov: an optional password that
 encrypts the file; the choices of cipher, key derivation and costs are the builder's).
 
-Settings → Your data → **Export everything** has an optional **Password** box. With a password
+Settings › Backups & your data › **Export everything** has an optional **Password** box. With a password
 the screen asks the server for the file with `POST /api/v1/export` and a JSON body
 `{"password": "..."}`; the password travels in the body only (never in the address), is
 never stored or logged, and is 8 to 1,024 characters (counted after Unicode NFC). An admin only,

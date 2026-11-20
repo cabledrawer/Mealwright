@@ -224,18 +224,18 @@ export default defineConfig({
     { name: 'desktop beta2 settings layout', testMatch: 'settings-layout.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Safari's engine: just the Finish setup row (cabledrawer 12 Nov), not the whole of Settings.
     { name: 'webkit 0.9 settings', testMatch: 'settings.spec.ts', grep: /Finish setup/, use: { ...webkitPhone, storageState: AUTH_FILE } },
-    // Settings → Household: people, logins, Undo of a removal and "Who's this?" (0.9 A1).
+    // Settings › People: people, logins, Undo of a removal and "Who's this?" (0.9 A1).
     { name: 'phone 0.9 household', testMatch: 'household.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.9 household', testMatch: 'household.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.9 household', testMatch: 'household.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
-    // Settings → Sign-in and Change password (0.9, A2).
+    // Settings › Your sign-in and Change password (0.9, A2).
     // Full Onboarding (0.9 U2): each step against the real server; Skip itself is sign-in.spec's first run.
     { name: 'phone 0.9 onboarding', testMatch: 'onboarding.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.9 onboarding', testMatch: 'onboarding.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'phone 0.9 my sign-in', testMatch: 'my-sign-in.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.9 my sign-in', testMatch: 'my-sign-in.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.9 my sign-in', testMatch: 'my-sign-in.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
-    // Settings → Your data (0.9, D1): backups, export, How to restore and Delete everything's guard.
+    // Settings › Backups & your data (0.9, D1): backups, export, How to restore and Delete everything's guard.
     { name: 'phone 0.9 your data', testMatch: 'your-data.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.9 your data', testMatch: 'your-data.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.9 your data', testMatch: 'your-data.spec.ts', use: { ...webkitPhone, storageState: AUTH_FILE } },
@@ -248,7 +248,7 @@ export default defineConfig({
     { name: 'phone 0.9 sso', testMatch: 'sso.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.9 sso', testMatch: 'sso.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.9 sso', testMatch: 'sso.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
-    // Settings → Sign-in → API tokens: make, use from another app, delete (0.9, O2).
+    // Settings › API tokens: make, use from another app, delete (0.9, O2).
     { name: 'phone 0.9 api tokens', testMatch: 'api-tokens.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.9 api tokens', testMatch: 'api-tokens.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.9 api tokens', testMatch: 'api-tokens.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
@@ -283,7 +283,7 @@ export default defineConfig({
     { name: 'desktop keyboard', testMatch: 'keyboard.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // Speed on a simulated slow phone (0.4).
     { name: 'slow phone', testMatch: 'slow-phone.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
-    // Settings → Privacy (0.5).
+    // Settings › Outside connections (0.5).
     { name: 'phone 0.5 privacy', testMatch: 'privacy.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.5 privacy', testMatch: 'privacy.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     // About's update parts and the update-check switch (0.9, X1).

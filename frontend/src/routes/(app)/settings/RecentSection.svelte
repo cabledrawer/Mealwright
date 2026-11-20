@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → Recent changes (F172, cabledrawer 7 Nov): the only place with every kind of change
+  // Settings › Recent changes (F172, cabledrawer 7 Nov): the only place with every kind of change
   // and its Undo (Ingredients and Pantry have no list of their own now). The toast still offers
   // Undo straight after each change.
   import { cantReachWords } from '#lib/api.js';

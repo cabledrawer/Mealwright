@@ -1,4 +1,4 @@
-// The words for people on Settings → Household (0.9 A1): portions, the line under a name, and
+// The words for people on Settings › People (0.9 A1): portions, the line under a name, and
 // the avatar's initial.
 
 import { describe, expect, it } from 'vitest';

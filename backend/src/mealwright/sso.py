@@ -5,11 +5,11 @@ to Mealwright's `/auth/callback` page with a one-time code → the server swaps 
 tokens and checks the ID token → a Mealwright sign-in.
 
 **Every request to the provider goes through the outbound gate** under the Single sign-on
-switch in Settings → Privacy (`Connection.SINGLE_SIGN_ON`): its discovery document, its keys
+switch in Settings › Outside connections (`Connection.SINGLE_SIGN_ON`): its discovery document, its keys
 (JWKS), the token endpoint (sign-in and refresh) and its userinfo endpoint. With the switch
 off nothing is looked up or sent. Each address is checked like a recipe link's
 (`mealwright.page_fetch`): a provider on the household's own network must be on "Your own
-network" in Settings → Privacy, this server itself and cloud metadata addresses never work,
+network" in Settings › Outside connections, this server itself and cloud metadata addresses never work,
 and a port other than 80 and 443 needs listing. Plain http:// works only for a listed place
 (cabledrawer 12 Nov).
 
@@ -96,16 +96,16 @@ type _Address = ipaddress.IPv4Address | ipaddress.IPv6Address
 MESSAGES: dict[str, str] = {
     "not_set_up": "Single sign-on isn’t set up. Ask your household’s admin.",
     "switched_off": (
-        "Single sign-on is switched off in Settings → Privacy. Ask your household’s admin."
+        "Single sign-on is switched off in Settings › Outside connections. Ask your household’s admin."
     ),
     "own_network": (
-        "Your sign-in server is on your own network. An admin adds it in Settings → Privacy → "
+        "Your sign-in server is on your own network. An admin adds it in Settings › Outside connections › "
         "Your own network."
     ),
     "always_blocked": "Mealwright can’t use that address for your sign-in server.",
     "not_https": (
         "Your sign-in server’s address must start with https://, unless it’s on your own "
-        "network in Settings → Privacy."
+        "network in Settings › Outside connections."
     ),
     "unreachable": "Mealwright couldn’t reach your sign-in server. Try again in a minute.",
     "bad_answer": "Your sign-in server gave an answer Mealwright couldn’t use.",
@@ -117,7 +117,7 @@ MESSAGES: dict[str, str] = {
     ),
     "secret_unreadable": (  # nosec B105 (words, not a secret)
         "Mealwright can’t read the saved client secret. An admin enters it again in "
-        "Settings → Sign-in → Single sign-on."
+        "Settings › Sign-in for everyone."
     ),
     "not_let_in": (
         "Your sign-in server doesn’t put you in a group Mealwright lets in. Ask your "

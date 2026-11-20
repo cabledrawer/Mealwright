@@ -1,4 +1,4 @@
-"""Settings → Privacy: the switches and "Your own network" (0.5 PR 4).
+"""Settings › Outside connections: the switches and "Your own network" (0.5 PR 4).
 
 Everyone in the household reads them, only an admin changes them, one household never sees
 or changes another's, and a change reaches the outbound gate at once.

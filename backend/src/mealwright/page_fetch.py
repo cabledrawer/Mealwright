@@ -109,11 +109,11 @@ MESSAGES = {
         "Mealwright never opens links to this server itself or to cloud “metadata” addresses."
     ),
     Problem.OWN_NETWORK: (
-        "That link is on your own network. An admin can allow it in Settings → Privacy,"
+        "That link is on your own network. An admin can allow it in Settings › Outside connections,"
         " under “Your own network”."
     ),
     Problem.ODD_PORT: (
-        "That link uses an unusual port. An admin can allow it in Settings → Privacy,"
+        "That link uses an unusual port. An admin can allow it in Settings › Outside connections,"
         " under “Your own network”."
     ),
     Problem.TOO_MANY_REDIRECTS: "That link sends you on too many times. Try the recipe’s own link.",

@@ -1,6 +1,6 @@
 <script lang="ts">
   // Onboarding's "Where do you shop?" (0.9 U2): the household's shops, ✕ to remove one (with
-  // Undo, as in Settings) and "+ Add a shop". Optional. The same endpoints as Settings → Shops and
+  // Undo, as in Settings) and "+ Add a shop". Optional. The same endpoints as Settings › Shops and
   // places; renaming and putting them in order stay in Settings.
   import { onMount } from 'svelte';
   import { ApiError, cantReach, cantReachWords } from '#lib/api.js';

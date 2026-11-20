@@ -1,7 +1,7 @@
 """The outbound gate: the only way Mealwright connects to anything outside the server.
 
 Spec section 7: every outgoing connection passes through one place, which checks the
-household's Privacy switches (Settings → Privacy). Anything not switched on is blocked; the one
+household's Privacy switches (Settings › Outside connections). Anything not switched on is blocked; the one
 exception is a person's own press of Check now in About (`pressed=True`, cabledrawer 12 Nov).
 
 Two parts:
@@ -69,7 +69,7 @@ class Connection(StrEnum):
     SINGLE_SIGN_ON = "single_sign_on"  # the household's own identity provider (0.8)
 
 
-# Each switch in plain words, as Settings → Privacy will name it. Log lines about a
+# Each switch in plain words, as Settings › Outside connections will name it. Log lines about a
 # connection use these only, never the address: a site name can show what someone was
 # cooking, and logs never record what people cook, buy or type (cabledrawer 17 Oct).
 LABELS = {
@@ -340,7 +340,7 @@ class OutboundGate:
         if not self.is_allowed(household_id, connection):
             # Log the switch only, never the address or site (see LABELS).
             log.warning("Blocked outgoing connection: %s is switched off", LABELS[connection])
-            raise OutboundBlocked(f"{LABELS[connection]} is switched off in Settings → Privacy")
+            raise OutboundBlocked(f"{LABELS[connection]} is switched off in Settings › Outside connections")
 
     def request(
         self,
@@ -360,7 +360,7 @@ class OutboundGate:
         that goes through `look_up()` and `get_pinned()`, which check the address first.
 
         `pressed=True` is for one person's own press of a button, and only for
-        `Connection.UPDATE_CHECK` ("Check now" in Settings → About: the daily switch only
+        `Connection.UPDATE_CHECK` ("Check now" in Settings › About: the daily switch only
         controls the automatic check; cabledrawer 12 Nov): the switch isn't asked for this one
         request. Every other limit and rule is unchanged. For any other connection it raises
         ValueError: their switches always apply.

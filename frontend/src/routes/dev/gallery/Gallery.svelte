@@ -127,7 +127,7 @@
   let kitchenSheet = $state(false);
   let kitchenShown = $state({ hob_rings: 4, pressure_cookers: 1, oven: true, asked: false });
 
-  // --- Settings → Privacy -----------------------------------------------------------------
+  // --- Settings › Outside connections -----------------------------------------------------------------
   let importOn = $state(true);
   let photosOn = $state(false);
   const switchValues = (a: boolean, b: boolean): Record<SwitchName, boolean> => ({
@@ -1257,7 +1257,7 @@
       The one box takes a link or pasted text. Importing from links switched off (an admin sees
       Settings, a member is told an admin can switch it on), another refusal, and the box while
       reading. While "Download recipe photos" is off, a note under "How it works" says photos aren’t
-      downloaded and links to Settings → Privacy (the Outside connections box; it is left out while
+      downloaded and links to Settings › Outside connections (the Outside connections box; it is left out while
       the switch is on or isn’t known). The review has a line in each state: matched, staple, to
       confirm, needs you, a line that couldn’t be read, a very long name and a heading. "Save & plan
       it" is not there until 0.6.
@@ -1471,7 +1471,7 @@
   </section>
 
   <section id="privacy">
-    <h2>Settings → Privacy: outside connections, your own network</h2>
+    <h2>Settings › Outside connections: outside connections, your own network</h2>
     <p class="note">
       An admin changes them. A member sees them and a note saying why. Offline they show as last
       loaded and can’t be changed.

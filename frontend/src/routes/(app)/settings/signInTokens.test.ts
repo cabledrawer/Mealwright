@@ -1,4 +1,4 @@
-// Settings → Your sign-in and Sign-in for everyone (F252; formerly one Sign-in section, 0.9 O2): the
+// Settings › Your sign-in and Sign-in for everyone (F252; formerly one Sign-in section, 0.9 O2): the
 // household's part is its own page for admins, and "Your sign-in" asks for nothing of it.
 
 import { flushSync, mount, unmount } from 'svelte';
@@ -24,7 +24,7 @@ const MINE = {
   ]
 };
 
-describe('Settings → Your sign-in and Sign-in for everyone', () => {
+describe('Settings › Your sign-in and Sign-in for everyone', () => {
   let component: ReturnType<typeof mount> | null = null;
   let requests: FakeRequest[] = [];
 

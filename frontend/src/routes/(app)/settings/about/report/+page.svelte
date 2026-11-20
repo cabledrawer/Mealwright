@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → About → Report a problem (mockup Dark-Report09-Phone; spec section 7 "Bug
+  // Settings › About › Report a problem (mockup Dark-Report09-Phone; spec section 7 "Bug
   // reports", cabledrawer 17 Oct; plan row X2).
   //
   // 1. The server builds the report (version, browser and device, recent errors for an admin)

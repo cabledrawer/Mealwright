@@ -1,4 +1,4 @@
-// Settings → About (backend api/v1/updates.py, spec section 7 "Updates"): the running version,
+// Settings › About (backend api/v1/updates.py, spec section 7 "Updates"): the running version,
 // the day it was released and, for an admin, Check now and the last answer. Reading it never
 // connects anywhere; only Check now does, through the server's outbound gate.
 

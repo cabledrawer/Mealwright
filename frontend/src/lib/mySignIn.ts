@@ -1,4 +1,4 @@
-// Your own sign-in (Settings › Sign-in and Change password, PR A2): your password's date,
+// Your own sign-in (Settings › Your sign-in and Change password, PR A2): your password's date,
 // where you're signed in, and signing out one device or everywhere else.
 import { api } from '#lib/api.js';
 

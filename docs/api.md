@@ -13,7 +13,7 @@ Everything the Mealwright web app does, it does through the same public API, so 
 
 Only an admin can make one.
 
-1. Open Settings → Sign-in → API tokens.
+1. Open Settings › API tokens.
 2. Under **New token**, give it a **Name** that says what it is for (for example "Shopping widget").
 3. Choose what it **Can** do: **Read only** or **Read and change**.
 4. Choose when it **Expires**: Never, 30 days, 1 year, or Pick a date.
@@ -36,9 +36,9 @@ Don't send a sign-in cookie at the same time: a request with both is refused.
 
 ## What a token can and can't do
 
-- It acts as the admin who made it, **only while that person is still an admin** of the household. If they are made a Member or removed, their tokens stop at once and for good. This is true even if they are taken out at your sign-in server only: do it in Settings → Household too ([sso.md](sso.md)).
+- It acts as the admin who made it, **only while that person is still an admin** of the household. If they are made a Member or removed, their tokens stop at once and for good. This is true even if they are taken out at your sign-in server only: do it in Settings › People too ([sso.md](sso.md)).
 - A read-only token can't change anything.
-- No token can manage people, change Privacy, change sign-in settings (including making tokens) or use Your data (backups, export, Delete everything). Do those in the web app.
+- No token can manage people, change Outside connections, change sign-in settings (including making tokens) or use Backups & your data (backups, export, Delete everything). Do those in the web app.
 - A token that doesn't work (unknown, deleted, ended, or the wrong shape) always gets the same answer, `401`, so nobody can tell which.
 - Using a token writes nothing to Mealwright's log.
 - To stop a token, delete it on the same screen.

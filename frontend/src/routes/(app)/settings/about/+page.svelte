@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → About (mockup Dark-About09-Phone). This PR (X1, "Update check") builds only the
+  // Settings › About (mockup Dark-About09-Phone). This PR (X1, "Update check") builds only the
   // update parts: "New version ready", the version and its release day, the version-age note
   // and the admins' Updates card. X2 adds Help's "Report a problem". U1 adds "Licences and
   // credits": the licence, a plain link to the source, the USDA credit and the fonts' licences.

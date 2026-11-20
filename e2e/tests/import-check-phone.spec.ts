@@ -2,7 +2,7 @@ import { test, expect, type Page } from './clock.ts';
 import { checkPage, expectNoSidewaysScroll, isPhone, setAccountTheme } from './a11y.ts';
 
 // Check on the phone (0.7, F141, cabledrawer 3 Nov): Focus (the default) and One at a time, chosen in
-// Settings → Appearance, and the computer's Check screen that stays as it was. Runs on Chromium
+// Settings › Appearance, and the computer's Check screen that stays as it was. Runs on Chromium
 // and WebKit at phone size, and on a computer. The recipe is pasted (the path that never goes
 // online); the drafts are the real server's, and each test deletes its own.
 
@@ -186,7 +186,7 @@ test('One at a time: See all shows the whole list, and a reopened draft starts O
   await deleteDrafts(page, title);
 });
 
-test('Settings → Appearance chooses it, on this device: Focus until changed', async ({ page }) => {
+test('Settings › Appearance chooses it, on this device: Focus until changed', async ({ page }) => {
   test.skip(!isPhone(page), 'the phone’s layout');
   await page.goto('/settings/appearance');
   const focus = page.getByRole('radio', { name: /^Focus/ });

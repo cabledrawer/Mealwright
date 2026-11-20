@@ -1,4 +1,4 @@
-// Settings → Household (0.9 A1): the people, adding one, the household's name and the
+// Settings › People (0.9 A1): the people, adding one, the household's name and the
 // "Who's this?" switch, for an admin and for a member (who sees it all and changes nothing).
 
 import { flushSync, mount, unmount } from 'svelte';
@@ -29,7 +29,7 @@ const CHANGE = (id: number, kind: string, summary: string) => ({
   undone: null
 });
 
-describe('Settings → Household', () => {
+describe('Settings › People', () => {
   let component: ReturnType<typeof mount> | null = null;
   let requests: FakeRequest[] = [];
 

@@ -1,4 +1,4 @@
-"""Removing a shop or a place from Settings → Shops & places, and putting it back with Undo
+"""Removing a shop or a place from Settings › Shops & places, and putting it back with Undo
 (spec section 6, "Shops & places in Settings").
 
 A removed shop's ingredients (and the shopping lines in it) go to "Any shop". A removed place

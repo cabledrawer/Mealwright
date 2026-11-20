@@ -1,4 +1,4 @@
-// Settings → Privacy (backend api/v1/privacy.py): the switches for outside connections and
+// Settings › Outside connections (backend api/v1/privacy.py): the switches for outside connections and
 // "Your own network". Everyone in the household can read them; only an admin can change them.
 
 import { api } from '#lib/api.js';

@@ -20,7 +20,7 @@ Because the files are private to UID 10001, other host users can't read them. Pi
   borg run by root). Root reads the files whatever their mode.
 - **Run it as UID 10001** (a host user or `docker run --user 10001:10001`) if you don't
   want root involved.
-- Or **use Mealwright's own backups** (Settings, Your data), which are written into
+- Or **use Mealwright's own backups** (Settings › Backups & your data), which are written into
   `/data/backups` and copied out the same way.
 
 Don't loosen the modes to make a backup tool work: the next start sets them back.

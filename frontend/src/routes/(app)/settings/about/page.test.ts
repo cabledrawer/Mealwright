@@ -1,4 +1,4 @@
-// Settings → About, the update parts (X1; mockup Dark-About09-Phone): the version and its release
+// Settings › About, the update parts (X1; mockup Dark-About09-Phone): the version and its release
 // day, the version-age note, "New version ready" and the admins' Updates card with Check now.
 
 import { flushSync, mount, unmount } from 'svelte';
@@ -71,7 +71,7 @@ afterEach(() => {
   newVersion.reset();
 });
 
-describe('Settings → About (X1)', () => {
+describe('Settings › About (X1)', () => {
   it('shows the version and its release day, with no note while it is new', async () => {
     open({ 'GET /updates': [200, info({ released: '2026-11-12' })] });
     await expect.element(page.getByRole('heading', { name: 'About', level: 1 })).toBeVisible();

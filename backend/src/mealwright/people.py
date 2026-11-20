@@ -481,7 +481,7 @@ def give_reset_link(kitchen: Kitchen, member: Member) -> tuple[str, JoinLink]:
     if login.id == kitchen.login.id:
         # Never for yourself (proposed, for cabledrawer): you change your own password in Settings,
         # and the only admin who has forgotten theirs uses reset-admin on the server.
-        raise _refused("own_password", "To change your own password, use Settings → Sign-in.")
+        raise _refused("own_password", "To change your own password, use Settings › Your sign-in.")
     if not login.password_hash:
         # Someone who hasn't chosen a password yet gets a new sign-in link instead, and someone
         # who only uses single sign-on has none here (proposed, for cabledrawer).

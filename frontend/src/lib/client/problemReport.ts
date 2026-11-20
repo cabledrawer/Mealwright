@@ -1,4 +1,4 @@
-// Settings → About → Report a problem (backend api/v1/report.py, spec section 7 "Bug reports"):
+// Settings › About › Report a problem (backend api/v1/report.py, spec section 7 "Bug reports"):
 // the report the server builds, with personal details already removed. Getting it never
 // connects anywhere outside, and the server never sends it: the person does.
 

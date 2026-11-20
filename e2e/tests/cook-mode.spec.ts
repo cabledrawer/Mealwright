@@ -570,7 +570,7 @@ test('after Undo of Cooked it, Cook mode from the same meal ends with Back and C
   const review = page.getByRole('dialog', { name: new RegExp(`^Cooked .*${name}`) });
   await review.getByRole('button', { name: 'Confirm · update pantry' }).click();
   await expect(review).toHaveCount(0);
-  // Undo it from Settings → Recent changes (the toast is gone once Cook mode has left).
+  // Undo it from Settings › Recent changes (the toast is gone once Cook mode has left).
   await page.goto('/settings/recent-changes');
   const undo = page.getByRole('region', { name: 'Recent changes' }).getByRole('button', { name: new RegExp(`^Undo: Cooked ${name} \\(\\d+ portions?\\)`) });
   await undo.click();

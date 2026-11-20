@@ -1,6 +1,6 @@
 // Check on the phone (F141, cabledrawer 3 Nov): Focus and One at a time, and a computer that keeps
 // the whole screen whatever the choice. The layouts come from ReviewPage, which reads the choice
-// in Settings → Appearance.
+// in Settings › Appearance.
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';

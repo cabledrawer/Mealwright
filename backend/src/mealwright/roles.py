@@ -17,17 +17,17 @@ ROLES = (ADMIN, MEMBER)
 class Action(StrEnum):
     """What can be asked of `allowed()`. Each needs an Admin unless `MEMBERS_MAY` lists it."""
 
-    # Settings → Household: add, change or remove a person, give a login, change a role, and
+    # Settings › People: add, change or remove a person, give a login, change a role, and
     # the "Who's this?" switch.
     PEOPLE = "people"
     # Household-wide settings: the pint, Batch cook shown or hidden, meal slots, and the
     # household's time zone and cup size from the browser.
     HOUSEHOLD_SETTINGS = "household_settings"
-    # Settings → Privacy: every outside-connection switch and "Your own network".
+    # Settings › Outside connections: every outside-connection switch and "Your own network".
     PRIVACY = "privacy"
-    # Settings → Sign-in (single sign-on, password sign-in, API tokens; from 0.9).
+    # Settings › Your sign-in (single sign-on, password sign-in, API tokens; from 0.9).
     SIGN_IN = "sign_in"
-    # Settings → Your data: how often and how many backups, Back up now, Export everything and
+    # Settings › Backups & your data: how often and how many backups, Back up now, Export everything and
     # Delete everything (0.9 D1).
     YOUR_DATA = "your_data"
     # Cook mode's ingredients for each step: any person of the household (cabledrawer 1 Nov).
@@ -62,7 +62,7 @@ ADMIN_ONLY_KINDS = tuple(ADMIN_KINDS)
 
 # What an API token never does, even an admin's full one (PR O2; proposed, for cabledrawer): change
 # the people of the household or their roles, the outside-connection switches, or sign-in, and
-# anything in Settings → Your data (the export holds every table, and Delete everything and
+# anything in Settings › Backups & your data (the export holds every table, and Delete everything and
 # the wrong-password pause are for the admin at the screen; O2 review r1, finding 1).
 TOKENS_NEVER: frozenset[Action] = frozenset(
     {Action.PEOPLE, Action.PRIVACY, Action.SIGN_IN, Action.YOUR_DATA}

@@ -1,4 +1,4 @@
-// Settings → Household → a person (0.9 A1): Save sends only what changed, Remove has Undo,
+// Settings › People › a person (0.9 A1): Save sends only what changed, Remove has Undo,
 // giving a login makes a one-time sign-in link, and a member changes nothing.
 
 import { flushSync, mount, unmount } from 'svelte';
@@ -102,7 +102,7 @@ const HERE = { ...HOUSEHOLD, time_zone: Intl.DateTimeFormat().resolvedOptions().
 const clock = (at: Date) =>
   `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
 
-describe('Settings → Household → a person', () => {
+describe('Settings › People › a person', () => {
   let component: ReturnType<typeof mount> | null = null;
   let requests: FakeRequest[] = [];
 
@@ -436,7 +436,7 @@ describe('Settings → Household → a person', () => {
     open();
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('This person isn’t in the household any more. Household');
+      .toHaveTextContent('This person isn’t in the household any more. People');
   });
 
   it('Reset password makes a one-time link to copy, and the data stays (Pe1)', async () => {

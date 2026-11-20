@@ -1,4 +1,4 @@
-// Settings → About → Report a problem (spec section 7, "Bug reports", cabledrawer 17 Oct; mockup
+// Settings › About › Report a problem (spec section 7, "Bug reports", cabledrawer 17 Oct; mockup
 // Dark-Report09-Phone; plan row X2). The words from the mockup are the mockup's; every other
 // sentence here was accepted by cabledrawer on 12 Nov (docs/dev/words.md section 74).
 //

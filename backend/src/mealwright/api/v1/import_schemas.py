@@ -153,7 +153,7 @@ class ReviewPhoto(BaseModel):
 
     - `downloaded`: held as a waiting photo until Save (`photo` is set).
     - `off`: "Download recipe photos" is switched off; the screen says "Photo not downloaded"
-      and links to Settings → Privacy.
+      and links to Settings › Outside connections.
     - `none`: nothing to download (pasted text, or the page has no photo).
     - `failed`: the download was refused or didn't work; `message` says why.
     """

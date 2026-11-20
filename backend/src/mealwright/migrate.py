@@ -141,7 +141,7 @@ def safety_copy(
 
     With `photos` (the folder of photo files), the copy gets a photo folder beside it too
     (`pre-upgrade-<revision>-<stamp>-photos/`, mealwright.backups) unless the household has left
-    photos out (Settings → Your data → Include photos), so going back by it brings them back."""
+    photos out (Settings › Backups & your data › Include photos), so going back by it brings them back."""
     if sqlite_file(engine) is None:
         return None
     revision = current_revision(engine)

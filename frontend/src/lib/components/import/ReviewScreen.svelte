@@ -337,10 +337,10 @@
         {#if review.photo.state === 'off'}
           <b>Photo not downloaded.</b> Photo downloads are off in
           {#if session.me?.role === 'admin'}
-            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings → Outside connections is built beside this page -->
-            <a href={privacy}>Settings → Outside connections</a>.
+            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings › Outside connections is built beside this page -->
+            <a href={privacy}>Settings › Outside connections</a>.
           {:else}
-            Settings → Outside connections; an admin can switch them on.
+            Settings › Outside connections; an admin can switch them on.
           {/if}
           You can add your own photo later.
         {:else}

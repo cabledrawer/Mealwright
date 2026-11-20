@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  // Settings → Sign-in → Single sign-on (0.9 O1; the mockup Dark-SSO09-Desktop). Admins only,
+  // Settings › Sign-in for everyone (0.9 O1; the mockup Dark-SSO09-Desktop). Admins only,
   // and on a computer: a phone says "Set up on a computer" (cabledrawer 12 Nov). The client
   // secret is never shown or sent back: the field is blank, and blank keeps the saved one.
   // "Test sign-in" asks the server to start a test (a POST, never a link) and opens the

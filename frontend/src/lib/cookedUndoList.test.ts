@@ -12,7 +12,7 @@ const COOKED = { ...changeOf(70, 'Cooked Dal curry'), kind: 'cooked' } as Change
 const paths = (requests: { method: string; path: string }[]) =>
   requests.map((r) => `${r.method} ${r.path}`);
 
-describe('Undo of Cooked it in Settings → Recent changes', () => {
+describe('Undo of Cooked it in Settings › Recent changes', () => {
   afterEach(() => toasts.dismiss());
 
   it('is one Undo: one request, the row loses its Undo, and Today and the Plan fetch again', async () => {

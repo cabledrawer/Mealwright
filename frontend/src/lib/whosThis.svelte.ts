@@ -1,6 +1,6 @@
 // "Who's this?" on a shared login (0.9 A1, mockup Dark-WhosThis09-Phone): a kitchen tablet the
 // household shares asks who is using it, so Recent changes says who did what. Only while the
-// household has the switch on (Settings → Household), and only on a shared login.
+// household has the switch on (Settings › People), and only on a shared login.
 //
 // Asked when the app opens with nobody picked, and again after 30 minutes without use (the pick
 // is cleared first, so nothing is recorded for the last person meanwhile). "Just looking" picks

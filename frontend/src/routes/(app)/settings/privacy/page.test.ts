@@ -1,4 +1,4 @@
-// Settings → Privacy (0.5 PR 4): the switches and "Your own network", for an admin, for a
+// Settings › Outside connections (0.5 PR 4): the switches and "Your own network", for an admin, for a
 // member, and when the server can't be reached.
 
 import { flushSync, mount, unmount } from 'svelte';
@@ -55,7 +55,7 @@ const MEMBER_NOTE =
 const OFFLINE_NOTE =
   'You’re offline. This is as it was when you last looked, and it can’t be changed until you’re back online.';
 
-describe('Settings → Privacy', () => {
+describe('Settings › Outside connections', () => {
   let component: ReturnType<typeof mount> | null = null;
   let requests: FakeRequest[] = [];
 

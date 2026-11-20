@@ -1,4 +1,4 @@
-"""Settings → About → Report a problem (spec section 7, "Bug reports", cabledrawer 17 Oct; plan row
+"""Settings › About › Report a problem (spec section 7, "Bug reports", cabledrawer 17 Oct; plan row
 X2).
 
 The server builds the report with personal details already removed and never sends it anywhere.
@@ -959,7 +959,7 @@ def test_a_person_without_a_login_is_removed_too(
     planted: TestClient, neighbour: TestClient, settings: Settings
 ) -> None:
     """People of the household (0.9 A1) are names too, with or without a login: a child added
-    in Settings → Household never signs in, and must still not be named in a report. Added
+    in Settings › People never signs in, and must still not be named in a report. Added
     after the scrubber was built, so it is also built again for a new person."""
     folder = log_folder(settings)
     write_log(folder, [error("Sign-in for tess failed")])

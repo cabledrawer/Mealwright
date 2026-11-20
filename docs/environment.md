@@ -43,4 +43,4 @@ The Dockerfile also sets `PATH` (so the app's own Python is found), `PYTHONDONTW
 
 ## What isn't here
 
-There are no variables for telemetry, because there is none, and none for the outside connections: those are switches in Settings → Privacy, off by default ([README](../README.md#privacy)).
+There are no variables for telemetry, because there is none, and none for the outside connections: those are switches in Settings › Outside connections, off by default ([README](../README.md#privacy)).

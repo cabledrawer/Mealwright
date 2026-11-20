@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  // Settings › Sign-in › API tokens (0.9 O2; the mockup Dark-ApiTokens09). Admins only. The
+  // Settings › API tokens (0.9 O2; the mockup Dark-ApiTokens09). Admins only. The
   // list, "New token" (name, Read only / Read and change, Expires: Never, 30 days, 1 year or
   // Pick a date) and, once made, the token shown this once with Copy and Done. Deleting asks
   // first: a deleted token can't come back, and the apps using it stop at once (the brief's

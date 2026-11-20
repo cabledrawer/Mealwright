@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → Your data → Import from Mealie (0.9.5, cabledrawer 13 Nov; mockups
+  // Settings › Backups & your data › Import from Mealie (0.9.5, cabledrawer 13 Nov; mockups
   // Dark-Mealie{Start,Preview,Running,Done}095-Phone and Dark-MealieImport095-Desktop): Mealie's
   // backup file is read on the server and shown before anything is added; "Bring in" runs on
   // the server, so the screen can be left; one Undo for the whole import, for 7 days.

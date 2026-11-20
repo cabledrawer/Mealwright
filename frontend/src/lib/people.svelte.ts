@@ -1,4 +1,4 @@
-// Settings → Household (0.9 A1): the household's people, loaded once and shared by the Household
+// Settings › People (0.9 A1): the household's people, loaded once and shared by the Household
 // and Person screens. Every change answers with the whole list and the change made, so its Undo
 // (the toast, Ctrl+Z, Recent changes) is the server's own. Admins only change; everyone looks.
 

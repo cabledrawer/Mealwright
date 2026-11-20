@@ -1,7 +1,7 @@
 # How to restore Mealwright from a backup
 
 Mealwright backs its database up by itself, daily at 03:00 by default, into the `backups`
-folder inside its data folder (Settings → Your data). This page says how to put one of those
+folder inside its data folder (Settings › Backups & your data). This page says how to put one of those
 backups back. `backend/scripts/restore_test.sh` follows these steps on a fresh container and
 checks that signing in shows the data.
 
@@ -12,9 +12,9 @@ is `/data` inside the container).
 
 - **The database**: every recipe, plan, list, pantry item, person, login and setting. One file,
   `data/backups/backup-<date>-<time>.db` (the date and time in UTC).
-- **The single sign-on client secret opens only with `data/secret.key`** (proposed, for cabledrawer). A backup keeps the secret sealed; on a new server without that key file, Mealwright can't open it, password sign-in works again, and an admin types the secret again in Settings → Sign-in → Single sign-on. An admin who has only ever signed in with single sign-on has no password: run the `reset-admin` command for them first (proposed, for cabledrawer). An export leaves the secret out altogether, and API tokens too: make new ones.
+- **The single sign-on client secret opens only with `data/secret.key`** (proposed, for cabledrawer). A backup keeps the secret sealed; on a new server without that key file, Mealwright can't open it, password sign-in works again, and an admin types the secret again in Settings › Sign-in for everyone. An admin who has only ever signed in with single sign-on has no password: run the `reset-admin` command for them first (proposed, for cabledrawer). An export leaves the secret out altogether, and API tokens too: make new ones.
 - **The photos, when "Include photos" was on** (it is on unless an admin switched it off in
-  Settings → Your data): a folder beside the database file with the same name and `-photos` in
+  Settings › Backups & your data): a folder beside the database file with the same name and `-photos` in
   place of `.db`, for example `data/backups/backup-<date>-<time>-photos`. It holds the recipe
   photos as they were when the backup was made, in the same `photos/<number>/` layout as
   `data/photos`. A backup made before 0.9.5, one made with "Include photos" off, or one made when
@@ -110,7 +110,7 @@ is `/data` inside the container).
    **After a restore**, everything else is as it was in the copy, logins and passwords
    included. Do again what you did after the copy was made: remove people you removed, unlink
    or refuse single sign-on accounts you unlinked or refused, change any password that leaked,
-   and check the switches in Settings → Privacy.
+   and check the switches in Settings › Outside connections.
 
    Only copies Mealwright made carry the mark that ends the sign-ins. A copy of the data folder
    made another way (a `tar` of `data`, a snapshot of the server) doesn't: after restoring

@@ -1,4 +1,4 @@
-// Settings → Your data (backend api/v1/your_data.py; spec section 7): backups, the export and
+// Settings › Backups & your data (backend api/v1/your_data.py; spec section 7): backups, the export and
 // Delete everything. Everyone in the household can read the backups' settings; only an admin
 // changes them, backs up now, exports or deletes everything (the server refuses anyone else).
 

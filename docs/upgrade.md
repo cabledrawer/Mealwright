@@ -40,7 +40,7 @@ Below, `<folder>` is the folder holding `compose.yaml` and the `data` folder (th
    docker compose logs -f
    ```
 
-3. Check it. Open Settings → About: it shows the version. The address `/api/v1/version` on your Mealwright also answers with the version, for tools that watch for updates.
+3. Check it. Open Settings › About: it shows the version. The address `/api/v1/version` on your Mealwright also answers with the version, for tools that watch for updates.
 
 ## What happens when it starts
 
@@ -48,7 +48,7 @@ Below, `<folder>` is the folder holding `compose.yaml` and the `data` folder (th
 - **It makes a safety copy first.** Before it changes the database, it copies it to `data/backups/pre-upgrade-<revision>-<date>-<time>.db` (the date and time in UTC). Once the upgrade has worked, it keeps the newest three of these. A new install, or a start with nothing to upgrade, makes no copy.
 - **If the copy can't be made** (a full disk, a folder it can't write), Mealwright doesn't upgrade and doesn't start. The log says why. Fix that, then start it again.
 - **If the upgrade itself fails,** Mealwright doesn't start. The log says "Database upgrade failed. Your data from before is safe in …" and names the clean copy. The file `data/backups/upgrade-failed` also names it. While an upgrade keeps failing, no new copy is made and none is deleted, so the clean one stays safe.
-- **The safety copy holds the photos too,** unless an admin switched "Include photos" off in Settings → Your data (it is on by default). They are in a folder beside the copy, `data/backups/pre-upgrade-<revision>-<date>-<time>-photos`, made with hard links, so they take almost no extra room. The copy is not a replacement for a copy of the whole data folder on another disk, which is the only protection if the disk is lost.
+- **The safety copy holds the photos too,** unless an admin switched "Include photos" off in Settings › Backups & your data (it is on by default). They are in a folder beside the copy, `data/backups/pre-upgrade-<revision>-<date>-<time>-photos`, made with hard links, so they take almost no extra room. The copy is not a replacement for a copy of the whole data folder on another disk, which is the only protection if the disk is lost.
 - **Mealwright runs as one worker.** An upgrade doesn't change that. See [install.md](install.md).
 
 ## Going back

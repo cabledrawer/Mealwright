@@ -2,7 +2,7 @@
 
 1. **No connection, always on.** The app knows the day its version was released (`RELEASED`,
    written into the code with each release, next to the CHANGELOG's date; a test keeps the two
-   the same). Settings → About works out how old it is and, after a while, says where new
+   the same). Settings › About works out how old it is and, after a while, says where new
    versions are listed. Opening that link is the person's own click.
 2. **Check now (admins).** One plain GET of the public release list (`RELEASE_LIST_URL`)
    through the outbound gate, as `Connection.UPDATE_CHECK`: no query string, no cookies, and

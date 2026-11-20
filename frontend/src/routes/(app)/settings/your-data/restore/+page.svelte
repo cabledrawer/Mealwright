@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → Your data → How to restore (0.9, D1): the steps of docs/restore.md, on screen,
+  // Settings › Backups & your data › How to restore (0.9, D1): the steps of docs/restore.md, on screen,
   // for whoever looks after the server. backend/scripts/restore_test.sh follows the same steps
   // on a fresh container. Keep the two the same.
   import PageHeader from '#lib/components/PageHeader.svelte';

@@ -86,7 +86,7 @@ class Household(Base):
         Boolean, default=False, server_default=text("0")
     )
     # "Who's this?" on shared logins (spec "History and undo", cabledrawer 17 Oct): off by default.
-    # Switched on by an admin in Settings → Household (0.9 A1).
+    # Switched on by an admin in Settings › People (0.9 A1).
     ask_whos_this: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
     # Backups (0.9, D1; spec section 7, cabledrawer 17 Oct): how often Mealwright backs its database
     # up ("daily", "twice-daily" or "weekly") and how many of those it keeps (1 to 30). The last
@@ -108,7 +108,7 @@ class Household(Base):
 
 
 class OutboundSwitch(Base):
-    """A Privacy switch for one kind of outside connection (Settings → Privacy).
+    """A Privacy switch for one kind of outside connection (Settings › Outside connections).
 
     No row means the switch is off: everything starts off, and stays off until
     the household switches it on.
@@ -127,7 +127,7 @@ class OutboundSwitch(Base):
 
 
 class OwnNetworkEntry(Base):
-    """One entry on "Your own network" (Settings → Privacy, under Outside connections): a
+    """One entry on "Your own network" (Settings › Outside connections): a
     place on the household's own network that Mealwright may visit, such as a home wiki.
     Everything else on a private, internal or loopback address is blocked (spec section 7;
     `mealwright.own_network`). It starts empty. Recipe import uses it from 0.5, and
@@ -165,7 +165,7 @@ class OwnNetworkEntry(Base):
 
 
 class SsoSettings(Base):
-    """The household's single sign-on (Settings → Sign-in → Single sign-on; 0.9 O1). No row: not
+    """The household's single sign-on (Settings › Sign-in for everyone; 0.9 O1). No row: not
     set up. The client secret is stored sealed (`mealwright.secret_box`), never as typed.
 
     `group_roles` is a list of {"group": ..., "role": "admin"|"member"}, first match wins with
@@ -280,7 +280,7 @@ class Login(Base):
 class SsoAccount(Base):
     """An account at the household's sign-in server that the groups let in and that has signed
     in here (0.9.5 Pe3/M2, cabledrawer 13 Nov). Kept so that someone whose username matches nobody
-    can wait for an admin ("Who is this?" on Settings → Household) instead of being made a
+    can wait for an admin ("Who is this?" on Settings › People) instead of being made a
     person, and so a refusal or an Unlink lasts: an account that was refused or unlinked by hand
     is never linked automatically again.
 

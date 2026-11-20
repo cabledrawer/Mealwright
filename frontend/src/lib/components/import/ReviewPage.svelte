@@ -3,7 +3,7 @@
   // three steps beside it, mockups Import05-Phone and Import05-Desktop) and the review itself.
   // Used by Import a recipe, and by a draft being carried on.
   //
-  // On a phone the choice in Settings → Appearance (F141, cabledrawer 3 Nov) picks the page: Focus
+  // On a phone the choice in Settings › Appearance (F141, cabledrawer 3 Nov) picks the page: Focus
   // (the default) or One at a time. Both are pages of their own, with their own header and the
   // app's menu hidden, so no PageHeader here. A computer keeps this screen, whatever the choice.
   import type { ComponentProps } from 'svelte';

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { test, expect, type Page } from "./clock.ts";
 import { checkPage, expectNoSidewaysScroll, setAccountTheme } from "./a11y.ts";
 
-// Settings → About → Report a problem (0.9, X2; mockup Dark-Report09-Phone), against the real
+// Settings › About › Report a problem (0.9, X2; mockup Dark-Report09-Phone), against the real
 // server, signed in as the test admin. The report is shown whole, every line can be changed or
 // removed (with Undo), and the person sends it themselves: Open on GitHub is only a link (its
 // href is checked here, never opened), Download is a file made in the browser. The server's

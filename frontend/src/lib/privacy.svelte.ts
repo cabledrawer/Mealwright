@@ -1,4 +1,4 @@
-// Settings → Privacy: the switches for outside connections and "Your own network" (spec
+// Settings › Outside connections: the switches for outside connections and "Your own network" (spec
 // section 6, "Recipe import, decided for 0.5").
 //
 // Kept for the whole visit, so that if the connection drops the page still shows what was

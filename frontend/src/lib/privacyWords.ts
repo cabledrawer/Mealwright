@@ -1,4 +1,4 @@
-// The words and anchors of Settings → Privacy (docs/dev/words.md section 18). Every
+// The words and anchors of Settings › Outside connections (docs/dev/words.md section 18). Every
 // sentence not marked as cabledrawer's is "proposed, for cabledrawer" (0.5 PR 4).
 
 import type { OwnNetworkEntry, SwitchName } from './client/privacy';

@@ -1,5 +1,5 @@
 """Your own sign-in: change your password, see where you're signed in, sign out a device or
-everywhere else (Settings, Sign-in; PR A2).
+everywhere else (Settings › Your sign-in; PR A2).
 
 Every answer is about the signed-in login only: nobody sees or ends anyone else's sessions here.
 """
