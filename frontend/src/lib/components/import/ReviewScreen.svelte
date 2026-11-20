@@ -711,7 +711,7 @@
       >
         {flow.saving ? 'Saving…' : 'Save recipe'}
       </Button>
-      <Button quiet disabled={editing !== null} onclick={leave}>Back to drafts</Button>
+      <Button outline disabled={editing !== null} onclick={leave}>Back to drafts</Button>
       <Button plain disabled={flow.saving || editing !== null || discardOff} onclick={askDiscard}
         >Discard draft</Button
       >

@@ -58,7 +58,7 @@
   {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
   <ButtonRow stack>
     <Button disabled={busy} onclick={onsave}>{busy ? 'Saving…' : 'Save draft'}</Button>
-    <Button quiet onclick={onstay}>Keep checking</Button>
+    <Button outline onclick={onstay}>Keep checking</Button>
     <Button quiet small disabled={busy} onclick={ondiscard}
       >{again ? 'Discard changes' : 'Discard'}</Button
     >

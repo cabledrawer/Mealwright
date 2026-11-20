@@ -99,7 +99,7 @@
   </div>
   <span class="note">{late ?? readyBy}</span>
   <ButtonRow>
-    <Button quiet {disabled} onclick={() => void doneAlready()}>Done already</Button>
+    <Button outline {disabled} onclick={() => void doneAlready()}>Done already</Button>
     <Button {disabled} onclick={() => void cookMode()}>Start it in Cook mode</Button>
   </ButtonRow>
 </section>

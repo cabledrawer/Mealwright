@@ -225,7 +225,7 @@
           </label>
         {/if}
         <ButtonRow>
-          <Button quiet onclick={() => (replacing = false)}>Cancel</Button>
+          <Button outline onclick={() => (replacing = false)}>Cancel</Button>
           <Button type="submit" disabled={!backupReady}>{BACK_UP_NOW_CONFIRM}</Button>
         </ButtonRow>
       </form>

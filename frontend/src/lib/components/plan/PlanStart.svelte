@@ -180,9 +180,9 @@
       <ButtonRow>
         {#if question.adding}
           <!-- proposed, for cabledrawer -->
-          <Button quiet onclick={() => startAsk.skip()}>No time yet</Button>
+          <Button ghost onclick={() => startAsk.skip()}>No time yet</Button>
         {/if}
-        <Button quiet onclick={() => startAsk.dismiss()}>Cancel</Button>
+        <Button ghost onclick={() => startAsk.dismiss()}>Cancel</Button>
         <Button type="submit">{question.button}</Button>
       </ButtonRow>
     </form>

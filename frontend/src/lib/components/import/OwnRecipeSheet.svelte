@@ -129,7 +129,7 @@
     {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
     <ButtonRow stack>
       <Button type="submit">{kept ? 'Done' : 'Make it its own recipe'}</Button>
-      <Button quiet onclick={onclose}>Cancel</Button>
+      <Button ghost onclick={onclose}>Cancel</Button>
     </ButtonRow>
   </form>
 </Sheet>

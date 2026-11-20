@@ -81,7 +81,7 @@
         {/each}
       </ul>
     {/if}
-    <Button quiet onclick={onclose}>Cancel</Button>
+    <Button link onclick={onclose}>Cancel</Button>
   </Sheet>
 {/if}
 

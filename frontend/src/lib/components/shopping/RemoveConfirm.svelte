@@ -31,7 +31,7 @@
   <p id="{uid}-d">Nothing goes into the pantry.</p>
   <ButtonRow>
     <!-- The safe choice has the focus. -->
-    <Button quiet autofocus onclick={onkeep}>Keep it</Button>
+    <Button outline autofocus onclick={onkeep}>Keep it</Button>
     <Button danger onclick={onremove}>Remove</Button>
   </ButtonRow>
 </Sheet>

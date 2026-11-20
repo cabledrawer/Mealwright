@@ -184,7 +184,7 @@
 
       <div class="foot">
         <ButtonRow>
-          <Button quiet onclick={() => flow.walkClose()}>Back to Check</Button>
+          <Button outline onclick={() => flow.walkClose()}>Back to Check</Button>
           <Button disabled={flow.saving || network.offline} onclick={onsave}>Save anyway</Button>
         </ButtonRow>
       </div>
@@ -200,7 +200,7 @@
       <!-- On the last card the button just pressed has gone with the line card: focus Back to
            Check, so a keyboard or screen-reader user keeps their place (C2 review 2). -->
       <ButtonRow>
-        <Button quiet autofocus onclick={() => flow.walkClose()}>Back to Check</Button>
+        <Button outline autofocus onclick={() => flow.walkClose()}>Back to Check</Button>
         <Button disabled={flow.saving || network.offline} onclick={onsave}>Save anyway</Button>
       </ButtonRow>
     </div>

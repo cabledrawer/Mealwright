@@ -58,7 +58,7 @@
         </div>
       {/if}
       <ButtonRow>
-        <Button quiet onclick={() => askOnce.dismiss()}>Not now</Button>
+        <Button fill onclick={() => askOnce.dismiss()}>Not now</Button>
         <Button type="submit" disabled={!valid}>Save</Button>
       </ButtonRow>
     </form>

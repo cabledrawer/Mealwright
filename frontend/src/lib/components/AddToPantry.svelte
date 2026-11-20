@@ -371,7 +371,7 @@
       {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
 
       <ButtonRow>
-        <Button quiet onclick={() => addToPantry.close()}>Cancel</Button>
+        <Button fill onclick={() => addToPantry.close()}>Cancel</Button>
         <Button type="submit" disabled={!food || food.staple || network.offline}
           >Add to pantry</Button
         >

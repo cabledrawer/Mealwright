@@ -157,7 +157,7 @@
       {:else}
         <Button type="submit" disabled={!ready}>{mainWords}</Button>
       {/if}
-      <Button quiet onclick={onclose}>Cancel</Button>
+      <Button link onclick={onclose}>Cancel</Button>
     </form>
   </Sheet>
 {/if}

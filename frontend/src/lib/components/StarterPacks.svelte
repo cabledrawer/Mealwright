@@ -100,7 +100,7 @@
       {#if problem}
         <p class="mw-error" role="alert">{problem}</p>
         <ButtonRow>
-          <Button quiet onclick={() => starterPacks.close()}>Close</Button>
+          <Button fill onclick={() => starterPacks.close()}>Close</Button>
           <Button onclick={() => void load()}>Try again</Button>
         </ButtonRow>
       {:else if !loaded}
@@ -125,7 +125,7 @@
           {/each}
         </ul>
         <ButtonRow>
-          <Button quiet onclick={() => starterPacks.close()}>Cancel</Button>
+          <Button fill onclick={() => starterPacks.close()}>Cancel</Button>
         </ButtonRow>
       {:else}
         {#if picked.items.some((i) => i.staple)}
@@ -167,7 +167,7 @@
           {/each}
         </ul>
         <ButtonRow>
-          <Button quiet onclick={() => (pickedId = null)}>Back</Button>
+          <Button fill onclick={() => (pickedId = null)}>Back</Button>
           <Button
             type="submit"
             aria-describedby={network.offline ? `${uid}-down` : undefined}

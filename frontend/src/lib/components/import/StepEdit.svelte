@@ -83,7 +83,7 @@
     </p>
   {/if}
   <ButtonRow>
-    <Button quiet onclick={onclose}>Cancel</Button>
+    <Button outline onclick={onclose}>Cancel</Button>
     {#if empty}
       <Button quiet onclick={onremove}>Remove {heading ? 'heading' : 'step'}</Button>
     {/if}

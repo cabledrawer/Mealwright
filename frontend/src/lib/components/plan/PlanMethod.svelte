@@ -58,7 +58,7 @@
         </p>
       </fieldset>
       <ButtonRow>
-        <Button quiet onclick={() => methodAsk.dismiss()}>Cancel</Button>
+        <Button ghost onclick={() => methodAsk.dismiss()}>Cancel</Button>
         <Button type="submit">{question.button}</Button>
       </ButtonRow>
     </form>

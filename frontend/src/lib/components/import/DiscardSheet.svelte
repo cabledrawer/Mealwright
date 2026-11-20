@@ -51,7 +51,7 @@
   </p>
   <ButtonRow stack>
     <Button disabled={busy} onclick={ondiscard}>{busy ? 'Discarding…' : 'Discard draft'}</Button>
-    <Button quiet disabled={busy} onclick={onstay}>Keep checking</Button>
+    <Button outline disabled={busy} onclick={onstay}>Keep checking</Button>
   </ButtonRow>
 </Sheet>
 

@@ -113,7 +113,7 @@
       </p>{/if}
 
     <ButtonRow>
-      <Button quiet disabled={busy} onclick={onsave}>Save mine anyway</Button>
+      <Button outline disabled={busy} onclick={onsave}>Save mine anyway</Button>
       <Button onclick={onclose}>Back to my edit</Button>
     </ButtonRow>
   </div>

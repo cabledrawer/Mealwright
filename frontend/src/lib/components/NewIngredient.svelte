@@ -261,7 +261,7 @@
 
       {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
       <ButtonRow>
-        <Button quiet onclick={() => newIngredient.cancel()}>Cancel</Button>
+        <Button fill onclick={() => newIngredient.cancel()}>Cancel</Button>
         <Button
           type="submit"
           aria-describedby={needsNetwork ? `${uid}-down` : undefined}
