@@ -28,11 +28,11 @@ Settings › Backups & your data shows it. An admin can change how often and how
 - **A server that was off at 03:00** backs up when it starts. After a failed backup it tries again an hour later, and Settings › Backups & your data says the last one failed.
 - Mealwright also keeps other copies in the same folder, which the "Keep" setting never deletes: `pre-upgrade-….db` (made before a version changes the database; the newest three are kept, see [upgrade.md](upgrade.md)) and `before-delete-everything-….db` (made before Delete everything).
 
-**The photos are in a folder beside the backup, not in the `.db` file.** With Include photos on (the usual) every backup and the safety copy before an upgrade has one; the copy before Delete everything always has one, whatever the switch says (proposed, for cabledrawer), because Delete everything removes the photos for good. With it off, a backup holds everything but the photos, and restoring it keeps the photos already on the server; a recipe whose photo file is missing just shows no photo.
+**The photos are in a folder beside the backup, not in the `.db` file.** With Include photos on (the usual) every backup and the safety copy before an upgrade has one; the copy before Delete everything always has one, whatever the switch says, because Delete everything removes the photos for good. With it off, a backup holds everything but the photos, and restoring it keeps the photos already on the server; a recipe whose photo file is missing just shows no photo.
 
-One tiny gap (proposed, for cabledrawer): a photo saved and deleted again within the few milliseconds a backup takes to copy the database can be missing from that backup's folder; restoring shows it as a missing photo. Symbolic links in the photos folder are skipped, never followed.
+One tiny gap: a photo saved and deleted again within the few milliseconds a backup takes to copy the database can be missing from that backup's folder; restoring shows it as a missing photo. Symbolic links in the photos folder are skipped, never followed.
 
-**What a backup costs in room** (proposed, for cabledrawer). The photo folders are made with hard links: a photo file is never changed once saved, so a backup's folder points at the same file on the disk, and a photo that hasn't changed takes no extra room however many backups hold it. A photo you delete stays on the disk until the last backup that holds it is trimmed. Where a link can't be made (the backups folder is on another disk or a share that can't), the photo is copied instead, and each backup then takes the full size of the photos. If the disk is too full, the backup fails with one plain line on the screen and the log, nothing half-made is left, and the older backups stay.
+**What a backup costs in room.** The photo folders are made with hard links: a photo file is never changed once saved, so a backup's folder points at the same file on the disk, and a photo that hasn't changed takes no extra room however many backups hold it. A photo you delete stays on the disk until the last backup that holds it is trimmed. Where a link can't be made (the backups folder is on another disk or a share that can't), the photo is copied instead, and each backup then takes the full size of the photos. If the disk is too full, the backup fails with one plain line on the screen and the log, nothing half-made is left, and the older backups stay.
 
 **They sit on the same disk as Mealwright.** If that disk dies, they go too. Copy them somewhere else.
 
@@ -57,9 +57,7 @@ Either way, leave out `logs`, and keep at least the last three copies. A copy th
 
 ## Export is not a backup
 
-Settings › Backups & your data › Export everything gives a zip of your recipes, plans, lists, pantry, people and settings, with the photos, so you can read your data without Mealwright. It leaves out passwords, API tokens, who is signed in where, and the single sign-on secret. It is made for taking your data away, not for restoring a server. The format is in `docs/export-format.md`.
-
-TODO(cabledrawer): I found no screen or command in the code that loads an export back into Mealwright. Is that right for 0.9.5? If so, say it here in your own words.
+Settings › Backups & your data › Export everything gives a zip of your recipes, plans, lists, pantry, people and settings, with the photos, so you can read your data without Mealwright. It leaves out passwords, API tokens, who is signed in where, and the single sign-on secret. It is made for taking your data away, not for restoring a server: there is no screen or command that loads an export back into Mealwright. Restore from a backup instead (see [restore.md](restore.md)). The format is in `docs/export-format.md`.
 
 ## Test your backup
 

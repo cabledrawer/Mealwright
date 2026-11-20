@@ -12,7 +12,7 @@ is `/data` inside the container).
 
 - **The database**: every recipe, plan, list, pantry item, person, login and setting. One file,
   `data/backups/backup-<date>-<time>.db` (the date and time in UTC).
-- **The single sign-on client secret opens only with `data/secret.key`** (proposed, for cabledrawer). A backup keeps the secret sealed; on a new server without that key file, Mealwright can't open it, password sign-in works again, and an admin types the secret again in Settings › Sign-in for everyone. An admin who has only ever signed in with single sign-on has no password: run the `reset-admin` command for them first (proposed, for cabledrawer). An export leaves the secret out altogether, and API tokens too: make new ones.
+- **The single sign-on client secret opens only with `data/secret.key`.** A backup keeps the secret sealed; on a new server without that key file, Mealwright can't open it, password sign-in works again, and an admin types the secret again in Settings › Sign-in for everyone. An admin who has only ever signed in with single sign-on has no password: run the `reset-admin` command for them first. An export leaves the secret out altogether, and API tokens too: make new ones.
 - **The photos, when "Include photos" was on** (it is on unless an admin switched it off in
   Settings › Backups & your data): a folder beside the database file with the same name and `-photos` in
   place of `.db`, for example `data/backups/backup-<date>-<time>-photos`. It holds the recipe
@@ -24,7 +24,7 @@ is `/data` inside the container).
   disk itself is lost, those photos come back only from a copy of the whole data folder, so copy the
   data folder (or at least `backups` and `photos`) to another disk or your NAS as well. Backups on
   the same disk as Mealwright go when the disk goes.
-- **The photo folders are mostly links, not copies** (proposed, for cabledrawer). Mealwright makes them
+- **The photo folders are mostly links, not copies.** Mealwright makes them
   with hard links, so a photo that hasn't changed takes no extra room however many backups hold it.
   A copy of the `backups` folder to another disk is a full copy of the photos in it: use `tar` or
   `restic`, or `rsync -aH`, which keep the links together on the way (plain `rsync -a` copies each
@@ -45,7 +45,7 @@ is `/data` inside the container).
   database) and `before-delete-everything-….db` (made before Delete everything). They restore
   the same way, with their own `-photos` folders (the safety copy before an upgrade follows the "Include photos" choice; the one before Delete everything always has them).
   A `before-delete-everything-…` copy always has its photos folder, whatever "Include photos"
-  says (proposed, for cabledrawer), because Delete everything removes the photos for good: it is the
+  says, because Delete everything removes the photos for good: it is the
   way to bring them back.
 
 ## Restore on the same server
@@ -104,7 +104,7 @@ is `/data` inside the container).
    copy before an upgrade or before Delete everything) signs every device out, stops every API
    token and cancels every sign-in or reset link the first time it starts, so a cookie, token or
    link stopped after the copy was made doesn't work again: everyone signs in again, and you
-   make new API tokens (B7 R5, proposed, for cabledrawer). Once all is well, you can delete the
+   make new API tokens. Once all is well, you can delete the
    `data/before-restore-…` folder.
 
    **After a restore**, everything else is as it was in the copy, logins and passwords

@@ -5,7 +5,7 @@
 services:
   mealwright:
     # Always an exact version, never "latest". Update by changing it by hand.
-    image: <registry>/mealwright:<version>
+    image: <registry>/<owner>/mealwright:<version>
     container_name: mealwright
     restart: unless-stopped
     environment:

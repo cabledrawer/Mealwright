@@ -46,7 +46,7 @@ The issuer address is the web address where `/.well-known/openid-configuration` 
 - Save, then press **Test sign-in**. It opens your sign-in server in a new tab, signs in, and shows the result on the setup screen, for example "Test passed: signed in as alex, groups mealwright-admins → Admin." The test changes nothing.
 - If the test shows someone who would be an Admin, Mealwright asks "Link *you* to *them*?". Link only if it really is you: from then on, whoever signs in there as that person is you here, an admin.
 - **Allow password sign-in:** it can be turned off only after an admin has signed in with single sign-on, so you can't lock yourself out. Off shows only the single sign-on button. If single sign-on can't start for any reason (the Single sign-on switch is off, the secret is lost, the server isn't on Your own network), passwords work again by themselves. On the server, the `reset-admin` command always works too ([README](../README.md), Troubleshooting).
-- **Turning single sign-on off, or moving it:** the last admin who has no password and signs in only with single sign-on may not turn it off, take off Your own network the entry that lets Mealwright reach the sign-in server, or save another sign-in server or client ID: "You’d be locked out: first add another admin who signs in with a password." (cabledrawer 14 Nov). Only another admin's working password counts, and this holds after a restart too. These setup changes are not refused (proposed, for cabledrawer), and each can still stop single sign-on working for the last admin who has only a link: the secret, the button name, the groups, the groups claim, "Anyone else", and the callback address. If one does (for example the groups no longer make that admin an Admin), putting it right is for whoever runs your sign-in server, and `reset-admin` on the server is the way back in.
+- **Turning single sign-on off, or moving it:** the last admin who has no password and signs in only with single sign-on may not turn it off, take off Your own network the entry that lets Mealwright reach the sign-in server, or save another sign-in server or client ID: "You’d be locked out: first add another admin who signs in with a password." (cabledrawer 14 Nov). Only another admin's working password counts, and this holds after a restart too. These setup changes are not refused, and each can still stop single sign-on working for the last admin who has only a link: the secret, the button name, the groups, the groups claim, "Anyone else", and the callback address. If one does (for example the groups no longer make that admin an Admin), putting it right is for whoever runs your sign-in server, and `reset-admin` on the server is the way back in.
 
 ## "Who is this?"
 
@@ -89,13 +89,11 @@ They then have 10 minutes, in the same browser, to type the words and delete. Th
 
 ## Notes for particular servers
 
-These are general. Mealwright's tests don't run against any of them, and screens change between versions.
+These are general, written from how each server is usually set up, not from a test run: Mealwright's tests don't run against any of them, and screens change between versions.
 
 - **Authentik:** make an OAuth2/OpenID provider and an application that uses it. Check that the `groups` scope is included in the scopes it may give (the server's own scope mappings), and copy the issuer from the provider's page.
 - **Keycloak:** make an OpenID Connect client with client authentication switched on, and a mapper that adds groups to the token. The issuer includes the realm name. A user without Keycloak's `offline_access` role is refused when Mealwright asks for it; Mealwright then signs them in without a refresh token.
 - **Authelia:** add a client under its OpenID Connect settings with the redirect URL above and the same scopes.
-
-TODO(cabledrawer): I wrote the three server notes from general knowledge, not from the code or a test run. The Keycloak refusal and the `groups` scope are in the code (`backend/src/mealwright/sso.py`), but the rest is not. Check them against real setups, or cut them down to the generic steps above.
 
 ## If it doesn't work
 

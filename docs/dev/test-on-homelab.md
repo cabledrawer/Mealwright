@@ -7,7 +7,8 @@ Step-by-step instructions for running a Mealwright 0.x build on a home server. I
 | `<version>` | The exact version, for example `0.3.0` (never `latest`) |
 | `<server>` | The address of the machine that runs Mealwright |
 | `<user>` | Your login on that machine |
-| `<folder>` | The folder on the server that holds Mealwright's `compose.yaml`, `data` and `backups` |
+| `<folder>` | The folder on the server that holds Mealwright's `compose.yaml` and `data` |
+| `<another disk>` | A folder on another disk, where your own copies of the data folder go (not Mealwright's own `data/backups`) |
 | `<proxy folder>` | The folder of your reverse proxy's own compose project |
 | `<subnet>` | A free private range for Mealwright's own Docker network |
 
@@ -62,9 +63,9 @@ cd <folder>
 OLD=$(grep -oE 'image: *mealwright:[^ ]+' compose.yaml | cut -d: -f3)
 echo "Current version: $OLD"
 docker compose stop mealwright
-sudo tar -C <folder> --exclude=data/logs -czf "backups/data-$OLD-$(date +%Y%m%d-%H%M).tar.gz" data
-sudo chmod 600 backups/data-*.tar.gz
-ls -lh backups/       # the new backup should be there, and not tiny
+sudo tar -C <folder> --exclude=data/logs -czf "<another disk>/mealwright-data-$OLD-$(date +%Y%m%d-%H%M).tar.gz" data
+sudo chmod 600 <another disk>/mealwright-data-*.tar.gz
+ls -lh <another disk>/       # the new backup should be there, and not tiny
 ```
 
 (Skip the stop and the backup only on the very first install, when there is no data yet.) Keep at least the last three backups.
@@ -87,14 +88,16 @@ It says `Loaded image: mealwright:<version>`.
 First time only: create `<folder>/compose.yaml`. Mealwright runs inside the container as its own user, number 10001, so give that user the data folder:
 
 ```bash
-mkdir -p <folder>/data <folder>/backups
+mkdir -p <folder>/data
 sudo chown 10001:10001 <folder>/data
 ```
 
 ```yaml
 services:
   mealwright:
-    # Exact version, never "latest". Change it by hand to update.
+    # Exact version, never "latest". Change it by hand to update. In 0.x the image is
+    # loaded from a file (4.2), so its name has no registry; from 1.0 it is
+    # <registry>/<owner>/mealwright:<version>, as in compose.example.yaml.
     image: mealwright:<version>
     # The image was loaded from a file. Never try to pull it from anywhere.
     pull_policy: never
@@ -121,7 +124,7 @@ networks:
   default:
     ipam:
       config:
-        - subnet: <subnet>   # a fixed private range, named in MEALWRIGHT_TRUSTED_PROXIES
+        - subnet: <subnet>   # a fixed private range, named in MEALWRIGHT_TRUSTED_PROXIES (compose.example.yaml uses 172.28.10.0/24)
 ```
 
 To update: edit the `image:` line to the new exact version (keep `pull_policy: never`).
@@ -215,8 +218,8 @@ docker compose stop mealwright
 sudo mv data "data-broken-$(date +%Y%m%d-%H%M)"
 
 # Restore the backup from just before the update (pick the right file).
-ls -lh backups/
-sudo tar -C <folder> -xzf backups/data-<old version>-<date>.tar.gz
+ls -lh <another disk>/
+sudo tar -C <folder> -xzf <another disk>/mealwright-data-<old version>-<date>.tar.gz
 ```
 
 Then put the old tag back: edit `compose.yaml` and set the `image:` line to the **old** version, the one in the backup's file name. The old image is still on the server from when you loaded it (`docker images mealwright` lists them); if you removed it, load its `.tar.gz` again (4.2). Start it:
@@ -230,7 +233,7 @@ docker compose logs -f
 
 ```bash
 cd <folder>
-sudo cp data/mealwright.db "backups/mealwright-broken-$(date +%Y%m%d-%H%M).db"   # keep the failed one aside
+sudo cp data/mealwright.db "<another disk>/mealwright-broken-$(date +%Y%m%d-%H%M).db"   # keep the failed one aside
 sudo cp data/backups/pre-upgrade-<revision>-<date>.db data/mealwright.db
 sudo rm -f data/mealwright.db-wal data/mealwright.db-shm
 sudo mkdir -p data/photos   # photos: skip the next line if there is no -photos folder beside the copy

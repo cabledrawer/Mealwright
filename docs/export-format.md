@@ -17,7 +17,7 @@ read without Mealwright or brought into another program. (Spec section 7, "Expor
   (this server's own mark of a refused login) and the `former_name` table (old names kept for 15 days so Report a problem
   can remove them), and (0.9.5) `login.link_used_at` (when a sign-in or Reset password link
   was last used) and the `sso_account` table (single sign-on sign-ins waiting for an admin,
-  refused or unlinked; proposed, for cabledrawer). Whoever restores from an export sets passwords again (cabledrawer 13 Nov).
+  refused or unlinked). Whoever restores from an export sets passwords again (cabledrawer 13 Nov).
 - Optional password (cabledrawer 13 Nov; built in 0.9.5): with a password the zip is sent
   encrypted, as `mealwright-export-YYYY-MM-DD.zip.mwenc` (see "The encrypted file"). Without
   one the file is the plain zip described here, byte for byte as before. The password can't be
@@ -94,8 +94,8 @@ A photo's name is the `file_key` of its row in the `recipe_photo` table.
 
 ## The encrypted file (encryption format 1; 0.9.5)
 
-The format below is **proposed, for cabledrawer** (his decision, 13 Nov: an optional password that
-encrypts the file; the choices of cipher, key derivation and costs are the builder's).
+The format below follows cabledrawer's decision of 13 Nov: an optional password that
+encrypts the file. The choices of cipher, key derivation and costs are the builder's.
 
 Settings › Backups & your data › **Export everything** has an optional **Password** box. With a password
 the screen asks the server for the file with `POST /api/v1/export` and a JSON body

@@ -39,7 +39,7 @@ There are four in this version. Each one is a switch in Settings › Outside con
 
 **Check now in Settings › About.** An admin pressing Check now makes the same single request to the release list, even with the daily switch off. It happens only when they press it. The switch controls only the automatic daily check.
 
-TODO(cabledrawer): until 1.0.0 the release list's address is a placeholder (`PLACEHOLDER_OWNER` in `backend/src/mealwright/updates.py`), and while it is a placeholder, no update check connects at all. Change this paragraph when the real address goes in.
+Until 1.0.0 the release list's address is a placeholder, so in these test versions no update check connects at all.
 
 A few more things to know:
 
@@ -63,7 +63,7 @@ Mealwright can sign people in through your own sign-in server (Settings › Sign
 
 ## Troubleshooting
 
-**Setting up: where's the setup code?** The first time Mealwright starts, before anyone has an account, it prints a setup code in its log, and the first-run page asks for it, so only someone who can read the server's log can create the admin account. Run `docker logs mealwright` (use your container's name) and look for "setup code". A new code is made each time Mealwright restarts until the admin account exists.
+**Setting up: where's the setup code?** The first time Mealwright starts, before anyone has an account, it prints a setup code in its log, and the first-run page asks for it, so only someone who can read the server's log can create the admin account. Run `docker compose logs mealwright` and look for "setup code". A new code is made each time Mealwright restarts until the admin account exists.
 
 **Someone forgot their password.** An admin opens Settings › People › that person and taps Reset password. It makes a one-time link that works for 24 hours: send it to them, and they choose a new password there. That also signs them out on every device. Their recipes, plans and history stay as they are. Their page then shows when the link was used ("Link used today 21:40"), so you can tell if someone else used it. If a reset link was made for you and you didn't ask for one, your own page shows it with Cancel the link.
 

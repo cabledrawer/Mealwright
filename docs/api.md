@@ -42,5 +42,3 @@ Don't send a sign-in cookie at the same time: a request with both is refused.
 - A token that doesn't work (unknown, deleted, ended, or the wrong shape) always gets the same answer, `401`, so nobody can tell which.
 - Using a token writes nothing to Mealwright's log.
 - To stop a token, delete it on the same screen.
-
-TODO(cabledrawer): this page has no example of a call that changes something, because I would have to guess the request body from the code. If you want one, point me at the call to use.
