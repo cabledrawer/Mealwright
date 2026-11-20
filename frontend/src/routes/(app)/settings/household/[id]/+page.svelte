@@ -8,6 +8,7 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { onDestroy, onMount } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
@@ -502,8 +503,8 @@
               {#if linkUsed}<span class="hint">{linkUsed}</span>{/if}
             </span>
             {#if canReset}
-              <button class="quiet sm" type="button" disabled={locked} onclick={() => void reset()}
-                >Reset password</button
+              <Button small quiet disabled={locked} onclick={() => void reset()}
+                >Reset password</Button
               >
             {/if}
           </div>
@@ -515,8 +516,8 @@
               >
               <span class="mono">{resetUrl}</span>
             </div>
-            <button class="quiet" type="button" onclick={() => void copy(resetUrl, resetCopier)}
-              >{resetCopier.label('Copy the link')}</button
+            <Button quiet onclick={() => void copy(resetUrl, resetCopier)}
+              >{resetCopier.label('Copy the link')}</Button
             >
           {:else if login.reset_pending && canReset}
             <p class="sub">{person.name} hasn’t used the reset link yet.</p>
@@ -526,11 +527,8 @@
               Someone made a reset link for your password, and it hasn’t been used yet. If you
               didn’t ask for one, cancel it.
             </p>
-            <button
-              class="quiet"
-              type="button"
-              disabled={network.offline}
-              onclick={() => void cancelReset()}>Cancel the link</button
+            <Button quiet disabled={network.offline} onclick={() => void cancelReset()}
+              >Cancel the link</Button
             >
           {/if}
         {:else if linkUsed}
@@ -544,15 +542,12 @@
             >
             <span class="mono">{linkUrl}</span>
           </div>
-          <button class="quiet" type="button" onclick={() => void copy(linkUrl, linkCopier)}
-            >{linkCopier.label('Copy the link')}</button
+          <Button quiet onclick={() => void copy(linkUrl, linkCopier)}
+            >{linkCopier.label('Copy the link')}</Button
           >
         {:else if !login}
-          <button
-            class="quiet"
-            type="button"
-            disabled={locked || !username.trim()}
-            onclick={() => void makeLink()}>Make the sign-in link</button
+          <Button quiet disabled={locked || !username.trim()} onclick={() => void makeLink()}
+            >Make the sign-in link</Button
           >
         {:else if !login.signs_in}
           <p class="sub">
@@ -560,9 +555,7 @@
               ? `${person.name} hasn’t used the sign-in link yet.`
               : `${person.name}’s sign-in link no longer works.`}
           </p>
-          <button class="quiet" type="button" disabled={locked} onclick={() => void makeLink()}
-            >Make a new link</button
-          >
+          <Button quiet disabled={locked} onclick={() => void makeLink()}>Make a new link</Button>
         {/if}
       {/if}
       {#if showSso}
@@ -579,15 +572,10 @@
             {/if}
           </span>
           {#if login?.sso_linked}
-            <button class="quiet sm" type="button" disabled={locked} onclick={() => void unlink()}
-              >{UNLINK}</button
-            >
+            <Button small quiet disabled={locked} onclick={() => void unlink()}>{UNLINK}</Button>
           {:else}
-            <button
-              class="quiet sm"
-              type="button"
-              disabled={locked}
-              onclick={() => (linking = true)}>{LINK_BY_HAND}</button
+            <Button small quiet disabled={locked} onclick={() => (linking = true)}
+              >{LINK_BY_HAND}</Button
             >
           {/if}
         </div>
@@ -624,18 +612,10 @@
     {/if}
 
     {#if household.canChange}
-      <button
-        class="primary"
-        type="button"
-        disabled={locked || picking > 0}
-        onclick={() => void save()}>Save</button
-      >
+      <Button disabled={locked || picking > 0} onclick={() => void save()}>Save</Button>
       {#if !person.is_me}
-        <button
-          class="quiet danger"
-          type="button"
-          disabled={locked || picking > 0}
-          onclick={() => void remove()}>Remove {person.name}</button
+        <Button danger disabled={locked || picking > 0} onclick={() => void remove()}
+          >Remove {person.name}</Button
         >
         <p class="note">
           Removing someone keeps their meals and history; Recent changes shows “{person.name} (removed)”.
@@ -858,44 +838,6 @@
     font-family: ui-monospace, Menlo, Consolas, monospace;
     overflow-wrap: anywhere;
     user-select: all;
-  }
-
-  .primary,
-  .quiet {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 48px;
-    padding: 0 18px;
-    border-radius: var(--radius-lg);
-    font-size: var(--text-lg);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .sm {
-    min-height: var(--touch-target);
-    padding: 0 14px;
-    font-size: var(--text-md);
-  }
-
-  .primary {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .quiet {
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  .danger {
-    margin-top: var(--space-4);
-    border-color: var(--color-warning-border);
-    background: var(--color-warning);
-    color: var(--color-warning-text);
   }
 
   button:disabled {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
   import Loading from '#lib/components/Loading.svelte';
@@ -558,7 +559,7 @@
   {:else if model.problem && !model.loaded}
     <section class="problem" role="alert">
       <p>{model.problem}</p>
-      <button type="button" onclick={() => void model.load()}>Try again</button>
+      <Button small onclick={() => void model.load()}>Try again</Button>
     </section>
   {:else if !model.loaded}
     <Loading what="Loading the plan…" />
@@ -953,18 +954,6 @@
     border-radius: var(--radius-3xl);
     background: var(--color-warning);
     color: var(--color-warning-text);
-  }
-
-  .problem button {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-8);
-    border: none;
-    border-radius: var(--radius-button);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font: inherit;
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   .ghost {

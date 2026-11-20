@@ -11,6 +11,7 @@
   //    The server makes no connection for any of it.
   import { onDestroy, onMount, tick } from 'svelte';
 
+  import Button from '#lib/components/Button.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import { wordsFor } from '#lib/api.js';
@@ -186,8 +187,8 @@
       {#if link.trimmed}<p class="quiet trimmed">{TRIMMED_NOTE}</p>{/if}
     {/if}
     <div class="pair">
-      <button type="button" class="btn2" onclick={() => void copy()}>{copier.label(COPY)}</button>
-      <button type="button" class="btn2" onclick={download}>{DOWNLOAD}</button>
+      <Button quiet onclick={() => void copy()}>{copier.label(COPY)}</Button>
+      <Button quiet onclick={download}>{DOWNLOAD}</Button>
     </div>
   {:else if loading}
     <Loading />
@@ -348,8 +349,7 @@
     flex: none;
   }
 
-  .btn,
-  .btn2 {
+  .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -366,13 +366,6 @@
     border: none;
     background: var(--color-inverse);
     color: var(--color-inverse-text);
-  }
-
-  .btn2 {
-    flex: 1;
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-surface);
-    color: var(--color-text);
   }
 
   .hint {

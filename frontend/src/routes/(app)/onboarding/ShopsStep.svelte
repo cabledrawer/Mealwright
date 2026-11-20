@@ -8,6 +8,7 @@
   import { serverUndo } from '#lib/client/changes.js';
 
   import { getShops } from '#lib/client/foods.js';
+  import Button from '#lib/components/Button.svelte';
 
   import { removeShop } from '#lib/client/settingsLists.js';
 
@@ -126,10 +127,8 @@
       bind:value={newShop}
       disabled={network.offline}
     />
-    <button type="submit" class="solid" disabled={!newShop.trim() || network.offline}>Add</button>
-    <button type="button" class="quiet" onclick={() => ((adding = false), (newShop = ''))}
-      >Cancel</button
-    >
+    <Button small type="submit" disabled={!newShop.trim() || network.offline}>Add</Button>
+    <Button small quiet onclick={() => ((adding = false), (newShop = ''))}>Cancel</Button>
   </form>
 {:else}
   <button type="button" class="add" disabled={network.offline} onclick={() => (adding = true)}

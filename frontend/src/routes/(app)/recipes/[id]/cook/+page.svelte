@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Cook mode for one recipe (spec section 6, "Cook mode"). Full screen, over the app's own
@@ -256,7 +257,7 @@
 {:else if problem}
   <div class="failed" role="alert">
     <p>{problem}</p>
-    <button type="button" onclick={() => void load()}>Try again</button>
+    <Button small quiet onclick={() => void load()}>Try again</Button>
   </div>
 {:else}
   <Loading />
@@ -295,17 +296,9 @@
 
 <style>
   .failed {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
     color: var(--color-text-muted);
-  }
-
-  .failed button {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-7);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-fill);
-    color: var(--color-text);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 </style>

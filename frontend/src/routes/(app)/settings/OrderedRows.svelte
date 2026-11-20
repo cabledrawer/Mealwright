@@ -5,6 +5,7 @@
   // asked (onorder, onrename, onremove) and the screen sends it.
   import { tick, type Snippet } from 'svelte';
   import { focusOnMount } from '#lib/focusOnMount.js';
+  import Button from '#lib/components/Button.svelte';
   import Icon from '#lib/components/Icon.svelte';
 
   let {
@@ -123,7 +124,7 @@
               if (event.key === 'Escape') editing = null;
             }}
           />
-          <button type="submit" class="solid">Save</button>
+          <Button small type="submit">Save</Button>
         </form>
       {:else}
         <span class="name">{item.name}</span>
@@ -274,16 +275,5 @@
     color: var(--color-text);
     font: inherit;
     font-weight: var(--weight-semibold);
-  }
-
-  .solid {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: none;
-    border-radius: var(--radius-field);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-extrabold);
-    cursor: pointer;
   }
 </style>

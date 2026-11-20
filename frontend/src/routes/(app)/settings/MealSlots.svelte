@@ -11,6 +11,7 @@
 
   import { addMealSlot, orderMealSlots, renameMealSlot } from '#lib/client/settingsLists.js';
 
+  import Button from '#lib/components/Button.svelte';
   import Switch from '#lib/components/Switch.svelte';
   import { nothingChanged } from '#lib/downWords.js';
 
@@ -186,10 +187,8 @@
         placeholder="Meal name"
         bind:value={name}
       />
-      <button type="submit" class="solid" disabled={!name.trim() || network.offline}>Add</button>
-      <button type="button" class="quiet" onclick={() => ((adding = false), (name = ''))}
-        >Cancel</button
-      >
+      <Button small type="submit" disabled={!name.trim() || network.offline}>Add</Button>
+      <Button small quiet onclick={() => ((adding = false), (name = ''))}>Cancel</Button>
     </form>
   {:else}
     <button type="button" class="addb" disabled={network.offline} onclick={() => (adding = true)}
@@ -255,23 +254,6 @@
     font-weight: var(--weight-semibold);
   }
 
-  .solid {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: none;
-    border-radius: var(--radius-field);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-extrabold);
-    cursor: pointer;
-  }
-
-  .solid:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-
-  .quiet,
   .link {
     min-height: var(--touch-target);
     padding: 0 var(--space-4);

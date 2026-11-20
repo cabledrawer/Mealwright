@@ -15,6 +15,7 @@
   import { changeAmountsShown, finishOnboarding, getHousehold } from '#lib/client/household.js';
   import type { AmountsShown } from '#lib/client/types.js';
   import AmountsChoice from '#lib/components/AmountsChoice.svelte';
+  import Button from '#lib/components/Button.svelte';
   import { nothingChanged } from '#lib/downWords.js';
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
@@ -193,14 +194,12 @@
         {@render finishLine()}
         <div class="nav">
           {#if step === 6}
-            <button type="button" class="main" disabled={finishing} onclick={() => void finish()}
-              >Go to Today</button
-            >
+            <Button disabled={finishing} onclick={() => void finish()}>Go to Today</Button>
           {:else}
             {#if step > 2}
-              <button type="button" class="second" onclick={() => void go(step - 1)}>Back</button>
+              <Button quiet onclick={() => void go(step - 1)}>Back</Button>
             {/if}
-            <button type="button" class="main" onclick={() => void next(step + 1)}>Next</button>
+            <Button onclick={() => void next(step + 1)}>Next</Button>
           {/if}
         </div>
       </div>
@@ -252,9 +251,7 @@
         </div>
         {@render finishLine()}
         <div class="desk-end">
-          <button type="button" class="main" disabled={finishing} onclick={() => void finish()}
-            >Finish setup</button
-          >
+          <Button small disabled={finishing} onclick={() => void finish()}>Finish setup</Button>
           <p class="note">
             Nothing connects outside until you switch it on in Outside connections.
           </p>
@@ -339,11 +336,11 @@
     padding-bottom: var(--space-6);
   }
 
-  .nav .second {
+  .nav :global(.quiet) {
     flex: 1;
   }
 
-  .nav .main {
+  .nav :global(.mw-button:not(.quiet)) {
     flex: 2;
   }
 
@@ -514,33 +511,6 @@
     background: var(--color-field);
     color: var(--color-text);
     font: inherit;
-  }
-
-  .main,
-  .second,
-  .onboarding :global(.solid),
-  .onboarding :global(.quiet) {
-    min-height: 48px;
-    padding: 0 var(--space-7);
-    border-radius: var(--radius-lg);
-    font: inherit;
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .main,
-  .onboarding :global(.solid) {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .second,
-  .onboarding :global(.quiet) {
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-surface);
-    color: var(--color-text);
   }
 
   .onboarding :global(button:disabled) {

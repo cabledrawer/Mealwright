@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
   import FilterChips from '#lib/components/FilterChips.svelte';
   import Loading from '#lib/components/Loading.svelte';
@@ -246,7 +247,7 @@
       <!-- A phone shows the round + as Pantry does: the words beside the title squeezed it
            until "Ingredients" broke inside the word at 390 px. -->
       {#if desktop}
-        <button type="button" class="new" onclick={() => void makeNew()}>+ New ingredient</button>
+        <Button small onclick={() => void makeNew()}>+ New ingredient</Button>
       {:else}
         <button
           type="button"
@@ -301,9 +302,7 @@
             (list.filter = value === 'maybe_same' && list.filter === value ? 'all' : value)}
         />
         {#if !network.offline}
-          <button type="button" class="starter" onclick={() => starterPacks.show()}
-            >Add a starter pack</button
-          >
+          <Button small quiet onclick={() => starterPacks.show()}>Add a starter pack</Button>
         {/if}
       </div>
 
@@ -451,29 +450,6 @@
     border-radius: var(--radius-full);
     background: var(--color-inverse);
     color: var(--color-inverse-text);
-    cursor: pointer;
-  }
-
-  .new {
-    min-height: var(--touch-target);
-    padding: 0 18px;
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .starter {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: 1px solid var(--color-field-border);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-accent);
-    font: var(--weight-bold) var(--text-base) var(--font-ui);
     cursor: pointer;
   }
 

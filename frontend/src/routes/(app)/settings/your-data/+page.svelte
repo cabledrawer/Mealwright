@@ -13,6 +13,8 @@
 
   import { resolve } from '$app/paths';
 
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
@@ -380,11 +382,8 @@
             ></span
           >
           {#if admin}
-            <button
-              type="button"
-              class="small"
-              disabled={busy || network.offline}
-              onclick={() => void backUp()}>{busy ? 'Backing up…' : 'Back up now'}</button
+            <Button small quiet disabled={busy || network.offline} onclick={() => void backUp()}
+              >{busy ? 'Backing up…' : 'Back up now'}</Button
             >
           {/if}
         </div>
@@ -397,12 +396,12 @@
               <p class="sub" role="status">{confirmedWords}</p>
             {:else}
               <p class="sub">{CONFIRM_SSO_LINE}</p>
-              <button
-                type="button"
-                class="small"
+              <Button
+                small
+                quiet
                 disabled={confirming || keepBusy || network.offline}
                 onclick={() => void confirmAtServer()}
-                >{confirming ? CONFIRMING_SSO : CONFIRM_SSO_BUTTON}</button
+                >{confirming ? CONFIRMING_SSO : CONFIRM_SSO_BUTTON}</Button
               >
             {/if}
           {:else if how}
@@ -411,14 +410,12 @@
               <input type="password" bind:value={keepPassword} autocomplete="current-password" />
             </label>
           {/if}
-          <div class="buttons">
-            <button type="submit" class="small" disabled={!keepReady}
-              >{keepBusy ? KEEP_FEWER_BUSY : goWords}</button
+          <ButtonRow>
+            <Button type="submit" disabled={!keepReady}
+              >{keepBusy ? KEEP_FEWER_BUSY : goWords}</Button
             >
-            <button type="button" class="small" disabled={keepBusy} onclick={cancelKeep}
-              >{KEEP_FEWER_CANCEL}</button
-            >
-          </div>
+            <Button quiet disabled={keepBusy} onclick={cancelKeep}>{KEEP_FEWER_CANCEL}</Button>
+          </ButtonRow>
         </form>
       {/if}
       {#if failure}
@@ -621,24 +618,6 @@
     pointer-events: none;
   }
 
-  .small {
-    flex: none;
-    min-height: var(--touch-target);
-    padding: 0 14px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-field);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .small:disabled {
-    opacity: 0.55;
-    cursor: default;
-  }
-
   .to {
     flex-direction: row;
     border-top: none;
@@ -689,12 +668,6 @@
 
   .askfield input:focus-visible {
     outline: var(--focus-width) solid var(--color-focus);
-  }
-
-  .buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-5);
   }
 
   .disk {

@@ -3,6 +3,7 @@
   // only. Logins, colours and portions are given later in Settings › People (the brief: names
   // only here). The same people store and endpoint as Settings › People.
   import { onMount } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
   import PersonAvatar from '#lib/components/people/PersonAvatar.svelte';
   import { focusOnMount } from '#lib/focusOnMount.js';
   import { network } from '#lib/network.svelte.js';
@@ -71,15 +72,11 @@
       bind:value={newName}
       disabled={network.offline}
     />
-    <button
-      type="submit"
-      class="solid"
-      disabled={!newName.trim() || network.offline || household.busy}>Add</button
+    <Button small type="submit" disabled={!newName.trim() || network.offline || household.busy}
+      >Add</Button
     >
-    <button
-      type="button"
-      class="quiet"
-      onclick={() => ((adding = false), (newName = ''), (problem = null))}>Cancel</button
+    <Button small quiet onclick={() => ((adding = false), (newName = ''), (problem = null))}
+      >Cancel</Button
     >
   </form>
 {:else}

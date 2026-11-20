@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
   import Lazy from '#lib/components/Lazy.svelte';
   // Batch cook (Experimental; mockups Dark-BatchPick08-Phone and -Desktop): recipes picked from
   // your own to cook together in one session. The computer has its own sidebar entry; on the phone
@@ -381,12 +382,12 @@
               >
             {/if}
             <div class="row left">
-              <button
-                type="button"
-                class="btn"
+              <Button
+                small
+                quiet
                 disabled={readonly || model.loading || model.result.pool <= model.picks.length}
                 aria-label="Swap {pick.name}"
-                onclick={() => void model.swap(pick.recipe_id)}>Swap</button
+                onclick={() => void model.swap(pick.recipe_id)}>Swap</Button
               >
               <a
                 class="open"
@@ -399,17 +400,14 @@
       </ul>
 
       <div class="foot">
-        <button
-          type="button"
-          class="outline"
+        <Button
+          small
+          quiet
           disabled={readonly || model.loading || model.result.pool <= model.picks.length}
-          onclick={() => void model.others()}>Show me others</button
+          onclick={() => void model.others()}>Show me others</Button
         >
-        <button
-          type="button"
-          class="go"
-          disabled={readonly || model.loading || !enough || slotMissing}
-          onclick={plan_}>Plan this batch</button
+        <Button small disabled={readonly || model.loading || !enough || slotMissing} onclick={plan_}
+          >Plan this batch</Button
         >
       </div>
     {/if}
@@ -701,22 +699,6 @@
     font-weight: var(--weight-extrabold);
   }
 
-  .btn,
-  .outline,
-  .go {
-    cursor: pointer;
-  }
-
-  .btn {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-5);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-text-soft);
-    font-weight: var(--weight-semibold);
-  }
-
   .open {
     display: inline-flex;
     align-items: center;
@@ -729,33 +711,6 @@
     gap: var(--space-5);
     justify-content: flex-end;
     flex-wrap: wrap;
-  }
-
-  .outline,
-  .go {
-    min-height: 52px;
-    padding: 0 var(--space-9);
-    border-radius: var(--radius-full);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .outline {
-    border: 1px solid var(--color-border-strong);
-    background: transparent;
-    color: var(--color-text);
-  }
-
-  .go {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .outline:disabled,
-  .go:disabled,
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: default;
   }
 
   /* On the phone the two buttons stay in reach above the bottom tabs. */

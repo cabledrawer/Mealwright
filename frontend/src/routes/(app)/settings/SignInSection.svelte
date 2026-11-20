@@ -7,6 +7,7 @@
   // another device has no "Are you sure?": nothing is lost, it only has to sign in again.
   import { resolve } from '$app/paths';
   import { cantReach, cantReachWords, detailOf, ApiError } from '#lib/api.js';
+  import Button from '#lib/components/Button.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import {
     changedText,
@@ -145,14 +146,14 @@
           {#if place.this_device}
             <span class="tag">This {device}</span>
           {:else}
-            <button
-              type="button"
-              class="small"
+            <Button
+              small
+              quiet
               aria-label="Sign out {deviceName(place)}"
               disabled={busy || network.offline}
               onclick={() =>
                 void run(() => signOutDevice(place.id), `Signed out ${deviceName(place)}.`)}
-              >Sign out</button
+              >Sign out</Button
             >
           {/if}
         </div>
@@ -162,12 +163,11 @@
   {#if problem}<p class="warning-line" role="alert">{problem}</p>{/if}
   <p class="said" role="status">{said}</p>
   {#if others.length > 0}
-    <button
-      type="button"
-      class="everywhere"
+    <Button
+      quiet
       disabled={busy || network.offline}
       onclick={() => void run(signOutEverywhereElse, signedOutElseText(admin))}
-      >Sign out everywhere else</button
+      >Sign out everywhere else</Button
     >
   {/if}
 {/if}
@@ -283,29 +283,6 @@
     color: var(--color-accent-on-soft);
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
-  }
-
-  .small,
-  .everywhere {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-button);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .everywhere {
-    align-self: stretch;
-  }
-
-  .small:disabled,
-  .everywhere:disabled {
-    opacity: 0.55;
-    cursor: default;
   }
 
   .warning-line {

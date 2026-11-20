@@ -2,6 +2,7 @@
   // Import a recipe (spec section 6, "Recipe import, decided for 0.5"): the one box, then the
   // review, then Save. Everything the server reads is shown before anything is saved. Online
   // only; leaving the review without saving asks "Save as draft?" (ReviewScreen).
+  import Button from '#lib/components/Button.svelte';
   import AlreadySheet from '#lib/components/import/AlreadySheet.svelte';
   import ImportStart from '#lib/components/import/ImportStart.svelte';
   import ImportSteps from '#lib/components/import/ImportSteps.svelte';
@@ -55,7 +56,7 @@
     <PageHeader title="Check before saving" parent={{ href: '/(app)/recipes', label: 'Recipes' }} />
     <div class="failed" role="alert">
       <p>{REVIEW_LOAD_FAILED}</p>
-      <button type="button" onclick={() => location.reload()}>Try again</button>
+      <Button small quiet onclick={() => location.reload()}>Try again</Button>
     </div>
   {/await}
 {:else}
@@ -93,16 +94,5 @@
     align-items: flex-start;
     gap: var(--space-4);
     color: var(--color-text-muted);
-  }
-
-  .failed button {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font: var(--weight-bold) var(--text-md) var(--font-ui);
-    cursor: pointer;
   }
 </style>

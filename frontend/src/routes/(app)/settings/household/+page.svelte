@@ -8,6 +8,8 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { onMount, tick } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
@@ -245,22 +247,17 @@
                 <p id="new-person-error" class="error" role="alert">{addError}</p>
               {/if}
             </div>
-            <div class="add-buttons">
-              <button
-                class="small primary"
-                type="submit"
-                disabled={network.offline || household.busy}>Add</button
-              >
-              <button
-                class="small quiet"
-                type="button"
+            <ButtonRow>
+              <Button type="submit" disabled={network.offline || household.busy}>Add</Button>
+              <Button
+                quiet
                 onclick={() => {
                   adding = false;
                   newName = '';
                   addError = undefined;
-                }}>Cancel</button
+                }}>Cancel</Button
               >
-            </div>
+            </ButtonRow>
           </form>
         {:else}
           <button
@@ -485,32 +482,6 @@
     padding: 14px var(--space-7);
     border-radius: var(--radius-xl);
     background: var(--color-surface);
-  }
-
-  .add-buttons {
-    display: flex;
-    gap: var(--space-4);
-  }
-
-  .small {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-7);
-    border-radius: var(--radius-md);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .primary {
-    border: none;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-  }
-
-  .quiet {
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-surface);
-    color: var(--color-text);
   }
 
   button:disabled {

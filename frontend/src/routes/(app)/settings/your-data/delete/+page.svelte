@@ -8,6 +8,8 @@
   // type, so they confirm with a fresh sign-in at the sign-in server instead; the server keeps
   // that proof for this session for 10 minutes, and this page then asks for the words only.
   import { onMount } from 'svelte';
+  import Button from '#lib/components/Button.svelte';
+  import ButtonRow from '#lib/components/ButtonRow.svelte';
 
   import { goto } from '$app/navigation';
 
@@ -198,11 +200,8 @@
   {#if !admin}
     <p class="note">Only the household’s admin can do this.</p>
   {:else}
-    <button
-      type="button"
-      class="quiet"
-      disabled={backingUp || busy || network.offline}
-      onclick={() => void backUp()}>{backingUp ? 'Backing up…' : 'Back up now first'}</button
+    <Button quiet disabled={backingUp || busy || network.offline} onclick={() => void backUp()}
+      >{backingUp ? 'Backing up…' : 'Back up now first'}</Button
     >
     {#if replacing}
       <form class="form" onsubmit={(event) => void backUp(event)}>
@@ -212,12 +211,11 @@
             <p class="done" role="status">{CONFIRMED_SSO}</p>
           {:else}
             <p class="note">{CONFIRM_SSO_LINE}</p>
-            <button
-              type="button"
-              class="quiet"
+            <Button
+              quiet
               disabled={confirming || network.offline}
               onclick={() => void confirmBackupAtServer()}
-              >{confirming ? CONFIRMING_SSO : CONFIRM_SSO_BUTTON}</button
+              >{confirming ? CONFIRMING_SSO : CONFIRM_SSO_BUTTON}</Button
             >
           {/if}
         {:else if backupHow}
@@ -226,8 +224,10 @@
             <input type="password" bind:value={backupPassword} autocomplete="current-password" />
           </label>
         {/if}
-        <button type="submit" class="quiet" disabled={!backupReady}>{BACK_UP_NOW_CONFIRM}</button>
-        <button type="button" class="quiet" onclick={() => (replacing = false)}>Cancel</button>
+        <ButtonRow>
+          <Button type="submit" disabled={!backupReady}>{BACK_UP_NOW_CONFIRM}</Button>
+          <Button quiet onclick={() => (replacing = false)}>Cancel</Button>
+        </ButtonRow>
       </form>
     {/if}
     {#if backedUp}
@@ -250,12 +250,11 @@
           <p class="done" role="status">{CONFIRMED_SSO}</p>
         {:else}
           <p class="note">{CONFIRM_SSO_LINE}</p>
-          <button
-            type="button"
-            class="quiet"
+          <Button
+            quiet
             disabled={confirming || busy || network.offline}
             onclick={() => void confirmAtServer()}
-            >{confirming ? CONFIRMING_SSO : CONFIRM_SSO_BUTTON}</button
+            >{confirming ? CONFIRMING_SSO : CONFIRM_SSO_BUTTON}</Button
           >
         {/if}
       {:else if how}
@@ -267,8 +266,8 @@
       {#if problem}
         <p class="problem" role="alert">{problem}</p>
       {/if}
-      <button type="submit" class="danger" disabled={!ready}
-        >{busy ? 'Deleting…' : 'Delete everything'}</button
+      <Button type="submit" danger disabled={!ready}
+        >{busy ? 'Deleting…' : 'Delete everything'}</Button
       >
     </form>
     <p class="note">Admins only. Everyone else is signed out straight away.</p>
@@ -341,33 +340,6 @@
   .fld input:focus-visible {
     outline: var(--focus-width) solid var(--color-focus);
     outline-offset: 1px;
-  }
-
-  .quiet,
-  .danger {
-    min-height: 48px;
-    padding: 0 18px;
-    border-radius: var(--radius-field);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .quiet {
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  .danger {
-    border: 1px solid var(--color-stop-border);
-    background: var(--color-stop);
-    color: var(--color-stop-title);
-  }
-
-  button:disabled {
-    opacity: 0.55;
-    cursor: default;
   }
 
   .note {

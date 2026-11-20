@@ -11,6 +11,8 @@
 
   import { getPlaces, getShops } from '#lib/client/foods.js';
 
+  import Button from '#lib/components/Button.svelte';
+
   import {
     orderPlaces,
     orderShops,
@@ -287,10 +289,8 @@
         placeholder="Shop name"
         bind:value={newShop}
       />
-      <button type="submit" class="solid" disabled={!newShop.trim() || network.offline}>Add</button>
-      <button type="button" class="quiet" onclick={() => ((addingShop = false), (newShop = ''))}
-        >Cancel</button
-      >
+      <Button small type="submit" disabled={!newShop.trim() || network.offline}>Add</Button>
+      <Button small quiet onclick={() => ((addingShop = false), (newShop = ''))}>Cancel</Button>
     </form>
   {:else}
     <button
@@ -341,10 +341,10 @@
           <option value={place.id}>{place.name}</option>
         {/each}
       </select>
-      <button type="submit" class="solid" disabled={moveTo === null || network.offline}
-        >Move and remove</button
+      <Button small type="submit" disabled={moveTo === null || network.offline}
+        >Move and remove</Button
       >
-      <button type="button" class="quiet" onclick={() => (moving = null)}>Cancel</button>
+      <Button small quiet onclick={() => (moving = null)}>Cancel</Button>
     </form>
   {/if}
   {#if addingPlace}
@@ -364,11 +364,8 @@
           <option value={kind.value}>{kind.label}</option>
         {/each}
       </select>
-      <button type="submit" class="solid" disabled={!newPlace.trim() || network.offline}>Add</button
-      >
-      <button type="button" class="quiet" onclick={() => ((addingPlace = false), (newPlace = ''))}
-        >Cancel</button
-      >
+      <Button small type="submit" disabled={!newPlace.trim() || network.offline}>Add</Button>
+      <Button small quiet onclick={() => ((addingPlace = false), (newPlace = ''))}>Cancel</Button>
     </form>
   {:else}
     <button
@@ -471,23 +468,6 @@
     font-weight: var(--weight-semibold);
   }
 
-  .solid {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-6);
-    border: none;
-    border-radius: var(--radius-field);
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font-weight: var(--weight-extrabold);
-    cursor: pointer;
-  }
-
-  .solid:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-
-  .quiet,
   .link {
     min-height: var(--touch-target);
     padding: 0 var(--space-4);

@@ -280,9 +280,7 @@
         <span class="field-label" id="sso-callback-label">Give this to your sign-in server</span>
         <div class="callback">
           <span class="mono address" aria-labelledby="sso-callback-label">{redirect}</span>
-          <button type="button" class="small" onclick={() => void copy()}
-            >{copier.label('Copy')}</button
-          >
+          <Button small quiet onclick={() => void copy()}>{copier.label('Copy')}</Button>
         </div>
         {#if saved?.redirect_uri && saved.redirect_uri !== redirect}
           <span class="hint">Saved as {saved.redirect_uri}. Saving here changes it.</span>
@@ -380,11 +378,8 @@
     <section class="card full" aria-labelledby="sso-try">
       <h2 id="sso-try">3 · Try it, then decide about passwords</h2>
       <div class="test">
-        <button
-          type="button"
-          class="test-button"
-          disabled={!saved?.secret_set || testing}
-          onclick={() => void test()}>Test sign-in</button
+        <Button small disabled={!saved?.secret_set || testing} onclick={() => void test()}
+          >Test sign-in</Button
         >
         <span class="sub">
           {saved?.secret_set
@@ -545,17 +540,6 @@
     overflow-wrap: anywhere;
   }
 
-  .small {
-    min-height: 36px;
-    padding: 0 12px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: 10px;
-    background: var(--color-surface);
-    color: var(--color-text);
-    font: var(--weight-bold) var(--text-sm) var(--font-ui);
-    cursor: pointer;
-  }
-
   .warn,
   .ok,
   .problem {
@@ -699,25 +683,6 @@
     display: flex;
     gap: var(--space-4);
     align-items: center;
-  }
-
-  .test-button {
-    display: inline-flex;
-    align-items: center;
-    min-height: 36px;
-    padding: 0 12px;
-    border: none;
-    border-radius: 10px;
-    background: var(--color-inverse);
-    color: var(--color-inverse-text);
-    font: var(--weight-bold) var(--text-sm) var(--font-ui);
-    text-decoration: none;
-    cursor: pointer;
-  }
-
-  .test-button:disabled {
-    opacity: 0.55;
-    cursor: default;
   }
 
   .link {

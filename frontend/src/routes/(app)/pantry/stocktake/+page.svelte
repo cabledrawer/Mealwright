@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '#lib/components/Button.svelte';
   import Stepper from '#lib/components/Stepper.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Stocktake (F118, 0.8; mockup Dark-Stocktake08-Phone): go through the home place by place,
@@ -150,7 +151,7 @@
   <PageHeader title="Stocktake" />
   <div class="card">
     <p>Couldn’t open the stocktake. Try again.</p>
-    <button type="button" class="strong" onclick={() => void model.open()}>Try again</button>
+    <Button small onclick={() => void model.open()}>Try again</Button>
   </div>
 {:else if done}
   <PageHeader title="Stocktake" />

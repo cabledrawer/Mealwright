@@ -11,6 +11,7 @@
   // Check now works whatever that switch says: it only controls the daily check (cabledrawer 12 Nov).
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
+  import Button from '#lib/components/Button.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import Logo from '#lib/components/Logo.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
@@ -126,11 +127,11 @@
         {/if}
         <div class="row">
           <span class="lbl">{CHECK_NOW}<small>{CHECK_NOW_DETAIL}</small></span>
-          <button
-            type="button"
-            class="check"
+          <Button
+            small
+            quiet
             disabled={updates.checking || network.offline}
-            onclick={() => void updates.check()}>{updates.checking ? CHECKING : CHECK_NOW}</button
+            onclick={() => void updates.check()}>{updates.checking ? CHECKING : CHECK_NOW}</Button
           >
         </div>
         {#if updates.checkProblem}
@@ -331,24 +332,6 @@
     flex: none;
     color: var(--color-text-muted);
     transform: scaleX(-1);
-  }
-
-  .check {
-    flex: none;
-    min-height: var(--touch-target);
-    padding: 0 var(--space-5);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  .check:disabled {
-    opacity: 0.6;
-    cursor: default;
   }
 
   .row-problem,

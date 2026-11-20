@@ -166,12 +166,7 @@
         <span class="label">{who?.name}</span>
         <span class="detail">Signed in as {who?.username}</span>
       </span>
-      <button
-        type="button"
-        class="sign-out"
-        disabled={busy || left > 0 || cantCheck}
-        onclick={leave}>Sign out</button
-      >
+      <Button small quiet disabled={busy || left > 0 || cantCheck} onclick={leave}>Sign out</Button>
     </div>
   </div>
   {#if cantCheck}
@@ -247,18 +242,6 @@
   .label {
     font-size: var(--text-lg);
     font-weight: var(--weight-bold);
-  }
-
-  .sign-out {
-    min-height: var(--touch-target);
-    padding: 0 18px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    cursor: pointer;
   }
 
   .warning {
