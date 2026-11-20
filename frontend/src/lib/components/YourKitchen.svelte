@@ -6,6 +6,7 @@
   import { tick, untrack } from 'svelte';
   import Button from '#lib/components/Button.svelte';
   import ButtonRow from '#lib/components/ButtonRow.svelte';
+  import Segmented from '#lib/components/Segmented.svelte';
   import Sheet from '#lib/components/Sheet.svelte';
   import Stepper from '#lib/components/Stepper.svelte';
   import { ApiError, cantReach } from '#lib/api.js';
@@ -17,7 +18,6 @@
   } from '#lib/client/household.js';
   import { nothingChanged } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
-  import { radioKeys } from '#lib/radioKeys.js';
   import Icon from './Icon.svelte';
 
   let {
@@ -115,14 +115,16 @@
         </div>
         <div class="row">
           <span class="what"><span class="name" id="{uid}-oven">Oven</span></span>
-          <div class="seg" role="radiogroup" aria-labelledby="{uid}-oven" use:radioKeys>
-            <button type="button" role="radio" aria-checked={oven} onclick={() => (oven = true)}
-              >Yes</button
-            >
-            <button type="button" role="radio" aria-checked={!oven} onclick={() => (oven = false)}
-              >No</button
-            >
-          </div>
+          <Segmented
+            options={[
+              { value: true, label: 'Yes' },
+              { value: false, label: 'No' }
+            ]}
+            value={oven}
+            onchange={(v) => (oven = v)}
+            labelledby="{uid}-oven"
+            variant="pill"
+          />
         </div>
       </div>
       {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
@@ -199,30 +201,6 @@
   .detail {
     color: var(--color-text-muted);
     font-size: var(--text-sm);
-  }
-
-  .seg {
-    display: grid;
-    grid-template-columns: 64px 64px;
-    padding: 3px;
-    border-radius: var(--radius-full);
-    background: var(--color-fill-strong);
-  }
-
-  .seg button {
-    min-height: var(--touch-target);
-    border: none;
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--color-text-muted);
-    font: var(--weight-semibold) var(--text-md) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .seg button[aria-checked='true'] {
-    background: var(--color-segment-active);
-    color: var(--color-text);
-    font-weight: var(--weight-extrabold);
   }
 
   .problem {

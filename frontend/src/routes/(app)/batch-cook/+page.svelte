@@ -22,6 +22,7 @@
   import Icon from '#lib/components/Icon.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
+  import Segmented from '#lib/components/Segmented.svelte';
   import YourKitchen from '#lib/components/YourKitchen.svelte';
   import type { Ahead, Earlier } from '#lib/cookOnce.svelte.js';
   import { askBatchMethod } from '#lib/lazyActions.js';
@@ -337,17 +338,13 @@
         </div>
         <div class="group count">
           <span class="h2" id="howmany">How many recipes</span>
-          <div class="seg" role="radiogroup" aria-labelledby="howmany">
-            {#each COUNTS as n (n)}
-              <button
-                type="button"
-                role="radio"
-                aria-checked={model.count === n}
-                disabled={model.loading}
-                onclick={() => void model.setCount(n)}>{n}</button
-              >
-            {/each}
-          </div>
+          <Segmented
+            options={COUNTS.map((n) => ({ value: n, label: String(n) }))}
+            value={model.count}
+            onchange={(n) => void model.setCount(n)}
+            labelledby="howmany"
+            disabled={model.loading}
+          />
         </div>
         <div class="times">
           <strong>About {timeWords(model.result.together_minutes)} together</strong>
@@ -611,30 +608,6 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-  }
-
-  .seg {
-    display: grid;
-    grid-template-columns: repeat(3, 48px);
-    padding: 3px;
-    border-radius: var(--radius-full);
-    background: var(--color-fill);
-  }
-
-  .seg button {
-    min-height: 44px;
-    border: none;
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--color-text-muted);
-    font-weight: var(--weight-semibold);
-    cursor: pointer;
-  }
-
-  .seg button[aria-checked='true'] {
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-weight: var(--weight-extrabold);
   }
 
   .times {

@@ -199,7 +199,7 @@ test('on a long page the sidebar, with its theme switch, and the editor stay in 
     .toBeGreaterThan(200);
   const theme = page
     .getByRole('complementary', { name: 'Sidebar' })
-    .getByRole('group', { name: 'Theme' });
+    .getByRole('radiogroup', { name: 'Theme' });
   await expect(theme).toBeInViewport();
   await expect(page.getByRole('complementary', { name: /^Edit/ })).toBeInViewport();
 });

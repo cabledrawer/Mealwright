@@ -125,17 +125,17 @@ describe('ThemeSwitch', () => {
     theme.set('auto');
     component = mount(ThemeSwitch, { target: document.body, props: { variant: 'pill' } });
     flushSync();
-    const group = page.getByRole('group', { name: 'Theme' });
+    const group = page.getByRole('radiogroup', { name: 'Theme' });
     await expect
-      .element(group.getByRole('button', { name: 'Auto' }))
-      .toHaveAttribute('aria-pressed', 'true');
-    await group.getByRole('button', { name: 'Dark' }).click();
+      .element(group.getByRole('radio', { name: 'Auto' }))
+      .toHaveAttribute('aria-checked', 'true');
+    await group.getByRole('radio', { name: 'Dark' }).click();
     await expect
-      .element(group.getByRole('button', { name: 'Dark' }))
-      .toHaveAttribute('aria-pressed', 'true');
+      .element(group.getByRole('radio', { name: 'Dark' }))
+      .toHaveAttribute('aria-checked', 'true');
     await expect
-      .element(group.getByRole('button', { name: 'Auto' }))
-      .toHaveAttribute('aria-pressed', 'false');
+      .element(group.getByRole('radio', { name: 'Auto' }))
+      .toHaveAttribute('aria-checked', 'false');
     expect(root.dataset.theme).toBe('dark');
   });
 

@@ -294,7 +294,7 @@ describe('Settings › People › a person', () => {
         }
       ]
     });
-    await page.getByRole('button', { name: 'Member' }).click();
+    await page.getByRole('radio', { name: 'Member' }).click();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect
       .element(page.getByRole('alert'))
@@ -409,14 +409,14 @@ describe('Settings › People › a person', () => {
     open();
     await expect.element(page.getByRole('heading', { name: 'Tess', level: 1 })).toBeVisible();
     expect(page.getByRole('button', { name: /^Remove/ }).query()).toBeNull();
-    await expect.element(page.getByRole('button', { name: 'Admin' })).toBeDisabled();
+    await expect.element(page.getByRole('radio', { name: 'Admin' })).toBeDisabled();
   });
 
   it('the only admin on their own page is told why Member cannot be picked (F238)', async () => {
     params.id = '1';
     open({ 'GET /people': [200, people([LORNA, SAM])] });
     await expect.element(page.getByRole('heading', { name: 'Lorna', level: 1 })).toBeVisible();
-    await expect.element(page.getByRole('button', { name: 'Member' })).toBeDisabled();
+    await expect.element(page.getByRole('radio', { name: 'Member' })).toBeDisabled();
     await expect
       .element(
         page.getByText('Lorna is the household’s only admin. Make someone else an admin first.')

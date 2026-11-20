@@ -4,6 +4,7 @@
   // all three as the person's ("set by you"); "Guess again" gives them back. Loaded when a step's
   // timing is first opened. Words are the mockup's; "Guess again" is proposed, for cabledrawer.
   import '#lib/styles/fields.css';
+  import Segmented from '#lib/components/Segmented.svelte';
   import { radioKeys } from '#lib/radioKeys.js';
   import type { StepEquipment, StepHands } from '#lib/client/recipes.js';
   import type { DraftStep } from '#lib/recipes/draft.svelte.js';
@@ -58,17 +59,12 @@
 </script>
 
 <div class="timing-fields" data-timing-fields>
-  <div class="seg" role="radiogroup" aria-label="Hands-on or waiting, {name}" use:radioKeys>
-    {#each HANDS_CHOICES as choice (choice.value)}
-      <button
-        type="button"
-        role="radio"
-        aria-checked={shown.hands === choice.value}
-        class:on={shown.hands === choice.value}
-        onclick={() => chooseHands(choice.value)}>{choice.name}</button
-      >
-    {/each}
-  </div>
+  <Segmented
+    options={HANDS_CHOICES.map((choice) => ({ value: choice.value, label: choice.name }))}
+    value={shown.hands as StepHands}
+    onchange={chooseHands}
+    label="Hands-on or waiting, {name}"
+  />
   <div class="minutes">
     <label for="{uid}-minutes">Minutes<span class="visually-hidden">, {name}</span></label>
     <input
@@ -110,31 +106,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-  }
-
-  .seg {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 3px;
-    border-radius: var(--radius-full);
-    background: var(--color-fill);
-  }
-
-  .seg button {
-    min-height: 44px;
-    border: none;
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--color-text-muted);
-    font: var(--weight-semibold) var(--text-md) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .seg button.on {
-    background: var(--color-segment-active);
-    color: var(--color-text);
-    font-weight: var(--weight-extrabold);
-    box-shadow: 0 0 0 1px var(--color-border);
   }
 
   .minutes {

@@ -9,6 +9,7 @@
   import { page } from '$app/state';
   import { onDestroy, onMount } from 'svelte';
   import Button from '#lib/components/Button.svelte';
+  import Segmented from '#lib/components/Segmented.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
@@ -458,14 +459,15 @@
 
         <fieldset class="field" disabled={locked || person.is_me}>
           <legend>Role</legend>
-          <div class="seg">
-            <button type="button" aria-pressed={role === 'admin'} onclick={() => (role = 'admin')}
-              >Admin</button
-            >
-            <button type="button" aria-pressed={role === 'member'} onclick={() => (role = 'member')}
-              >Member</button
-            >
-          </div>
+          <Segmented
+            options={[
+              { value: 'admin', label: 'Admin' },
+              { value: 'member', label: 'Member' }
+            ]}
+            value={role}
+            onchange={(v) => (role = v)}
+            label="Role"
+          />
           <span class="hint"
             >Members cook, plan and shop. Admins also change Settings and people.</span
           >

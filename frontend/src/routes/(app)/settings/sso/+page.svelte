@@ -23,11 +23,11 @@
     type SsoSetup
   } from '#lib/client/sso.js';
   import Button from '#lib/components/Button.svelte';
+  import Segmented from '#lib/components/Segmented.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
   import TextField from '#lib/components/TextField.svelte';
   import { CopyFeedback } from '#lib/copyFeedback.svelte.js';
-  import { radioKeys } from '#lib/radioKeys.js';
   import { session } from '#lib/session.svelte.js';
   import { toasts } from '#lib/toast.svelte.js';
   import { PHONE_QUERY } from '#lib/layout.js';
@@ -325,20 +325,15 @@
                   /></td
                 >
                 <td>
-                  <div class="seg" role="radiogroup" aria-label="Becomes" use:radioKeys>
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={row.role === 'admin'}
-                      onclick={() => (row.role = 'admin')}>Admin</button
-                    >
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={row.role === 'member'}
-                      onclick={() => (row.role = 'member')}>Member</button
-                    >
-                  </div>
+                  <Segmented
+                    options={[
+                      { value: 'admin', label: 'Admin' },
+                      { value: 'member', label: 'Member' }
+                    ]}
+                    value={row.role}
+                    onchange={(v) => (row.role = v)}
+                    label="Becomes"
+                  />
                 </td>
                 <td class="end">
                   <button
@@ -356,20 +351,15 @@
       <button type="button" class="add" onclick={addGroup}>+ Add a group</button>
       <div class="field">
         <span class="field-label" id="sso-anyone">Anyone else</span>
-        <div class="seg wide" role="radiogroup" aria-labelledby="sso-anyone" use:radioKeys>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={anyoneElse === 'none'}
-            onclick={() => (anyoneElse = 'none')}>Not let in</button
-          >
-          <button
-            type="button"
-            role="radio"
-            aria-checked={anyoneElse === 'member'}
-            onclick={() => (anyoneElse = 'member')}>Member</button
-          >
-        </div>
+        <Segmented
+          options={[
+            { value: 'none', label: 'Not let in' },
+            { value: 'member', label: 'Member' }
+          ]}
+          value={anyoneElse}
+          onchange={(v) => (anyoneElse = v)}
+          labelledby="sso-anyone"
+        />
       </div>
       <!-- Pe3/M2 (cabledrawer 13 Nov): nobody is made at first sign-in; the words proposed. -->
       <p class="hint">{SSO_WHO_LINKS}</p>
@@ -614,36 +604,6 @@
     border-radius: 10px;
     background: var(--color-ground);
     color: var(--color-text);
-  }
-
-  .seg {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 3px;
-    max-width: 220px;
-    padding: 3px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-md);
-    background: var(--color-ground);
-  }
-
-  .seg.wide {
-    max-width: 320px;
-  }
-
-  .seg button {
-    min-height: 38px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--color-text-muted);
-    font: var(--weight-bold) var(--text-sm) var(--font-ui);
-    cursor: pointer;
-  }
-
-  .seg button[aria-checked='true'] {
-    background: var(--color-accent-soft);
-    color: var(--color-accent-on-soft);
   }
 
   .add {
