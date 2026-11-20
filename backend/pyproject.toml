@@ -1,6 +1,6 @@
 [project]
 name = "mealwright"
-version = "0.9.5b2"
+version = "0.9.5b3"
 description = "Self-hosted meal planning, pantry and shopping for your household."
 license = "AGPL-3.0-only"
 authors = [
