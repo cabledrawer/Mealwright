@@ -2,7 +2,7 @@
   // The Plan's parts with made-up meals (0.6 PR 3): the week grid, the phone's day list, the
   // phone's Month, the menu and the "Add" box. Nothing is saved or sent: every change is
   // ignored, because there is no server behind this page.
-  import type { Plan } from '#lib/client/plan.js';
+  import { FOOD_ITEM, type Plan } from '#lib/client/plan.js';
   import MealCell from '#lib/components/plan/MealCell.svelte';
   import PlanDays from '#lib/components/plan/PlanDays.svelte';
   import PlanMonth from '#lib/components/plan/PlanMonth.svelte';
@@ -18,7 +18,7 @@
     kind: 'recipe' as const,
     recipe: { id, name, removed: false, photo_url: null, time_minutes: minutes, kcal },
     tub_id: null,
-    ingredient: null,
+    food: null,
     kept_name: null,
     servings: null,
     note: null,
@@ -28,10 +28,10 @@
   const plain = (id: number, name: string) => ({
     id,
     position: 1,
-    kind: 'ingredient' as const,
+    kind: FOOD_ITEM,
     recipe: null,
     tub_id: null,
-    ingredient: { id, name, removed: false },
+    food: { id, name, removed: false },
     kept_name: null,
     servings: null,
     note: null,

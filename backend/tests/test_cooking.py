@@ -327,7 +327,7 @@ def test_a_meal_that_was_skipped_or_moved_a_removed_recipe_and_a_plain_item_cann
             json={
                 "date": DAY.isoformat(),
                 "slot_id": slot_ids(kitchen)["Lunch"],
-                "ingredient_id": banana["id"],
+                "food_id": banana["id"],
             },
         ),
         201,

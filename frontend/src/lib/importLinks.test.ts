@@ -345,7 +345,7 @@ describe('opening a result, and quick import (F209, F216; cabledrawer 10 Nov)', 
         {
           recipe: { id: 55, name: 'Ready dal' },
           change: changeOf(60, 'Imported Ready dal'),
-          new_ingredients: [],
+          new_foods: [],
           learned: 0
         }
       ],
@@ -381,7 +381,7 @@ describe('opening a result, and quick import (F209, F216; cabledrawer 10 Nov)', 
               {
                 recipe: { id: 55, name: 'Ready dal' },
                 change: changeOf(60, 'Imported Ready dal'),
-                new_ingredients: [],
+                new_foods: [],
                 learned: 0
               }
             ]
@@ -421,7 +421,7 @@ describe('opening a result, and quick import (F209, F216; cabledrawer 10 Nov)', 
           {
             recipe: { id: id + 15, name: 'Ready dal' },
             change: changeOf(id + 20, 'Imported Ready dal'),
-            new_ingredients: [],
+            new_foods: [],
             learned: 0
           }
         ];
@@ -457,7 +457,7 @@ describe('opening a result, and quick import (F209, F216; cabledrawer 10 Nov)', 
         {
           recipe: { id: 55, name: 'Ready dal' },
           change: changeOf(60, 'Imported Ready dal'),
-          new_ingredients: [],
+          new_foods: [],
           learned: 0
         }
       ]

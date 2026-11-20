@@ -8,7 +8,7 @@ const recipe = (id: number, name: string, recipeId = id): PlanItem => ({
   kind: 'recipe',
   recipe: { id: recipeId, name, removed: false, serves: 4 } as unknown as PlanItem['recipe'],
   tub_id: null,
-  ingredient: null,
+  food: null,
   kept_name: null,
   note: null,
   servings: 4,

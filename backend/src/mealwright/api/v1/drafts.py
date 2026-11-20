@@ -63,7 +63,7 @@ def create_draft(body: DraftIn, kitchen: Here, response: Response) -> DraftOut:
     )
 
 
-@router.get("/recipes/drafts/by-ingredient")
+@router.get("/recipes/drafts/by-food")
 def drafts_by_ingredient(
     kitchen: Here, limit: Annotated[int, Query(ge=1, le=mealie_answers.MAX_LIMIT)] = 50
 ) -> IngredientGroups:
@@ -77,7 +77,7 @@ def drafts_by_ingredient(
 
 
 @router.post(
-    "/recipes/drafts/by-ingredient/answer",
+    "/recipes/drafts/by-food/answer",
     responses={404: {"description": "No draft from Mealie uses that ingredient any more."}},
 )
 def answer_by_ingredient(body: GroupAnswer, kitchen: Here, response: Response) -> GroupAnswered:
@@ -103,7 +103,7 @@ def answer_by_ingredient(body: GroupAnswer, kitchen: Here, response: Response) -
                 change=change_out(kitchen, done.change),
                 drafts=done.drafts,
                 moved=done.moved,
-                ingredient=done.ingredient,
+                food=done.ingredient,
             )
     response.headers["Idempotent-Replayed"] = "true"
     data = earlier.undo_data or {}
@@ -111,7 +111,7 @@ def answer_by_ingredient(body: GroupAnswer, kitchen: Here, response: Response) -
         change=change_out(kitchen, earlier),
         drafts=len(data.get("saved", [])) + len(data.get("partial", [])),
         moved=len(data.get("saved", [])),
-        ingredient=(data.get("choice") or {}).get("food"),
+        food=(data.get("choice") or {}).get("food"),
     )
 
 

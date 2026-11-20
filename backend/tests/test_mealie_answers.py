@@ -58,14 +58,14 @@ def waiting(kitchen: TestClient, tmp_path: Path) -> TestClient:
 
 
 def groups(client: TestClient, **query: Any) -> dict[str, Any]:
-    answer = client.get(f"{API}/recipes/drafts/by-ingredient", params=query)
+    answer = client.get(f"{API}/recipes/drafts/by-food", params=query)
     assert answer.status_code == 200, answer.text
     return answer.json()  # type: ignore[no-any-return]
 
 
 def answer(client: TestClient, key: str, kind: str, **fields: Any) -> Any:
     return client.post(
-        f"{API}/recipes/drafts/by-ingredient/answer", json={"key": key, "kind": kind, **fields}
+        f"{API}/recipes/drafts/by-food/answer", json={"key": key, "kind": kind, **fields}
     )
 
 
@@ -146,7 +146,7 @@ def test_an_ingredient_i_have_goes_into_every_draft_that_uses_it(waiting: TestCl
     assert done.status_code == 200, done.text
     body = done.json()
     assert body["drafts"] == 3 and body["moved"] == 1  # only Dish b had nothing else
-    assert body["ingredient"]["id"] == soy
+    assert body["food"]["id"] == soy
     assert (
         body["change"]["summary"] == "Answered “soya sauce” in 3 drafts · 1 recipe moved to Recipes"
     )
@@ -164,7 +164,7 @@ def test_a_recipe_moves_only_when_every_line_is_answered(waiting: TestClient) ->
     answer(waiting, "soya sauce", "ingredient", food_id=soy)
     assert "Dish a" in draft_names(waiting)
     done = answer(waiting, "kasuri methi", "text")
-    assert done.json()["moved"] == 1 and done.json()["ingredient"] is None
+    assert done.json()["moved"] == 1 and done.json()["food"] is None
     assert draft_names(waiting) == ["Dish c"]
     lines = recipe_lines(waiting, "Dish a")
     assert KASURI in lines and lines[KASURI] is None  # plain text: never tied to an ingredient
@@ -179,10 +179,10 @@ def test_a_new_ingredient_is_made_once_with_its_place(waiting: TestClient) -> No
         made = session.scalars(select(Food).where(Food.name == "soya sauce")).all()
         assert len(made) == 1 and made[0].place_id == fridge and made[0].staple is False
         assert made[0].mealie_import_id is not None
-    assert done.json()["ingredient"]["id"] == made[0].id
+    assert done.json()["food"]["id"] == made[0].id
     # Typed again later: it is the same ingredient, nothing is made twice.
     again = answer(waiting, "kasuri methi", "new", name="Soya sauce", place_id=fridge)
-    assert again.json()["ingredient"]["id"] == made[0].id
+    assert again.json()["food"]["id"] == made[0].id
     with db(waiting) as session:
         assert len(session.scalars(select(Food).where(Food.name.ilike("soya sauce"))).all()) == 1
 
@@ -211,7 +211,7 @@ def test_a_draft_the_person_changed_on_check_is_not_saved_for_them(waiting: Test
 def test_a_retry_with_the_same_key_answers_once(waiting: TestClient) -> None:
     soy = make_food(waiting, "Soy sauce")
     body = {"key": "soya sauce", "kind": "ingredient", "food_id": soy}
-    path = f"{API}/recipes/drafts/by-ingredient/answer"
+    path = f"{API}/recipes/drafts/by-food/answer"
     first = waiting.post(path, json=body, headers={"Idempotency-Key": "k-1"})
     second = waiting.post(path, json=body, headers={"Idempotency-Key": "k-1"})
     assert first.status_code == second.status_code == 200
@@ -266,7 +266,7 @@ def test_undo_puts_the_answers_back_and_the_recipes_back_in_drafts(waiting: Test
 def test_undo_keeps_an_ingredient_a_saved_recipe_still_uses(waiting: TestClient) -> None:
     fridge = place_id(waiting, "Fridge")
     done = answer(waiting, "soya sauce", "new", name="Soya sauce", place_id=fridge).json()
-    food_id = done["ingredient"]["id"]
+    food_id = done["food"]["id"]
     answer(waiting, "galangal", "text")  # Dish c is now complete and moves to Recipes
     assert draft_names(waiting) == ["Dish a"]
     waiting.post(f"{API}/changes/{done['change']['id']}/undo")
@@ -319,10 +319,10 @@ def test_signed_out_refused_and_other_households_see_nothing(
     assert answer(neighbour, "soya sauce", "text").status_code == 404
     assert draft_names(waiting) == ["Dish a", "Dish b", "Dish c"]
     out = TestClient(waiting.app, base_url="https://testserver")
-    assert out.get(f"{API}/recipes/drafts/by-ingredient").status_code == 401
+    assert out.get(f"{API}/recipes/drafts/by-food").status_code == 401
     assert (
         out.post(
-            f"{API}/recipes/drafts/by-ingredient/answer", json={"key": "x", "kind": "text"}
+            f"{API}/recipes/drafts/by-food/answer", json={"key": "x", "kind": "text"}
         ).status_code
         == 401
     )

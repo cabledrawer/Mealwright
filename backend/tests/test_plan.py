@@ -125,7 +125,7 @@ def test_the_plan_lists_meals_items_batches_and_tubs(kitchen: TestClient) -> Non
     [meal] = plan["meals"]
     assert (meal["id"], meal["date"], meal["status"]) == (ids["meal"], "2026-11-02", "planned")
     kinds = [(i["kind"], i["servings"]) for i in meal["items"]]
-    assert kinds == [("recipe", 2), ("tub", None), ("ingredient", None)]
+    assert kinds == [("recipe", 2), ("tub", None), ("food", None)]
     assert meal["items"][0]["recipe"] == {
         "id": ids["recipe"],
         "name": "Sambar",
@@ -142,7 +142,7 @@ def test_the_plan_lists_meals_items_batches_and_tubs(kitchen: TestClient) -> Non
         "wait": None,
     }
     assert meal["items"][0]["optional_skipped"] == []
-    assert meal["items"][2]["ingredient"] == {
+    assert meal["items"][2]["food"] == {
         "id": ids["food"],
         "name": "Banana",
         "removed": False,
@@ -341,10 +341,10 @@ def test_deleting_for_good_what_a_meal_holds(kitchen: TestClient) -> None:
             ("ingredient", None, None, None, "Banana", None),
         ]
     meal = kitchen.get(f"{API}/plan", params={"from": str(DAY), "to": str(DAY)}).json()["meals"][0]
-    assert [(i["kind"], i["recipe"], i["ingredient"], i["kept_name"]) for i in meal["items"]] == [
+    assert [(i["kind"], i["recipe"], i["food"], i["kept_name"]) for i in meal["items"]] == [
         ("recipe", None, None, "Sambar"),
         ("tub", None, None, None),
-        ("ingredient", None, None, "Banana"),
+        ("food", None, None, "Banana"),
     ]
     with db_of(kitchen) as db:
         db.execute(text("DELETE FROM batch_cook WHERE id = :i"), {"i": ids["batch"]})
@@ -494,7 +494,7 @@ def test_an_ingredient_item_says_when_it_is_removed(kitchen: TestClient) -> None
         db.get(Food, ids["food"]).removed_at = utcnow()  # type: ignore[union-attr]
         db.commit()
     plan = kitchen.get(f"{API}/plan", params={"from": "2026-11-02", "to": "2026-11-02"}).json()
-    assert plan["meals"][0]["items"][2]["ingredient"]["removed"] is True
+    assert plan["meals"][0]["items"][2]["food"]["removed"] is True
 
 
 def _food_of_item(client: TestClient, item_id: int) -> int | None:

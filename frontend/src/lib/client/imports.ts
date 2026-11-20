@@ -167,7 +167,7 @@ export interface SaveBody {
 export interface Saved {
   recipe: Ref;
   change: Change;
-  new_ingredients: Ref[];
+  new_foods: Ref[];
   learned: number;
 }
 

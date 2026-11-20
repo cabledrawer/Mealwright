@@ -20,6 +20,12 @@ const SKIP = [/\.test\.ts$/, /^\/src\/lib\/testing\//];
 /** Strings that mention "food" on purpose and never reach the screen. */
 const ALLOWED = new Set<string>([]);
 
+/**
+ * The API's own words, each named once in the one file that holds it: a planned plain
+ * ingredient's `kind` is `food` (D3, BE18; `FOOD_ITEM`). Code elsewhere uses the name.
+ */
+const API_WORDS: Record<string, string[]> = { '/src/lib/client/plan.ts': ['food'] };
+
 const FOOD = /\bfoods?\b/i;
 
 /** A straight apostrophe inside a word ("can't", "X's" where X stands for a ${…}). */
@@ -169,10 +175,18 @@ describe('plain words', () => {
     for (const [path, source] of Object.entries(sources)) {
       if (SKIP.some((skip) => skip.test(path))) continue;
       for (const text of visibleStrings(path, source)) {
-        if (FOOD.test(text) && !ALLOWED.has(text)) problems.push(`${path}: “${text}”`);
+        if (FOOD.test(text) && !ALLOWED.has(text) && !API_WORDS[path]?.includes(text))
+          problems.push(`${path}: “${text}”`);
       }
     }
     expect(problems, problems.join('\n')).toEqual([]);
+  });
+
+  it('names each API word once, in its own file', () => {
+    for (const [path, words] of Object.entries(API_WORDS)) {
+      const found = visibleStrings(path, sources[path] ?? '');
+      for (const word of words) expect(found.filter((t) => t === word)).toHaveLength(1);
+    }
   });
 
   // Curly apostrophes on screen (word list section 11, ruling 3): "Couldn’t", "You’re".

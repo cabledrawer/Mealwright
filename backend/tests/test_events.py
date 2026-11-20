@@ -309,7 +309,7 @@ def test_every_plan_write_announces_a_plan_event(kitchen: TestClient) -> None:
     async def scenario() -> None:
         added = await asyncio.to_thread(
             lambda: kitchen.post(
-                f"{api}/plan/items", json={"date": today, "slot_id": slot, "ingredient_id": food}
+                f"{api}/plan/items", json={"date": today, "slot_id": slot, "food_id": food}
             )
         )
         assert added.status_code == 201, added.text
@@ -318,7 +318,7 @@ def test_every_plan_write_announces_a_plan_event(kitchen: TestClient) -> None:
         await asyncio.to_thread(
             lambda: kitchen.post(
                 f"{api}/plan/items",
-                json={"date": today, "slot_id": slot, "ingredient_id": food},
+                json={"date": today, "slot_id": slot, "food_id": food},
             )
         )
         assert "plan" in _names(await _plan_heard(sub))  # adding a meal or item

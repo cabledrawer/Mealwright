@@ -492,7 +492,7 @@ def test_recent_changes_lists_every_kind_newest_first_and_pages(kitchen: TestCli
             json={
                 "date": ok(kitchen.get(f"{API}/household"))["today"],
                 "slot_id": dinner["id"],
-                "ingredient_id": rice["id"],
+                "food_id": rice["id"],
             },
         ),
         201,

@@ -33,7 +33,7 @@ def shape(client: TestClient) -> list[tuple[str, int, list[str]]]:
     out = []
     for m in view(client)["meals"]:
         names = [
-            (i["recipe"] or i["ingredient"] or {"name": i["kept_name"] or "tub"})["name"]
+            (i["recipe"] or i["food"] or {"name": i["kept_name"] or "tub"})["name"]
             for i in m["items"]
         ]
         out.append((m["date"], m["slot_id"], names))
@@ -80,13 +80,13 @@ def test_planning_a_recipe_makes_the_meal_and_a_filled_meal_gets_it_alongside(
     plan_recipe(kitchen, stuff["dosa"], D1, slots["Dinner"])
     r = kitchen.post(
         f"{API}/plan/items",
-        json={"date": D1.isoformat(), "slot_id": slots["Dinner"], "ingredient_id": stuff["banana"]},
+        json={"date": D1.isoformat(), "slot_id": slots["Dinner"], "food_id": stuff["banana"]},
     )
     assert r.status_code == 201
     meals = view(kitchen)["meals"]
     assert len(meals) == 1 and meals[0]["id"] == first["meal_id"]
     assert [i["position"] for i in meals[0]["items"]] == [0, 1, 2]
-    assert [i["kind"] for i in meals[0]["items"]] == ["recipe", "recipe", "ingredient"]
+    assert [i["kind"] for i in meals[0]["items"]] == ["recipe", "recipe", "food"]
     assert meals[0]["items"][0]["servings"] == 2
 
 
@@ -109,7 +109,7 @@ def test_planning_needs_exactly_one_of_recipe_or_ingredient_and_a_real_slot(
     kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]
 ) -> None:
     day = {"date": D1.isoformat(), "slot_id": slots["Dinner"]}
-    both = {**day, "recipe_id": stuff["sambar"], "ingredient_id": stuff["banana"]}
+    both = {**day, "recipe_id": stuff["sambar"], "food_id": stuff["banana"]}
     assert kitchen.post(f"{API}/plan/items", json=both).status_code == 422
     assert kitchen.post(f"{API}/plan/items", json=day).status_code == 422
     far = {"date": "2090-01-01", "slot_id": slots["Dinner"], "recipe_id": stuff["sambar"]}
@@ -468,10 +468,7 @@ def test_another_households_ids_get_404_on_every_write(
     assert (
         kitchen.post(f"{API}/plan/items", json={**mine, "recipe_id": secret_id}).status_code == 404
     )
-    assert (
-        kitchen.post(f"{API}/plan/items", json={**mine, "ingredient_id": food_id}).status_code
-        == 404
-    )
+    assert kitchen.post(f"{API}/plan/items", json={**mine, "food_id": food_id}).status_code == 404
     # Their meal and item: the neighbour is the one who does the writes.
     assert neighbour.delete(f"{API}/plan/items/{a['item_id']}").status_code == 404
     assert neighbour.delete(f"{API}/plan/meals/{a['meal_id']}").status_code == 404
@@ -609,7 +606,7 @@ def test_a_thing_deleted_for_good_keeps_its_name_through_copy_remove_and_undo(
 ) -> None:
     """cabledrawer 26 Oct: a recipe or ingredient deleted for good stays on the meal by name."""
     a = plan_recipe(kitchen, stuff["sambar"], D1, slots["Dinner"], servings=2)
-    banana = {"date": D1.isoformat(), "slot_id": slots["Dinner"], "ingredient_id": stuff["banana"]}
+    banana = {"date": D1.isoformat(), "slot_id": slots["Dinner"], "food_id": stuff["banana"]}
     assert kitchen.post(f"{API}/plan/items", json=banana).status_code == 201
     with db_of(kitchen) as db:
         db.execute(text("DELETE FROM recipe WHERE id = :i"), {"i": stuff["sambar"]})

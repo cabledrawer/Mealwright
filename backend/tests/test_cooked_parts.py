@@ -155,7 +155,7 @@ def test_a_note_and_an_ingredient_beside_the_recipes_dont_block_cooked(
     day = date.today().isoformat()
     ok(
         kitchen.post(
-            f"{API}/plan/items", json={"date": day, "slot_id": slot, "ingredient_id": salt["id"]}
+            f"{API}/plan/items", json={"date": day, "slot_id": slot, "food_id": salt["id"]}
         ),
         201,
     )

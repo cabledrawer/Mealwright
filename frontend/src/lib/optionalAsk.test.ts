@@ -199,7 +199,7 @@ describe('every way a recipe is added to the plan asks, through PlanModel.add', 
     });
     const model = new PlanModel();
     await model.add({ ingredient: { id: 9, name: 'Fruit' } }, '2026-11-14', 3);
-    expect(body(requests)).toEqual({ date: '2026-11-14', slot_id: 3, ingredient_id: 9 });
+    expect(body(requests)).toEqual({ date: '2026-11-14', slot_id: 3, food_id: 9 });
   });
 
   it('changing the answer from the meal sends the new ticks', async () => {

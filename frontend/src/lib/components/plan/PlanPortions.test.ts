@@ -24,7 +24,7 @@ const recipeItem = (id: number, name: string, over: Partial<PlanItem> = {}): Pla
   kind: 'recipe',
   recipe: { id: id + 100, name, removed: false, photo_url: null, time_minutes: null, kcal: null },
   tub_id: null,
-  ingredient: null,
+  food: null,
   kept_name: null,
   servings: null,
   note: null,

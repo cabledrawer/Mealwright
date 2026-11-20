@@ -1176,7 +1176,7 @@ describe('importer consistency on Check (0.7)', () => {
           {
             recipe: { id: 1, name: 'x' },
             change: { id: 1, summary: 's' },
-            new_ingredients: [],
+            new_foods: [],
             learned: 0
           }
         ]
@@ -1231,7 +1231,7 @@ describe('importer consistency on Check (0.7)', () => {
           {
             recipe: { id: 1, name: 'x' },
             change: { id: 1, summary: 's' },
-            new_ingredients: [],
+            new_foods: [],
             learned: 0
           }
         ]

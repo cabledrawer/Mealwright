@@ -408,7 +408,7 @@ BODY_ID_CASES: dict[tuple[str, str], str] = {
     # The plan (0.6 PR 3): test_plan_writes.py, test_another_households_ids_get_404_on_every_write.
     ("PlanItemIn", "slot_id"): "test_plan_writes",
     ("PlanItemIn", "recipe_id"): "test_plan_writes",
-    ("PlanItemIn", "ingredient_id"): "test_plan_writes",
+    ("PlanItemIn", "food_id"): "test_plan_writes",
     ("PlanMoveIn", "slot_id"): "test_plan_writes",
     # A meal move's start times (FX2, M3): test_start_ahead.py,
     # test_another_households_recipe_cannot_be_given_a_start_by_a_meal_move.

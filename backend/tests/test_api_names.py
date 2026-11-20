@@ -3,12 +3,13 @@
 from typing import Any
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sync_kit import ok
 from test_plan import db_of
 from test_today import ago, ahead, new_recipe
 
 from mealwright.main import create_app
-from mealwright.models import BatchCook, Tub
+from mealwright.models import BatchCook, MealItem, Tub
 
 API = "/api/v1"
 
@@ -79,3 +80,35 @@ def test_tubs_left_pages_with_after_and_next(kitchen: TestClient) -> None:
     assert kitchen.get(f"{API}/plan/tubs-left", params={"after": "x"}).status_code == 422
     today = ok(kitchen.get(f"{API}/today"))
     assert today["tubs_left_next"] is None and "tubs_left_more" not in today
+
+
+# --- BE18: the API says "food" ---------------------------------------------------------------
+
+
+def test_a_planned_ingredient_is_a_food_in_the_api_and_stays_ingredient_in_the_database(
+    kitchen: TestClient,
+) -> None:
+    food = ok(kitchen.post(f"{API}/foods", json={"name": "Banana"}), 201)["food"]
+    slot = ok(kitchen.get(f"{API}/meal-slots"))["meal_slots"][0]["id"]
+    day = str(ahead(kitchen, 1))
+    old = kitchen.post(f"{API}/plan/items", json={"date": day, "slot_id": slot, "ingredient_id": 1})
+    assert old.status_code == 422  # the old name is gone, not quietly read
+    ok(
+        kitchen.post(
+            f"{API}/plan/items", json={"date": day, "slot_id": slot, "food_id": food["id"]}
+        ),
+        201,
+    )
+    [meal] = ok(kitchen.get(f"{API}/plan", params={"from": day, "to": day}))["meals"]
+    [item] = meal["items"]
+    assert item["kind"] == "food" and item["food"]["id"] == food["id"]
+    assert "ingredient" not in item
+    with db_of(kitchen) as db:
+        assert [i.kind for i in db.scalars(select(MealItem))] == ["ingredient"]
+
+
+def test_the_food_names_in_the_routes() -> None:
+    paths = openapi()["paths"]
+    assert "/api/v1/recipes/drafts/by-food" in paths
+    assert "/api/v1/recipes/drafts/by-food/answer" in paths
+    assert not [p for p in paths if "ingredient" in p]

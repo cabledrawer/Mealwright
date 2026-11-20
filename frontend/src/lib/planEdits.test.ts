@@ -16,7 +16,7 @@ const item = (id: number, name: string, kcal: number | null = null): PlanItem =>
   kind: 'recipe',
   recipe: { id, name, removed: false, photo_url: null, time_minutes: null, kcal },
   tub_id: null,
-  ingredient: null,
+  food: null,
   kept_name: null,
   servings: null,
   note: null,

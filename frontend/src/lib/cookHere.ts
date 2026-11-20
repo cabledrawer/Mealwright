@@ -25,7 +25,7 @@ export function cookTargetOf(
       kcal: null
     },
     tub_id: null,
-    ingredient: null,
+    food: null,
     kept_name: null,
     servings: null,
     note: null,

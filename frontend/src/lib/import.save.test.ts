@@ -10,7 +10,7 @@ const IMPORT = { ...changeOf(60, 'Imported Aloo paratha'), kind: 'recipe_importe
 const SAVED = {
   recipe: { id: 55, name: 'Aloo paratha' },
   change: IMPORT,
-  new_ingredients: [],
+  new_foods: [],
   learned: 0
 };
 const undone = (change: { kind: string }) => ({

@@ -1521,7 +1521,7 @@ def _two_saved_recipes(kitchen: TestClient) -> tuple[dict[str, Any], dict[str, A
     # The second is saved with what its screen still said (New ingredient: Besan): it uses the
     # first one's Besan and is never refused (F213).
     second = ok(save(kitchen, to_save(b, {0: _NEW_BESAN})), 201)
-    assert second["new_ingredients"] == []
+    assert second["new_foods"] == []
     return first, second
 
 
@@ -1529,7 +1529,7 @@ def test_undo_of_an_import_keeps_a_new_ingredient_another_saved_recipe_now_uses(
     kitchen: TestClient, web: Web
 ) -> None:
     first, second = _two_saved_recipes(kitchen)
-    besan = first["new_ingredients"][0]
+    besan = first["new_foods"][0]
     undone = ok(kitchen.post(f"{API}/changes/{first['change']['id']}/undo"))
     assert "Besan is kept: another recipe uses it." in undone["message"]
     assert undone["result"] == "done"

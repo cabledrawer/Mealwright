@@ -370,5 +370,5 @@ class ImportSave(BaseModel):
 class ImportSaved(BaseModel):
     recipe: Ref
     change: ChangeOut  # the one entry in Recent changes; its Undo takes the whole save back
-    new_ingredients: list[Ref]
+    new_foods: list[Ref]
     learned: int  # other names added

@@ -890,7 +890,7 @@ def test_save_makes_everything_in_one_go_with_one_undo(
     before = counts(kitchen)
     saved = ok(save(kitchen, to_save(shown, choices), **{"Idempotency-Key": "import-1"}), 201)
     assert saved["recipe"]["name"] == "Sambar"
-    assert [i["name"] for i in saved["new_ingredients"]] == ["Hing", "Curry leaves"]
+    assert [i["name"] for i in saved["new_foods"]] == ["Hing", "Curry leaves"]
     assert saved["learned"] == 1
     assert saved["change"]["kind"] == "recipe_imported" and saved["change"]["can_undo"]
     assert saved["change"]["summary"] == "Imported Sambar, with 2 new ingredients and 1 other name"
@@ -944,7 +944,7 @@ def test_lines_with_no_choice_are_saved_as_words_only(kitchen: TestClient, web: 
     saved = ok(save(kitchen, to_save(shown)), 201)
     recipe = ok(kitchen.get(f"{API}/recipes/{saved['recipe']['id']}"))
     assert {line["link"] for line in recipe["lines"]} == {"none"}
-    assert saved["new_ingredients"] == [] and saved["learned"] == 0
+    assert saved["new_foods"] == [] and saved["learned"] == 0
     assert counts(kitchen)[1:] == (0, 0)
 
 
@@ -990,7 +990,7 @@ def test_two_lines_that_want_the_same_new_ingredient_make_it_once(
     )
     new = {"kind": "new", "name": "Basmati rice", "counted_as": "weight"}
     saved = ok(save(kitchen, to_save(shown, {0: new, 1: new})), 201)
-    assert [i["name"] for i in saved["new_ingredients"]] == ["Basmati rice"]
+    assert [i["name"] for i in saved["new_foods"]] == ["Basmati rice"]
     assert counts(kitchen)[1] == 1
 
 
@@ -1002,7 +1002,7 @@ def test_a_new_ingredient_with_a_name_the_household_has_uses_that_one_not_a_refu
     shown = review(kitchen, "Dal\nIngredients\n1 cup basmati rice\n1 onion\nMethod\n1. Cook.\n")
     before = counts(kitchen)[1]
     saved = ok(save(kitchen, to_save(shown, {1: {"kind": "new", "name": "onions"}})), 201)
-    assert saved["new_ingredients"] == []
+    assert saved["new_foods"] == []
     assert counts(kitchen)[1] == before  # no second Onions
     recipe = kitchen.get(f"/api/v1/recipes/{saved['recipe']['id']}").json()
     assert [line["food"]["id"] for line in recipe["lines"] if line.get("food")][-1] == pantry[

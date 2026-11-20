@@ -681,7 +681,7 @@ describe('Import a recipe', () => {
           {
             recipe: { id: 5, name: 'Sambar' },
             change: { id: 1, summary: 'Imported Sambar' },
-            new_ingredients: [],
+            new_foods: [],
             learned: 0
           }
         ]
@@ -1477,7 +1477,7 @@ describe('Import a recipe', () => {
       flow.saved = {
         recipe: { id: 1, name: 'Sambar' },
         change: { id: 1 } as never,
-        new_ingredients: [],
+        new_foods: [],
         learned: 0
       };
       expect(leaveFor('/recipes/1')).not.toHaveBeenCalled();

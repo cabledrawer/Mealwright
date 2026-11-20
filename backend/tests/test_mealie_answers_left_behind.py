@@ -66,7 +66,7 @@ def _recipes(client: TestClient) -> int:
 def _stop_after_answering(client: TestClient, soy: int, **headers: str) -> None:
     with pytest.raises(Stopped):
         client.post(
-            f"{API}/recipes/drafts/by-ingredient/answer",
+            f"{API}/recipes/drafts/by-food/answer",
             json={"key": "soya sauce", "kind": "ingredient", "food_id": soy},
             headers=headers,
         )
@@ -105,7 +105,7 @@ def test_a_retry_of_the_same_answer_finishes_them_and_says_so(stuck: Any) -> Non
     kitchen, soy = stuck
     _stop_after_answering(kitchen, soy, **{"Idempotency-Key": "k-1"})
     again = kitchen.post(
-        f"{API}/recipes/drafts/by-ingredient/answer",
+        f"{API}/recipes/drafts/by-food/answer",
         json={"key": "soya sauce", "kind": "ingredient", "food_id": soy},
         headers={"Idempotency-Key": "k-1"},
     )

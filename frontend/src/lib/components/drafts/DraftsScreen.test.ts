@@ -630,14 +630,14 @@ describe('the Drafts screen', () => {
         'GET /recipes/drafts': list([
           draft({ id: 50, name: 'Minestrone', source: { kind: 'mealie', site: null } })
         ]),
-        'GET /recipes/drafts/by-ingredient': [
+        'GET /recipes/drafts/by-food': [
           200,
           { groups: [], total: 0, drafts: 0, recipes_ready: 0, places: [] }
         ]
       });
       await page.getByRole('button', { name: 'By ingredient' }).click();
       await expect.element(page.getByText('Every ingredient is answered')).toBeVisible();
-      expect(requests.some((r) => r.path === '/recipes/drafts/by-ingredient')).toBe(true);
+      expect(requests.some((r) => r.path === '/recipes/drafts/by-food')).toBe(true);
       await page.getByRole('button', { name: 'By recipe' }).click();
       await expect.element(page.getByRole('button', { name: 'By ingredient' })).toBeVisible();
     });

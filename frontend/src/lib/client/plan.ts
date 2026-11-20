@@ -30,14 +30,20 @@ export interface PlanRecipe extends Ref {
   methods?: { id: number; name: string }[];
 }
 
+/**
+ * A planned plain ingredient's `kind`. D3 (BE18): the API says `food`; the screens say
+ * "ingredient". Named once here, so the plain-words test knows it never reaches the screen.
+ */
+export const FOOD_ITEM = 'food' as const;
+
 export interface PlanItem {
   id: number;
   position: number;
-  kind: 'recipe' | 'tub' | 'ingredient' | 'note';
+  kind: 'recipe' | 'tub' | typeof FOOD_ITEM | 'note';
   recipe: PlanRecipe | null;
   tub_id: number | null;
-  ingredient: (Ref & { removed: boolean }) | null;
-  /** The name of a recipe or ingredient deleted for good (recipe and ingredient are then null). */
+  food: (Ref & { removed: boolean }) | null;
+  /** The name of a recipe or ingredient deleted for good (recipe and food are then null). */
   kept_name: string | null;
   servings: number | null;
   /** A note's text ("Eating out"); null for anything else. */
@@ -173,7 +179,7 @@ export const planItem = (
     date: string;
     slot_id: number;
     recipe_id?: number;
-    ingredient_id?: number;
+    food_id?: number;
     note?: string;
     /** The recipe's Optional lines the person will use (R3). Left out: every line counts. */
     optional_use?: number[];

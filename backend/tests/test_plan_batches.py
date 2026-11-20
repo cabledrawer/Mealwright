@@ -306,7 +306,7 @@ def test_only_a_planned_recipe_that_is_there_can_be_cooked_once(
 ) -> None:
     banana = kitchen.post(
         f"{API}/plan/items",
-        json={"date": day(5), "slot_id": slots["Dinner"], "ingredient_id": stuff["banana"]},
+        json={"date": day(5), "slot_id": slots["Dinner"], "food_id": stuff["banana"]},
     ).json()
     url = f"{API}/plan/items/{banana['item_id']}/batch"
     assert kitchen.post(url, json={"tub_count": 2}).json()["code"] == "not_a_recipe"
@@ -617,7 +617,7 @@ def test_leftovers_of_a_meal_with_several_recipes_makes_a_tub_of_each(
 ) -> None:
     a = plan_recipe(kitchen, stuff["dosa"], D1, slots["Dinner"])
     plan_recipe(kitchen, stuff["chutney"], D1, slots["Dinner"])
-    banana = {"date": D1.isoformat(), "slot_id": slots["Dinner"], "ingredient_id": stuff["banana"]}
+    banana = {"date": D1.isoformat(), "slot_id": slots["Dinner"], "food_id": stuff["banana"]}
     kitchen.post(f"{API}/plan/items", json=banana)
     r = kitchen.post(
         f"{API}/plan/meals/{a['meal_id']}/move",
@@ -627,7 +627,7 @@ def test_leftovers_of_a_meal_with_several_recipes_makes_a_tub_of_each(
     plan = view(kitchen)
     assert sorted(b["recipe_name"] for b in plan["batch_cooks"]) == ["Coconut chutney", "Dosa"]
     lunch = next(m for m in plan["meals"] if m["date"] == D2.isoformat())
-    assert sorted(i["kind"] for i in lunch["items"]) == ["ingredient", "tub", "tub"]
+    assert sorted(i["kind"] for i in lunch["items"]) == ["food", "tub", "tub"]
     assert undo(kitchen, r.json())["result"] == "done"
     assert view(kitchen)["batch_cooks"] == []
     assert [m["date"] for m in view(kitchen)["meals"]] == [D1.isoformat()]

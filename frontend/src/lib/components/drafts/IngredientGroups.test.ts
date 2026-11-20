@@ -51,7 +51,7 @@ const ANSWERED = {
   change: changeOf(40, 'Answered “soya sauce” in 46 drafts · 3 recipes moved to Recipes'),
   drafts: 46,
   moved: 3,
-  ingredient: { id: 9, name: 'Soy sauce' }
+  food: { id: 9, name: 'Soy sauce' }
 };
 
 describe('Drafts, by ingredient', () => {
@@ -84,7 +84,7 @@ describe('Drafts, by ingredient', () => {
   });
 
   it('says how many ingredients are left and how many recipes are ready, with a bar', async () => {
-    await open({ 'GET /recipes/drafts/by-ingredient': [200, GROUPS] });
+    await open({ 'GET /recipes/drafts/by-food': [200, GROUPS] });
     await expect.element(page.getByText('2 ingredients still to answer')).toBeVisible();
     await expect.element(page.getByText('· 3 recipes ready so far')).toBeVisible();
     await expect
@@ -95,8 +95,8 @@ describe('Drafts, by ingredient', () => {
 
   it('opens the first group on a computer, with the suggestion chosen, and sends one answer', async () => {
     const requests = await open({
-      'GET /recipes/drafts/by-ingredient': [200, GROUPS],
-      'POST /recipes/drafts/by-ingredient/answer': [200, ANSWERED]
+      'GET /recipes/drafts/by-food': [200, GROUPS],
+      'POST /recipes/drafts/by-food/answer': [200, ANSWERED]
     });
     await expect.element(page.getByText('Used in 46 drafts, written as')).toBeVisible();
     await expect.element(page.getByText('Soy sauce', { exact: true })).toBeVisible();
@@ -114,8 +114,8 @@ describe('Drafts, by ingredient', () => {
 
   it('a new ingredient is sent with its name and place; plain text with neither', async () => {
     const requests = await open({
-      'GET /recipes/drafts/by-ingredient': [200, GROUPS],
-      'POST /recipes/drafts/by-ingredient/answer': [200, ANSWERED]
+      'GET /recipes/drafts/by-food': [200, GROUPS],
+      'POST /recipes/drafts/by-food/answer': [200, ANSWERED]
     });
     await page.getByRole('button', { name: 'A new ingredient' }).click();
     await page.getByRole('button', { name: 'Fridge' }).click();
@@ -135,8 +135,8 @@ describe('Drafts, by ingredient', () => {
   it('a press again after a failed one sends the same change ID; another answer gets its own', async () => {
     let calls = 0;
     const requests = await open({
-      'GET /recipes/drafts/by-ingredient': [200, GROUPS],
-      'POST /recipes/drafts/by-ingredient/answer': () => {
+      'GET /recipes/drafts/by-food': [200, GROUPS],
+      'POST /recipes/drafts/by-food/answer': () => {
         calls += 1;
         return calls === 1 ? [500, { detail: 'Something went wrong.' }] : [200, ANSWERED];
       }
@@ -160,7 +160,7 @@ describe('Drafts, by ingredient', () => {
   });
 
   it('Skip for now sends nothing and opens the next ingredient', async () => {
-    const requests = await open({ 'GET /recipes/drafts/by-ingredient': [200, GROUPS] });
+    const requests = await open({ 'GET /recipes/drafts/by-food': [200, GROUPS] });
     await page.getByRole('button', { name: 'Skip for now' }).click();
     await expect.element(page.getByRole('heading', { name: 'galangal' })).toBeVisible();
     expect(requests.filter((r) => r.method === 'POST')).toHaveLength(0);
@@ -168,8 +168,8 @@ describe('Drafts, by ingredient', () => {
 
   it('Undo in the toast takes the answer back and fetches the list again', async () => {
     const requests = await open({
-      'GET /recipes/drafts/by-ingredient': [200, GROUPS],
-      'POST /recipes/drafts/by-ingredient/answer': [200, ANSWERED],
+      'GET /recipes/drafts/by-food': [200, GROUPS],
+      'POST /recipes/drafts/by-food/answer': [200, ANSWERED],
       'POST /changes/40/undo': [
         200,
         { result: 'done', message: 'Undone', change: changeOf(41, 'Undid') }
@@ -182,26 +182,24 @@ describe('Drafts, by ingredient', () => {
       expect(requests.some((r) => r.method === 'POST' && r.path === '/changes/40/undo')).toBe(true)
     );
     await vi.waitFor(() =>
-      expect(
-        requests.filter((r) => r.path === '/recipes/drafts/by-ingredient').length
-      ).toBeGreaterThan(2)
+      expect(requests.filter((r) => r.path === '/recipes/drafts/by-food').length).toBeGreaterThan(2)
     );
   });
 
   it('Show all asks for more when the list is cut short', async () => {
     const requests = await open({
-      'GET /recipes/drafts/by-ingredient': [200, { ...GROUPS, total: 300 }]
+      'GET /recipes/drafts/by-food': [200, { ...GROUPS, total: 300 }]
     });
     await page.getByRole('button', { name: 'Show all' }).click();
     await vi.waitFor(() =>
-      expect(requests.some((r) => r.url === '/recipes/drafts/by-ingredient?limit=5000')).toBe(true)
+      expect(requests.some((r) => r.url === '/recipes/drafts/by-food?limit=5000')).toBe(true)
     );
   });
 
   it('says so when someone else already answered the group', async () => {
     await open({
-      'GET /recipes/drafts/by-ingredient': [200, GROUPS],
-      'POST /recipes/drafts/by-ingredient/answer': [404, { detail: 'No draft uses it.' }]
+      'GET /recipes/drafts/by-food': [200, GROUPS],
+      'POST /recipes/drafts/by-food/answer': [404, { detail: 'No draft uses it.' }]
     });
     await page.getByRole('button', { name: 'Use for all 46 drafts' }).click();
     await expect
@@ -212,8 +210,8 @@ describe('Drafts, by ingredient', () => {
   it('on a phone the list comes first, the answer is a page with a back button', async () => {
     await open(
       {
-        'GET /recipes/drafts/by-ingredient': [200, GROUPS],
-        'POST /recipes/drafts/by-ingredient/answer': [200, ANSWERED]
+        'GET /recipes/drafts/by-food': [200, GROUPS],
+        'POST /recipes/drafts/by-food/answer': [200, ANSWERED]
       },
       390
     );
@@ -236,7 +234,7 @@ describe('Drafts, by ingredient', () => {
   });
 
   it('offline the answer button is off', async () => {
-    await open({ 'GET /recipes/drafts/by-ingredient': [200, GROUPS] });
+    await open({ 'GET /recipes/drafts/by-food': [200, GROUPS] });
     await expect.element(page.getByRole('button', { name: 'Use for all 46 drafts' })).toBeVisible();
     network.offline = true;
     flushSync();
@@ -247,7 +245,7 @@ describe('Drafts, by ingredient', () => {
 
   it('shows an all-answered note when nothing is left', async () => {
     await open({
-      'GET /recipes/drafts/by-ingredient': [200, { ...GROUPS, groups: [], total: 0, drafts: 0 }]
+      'GET /recipes/drafts/by-food': [200, { ...GROUPS, groups: [], total: 0, drafts: 0 }]
     });
     await expect.element(page.getByText('Every ingredient is answered')).toBeVisible();
   });

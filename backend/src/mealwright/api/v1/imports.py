@@ -73,7 +73,7 @@ def _saved(kitchen: Kitchen, change: Change) -> ImportSaved:
     return ImportSaved(
         recipe=Ref(id=recipe.id, name=recipe.name),
         change=change_out(kitchen, change),
-        new_ingredients=news,
+        new_foods=news,
         learned=learned,
     )
 

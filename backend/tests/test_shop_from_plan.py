@@ -198,7 +198,7 @@ def test_plain_ingredients_add_nothing(kitchen: TestClient) -> None:
             json={
                 "date": day(kitchen, 1).isoformat(),
                 "slot_id": dinner(kitchen),
-                "ingredient_id": fruit["id"],
+                "food_id": fruit["id"],
             },
         ),
         201,

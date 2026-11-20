@@ -261,7 +261,7 @@ def test_leftovers_refusals(
     fruit = ok(
         kitchen.post(
             f"{API}/plan/items",
-            json={"date": str(ago(kitchen, 2)), "slot_id": slots["Lunch"], "ingredient_id": banana},
+            json={"date": str(ago(kitchen, 2)), "slot_id": slots["Lunch"], "food_id": banana},
         ),
         201,
     )

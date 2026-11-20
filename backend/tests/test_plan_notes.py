@@ -40,7 +40,7 @@ def test_a_note_is_planned_shown_and_undone(kitchen: TestClient, slots: dict[str
     meal = view(kitchen)["meals"][0]
     (item,) = meal["items"]
     assert item["kind"] == "note" and item["note"] == "At Tess’s"
-    assert item["recipe"] is None and item["ingredient"] is None and item["tub_id"] is None
+    assert item["recipe"] is None and item["food"] is None and item["tub_id"] is None
     assert item["kept_name"] is None and item["servings"] is None
     assert undo(kitchen, made)["result"] == "done"
     assert shape(kitchen) == before

@@ -423,7 +423,7 @@ test('Recent changes lists a pantry change, a plan change and a removal, newest 
   const dinner = slots.find((x) => x.name === 'Dinner')!;
   const today = ((await (await page.request.get('/api/v1/household')).json()) as Json).today as string;
   const planned = await page.request.post('/api/v1/plan/items', {
-    data: { date: ownDay(today, 0), slot_id: dinner.id, ingredient_id: food.id },
+    data: { date: ownDay(today, 0), slot_id: dinner.id, food_id: food.id },
     headers: key(),
   });
   expect(planned.status(), await planned.text()).toBe(201); // a plan change

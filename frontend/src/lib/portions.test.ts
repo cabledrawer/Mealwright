@@ -38,7 +38,7 @@ const tubItem = (id: number, tub: number): PlanItem => ({
   kind: 'tub',
   recipe: null,
   tub_id: tub,
-  ingredient: null,
+  food: null,
   kept_name: null,
   servings: null,
   note: null,

@@ -379,11 +379,11 @@ export class PlanModel {
     const name = 'recipe' in what ? what.recipe.name : what.ingredient.name;
     const body: {
       recipe_id?: number;
-      ingredient_id?: number;
+      food_id?: number;
       optional_use?: number[];
       method_id?: number;
       start?: StartAt;
-    } = 'recipe' in what ? { recipe_id: what.recipe.id } : { ingredient_id: what.ingredient.id };
+    } = 'recipe' in what ? { recipe_id: what.recipe.id } : { food_id: what.ingredient.id };
     if ('recipe' in what) {
       const where = `${dayShort(day)} ${this.slotName(slotId).toLocaleLowerCase()}`;
       // A recipe with two ways of cooking it asks which first (M2), then which optional

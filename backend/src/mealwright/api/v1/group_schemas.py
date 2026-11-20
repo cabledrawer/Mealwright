@@ -61,4 +61,4 @@ class GroupAnswered(BaseModel):
     change: ChangeOut  # carries the Undo (7 days)
     drafts: int  # drafts the answer went into
     moved: int  # of them, recipes now in Recipes
-    ingredient: Ref | None  # the ingredient every line is tied to; null for plain text
+    food: Ref | None  # the ingredient every line is tied to; null for plain text

@@ -115,11 +115,11 @@ export interface GroupAnswered {
   change: Change;
   drafts: number;
   moved: number;
-  ingredient: Ref | null;
+  food: Ref | null;
 }
 
 export const listGroups = (limit?: number) =>
-  api<IngredientGroups>('GET', `/recipes/drafts/by-ingredient${limit ? `?limit=${limit}` : ''}`);
+  api<IngredientGroups>('GET', `/recipes/drafts/by-food${limit ? `?limit=${limit}` : ''}`);
 
 export const answerGroup = (body: GroupAnswer, idempotencyKey: string) =>
-  api<GroupAnswered>('POST', '/recipes/drafts/by-ingredient/answer', body, { idempotencyKey });
+  api<GroupAnswered>('POST', '/recipes/drafts/by-food/answer', body, { idempotencyKey });

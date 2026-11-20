@@ -76,7 +76,7 @@ def test_undo_keeps_an_ingredient_a_later_answer_in_a_draft_points_at(
         },
     )
     first = answer(kitchen, "soya sauce", "new", name="Soy sauce").json()
-    food_id = first["ingredient"]["id"]
+    food_id = first["food"]["id"]
     later = answer(kitchen, "soy sauce", "ingredient", food_id=food_id)
     assert later.status_code == 200 and later.json()["moved"] == 0  # galangal still waits
     undone = kitchen.post(f"{API}/changes/{first['change']['id']}/undo")
@@ -93,7 +93,7 @@ def test_the_imports_undo_keeps_an_ingredient_a_draft_outside_it_points_at(
 ) -> None:
     bring(kitchen, tmp_path, {A: ["2 tbsp soya sauce", "a pinch of kasuri methi"]})
     made = answer(kitchen, "soya sauce", "new", name="Soy sauce").json()
-    food_id = made["ingredient"]["id"]
+    food_id = made["food"]["id"]
     with db(kitchen) as session:
         mine = session.scalars(select(ImportDraft)).one()
         session.add(

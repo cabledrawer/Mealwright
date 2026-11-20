@@ -1,7 +1,16 @@
 // What a meal card says, worked out from the plan the server sent. Pure, so it is tested
 // on its own (planMeals.test.ts).
 
-import type { MealSlot, Person, Plan, PlanBatch, PlanItem, PlanMeal, PlanTub } from './client/plan';
+import {
+  FOOD_ITEM,
+  type MealSlot,
+  type Person,
+  type Plan,
+  type PlanBatch,
+  type PlanItem,
+  type PlanMeal,
+  type PlanTub
+} from './client/plan';
 import { dayShort } from './planDates';
 import { timePlusWait } from './timeWords';
 
@@ -9,7 +18,7 @@ import { timePlusWait } from './timeWords';
 export function itemName(item: PlanItem, plan: Plan | null = null): string {
   if (item.note) return item.note; // "Eating out", "At Tess’s"
   if (item.recipe) return item.recipe.name;
-  if (item.ingredient) return item.ingredient.name;
+  if (item.food) return item.food.name;
   if (item.kept_name) return item.kept_name; // deleted for good: past meals still say what it was
   const tub = plan?.tubs.find((t) => t.id === item.tub_id);
   const batch = plan?.batch_cooks.find((b) => b.id === tub?.batch_id);
@@ -66,7 +75,7 @@ export function mealTotals(meal: PlanMeal, plan: Plan | null = null): string {
     ? n === 1
       ? 'recipe'
       : 'recipes'
-    : all('ingredient')
+    : all(FOOD_ITEM)
       ? n === 1
         ? 'ingredient'
         : 'ingredients'

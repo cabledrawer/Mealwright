@@ -103,7 +103,7 @@ class PlanRecipeRef(Ref):
     methods: list[Ref] = Field(default_factory=list)
 
 
-class PlanIngredientRef(Ref):
+class PlanFoodRef(Ref):
     # Removed, but still inside the undo window.
     removed: bool
 
@@ -139,10 +139,12 @@ class AheadOut(BaseModel):
 class PlanItemOut(BaseModel):
     id: int
     position: int
-    kind: Literal["recipe", "tub", "ingredient", "note"]
+    # D3 (BE18): the API says "food" for what the screens call an ingredient; the database
+    # keeps "ingredient", mapped here (proposed, for cabledrawer).
+    kind: Literal["recipe", "tub", "food", "note"]
     recipe: PlanRecipeRef | None
     tub_id: int | None
-    ingredient: PlanIngredientRef | None
+    food: PlanFoodRef | None
     # Set only when the recipe or ingredient was deleted for good (recipe and ingredient are
     # then null): its name, so past meals still show what was eaten.
     kept_name: str | None
@@ -583,7 +585,7 @@ def get_plan(
         return PlanItemOut(
             id=i.id,
             position=i.position,
-            kind=i.kind,  # type: ignore[arg-type]
+            kind="food" if i.kind == "ingredient" else i.kind,  # type: ignore[arg-type]
             recipe=PlanRecipeRef(
                 id=recipe.id,
                 name=recipe.name,
@@ -603,9 +605,7 @@ def get_plan(
             if recipe
             else None,
             tub_id=i.tub_id,
-            ingredient=PlanIngredientRef(
-                id=food.id, name=food.name, removed=food.removed_at is not None
-            )
+            food=PlanFoodRef(id=food.id, name=food.name, removed=food.removed_at is not None)
             if food
             else None,
             kept_name=i.name
@@ -841,7 +841,7 @@ class PlanItemIn(BaseModel):
     slot_id: StoredInt
     # Exactly one of these three.
     recipe_id: StoredInt | None = None
-    ingredient_id: StoredInt | None = None
+    food_id: StoredInt | None = None
     note: str | None = Field(
         default=None,
         description="A note instead of a recipe or ingredient: 'Eating out', 'Takeaway', 'At"
@@ -890,7 +890,7 @@ def add_plan_item(body: PlanItemIn, kitchen: Here, response: Response) -> PlanWr
     """Plan a recipe or a plain ingredient on a date and slot. An empty slot gets a new meal;
     a filled one gets it alongside (at most 20 things in a meal). A retry with the same
     `Idempotency-Key` plans nothing more."""
-    if sum(x is not None for x in (body.recipe_id, body.ingredient_id, body.note)) != 1:
+    if sum(x is not None for x in (body.recipe_id, body.food_id, body.note)) != 1:
         raise one_field(
             "Pick a recipe, an ingredient or a note to plan."
         )  # proposed, for cabledrawer
@@ -898,8 +898,8 @@ def add_plan_item(body: PlanItemIn, kitchen: Here, response: Response) -> PlanWr
     def make() -> Change:
         recipe = recipe_service.find(kitchen, body.recipe_id) if body.recipe_id else None
         food = None
-        if body.ingredient_id is not None:
-            food = kitchen.db.get(Food, body.ingredient_id)
+        if body.food_id is not None:
+            food = kitchen.db.get(Food, body.food_id)
             if (
                 food is None
                 or food.household_id != kitchen.household_id

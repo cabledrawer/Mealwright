@@ -28,7 +28,7 @@ const recipe = (id: number, name: string): PlanItem => ({
   kind: 'recipe',
   recipe: { id, name, removed: false, photo_url: null, time_minutes: null, kcal: null },
   tub_id: null,
-  ingredient: null,
+  food: null,
   kept_name: null,
   servings: null,
   note: null,
@@ -38,10 +38,10 @@ const recipe = (id: number, name: string): PlanItem => ({
 const fruit: PlanItem = {
   id: 9,
   position: 9,
-  kind: 'ingredient',
+  kind: 'food',
   recipe: null,
   tub_id: null,
-  ingredient: { id: 1, name: 'Banana', removed: false },
+  food: { id: 1, name: 'Banana', removed: false },
   kept_name: null,
   servings: null,
   note: null,
@@ -62,7 +62,7 @@ const note = (id: number, text: string): PlanItem => ({
   ...fruit,
   id,
   kind: 'note',
-  ingredient: null,
+  food: null,
   note: text
 });
 
@@ -118,7 +118,7 @@ describe('a meal card’s words', () => {
 
   it('names a recipe or ingredient deleted for good by the name it kept', () => {
     const gone = { ...recipe(4, 'Sambar'), recipe: null, kept_name: 'Sambar' };
-    const goneFruit = { ...fruit, ingredient: null, kept_name: 'Banana' };
+    const goneFruit = { ...fruit, food: null, kept_name: 'Banana' };
     expect([itemName(gone), itemName(goneFruit)]).toEqual(['Sambar', 'Banana']);
     expect(mealName(meal([gone, goneFruit]))).toBe('Sambar and 1 more');
   });
@@ -161,7 +161,7 @@ describe('a meal card’s words', () => {
         }
       ]
     };
-    const tub: PlanItem = { ...fruit, kind: 'tub', ingredient: null, tub_id: 7 };
+    const tub: PlanItem = { ...fruit, kind: 'tub', food: null, tub_id: 7 };
     expect(tubWords(tub, plan)).toBe('Tub 2 of 4');
     expect(tubWords(fruit, plan)).toBeNull();
   });
@@ -207,7 +207,7 @@ describe('a meal card’s words', () => {
     const recipeItem: PlanItem = {
       ...fruit,
       kind: 'recipe',
-      ingredient: null,
+      food: null,
       recipe: {
         id: 1,
         name: 'Chana masala',
@@ -217,7 +217,7 @@ describe('a meal card’s words', () => {
         kcal: null
       }
     };
-    const tubItem: PlanItem = { ...fruit, kind: 'tub', ingredient: null, tub_id: 7 };
+    const tubItem: PlanItem = { ...fruit, kind: 'tub', food: null, tub_id: 7 };
     const meal = (id: number, items: PlanItem[] = []): PlanMeal => ({
       id,
       date: '2026-10-18',
