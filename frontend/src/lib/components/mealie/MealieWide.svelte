@@ -7,6 +7,8 @@
   // leave some out, chips and a search (cabledrawer 13 Nov). Fetched the first time it's needed.
   import { resolve } from '$app/paths';
   import Icon from '../Icon.svelte';
+  import Loading from '../Loading.svelte';
+  import Spinner from '../Spinner.svelte';
   import Switch from '../Switch.svelte';
   import type { MealieFlow, Step } from '#lib/mealieFlow.svelte.js';
   import { network } from '#lib/network.svelte.js';
@@ -101,6 +103,12 @@
   {#if flow.problem}<p class="problem" role="alert">{flow.problem}</p>{/if}
 {/snippet}
 
+<!-- F258: while the file goes up and the server reads it, a turning ring says so (the button
+     beside it waits, greyed out, with its own name). -->
+{#snippet reading()}
+  {#if flow.sending}<Loading spin what="Reading the file…" />{/if}
+{/snippet}
+
 <div class="wide">
   <ol class="steps" aria-label="Steps">
     {#each STEPS as step, i (step)}
@@ -137,8 +145,9 @@
           <strong>Drop the Mealie backup (.zip) here</strong>
           <span class="sub">or</span>
           <Button small disabled={flow.busy || offline} onclick={() => picker?.click()}
-            >{flow.sending ? 'Reading the file…' : 'Choose file…'}</Button
+            >Choose file…</Button
           >
+          {@render reading()}
         </div>
       {:else}
         <p class="sub" data-testid="mealie-admins-only">{ADMINS_ONLY}</p>
@@ -171,10 +180,11 @@
         <h2>{job.file_name} <span class="sub light">· {fileWords(job)}</span></h2>
         {#if flow.admin}
           <Button outline small disabled={flow.busy || offline} onclick={() => picker?.click()}
-            >{flow.sending ? 'Reading the file…' : 'Choose another file'}</Button
+            >Choose another file</Button
           >
         {/if}
       </div>
+      {@render reading()}
       <div class="stats four">
         <div class="stat">
           <span class="num">{count(preview.new)}</span><span
@@ -292,7 +302,10 @@
     </section>
   {:else if flow.step === 'running' && job}
     <section class="dcard">
-      <h2>Bringing in recipes… {count(job.done)} of {count(job.total)}</h2>
+      <h2 class="going">
+        <span role="status"><Spinner />Bringing in recipes…</span>
+        {count(job.done)} of {count(job.total)}
+      </h2>
       <div
         class="bar"
         role="progressbar"
@@ -471,6 +484,12 @@
     font-size: var(--text-lg);
     font-weight: var(--weight-extrabold);
     overflow-wrap: anywhere;
+  }
+
+  .going [role='status'] {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-4);
   }
 
   .sub {

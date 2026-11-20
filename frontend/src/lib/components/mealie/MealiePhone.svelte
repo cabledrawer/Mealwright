@@ -5,6 +5,8 @@
   import Button from '../Button.svelte';
   import ButtonRow from '../ButtonRow.svelte';
   import Icon from '../Icon.svelte';
+  import Loading from '../Loading.svelte';
+  import Spinner from '../Spinner.svelte';
   import Switch from '../Switch.svelte';
   import type { MealieFlow } from '#lib/mealieFlow.svelte.js';
   import { network } from '#lib/network.svelte.js';
@@ -71,6 +73,12 @@
   {#if flow.problem}<p class="problem" role="alert">{flow.problem}</p>{/if}
 {/snippet}
 
+<!-- F258: while the file goes up and the server reads it, a turning ring says so (the button
+     beside it waits, greyed out, with its own name). -->
+{#snippet reading()}
+  {#if flow.sending}<Loading spin what="Reading the file…" />{/if}
+{/snippet}
+
 <div class="mealie">
   {#if flow.step === 'start'}
     {#if flow.undone}
@@ -132,9 +140,10 @@
       <div class="foot">
         <ButtonRow>
           <Button disabled={flow.busy || offline} onclick={() => picker?.click()}
-            >{flow.sending ? 'Reading the file…' : 'Choose the Mealie file (.zip)'}</Button
+            >Choose the Mealie file (.zip)</Button
           >
         </ButtonRow>
+        {@render reading()}
       </div>
     {:else}
       <p class="fine" data-testid="mealie-admins-only">{ADMINS_ONLY}</p>
@@ -145,10 +154,11 @@
       <span class="rn"><b>{job.file_name}</b><span>{fileWords(job)}</span></span>
       {#if flow.admin}
         <Button outline small disabled={flow.busy || offline} onclick={() => picker?.click()}
-          >{flow.sending ? 'Reading…' : 'Change'}</Button
+          >Change</Button
         >
       {/if}
     </div>
+    {@render reading()}
     <h2>In this file</h2>
     <ul class="card">
       <li class="r">
@@ -235,7 +245,7 @@
     {/if}
   {:else if flow.step === 'running' && job}
     <div class="running">
-      <span class="big">Bringing in recipes…</span>
+      <span class="big" role="status"><Spinner />Bringing in recipes…</span>
       <span class="of">{count(job.done)} of {count(job.total)}</span>
       <div
         class="bar"
@@ -561,6 +571,9 @@
   }
 
   .big {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
     font-size: var(--text-2xl);
     font-weight: var(--weight-extrabold);
     letter-spacing: -0.01em;

@@ -565,4 +565,53 @@ describe('Import from Mealie', () => {
       expect(sent('POST', '/mealie-imports/drafts/save-all')).toHaveLength(1);
     });
   });
+
+  // F258 (hand test 20 Nov): "Needs feed back when mealie import is running something like a
+  // spinning wheel". While the file goes up and the server reads it, and while the recipes come
+  // in, a turning ring and words say something is happening (the shared Loading line).
+  describe('shows it is working (F258)', () => {
+    for (const [name, width] of [
+      ['on a phone', 390],
+      ['on a computer', 1300]
+    ] as const) {
+      it(`${name}: a turning ring says the file is being read, until the server answers`, async () => {
+        let answer!: () => void;
+        const answered = new Promise<void>((resolve) => (answer = resolve));
+        await open(
+          {
+            'GET /mealie-imports/current': [200, { current: null }],
+            'POST /mealie-imports': [201, READY]
+          },
+          width
+        );
+        // Hold the upload's answer back, as a big file over a home network does.
+        const server = globalThis.fetch;
+        vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
+          if (init.method === 'POST') await answered;
+          return server(input, init);
+        });
+        await expect.element(page.getByRole('button', { name: /Choose/ }).first()).toBeEnabled();
+        choose(zip());
+        const working = page.getByRole('status').filter({ hasText: 'Reading the file…' });
+        await expect.element(working).toBeVisible();
+        expect(working.element().querySelector('[data-spinner]')).not.toBeNull();
+        answer();
+        await expect.element(working).not.toBeInTheDocument();
+        await expect.element(page.getByText(/mealie_2026\.11\.10\.zip/).first()).toBeVisible();
+      });
+
+      it(`${name}: a turning ring shows while the recipes come in`, async () => {
+        await open(
+          {
+            'GET /mealie-imports/current': [200, { current: RUNNING }],
+            'GET /mealie-imports/7': [200, RUNNING]
+          },
+          width
+        );
+        const working = page.getByRole('status').filter({ hasText: 'Bringing in recipes…' });
+        await expect.element(working).toBeVisible();
+        expect(working.element().querySelector('[data-spinner]')).not.toBeNull();
+      });
+    }
+  });
 });
