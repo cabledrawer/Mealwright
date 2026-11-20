@@ -11,6 +11,7 @@
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { session } from '#lib/session.svelte.js';
+  import { ADMIN_ONLY } from '#lib/adminWords.js';
 
   const admin = session.me?.role === 'admin';
 
@@ -104,7 +105,7 @@
           <span class="label" id="batch-label">Show Batch cook</span>
           <span class="detail" id="batch-detail">
             Experimental. Switched off, it leaves the sidebar and the Plan.
-            {#if !admin}Only an admin can change this.{/if}
+            {#if !admin}{ADMIN_ONLY}{/if}
           </span>
         </span>
         <Switch

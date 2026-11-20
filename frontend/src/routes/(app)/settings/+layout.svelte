@@ -4,7 +4,7 @@
   // list of Settings sits beside the page, the open item marked. On the phone /settings is that
   // list and each row opens its own page (the page draws the list; this layout draws nothing but
   // the page). The whole Household group is for admins only: a member isn't shown it, and an
-  // address in it shows "Only admins can change this." instead of the page, so nothing of it is
+  // address in it shows "Only an admin can change this." instead of the page, so nothing of it is
   // loaded. The server still refuses a member's change.
   import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
   import { page } from '$app/state';
@@ -17,6 +17,7 @@
   import { FINISH_SETUP_WORDS, ringWords } from './finishRing.js';
   import { settingsKnown } from './finishSetup.svelte.js';
   import { GROUPS, adminOnly, itemAtRoute, itemsFor } from './items.js';
+  import { ADMIN_ONLY } from '#lib/adminWords.js';
 
   let { children }: { children: Snippet } = $props();
 
@@ -78,7 +79,7 @@
   <div class="content">
     {#if refused && here}
       <PageHeader title={here.label} parent={{ href: '/(app)/settings', label: 'Settings' }} />
-      <p class="admins-only" role="status">Only admins can change this.</p>
+      <p class="admins-only" role="status">{ADMIN_ONLY}</p>
     {:else}
       {@render children()}
     {/if}

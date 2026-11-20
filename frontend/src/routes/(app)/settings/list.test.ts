@@ -1,6 +1,6 @@
 // Settings' list (F252; mockups Dark-Settings2-Desktop and -Phone): the grouped list beside the page
 // on a computer, the same list as the phone's /settings page, the Household group for admins only,
-// "Only admins can change this." for a member who opens an address in it, and older links.
+// "Only an admin can change this." for a member who opens an address in it, and older links.
 
 import { createRawSnippet, flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -182,7 +182,7 @@ describe('the list beside the page (computer)', () => {
     await expect.element(list().getByText('admins only')).toBeVisible();
   });
 
-  it('shows a member who opens a Household address "Only admins can change this.", not the page', async () => {
+  it('shows a member who opens a Household address "Only an admin can change this.", not the page', async () => {
     for (const at of [
       '/settings/household',
       '/settings/household/3',
@@ -195,7 +195,7 @@ describe('the list beside the page (computer)', () => {
       '/settings/meal-slots'
     ]) {
       openLayout(at, 'member');
-      await expect.element(page.getByText('Only admins can change this.')).toBeVisible();
+      await expect.element(page.getByText('Only an admin can change this.')).toBeVisible();
       expect(page.getByTestId('the-page').elements(), at).toEqual([]);
       for (const component of mounted.splice(0)) unmount(component);
       document.body.innerHTML = '';
@@ -206,14 +206,14 @@ describe('the list beside the page (computer)', () => {
 
   it('still refuses a member an address spelt with percent-codes (the page, not the text, decides)', async () => {
     openLayout('/settings/%68ousehold', 'member', {}, '/(app)/settings/household');
-    await expect.element(page.getByText('Only admins can change this.')).toBeVisible();
+    await expect.element(page.getByText('Only an admin can change this.')).toBeVisible();
     expect(page.getByTestId('the-page').elements()).toEqual([]);
   });
 
   it('shows an admin the page at the same addresses', async () => {
     openLayout('/settings/household', 'admin');
     await expect.element(page.getByTestId('the-page')).toBeVisible();
-    expect(page.getByText('Only admins can change this.').elements()).toEqual([]);
+    expect(page.getByText('Only an admin can change this.').elements()).toEqual([]);
   });
 
   it('shows a member the page for an item they may open', async () => {

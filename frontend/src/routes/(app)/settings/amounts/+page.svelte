@@ -11,6 +11,7 @@
   import { kitchen } from '#lib/freshness.svelte.js';
   import { network } from '#lib/network.svelte.js';
   import { session } from '#lib/session.svelte.js';
+  import { ADMIN_ONLY } from '#lib/adminWords.js';
 
   const admin = session.me?.role === 'admin';
 
@@ -121,7 +122,7 @@
         />
       </div>
     </div>
-    {#if !admin}<p class="detail" id="amounts-admin">Only an admin can change this.</p>{/if}
+    {#if !admin}<p class="detail" id="amounts-admin">{ADMIN_ONLY}</p>{/if}
     {#if pintsProblem}<p class="warning-line" role="alert">{pintsProblem}</p>{/if}
   </section>
 {/if}

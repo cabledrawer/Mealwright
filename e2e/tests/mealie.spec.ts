@@ -296,7 +296,7 @@ test('a member sees the Today note and Drafts, not the import page', async ({ pa
       // The import page is admins only (cabledrawer 18 Nov, Q13): its address says so, and shows
       // nothing of the import and no button that changes anything.
       await them.goto('/settings/your-data/mealie');
-      await expect(them.getByText('Only admins can change this.')).toBeVisible();
+      await expect(them.getByText('Only an admin can change this.')).toBeVisible();
       await expect(them.getByText('3 recipes brought in')).toHaveCount(0);
       await expect(them.getByRole('button', { name: /Undo|Save all|Import another/ })).toHaveCount(0);
 

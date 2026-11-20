@@ -4,7 +4,7 @@
   import SignInSection from '../SignInSection.svelte';
   import { PHONE_QUERY } from '#lib/layout.js';
 
-  // Admins only: the Settings layout shows anyone else "Only admins can change this." instead.
+  // Admins only: the Settings layout shows anyone else "Only an admin can change this." instead.
   const admin = session.me?.role === 'admin';
   const device = matchMedia(PHONE_QUERY).matches ? 'phone' : 'computer';
 </script>

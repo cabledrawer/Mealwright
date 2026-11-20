@@ -44,6 +44,7 @@
   import { toasts } from '#lib/toast.svelte.js';
   import { plural } from '#lib/words.js';
   import { PHONE_QUERY } from '#lib/layout.js';
+  import { ADMIN_ONLY } from '#lib/adminWords.js';
 
   const model = new PlanModel();
   const recipes = new RecipeList();
@@ -527,7 +528,7 @@
             onclick={() => void model.switchSlot(slot, !slot.enabled)}>{slot.name}</button
           >
         {/each}
-        {#if session.me && !slotAdmin}<span class="meals-note">Only an admin can change this.</span
+        {#if session.me && !slotAdmin}<span class="meals-note">{ADMIN_ONLY}</span
           >{/if}
       </div>
     {/if}

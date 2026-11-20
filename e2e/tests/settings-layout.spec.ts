@@ -6,7 +6,7 @@ import { checkPage, isPhone, setAccountTheme } from './a11y.ts';
 // Settings' layout (beta 2, B8, F252): on a computer the main menu folds to its icons and the
 // grouped list of Settings sits beside the page, the open item marked; on the phone /settings is
 // that list and each row opens its own page with ‹ Settings back. The Household group is for
-// admins only: a member isn't shown it, and an address in it says "Only admins can change this."
+// admins only: a member isn't shown it, and an address in it says "Only an admin can change this."
 // with nothing of it loaded. The settings themselves are in settings.spec.ts and the specs of each
 // page. Runs in the "phone beta2 settings layout" and "desktop beta2 settings layout" projects.
 
@@ -174,7 +174,7 @@ test('a member is not shown the Household group, and an address in it says only 
     '/settings/your-data',
   ]) {
     await page.goto(path);
-    await expect(page.getByText('Only admins can change this.'), path).toBeVisible();
+    await expect(page.getByText('Only an admin can change this.'), path).toBeVisible();
     await expect(page.getByRole('switch')).toHaveCount(0);
   }
   await checkPage(page);
