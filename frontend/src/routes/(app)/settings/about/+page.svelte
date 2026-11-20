@@ -60,7 +60,7 @@
   const last = $derived(info?.last ? lastWords(info.last) : null);
   const daily = $derived(dailyWords(info?.daily === true));
   const source = $derived(info ? sourceAtVersion(info.releases_page, info.version) : null);
-  const privacyHref = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
+  const privacyHref = `/settings/outside-connections#${OUTSIDE_CONNECTIONS_ANCHOR}`;
 </script>
 
 <PageHeader

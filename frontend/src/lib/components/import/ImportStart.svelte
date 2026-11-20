@@ -133,7 +133,7 @@
           <p class="actions">
             {#if flow.problem.admin}
               <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings › Outside connections is built beside this page -->
-              <a class="button" href="/settings/privacy#{OUTSIDE_CONNECTIONS_ANCHOR}"
+              <a class="button" href="/settings/outside-connections#{OUTSIDE_CONNECTIONS_ANCHOR}"
                 >Open Settings</a
               >
             {/if}
@@ -260,7 +260,7 @@
       Recipe photos: not downloaded.
       {#if session.me?.role === 'admin'}
         <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- Settings › Outside connections is built beside this page -->
-        <a href="/settings/privacy#{OUTSIDE_CONNECTIONS_ANCHOR}"
+        <a href="/settings/outside-connections#{OUTSIDE_CONNECTIONS_ANCHOR}"
           >Change in Settings › Outside connections</a
         >
       {:else}

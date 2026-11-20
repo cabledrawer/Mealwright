@@ -63,7 +63,7 @@
   } = $props();
 
   const uid = $props.id();
-  const privacy = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
+  const privacy = `/settings/outside-connections#${OUTSIDE_CONNECTIONS_ANCHOR}`;
   const review = $derived(flow.review!);
   /** A line the save refused that is not one of the lines that need the person: the walk shows
    *  it too, once the refusal names it, and keeps it for the rest of the visit. Held as the line

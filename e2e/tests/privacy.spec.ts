@@ -47,7 +47,7 @@ test('Settings leads to Privacy, which starts with everything off, and passes th
   // The list has Outside connections (the computer's beside the page, the phone's as the page),
   // going straight to the page (F252).
   await page.getByRole('link', { name: /^Outside connections/ }).first().click();
-  await expect(page).toHaveURL('/settings/privacy');
+  await expect(page).toHaveURL('/settings/outside-connections');
   await expect(page.getByRole('heading', { level: 1, name: 'Outside connections' })).toBeVisible();
   await expect(page.getByText('Nothing leaves this server unless you switch it on, or press Check now in About.')).toBeVisible();
   await expect(page.getByRole('switch', { name: IMPORT })).not.toBeChecked();
@@ -65,7 +65,7 @@ test('Settings leads to Privacy, which starts with everything off, and passes th
 });
 
 test('an admin switches each connection on and off, and it stays', async ({ page }) => {
-  await page.goto('/settings/privacy');
+  await page.goto('/settings/outside-connections');
   const importSwitch = page.getByRole('switch', { name: IMPORT });
   const photoSwitch = page.getByRole('switch', { name: PHOTOS });
   await importSwitch.click();
@@ -92,7 +92,7 @@ test('an admin switches each connection on and off, and it stays', async ({ page
 });
 
 test('an admin adds to "Your own network" and takes off, with Undo', async ({ page }) => {
-  await page.goto('/settings/privacy');
+  await page.goto('/settings/outside-connections');
   const box = page.getByRole('textbox', { name: ADD });
   await box.fill('Wiki.Home.Example');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -125,7 +125,7 @@ test('an admin adds to "Your own network" and takes off, with Undo', async ({ pa
 });
 
 test('a switch and the list are in Recent changes, and their Undo works there (D4, BE5)', async ({ page }) => {
-  await page.goto('/settings/privacy');
+  await page.goto('/settings/outside-connections');
   const importSwitch = page.getByRole('switch', { name: IMPORT });
   await importSwitch.click();
   await expect(importSwitch).toBeChecked();
@@ -146,13 +146,13 @@ test('a switch and the list are in Recent changes, and their Undo works there (D
   await expect
     .poll(async () => (await (await page.request.get('/api/v1/privacy/own-network')).json()).entries)
     .toEqual([]);
-  await page.goto('/settings/privacy');
+  await page.goto('/settings/outside-connections');
   await expect(importSwitch).not.toBeChecked();
   await expect(page.getByText('Nothing added yet.')).toBeVisible();
 });
 
 test('the server’s own sentence says why something can’t be added', async ({ page }) => {
-  await page.goto('/settings/privacy');
+  await page.goto('/settings/outside-connections');
   const box = page.getByRole('textbox', { name: ADD });
   const add = page.getByRole('button', { name: 'Add', exact: true });
   await box.fill('localhost');
@@ -185,7 +185,7 @@ test('long names and many entries fit, at 100% and 200% text, and nothing scroll
     'a-very-long-name-for-a-wiki-on-the-home-server.in-the-spare-room.under-the-stairs.home.example.org';
   await addViaApi(page, long);
   for (let i = 1; i <= 12; i++) await addViaApi(page, `server${i}.home.example`);
-  await page.goto('/settings/privacy');
+  await page.goto('/settings/outside-connections');
   const list = page.getByRole('list', { name: 'Allowed on your own network' });
   await expect(list.getByRole('listitem')).toHaveCount(13);
   for (const size of ['100%', '200%']) {
@@ -209,14 +209,14 @@ test('the links from the import screen land on the right part, with the page sti
   page,
 }) => {
   for (let i = 1; i <= 12; i++) await addViaApi(page, `server${i}.home.example`);
-  await page.goto('/settings/privacy#your-own-network');
+  await page.goto('/settings/outside-connections#your-own-network');
   const heading = page.getByRole('heading', { level: 2, name: 'Your own network' });
   await expect(heading).toBeVisible();
   await expect(page.getByRole('list', { name: 'Allowed on your own network' })).toBeVisible();
   await expect
     .poll(async () => (await heading.boundingBox())!.y, { message: 'the heading is on screen' })
     .toBeLessThan(page.viewportSize()!.height);
-  await page.goto('/settings/privacy#outside-connections');
+  await page.goto('/settings/outside-connections#outside-connections');
   await expect(page.getByRole('heading', { level: 2, name: 'Outside connections' })).toBeInViewport();
 });
 
@@ -244,7 +244,7 @@ test.describe('states made up in the browser', () => {
   }) => {
     await page.route('**/api/v1/privacy/switches', (route) => route.fulfill({ json: SWITCHES(false) }));
     await page.route('**/api/v1/privacy/own-network', (route) => route.fulfill({ json: LIST(false) }));
-    await page.goto('/settings/privacy');
+    await page.goto('/settings/outside-connections');
     await expect(page.getByRole('switch', { name: IMPORT })).toBeChecked();
     await expect(page.getByRole('switch', { name: IMPORT })).toBeDisabled();
     await expect(page.getByRole('switch', { name: PHOTOS })).toBeDisabled();
@@ -264,7 +264,7 @@ test.describe('states made up in the browser', () => {
       await held;
       await route.fulfill({ json: SWITCHES(true) });
     });
-    await page.goto('/settings/privacy');
+    await page.goto('/settings/outside-connections');
     await expect(page.getByText('Loading…')).toBeVisible();
     await expect(page.getByRole('switch')).toHaveCount(0);
     await checkPage(page);
@@ -279,7 +279,7 @@ test.describe('states made up in the browser', () => {
         ? route.fulfill({ status: 500, json: { detail: 'Something went wrong. Try again.' } })
         : route.fulfill({ json: SWITCHES(true) }),
     );
-    await page.goto('/settings/privacy');
+    await page.goto('/settings/outside-connections');
     await expect(page.getByRole('alert')).toContainText('Something went wrong. Try again.');
     await expect(page.getByRole('switch')).toHaveCount(0);
     await checkPage(page);
@@ -295,7 +295,7 @@ test.describe('states made up in the browser', () => {
         json: { detail: 'Only the household’s admin can change this.', code: 'admins_only' },
       }),
     );
-    await page.goto('/settings/privacy');
+    await page.goto('/settings/outside-connections');
     const photos = page.getByRole('switch', { name: PHOTOS });
     await photos.click();
     await expect(page.getByRole('alert')).toHaveText('Only the household’s admin can change this.');
@@ -306,7 +306,7 @@ test.describe('states made up in the browser', () => {
   test('offline, it shows what was last loaded and can’t be changed, and says why', async ({ page, context }) => {
     await addViaApi(page, 'wiki.home.example');
     await page.request.put('/api/v1/privacy/switches/recipe_import', { data: { on: true } });
-    await page.goto('/settings/privacy');
+    await page.goto('/settings/outside-connections');
     await expect(page.getByRole('switch', { name: IMPORT })).toBeChecked();
     await workerReady(page);
     await context.setOffline(true);
@@ -335,7 +335,7 @@ test('screenshots, dark (by hand only)', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
   for (const width of [428, 768, 1100, 1300]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto('/settings/privacy');
+    await page.goto('/settings/outside-connections');
     await expect(page.getByRole('switch', { name: 'Single sign-on' })).toBeVisible();
     await page.screenshot({ path: join(dir!, `privacy-${width}.png`), fullPage: true });
   }

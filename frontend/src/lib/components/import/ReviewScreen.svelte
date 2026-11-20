@@ -265,7 +265,7 @@
     return () => root.style.removeProperty('scroll-padding-bottom');
   });
 
-  const privacy = `/settings/privacy#${OUTSIDE_CONNECTIONS_ANCHOR}`;
+  const privacy = `/settings/outside-connections#${OUTSIDE_CONNECTIONS_ANCHOR}`;
 
   /** Raised by the toast's Try again, so One at a time's code is fetched again. */
   let oneTries = $state(0);

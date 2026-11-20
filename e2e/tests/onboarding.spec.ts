@@ -130,7 +130,7 @@ test('each step saves through the same settings: Amounts, people, shops and a st
     // Every choice shows where it lives: Settings › Amounts, Household, Shops and Ingredients.
     await page.goto('/settings/amounts');
     await expect(page.getByRole('radio', { name: 'Metric: grams and ml' })).toBeChecked();
-    await page.goto('/settings/household');
+    await page.goto('/settings/people');
     await expect(page.getByText(person, { exact: true }).first()).toBeVisible();
     await page.goto('/settings/shops-places');
     await expect(page.getByText(shop).first()).toBeVisible();

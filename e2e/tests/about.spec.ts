@@ -116,14 +116,14 @@ test("Settings leads to About: the version, its release day and the admins’ Up
   ).toBeVisible();
   await expect(page.getByText(/Privacy first/)).toHaveCount(0);
   await page.getByRole("link", { name: /^Daily check/ }).click();
-  await expect(page).toHaveURL("/settings/privacy#outside-connections");
+  await expect(page).toHaveURL("/settings/outside-connections#outside-connections");
   await expect(page.getByRole("switch", { name: DAILY })).not.toBeChecked();
 });
 
 test("the daily check is its own Privacy switch, off at first; About says when it is on", async ({
   page,
 }) => {
-  await page.goto("/settings/privacy");
+  await page.goto("/settings/outside-connections");
   const daily = page.getByRole("switch", { name: DAILY });
   await expect(daily).not.toBeChecked();
   await expect(
@@ -147,7 +147,7 @@ test("the daily check is its own Privacy switch, off at first; About says when i
   await expect(page.getByRole("link", { name: /^Daily check/ })).toContainText(
     "On",
   );
-  await page.goto("/settings/privacy");
+  await page.goto("/settings/outside-connections");
   await daily.click();
   await expect(daily).not.toBeChecked();
   await page.reload();
@@ -278,7 +278,7 @@ test("review pictures of About and Privacy (only with E2E_X1_SHOTS)", async ({
       path: join(folder!, `about-${width}.png`),
       fullPage: true,
     });
-    await page.goto("/settings/privacy#outside-connections");
+    await page.goto("/settings/outside-connections#outside-connections");
     const daily = page.getByRole("switch", { name: DAILY });
     await expect(daily).toBeVisible();
     await daily.scrollIntoViewIfNeeded();

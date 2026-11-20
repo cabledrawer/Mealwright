@@ -126,7 +126,7 @@ test('Recipes has an Import item (the sidebar, or a button on a phone) that open
   await expect(page.getByText('How it works')).toBeVisible();
   // Photo downloads start off, so the box says so (and checkPage scans it in both themes).
   await expect(page.getByText('Recipe photos: not downloaded.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Change in Settings › Outside connections' })).toHaveAttribute('href', '/settings/privacy#outside-connections');
+  await expect(page.getByRole('link', { name: 'Change in Settings › Outside connections' })).toHaveAttribute('href', '/settings/outside-connections#outside-connections');
   await checkPage(page);
 });
 
@@ -195,7 +195,7 @@ test('importing from links is switched off (as it starts), and pasted text still
   const alert = page.getByRole('alert');
   await expect(alert.getByText('Importing from links is switched off')).toBeVisible();
   await expect(alert.getByText(/Nothing was fetched/)).toBeVisible();
-  await expect(alert.getByRole('link', { name: 'Open Settings', exact: true })).toHaveAttribute('href', '/settings/privacy#outside-connections');
+  await expect(alert.getByRole('link', { name: 'Open Settings', exact: true })).toHaveAttribute('href', '/settings/outside-connections#outside-connections');
   await checkPage(page);
   // Paste text instead: the box is emptied and focused.
   await alert.getByRole('button', { name: 'Paste text instead' }).click();

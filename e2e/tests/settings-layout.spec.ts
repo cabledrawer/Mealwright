@@ -85,11 +85,11 @@ test('a computer: /settings opens Appearance, and each item shows only its own p
     ['Amounts', '/settings/amounts'],
     ['Your sign-in', '/settings/sign-in'],
     ['Meal slots', '/settings/meal-slots'],
-    ['Your kitchen', '/settings/kitchen'],
-    ['People', '/settings/household'],
+    ['Your kitchen', '/settings/your-kitchen'],
+    ['People', '/settings/people'],
     ['Sign-in for everyone', '/settings/sign-in-everyone'],
     ['API tokens', '/settings/api-tokens'],
-    ['Outside connections', '/settings/privacy'],
+    ['Outside connections', '/settings/outside-connections'],
     ['Backups & your data', '/settings/your-data'],
     ['Recent changes', '/settings/recent-changes'],
     ['About', '/settings/about'],
@@ -109,14 +109,42 @@ test('older links still work: an anchor or a section name goes to its item', asy
   for (const [old, now] of [
     ['/settings#about', '/settings/about'],
     ['/settings#shops-places', '/settings/shops-places'],
-    ['/settings?section=household', '/settings/household'],
+    ['/settings?section=household', '/settings/people'],
     ['/settings?section=sign-in', '/settings/sign-in'],
-    ['/settings?section=privacy', '/settings/privacy'],
+    ['/settings?section=privacy', '/settings/outside-connections'],
     ['/settings?section=your-data', '/settings/your-data'],
   ] as const) {
     await page.goto(old);
     await expect(page, old).toHaveURL(now);
   }
+});
+
+test('F263/FE25: each page answers at its own name, and the old addresses go there', async ({ page }) => {
+  for (const [at, title] of [
+    ['/settings/outside-connections', 'Outside connections'],
+    ['/settings/people', 'People'],
+    ['/settings/your-kitchen', 'Your kitchen'],
+  ] as const) {
+    await page.goto(at);
+    await expect(page.getByRole('heading', { level: 1, name: title }), at).toBeVisible();
+  }
+  for (const [old, now] of [
+    ['/settings/privacy', '/settings/outside-connections'],
+    ['/settings/privacy#your-own-network', '/settings/outside-connections#your-own-network'],
+    ['/settings/household', '/settings/people'],
+    ['/settings/kitchen', '/settings/your-kitchen'],
+    // Never somewhere the address names: only the page's own place.
+    ['/settings/privacy?next=//elsewhere.example#elsewhere', '/settings/outside-connections'],
+  ] as const) {
+    await page.goto(old);
+    await expect(page, old).toHaveURL(now);
+  }
+  // Back goes to where the person was before, not to the old address again.
+  await page.goto('/settings/amounts');
+  await page.goto('/settings/household');
+  await expect(page).toHaveURL('/settings/people');
+  await page.goBack();
+  await expect(page).toHaveURL('/settings/amounts');
 });
 
 test('a phone: /settings is the grouped list, a row opens its own page, ‹ Settings comes back', async ({
@@ -167,10 +195,10 @@ test('a member is not shown the Household group, and an address in it says only 
   await expect(page.getByText('admins only')).toHaveCount(0);
   asked.length = 0;
   for (const path of [
-    '/settings/household',
+    '/settings/people',
     '/settings/sign-in-everyone',
     '/settings/api-tokens',
-    '/settings/privacy',
+    '/settings/outside-connections',
     '/settings/your-data',
   ]) {
     await page.goto(path);
@@ -225,11 +253,11 @@ test('screenshots of the Settings list and each item, dark (by hand only)', asyn
     'sign-in',
     'meal-slots',
     'shops-places',
-    'kitchen',
-    'household',
+    'your-kitchen',
+    'people',
     'sign-in-everyone',
     'api-tokens',
-    'privacy',
+    'outside-connections',
     'your-data',
     'recent-changes',
     'about',
@@ -241,7 +269,7 @@ test('screenshots of the Settings list and each item, dark (by hand only)', asyn
   await asMember(page);
   for (const width of [428, 768, 1100, 1300]) {
     await shoot('/settings', 'members-list', width);
-    await shoot('/settings/household', 'only-admins', width);
+    await shoot('/settings/people', 'only-admins', width);
   }
 });
 

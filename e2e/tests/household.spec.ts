@@ -116,7 +116,7 @@ test('the Settings row opens People; add a person, who opens to choose their col
   } else {
     await page.getByRole('navigation', { name: 'Settings', exact: true }).getByRole('link', { name: 'People' }).click();
   }
-  await expect(page).toHaveURL('/settings/household');
+  await expect(page).toHaveURL('/settings/people');
   await expect(page.getByRole('heading', { level: 1, name: 'People' })).toBeVisible();
   await expect(peopleList(page).getByRole('link')).toHaveCount(1);
   await expect(peopleList(page).getByRole('link').first()).toContainText('Tess (you)');
@@ -142,7 +142,7 @@ test('the Settings row opens People; add a person, who opens to choose their col
     )
     .toMatchObject({ colour: 'violet', portion_quarters: 2 });
   await page.getByRole('button', { name: 'Save' }).click();
-  await expect(page).toHaveURL('/settings/household');
+  await expect(page).toHaveURL('/settings/people');
   const row = peopleList(page).getByRole('link', { name: new RegExp(name) });
   await expect(row).toContainText('Profile only · ½ portion');
   expect(
@@ -159,7 +159,7 @@ test('give a login: the sign-in link opens "Choose a password", which then lets 
   const name = `Rafe ${m}`;
   const username = `rafe.${m}`;
   const made = await addPerson(page, name);
-  await page.goto(`/settings/household/${made.id}`);
+  await page.goto(`/settings/people/${made.id}`);
   await page.getByRole('button', { name: 'Give a login' }).click();
   await expect(page.getByLabel('Username')).toHaveValue(`rafe.${m.toLowerCase()}`);
   await page.getByLabel('Username').fill(username);
@@ -217,7 +217,7 @@ test('give a login: the sign-in link opens "Choose a password", which then lets 
     await theirs.close();
   }
 
-  await page.goto('/settings/household');
+  await page.goto('/settings/people');
   await expect(peopleList(page).getByRole('link', { name: new RegExp(name) })).toContainText('Member · signs in · 1 portion');
 });
 
@@ -231,7 +231,7 @@ test('Reset password: a one-time link where they choose a new password; the Pers
   const username = `lorna.${m}`;
   const NEW_PASSWORD = 'a-new-kitchen-password';
   const made = await personWhoSignsIn(page, app.url, name, username);
-  await page.goto(`/settings/household/${made.id}`);
+  await page.goto(`/settings/people/${made.id}`);
   // Their sign-in link was used just now: an admin can spot a link someone else used.
   await expect(page.getByText(/^Link used today \d{2}:\d{2}$/)).toBeVisible();
   await page.getByRole('button', { name: 'Reset password' }).click();
@@ -285,18 +285,18 @@ test('Reset password: a one-time link where they choose a new password; the Pers
 test('remove a person: they leave the list, and Undo brings them back', async ({ page }) => {
   const name = `Mira ${mark()}`;
   const made = await addPerson(page, name, { colour: 'blue' });
-  await page.goto('/settings/household');
+  await page.goto('/settings/people');
   await peopleList(page).getByRole('link', { name: new RegExp(name) }).click();
   await expect(page.getByText(`Recent changes shows “${name} (removed)”. Undo for 7 days.`, { exact: false })).toBeVisible();
   await page.getByRole('button', { name: `Remove ${name}` }).click();
-  await expect(page).toHaveURL('/settings/household');
+  await expect(page).toHaveURL('/settings/people');
   await expect(peopleList(page).getByRole('link', { name: new RegExp(name) })).toHaveCount(0);
   await page.getByRole('status').getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Undone' })).toBeVisible();
   await expect(peopleList(page).getByRole('link', { name: new RegExp(name) })).toBeVisible();
   // Nobody can remove themselves: the admin's own page has no Remove.
   const me = ((await (await page.request.get('/api/v1/people')).json()) as Json).people.find((p: Json) => p.is_me);
-  await page.goto(`/settings/household/${me.id}`);
+  await page.goto(`/settings/people/${me.id}`);
   await expect(page.getByRole('button', { name: 'Save' })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Remove/ })).toHaveCount(0);
   expect(made.id).toBeGreaterThan(0);
@@ -317,7 +317,7 @@ test('a shared login asks “Who’s this?” when the switch is on; the pick is
   await personWhoSignsIn(page, app.url, tablet, username, { shared: true });
 
   // The switch, on the Household screen.
-  await page.goto('/settings/household');
+  await page.goto('/settings/people');
   // The switch turns on at once; wait for the server to have it before asking the server.
   const saved = page.waitForResponse(
     (r) => r.url().endsWith('/api/v1/people/ask-whos-this') && r.request().method() === 'PUT',
@@ -397,7 +397,7 @@ test('Who is this? lists a waiting sign-in and links it to the person picked', a
     linked.push(route.request().postDataJSON());
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ people: [], waiting: [] }) });
   });
-  await page.goto('/settings/household');
+  await page.goto('/settings/people');
   await expect(page.getByText('1 sign-in waiting')).toBeVisible();
   await expect(page.getByText(/^lorna\.s signed in with single sign-on .* and doesn’t match anyone here\.$/)).toBeVisible();
   await page.getByRole('button', { name: 'Who is this?' }).click();
@@ -421,7 +421,7 @@ test('the Person page says who a linked person is, Unlink unlinks them, and Link
     unlinked.push(route.request().method());
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ people: [], waiting: [] }) });
   });
-  await page.goto(`/settings/household/${made.id}`);
+  await page.goto(`/settings/people/${made.id}`);
   await expect(page.getByText('Single sign-on', { exact: true })).toBeVisible();
   await expect(page.getByText('Linked to lorna.s on your sign-in server')).toBeVisible();
   await checkPage(page);
@@ -433,7 +433,7 @@ test('an unlinked person shows how they get linked, and Link… opens the waitin
   const lorna = `Lorna ${mark()}`;
   const made = await personWhoSignsIn(page, app.url, lorna, `lorna${mark()}`);
   await withSso(page, [WAITING]);
-  await page.goto(`/settings/household/${made.id}`);
+  await page.goto(`/settings/people/${made.id}`);
   await expect(page.getByText(/^Not linked\. Linked automatically only if they have never signed in and the sign-in server’s username is the same as here/)).toBeVisible();
   await page.getByRole('button', { name: 'Link…' }).click();
   const sheet = page.getByRole('dialog', { name: `Link ${lorna} to a sign-in` });
@@ -460,30 +460,30 @@ test('screenshots, dark (by hand only)', async ({ page, app }) => {
   };
   await withSso(page, [WAITING]);
   await shoot('household-who-is-this', async () => {
-    await page.goto('/settings/household');
+    await page.goto('/settings/people');
     await expect(page.getByText('1 sign-in waiting')).toBeVisible();
     await page.getByRole('button', { name: 'Who is this?' }).click();
     await expect(page.getByRole('dialog', { name: 'Who is lorna.s?' })).toBeVisible();
   });
   await shoot('person-unlinked', async () => {
-    await page.goto(`/settings/household/${made.id}`);
+    await page.goto(`/settings/people/${made.id}`);
     await expect(page.getByRole('button', { name: 'Link…' })).toBeVisible();
   });
   await shoot('person-link-sheet', async () => {
-    await page.goto(`/settings/household/${made.id}`);
+    await page.goto(`/settings/people/${made.id}`);
     await page.getByRole('button', { name: 'Link…' }).click();
     await expect(page.getByRole('dialog', { name: `Link ${lorna} to a sign-in` })).toBeVisible();
   });
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   await withSso(page, [], { [lorna]: 'lorna.s' });
   await shoot('person-linked', async () => {
-    await page.goto(`/settings/household/${made.id}`);
+    await page.goto(`/settings/people/${made.id}`);
     await expect(page.getByRole('button', { name: 'Unlink' })).toBeVisible();
   });
   // The Shared login line (Pe7) and a colour saved as it is picked (L4).
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   await shoot('person-shared-login-line', async () => {
-    await page.goto(`/settings/household/${made.id}`);
+    await page.goto(`/settings/people/${made.id}`);
     await expect(page.getByText('A shared login isn’t counted as someone who eats.')).toBeVisible();
   });
   const noor = `Noor ${mark()}`;
@@ -491,7 +491,7 @@ test('screenshots, dark (by hand only)', async ({ page, app }) => {
   expect(made2.ok(), await made2.text()).toBe(true);
   const noorId = ((await (await page.request.get('/api/v1/people')).json()) as Json).people.find((p: Json) => p.name === noor).id;
   await shoot('person-colour-picked', async () => {
-    await page.goto(`/settings/household/${noorId}`);
+    await page.goto(`/settings/people/${noorId}`);
     await page.getByRole('button', { name: 'Violet' }).click();
     await expect(page.getByRole('button', { name: 'Violet' })).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Amber' }).click();

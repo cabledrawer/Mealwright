@@ -6,11 +6,11 @@ import { dayMonthWords } from './dates';
 import { downLine } from './downWords';
 
 /**
- * Where the section "Outside connections" starts: /settings/privacy#outside-connections.
+ * Where the section "Outside connections" starts: /settings/outside-connections#outside-connections.
  * The import screen's "Photo not downloaded" and "switched off" links land here.
  */
 export const OUTSIDE_CONNECTIONS_ANCHOR = 'outside-connections';
-/** Where "Your own network" starts: /settings/privacy#your-own-network. */
+/** Where "Your own network" starts: /settings/outside-connections#your-own-network. */
 export const OWN_NETWORK_ANCHOR = 'your-own-network';
 
 export const SWITCH_WORDS: Record<SwitchName, { label: string; detail: string }> = {

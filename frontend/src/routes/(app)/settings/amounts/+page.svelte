@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import AmountsChoice from '#lib/components/AmountsChoice.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
+  import { labelOf } from '../items.js';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
   import { ApiError, cantReach } from '#lib/api.js';
@@ -94,7 +95,7 @@
 <!-- Needs the server; once loaded it stays, with its switch greyed out while the server can't be
      reached. -->
 {#if network.down && pints === null}
-  <OfflineNote screen="Settings" />
+  <OfflineNote screen={labelOf('amounts')} />
 {/if}
 {#if pints !== null}
   <section class="section" aria-label="Amounts">

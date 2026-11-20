@@ -38,7 +38,7 @@
         | '/(app)/settings'
         | '/(app)/settings/sign-in'
         | '/(app)/settings/sign-in-everyone'
-        | '/(app)/settings/household'
+        | '/(app)/settings/people'
         | '/(app)/settings/your-data'
         | '/(app)/settings/about';
       label: string;

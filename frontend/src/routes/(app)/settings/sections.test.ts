@@ -14,7 +14,7 @@ import { changeOf, fakeApi, PLACES, type FakeRequest } from '#lib/testing/fakeAp
 import { ME } from '#lib/testing/fakeShopping.js';
 import { toasts } from '#lib/toast.svelte.js';
 import { undoHistory } from '#lib/undo.svelte.js';
-import Kitchen from './kitchen/+page.svelte';
+import Kitchen from './your-kitchen/+page.svelte';
 import MealSlotsPage from './meal-slots/+page.svelte';
 import RecentChangesPage from './recent-changes/+page.svelte';
 import ShopsPlacesPage from './shops-places/+page.svelte';

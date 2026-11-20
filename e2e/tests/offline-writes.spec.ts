@@ -33,6 +33,6 @@ test('Settings: the shops and places add buttons are greyed out offline', async 
 });
 
 test('Settings: your kitchen cannot be changed offline', async ({ page }) => {
-  await openThenGoOffline(page, '/settings/kitchen');
+  await openThenGoOffline(page, '/settings/your-kitchen');
   await expect(page.getByRole('button', { name: 'Change', exact: true })).toBeDisabled();
 });

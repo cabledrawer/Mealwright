@@ -858,7 +858,7 @@
       <OfflineNote screen="Ingredients" />
       <OfflineNote screen="Recipes" />
       <OfflineNote screen="Settings" />
-      <OfflineNote screen="Privacy" />
+      <OfflineNote screen="Outside connections" />
       <ConnectionNotice kind="plain-refused" />
       <ConnectionNotice kind="plain-allowed" />
     </div>

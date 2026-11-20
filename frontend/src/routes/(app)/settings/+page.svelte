@@ -117,7 +117,7 @@
           : `${kitchenNow.hob_rings} hob ${oneOrMany(kitchenNow.hob_rings, 'ring', 'rings')}`;
       case 'people':
         return peopleCount === null ? undefined : plural(peopleCount, 'person', 'people');
-      case 'privacy':
+      case 'outside-connections':
         return privacyOn === null ? undefined : privacyOn === 0 ? 'All off' : `${privacyOn} on`;
       default:
         return undefined;

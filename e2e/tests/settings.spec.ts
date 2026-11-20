@@ -162,7 +162,7 @@ test('F193, F252: the phone lists Settings in four groups, each row opens its ow
   await expect(page.getByRole('navigation', { name: 'Kitchen settings' })).toBeVisible();
   // Outside connections is its own page; the row goes straight to it.
   await page.getByRole('link', { name: /^Outside connections/ }).click();
-  await expect(page).toHaveURL('/settings/privacy');
+  await expect(page).toHaveURL('/settings/outside-connections');
   // An old link with "#shops-places" opens that item.
   await page.goto('/settings#shops-places');
   await expect(page).toHaveURL(/\/settings\/shops-places$/);
@@ -172,7 +172,7 @@ test('F193, F252: the phone lists Settings in four groups, each row opens its ow
 test('Your kitchen (Batch cook, B1): Settings shows it, Change opens the sheet, Save keeps it for the household, and the sheet passes the accessibility checks', async ({
   page,
 }) => {
-  await page.goto('/settings/kitchen');
+  await page.goto('/settings/your-kitchen');
   const kitchen = section(page, 'Your kitchen');
   await expect(kitchen).toBeVisible();
   await expect(kitchen).toContainText(/Hob rings\s*\d+/);

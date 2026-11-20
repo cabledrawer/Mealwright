@@ -677,7 +677,9 @@ describe('Settings › Outside connections', () => {
       vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')));
       component = mount(Privacy, { target: document.body });
       flushSync();
-      await expect.element(page.getByText(/Privacy needs your Mealwright server\./)).toBeVisible();
+      await expect
+        .element(page.getByText(/Outside connections needs your Mealwright server\./))
+        .toBeVisible();
       expect(document.querySelector('[role="switch"]')).toBeNull();
     });
 

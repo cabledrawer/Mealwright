@@ -117,10 +117,10 @@ becomes a server-level setting (spec section 6); a comment on the table says so.
 
 ### The API and the screen (0.5 PR 4)
 
-Settings › Outside connections (`/settings/privacy`) uses `api/v1/privacy.py`. Everyone in the household
+Settings › Outside connections (`/settings/outside-connections`) uses `api/v1/privacy.py`. Everyone in the household
 can read; only an admin can change (a member gets 403 `admins_only`). Two places on the
-screen can be linked to: `/settings/privacy#outside-connections` (the import screen's "Photo
-not downloaded" and "switched off" links) and `/settings/privacy#your-own-network`.
+screen can be linked to: `/settings/outside-connections#outside-connections` (the import screen's "Photo
+not downloaded" and "switched off" links) and `/settings/outside-connections#your-own-network`.
 
 - `GET /privacy/switches` gives `{switches: [{connection, on}], can_change}` for
   `recipe_import` and `recipe_photos` (the other connections arrive with 0.8). Both start off.

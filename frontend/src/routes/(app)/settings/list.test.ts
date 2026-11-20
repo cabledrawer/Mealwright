@@ -154,7 +154,7 @@ describe('the list beside the page (computer)', () => {
   });
 
   it('marks the item that an address under it belongs to', async () => {
-    openLayout('/settings/household/7', 'admin');
+    openLayout('/settings/people/7', 'admin');
     await expect
       .element(list().getByRole('link', { name: 'People' }))
       .toHaveAttribute('aria-current', 'page');
@@ -184,11 +184,15 @@ describe('the list beside the page (computer)', () => {
 
   it('shows a member who opens a Household address "Only an admin can change this.", not the page', async () => {
     for (const at of [
+      '/settings/people',
+      '/settings/people/3',
+      // The old addresses too, while they send the person on (FE25).
       '/settings/household',
       '/settings/household/3',
       '/settings/sign-in-everyone',
       '/settings/sso',
       '/settings/api-tokens',
+      '/settings/outside-connections',
       '/settings/privacy',
       '/settings/your-data',
       '/settings/your-data/restore',
@@ -205,19 +209,19 @@ describe('the list beside the page (computer)', () => {
   });
 
   it('still refuses a member an address spelt with percent-codes (the page, not the text, decides)', async () => {
-    openLayout('/settings/%68ousehold', 'member', {}, '/(app)/settings/household');
+    openLayout('/settings/%70eople', 'member', {}, '/(app)/settings/people');
     await expect.element(page.getByText('Only an admin can change this.')).toBeVisible();
     expect(page.getByTestId('the-page').elements()).toEqual([]);
   });
 
   it('shows an admin the page at the same addresses', async () => {
-    openLayout('/settings/household', 'admin');
+    openLayout('/settings/people', 'admin');
     await expect.element(page.getByTestId('the-page')).toBeVisible();
     expect(page.getByText('Only an admin can change this.').elements()).toEqual([]);
   });
 
   it('shows a member the page for an item they may open', async () => {
-    openLayout('/settings/kitchen', 'member');
+    openLayout('/settings/your-kitchen', 'member');
     await expect.element(page.getByTestId('the-page')).toBeVisible();
   });
 
@@ -271,9 +275,11 @@ describe('the phone’s list (/settings)', () => {
     await expect.element(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
     const row = (name: string) => page.getByRole('link', { name: new RegExp(`^${name}`) });
     await expect.element(row('Appearance')).toHaveAttribute('href', '/settings/appearance');
-    await expect.element(row('Your kitchen')).toHaveAttribute('href', '/settings/kitchen');
-    await expect.element(row('People')).toHaveAttribute('href', '/settings/household');
-    await expect.element(row('Outside connections')).toHaveAttribute('href', '/settings/privacy');
+    await expect.element(row('Your kitchen')).toHaveAttribute('href', '/settings/your-kitchen');
+    await expect.element(row('People')).toHaveAttribute('href', '/settings/people');
+    await expect
+      .element(row('Outside connections'))
+      .toHaveAttribute('href', '/settings/outside-connections');
     await vi.waitFor(() => expect(row('Meal slots').element().textContent).toMatch(/2\s+on/));
     await vi.waitFor(() => expect(row('Amounts').element().textContent).toMatch(/US\s+pints/));
     await vi.waitFor(() => expect(row('People').element().textContent).toMatch(/2\s+people/));
@@ -312,13 +318,16 @@ describe('where /settings sends a computer, and an older link', () => {
 
   it.each([
     ['?section=sign-in', '/settings/sign-in'],
-    ['?section=household', '/settings/household'],
-    ['?section=privacy', '/settings/privacy'],
+    ['?section=household', '/settings/people'],
+    ['?section=people', '/settings/people'],
+    ['?section=privacy', '/settings/outside-connections'],
+    ['?section=outside-connections', '/settings/outside-connections'],
     ['?section=your-data', '/settings/your-data'],
     ['?section=about', '/settings/about'],
     ['?section=meal-slots', '/settings/meal-slots'],
     ['?section=shops-places', '/settings/shops-places'],
-    ['?section=your-kitchen', '/settings/kitchen'],
+    ['?section=your-kitchen', '/settings/your-kitchen'],
+    ['?section=kitchen', '/settings/your-kitchen'],
     ['?section=recent-changes', '/settings/recent-changes'],
     ['#about', '/settings/about'],
     ['#shops-places', '/settings/shops-places'],

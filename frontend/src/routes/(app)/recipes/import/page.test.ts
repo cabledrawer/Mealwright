@@ -70,7 +70,7 @@ describe('Import a recipe: the note about photos', () => {
     expect(privacy.photosOff).toBe(true);
     await expect
       .element(page.getByRole('link', { name: 'Change in Settings › Outside connections' }))
-      .toHaveAttribute('href', '/settings/privacy#outside-connections');
+      .toHaveAttribute('href', '/settings/outside-connections#outside-connections');
   });
 
   it('tells a member an admin can switch photos on, with no link to Settings', async () => {

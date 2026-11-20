@@ -6,6 +6,7 @@
   import { resolve } from '$app/paths';
   import { downBody, downTitle } from '#lib/downWords.js';
   import { network } from '#lib/network.svelte.js';
+  import type { ItemLabel } from '../../routes/(app)/settings/items.js';
 
   let {
     screen
@@ -16,10 +17,10 @@
       | 'Recipes'
       | 'Drafts'
       | 'Settings'
-      | 'Privacy'
-      | 'Household'
       | 'Plan'
-      | 'Today';
+      | 'Today'
+      // A Settings page: its own name, from settings/items.ts (FE1).
+      | ItemLabel;
   } = $props();
 </script>
 

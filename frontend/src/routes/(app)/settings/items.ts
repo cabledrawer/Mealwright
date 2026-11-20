@@ -28,18 +28,35 @@ type Route =
   | '/(app)/settings/sign-in'
   | '/(app)/settings/meal-slots'
   | '/(app)/settings/shops-places'
-  | '/(app)/settings/kitchen'
-  | '/(app)/settings/household'
+  | '/(app)/settings/your-kitchen'
+  | '/(app)/settings/people'
   | '/(app)/settings/sign-in-everyone'
   | '/(app)/settings/api-tokens'
-  | '/(app)/settings/privacy'
+  | '/(app)/settings/outside-connections'
   | '/(app)/settings/your-data'
   | '/(app)/settings/recent-changes'
   | '/(app)/settings/about';
 
+/** Each item's name on screen: its page's title, and the name its offline note says (FE1). */
+export type ItemLabel =
+  | 'Appearance'
+  | 'Amounts'
+  | 'Your sign-in'
+  | 'Meal slots'
+  | 'Shops & places'
+  | 'Your kitchen'
+  | 'People'
+  | 'Sign-in for everyone'
+  | 'API tokens'
+  | 'Outside connections'
+  | 'Backups & your data'
+  | 'Recent changes'
+  | 'About';
+
 export type Item = {
+  /** The page's address after /settings/: a slug of its label (FE25, 0.9.5-beta.3). */
   id: string;
-  label: string;
+  label: ItemLabel;
   group: GroupName;
   /** The page's route (resolve() turns it into an address). */
   route: Route;
@@ -99,16 +116,20 @@ export const ITEMS: Item[] = [
     id: 'your-kitchen',
     label: 'Your kitchen',
     group: 'Kitchen',
-    route: '/(app)/settings/kitchen',
-    path: '/settings/kitchen',
+    route: '/(app)/settings/your-kitchen',
+    path: '/settings/your-kitchen',
+    // The old address, until its page has sent the person on (FE25).
+    also: ['/settings/kitchen'],
     icon: 'your-kitchen'
   },
   {
     id: 'people',
     label: 'People',
     group: 'Household',
-    route: '/(app)/settings/household',
-    path: '/settings/household',
+    route: '/(app)/settings/people',
+    path: '/settings/people',
+    // The old address, until its page has sent the person on (FE25).
+    also: ['/settings/household'],
     icon: 'household'
   },
   {
@@ -129,11 +150,13 @@ export const ITEMS: Item[] = [
     icon: 'api-tokens'
   },
   {
-    id: 'privacy',
+    id: 'outside-connections',
     label: 'Outside connections',
     group: 'Household',
-    route: '/(app)/settings/privacy',
-    path: '/settings/privacy',
+    route: '/(app)/settings/outside-connections',
+    path: '/settings/outside-connections',
+    // The old address, until its page has sent the person on (FE25).
+    also: ['/settings/privacy'],
     icon: 'privacy'
   },
   {
@@ -190,7 +213,7 @@ export function itemAt(pathname: string): Item | undefined {
 
 /**
  * The item a page belongs to, by the page's route (`page.route.id`, such as
- * "/(app)/settings/household/[id]"), not by the address typed: the address may be spelt with
+ * "/(app)/settings/people/[id]"), not by the address typed: the address may be spelt with
  * percent-codes ("/settings/%68ousehold") that name the same page.
  */
 export function itemAtRoute(routeId: string | null | undefined): Item | undefined {
@@ -198,8 +221,23 @@ export function itemAtRoute(routeId: string | null | undefined): Item | undefine
   return itemAt(routeId.replace(/\/\([^/)]*\)/g, ''));
 }
 
+/** Old names of items, as section names ("?section=household") and addresses
+ *  ("/settings/privacy"), and the item each one is now (FE25). */
+const OLD_IDS: Record<string, string> = {
+  household: 'people',
+  privacy: 'outside-connections',
+  kitchen: 'your-kitchen'
+};
+
 /** The old section names ("#about", "?section=sign-in") and the item each one is now. */
 export function itemForOldSection(id: string): Item | undefined {
-  const asked = id === 'household' ? 'people' : id;
+  const asked = Object.hasOwn(OLD_IDS, id) ? OLD_IDS[id] : id;
   return ITEMS.find((item) => item.id === asked);
+}
+
+/** An item's name on screen, by its id: the one name its page and its notes use (FE1). */
+export function labelOf(id: string): ItemLabel {
+  const item = ITEMS.find((it) => it.id === id);
+  if (!item) throw new Error(`No Settings item ${id}`);
+  return item.label;
 }

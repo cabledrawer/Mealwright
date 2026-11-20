@@ -71,7 +71,7 @@ describe('Settings › People', () => {
     await expect.element(page.getByRole('heading', { name: 'People', level: 1 })).toBeVisible();
     await expect.element(page.getByLabelText('Household name')).toHaveValue('Our kitchen');
     const tess = page.getByRole('link', { name: /Tess \(you\)/ });
-    await expect.element(tess).toHaveAttribute('href', '/settings/household/1');
+    await expect.element(tess).toHaveAttribute('href', '/settings/people/1');
     await expect.element(tess).toHaveTextContent('T Tess (you) Admin · signs in · 1 portion');
     await expect
       .element(page.getByRole('link', { name: /Joss/ }))
@@ -91,7 +91,7 @@ describe('Settings › People', () => {
     await page.getByRole('button', { name: '+ Add a person' }).click();
     await expect.element(page.getByLabelText('Name', { exact: true })).toHaveFocus();
     await userEvent.keyboard('Wren{Enter}');
-    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/household/4'));
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/people/4'));
     expect(sent('POST', '/people')[0]!.body).toEqual({
       name: 'Wren',
       colour: null,

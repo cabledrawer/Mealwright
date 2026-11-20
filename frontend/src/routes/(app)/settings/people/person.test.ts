@@ -198,7 +198,7 @@ describe('Settings › People › a person', () => {
     await vi.waitFor(() => expect(sent('PATCH', '/people/3')).toHaveLength(1));
     // Nothing is left to save: Save goes back without a second request.
     await page.getByRole('button', { name: 'Save' }).click();
-    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/household'));
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/people'));
     expect(sent('PATCH', '/people/3')).toHaveLength(1);
   });
 
@@ -218,7 +218,7 @@ describe('Settings › People › a person', () => {
       .element(page.getByRole('button', { name: 'Blue' }))
       .toHaveAttribute('aria-pressed', 'false');
     await page.getByRole('button', { name: 'Save' }).click();
-    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/household'));
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/people'));
     expect(sent('PATCH', '/people/3')).toHaveLength(1); // nothing sent again
   });
 
@@ -306,7 +306,7 @@ describe('Settings › People › a person', () => {
   it('Save with nothing changed just goes back', async () => {
     open();
     await page.getByRole('button', { name: 'Save' }).click();
-    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/household'));
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/people'));
     expect(sent('PATCH', '/people/3')).toHaveLength(0);
   });
 
@@ -324,7 +324,7 @@ describe('Settings › People › a person', () => {
       ]
     });
     await page.getByRole('button', { name: 'Remove Joss' }).click();
-    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/household'));
+    await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/people'));
     expect(toasts.current?.message).toBe('Removed Joss from the household');
     // The toast's Undo (and Ctrl+Z) undo the server's own change.
     await undoHistory.undoLast();

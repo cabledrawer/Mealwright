@@ -17,6 +17,7 @@
   import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
+  import { labelOf } from '../items.js';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
   import { ApiError, wordsFor } from '#lib/api.js';
@@ -295,7 +296,7 @@
 
 {#if !backups}
   {#if network.down}
-    <OfflineNote screen="Settings" />
+    <OfflineNote screen={labelOf('your-data')} />
   {:else if loadProblem}
     <p class="problem" role="alert">
       {loadProblem}

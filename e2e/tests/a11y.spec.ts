@@ -5,7 +5,7 @@ import { checkPage, setAccountTheme } from './a11y.ts';
 // touch targets, no sideways scroll). Runs in the "phone a11y" and "desktop a11y"
 // projects, signed in as the test admin. New pages get a line in PAGES.
 
-const PAGES = ['/', '/plan', '/shopping', '/pantry', '/recipes', '/recipes/new', '/recipes/drafts', '/settings', '/settings/privacy'];
+const PAGES = ['/', '/plan', '/shopping', '/pantry', '/recipes', '/recipes/new', '/recipes/drafts', '/settings', '/settings/outside-connections'];
 
 for (const path of PAGES) {
   test(`${path} passes the accessibility checks`, async ({ page }) => {

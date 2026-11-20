@@ -10,6 +10,7 @@
   // first time it's needed, so a phone never loads it. Online only: the file goes to the server.
   import { onDestroy, onMount } from 'svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
+  import { labelOf } from '../../items.js';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import MealiePhone from '#lib/components/mealie/MealiePhone.svelte';
   import { MealieFlow } from '#lib/mealieFlow.svelte.js';
@@ -49,7 +50,7 @@
 />
 
 {#if network.down && !flow.loaded}
-  <OfflineNote screen="Settings" />
+  <OfflineNote screen={labelOf('your-data')} />
 {:else if !flow.loaded}
   <Loading />
 {:else if wide}

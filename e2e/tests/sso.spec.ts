@@ -188,7 +188,7 @@ test.describe('turning single sign-on off with only a link', () => {
         body: JSON.stringify({ detail: LOCKED, code: 'locked_out' }),
       }),
     );
-    await page.goto('/settings/privacy');
+    await page.goto('/settings/outside-connections');
     const toggle = page.getByRole('switch', { name: 'Single sign-on' });
     await expect(toggle).toBeChecked();
     await toggle.click();
@@ -210,7 +210,7 @@ test.describe('turning single sign-on off with only a link', () => {
       }),
     );
     await shots(page, 'locked-out', async () => {
-      await page.goto('/settings/privacy');
+      await page.goto('/settings/outside-connections');
       const toggle = page.getByRole('switch', { name: 'Single sign-on' });
       await expect(toggle).toBeVisible();
       if (!(await toggle.isChecked())) await toggle.click();
