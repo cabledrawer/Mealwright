@@ -149,8 +149,8 @@ describe('the meal’s menu (0.7 P1)', () => {
 
     it('sends one change a moment after the last press, with the new number', async () => {
       const dialog = open({ kind: 'meal', meal });
-      await dialog.getByRole('button', { name: 'One more' }).click();
-      await dialog.getByRole('button', { name: 'One more' }).click();
+      await dialog.getByRole('button', { name: 'More servings' }).click();
+      await dialog.getByRole('button', { name: 'More servings' }).click();
       expect(dialog.getByTestId('serves-11').element().textContent).toBe('6');
       await expect
         .poll(() => requests.filter((r) => r.method === 'PATCH').map((r) => r.body))
@@ -162,12 +162,12 @@ describe('the meal’s menu (0.7 P1)', () => {
     it('stops at 1', async () => {
       item.eating = 1;
       const dialog = open({ kind: 'meal', meal });
-      await expect.element(dialog.getByRole('button', { name: 'One fewer' })).toBeDisabled();
+      await expect.element(dialog.getByRole('button', { name: 'Fewer servings' })).toBeDisabled();
     });
 
     it('sends what is waiting when the menu closes', async () => {
       const dialog = open({ kind: 'meal', meal });
-      await dialog.getByRole('button', { name: 'One fewer' }).click();
+      await dialog.getByRole('button', { name: 'Fewer servings' }).click();
       unmount(component!);
       component = null;
       await expect

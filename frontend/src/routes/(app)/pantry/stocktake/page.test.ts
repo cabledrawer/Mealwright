@@ -174,7 +174,7 @@ describe('the Stocktake page', () => {
       .not.toBeInTheDocument();
     // The jar-like row keeps its picks.
     await expect.element(page.getByRole('radiogroup', { name: 'Jam' })).toBeVisible();
-    await group.getByRole('button', { name: 'One fewer' }).click();
+    await group.getByRole('button', { name: 'Fewer Chickpeas' }).click();
     await vi.waitFor(() => expect(answers()).toHaveLength(1));
     expect(answers()[0]!.body).toEqual({ count: 1 });
   });

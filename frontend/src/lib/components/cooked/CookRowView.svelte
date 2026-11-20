@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Stepper from '#lib/components/Stepper.svelte';
   // One ingredient of the "Cooked it" review (mockups Cooked-Desktop, Cooked-Phone): its name, where
   // it is, Before → After, what is taken and its Use switch. Under it, what the row needs from
   // you: a question in the pantry's unit (F106), "Bought some — used them", a tick for the
@@ -179,19 +180,15 @@
             onclick={() => patch({ mode: 'left' })}>Left</button
           >
         </span>
-        <span class="stepper">
-          <button type="button" aria-label="Fewer {name}" {disabled} onclick={() => step(-0.5)}
-            >−</button
-          >
-          <b aria-live="polite"
-            >{numberWords(
-              mine?.value ?? (mine?.mode === 'left' ? (view.after ?? 0) : view.taken)
-            )}</b
-          >
-          <button type="button" aria-label="More {name}" {disabled} onclick={() => step(0.5)}
-            >+</button
-          >
-        </span>
+        <Stepper
+          what={name}
+          onless={() => step(-0.5)}
+          onmore={() => step(0.5)}
+          lessOff={disabled}
+          moreOff={disabled}
+        >
+          {numberWords(mine?.value ?? (mine?.mode === 'left' ? (view.after ?? 0) : view.taken))}
+        </Stepper>
       {:else}
         <button
           type="button"
@@ -536,27 +533,6 @@
     background: var(--color-segment-active);
     color: var(--color-text);
     font-weight: var(--weight-bold);
-  }
-
-  .stepper {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-
-  .stepper button {
-    width: var(--touch-target);
-    height: var(--touch-target);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-fill-strong);
-    color: var(--color-text);
-    font-size: var(--text-xl);
-  }
-
-  .stepper b {
-    min-width: 2.2rem;
-    text-align: center;
   }
 
   input {

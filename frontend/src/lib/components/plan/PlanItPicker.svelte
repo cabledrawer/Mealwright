@@ -37,7 +37,8 @@
       ><span>{dayShort(d)}</span><b>{dayOfMonth(d)}</b>{#if anything(d)}<i
           class="dot"
           aria-hidden="true"
-        ></i><span id="plan-it-day-{d}" class="visually-hidden">Something planned</span>{/if}</button
+        ></i><span id="plan-it-day-{d}" class="visually-hidden">Something planned</span
+        >{/if}</button
     >
   {/each}
 </div>
@@ -57,7 +58,6 @@
 </div>
 
 <style>
-
   .days {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));

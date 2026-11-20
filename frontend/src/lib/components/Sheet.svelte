@@ -23,7 +23,6 @@
     role = 'dialog',
     describedby,
     testid,
-    element = $bindable(),
     children
   }: {
     title: string;
@@ -37,7 +36,6 @@
     /** For a test that finds this sheet by id. */
     testid?: string;
     /** The <dialog>, for a caller that needs to move the focus. */
-    element?: HTMLDialogElement;
     children: Snippet;
   } = $props();
 
@@ -46,7 +44,6 @@
 
   onMount(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    element = dialog;
     dialog.showModal();
     return () => {
       if (dialog.open) dialog.close();

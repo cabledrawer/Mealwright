@@ -8,7 +8,6 @@
   import { optionalAsk } from '#lib/optionalAsk.svelte.js';
   import { optionalQuestionWords } from '#lib/optionalQuestion.js';
 
-  const uid = $props.id();
   let ticked = $state<number[]>([]);
 
   const pending = $derived(optionalAsk.current);

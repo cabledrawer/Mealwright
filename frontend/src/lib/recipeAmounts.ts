@@ -92,7 +92,7 @@ export function makesAmount(
     factor === 1
       ? { text: makes.amount_text, value: makes.amount }
       : scaled(makes.amount * factor, known ? makes.unit : null, makes.amount_text);
-  const unit = makes.unit === 'l' ? (plural(now.value, 'litre', 'litres')) : makes.unit;
+  const unit = makes.unit === 'l' ? plural(now.value, 'litre', 'litres') : makes.unit;
   return `${now.text}${NBSP}${unit}`;
 }
 

@@ -286,11 +286,11 @@ test('Makes without Serves: − / + in whole multiples from 1×, the lines scali
   const stepper = page.getByRole('group', { name: 'How much it makes' });
   await expect(stepper.getByText('Makes 200 g')).toBeVisible();
   await expect(reader(page).getByText(/Makes/)).toHaveCount(1);
-  await expect(stepper.getByRole('button', { name: 'Make less' })).toBeDisabled();
-  await stepper.getByRole('button', { name: 'Make more' }).click();
+  await expect(stepper.getByRole('button', { name: 'Fewer batches' })).toBeDisabled();
+  await stepper.getByRole('button', { name: 'More batches' }).click();
   await expect(stepper.getByText('Makes 400 g')).toBeVisible();
   await expect(reader(page).getByText(/^300\sg/)).toBeVisible();
-  await stepper.getByRole('button', { name: 'Make more' }).click();
+  await stepper.getByRole('button', { name: 'More batches' }).click();
   await expect(stepper.getByText('Makes 600 g')).toBeVisible();
   await expect(reader(page).getByText(/^450\sg/)).toBeVisible();
   await expect(page.getByRole('group', { name: 'Servings' })).toHaveCount(0);

@@ -23,7 +23,6 @@ export interface MySignIn {
   sessions: SignInPlace[];
 }
 
-
 export const getMySignIn = () => api<MySignIn>('GET', '/me/sign-in');
 
 export const changePassword = (current: string, next: string, signOutOthers: boolean) =>

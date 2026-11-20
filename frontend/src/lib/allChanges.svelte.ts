@@ -3,8 +3,9 @@
 // "Show more" for older ones. The list comes from GET /changes with no `area`. Answers that
 // arrive late are ignored.
 
-import { cantReach, cantReachWords , wordsFor } from './api';
+import { wordsFor } from './api';
 import { listChanges, undoFromList } from './client/changes';
+
 import type { Change } from './client/types';
 import { couldntLoad } from './errorWords.js';
 

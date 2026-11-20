@@ -286,5 +286,4 @@
     font-weight: var(--weight-extrabold);
     cursor: pointer;
   }
-
 </style>

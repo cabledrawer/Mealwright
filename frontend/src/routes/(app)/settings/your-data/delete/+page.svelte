@@ -8,16 +8,20 @@
   // type, so they confirm with a fresh sign-in at the sign-in server instead; the server keeps
   // that proof for this session for 10 minutes, and this page then asks for the words only.
   import { onMount } from 'svelte';
+
   import { goto } from '$app/navigation';
+
   import { resolve } from '$app/paths';
+
   import PageHeader from '#lib/components/PageHeader.svelte';
-  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
+  import { ApiError, wordsFor } from '#lib/api.js';
   import {
     markConfirming,
     rememberAction,
     startConfirm,
     goToSignInServer
   } from '#lib/client/sso.js';
+
   import {
     backUpNow,
     deleteEverything,
@@ -25,9 +29,13 @@
     getHowToConfirm,
     type HowToConfirm
   } from '#lib/client/yourData.js';
+
   import { network } from '#lib/network.svelte.js';
+
   import { signOutHere } from '#lib/offline/signOut.js';
+
   import { session } from '#lib/session.svelte.js';
+
   import {
     BACK_UP_NOW_CONFIRM,
     REPLACES_OLDEST,
@@ -79,8 +87,7 @@
     }
   }
 
-  const failed = (error: unknown) =>
-    wordsFor(error);
+  const failed = (error: unknown) => wordsFor(error);
 
   // Back up now first. The password typed for Delete everything is never sent with it (B8b round
   // 2). At a full folder the new backup pushes the oldest out, so it asks on its own, as Your data

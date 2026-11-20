@@ -1,8 +1,9 @@
 // The Ingredients list: every food, searched by any name on the server (contract 6.2).
 // Answers that arrive late (an older search) are ignored.
 
-import { cantReachWords, cantReach , wordsFor } from './api';
+import { wordsFor } from './api';
 import { listFoods } from './client/foods';
+
 import type { FoodFilter, FoodList, FoodRow } from './client/types';
 import { couldntLoad } from './errorWords.js';
 

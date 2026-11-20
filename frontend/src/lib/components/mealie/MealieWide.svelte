@@ -455,7 +455,6 @@
     display: none;
   }
 
-
   .steps {
     display: flex;
     flex-wrap: wrap;

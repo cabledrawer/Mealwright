@@ -3,12 +3,17 @@
 // through save() with its change ID, and is offered for Undo; then the plan is fetched
 // again so the server's version replaces the guess. Online only, like the Pantry.
 
-import { cantReachWords, cantReach, type ApiError , wordsFor } from './api';
+import { type ApiError, wordsFor } from './api';
 import { changeSession, makeSession, removeSession, type SessionBody } from './client/batch';
+
 import { serverUndo } from './client/changes';
+
 import { getHousehold } from './client/household';
+
 import { cookedIt, type Leftovers } from './client/today';
+
 import { sendTwice } from './sendTwice';
+
 import {
   editTub,
   fillFromFreezer,
@@ -45,10 +50,15 @@ import {
   type TubLeft,
   type WhenNoneLeft
 } from './client/plan';
+
 import { forgetBatchMode } from './batchModeStore';
+
 import { kitchen } from './freshness.svelte';
+
 import { fetchCode } from './lazyCode.svelte';
+
 import { loaders } from './lazyModules';
+
 import {
   addDays,
   dayShort,
@@ -60,6 +70,7 @@ import {
   weekDays,
   weekStart
 } from './planDates';
+
 import {
   withEaters,
   withItemDropped,
@@ -68,11 +79,16 @@ import {
   withoutMeal,
   withServings
 } from './planEdits';
+
 import { cookBatchOfItem, itemName, leftName, mealName } from './planMeals';
+
 import { optionalAsk } from './optionalAsk.svelte';
+
 import type { StepWait } from './timeWords';
 import { save, type Outcome } from './save';
+
 import { plural } from './words.js';
+
 import { couldntLoad } from './errorWords.js';
 
 export type PlanView = 'week' | 'month';

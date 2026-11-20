@@ -187,7 +187,7 @@ test("a whole place: picks, a count, a staple, then on to the end", async ({
   const more = item(page, dal.name).getByRole("group", {
     name: `${dal.name}: more packets`,
   });
-  await more.getByRole("button", { name: "One more bag" }).click();
+  await more.getByRole("button", { name: "More bags" }).click();
   await expect(more).toContainText("1");
   await expect.poll(() => amountIn(page, dal.id, shelf.id)).toBe(1500);
 
@@ -195,12 +195,12 @@ test("a whole place: picks, a count, a staple, then on to the end", async ({
   const count = item(page, eggs.name).getByRole("group", {
     name: `${eggs.name}: how many`,
   });
-  await expect(count.getByRole("button", { name: "One fewer" })).toBeDisabled();
-  await count.getByRole("button", { name: "One more" }).click();
-  await count.getByRole("button", { name: "One more" }).click();
+  await expect(count.getByRole("button", { name: `Fewer ${eggs.name}` })).toBeDisabled();
+  await count.getByRole("button", { name: `More ${eggs.name}` }).click();
+  await count.getByRole("button", { name: `More ${eggs.name}` }).click();
   await expect(count).toContainText("2");
   await expect.poll(() => amountIn(page, eggs.id, shelf.id)).toBe(2);
-  await count.getByRole("button", { name: "One fewer" }).click();
+  await count.getByRole("button", { name: `Fewer ${eggs.name}` }).click();
   await expect.poll(() => amountIn(page, eggs.id, shelf.id)).toBe(1);
 
   // None.

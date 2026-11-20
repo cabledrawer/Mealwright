@@ -15,7 +15,6 @@ export const EVERY_WORDS: Record<BackupEvery, string> = {
 
 export const keepWords = (keep: number): string => (keep === 1 ? 'Last 1' : `Last ${keep}`);
 
-
 /** A file's size the way people read it: "2.1 MB", "640 KB", "900 bytes". */
 export function sizeWords(bytes: number): string {
   if (bytes < 1000) return `${bytes}${NBSP}bytes`;

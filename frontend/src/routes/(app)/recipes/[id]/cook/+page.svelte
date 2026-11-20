@@ -5,28 +5,46 @@
   // menus. Leaving with a timer running asks "Stop the timer and leave?" (Stay · Leave), also for
   // the browser's Back and for a link; closing the tab asks the browser's own question.
   import { beforeNavigate, goto } from '$app/navigation';
+
   import { page } from '$app/state';
+
   import { resolve } from '$app/paths';
+
   import { onDestroy, onMount } from 'svelte';
-  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
+
+  import { ApiError, wordsFor } from '#lib/api.js';
   import { getRecipe, type Recipe } from '#lib/client/recipes.js';
+
   import { toasts } from '#lib/toast.svelte.js';
+
   import { withMethod } from '#lib/recipeMethods.js';
+
   import CookMode from '#lib/components/cook/CookMode.svelte';
   import type { LeftoverOptions } from '#lib/components/cooked/CookedReview.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
   import type { AheadView } from '#lib/cookAhead.js';
   import { cookNow } from '#lib/cookNow.svelte.js';
+
   import { cookPrefs } from '#lib/cookPrefs.svelte.js';
+
   import { CookReview, answered } from '#lib/cookReview.svelte.js';
+
   import { cookSteps } from '#lib/cookSteps.js';
+
   import { cookTarget } from '#lib/cookTargets.js';
+
   import { CookTimers } from '#lib/cookTimers.svelte.js';
+
   import { markWaitBegun } from '#lib/lazyActions.js';
+
   import { network } from '#lib/network.svelte.js';
+
   import { PlanModel } from '#lib/plan.svelte.js';
+
   import { dayFull } from '#lib/planDates.js';
+
   import { ScreenAwake } from '#lib/screenAwake.svelte.js';
+
   import { couldntLoad } from '#lib/errorWords.js';
 
   const id = $derived(Number(page.params.id));

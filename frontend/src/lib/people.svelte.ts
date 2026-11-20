@@ -2,9 +2,11 @@
 // and Person screens. Every change answers with the whole list and the change made, so its Undo
 // (the toast, Ctrl+Z, Recent changes) is the server's own. Admins only change; everyone looks.
 
-import { ApiError, cantReach, cantReachWords, forgetWhenSessionEnds , wordsFor, wordsForSave } from './api';
+import { forgetWhenSessionEnds, wordsFor, wordsForSave } from './api';
 import { lastOwnChange, onUndoOf, serverUndo } from './client/changes';
+
 import { changed, getHousehold } from './client/household';
+
 import {
   addPerson,
   changePerson,
@@ -19,10 +21,11 @@ import {
   type PersonChange,
   type WaitingSignIn
 } from './client/people';
-import { nothingChanged } from './downWords';
-import { network } from './network.svelte';
+
 import { undoHistory } from './undo.svelte';
+
 import { api } from './api';
+
 import type { Household } from './client/types';
 
 /** The sentence for an error: the server's own, or "can't reach" (one copy, in api.ts). */

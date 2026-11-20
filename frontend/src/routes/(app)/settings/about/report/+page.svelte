@@ -10,10 +10,12 @@
   //    filled-in new-issue page, their own click), Copy, or Download (a text file made here).
   //    The server makes no connection for any of it.
   import { onDestroy, onMount, tick } from 'svelte';
+
   import Icon from '#lib/components/Icon.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
-  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
+  import { wordsFor } from '#lib/api.js';
   import { getProblemReport, type ProblemReport } from '#lib/client/problemReport.js';
+
   import {
     COPIED,
     COPY,
@@ -38,8 +40,11 @@
     reportText,
     startingLines
   } from '#lib/problemReport.js';
+
   import { CopyFeedback } from '#lib/copyFeedback.svelte.js';
+
   import { autosize } from '#lib/recipes/autosize.js';
+
   import { toasts } from '#lib/toast.svelte.js';
 
   interface Line {

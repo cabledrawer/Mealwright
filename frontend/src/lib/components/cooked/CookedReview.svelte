@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Stepper from '#lib/components/Stepper.svelte';
   // The "Cooked it" review (mockups Cooked-Desktop/Phone and CookedMeal-Desktop/Phone; spec
   // section 2, "Cooking — how deduction works"; cabledrawer 31 Oct): every ingredient the recipe
   // would take from the pantry, each with its Use switch and an amount you can change, then one
@@ -226,21 +227,14 @@
                   <b>Portions cooked</b>
                   {#if portionsNote}<span class="sub">{portionsNote}</span>{/if}
                 </span>
-                <span class="stepper" role="group" aria-label="Portions cooked">
-                  <button
-                    type="button"
-                    aria-label="Fewer portions"
-                    disabled={readonly || tab.portions <= 1 || review.saving}
-                    onclick={() => void review.setPortions(tab, tab.portions - 1)}>−</button
-                  >
-                  <b aria-live="polite">{tab.portions}</b>
-                  <button
-                    type="button"
-                    aria-label="More portions"
-                    disabled={readonly || tab.portions >= 999 || review.saving}
-                    onclick={() => void review.setPortions(tab, tab.portions + 1)}>+</button
-                  >
-                </span>
+                <Stepper
+                  what="portions"
+                  label="Portions cooked"
+                  onless={() => void review.setPortions(tab, tab.portions - 1)}
+                  onmore={() => void review.setPortions(tab, tab.portions + 1)}
+                  lessOff={readonly || tab.portions <= 1 || review.saving}
+                  moreOff={readonly || tab.portions >= 999 || review.saving}>{tab.portions}</Stepper
+                >
               </div>
             {/if}
 
@@ -285,21 +279,14 @@
                   >Optional · makes tubs for later</span
                 ></span
               >
-              <span class="stepper" role="group" aria-label="Leftover tubs">
-                <button
-                  type="button"
-                  aria-label="Fewer tubs"
-                  disabled={count <= 0}
-                  onclick={() => (count = Math.max(0, count - 1))}>−</button
-                >
-                <b aria-live="polite">{tubsWords(count)}</b>
-                <button
-                  type="button"
-                  aria-label="More tubs"
-                  disabled={count >= 12}
-                  onclick={() => (count = Math.min(12, count + 1))}>+</button
-                >
-              </span>
+              <Stepper
+                what="tubs"
+                label="Leftover tubs"
+                onless={() => (count = Math.max(0, count - 1))}
+                onmore={() => (count = Math.min(12, count + 1))}
+                lessOff={count <= 0}
+                moreOff={count >= 12}>{tubsWords(count)}</Stepper
+              >
             </div>
             {#if count > 0}
               <div class="places" role="group" aria-label="Where the tub goes">
@@ -525,31 +512,6 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-  }
-
-  .stepper {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-  }
-
-  .stepper b {
-    min-width: 3rem;
-    text-align: center;
-    font-size: var(--text-xl);
-  }
-
-  .stepper button {
-    width: var(--touch-target);
-    height: var(--touch-target);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-fill-strong);
-    color: var(--color-text);
-    font: inherit;
-    font-size: var(--text-3xl);
-    line-height: 1;
-    cursor: pointer;
   }
 
   button:disabled {

@@ -1208,7 +1208,7 @@ describe('the Shopping page', () => {
     it('the amount pill opens it too; − / + and Done send one set_amount; focus comes back', async () => {
       await render(390);
       await page.getByRole('button', { name: 'Change amount: Yoghurt, 500 g' }).click();
-      await page.getByRole('button', { name: 'More' }).click();
+      await page.getByRole('button', { name: 'More amount' }).click();
       await expect.element(page.getByRole('textbox', { name: 'Amount' })).toHaveValue('550');
       expect(server.actions).toEqual([]); // nothing is sent while you press +
       await page.getByRole('button', { name: 'Done' }).click();
@@ -1248,7 +1248,7 @@ describe('the Shopping page', () => {
         await render(width);
         await page.getByRole('button', { name: 'Yoghurt', exact: true }).click();
         const box = page.getByRole('form', { name: 'Change Yoghurt' });
-        await box.getByRole('button', { name: 'More' }).click();
+        await box.getByRole('button', { name: 'More amount' }).click();
         await box.getByRole('button', { name: 'Edit ingredient' }).click();
         await expect.element(box).not.toBeInTheDocument();
         expect(ingredientEditor.foodId).toBe(3);

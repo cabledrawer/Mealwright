@@ -516,7 +516,6 @@
     font: inherit;
   }
 
-
   .main,
   .second,
   .onboarding :global(.solid),

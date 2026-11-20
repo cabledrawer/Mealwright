@@ -21,7 +21,6 @@ export const EQUIPMENT_CHOICES: { value: StepEquipment; name: string }[] = [
   { value: 'none', name: 'Nothing' }
 ];
 
-
 export interface ShownTiming {
   hands: StepHands | null;
   minutes: number | null;

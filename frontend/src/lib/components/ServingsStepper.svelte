@@ -4,6 +4,7 @@
   // you leave it. Buttons are 44 px, a little larger than the mockup's 36 px (touch targets).
   // A recipe with Makes and no Serves gets the same − / + in whole multiples, from 1× to 99×:
   // "− Makes 400 g +" (spec, recipe page; words.md section 13).
+  import Stepper from '#lib/components/Stepper.svelte';
   import { MAX_SERVES, MIN_SERVES } from '#lib/recipeAmounts.js';
 
   let {
@@ -19,64 +20,20 @@
   } = $props();
 </script>
 
-<div class="stepper" role="group" aria-label={makes === null ? 'Servings' : 'How much it makes'}>
-  <button
-    type="button"
-    aria-label={makes === null ? 'Fewer servings' : 'Make less'}
-    disabled={value <= MIN_SERVES}
-    onclick={() => onchange(value - 1)}>−</button
-  >
-  <span class="now" aria-live="polite">{makes === null ? `Serves ${value}` : `Makes ${makes}`}</span
-  >
-  <button
-    type="button"
-    aria-label={makes === null ? 'More servings' : 'Make more'}
-    disabled={value >= MAX_SERVES}
-    onclick={() => onchange(value + 1)}>+</button
-  >
-</div>
+<Stepper
+  what={makes === null ? 'servings' : 'batches'}
+  label={makes === null ? 'Servings' : 'How much it makes'}
+  onless={() => onchange(value - 1)}
+  onmore={() => onchange(value + 1)}
+  lessOff={value <= MIN_SERVES}
+  moreOff={value >= MAX_SERVES}
+>
+  <span class="words">{makes === null ? `Serves ${value}` : `Makes ${makes}`}</span>
+</Stepper>
 
 <style>
-  .stepper {
-    display: flex;
-    flex: none;
-    align-items: center;
-    gap: var(--space-2);
-    padding: 3px;
-    border-radius: var(--radius-full);
-    background: var(--reading-chip, var(--color-fill));
-  }
-
-  button {
-    width: var(--touch-target);
-    height: var(--touch-target);
-    padding: 0;
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-size: 1.125rem;
-    font-weight: var(--weight-bold);
-    cursor: pointer;
-  }
-
-  button:disabled {
-    cursor: default;
-    opacity: 0.4;
-  }
-
-  .now {
+  .words {
+    display: inline-block;
     min-width: 4.5em;
-    padding: 0 var(--space-3);
-    font-size: var(--text-base);
-    font-weight: var(--weight-bold);
-    text-align: center;
-  }
-
-  /* On paper only the words stay ("Serves 4"). */
-  @media print {
-    button {
-      display: none;
-    }
   }
 </style>

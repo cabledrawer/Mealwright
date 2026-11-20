@@ -4,7 +4,8 @@
 // few seconds, and stops asking when it is left.
 
 import { SvelteSet } from 'svelte/reactivity';
-import { ApiError, cantReach, cantReachWords , wordsFor } from './api';
+
+import { ApiError, wordsFor } from './api';
 import {
   cancelMealieImport,
   currentMealieImport,
@@ -16,7 +17,9 @@ import {
   type MealieImport,
   type MealieUndone
 } from './client/mealie';
+
 import { chosenCount } from './mealieWords';
+
 import { session } from './session.svelte';
 
 export type Step = 'start' | 'preview' | 'running' | 'done';
@@ -24,8 +27,7 @@ export type Step = 'start' | 'preview' | 'running' | 'done';
 /** How often the screen asks how far it has got. */
 export const POLL_MS = 2000;
 
-const failed = (error: unknown) =>
-  wordsFor(error);
+const failed = (error: unknown) => wordsFor(error);
 
 /** Which step an import is at. A finished import shows its Done while its Undo works (7 days);
  *  after that, or once it is undone, the screen starts again (proposed, for cabledrawer). */

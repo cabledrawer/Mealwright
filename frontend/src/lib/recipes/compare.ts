@@ -17,7 +17,6 @@ export interface ShownLine {
   was: string | null;
 }
 
-
 /** "1½ tbsp", "2 packets", "10", or nothing. */
 export function quantityOf(line: LineOut): string {
   if (!line.amount_text) return '';

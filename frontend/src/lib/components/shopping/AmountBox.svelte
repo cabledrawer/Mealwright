@@ -7,6 +7,7 @@
   // ingredient editor. Hidden offline, like the recipe page's Edit (the editor needs the
   // server), and for an ingredient still being made (no server ID yet).
   import { untrack } from 'svelte';
+  import Stepper from '#lib/components/Stepper.svelte';
   import { MAX_TYPED_AMOUNT } from '#lib/amountText.js';
   import { ingredientEditor } from '#lib/ingredientEditor.svelte.js';
   import { network } from '#lib/network.svelte.js';
@@ -188,20 +189,20 @@
     <button type="submit" class="done">Done</button>
   </div>
   <div class="row">
-    <button type="button" class="step" aria-label="Less" onclick={() => step(-1)}>−</button>
-    <input
-      bind:this={input}
-      bind:value={draft.text}
-      inputmode="decimal"
-      maxlength={MAX_TYPED_AMOUNT}
-      aria-label="Amount"
-      aria-describedby="{uid}-hint{problem ? ` ${uid}-p` : ''}"
-      aria-invalid={problem ? 'true' : undefined}
-      placeholder={item.amount ? undefined : placeholderFor(food)}
-      oninput={() => (problem = null)}
-      use:focusOnShow
-    />
-    <button type="button" class="step" aria-label="More" onclick={() => step(1)}>+</button>
+    <Stepper what="amount" less="Less" onless={() => step(-1)} onmore={() => step(1)}>
+      <input
+        bind:this={input}
+        bind:value={draft.text}
+        inputmode="decimal"
+        maxlength={MAX_TYPED_AMOUNT}
+        aria-label="Amount"
+        aria-describedby="{uid}-hint{problem ? ` ${uid}-p` : ''}"
+        aria-invalid={problem ? 'true' : undefined}
+        placeholder={item.amount ? undefined : placeholderFor(food)}
+        oninput={() => (problem = null)}
+        use:focusOnShow
+      />
+    </Stepper>
     {#if showUnits}
       <select
         aria-label="Unit"
@@ -311,23 +312,8 @@
     gap: var(--space-4);
   }
 
-  .step {
-    flex: none;
-    width: 48px;
-    height: 48px;
-    padding: 0;
-    border: none;
-    border-radius: var(--radius-md);
-    background: var(--color-fill);
-    color: var(--color-text);
-    font: var(--weight-bold) 1.375rem var(--font-ui);
-    cursor: pointer;
-  }
-
   input {
-    flex: 1 1 5rem;
-    /* Room for its number, at any width: "1250" fits (F123). */
-    min-width: 4.5rem;
+    width: 5.5rem; /* Room for its number, at any width: "1250" fits (F123). */
     min-height: 48px;
     padding: 0 var(--space-4);
     border: 1px solid var(--color-field-border);

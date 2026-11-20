@@ -2,12 +2,16 @@
 // API-first). Same origin only: the session cookie goes along automatically.
 
 import { cantReachText, nothingChanged } from './downWords';
+
 import { isLeaving, whenStaying } from './leaving';
+
 import { network } from './network.svelte';
+
 import { endPendingSignOut } from './offline/signOutPending';
+
 import { forgetOnWipe } from './offline/wipeHooks';
+
 import { PROXY_GAP, proxyGap } from './proxyGap';
-import { couldntLoad } from './errorWords.js';
 
 export { PROXY_GAP };
 

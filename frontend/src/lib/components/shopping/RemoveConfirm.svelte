@@ -28,7 +28,8 @@
 >
   <p id="{uid}-d">Nothing goes into the pantry.</p>
   <div class="buttons">
-    <!-- svelte-ignore a11y_autofocus -- the safe choice has the focus -->
+    <!-- The safe choice has the focus. -->
+    <!-- svelte-ignore a11y_autofocus -->
     <button type="button" class="keep" autofocus onclick={onkeep}>Keep it</button>
     <button type="button" class="remove" onclick={onremove}>Remove</button>
   </div>

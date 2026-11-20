@@ -8,7 +8,7 @@
 // connection is back. The last schedule is kept on this phone, so a reload while offline carries
 // on. Starting for the first time and Cooked it need the server.
 
-import { ApiError, cantReach, cantReachWords , wordsFor } from './api';
+import { ApiError, cantReach, wordsFor } from './api';
 import {
   getSchedule,
   markTaskDone,
@@ -19,7 +19,9 @@ import {
   type Schedule,
   type ScheduleTask
 } from './client/batchMode';
+
 import { batchModeKey, forgetBatchMode } from './batchModeStore';
+
 import { rows, timesUp, work, type RecipeRow, type Worked } from './batchModeState';
 
 export type Mark = 'done' | 'undo' | 'timer';

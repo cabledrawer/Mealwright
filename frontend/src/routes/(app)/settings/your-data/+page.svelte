@@ -10,13 +10,16 @@
   // address) and the box is emptied once the file is on its way. Offline it says so, as
   // Privacy does.
   import { onDestroy, onMount } from 'svelte';
+
   import { resolve } from '$app/paths';
+
   import Icon from '#lib/components/Icon.svelte';
   import OfflineNote from '#lib/components/OfflineNote.svelte';
   import PageHeader from '#lib/components/PageHeader.svelte';
   import Switch from '#lib/components/Switch.svelte';
-  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
+  import { ApiError, wordsFor } from '#lib/api.js';
   import { getHousehold } from '#lib/client/household.js';
+
   import {
     markConfirming,
     rememberAction,
@@ -24,6 +27,7 @@
     goToSignInServer,
     takeAction
   } from '#lib/client/sso.js';
+
   import {
     backUpNow,
     changeBackups,
@@ -36,8 +40,11 @@
     type BackupEvery,
     type Backups
   } from '#lib/client/yourData.js';
+
   import { network } from '#lib/network.svelte.js';
+
   import { session } from '#lib/session.svelte.js';
+
   import {
     ADMINS_ONLY,
     BACK_UP_NOW_CONFIRM,

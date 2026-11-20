@@ -1,6 +1,5 @@
 <script lang="ts">
   import LoadFailed from '#lib/components/LoadFailed.svelte';
-  import Lazy from '#lib/components/Lazy.svelte';
   // The menu for something on the Plan (spec "Meal planner interactions": phone long-press
   // sheet; and the keyboard way to do everything a drag does):
   //   a meal or one thing in it: Move to… · Copy to… · Leftovers on… · Remove, then a day

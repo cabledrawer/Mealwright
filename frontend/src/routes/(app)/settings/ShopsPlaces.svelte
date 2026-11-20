@@ -5,9 +5,12 @@
   // ingredients to "Any shop"; a place with things in it says how many and asks where to move
   // them; the last Fridge and the last Freezer stay. Each removal has Undo.
   import { onMount } from 'svelte';
-  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
+
+  import { ApiError, cantReach, wordsFor } from '#lib/api.js';
   import { serverUndo } from '#lib/client/changes.js';
+
   import { getPlaces, getShops } from '#lib/client/foods.js';
+
   import {
     orderPlaces,
     orderShops,
@@ -16,16 +19,25 @@
     renamePlace,
     renameShop
   } from '#lib/client/settingsLists.js';
+
   import type { Place, PlaceKind, Shop } from '#lib/client/types.js';
   import { nothingChanged } from '#lib/downWords.js';
+
   import { kitchen } from '#lib/freshness.svelte.js';
+
   import { focusOnMount } from '#lib/focusOnMount.js';
+
   import { network } from '#lib/network.svelte.js';
+
   import { placesAndShops } from '#lib/placesAndShops.svelte.js';
+
   import { save } from '#lib/save.js';
+
   import { toasts } from '#lib/toast.svelte.js';
+
   import OrderedRows from './OrderedRows.svelte';
   import { plural } from '#lib/words.js';
+
   import { couldntLoad } from '#lib/errorWords.js';
 
   const KINDS: { value: PlaceKind; label: string }[] = [

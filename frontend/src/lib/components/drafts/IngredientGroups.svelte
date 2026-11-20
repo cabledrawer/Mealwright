@@ -10,7 +10,7 @@
   // reverses the group's answers. Computer: the list and the answer side by side. Phone: the
   // list, then the answer on its own page with a back button. Online only.
   import { untrack } from 'svelte';
-  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
+  import { ApiError, cantReach, wordsFor } from '#lib/api.js';
   import { newChangeId } from '#lib/changeId.js';
   import { serverUndo } from '#lib/client/changes.js';
   import {

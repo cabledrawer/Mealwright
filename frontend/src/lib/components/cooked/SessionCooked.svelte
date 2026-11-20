@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Stepper from '#lib/components/Stepper.svelte';
   // One "Cooked it" review for a whole Batch cook session (mockup Dark-BatchCooked08; spec section
   // 6, "Batch cook (Experimental)"; cabledrawer 11 Nov): each recipe's ingredients as a short list,
   // its tubs, and Change to open that recipe's rows (the same rows as the Cooked it review), then
@@ -117,21 +118,14 @@
                 <div class="edit" class:busy={review.loading}>
                   <div class="portions">
                     <span><b>Portions cooked</b></span>
-                    <span class="stepper" role="group" aria-label="Portions cooked">
-                      <button
-                        type="button"
-                        aria-label="Fewer portions"
-                        disabled={tab.portions <= 1 || review.saving}
-                        onclick={() => void review.setPortions(tab, tab.portions - 1)}>−</button
-                      >
-                      <b aria-live="polite">{tab.portions}</b>
-                      <button
-                        type="button"
-                        aria-label="More portions"
-                        disabled={tab.portions >= 999 || review.saving}
-                        onclick={() => void review.setPortions(tab, tab.portions + 1)}>+</button
-                      >
-                    </span>
+                    <Stepper
+                      what="portions"
+                      label="Portions cooked"
+                      onless={() => void review.setPortions(tab, tab.portions - 1)}
+                      onmore={() => void review.setPortions(tab, tab.portions + 1)}
+                      lessOff={tab.portions <= 1 || review.saving}
+                      moreOff={tab.portions >= 999 || review.saving}>{tab.portions}</Stepper
+                    >
                   </div>
                   <ul class="rows" aria-label="Taken from the pantry">
                     {#each lines(tab) as row (row.key)}
@@ -340,23 +334,6 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-4);
-  }
-
-  .stepper {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-4);
-  }
-
-  .stepper button {
-    width: var(--touch-target);
-    height: var(--touch-target);
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--color-text);
-    font-size: 1.25rem;
-    cursor: pointer;
   }
 
   .rows {

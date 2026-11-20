@@ -3,10 +3,13 @@
 // through save() with its change ID and Undo, and then the screen is fetched again so
 // the server's wording ("about 750 g · 1½ packets") replaces any guess.
 
-import { ApiError, cantReachWords, cantReach , wordsFor } from './api';
+import { ApiError, wordsFor } from './api';
 import { serverUndo } from './client/changes';
+
 import { binTub, placeTub, type PlanWrite } from './client/plan';
+
 import { createFood, listFoods, patchFood } from './client/foods';
+
 import {
   addStock,
   binnedLot,
@@ -21,6 +24,7 @@ import {
   usedLot,
   type NewStock
 } from './client/stock';
+
 import type {
   AmountIn,
   Answer,
@@ -34,8 +38,11 @@ import type {
   UseSoonTub
 } from './client/types';
 import { kitchen } from './freshness.svelte';
+
 import { save } from './save';
+
 import { plural } from './words.js';
+
 import { couldntLoad } from './errorWords.js';
 
 /** Take a packet off the screen: it was used, binned or moved. */

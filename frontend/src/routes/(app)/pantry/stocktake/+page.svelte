@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Stepper from '#lib/components/Stepper.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Stocktake (F118, 0.8; mockup Dark-Stocktake08-Phone): go through the home place by place,
   // and say how much of each ingredient there is: None · ¼ · ½ · ¾ · Full (or a count with
@@ -196,23 +197,16 @@
         {#if row.staple}
           <p class="said">{stapleWords(row)}</p>
         {:else if counted(row)}
-          <div class="stepper" role="group" aria-label="{row.food.name}: how many">
-            <button
-              type="button"
-              aria-label="One fewer"
-              disabled={countNow(row) <= 0}
-              onclick={() => void model.count(row.food.id, row.food.name, countNow(row) - 1)}
-              >−</button
-            >
+          <Stepper
+            what={row.food.name}
+            label="{row.food.name}: how many"
+            onless={() => void model.count(row.food.id, row.food.name, countNow(row) - 1)}
+            onmore={() => void model.count(row.food.id, row.food.name, countNow(row) + 1)}
+            lessOff={countNow(row) <= 0}
+          >
             <span class="number" class:unsaid={!row.answered}>{countWords(row, countNow(row))}</span
             >
-            <button
-              type="button"
-              aria-label="One more"
-              onclick={() => void model.count(row.food.id, row.food.name, countNow(row) + 1)}
-              >+</button
-            >
-          </div>
+          </Stepper>
         {:else}
           {#if !row.pack}
             <p class="said">What does it come in? Asked once.</p>
@@ -278,23 +272,18 @@
           {#if row.pack && (shareOf(row) > 0 || moreOf(row) > 0)}
             {@const share = shareOf(row)}
             {@const more = moreOf(row)}
-            <div class="stepper small" role="group" aria-label="{row.food.name}: more packets">
+            <div class="more-packs">
               <span class="label">More {row.pack.plural} besides this one</span>
-              <button
-                type="button"
-                aria-label="One fewer {row.pack.name}"
-                disabled={more <= 0}
-                onclick={() => void model.pick(row.food.id, row.food.name, share, more - 1)}
-                >−</button
+              <Stepper
+                what={row.pack.plural}
+                label="{row.food.name}: more packets"
+                onless={() => void model.pick(row.food.id, row.food.name, share, more - 1)}
+                onmore={() => void model.pick(row.food.id, row.food.name, share, more + 1)}
+                lessOff={more <= 0}
+                moreOff={more >= 20}
               >
-              <span class="number">{more}</span>
-              <button
-                type="button"
-                aria-label="One more {row.pack.name}"
-                disabled={more >= 20}
-                onclick={() => void model.pick(row.food.id, row.food.name, share, more + 1)}
-                >+</button
-              >
+                <span class="number small">{more}</span>
+              </Stepper>
             </div>
           {/if}
         {/if}
@@ -506,33 +495,17 @@
     width: 7rem;
   }
 
-  .stepper {
+  .more-packs {
     display: flex;
     align-items: center;
     gap: var(--space-4);
   }
 
-  .stepper .label {
+  .more-packs .label {
     flex: 1;
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
-  }
-
-  .stepper button {
-    width: var(--touch-target);
-    height: var(--touch-target);
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--color-fill-strong);
-    color: var(--color-text);
-    font-size: var(--text-xl);
-    font-weight: var(--weight-extrabold);
-  }
-
-  .stepper button:disabled {
-    opacity: 0.45;
-    cursor: default;
   }
 
   .number {
@@ -542,7 +515,7 @@
     font-weight: var(--weight-extrabold);
   }
 
-  .stepper.small .number {
+  .number.small {
     min-width: 2rem;
     font-size: var(--text-lg);
   }

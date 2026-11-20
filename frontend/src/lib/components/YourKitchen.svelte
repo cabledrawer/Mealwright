@@ -4,6 +4,7 @@
   // Kitchen. A phone sheet: a real modal dialog, Esc closes it, the focus goes back where it
   // came from. On a computer it is a box in the middle of the screen.
   import { tick } from 'svelte';
+  import Stepper from '#lib/components/Stepper.svelte';
   import { ApiError, cantReach } from '#lib/api.js';
   import {
     MAX_HOB_RINGS,
@@ -49,7 +50,7 @@
       problem = null;
       saving = false;
       dialog.showModal();
-      void tick().then(() => dialog.querySelector<HTMLElement>('[data-first]')?.focus());
+      void tick().then(() => dialog.querySelector<HTMLElement>('.stepper button')?.focus());
     } else if (!open && dialog.open) {
       dialog.close();
     }
@@ -104,21 +105,12 @@
             <span class="name">Hob rings</span>
             <span class="detail">Burners on the cooker</span>
           </span>
-          <button
-            type="button"
-            class="step"
-            data-first
-            aria-label="Fewer hob rings"
-            disabled={rings <= 1}
-            onclick={() => (rings -= 1)}>−</button
-          >
-          <span class="count" aria-live="polite">{rings}</span>
-          <button
-            type="button"
-            class="step"
-            aria-label="More hob rings"
-            disabled={rings >= MAX_HOB_RINGS}
-            onclick={() => (rings += 1)}>+</button
+          <Stepper
+            what="hob rings"
+            onless={() => (rings -= 1)}
+            onmore={() => (rings += 1)}
+            lessOff={rings <= 1}
+            moreOff={rings >= MAX_HOB_RINGS}>{rings}</Stepper
           >
         </div>
         <div class="row">
@@ -126,20 +118,12 @@
             <span class="name">Pressure cookers</span>
             <span class="detail">Including an Instant Pot</span>
           </span>
-          <button
-            type="button"
-            class="step"
-            aria-label="Fewer pressure cookers"
-            disabled={cookers <= 0}
-            onclick={() => (cookers -= 1)}>−</button
-          >
-          <span class="count" aria-live="polite">{cookers}</span>
-          <button
-            type="button"
-            class="step"
-            aria-label="More pressure cookers"
-            disabled={cookers >= MAX_PRESSURE_COOKERS}
-            onclick={() => (cookers += 1)}>+</button
+          <Stepper
+            what="pressure cookers"
+            onless={() => (cookers -= 1)}
+            onmore={() => (cookers += 1)}
+            lessOff={cookers <= 0}
+            moreOff={cookers >= MAX_PRESSURE_COOKERS}>{cookers}</Stepper
           >
         </div>
         <div class="row">
@@ -260,31 +244,6 @@
   .detail {
     color: var(--color-text-muted);
     font-size: var(--text-sm);
-  }
-
-  .step {
-    flex: none;
-    width: var(--touch-target);
-    height: var(--touch-target);
-    padding: 0;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--color-text);
-    font: var(--weight-extrabold) 1.25rem var(--font-ui);
-    cursor: pointer;
-  }
-
-  .step:disabled {
-    cursor: default;
-    opacity: 0.4;
-  }
-
-  .count {
-    width: 24px;
-    text-align: center;
-    font-size: 1.25rem;
-    font-weight: var(--weight-extrabold);
   }
 
   .seg {

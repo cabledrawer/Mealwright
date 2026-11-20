@@ -3,8 +3,10 @@
 // ignored. The tags for the filter row come with it.
 
 import { getContext, setContext } from 'svelte';
-import { cantReachWords, cantReach , wordsFor } from './api';
+
+import { wordsFor } from './api';
 import { listRecipes, listTags, type RecipeRow, type TagCount } from './client/recipes';
+
 import { couldntLoad } from './errorWords.js';
 
 const PAGE = 50;

@@ -15,7 +15,7 @@
     type Portions,
     type WhenNoneLeft
   } from '#lib/client/plan.js';
-  import { ApiError, cantReach, cantReachWords, wordsFor } from '#lib/api.js';
+  import { ApiError, wordsFor } from '#lib/api.js';
   import type { PlanActions } from '#lib/planActions.js';
   import { dayWords } from '#lib/planDates.js';
   import { itemName } from '#lib/planMeals.js';

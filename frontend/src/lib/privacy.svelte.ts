@@ -9,8 +9,9 @@
 // back and says so, so the page never keeps showing a switch the server doesn't have. The
 // entry list answers in the server's own sentences (a refusal is shown as it is).
 
-import { ApiError, cantReachWords, cantReach, forgetWhenSessionEnds , wordsFor, wordsForSave } from './api';
+import { ApiError, forgetWhenSessionEnds, wordsFor, wordsForSave } from './api';
 import { onUndoOf, serverUndo } from './client/changes';
+
 import {
   addEntry,
   getOwnNetwork,
@@ -20,11 +21,16 @@ import {
   type OwnNetworkEntry,
   type SwitchName
 } from './client/privacy';
+
 import type { Change, UndoResult } from './client/types';
 import { nothingChanged } from './downWords';
+
 import { rememberToForget } from './forgetWhenLoaded';
+
 import { network } from './network.svelte';
+
 import { session } from './session.svelte';
+
 import { undoHistory } from './undo.svelte';
 
 /** Chosen by the cause, the same on every page (cabledrawer 30 Oct). */

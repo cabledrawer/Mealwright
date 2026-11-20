@@ -6,7 +6,6 @@ import type { CookChoice, CookRow, Need } from './client/cook';
 import type { Answer, Ask } from './client/types';
 import { NBSP } from './words.js';
 
-
 /** What the person did on one row (a row they never touched is as the server proposed it). */
 export interface RowState {
   /** The Use switch; undefined: as proposed. */

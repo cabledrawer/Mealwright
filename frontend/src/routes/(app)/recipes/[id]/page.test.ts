@@ -605,18 +605,18 @@ describe('the recipe page', () => {
       await expect.element(group.getByText(`Makes 200${NB}g`)).toBeVisible();
       // Not twice: the quiet line under the name leaves it to − / +.
       expect(page.getByText(/Makes/).elements()).toHaveLength(1);
-      await expect.element(page.getByRole('button', { name: 'Make less' })).toBeDisabled();
+      await expect.element(page.getByRole('button', { name: 'Fewer batches' })).toBeDisabled();
       await expect.element(page.getByText(`200${NB}g`, { exact: true })).toBeVisible();
-      await page.getByRole('button', { name: 'Make more' }).click();
+      await page.getByRole('button', { name: 'More batches' }).click();
       await expect.element(group.getByText(`Makes 400${NB}g`)).toBeVisible();
       // The lines scale the same way: twice the toor dal.
       await expect.element(page.getByText(`400${NB}g`, { exact: true })).toBeVisible();
-      await page.getByRole('button', { name: 'Make more' }).click();
+      await page.getByRole('button', { name: 'More batches' }).click();
       await expect.element(group.getByText(`Makes 600${NB}g`)).toBeVisible();
-      await page.getByRole('button', { name: 'Make less' }).click();
-      await page.getByRole('button', { name: 'Make less' }).click();
+      await page.getByRole('button', { name: 'Fewer batches' }).click();
+      await page.getByRole('button', { name: 'Fewer batches' }).click();
       await expect.element(group.getByText(`Makes 200${NB}g`)).toBeVisible();
-      await expect.element(page.getByRole('button', { name: 'Make less' })).toBeDisabled();
+      await expect.element(page.getByRole('button', { name: 'Fewer batches' })).toBeDisabled();
       // Nothing was saved, and no Serves appeared.
       expect(server.requests.some((r) => r.method !== 'GET')).toBe(false);
       expect(page.getByText(/^Serves/).elements()).toHaveLength(0);
@@ -625,9 +625,9 @@ describe('the recipe page', () => {
     it('Makes without Serves: the marks show at 1× only, as the server counts for 1×', async () => {
       await open({ serves: null, makes: { amount: 200, amount_text: '200', unit: 'g' } });
       await expect.element(page.getByText('Cupboard', { exact: true })).toBeVisible();
-      await page.getByRole('button', { name: 'Make more' }).click();
+      await page.getByRole('button', { name: 'More batches' }).click();
       await expect.element(page.getByText('Cupboard', { exact: true })).not.toBeInTheDocument();
-      await page.getByRole('button', { name: 'Make less' }).click();
+      await page.getByRole('button', { name: 'Fewer batches' }).click();
       await expect.element(page.getByText('Cupboard', { exact: true })).toBeVisible();
       // The server ignores servings without Serves, so − / + never asks it again.
       await new Promise((done) => setTimeout(done, 400));
@@ -639,13 +639,15 @@ describe('the recipe page', () => {
       // 98 presses on the button itself, each followed by the page's update. A real click of
       // the test browser checks the button over before every press, so 98 of them took longer
       // than the test's time on a busy machine: how long the test took was what failed it.
-      await expect.element(page.getByRole('button', { name: 'Make more' })).toBeVisible();
-      const more = page.getByRole('button', { name: 'Make more' }).element() as HTMLButtonElement;
+      await expect.element(page.getByRole('button', { name: 'More batches' })).toBeVisible();
+      const more = page
+        .getByRole('button', { name: 'More batches' })
+        .element() as HTMLButtonElement;
       for (let i = 0; i < 98; i++) {
         more.click();
         flushSync();
       }
-      await expect.element(page.getByRole('button', { name: 'Make more' })).toBeDisabled();
+      await expect.element(page.getByRole('button', { name: 'More batches' })).toBeDisabled();
       await expect.element(page.getByText(/^Makes 99/)).toBeVisible();
     });
 

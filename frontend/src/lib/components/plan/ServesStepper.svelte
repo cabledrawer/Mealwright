@@ -4,6 +4,7 @@
   // it starts from the recipe's own Serves (`eating`). A few quick presses are one change, sent
   // a moment after the last press (or when the menu closes), so there is one Undo, not five.
   import { onDestroy } from 'svelte';
+  import Stepper from '#lib/components/Stepper.svelte';
   import type { PlanItem } from '#lib/client/plan.js';
   import type { PlanModel } from '#lib/plan.svelte.js';
   import { itemName } from '#lib/planMeals.js';
@@ -64,21 +65,18 @@
   );
 </script>
 
-<div class="serves" role="group" aria-label={label}>
+<div class="serves">
   <span class="label">{label}</span>
-  <button
-    type="button"
-    aria-label="One fewer"
-    disabled={disabled || shown <= 1}
-    onclick={() => change(-1)}>−</button
+  <Stepper
+    what="servings"
+    {label}
+    onless={() => change(-1)}
+    onmore={() => change(1)}
+    lessOff={disabled || shown <= 1}
+    moreOff={disabled || shown >= MOST}
   >
-  <output aria-live="polite" data-testid="serves-{item.id}">{shown}</output>
-  <button
-    type="button"
-    aria-label="One more"
-    disabled={disabled || shown >= MOST}
-    onclick={() => change(1)}>+</button
-  >
+    <output data-testid="serves-{item.id}">{shown}</output>
+  </Stepper>
 </div>
 
 <style>
@@ -98,32 +96,5 @@
     font-size: var(--text-xl);
     font-weight: var(--weight-bold);
     overflow-wrap: break-word;
-  }
-
-  button {
-    width: var(--touch-target);
-    height: var(--touch-target);
-    padding: 0;
-    border: 1px solid var(--color-border-strong);
-    border-radius: var(--radius-full);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font: inherit;
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-bold);
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  button:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-
-  output {
-    min-width: 2ch;
-    font-size: var(--text-xl);
-    font-weight: var(--weight-extrabold);
-    text-align: center;
   }
 </style>
