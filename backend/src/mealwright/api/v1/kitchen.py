@@ -1,4 +1,4 @@
-"""Places, shops, units and the household's settings (docs/dev/api-0.2.md 4.1, 4.5, 6.3)."""
+"""Places, shops, units and the household's settings (docs/dev/api-endpoints.md 4.1, 4.5, 6.3)."""
 
 from datetime import date, datetime
 from typing import Annotated, Any, Literal

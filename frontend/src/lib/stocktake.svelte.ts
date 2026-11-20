@@ -1,7 +1,7 @@
 // The Stocktake screen's state (F118, 0.8): the places, the place on screen, and every answer.
 // An answer shows at once and goes to the server on its own (one change, Undo in the toast);
 // the server keeps the progress for the household, so another phone carries on from the same
-// place. See docs/dev/api-0.2.md 6.5a.
+// place. See docs/dev/api-endpoints.md 6.5a.
 
 import { serverUndo } from './client/changes';
 import {

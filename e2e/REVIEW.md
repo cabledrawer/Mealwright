@@ -2,7 +2,7 @@
 
 The checklist the checker applies to every PR before it reaches cabledrawer. A PR passes
 only when every box is ticked or the gap is written up in the review with a reason.
-This is the 0.3 version (cabledrawer 17 Oct).
+First written in 0.3 (cabledrawer 17 Oct).
 
 ## How a review runs (cabledrawer 17 Oct, from 0.3)
 

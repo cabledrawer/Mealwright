@@ -1,4 +1,4 @@
-// The Plan screen's data (docs/dev/api-0.2.md 6.3a): the week or month on show, the meals
+// The Plan screen's data (docs/dev/api-endpoints.md 6.3a): the week or month on show, the meals
 // that are on, and every change to them. Each change shows at once (optimistic), goes
 // through save() with its change ID, and is offered for Undo; then the plan is fetched
 // again so the server's version replaces the guess. Online only, like the Pantry.

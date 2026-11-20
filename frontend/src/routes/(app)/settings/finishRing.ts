@@ -1,6 +1,9 @@
 // The "Finish setup" row's ring (cabledrawer 13 Nov, option A; mockup Dark-FinishSetup095-Phone): a
 // part-filled amber ring and "2 of 5". Amber, not green, so it never reads as done.
 
+/** The line under the "Finish setup" row, on the phone list and the computer's menu (one place; CL10). */
+export const FINISH_SETUP_WORDS = 'A few quick things: amounts, household, shops.';
+
 /** The steps of set-up, as the phone's onboarding walks them (spec: "phone step 1 of 5"). */
 export const SETUP_STEPS = ['account', 'amounts', 'household', 'shops', 'packs'] as const;
 

@@ -307,7 +307,7 @@ def _write[T, R](
     build: Callable[..., R],
 ) -> R:
     """Apply a write once: a retry with the same Idempotency-Key gets the original answer
-    (docs/dev/api-0.2.md 1.2)."""
+    (docs/dev/api-endpoints.md 1.2)."""
     earlier = replayed(kitchen)
     if earlier is None:
         try:

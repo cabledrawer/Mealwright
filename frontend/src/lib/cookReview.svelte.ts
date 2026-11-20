@@ -1,4 +1,4 @@
-// The "Cooked it" review's state (docs/dev/api-0.2.md 6.3d): what it would take from the pantry
+// The "Cooked it" review's state (docs/dev/api-endpoints.md 6.3d): what it would take from the pantry
 // for each recipe of a meal (one tab each), the person's say on every row, and one Confirm that
 // takes it all as one change with one Undo. Online only, like the Plan.
 //

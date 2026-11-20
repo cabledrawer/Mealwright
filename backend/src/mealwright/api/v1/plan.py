@@ -1,4 +1,4 @@
-"""The meal plan (docs/dev/api-0.2.md section 6.3a): read in 0.6 PR 2, written in PR 3
+"""The meal plan (docs/dev/api-endpoints.md section 6.3a): read in 0.6 PR 2, written in PR 3
 (planning, moving, copying, removing, switching a meal on or off), each write with its Undo.
 Online only, like the Pantry."""
 

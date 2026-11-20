@@ -1,4 +1,4 @@
-// Batch cook mode (Experimental; 0.8 wave 6, B3; docs/dev/api-0.2.md 6.3f): the session's
+// Batch cook mode (Experimental; 0.8 wave 6, B3; docs/dev/api-endpoints.md 6.3f): the session's
 // schedule and where it is up to, and one "Cooked it" for the whole session.
 
 import { api } from '#lib/api.js';

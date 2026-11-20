@@ -22,7 +22,7 @@
   import { VERSION_WORDS } from '#lib/version.js';
   import { THEME_LABELS, theme } from '#lib/theme.svelte.js';
   import PhoneList from './PhoneList.svelte';
-  import { SETUP_STEPS } from './finishRing.js';
+  import { FINISH_SETUP_WORDS, SETUP_STEPS } from './finishRing.js';
   import { settingsKnown } from './finishSetup.svelte.js';
   import { GROUPS, ITEMS, adminOnly, itemForOldSection, type Item } from './items.js';
   import type { Group, Row } from './sectionIcons.js';
@@ -31,7 +31,6 @@
 
   // --- Where a computer, or an older link, goes -----------------------------------------------
   const FINISH_SETUP = 'Finish setup';
-  const FINISH_SETUP_WORDS = 'A few quick things: amounts, household, shops.';
   const COMPUTER = '(min-width: 768px)';
   onMount(() => {
     const old = page.url.searchParams.get('section') ?? page.url.hash.slice(1);

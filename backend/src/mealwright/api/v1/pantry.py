@@ -1,4 +1,4 @@
-"""The Pantry: stock by place, Use soon, and every stock change (docs/dev/api-0.2.md 6.4)."""
+"""The Pantry: stock by place, Use soon, and every stock change (docs/dev/api-endpoints.md 6.4)."""
 
 from collections import defaultdict
 from collections.abc import Callable, Iterable

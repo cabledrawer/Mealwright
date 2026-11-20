@@ -1,4 +1,4 @@
-"""Cook once, eat for… (docs/dev/api-0.2.md section 6.3a, 0.6 PR 4): making a batch cook from a
+"""Cook once, eat for… (docs/dev/api-endpoints.md section 6.3a, 0.6 PR 4): making a batch cook from a
 planned recipe, placing its tubs, whose they are, the freezer, and "tubs left". Online only, like
 the rest of the plan; each write has its Undo (`POST /changes/{id}/undo`)."""
 

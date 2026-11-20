@@ -1,5 +1,5 @@
 """What every kitchen endpoint needs: the database, who's signed in, their household, and
-the client-made change ID for retries (docs/dev/api-0.2.md section 1.2)."""
+the client-made change ID for retries (docs/dev/api-endpoints.md section 1.2)."""
 
 import re
 from dataclasses import dataclass

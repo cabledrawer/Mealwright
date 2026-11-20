@@ -34,7 +34,7 @@ TUB = Size(9, "tub", "tubs", 500_000)
 @pytest.mark.parametrize(
     ("milli", "counted_as", "size", "word", "expected"),
     [
-        # The examples in docs/dev/api-0.2.md section 5.3 and the mockups.
+        # The examples in docs/dev/api-endpoints.md section 5.3 and the mockups.
         (750_000, "weight", PACKET, None, "about 750\u00a0g · 1½\u00a0packets"),
         (1_000_000, "weight", PACKET, None, "1\u00a0kg · 2\u00a0packets"),
         (400_000, "weight", PACK, None, "400\u00a0g · 2\u00a0packs"),

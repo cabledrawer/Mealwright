@@ -1,4 +1,4 @@
-"""Foods: the Ingredients screen and the ingredient editor (docs/dev/api-0.2.md 6.2)."""
+"""Foods: the Ingredients screen and the ingredient editor (docs/dev/api-endpoints.md 6.2)."""
 
 from collections import defaultdict
 from collections.abc import Callable
@@ -471,7 +471,7 @@ def _written(kitchen: Kitchen, change: Change | None, food: Food | None = None) 
 
 def write(kitchen: Kitchen, response: Response, apply: Callable[[], Change | None]) -> FoodWrite:
     """Apply a change once: a retry with the same Idempotency-Key gets the original change
-    and the food as it is now (docs/dev/api-0.2.md section 1.2)."""
+    and the food as it is now (docs/dev/api-endpoints.md section 1.2)."""
     earlier = replayed(kitchen)
     if earlier is None:
         change = apply()

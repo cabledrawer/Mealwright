@@ -1,4 +1,4 @@
-// Settings › Meal slots and Shops & places (docs/dev/api-0.2.md 4.1, 4.5, 5): ordering,
+// Settings › Meal slots and Shops & places (docs/dev/api-endpoints.md 4.1, 4.5, 5): ordering,
 // renaming, adding and removing. Shops and places can be managed by anyone in the household;
 // meal slots by admins only (the server says so with 403 `admins_only`).
 

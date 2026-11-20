@@ -1,4 +1,4 @@
-"""Recent changes and Undo (docs/dev/api-0.2.md 6.5; spec section 6, "History and undo")."""
+"""Recent changes and Undo (docs/dev/api-endpoints.md 6.5; spec section 6, "History and undo")."""
 
 from collections.abc import Callable
 from datetime import date

@@ -1,4 +1,4 @@
-// The "Cook once, eat for…" sheet's state (docs/dev/api-0.2.md 6.3a): the choices, and the
+// The "Cook once, eat for…" sheet's state (docs/dev/api-endpoints.md 6.3a): the choices, and the
 // server's preview of where the tubs land. The server works the preview out (the screen and the
 // saved batch then agree); every change to a choice asks it again.
 

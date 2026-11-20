@@ -1,6 +1,6 @@
 # API and data for 0.4 (recipes): the data and the API
 
-Written 19 Oct 2026 for the first 0.4 pull request ("Recipes: the data, the API and the loop guard"). The conventions, error shape, `Idempotency-Key` and Undo are the same as in `api-0.2.md`; read its section 1 first. The spec (`docs/spec.md`, section 6 "Recipes") wins wherever this file disagrees with it. The generated OpenAPI (`/api/v1/openapi.json`) is the exact reference.
+Written 19 Oct 2026 for the first 0.4 pull request ("Recipes: the data, the API and the loop guard"). The conventions, error shape, `Idempotency-Key` and Undo are the same as in `api-endpoints.md`; read its section 1 first. The spec (`docs/spec.md`, section 6 "Recipes") wins wherever this file disagrees with it. The generated OpenAPI (`/api/v1/openapi.json`) is the exact reference.
 
 Recipes are online only in 0.4. Nothing here touches the shopping-list sync or the offline queue.
 
@@ -210,7 +210,7 @@ Additive: nothing that was sent before changes.
 - **In and out.** A line in `POST` / `PUT` takes `"optional": true | false` (false when left out, so a save that leaves it out makes the line ordinary again: send it back whole, as the editor does); a step takes the same. A heading with `optional: true` → `422`. `GET` answers `optional` on every line and step. A copy (`POST /recipes/{id}/duplicate`) keeps them. The list rows (`GET /recipes`) say `optional_count`, how many ingredient lines are Optional.
 - **Stock hints ignore Optional lines.** A line that is Optional is left out of `counted`, `missing`, `can_cook_now` and `use_soon` on the list and on `GET /recipes/{id}/stock` (like a line with no amount); the per-line answers of `/stock` still include it, so the plan question can say where it is.
 - **The nutrition note.** `nutrition.possibly_out_of_date` (read-only) is true when some ingredient line changed (its words, amount, unit, size or link, a line added, removed or moved; not its note, and not whether it is Optional) after the figures were last set, and some figure is set. The figures are set when the recipe is made, when a save changes one, or when a save sends `"nutrition_checked": true` (the editor opened by "Update nutrition": the person looked at them and kept them). Nothing is worked out from the ingredients (not in v1); nothing is fetched.
-- **The plan.** `POST /plan/items` takes `optional_use`, the Optional line ids the meal will use; `PUT /plan/items/{id}/optional` changes it (`api-0.2.md`, plan). `GET /plan` items say `optional_skipped`, and their recipe `optional_count`.
+- **The plan.** `POST /plan/items` takes `optional_use`, the Optional line ids the meal will use; `PUT /plan/items/{id}/optional` changes it (`api-endpoints.md`, plan). `GET /plan` items say `optional_skipped`, and their recipe `optional_count`.
 - **Cooked it.** The record's snapshot lines and steps say `optional`; the review proposes, and the record holds, only the lines the meal uses.
 
 ## 7. Steps that wait (0.8 wave 5, M1, F124; cabledrawer 31 Oct and 9 Nov)

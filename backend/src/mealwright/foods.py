@@ -474,7 +474,7 @@ def _float(value: Decimal | None) -> float | None:
 
 
 def ask(kitchen: Kitchen, food: Food, kind: ConversionKind | str, size_name: str = "") -> Problem:
-    """The 409 that asks once (docs/dev/api-0.2.md section 4.4)."""
+    """The 409 that asks once (docs/dev/api-endpoints.md section 4.4)."""
     cup = cup_ml(kitchen.household)
     name = food.name  # always exactly as the household typed it
     row = table_row(food) or table().close(food.name)

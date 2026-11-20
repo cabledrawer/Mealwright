@@ -3,7 +3,7 @@
   // items folded into "In the trolley" at the end of each shop. Ticking puts the item into the
   // pantry (phone: a toast with Change and Undo; desktop: the Put away panel). Every change
   // goes through sendAction (lib/shopping/actions.ts). Docs: docs/dev/sync-protocol.md section 13.
-  // The list is built from the plan on the server (docs/dev/api-0.2.md section 6.3b); the
+  // The list is built from the plan on the server (docs/dev/api-endpoints.md section 6.3b); the
   // "Check you have these" card shows the staples the plan uses.
   import { untrack } from 'svelte';
   import { browser } from '$app/env';

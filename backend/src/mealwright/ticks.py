@@ -1353,7 +1353,7 @@ def _reopen(act: Act, answered: SyncAction, back: list[ListTick]) -> bool:
 
 
 def pantry_undo(kitchen: Kitchen, change: Change, batch: Batch) -> Change:
-    """Undo from Pantry → Recent changes (api-0.2 6.5), keeping lists in step (5.8)."""
+    """Undo from Pantry → Recent changes (api-endpoints 6.5), keeping lists in step (5.8)."""
     from mealwright.api.v1.changes import undo_change
 
     tick = get_tick(kitchen, change.tick_id)

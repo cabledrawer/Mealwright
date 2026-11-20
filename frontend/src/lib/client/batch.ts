@@ -1,4 +1,4 @@
-// Batch cook (Experimental; 0.8 wave 6, B2; docs/dev/api-0.2.md 6.3a-2): suggestions of recipes to
+// Batch cook (Experimental; 0.8 wave 6, B2; docs/dev/api-endpoints.md 6.3a-2): suggestions of recipes to
 // cook together, and the sessions "Plan this batch" makes. Online only, like the rest of the plan.
 
 import { api } from '#lib/api.js';

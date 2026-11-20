@@ -1,6 +1,6 @@
 // Test data for screenshot reviews of Pantry and Ingredients, so the app can be
 // compared with the mockups (which are full of food). Written against the 0.2 API plan
-// (mw-backend docs/dev/api-0.2.md); adjust when the OpenAPI differs.
+// (mw-backend docs/dev/api-endpoints.md); adjust when the OpenAPI differs.
 //
 //   node review/screens.ts --screen Pantry --path /pantry --serve --prepare review/seed-pantry.ts
 //   node review/screens.ts --screen Ingredients --path /recipes/ingredients --serve --prepare review/seed-pantry.ts

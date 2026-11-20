@@ -1,4 +1,4 @@
-// The meal plan (docs/dev/api-0.2.md section 6.3a): read, and written in 0.6 PR 3. Online
+// The meal plan (docs/dev/api-endpoints.md section 6.3a): read, and written in 0.6 PR 3. Online
 // only, like the Pantry: nothing here touches the offline queue.
 
 import { api } from '#lib/api.js';

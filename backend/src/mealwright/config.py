@@ -32,7 +32,8 @@ class Settings(BaseSettings):
     # fake. "*" believes anyone and takes the first address: only safe when the proxy
     # replaces any X-Forwarded-For a visitor sends (Caddy does; nginx by default doesn't).
     trusted_proxies: str = ""
-    # Run the nightly jobs (history thinning, log tidy). Off only in tests.
+    # Run the background jobs (history thinning, removals for good, backups, the daily update
+    # check, single sign-on checks, log tidy; docs/environment.md lists them). Off only in tests.
     run_jobs: bool = True
 
     # How often the live-updates stream sends a keep-alive line and re-checks the sign-in.

@@ -1,7 +1,7 @@
 <script lang="ts">
   // The first-day empty state (canvas tweak "firstDay" of the Today mockups): three ways to
   // begin, whichever is easiest. Shown only while the household has no recipe, nothing in the
-  // pantry and nothing planned (docs/dev/api-0.2.md 6.3c). Words from the mockup.
+  // pantry and nothing planned (docs/dev/api-endpoints.md 6.3c). Words from the mockup.
   import { resolve } from '$app/paths';
 </script>
 

@@ -49,7 +49,7 @@ class Household(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    # Household settings (docs/dev/api-0.2.md section 3.1). Changeable in Settings (0.8).
+    # Household settings (docs/dev/api-endpoints.md section 3.1). Changeable in Settings (0.8).
     # IANA time zone from the admin's browser, never location. Null: not known yet (UTC).
     time_zone: Mapped[str | None] = mapped_column(String(64))
     # 240 or 250 ml. Null: not chosen yet, 250 is used.
@@ -61,7 +61,7 @@ class Household(Base):
     undo_days: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
     history_months: Mapped[int] = mapped_column(Integer, default=12, server_default="12")
     use_soon_days: Mapped[int] = mapped_column(Integer, default=2, server_default="2")
-    # Plan settings (0.6; docs/dev/api-0.2.md section 3.1). Tub life: how long a new tub keeps
+    # Plan settings (0.6; docs/dev/api-endpoints.md section 3.1). Tub life: how long a new tub keeps
     # in the fridge (days) or the freezer (months). Plan ahead: how many days the shopping
     # list looks forward, never asked each time (cabledrawer, 0.6 answer 8). Week start: 1 is
     # Monday ... 7 is Sunday (cabledrawer, 0.6 answer 7).

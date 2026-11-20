@@ -7,12 +7,12 @@ Self-hosted meal-prep and pantry app: recipe → plan → shopping list → pant
 - `docs/BUILD-PLAN.md`: what to build, in which order. Read only "How to use this plan", "Order and why" and the current milestone (find them with `grep -n '^#' docs/BUILD-PLAN.md`) (cabledrawer 25 Oct). Work one milestone at a time and stop for cabledrawer's OK at the end of each.
 - `docs/spec.md`: the source of truth for every product decision. Don't read it all: read the sections the current milestone in BUILD-PLAN names (find them with `grep -n '^#' docs/spec.md`). If code and spec disagree, the spec wins. If neither covers something, ask cabledrawer, then record his answer in the spec, credited to him.
 - `docs/mockups/`: the intended look, exported from the design canvas. Read only the screens the PR touches. Read their markup for exact colours, sizes, wording and layout. Visual reference only, not code to copy.
-- Long docs (cabledrawer 25 Oct): `docs/dev/words.md`, `sync-protocol.md`, `api-0.2.md` and `recipe-import.md` start with a one-page summary. Read that, then grep for what the PR needs; don't read them whole. `docs/dev/progress-archive.md` is grep-only. `CHANGELOG.md` is appended to, never read whole.
+- Long docs (cabledrawer 25 Oct): `docs/dev/words.md`, `sync-protocol.md`, `api-endpoints.md` and `recipe-import.md` start with a one-page summary. Read that, then grep for what the PR needs; don't read them whole. `docs/dev/progress-archive.md` is grep-only. `CHANGELOG.md` is appended to, never read whole.
 
 ## Helpers, skills and hooks (cabledrawer 25 Oct)
 
 - Saved helper types in `.claude/agents/`: `checker` (Sonnet), `security-checker` (Opus, high effort) and `builder` (Sonnet). Each has its model and tools fixed.
-- Skills in `.claude/skills/`: `checker-brief` (how to brief a checker), `security-review` (the security pass), `pr-open` (check, push, open a PR), `release-pr` (a version's release PR) and `lead-rules` (the lead's working rules: read at the start of every lead session; cabledrawer 9 Nov). Follow them instead of writing those steps out each time.
+- Skills in `.claude/skills/`: `checker-brief` (how to brief a checker), `security-review` (the security pass), `pr-open` (check, push, open a PR), `release-pr` (a version's release PR), `builder-brief` (how to brief a builder), `hand-test-fix` (fix one hand-test bug by its F-number) and `lead-rules` (the lead's working rules: read at the start of every lead session; cabledrawer 9 Nov). Follow them instead of writing those steps out each time.
 - A hook formats and lints each file Claude edits (ruff for `backend/`, Prettier and ESLint for `frontend/`), offline, and reports lint problems back to fix.
 
 ## The ethos (never break these)
@@ -30,7 +30,7 @@ The UX rules for the screens live in `frontend/CLAUDE.md` (loaded when you work 
 
 ## Stack
 
-- Backend: Python, FastAPI, SQLAlchemy 2, Alembic, SQLite (Postgres later), APScheduler, Authlib (OIDC), Argon2, Apprise.
+- Backend: Python, FastAPI, SQLAlchemy 2, Alembic, SQLite (Postgres later), APScheduler, Authlib (OIDC), Argon2, Apprise (notifications are not built).
 - Frontend: SvelteKit static build served by the backend; installable PWA; Server-Sent Events for live updates; IndexedDB offline queue.
 - One Docker container, amd64 + arm64, data on `/data`.
 

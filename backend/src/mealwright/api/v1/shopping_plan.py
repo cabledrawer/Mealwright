@@ -1,4 +1,4 @@
-"""The shopping list built from the plan (0.6 PR 5; docs/dev/api-0.2.md section 6.3b).
+"""The shopping list built from the plan (0.6 PR 5; docs/dev/api-endpoints.md section 6.3b).
 
 The list itself is read and written like any other (`/shopping/...`): plan-made items have
 `source = "plan"`. These endpoints bring it up to date and run the "Check you have these"

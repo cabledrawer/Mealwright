@@ -39,7 +39,7 @@ Don't loosen the modes to make a backup tool work: the next start sets them back
 | `# user:` (commented) | Use it only when the data folder can't belong to UID 10001. Set `user:` to the folder's owner; the folder and the user must match. |
 
 Tested on the 0.9 image: with exactly these settings (and a plain-http test setting on a
-loopback port) the container starts, reports healthy, answers `/api/v1/version`, creates the
+loopback port) the container starts, reports healthy, answers `/api/v1/health`, creates the
 first account (a database write) and keeps `/data` at 0700/0600.
 
 ## The image: labels, layer order, a locked build (0.9)

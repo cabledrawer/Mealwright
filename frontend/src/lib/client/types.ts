@@ -1,4 +1,4 @@
-// The shapes of the 0.2 API (docs/dev/api-0.2.md, "API and data for 0.2"). Field names
+// The shapes of the 0.2 API (docs/dev/api-endpoints.md, "API and data for 0.2"). Field names
 // are the API's own (snake_case); only the web app's code sees them, never people.
 
 export interface Ref {

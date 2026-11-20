@@ -2,7 +2,7 @@
 
     {"detail": "There's already an ingredient called Toor dal.", "code": "name_taken", "food_id": 7}
 
-See docs/dev/api-0.2.md section 1.1. Plain HTTPException (just `detail`) is still fine
+See docs/dev/api-endpoints.md section 1.1. Plain HTTPException (just `detail`) is still fine
 where the client only shows the message.
 """
 

@@ -200,7 +200,7 @@ def _sync(phone: Phone, size: int, lost: bool, since: int = 0) -> None:
 
 
 def _use(s: S0, which: int, amount: int) -> None:
-    """A use without a place leaves the freezer alone (api-0.2)."""
+    """A use without a place leaves the freezer alone (api-endpoints)."""
     name, unit = USED[which]
     if unit == "count":
         amount = amount % 3 + 1

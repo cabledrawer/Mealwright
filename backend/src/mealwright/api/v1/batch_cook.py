@@ -1,4 +1,4 @@
-"""Batch cook (Experimental; 0.8 wave 6, B2; docs/dev/api-0.2.md section 6.3b): suggestions of
+"""Batch cook (Experimental; 0.8 wave 6, B2; docs/dev/api-endpoints.md section 6.3b): suggestions of
 recipes to cook together, and the sessions that "Plan this batch" makes. Everything is read from
 and written to the household's own recipes and plan; nothing leaves the server. Online only, like
 the rest of the plan; each write has its Undo (`POST /changes/{id}/undo`). An admin can hide Batch

@@ -4,7 +4,7 @@
   // meal whose day has come (Cooked it · Didn't · Move it). A household with nothing yet sees
   // "Your kitchen is ready". Online only, like the Plan: offline it shows the copy saved last
   // time, with the answer buttons switched off. "Did you buy 2?" shows here as well as on
-  // Shopping (spec, "Offline shopping-list sync"). Docs: docs/dev/api-0.2.md section 6.3c.
+  // Shopping (spec, "Offline shopping-list sync"). Docs: docs/dev/api-endpoints.md section 6.3c.
   import Icon from '#lib/components/Icon.svelte';
   import { downLine } from '#lib/downWords.js';
   import { resolve } from '$app/paths';

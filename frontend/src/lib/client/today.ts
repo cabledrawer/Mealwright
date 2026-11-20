@@ -1,4 +1,4 @@
-// Today (docs/dev/api-0.2.md section 6.3c): what is on the table, and the answers to "Did you
+// Today (docs/dev/api-endpoints.md section 6.3c): what is on the table, and the answers to "Did you
 // cook Sambar?". Online only, like the Plan; the web app keeps the last answer to show offline.
 
 import { api } from '#lib/api.js';

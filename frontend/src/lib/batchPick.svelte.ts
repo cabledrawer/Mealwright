@@ -1,6 +1,6 @@
 // Batch cook's screen (Experimental; 0.8 wave 6, B2; mockups Dark-BatchPick08-Phone and
 // -Desktop): the cook day, how many recipes, the picks the server suggests, Swap and Show me
-// others. The server works the picks out (docs/dev/api-0.2.md 6.3a-2): the same data always gives
+// others. The server works the picks out (docs/dev/api-endpoints.md 6.3a-2): the same data always gives
 // the same picks, so a swap sends the others as `keep` and the swapped one as `skip`, and Show me
 // others sends the whole last set as `skip`.
 

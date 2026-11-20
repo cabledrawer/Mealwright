@@ -1,5 +1,5 @@
 // "Cooked it": what it would take from the pantry, and the confirm that takes it
-// (docs/dev/api-0.2.md section 6.3d). Online only, like the Plan.
+// (docs/dev/api-endpoints.md section 6.3d). Online only, like the Plan.
 
 import { api } from '#lib/api.js';
 import type { AmountOut, Answer, Ask, Change, Ref } from './types';

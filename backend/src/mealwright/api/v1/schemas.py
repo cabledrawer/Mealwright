@@ -1,4 +1,4 @@
-"""JSON shapes shared by the kitchen endpoints (docs/dev/api-0.2.md)."""
+"""JSON shapes shared by the kitchen endpoints (docs/dev/api-endpoints.md)."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -145,7 +145,7 @@ class AmountOut(BaseModel):
 
 
 class Answer(BaseModel):
-    """A reply to an "ask once" question (docs/dev/api-0.2.md section 4.4)."""
+    """A reply to an "ask once" question (docs/dev/api-endpoints.md section 4.4)."""
 
     kind: Literal["weight_per_ml", "item_weight", "size"]
     food_id: StoredInt

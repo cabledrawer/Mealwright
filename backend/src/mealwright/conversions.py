@@ -26,7 +26,7 @@ from mealwright.names import normalise
 
 ConversionKind = Literal["weight_per_ml", "item_weight"]
 
-# Suggestions when nothing better is known (docs/dev/api-0.2.md section 4.4).
+# Suggestions when nothing better is known (docs/dev/api-endpoints.md section 4.4).
 GENERIC_MG_PER_ML = 800
 
 

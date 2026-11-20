@@ -14,7 +14,7 @@
   import { updates } from '#lib/updates.svelte.js';
   import { UPDATE_AVAILABLE } from '#lib/aboutWords.js';
   import FinishRing from './FinishRing.svelte';
-  import { ringWords } from './finishRing.js';
+  import { FINISH_SETUP_WORDS, ringWords } from './finishRing.js';
   import { settingsKnown } from './finishSetup.svelte.js';
   import { GROUPS, adminOnly, itemAtRoute, itemsFor } from './items.js';
 
@@ -33,7 +33,6 @@
   );
 
   const FINISH_SETUP = 'Finish setup';
-  const FINISH_SETUP_WORDS = 'A few quick things: amounts, household, shops.';
   const finishSetup = $derived(admin && settingsKnown.onboardingDone === false);
 
   // Read at the start and each time another page of Settings opens (so the ring is up to date

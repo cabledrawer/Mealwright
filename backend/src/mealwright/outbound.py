@@ -64,9 +64,9 @@ class Connection(StrEnum):
 
     RECIPE_IMPORT = "recipe_import"  # fetch a recipe page the user asked for (0.5)
     RECIPE_PHOTOS = "recipe_photos"  # download that recipe's photos (0.5)
-    UPDATE_CHECK = "update_check"  # GitHub's public release list (0.8)
-    NOTIFICATIONS = "notifications"  # the household's own Apprise targets (0.8)
-    SINGLE_SIGN_ON = "single_sign_on"  # the household's own identity provider (0.8)
+    UPDATE_CHECK = "update_check"  # GitHub's public release list
+    NOTIFICATIONS = "notifications"  # the household's own Apprise targets (not built)
+    SINGLE_SIGN_ON = "single_sign_on"  # the household's own identity provider
 
 
 # Each switch in plain words, as Settings › Outside connections will name it. Log lines about a

@@ -1,5 +1,5 @@
 """The Stocktake: go through the home place by place and say how much of each ingredient there
-is (F118, 0.8; docs/dev/api-0.2.md 6.5a).
+is (F118, 0.8; docs/dev/api-endpoints.md 6.5a).
 
 Each answer is saved as it is tapped, as its own stock change (kind `stocktake`) with Undo. The
 progress is kept on the server for the household (`stocktake_place`, `stocktake_entry`), so it

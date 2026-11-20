@@ -89,11 +89,11 @@ These come from `CLAUDE.md` and the spec. Tests enforce most of them.
 
 - **Every table has `household_id`.** One household can never read or change another's data; another household's id is a 404.
 - **Every schema change is an Alembic migration** in `backend/src/mealwright/migrations/versions/`. They run at start-up, after a safety copy of the database. A test upgrades saved databases from earlier tags (`backend/tests/test_upgrade_from_tags.py`).
-- **API-first.** The web app uses only the public `/api/v1`. No private endpoints. The offline sync protocol is part of the API. Conventions and errors: [api-0.2.md](api-0.2.md).
+- **API-first.** The web app uses only the public `/api/v1`. No private endpoints. The offline sync protocol is part of the API. Conventions and errors: [api-endpoints.md](api-endpoints.md).
 - **The outbound gate.** Every outgoing request goes through `mealwright.outbound`, blocked unless its Privacy switch is on. Never call `httpx`, `requests`, `urllib` or sockets directly. `backend/tests/test_outbound.py` and `test_telemetry.py` fail if you do, and `network_guard.py` refuses stray connections while the app runs.
 - **No telemetry, no location, no CDNs or third-party assets at runtime.** Fonts, icons and scripts are bundled; the CSP in `security.py` stays strict. Recipe photos are downloaded and kept locally.
 - **Words on screen** say "ingredient"; the API says "food". Check wording in [words.md](words.md).
-- **Amounts** are stored as whole thousandths of a base unit (g, ml, count). The server sends the as-sold wording ready made; screens never rebuild it ([api-0.2.md](api-0.2.md) sections 2 and 5).
+- **Amounts** are stored as whole thousandths of a base unit (g, ml, count). The server sends the as-sold wording ready made; screens never rebuild it ([api-endpoints.md](api-endpoints.md) sections 2 and 5).
 
 ## Data on disk
 
@@ -136,4 +136,4 @@ The shopping list works offline. Each change is a small action with its own rand
 
 ## Other dev docs
 
-[build-and-release.md](build-and-release.md) · [sync-protocol.md](sync-protocol.md) · [api-0.2.md](api-0.2.md) and [api-0.4-recipes.md](api-0.4-recipes.md) · [recipe-import.md](recipe-import.md) · [ingredient-reader.md](ingredient-reader.md) · [conversions.md](conversions.md) · [browser-tests.md](browser-tests.md) · [performance.md](performance.md) · [dev-tools-privacy.md](dev-tools-privacy.md) · [words.md](words.md) · [test-on-homelab.md](test-on-homelab.md) · [move-to-github.md](move-to-github.md) · [forgejo-runner.md](forgejo-runner.md) (on hold)
+[build-and-release.md](build-and-release.md) · [sync-protocol.md](sync-protocol.md) · [api-endpoints.md](api-endpoints.md) and [api-0.4-recipes.md](api-0.4-recipes.md) · [recipe-import.md](recipe-import.md) · [ingredient-reader.md](ingredient-reader.md) · [conversions.md](conversions.md) · [browser-tests.md](browser-tests.md) · [performance.md](performance.md) · [dev-tools-privacy.md](dev-tools-privacy.md) · [words.md](words.md) · [test-on-homelab.md](test-on-homelab.md) · [move-to-github.md](move-to-github.md) · [forgejo-runner.md](forgejo-runner.md) (on hold)

@@ -3,7 +3,7 @@
 Every amount is stored as a whole number of thousandths of the food's base unit
 ("milli"): milligrams, microlitres or thousandths of an item. 750 g is 750_000; 1½ onions
 is 1_500. Whole numbers are exact on SQLite and Postgres alike, and quarters, halves and
-whole grams never drift. See docs/dev/api-0.2.md section 2.
+whole grams never drift. See docs/dev/api-endpoints.md section 2.
 
 Display rules (spec section 6, "Decided for 0.2"): as sold to the nearest ¼; count foods
 to the nearest ½; "about" figures to 2 significant figures. Halfway rounds up.
@@ -247,7 +247,7 @@ def as_sold(
     count_word: str | None = None,
     count_word_plural: str | None = None,
 ) -> AsSold:
-    """Show an amount the way it's sold (docs/dev/api-0.2.md section 5).
+    """Show an amount the way it's sold (docs/dev/api-endpoints.md section 5).
 
     - Count foods: a count to the nearest ½, plus "bought as a dozen" when the size isn't 1.
     - Weight and volume foods with a size: that size to the nearest ¼, then the amount. A

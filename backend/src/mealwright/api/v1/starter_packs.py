@@ -1,4 +1,4 @@
-"""Starter ingredient packs (0.8, cabledrawer 7 Nov; docs/dev/api-0.2.md section 4.9).
+"""Starter ingredient packs (0.8, cabledrawer 7 Nov; docs/dev/api-endpoints.md section 4.9).
 
 `GET /starter-packs` lists the seven packs with their items, each marked as already there
 when the household has it by name or other name. `POST /starter-packs/{id}/add` makes the

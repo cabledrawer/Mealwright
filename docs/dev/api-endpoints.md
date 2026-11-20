@@ -1,11 +1,13 @@
-# API and data for 0.2 (foods, pantry, history and undo)
+# The API and its data (foods, pantry, history, undo, plan, shopping, cooking)
 
 Written 17 Oct 2026 as the contract between the backend and the web app for milestone 0.2. It covers both backend pull requests: **foods-and-units** (foods, sizes, other names, stand-ins, merge, places, shops, conversions) and **stock-history-undo** (stock, Use soon, Recent changes, Undo, thinning). The spec (`docs/spec.md`) wins wherever this file disagrees with it. Generated OpenAPI (`/api/v1/openapi.json`) is the exact reference once built; this file is the plan.
+
+**Beta.3 note (proposed, for cabledrawer):** this file began as the 0.2 contract and has been added to ever since, up to 0.9.5; it was called `api-0.2.md` before. Its sections keep their numbers so older references still find them (there is no 6.3e).
 
 
 ## On one page (read this, then grep)
 
-Added 25 Oct (cabledrawer 25 Oct), so nobody reads the whole file: read this page, then only the sections your pull request needs (`grep -n '^##' docs/dev/api-0.2.md`). This page only repeats what is below; where they differ, the section wins.
+Added 25 Oct (cabledrawer 25 Oct), so nobody reads the whole file: read this page, then only the sections your pull request needs (`grep -n '^##' docs/dev/api-endpoints.md`). This page only repeats what is below; where they differ, the section wins.
 
 - **Rules for every endpoint (§1):** everything under `/api/v1`, signed in, same-origin for browser writes, `snake_case`; scoped to the household (another household's id is a 404); errors are `{detail, code}` with a plain sentence the screen shows as it is (§1.1).
 - **Retries (§1.2):** writes may carry an `Idempotency-Key`; the same key again changes nothing and returns the original change. From 0.3 the sync queue sends the same IDs in the body.

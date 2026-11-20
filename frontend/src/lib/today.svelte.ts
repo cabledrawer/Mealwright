@@ -1,4 +1,4 @@
-// Today's data (docs/dev/api-0.2.md 6.3c): one read, and the three answers to "Did you cook
+// Today's data (docs/dev/api-endpoints.md 6.3c): one read, and the three answers to "Did you cook
 // Sambar?". Online only, like the Plan: the last answer is kept in this browser's local storage
 // (wiped at sign-out with every other copy, offline/wipe.ts) so Today still opens offline, with
 // the answer buttons switched off. An answer shows at once (the card goes), is saved with its
