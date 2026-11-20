@@ -2,7 +2,7 @@
 
 Traefik sets `X-Forwarded-For`, `-Proto` and `-Host` itself. A visitor's own copies are dropped unless you list the visitor's network under `forwardedHeaders.trustedIPs`, so leave that out.
 
-Compose, with Traefik's settings as command flags and Mealwright's as labels. Don't publish port 8080:
+Mealwright's own settings are in `compose.example.yaml` (copied to `compose.yaml`; see [install.md](../install.md)), including the fixed Docker network `172.28.10.0/24` that `MEALWRIGHT_TRUSTED_PROXIES` names. Add Traefik to the same file, so it joins that network, with its settings as command flags, and add the labels to the `mealwright` service. Add only this, and don't publish port 8080:
 
 ```yaml
 services:
@@ -22,12 +22,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./letsencrypt:/letsencrypt
   mealwright:
-    image: mealwright:<version>
-    volumes:
-      - ./data:/data
-    environment:
-      # The Docker network Traefik and Mealwright share (docker network inspect <network>).
-      MEALWRIGHT_TRUSTED_PROXIES: "172.18.0.0/16"
     labels:
       - traefik.enable=true
       - traefik.http.routers.mealwright.rule=Host(`mealwright.example.com`)

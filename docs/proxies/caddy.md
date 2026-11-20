@@ -10,17 +10,10 @@ mealwright.example.com {
 }
 ```
 
-Mealwright, in the same compose file as Caddy (so they share a Docker network). Don't publish port 8080:
+Mealwright's own settings are in `compose.example.yaml` (copied to `compose.yaml`; see [install.md](../install.md)), including the fixed Docker network `172.28.10.0/24` that `MEALWRIGHT_TRUSTED_PROXIES` names. Add Caddy to the same file, so it joins that network. Add only this, and don't publish port 8080:
 
 ```yaml
 services:
-  mealwright:
-    image: mealwright:<version>
-    volumes:
-      - ./data:/data
-    environment:
-      # The Docker network Caddy and Mealwright share (docker network inspect <network>).
-      MEALWRIGHT_TRUSTED_PROXIES: "172.18.0.0/16"
   caddy:
     image: caddy:2.10-alpine
     ports: ["80:80", "443:443"]

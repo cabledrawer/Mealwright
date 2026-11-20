@@ -29,12 +29,7 @@ server {
 }
 ```
 
-Use your real certificate (Let's Encrypt with certbot, or your own). Mealwright then needs the nginx container's network:
-
-```yaml
-    environment:
-      MEALWRIGHT_TRUSTED_PROXIES: "172.18.0.0/16"   # or nginx's own address, e.g. 192.0.2.10
-```
+Use your real certificate (Let's Encrypt with certbot, or your own). Run nginx in the same compose file as `compose.example.yaml` (or join its network as an external one), so it is inside the fixed network `172.28.10.0/24` that `MEALWRIGHT_TRUSTED_PROXIES` already names there. If nginx is somewhere else, set `MEALWRIGHT_TRUSTED_PROXIES` to nginx's own address (for example `192.0.2.10`) instead.
 
 Don't publish Mealwright's port 8080. Mealwright sends `X-Accel-Buffering: no` on its live-updates stream, so nginx's buffering needs no change.
 

@@ -21,6 +21,6 @@ proxy_set_header X-Forwarded-Host $host;
 
 NPM already sends `X-Forwarded-For`, `X-Forwarded-Proto` and the host itself. It leaves `X-Forwarded-Host` to you, so add that line (see [nginx](nginx.md)).
 
-**Mealwright's side:** set `MEALWRIGHT_TRUSTED_PROXIES` to the Docker network NPM and Mealwright share (`docker network inspect <network>`, for example `172.18.0.0/16`), or to NPM's own address. Don't publish port 8080.
+**Mealwright's side:** put NPM on the Docker network from `compose.example.yaml` (`172.28.10.0/24`, which `MEALWRIGHT_TRUSTED_PROXIES` already names there), or set `MEALWRIGHT_TRUSTED_PROXIES` to NPM's own address. Don't publish port 8080.
 
 **What was tested:** Nginx Proxy Manager itself was not started. It writes nginx's configuration from the screens above, so `scripts/test-proxies.sh npm` runs nginx with the proxy headers as Nginx Proxy Manager writes them (`Host`, `X-Forwarded-For` appended to, `X-Forwarded-Proto`) plus the line from the Advanced box, and checks that HTTPS answers, sign-in sets the `__Host-` cookie, Mealwright logs the visitor's address (not the proxy's), the right host name is seen, and no "not trusted" warning appears. If your Nginx Proxy Manager version writes its headers differently, tell us.
