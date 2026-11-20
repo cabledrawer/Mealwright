@@ -41,7 +41,6 @@ NEEDS_ADMIN = (
     "{name} is an admin here, and your sign-in server’s groups don’t make this account an "
     "admin. Link it to someone else, or change the groups first."
 )
-GONE = "That sign-in"
 NOT_LINKED = "{name} isn’t linked to an account at your sign-in server."
 LAST_WAY_IN = (
     "{name} is the household’s only admin who can sign in, and only with single sign-on. "
@@ -114,7 +113,7 @@ def unlinked(kitchen: Kitchen, account_id: int) -> SsoAccount:
         or account.issuer != issuer
         or _linked_login(kitchen, account) is not None
     ):
-        raise not_found(GONE)
+        raise not_found("That sign-in")
     return account
 
 

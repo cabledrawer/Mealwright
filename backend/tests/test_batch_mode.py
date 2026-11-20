@@ -96,7 +96,7 @@ def test_the_schedule_is_not_there_before_the_mode_is_started(
     kitchen: TestClient, session: int
 ) -> None:
     refused = kitchen.get(url(session))
-    assert refused.status_code == 404 and refused.json()["code"] == "schedule_not_started"
+    assert refused.status_code == 409 and refused.json()["code"] == "schedule_not_started"
 
 
 def test_starting_makes_the_schedule_with_shared_prep_first_and_keeps_it(

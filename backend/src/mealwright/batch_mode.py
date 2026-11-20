@@ -46,7 +46,7 @@ from mealwright import (
 )
 from mealwright.api.v1.context import Kitchen
 from mealwright.batch_schedule import KitchenIn, LineIn, RecipeIn, StepIn
-from mealwright.errors import Problem
+from mealwright.errors import Problem, not_found
 from mealwright.history import as_utc
 from mealwright.models import (
     BatchCook,
@@ -65,9 +65,9 @@ SNAPSHOT_VERSION = 1
 
 def not_started() -> Problem:
     return Problem(
-        status.HTTP_404_NOT_FOUND,
+        status.HTTP_409_CONFLICT,
         "schedule_not_started",
-        "Batch cook mode hasn't been started for this batch cook.",  # proposed, for cabledrawer
+        "Batch cook mode hasn’t been started for this batch cook.",  # proposed, for cabledrawer
     )
 
 
@@ -435,11 +435,7 @@ def _task(session: BatchSession, task_id: str) -> dict[str, Any]:
     for task in session.schedule["tasks"]:
         if task["id"] == task_id:
             return dict(task)
-    raise Problem(
-        status.HTTP_404_NOT_FOUND,
-        "not_found",
-        "That task isn’t in this schedule.",  # proposed, for cabledrawer
-    )
+    raise not_found("That task")
 
 
 def _row(kitchen: Kitchen, session: BatchSession, task_id: str) -> BatchTaskProgress:

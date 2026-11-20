@@ -121,7 +121,7 @@ def test_a_meal_items_record_is_read_back(kitchen: TestClient) -> None:
     recipe, item_id = _planned(kitchen)
     url = f"{API}/plan/items/{item_id}/cooked"
     answer = kitchen.get(url)
-    assert answer.status_code == 404 and answer.json()["code"] == "not_cooked"
+    assert answer.status_code == 409 and answer.json()["code"] == "not_cooked"
     record_id = _cook(kitchen, recipe["id"], meal_item_id=item_id)
     found = ok(kitchen.get(url))
     assert found["id"] == record_id
@@ -178,7 +178,8 @@ def test_a_batch_cooks_record_is_read_back(kitchen: TestClient) -> None:
     )
     batch_id = made["batch_id"]
     url = f"{API}/plan/batches/{batch_id}/cooked"
-    assert kitchen.get(url).json()["code"] == "not_cooked"
+    answer = kitchen.get(url)
+    assert (answer.status_code, answer.json()["code"]) == (409, "not_cooked")
     _cook(kitchen, recipe["id"], portions=8, batch_id=batch_id)
     found = ok(kitchen.get(url))
     assert (found["batch_id"], found["meal_item_id"], found["portions"]) == (batch_id, None, 8)

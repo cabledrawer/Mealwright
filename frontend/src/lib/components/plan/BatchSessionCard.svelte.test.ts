@@ -59,7 +59,7 @@ function open(schedule: [number, unknown]) {
 
 describe('the Batch cook card while the session is under way (F234)', () => {
   it('says Start batch cook before it is started', async () => {
-    open([404, { detail: 'Not started.', code: 'schedule_not_started' }]);
+    open([409, { detail: 'Not started.', code: 'schedule_not_started' }]);
     await expect.element(page.getByRole('button', { name: 'Start batch cook' })).toBeVisible();
     expect(page.getByRole('button', { name: 'Carry on batch cook' }).elements()).toHaveLength(0);
   });
@@ -91,7 +91,7 @@ describe('the Batch cook card while the session is under way (F234)', () => {
     await vi.waitFor(() => expect(answers).toHaveLength(2));
     const started = JSON.stringify({ session_id: 3, recipes: [recipe(1, null)], tasks: [] });
     const notStarted = JSON.stringify({ detail: 'Not started.', code: 'schedule_not_started' });
-    answers[1]!(new Response(notStarted, { status: 404 })); // the newer answer first
+    answers[1]!(new Response(notStarted, { status: 409 })); // the newer answer first
     answers[0]!(new Response(started, { status: 200 })); // then the older one, late
     await new Promise((r) => setTimeout(r, 50));
     await expect.element(page.getByRole('button', { name: 'Start batch cook' })).toBeVisible();

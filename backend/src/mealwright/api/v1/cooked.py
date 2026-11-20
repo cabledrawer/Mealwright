@@ -43,8 +43,9 @@ class CookedOut(BaseModel):
 
 
 def _not_cooked() -> Problem:
-    # Proposed, for cabledrawer (an API message, not shown on a screen).
-    return Problem(status.HTTP_404_NOT_FOUND, "not_cooked", "It hasn’t been cooked yet.")
+    # Proposed, for cabledrawer (an API message, not shown on a screen). The meal item or batch
+    # is there, just not cooked yet: a state, so 409 (0.9.5-beta.3, D2).
+    return Problem(status.HTTP_409_CONFLICT, "not_cooked", "It hasn’t been cooked yet.")
 
 
 def cooked_out(record: CookedRecord) -> CookedOut:
@@ -63,7 +64,7 @@ def cooked_out(record: CookedRecord) -> CookedOut:
 
 @router.get("/plan/items/{plan_item_id}/cooked")
 def get_item_cooked(plan_item_id: StoredInt, kitchen: Here) -> CookedOut:
-    """What was cooked for this meal item. 404 when it hasn't been cooked."""
+    """What was cooked for this meal item. 409 `not_cooked` when it hasn't been cooked."""
     item = plan.find_item(kitchen, plan_item_id)
     record = cooked.for_meal_item(kitchen.db, kitchen.household_id, item.id)
     if record is None:
@@ -73,7 +74,7 @@ def get_item_cooked(plan_item_id: StoredInt, kitchen: Here) -> CookedOut:
 
 @router.get("/plan/batches/{plan_batch_id}/cooked")
 def get_batch_cooked(plan_batch_id: StoredInt, kitchen: Here) -> CookedOut:
-    """What was cooked for this batch cook. 404 when it hasn't been cooked."""
+    """What was cooked for this batch cook. 409 `not_cooked` when it hasn't been cooked."""
     batch = batches.find_batch(kitchen, plan_batch_id)
     record = cooked.for_batch(kitchen.db, kitchen.household_id, batch.id)
     if record is None:

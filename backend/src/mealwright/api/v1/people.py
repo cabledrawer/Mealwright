@@ -529,7 +529,16 @@ class JoinOut(BaseModel):
     min_password: int
 
 
-GONE = "This sign-in link has been used or has run out. Ask your household’s admin for a new one."
+LINK_GONE = (
+    "This sign-in link has been used or has run out. Ask your household’s admin for a new one."
+)
+
+
+def _link_gone() -> Problem:
+    """An unknown, used or run-out link: one answer for all three (cabledrawer 12 Nov), so a guess
+    never learns which links exist. A 404 with its own code, as the sign-in page words it its
+    own way (0.9.5-beta.3, D2; proposed, for cabledrawer)."""
+    return Problem(status.HTTP_404_NOT_FOUND, "link_gone", LINK_GONE)
 
 
 # Pe2 (cabledrawer 13 Nov): a link opened where someone is already signed in simply refuses, with
@@ -550,7 +559,7 @@ def _nobody_signed_in(request: Request, db: Db) -> None:
 def _link(db: Db, token: str) -> tuple[JoinLink, Login, Member]:
     found = people.find_link(db, token) if len(token) <= 100 else None
     if found is None:
-        raise Problem(status.HTTP_404_NOT_FOUND, "link_gone", GONE)  # cabledrawer 12 Nov
+        raise _link_gone()
     return found
 
 
@@ -590,7 +599,7 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
     link_id = link.id
     # Claim the link first, so of two requests at once only one sets a password.
     if not people.claim_link(db, link):
-        raise Problem(status.HTTP_404_NOT_FOUND, "link_gone", GONE)
+        raise _link_gone()
     ended: list[int] = []
     try:
         login.password_hash = hash_password(body.password)
@@ -625,7 +634,7 @@ def join(body: JoinIn, request: Request, db: Db) -> JoinDone:
         people.give_back_link(db, link)
         raise
     if still is None:
-        raise Problem(status.HTTP_404_NOT_FOUND, "link_gone", GONE)
+        raise _link_gone()
     for session_id in ended:
         request.app.state.events.end_session(session_id)
     how = (

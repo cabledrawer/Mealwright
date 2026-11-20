@@ -225,7 +225,9 @@ def test_a_meal_is_one_confirm_one_change_and_one_undo(kitchen: TestClient) -> N
     assert undo(kitchen, done)["result"] == "done"
     assert amounts(kitchen, dal["id"]) == [300_000] and _listed(kitchen, dal["id"]) == []
     for item in items:
-        assert kitchen.get(f"{API}/plan/items/{item}/cooked").status_code == 404
+        assert (
+            kitchen.get(f"{API}/plan/items/{item}/cooked").status_code == 409
+        )  # not cooked (any more)
 
 
 def test_a_meal_is_all_or_nothing(kitchen: TestClient) -> None:
@@ -289,7 +291,9 @@ def test_undo_puts_back_what_was_taken_even_after_a_newer_use(kitchen: TestClien
     result = undo(kitchen, done)
     assert result["result"] == "done"  # later changes stay; this one is reversed
     assert amounts(kitchen, dal["id"]) == [160_000]
-    assert kitchen.get(f"{API}/plan/items/{item}/cooked").status_code == 404
+    assert (
+        kitchen.get(f"{API}/plan/items/{item}/cooked").status_code == 409
+    )  # not cooked (any more)
 
 
 def test_undo_says_partly_when_a_packet_it_took_from_is_gone(kitchen: TestClient) -> None:
@@ -307,7 +311,9 @@ def test_undo_says_partly_when_a_packet_it_took_from_is_gone(kitchen: TestClient
     assert result["result"] == "partly"
     assert result["message"] == "Put back what could be: some of it has changed again since."
     assert amounts(kitchen, dal["id"]) == [500_000]
-    assert kitchen.get(f"{API}/plan/items/{item}/cooked").status_code == 404
+    assert (
+        kitchen.get(f"{API}/plan/items/{item}/cooked").status_code == 409
+    )  # not cooked (any more)
 
 
 # --- 5. A typed amount with an ask-once answer ----

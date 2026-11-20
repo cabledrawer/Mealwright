@@ -210,15 +210,13 @@ describe('Batch cook mode model', () => {
 
   it('a mark the server refuses is dropped and its words shown', async () => {
     calls.start.mockResolvedValue(two());
-    calls.done.mockRejectedValue(
-      new ApiError(404, 'That task isn’t in this schedule.', 'not_found')
-    );
+    calls.done.mockRejectedValue(new ApiError(404, 'That task isn’t here any more.', 'not_found'));
     const model = new BatchModeModel(7);
     await model.load();
     model.mark('done', 't1');
     await model.flush();
     expect(model.pending).toEqual([]);
-    expect(model.problem).toBe('That task isn’t in this schedule.');
+    expect(model.problem).toBe('That task isn’t here any more.');
   });
 
   it('asks again when another phone marked something, but not while its own marks wait', async () => {

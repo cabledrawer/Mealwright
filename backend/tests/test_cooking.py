@@ -442,7 +442,9 @@ def test_undo_puts_every_packet_back_and_the_item_can_be_cooked_again(kitchen: T
     undone = ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
     assert undone["result"] == "done"
     assert amounts(kitchen, dal["id"]) == [800_000] and amounts(kitchen, onion["id"]) == [5_000]
-    assert kitchen.get(f"{API}/plan/items/{item}/cooked").status_code == 404
+    assert (
+        kitchen.get(f"{API}/plan/items/{item}/cooked").status_code == 409
+    )  # not cooked (any more)
     with db_of(kitchen) as db:
         assert db.scalars(select(CookedRecord)).first() is None
     again = ok(cook(kitchen, item), 201)
@@ -462,7 +464,9 @@ def test_undo_after_the_packet_was_used_by_hand_still_lets_it_be_cooked_again(
     undone = ok(kitchen.post(f"{API}/changes/{done['change']['id']}/undo"))
     assert undone["result"] == "done"
     assert amounts(kitchen, dal["id"]) == [100_000]  # what the meal took comes back; no more
-    assert kitchen.get(f"{API}/plan/items/{item}/cooked").status_code == 404
+    assert (
+        kitchen.get(f"{API}/plan/items/{item}/cooked").status_code == 409
+    )  # not cooked (any more)
 
 
 # --- The record on its own -----------------------------------------------------------------------

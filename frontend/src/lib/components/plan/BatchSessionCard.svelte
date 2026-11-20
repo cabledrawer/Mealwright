@@ -42,7 +42,7 @@
    * Whether batch cook mode has been started for this session (its schedule exists, even when
    * every recipe in it is cooked): then the card says "Carry on batch cook" (proposed, for
    * cabledrawer), not "Start batch cook" (F234, cabledrawer 12 Nov). The plan doesn't say, so the
-   * schedule is asked for (a 404 means it was never started; any other trouble, such as being
+   * schedule is asked for (a 409 means it was never started; any other trouble, such as being
    * offline, leaves the usual button). Asked again when the plan is, only while Batch cook is
    * shown, and an older answer never overrides a newer one.
    */

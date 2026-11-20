@@ -30,7 +30,7 @@ from mealwright.auth import (
     now,
     remember_device,
 )
-from mealwright.errors import Problem, StoredInt, wrong_password
+from mealwright.errors import Problem, StoredInt, not_found, wrong_password
 from mealwright.models import JoinLink, Session
 
 # These lines name an account or an address: Mealwright's own log file only (mealwright.logs).
@@ -187,7 +187,7 @@ def sign_out_one(
     """Sign out one of your other devices. Someone else's session is "not found"."""
     found = db.get(Session, sign_in_id)
     if found is None or found.login_id != signed_in.login.id:
-        raise Problem(status.HTTP_404_NOT_FOUND, "not_found", "That sign-in has already ended.")
+        raise not_found("That sign-in")
     if found.id == signed_in.session.id:
         raise Problem(status.HTTP_409_CONFLICT, "this_device", THIS_ONE)
     db.delete(found)

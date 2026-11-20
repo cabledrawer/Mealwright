@@ -108,7 +108,12 @@ def test_only_your_own_sessions_are_listed(
     assert not mine & theirs
     # Someone else's session can't be ended: it reads as already gone.
     (their_id,) = theirs
-    assert devices["pc"].delete(f"/api/v1/me/sessions/{their_id}").status_code == 404
+    theirs_answer = devices["pc"].delete(f"/api/v1/me/sessions/{their_id}")
+    # The same answer as one already ended (D2): nothing says it is someone else's.
+    assert (theirs_answer.status_code, theirs_answer.json()) == (
+        404,
+        {"detail": "That sign-in isn’t here any more.", "code": "not_found"},
+    )
     assert neighbour.get("/api/v1/me").status_code == 200
 
 
@@ -121,7 +126,12 @@ def test_sign_out_one_device(devices: dict[str, TestClient]) -> None:
     assert devices["ipad"].get("/api/v1/me").status_code == 401
     assert devices["iphone"].get("/api/v1/me").status_code == 200
     # Again: already gone.
-    assert devices["pc"].delete(f"/api/v1/me/sessions/{ipad['id']}").status_code == 404
+    gone = devices["pc"].delete(f"/api/v1/me/sessions/{ipad['id']}")
+    assert gone.status_code == 404
+    assert gone.json() == {
+        "detail": "That sign-in isn’t here any more.",
+        "code": "not_found",
+    }
 
 
 def test_this_device_is_signed_out_with_sign_out_not_here(devices: dict[str, TestClient]) -> None:
