@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   // "Make this its own recipe" under a section heading on Check (F190, cabledrawer 8 Nov; mockups
   // Dark-CheckSections08-Phone and Dark-CheckOwnRecipe08-Phone). Chosen by hand, never automatic.
   // Used under the heading in See all and above a line in One at a time. Once chosen it says so, and
@@ -49,9 +50,12 @@
 
 {#if asking}
   <!-- Loaded when first needed, so the page stays small. -->
-  {#await import('./OwnRecipeSheet.svelte') then { default: OwnRecipeSheet }}
-    <OwnRecipeSheet {flow} {heading} onclose={() => void closed()} />
-  {/await}
+  <Lazy
+    load={() => import('./OwnRecipeSheet.svelte')}
+    {flow}
+    {heading}
+    onclose={() => void closed()}
+  />
 {/if}
 
 <style>

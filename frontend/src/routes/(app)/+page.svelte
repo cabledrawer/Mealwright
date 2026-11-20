@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Today (mockups Main, Desktop-Today and their dark twins): what we are eating, the tubs
   // left, what to use soon, what to buy, the next cook, and "Did you cook Sambar?" for a planned
@@ -242,23 +243,22 @@
 
     <!-- Import from Mealie finished (0.9.5): a note for a day; loaded when there is one. -->
     {#if data.mealie}
-      {#await import('#lib/components/today/MealieNote.svelte') then { default: MealieNote }}
-        {#if data.mealie}<MealieNote note={data.mealie} />{/if}
-      {/await}
+      {#if data.mealie}
+        <Lazy load={() => import('#lib/components/today/MealieNote.svelte')} note={data.mealie} />
+      {/if}
     {/if}
 
     <!-- Start tonight (M3): a recipe with a long wait whose start is today; loaded when there is one. -->
     {#each starts as entry (entry.key)}
-      {#await import('#lib/components/today/StartTonight.svelte') then { default: StartTonight }}
-        <StartTonight
-          {entry}
-          plan={data.plan}
-          {today}
-          slotName={model.slotName(entry.meal.slot_id)}
-          disabled={model.readonly}
-          onchanged={() => void model.load()}
-        />
-      {/await}
+      <Lazy
+        load={() => import('#lib/components/today/StartTonight.svelte')}
+        {entry}
+        plan={data.plan}
+        {today}
+        slotName={model.slotName(entry.meal.slot_id)}
+        disabled={model.readonly}
+        onchanged={() => void model.load()}
+      />
     {/each}
 
     {#each shop.cards as question (question.id)}

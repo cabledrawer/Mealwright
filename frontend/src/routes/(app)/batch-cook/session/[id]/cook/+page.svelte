@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   // Batch cook mode for one session (spec section 6, "Batch cook (Experimental)"): Cook mode for
   // several recipes at once, then one Cooked it for all of them. Full screen, over the app's own
   // menus. Opened from the Plan's Batch cook card. Timers and what is done are kept on the server,
@@ -89,15 +90,14 @@
 
 <!-- Cooked it is only needed at the end: it loads when it is first opened (size limit). -->
 {#if review.target}
-  {#await import('#lib/components/cooked/SessionCooked.svelte') then { default: SessionCooked }}
-    <SessionCooked
-      {review}
-      onclose={closeCooked}
-      onconfirmed={() => {
-        confirmed = true;
-        model.forget(); // the session is cooked: the phone's copy goes, and is not written again
-        closeCooked();
-      }}
-    />
-  {/await}
+  <Lazy
+    load={() => import('#lib/components/cooked/SessionCooked.svelte')}
+    {review}
+    onclose={closeCooked}
+    onconfirmed={() => {
+      confirmed = true;
+      model.forget(); // the session is cooked: the phone's copy goes, and is not written again
+      closeCooked();
+    }}
+  />
 {/if}

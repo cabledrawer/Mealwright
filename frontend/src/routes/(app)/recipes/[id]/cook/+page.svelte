@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Cook mode for one recipe (spec section 6, "Cook mode"). Full screen, over the app's own
   // menus. Leaving with a timer running asks "Stop the timer and leave?" (Stay · Leave), also for
@@ -244,36 +245,34 @@
 {/if}
 
 {#if asking && twoWays && recipe}
-  {#await import('#lib/components/cook/CookMethodAsk.svelte') then { default: CookMethodAsk }}
-    <CookMethodAsk
-      {recipe}
-      item={mealItem()}
-      current={pick}
-      onstart={start}
-      onchanged={() => void model.load()}
-    />
-  {/await}
+  <Lazy
+    load={() => import('#lib/components/cook/CookMethodAsk.svelte')}
+    {recipe}
+    item={mealItem()}
+    current={pick}
+    onstart={start}
+    onchanged={() => void model.load()}
+  />
 {/if}
 
 <!-- Cooked it is only needed at the last step: it loads when it is first opened (size limit). -->
 {#if review.target}
-  {#await import('#lib/components/cooked/CookedReview.svelte') then { default: CookedReview }}
-    <CookedReview
-      {review}
-      {leftover}
-      readonly={network.offline}
-      onclose={closeCooked}
-      onconfirmed={async (leftovers, undoCooked) => {
-        const planned = meal;
-        if (!planned) return true;
-        const result = answered(
-          await model.cooked(planned, leftovers, undoCooked, undefined, review.target?.title)
-        );
-        if (result === true) confirmed = true;
-        return result;
-      }}
-    />
-  {/await}
+  <Lazy
+    load={() => import('#lib/components/cooked/CookedReview.svelte')}
+    {review}
+    {leftover}
+    readonly={network.offline}
+    onclose={closeCooked}
+    onconfirmed={async (leftovers, undoCooked) => {
+      const planned = meal;
+      if (!planned) return true;
+      const result = answered(
+        await model.cooked(planned, leftovers, undoCooked, undefined, review.target?.title)
+      );
+      if (result === true) confirmed = true;
+      return result;
+    }}
+  />
 {/if}
 
 <style>

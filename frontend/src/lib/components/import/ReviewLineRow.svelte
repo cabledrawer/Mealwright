@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   import { KEPT_BY, KEPT_BY_HINT, keptBySaid } from '#lib/keptByWords.js';
   // One ingredient line on the review, as a card (mockup Dark-ImportCheck07-Desktop, spec "The
   // labels", "Learning", "New ingredient from an import", "Treat as staple" and "Importer
@@ -653,25 +654,24 @@
                       : 'That recipe isn’t made ahead, so nothing is kept in the pantry.'}</span
                   >
                 {:else}
-                  {#await import('./PickLine.svelte') then { default: PickLine }}
-                    <PickLine
-                      written=""
-                      words={made.name}
-                      recipesOnly
-                      onpick={(picked) => {
-                        if (picked.kind === 'recipe') {
-                          madeBy = { recipe: picked.recipe, madeAhead: picked.madeAhead };
-                          choosingRecipe = false;
-                          recipeError = false;
-                        }
-                      }}
-                      oncancel={() => {
+                  <Lazy
+                    load={() => import('./PickLine.svelte')}
+                    written=""
+                    words={made.name}
+                    recipesOnly
+                    onpick={(picked) => {
+                      if (picked.kind === 'recipe') {
+                        madeBy = { recipe: picked.recipe, madeAhead: picked.madeAhead };
                         choosingRecipe = false;
-                        // Nothing picked yet: back to Bought.
-                        if (!madeBy) source = 'bought';
-                      }}
-                    />
-                  {/await}
+                        recipeError = false;
+                      }
+                    }}
+                    oncancel={() => {
+                      choosingRecipe = false;
+                      // Nothing picked yet: back to Bought.
+                      if (!madeBy) source = 'bought';
+                    }}
+                  />
                 {/if}
               </div>
               {#if madeBy && !choosingRecipe && madeBy.madeAhead}
@@ -815,19 +815,18 @@
 
         {#if changing}
           {#if changePicking}
-            {#await import('./PickLine.svelte') then { default: PickLine }}
-              <PickLine
-                written={line.written}
-                words={line.words}
-                onpick={changePick}
-                onnew={() => {
-                  changePicking = false;
-                  changing = false;
-                  makeNew(false);
-                }}
-                oncancel={() => (changePicking = false)}
-              />
-            {/await}
+            <Lazy
+              load={() => import('./PickLine.svelte')}
+              written={line.written}
+              words={line.words}
+              onpick={changePick}
+              onnew={() => {
+                changePicking = false;
+                changing = false;
+                makeNew(false);
+              }}
+              oncancel={() => (changePicking = false)}
+            />
           {:else}
             <ChangeLine
               {name}
@@ -849,19 +848,18 @@
         {/if}
         {#if open && !choice}
           {#if picking}
-            {#await import('./PickLine.svelte') then { default: PickLine }}
-              <PickLine
-                written={line.written}
-                words={line.words}
-                recipesOnly={pickingRecipes}
-                onpick={pick}
-                onnew={() => {
-                  picking = false;
-                  makeNew(false);
-                }}
-                oncancel={closePick}
-              />
-            {/await}
+            <Lazy
+              load={() => import('./PickLine.svelte')}
+              written={line.written}
+              words={line.words}
+              recipesOnly={pickingRecipes}
+              onpick={pick}
+              onnew={() => {
+                picking = false;
+                makeNew(false);
+              }}
+              oncancel={closePick}
+            />
           {:else}
             <p class="buttons">
               {#if hereFirst}

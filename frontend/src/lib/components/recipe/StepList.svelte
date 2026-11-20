@@ -1,4 +1,6 @@
 <script lang="ts">
+  import LoadFailed from '#lib/components/LoadFailed.svelte';
+  import Lazy from '#lib/components/Lazy.svelte';
   // The method (cabledrawer 19 Oct, questions 4 and 5): plain text steps, one box each, numbered by
   // themselves, with optional headings. Up to 100, headings included. Reordered like the lines.
   import '#lib/styles/fields.css';
@@ -140,12 +142,14 @@
           <div class="waits" data-waits>
             <span class="waits-title">Waits</span>
             {#if step.wait}
-              {#await import('./WaitFields.svelte') then { default: WaitFields }}
-                <WaitFields
+              {#await import('./WaitFields.svelte') then { default: Loaded }}
+                <Loaded
                   bind:wait={step.wait}
                   bind:invalid={step.waitInvalid}
                   name="step {numberOf(i)}"
                 />
+              {:catch}
+                <LoadFailed />
               {/await}
               <button
                 type="button"
@@ -209,9 +213,11 @@
               >
             </div>
             {#if timingOpen[step.key]}
-              {#await import('./StepTimingFields.svelte') then { default: StepTimingFields }}
-                <StepTimingFields {step} name="step {numberOf(i)}" />
-              {/await}
+              <Lazy
+                load={() => import('./StepTimingFields.svelte')}
+                {step}
+                name="step {numberOf(i)}"
+              />
             {/if}
           </div>
         {/if}

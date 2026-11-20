@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   // Shows the ingredient editor when something asks for it (ingredientEditor.open):
   // a sheet from the bottom on phones, a panel on the right on desktop. A real modal
   // dialog, so focus stays inside, Escape closes it, and focus goes back afterwards.
@@ -34,17 +35,16 @@
       <!-- The editor's code is fetched the first time one is opened, so it isn't part of every
            page (the page size limit); the sheet is shown while it comes (from the cache, once
            the app has been opened). -->
-      {#await import('./IngredientEditor.svelte') then { default: IngredientEditor }}
-        {#key foodId}
-          <IngredientEditor
-            {foodId}
-            variant="sheet"
-            onname={(n) => (name = n)}
-            onclose={() => ingredientEditor.close()}
-            onopen={(id) => ingredientEditor.open(id)}
-          />
-        {/key}
-      {/await}
+      {#key foodId}
+        <Lazy
+          load={() => import('./IngredientEditor.svelte')}
+          {foodId}
+          variant="sheet"
+          onname={(n) => (name = n)}
+          onclose={() => ingredientEditor.close()}
+          onopen={(id) => ingredientEditor.open(id)}
+        />
+      {/key}
     </div>
   {/if}
 </dialog>

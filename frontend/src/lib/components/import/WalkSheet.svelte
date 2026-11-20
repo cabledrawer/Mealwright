@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   // "2 lines aren’t linked yet" (mockup Dark-ImportSave07-Phone, spec "Importer consistency",
   // F4): Save found lines with no ingredient behind them. This goes through them one at a time:
   // New ingredient · Pick another · Treat as staple, with Skip this line, Back to Check and Save
@@ -154,19 +155,18 @@
       </div>
 
       {#if picking}
-        {#await import('./PickLine.svelte') then { default: PickLine }}
-          <PickLine
-            written={line.written}
-            words={line.words}
-            recipesOnly={pickingRecipes}
-            onpick={pick}
-            onnew={() => {
-              picking = false;
-              newIngredient(false);
-            }}
-            oncancel={closePick}
-          />
-        {/await}
+        <Lazy
+          load={() => import('./PickLine.svelte')}
+          written={line.written}
+          words={line.words}
+          recipesOnly={pickingRecipes}
+          onpick={pick}
+          onnew={() => {
+            picking = false;
+            newIngredient(false);
+          }}
+          oncancel={closePick}
+        />
       {:else}
         <div class="choices">
           {#if flow.offersMadeHere(index)}

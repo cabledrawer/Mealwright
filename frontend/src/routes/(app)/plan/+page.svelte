@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // Plan (mockups Plan, Desktop-Plan, Month-Desktop, Month-Phone and their dark twins).
   //   computer / iPad: the week grid or the month, a recipe tray under it; drag by mouse or finger
@@ -591,13 +592,20 @@
         {/if}
         {#if show === 'cook'}
           <!-- Loaded when first asked for, so the Plan's first load stays small (size limit). -->
-          {#await import('#lib/components/plan/PlanCook.svelte') then { default: Cook }}
-            <Cook {actions} days={dayList} onstart={startCooking} onstartahead={startAhead} />
-          {/await}
+          <Lazy
+            load={() => import('#lib/components/plan/PlanCook.svelte')}
+            {actions}
+            days={dayList}
+            onstart={startCooking}
+            onstartahead={startAhead}
+          />
         {:else if show === 'eat'}
-          {#await import('#lib/components/plan/PlanEat.svelte') then { default: Eat }}
-            <Eat {actions} days={dayList} oncook={showCook} />
-          {/await}
+          <Lazy
+            load={() => import('#lib/components/plan/PlanEat.svelte')}
+            {actions}
+            days={dayList}
+            oncook={showCook}
+          />
         {:else if weekAsList}
           <PlanDays {actions} days={dayList} />
         {:else}
@@ -640,47 +648,53 @@
 <!-- The menu, Cook once, Plan a recipe and No portions are fetched when first asked for, so the
      Plan's first load stays under the size limit. -->
 {#if sheetAsked}
-  {#await import('#lib/components/plan/PlanSheet.svelte') then { default: PlanSheet }}
-    <PlanSheet {actions} target={sheet} onclose={() => (sheet = null)} />
-  {/await}
+  <Lazy
+    load={() => import('#lib/components/plan/PlanSheet.svelte')}
+    {actions}
+    target={sheet}
+    onclose={() => (sheet = null)}
+  />
 {/if}
 {#if cookingAsked}
-  {#await import('#lib/components/plan/CookOnce.svelte') then { default: CookOnce }}
-    <CookOnce {actions} target={cooking} onclose={() => (cooking = null)} />
-  {/await}
+  <Lazy
+    load={() => import('#lib/components/plan/CookOnce.svelte')}
+    {actions}
+    target={cooking}
+    onclose={() => (cooking = null)}
+  />
 {/if}
 {#if cookedAsked}
-  {#await import('#lib/components/cooked/CookedReview.svelte') then { default: CookedReview }}
-    <CookedReview
-      {review}
-      {leftover}
-      {readonly}
-      onclose={closeCooked}
-      onconfirmed={async (leftovers, undoCooked, eatOn) => {
-        const meal = cookedMeal;
-        if (!meal) return true;
-        const placed: Placed = { undo: null };
-        const title = review.target?.title; // F161: only what this press cooked
-        const result = answered(
-          await model.cooked(meal, leftovers, undoCooked, async () => placed.undo?.(), title)
-        );
-        const name = meal.items.find((i) => i.id === leftovers?.item_id)?.recipe?.name;
-        if (result === true && eatOn && leftovers && name)
-          await eatLeftover(placed, name, meal.date, leftovers.count, eatOn);
-        return result;
-      }}
-    />
-  {/await}
+  <Lazy
+    load={() => import('#lib/components/cooked/CookedReview.svelte')}
+    {review}
+    {leftover}
+    {readonly}
+    onclose={closeCooked}
+    onconfirmed={async (leftovers, undoCooked, eatOn) => {
+      const meal = cookedMeal;
+      if (!meal) return true;
+      const placed: Placed = { undo: null };
+      const title = review.target?.title; // F161: only what this press cooked
+      const result = answered(
+        await model.cooked(meal, leftovers, undoCooked, async () => placed.undo?.(), title)
+      );
+      const name = meal.items.find((i) => i.id === leftovers?.item_id)?.recipe?.name;
+      if (result === true && eatOn && leftovers && name)
+        await eatLeftover(placed, name, meal.date, leftovers.count, eatOn);
+      return result;
+    }}
+  />
 {/if}
 {#if addingAsked}
-  {#await import('#lib/components/plan/PlanAdd.svelte') then { default: PlanAdd }}
-    <PlanAdd {actions} target={adding} onclose={() => (adding = null)} />
-  {/await}
+  <Lazy
+    load={() => import('#lib/components/plan/PlanAdd.svelte')}
+    {actions}
+    target={adding}
+    onclose={() => (adding = null)}
+  />
 {/if}
 {#if model.noPortions || noPortionsAsked}
-  {#await import('#lib/components/plan/NoPortions.svelte') then { default: NoPortions }}
-    <NoPortions {actions} />
-  {/await}
+  <Lazy load={() => import('#lib/components/plan/NoPortions.svelte')} {actions} />
 {/if}
 
 {#if drag.carried}

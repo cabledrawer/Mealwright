@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   // The month on a phone (mockups Month-Phone, Dark-PlanMonth08-Phone; F149): a grid with a dot for
   // each meal (Eat) and a blue ring on cook days (Cook), both in Both. Tapping a day shows what
   // that switch says underneath: what is eaten, what is cooked (with Start cooking), or both.
@@ -84,14 +85,17 @@
     <div class="list">
       <!-- Loaded when first asked for, so the Plan's first load stays small (size limit). -->
       {#if show === 'cook' || (show === 'both' && cooksOnSelected)}
-        {#await import('./PlanCook.svelte') then { default: Cook }}
-          <Cook {actions} days={[selected]} {onstart} {onstartahead} summary={false} />
-        {/await}
+        <Lazy
+          load={() => import('./PlanCook.svelte')}
+          {actions}
+          days={[selected]}
+          {onstart}
+          {onstartahead}
+          summary={false}
+        />
       {/if}
       {#if show === 'eat'}
-        {#await import('./PlanEat.svelte') then { default: Eat }}
-          <Eat {actions} days={[selected]} {oncook} />
-        {/await}
+        <Lazy load={() => import('./PlanEat.svelte')} {actions} days={[selected]} {oncook} />
       {:else if show === 'both'}
         <!-- Both keeps the day's meals with their + (the phone's Both list), under the cooking. -->
         <PlanDays {actions} days={[selected]} />

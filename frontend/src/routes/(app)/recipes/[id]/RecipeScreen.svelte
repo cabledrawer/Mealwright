@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   import Loading from '#lib/components/Loading.svelte';
   import { timeParts, timeWords, waitLength, waitName } from '#lib/timeWords.js';
   // The recipe page on the phone (mockups Recipe and Dark-Phone-Recipe, spec section 6 "Recipes"
@@ -521,9 +522,12 @@
 </div>
 
 {#if planActions}
-  {#await import('#lib/components/plan/PlanSheet.svelte') then { default: PlanSheet }}
-    <PlanSheet actions={planActions} target={planning} onclose={() => (planning = null)} />
-  {/await}
+  <Lazy
+    load={() => import('#lib/components/plan/PlanSheet.svelte')}
+    actions={planActions}
+    target={planning}
+    onclose={() => (planning = null)}
+  />
 {/if}
 
 <style>

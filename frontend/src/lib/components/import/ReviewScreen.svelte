@@ -1,4 +1,6 @@
 <script lang="ts">
+  import LoadFailed from '#lib/components/LoadFailed.svelte';
+  import Lazy from '#lib/components/Lazy.svelte';
   // "Check before saving" (mockups Import05-Phone and Import05-Desktop, ImportReview05-*, and
   // their dark versions; spec "Import review" and "The labels"): the recipe's name, serves and
   // time, whether its photo came, the counts, every ingredient line as written → how it was
@@ -516,9 +518,12 @@
                   </div>
                 {/if}
                 {#if review.steps[step.at]?.wait}
-                  {#await import('./StepWait.svelte') then { default: StepWait }}
-                    <StepWait {flow} step={review.steps[step.at]!} name="step {number}" />
-                  {/await}
+                  <Lazy
+                    load={() => import('./StepWait.svelte')}
+                    {flow}
+                    step={review.steps[step.at]!}
+                    name="step {number}"
+                  />
                 {/if}
                 {#if pieces && flow.previewStep !== step.at}
                   <span class="long">
@@ -567,9 +572,7 @@
         </p>
       {/if}
       {#if review.second_method}
-        {#await import('./ImportMethods.svelte') then { default: ImportMethods }}
-          <ImportMethods {flow} {review} />
-        {/await}
+        <Lazy load={() => import('./ImportMethods.svelte')} {flow} {review} />
       {/if}
       {#if review.steps_cut}
         <p class="note">The page had more than 100 steps. The first 100 are here.</p>
@@ -606,8 +609,8 @@
 
 {#if mode === 'one'}
   <!-- One at a time loads the first time it is asked for, so the import page stays small. -->
-  {#await import('./OneAtATime.svelte') then { default: OneAtATime }}
-    <OneAtATime
+  {#await import('./OneAtATime.svelte') then { default: Loaded }}
+    <Loaded
       {flow}
       bind:boxOpen={oneBox}
       closing={flow.keeping && !(network.offline || network.deviceOffline)}
@@ -618,6 +621,8 @@
       ondiscard={askDiscard}
       {discardProblem}
     />
+  {:catch}
+    <LoadFailed />
   {/await}
 {:else if mode === 'focus'}
   <CheckFrame>
@@ -732,22 +737,23 @@
 
 {#if flow.walk}
   <!-- Loaded when first needed, so the page stays small (F111). -->
-  {#await import('./WalkSheet.svelte') then { default: WalkSheet }}
-    <WalkSheet {flow} onsave={async () => finish(await flow.saveAnyway())} />
-  {/await}
+  <Lazy
+    load={() => import('./WalkSheet.svelte')}
+    {flow}
+    onsave={async () => finish(await flow.saveAnyway())}
+  />
 {/if}
 
 {#if discarding}
   <!-- Loaded when first needed, so the page stays small. -->
-  {#await import('./DiscardSheet.svelte') then { default: DiscardSheet }}
-    <DiscardSheet
-      name={flow.name}
-      kept={flow.draftId !== null}
-      busy={discardBusy}
-      ondiscard={() => void discardDraft()}
-      onstay={() => (discarding = false)}
-    />
-  {/await}
+  <Lazy
+    load={() => import('./DiscardSheet.svelte')}
+    name={flow.name}
+    kept={flow.draftId !== null}
+    busy={discardBusy}
+    ondiscard={() => void discardDraft()}
+    onstay={() => (discarding = false)}
+  />
 {/if}
 
 {#if asking}

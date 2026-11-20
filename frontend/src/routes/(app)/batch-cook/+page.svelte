@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   // Batch cook (Experimental; mockups Dark-BatchPick08-Phone and -Desktop): recipes picked from
   // your own to cook together in one session. The computer has its own sidebar entry; on the phone
   // this is the Plan's third tab (Week | Month | Batch cook). "Plan this batch" sends each recipe
@@ -433,9 +434,13 @@
 
 <!-- The Cook once sheets are fetched when "Plan this batch" is first pressed (size limit). -->
 {#if flowAsked}
-  {#await import('#lib/components/plan/CookOnce.svelte') then { default: CookOnce }}
-    <CookOnce actions={{ model: plan, readonly }} target={null} {ahead} onclose={cancelFlow} />
-  {/await}
+  <Lazy
+    load={() => import('#lib/components/plan/CookOnce.svelte')}
+    actions={{ model: plan, readonly }}
+    target={null}
+    {ahead}
+    onclose={cancelFlow}
+  />
 {/if}
 
 <style>

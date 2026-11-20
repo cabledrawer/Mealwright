@@ -5,8 +5,8 @@
 import type { Component } from 'svelte';
 import { toasts } from './toast.svelte';
 
-export function couldntOpen() {
-  toasts.problem('Couldn’t open that. Try again.');
+export function couldntOpen(retry?: () => void) {
+  toasts.problem('Couldn’t open that. Try again.', retry);
 }
 
 export class LazyCode {
@@ -29,7 +29,7 @@ export class LazyCode {
       (module) => module.default,
       () => {
         if (this.code === code) this.code = null;
-        couldntOpen();
+        couldntOpen(() => this.load(() => {}));
         onFail();
         return null;
       }
@@ -47,7 +47,7 @@ export async function fetchCode<T>(load: () => Promise<T>): Promise<T | null> {
   try {
     return await load();
   } catch {
-    couldntOpen();
+    couldntOpen(() => void fetchCode(load));
     return null;
   }
 }

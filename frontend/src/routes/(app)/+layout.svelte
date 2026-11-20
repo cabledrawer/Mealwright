@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   // The app itself, for someone signed in. +layout.ts sends everyone else to sign in.
   import { untrack, type Snippet } from 'svelte';
   import { goto } from '$app/navigation';
@@ -220,9 +221,7 @@
   <!-- "Add a starter pack" (R4); fetched when first opened, then kept so closing it
        hands focus back as before (size limit). -->
   {#if starterPacks.wanted}
-    {#await import('#lib/components/StarterPacks.svelte') then { default: StarterPacks }}
-      <StarterPacks />
-    {/await}
+    <Lazy load={() => import('#lib/components/StarterPacks.svelte')} />
   {/if}
   <Toast />
 {/if}

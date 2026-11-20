@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   import Loading from '#lib/components/Loading.svelte';
   // All recipes (mockups Recipes-Phone and Dark-Recipes-Phone, spec "Recipes navigation" and
   // cabledrawer's answers of 19 and 20 Oct): the count in the title, the Ingredients button,
@@ -151,23 +152,20 @@
 <svelte:document onvisibilitychange={onVisible} />
 
 {#if managing}
-  {#await import('./ManageTags.svelte') then { default: ManageTags }}
-    <ManageTags
-      onclose={() => {
-        managing = false;
-        void list.load();
-      }}
-    />
-  {/await}
+  <Lazy
+    load={() => import('./ManageTags.svelte')}
+    onclose={() => {
+      managing = false;
+      void list.load();
+    }}
+  />
 {/if}
 
 {#snippet newRecipe()}
   <!-- Loaded when the list opens, so its code isn't in every Recipes page (the page size limit);
        the slot keeps the button's room meanwhile. -->
   <div class="new-slot">
-    {#await import('./NewRecipeChoice.svelte') then { default: NewRecipeChoice }}
-      <NewRecipeChoice />
-    {/await}
+    <Lazy load={() => import('./NewRecipeChoice.svelte')} />
   </div>
 {/snippet}
 

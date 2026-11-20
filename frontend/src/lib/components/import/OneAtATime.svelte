@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   // One at a time (F141, cabledrawer 3 Nov; mockups Dark-ImportCheckOne07-Phone and
   // Dark-ImportCheckOneStep07-Phone): each line that needs the person, then every method step
   // (not only long ones), one to a screen, with the options the Check screen offers for that line
@@ -403,17 +404,13 @@
             <span id="optional-step-{nth}">Optional step</span>
           </p>
           {#if step.wait}
-            {#await import('./StepWait.svelte') then { default: StepWait }}
-              <StepWait {flow} {step} name="step {nth}" />
-            {/await}
+            <Lazy load={() => import('./StepWait.svelte')} {flow} {step} name="step {nth}" />
           {/if}
         </div>
       {/if}
 
       {#if nth === 1 && flow.review?.second_method}
-        {#await import('./ImportMethods.svelte') then { default: ImportMethods }}
-          <ImportMethods {flow} review={flow.review} />
-        {/await}
+        <Lazy load={() => import('./ImportMethods.svelte')} {flow} review={flow.review} />
       {/if}
 
       {#if previewing && pieces}

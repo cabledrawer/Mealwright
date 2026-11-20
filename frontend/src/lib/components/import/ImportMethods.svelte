@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Lazy from '#lib/components/Lazy.svelte';
   // Check, two ways of cooking it found (M2, mockup CheckWait08): "Two ways to cook this:
   // Stovetop and Instant Pot. They're kept as two methods, and Cook mode asks which one on the
   // day." and the second way's steps, so both are looked at before Save. Both ways start with the
@@ -30,9 +31,12 @@
           <li>
             {step.text}
             {#if step.wait}
-              {#await import('./StepWait.svelte') then { default: StepWait }}
-                <StepWait {flow} {step} name="{second.name} step {n + 1}" />
-              {/await}
+              <Lazy
+                load={() => import('./StepWait.svelte')}
+                {flow}
+                {step}
+                name="{second.name} step {n + 1}"
+              />
             {/if}
           </li>
         {/each}
