@@ -120,11 +120,11 @@
       <p class="sub">A new size needs your Mealwright server. Try again when it answers.</p>
     {/if}
     <ButtonRow>
+      <Button quiet onclick={onclose}>Cancel</Button>
       <Button
         disabled={!choice || busy || (needsServer && network.offline)}
         onclick={() => void use()}>Use this</Button
       >
-      <Button quiet onclick={onclose}>Cancel</Button>
     </ButtonRow>
   </div>
 </Sheet>

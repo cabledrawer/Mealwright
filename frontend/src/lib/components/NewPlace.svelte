@@ -124,8 +124,8 @@
   </div>
   {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
   <ButtonRow>
-    <Button disabled={busy} onclick={() => void add()}>Add place</Button>
     <Button quiet onclick={cancel}>Cancel</Button>
+    <Button disabled={busy} onclick={() => void add()}>Add place</Button>
   </ButtonRow>
 </div>
 

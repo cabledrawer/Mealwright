@@ -113,8 +113,8 @@
       </p>{/if}
 
     <ButtonRow>
-      <Button onclick={onclose}>Back to my edit</Button>
       <Button quiet disabled={busy} onclick={onsave}>Save mine anyway</Button>
+      <Button onclick={onclose}>Back to my edit</Button>
     </ButtonRow>
   </div>
 </Sheet>

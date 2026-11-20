@@ -191,8 +191,8 @@
         </p>
         <output class="mono" aria-label="Your new token">{made}</output>
         <ButtonRow>
-          <Button onclick={() => void copy()}>{copier.label('Copy')}</Button>
           <Button quiet onclick={done}>Done</Button>
+          <Button onclick={() => void copy()}>{copier.label('Copy')}</Button>
         </ButtonRow>
       </div>
     {:else}
@@ -278,8 +278,8 @@
   >
     <p class="ask" id="{uid}-ask-d">Apps using it stop at once. It can’t be brought back.</p>
     <ButtonRow>
-      <Button danger outline onclick={() => void remove()}>Delete</Button>
       <Button quiet id="{uid}-keep" onclick={closeAsk}>Keep it</Button>
+      <Button danger outline onclick={() => void remove()}>Delete</Button>
     </ButtonRow>
   </Sheet>
 {/if}

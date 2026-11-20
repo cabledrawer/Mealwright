@@ -374,11 +374,11 @@
       </div>
 
       <ButtonRow>
+        <Button quiet onclick={onclose}>Cancel</Button>
         <Button disabled={actions.readonly || !cook.preview} onclick={save}
           >{#if ahead}{ahead.last ? 'Plan this batch' : 'Next recipe'}{:else}Add {cook.count}
             {plural(cook.count, 'tub', 'tubs')} to the plan{/if}</Button
         >
-        <Button quiet onclick={onclose}>Cancel</Button>
       </ButtonRow>
     </div>
   </Sheet>

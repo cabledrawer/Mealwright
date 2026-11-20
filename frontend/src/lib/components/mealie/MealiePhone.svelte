@@ -221,12 +221,12 @@
     {#if flow.admin}
       <div class="foot">
         <ButtonRow>
+          <Button outline disabled={flow.busy || offline} onclick={() => void flow.cancel()}
+            >Cancel</Button
+          >
           <Button
             disabled={flow.busy || offline || flow.chosen === 0}
             onclick={() => void flow.start()}>{bringInWords(flow.chosen)}</Button
-          >
-          <Button outline disabled={flow.busy || offline} onclick={() => void flow.cancel()}
-            >Cancel</Button
           >
         </ButtonRow>
       </div>

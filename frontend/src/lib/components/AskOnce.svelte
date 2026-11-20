@@ -58,8 +58,8 @@
         </div>
       {/if}
       <ButtonRow>
-        <Button type="submit" disabled={!valid}>Save</Button>
         <Button quiet onclick={() => askOnce.dismiss()}>Not now</Button>
+        <Button type="submit" disabled={!valid}>Save</Button>
       </ButtonRow>
     </form>
   </Sheet>

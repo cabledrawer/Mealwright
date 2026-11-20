@@ -140,8 +140,8 @@
       {/if}
 
       <ButtonRow>
-        <Button disabled={!ready} onclick={go}>{confirmWords}</Button>
         <Button quiet onclick={onclose}>Cancel</Button>
+        <Button disabled={!ready} onclick={go}>{confirmWords}</Button>
       </ButtonRow>
     </div>
   </Sheet>

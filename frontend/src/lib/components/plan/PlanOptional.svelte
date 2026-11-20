@@ -68,8 +68,8 @@
         </p>
       </fieldset>
       <ButtonRow>
-        <Button type="submit">{question.button}</Button>
         <Button quiet onclick={() => optionalAsk.dismiss()}>Cancel</Button>
+        <Button type="submit">{question.button}</Button>
       </ButtonRow>
     </form>
   </Sheet>

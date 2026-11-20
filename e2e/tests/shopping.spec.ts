@@ -1365,13 +1365,12 @@ test("desktop: a keyboard alone opens the amount box, saves it, and answers the 
     name: `Remove ${name} from the shopping list?`,
   });
   await expect(ask.getByRole("button", { name: "Keep it" })).toBeFocused();
-  // Shift+Tab reaches Remove and Tab goes back; Escape keeps the line and gives the focus back.
-  // (The dialog's foot has the main button first in the source, so Remove comes before Keep it.)
-  await page.keyboard.press("Shift+Tab");
+  // Tab reaches Remove and Shift+Tab goes back; Escape keeps the line and gives the focus back.
+  await page.keyboard.press("Tab");
   await expect(
     ask.getByRole("button", { name: "Remove", exact: true }),
   ).toBeFocused();
-  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
   await expect(ask.getByRole("button", { name: "Keep it" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(ask).toHaveCount(0);
@@ -1381,7 +1380,7 @@ test("desktop: a keyboard alone opens the amount box, saves it, and answers the 
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
-  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name, exact: true })).toHaveCount(0);
 });

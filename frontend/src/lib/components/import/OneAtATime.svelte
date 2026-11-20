@@ -514,7 +514,7 @@
         {/if}
       {/if}
       {#if discardProblem}<p class="error" role="alert">{discardProblem}</p>{/if}
-      <ButtonRow>
+      <ButtonRow stack>
         <!-- One button for Next and Save recipe, so the focus stays on it at the last screen. -->
         <Button
           disabled={editing !== null || (last && (flow.saving || closing || network.offline))}

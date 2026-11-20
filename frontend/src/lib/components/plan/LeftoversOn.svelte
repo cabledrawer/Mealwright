@@ -273,8 +273,8 @@
   {/if}
 
   <ButtonRow>
-    <Button disabled={!ready} onclick={plan}>{planWords(tubCount, picked.length)}</Button>
     <Button quiet onclick={onback}>Back</Button>
+    <Button disabled={!ready} onclick={plan}>{planWords(tubCount, picked.length)}</Button>
   </ButtonRow>
 </div>
 

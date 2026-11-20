@@ -178,12 +178,12 @@
         </p>
       </fieldset>
       <ButtonRow>
-        <Button type="submit">{question.button}</Button>
         {#if question.adding}
           <!-- proposed, for cabledrawer -->
           <Button quiet onclick={() => startAsk.skip()}>No time yet</Button>
         {/if}
         <Button quiet onclick={() => startAsk.dismiss()}>Cancel</Button>
+        <Button type="submit">{question.button}</Button>
       </ButtonRow>
     </form>
   </Sheet>

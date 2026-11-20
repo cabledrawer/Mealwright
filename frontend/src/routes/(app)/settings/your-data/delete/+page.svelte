@@ -225,8 +225,8 @@
           </label>
         {/if}
         <ButtonRow>
-          <Button type="submit" disabled={!backupReady}>{BACK_UP_NOW_CONFIRM}</Button>
           <Button quiet onclick={() => (replacing = false)}>Cancel</Button>
+          <Button type="submit" disabled={!backupReady}>{BACK_UP_NOW_CONFIRM}</Button>
         </ButtonRow>
       </form>
     {/if}

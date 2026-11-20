@@ -261,12 +261,12 @@
 
       {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
       <ButtonRow>
+        <Button quiet onclick={() => newIngredient.cancel()}>Cancel</Button>
         <Button
           type="submit"
           aria-describedby={needsNetwork ? `${uid}-down` : undefined}
           disabled={!typed || busy || needsNetwork}>Add</Button
         >
-        <Button quiet onclick={() => newIngredient.cancel()}>Cancel</Button>
       </ButtonRow>
       {#if needsNetwork}<p class="hint down" id="{uid}-down">{offlineReason}</p>{/if}
     </form>

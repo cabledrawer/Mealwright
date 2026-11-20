@@ -120,14 +120,14 @@
        taking a session off included, is refused then (cabledrawer 11 Nov). -->
   {#if batchCook.shown}
     <ButtonRow>
-      <Button disabled={actions.readonly || batches.length === 0} onclick={start}
-        >{underWay ? 'Carry on batch cook' : 'Start batch cook'}</Button
-      >
       <Button quiet disabled={actions.readonly} onclick={change}>Change</Button>
       <Button
         quiet
         disabled={actions.readonly}
         onclick={() => void actions.model.removeBatch(session.id)}>Remove</Button
+      >
+      <Button disabled={actions.readonly || batches.length === 0} onclick={start}
+        >{underWay ? 'Carry on batch cook' : 'Start batch cook'}</Button
       >
     </ButtonRow>
   {/if}

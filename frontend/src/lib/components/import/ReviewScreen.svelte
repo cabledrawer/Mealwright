@@ -664,7 +664,7 @@
           {/if}
         {/if}
         {#if discardProblem}<p class="error" role="alert">{discardProblem}</p>{/if}
-        <ButtonRow>
+        <ButtonRow stack>
           <Button
             disabled={flow.saving || flow.keeping || editing !== null || network.offline}
             onclick={() => void save()}
@@ -704,7 +704,7 @@
       <p class="error" role="alert">Line {flow.saveProblem.line + 1}: {flow.saveProblem.message}</p>
     {/if}
     {#if discardProblem}<p class="error" role="alert">{discardProblem}</p>{/if}
-    <ButtonRow>
+    <ButtonRow stack>
       <Button
         disabled={flow.saving || editing !== null || network.offline}
         onclick={() => void save()}

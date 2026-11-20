@@ -223,8 +223,8 @@
           </p>
         {/if}
         <ButtonRow>
-          <Button disabled={busy || !intoTag} onclick={() => void doMerge()}>Merge</Button>
           <Button outline onclick={cancelMerge}>Cancel</Button>
+          <Button disabled={busy || !intoTag} onclick={() => void doMerge()}>Merge</Button>
         </ButtonRow>
       </div>
     {/if}

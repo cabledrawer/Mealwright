@@ -35,8 +35,8 @@
     </div>
   </div>
   <ButtonRow>
-    <Button onclick={() => void model.answerCard(question.id, 'two')}>{question.yes}</Button>
     <Button quiet onclick={() => void model.answerCard(question.id, 'one')}>{question.no}</Button>
+    <Button onclick={() => void model.answerCard(question.id, 'two')}>{question.yes}</Button>
   </ButtonRow>
 </section>
 

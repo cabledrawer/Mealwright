@@ -228,8 +228,8 @@
             {/each}
           </div>
           <ButtonRow>
-            <Button type="submit" disabled={!noteReady}>Add note</Button>
             <Button quiet onclick={() => (noting = false)}>Back</Button>
+            <Button type="submit" disabled={!noteReady}>Add note</Button>
           </ButtonRow>
         </form>
       {:else}

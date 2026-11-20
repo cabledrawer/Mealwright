@@ -100,8 +100,8 @@
       {#if problem}
         <p class="mw-error" role="alert">{problem}</p>
         <ButtonRow>
-          <Button onclick={() => void load()}>Try again</Button>
           <Button quiet onclick={() => starterPacks.close()}>Close</Button>
+          <Button onclick={() => void load()}>Try again</Button>
         </ButtonRow>
       {:else if !loaded}
         <Loading />
@@ -167,13 +167,13 @@
           {/each}
         </ul>
         <ButtonRow>
+          <Button quiet onclick={() => (pickedId = null)}>Back</Button>
           <Button
             type="submit"
             aria-describedby={network.offline ? `${uid}-down` : undefined}
             disabled={!chosen.length || network.offline}
             >{chosen.length === 1 ? 'Add 1 ingredient' : `Add ${chosen.length} ingredients`}</Button
           >
-          <Button quiet onclick={() => (pickedId = null)}>Back</Button>
         </ButtonRow>
         {#if network.offline}<p class="hint" id="{uid}-down">{offlineReason}</p>{/if}
       {/if}

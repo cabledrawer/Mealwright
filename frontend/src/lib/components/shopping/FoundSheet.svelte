@@ -208,10 +208,10 @@
       </select>
     </label>
     <ButtonRow>
+      <Button quiet onclick={onclose}>Cancel</Button>
       <Button disabled={picked !== 'other' && !chosen} onclick={put}
         >Put {chosen ? words(chosen.amount, chosen.sizeId) : 'it'} in the pantry</Button
       >
-      <Button quiet onclick={onclose}>Cancel</Button>
     </ButtonRow>
   </div>
 </Sheet>

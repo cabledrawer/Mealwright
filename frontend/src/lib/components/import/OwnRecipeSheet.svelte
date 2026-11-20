@@ -127,7 +127,7 @@
     </div>
     <p class="foot">Both recipes are checked here and saved together.</p>
     {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
-    <ButtonRow>
+    <ButtonRow stack>
       <Button type="submit">{kept ? 'Done' : 'Make it its own recipe'}</Button>
       <Button quiet onclick={onclose}>Cancel</Button>
     </ButtonRow>

@@ -83,11 +83,11 @@
     </p>
   {/if}
   <ButtonRow>
-    <Button onclick={done}>Done</Button>
     <Button quiet onclick={onclose}>Cancel</Button>
     {#if empty}
       <Button quiet onclick={onremove}>Remove {heading ? 'heading' : 'step'}</Button>
     {/if}
+    <Button onclick={done}>Done</Button>
   </ButtonRow>
 </div>
 

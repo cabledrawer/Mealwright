@@ -91,8 +91,8 @@
     {#if error}<p class="error" role="alert">Type a name.</p>{/if}
     <p class="hint">Mealwright looks for an ingredient with this name.</p>
     <ButtonRow>
-      <Button disabled={busy} onclick={() => void done()}>Done</Button>
       <Button plain small onclick={oncancel}>Cancel</Button>
+      <Button disabled={busy} onclick={() => void done()}>Done</Button>
     </ButtonRow>
   {/if}
 </div>

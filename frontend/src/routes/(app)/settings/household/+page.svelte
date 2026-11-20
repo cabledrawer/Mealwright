@@ -248,7 +248,6 @@
               {/if}
             </div>
             <ButtonRow>
-              <Button type="submit" disabled={network.offline || household.busy}>Add</Button>
               <Button
                 quiet
                 onclick={() => {
@@ -257,6 +256,7 @@
                   addError = undefined;
                 }}>Cancel</Button
               >
+              <Button type="submit" disabled={network.offline || household.busy}>Add</Button>
             </ButtonRow>
           </form>
         {:else}

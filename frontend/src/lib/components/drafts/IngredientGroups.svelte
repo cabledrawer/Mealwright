@@ -323,10 +323,10 @@
   {#if failed}<p class="failed-line" role="alert">{failed}</p>{/if}
   <div class="actions" class:sticky={phone}>
     <ButtonRow>
+      <Button quiet onclick={skip}>{phone ? words.SKIP_PHONE : words.SKIP}</Button>
       <Button disabled={!ready || working || network.offline} onclick={() => void answer()}
         >{working ? words.WORKING : words.useForAll(group.drafts, phone)}</Button
       >
-      <Button quiet onclick={skip}>{phone ? words.SKIP_PHONE : words.SKIP}</Button>
     </ButtonRow>
   </div>
 {/snippet}

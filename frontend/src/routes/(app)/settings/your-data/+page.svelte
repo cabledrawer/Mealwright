@@ -411,10 +411,10 @@
             </label>
           {/if}
           <ButtonRow>
+            <Button quiet disabled={keepBusy} onclick={cancelKeep}>{KEEP_FEWER_CANCEL}</Button>
             <Button type="submit" disabled={!keepReady}
               >{keepBusy ? KEEP_FEWER_BUSY : goWords}</Button
             >
-            <Button quiet disabled={keepBusy} onclick={cancelKeep}>{KEEP_FEWER_CANCEL}</Button>
           </ButtonRow>
         </form>
       {/if}

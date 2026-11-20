@@ -652,10 +652,10 @@
           <p id="tub-use-by-early" class="early">Pick the cook day or later.</p>
         {/if}
         <ButtonRow>
+          <Button quiet onclick={() => (mode = null)}>Back</Button>
           <Button disabled={!useBy || badDay || tooEarly || actions.readonly} onclick={saveUseBy}
             >Save</Button
           >
-          <Button quiet onclick={() => (mode = null)}>Back</Button>
         </ButtonRow>
       {:else if mode === 'leftovers' && leftoverItem && aboutMeal}
         <LeftoversOn
@@ -738,13 +738,13 @@
             It’s already there. Pick another day or meal.
           </p>{/if}
         <ButtonRow>
-          <Button disabled={!ready} onclick={choose}>{confirmWords}</Button>
           <Button
             quiet
             onclick={() =>
               target?.kind === 'recipe' || target?.kind === 'tubleft' ? onclose() : (mode = null)}
             >Back</Button
           >
+          <Button disabled={!ready} onclick={choose}>{confirmWords}</Button>
         </ButtonRow>
       {/if}
     </div>
