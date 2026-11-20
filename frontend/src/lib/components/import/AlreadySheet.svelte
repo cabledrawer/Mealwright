@@ -5,6 +5,7 @@
   import { dayMonthOf } from '#lib/dates.js';
   import { network } from '#lib/network.svelte.js';
   import { onMount } from 'svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import { holdUndo } from '#lib/undo.svelte.js';
   import { resolve } from '$app/paths';
   import type { Already } from '#lib/import.svelte.js';
@@ -21,108 +22,36 @@
     onclose: () => void;
   } = $props();
 
-  const uid = $props.id();
-  let dialog: HTMLDialogElement;
-
   onMount(() => {
     const letGo = holdUndo(); // Ctrl+Z must not move the lines behind this sheet
-    dialog.showModal();
-    return () => {
-      letGo();
-      if (dialog.open) dialog.close();
-    };
+    return letGo;
   });
 
-  const when = $derived(
-    already.importedAt
-      ? dayMonthOf(new Date(already.importedAt))
-      : ''
-  );
+  const when = $derived(already.importedAt ? dayMonthOf(new Date(already.importedAt)) : '');
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-labelledby="{uid}-title"
-  oncancel={(e) => {
-    e.preventDefault();
-    onclose();
-  }}
-  onclick={(e) => {
-    if (e.target === dialog) onclose();
-  }}
->
-  <div class="body">
-    <span class="grip" aria-hidden="true"></span>
-    <h2 id="{uid}-title">You already have this recipe</h2>
-    <div class="card">
-      {#if already.photo}
-        <img src={already.photo.list_url} alt="" width="56" height="56" />
-      {:else}
-        <span class="square" aria-hidden="true"></span>
-      {/if}
-      <span class="what">
-        <span class="name">{already.recipe.name}</span>
-        <span class="when">Imported {when} from {already.site}</span>
-      </span>
-    </div>
-    <a class="primary" href={resolve('/(app)/recipes/[id]', { id: String(already.recipe.id) })}
-      >Open it</a
-    >
-    <button type="button" class="secondary" disabled={busy || network.offline} onclick={oncopy}
-      >Import again as a copy</button
-    >
-    <button type="button" class="cancel" onclick={onclose}>Cancel</button>
+<Sheet title="You already have this recipe" {onclose}>
+  <div class="card">
+    {#if already.photo}
+      <img src={already.photo.list_url} alt="" width="56" height="56" />
+    {:else}
+      <span class="square" aria-hidden="true"></span>
+    {/if}
+    <span class="what">
+      <span class="name">{already.recipe.name}</span>
+      <span class="when">Imported {when} from {already.site}</span>
+    </span>
   </div>
-</dialog>
+  <a class="primary" href={resolve('/(app)/recipes/[id]', { id: String(already.recipe.id) })}
+    >Open it</a
+  >
+  <button type="button" class="secondary" disabled={busy || network.offline} onclick={oncopy}
+    >Import again as a copy</button
+  >
+  <button type="button" class="cancel" onclick={onclose}>Cancel</button>
+</Sheet>
 
 <style>
-  dialog {
-    width: min(100vw, 30rem);
-    max-width: 100vw;
-    max-height: none;
-    margin: auto auto 0;
-    padding: var(--space-5) var(--space-8) var(--space-9);
-    border: none;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      margin: auto;
-      padding-top: var(--space-8);
-      border-radius: var(--radius-3xl);
-    }
-
-    .grip {
-      display: none;
-    }
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
-  .body {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
-  }
-
-  .grip {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-  }
-
   .card {
     display: flex;
     align-items: center;

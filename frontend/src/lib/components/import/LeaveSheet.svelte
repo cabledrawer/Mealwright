@@ -5,6 +5,7 @@
   // and then changed, the same three choices are worded for that (proposed, for cabledrawer): the
   // draft is saved over, or left as it was.
   import { onMount } from 'svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import { holdUndo } from '#lib/undo.svelte.js';
 
   let {
@@ -29,109 +30,41 @@
   } = $props();
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
 
   onMount(() => {
     const letGo = holdUndo(); // Ctrl+Z must not move the lines behind this sheet
-    dialog.showModal();
-    return () => {
-      letGo();
-      if (dialog.open) dialog.close();
-    };
+    return letGo;
   });
 
   const title = $derived(again ? 'Save your changes?' : 'Save as draft?');
   const words = $derived(name.trim() || 'this recipe');
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-labelledby="{uid}-title"
-  aria-describedby="{uid}-text"
-  oncancel={(e) => {
-    e.preventDefault();
-    onstay();
-  }}
-  onclick={(e) => {
-    if (e.target === dialog) onstay();
-  }}
->
-  <div class="body">
-    <span class="grip" aria-hidden="true"></span>
-    <h2 id="{uid}-title">{title}</h2>
-    {#if again}
-      <p id="{uid}-text">
-        You’ve changed {words} since you opened this draft. Saving keeps your choices for another 15 days.
-        Anyone in your household can carry on.
-      </p>
-    {:else}
-      <p id="{uid}-text">
-        You haven’t finished checking {words}. A draft keeps your choices so far for 15 days, in
-        Recipes → Drafts. Anyone in your household can carry on.
-      </p>
-    {/if}
-    {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
-    <div class="buttons">
-      <button type="button" class="save" disabled={busy} onclick={onsave}>
-        {busy ? 'Saving…' : 'Save draft'}
-      </button>
-      <button type="button" class="stay" onclick={onstay}>Keep checking</button>
-      <button type="button" class="discard" disabled={busy} onclick={ondiscard}>
-        {again ? 'Discard changes' : 'Discard'}
-      </button>
-    </div>
+<Sheet {title} size="medium" describedby="{uid}-text" onclose={onstay} locked={busy}>
+  {#if again}
+    <p id="{uid}-text">
+      You’ve changed {words} since you opened this draft. Saving keeps your choices for another 15 days.
+      Anyone in your household can carry on.
+    </p>
+  {:else}
+    <p id="{uid}-text">
+      You haven’t finished checking {words}. A draft keeps your choices so far for 15 days, in
+      Recipes → Drafts. Anyone in your household can carry on.
+    </p>
+  {/if}
+  {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+  <div class="buttons">
+    <button type="button" class="save" disabled={busy} onclick={onsave}>
+      {busy ? 'Saving…' : 'Save draft'}
+    </button>
+    <button type="button" class="stay" onclick={onstay}>Keep checking</button>
+    <button type="button" class="discard" disabled={busy} onclick={ondiscard}>
+      {again ? 'Discard changes' : 'Discard'}
+    </button>
   </div>
-</dialog>
+</Sheet>
 
 <style>
-  dialog {
-    width: min(100vw, 30rem);
-    max-width: 100vw;
-    max-height: none;
-    margin: auto auto 0;
-    padding: var(--space-5) var(--space-8) var(--space-9);
-    border: none;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: min(100vw - 48px, 460px);
-      margin: auto;
-      padding: var(--space-9);
-      border-radius: var(--radius-3xl);
-    }
-
-    .grip {
-      display: none;
-    }
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
-  .body {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
-  }
-
-  .grip {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-  }
-
   p {
     color: var(--color-text-soft);
     font-size: var(--text-base);

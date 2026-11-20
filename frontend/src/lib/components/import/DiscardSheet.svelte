@@ -4,6 +4,7 @@
   // here are accepted, cabledrawer 11 Nov; the button's name is his. A sheet on a phone, a dialog on a
   // computer, the same shape as the leave sheet.
   import { onMount } from 'svelte';
+  import Sheet from '#lib/components/Sheet.svelte';
   import { holdUndo } from '#lib/undo.svelte.js';
 
   let {
@@ -23,100 +24,38 @@
   } = $props();
 
   const uid = $props.id();
-  let dialog: HTMLDialogElement;
 
   onMount(() => {
     const letGo = holdUndo(); // Ctrl+Z must not move the lines behind this sheet
-    dialog.showModal();
-    return () => {
-      letGo();
-      if (dialog.open) dialog.close();
-    };
+    return letGo;
   });
 
   const words = $derived(name.trim() || 'this recipe');
 </script>
 
-<dialog
-  bind:this={dialog}
-  aria-labelledby="{uid}-title"
-  aria-describedby="{uid}-text"
-  oncancel={(e) => {
-    e.preventDefault();
-    if (!busy) onstay();
-  }}
-  onclick={(e) => {
-    if (e.target === dialog && !busy) onstay();
-  }}
+<Sheet
+  title="Discard this draft?"
+  size="medium"
+  describedby="{uid}-text"
+  onclose={onstay}
+  locked={busy}
 >
-  <div class="body">
-    <span class="grip" aria-hidden="true"></span>
-    <h2 id="{uid}-title">Discard this draft?</h2>
-    <p id="{uid}-text">
-      {#if kept}
-        {words} will be deleted from Drafts, with its waiting photo. You can undo it from Recent changes.
-      {:else}
-        {words} isn’t kept in Drafts yet, so nothing of it is kept. Its waiting photo is deleted.
-      {/if}
-    </p>
-    <div class="buttons">
-      <button type="button" class="discard" disabled={busy} onclick={ondiscard}>
-        {busy ? 'Discarding…' : 'Discard draft'}
-      </button>
-      <button type="button" class="stay" disabled={busy} onclick={onstay}>Keep checking</button>
-    </div>
+  <p id="{uid}-text">
+    {#if kept}
+      {words} will be deleted from Drafts, with its waiting photo. You can undo it from Recent changes.
+    {:else}
+      {words} isn’t kept in Drafts yet, so nothing of it is kept. Its waiting photo is deleted.
+    {/if}
+  </p>
+  <div class="buttons">
+    <button type="button" class="discard" disabled={busy} onclick={ondiscard}>
+      {busy ? 'Discarding…' : 'Discard draft'}
+    </button>
+    <button type="button" class="stay" disabled={busy} onclick={onstay}>Keep checking</button>
   </div>
-</dialog>
+</Sheet>
 
 <style>
-  dialog {
-    width: min(100vw, 30rem);
-    max-width: 100vw;
-    max-height: none;
-    margin: auto auto 0;
-    padding: var(--space-5) var(--space-8) var(--space-9);
-    border: none;
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  @media (min-width: 768px) {
-    dialog {
-      width: min(100vw - 48px, 460px);
-      margin: auto;
-      padding: var(--space-9);
-      border-radius: var(--radius-3xl);
-    }
-
-    .grip {
-      display: none;
-    }
-  }
-
-  dialog::backdrop {
-    background: var(--color-overlay);
-  }
-
-  .body {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
-  }
-
-  .grip {
-    align-self: center;
-    width: 40px;
-    height: 5px;
-    border-radius: 3px;
-    background: var(--color-border-strong);
-  }
-
-  h2 {
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-extrabold);
-  }
-
   p {
     color: var(--color-text-soft);
     font-size: var(--text-base);
