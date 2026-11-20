@@ -10,7 +10,7 @@ from typing import Any, cast
 from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from test_sso_api import API, SETUP, admin, browser, fresh_cache, idp, sign_in
+from test_sso_api import API, SETUP, admin, browser, idp, sign_in
 
 from mealwright import sso_accounts
 from mealwright.auth import now

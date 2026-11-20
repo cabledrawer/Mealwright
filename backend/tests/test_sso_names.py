@@ -7,7 +7,7 @@ import logging
 import pytest
 from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
-from test_sso_api import API, admin, browser, fresh_cache, idp, sign_in, waits
+from test_sso_api import API, admin, browser, idp, sign_in, waits
 
 
 def test_a_username_and_name_from_the_sign_in_server_are_one_clean_line_everywhere(

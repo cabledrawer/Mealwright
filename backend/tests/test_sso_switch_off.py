@@ -12,7 +12,7 @@ from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from test_sso_api import ADMIN_GROUPS, API, browser, person_here, sign_in
-from test_sso_passwords_off_class import entry_id, fresh_cache, home
+from test_sso_passwords_off_class import entry_id, home
 
 from mealwright import sso_accounts
 from mealwright.auth import hash_password

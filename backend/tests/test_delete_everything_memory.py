@@ -7,7 +7,7 @@ from conftest import ADMIN, SETUP_CODE
 from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from test_sso_api import ADMIN_GROUPS, API, admin, begin, browser, fresh_cache, idp, sign_in
+from test_sso_api import ADMIN_GROUPS, API, admin, begin, browser, idp, sign_in
 
 from mealwright import sso_accounts
 from mealwright.auth import now

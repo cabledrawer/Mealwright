@@ -14,17 +14,7 @@ from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import ok
-from test_sso_api import (
-    ADMIN_GROUPS,
-    API,
-    _add_admin,
-    admin,
-    browser,
-    check,
-    fresh_cache,
-    idp,
-    sign_in,
-)
+from test_sso_api import ADMIN_GROUPS, API, _add_admin, admin, browser, check, idp, sign_in
 
 from mealwright.auth import now
 from mealwright.models import Session

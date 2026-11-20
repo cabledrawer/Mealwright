@@ -9,7 +9,7 @@ from typing import Any
 from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from test_sso_api import API, admin, browser, fresh_cache, idp, sign_in
+from test_sso_api import API, admin, browser, idp, sign_in
 from test_sso_unlink import _member_id, _unlink
 
 from mealwright.models import JoinLink, utcnow

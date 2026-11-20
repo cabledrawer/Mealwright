@@ -20,7 +20,7 @@ from conftest import ADMIN
 from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
-from test_sso_api import API, ISSUER, admin, browser, fresh_cache, idp, sign_in
+from test_sso_api import API, ISSUER, admin, browser, idp, sign_in
 
 from mealwright.models import Login
 

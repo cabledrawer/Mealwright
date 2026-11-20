@@ -15,7 +15,6 @@ from test_sso_api import (
     API,
     admin,
     browser,
-    fresh_cache,
     idp,
     person_here,
     sign_in,

@@ -12,18 +12,7 @@ from typing import Any, cast
 import pytest
 from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
-from test_sso_api import (  # noqa: F401
-    ADMIN_GROUPS,
-    API,
-    PASSWORD,
-    SETUP,
-    _person,
-    admin,
-    browser,
-    fresh_cache,
-    idp,
-    sign_in,
-)
+from test_sso_api import ADMIN_GROUPS, API, PASSWORD, SETUP, _person, admin, browser, idp, sign_in  # noqa: F401
 
 from mealwright.api.v1.sso import PASSWORDS_NEEDED
 from mealwright.models import Login

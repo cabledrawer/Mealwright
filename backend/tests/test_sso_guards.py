@@ -13,16 +13,7 @@ import pytest
 from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from test_sso_api import (
-    ADMIN_GROUPS,
-    API,
-    PASSWORD,
-    admin,
-    begin,
-    browser,
-    fresh_cache,
-    idp,
-)
+from test_sso_api import ADMIN_GROUPS, API, PASSWORD, admin, begin, browser, idp
 
 from mealwright import outbound, sso_accounts
 from mealwright.api.v1.sso import _fingerprint

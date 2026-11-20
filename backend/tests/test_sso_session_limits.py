@@ -13,19 +13,7 @@ from urllib.parse import parse_qs, urlsplit
 from fake_idp import FakeProvider
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from test_sso_api import (
-    API,
-    ISSUER,
-    SETUP,
-    admin,
-    begin,
-    browser,
-    fresh_cache,
-    idp,
-    person_here,
-    sign_in,
-    waits,
-)
+from test_sso_api import API, ISSUER, SETUP, admin, begin, browser, idp, person_here, sign_in, waits
 
 from mealwright import sso
 from mealwright.auth import REMEMBER_FOR, SSO_UNCHECKED_FOR

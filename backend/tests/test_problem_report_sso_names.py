@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from fastapi.testclient import TestClient
-from test_sso_api import API, SETUP, admin, fresh_cache, idp
+from test_sso_api import API, SETUP, admin, idp
 
 from mealwright.problem_report import Scrubber, ServerAddress, scrubber_for
 

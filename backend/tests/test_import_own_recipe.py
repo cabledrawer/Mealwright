@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sync_kit import ok
 from test_drafts import kept
-from test_recipe_import import API, Web, counts, cupboard, neighbour, review, web  # noqa: F401
+from test_recipe_import import API, Web, counts, cupboard, review, web  # noqa: F401
 from test_recipe_import import save as save_import
 from test_recipes import make
 
