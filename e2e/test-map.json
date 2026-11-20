@@ -288,7 +288,7 @@
         "frontend/src/routes/(app)/offline.test.ts", "frontend/src/lib/components/Connection*", "frontend/src/lib/components/OfflineNote.svelte"
       ],
       "backend": ["test_sync_*.py", "test_event*.py", "test_events.py", "test_history.py", "test_key_body.py", "test_tick_time.py", "test_keep_alive.py"],
-      "browser": ["offline.spec.ts", "live.spec.ts", "installable.spec.ts", "server-down.spec.ts", "version-check.spec.ts"]
+      "browser": ["offline.spec.ts", "offline-writes.spec.ts", "live.spec.ts", "installable.spec.ts", "server-down.spec.ts", "version-check.spec.ts"]
     },
     {
       "name": "The page shell and styles (shared by every screen)",

@@ -258,6 +258,9 @@ export default defineConfig({
     // The server stopped behind the reverse proxy (502): one steady offline state (0.7, F67).
     { name: 'phone 0.7 server down', testMatch: 'server-down.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
     { name: 'desktop 0.7 server down', testMatch: 'server-down.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
+    // D7 (FE12, F264): every server-only write button is greyed out offline. Changes nothing.
+    { name: 'phone beta3 offline writes', testMatch: 'offline-writes.spec.ts', use: { ...phone, storageState: AUTH_FILE } },
+    { name: 'desktop beta3 offline writes', testMatch: 'offline-writes.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
     { name: 'webkit 0.7 server down', testMatch: 'server-down.spec.ts', use: { ...webkit, storageState: AUTH_FILE } },
     // SvelteKit 3's own version check stays out of sight; updates wait for the worker (0.6).
     { name: 'desktop 0.6 version check', testMatch: 'version-check.spec.ts', use: { ...desktop, storageState: AUTH_FILE } },
