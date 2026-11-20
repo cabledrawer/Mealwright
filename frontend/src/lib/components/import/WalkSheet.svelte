@@ -214,7 +214,7 @@
   }
 
   .skip :global(.mw-button) {
-    font-size: 14px;
+    font-size: var(--text-base);
   }
 
   .body {

@@ -345,7 +345,7 @@
   /* The buttons keep their round shape and line-only second choice from before the shared Button. */
   .mealie :global(.mw-button) {
     border-radius: var(--radius-full);
-    font-size: 15px;
+    font-size: var(--text-lg);
     font-weight: var(--weight-extrabold);
   }
 
