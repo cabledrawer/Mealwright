@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   import Button from '#lib/components/Button.svelte';
   import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Sheet from '#lib/components/Sheet.svelte';
@@ -97,7 +98,7 @@
       }}
     >
       {#if problem}
-        <p class="problem" role="alert">{problem}</p>
+        <p class="mw-error" role="alert">{problem}</p>
         <ButtonRow>
           <Button onclick={() => void load()}>Try again</Button>
           <Button quiet onclick={() => starterPacks.close()}>Close</Button>
@@ -191,12 +192,6 @@
     color: var(--color-text-muted);
     font-size: var(--text-md);
     font-weight: var(--weight-regular);
-  }
-
-  .problem {
-    color: var(--color-warning-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-semibold);
   }
 
   ul {

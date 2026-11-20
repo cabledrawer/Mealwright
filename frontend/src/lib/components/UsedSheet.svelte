@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   // "How much Spinach did you use?" (mockup Dark-UseSoon08-Phone, `used-sheet`; F79): opened by
   // swiping a Pantry row or a Use soon item right (cabledrawer 21 Oct), or by Used… on Use soon.
   // ¼ · ½ · ¾ · All with nothing chosen until one is tapped (cabledrawer 7 Nov); one main button
@@ -149,7 +150,7 @@
           />{#if unit}<span>{unit}</span>{/if}
         </span>
       </label>
-      {#if problem}<p class="problem" id="{uid}-problem" role="alert">{problem}</p>{/if}
+      {#if problem}<p class="mw-error" id="{uid}-problem" role="alert">{problem}</p>{/if}
       {#if countedAs === 'count'}
         <Button type="submit">Save</Button>
         <Button onclick={onall}>Used all {allWords}</Button>
@@ -222,11 +223,6 @@
     background: var(--color-field);
     color: var(--color-text);
     font: var(--weight-semibold) 1rem var(--font-ui);
-  }
-
-  .problem {
-    color: var(--color-warning-text);
-    font-size: var(--text-base);
   }
 
   /* A computer: a box in the middle of the screen, not a sheet the width of it. */

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   import { KEPT_BY, KEPT_BY_HINT } from '#lib/keptByWords.js';
   // "Pantry keeps it by" (newIngredient.svelte.ts): By weight · By volume · One by one ·
   // Don't count it, with the bundled table's guess first. Packet sizes can be added right
@@ -247,7 +248,7 @@
                 <Button small onclick={addSize}>Add size</Button>
                 <Button small quiet onclick={() => (addingSize = false)}>Cancel</Button>
               </span>
-              {#if sizeProblem}<p class="problem" role="alert">{sizeProblem}</p>{/if}
+              {#if sizeProblem}<p class="mw-error" role="alert">{sizeProblem}</p>{/if}
             </div>
           {:else}
             <button type="button" class="link" onclick={startSize}>+ Add a size</button>
@@ -256,7 +257,7 @@
         </section>
       {/if}
 
-      {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+      {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
       <ButtonRow>
         <Button
           type="submit"
@@ -410,11 +411,5 @@
   .remove {
     min-width: var(--touch-target);
     color: var(--color-text-muted);
-  }
-
-  .problem {
-    color: var(--color-warning-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-semibold);
   }
 </style>

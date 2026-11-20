@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   // "Your kitchen" (Batch cook, Experimental; mockup Dark-BatchKit08-Phone): hob rings, pressure
   // cookers and the oven, asked once on first use (B2 opens it) and changed in Settings, under
   // Kitchen. A phone sheet: a real modal dialog, Esc closes it, the focus goes back where it
@@ -127,7 +128,7 @@
           />
         </div>
       </div>
-      {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+      {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
       <ButtonRow>
         <Button type="submit" disabled={saving}>Save</Button>
       </ButtonRow>
@@ -201,11 +202,5 @@
   .detail {
     color: var(--color-text-muted);
     font-size: var(--text-sm);
-  }
-
-  .problem {
-    margin: 0;
-    color: var(--color-warning-text);
-    font-size: var(--text-base);
   }
 </style>

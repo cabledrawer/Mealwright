@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   // What you can do with one packet (mockups Phone-Pantry, Desktop-Pantry): Used ·
   // Binned · To freezer · Move to… · Change use-by date…, and for an open packet the
   // ¼ · ½ · ¾ · Full picks. A small menu next to the packet on desktop, a sheet from the
@@ -235,7 +236,7 @@
             Use by
             <input type="date" bind:value={date} />
           </label>
-          {#if dateProblem}<p class="problem" role="alert">{dateProblem}</p>{/if}
+          {#if dateProblem}<p class="mw-error" role="alert">{dateProblem}</p>{/if}
           <span class="buttons">
             <Button type="submit" small>Save</Button>
             <Button
@@ -359,12 +360,6 @@
     font-size: var(--text-sm);
     font-weight: var(--weight-bold);
     cursor: pointer;
-  }
-
-  .problem {
-    margin: 0;
-    color: var(--color-warning-text);
-    font-weight: var(--weight-bold);
   }
 
   .form {

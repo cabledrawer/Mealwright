@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   import Loading from '#lib/components/Loading.svelte';
   // "Which size?" for one Shopping line (mockup Dark-ShopPackAlt08-Phone; F183 + F204, cabledrawer
   // 9 Nov): every size the line could be bought in and how much each leaves over, with the one
@@ -82,7 +83,7 @@
   <div class="body" bind:this={body}>
     <p class="sub">Sizes sold in UK shops</p>
     {#if failed}
-      <p class="problem" role="alert">{couldntLoad('the sizes')}</p>
+      <p class="mw-error" role="alert">{couldntLoad('the sizes')}</p>
     {:else if !sheet}
       <Loading />
     {:else}
@@ -109,7 +110,7 @@
         <span>Make the one I pick my usual size</span>
       </label>
     {/if}
-    {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+    {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
     {#if needsServer && network.offline}
       <p class="sub">A new size needs your Mealwright server. Try again when it answers.</p>
     {/if}
@@ -193,10 +194,5 @@
     min-height: var(--touch-target);
     color: var(--color-text);
     font-size: var(--text-base);
-  }
-
-  .problem {
-    color: var(--color-warning-text);
-    font-size: var(--text-md);
   }
 </style>

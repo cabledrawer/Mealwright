@@ -126,7 +126,7 @@
       </span>
     </div>
     <p class="foot">Both recipes are checked here and saved together.</p>
-    {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+    {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
     <ButtonRow>
       <Button type="submit">{kept ? 'Done' : 'Make it its own recipe'}</Button>
       <Button quiet onclick={onclose}>Cancel</Button>
@@ -178,10 +178,5 @@
   .foot {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
-  }
-
-  .problem {
-    color: var(--color-warning-text);
-    font-weight: var(--weight-semibold);
   }
 </style>

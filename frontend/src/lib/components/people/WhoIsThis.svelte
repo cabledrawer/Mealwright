@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   // "Who is lorna.s?" (0.9.5 Pe3/M2, mockup Dark-HouseholdWaiting095-Phone): a single sign-on
   // sign-in that matches nobody, for an admin to link to a person, to a new person, or to
   // refuse (cabledrawer 13 Nov). A phone sheet: a real modal dialog, Esc closes it and the focus
@@ -103,7 +104,7 @@
           <span class="name">{NEW_PERSON}</span>
         </button>
       </div>
-      {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+      {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
       <Button type="submit" disabled={pickedPerson === null || busy || offline}
         >{linkButton(pickedPerson)}</Button
       >
@@ -175,11 +176,5 @@
     font-size: var(--text-md);
     font-weight: var(--weight-medium);
     overflow-wrap: anywhere;
-  }
-
-  .problem {
-    color: var(--color-warning-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-semibold);
   }
 </style>

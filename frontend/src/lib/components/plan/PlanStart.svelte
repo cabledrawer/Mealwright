@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   import Sheet from '#lib/components/Sheet.svelte';
   import Button from '#lib/components/Button.svelte';
   import ButtonRow from '#lib/components/ButtonRow.svelte';
@@ -164,13 +165,13 @@
               <input type="time" bind:value={otherTime} required />
             </label>
           </div>
-          {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+          {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
         {:else}
           <button type="button" class="another" onclick={() => (picked = 'other')}
             >Another time…</button
           >
         {/if}
-        {#if late}<p class="problem" role="status" data-testid="plan-start-late">{late}</p>{/if}
+        {#if late}<p class="mw-error" role="status" data-testid="plan-start-late">{late}</p>{/if}
         <p class="hint">
           {startHint.evening ? 'The day before, ' : ''}Today and the Cook view say “{startHint.words}”.
           You can change the time from the meal.
@@ -332,13 +333,6 @@
     background: var(--color-field);
     color: var(--color-text);
     font: var(--weight-semibold) 1rem var(--font-ui);
-  }
-
-  .problem {
-    margin: 0;
-    color: var(--color-warning-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-semibold);
   }
 
   .hint {

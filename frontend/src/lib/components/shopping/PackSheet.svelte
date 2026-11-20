@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   import { untrack } from 'svelte';
   // "Different pack?" (mockup Shop): "What did you buy?" with the planned pack, one pack of
   // the planned amount, the ingredient's own sizes, and Other…; "Pantry gets 1 pack · 400 g."
@@ -227,7 +228,7 @@
       {/if}
     </div>
   {/if}
-  {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+  {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
   {#if chosen}
     <span class="gets" role="status"
       >{'ready' in chosen && chosen.ready && food.counted_as === 'count'
@@ -303,11 +304,6 @@
     background: var(--color-field);
     color: var(--color-text);
     font: var(--weight-semibold) 1rem var(--font-ui);
-  }
-
-  .problem {
-    color: var(--color-warning-text);
-    font-size: var(--text-md);
   }
 
   .gets {

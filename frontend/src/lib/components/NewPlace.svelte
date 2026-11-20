@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import '#lib/styles/fields.css';
   import { couldntAdd } from '#lib/errorWords.js';
   /** The value of the "+ Place" choice at the end of a place picker. */
   export const NEW_PLACE = 'new-place';
@@ -121,7 +122,7 @@
       >
     {/each}
   </div>
-  {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+  {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
   <ButtonRow>
     <Button disabled={busy} onclick={() => void add()}>Add place</Button>
     <Button quiet onclick={cancel}>Cancel</Button>
@@ -189,12 +190,5 @@
     border-color: var(--color-accent);
     background: var(--color-accent-soft);
     color: var(--color-accent-on-soft);
-  }
-
-  .problem {
-    margin: 0;
-    color: var(--color-warning-text);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
   }
 </style>

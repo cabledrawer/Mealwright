@@ -78,7 +78,7 @@
     </p>
   {/if}
   {#if empty}
-    <p id="{uid}-empty" class="problem" role="alert">
+    <p id="{uid}-empty" class="mw-error" role="alert">
       {heading ? 'A heading' : 'A step'} can’t be empty. Write something, or remove it.
     </p>
   {/if}
@@ -117,12 +117,6 @@
     min-height: var(--touch-target);
     margin: 0;
     color: var(--color-text-muted);
-    font-size: var(--text-md);
-    font-weight: var(--weight-semibold);
-  }
-
-  .problem {
-    color: var(--color-warning-text);
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
   }

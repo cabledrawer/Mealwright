@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   // "Link…" on the Person page (0.9.5 Pe3/M2, mockup Dark-Person095-Phone): pick, from the
   // single sign-on sign-ins waiting for an admin, the one that is this person. The same sheet
   // as "Who is this?" (WhoIsThis.svelte), the other way round. Its words are proposed, for
@@ -86,7 +87,7 @@
             </button>
           {/each}
         </div>
-        {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+        {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
         <Button type="submit" disabled={pickedSignIn === null || busy || offline}
           >{linkToButton(pickedSignIn)}</Button
         >
@@ -160,11 +161,5 @@
     font-size: var(--text-md);
     font-weight: var(--weight-medium);
     overflow-wrap: anywhere;
-  }
-
-  .problem {
-    color: var(--color-warning-text);
-    font-size: var(--text-base);
-    font-weight: var(--weight-semibold);
   }
 </style>

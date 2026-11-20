@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   import Button from '#lib/components/Button.svelte';
   import ButtonRow from '#lib/components/ButtonRow.svelte';
   import Loading from '#lib/components/Loading.svelte';
@@ -367,7 +368,7 @@
         {/if}
       {/if}
 
-      {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+      {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
 
       <ButtonRow>
         <Button type="submit" disabled={!food || food.staple || network.offline}
@@ -511,12 +512,6 @@
     color: var(--color-note-text);
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);
-  }
-
-  .problem {
-    color: var(--color-warning-text);
-    font-size: var(--text-md);
-    font-weight: var(--weight-bold);
   }
 
   .link {

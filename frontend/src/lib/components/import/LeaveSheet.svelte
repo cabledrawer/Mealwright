@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   // "Save as draft?" (mockups Import05-Phone and Import05-Desktop, the leave sheet; spec "Import
   // drafts", cabledrawer 17 Oct): asked when leaving the review without saving. Save draft · Keep
   // checking · Discard. A sheet on a phone, a dialog on a computer. For a draft that was opened
@@ -54,7 +55,7 @@
       Recipes → Drafts. Anyone in your household can carry on.
     </p>
   {/if}
-  {#if problem}<p class="problem" role="alert">{problem}</p>{/if}
+  {#if problem}<p class="mw-error" role="alert">{problem}</p>{/if}
   <ButtonRow>
     <Button disabled={busy} onclick={onsave}>{busy ? 'Saving…' : 'Save draft'}</Button>
     <Button quiet onclick={onstay}>Keep checking</Button>
@@ -70,10 +71,5 @@
     font-size: var(--text-base);
     line-height: 1.5;
     overflow-wrap: anywhere;
-  }
-
-  .problem {
-    color: var(--color-warning-text);
-    font-weight: var(--weight-semibold);
   }
 </style>
