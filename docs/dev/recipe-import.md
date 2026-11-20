@@ -131,8 +131,10 @@ not downloaded" and "switched off" links) and `/settings/privacy#your-own-networ
 - `POST /privacy/own-network` with `{value}` (admins only) gives 201 and the entry. A refusal
   carries `own_network`'s own sentence and a `code`: `bad_entry`, `always_blocked`,
   `too_wide` (422); `already_there`, `too_many_entries` (409).
-- `DELETE /privacy/own-network/{id}` (admins only) gives 204; an entry of another household
-  is "not found", like one that doesn't exist.
+- `DELETE /privacy/own-network/{id}` (admins only) answers 200 `{ passwords_back_on, notice }`:
+  false and null, or true with the notice to show when password sign-in came back on
+  (0.9.5-beta.3, D2). An entry of another household is "not found", like one that doesn't
+  exist.
 
 Log lines say only "Privacy: recipe import switched on" and "Your own network: added" or
 "removed", never an entry.

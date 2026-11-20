@@ -377,7 +377,7 @@ def test_the_list_holds_a_hundred_and_then_says_so(
     assert neighbour.post(LIST, json={"value": "one-more.home.example"}).status_code == 201
     # Taking one off makes room.
     first = kitchen.get(LIST).json()["entries"][0]["id"]
-    assert kitchen.delete(f"{LIST}/{first}").status_code == 204
+    assert kitchen.delete(f"{LIST}/{first}").status_code == 200
     assert kitchen.post(LIST, json={"value": "one-more.home.example"}).status_code == 201
 
 
@@ -388,8 +388,8 @@ def test_an_admin_removes_an_entry(kitchen: TestClient) -> None:
     a = kitchen.post(LIST, json={"value": "wiki.home.example"}).json()
     kitchen.post(LIST, json={"value": "192.168.1.20"})
     response = kitchen.delete(f"{LIST}/{a['id']}")
-    assert response.status_code == 204
-    assert response.content == b""
+    assert response.status_code == 200
+    assert response.json() == {"passwords_back_on": False, "notice": None}
     assert values(kitchen) == ["192.168.1.20"]
     again = kitchen.delete(f"{LIST}/{a['id']}")
     assert again.status_code == 404

@@ -41,11 +41,12 @@ export const getOwnNetwork = () => api<OwnNetworkList>('GET', '/privacy/own-netw
 export const addEntry = (value: string) =>
   api<OwnNetworkEntry>('POST', '/privacy/own-network', { value });
 
-/** What taking an entry off can say besides "done": password sign-in came back on (a 200). */
+/** Taking an entry off always answers this (200): `passwords_back_on` with a `notice` to show
+ * when password sign-in came back on, otherwise false and null. */
 export interface RemovedAnswer {
-  passwords_back_on: true;
-  notice: string;
+  passwords_back_on: boolean;
+  notice: string | null;
 }
 
 export const removeEntry = (id: number) =>
-  api<RemovedAnswer | undefined>('DELETE', `/privacy/own-network/${id}`);
+  api<RemovedAnswer>('DELETE', `/privacy/own-network/${id}`);

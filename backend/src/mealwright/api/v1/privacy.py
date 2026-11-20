@@ -15,8 +15,7 @@ import logging
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Request, Response, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
@@ -180,8 +179,10 @@ def _refused(sentence: str) -> Problem:
 
 
 class PasswordsBackOn(BaseModel):
-    passwords_back_on: Literal[True]
-    notice: str
+    """What taking an entry off answers, always (0.9.5-beta.3, D2, BE16)."""
+
+    passwords_back_on: bool
+    notice: str | None
 
 
 @router.get("/privacy/own-network")
@@ -210,16 +211,12 @@ def add_entry(body: EntryIn, kitchen: Here) -> EntryOut:
     return _entry(row, kitchen.household)
 
 
-@router.delete(
-    "/privacy/own-network/{entry_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    responses={200: {"model": PasswordsBackOn}},
-)
-def remove_entry(entry_id: StoredInt, request: Request, kitchen: Here) -> Response:
+@router.delete("/privacy/own-network/{entry_id}")
+def remove_entry(entry_id: StoredInt, request: Request, kitchen: Here) -> PasswordsBackOn:
     """Admins only. Take one entry off the list. An entry of another household is "not
-    here" too. 204 normally. 200 with `passwords_back_on` and a `notice` to show when password
-    sign-in was off and this entry was what let Mealwright reach the sign-in server: passwords
-    are on again."""
+    here" too. Answers `passwords_back_on` false and `notice` null, or true with a `notice` to
+    show when password sign-in was off and this entry was what let Mealwright reach the
+    sign-in server: passwords are on again."""
     kitchen.admin_only(Action.PRIVACY)
     data_dir = request.app.state.settings.data_dir
     was_off = sso_accounts.passwords_off(kitchen.db, data_dir, kitchen.household_id)
@@ -237,5 +234,5 @@ def remove_entry(entry_id: StoredInt, request: Request, kitchen: Here) -> Respon
     # look-up): if this removal ended that, they work again, and the notice says so.
     if was_off and not sso_accounts.passwords_off(kitchen.db, data_dir, kitchen.household_id):
         log.warning("Single sign-on: passwords work again, it can't start without that entry")
-        return JSONResponse({"passwords_back_on": True, "notice": PASSWORDS_BACK_ON_OWN_NETWORK})
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+        return PasswordsBackOn(passwords_back_on=True, notice=PASSWORDS_BACK_ON_OWN_NETWORK)
+    return PasswordsBackOn(passwords_back_on=False, notice=None)

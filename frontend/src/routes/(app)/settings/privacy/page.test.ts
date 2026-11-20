@@ -359,7 +359,7 @@ describe('Settings › Outside connections', () => {
           201,
           entry(5, 'name', (request.body as { value: string }).value.toLowerCase())
         ],
-        'DELETE /privacy/own-network/5': [204, null]
+        'DELETE /privacy/own-network/5': [200, { passwords_back_on: false, notice: null }]
       });
       const box = page.getByRole('textbox', { name: 'Add a name or address' });
       await box.fill('Nas.Home.Example');
@@ -414,7 +414,7 @@ describe('Settings › Outside connections', () => {
 
     it('says so when taking the sign-in server off turned password sign-in back on', async () => {
       const notice =
-        "Removed. Passwords work again for now, because single sign-on can’t start without that entry: your sign-in server is no longer on Your own network. Add it back and passwords are off again.";
+        'Removed. Passwords work again for now, because single sign-on can’t start without that entry: your sign-in server is no longer on Your own network. Add it back and passwords are off again.';
       open({
         'GET /privacy/own-network': list([wiki, lan]),
         'DELETE /privacy/own-network/1': [200, { passwords_back_on: true, notice }]
@@ -429,7 +429,7 @@ describe('Settings › Outside connections', () => {
     it('takes an entry off at once, with Undo that puts it back', async () => {
       open({
         'GET /privacy/own-network': list([wiki, lan]),
-        'DELETE /privacy/own-network/1': [204, null],
+        'DELETE /privacy/own-network/1': [200, { passwords_back_on: false, notice: null }],
         'POST /privacy/own-network': [201, entry(9, 'name', 'wiki.home.example')]
       });
       await page.getByRole('button', { name: 'Remove wiki.home.example' }).click();
@@ -487,7 +487,7 @@ describe('Settings › Outside connections', () => {
       const nine = entry(9, 'name', 'wiki.home.example');
       open({
         'GET /privacy/own-network': list([wiki]),
-        'DELETE /privacy/own-network/1': [204, null],
+        'DELETE /privacy/own-network/1': [200, { passwords_back_on: false, notice: null }],
         'POST /privacy/own-network': () => {
           privacy.entries = [nine];
           return [201, nine];

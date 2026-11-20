@@ -60,11 +60,13 @@ def test_removing_another_entry_changes_nothing(at_home: TestClient) -> None:
     other = at_home.post(f"{API}/privacy/own-network", json={"value": "wiki.home.lan"})
     assert other.is_success
     gone = at_home.delete(f"{API}/privacy/own-network/{other.json()['id']}")
-    assert gone.status_code == 204, gone.text
+    assert gone.status_code == 200, gone.text
+    assert gone.json() == {"passwords_back_on": False, "notice": None}
     assert at_home.get(f"{API}/sso/settings").json()["password_sign_in"] is False
 
 
 def test_removing_it_with_passwords_on_changes_nothing(at_home: TestClient) -> None:
     assert at_home.put(f"{API}/sso/password-sign-in", json={"on": True}).is_success
     gone = at_home.delete(f"{API}/privacy/own-network/{entry_id(at_home)}")
-    assert gone.status_code == 204, gone.text
+    assert gone.status_code == 200, gone.text
+    assert gone.json() == {"passwords_back_on": False, "notice": None}
