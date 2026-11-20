@@ -25,7 +25,11 @@ def test_health_fails_when_the_database_cannot_answer(client: TestClient, tmp_pa
         client.app.state.sessionmaker = original  # type: ignore[attr-defined]
         broken.dispose()
     assert response.status_code == 503
-    assert response.json() == {"status": "unavailable"}
+    assert response.json() == {
+        "status": "unavailable",
+        "detail": "Mealwright isn’t ready. Try again in a minute.",
+        "code": "unavailable",
+    }
 
 
 def test_health_is_in_the_public_api_and_version_is_unchanged(client: TestClient) -> None:

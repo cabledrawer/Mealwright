@@ -15,7 +15,7 @@ Added 25 Oct (cabledrawer 25 Oct), so nobody reads the whole file: read this pag
 - **Display (§5):** the server sends the as-sold wording ready made (`display`, "about 750 g · 1½ packets"), with no-break spaces; screens never rebuild it.
 - **Tables (§3):** household settings, places and shops, foods (ingredients on screen) with sizes and other names, stock (lots), and the change log behind Undo; migrations in order in §3.7.
 - **Endpoints (§6):** every food or stock write answers with the `change` it recorded (§6.1), so the screen can offer Undo at once. Foods §6.2, places and shops §6.3, stock §6.4, Recent changes and Undo §6.5.
-- **Open routes (no sign-in):** `GET /api/v1/version` (the version) and `GET /api/v1/health` (0.9.5: `{"status": "ok"}`, or 503 `{"status": "unavailable"}` when the database can't answer a trivial query; `Cache-Control: no-store`, nothing else in the answer; the image's health check calls it). The full description is in `docs/api.md`.
+- **Open routes (no sign-in):** `GET /api/v1/version` (the version) and `GET /api/v1/health` (0.9.5: `{"status": "ok"}`, or 503 `{"status": "unavailable", "detail", "code": "unavailable"}` (the same sentence whatever went wrong) when the database can't answer a trivial query; `Cache-Control: no-store`, nothing else in the answer; the image's health check calls it). The full description is in `docs/api.md`.
 - **Words:** the API says "food"; screens say "ingredient" (`docs/dev/words.md`).
 
 | § | What |
@@ -78,6 +78,7 @@ Every error answer is a Problem: a `detail` the web app can show as is, and a ma
 | An `Idempotency-Key` that isn’t 1 to 64 letters, digits, `.`, `-`, `_` or `:` | 422 | `bad_key` | |
 | Anything else the request’s shape refuses (validation) | 422 | `invalid` | `detail` is a list of `{type, loc, msg}` (FastAPI’s list form without `input` and `ctx`, so a mistake never repeats what was sent, and a lone surrogate such as `"\ud800"` is a 422, not a 500; 0.5). The web app’s `detailOf` reads `msg` only |
 | Sign-in password checks all busy (keeps `Retry-After`) | 503 | `busy` | |
+| The health check: the database didn’t answer (no reason given) | 503 | `unavailable` | “Mealwright isn’t ready. Try again in a minute.” (proposed, for cabledrawer) |
 | Signing in or setting up over plain http:// | 400 | `https_needed` | |
 
 **Success answers (BE15, BE16; proposed, for cabledrawer).** `201` when the request always makes a new thing that can be fetched or listed afterwards by its id, and the answer carries it (alone, or in a write answer with its change). `200` for everything else: an action on what exists, signing in, and a call that may make nothing (sending it again changes nothing). A replay (section 1.2) is always `200` with `Idempotent-Replayed: true`, whichever route answers it. A DELETE answers `200` with the change it recorded (for its Undo) or the refreshed view the screen shows, or `204` with nothing; one route always answers the same way.
