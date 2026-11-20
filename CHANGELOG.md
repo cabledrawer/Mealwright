@@ -2,9 +2,15 @@
 
 All notable changes to Mealwright are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the plan in `docs/spec.md` section 8: 0.N.0 per build milestone (not published), then MAJOR.MINOR.PATCH from 1.0.0.
 
-## [0.9.5-beta.3] (unreleased)
+## [0.9.5-beta.3] - 2026-11-20
 
-The third 0.9.5 test version. This block holds the words-and-docs changes; the other beta.3 changes are added to it as they merge. No database change in these.
+The third 0.9.5 test version: the fixes from the hand test of beta.2 (F253–F264) and every finding of the consistency review. **No database change.** The API changed: routes, fields and codes were renamed outright (cabledrawer 20 Nov: no public users yet), so a script or an API token user written for beta.2 needs the changes listed under "API changes" below. Nothing new goes out of your house.
+
+### Added
+
+- **Recent changes shows the Outside connections too (cabledrawer 20 Nov).** Switching an outside connection on or off, adding an address to "Your own network" and removing one are each a Recent changes entry, for admins only, with Undo. Undoing "switched on" closes the outbound gate at once; undoing a removed or added own-network entry says in a notice if it also turned password sign-in back on.
+- **New words (proposed, for cabledrawer):** "Switched <connection> on/off", "Removed <address> from Your own network", the sentences shown when such a change can no longer be undone, and one sentence for every refusal that used to differ in small ways.
+- **Drafts, By ingredient: "+ more" is a real button (F259).** It opens every way the lines are written, up to 200 lines (a new route, `GET /recipes/drafts/by-food/lines`).
 
 ### Changed
 
@@ -13,13 +19,93 @@ The third 0.9.5 test version. This block holds the words-and-docs changes; the o
 - **The recipe-link message for your own network names the right page (F263).** "An admin can allow it in Settings › Outside connections, under "Your own network"."
 - **The beta.2 notes that were marked "proposed" are now credited (cabledrawer 19 Nov):** the Collapse sidebar button, the folding of the menu and the one answer a member gets for a link that cannot be opened.
 - **The CHANGELOG is stated plainly:** the release guide now fixes the headings, their order and the one credit form; the stale "Unreleased" block of beta.1 is gone and beta.2 has its date (19 Nov 2026).
+- **Shared screen parts (D5, proposed, for cabledrawer unless said).** One Sheet (it traps the focus, closes on Escape, gives the focus back, scrolls when tall), one Button and button row, one stepper ("Fewer/More servings", "Fewer/More batches"), one segmented choice, one filter-chip row, one empty state, one loading and load-failed line, one breadcrumb, and one date and number reader. The foot buttons of every sheet are in the same order in the page as on screen, so Tab goes the way you read (cabledrawer 20 Nov); Cancel and other second-choice buttons have their old look back (cabledrawer 20 Nov). The Pantry filter chips scroll sideways instead of wrapping, and every Settings page is 760 px wide. Not the whole D5 row: some wide sweeps are left for the 1.0 list (the wording sweep, about 11 "Try again." toasts without a button, own-styled buttons and error boxes in a few files).
+- **One icon set (F255, F256; the agreed icons).** Ingredients is a carrot, the Plan is a calendar, Appearance is auto, Outside connections is a shield. Icons come only from the fixed sizes 14, 16, 18, 20, 24 and 32 and the strokes 2, 2.4 and 3; inline drawings and the ✕ / × glyphs now go through the one Icon part. The old cog stays. The breadcrumb's "›" is now the chevron icon (proposed, for cabledrawer).
+- **Offline and loading (D7).** Every write that can't be queued is switched off while you are offline and says why (Stocktake, Manage tags, Your kitchen's Save, the Used sheet, the lot menu, the sign-in page of single sign-on); Shopping-list changes stay usable offline, as they always were. Every part that loads on first use handles a failed load and tries again on the next try (15 places). About 14 "Try again." toasts now carry a real Try again button.
+- **Members and admins, and Recent changes (D4).** A member is answered only what a screen a member can open reads, and a Household page's own data (API tokens, single sign-on, Your own network, backups, Delete everything) is for admins (cabledrawer 15 Nov: members don't see the Household group). The problem report's server errors are only for those with the Your data permission, so an API token gets none (proposed, for cabledrawer). Every amount rounds half up: a shop size of 62.5 g becomes 65 g, where it was 60 g (proposed, for cabledrawer). Sign-in and Outside connections log lines name the person by username on one logger, `mealwright.sign_in`; refusals are warnings (proposed, for cabledrawer).
+- **The undo window is 7 days, in one place (CL9).** The server and the web app each have one source for it.
+- **API errors and names are one set of rules (D2, D3).** Every error answer has `detail` and `code`; the sentences are written once; the API says "food" where the screens say "ingredient"; every list comes in an object. See "API changes".
+- **The scanner exceptions end on 31 Dec 2026 (cabledrawer 20 Nov).** The two exceptions in `frontend/osv-scanner.toml` (minimatch GHSA-g3hv-75wg-m249 and picomatch GHSA-fc5q-39xc-vjpf) were to end on 28 Nov. Same reason, no lock-file change. The beta.2 entry's 28 Nov is history.
+- **Docs and tooling (D9).** `./check`, the Dockerfile and the build guide use `--locked` for installs; the browser tests share `key`, `addDays`, `stamp` and `call` from one helper file and run with strict TypeScript; the backend tests share their fixtures from `conftest.py`.
+- **The docs agree with the program.** One compose example with one proxy subnet, one image name form, the upgrade steps, the proxy guides, and SECURITY.md (what is encrypted and what is not, what is not built yet) are brought to 0.9.5. No "proposed" or "TODO" is left in a user guide; the open points are in `docs/dev/guide-open-points.md`. The developer API doc is `docs/dev/api-endpoints.md` (it was "api-0.2") and lists every route; a test keeps the page equal to the app's routes.
+- **The app's built-in release day** for 0.9.5-beta.3 is 20 Nov 2026 (a test ties it to this entry's date).
+
+### API changes (cabledrawer 20 Nov: renamed outright, no old routes kept)
+
+Every route, field, code and status that changed, old → new. Stored values in the database are unchanged where an API word differs; they are mapped at the edge.
+
+**Every answer**
+- Every date-and-time in an answer is UTC and ends in `Z` (some had no zone before). Dates without a time are unchanged.
+- Every error answer is `{detail, code}`: a 422 validation error `{detail: [...]}` → `{detail: [...], code: "invalid"}`.
+- Unknown path 404 "Not Found" → `not_found`, "That isn’t here any more."; a method a path doesn't take, 405 → `cant_do_here`.
+- Not signed in 401 → `signed_out` everywhere (the live stream `GET /events` too); a browser write from another site 403 → `other_site`; sign-in checks all busy 503 → `busy`; `POST /setup` and `POST /session` on plain http 400 → `https_needed`.
+- `GET /health` when the database doesn't answer: `{status}` → `{status, detail, code: "unavailable"}`.
+- Replays (same `Idempotency-Key`) answer 200 where they answered 201; `POST /stocktake/places/{id}/foods` 201 → 200.
+
+**Sign-in and passwords**
+- `POST /session` wrong sign-in: 401 → `wrong_sign_in` (one answer for both). `POST /setup` when set up: 409 → `already_set_up`.
+- New passwords too short: 422 `password_too_short` → `password_length`. `PUT /me/password` wrong current password: 422 `wrong_password` → 403 `wrong_password`.
+- The admin's password on `POST /delete-everything`, `PATCH /backups`, `POST /backups`: 403 `password_wrong` → 403 `wrong_password`.
+- `POST /join` answers `{username, me}`, sets the sign-in cookie and can answer 429 (too many wrong links) (F254).
+
+**Names, caps, empty and states (codes)**
+- A name already used: `place_exists`, `shop_exists`, `tag_exists`, `slot_exists` → 409 `name_taken` carrying the one that has it (`place`, `shop`, `tag`, `slot`, `member`); `POST /shops` with an existing name 200 → 409 `name_taken`. `username_taken` is kept apart.
+- Already so: `same_place` (a plan move to its own slot), `already_frozen`, `no_change` (`set-left`), `name_already_here` (422), `already_staple`, `already_listed` → 409 `already_there`.
+- Caps: `too_many_slots` 422 → 409; `meal_full` 422 → 409 `too_many_items`; `batch_full` 422 → 409 `too_many_tubs`; `too_many_batches` 422 → 409; batch cook asked for more than 12 tubs in one go 422 `too_many_tubs` → 422 `too_many`; `list_full` → 409 `too_many_entries`. `POST /sync/batch` over 100 actions stays 413 `too_many`.
+- An empty tub on place: 422 `tub_eaten` → 409 `tub_eaten` "That tub is all eaten."
+- Too late to undo: 410 `too_old` with one sentence built from the window ("Too late to undo: changes can be undone for 7 days.").
+- Not cooked yet 404 `not_cooked` → 409; Batch cook schedule before it is started 404 → 409 `schedule_not_started`.
+- Nothing sent: `POST /plan/items` with none or several of recipe, ingredient or note 422 `one_of` → `one_field`; `POST /recipes/import` empty box `nothing_given` → `nothing_to_change`.
+- `DELETE /privacy/own-network/{id}`: 204 or 200 `{passwords_back_on, notice}` → always 200 `{passwords_back_on, notice}`.
+
+**Routes (actions are imperative kebab-case verbs)**
+- `POST /stock/{id}/used` → `/use`; `/binned` → `/bin`; `/to-freezer` → `/freeze`; `/left` → `/set-left`. `POST /foods/{id}/used` → `/use`; `/left` → `/set-left`; `/not-the-same` → `/mark-not-same`.
+- `POST /plan/tubs/{id}/freezer` → `/freeze`; `POST /plan/meals/{id}/cooked` → `/mark-cooked`; `/didnt` → `/mark-not-cooked`; `/moved` → `/mark-moved`.
+- Stocktake `.../staple` → `.../make-staple`; `.../size` → `.../set-size`.
+- `POST /shopping/from-plan` → `/shopping/add-from-plan`; `POST /household/from-browser` → `/household/fill-from-browser`.
+- One property is set with a PATCH on its thing: `PUT /plan/items/{id}/optional`, `/method`, `/start`, `/started` → `PATCH /plan/items/{id}` with `optional_use`, `method_id`, `start`, `started` (exactly one field); `PUT /plan/meals/{id}/eaters` → `PATCH /plan/meals/{id}` `{member_ids}`; `PUT`/`DELETE /shopping/staples/{id}/got-it` → `PATCH /shopping/staples/{id}` `{got_it: true|false}`; `PUT`/`DELETE .../schedule/tasks/{t}/done` → `PATCH .../tasks/{t}` `{done: true|false}`; `PUT .../tasks/{t}/timer` → `POST .../tasks/{t}/start-timer`.
+- `/backups` → `/your-data/backups`; `/export` → `/your-data/export`; `/delete-everything` → `/your-data/delete-everything`; `GET /shopping/changes?since=N` → `GET /shopping/sync?since=N`.
+- The API says "food": `GET /recipes/drafts/by-ingredient` → `/recipes/drafts/by-food` (and `/answer`, whose field `ingredient` → `food`); `POST /plan/items` `ingredient_id` → `food_id`; plan items `kind: "ingredient"` → `"food"` and field `ingredient` → `food`; `POST /recipes/import/save` `new_ingredients` → `new_foods`.
+- New: `GET /recipes/drafts/by-food/lines` (404 when no draft uses the ingredient any more; at most 200 lines).
+- Web addresses (not API): three Settings pages moved to addresses named after them, `/settings/privacy` → `/settings/outside-connections`, `/settings/household` → `/settings/people` and `/settings/kitchen` → `/settings/your-kitchen`; the old addresses open the new page through a fixed list (F263).
+
+**Fields and answers**
+- Lists come in an object: `GET /places`, `PUT /places/order` → `{places}`; `/shops` → `{shops}`; `/units` → `{units}`; `/conversions` → `{conversions}`; `/meal-slots` → `{meal_slots}`; `/plan/people` → `{people}`.
+- One way to page (`limit` and `after`, the answer's `next`): `GET /plan/tubs-left` `more` → `next` (new query `after`); `GET /today` `tubs_left_more` → `tubs_left_next`; `GET /changes` query `before` → `after`.
+- Day fields: `GET /batch-cook/suggestions` query and answer `day` → `date`; batch preview answer `cook_date` → `cook_day`; `GET /updates` `released` → `released_on`.
+- Backup frequency `"twice-daily"` → `"twice_daily"` (the database still stores `twice-daily`).
+- Path parameters are renamed in the OpenAPI document only: `member_id` → `person_id`, `plan_slot_id` → `meal_slot_id`, `lot_id` → `stock_id`, `sign_in_id` → `session_id`. Shopping list and item IDs must be UUIDs: anything else is 422 where it was 404.
+- Privacy writes (`PUT /privacy/switches/{connection}`, `POST` and `DELETE /privacy/own-network`) answer `change` and take an `Idempotency-Key`; the undo answer gains `notice`.
+- `GET /household` `undo_days` is always 7. `GET /your-data/backups` `photos_size` and `database_size` are whole numbers, never null.
+- Members: `GET /privacy/own-network` and `GET /your-data/backups` 200 → 403 `admins_only` (an admin's token 403 `not_for_tokens`). With a token, `GET /updates` has `can_check` false and `daily`, `last` null, and `GET /problem-report` has `errors` `[]`.
+- `GET /changes` leaves out the own-network changes and their Undos for members and every API token; `POST /changes/{id}/undo` on such a row: 403 → 404 (the review's finding, below).
+- Drafts: Undo and a background save of an answer wait for each other (no database change).
 
 ### Fixed
 
-- **The docs agree with the program.** One compose example with one proxy subnet, one image name form, the upgrade steps, the proxy guides, and SECURITY.md (what is encrypted and what is not, what is not built yet) are brought to 0.9.5. No "proposed" or "TODO" is left in a user guide; the open points are in `docs/dev/guide-open-points.md`.
-- **The spec no longer contradicts itself:** the onboarding steps are stated once (six on the phone, five counted by the Finish setup ring), the undo window and history length are fixed, not settings, and the single sign-on section says Authlib makes no connection of its own.
-- **The word list** has every section number once, an index, and its superseded lines marked; the "Are you sure?" summary lists every agreed exception.
-- **Smaller stale statements:** the developer API doc is `docs/dev/api-endpoints.md` (it was "api-0.2"); the Finish setup step words are in one place in the code; comments on the outbound gate and the job switch say what is built.
+- **F253:** at 768 px wide with the menu unfolded, the Settings headings are no longer cut ("Appearan / ce") and the theme switch stays inside its card; Drafts' buttons keep their words on one line.
+- **F254:** a sign-in link or a Reset password link signs you in on this device and goes straight to the app, with no second sign-in.
+- **F257:** Backups & your data asks for "Your password" only in a pop-up when a change would delete backups; the export box is "Password for the export file".
+- **F258:** Import from Mealie shows a turning ring while it sends, reads and brings in.
+- **F259:** Drafts, By ingredient: "+ more" opens every way the lines are written ("+ more" and "Show fewer" are 44 px high on the phone).
+- **F260:** after an answer, the list moves on at once and the header counts change at once; no "Saving…" stays behind on the next ingredient.
+- **F261:** an answer saves in the background (answers are saved in order; a failed save reopens its group).
+- **F262:** Undo on Drafts answers at once with an "Undoing…" toast; pressing Undo straight after an answer works and leaves nothing half-moved.
+- **F263:** the three Settings pages whose address did not match their name now do (People at `/settings/people`, Outside connections at `/settings/outside-connections`, Your kitchen at `/settings/your-kitchen`), the old addresses still open the right page, instead of "404 Not Found".
+- **F264:** offline, the Recipes header's "New recipe" is greyed out and does nothing; online it works again.
+- **Changes saved by beta.2 under the old names still show in Recent changes and can still be undone** after the renames (no database change).
+- **The docs agree with the program** and **the spec no longer contradicts itself:** the onboarding steps are stated once (six on the phone, five counted by the Finish setup ring), the undo window and history length are fixed, not settings, and the single sign-on section says Authlib makes no connection of its own. The word list has every section number once, an index, and its superseded lines marked.
+
+### Security
+
+- **The security review's one finding (Medium), fixed.** Members could not read "Your own network", but Recent changes still showed them rows like "Added 192.168.1.0/24 to Your own network", and showed them to every API token. Now whoever can't read Your own network (members, and every API token, an admin's too) gets no own-network rows and no Undo rows for them in `GET /changes`, and an Undo of one by id answers 404 (not 403, so it doesn't confirm the change exists). An admin signed in on a device sees and can undo them as before. Outside-connection switch rows stay visible to members, who can read the switches anyway. Rule proposed, for cabledrawer.
+- **F254's conditions, each with its own test:** no open redirect; query strings are not used as targets; the password is kept for the one request only and is never logged; a wrong password has the one status and code of D2; wrong links are throttled (429). Choosing the first password ends that person's other sign-ins (proposed, for cabledrawer).
+
+### Tests
+
+- **D9:** the new tests are listed in `e2e/test-map.json`; browser tests share their helpers and run with strict TypeScript; backend tests share `member`, `slots`, `neighbour` and `fresh_cache` from `conftest.py`.
+- **New backend tests:** times in answers, Outside connections changes and their Undo, the undo window, one admin check, one rounding rule, the sign-in log, one clock, undo while saving, old change rows, and the member and token rules for Recent changes (three failed before the fix). A test walks every route in the OpenAPI document and checks every error answer has `code` and `detail`, and one checks every day field's name against the rule.
+- **New web app tests:** the shared parts, each icon drawing, the offline gate, and three for Drafts' "+ more".
 
 ## [0.9.5-beta.2] - 2026-11-19
 
