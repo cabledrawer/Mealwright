@@ -811,11 +811,11 @@ describe('the Shopping page', () => {
       });
     });
 
-    it('Rename works on any list; Remove only on extra lists, with Undo', async () => {
+    it('Rename works on any list; Delete only on extra lists, with Undo', async () => {
       await render(390);
       await page.getByRole('button', { name: 'This week main list' }).click();
       await page.getByRole('button', { name: 'This week options' }).click();
-      await expect.element(page.getByRole('button', { name: 'Remove' })).not.toBeInTheDocument();
+      await expect.element(page.getByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
       await page.getByRole('button', { name: 'Rename' }).click();
       const box = page.getByRole('textbox', { name: 'List name' });
       await box.fill('Weekly shop');
@@ -829,16 +829,16 @@ describe('the Shopping page', () => {
       );
     });
 
-    it('Remove on an extra list sends a delete and the toast has Undo', async () => {
+    it('Delete on an extra list sends a delete and the toast has Undo', async () => {
       await render(390);
       await page.getByRole('button', { name: 'This week main list' }).click();
       await page.getByRole('button', { name: 'Party on Saturday options' }).click();
-      await page.getByRole('button', { name: 'Remove' }).click();
+      await page.getByRole('button', { name: 'Delete' }).click();
       await vi.waitFor(() =>
         expect(server.actions.at(-1)).toMatchObject({ kind: 'remove_list', list_id: 'party' })
       );
       await expect
-        .element(page.getByRole('status').getByText('Removed Party on Saturday'))
+        .element(page.getByRole('status').getByText('Deleted Party on Saturday'))
         .toBeVisible();
       await page.getByRole('button', { name: 'Undo' }).click();
       await vi.waitFor(() => expect(server.actions.at(-1)).toMatchObject({ kind: 'undo' }));

@@ -531,7 +531,7 @@ test('Cook now plans the recipe into today\'s next meal first, then Cooked it is
   await expect(page.getByRole('button', { name: '← Back' })).toBeVisible();
   await expectNoLeaveButtons(page);
   await notice.getByRole('button', { name: 'Undo' }).click();
-  await expect(notice).toHaveText('Taken out of today’s plan.');
+  await expect(notice).toHaveText('Removed from today’s plan.');
   await expect(page.getByRole('button', { name: 'Cooked it' })).toHaveCount(0);
   await expectNoLeaveButtons(page);
   await expect(footerButtons(page)).toHaveText(['← Back']);

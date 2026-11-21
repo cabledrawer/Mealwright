@@ -80,7 +80,7 @@
     if (sessions && !sessions.some((s) => s.id === id)) {
       const there = sessions.filter((s) => s.cook_day === session.cook_day);
       if (there.length !== 1) {
-        toasts.show('That batch cook was changed or removed. The Plan is up to date now.');
+        toasts.show('That batch cook was changed or deleted. The Plan is up to date now.');
         return;
       }
       id = there[0]!.id;
@@ -124,7 +124,7 @@
       <Button
         quiet
         disabled={actions.readonly}
-        onclick={() => void actions.model.removeBatch(session.id)}>Remove</Button
+        onclick={() => void actions.model.removeBatch(session.id)}>Delete</Button
       >
       <Button disabled={actions.readonly || batches.length === 0} onclick={start}
         >{underWay ? 'Carry on batch cook' : 'Start batch cook'}</Button

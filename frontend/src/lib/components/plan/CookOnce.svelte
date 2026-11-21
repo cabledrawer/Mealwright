@@ -334,7 +334,7 @@
                             type="button"
                             class="x"
                             disabled={actions.readonly}
-                            aria-label="Take tub {tub.number} out of {slot.name} on {dayFull(day)}"
+                            aria-label="Remove tub {tub.number} from {slot.name} on {dayFull(day)}"
                             onclick={() => cook?.removeTub(tub.number)}
                             ><Icon name="close" size={14} stroke={2.4} /></button
                           >

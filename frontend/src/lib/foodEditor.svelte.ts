@@ -249,11 +249,11 @@ export class FoodModel {
     }
   }
 
-  /** "Remove from Ingredients": only offered when nothing depends on it. Undoable. */
+  /** "Delete from Ingredients": only offered when nothing depends on it. Undoable. */
   remove() {
     const name = this.food?.name ?? '';
     return this.#write({
-      label: `Removed ${name} from Ingredients`,
+      label: `Deleted ${name} from Ingredients`,
       send: (key) => removeFood(this.id, key),
       saved: () => this.onGone?.()
     });

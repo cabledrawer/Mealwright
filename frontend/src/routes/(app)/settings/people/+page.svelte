@@ -282,7 +282,7 @@
 
     <p class="note">
       Portions are kept for later: the plan and shopping list don’t use them yet. Only admins can
-      add, change or remove people.
+      add, change or delete people.
     </p>
   </div>
 {/if}

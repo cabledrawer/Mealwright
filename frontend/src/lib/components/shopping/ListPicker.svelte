@@ -124,7 +124,7 @@
             <div class="options">
               <Button small quiet onclick={() => startRename(row.id, row.name)}>Rename</Button>
               {#if !row.main}
-                <Button small quiet onclick={() => remove(row.id)}>Remove</Button>
+                <Button small quiet onclick={() => remove(row.id)}>Delete</Button>
               {/if}
             </div>
           {/if}

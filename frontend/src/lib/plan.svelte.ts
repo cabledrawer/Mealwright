@@ -564,9 +564,15 @@ export class PlanModel {
   removeItem(itemId: number) {
     const item = this.plan?.meals.flatMap((m) => m.items).find((i) => i.id === itemId);
     const name = item ? itemName(item, this.plan) : 'it';
+    // The last item of a meal takes the meal with it: that is a whole thing, so Delete (a part is
+    // Remove; cabledrawer 20 Nov).
+    const whole = this.plan?.meals.some((m) => m.items.length === 1 && m.items[0]?.id === itemId);
     return this.#send({
       // A tub is not thrown away: it goes back to "tubs left".
-      label: item?.kind === 'tub' ? `Put ${name} back in tubs left` : `Removed ${name}`,
+      label:
+        item?.kind === 'tub'
+          ? `Put ${name} back in tubs left`
+          : `${whole ? 'Deleted' : 'Removed'} ${name}`,
       edit: (plan) => withoutItem(plan, itemId),
       send: (key) => removePlanItem(itemId, key)
     });
@@ -575,7 +581,7 @@ export class PlanModel {
   removeMeal(mealId: number) {
     const meal = this.plan?.meals.find((m) => m.id === mealId);
     return this.#send({
-      label: `Removed ${meal ? mealName(meal, this.plan) : 'it'}`,
+      label: `Deleted ${meal ? mealName(meal, this.plan) : 'it'}`,
       edit: (plan) => withoutMeal(plan, mealId),
       send: (key) => removePlanMeal(mealId, key)
     });
@@ -735,7 +741,7 @@ export class PlanModel {
   /** Take the whole session off the plan: one change, one Undo. */
   async removeBatch(id: number) {
     const result = await this.#send({
-      label: 'Took the batch cook off the plan',
+      label: 'Deleted the batch cook',
       send: (key) => removeSession(id, key)
     });
     if (result.ok) forgetBatchMode(id); // the session is gone: the phone's copy goes (S5)

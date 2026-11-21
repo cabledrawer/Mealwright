@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from '#lib/components/Icon.svelte';
-  // Onboarding's "Where do you shop?" (0.9 U2): the household's shops, ✕ to remove one (with
+  // Onboarding's "Where do you shop?" (0.9 U2): the household's shops, ✕ to delete one (with
   // Undo, as in Settings) and "+ Add a shop". Optional. The same endpoints as Settings › Shops and
   // places; renaming and putting them in order stay in Settings.
   import { onMount } from 'svelte';
@@ -57,7 +57,7 @@
       send: (key) => removeShop(shop.id, key),
       saved: refreshShared,
       undo: {
-        label: `Removed the shop ${shop.name}`,
+        label: `Deleted the shop ${shop.name}`,
         skip: (done) => done.change === null,
         run: (done) =>
           done.change?.can_undo
@@ -107,7 +107,7 @@
         <button
           type="button"
           class="remove"
-          aria-label="Remove {shop.name}"
+          aria-label="Delete {shop.name}"
           disabled={network.offline}
           onclick={() => remove(shop)}><Icon name="close" size={14} stroke={2.4} /></button
         >

@@ -1,8 +1,8 @@
 <script lang="ts">
-  // The end of the ingredient editor: "Remove from Ingredients" (spec "Removing an ingredient",
+  // The end of the ingredient editor: "Delete from Ingredients" (spec "Removing an ingredient",
   // cabledrawer 17 and 19 Oct). Recipes don't block it, so before it is pressed it says how many
   // recipes use the ingredient: their lines keep their words and show "not linked", and Undo
-  // links them again. A recipe's own made-ahead ingredient can't be removed while Made ahead is
+  // links them again. A recipe's own made-ahead ingredient can't be deleted while Made ahead is
   // on, and the editor says why, with the recipe's name as a link.
   import { resolve } from '$app/paths';
   import type { Ref } from '#lib/client/types.js';
@@ -41,7 +41,7 @@
     Made by the recipe <a
       href={resolve('/(app)/recipes/[id]', { id: String(madeBy.id) })}
       onclick={follow}>{madeBy.name}</a
-    >. Turn off Made ahead there to remove it.
+    >. Turn off Made ahead there to delete it.
   </p>
 {:else if removable}
   <div class="area">
@@ -54,7 +54,7 @@
       </p>
     {/if}
     <Button small quiet aria-describedby={usedIn > 0 ? `${uid}-hint` : undefined} onclick={onremove}
-      >Remove from Ingredients</Button
+      >Delete from Ingredients</Button
     >
   </div>
 {/if}

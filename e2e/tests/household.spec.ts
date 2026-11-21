@@ -287,23 +287,23 @@ test('Reset password: a one-time link where they choose a new password; the Pers
   await expect(page.getByText(`${name} hasn’t used the reset link yet.`)).toHaveCount(0);
 });
 
-test('remove a person: they leave the list, and Undo brings them back', async ({ page }) => {
+test('delete a person: they leave the list, and Undo brings them back', async ({ page }) => {
   const name = `Mira ${mark()}`;
   const made = await addPerson(page, name, { colour: 'blue' });
   await page.goto('/settings/people');
   await peopleList(page).getByRole('link', { name: new RegExp(name) }).click();
   await expect(page.getByText(`Recent changes shows “${name} (removed)”. Undo for 7 days.`, { exact: false })).toBeVisible();
-  await page.getByRole('button', { name: `Remove ${name}` }).click();
+  await page.getByRole('button', { name: `Delete ${name}` }).click();
   await expect(page).toHaveURL('/settings/people');
   await expect(peopleList(page).getByRole('link', { name: new RegExp(name) })).toHaveCount(0);
   await page.getByRole('status').getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Undone' })).toBeVisible();
   await expect(peopleList(page).getByRole('link', { name: new RegExp(name) })).toBeVisible();
-  // Nobody can remove themselves: the admin's own page has no Remove.
+  // Nobody can delete themselves: the admin’s own page has no Delete.
   const me = ((await (await page.request.get('/api/v1/people')).json()) as Json).people.find((p: Json) => p.is_me);
   await page.goto(`/settings/people/${me.id}`);
   await expect(page.getByRole('button', { name: 'Save' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Remove/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Delete/ })).toHaveCount(0);
   expect(made.id).toBeGreaterThan(0);
 });
 

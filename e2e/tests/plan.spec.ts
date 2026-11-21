@@ -169,7 +169,7 @@ async function fingerHold(target: Locator) {
   );
 }
 
-const toast = (page: Page) => page.getByRole('status').filter({ hasText: /Undo|Planned|Moved|Copied|Removed|Leftovers/ });
+const toast = (page: Page) => page.getByRole('status').filter({ hasText: /Undo|Planned|Moved|Copied|Removed|Deleted|Leftovers/ });
 
 // A script error anywhere on the page fails the test that caused it.
 // The phone opens the Plan on Eat; these tests are about the cards, which are Both (0.7, P2).
@@ -549,7 +549,7 @@ test.describe('on a computer', () => {
     await page.keyboard.press('Enter');
     const sheet = page.getByRole('dialog', { name });
     await expect(sheet).toBeVisible();
-    for (const word of ['Move to…', 'Copy to…', 'Leftovers on…', 'Remove']) await expect(sheet.getByRole('button', { name: word })).toBeVisible();
+    for (const word of ['Move to…', 'Copy to…', 'Leftovers on…', 'Delete']) await expect(sheet.getByRole('button', { name: word })).toBeVisible();
     await sheet.getByRole('button', { name: 'Move to…' }).focus();
     await page.keyboard.press('Enter');
     // The tests' day is a Saturday, so the day after (Sunday) is in the same week.
@@ -603,14 +603,14 @@ test.describe('on a computer', () => {
     await expect(cell(page, day, slot.Lunch)).toContainText('2 things');
   });
 
-  test('Remove takes a meal off with a toast and Undo; Meals switches hide a row, with Undo', async ({ page }) => {
+  test('Delete takes a meal off with a toast and Undo; Meals switches hide a row, with Undo', async ({ page }) => {
     const { today, slot } = await setup(page);
     const name = `Gone ${stamp()}`;
     const day = inWeek(today, 7);
     await planned(page, await makeRecipe(page, name), day, slot.Dinner);
     await openWeekOf(page, today, day);
     await cell(page, day, slot.Dinner).getByRole('button', { name: new RegExp(`^${name}`) }).first().click();
-    await page.getByRole('dialog', { name }).getByRole('button', { name: 'Remove' }).click();
+    await page.getByRole('dialog', { name }).getByRole('button', { name: 'Delete' }).click();
     await expect(cell(page, day, slot.Dinner)).not.toContainText(name);
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
     await expect(cell(page, day, slot.Dinner)).toContainText(name);
@@ -788,7 +788,7 @@ test.describe('on a phone', () => {
     test.skip(!isPhone(page), 'the phone’s day list and long-press sheet');
   });
 
-  test('the week is a list of days; long-press a meal for Move to…, Copy to…, Leftovers on…, Remove', async ({ page }) => {
+  test('the week is a list of days; long-press a meal for Move to…, Copy to…, Leftovers on…, Delete', async ({ page }) => {
     const { today, slot } = await setup(page);
     const name = `Press ${stamp()}`;
     const day = inWeek(today, 1);
@@ -799,7 +799,7 @@ test.describe('on a phone', () => {
     await fingerHold(meal);
     const sheet = page.getByRole('dialog', { name });
     await expect(sheet).toBeVisible();
-    for (const word of ['Move to…', 'Copy to…', 'Leftovers on…', 'Remove']) await expect(sheet.getByRole('button', { name: word })).toBeVisible();
+    for (const word of ['Move to…', 'Copy to…', 'Leftovers on…', 'Delete']) await expect(sheet.getByRole('button', { name: word })).toBeVisible();
     await expect(sheet.getByRole('button', { name: 'Cook once, eat for…' })).toBeVisible();
     await expect(sheet.getByRole('button', { name: /tub/i })).toHaveCount(0); // a recipe (not a tub) has no Whose tub? or To freezer
     await sheet.getByRole('button', { name: 'Copy to…' }).click();

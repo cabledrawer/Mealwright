@@ -27,7 +27,7 @@ const KEEP = 50;
 
 export const UNDONE = 'Undone';
 
-/** "Undone: Removed Oil from Ingredients": what was taken back, in the change's own words. */
+/** "Undone: Deleted Oil from Ingredients": what was taken back, in the change's own words. */
 export function undoneWords(label: string): string {
   const words = label.trim();
   return words ? `${UNDONE}: ${words}` : UNDONE;

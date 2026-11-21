@@ -74,7 +74,7 @@ describe('"+ Place"', () => {
 
   it('says why when the household already has 50 places, and picks nothing', async () => {
     const sentence =
-      'You have 50 places, the most Mealwright keeps. Rename or remove one in Settings.';
+      'You have 50 places, the most Mealwright keeps. Rename or delete one in Settings.';
     fakeApi({ 'POST /places': [409, { code: 'too_many_places', detail: sentence }] });
     await page.getByRole('textbox', { name: 'Place’s name' }).fill('One too many');
     await page.getByRole('button', { name: 'Add place' }).click();

@@ -241,7 +241,7 @@ test("Cook once: the sheet previews, a tub is taken out, added and moved; Save m
   await expect(sunDinner).toContainText("Tub 1");
   await expect(monDinner).toContainText("Tub 2");
   // ✕ sends a tub back to "tubs left"; + Add a tub puts the next one in the meal.
-  await sunDinner.getByRole("button", { name: /^Take tub 1 out of/ }).click();
+  await sunDinner.getByRole("button", { name: /^Remove tub 1 from/ }).click();
   await expect(summary).toContainText("2 of 4 placed");
   await expect(summary).toContainText("Tubs 1 and 4 → Fridge");
   await expect(sunDinner).not.toContainText("Tub 1");

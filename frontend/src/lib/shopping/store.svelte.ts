@@ -1028,7 +1028,7 @@ export class ShoppingModel {
     return this.#act(
       { kind: 'remove_list', list_id: listId },
       {
-        label: `Removed ${name}`,
+        label: `Deleted ${name}`,
         saved: () => {
           if (wasOpen) this.listId = null;
         }

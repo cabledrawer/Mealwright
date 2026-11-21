@@ -149,7 +149,7 @@ test.describe('signed in', () => {
   });
 
   test('Ingredients, with the editor open on one that recipes use', async ({ page }) => {
-    // The editor beside the list has the “Used in 6 recipes” links and “Remove from Ingredients”.
+    // The editor beside the list has the “Used in 6 recipes” links and “Delete from Ingredients”.
     const key = () => ({ 'idempotency-key': crypto.randomUUID() });
     const made = async (path: string, data: object) =>
       (await (await page.request.post(`/api/v1${path}`, { data, headers: key() })).json()) as Record<string, any>;

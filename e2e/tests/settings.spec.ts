@@ -303,19 +303,19 @@ test('Shops: add, rename, reorder; removing one sends its ingredients to Any sho
     .toBe(true);
   await checkPage(page); // before any toast is on screen (a toast can cover a row above)
   // Remove: at once, no "Are you sure?", with Undo.
-  await shops.getByRole('button', { name: `Remove ${renamed}` }).click();
+  await shops.getByRole('button', { name: `Delete ${renamed}` }).click();
   await expect(rowOf(page, 'Shops', renamed)).toHaveCount(0);
-  await expect(page.getByRole('status').filter({ hasText: `Removed the shop ${renamed}` })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: `Deleted the shop ${renamed}` })).toBeVisible();
   await expect
     .poll(async () => ((await (await page.request.get(`/api/v1/foods/${milk.id}`)).json()) as Json).shop)
     .toBeNull();
-  await undoFromToast(page, `Undone: Removed the shop ${renamed}`);
+  await undoFromToast(page, `Undone: Deleted the shop ${renamed}`);
   await expect(rowOf(page, 'Shops', renamed)).toBeVisible();
   const back = (await (await page.request.get(`/api/v1/foods/${milk.id}`)).json()) as Json;
   expect(back.shop.name).toBe(renamed);
   // Clean up: the shops are removed again (their Undo stays in Recent changes).
   for (const name of [renamed, second]) {
-    await shops.getByRole('button', { name: `Remove ${name}` }).click();
+    await shops.getByRole('button', { name: `Delete ${name}` }).click();
     await expect(rowOf(page, 'Shops', name)).toHaveCount(0);
   }
 });
@@ -339,14 +339,14 @@ test('Places: add with a kind; a place with things in it asks where to move them
   const dal = await makeFood(page, `Dal ${s}`);
   await stock(page, rice.id, shelf, 500);
   await stock(page, dal.id, shelf, 300);
-  await places.getByRole('button', { name: `Remove ${name}` }).click();
+  await places.getByRole('button', { name: `Delete ${name}` }).click();
   const ask = page.getByRole('form', { name: `Move things out of ${name}` });
   await expect(ask.getByText(`${name} has 2 things in it. Move them to…`)).toBeVisible();
   await expect(rowOf(page, 'Places at home', name)).toBeVisible(); // still there while asked
   await ask.getByRole('combobox', { name: 'Move them to' }).selectOption({ label: 'Cupboard' });
-  await ask.getByRole('button', { name: 'Move and remove' }).click();
+  await ask.getByRole('button', { name: 'Move and delete' }).click();
   await expect(rowOf(page, 'Places at home', name)).toHaveCount(0);
-  await expect(page.getByRole('status').filter({ hasText: `Removed the place ${name}` })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: `Deleted the place ${name}` })).toBeVisible();
   const lots = async () => {
     const pantry = (await (await page.request.get('/api/v1/pantry')).json()) as Json;
     return pantry.places
@@ -359,7 +359,7 @@ test('Places: add with a kind; a place with things in it asks where to move them
     .poll(async () => ((await (await page.request.get(`/api/v1/foods/${rice.id}`)).json()) as Json).place.id)
     .toBe(cupboard);
   // Undo: the place is back, with what moved.
-  await undoFromToast(page, `Undone: Removed the place ${name}`);
+  await undoFromToast(page, `Undone: Deleted the place ${name}`);
   await expect(rowOf(page, 'Places at home', name)).toBeVisible();
   await expect.poll(lots).toEqual([name]);
   await expect
@@ -375,7 +375,7 @@ test('Places: add with a kind; a place with things in it asks where to move them
     }
   }
   await page.reload();
-  await places.getByRole('button', { name: `Remove ${name}` }).click();
+  await places.getByRole('button', { name: `Delete ${name}` }).click();
   await expect(rowOf(page, 'Places at home', name)).toHaveCount(0);
   await checkPage(page);
 });
@@ -393,8 +393,8 @@ test('Places: the last Fridge and the last Freezer stay, and the screen says why
   }
   await page.goto('/settings/shops-places');
   const places = section(page, 'Places at home');
-  await expect(places.getByRole('button', { name: 'Remove Fridge' })).toBeDisabled();
-  await expect(places.getByRole('button', { name: 'Remove Freezer' })).toBeDisabled();
+  await expect(places.getByRole('button', { name: 'Delete Fridge' })).toBeDisabled();
+  await expect(places.getByRole('button', { name: 'Delete Freezer' })).toBeDisabled();
   await expect(places.getByText(/Mealwright needs at least one Fridge and one Freezer\./)).toBeVisible();
   // The server refuses too, with its code.
   const fridge = await placeId(page, 'Fridge');
@@ -435,15 +435,15 @@ test('Recent changes lists a pantry change, a plan change and a removal, newest 
   await page.goto('/settings/recent-changes');
   const recent = section(page, 'Recent changes');
   const rows = recent.getByRole('listitem');
-  await expect(rows.first()).toContainText(`Removed the shop Shop ${s}`);
+  await expect(rows.first()).toContainText(`Deleted the shop Shop ${s}`);
   await expect(recent.getByText(new RegExp(`Added .*Lentils ${s}`)).first()).toBeVisible();
   await expect(recent.getByText(new RegExp(`Planned .*Lentils ${s}|Lentils ${s}.*Dinner`)).first()).toBeVisible();
   await checkPage(page); // open, before any toast is on screen
   // Undo the removal from the list.
-  await recent.getByRole('button', { name: `Undo: Removed the shop Shop ${s}` }).click();
-  await expect(page.getByRole('status').filter({ hasText: `Undone: Removed the shop Shop ${s}` })).toBeVisible();
-  await expect(recent.getByText(`Undid: Removed the shop Shop ${s}`)).toBeVisible();
-  await expect(recent.getByRole('button', { name: `Undo: Removed the shop Shop ${s}` })).toHaveCount(0);
+  await recent.getByRole('button', { name: `Undo: Deleted the shop Shop ${s}` }).click();
+  await expect(page.getByRole('status').filter({ hasText: `Undone: Deleted the shop Shop ${s}` })).toBeVisible();
+  await expect(recent.getByText(`Undid: Deleted the shop Shop ${s}`)).toBeVisible();
+  await expect(recent.getByRole('button', { name: `Undo: Deleted the shop Shop ${s}` })).toHaveCount(0);
   expect(((await (await page.request.get('/api/v1/shops')).json()).shops as Json[]).map((x) => x.name)).toContain(`Shop ${s}`);
   // Clean up the plan and the shop.
   const item = ((await planned.json()) as Json).item_id;
@@ -514,10 +514,10 @@ test('an ingredient brought back by a Pantry Undo says so in Recent changes, and
   await page.goto('/settings/recent-changes');
   const recent = section(page, 'Recent changes');
   await expect(recent.getByText(`${food.name} is back in Ingredients`)).toBeVisible();
-  await expect(recent.getByText(`Removed ${food.name} from Ingredients`)).toBeVisible();
+  await expect(recent.getByText(`Deleted ${food.name} from Ingredients`)).toBeVisible();
   // Neither line has an Undo: the "back" line never does, and the removal no longer stands.
   await expect(recent.getByRole('button', { name: `Undo: ${food.name} is back in Ingredients` })).toHaveCount(0);
-  await expect(recent.getByRole('button', { name: `Undo: Removed ${food.name} from Ingredients` })).toHaveCount(0);
+  await expect(recent.getByRole('button', { name: `Undo: Deleted ${food.name} from Ingredients` })).toHaveCount(0);
 });
 
 test('Pantry and Ingredients have no Recent changes of their own', async ({ page }) => {
@@ -583,15 +583,15 @@ test('F175, F176: a change made on its page is in Recent changes when that opens
   await shops.getByRole('textbox', { name: 'New shop' }).fill(shop);
   await shops.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(rowOf(page, 'Shops & places', shop)).toBeVisible();
-  await shops.getByRole('button', { name: `Remove ${shop}` }).click();
+  await shops.getByRole('button', { name: `Delete ${shop}` }).click();
   await expect(rowOf(page, 'Shops & places', shop)).toHaveCount(0);
   await page.goto('/settings/recent-changes');
-  await expect(section(page, 'Recent changes').getByText(`Removed the shop ${shop}`).first()).toBeVisible();
-  await section(page, 'Recent changes').getByRole('button', { name: `Undo: Removed the shop ${shop}` }).click();
+  await expect(section(page, 'Recent changes').getByText(`Deleted the shop ${shop}`).first()).toBeVisible();
+  await section(page, 'Recent changes').getByRole('button', { name: `Undo: Deleted the shop ${shop}` }).click();
   await page.goto('/settings/shops-places');
   await expect(rowOf(page, 'Shops & places', shop)).toBeVisible();
   // Leave it as it was.
-  await section(page, 'Shops & places').getByRole('button', { name: `Remove ${shop}` }).click();
+  await section(page, 'Shops & places').getByRole('button', { name: `Delete ${shop}` }).click();
   await expect(rowOf(page, 'Shops & places', shop)).toHaveCount(0);
 });
 

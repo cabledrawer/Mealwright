@@ -161,7 +161,7 @@ describe('Settings › People › a person', () => {
         )
       )
       .toBeVisible();
-    await expect.element(page.getByRole('button', { name: 'Remove Joss' })).toBeVisible();
+    await expect.element(page.getByRole('button', { name: 'Delete Joss' })).toBeVisible();
     await expect
       .element(page.getByText('Recent changes shows “Joss (removed)”', { exact: false }))
       .toBeVisible();
@@ -315,7 +315,7 @@ describe('Settings › People › a person', () => {
       'DELETE /people/3': [
         200,
         people([TESS], {
-          change: CHANGE(61, 'person_removed', 'Removed Joss from the household')
+          change: CHANGE(61, 'person_removed', 'Deleted Joss from the household')
         })
       ],
       'POST /changes/61/undo': [
@@ -323,9 +323,9 @@ describe('Settings › People › a person', () => {
         { result: 'done', message: 'Undone', undone: { kind: 'person_removed' } }
       ]
     });
-    await page.getByRole('button', { name: 'Remove Joss' }).click();
+    await page.getByRole('button', { name: 'Delete Joss' }).click();
     await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/settings/people'));
-    expect(toasts.current?.message).toBe('Removed Joss from the household');
+    expect(toasts.current?.message).toBe('Deleted Joss from the household');
     // The toast's Undo (and Ctrl+Z) undo the server's own change.
     await undoHistory.undoLast();
     await vi.waitFor(() => expect(sent('POST', '/changes/61/undo')).toHaveLength(1));
@@ -404,7 +404,7 @@ describe('Settings › People › a person', () => {
     await expect.element(page.getByText('Added 3 Nov', { exact: true })).toBeVisible();
   });
 
-  it('you cannot remove yourself or change your own role', async () => {
+  it('you cannot delete yourself or change your own role', async () => {
     params.id = '1';
     open();
     await expect.element(page.getByRole('heading', { name: 'Tess', level: 1 })).toBeVisible();
@@ -549,6 +549,6 @@ describe('Settings › People › a person', () => {
     await expect.element(page.getByLabelText('Name')).toBeDisabled();
     await expect.element(page.getByRole('button', { name: 'Peach' })).toBeDisabled();
     expect(page.getByRole('button', { name: 'Save' }).query()).toBeNull();
-    expect(page.getByRole('button', { name: 'Remove Joss' }).query()).toBeNull();
+    expect(page.getByRole('button', { name: 'Delete Joss' }).query()).toBeNull();
   });
 });

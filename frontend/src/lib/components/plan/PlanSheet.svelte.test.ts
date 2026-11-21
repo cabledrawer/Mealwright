@@ -88,6 +88,7 @@ describe('the Plan menu of a part-cooked meal (F157)', () => {
   it('nor can a meal that holds one, but the recipe not cooked yet can', async () => {
     open({ kind: 'meal', meal });
     expect(page.getByRole('button', { name: 'Remove' }).elements()).toHaveLength(0);
+    expect(page.getByRole('button', { name: 'Delete' }).elements()).toHaveLength(0);
     unmount(component!);
     document.body.innerHTML = '';
     open({ kind: 'item', meal, item: khichdi });
@@ -216,5 +217,25 @@ describe('Plan it on the recipe page while the days are still being read (F271)'
     expect(document.activeElement).not.toBe(opener);
     await userEvent.keyboard('{Escape}');
     expect(onclose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Delete for a whole meal, Remove for a part of one (cabledrawer 20 Nov)', () => {
+  const alone: PlanMeal = { ...meal, items: [khichdi] };
+
+  it('a meal says Delete; one recipe of several says Remove', async () => {
+    open({ kind: 'meal', meal: alone });
+    await expect.element(page.getByRole('button', { name: 'Delete' })).toBeVisible();
+    expect(page.getByRole('button', { name: 'Remove' }).elements()).toHaveLength(0);
+    unmount(component!);
+    document.body.innerHTML = '';
+    open({ kind: 'item', meal: { ...meal, items: [khichdi, item(3, 'Raita', false)] }, item: khichdi });
+    await expect.element(page.getByRole('button', { name: 'Remove' })).toBeVisible();
+    expect(page.getByRole('button', { name: 'Delete' }).elements()).toHaveLength(0);
+  });
+
+  it('the only recipe of a meal is the whole meal, so it says Delete', async () => {
+    open({ kind: 'item', meal: alone, item: khichdi });
+    await expect.element(page.getByRole('button', { name: 'Delete' })).toBeVisible();
   });
 });

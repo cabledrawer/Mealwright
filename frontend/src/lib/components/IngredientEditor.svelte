@@ -7,7 +7,7 @@
   // when it's left or switched, with Undo (foodEditor.svelte.ts).
   //
   // 0.4: "Used in N recipes" lists the recipes that use the ingredient, each a link to its
-  // page, and "Remove from Ingredients" says so before it is pressed (spec "Removing an
+  // page, and "Delete from Ingredients" says so before it is pressed (spec "Removing an
   // ingredient", cabledrawer 19 Oct: the recipes don't block it; their lines keep their words
   // and show "not linked").
   import { MAX_AMOUNT_TEXT, MAX_TYPED_AMOUNT, parseAmount } from '#lib/amountText.js';

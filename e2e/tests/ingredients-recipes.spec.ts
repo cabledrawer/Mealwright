@@ -133,7 +133,7 @@ test('an ingredient no recipe uses says so', async ({ page }) => {
   await expect(editor.getByRole('heading', { name: 'Used in recipes' })).toBeVisible();
   await expect(editor.getByText('Not in any recipe yet.')).toBeVisible();
   await expect(editor.getByText(/^Used in \d/)).toHaveCount(0);
-  await expect(editor.getByRole('button', { name: 'Remove from Ingredients' })).toBeVisible();
+  await expect(editor.getByRole('button', { name: 'Delete from Ingredients' })).toBeVisible();
   await checkPage(page);
 });
 
@@ -172,12 +172,12 @@ test('removing an ingredient that recipes use says so first; the lines keep thei
   const editor = await openEditor(page, token, `Remove ${token}`);
   const hint = 'Used in 2 recipes. Their lines keep their words and show “not linked”.';
   await expect(editor.getByText(hint)).toBeVisible();
-  await expect(editor.getByRole('button', { name: 'Remove from Ingredients' })).toHaveAccessibleDescription(hint);
+  await expect(editor.getByRole('button', { name: 'Delete from Ingredients' })).toHaveAccessibleDescription(hint);
   await checkPage(page);
-  await editor.getByRole('button', { name: 'Remove from Ingredients' }).click();
+  await editor.getByRole('button', { name: 'Delete from Ingredients' }).click();
 
   // At once, with Undo; the editor closes.
-  const toast = page.getByRole('status').filter({ hasText: `Removed Remove ${token} from Ingredients` });
+  const toast = page.getByRole('status').filter({ hasText: `Deleted Remove ${token} from Ingredients` });
   await expect(toast).toBeVisible();
   await expect(page.getByRole('complementary', { name: `Edit Remove ${token}` })).toHaveCount(0);
 
@@ -214,9 +214,9 @@ test('a recipe’s own made-ahead ingredient says why it stays, with a link to t
   const name = batter.homemade.name as string;
   const editor = await openEditor(page, token, name);
   await expect(editor.getByText(/^Made by the recipe/)).toContainText(`Dosa batter ${token}`);
-  await expect(editor.getByText(/Turn off Made ahead there to remove it\./)).toBeVisible();
+  await expect(editor.getByText(/Turn off Made ahead there to delete it\./)).toBeVisible();
   await expect(editor.getByRole('link', { name: `Dosa batter ${token}` })).toHaveAttribute('href', `/recipes/${batter.id}`);
-  await expect(editor.getByRole('button', { name: 'Remove from Ingredients' })).toHaveCount(0);
+  await expect(editor.getByRole('button', { name: 'Delete from Ingredients' })).toHaveCount(0);
   await checkPage(page);
 });
 

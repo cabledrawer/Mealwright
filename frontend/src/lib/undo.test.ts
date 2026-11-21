@@ -138,10 +138,10 @@ describe('Ctrl+Z / Cmd+Z', () => {
   });
 
   it('Ctrl+Z says what was undone, in the change’s own sentence', async () => {
-    undoHistory.record({ label: 'Removed Oil from Ingredients', undo: () => {} });
+    undoHistory.record({ label: 'Deleted Oil from Ingredients', undo: () => {} });
     press(document.body, { key: 'z', ctrlKey: true });
     await tick();
-    expect(toasts.current?.message).toBe('Undone: Removed Oil from Ingredients');
+    expect(toasts.current?.message).toBe('Undone: Deleted Oil from Ingredients');
   });
 
   it('undoes your last change when focus is not in a text box', async () => {

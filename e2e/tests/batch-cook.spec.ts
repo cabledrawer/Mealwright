@@ -6,7 +6,7 @@ import { call, key } from './helpers.ts';
 // Batch cook (Experimental; 0.8 wave 6, B2): the sidebar entry on a computer and the Plan's third
 // tab on a phone, the first-time note, Your kitchen on first use, the picks (swap, show me others),
 // Plan this batch (one Cook once sheet after another, one Undo for the whole session), the Plan's
-// card and "Batch · Sun" tags, Change and Remove, and the admin's switch. Runs on Chromium (computer
+// card and "Batch · Sun" tags, Change and Delete, and the admin's switch. Runs on Chromium (computer
 // and phone) and WebKit.
 //
 // The three projects share one server. Each plans on days of its own, far ahead (the plan accepts
@@ -277,7 +277,7 @@ test('Cancel on the second sheet plans nothing', async ({ page }) => {
   expect(plan.meals).toHaveLength(0);
 });
 
-test('Change reopens the picks with the session’s recipes, and Remove takes the session off with one Undo', async ({ page }) => {
+test('Change reopens the picks with the session’s recipes, and Delete takes the session off with one Undo', async ({ page }) => {
   const tag = `r${Date.now().toString(36)}`;
   const ids = await seed(page, tag);
   const day = cookDay(await today(page), 2);
@@ -307,7 +307,7 @@ test('Change reopens the picks with the session’s recipes, and Remove takes th
   const changed = (await (await page.request.get(`/api/v1/batch-cook/sessions/${after[0]!.id}`)).json()) as { slot_id: number };
   expect(changed.slot_id).toBe(slot);
   await page.goto(`/plan?day=${day}`);
-  await page.getByTestId('batch-card').getByRole('button', { name: 'Remove' }).click();
+  await page.getByTestId('batch-card').getByRole('button', { name: 'Delete' }).click();
   await expect(page.getByTestId('batch-card')).toHaveCount(0);
   expect((await planRange(page, day)).batch_sessions).toHaveLength(0);
   await page.getByRole('button', { name: 'Undo' }).click();
@@ -413,7 +413,7 @@ test('while Batch cook is hidden the Plan card has no buttons, and taking the se
     await page.goto(`/plan?day=${day}`);
     const card = page.getByTestId('batch-card');
     await expect(card).toContainText('Batch cook · 2 recipes');
-    await expect(card.getByRole('button', { name: 'Remove' })).toHaveCount(0);
+    await expect(card.getByRole('button', { name: 'Delete' })).toHaveCount(0);
     await expect(card.getByRole('button', { name: 'Change' })).toHaveCount(0);
     expect((await page.request.delete(`/api/v1/batch-cook/sessions/${made.session_id}`, { headers: key() })).status()).toBe(409);
     await expect(card.getByRole('button', { name: 'Start batch cook' })).toHaveCount(0);

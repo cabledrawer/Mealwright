@@ -162,7 +162,7 @@ describe('on the phone', () => {
     expect(requests.find((r) => r.method === 'POST' && r.path === '/shops')?.body).toEqual({
       name: 'Indian grocer'
     });
-    await page.getByRole('button', { name: 'Remove Supermarket' }).click();
+    await page.getByRole('button', { name: 'Delete Supermarket' }).click();
     await expect.element(page.getByText('Supermarket')).not.toBeInTheDocument();
     await vi.waitFor(() =>
       expect(requests.some((r) => r.method === 'DELETE' && r.path === '/shops/1')).toBe(true)

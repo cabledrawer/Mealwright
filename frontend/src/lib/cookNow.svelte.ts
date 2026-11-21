@@ -37,7 +37,7 @@ import { slotsOn } from './planMeals';
 import { undoHistory, type UndoEntry } from './undo.svelte';
 
 export const NOT_PLANNED = 'This recipe wasn’t planned.';
-export const TAKEN_OUT = 'Taken out of today’s plan.';
+export const TAKEN_OUT = 'Removed from today’s plan.';
 
 export type CookSpot = { kind: 'planned'; meal: PlanMeal } | { kind: 'new'; slotId: number } | null;
 
@@ -135,7 +135,7 @@ export class CookNow {
           needsServer: true,
           undo: async () => {
             const message = await undo();
-            // The plan item is taken out either way, but the screen changes only if it is still
+            // The plan item is removed either way, but the screen changes only if it is still
             // this Cook now's (another recipe's Cook mode may be open by now).
             if (this.#entry === entry) {
               this.undone = true;

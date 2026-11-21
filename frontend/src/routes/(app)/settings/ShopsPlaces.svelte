@@ -1,7 +1,7 @@
 <script lang="ts">
   // Settings › Shops & places (F74, F101; mockup Dark-Settings08-Desktop; spec "Shops & places
   // in Settings"). Anyone in the household can manage them. Shops in the order you visit them;
-  // places in order, each with its kind (Fridge, Freezer, Cupboard). Removing a shop moves its
+  // places in order, each with its kind (Fridge, Freezer, Cupboard). Deleting a shop moves its
   // ingredients to "Any shop"; a place with things in it says how many and asks where to move
   // them; the last Fridge and the last Freezer stay. Each removal has Undo.
   import { onMount } from 'svelte';
@@ -143,7 +143,7 @@
       send: (key) => removeShop(shop.id, key),
       saved: refreshShared,
       undo: {
-        label: `Removed the shop ${shop.name}`,
+        label: `Deleted the shop ${shop.name}`,
         skip: (done) => done.change === null,
         run: (done) => (done.change?.can_undo ? serverUndo(done.change.id, refreshShared)() : false)
       }
@@ -229,7 +229,7 @@
         return true;
       },
       undo: {
-        label: `Removed the place ${place.name}`,
+        label: `Deleted the place ${place.name}`,
         skip: (done) => done.change === null,
         run: (done) => (done.change?.can_undo ? serverUndo(done.change.id, refreshShared)() : false)
       }
@@ -301,7 +301,7 @@
     >
   {/if}
   {#if shopNote}<p class="warning-line" role="alert">{shopNote}</p>{/if}
-  <p class="detail">Removing a shop moves its ingredients to “Any shop”, with Undo.</p>
+  <p class="detail">Deleting a shop moves its ingredients to “Any shop”, with Undo.</p>
 </section>
 
 <section class="card" aria-labelledby="places-title">
@@ -342,7 +342,7 @@
         {/each}
       </select>
       <Button small type="submit" disabled={moveTo === null || network.offline}
-        >Move and remove</Button
+        >Move and delete</Button
       >
       <Button small quiet onclick={() => (moving = null)}>Cancel</Button>
     </form>
@@ -377,7 +377,7 @@
   {/if}
   {#if placeNote}<p class="warning-line" role="alert">{placeNote}</p>{/if}
   <p class="detail">
-    A place with things in it can’t be removed until they’re moved: Mealwright says how many and
+    A place with things in it can’t be deleted until they’re moved: Mealwright says how many and
     offers “Move them to…”.{hasFixed
       ? ' Mealwright needs at least one Fridge and one Freezer.'
       : ''}

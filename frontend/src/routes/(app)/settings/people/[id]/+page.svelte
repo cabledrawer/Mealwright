@@ -618,16 +618,16 @@
       <Button disabled={locked || picking > 0} onclick={() => void save()}>Save</Button>
       {#if !person.is_me}
         <Button warn disabled={locked || picking > 0} onclick={() => void remove()}
-          >Remove {person.name}</Button
+          >Delete {person.name}</Button
         >
         <p class="note">
-          Removing someone keeps their meals and history; Recent changes shows “{person.name} (removed)”.
+          Deleting someone keeps their meals and history; Recent changes shows “{person.name} (removed)”.
           Undo for {household.undoDays}
           {plural(household.undoDays, 'day', 'days')}.
         </p>
       {/if}
     {:else}
-      <p class="note">Only admins can add, change or remove people.</p>
+      <p class="note">Only admins can add, change or delete people.</p>
     {/if}
   </div>
 {/if}

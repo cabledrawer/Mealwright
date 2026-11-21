@@ -161,11 +161,11 @@ test("the list picker makes, renames and removes an extra list, with Undo", asyn
 
   await page.getByRole("button", { name: new RegExp(`^${renamed}`) }).click();
   await page.getByRole("button", { name: `${renamed} options` }).click();
-  await page.getByRole("button", { name: "Remove", exact: true }).click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByRole("button", { name: /^This week/ })).toBeVisible();
   const toast = page
     .getByRole("status")
-    .filter({ hasText: `Removed ${renamed}` });
+    .filter({ hasText: `Deleted ${renamed}` });
   await expect(toast).toBeVisible();
   await toast.getByRole("button", { name: "Undo" }).click();
   await page.getByRole("button", { name: /^This week/ }).click();
@@ -176,13 +176,13 @@ test("the list picker makes, renames and removes an extra list, with Undo", asyn
   ).toBeVisible();
 });
 
-test("the main list can be renamed but not removed", async ({ page }) => {
+test("the main list can be renamed but not deleted", async ({ page }) => {
   await page.goto("/shopping");
   await page.getByRole("button", { name: /^This week/ }).click();
   await page.getByRole("button", { name: /^This week options/ }).click();
   await expect(page.getByRole("button", { name: "Rename" })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Remove", exact: true }),
+    page.getByRole("button", { name: "Delete", exact: true }),
   ).toHaveCount(0);
 });
 

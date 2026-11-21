@@ -289,7 +289,7 @@ test('+ Note adds "Eating out" to a meal: it counts as filled, with no Serves or
   await expect(menu.getByRole('button', { name: 'Copy to…' })).toBeVisible();
   await expect(menu.getByRole('button', { name: 'Leftovers on…' })).toHaveCount(0);
   await expect(menu.getByRole('group', { name: 'Serves' })).toHaveCount(0);
-  await menu.getByRole('button', { name: 'Remove' }).click();
+  await menu.getByRole('button', { name: 'Delete' }).click();
   await expect.poll(async () => (await planRange(page, day, day)).meals.length).toBe(0);
 });
 

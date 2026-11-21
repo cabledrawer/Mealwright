@@ -1,6 +1,6 @@
 <script lang="ts" generics="T extends { id: number; name: string }">
   // A list of named rows that can be put in order (drag the grip, or Move up / Move down, which
-  // work from the keyboard and on a phone), renamed in place and, when asked, removed. Used by
+  // work from the keyboard and on a phone), renamed in place and, when asked, deleted. Used by
   // Settings for meal slots, shops and places. It changes nothing itself: it says what was
   // asked (onorder, onrename, onremove) and the screen sends it.
   import { tick, type Snippet } from 'svelte';
@@ -26,7 +26,7 @@
     /** Resolves true when the new name was taken (the box closes), false to keep it open. */
     onrename: (item: T, name: string) => Promise<boolean> | boolean;
     onremove?: (item: T) => void;
-    /** A reason this row can't be removed (its Remove is greyed out and says so). */
+    /** A reason this row can't be deleted (its Delete is greyed out and says so). */
     removeBlocked?: (item: T) => string | null;
     /** What goes after the name: a kind, a switch. */
     after?: Snippet<[T]>;
@@ -161,7 +161,7 @@
             <button
               type="button"
               class="icon"
-              aria-label="Remove {item.name}"
+              aria-label="Delete {item.name}"
               disabled={disabled || blocked !== null}
               title={blocked ?? undefined}
               onclick={() => onremove(item)}

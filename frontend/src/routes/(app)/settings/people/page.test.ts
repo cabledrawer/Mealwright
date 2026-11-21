@@ -158,7 +158,7 @@ describe('Settings › People', () => {
     await expect.element(page.getByRole('switch', { name: 'Ask “Who’s this?”' })).toBeDisabled();
     expect(page.getByRole('button', { name: '+ Add a person' }).query()).toBeNull();
     await expect
-      .element(page.getByText('Only admins can add, change or remove people.', { exact: false }))
+      .element(page.getByText('Only admins can add, change or delete people.', { exact: false }))
       .toBeVisible();
     // Nothing reads a person's portion yet, so the note doesn't say it decides amounts.
     await expect

@@ -615,7 +615,11 @@
               disabled={actions.readonly}
               onclick={remove}
               aria-describedby={tub ? 'take-off-hint' : undefined}
-              >{tub ? 'Take off this meal (keep the tub)' : 'Remove'}</button
+              >{tub
+                ? 'Take off this meal (keep the tub)'
+                : target.kind === 'meal' || aboutMeal?.items.length === 1
+                  ? 'Delete'
+                  : 'Remove'}</button
             >
           {/if}
           {#if tub}

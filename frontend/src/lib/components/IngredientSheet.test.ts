@@ -52,7 +52,7 @@ describe('the ingredient editor, opened from anywhere', () => {
           }
         ];
       },
-      'DELETE /foods/7': [200, { change: changeOf(904, 'Removed Toor dal from Ingredients') }],
+      'DELETE /foods/7': [200, { change: changeOf(904, 'Deleted Toor dal from Ingredients') }],
       'POST /changes/904/undo': [
         200,
         { result: 'done', message: '', change: changeOf(905, 'Undid'), food: null }
@@ -230,14 +230,14 @@ describe('the ingredient editor, opened from anywhere', () => {
       }
     });
 
-    it('“Remove from Ingredients” says “Used in 3 recipes” first, and the recipes do not block it', async () => {
+    it('“Delete from Ingredients” says “Used in 3 recipes” first, and the recipes do not block it', async () => {
       food = toorDal({ used_in_recipes: 3, used_in: recipes(['Dal tadka', 'Rasam', 'Sambar']) });
       const dialog = await openToorDal();
       const hint = dialog.getByText(
         'Used in 3 recipes. Their lines keep their words and show “not linked”.'
       );
       await expect.element(hint).toBeVisible();
-      const remove = dialog.getByRole('button', { name: 'Remove from Ingredients' });
+      const remove = dialog.getByRole('button', { name: 'Delete from Ingredients' });
       await expect
         .element(remove)
         .toHaveAccessibleDescription(
@@ -245,12 +245,12 @@ describe('the ingredient editor, opened from anywhere', () => {
         );
       await remove.click();
       await vi.waitFor(() =>
-        expect(toasts.current?.message).toBe('Removed Toor dal from Ingredients')
+        expect(toasts.current?.message).toBe('Deleted Toor dal from Ingredients')
       );
       expect(toasts.current?.action?.label).toBe('Undo');
       toasts.act();
       await vi.waitFor(() =>
-        expect(toasts.current?.message).toBe('Undone: Removed Toor dal from Ingredients')
+        expect(toasts.current?.message).toBe('Undone: Deleted Toor dal from Ingredients')
       );
     });
 
@@ -273,12 +273,12 @@ describe('the ingredient editor, opened from anywhere', () => {
       const dialog = await openToorDal();
       await expect.element(dialog.getByText(/^Made by the recipe/)).toBeVisible();
       await expect
-        .element(dialog.getByText(/Turn off Made ahead there to remove it\./))
+        .element(dialog.getByText(/Turn off Made ahead there to delete it\./))
         .toBeVisible();
       const link = dialog.getByRole('link', { name: 'Dosa batter' });
       expect(new URL((link.element() as HTMLAnchorElement).href).pathname).toBe('/recipes/31');
       expect(
-        dialog.getByRole('button', { name: 'Remove from Ingredients' }).elements()
+        dialog.getByRole('button', { name: 'Delete from Ingredients' }).elements()
       ).toHaveLength(0);
     });
   });
@@ -384,23 +384,23 @@ describe('the ingredient editor, opened from anywhere', () => {
     );
   });
 
-  it('"Remove from Ingredients" shows only when none is in the pantry', async () => {
+  it('"Delete from Ingredients" shows only when none is in the pantry', async () => {
     food = toorDal({ stock: { amount: 750, display: 'about 750 g · 1½ packets' } });
     const dialog = await openToorDal();
     await expect.element(dialog.getByText('Packet = 500 g')).toBeVisible();
-    expect(dialog.getByRole('button', { name: 'Remove from Ingredients' }).elements()).toHaveLength(
+    expect(dialog.getByRole('button', { name: 'Delete from Ingredients' }).elements()).toHaveLength(
       0
     );
   });
 
-  it('"Remove from Ingredients" removes it, with Undo', async () => {
+  it('"Delete from Ingredients" removes it, with Undo', async () => {
     const dialog = await openToorDal();
-    await dialog.getByRole('button', { name: 'Remove from Ingredients' }).click();
+    await dialog.getByRole('button', { name: 'Delete from Ingredients' }).click();
     await vi.waitFor(() =>
       expect(requests.some((r) => r.method === 'DELETE' && r.path === '/foods/7')).toBe(true)
     );
     await vi.waitFor(() =>
-      expect(toasts.current?.message).toBe('Removed Toor dal from Ingredients')
+      expect(toasts.current?.message).toBe('Deleted Toor dal from Ingredients')
     );
     expect(ingredientEditor.foodId).toBeNull(); // the editor closes
     toasts.act();
@@ -409,16 +409,16 @@ describe('the ingredient editor, opened from anywhere', () => {
 
   it('Ctrl+Z after removing an ingredient says what was undone', async () => {
     const dialog = await openToorDal();
-    await dialog.getByRole('button', { name: 'Remove from Ingredients' }).click();
+    await dialog.getByRole('button', { name: 'Delete from Ingredients' }).click();
     await vi.waitFor(() =>
-      expect(toasts.current?.message).toBe('Removed Toor dal from Ingredients')
+      expect(toasts.current?.message).toBe('Deleted Toor dal from Ingredients')
     );
     document.body.addEventListener('keydown', handleUndoKey, { once: true });
     document.body.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true })
     );
     await vi.waitFor(() =>
-      expect(toasts.current?.message).toBe('Undone: Removed Toor dal from Ingredients')
+      expect(toasts.current?.message).toBe('Undone: Deleted Toor dal from Ingredients')
     );
     expect(requests.some((r) => r.path === '/changes/904/undo')).toBe(true);
   });

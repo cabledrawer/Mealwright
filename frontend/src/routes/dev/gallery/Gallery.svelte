@@ -8,7 +8,7 @@
   // is one theme at a time).
   //
   // Not shown yet (they need the server's answers): the ingredient editor and its sheet
-  // (but its "Used in N recipes" and "Remove from Ingredients" parts are below), "Add to
+  // (but its "Used in N recipes" and "Delete from Ingredients" parts are below), "Add to
   // pantry", the ingredient picker and the Shopping list's rows, pack sheet, list picker,
   // put-away panel and "Did you buy 2?" card. They get a place here when the gallery can
   // fake those answers.
@@ -1209,7 +1209,7 @@
       In the Ingredients list each row ends with how many recipes use the ingredient ("5 recipes" on
       a phone; the number alone under "Recipes" on a computer; nothing when none do). In the
       ingredient editor, "Used in N recipes" links to each recipe (a long list is folded behind "+ 2
-      more"), and "Remove from Ingredients" says how many recipes use it first: they don’t block it,
+      more"), and "Delete from Ingredients" says how many recipes use it first: they don’t block it,
       their lines keep their words and show "not linked". A recipe’s own made-ahead ingredient says
       why it can’t be removed instead.
     </p>
@@ -1229,7 +1229,7 @@
         <UsedInRecipes recipes={usedIn} count={usedIn.length} />
         <UsedInRecipes recipes={[{ id: 9, name: longRecipe }]} count={1} />
       </div>
-      <h3>Remove from Ingredients (editor)</h3>
+      <h3>Delete from Ingredients (editor)</h3>
       <div class="narrow stack">
         <RemoveIngredient usedIn={0} madeBy={null} removable onremove={removeDemo} />
         <RemoveIngredient usedIn={1} madeBy={null} removable onremove={removeDemo} />

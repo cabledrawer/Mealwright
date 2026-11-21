@@ -285,7 +285,7 @@ describe('Shops', () => {
     const requests = open({
       'DELETE /shops/1': () => {
         gone = true;
-        return write('Removed the shop Supermarket') as [number, unknown];
+        return write('Deleted the shop Supermarket') as [number, unknown];
       },
       'POST /changes/90/undo': () => {
         gone = false;
@@ -296,12 +296,12 @@ describe('Shops', () => {
       },
       'GET /shops': () => [200, { shops: gone ? [SHOPS[1]] : SHOPS }]
     });
-    await page.getByRole('button', { name: 'Remove Supermarket' }).click();
-    await vi.waitFor(() => expect(toasts.current?.message).toBe('Removed the shop Supermarket'));
+    await page.getByRole('button', { name: 'Delete Supermarket' }).click();
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('Deleted the shop Supermarket'));
     expect(page.getByText('Supermarket', { exact: true }).elements()).toHaveLength(0);
     expect(requests.find((r) => r.method === 'DELETE')?.headers['idempotency-key']).toBeTruthy();
     expect(
-      page.getByText('Removing a shop moves its ingredients to “Any shop”, with Undo.')
+      page.getByText('Deleting a shop moves its ingredients to “Any shop”, with Undo.')
     ).toBeTruthy();
     // No "Are you sure?" on the way: the toast's Undo is the way back.
     toasts.current!.action!.run();
@@ -311,7 +311,7 @@ describe('Shops', () => {
 
   it('puts the shop back and says why when the server will not remove it', async () => {
     open({ 'DELETE /shops/1': [500, { detail: 'Something went wrong.' }] });
-    await page.getByRole('button', { name: 'Remove Supermarket' }).click();
+    await page.getByRole('button', { name: 'Delete Supermarket' }).click();
     await vi.waitFor(() => expect(toasts.current?.tone).toBe('problem'));
     await expect.element(page.getByText('Supermarket', { exact: true })).toBeVisible();
   });
@@ -357,11 +357,11 @@ describe('Places', () => {
     const requests = open({
       'DELETE /places/4': [
         200,
-        { change: { ...changeOf(95, 'Removed the place Spice rack'), kind: 'place_removed' } }
+        { change: { ...changeOf(95, 'Deleted the place Spice rack'), kind: 'place_removed' } }
       ]
     });
-    await page.getByRole('button', { name: 'Remove Spice rack' }).click();
-    await vi.waitFor(() => expect(toasts.current?.message).toBe('Removed the place Spice rack'));
+    await page.getByRole('button', { name: 'Delete Spice rack' }).click();
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('Deleted the place Spice rack'));
     expect(toasts.current?.action?.label).toBe('Undo');
     expect(requests.find((r) => r.method === 'DELETE')?.url).toBe('/places/4');
   });
@@ -372,7 +372,7 @@ describe('Places', () => {
         request.url.includes('move_to')
           ? [
               200,
-              { change: { ...changeOf(96, 'Removed the place Cupboard'), kind: 'place_removed' } }
+              { change: { ...changeOf(96, 'Deleted the place Cupboard'), kind: 'place_removed' } }
             ]
           : [
               409,
@@ -383,30 +383,30 @@ describe('Places', () => {
               }
             ]
     });
-    await page.getByRole('button', { name: 'Remove Cupboard' }).click();
+    await page.getByRole('button', { name: 'Delete Cupboard' }).click();
     const ask = page.getByRole('form', { name: 'Move things out of Cupboard' });
     await expect
       .element(ask.getByText('Cupboard has 14 things in it. Move them to…'))
       .toBeVisible();
     // Cupboard stays on the list while it is asked.
-    await expect.element(page.getByRole('button', { name: 'Remove Cupboard' })).toBeVisible();
+    await expect.element(page.getByRole('button', { name: 'Delete Cupboard' })).toBeVisible();
     await ask.getByRole('combobox', { name: 'Move them to' }).selectOptions('4');
-    await ask.getByRole('button', { name: 'Move and remove' }).click();
+    await ask.getByRole('button', { name: 'Move and delete' }).click();
     await vi.waitFor(() =>
       expect(requests.filter((r) => r.method === 'DELETE').map((r) => r.url)).toEqual([
         '/places/3',
         '/places/3?move_to=4'
       ])
     );
-    await vi.waitFor(() => expect(toasts.current?.message).toBe('Removed the place Cupboard'));
-    expect(page.getByRole('button', { name: 'Remove Cupboard' }).elements()).toHaveLength(0);
+    await vi.waitFor(() => expect(toasts.current?.message).toBe('Deleted the place Cupboard'));
+    expect(page.getByRole('button', { name: 'Delete Cupboard' }).elements()).toHaveLength(0);
   });
 
   it('the last Fridge and the last Freezer can’t be removed, and the screen says why', async () => {
     open();
-    await expect.element(page.getByRole('button', { name: 'Remove Fridge' })).toBeDisabled();
-    await expect.element(page.getByRole('button', { name: 'Remove Freezer' })).toBeDisabled();
-    await expect.element(page.getByRole('button', { name: 'Remove Cupboard' })).toBeEnabled();
+    await expect.element(page.getByRole('button', { name: 'Delete Fridge' })).toBeDisabled();
+    await expect.element(page.getByRole('button', { name: 'Delete Freezer' })).toBeDisabled();
+    await expect.element(page.getByRole('button', { name: 'Delete Cupboard' })).toBeEnabled();
     await expect
       .element(page.getByRole('region', { name: 'Places at home' }))
       .toMatchTextContent(/Mealwright needs at least one Fridge and one Freezer\./);
@@ -419,8 +419,8 @@ describe('Places', () => {
         { places: [...PLACES, { id: 8, name: 'Garage fridge', kind: 'fridge' }] }
       ]
     });
-    await expect.element(page.getByRole('button', { name: 'Remove Fridge' })).toBeEnabled();
-    await expect.element(page.getByRole('button', { name: 'Remove Garage fridge' })).toBeEnabled();
+    await expect.element(page.getByRole('button', { name: 'Delete Fridge' })).toBeEnabled();
+    await expect.element(page.getByRole('button', { name: 'Delete Garage fridge' })).toBeEnabled();
   });
 
   it('puts places in order with Move up', async () => {

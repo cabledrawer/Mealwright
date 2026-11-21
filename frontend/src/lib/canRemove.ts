@@ -5,7 +5,7 @@
 
 import type { Food } from './client/types';
 
-/** Whether "Remove from Ingredients" is offered for this ingredient. */
+/** Whether "Delete from Ingredients" is offered for this ingredient. */
 export function canRemove(food: Pick<Food, 'stock'> & Partial<Pick<Food, 'made_by'>>): boolean {
   if (food.made_by) return false;
   return !food.stock || food.stock.amount === 0;

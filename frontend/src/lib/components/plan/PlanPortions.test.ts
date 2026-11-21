@@ -201,10 +201,10 @@ describe('the meal’s menu (0.7 P1)', () => {
       const dialog = open({ kind: 'meal', meal: noted });
       await expect.element(dialog.getByRole('heading', { name: 'Eating out' })).toBeVisible();
       expect(dialog.getByRole('group', { name: 'Serves' }).elements()).toHaveLength(0);
-      // A note has no leftovers; it can still move, be copied and be removed.
+      // A note has no leftovers; it can still move, be copied and be deleted.
       expect(dialog.getByRole('button', { name: 'Leftovers on…' }).elements()).toHaveLength(0);
       await expect.element(dialog.getByRole('button', { name: 'Copy to…' })).toBeVisible();
-      await expect.element(dialog.getByRole('button', { name: 'Remove' })).toBeVisible();
+      await expect.element(dialog.getByRole('button', { name: 'Delete' })).toBeVisible();
     });
   });
 

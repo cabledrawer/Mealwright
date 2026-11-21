@@ -179,7 +179,7 @@ test('Cook now is the main button above the ingredients and opens Cook mode; the
   await expect(page).toHaveURL(new RegExp(`/recipes/${recipe.id}/cook\\?meal=\\d+$`));
   await expect(page.getByRole('region', { name: 'Cook mode' })).toBeVisible();
   await page.getByTestId('cook-notice').getByRole('button', { name: 'Undo' }).click(); // leave the plan as it was
-  await expect(page.getByTestId('cook-notice')).toHaveText('Taken out of today’s plan.');
+  await expect(page.getByTestId('cook-notice')).toHaveText('Removed from today’s plan.');
 });
 
 // --- The states of the screen ----------------------------------------------------------------

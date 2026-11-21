@@ -25,7 +25,7 @@ export const SSO_MESSAGES: Record<string, string> = {
   // 0.9.5 Pe3/M2 (proposed, for cabledrawer): an admin chose "Not someone I know: refuse".
   not_known:
     'Your household’s admin doesn’t know this account, so it can’t sign in here. Ask them if that’s a mistake.',
-  removed: 'That account was removed. Ask your household’s admin.',
+  removed: 'That account was deleted. Ask your household’s admin.',
   someone_else:
     'Your account is linked to someone else at your sign-in server. Sign out there and test again.',
   link_gone: 'There’s no test waiting to be linked. Test sign-in again.'
