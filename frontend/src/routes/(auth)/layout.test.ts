@@ -62,6 +62,21 @@ describe('someone already signed in', () => {
     await expect(open('/sign-in')).rejects.toMatchObject({ status: 307, location: '/' });
   });
 
+  it('goes on to the page it was heading for, never off the site (release pass)', async () => {
+    fakeApi({ 'GET /setup': [200, SETUP], 'GET /me': [200, ME] });
+    await expect(open('/sign-in?next=%2Fplan%3Fweek%3D2')).rejects.toMatchObject({
+      status: 307,
+      location: '/plan?week=2'
+    });
+    const away = ['/%09/evil.example', '/%0A/evil.example', '/%5Cevil.example', '//evil.example'];
+    for (const next of [...away, 'javascript:alert(1)']) {
+      await expect(open(`/sign-in?next=${next}`), next).rejects.toMatchObject({
+        status: 307,
+        location: '/'
+      });
+    }
+  });
+
   it('stays on a sign-in or Reset password link, which then refuses (Pe2)', async () => {
     fakeApi({ 'GET /setup': [200, SETUP], 'GET /me': [200, ME] });
     await expect(open('/join')).resolves.toEqual({ setup: SETUP, signedIn: true });

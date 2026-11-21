@@ -13,17 +13,47 @@ export const session = new Session();
 export const SIGN_IN = '/sign-in';
 export const SETUP = '/setup';
 
+// Control characters (tab, newline, CR, anything below a space, DEL) and backslashes: a browser
+// drops or turns them into "/" while reading an address, so "/\t/evil.example" or "/\\evil"
+// would leave the site (release security pass, open redirect).
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
+const UNSAFE = /[\u0000-\u001f\u007f\\]/;
+
 /**
  * Where to send someone after signing in: back where they were heading, but only to
- * a page of this app (never another site, never the API).
+ * a page of this app (never another site, never the API). The address is read as the
+ * browser would read it, and only the checked page (path, search, hash) is given back,
+ * never the raw text.
  */
-export function safeNext(next: string | null | undefined): string {
-  if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) {
+export function safeNext(
+  next: string | null | undefined,
+  origin: string = globalThis.location?.origin ?? 'http://mealwright.invalid'
+): string {
+  if (!next || !next.startsWith('/') || next.startsWith('//') || UNSAFE.test(next)) return '/';
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(next);
+  } catch {
+    return '/'; // a broken %-form: not an address we made
+  }
+  // The same characters written as %09, %5C…, or "/%2F" (two slashes once read).
+  if (UNSAFE.test(decoded) || decoded.startsWith('//')) return '/';
+  let url: URL;
+  let own: string;
+  try {
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read once here, never state
+    url = new URL(next, origin);
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- read once here, never state
+    own = new URL(origin).origin;
+  } catch {
     return '/';
   }
-  if (next === '/api' || next.startsWith('/api/')) return '/';
-  if (next === SIGN_IN || next.startsWith(SIGN_IN + '?') || next === SETUP) return '/';
-  return next;
+  if (url.origin !== own) return '/';
+  const path = decodeURIComponent(url.pathname);
+  if (!path.startsWith('/') || path.startsWith('//')) return '/';
+  if (path === '/api' || path.startsWith('/api/')) return '/';
+  if (path === SIGN_IN || path === SETUP) return '/';
+  return url.pathname + url.search + url.hash;
 }
 
 /** The sign-in page's address, remembering where the person was heading. */
