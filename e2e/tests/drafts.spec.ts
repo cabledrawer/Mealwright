@@ -362,8 +362,15 @@ test('long names and text at 200% never scroll sideways', async ({ page }) => {
   await listing(page, [brief(1, { name: long, started_by: 'Wilhelmina Featherstonehaugh' }), brief(2, { lines_checked: 9 })]);
   await page.goto('/recipes/drafts');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Drafts');
+  // The drafts themselves, not only the page's heading: the heading is there before the list.
+  await expect(page.getByRole('link', { name: `Carry on ${long}` })).toBeVisible();
   await expectNoSidewaysScroll(page);
   await page.evaluate(() => (document.documentElement.style.fontSize = '200%'));
+  // F267: at 200% the list has under 48rem of room, so a computer shows the cards too. The list
+  // picks its layout when it sees its new size (a frame after the text grows): measured before
+  // that, the table still had its one-line buttons at twice the size (1380 > 1280 px, E3).
+  await expect(page.getByRole('list', { name: 'Drafts' })).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Drafts' })).toHaveCount(0);
   await expectNoSidewaysScroll(page);
   await checkPage(page); // long names at 200%, both themes
   await page.evaluate(() => (document.documentElement.style.fontSize = ''));

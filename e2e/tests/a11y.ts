@@ -203,7 +203,11 @@ export async function expectTouchTargets(page: Page, allow: string[] = []) {
 
 /** The page never scrolls sideways (principle 14); checked at the current width. */
 export async function expectNoSidewaysScroll(page: Page) {
-  const widths = await page.evaluate(() => {
+  const widths = await page.evaluate(async () => {
+    // Two frames first: a change made just now (the text size, the window's size) reaches a list
+    // that picks its layout by its own size (a ResizeObserver) only in the browser's next frame;
+    // measured before that, on a busy machine, the old layout was still there (E3).
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
     const root = document.scrollingElement ?? document.documentElement;
     const wide: string[] = [];
     // Anything poking out past the right edge of the screen, for a useful message.
