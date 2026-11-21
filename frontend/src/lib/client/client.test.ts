@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { kitchen } from '#lib/freshness.svelte.js';
+import { toasts } from '#lib/toast.svelte.js';
+import { undoHistory } from '#lib/undo.svelte.js';
 import { lastOwnChange, serverUndo, undoToast } from './changes';
 import type { UndoResult } from './types';
 import { listFoods, patchFood } from './foods';
@@ -128,6 +130,37 @@ describe('undo on the server', () => {
     const entry = await lastOwnChange();
     expect(calls[0]!.url).toBe('/api/v1/changes?limit=20&mine=true');
     expect(entry?.label).toBe('Used 200 g spinach');
+  });
+
+  it('Ctrl+Z after a reload stops at a switch it can’t turn on, and says why (Low 2)', async () => {
+    const SAYS = 'Switch it on in Settings › Outside connections.';
+    const list = {
+      changes: [
+        { id: 12, summary: 'Switched recipe import off', can_undo: true, undone: null },
+        { id: 8, summary: 'Used 200 g spinach', can_undo: true, undone: null }
+      ],
+      next: null
+    };
+    const refused = { code: 'cannot_undo', detail: SAYS };
+    const calls = fakeServer([200, list], [409, refused], [200, list], [409, refused]);
+    undoHistory.clear();
+    undoHistory.fallback = lastOwnChange;
+    toasts.dismiss();
+    try {
+      expect(await undoHistory.undoLast()).toBe(true);
+      expect(toasts.current?.message).toBe(SAYS);
+      expect(toasts.current?.action).toBeUndefined(); // nothing to try again
+      expect(undoHistory.size).toBe(0); // not kept, so the key doesn't go round on it
+      // Pressed again: the same answer, one call each time, and never the older change.
+      expect(await undoHistory.undoLast()).toBe(true);
+      expect(toasts.current?.message).toBe(SAYS);
+      const undos = calls.filter((c) => c.method === 'POST').map((c) => c.url);
+      expect(undos).toEqual(['/api/v1/changes/12/undo', '/api/v1/changes/12/undo']);
+      expect(calls).toHaveLength(4);
+    } finally {
+      undoHistory.fallback = null;
+      toasts.dismiss();
+    }
   });
 });
 

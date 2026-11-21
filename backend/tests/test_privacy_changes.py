@@ -11,11 +11,12 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sync_kit import one
 from test_api_tokens import _app, _make
 from test_privacy import LIST, SWITCHES, values
 
 from mealwright.models import Change
-from mealwright.outbound import Connection, OutboundBlocked, OutboundGate
+from mealwright.outbound import Connection, OutboundBlocked, OutboundGate, set_switch
 
 API = "/api/v1"
 
@@ -68,13 +69,56 @@ def test_a_switch_is_a_change_and_its_undo_blocks_the_gate_at_once(kitchen: Test
         _gate(kitchen).check_switch(1, Connection.RECIPE_IMPORT)
 
 
-def test_undoing_a_switch_off_turns_it_back_on(kitchen: TestClient) -> None:
-    _switch(kitchen, "update_check", True)
-    off = _switch(kitchen, "update_check", False).json()["change"]
-    assert off["summary"] == "Switched the update check off"
-    assert _undo(kitchen, off["id"]).status_code == 200
-    assert _is_on(kitchen, "update_check")
-    _gate(kitchen).check_switch(1, Connection.UPDATE_CHECK)
+@pytest.mark.parametrize(
+    "name", ["recipe_import", "recipe_photos", "update_check", "single_sign_on"]
+)
+def test_an_undo_never_switches_an_outside_connection_on(kitchen: TestClient, name: str) -> None:
+    # Release security pass beta.3, Low 2: every outside connection is off until someone turns
+    # it on on purpose; an Undo (one Ctrl+Z, days later) is not that.
+    connection = Connection(name)
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        set_switch(db, 1, connection, True)  # on, however it got there
+        db.commit()
+    off = _switch(kitchen, name, False)
+    assert off.status_code == 200, off.text
+    change = off.json()["change"]
+    assert change["summary"].endswith(" off")
+    assert change["can_undo"] is True  # Ctrl+Z after a reload stops here and says why
+    refused = _undo(kitchen, change["id"])
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["code"] == "cannot_undo"
+    assert refused.json()["detail"] == "Switch it on in Settings › Outside connections."
+    assert not _is_on(kitchen, name)
+    with pytest.raises(OutboundBlocked):
+        _gate(kitchen).check_switch(1, connection)
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        assert db.query(Change).filter_by(kind="undo").count() == 0
+    again = _undo(kitchen, change["id"])  # asked again: the same answer, nothing else undone
+    assert again.status_code == 409 and again.json()["detail"] == refused.json()["detail"]
+
+
+def test_the_offline_queue_cant_undo_a_switch_either(kitchen: TestClient) -> None:
+    # A queued `undo` names a list action (sync protocol section 9); a switch change has none,
+    # so naming its Idempotency-Key, or its change id, undoes nothing.
+    key = "3d4e5f60-7182-493a-9c4d-5e6f708192a3"
+    with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+        set_switch(db, 1, Connection.RECIPE_IMPORT, True)
+        db.commit()
+    off = _switch(kitchen, "recipe_import", False, **{"Idempotency-Key": key}).json()["change"]
+    for undoes in (key, str(off["id"])):
+        result = one(kitchen, "undo", undoes=undoes)
+        assert result["status"] == "ignored", result
+        assert result["reason"] == "nothing_to_undo", result
+    assert not _is_on(kitchen, "recipe_import")
+
+
+def test_undoing_a_switch_on_still_switches_it_off(kitchen: TestClient) -> None:
+    on = _switch(kitchen, "update_check", True).json()["change"]
+    assert on["summary"] == "Switched the update check on"
+    assert _undo(kitchen, on["id"]).status_code == 200
+    assert not _is_on(kitchen, "update_check")
+    with pytest.raises(OutboundBlocked):
+        _gate(kitchen).check_switch(1, Connection.UPDATE_CHECK)
 
 
 def test_asking_for_the_state_it_has_is_not_a_change(kitchen: TestClient) -> None:
@@ -140,18 +184,24 @@ def test_an_add_whose_entry_is_gone_cant_be_undone(kitchen: TestClient) -> None:
     )
 
 
-def test_undoing_a_removal_adds_the_entry_back_as_a_new_one(kitchen: TestClient) -> None:
+def test_undoing_a_removal_never_puts_the_entry_back(kitchen: TestClient) -> None:
+    # Putting it back would let the app reach that place again: like switching a connection
+    # on, never by an Undo (release security pass beta.3, Low 2; proposed, for cabledrawer).
     added = kitchen.post(LIST, json={"value": "192.168.1.20"}).json()
     gone = kitchen.delete(f"{LIST}/{added['id']}")
     change = gone.json()["change"]
     assert change["kind"] == "own_network_removed"
     assert change["summary"] == "Removed 192.168.1.20 from Your own network"
-    assert _undo(kitchen, change["id"]).status_code == 200
-    entries = kitchen.get(LIST).json()["entries"]
-    assert [e["value"] for e in entries] == ["192.168.1.20"]
-    assert entries[0]["id"] != added["id"]  # a new entry (spec)
+    assert change["can_undo"] is True  # Ctrl+Z after a reload stops here and says why
+    refused = _undo(kitchen, change["id"])
+    assert refused.status_code == 409, refused.text
+    assert refused.json()["code"] == "cannot_undo"
+    assert refused.json()["detail"] == "Add it again in Settings › Outside connections."
+    assert values(kitchen) == []
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
-        assert db.query(Change).filter_by(kind="undo").count() == 1
+        assert db.query(Change).filter_by(kind="undo").count() == 0
+    # Adding it on purpose still works.
+    assert kitchen.post(LIST, json={"value": "192.168.1.20"}).status_code == 201
 
 
 def test_a_removal_already_put_back_cant_be_undone(kitchen: TestClient) -> None:
@@ -225,7 +275,9 @@ SECRETS = ("192.168.1.0/24", "nas.home.example", "wiki.home.example")
 
 
 def _own_network_history(kitchen: TestClient) -> dict[str, int]:
-    """An add, a removal, an Undo of each, and switch changes in between: the change ids."""
+    """An add, a removal, an Undo of an add, and switch changes in between: the change ids.
+    (An Undo of a removal is refused since Low 2; one made before then is an Undo of an
+    own-network change like this one.)"""
     ids = {"switch_1": _switch(kitchen, "recipe_import", True).json()["change"]["id"]}
     first = kitchen.post(LIST, json={"value": SECRETS[0]})
     assert first.status_code == 201, first.text
@@ -233,7 +285,6 @@ def _own_network_history(kitchen: TestClient) -> dict[str, int]:
     second = kitchen.post(LIST, json={"value": SECRETS[1]}).json()
     ids["switch_2"] = _switch(kitchen, "recipe_import", False).json()["change"]["id"]
     ids["removed"] = kitchen.delete(f"{LIST}/{second['id']}").json()["change"]["id"]
-    ids["undo_removed"] = _undo(kitchen, ids["removed"]).json()["change"]["id"]
     third = kitchen.post(LIST, json={"value": SECRETS[2]}).json()["change"]
     ids["undo_added"] = _undo(kitchen, third["id"]).json()["change"]["id"]
     ids["switch_3"] = _switch(kitchen, "recipe_import", True).json()["change"]["id"]
@@ -270,7 +321,7 @@ def test_own_network_changes_are_left_out_for_whoever_cant_read_the_list(
     ids = _own_network_history(kitchen)
     caller = member if who == "member" else _app(kitchen, _make(kitchen, who.split()[0]))
     assert caller.get(LIST).status_code == 403  # the rule this follows
-    hidden = {ids["added"], ids["removed"], ids["undo_removed"], ids["undo_added"]}
+    hidden = {ids["added"], ids["removed"], ids["undo_added"]}
     switches = [ids["switch_3"], ids["switch_2"], ids["switch_1"]]
     for limit in (1, 2, 20):
         listed = _every_page(caller, limit)
@@ -283,7 +334,7 @@ def test_own_network_changes_are_left_out_for_whoever_cant_read_the_list(
         else:
             assert refused.status_code == 404, refused.text
         assert all(secret not in refused.text for secret in SECRETS)
-    assert values(kitchen) == [SECRETS[0], SECRETS[1]]
+    assert values(kitchen) == [SECRETS[0]]
 
 
 def test_an_admin_still_sees_them_and_can_undo(kitchen: TestClient) -> None:
@@ -293,7 +344,7 @@ def test_an_admin_still_sees_them_and_can_undo(kitchen: TestClient) -> None:
     assert listed[ids["added"]]["summary"] == f"Added {SECRETS[0]} to Your own network"
     assert listed[ids["added"]]["can_undo"] is True
     assert _undo(kitchen, ids["added"]).status_code == 200
-    assert values(kitchen) == [SECRETS[1]]
+    assert values(kitchen) == []
 
 
 def test_another_household_cant_see_or_undo_them(

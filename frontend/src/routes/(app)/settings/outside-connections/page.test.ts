@@ -284,6 +284,30 @@ describe('Settings › Outside connections', () => {
       expect(sent('PUT', '/privacy/switches/recipe_import')).toHaveLength(1);
     });
 
+    it('the Undo of switching one off shows the server’s sentence and leaves it off (Low 2)', async () => {
+      const made = change(35, 'connection_changed', 'Switched recipe import off');
+      const SAYS = 'Switch it on in Settings › Outside connections.';
+      let on = true;
+      open({
+        'GET /privacy/switches': () => switches(on, false),
+        'PUT /privacy/switches/recipe_import': () => {
+          on = false;
+          return [200, { ...switches(false, false)[1], change: made }];
+        },
+        'POST /changes/35/undo': [409, { code: 'cannot_undo', detail: SAYS }]
+      });
+      const toggle = page.getByRole('switch', { name: IMPORT });
+      await expect.element(toggle).toBeChecked();
+      await toggle.click();
+      await expect.element(toggle).not.toBeChecked();
+      await vi.waitFor(() => expect(toasts.current?.message).toBe('Switched recipe import off'));
+      toasts.act();
+      await vi.waitFor(() => expect(toasts.current?.message).toBe(SAYS));
+      expect(sent('POST', '/changes/35/undo')).toHaveLength(1);
+      expect(sent('PUT', '/privacy/switches/recipe_import')).toHaveLength(1);
+      await expect.element(toggle).not.toBeChecked();
+    });
+
     it('offers no Undo when the switch was already as asked', async () => {
       open({
         'PUT /privacy/switches/recipe_import': [200, { ...switches(true, false)[1], change: null }]
@@ -503,12 +527,13 @@ describe('Settings › Outside connections', () => {
       await expect.element(page.getByText(notice)).not.toBeInTheDocument();
     });
 
-    it('takes an entry off at once, with the server’s Undo that puts it back', async () => {
+    it('takes an entry off at once; its Undo is the server’s, which won’t put it back (Low 2)', async () => {
       const made = change(
         32,
         'own_network_removed',
         'Removed wiki.home.example from Your own network'
       );
+      const SAYS = 'Add it again in Settings › Outside connections.';
       let entries = [wiki, lan];
       open({
         'GET /privacy/own-network': () => list(entries),
@@ -516,10 +541,7 @@ describe('Settings › Outside connections', () => {
           entries = [lan];
           return [200, { passwords_back_on: false, notice: null, change: made }];
         },
-        'POST /changes/32/undo': () => {
-          entries = [lan, entry(9, 'name', 'wiki.home.example')]; // back as a new entry
-          return undone(made);
-        }
+        'POST /changes/32/undo': [409, { code: 'cannot_undo', detail: SAYS }]
       });
       await page.getByRole('button', { name: 'Remove wiki.home.example' }).click();
       await expect
@@ -529,10 +551,13 @@ describe('Settings › Outside connections', () => {
       expect(sent('DELETE', '/privacy/own-network/1')).toHaveLength(1);
       expect(toasts.current?.message).toBe('Removed wiki.home.example from Your own network');
       toasts.act();
-      await expect.element(page.getByText('wiki.home.example', { exact: true })).toBeVisible();
+      await vi.waitFor(() => expect(toasts.current?.message).toBe(SAYS));
       expect(sent('POST', '/changes/32/undo')).toHaveLength(1);
       expect(sent('POST', '/privacy/own-network')).toHaveLength(0);
-      expect(privacy.entries.map((e) => e.id)).toEqual([2, 9]);
+      await expect
+        .element(page.getByText('wiki.home.example', { exact: true }))
+        .not.toBeInTheDocument();
+      expect(privacy.entries.map((e) => e.id)).toEqual([2]);
     });
 
     it('puts an entry back, and says why, when it couldn’t be taken off', async () => {

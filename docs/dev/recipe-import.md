@@ -146,8 +146,13 @@ not downloaded" and "switched off" links) and `/settings/outside-connections#you
   more. Only an admin can undo them (`403 admins_only`; never through an API token), within the
   undo window, and only while nothing has changed them since (`409 cannot_undo`): the switch
   is still as the change left it and nobody has changed that switch since; the added entry is
-  still there; a removed entry isn't back already (and the list isn't full). Undoing a removal
-  adds the entry back as a new one, by whoever pressed Undo. An Undo that would end single
+  still there. **An Undo never lets more go out (release security pass beta.3, Low 2; proposed,
+  for cabledrawer):** the Undo of "Switched … off" is refused with `409 cannot_undo` "Switch it
+  on in Settings › Outside connections.", and the Undo of a removal (which used to add the entry
+  back as a new one) with `409 cannot_undo` "Add it again in Settings › Outside connections."
+  (or "That can’t be undone. That’s already on the list." when it is back already). These keep
+  `can_undo`, so Ctrl+Z after a reload stops at them and shows the sentence instead of going on
+  to an older change. The Undo of "Switched … on" and of an add still work. An Undo that would end single
   sign-on for the last admin who can only sign in with it is refused like the switch itself
   (`409 locked_out`); one that turns password sign-in back on says so in the Undo's `notice`
   (the same sentence as `DELETE`'s).

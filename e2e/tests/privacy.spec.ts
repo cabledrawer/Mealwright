@@ -115,12 +115,13 @@ test('an admin adds to "Your own network" and takes off, with Undo', async ({ pa
   await page.getByRole('button', { name: 'Remove wiki.home.example' }).click();
   await expect(list.getByText('wiki.home.example', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Removed wiki.home.example from Your own network')).toBeVisible();
+  // An Undo never lets more go out (release security pass, Low 2): it says where to add it.
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(list.getByText('wiki.home.example', { exact: true })).toBeVisible();
+  await expect(page.getByText('Add it again in Settings › Outside connections.')).toBeVisible();
   await page.reload();
-  await expect(list.getByRole('listitem')).toHaveCount(2);
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await expect(list.getByText('wiki.home.example', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Remove 192.168.1.0/24' }).click();
-  await page.getByRole('button', { name: 'Remove wiki.home.example' }).click();
   await expect(page.getByText('Nothing added yet.')).toBeVisible();
 });
 

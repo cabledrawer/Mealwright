@@ -8,8 +8,15 @@ undone only by an admin (`roles.ADMIN_KINDS`, never through an API token):
   still as the change left it and nobody has changed that switch since; the outbound gate reads
   the switch each time, so an Undo of "switched on" blocks the next connection at once.
 - `own_network_added`: an entry added. Its Undo takes that entry off again while it is there.
-- `own_network_removed`: an entry taken off. Its Undo adds it back as a new entry (spec: "undoing
-  a removal adds the entry back as a new one"), by whoever pressed Undo.
+- `own_network_removed`: an entry taken off. Its Undo is refused (below).
+
+An Undo never lets more go out (release security pass beta.3, Low 2; proposed, for
+cabledrawer): every outside connection is off until someone turns it on on purpose, and one
+Ctrl+Z / Cmd+Z, up to 7 days later, is not that. So the Undo of "Switched … off", and of
+"Removed … from Your own network" (it would let the app reach that place again; before this it
+added the entry back as a new one), is refused with `409 cannot_undo`, naming where to do it on
+purpose. The Undo of "Switched … on" and of "Added …" still works. The change keeps `can_undo`,
+so Ctrl+Z after a reload stops at it and says why rather than going on to an older change.
 
 An Undo that would end single sign-on is held to the same rule as the screen's own switch and
 Remove (cabledrawer 14 Nov): refused with `409 locked_out` when it would lock this admin out.
@@ -92,6 +99,12 @@ def hidden(kitchen: Kitchen, change: Change) -> bool:
         target = kitchen.db.get(Change, change.undoes_change_id)
         return target is not None and target.kind in OWN_NETWORK_KINDS
     return False
+
+
+# Proposed, for cabledrawer (release security pass beta.3, Low 2; the switch's sentence is the
+# lead's brief's).
+SWITCH_ON_IN_SETTINGS = "Switch it on in Settings › Outside connections."
+ADD_IN_SETTINGS = "Add it again in Settings › Outside connections."
 
 
 def _cannot_undo(detail: str) -> Problem:
@@ -200,22 +213,19 @@ def _undo_switch(kitchen: Kitchen, change: Change, data: dict[str, Any]) -> None
         raise _cannot_undo(  # proposed, for cabledrawer
             f"That can’t be undone: {LABELS[connection]} has been switched again."
         )
+    if data["old"]:
+        # The Undo of "Switched … off" would turn an outside connection on: never by an Undo.
+        raise _cannot_undo(SWITCH_ON_IN_SETTINGS)
     # Switching single sign-on off again: the screen's own switch asks the same.
     if (
         connection is Connection.SINGLE_SIGN_ON
         and now
-        and not data["old"]
         and sso_accounts.would_lock_out(kitchen.db, kitchen.data_dir, kitchen.login)
     ):
         raise locked_out()
-    set_switch(kitchen.db, kitchen.household_id, connection, data["old"])
+    set_switch(kitchen.db, kitchen.household_id, connection, False)
     kitchen.db.flush()
-    log.info(
-        "Privacy: %s switched %s (Undo) by %s",
-        LABELS[connection],
-        "on" if data["old"] else "off",
-        kitchen.login.username,
-    )
+    log.info("Privacy: %s switched off (Undo) by %s", LABELS[connection], kitchen.login.username)
 
 
 def _undo_added(kitchen: Kitchen, data: dict[str, Any]) -> str | None:
@@ -232,10 +242,13 @@ def _undo_added(kitchen: Kitchen, data: dict[str, Any]) -> str | None:
 
 
 def _undo_removed(kitchen: Kitchen, data: dict[str, Any]) -> None:
-    try:
-        own_network.add(kitchen.db, kitchen.household_id, data["value"], kitchen.login)
-    except ValueError as error:
-        # Already back (added again since), or the list is full: the add's own sentence.
-        raise _cannot_undo(f"That can’t be undone. {error}") from None  # proposed
-    kitchen.db.flush()
-    log.info("Your own network: added (Undo) by %s", kitchen.login.username)
+    """Always refused: putting the entry back would let the app reach that place again (Low 2)."""
+    back = kitchen.db.scalar(
+        select(OwnNetworkEntry.id).where(
+            OwnNetworkEntry.household_id == kitchen.household_id,
+            OwnNetworkEntry.value == data["value"],
+        )
+    )
+    if back is not None:  # added again since: the add's own sentence, as before
+        raise _cannot_undo(f"That can’t be undone. {own_network.ALREADY}")  # proposed
+    raise _cannot_undo(ADD_IN_SETTINGS)
