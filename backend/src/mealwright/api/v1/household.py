@@ -111,7 +111,7 @@ def add_place(body: NewPlace, kitchen: Here, response: Response) -> PlaceOut:
             status.HTTP_409_CONFLICT,
             "too_many_places",
             f"You have {MAX_PLACES} places, the most Mealwright keeps. "
-            "Rename or remove one in Settings.",
+            "Rename or delete one in Settings.",
         )
     place = Place(
         household_id=kitchen.household_id,

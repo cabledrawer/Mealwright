@@ -294,7 +294,7 @@ def test_a_pending_admins_new_link_can_make_them_a_member(kitchen: TestClient) -
 def test_an_admin_cant_remove_themselves(kitchen: TestClient) -> None:
     me = _people(kitchen)["people"][0]["id"]
     detail = _problem(kitchen.delete(f"{API}/people/{me}"), 409, "remove_yourself")
-    assert detail == "You can’t remove yourself. Ask another admin."
+    assert detail == "You can’t delete yourself. Ask another admin."
 
 
 # --- Removing ------------------------------------------------------------------------------------
@@ -308,7 +308,7 @@ def test_removing_a_person_keeps_their_history_and_ends_their_sign_in(kitchen: T
     assert theirs["who"]["name"] == "Wren" and theirs["who"]["member_id"] == wren
     ok(kitchen.delete(f"{API}/people/{wren}"))
     removed = _newest(kitchen)
-    assert removed["summary"] == "Removed Wren from the household" and removed["can_undo"]
+    assert removed["summary"] == "Deleted Wren from the household" and removed["can_undo"]
     assert [p["name"] for p in _people(kitchen)["people"]] == ["Tess"]
     assert "Wren" not in [p["name"] for p in ok(kitchen.get(f"{API}/plan/people"))["people"]]
     # Their change stays, under "Wren (removed)".

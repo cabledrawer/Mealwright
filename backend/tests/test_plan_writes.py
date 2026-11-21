@@ -144,6 +144,21 @@ def test_removing_an_item_and_a_whole_meal_with_undo(
     assert shape(kitchen) == before
 
 
+def test_delete_for_a_whole_meal_remove_for_a_part_of_one_in_the_change_lines(
+    kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]
+) -> None:
+    """cabledrawer 20 Nov: a whole thing is Deleted, a part is Removed."""
+    a = plan_recipe(kitchen, stuff["sambar"], D1, slots["Dinner"])
+    b = plan_recipe(kitchen, stuff["dosa"], D1, slots["Dinner"])
+    part = kitchen.delete(f"{API}/plan/items/{a['item_id']}").json()
+    assert part["change"]["summary"].startswith("Removed Sambar from")
+    last = kitchen.delete(f"{API}/plan/items/{b['item_id']}").json()
+    assert last["change"]["summary"].startswith("Deleted Dosa from")
+    c = plan_recipe(kitchen, stuff["sambar"], D2, slots["Dinner"])
+    whole = kitchen.delete(f"{API}/plan/meals/{c['meal_id']}").json()
+    assert whole["change"]["summary"].startswith("Deleted Sambar from")
+
+
 def test_removing_the_last_item_removes_the_meal_and_undo_brings_both_back(
     kitchen: TestClient, stuff: dict[str, int], slots: dict[str, int]
 ) -> None:

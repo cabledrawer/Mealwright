@@ -138,7 +138,7 @@ def test_a_household_has_at_most_fifty_places(kitchen: TestClient, neighbour: Te
     assert refused.status_code == 409
     assert refused.json()["code"] == "too_many_places"
     assert refused.json()["detail"] == (
-        "You have 50 places, the most Mealwright keeps. Rename or remove one in Settings."
+        "You have 50 places, the most Mealwright keeps. Rename or delete one in Settings."
     )
     assert len(kitchen.get(f"{API}/places").json()["places"]) == 50
     # A name the household already has still gives that place, so the screen can pick it.

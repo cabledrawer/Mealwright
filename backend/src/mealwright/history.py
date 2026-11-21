@@ -177,7 +177,7 @@ def can_undo(kitchen: Kitchen, change: Change) -> bool:
 
 
 def removal_stands(kitchen: Kitchen, change: Change) -> bool:
-    """A "Removed Lemon from Ingredients" keeps its Undo only while Lemon is still removed,
+    """A "Deleted Lemon from Ingredients" keeps its Undo only while Lemon is still removed,
     and only the newest removal of it: once Lemon is back (an Undo that put stock back into
     it, or an offline add) that removal no longer stands. Worked out when it is read."""
     food = kitchen.db.get(Food, change.food_id) if change.food_id is not None else None
@@ -1070,7 +1070,7 @@ PURGE_MARGIN = timedelta(hours=1)
 
 def purge_removed(db: DbSession, household: Household, now: datetime | None = None) -> int:
     """Delete ingredients removed longer ago than the undo window, entirely (spec section
-    6: "Remove from Ingredients" deletes that food's record). Returns how many went.
+    6: "Delete from Ingredients" deletes that food's record). Returns how many went.
 
     - Its own records go: other names, sizes, "can use instead" links both ways, ask-once
       answers, "not the same" pairs, emptied packets, and its per-packet history lines
@@ -1078,7 +1078,7 @@ def purge_removed(db: DbSession, household: Household, now: datetime | None = No
     - Ingredients merged into it go too: they only existed so old links would lead to it.
       Their merge history goes with them.
     - The history stays readable: every change keeps its sentence ("Used 200 g Toor dal",
-      "Removed Toor dal from Ingredients") and who did it; only its link to the
+      "Deleted Toor dal from Ingredients") and who did it; only its link to the
       ingredient is cleared. Changes to other ingredients are untouched.
     - Planned meals keep its name (cabledrawer 26 Oct), so past meals still show what was eaten.
     """

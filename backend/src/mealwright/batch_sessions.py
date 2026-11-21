@@ -297,7 +297,7 @@ def remove(kitchen: Kitchen, session: BatchSession) -> Change:
     return plan._finish(
         kitchen,
         "plan_batch_session_removed",
-        f"Took the batch cook of {_words(kitchen, day, count)} off the plan",
+        f"Deleted the batch cook of {_words(kitchen, day, count)}",
         steps,
     )
 

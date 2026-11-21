@@ -559,7 +559,7 @@ def test_remove_and_undo(kitchen: TestClient) -> None:
     food = add(kitchen, "Typo fod")
     body = kitchen.delete(f"{API}/foods/{food['id']}").json()
     assert body["food"] is None
-    assert body["change"]["summary"] == "Removed Typo fod from Ingredients"
+    assert body["change"]["summary"] == "Deleted Typo fod from Ingredients"
     assert kitchen.get(f"{API}/foods/{food['id']}").status_code == 404
     kitchen.post(f"{API}/changes/{body['change']['id']}/undo")
     assert kitchen.get(f"{API}/foods/{food['id']}").json()["name"] == "Typo fod"

@@ -169,7 +169,7 @@ def test_refuses_a_removed_admin_and_lists_only_admins_who_can_sign_in(
     assert status == 1
     assert printed == ""
     assert capsys.readouterr().err == (
-        "The login 'joss' can't be reset: Joss has been removed from the household. "
+        "The login 'joss' can't be reset: Joss has been deleted from the household. "
         "Admins: ola, pia (sign-in link not used yet), tess.\n"
     )
     with kitchen.app.state.sessionmaker() as db:  # type: ignore[attr-defined]

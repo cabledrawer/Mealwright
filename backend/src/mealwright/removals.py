@@ -91,7 +91,7 @@ def remove_shop(kitchen: Kitchen, shop: Shop) -> Change:
         db.flush()
         db.delete(shop)
         db.flush()
-    return edit.record("shop_removed", f"Removed the shop {name}", None)
+    return edit.record("shop_removed", f"Deleted the shop {name}", None)
 
 
 # --- Places -----------------------------------------------------------------------------------
@@ -225,7 +225,7 @@ def remove_place(kitchen: Kitchen, place: Place, move_to: Place | None) -> Chang
         db.flush()
         db.delete(place)
         db.flush()
-    return edit.record("place_removed", f"Removed the place {name}", None)
+    return edit.record("place_removed", f"Deleted the place {name}", None)
 
 
 def _stocktake_of(db: DbSession, household_id: int, place_id: int) -> dict[str, Any]:

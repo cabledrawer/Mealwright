@@ -132,7 +132,7 @@ def test_history_still_reads(kitchen: TestClient) -> None:
 
     changes = kitchen.get(f"{API}/changes").json()["changes"]
     summaries = [c["summary"] for c in changes]
-    assert "Removed Toor dal from Ingredients" in summaries
+    assert "Deleted Toor dal from Ingredients" in summaries
     assert "Used 500\u00a0g Toor dal" in summaries
     assert "Added 500\u00a0g Toor dal → Cupboard" in summaries
     toor_rows = [c for c in changes if "Toor dal" in c["summary"]]

@@ -842,7 +842,7 @@ def test_sy32_queue_hits_a_removed_list(kitchen: TestClient) -> None:
     assert [lot for lot in _lots_of(kitchen, crisps)] == [2]
     (note,) = changes(s.wren)["notes"]
     assert note["text"] == (
-        "Tess had removed Party on Saturday. Your changes are kept with it."
+        "Tess had deleted Party on Saturday. Your changes are kept with it."
         " Your ticks still went into the pantry."
     )
     assert changes(kitchen)["notes"] == []

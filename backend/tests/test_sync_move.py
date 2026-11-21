@@ -432,10 +432,10 @@ def test_sy73_a_move_into_nothing(kitchen: TestClient) -> None:
     send(kitchen, action("remove_list", list_id=gone_list))
     result = _move(kitchen, s, "Milk", None, list_id=gone_list)
     assert (result["status"], result["reason"]) == ("ignored", "gone")
-    assert result["message"] == "That list was removed, so Milk wasn’t moved."
+    assert result["message"] == "That list was deleted, so Milk wasn’t moved."
     no_shop = _move(kitchen, s, "Milk", 99999)
     assert (no_shop["status"], no_shop["reason"]) == ("ignored", "gone")
-    assert no_shop["message"] == "That shop was removed, so Milk wasn’t moved."
+    assert no_shop["message"] == "That shop was deleted, so Milk wasn’t moved."
     unknown = one(kitchen, "move", s.c0, item_id=new_id(), list_id=s.main, shop_id=None)
     assert (unknown["status"], unknown["reason"]) == ("ignored", "gone")
 

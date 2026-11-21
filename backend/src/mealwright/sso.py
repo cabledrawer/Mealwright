@@ -130,7 +130,7 @@ MESSAGES: dict[str, str] = {
         "Your household’s admin doesn’t know this account, so it can’t sign in here. Ask them "
         "if that’s a mistake."
     ),
-    "removed": "That account was removed. Ask your household’s admin.",
+    "removed": "That account was deleted. Ask your household’s admin.",
     "someone_else": (
         "Your account is linked to someone else at your sign-in server. Sign out there and "
         "test again."

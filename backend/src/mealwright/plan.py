@@ -888,7 +888,8 @@ def remove_item(kitchen: Kitchen, item: MealItem) -> Change:
     steps.append({"op": "del_item", "item": _snapshot_item(item)})
     kitchen.db.delete(item)
     kitchen.db.flush()
-    if not items_of(kitchen, meal):
+    whole = not items_of(kitchen, meal)  # the last item of a meal takes the meal with it
+    if whole:
         _drop_meal(kitchen, meal, steps)
     else:
         # The meal stays without this cooking: the batch forgets its cook meal, so moving the
@@ -896,7 +897,9 @@ def remove_item(kitchen: Kitchen, item: MealItem) -> Change:
         batches.release_cook_link(kitchen, cooking, meal, steps)
     if item.kind == "tub":  # a tub is not thrown away: it goes back to "tubs left"
         return _finish(kitchen, "plan_removed", f"Put {name} back in tubs left from {where}", steps)
-    return _finish(kitchen, "plan_removed", f"Removed {name} from {where}", steps)
+    # Delete for a whole thing, Remove for a part (cabledrawer 20 Nov): the meal goes with its last item.
+    verb = "Deleted" if whole else "Removed"
+    return _finish(kitchen, "plan_removed", f"{verb} {name} from {where}", steps)
 
 
 def remove_meal(kitchen: Kitchen, meal: Meal) -> Change:
@@ -910,7 +913,7 @@ def remove_meal(kitchen: Kitchen, meal: Meal) -> Change:
     for item in items_of(kitchen, meal):
         steps.append({"op": "del_item", "item": _snapshot_item(item)})
     _drop_meal(kitchen, meal, steps)
-    return _finish(kitchen, "plan_removed", f"Removed {name} from {where}", steps)
+    return _finish(kitchen, "plan_removed", f"Deleted {name} from {where}", steps)
 
 
 _KINDS = {"move": "plan_moved", "copy": "plan_copied", "leftovers": "plan_leftovers"}

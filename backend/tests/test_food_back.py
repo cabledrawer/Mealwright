@@ -1,7 +1,7 @@
 """A removed ingredient that comes back by another way than undoing its removal (an Undo
 in Pantry that puts stock back into it, or an offline phone adding it): Ingredients'
 Recent changes gets a line "Lemon is back in Ingredients", with no Undo of its own, and
-the old "Removed Lemon from Ingredients" loses its Undo. Only the newest removal of an
+the old "Deleted Lemon from Ingredients" loses its Undo. Only the newest removal of an
 ingredient can have Undo, and only while the ingredient is still removed (worked out when
 the list is read; nothing extra is stored)."""
 
@@ -88,7 +88,7 @@ def test_a_pantry_undo_that_brings_it_back_adds_a_line_and_takes_the_removal_s_u
     assert undo["brought_back"] == [{"id": lemon["id"], "name": "Lemon"}]
     assert ingredients_lines(kitchen)[:2] == [
         ("food_back", "Lemon is back in Ingredients", False),
-        ("food_removed", "Removed Lemon from Ingredients", False),
+        ("food_removed", "Deleted Lemon from Ingredients", False),
     ]
     # Neither can be undone by asking the server directly either.
     rows = ok(kitchen.get(f"{API}/changes", params={"area": "ingredients"}))["changes"]
@@ -149,9 +149,9 @@ def test_removed_back_and_removed_again_only_the_newest_removal_has_undo(
     second = remove(kitchen, lemon["id"])
     lines = [line for line in ingredients_lines(kitchen) if "Lemon" in line[1]]
     assert lines[:3] == [
-        ("food_removed", "Removed Lemon from Ingredients", True),
+        ("food_removed", "Deleted Lemon from Ingredients", True),
         ("food_back", "Lemon is back in Ingredients", False),
-        ("food_removed", "Removed Lemon from Ingredients", False),
+        ("food_removed", "Deleted Lemon from Ingredients", False),
     ]
     response = kitchen.post(f"{API}/changes/{first['id']}/undo")
     assert response.status_code == 409 and response.json()["code"] == "cannot_undo"
@@ -186,7 +186,7 @@ def test_an_offline_add_that_brings_it_back_adds_a_line_and_takes_the_removal_s_
     eggs_rows = [row for row in rows if "Eggs" in row["summary"]]
     assert [(r["kind"], r["summary"], r["can_undo"]) for r in eggs_rows[:2]] == [
         ("food_back", "Eggs is back in Ingredients", False),
-        ("food_removed", "Removed Eggs from Ingredients", False),
+        ("food_removed", "Deleted Eggs from Ingredients", False),
     ]
     assert eggs_rows[0]["who"]["name"] == "Wren"  # whoever's phone brought it back
     # Undoing the add removes Eggs again (0.3's rule), so the removal stands again: it is

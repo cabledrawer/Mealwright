@@ -75,7 +75,7 @@ def reset_admin(settings: Settings, username: str, out: TextIO = sys.stdout) -> 
                 elif member and member.removed_at:  # cabledrawer 12 Nov
                     why = (
                         f"The login {name!r} can't be reset: "
-                        f"{member.name} has been removed from the household"
+                        f"{member.name} has been deleted from the household"
                     )
                 else:
                     why = f"The login {name!r} isn't an admin"

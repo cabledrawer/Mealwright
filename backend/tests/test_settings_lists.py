@@ -229,7 +229,7 @@ def test_removing_a_shop_sends_its_ingredients_to_any_shop_and_undo_brings_it_ba
     line = add_line(kitchen, main, milk["id"], amount={"amount": 1, "unit": "l"})["item"]
     assert line["shop"]["name"] == "Aldi"
     removed = ok(kitchen.delete(f"{API}/shops/{aldi['id']}"))
-    assert removed["change"]["summary"] == "Removed the shop Aldi"
+    assert removed["change"]["summary"] == "Deleted the shop Aldi"
     assert names(shops(kitchen)) == ["Butcher"]
     assert ok(kitchen.get(f"{API}/foods/{milk['id']}"))["shop"] is None
     assert ok(kitchen.get(f"{API}/foods/{mince['id']}"))["shop"]["name"] == "Butcher"
@@ -326,7 +326,7 @@ def test_rename_and_order_places(member: TestClient, kitchen: TestClient) -> Non
 def test_an_empty_place_is_removed_and_undo_makes_it_again(kitchen: TestClient) -> None:
     spice = place_id(kitchen, "Spice rack")
     removed = ok(kitchen.delete(f"{API}/places/{spice}"))
-    assert removed["change"]["summary"] == "Removed the place Spice rack"
+    assert removed["change"]["summary"] == "Deleted the place Spice rack"
     assert "Spice rack" not in names(ok(kitchen.get(f"{API}/places"))["places"])
     ok(kitchen.post(f"{API}/changes/{removed['change']['id']}/undo"))
     back = ok(kitchen.get(f"{API}/places"))["places"]

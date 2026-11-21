@@ -477,7 +477,7 @@ def test_sy54_add_of_an_ingredient_deleted_for_good(kitchen: TestClient) -> None
         amount=6,
     )
     assert (added["status"], added["reason"]) == ("ignored", "gone")
-    assert added["message"] == "Eggs was removed from Ingredients, so it wasn’t added."
+    assert added["message"] == "Eggs was deleted from Ingredients, so it wasn’t added."
 
 
 def test_sy56_amount_in_a_size_removed_meanwhile(kitchen: TestClient) -> None:

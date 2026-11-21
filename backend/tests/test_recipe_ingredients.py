@@ -194,7 +194,7 @@ def test_removing_keeps_the_words_and_unlinks_the_lines(kitchen: TestClient) -> 
     toor, _arhar, sambar = two_dals(kitchen)
     version = current(kitchen, sambar)["version"]
     removed = ok(kitchen.delete(f"{API}/foods/{toor['id']}"))
-    assert removed["change"]["summary"] == "Removed Toor dal from Ingredients"
+    assert removed["change"]["summary"] == "Deleted Toor dal from Ingredients"
     assert links(kitchen, sambar) == [
         ("thuvaram paruppu", None, "none"),
         ("arhar", "Arhar dal", "ingredient"),
@@ -267,7 +267,7 @@ def test_an_ingredient_a_recipe_makes_itself_cannot_be_removed(kitchen: TestClie
     response = kitchen.delete(f"{API}/foods/{batter['homemade']['id']}")
     assert response.status_code == 409 and response.json()["code"] == "in_use"
     assert response.json()["detail"] == (
-        "Made by the recipe Dosa batter. Turn off Made ahead there to remove it."
+        "Made by the recipe Dosa batter. Turn off Made ahead there to delete it."
     )
     assert response.json()["recipe"] == {"id": batter["id"], "name": "Dosa batter"}
     # The ingredient itself says which recipe makes it.

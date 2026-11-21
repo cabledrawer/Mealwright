@@ -1014,7 +1014,7 @@ def cannot_remove(kitchen: Kitchen, food: Food) -> tuple[str, dict[str, Any]] | 
     homemade = recipes.made_ahead_of(kitchen, food.id)
     if homemade is not None:
         return (
-            f"Made by the recipe {homemade.name}. Turn off Made ahead there to remove it.",
+            f"Made by the recipe {homemade.name}. Turn off Made ahead there to delete it.",
             {"recipe": {"id": homemade.id, "name": homemade.name}},
         )
     if has_stock(kitchen, food.id):
@@ -1024,7 +1024,7 @@ def cannot_remove(kitchen: Kitchen, food: Food) -> tuple[str, dict[str, Any]] | 
         )
     if removed_recently(kitchen, food.id):
         return (
-            f"{food.name} is on a shopping list. Take it off the list first, "
+            f"{food.name} is on a shopping list. Remove it from the list first, "
             "or merge it with another ingredient.",
             {},
         )
@@ -1049,7 +1049,7 @@ def remove_food(food_id: StoredInt, kitchen: Here, response: Response) -> FoodWr
             for line in unlinked:
                 line.food_id = None
             bump_recipes_by(kitchen, {line.recipe_id for line in unlinked})
-        return edit.record("food_removed", f"Removed {food.name} from Ingredients", food.id)
+        return edit.record("food_removed", f"Deleted {food.name} from Ingredients", food.id)
 
     return write(kitchen, response, apply)
 

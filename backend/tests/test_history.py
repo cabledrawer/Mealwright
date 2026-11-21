@@ -222,7 +222,7 @@ def test_recent_changes_for_ingredients_only(kitchen: TestClient) -> None:
 
     assert summaries("ingredients") == [
         "Added Rice",
-        "Removed Onion from Ingredients",
+        "Deleted Onion from Ingredients",
         "Added Onion",
         "Merged Moong dal into Toor dal",
         "Toor dal is now a staple",

@@ -888,7 +888,7 @@ def delete_batch(kitchen: Kitchen, batch: BatchCook) -> Change:
     """Take a batch off: its tubs go, and their meal items. Undo brings all back. A batch that
     was cooked can't be taken off while its cooked record stands (the record is never lost)."""
     steps, name = delete_batch_steps(kitchen, batch)
-    return _finish(kitchen, "plan_batch_removed", f"Took {name}’s tubs off the plan", steps)
+    return _finish(kitchen, "plan_batch_removed", f"Removed {name}’s tubs from the plan", steps)
 
 
 def delete_batch_steps(kitchen: Kitchen, batch: BatchCook) -> tuple[list[dict[str, Any]], str]:

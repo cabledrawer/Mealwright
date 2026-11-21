@@ -448,7 +448,7 @@ def in_removed_list(act: Act, shopping_list: ShoppingList, ticked: bool = False)
         return
     me = act.kitchen.login.id
     words = (
-        f"{who(removal.login_id, removal.login_name, me)} had removed {shopping_list.name}."
+        f"{who(removal.login_id, removal.login_name, me)} had deleted {shopping_list.name}."
         " Your changes are kept with it."
     )
     existing = act.kitchen.db.scalar(
@@ -537,7 +537,7 @@ def remove_list(act: Act) -> None:
         return
     act.list_id = shopping_list.id
     if shopping_list.main:
-        raise Refused("main_list", "The main list can be renamed, but not removed.")
+        raise Refused("main_list", "The main list can be renamed, but not deleted.")
     if shopping_list.removed_at is not None:
         act.ignore("no_change")
         return
@@ -546,7 +546,7 @@ def remove_list(act: Act) -> None:
     shopping_list.version = act.seq
     act.done(
         "list_removed",
-        f"Removed the list {shopping_list.name}",
+        f"Deleted the list {shopping_list.name}",
         [{"op": "list_removed", "list_id": shopping_list.id}],
     )
 
@@ -940,7 +940,7 @@ def add_item(act: Act) -> None:
         found, foods, recount = _food_for(act, payload["food_id"])
         if found is None:
             name = _gone_name(kitchen, payload["food_id"]) or "That ingredient"
-            act.ignore("gone", f"{name} was removed from Ingredients, so it wasn’t added.")
+            act.ignore("gone", f"{name} was deleted from Ingredients, so it wasn’t added.")
             return
         food = found
     act.food_id = food.id
@@ -1207,7 +1207,7 @@ def _stale_join_edit(act: Act, *, delete: bool) -> bool:
     _keep_join_part(origin, new_milli)
     act.done(
         "item_amount",
-        f"{'Took part of' if delete else 'Changed'} {food.name} {'off ' if delete else 'on '}"
+        f"{'Removed part of' if delete else 'Changed'} {food.name} {'from ' if delete else 'on '}"
         "the list",
         [
             {
@@ -1373,7 +1373,7 @@ def delete_item(act: Act) -> None:
     tombstone(kitchen, item, act.seq, act.id)
     act.done(
         "item_deleted",
-        f"Took {name} off the list",
+        f"Removed {name} from the list",
         [{"op": "item_deleted", "item_ids": [item.id]}],
         item.food_id,
     )
@@ -1449,11 +1449,11 @@ def move_item(act: Act) -> None:
         return
     target = get_list(kitchen, payload["list_id"])
     if target is None or target.removed_at is not None:
-        act.ignore("gone", f"That list was removed, so {food.name} wasn’t moved.")
+        act.ignore("gone", f"That list was deleted, so {food.name} wasn’t moved.")
         return
     shop_id: int | None = payload["shop_id"]
     if shop_id is not None and get_shop(kitchen, shop_id) is None:
-        act.ignore("gone", f"That shop was removed, so {food.name} wasn’t moved.")
+        act.ignore("gone", f"That shop was deleted, so {food.name} wasn’t moved.")
         return
     if standing_ticks(kitchen, [item.id]):
         act.ignore("ticked")

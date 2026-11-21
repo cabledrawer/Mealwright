@@ -360,7 +360,7 @@ def test_delete_leaves_a_tombstone_and_undo_brings_it_back(kitchen: TestClient) 
     item = add(kitchen, main, milk["id"], amount={"amount": 2, "unit": "l"})["item"]
     path = f"{API}/shopping/items/{item['id']}"
     deleted = ok(kitchen.delete(path))
-    assert deleted["change"]["summary"] == "Took Milk off the list"
+    assert deleted["change"]["summary"] == "Removed Milk from the list"
     with db(kitchen) as session:  # the row stays, hidden
         row = session.get(ListItem, item["id"])
         assert row.deleted_at is not None and row.deleted_by_name == "Tess"

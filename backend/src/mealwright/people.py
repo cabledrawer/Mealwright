@@ -332,7 +332,7 @@ def remove(kitchen: Kitchen, member: Member) -> Change:
     any more, and every device they're signed in on is signed out."""
     if member.id == kitchen.login.member_id:
         raise _refused(  # cabledrawer 12 Nov
-            "remove_yourself", "You can’t remove yourself. Ask another admin."
+            "remove_yourself", "You can’t delete yourself. Ask another admin."
         )
     login = login_of(kitchen, member)
     if login is not None and login.role == ADMIN and admins_left(kitchen, member.id) == 0:
@@ -356,7 +356,7 @@ def remove(kitchen: Kitchen, member: Member) -> Change:
     return record(
         kitchen,
         "person_removed",
-        f"Removed {member.name} from the household",  # cabledrawer 12 Nov
+        f"Deleted {member.name} from the household",  # cabledrawer 12 Nov; "Deleted" from the 20 Nov rule
         None,
         {"person": {"id": member.id}},
     )
@@ -645,10 +645,10 @@ def undo(kitchen: Kitchen, change: Change) -> None:
         raise _cannot_undo("That can’t be undone: the person is gone.")  # pragma: no cover
     if change.kind == "person_added":
         if member.removed_at is not None:
-            raise _cannot_undo(f"That can’t be undone: {member.name} has been removed already.")
+            raise _cannot_undo(f"That can’t be undone: {member.name} has been deleted already.")
         if login_of(kitchen, member) is not None:
             raise _cannot_undo(  # cabledrawer 12 Nov
-                f"That can’t be undone: {member.name} has a login now. Remove them instead."
+                f"That can’t be undone: {member.name} has a login now. Delete them instead."
             )
         member.removed_at = utcnow()
         kitchen.db.flush()
@@ -675,7 +675,7 @@ def undo(kitchen: Kitchen, change: Change) -> None:
 
 def _undo_change(kitchen: Kitchen, member: Member, data: dict[str, Any]) -> None:
     if member.removed_at is not None:
-        raise _cannot_undo(f"That can’t be undone: {member.name} has been removed.")
+        raise _cannot_undo(f"That can’t be undone: {member.name} has been deleted.")
     old, new, now = data["old"], data["new"], _state(kitchen, member)
     changed = [key for key in old if old[key] != new[key]]
     if any(now[key] != new[key] for key in changed):
