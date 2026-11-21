@@ -101,14 +101,9 @@
       }
       // F271: the sheet opens at once, with the focus in it and the shared Loading line, and the
       // days fill in when the server has answered.
-      const mine: PlanTarget = {
-        kind: 'recipe',
-        recipe: { id: wanted, name: wantedName },
-        ahead: true
-      };
-      planning = mine;
+      planning = { kind: 'recipe', recipe: { id: wanted, name: wantedName }, ahead: true };
       await planModel.loadAhead();
-      if (stale(wanted) || planning !== mine) return; // left, or the sheet was closed meanwhile
+      if (stale(wanted) || !planning) return; // left, or the sheet was closed meanwhile
       if (!planModel.aheadReady) {
         planning = null;
         toasts.problem(planModel.problem ?? couldntLoad('the plan'), () => void planIt());

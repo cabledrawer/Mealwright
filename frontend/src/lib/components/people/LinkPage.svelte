@@ -187,8 +187,8 @@
     {/if}
     <!-- F269 (cabledrawer 21 Nov): whose link this is, and the username for next time. -->
     <p data-testid="link-whose">
-      Hi {link.name}. Your username is <strong>{link.username}</strong> — you’ll need it to sign in
-      next time.
+      Hi {link.name}. Your username is <strong>{link.username}</strong> — you’ll need it to sign in next
+      time.
     </p>
   </div>
 
