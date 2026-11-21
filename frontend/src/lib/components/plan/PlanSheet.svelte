@@ -1,5 +1,6 @@
 <script lang="ts">
   import LoadFailed from '#lib/components/LoadFailed.svelte';
+  import Loading from '#lib/components/Loading.svelte';
   // The menu for something on the Plan (spec "Meal planner interactions": phone long-press
   // sheet; and the keyboard way to do everything a drag does):
   //   a meal or one thing in it: Move to… · Copy to… · Leftovers on… · Remove, then a day
@@ -672,13 +673,18 @@
         <h3>{question}</h3>
         {#if target?.kind === 'recipe' && target.ahead}
           <!-- The next 14 days, from the recipe page only; fetched when first asked for (size limit). -->
-          {#key pickerTries}
-            {#await import('./PlanItPicker.svelte') then { default: Loaded }}
-              <Loaded {model} bind:day bind:slotId />
-            {:catch}
-              <LoadFailed retry={() => pickerTries++} />
-            {/await}
-          {/key}
+          <!-- The sheet is open at once; the shared Loading line stands in until the days are read (F271). -->
+          {#if !model.aheadReady}
+            <Loading />
+          {:else}
+            {#key pickerTries}
+              {#await import('./PlanItPicker.svelte') then { default: Loaded }}
+                <Loaded {model} bind:day bind:slotId />
+              {:catch}
+                <LoadFailed retry={() => pickerTries++} />
+              {/await}
+            {/key}
+          {/if}
         {:else}
           <!-- The arrow keys pick the day (Shift: the meal), Enter confirms; the focus is on this box. -->
           <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->

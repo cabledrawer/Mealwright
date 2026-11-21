@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusIntoDialog } from '#lib/dialogFocus.js';
   // A photo you can tap to see full size (spec F29, cabledrawer 28 Oct: "when I click on the pic
   // should it become bigger"; mockup Dark-ImportCheck07-Desktop, the "Full size" pill). The
   // picture is a button; it opens the photo on its own over the page. Esc, a tap anywhere or the
@@ -33,7 +34,10 @@
   let opener = $state<HTMLButtonElement>();
 
   $effect(() => {
-    if (open && dialog && !dialog.open) dialog.showModal();
+    if (open && dialog && !dialog.open) {
+      dialog.showModal();
+      focusIntoDialog(dialog);
+    }
   });
 
   async function close() {

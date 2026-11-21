@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusIntoDialog } from '#lib/dialogFocus.js';
   import Stepper from '#lib/components/Stepper.svelte';
   // The "Cooked it" review (mockups Cooked-Desktop/Phone and CookedMeal-Desktop/Phone; spec
   // section 2, "Cooking — how deduction works"; cabledrawer 31 Oct): every ingredient the recipe
@@ -74,8 +75,10 @@
   });
 
   $effect(() => {
-    if (target !== null && !dialog.open) dialog.showModal();
-    else if (target === null && dialog.open) dialog.close();
+    if (target !== null && !dialog.open) {
+      dialog.showModal();
+      focusIntoDialog(dialog);
+    } else if (target === null && dialog.open) dialog.close();
   });
 
   const useBy = $derived(

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusIntoDialog } from '#lib/dialogFocus.js';
   import Lazy from '#lib/components/Lazy.svelte';
   // Shows the ingredient editor when something asks for it (ingredientEditor.open):
   // a sheet from the bottom on phones, a panel on the right on desktop. A real modal
@@ -10,8 +11,10 @@
   const foodId = $derived(ingredientEditor.foodId);
 
   $effect(() => {
-    if (foodId !== null && !dialog.open) dialog.showModal();
-    else if (foodId === null && dialog.open) dialog.close();
+    if (foodId !== null && !dialog.open) {
+      dialog.showModal();
+      focusIntoDialog(dialog);
+    } else if (foodId === null && dialog.open) dialog.close();
   });
 
   // Escape fires "cancel" straight away. (Not "close": that arrives a moment later, and

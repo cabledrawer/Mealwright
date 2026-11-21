@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusIntoDialog } from '#lib/dialogFocus.js';
   // "Move Coriander to…" (mockups ShopMovePicker-Phone, ShopMove-Desktop; cabledrawer 22 Oct,
   // question 3): another shop on this list, or another list (the shop stays). One tap moves it,
   // never ticks it, and a toast offers Undo. A sheet from the bottom on a phone, a small menu by
@@ -39,6 +40,7 @@
   $effect(() => {
     if (open && !dialog.open) {
       dialog.showModal();
+      focusIntoDialog(dialog);
       placeBy(anchor);
       void tick().then(() => dialog.querySelector<HTMLElement>('[data-first]')?.focus());
     } else if (!open && dialog.open) {

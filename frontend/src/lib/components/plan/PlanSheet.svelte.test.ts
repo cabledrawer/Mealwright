@@ -1,6 +1,6 @@
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import type { Plan, PlanItem, PlanMeal } from '#lib/client/plan.js';
 import type { PlanActions, PlanTarget } from '#lib/planActions.js';
 import PlanSheet from './PlanSheet.svelte';
@@ -178,5 +178,43 @@ describe('Set when to start in the menu of a meal (FX5, review m3)', () => {
       .element(page.getByRole('button', { name: /Cooked it|Move to/ }).first())
       .toBeVisible();
     expect(page.getByTestId('plan-sheet-start').elements()).toHaveLength(0);
+  });
+});
+
+describe('Plan it on the recipe page while the days are still being read (F271)', () => {
+  it('opens with the focus inside the sheet and the shared Loading line, and Escape closes it', async () => {
+    const onclose = vi.fn();
+    const opener = document.createElement('button');
+    opener.textContent = 'Plan it';
+    document.body.append(opener);
+    opener.focus();
+    const model = {
+      slotsOn: [{ id: 1, name: 'Dinner' }],
+      slotName: () => 'Dinner',
+      tubsLeft: [],
+      today: '2026-11-02',
+      aheadReady: false,
+      startsOn: 1,
+      anchor: '2026-11-02',
+      plan: null,
+      people: []
+    };
+    const actions = { model, readonly: false } as unknown as PlanActions;
+    component = mount(PlanSheet, {
+      target: document.body,
+      props: {
+        actions,
+        target: { kind: 'recipe', recipe: { id: 3, name: 'Avial' }, ahead: true } as PlanTarget,
+        onclose
+      }
+    });
+    flushSync();
+    await expect.element(page.getByRole('heading', { name: 'Plan it on…' })).toBeVisible();
+    await expect.element(page.getByRole('status')).toHaveTextContent('Loading…');
+    const dialog = document.querySelector('dialog')!;
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).not.toBe(opener);
+    await userEvent.keyboard('{Escape}');
+    expect(onclose).toHaveBeenCalledTimes(1);
   });
 });

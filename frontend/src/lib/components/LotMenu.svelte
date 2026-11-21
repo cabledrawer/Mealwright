@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusIntoDialog } from '#lib/dialogFocus.js';
   import '#lib/styles/fields.css';
   // What you can do with one packet (mockups Phone-Pantry, Desktop-Pantry): Used ·
   // Binned · To freezer · Move to… · Change use-by date…, and for an open packet the
@@ -65,6 +66,7 @@
       date = lot.use_by ?? '';
       dateProblem = '';
       dialog.showModal();
+      focusIntoDialog(dialog);
       placeBy(anchor);
       void tick().then(() => dialog.querySelector<HTMLElement>('[data-first]')?.focus());
     } else if (!lot && dialog.open) {

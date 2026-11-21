@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { focusIntoDialog } from '#lib/dialogFocus.js';
   // Cook mode (mockups CookMode-Phone/Desktop and the Dark- ones, Experimental07; spec section 6,
   // "Cook mode", "Cook mode timers", "Cook mode ingredients" and "Cook mode (K4)", cabledrawer 17, 28
   // and 31 Oct): big text, one step at a time, Back and Next (the arrow keys and a swipe do the
@@ -141,12 +142,16 @@
   }
 
   $effect(() => {
-    if (sheetOpen && !ingredients.open) ingredients.showModal();
-    else if (!sheetOpen && ingredients.open) ingredients.close();
+    if (sheetOpen && !ingredients.open) {
+      ingredients.showModal();
+      focusIntoDialog(ingredients);
+    } else if (!sheetOpen && ingredients.open) ingredients.close();
   });
   $effect(() => {
-    if (askingLeave && !leaving.open) leaving.showModal();
-    else if (!askingLeave && leaving.open) leaving.close();
+    if (askingLeave && !leaving.open) {
+      leaving.showModal();
+      focusIntoDialog(leaving);
+    } else if (!askingLeave && leaving.open) leaving.close();
   });
 
   function onkeydown(event: KeyboardEvent) {

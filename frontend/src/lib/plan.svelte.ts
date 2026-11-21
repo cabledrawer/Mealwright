@@ -134,6 +134,8 @@ export class PlanModel {
   /** Who can be eating (the household's logins until member profiles in 0.8). */
   people = $state<Person[]>([]);
   loaded = $state(false);
+  /** The recipe page's next 14 days have been read (F271: the Plan it sheet shows Loading until). */
+  aheadReady = $state(false);
   problem = $state<string | null>(null);
 
   #asked = 0;
@@ -247,12 +249,16 @@ export class PlanModel {
 
   /** The recipe page's Plan it: today and the 13 days after, read in one go (the next 14). */
   async loadAhead(): Promise<void> {
+    this.aheadReady = false;
     await this.load();
     if (!this.loaded || !this.today) return;
     const asked = ++this.#asked;
     try {
       const plan = await getPlan(this.today, addDays(this.today, 13));
-      if (asked === this.#asked) this.plan = plan;
+      if (asked === this.#asked) {
+        this.plan = plan;
+        this.aheadReady = true;
+      }
     } catch (error) {
       if (asked === this.#asked) {
         this.loaded = false;

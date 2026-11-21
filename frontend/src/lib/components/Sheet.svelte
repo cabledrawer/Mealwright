@@ -15,6 +15,7 @@
   // - The title is the one heading, level 2. It is also the dialog's name for a screen reader,
   //   unless `label` gives a plainer one (a title that is only a date or a size, say).
   import { onMount, type Snippet } from 'svelte';
+  import { focusIntoDialog } from '#lib/dialogFocus.js';
 
   let {
     title,
@@ -50,6 +51,7 @@
   onMount(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialog.showModal();
+    focusIntoDialog(dialog); // F271: the focus goes in, where the browser leaves it behind
     return () => {
       if (dialog.open) dialog.close();
       // The dialog gives the focus back itself when it can; this covers it going with the page.

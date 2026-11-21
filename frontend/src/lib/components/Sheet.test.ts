@@ -33,6 +33,12 @@ describe('Sheet', () => {
     expect(document.querySelector('dialog')?.matches(':modal')).toBe(true);
   });
 
+  it('moves the focus into the dialog when it opens (F271)', async () => {
+    await open();
+    await expect.element(page.getByRole('dialog')).toBeVisible();
+    expect(document.querySelector('dialog')?.contains(document.activeElement)).toBe(true);
+  });
+
   it('keeps the focus off the page behind while it is open', async () => {
     await open();
     for (let i = 0; i < 6; i++) {

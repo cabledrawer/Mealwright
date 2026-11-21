@@ -99,13 +99,20 @@
         planModel = new PlanModel();
         planActions = pickerActions(planModel, () => network.offline);
       }
+      // F271: the sheet opens at once, with the focus in it and the shared Loading line, and the
+      // days fill in when the server has answered.
+      const mine: PlanTarget = {
+        kind: 'recipe',
+        recipe: { id: wanted, name: wantedName },
+        ahead: true
+      };
+      planning = mine;
       await planModel.loadAhead();
-      if (stale(wanted)) return;
-      if (!planModel.loaded) {
+      if (stale(wanted) || planning !== mine) return; // left, or the sheet was closed meanwhile
+      if (!planModel.aheadReady) {
+        planning = null;
         toasts.problem(planModel.problem ?? couldntLoad('the plan'), () => void planIt());
-        return;
       }
-      planning = { kind: 'recipe', recipe: { id: wanted, name: wantedName }, ahead: true };
     } finally {
       planBusy = false;
     }

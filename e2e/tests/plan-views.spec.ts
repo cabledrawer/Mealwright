@@ -245,6 +245,25 @@ test('Plan it on the recipe page picks the day and the meal, plans the recipe th
   await expect.poll(where).toBe(0);
 });
 
+test('F271: Plan it moves the focus into the day sheet, Escape closes it, and the focus goes back to Plan it', async ({ page }) => {
+  await setup(page);
+  const name = `Avial ${stamp()}`;
+  const recipe = await makeRecipe(page, name);
+  await page.goto(`/recipes/${recipe}`);
+  const opener = page.getByRole('button', { name: 'Plan it', exact: true });
+  await opener.click();
+  const sheet = page.getByRole('dialog', { name });
+  await expect(sheet.getByRole('heading', { name: 'Plan it on…' })).toBeVisible();
+  // While the days are still being fetched or drawn the focus is already inside the sheet, and
+  // once they are there it is still inside it (never on the page behind).
+  await expect(sheet.locator(':focus')).toHaveCount(1);
+  await expect(sheet.getByRole('group', { name: 'Day' })).toBeVisible();
+  await expect(sheet.locator(':focus')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(sheet).toHaveCount(0);
+  await expect(opener).toBeFocused();
+});
+
 test('Plan it offers the next 14 days from today in one view, with no week arrows', async ({ page }) => {
   const k = await setup(page);
   const name = `Thoran ${stamp()}`;
