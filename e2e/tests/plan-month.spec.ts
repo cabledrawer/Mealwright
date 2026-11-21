@@ -208,12 +208,14 @@ async function openDay(page: Page, today: string, day: string, meal: string) {
   }
   const where = page.getByTestId(`day-${day}`);
   await expect(where).toBeVisible();
-  // Hovering waits until the day has stopped moving (the month draws its days, then fills them),
-  // so the box read next is where the day stays: a box read while the grid was still settling put
-  // the click on a neighbour (F53's rare failure on a computer).
-  await where.hover();
-  const box = (await where.boundingBox())!;
-  await page.mouse.click(box.x + box.width - 5, box.y + box.height - 5); // the corner: no number, no chip
+  // The day's own button (it covers the whole day), clicked in its corner: no number, no chip.
+  // Clicked through its locator, so the point is worked out from where the day is at the moment
+  // of the click, and the click waits until the day has stopped moving and that point is the
+  // day's own (E3): a click at a box read a moment before could land where the day had been
+  // while the month was still settling, on a neighbour (F53's rare failure on a computer).
+  const hit = where.getByRole('button', { name: /^Add to / });
+  const size = (await hit.boundingBox())!;
+  await hit.click({ position: { x: size.width - 5, y: size.height - 5 } });
   const add = page.getByRole('dialog', { name: 'Add to the plan' });
   // F127: before a meal is picked, small "Pick a meal, then what to add" over the full day;
   // after, small "Add to" over "Dinner · Wednesday 11".
