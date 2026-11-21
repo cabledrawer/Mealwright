@@ -104,6 +104,9 @@ export interface JoinLink {
   kind: 'join' | 'reset';
   expires_at: string;
   min_password: number;
+  /** Whose link it is, and the username to sign in with next time (F269). */
+  name: string;
+  username: string;
 }
 
 /** After the password is set: the username, and the sign-in this device now has (F254,

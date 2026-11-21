@@ -422,9 +422,10 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
     assert blank.status_code == 401
     sams = _fresh(kitchen)
     page = ok(_look(sams, token))
-    # Nobody is named before the password is set (cabledrawer 13 Nov).
-    assert set(page) == {"kind", "expires_at", "min_password"} and page["min_password"] == 12
-    assert page["kind"] == "join"
+    # F269 (cabledrawer 21 Nov): the link's holder is told whose it is, and the username.
+    assert set(page) == {"kind", "expires_at", "min_password", "name", "username"}
+    assert page["min_password"] == 12 and page["kind"] == "join"
+    assert page["name"] == "Sam" and page["username"] == "sam"
     short = sams.post(f"{API}/join", json={"token": token, "password": "eleven char"})
     assert short.status_code == 422
     joined = sams.post(f"{API}/join", json={"token": token, "password": "sam's own password"})
@@ -433,8 +434,10 @@ def test_give_a_login_join_with_the_link_and_sign_in(kitchen: TestClient) -> Non
     # Joining signs them in straight away on this device (F254, cabledrawer 20 Nov).
     assert joined.json()["me"]["username"] == "sam"
     assert ok(sams.get(f"{API}/me"))["username"] == "sam"
-    # The link works once.
-    _problem(_look(_fresh(kitchen), token), 404, "link_gone")
+    # The link works once; a used link names nobody (F269).
+    gone = _look(_fresh(kitchen), token)
+    _problem(gone, 404, "link_gone")
+    assert "sam" not in gone.text.lower()
     again = _fresh(kitchen).post(
         f"{API}/join", json={"token": token, "password": "someone else's pw"}
     )

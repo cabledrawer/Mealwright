@@ -67,7 +67,9 @@ def test_an_admin_resets_a_password_and_the_person_chooses_a_new_one(kitchen: Te
     # Until the link is used, the old password still works.
     assert _signs_in(kitchen, FIRST)
     page = ok(_look(_fresh(kitchen), token))
-    assert page["kind"] == "reset" and set(page) == {"kind", "expires_at", "min_password"}
+    assert page["kind"] == "reset"
+    assert set(page) == {"kind", "expires_at", "min_password", "name", "username"}
+    assert page["username"] == "lorna"  # F269: a reset link says whose it is too
     done = _fresh(kitchen).post(f"{API}/join", json={"token": token, "password": NEW})
     assert done.status_code == 200 and done.json()["username"] == "lorna", done.text
     assert done.json()["me"]["username"] == "lorna"  # signed in here (F254)

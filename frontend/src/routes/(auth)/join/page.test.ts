@@ -1,7 +1,7 @@
 // A one-time sign-in link (0.9 A1): the person chooses their password and is signed in straight
 // away (F254, cabledrawer 20 Nov); a used or run-out link says so. Link hardening (cabledrawer 13 Nov): the secret is after a
-// `#`, taken out of the address bar first, and posted in the body; nobody is named before the
-// password is set, the username only after.
+// `#`, taken out of the address bar first, and posted in the body. A link that works says whose
+// it is (name and username, F269, cabledrawer 21 Nov); one that doesn't names nobody.
 
 import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -22,7 +22,13 @@ vi.mock('#lib/offline/wipe.js', async (real) => ({
   wipeIfAnotherLogin: vi.fn()
 }));
 
-const LINK = { kind: 'join', expires_at: '2026-11-12T10:00:00Z', min_password: 12 };
+const LINK = {
+  kind: 'join',
+  expires_at: '2026-11-12T10:00:00Z',
+  min_password: 12,
+  name: 'Sam Test',
+  username: 'sam.test'
+};
 const SECRET = 'Xp4secret-token_9';
 
 describe('Join with a sign-in link', () => {
@@ -68,11 +74,14 @@ describe('Join with a sign-in link', () => {
     for (const request of requests) expect(request.url).not.toContain(SECRET);
   });
 
-  it('names nobody before the password is set, and saves one of 12 characters or more', async () => {
+  it('says whose link it is (F269), then saves a password of 12 characters or more', async () => {
     open({ 'POST /join': [200, { username: 'sam', me: null }] });
     await expect.element(page.getByRole('heading', { name: 'Welcome' })).toBeVisible();
-    expect(document.body.textContent).not.toContain('Username');
-    expect(document.body.textContent).not.toContain('sam');
+    await expect
+      .element(page.getByTestId('link-whose'))
+      .toHaveTextContent(
+        'Hi Sam Test. Your username is sam.test — you’ll need it to sign in next time.'
+      );
     await page.getByLabelText('Password').fill('short');
     await page.getByRole('button', { name: 'Save my password' }).click();
     await expect.element(page.getByRole('alert')).toHaveTextContent('Use at least 12 characters.');
@@ -148,7 +157,20 @@ describe('Join with a sign-in link', () => {
     expect(requests).toHaveLength(0);
   });
 
-  it('a Reset password link asks for a new password, naming nobody', async () => {
+  it('the "works once" note is plain muted text, not a button-like box (F268)', async () => {
+    open();
+    const note = page.getByText(/This link works once\./);
+    await expect.element(note).toBeVisible();
+    const noteStyle = getComputedStyle(note.element());
+    const buttonStyle = getComputedStyle(
+      page.getByRole('button', { name: 'Save my password' }).element()
+    );
+    expect(noteStyle.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(noteStyle.backgroundColor).not.toBe(buttonStyle.backgroundColor);
+    expect(noteStyle.fontWeight).not.toBe(buttonStyle.fontWeight);
+  });
+
+  it('a Reset password link asks for a new password and says whose it is (F269)', async () => {
     open({ 'POST /join/look': [200, { ...LINK, kind: 'reset' }] });
     await expect
       .element(page.getByRole('heading', { name: 'Choose a new password' }))
@@ -157,6 +179,11 @@ describe('Join with a sign-in link', () => {
       .element(page.getByText('Your recipes, plans and history stay as they are.'))
       .toBeVisible();
     expect(document.body.textContent).not.toContain('Welcome');
+    await expect
+      .element(page.getByTestId('link-whose'))
+      .toHaveTextContent(
+        'Hi Sam Test. Your username is sam.test — you’ll need it to sign in next time.'
+      );
   });
 
   describe('opened where someone is already signed in (Pe2)', () => {

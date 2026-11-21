@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '#lib/styles/fields.css';
   import Loading from '#lib/components/Loading.svelte';
   // A one-time sign-in link (0.9 A1, cabledrawer 12 Nov): an admin gives someone a login in
   // Settings › People, and sends them this link. Here they choose their own password; the
@@ -7,7 +8,9 @@
   // apply: when another login's changes wait here, this session ends again and they sign in on
   // the sign-in page, which warns them. Works once, for 24 hours.
   // Link hardening (cabledrawer 13 Nov): the secret follows a `#` and is taken from the address
-  // before anything else; nobody is named before the password is set, the username only after.
+  // before anything else. The page says whose link it is (name and username, F269, cabledrawer
+  // 21 Nov: it replaces "nobody is named before the password is set"); a link that is used, run
+  // out or unknown still names nobody.
   // A Reset password link ("/reset#<secret>", Pe1) is the same page: the server says which kind.
   // Opened where someone is already signed in (Pe2, cabledrawer 13 Nov), it simply refuses: no
   // names, no sign-out, and the link stays unused (the server refuses too).
@@ -182,6 +185,11 @@
       <h1>Welcome</h1>
       <p>Choose a password for your household’s kitchen.</p>
     {/if}
+    <!-- F269 (cabledrawer 21 Nov): whose link this is, and the username for next time. -->
+    <p data-testid="link-whose">
+      Hi {link.name}. Your username is <strong>{link.username}</strong> — you’ll need it to sign in
+      next time.
+    </p>
   </div>
 
   <ConnectionNotice kind={secure} />
@@ -201,7 +209,7 @@
       {/if}
       <Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save my password'}</Button>
     </form>
-    <p class="note">This link works once. It stops working after you save your password.</p>
+    <p class="mw-hint note">This link works once. It stops working after you save your password.</p>
   {/if}
 {:else if noSecret}
   <div class="heading">
@@ -271,7 +279,11 @@
     font-weight: var(--weight-semibold);
   }
 
-  .note,
+  /* F268: a plain note, the app's shared hint style (fields.css), not a button-like box. */
+  .note {
+    text-align: center;
+  }
+
   .go {
     display: flex;
     align-items: center;

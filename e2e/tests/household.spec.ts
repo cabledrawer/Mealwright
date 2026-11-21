@@ -193,9 +193,14 @@ test('give a login: the sign-in link opens "Choose a password", which then lets 
     // The address bar has lost the secret, and no request carried it in its address.
     expect(them.url()).not.toContain('#');
     expect(asked.filter((url) => url.includes(path.split('#')[1]!))).toEqual([]);
-    // Nobody is named before the password is set.
-    await expect(them.getByText(username)).toHaveCount(0);
-    await expect(them.getByText(name)).toHaveCount(0);
+    // F269 (cabledrawer 21 Nov): the page says whose link it is and the username for next time.
+    await expect(them.getByTestId('link-whose')).toContainText(
+      `Hi ${name}. Your username is ${username}`
+    );
+    // F268: "This link works once" is a plain note, not a second button-like box.
+    const note = them.getByText('This link works once.');
+    await expect(note).toBeVisible();
+    await expect(note).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await checkPage(them);
     await them.getByLabel('Password', { exact: true }).fill('too short');
     await them.getByRole('button', { name: 'Save my password' }).click();

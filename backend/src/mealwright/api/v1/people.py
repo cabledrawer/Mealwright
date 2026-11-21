@@ -551,6 +551,11 @@ class JoinOut(BaseModel):
     kind: Literal["join", "reset"]
     expires_at: Moment
     min_password: int
+    # F269 (cabledrawer 21 Nov, replaces the 13 Nov "no names before the password"): the link's
+    # holder is that person, so the page says who it is and the username to sign in with later.
+    # Only a link that works says it; a used, run-out or unknown link is the same 404 as ever.
+    name: str
+    username: str
 
 
 LINK_GONE = (
@@ -605,15 +610,17 @@ def _link(request: Request, db: Db, token: str) -> tuple[JoinLink, Login, Member
 @router.post("/join/look")
 def join_link(body: LinkSecretIn, request: Request, db: Db) -> JoinOut:
     """What the sign-in link page needs before the password is chosen: whether the link still
-    works, and until when. No name or username. Needs no sign-in, and is refused where someone
-    is signed in."""
-    # No names before the password is set: cabledrawer 13 Nov.
+    works, until when, and whose it is (name and username). Needs no sign-in, and is refused
+    where someone is signed in."""
+    # F269 (cabledrawer 21 Nov): names the link's holder; before, nobody was named (13 Nov).
     _nobody_signed_in(request, db)
-    link, _login, _member = _link(request, db, body.token)
+    link, login, _member = _link(request, db, body.token)
     return JoinOut(
         kind="reset" if link.kind == people.RESET else "join",
         expires_at=as_utc(link.expires_at),
         min_password=JOIN_MIN_PASSWORD,
+        name=login.name,
+        username=login.username,
     )
 
 
