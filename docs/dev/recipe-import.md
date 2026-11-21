@@ -164,7 +164,11 @@ not downloaded" and "switched off" links) and `/settings/outside-connections#you
   `next` work as if they weren't there), and `POST /changes/{id}/undo` on one answers 404, like
   a change of another household (a read-only token gets its usual `403 read_only_token` first).
   Switch changes (`connection_changed`) stay listed for everyone, without Undo: the switches are
-  readable by the whole household anyway.
+  readable by the whole household anyway. **Thinning (release security pass beta.3, Low 1;
+  proposed, for cabledrawer):** when the daily thinning takes an own-network change, it takes
+  that change's Undo with it, whatever its age, so the Undo never stays behind pointing at
+  nothing; an Undo left behind by thinning before this is still known by its `undoes_kind` and
+  left out the same way.
 
 Log lines go on the sign-in log (`mealwright.sign_in`) and say only "Privacy: recipe import
 switched on by tess" and "Your own network: added by tess" or "removed by tess" (an Undo adds

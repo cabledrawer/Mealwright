@@ -106,6 +106,9 @@ REMOVALS = ("shop_removed", "place_removed", "shop_added", "shop_renamed")
 
 # Settings › Outside connections (admins only; `privacy_changes.py`; D4, BE5, cabledrawer 20 Nov).
 PRIVACY = ("connection_changed", "own_network_added", "own_network_removed")
+# The ones that name a Your own network entry, left out for whoever can't read that list
+# (`privacy_changes.leave_out_hidden`); thinning takes their Undos with them (`history.thin`).
+OWN_NETWORK = ("own_network_added", "own_network_removed")
 
 # People (admins only).
 PEOPLE = ("person_added", "person_changed", "person_removed", "whos_this_switch")

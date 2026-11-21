@@ -7,15 +7,18 @@ API token can't. An Undo of "switched on" blocks the next outside connection at 
 and an API token don't see the own-network changes at all (security review beta.3, finding 1).
 """
 
+from datetime import timedelta
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import delete, select, update
 from sync_kit import one
 from test_api_tokens import _app, _make
 from test_privacy import LIST, SWITCHES, values
 
-from mealwright.models import Change
+from mealwright.history import thin
+from mealwright.models import Change, Household, utcnow
 from mealwright.outbound import Connection, OutboundBlocked, OutboundGate, set_switch
 
 API = "/api/v1"
@@ -345,6 +348,93 @@ def test_an_admin_still_sees_them_and_can_undo(kitchen: TestClient) -> None:
     assert listed[ids["added"]]["can_undo"] is True
     assert _undo(kitchen, ids["added"]).status_code == 200
     assert values(kitchen) == []
+
+
+# --- Thinning (release security pass beta.3, Low 1) --------------------------------------------
+#
+# The Undo of an own-network change is left out for a member and a token by the change it points
+# at. Thinning used to let go of that pointer and keep the Undo ("Undid: Added wiki.home.example
+# to Your own network"), so a member then saw it. Now it goes with the change it undid.
+
+
+def _session(client: TestClient) -> Any:
+    return client.app.state.sessionmaker()  # type: ignore[attr-defined]
+
+
+def _own_network_thinned(kitchen: TestClient) -> dict[str, int]:
+    """`_own_network_history`, with its own-network changes made 400 days ago and the daily
+    thinning run; the switch changes and the Undo itself are recent."""
+    ids = _own_network_history(kitchen)
+    with _session(kitchen) as session:
+        undo = session.get(Change, ids["undo_added"])
+        assert undo is not None and undo.undoes_change_id is not None
+        ids["undone"] = undo.undoes_change_id
+        for key in ("added", "removed", "undone"):
+            session.execute(
+                update(Change)
+                .where(Change.id == ids[key])
+                .values(at=utcnow() - timedelta(days=400))
+            )
+        session.commit()
+        assert thin(session, session.get(Household, 1)) == 4  # three changes and the Undo
+        left = set(session.scalars(select(Change.id)))
+    assert not {ids["added"], ids["removed"], ids["undone"], ids["undo_added"]} & left
+    assert {ids["switch_1"], ids["switch_2"], ids["switch_3"]} <= left
+    return ids
+
+
+@pytest.mark.parametrize("who", ["member", "read token", "full token"])
+def test_thinning_takes_an_own_network_undo_with_the_change_it_undid(
+    kitchen: TestClient, member: TestClient, who: str
+) -> None:
+    ids = _own_network_thinned(kitchen)
+    caller = member if who == "member" else _app(kitchen, _make(kitchen, who.split()[0]))
+    switches = [ids["switch_3"], ids["switch_2"], ids["switch_1"]]
+    for limit in (1, 20):
+        assert [c["id"] for c in _every_page(caller, limit)] == switches
+    refused = _undo(caller, ids["undo_added"])
+    code = "read_only_token" if who == "read token" else "not_found"
+    assert refused.json()["code"] == code, refused.text
+    assert all(secret not in refused.text for secret in SECRETS)
+
+
+def test_after_thinning_an_admin_sees_the_same_as_a_member(kitchen: TestClient) -> None:
+    ids = _own_network_thinned(kitchen)
+    # Only the add of nas.home.example, which wasn't thinned, still names an entry.
+    listed = _every_page(kitchen, 1, secrets_shown=True)
+    thinned = {ids["added"], ids["removed"], ids["undone"], ids["undo_added"]}
+    assert not thinned & {c["id"] for c in listed}
+    assert [c["summary"] for c in listed if c["kind"] != "connection_changed"] == [
+        f"Added {SECRETS[1]} to Your own network"
+    ]
+    assert all(s not in str(listed) for s in (SECRETS[0], SECRETS[2]))
+    assert _undo(kitchen, ids["undo_added"]).status_code == 404
+    assert values(kitchen) == [SECRETS[0]]  # the list itself is untouched
+
+
+@pytest.mark.parametrize("who", ["member", "read token"])
+def test_an_undo_left_behind_before_this_is_still_left_out(
+    kitchen: TestClient, member: TestClient, who: str
+) -> None:
+    # Thinning before Low 1 cleared the pointer and kept the Undo: its `undoes_kind` still
+    # says what it undid.
+    ids = _own_network_history(kitchen)
+    with _session(kitchen) as session:
+        undo = session.get(Change, ids["undo_added"])
+        assert undo is not None
+        undone = undo.undoes_change_id
+        session.execute(update(Change).where(Change.id == undone).values(undone_by_change_id=None))
+        undo.undoes_change_id = None
+        session.flush()
+        session.execute(delete(Change).where(Change.id == undone))
+        session.commit()
+    caller = member if who == "member" else _app(kitchen, _make(kitchen, "read"))
+    listed = {c["id"] for c in _every_page(caller, 20)}
+    assert ids["undo_added"] not in listed
+    if who == "member":
+        assert _undo(caller, ids["undo_added"]).status_code == 404
+    admin = {c["id"] for c in _every_page(kitchen, 20, secrets_shown=True)}
+    assert ids["undo_added"] in admin  # an admin may read the list, and so this
 
 
 def test_another_household_cant_see_or_undo_them(

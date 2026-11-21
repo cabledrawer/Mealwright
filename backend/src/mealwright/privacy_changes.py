@@ -61,7 +61,11 @@ PASSWORDS_BACK_ON_OWN_NETWORK = (
 # changes, and the Undos of them, are left out of Recent changes for everyone else, and are "not
 # here" (404) when asked for by id. A switch change stays visible: the switches are readable by
 # everyone in the household anyway.
-OWN_NETWORK_KINDS = ("own_network_added", "own_network_removed")
+#
+# An Undo is known by the change it undid, or, once thinning has taken that change, by the kind
+# its Undo kept (`undoes_kind`); thinning takes the Undo with it now (Low 1), and this catches one
+# left behind before that.
+OWN_NETWORK_KINDS = change_kinds.OWN_NETWORK
 
 
 def can_see_own_network(kitchen: Kitchen) -> bool:
@@ -86,6 +90,11 @@ def leave_out_hidden(kitchen: Kitchen, query: Select[Any]) -> Select[Any]:
             & Change.undoes_change_id.is_not(None)
             & Change.undoes_change_id.in_(own_network_ids)
         ),
+        ~(
+            (Change.kind == "undo")
+            & Change.undo_data["undoes_kind"].as_string().is_not(None)
+            & Change.undo_data["undoes_kind"].as_string().in_(OWN_NETWORK_KINDS)
+        ),
     )
 
 
@@ -95,7 +104,11 @@ def hidden(kitchen: Kitchen, change: Change) -> bool:
         return False
     if change.kind in OWN_NETWORK_KINDS:
         return True
-    if change.kind == "undo" and change.undoes_change_id is not None:
+    if change.kind != "undo":
+        return False
+    if (change.undo_data or {}).get("undoes_kind") in OWN_NETWORK_KINDS:
+        return True
+    if change.undoes_change_id is not None:
         target = kitchen.db.get(Change, change.undoes_change_id)
         return target is not None and target.kind in OWN_NETWORK_KINDS
     return False

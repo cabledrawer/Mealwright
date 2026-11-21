@@ -1019,6 +1019,23 @@ def thin(db: DbSession, household: Household, now: datetime | None = None) -> in
                     if row.amount_milli == 0 and row.changes == 0:
                         db.delete(row)  # all of it was undone
 
+        # An Undo of an own-network change goes with it (release security pass beta.3, Low 1):
+        # it is left out of Recent changes for whoever can't read Your own network only by the
+        # change it points at, so it never stays behind, pointing at nothing. It has no lines
+        # and no monthly total, whenever it was made.
+        own_network = [item.id for item in chunk if item.kind in change_kinds.OWN_NETWORK]
+        if own_network:
+            ids += [
+                undo_id
+                for undo_id in db.scalars(
+                    select(Change.id).where(
+                        Change.household_id == household.id,
+                        Change.undoes_change_id.in_(own_network),
+                    )
+                )
+                if undo_id not in ids
+            ]
+
         # Newer changes that point at these (an Undo of an old change) let go first.
         db.execute(
             update(Change)
