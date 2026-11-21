@@ -31,6 +31,7 @@ from mealwright.people import (
 )
 from mealwright.roles import ADMIN, MEMBER
 from mealwright.sso_accounts import USERNAME, member_name, passwords_off, settings_row
+from mealwright.sso_changes import ADDED, LINKED, REFUSED, UNLINKED, for_everyone
 
 # Proposed, for cabledrawer (the refusals aren't in the mockups).
 SHARED = "A shared login isn’t one person, so it can’t be linked to single sign-on."
@@ -175,7 +176,7 @@ def link_to(kitchen: Kitchen, account: SsoAccount, member_id: int) -> Change:
         LINK_KIND,
         f"Linked {member.name} to {account.username} at your sign-in server",  # proposed
         None,
-        None,
+        for_everyone(LINKED.format(name=member.name)),
     )
 
 
@@ -208,7 +209,7 @@ def new_person(kitchen: Kitchen, account: SsoAccount) -> Change:
         LINK_KIND,
         f"Added {member.name}, linked to {account.username} at your sign-in server",  # proposed
         None,
-        None,
+        for_everyone(ADDED.format(name=member.name)),
     )
 
 
@@ -222,7 +223,7 @@ def refuse(kitchen: Kitchen, account: SsoAccount) -> Change:
         LINK_KIND,
         f"Refused {account.username} at your sign-in server",  # proposed, for cabledrawer
         None,
-        None,
+        for_everyone(REFUSED),
     )
 
 
@@ -273,5 +274,5 @@ def unlink(kitchen: Kitchen, member_id: int) -> Change:
         LINK_KIND,
         f"Unlinked {member.name} from {account.username} at your sign-in server",  # proposed
         None,
-        None,
+        for_everyone(UNLINKED.format(name=member.name)),
     )

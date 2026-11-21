@@ -8,7 +8,7 @@ from typing import Literal, cast
 from fastapi import status
 from sqlalchemy import select
 
-from mealwright import amounts, errors
+from mealwright import amounts, errors, sso_changes
 from mealwright.amounts import (
     MILLI,
     CountedAs,
@@ -813,7 +813,7 @@ def change_out(kitchen: Kitchen, change: Change) -> ChangeOut:
         kind=change.kind,
         at=change.at,
         who=who_did(kitchen, change),
-        summary=change.summary,
+        summary=sso_changes.summary(kitchen, change),  # a sign-in server's username: admins only
         can_undo=can_undo(kitchen, change),
         undo_until=undo_until(kitchen, change),
         undone=undone,

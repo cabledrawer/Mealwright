@@ -41,7 +41,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
-from mealwright import api_tokens, own_network, sso
+from mealwright import api_tokens, own_network, sso, sso_changes
 from mealwright.auth import SSO_UNCHECKED_FOR, now
 from mealwright.events import Broadcaster
 from mealwright.models import (
@@ -556,6 +556,10 @@ def _note_auto_link(db: DbSession, login: Login, account: SsoAccount) -> None:
             summary=f"Linked {name} to {account.username} at your sign-in server, automatically"[
                 :300
             ],
+            # Without the username, for everyone but an admin (`sso_changes`).
+            undo_data=sso_changes.for_everyone(
+                sso_changes.LINKED.format(name=name) + sso_changes.AUTOMATICALLY
+            ),
         )
     )
     db.flush()
