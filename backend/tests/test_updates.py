@@ -152,8 +152,7 @@ def test_the_release_list_is_a_plain_address_on_githubs_public_api() -> None:
     assert parts.query == "" and parts.fragment == ""
     page = urlsplit(RELEASES_PAGE)
     assert (page.scheme, page.netloc) == ("https", "github.com")
-    # Until 1.0 both are placeholders naming an owner GitHub can't have (for cabledrawer).
-    assert parts.path.split("/")[2] == page.path.split("/")[1] == "placeholder_until_1_0"
+    assert parts.path.split("/")[2] == page.path.split("/")[1] == "cabledrawer"
 
 
 def test_the_web_app_knows_the_same_placeholder_owner_as_the_server() -> None:
@@ -434,6 +433,11 @@ def test_while_the_release_list_is_the_placeholder_nothing_connects(
     with the switch on, Check now and the daily check connect nowhere and say "couldn't
     check" (security review r1; cabledrawer 12 Nov)."""
     asked: list[object] = []
+    monkeypatch.setattr(
+        updates,
+        "RELEASE_LIST_URL",
+        f"https://api.github.com/repos/{PLACEHOLDER_OWNER}/mealwright/releases",
+    )
     monkeypatch.setattr(checks._gate, "request", lambda *args, **options: asked.append(args))
     assert checks.check_now(1).outcome == "failed"  # the switch is off: pressed all the same
     clock.now += RECHECK_AFTER

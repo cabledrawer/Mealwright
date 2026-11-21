@@ -13,7 +13,7 @@ import {
   startingLines
 } from './problemReport';
 
-const PAGE = 'https://github.com/placeholder_until_1_0/mealwright/issues/new';
+const PAGE = 'https://github.com/cabledrawer/mealwright/issues/new';
 const base = {
   version: 'Mealwright 0.9.0',
   browser: 'Safari 18 · iPhone',

@@ -19,7 +19,7 @@ import {
 // Runs in the "phone 0.9 about", "desktop 0.9 about" and "webkit 0.9 about" projects.
 
 const DAILY = "Check for updates daily";
-const PAGE = "https://github.com/placeholder_until_1_0/mealwright/releases";
+const PAGE = "https://github.com/cabledrawer/mealwright/releases";
 
 async function switchOff(page: Page) {
   const response = await page.request.put(
@@ -208,11 +208,13 @@ test("Licences and credits (U1): the licence, the source link, the USDA credit a
     page.getByRole("heading", { level: 2, name: "Licences and credits" }),
   ).toBeVisible();
   await expect(page.getByText("AGPL-3.0", { exact: true })).toBeVisible();
-  // The code is not on GitHub yet (the placeholder address): a note, not a link to nowhere.
-  await expect(page.getByRole("link", { name: /Source code/ })).toHaveCount(0);
+  // The real address: the source row is a plain link the person may click.
   await expect(
-    page.getByText("The code is not on GitHub yet; the link comes with 1.0.0"),
-  ).toBeVisible();
+    page.getByRole("link", { name: /^Source code \(AGPL-3\.0\)/ }),
+  ).toHaveAttribute(
+    "href",
+    /^https:\/\/github\.com\/cabledrawer\/mealwright\/tree\/v/,
+  );
   await expect(
     page.getByText("USDA FoodData Central (public domain)"),
   ).toBeVisible();

@@ -50,15 +50,15 @@ log = logging.getLogger(__name__)
 # (tests/test_updates.py checks they match).
 RELEASED = date(2026, 11, 20)
 
-# PLACEHOLDER, for cabledrawer: Mealwright's public home on GitHub doesn't exist until 1.0. Until
-# then these name an owner GitHub can't have (a user name never has an underscore), so they can
-# never reach someone else's project, and while the list is still the placeholder no check
-# connects at all: it answers "couldn't check" without asking, as the answer could only be "not
-# found" (security review r1; cabledrawer 12 Nov). Set PLACEHOLDER_OWNER's two uses to the
-# real repository at 1.0.
+# Mealwright's public home on GitHub (cabledrawer 15 and 21 Nov). The check stays off until the
+# user turns it on in Settings > Outside connections; the request goes through the outbound gate.
+# PLACEHOLDER_OWNER is a name GitHub can't have (a user name never has an underscore): a build
+# whose list still names it asks nothing and answers "couldn't check" (security review r1;
+# cabledrawer 12 Nov).
+OWNER = "cabledrawer"
 PLACEHOLDER_OWNER = "placeholder_until_1_0"
-RELEASES_PAGE = f"https://github.com/{PLACEHOLDER_OWNER}/mealwright/releases"
-RELEASE_LIST_URL = f"https://api.github.com/repos/{PLACEHOLDER_OWNER}/mealwright/releases"
+RELEASES_PAGE = f"https://github.com/{OWNER}/mealwright/releases"
+RELEASE_LIST_URL = f"https://api.github.com/repos/{OWNER}/mealwright/releases"
 
 # The release list is about 30 releases with their notes; anything bigger isn't read.
 MAX_LIST_BYTES = 2 * 1024 * 1024

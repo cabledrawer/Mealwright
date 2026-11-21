@@ -230,7 +230,7 @@ describe('the list beside the page (computer)', () => {
     {
       version: '0.9.0',
       released_on: '2026-11-12',
-      releases_page: 'https://github.com/placeholder_until_1_0/mealwright/releases',
+      releases_page: 'https://github.com/cabledrawer/mealwright/releases',
       can_check: canCheck,
       daily: canCheck ? true : null,
       last: canCheck

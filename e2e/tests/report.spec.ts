@@ -12,7 +12,7 @@ import { checkPage, expectNoSidewaysScroll, setAccountTheme } from "./a11y.ts";
 // Runs in the "phone 0.9 report", "desktop 0.9 report" and "webkit 0.9 report" projects.
 
 const NEW_ISSUE =
-  "https://github.com/placeholder_until_1_0/mealwright/issues/new";
+  "https://github.com/cabledrawer/mealwright/issues/new";
 
 test.beforeEach(async ({ page }) => {
   await setAccountTheme(page, "auto");

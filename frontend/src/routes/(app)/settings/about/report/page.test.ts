@@ -12,7 +12,7 @@ import Report from './+page.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
-const PAGE = 'https://github.com/placeholder_until_1_0/mealwright/issues/new';
+const PAGE = 'https://github.com/cabledrawer/mealwright/issues/new';
 
 function report(over: Partial<ProblemReport> = {}): ProblemReport {
   return {

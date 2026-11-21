@@ -13,7 +13,7 @@ import About from './+page.svelte';
 import '#lib/styles/tokens.css';
 import '#lib/styles/base.css';
 
-const PAGE = 'https://github.com/placeholder_until_1_0/mealwright/releases';
+const PAGE = 'https://github.com/cabledrawer/mealwright/releases';
 const daysAgo = (days: number) => {
   const d = new Date();
   d.setDate(d.getDate() - days);
@@ -188,12 +188,20 @@ describe('Settings › About (X1)', () => {
     expect(box.height).toBeGreaterThanOrEqual(44);
   });
   it('Licences and credits show the licence, the source link, the USDA credit and the fonts (U1)', async () => {
-    open({ 'GET /updates': [200, info({ can_check: false })] });
+    open({
+      'GET /updates': [
+        200,
+        info({
+          can_check: false,
+          releases_page: 'https://github.com/placeholder_until_1_0/mealwright/releases'
+        })
+      ]
+    });
     await expect
       .element(page.getByRole('heading', { name: 'Licences and credits', level: 2 }))
       .toBeVisible();
     await expect.element(page.getByText('AGPL-3.0', { exact: true })).toBeVisible();
-    // The code is not on GitHub yet (the placeholder address): a note, not a dead link.
+    // A build still holding the placeholder address: a note, not a dead link.
     expect(page.getByRole('link', { name: /Source code/ }).elements()).toHaveLength(0);
     // The label's row holds the label and the note: match the label inside it, the note on its own.
     await expect.element(page.getByText('Source code (AGPL-3.0)', { exact: false })).toBeVisible();

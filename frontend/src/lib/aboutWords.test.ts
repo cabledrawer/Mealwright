@@ -37,7 +37,7 @@ describe('how old a version is', () => {
   });
 
   it('shortens the releases page', () => {
-    expect(shortLink('https://github.com/placeholder_until_1_0/mealwright/releases')).toBe(
+    expect(shortLink('https://github.com/cabledrawer/mealwright/releases')).toBe(
       'github.com/…/mealwright/releases'
     );
     expect(shortLink('not a link')).toBe('not a link');
