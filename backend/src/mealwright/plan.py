@@ -897,7 +897,7 @@ def remove_item(kitchen: Kitchen, item: MealItem) -> Change:
         batches.release_cook_link(kitchen, cooking, meal, steps)
     if item.kind == "tub":  # a tub is not thrown away: it goes back to "tubs left"
         return _finish(kitchen, "plan_removed", f"Put {name} back in tubs left from {where}", steps)
-    # Delete for a whole thing, Remove for a part (cabledrawer 20 Nov): the last item takes the meal.
+    # Delete for a whole thing, Remove for a part (cabledrawer 20 Nov): the last item goes with it.
     verb = "Deleted" if whole else "Removed"
     return _finish(kitchen, "plan_removed", f"{verb} {name} from {where}", steps)
 

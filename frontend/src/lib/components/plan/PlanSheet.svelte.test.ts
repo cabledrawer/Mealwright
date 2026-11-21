@@ -229,7 +229,11 @@ describe('Delete for a whole meal, Remove for a part of one (cabledrawer 20 Nov)
     expect(page.getByRole('button', { name: 'Remove' }).elements()).toHaveLength(0);
     unmount(component!);
     document.body.innerHTML = '';
-    open({ kind: 'item', meal: { ...meal, items: [khichdi, item(3, 'Raita', false)] }, item: khichdi });
+    open({
+      kind: 'item',
+      meal: { ...meal, items: [khichdi, item(3, 'Raita', false)] },
+      item: khichdi
+    });
     await expect.element(page.getByRole('button', { name: 'Remove' })).toBeVisible();
     expect(page.getByRole('button', { name: 'Delete' }).elements()).toHaveLength(0);
   });
