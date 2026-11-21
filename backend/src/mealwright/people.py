@@ -356,7 +356,7 @@ def remove(kitchen: Kitchen, member: Member) -> Change:
     return record(
         kitchen,
         "person_removed",
-        f"Deleted {member.name} from the household",  # cabledrawer 12 Nov; "Deleted" from the 20 Nov rule
+        f"Deleted {member.name} from the household",  # cabledrawer 20 Nov: Delete, a whole thing
         None,
         {"person": {"id": member.id}},
     )
