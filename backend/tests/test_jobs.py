@@ -89,10 +89,12 @@ def test_empty_packets_go_after_the_undo_window(kitchen: TestClient) -> None:
 def test_history_job_thins_at_any_hour(kitchen: TestClient) -> None:
     make_history(kitchen)
     factory = kitchen.app.state.sessionmaker  # type: ignore[attr-defined]
+    now = datetime(2026, 10, 17, 14, 30, tzinfo=UTC)
     with db(kitchen) as session:
-        session.execute(update(Change).values(at=utcnow() - timedelta(days=400)))
+        # 400 days before the job's "now", not today's: from 21 Nov 2026 today's was too late.
+        session.execute(update(Change).values(at=now - timedelta(days=400)))
         session.commit()
-    jobs.thin_history(factory, now=datetime(2026, 10, 17, 14, 30, tzinfo=UTC))
+    jobs.thin_history(factory, now=now)
     with db(kitchen) as session:
         assert session.scalar(select(func.count()).select_from(Change)) == 0
 
