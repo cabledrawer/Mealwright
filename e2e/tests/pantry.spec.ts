@@ -244,6 +244,23 @@ test("Add to pantry adds what was chosen, where it lives", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("F265: Escape closes Add to pantry while the focus is in Find an ingredient", async ({
+  page,
+}) => {
+  await page.goto("/pantry");
+  const opener = page.getByRole("button", { name: /Add to pantry/ }).first();
+  await opener.click();
+  const sheet = page.getByRole("dialog", { name: "Add to pantry" });
+  const find = sheet.getByRole("searchbox", { name: "Find an ingredient" });
+  await expect(find).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toHaveCount(0);
+  await expect(opener).toBeFocused();
+  // A second Escape has nothing left to close.
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
 test("F101: + Place in Add to pantry makes the place and puts the stock there", async ({
   page,
 }) => {

@@ -1,6 +1,6 @@
 <script lang="ts">
   // Pick another food by typing any of its names: "Can use instead", "Merge with…".
-  // Suggestions come from the server's search; Escape or leaving it empty closes it.
+  // Suggestions come from the server's search; Escape closes it through `oncancel`, or, with none given, the sheet around it.
   import { listFoods } from '#lib/client/foods.js';
   import type { FoodRow, Ref } from '#lib/client/types.js';
   import Button from '#lib/components/Button.svelte';
@@ -68,10 +68,12 @@
     bind:value={query}
     use:focusOnShow
     onkeydown={(event) => {
-      if (event.key === 'Escape') {
+      // Only with a Cancel of its own: with none, Escape goes on to the sheet around it, which
+      // closes (F265, cabledrawer 21 Nov: Add to pantry).
+      if (event.key === 'Escape' && oncancel) {
         event.preventDefault();
         event.stopPropagation();
-        oncancel?.();
+        oncancel();
       }
       if (event.key === 'Enter' && shown[0]) onpick(shown[0]);
     }}
