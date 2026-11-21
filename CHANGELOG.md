@@ -18,7 +18,7 @@ The release for the public trial. It gathers the three test versions (0.9.5-beta
 
 ### Added
 
-- **Recent changes shows the Outside connections too (cabledrawer 20 Nov).** Switching an outside connection on or off, adding an address to "Your own network" and removing one are each a Recent changes entry, for admins only, with Undo. Undoing "switched on" closes the outbound gate at once; undoing a removed or added own-network entry says in a notice if it also turned password sign-in back on.
+- **Recent changes shows the Outside connections too (cabledrawer 20 Nov).** Switching an outside connection on or off, adding an address to "Your own network" and removing one are each a Recent changes entry, for admins only, with Undo. Undoing "switched on" closes the outbound gate at once; undoing an added own-network entry says in a notice if it also turned password sign-in back on. An Undo never opens anything: undoing "switched off" or a removed own-network entry is refused (see Security).
 - **New words (proposed, for cabledrawer):** "Switched <connection> on/off", "Removed <address> from Your own network", the sentences shown when such a change can no longer be undone, and one sentence for every refusal that used to differ in small ways.
 - **Drafts, By ingredient: "+ more" is a real button (F259).** It opens every way the lines are written, up to 200 lines (a new route, `GET /recipes/drafts/by-food/lines`).
 - **Mealie drafts by ingredient (B6a).** Drafts has a switch, **By recipe | By ingredient**. By ingredient lists every line Mealwright couldn't match, grouped by ingredient across all drafts; one answer (an ingredient you have, a new ingredient and where it's kept, or made in this recipe) fixes it in every draft at once, and drafts with every line answered move to Recipes. Undo (in the message and in Recent changes) takes the answer back and keeps recipes changed, cooked or planned since. An ingredient made by a Mealie import gets a pantry place (F249).
@@ -137,7 +137,7 @@ Every route, field, code and status that changed, old → new. Stored values in 
 - Drafts: Undo and a background save of an answer wait for each other (no database change).
 
 **After beta.3 (the last round)**
-- Undo (`POST /changes/{id}/undo`) of an outside connection switched on, and of a removed own-network entry: 200 → 409 `cannot_undo` ("Switch it on in Settings › Outside connections." / "Add it again in Settings › Outside connections.").
+- Undo (`POST /changes/{id}/undo`) of an outside connection switched **off** (the Undo would switch it on), and of a removed own-network entry: 200 → 409 `cannot_undo` ("Switch it on in Settings › Outside connections." / "Add it again in Settings › Outside connections.").
 - `person_login` change summaries (a link, an automatic link, a new linked person, a refusal, an unlink) carry no sign-in-server username for a member or for any API token, an admin's token too; only an admin signed in on a device sees it. Members read "Linked Asha to your sign-in server".
 - `POST /join/look` gains `name` and `username` (the page greets the person); it works the same for Reset password links.
 - Change-summary sentences say Delete / Deleted for a whole thing (words only; no route or field changed).
