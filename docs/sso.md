@@ -73,9 +73,9 @@ When your sign-in server gives no refresh token, Mealwright can't check, so a si
 
 **Signing out:** after someone presses **Sign out** in Mealwright, the next "Sign in with …" on that browser asks your sign-in server to ask for the login again (`prompt=login`), so the next person on a shared computer isn't signed in as the last one (cabledrawer 13 Nov). Once someone has signed in with single sign-on on that browser, it no longer asks. Other browsers aren't affected.
 
-Signing out at your sign-in server does not by itself end a Mealwright sign-in. Removing the person in Settings › People does, at once.
+Signing out at your sign-in server does not by itself end a Mealwright sign-in. Deleting the person in Settings › People does, at once.
 
-**Taking an admin out at your sign-in server doesn't stop their API tokens on its own.** Make them a Member or remove them in Settings › People. See [api.md](api.md).
+**Taking an admin out at your sign-in server doesn't stop their API tokens on its own.** Make them a Member or delete them in Settings › People. See [api.md](api.md).
 
 ## Delete everything without a password
 

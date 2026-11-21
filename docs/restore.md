@@ -108,7 +108,7 @@ is `/data` inside the container).
    `data/before-restore-…` folder.
 
    **After a restore**, everything else is as it was in the copy, logins and passwords
-   included. Do again what you did after the copy was made: remove people you removed, unlink
+   included. Do again what you did after the copy was made: delete people you deleted, unlink
    or refuse single sign-on accounts you unlinked or refused, change any password that leaked,
    and check the switches in Settings › Outside connections.
 
