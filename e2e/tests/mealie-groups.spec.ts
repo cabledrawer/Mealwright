@@ -139,6 +139,9 @@ test('one answer goes into every draft that uses the ingredient; Undo puts it ba
   await expect(rows.filter({ hasText: herb })).toBeVisible();
   const text = (await rows.allInnerTexts()).join('\n');
   expect(text.indexOf(herb)).toBeLessThan(text.indexOf(root));
+  // How many are still to answer, read on the list (a phone's answer is a page of its own).
+  const left = page.getByText(/ingredients? (still )?to answer/);
+  const leftBefore = await left.innerText();
   await rows.filter({ hasText: herb }).click();
 
   // Skip for now sends nothing: the drafts are still two.
@@ -163,8 +166,6 @@ test('one answer goes into every draft that uses the ingredient; Undo puts it ba
   await page.getByRole('button', { name: 'A new ingredient' }).click();
   await page.getByRole('button', { name: 'Fridge' }).click();
   await checkPage(page);
-  const left = page.getByText(/ingredients? (still )?to answer/);
-  const leftBefore = await left.innerText();
   await page.getByRole('button', { name: /^Use for all/ }).click();
   await expect(left).not.toHaveText(leftBefore);
   // F260–F262: the answer saves in the background; its row leaves the list at once.
@@ -187,8 +188,8 @@ test('one answer goes into every draft that uses the ingredient; Undo puts it ba
   await expect(page.getByText(/^Undone\. “.+” is unanswered again\. 1 recipe is back in Drafts\.$/)).toBeVisible();
   await expect(left).toHaveText(leftBefore);
   await expect(rows.filter({ hasText: herb })).toBeVisible();
-  await page.unroute(byFood);
   for (const route of held) await route.continue();
+  await page.unroute(byFood);
   await expect
     .poll(async () => JSON.stringify(await (await page.request.get('/api/v1/recipes/drafts')).json()))
     .toContain('Lorna’s soup');
