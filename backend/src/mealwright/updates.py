@@ -48,7 +48,7 @@ log = logging.getLogger(__name__)
 
 # The day this version was released. The release PR sets it with the CHANGELOG's date
 # (tests/test_updates.py checks they match).
-RELEASED = date(2026, 11, 20)
+RELEASED = date(2026, 11, 21)
 
 # Mealwright's public home on GitHub (cabledrawer 15 and 21 Nov). The check stays off until the
 # user turns it on in Settings > Outside connections; the request goes through the outbound gate.
