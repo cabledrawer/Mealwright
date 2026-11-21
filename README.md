@@ -4,9 +4,13 @@ Self-hosted meal planning, pantry and shopping for your household. Private by de
 
 Recipe → plan → shopping list → pantry → cook. Plan meals and batch cooks, get a shopping list built from what's actually missing, and keep the pantry up to date as you shop and cook.
 
+## How this was built and checked
+
+Mealwright is written almost entirely by AI (Claude, from Anthropic), directed by one non-developer maintainer through a written specification. Every change passes automated tests and security scanners, gets a separate AI review, and is hand-tested on real devices before a release. It is a test release before 1.0: it has not had a human security audit, so keep backups and don't expose it to the internet until you've read the install guide. Reports of problems are welcome.
+
 ## Status
 
-Early development. Versions 0.x are not published: there is no public image or release yet. The first public release will be 1.0.0.
+Early development. Versions 0.x are test releases before 1.0.0; the first public image and release will be 1.0.0.
 
 ## Guides
 
@@ -39,7 +43,7 @@ There are four in this version. Each one is a switch in Settings › Outside con
 
 **Check now in Settings › About.** An admin pressing Check now makes the same single request to the release list, even with the daily switch off. It happens only when they press it. The switch controls only the automatic daily check.
 
-Until 1.0.0 the release list's address is a placeholder, so in these test versions no update check connects at all.
+The release list is `github.com/cabledrawer/mealwright/releases`. Nothing is asked until you switch the daily check on or press Check now.
 
 A few more things to know:
 
@@ -99,4 +103,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). To report a security problem, see [SECUR
 
 Mealwright is a spare-time project, so replies may take a week or so.
 
-Parts of Mealwright are written with AI help (Claude Code). Every change is reviewed and signed off by the maintainer.
+Every commit is signed off by the maintainer. How the code is written and checked is under "How this was built and checked" above.

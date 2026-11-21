@@ -27,7 +27,7 @@ Below, `<folder>` is the folder holding `compose.yaml` and the `data` folder (th
    image: <registry>/<owner>/mealwright:<new version>
    ```
 
-   `<registry>/<owner>` is where you get the image: GHCR (`ghcr.io/<owner>/mealwright`) or Docker Hub (`docker.io/<owner>/mealwright`). Both carry the same versions.
+   `<registry>/<owner>` is where you get the image: GHCR (`ghcr.io/cabledrawer/mealwright`) or Docker Hub (`docker.io/<owner>/mealwright`). Both carry the same versions.
 
    **Testing a 0.x version?** The images are not published before 1.0.0. A test version is loaded from a file (`docker load`), its image is just `mealwright:<new version>`, and `docker compose pull` does nothing for it: follow `docs/dev/test-on-homelab.md`, section 4, instead of steps 1 and 2 here.
 

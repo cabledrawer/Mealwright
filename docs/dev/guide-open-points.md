@@ -8,5 +8,5 @@ The guides (`README.md`, `SECURITY.md`, `docs/*.md`) carry no "proposed" or TODO
 - `docs/api.md`: no example of a call that changes something (the request body would have to be guessed from the code). Say which call to show if you want one.
 - `docs/sso.md`: the notes for Authentik, Keycloak and Authelia are general, not from a test run (the guide now says so). The Keycloak refusal and the `groups` scope are in `backend/src/mealwright/sso.py`. Also: setup changes that can lock out the last single-sign-on-only admin are not refused.
 - `docs/export-format.md`: the encrypted file's format (cipher, key derivation, costs) is the builder's choice within cabledrawer's 13 Nov decision.
-- `README.md`: until 1.0.0 the release list's address is a placeholder (`PLACEHOLDER_OWNER` in `backend/src/mealwright/updates.py`), so no update check connects in test versions; change the sentence when the real address goes in.
+- `README.md`: the release list's address is `cabledrawer/mealwright` (`OWNER` in `backend/src/mealwright/updates.py`); the update check stays off until the user turns it on.
 - `docs/upgrade.md`: the last paragraph of "Going back" is current: an upgrade is all or nothing since beta.2, so the old TODO about a half-upgraded database is gone.

@@ -2,8 +2,9 @@
 # Docker Hub, and make the GitHub release from CHANGELOG.md. Written in 0.9.5, unused until 1.0
 # (docs/dev/move-to-github.md).
 #
-# Nothing can publish by accident: the image names below hold the placeholder <owner>, which is not
-# a valid image name. cabledrawer replaces it (and the Docker Hub name) at 1.0 (docs/dev/move-to-github.md).
+# Nothing can publish by accident: the Docker Hub image name below still holds the placeholder <owner>,
+# which is not a valid image name, and the publish job needs both. cabledrawer sets the Docker Hub name
+# at 1.0 (docs/dev/move-to-github.md). The GHCR name is cabledrawer/mealwright (cabledrawer 21 Nov).
 # Every job also starts with `if: github.server_url == 'https://github.com'`, so Forgejo skips them.
 #
 # Secrets, by name only: DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (a Docker Hub access token limited to
@@ -26,8 +27,8 @@ jobs:
       contents: read
       packages: write   # push to GHCR with GITHUB_TOKEN
     env:
-      # Placeholders on purpose: replace <owner> at 1.0.
-      GHCR_IMAGE: ghcr.io/<owner>/mealwright
+      # DOCKERHUB_IMAGE's <owner> is a placeholder on purpose: set the Docker Hub name at 1.0.
+      GHCR_IMAGE: ghcr.io/cabledrawer/mealwright
       DOCKERHUB_IMAGE: docker.io/<owner>/mealwright
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
