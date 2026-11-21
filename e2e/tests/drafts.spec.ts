@@ -295,7 +295,7 @@ test('F246: on a computer the Drafts table has room: the buttons sit on one line
   await expectNoSidewaysScroll(page);
 });
 
-test('F246: at a 1130 px window, where the roomy layout begins, a long "Started by" name and Save recipe do not scroll sideways', async ({ page }) => {
+test('F246: at a 1130 px window a long "Started by" name and Save recipe do not scroll sideways', async ({ page }) => {
   test.skip(isPhone(page), 'the table is the computer’s');
   await page.setViewportSize({ width: 1130, height: 900 });
   const long = 'வெண்டைக்காய் '.repeat(6) + 'x'.repeat(40);
@@ -307,6 +307,54 @@ test('F246: at a 1130 px window, where the roomy layout begins, a long "Started 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Drafts');
   await expect(page.getByRole('button', { name: /^Save recipe/ })).toBeVisible();
   await expectNoSidewaysScroll(page);
+});
+
+// F267, F270 (hand test 20 Nov): at 1019 px with the main menu folded the table ran past the
+// window's edge and cut off Delete; with it open From was squeezed to "Meali / e" in rows 445 px
+// tall. At 1019 px and 768 px, the menu open and folded, nothing scrolls sideways (the page nor
+// the table's box), every Delete is inside the window, and where the table has no room the
+// drafts are cards.
+test('F267, F270: at 1019 px and 768 px, menu open or folded, the drafts fit and Delete is in the window', async ({ page }) => {
+  test.skip(isPhone(page), 'the main menu is the computer’s; the phone has cards anyway');
+  const mealie = brief(3, {
+    name: 'Slow-cooker chicken tikka masala',
+    source: { kind: 'mealie', site: null },
+    started_by: 'Samantha',
+    lines_total: 14,
+    lines_checked: 3,
+    waiting: ['2 tablespoons garam masala, or to taste', 'a thumb of ginger, grated'],
+  });
+  await listing(page, [mealie, brief(1, { lines_checked: 9 }), brief(2, { name: 'Rava dosa', started_by: 'Wilhelmina Featherstonehaugh' })]);
+  const side = page.getByRole('complementary', { name: 'Sidebar' });
+  for (const width of [1019, 768]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/recipes/drafts');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Drafts');
+    for (const menu of ['open', 'folded'] as const) {
+      if (menu === 'folded') {
+        await side.getByRole('button', { name: 'Collapse sidebar' }).click();
+        await expect(side.getByRole('button', { name: 'Expand sidebar' })).toBeVisible();
+      }
+      const where = `${width} px, menu ${menu}`;
+      // The table only at 1019 px with the menu folded; with less room, cards.
+      const table = width === 1019 && menu === 'folded';
+      await expect(page.getByRole('table', { name: 'Drafts' }), where).toHaveCount(table ? 1 : 0);
+      await expect(page.getByRole('list', { name: 'Drafts' }), where).toHaveCount(table ? 0 : 1);
+      await expectNoSidewaysScroll(page);
+      const box = page.locator(table ? '.tablebox' : 'ul.cards');
+      const sizes = await box.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
+      expect(sizes.scroll, `${where}: the drafts' box does not scroll sideways`).toBeLessThanOrEqual(sizes.client);
+      for (const name of ['Slow-cooker chicken tikka masala', 'Chettinad kuzhambu', 'Rava dosa']) {
+        // Inside the window's width (a card further down is in it once scrolled to).
+        const remove = (await page.getByRole('button', { name: `Delete ${name}` }).boundingBox())!;
+        expect(remove.x, `${where}: Delete ${name}`).toBeGreaterThanOrEqual(0);
+        expect(remove.x + remove.width, `${where}: Delete ${name}`).toBeLessThanOrEqual(width);
+      }
+    }
+    await side.getByRole('button', { name: 'Expand sidebar' }).click();
+    await expect(side.getByRole('button', { name: 'Collapse sidebar' })).toBeVisible();
+  }
+  await checkPage(page); // the cards on a computer, both themes
 });
 
 test('long names and text at 200% never scroll sideways', async ({ page }) => {

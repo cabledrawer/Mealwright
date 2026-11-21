@@ -617,39 +617,120 @@ describe('the Drafts screen', () => {
       expect(lines.size).toBe(1);
     });
 
-    it('F253: with the main menu open at 1019 px, Carry on, Delete and Save recipe keep their words on one line', async () => {
-      await page.viewport(1019, 844);
-      const long = draft({
-        id: 15,
-        name: 'Slow-cooker chicken tikka masala',
-        source: { kind: 'mealie', site: null },
-        started_by: 'Samantha',
-        lines_total: 14,
-        lines_checked: 3,
-        waiting: ['2 tablespoons garam masala, or to taste', 'a thumb of ginger, grated']
+    // F267, F270 (hand test 20 Nov): at 1019 px with the menu folded the table ran past the
+    // window's edge and Delete was cut off; with it open From was squeezed to "Meali / e" in rows
+    // 445 px tall. Each room the app gives the list (the window, less the 248 px menu or the
+    // 72 px folded one, less 2 × 40 px margins) now fits: cards below 48rem, the table above.
+    // F253 still holds: a button's words stay on one line.
+    for (const [width, where, shown] of [
+      [440, '768 px, menu open', 'cards'],
+      [616, '768 px, menu folded', 'cards'],
+      [691, '1019 px, menu open', 'cards'],
+      [867, '1019 px, menu folded', 'table'],
+      [896, '1224 px, menu open', 'table'],
+      [944, '1272 px, menu open', 'table'],
+      [952, '1280 px, menu open', 'table'],
+      [1088, '1240 px, menu folded', 'table']
+    ] as const) {
+      it(`F267, F270, F253: at ${where} (${width} px of room) the ${shown} fit, Delete shows and the buttons keep their words whole`, async () => {
+        await page.viewport(1440, 844);
+        const long = draft({
+          id: 15,
+          name: 'Slow-cooker chicken tikka masala',
+          source: { kind: 'mealie', site: null },
+          started_by: 'Samantha',
+          lines_total: 14,
+          lines_checked: 3,
+          waiting: ['2 tablespoons garam masala, or to taste', 'a thumb of ginger, grated']
+        });
+        fakeApi({ 'GET /recipes/drafts': list([...MEALIE, long, ...THREE]) });
+        const room = document.body.appendChild(document.createElement('div'));
+        room.style.width = `${width}px`;
+        component = mount(DraftsScreen, { target: room, props: { fromMealie: false } });
+        flushSync();
+        await expect
+          .element(page.getByRole('button', { name: /^Delete Slow-cooker/ }))
+          .toBeVisible();
+        const table = page.getByRole('table', { name: 'Drafts' }).elements();
+        const cards = page.getByRole('list', { name: 'Drafts' }).elements();
+        expect(shown === 'table' ? table : cards).toHaveLength(1);
+        expect(shown === 'table' ? cards : table).toHaveLength(0);
+        // On a computer the cards have no swipes: those are a phone's.
+        expect(room.querySelectorAll('.swipe')).toHaveLength(0);
+        const box = document.querySelector<HTMLElement>(
+          shown === 'table' ? '.tablebox' : '.cards'
+        )!;
+        expect(box.scrollWidth, 'nothing scrolls sideways').toBeLessThanOrEqual(box.clientWidth);
+        const edge = room.getBoundingClientRect().right + 0.5;
+        const buttons = [...room.querySelectorAll<HTMLElement>('.carry, .delete, .save')].filter(
+          (button) => !button.closest('.act')
+        );
+        expect(buttons.length).toBe(13);
+        for (const button of buttons) {
+          expect(
+            button.getBoundingClientRect().right,
+            `${button.textContent} inside`
+          ).toBeLessThanOrEqual(edge);
+          const range = document.createRange();
+          range.selectNodeContents(button);
+          const lines = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+          expect(lines.size, `${button.textContent} on one line`).toBe(1);
+        }
+        // "Mealie" under From is never broken in two, and no row is hundreds of pixels tall.
+        const mealie = [...room.querySelectorAll<HTMLElement>('td.from')].filter(
+          (cell) => cell.firstChild?.textContent === 'Mealie'
+        );
+        expect(mealie).toHaveLength(shown === 'table' ? 3 : 0);
+        for (const from of mealie) {
+          const range = document.createRange();
+          range.setStart(from.firstChild!, 0);
+          range.setEnd(from.firstChild!, from.firstChild!.textContent!.length);
+          const lines = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+          expect(lines.size, `${from.firstChild!.textContent} on one line`).toBe(1);
+        }
+        for (const row of room.querySelectorAll<HTMLElement>('tbody tr')) {
+          // The hand test's rows were 445 px tall; a Mealie row's From lines now take a few lines.
+          expect(row.getBoundingClientRect().height).toBeLessThan(260);
+          // F246: with room for them a row's buttons sit on one line (with these long From
+          // lines, from 1088 px; with short ones from 1280 px with the menu open, drafts.spec.ts).
+          if (width < 1088) continue;
+          const tops = [...row.querySelectorAll<HTMLElement>('.carry, .delete, .save')].map((b) =>
+            Math.round(b.getBoundingClientRect().top)
+          );
+          expect(new Set(tops).size, `${row.querySelector('th')!.textContent} buttons`).toBe(1);
+        }
       });
-      fakeApi({ 'GET /recipes/drafts': list([...MEALIE, long, ...THREE]) });
-      // 1019 − 248 px menu − 2 × 40 px page margins.
+    }
+
+    it('F246, F267: at 1280 px with the menu open the buttons sit on one line; with the text at 200% the drafts become cards', async () => {
+      await page.viewport(1440, 844);
+      fakeApi({
+        'GET /recipes/drafts': list([{ ...THREE[0]!, lines_checked: 9, lines_total: 9 }, THREE[1]!])
+      });
       const room = document.body.appendChild(document.createElement('div'));
-      room.style.width = '691px';
+      room.style.width = '952px';
       component = mount(DraftsScreen, { target: room, props: { fromMealie: false } });
       flushSync();
-      await expect.element(page.getByRole('table', { name: 'Drafts' })).toBeVisible();
-      const buttons = [
-        ...document.querySelectorAll<HTMLElement>('.table .carry, .table .delete, .table .save')
-      ];
-      expect(buttons.length).toBe(13);
-      for (const button of buttons) {
-        const range = document.createRange();
-        range.selectNodeContents(button);
-        const lines = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
-        expect(lines.size, `${button.textContent} on one line`).toBe(1);
-      }
-      // ...and the table still fits the room: nothing scrolls sideways.
-      const table = page.getByRole('table', { name: 'Drafts' }).element();
-      expect(table.getBoundingClientRect().right).toBeLessThanOrEqual(
-        room.getBoundingClientRect().right + 0.5
+      const save = page.getByRole('button', { name: /^Save recipe/ });
+      await expect.element(save).toBeVisible();
+      const tops = [
+        ...room.querySelectorAll<HTMLElement>('tbody tr:first-child :is(.carry, .delete, .save)')
+      ].map((button) => Math.round(button.getBoundingClientRect().top));
+      expect(tops).toHaveLength(3);
+      expect(new Set(tops).size).toBe(1);
+      expect(room.querySelector('tbody th')!.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+        190
       );
+      try {
+        document.documentElement.style.fontSize = '200%';
+        await expect.element(page.getByRole('list', { name: 'Drafts' })).toBeVisible();
+        expect(page.getByRole('table', { name: 'Drafts' }).elements()).toHaveLength(0);
+        const box = room.querySelector<HTMLElement>('.cards')!;
+        expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth);
+      } finally {
+        document.documentElement.style.fontSize = '';
+      }
+      await expect.element(page.getByRole('table', { name: 'Drafts' })).toBeVisible();
     });
   });
 

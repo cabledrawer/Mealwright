@@ -8,7 +8,9 @@
   // hides the draft at once and a toast offers Undo (and Ctrl+Z does the same). On a phone each
   // card also swipes (cabledrawer 21 Oct): right = Carry on, left = Delete (with the same Undo toast,
   // no asking); each is shown as a button first, and the card's own buttons do the same. A phone
-  // has cards, a computer a table (no swipes).
+  // has cards, a computer a table (no swipes); a computer whose room for the list is too narrow
+  // for the table's columns (a small window, the main menu open, larger text) has the cards too,
+  // without swipes (F267, F270).
   // Online only: drafts are kept on the server.
   // 0.9.5 (Import from Mealie, cabledrawer 13 Nov): when some drafts came from Mealie, chips show
   // All or From Mealie; From Mealie says the lines each still waits on, and "Save all N as they
@@ -16,7 +18,7 @@
   import { offlineNote } from '#lib/privacyWords.js';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import type { DraftBrief } from '#lib/client/drafts.js';
   import { saveAllMealieDrafts } from '#lib/client/mealie.js';
   import { wordsFor } from '#lib/api.js';
@@ -138,6 +140,66 @@
     void drafts.load();
   }
 
+  /** F267, F270 (hand test 20 Nov): the table's six columns need about 48rem. Narrower (at
+   *  1019 px with the main menu open, at 768 px, or with larger text) the table ran past the
+   *  window's edge, cutting off Delete, or squeezed From to "Meali / e" in 445 px tall rows: the
+   *  room is then given to cards, as on a phone. In rem, so larger text gets the cards too. */
+  const CARDS_BELOW_REM = 48;
+  /** The width the list has, in rem: the page's, less the main menu and margins. Null until
+   *  measured. */
+  let room = $state<number | null>(null);
+  /** How the table fits the room it has, tried in this order: each row's buttons on one line
+   *  (F246), the buttons wrapping, then cards. Whichever first has nothing past the box's edge;
+   *  tried again when the room or the list changes. */
+  let fit = $state<'one line' | 'wrapping' | 'cards'>('one line');
+  const cards = $derived(phone || (room !== null && (room < CARDS_BELOW_REM || fit === 'cards')));
+  let tablebox = $state<HTMLElement | null>(null);
+
+  const overflows = (box: HTMLElement | null) => !!box && box.scrollWidth > box.clientWidth + 1;
+
+  /** From this much room (the roomy columns below, in the styles) the buttons may try one line;
+   *  narrower, one line would squeeze the name and From into tall rows. */
+  const ONE_LINE_FROM_REM = 56;
+
+  /** Finds the first way the list fits: one line, wrapping, cards. */
+  async function settle() {
+    fit = room !== null && room >= ONE_LINE_FROM_REM ? 'one line' : 'wrapping';
+    await tick();
+    if (!overflows(tablebox)) return;
+    fit = 'wrapping';
+    await tick();
+    if (overflows(tablebox)) fit = 'cards';
+  }
+
+  /** Watches the room the list has: the width of the page around it, in rem, measured again
+   *  whenever it or the list changes size (a window resized, the main menu folded or unfolded,
+   *  the text size). */
+  function watchRoom(node: HTMLElement) {
+    const around = node.parentElement;
+    if (!around) return;
+    const measure = () => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const style = getComputedStyle(around);
+      const width =
+        around.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      if (room !== null && Math.abs(room - width / rem) < 0.01) return;
+      room = width / rem;
+    };
+    const watch = new ResizeObserver(measure);
+    watch.observe(around);
+    // The list's own size changes with the text size, which the page around it may not.
+    watch.observe(node);
+    measure();
+    return () => watch.disconnect();
+  }
+
+  // A new room, or a list that changes (a draft deleted, brought back, the chips), may fit
+  // another way.
+  $effect(() => {
+    void listed.length;
+    if (room !== null) void settle();
+  });
+
   /** Which cards are swiped open, and to which side. */
   let swiped = $state<Record<number, Side>>({});
 
@@ -180,6 +242,34 @@
     disabled={network.offline}
     onclick={() => void drafts.remove(draft)}>Delete</button
   >
+{/snippet}
+
+{#snippet card(draft: DraftBrief)}
+  <article class="card" class:ready={allChecked(draft)}>
+    <div class="head">
+      <span class="what">
+        <span class="name">{draft.name}</span>
+        {#if draft.source.kind === 'mealie' && draft.waiting?.length}
+          <span class="source">{mealieLine(draft)}</span>
+        {:else}
+          <span class="source">{phoneSource(draft)}</span>
+        {/if}
+      </span>
+      <span class="left" class:running-out={draft.days_left <= RUNNING_OUT}
+        >{daysWords(draft.days_left)}</span
+      >
+    </div>
+    <div class="progress">
+      <div class="bar" aria-hidden="true">
+        <div class="fill" style:width="{progressShare(draft)}%"></div>
+      </div>
+      <span class="words" class:done={allChecked(draft)}>{progressWords(draft)}</span>
+    </div>
+    <div class="buttons" class:three={allChecked(draft)}>{@render buttons(draft)}</div>
+    {#if problems[draft.id]}<p class="failed-line" role="alert">
+        {problems[draft.id]}
+      </p>{/if}
+  </article>
 {/snippet}
 
 {#if network.down && !drafts.loaded}
@@ -248,63 +338,53 @@
       <EmptyState title="No drafts">
         When you import a recipe and leave before saving it, it waits here for 15 days.
       </EmptyState>
-    {:else if phone}
-      <ul class="cards" aria-label="Drafts">
+    {:else if cards}
+      <ul class="cards" aria-label="Drafts" {@attach watchRoom}>
         {#each listed as draft (draft.id)}
           <li>
-            <SwipeRow
-              bind:open={() => swiped[draft.id] ?? null, (side) => (swiped[draft.id] = side)}
-              right={{
-                label: 'Carry on',
-                describe: draft.name,
-                icon: 'arrow-right',
-                tone: 'move',
-                run: () => void goto(here(draft))
-              }}
-              left={network.offline
-                ? undefined
-                : {
-                    label: 'Delete',
-                    describe: draft.name,
-                    icon: 'trash',
-                    tone: 'danger',
-                    run: () => void drafts.remove(draft)
-                  }}
-            >
-              <article class="card" class:ready={allChecked(draft)}>
-                <div class="head">
-                  <span class="what">
-                    <span class="name">{draft.name}</span>
-                    {#if draft.source.kind === 'mealie' && draft.waiting?.length}
-                      <span class="source">{mealieLine(draft)}</span>
-                    {:else}
-                      <span class="source">{phoneSource(draft)}</span>
-                    {/if}
-                  </span>
-                  <span class="left" class:running-out={draft.days_left <= RUNNING_OUT}
-                    >{daysWords(draft.days_left)}</span
-                  >
-                </div>
-                <div class="progress">
-                  <div class="bar" aria-hidden="true">
-                    <div class="fill" style:width="{progressShare(draft)}%"></div>
-                  </div>
-                  <span class="words" class:done={allChecked(draft)}>{progressWords(draft)}</span>
-                </div>
-                <div class="buttons" class:three={allChecked(draft)}>{@render buttons(draft)}</div>
-                {#if problems[draft.id]}<p class="failed-line" role="alert">
-                    {problems[draft.id]}
-                  </p>{/if}
-              </article>
-            </SwipeRow>
+            {#if phone}
+              <SwipeRow
+                bind:open={() => swiped[draft.id] ?? null, (side) => (swiped[draft.id] = side)}
+                right={{
+                  label: 'Carry on',
+                  describe: draft.name,
+                  icon: 'arrow-right',
+                  tone: 'move',
+                  run: () => void goto(here(draft))
+                }}
+                left={network.offline
+                  ? undefined
+                  : {
+                      label: 'Delete',
+                      describe: draft.name,
+                      icon: 'trash',
+                      tone: 'danger',
+                      run: () => void drafts.remove(draft)
+                    }}
+              >
+                {@render card(draft)}
+              </SwipeRow>
+            {:else}
+              {@render card(draft)}
+            {/if}
           </li>
         {/each}
       </ul>
       <p class="foot">
-        Nothing here is in your recipes yet. Drafts are deleted quietly after 15 days.
+        {#if phone}
+          Nothing here is in your recipes yet. Drafts are deleted quietly after 15 days.
+        {:else}
+          Anyone in your household can carry on with a draft. Nothing here is in your recipes or
+          ingredients until it’s saved.
+        {/if}
       </p>
     {:else}
-      <div class="tablebox">
+      <div
+        class="tablebox"
+        class:one-line={fit === 'one line'}
+        bind:this={tablebox}
+        {@attach watchRoom}
+      >
         <table class="table">
           <caption class="visually-hidden">Drafts</caption>
           <thead>
@@ -644,6 +724,9 @@
   }
 
   .from {
+    /* F270: a long line under From may break anywhere, but the column is never narrower than
+       6rem, so "Mealie" stays whole (it was squeezed to "Meali / e"). */
+    min-width: 6rem;
     color: var(--color-text-soft);
     overflow-wrap: anywhere;
   }
@@ -705,14 +788,54 @@
     background: transparent;
   }
 
-  /* F246: with room the name is wide and the buttons stay on one line. A container query, not a
-     media query: its rem is the page's own text size, so a person who enlarges the text gets
-     the wrapping back instead of a page that scrolls sideways. */
+  /* F246: with room the name is wide. A container query, not a media query: its rem is the
+     page's own text size, so a person who enlarges the text gets the narrower columns back
+     instead of a page that scrolls sideways. F267: a wider name from 56rem, the roomiest
+     spacing from 68rem; below 48rem, cards. */
   .tablebox {
     container-type: inline-size;
   }
 
-  @container (min-width: 50rem) {
+  /* F246, F267: each row's buttons on one line, kept only while the table still fits its box
+     (settle() above); otherwise they wrap, so Delete never runs past the window's edge (at
+     1019 px with the menu folded it did). */
+  .tablebox.one-line .table .buttons {
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+
+  @container (min-width: 56rem) {
+    .table {
+      padding: 6px 12px;
+    }
+
+    .table th,
+    .table td {
+      padding: 16px 8px;
+    }
+
+    .table thead th {
+      padding: 12px 8px;
+    }
+
+    .table th.name {
+      min-width: 12rem;
+    }
+
+    .from {
+      min-width: 7rem;
+    }
+
+    .table .progress {
+      min-width: 6rem;
+    }
+  }
+
+  @container (min-width: 68rem) {
+    .table .progress {
+      min-width: 7rem;
+    }
+
     .table {
       padding: 6px 24px;
     }
@@ -732,11 +855,6 @@
 
     .from {
       min-width: 10rem;
-    }
-
-    .table .buttons {
-      flex-wrap: nowrap;
-      white-space: nowrap;
     }
   }
 </style>
