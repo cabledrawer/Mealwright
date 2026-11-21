@@ -73,7 +73,8 @@
         : target.kind === 'day'
           ? target.day
           : model.anchor || model.today;
-    weekOf = weekStart(from, model.startsOn);
+    // From the recipe page the sheet opens before the plan is read: no week to show yet (F271).
+    weekOf = from ? weekStart(from, model.startsOn) : '';
   });
 
   const heading = $derived.by(() => {

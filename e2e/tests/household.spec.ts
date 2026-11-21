@@ -259,8 +259,8 @@ test('Reset password: a one-time link where they choose a new password; the Pers
     await expect(them.getByRole('heading', { level: 1, name: 'Choose a new password' })).toBeVisible();
     expect(them.url()).not.toContain('#');
     expect(asked.filter((url) => url.includes(path.split('#')[1]!))).toEqual([]);
-    await expect(them.getByText(username)).toHaveCount(0);
-    await expect(them.getByText(name)).toHaveCount(0);
+    // F269: a reset link says whose it is too.
+    await expect(them.getByTestId('link-whose')).toContainText(`Hi ${name}. Your username is ${username}`);
     await checkPage(them);
     await them.getByLabel('Password', { exact: true }).fill(NEW_PASSWORD);
     await them.getByRole('button', { name: 'Save my password' }).click();

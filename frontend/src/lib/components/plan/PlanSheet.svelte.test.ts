@@ -192,10 +192,10 @@ describe('Plan it on the recipe page while the days are still being read (F271)'
       slotsOn: [{ id: 1, name: 'Dinner' }],
       slotName: () => 'Dinner',
       tubsLeft: [],
-      today: '2026-11-02',
+      today: '',
       aheadReady: false,
       startsOn: 1,
-      anchor: '2026-11-02',
+      anchor: '',
       plan: null,
       people: []
     };
