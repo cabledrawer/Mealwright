@@ -4,7 +4,7 @@ import { ApiError, api } from '#lib/api.js';
 import { newChangeId } from '#lib/changeId.js';
 import { kitchen } from '#lib/freshness.svelte.js';
 import { toasts } from '#lib/toast.svelte.js';
-import type { UndoEntry } from '#lib/undo.svelte.js';
+import { UNDONE, type UndoEntry } from '#lib/undo.svelte.js';
 import type { Change, UndoResult } from './types';
 
 export interface ChangeList {
@@ -35,6 +35,20 @@ export function listChanges(
 export const undoChange = (id: number, idempotencyKey: string) =>
   api<UndoResult>('POST', `/changes/${id}/undo`, undefined, { idempotencyKey });
 
+/**
+ * F266: changes whose Undo the server describes better than the change's own words. An answer
+ * by ingredient says "Answered “okra” in 5 drafts · 3 recipes moved to Recipes"; "Undone: " and
+ * that read as if they moved again, so its Undo says "Undone. “okra” is unanswered again. 3
+ * recipes are back in Drafts." (proposed, for cabledrawer), the server's own sentence.
+ */
+const TOLD_BY_SERVER = new Set(['mealie_drafts_answered']);
+
+/** "Undone. <the server's sentence>" for those changes; null for any other. */
+function toldByServer(result: UndoResult): string | null {
+  if (result.result !== 'done' || !result.message) return null;
+  return TOLD_BY_SERVER.has(result.undone?.kind ?? '') ? `${UNDONE}. ${result.message}` : null;
+}
+
 const afterUndoOf = new Map<string, (() => void)[]>();
 
 /**
@@ -63,6 +77,8 @@ export function serverUndo(
     for (const then of afterUndoOf.get(result.undone?.kind ?? '') ?? []) then();
     after?.(result);
     if (result.notice) return result.notice;
+    const told = toldByServer(result);
+    if (told) return told;
     return result.result === 'done' && !result.brought_back?.length ? undefined : result.message;
   };
 }
@@ -76,6 +92,8 @@ export function undoToast(summary: string, result: UndoResult | null): string {
   if (!result) return `Undone: ${summary}`;
   if (result.result !== 'done') return result.message;
   if (result.notice) return `Undone: ${summary}. ${result.notice}`;
+  const told = toldByServer(result);
+  if (told) return told;
   if (result.brought_back?.length) return `Undone: ${summary}. ${result.message}`;
   return `Undone: ${summary}`;
 }

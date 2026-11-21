@@ -105,6 +105,22 @@ describe('undo on the server', () => {
     expect(undoToast('Added Toor dal', partly as unknown as UndoResult)).toBe('Took back 150 g.');
   });
 
+  // F266: an answer given by ingredient said "3 recipes moved to Recipes"; its Undo repeated it
+  // ("Undone: Answered … · 3 recipes moved to Recipes"), as if they moved again. Its Undo gives
+  // the server's words instead, which say the recipes are back in Drafts: from the toast, Ctrl+Z
+  // after a reload, and Recent changes alike.
+  it('F266: the Undo of an answer by ingredient says the recipes are back in Drafts', async () => {
+    const message = '“okra” is unanswered again. 3 recipes are back in Drafts.';
+    const undone = { kind: 'mealie_drafts_answered', summary: 'Answered “okra” in 5 drafts' };
+    fakeServer([200, { result: 'done', message, change, undone, brought_back: [] }]);
+    expect(await serverUndo(812)()).toBe(`Undone. ${message}`);
+    const result = { result: 'done', message, undone, brought_back: [] };
+    expect(undoToast(undone.summary, result as unknown as UndoResult)).toBe(`Undone. ${message}`);
+    // Any other change keeps "Undone: <what it was>".
+    const other = { ...result, undone: { kind: 'food_edited' } };
+    expect(undoToast('Renamed Okra', other as unknown as UndoResult)).toBe('Undone: Renamed Okra');
+  });
+
   it('a retry sends the same undo ID, so it never undoes twice', async () => {
     const calls = fakeServer(
       [503, { detail: 'busy' }],

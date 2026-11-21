@@ -163,7 +163,10 @@ test('one answer goes into every draft that uses the ingredient; Undo puts it ba
   await page.getByRole('button', { name: 'A new ingredient' }).click();
   await page.getByRole('button', { name: 'Fridge' }).click();
   await checkPage(page);
+  const left = page.getByText(/ingredients? (still )?to answer/);
+  const leftBefore = await left.innerText();
   await page.getByRole('button', { name: /^Use for all/ }).click();
+  await expect(left).not.toHaveText(leftBefore);
   // F260–F262: the answer saves in the background; its row leaves the list at once.
   await expect(rows.filter({ hasText: herb })).toHaveCount(0);
   await expect(page.getByText(/Answered .* in 2 drafts · 1 recipe moved to Recipes/)).toBeVisible();
@@ -173,12 +176,23 @@ test('one answer goes into every draft that uses the ingredient; Undo puts it ba
   expect(drafts).toContain('Sam’s stew');
   expect(drafts).not.toContain('Lorna’s soup');
 
+  // F266 (hand test 20 Nov): the count went back only once the list came again (~7 s on a slow
+  // server). Here the list asked for after the Undo is held back: the count and the row come
+  // back with the Undo's own answer. The toast says the recipe is back in Drafts, not "moved to
+  // Recipes" again.
+  const held: import('@playwright/test').Route[] = [];
+  const byFood = (url: URL) => url.pathname.endsWith('/api/v1/recipes/drafts/by-food');
+  await page.route(byFood, (route) => void held.push(route));
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByText(/^Undone\. “.+” is unanswered again\. 1 recipe is back in Drafts\.$/)).toBeVisible();
+  await expect(left).toHaveText(leftBefore);
+  await expect(rows.filter({ hasText: herb })).toBeVisible();
+  await page.unroute(byFood);
+  for (const route of held) await route.continue();
   await expect
     .poll(async () => JSON.stringify(await (await page.request.get('/api/v1/recipes/drafts')).json()))
     .toContain('Lorna’s soup');
-  await expect(page.getByText(/Undone: Answered |is unanswered again/)).toBeVisible();
-  await expect(rows.filter({ hasText: herb })).toBeVisible();
+  await expect(left).toHaveText(leftBefore);
 });
 
 // F259 (hand test 20 Nov): "+ more" under the group's two lines as written is a button that

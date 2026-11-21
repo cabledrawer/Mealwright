@@ -173,6 +173,23 @@
     void Promise.all([load(), drafts.load()]);
   }
 
+  /** F266: an answer the server has undone is back in the list, and the counts with it, as soon
+   *  as the Undo's answer comes: the list fetched again (seconds on a slow server, with many
+   *  drafts) then only confirms it. Most-used first, as the server lists them. */
+  function putBack(group: IngredientGroup, moved: number) {
+    if (!found || found.groups.some((g) => g.key === group.key)) return;
+    const at = found.groups.findIndex((g) => g.drafts < group.drafts);
+    const groups = [...found.groups];
+    groups.splice(at === -1 ? groups.length : at, 0, group);
+    found = {
+      ...found,
+      groups,
+      total: found.total + 1,
+      drafts: found.drafts + moved,
+      recipes_ready: Math.max(0, found.recipes_ready - moved)
+    };
+  }
+
   /** F260–F262: the answer is saved in the background. The next group opens at once and the
    *  count of groups left goes down at once; the toast says it is saving, then gives the
    *  server's summary with Undo. A save that fails brings its group back, saying why. */
@@ -212,6 +229,7 @@
           toasts.show(words.undoingWords(group.name), { duration: WAITING_MS });
           const message = await serverUndo(change.id)();
           formFor = '';
+          putBack(group, done.moved);
           refresh();
           return message;
         }

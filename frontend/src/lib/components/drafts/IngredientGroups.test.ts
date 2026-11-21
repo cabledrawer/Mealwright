@@ -54,6 +54,9 @@ const ANSWERED = {
   food: { id: 9, name: 'Soy sauce' }
 };
 
+/** The answer as an Undo's result names it (the change it undid). */
+const UNDONE_ANSWER = { ...ANSWERED.change, kind: 'mealie_drafts_answered' };
+
 describe('Drafts, by ingredient', () => {
   let component: ReturnType<typeof mount> | null = null;
 
@@ -345,7 +348,8 @@ describe('Drafts, by ingredient', () => {
           {
             result: 'done',
             message: '“soya sauce” is unanswered again.',
-            change: changeOf(41, 'Undid')
+            change: changeOf(41, 'Undid'),
+            undone: UNDONE_ANSWER
           }
         ]
       });
@@ -358,8 +362,52 @@ describe('Drafts, by ingredient', () => {
       );
       release();
       await vi.waitFor(() =>
-        expect(toasts.current?.message).toMatch(/^Undone: Answered “soya sauce” in 46 drafts/)
+        expect(toasts.current?.message).toBe('Undone. “soya sauce” is unanswered again.')
       );
+    });
+
+    // F266 (hand test 20 Nov): after Undo the "still to answer" count went back only when the
+    // list came again (~7 s on a slow server), and the Undone toast repeated "3 recipes moved to
+    // Recipes" as if they moved again. The count goes back with the Undo's own answer, and the
+    // toast gives the server's words: the recipes are back in Drafts.
+    it('F266: after Undo the count goes back at once and the toast says the recipes are back in Drafts', async () => {
+      let answered = false;
+      await open({
+        'GET /recipes/drafts/by-food': () => [200, answered ? AFTER : GROUPS],
+        'POST /recipes/drafts/by-food/answer': () => {
+          answered = true;
+          return [200, ANSWERED];
+        },
+        'POST /changes/40/undo': [
+          200,
+          {
+            result: 'done',
+            message: '“soya sauce” is unanswered again. 3 recipes are back in Drafts.',
+            change: changeOf(41, 'Undid: Answered “soya sauce” in 46 drafts'),
+            undone: UNDONE_ANSWER
+          }
+        ]
+      });
+      await page.getByRole('button', { name: 'Use for all 46 drafts' }).click();
+      await vi.waitFor(() => expect(toasts.current?.action?.label).toBe('Undo'));
+      await expect.element(page.getByText('1 ingredient still to answer')).toBeVisible();
+      await expect.element(page.getByText('· 6 recipes ready so far')).toBeVisible();
+      // The list fetched again after the Undo never answers: the count can't wait for it.
+      holdBack((path, method) => method === 'GET' && path.includes('/by-food'));
+      toasts.current?.action?.run();
+      await vi.waitFor(() =>
+        expect(toasts.current?.message).toBe(
+          'Undone. “soya sauce” is unanswered again. 3 recipes are back in Drafts.'
+        )
+      );
+      await expect.element(page.getByText('2 ingredients still to answer')).toBeVisible();
+      await expect.element(page.getByText('· 3 recipes ready so far')).toBeVisible();
+      // The ingredient is back in the list, most-used first.
+      const rows = page.getByRole('group', { name: 'Ingredients to answer' }).getByRole('button');
+      expect(rows.elements().map((row) => row.querySelector('b')?.textContent)).toEqual([
+        'soya sauce',
+        'galangal'
+      ]);
     });
   });
 
