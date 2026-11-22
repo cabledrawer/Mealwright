@@ -70,8 +70,13 @@ MAX_LIST_DEPTH = 10
 # A string runs to its closing quote, or to the end of an unfinished text: every quote
 # starts a match, so the search never goes back over the text (no slow worst case).
 _JSON_STRING = re.compile(rb'"[^"\\]*+(?:\\.?[^"\\]*+)*+(?:"|\Z)', re.DOTALL)
-_NOT_BRACKET = re.compile(rb"[^\[\]{}]+")
-_EMPTY_PAIR = re.compile(rb"\[\]|\{\}")
+# Bytes to delete with `bytes.translate`, which holds no list of pieces in memory (T4
+# security pass r1: deleting them one regex match at a time took 150 MB for a 2 MB answer).
+# Every byte but quotes, backslashes and brackets becomes a space (not deleted: "\n" must
+# stay an escape, not become an escaped quote).
+_TO_STRUCTURE = bytes(byte if byte in b'"\\[]{}' else ord(" ") for byte in range(256))
+_NOT_BRACKETS = bytes(byte for byte in range(256) if byte not in b"[]{}")
+_ONE_BRACKET_KIND = bytes.maketrans(b"{}", b"[]")
 # The longest one check may take, start to finish.
 CHECK_TIME_LIMIT = 20.0
 # Check now again within this long gives the answer just had, without connecting, so a busy
@@ -124,14 +129,22 @@ def tag_key(tag: str) -> Key | None:
 
 def _too_deep(body: bytes, depth: int) -> bool:
     """Do the JSON text's lists and objects nest more than `depth` deep? Worked out without
-    parsing and in C: the strings are taken out, then everything but the brackets, then
-    each round takes out the innermost empty pairs. Brackets that don't pair up count as too
-    deep (the text isn't JSON anyway)."""
-    brackets = _NOT_BRACKET.sub(b"", _JSON_STRING.sub(b"", body))
+    parsing, and in little memory: the strings are taken out (one at a time, into one
+    buffer), then everything but the brackets, then each round takes out the innermost empty
+    pairs. Brackets that don't pair up count as too deep (the text isn't JSON anyway); a
+    brace closed by a bracket counts as a pair here, and `json.loads` refuses it."""
+    text = body.translate(_TO_STRUCTURE)
+    outside = bytearray()
+    end = 0
+    for string in _JSON_STRING.finditer(text):
+        outside += text[end : string.start()]
+        end = string.end()
+    outside += text[end:]
+    brackets = bytes(outside).translate(_ONE_BRACKET_KIND, _NOT_BRACKETS)
     for _ in range(depth):
         if not brackets:
             return False
-        brackets = _EMPTY_PAIR.sub(b"", brackets)
+        brackets = brackets.replace(b"[]", b"")
     return bool(brackets)
 
 
@@ -139,10 +152,13 @@ def newest(body: bytes, running: Key) -> str | None:
     """The tag of the newest release in GitHub's release list that is newer than `running`,
     or None. Pre-releases count only while the running version is one too (cabledrawer 12
     Nov, accepted as built); drafts never. Raises ValueError if the answer isn't a release
-    list: not JSON, nested deeper than MAX_LIST_DEPTH, or not a list."""
+    list: not UTF-8 JSON, nested deeper than MAX_LIST_DEPTH, or not a list."""
+    # Strictly UTF-8 (UnicodeDecodeError is a ValueError): `json.loads` would also read
+    # UTF-16 and UTF-32, where the depth check's bytes don't mean what it thinks (T4 review).
+    text = body.decode("utf-8-sig")
     if _too_deep(body, MAX_LIST_DEPTH):
         raise ValueError("nested too deep")
-    releases = json.loads(body)
+    releases = json.loads(text)
     if not isinstance(releases, list):
         raise ValueError("not a list")
     pre = running[3] != _FINAL

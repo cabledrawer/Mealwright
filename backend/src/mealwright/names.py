@@ -6,7 +6,6 @@ rules that work offline.
 
 import functools
 import re
-import sys
 import unicodedata
 
 _BRACKETS = re.compile(r"\([^()]*\)|\[[^\[\]]*\]")  # no nested "(": a run of them is linear
@@ -107,6 +106,9 @@ def _flag_end(value: str, start: int) -> int:
 
 
 _HIDDEN_CATEGORIES = ("Cc", "Cf", "Cs", "Zl", "Zp")
+# The Unicode planes that hold characters in those categories: the basic one, the
+# supplementary one and the special-purpose one (tags, language marks).
+_HIDDEN_PLANES = (0, 1, 14)
 # A flag's tag letters and cancel tag, the same rule as `_flag_end` (the black flag before
 # them is not hidden, so it is left out of the match). Found with regular expressions, so
 # the checks below run in C over a page-sized text instead of one Python step per character
@@ -121,10 +123,13 @@ _LINE_BREAKS = "\n\r\u2028\u2029\x0b\x0c\x85"
 @functools.cache
 def _hidden_characters() -> frozenset[str]:
     """Every character `has_hidden` refuses (its Unicode category says it shows nothing),
-    except the two joiners. Worked out once, on first use."""
+    except the two joiners. Worked out once, on first use, from the planes that hold them;
+    a test checks no other plane does. Each page read starts a fresh Python, so walking all
+    1.1 million characters (about 0.1 s) would cost every read (T4 review, 22 Nov)."""
     return frozenset(
         char
-        for char in map(chr, range(sys.maxunicode + 1))
+        for plane in _HIDDEN_PLANES
+        for char in map(chr, range(plane << 16, (plane + 1) << 16))
         if unicodedata.category(char) in _HIDDEN_CATEGORIES and char not in _JOINERS
     )
 

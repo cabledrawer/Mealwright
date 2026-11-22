@@ -11,6 +11,7 @@ import re
 import socketserver
 import threading
 import time
+import tracemalloc
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -20,6 +21,8 @@ from urllib.parse import urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from sqlalchemy.orm import Session, sessionmaker
 
 from mealwright import __version__, migrate, updates
@@ -318,6 +321,66 @@ def test_a_deep_answer_is_couldnt_check_even_where_python_could_read_it() -> Non
         updates.newest(deep, running)
 
 
+@pytest.mark.parametrize("encoding", ["utf-16-le", "utf-16-be", "utf-16", "utf-32-le"])
+def test_a_deep_answer_in_another_encoding_is_couldnt_check(encoding: str) -> None:
+    """T4 security pass r1: `json.loads` reads UTF-16 and UTF-32 by itself, and there one
+    byte of a character can look like a quote to the depth check, hiding the deep part. Only
+    UTF-8 is read."""
+    deep = ('["\u2200",' + "[" * 200_000 + "]" * 200_000 + ',"\u2200"]').encode(encoding)
+    running = updates.running_key("0.9.0")
+    assert running is not None
+
+    def refused() -> str:
+        with pytest.raises(ValueError):
+            updates.newest(deep, running)
+        return "refused"
+
+    assert _on_a_big_stack(refused) == "refused"
+
+
+def test_a_release_list_with_a_byte_order_mark_is_read() -> None:
+    running = updates.running_key("1.0.0")
+    assert running is not None
+    body = b"\xef\xbb\xbf" + json.dumps([release("v1.1.0")]).encode()
+    assert updates.newest(body, running) == "v1.1.0"
+
+
+@pytest.mark.parametrize("escape", ["\\n", "\\u0022", "\\\\", '\\"'])
+def test_an_escape_cannot_hide_a_deep_part(escape: str) -> None:
+    """A string ending in an escape (a newline, a quote) still ends at its closing quote."""
+    deep = f'["a{escape}", ' + "[" * 11 + "]" * 11 + "]"
+    assert json.loads(deep)  # it is JSON
+    running = updates.running_key("0.9.0")
+    assert running is not None
+    with pytest.raises(ValueError, match="too deep"):
+        updates.newest(deep.encode(), running)
+
+
+_TRICKY_TEXT = st.text(alphabet='"\\[]{}nu0 a\n\u2200', max_size=8)
+_JSON_VALUES = st.recursive(
+    st.none() | st.integers() | _TRICKY_TEXT,
+    lambda inner: st.lists(inner, max_size=3) | st.dictionaries(_TRICKY_TEXT, inner, max_size=3),
+    max_leaves=40,
+)
+
+
+def _depth(value: object) -> int:
+    if isinstance(value, list):
+        return 1 + max(map(_depth, value), default=0)
+    if isinstance(value, dict):
+        return 1 + max(map(_depth, value.values()), default=0)
+    return 0
+
+
+@settings(max_examples=2000, deadline=None)
+@given(_JSON_VALUES, st.integers(min_value=0, max_value=12), st.booleans())
+def test_the_depth_check_agrees_with_the_real_depth(value: object, depth: int, plain: bool) -> None:
+    """Brackets, quotes and escapes in strings never change the depth found (T4 security
+    pass r1)."""
+    body = json.dumps(value, ensure_ascii=plain).encode()
+    assert updates._too_deep(body, depth) == (_depth(value) > depth), body
+
+
 def test_a_real_release_list_is_not_too_deep() -> None:
     """GitHub's list nests 5 deep (assets, their uploader); brackets in notes don't count."""
     full = {
@@ -347,6 +410,23 @@ def test_the_depth_check_is_quick_on_any_answer(body: bytes) -> None:
     with pytest.raises(ValueError):
         updates.newest(body, running)
     assert time.process_time() - start < 2
+
+
+@pytest.mark.parametrize(
+    "body",
+    [b'"' * 2_000_000, b"[ ]" * 700_000, b"[{}]" * 500_000, b'"\\"' * 700_000, b'"a"[' * 500_000],
+    ids=["quotes", "spaced-pairs", "mixed-pairs", "escaped-quotes", "strings-and-brackets"],
+)
+def test_the_depth_check_needs_little_memory(body: bytes) -> None:
+    """T4 security pass r1: taking out everything but the brackets one match at a time
+    held a list as long as the answer (150 MB for 2 MB of `[ ]`)."""
+    tracemalloc.start()
+    try:
+        updates._too_deep(body, updates.MAX_LIST_DEPTH)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert peak < 3 * len(body) + 1_000_000, peak
 
 
 def test_a_list_too_big_is_not_read(

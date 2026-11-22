@@ -15,7 +15,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 from sync_kit import action, new_id, ok, send
 
-from mealwright import page_reader
+from mealwright import names, page_reader
 from mealwright.names import has_hidden, one_line, text_block, without_hidden
 
 API = "/api/v1"
@@ -311,6 +311,17 @@ def test_every_hidden_character_is_found_as_before() -> None:
         char = chr(code)
         assert has_hidden("a" + char) == _old_has_hidden("a" + char), hex(code)
         assert has_hidden(char, newlines=True) == _old_has_hidden(char, newlines=True)
+
+
+def test_hidden_characters_are_only_in_the_planes_searched() -> None:
+    """The table is made from three planes only (T4 security pass r1: each page read starts
+    a fresh Python); a Python with newer Unicode data that adds one elsewhere fails here."""
+    everywhere = {
+        chr(code)
+        for code in range(sys.maxunicode + 1)
+        if unicodedata.category(chr(code)) in ("Cc", "Cf", "Cs", "Zl", "Zp")
+    } - {"\u200c", "\u200d"}
+    assert names._hidden_characters() == everywhere
 
 
 @pytest.mark.parametrize("filler", ["1", "\u200b", "\U0001f3f4", _SCOTLAND, "\r\n\t"])
