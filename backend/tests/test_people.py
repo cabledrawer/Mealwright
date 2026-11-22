@@ -478,10 +478,13 @@ def test_a_link_works_once_even_for_requests_at_the_same_time(kitchen: TestClien
         thread.join()
     assert sorted(results.values()) == [200, 404, 404, 404]
     winner = next(i for i, code in results.items() if code == 200)
+    # Each password is tried from its own address (T4, 22 Nov): a join that came after the
+    # link was used counts as a wrong link guess against the joins' address, and on a slow
+    # machine those and the wrong passwords below passed its five free tries (429).
     for i in range(4):
-        r = _fresh(kitchen).post(
-            f"{API}/session", json={"username": "joss", "password": f"password number {i}!!"}
-        )
+        r = TestClient(
+            kitchen.app, base_url="https://testserver", client=(f"198.51.100.{i + 1}", 50000)
+        ).post(f"{API}/session", json={"username": "joss", "password": f"password number {i}!!"})
         assert r.status_code == (200 if i == winner else 401), (i, winner)
 
 
