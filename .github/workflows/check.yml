@@ -1,5 +1,5 @@
 # The same checks as ./check, run by GitHub on every pull request and every push to main.
-# Written in 0.9.5, unused until the code moves to GitHub at 1.0 (docs/dev/move-to-github.md).
+# Written in 0.9.5; it runs on GitHub during the trial (docs/dev/move-to-github.md).
 #
 # Kept off Forgejo: every job starts with `if: github.server_url == 'https://github.com'`,
 # so on Forgejo each job is skipped and needs no runner (see docs/dev/move-to-github.md).
@@ -26,7 +26,8 @@ jobs:
     # Proposed, for cabledrawer: skip on any server that is not GitHub itself.
     if: github.server_url == 'https://github.com'
     runs-on: ubuntu-24.04  # amd64
-    timeout-minutes: 120
+    # Must stay above the whole run: pytest (up to 60 minutes), then the browser tests, image and scanners.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
@@ -43,6 +44,10 @@ jobs:
       - name: Run ./check with the scanners on
         env:
           CHECK_SCANNERS: "1"
+          # GitHub's 4-CPU runner needs more than the 20 minutes that is right for the maintainer's
+          # computer (it was stopped at 1230 s; about 14 minutes there). The tests already run in
+          # 4 workers (pytest-xdist), one per CPU. ./check's own default stays 20.
+          CHECK_LIMIT_PYTEST: "60"
         run: ./check
       - name: Show the summary (the same text ./check tells you to paste into a pull request)
         if: always()
