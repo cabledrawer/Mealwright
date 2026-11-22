@@ -81,7 +81,7 @@ SvelteKit with the static adapter. Rules for screens are in `frontend/CLAUDE.md`
 | `backend/scripts/` | Scripts `./check` runs: licence allow list, no-telemetry test, the test server |
 | `docs/` | Spec, build plan, install and upgrade guides, mockups; `docs/dev/` for developers |
 | `check`, `Dockerfile`, `compose.example.yaml` | The check script, the image, an example install |
-| `.github/workflows/` | CI for after the move to GitHub at 1.0, switched off on Forgejo ([move-to-github.md](move-to-github.md)) |
+| `.github/workflows/` | CI for GitHub (`check.yml`, `release.yml` from 1.0, and the manual `trial-image.yml` for the 0.9.5 trial image), switched off on Forgejo ([move-to-github.md](move-to-github.md)) |
 
 ## Rules that hold everywhere
 

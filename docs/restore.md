@@ -119,7 +119,7 @@ is `/data` inside the container).
 
 ## Restore on a new server (the disk died)
 
-1. Install Mealwright as in `docs/dev/test-on-homelab.md` (section 4), with the **same
+1. Install Mealwright as in [install.md](install.md), with the **same
    version or a newer one**, but don't start it yet.
 2. Copy your copy of the data folder into `<folder>/data`. Then put the newest
    `data/backups/backup-….db` in as `mealwright.db`, and delete any copied `mealwright.db-wal`

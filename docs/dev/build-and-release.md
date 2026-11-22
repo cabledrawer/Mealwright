@@ -77,7 +77,7 @@ Rules for running it:
 ## Branches and pull requests
 
 - One branch per feature, named like `m0.9.5/dev-docs`. One pull request per feature; small commits inside it, each building and passing.
-- During 0.x the code is on cabledrawer's private Forgejo. Use Git over HTTPS and the `tea` command-line tool (not `gh`). Contributors push branches; only the owner pushes `main` or makes `v*` tags.
+- During 0.x development happens on cabledrawer's private Forgejo, and `main` is pushed to the public GitHub repo. Use Git over HTTPS and the `tea` command-line tool (not `gh`). Contributors push branches; only the owner pushes `main` or makes `v*` tags.
 - Every commit is signed off (DCO) and notes AI help:
 
   ```bash
@@ -117,7 +117,7 @@ Only the owner merges, tags and publishes. Steps, from `.claude/skills/release-p
 
 ## Getting a 0.x image to a server
 
-There is no registry and no CI runner in 0.x. The image is built on a computer you control, from the tag, saved to a file and copied to the server. Full steps, including backing up `/data` first and going back to the previous version, are in [test-on-homelab.md](test-on-homelab.md). In short:
+There is no CI runner in 0.x, and the only image on a registry is the 0.9.5 trial image (see "The 0.9.5 trial image" below). Otherwise the image is built on a computer you control, from the tag, saved to a file and copied to the server. Full steps, including backing up `/data` first and going back to the previous version, are in [test-on-homelab.md](test-on-homelab.md). In short:
 
 ```bash
 git fetch --tags                                       # get the tag
@@ -129,11 +129,24 @@ docker save mealwright:<version> | gzip > mealwright-<version>.tar.gz   # the im
 scp mealwright-<version>.tar.gz <user>@<server>:<folder>/               # copy it to the server
 ```
 
-On the server: stop Mealwright, copy `data/` aside, `docker load` the file, point `compose.yaml` at the new version, start it. Updates run database migrations on start, after a safety copy; an older version cannot read a newer database, so the backup is what lets you go back ([upgrade.md](../upgrade.md), [restore.md](../restore.md)). Never push an image to any registry in 0.x.
+On the server: stop Mealwright, copy `data/` aside, `docker load` the file, point `compose.yaml` at the new version, start it. Updates run database migrations on start, after a safety copy; an older version cannot read a newer database, so the backup is what lets you go back ([upgrade.md](../upgrade.md), [restore.md](../restore.md)). Never push an image to any registry in 0.x yourself: the trial image below is published only by its workflow, run by the owner.
+
+## The 0.9.5 trial image (GHCR only)
+
+For the public trial, the owner publishes one 0.x image by hand with `.github/workflows/trial-image.yml`. It runs only when started by hand, takes a tag that looks like `v0.<number>.<number>` (anything else fails at once), builds amd64 and arm64 from exactly that tag, and pushes one image name, `ghcr.io/cabledrawer/mealwright:<version without the v>`. It makes no `latest` or other tags, never touches Docker Hub and makes no GitHub release.
+
+1. The tag `v0.9.5` must already be pushed to GitHub, on a commit whose checks you trust (the workflow does not run them).
+2. On GitHub: Actions, then `trial-image`, then Run workflow. Type `v0.9.5` in `tag` and run it.
+3. The first time only: a package a workflow creates is private. Open it on GitHub (your profile, Packages, mealwright, Package settings) and set its visibility to Public, so people can pull it without signing in. This is a step only you can do.
+4. Check both architectures are in the image:
+
+   ```bash
+   docker buildx imagetools inspect ghcr.io/cabledrawer/mealwright:0.9.5   # lists the platforms
+   ```
 
 ## Releasing 1.x (after the move to GitHub)
 
-At 1.0 the code moves to GitHub, and the work already in the repo starts running: `.github/workflows/check.yml` runs `./check` on every pull request and push to `main`, and `.github/workflows/release.yml` builds and publishes the image when a tag `v1.*` is pushed. The steps for the move (making the repo, secrets, settings, protecting `main` and the `v*` tags) are in [move-to-github.md](move-to-github.md). The release then goes like this:
+At 1.0 the release work already in the repo starts running (the code is public on GitHub from the trial): `.github/workflows/check.yml` runs `./check` on every pull request and push to `main`, and `.github/workflows/release.yml` builds and publishes the image when a tag `v1.*` is pushed. The steps for the move (making the repo, secrets, settings, protecting `main` and the `v*` tags) are in [move-to-github.md](move-to-github.md). The release then goes like this:
 
 1. Make the release PR as above. `CHANGELOG.md` must have a `## [1.x.y]` section: the release notes are cut from it, and the workflow fails if it is missing or empty.
 2. After the owner merges it (on a commit whose `check` run is green; the release workflow does not run the checks again):

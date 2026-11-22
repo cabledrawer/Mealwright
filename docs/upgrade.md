@@ -27,9 +27,9 @@ Below, `<folder>` is the folder holding `compose.yaml` and the `data` folder (th
    image: <registry>/<owner>/mealwright:<new version>
    ```
 
-   `<registry>/<owner>` is where you get the image: GHCR (`ghcr.io/cabledrawer/mealwright`) or Docker Hub (`docker.io/<owner>/mealwright`). Both carry the same versions.
+   `<registry>/<owner>` is where you get the image. For 0.x trial versions it is `ghcr.io/cabledrawer` (for example `ghcr.io/cabledrawer/mealwright:0.9.5`). From 1.0.0 you can use GHCR (`ghcr.io/cabledrawer/mealwright`) or Docker Hub (`docker.io/<owner>/mealwright`), which carry the same versions.
 
-   **Testing a 0.x version?** The images are not published before 1.0.0. A test version is loaded from a file (`docker load`), its image is just `mealwright:<new version>`, and `docker compose pull` does nothing for it: follow `docs/dev/test-on-homelab.md`, section 4, instead of steps 1 and 2 here.
+   **Building it yourself?** If you built the image from a tag (`docker build -t mealwright:<new version> https://github.com/cabledrawer/mealwright.git#v<new version>`), its image is just `mealwright:<new version>`. Build the new version first, then change the `image:` line. `docker compose pull` does nothing for an image that only exists on your machine, so skip step 2's `pull` and run `docker compose up -d`.
 
 2. Pull the new image and start it:
 

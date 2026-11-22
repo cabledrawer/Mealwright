@@ -10,7 +10,7 @@ Mealwright is written almost entirely by AI (Claude, from Anthropic), directed b
 
 ## Status
 
-Early development. Versions 0.x are test releases before 1.0.0; the first public image and release will be 1.0.0.
+Early development. Versions 0.x are test releases before 1.0.0. The code is now public on GitHub (`github.com/cabledrawer/mealwright`) for a trial. v0.9.5 is the trial build, with an image on GitHub's registry (`ghcr.io/cabledrawer/mealwright:0.9.5`): see [docs/install.md](docs/install.md). From 1.0.0 the images are also on Docker Hub.
 
 ## Guides
 

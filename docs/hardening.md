@@ -47,7 +47,7 @@ first account (a database write) and keeps `/data` at 0700/0600.
 - **Labels** (OCI): title, description, licence (`AGPL-3.0-only`, as in `pyproject.toml`),
   source (a placeholder until the public repository exists), and version, created and
   revision from the build arguments `VERSION`, `CREATED` and `REVISION`. See
-  `docs/dev/test-on-homelab.md` for the command. Nothing personal goes in them.
+  the build command in `docs/install.md`. Nothing personal goes in them.
 - **Layer order:** the web app's libraries and the backend's libraries are installed from
   their package and lock files alone, before the app's own code is copied in, so a code
   change doesn't install them all again. The labels come last, so a new version number

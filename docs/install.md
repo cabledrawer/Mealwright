@@ -5,7 +5,10 @@ Mealwright is meant to sit behind your own reverse proxy, which provides HTTPS. 
 ## Get it running
 
 1. Make a folder, and copy `compose.example.yaml` into it as `compose.yaml`.
-2. In `compose.yaml`, set the `image:` line to an exact version: `<registry>/<owner>/mealwright:<version>`. The image is on GHCR (`ghcr.io/cabledrawer/mealwright`) and Docker Hub (`docker.io/<owner>/mealwright`), with the same versions on both. Until 1.0.0 the images are not published: a test version is loaded from a file instead, and its image is just `mealwright:<version>`: see `docs/dev/test-on-homelab.md`.
+2. In `compose.yaml`, set the `image:` line to an exact version: `<registry>/<owner>/mealwright:<version>`. Use the registry for the version you want:
+   - **0.x trial versions:** the image is on GHCR at an exact version, for example `ghcr.io/cabledrawer/mealwright:0.9.5`. There is no `latest` tag.
+   - **Build it yourself instead:** from the version's tag, with `docker build -t mealwright:0.9.5 https://github.com/cabledrawer/mealwright.git#v0.9.5`. The image is then just `mealwright:0.9.5`: put that in the `image:` line.
+   - **From 1.0.0:** GHCR (`ghcr.io/cabledrawer/mealwright`) and Docker Hub (`docker.io/<owner>/mealwright`), with the same versions on both.
 3. Make the data folder, owned by the user Mealwright runs as (UID 10001):
 
    ```bash

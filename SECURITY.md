@@ -4,7 +4,7 @@
 
 Please don't report security problems in public issues, discussions or pull requests.
 
-From 1.0.0, report them privately through GitHub's private vulnerability reporting: on the Mealwright repository, open **Security → Report a vulnerability**. Only the maintainer can see the report.
+Report them privately through GitHub's private vulnerability reporting: on the Mealwright repository, open **Security → Report a vulnerability**. Only the maintainer can see the report.
 
 Please include:
 
@@ -14,11 +14,9 @@ Please include:
 
 Mealwright is a spare-time project. You can expect a first reply within about a week. Please give us a reasonable time to release a fix before you share details publicly.
 
-Before 1.0.0, Mealwright is not published, so there is nothing public to report against yet.
-
 ## Supported versions
 
-Only the latest release gets security fixes. They ship as patch versions (for example 1.0.0 → 1.0.1).
+During the public trial (versions 0.x), only the latest 0.x release gets security fixes. From 1.0.0, only the latest release gets them, as patch versions (for example 1.0.0 → 1.0.1).
 
 ## What Mealwright does to keep you safe
 

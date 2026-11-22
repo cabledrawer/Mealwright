@@ -2,7 +2,7 @@
 
 Thanks for helping. Mealwright is a spare-time project, so replies may take a week or so.
 
-Until 1.0.0, development happens in a private repository and outside contributions aren't open yet. This guide already applies to every change, including the maintainer's own.
+During the public trial (versions 0.x), bugs go to Issues and ideas to Discussions. Outside pull requests wait for 1.0.0: development happens in a private repository that pushes to GitHub, so please don't open a pull request yet. This guide already applies to every change, including the maintainer's own.
 
 ## Before you start
 

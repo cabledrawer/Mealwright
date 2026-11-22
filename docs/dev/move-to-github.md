@@ -1,13 +1,21 @@
-# Moving to GitHub at 1.0 (steps for cabledrawer)
+# Moving to GitHub (steps for cabledrawer)
 
-Everything for the move is already in the repo and does nothing until then: `.github/workflows/check.yml`, `.github/workflows/release.yml`, `.github/ISSUE_TEMPLATE/`, and `scripts/changelog-section.sh`. This page is the list of what only you can do. Replace `<owner>` with your GitHub name or organisation.
+**Where things stand (cabledrawer 22 Nov).** The repo is public on GitHub (`github.com/cabledrawer/mealwright`) for a public trial of 0.9.5; development stays in a private repository that pushes `main` to GitHub. Issues and Discussions are open, outside pull requests wait for 1.0, and security reports use private vulnerability reporting. A 0.9.5 image goes to GHCR only, by the manual workflow `trial-image.yml`. Docker Hub, `release.yml` and the rest of this page's 1.0 steps are still to come.
+
+**Done for the trial:** the public repo and the push from the private repo (sections 1 and 2 below). **To switch on for the trial:** private vulnerability reporting and Discussions (section 4), because `SECURITY.md` and `CONTRIBUTING.md` now point people at them.
+
+**Running the trial image:** on GitHub, Actions, `trial-image`, Run workflow, tag `v0.9.5`. The first time, open the new package (your profile, Packages, mealwright, Package settings) and set its visibility to Public: a package made by a workflow is private until you do. Details in [build-and-release.md](build-and-release.md).
+
+**Still for 1.0:** the Docker Hub name and secrets (section 3), the `release.yml` placeholders, branch and tag protection for the release, the first release (section 5) and the CHANGELOG link footers.
+
+Everything for the move is already in the repo; `release.yml` does nothing until a `v1.*` tag, and `trial-image.yml` does nothing until you run it by hand: `.github/workflows/check.yml`, `.github/workflows/release.yml`, `.github/workflows/trial-image.yml`, `.github/ISSUE_TEMPLATE/`, and `scripts/changelog-section.sh`. This page is the list of what only you can do. Replace `<owner>` with your GitHub name or organisation.
 
 ## How the workflows are kept off Forgejo now
 
 Forgejo Actions reads `.github/workflows` when a repo has no `.forgejo/workflows` folder. Two things stop that:
 
 1. `.forgejo/workflows/` exists (it holds only a note), so Forgejo looks there and finds nothing to run.
-2. Every job in both GitHub workflows starts with `if: github.server_url == 'https://github.com'`, so on any other server each job is skipped, even if the first point failed.
+2. Every job in all the GitHub workflows starts with `if: github.server_url == 'https://github.com'`, so on any other server each job is skipped, even if the first point failed.
 
 There is also no runner on your Forgejo, so nothing could queue. Belt and braces: in the Forgejo repo, Settings, Repository, leave "Enable Actions" off.
 
