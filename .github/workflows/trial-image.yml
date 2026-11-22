@@ -8,6 +8,8 @@
 # it checks out refs/tags/<tag>, so a branch with the same name is never built; it logs in to GHCR only
 # (no Docker Hub, no secrets of its own); it pushes one tag (no latest, no minor or major tag); it makes
 # no GitHub release. The input reaches the shell only through an env variable, never inside a script.
+# Two runs never publish at once (a concurrency group), and a run stops if the image tag already exists,
+# so a re-run or a moved tag can never silently replace a published version.
 # The job starts with `if: github.server_url == 'https://github.com'`, so Forgejo skips it.
 name: trial-image
 
@@ -21,6 +23,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: trial-image
+  cancel-in-progress: false
 
 jobs:
   image:
@@ -54,6 +60,12 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Stop if this version is already published
+        run: |
+          if docker buildx imagetools inspect "$GHCR_IMAGE:${TAG#v}" >/dev/null 2>&1; then
+            echo "$GHCR_IMAGE:${TAG#v} is already published. Delete that package version on GitHub first if you really mean to replace it." >&2
+            exit 1
+          fi
       - name: Work out the version and the commit that was checked out
         id: ver
         run: |

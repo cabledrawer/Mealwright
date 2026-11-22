@@ -138,11 +138,14 @@ For the public trial, the owner publishes one 0.x image by hand with `.github/wo
 1. The tag `v0.9.5` must already be pushed to GitHub, on a commit whose checks you trust (the workflow does not run them).
 2. On GitHub: Actions, then `trial-image`, then Run workflow. Type `v0.9.5` in `tag` and run it.
 3. The first time only: a package a workflow creates is private. Open it on GitHub (your profile, Packages, mealwright, Package settings) and set its visibility to Public, so people can pull it without signing in. This is a step only you can do.
-4. Check both architectures are in the image:
+4. A version is published once. If `ghcr.io/cabledrawer/mealwright:0.9.5` already exists, the workflow stops with a message instead of replacing it, and two runs never go at the same time. To replace a version on purpose, delete that package version on GitHub (the package's page, Package settings or the version's menu), then run the workflow again.
+5. Check both architectures are in the image:
 
    ```bash
    docker buildx imagetools inspect ghcr.io/cabledrawer/mealwright:0.9.5   # lists the platforms
    ```
+
+The code reaches GitHub through a Forgejo push mirror whose token should stay Contents-only. GitHub refuses a push that changes `.github/workflows/` from such a token, so push a workflow change by hand (`git push github main`). The mirror sends every branch and tag, so treat every branch pushed to the private repo as public. [move-to-github.md](move-to-github.md) section 2 has the facts and the proposals.
 
 ## Releasing 1.x (after the move to GitHub)
 

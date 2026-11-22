@@ -2,11 +2,11 @@
 
 **Where things stand (cabledrawer 22 Nov).** The repo is public on GitHub (`github.com/cabledrawer/mealwright`) for a public trial of 0.9.5; development stays in a private repository that pushes `main` to GitHub. Issues and Discussions are open, outside pull requests wait for 1.0, and security reports use private vulnerability reporting. A 0.9.5 image goes to GHCR only, by the manual workflow `trial-image.yml`. Docker Hub, `release.yml` and the rest of this page's 1.0 steps are still to come.
 
-**Done for the trial:** the public repo and the push from the private repo (sections 1 and 2 below). **To switch on for the trial:** private vulnerability reporting and Discussions (section 4), because `SECURITY.md` and `CONTRIBUTING.md` now point people at them.
+**Done for the trial:** the public repo and the push from the private repo (sections 1 and 2 below). **To switch on for the trial (section 4):** private vulnerability reporting, before the repo is public or as soon as it is, because `SECURITY.md` gives it as the only way to report a problem; Discussions, because `CONTRIBUTING.md` points ideas there; the Actions settings (allowed actions, workflow permissions read-only, approval for all outside collaborators), because the repo is public and `check.yml` runs on pull requests; and the `v*` tag ruleset, so only you can make release tags.
 
 **Running the trial image:** on GitHub, Actions, `trial-image`, Run workflow, tag `v0.9.5`. The first time, open the new package (your profile, Packages, mealwright, Package settings) and set its visibility to Public: a package made by a workflow is private until you do. Details in [build-and-release.md](build-and-release.md).
 
-**Still for 1.0:** the Docker Hub name and secrets (section 3), the `release.yml` placeholders, branch and tag protection for the release, the first release (section 5) and the CHANGELOG link footers.
+**Still for 1.0:** the Docker Hub name and secrets (section 3), the `release.yml` placeholders, branch protection on `main` and the required `check` and `image` status checks, the first release (section 5) and the CHANGELOG link footers.
 
 Everything for the move is already in the repo; `release.yml` does nothing until a `v1.*` tag, and `trial-image.yml` does nothing until you run it by hand: `.github/workflows/check.yml`, `.github/workflows/release.yml`, `.github/workflows/trial-image.yml`, `.github/ISSUE_TEMPLATE/`, and `scripts/changelog-section.sh`. This page is the list of what only you can do. Replace `<owner>` with your GitHub name or organisation.
 
@@ -48,6 +48,15 @@ git push github main --tags
 ```
 
 Then, so Forgejo keeps GitHub up to date: on Forgejo open the repo, Settings, Repository, Mirror settings, Add push mirror. Address `https://github.com/<owner>/mealwright.git`, username your GitHub name, password a GitHub fine-grained token limited to this repo with only "Contents: Read and write". Turn on "Sync when commits are pushed". Only you push to `main`; the `claude` account cannot.
+
+**The mirror and workflow files (facts):**
+
+- GitHub refuses a push that adds or changes a file under `.github/workflows/` when the token lacks the "Workflows" permission. With the Contents-only token above, a `main` that contains a workflow change (such as `trial-image.yml`) does not arrive through the mirror.
+- A Forgejo push mirror sends every branch and every tag, so any branch pushed to the private repo (work in progress included) appears in the public repo.
+
+**Proposed, for cabledrawer:** keep the mirror token Contents-only, and push a workflow change by hand from your own computer (`git push github main`); the mirror then carries on. Do not give the mirror token "Workflows": with it, a workflow file on any mirrored branch could run on GitHub with its own permissions and publish an image or a release, getting round trial-image.yml's guards.
+
+**Proposed, for cabledrawer:** because the mirror sends every branch, limit it to `main` and `v*` tags if your Forgejo version offers a branch filter on the push mirror; if it does not, treat every branch pushed to the private repo as public.
 
 ## 3. Add the secrets
 

@@ -12,7 +12,7 @@ Step-by-step instructions for running a Mealwright 0.x build on a home server. I
 | `<proxy folder>` | The folder of your reverse proxy's own compose project |
 | `<subnet>` | A free private range for Mealwright's own Docker network |
 
-There is no CI runner during 0.x (cabledrawer 17 Oct). Images are built on your own computer, copied to the server as a file, and loaded there. **Images are never pushed to any registry: not a public one, not a private one (cabledrawer 18 Oct).** A registry is not used in 0.x. **Claude Code never builds, copies or pushes images for you.**
+There is no CI runner during 0.x (cabledrawer 17 Oct). Images are built on your own computer, copied to the server as a file, and loaded there. **Images are never pushed to any registry: not a public one, not a private one (cabledrawer 18 Oct), except the 0.9.5 trial image, which its own workflow publishes to GHCR (see [build-and-release.md](build-and-release.md)).** A registry is not used in 0.x. **Claude Code never builds, copies or pushes images for you.**
 
 Each command goes in a terminal on the machine named in that section.
 
