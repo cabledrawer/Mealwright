@@ -17,11 +17,13 @@ from mealwright.__main__ import KEEP_ALIVE_SECONDS
 
 # Asks for the version, waits longer than uvicorn's old 5 s with the connection idle, then
 # asks again on the same connection. Prints "reused" or what went wrong.
+# Waits for the server until a deadline, not a fixed number of tries (T4, 22 Nov).
 CLIENT = """
 import http.client, sys, time
 port = int(sys.argv[1])
 conn = None
-for _ in range(100):
+deadline = time.monotonic() + 120
+while time.monotonic() < deadline:
     try:
         conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
         conn.request("GET", "/api/v1/version")
@@ -82,7 +84,7 @@ def test_an_idle_connection_is_reused_after_more_than_five_seconds(tmp_path: Pat
             [sys.executable, "-I", "-c", CLIENT, str(port), "6.5"],
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=180,  # longer than the client's own 120 s wait
             check=False,
         )
         assert client.stdout.strip() == "reused", client.stdout + client.stderr

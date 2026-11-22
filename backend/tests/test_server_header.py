@@ -13,12 +13,14 @@ from pathlib import Path
 
 # Runs in a separate process: this one has the network guard on. Prints, for each path, its
 # status and the names of its response headers, as JSON.
+# Waits for the server until a deadline, not a fixed number of tries (T4, 22 Nov).
 CLIENT = """
 import http.client, json, sys, time
 port = int(sys.argv[1])
 out = {}
 for path in sys.argv[2:]:
-    for _ in range(100):
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
         try:
             conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
             conn.request("GET", path)
@@ -76,7 +78,7 @@ def test_no_answer_carries_a_server_header(tmp_path: Path) -> None:
             [sys.executable, "-I", "-c", CLIENT, str(port), *PATHS],
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=180,  # longer than the client's own 120 s wait
             check=False,
         )
         assert client.returncode == 0, client.stdout + client.stderr

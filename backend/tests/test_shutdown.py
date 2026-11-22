@@ -15,26 +15,29 @@ from pathlib import Path
 import pytest
 
 # Signs up, opens the live stream, says so, and reports when the server ends the stream.
+# It waits for the server to start until a deadline, not a fixed number of tries: on a busy
+# machine start-up took longer than the 10 seconds it once allowed (T4, 22 Nov).
 CLIENT = """
 import http.client, json, re, sys, time
 port = int(sys.argv[1])
 origin = f"http://127.0.0.1:{port}"
+deadline = time.monotonic() + float(sys.argv[3])
 # The first-run setup code, read from the server's own output, as a person would (PR A2).
 code = None
-for _ in range(100):
+while time.monotonic() < deadline:
     with open(sys.argv[2]) as output:
         found = re.search(r"setup code: ([A-Z0-9-]{14})", output.read())
     if found:
         code = found.group(1)
         break
     time.sleep(0.1)
-assert code is not None
+assert code is not None, "no setup code in the server's output"
 admin = {"name": "Tess", "username": "tess", "password": "correct horse battery"}
 body = json.dumps({**admin, "setup_code": code})
 setup = None
-for _ in range(100):
+while time.monotonic() < deadline:
     try:
-        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=60)
         headers = {"Origin": origin, "Content-Type": "application/json"}
         conn.request("POST", "/api/v1/setup", body, headers)
         setup = conn.getresponse()
@@ -59,6 +62,11 @@ except OSError:
     pass
 print("stream ended", flush=True)
 """
+
+
+# How long the server may take to start on a slow, busy machine. The stop itself must still
+# take under 4 seconds.
+START_UP_LIMIT = 120.0
 
 
 def free_port() -> int:
@@ -87,14 +95,15 @@ def test_stops_promptly_while_a_live_stream_is_open(tmp_path: Path) -> None:
     )
     # The client is a separate process: this one has the network guard on.
     client = subprocess.Popen(  # noqa: S603 (fixed arguments)
-        [sys.executable, "-I", "-c", CLIENT, str(port), str(output)],
+        [sys.executable, "-I", "-c", CLIENT, str(port), str(output), str(START_UP_LIMIT)],
         stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
+        stderr=(tmp_path / "client.txt").open("w"),
         text=True,
     )
     try:
         assert client.stdout is not None
-        assert client.stdout.readline().strip() == "streaming"
+        line = client.stdout.readline().strip()
+        assert line == "streaming", (tmp_path / "client.txt").read_text()[-2000:]
         started = time.monotonic()
         server.send_signal(signal.SIGTERM)
         server.wait(timeout=10)

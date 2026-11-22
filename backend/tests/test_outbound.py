@@ -550,10 +550,12 @@ sys.argv = sys.argv[:1]
 runpy.run_module("mealwright", run_name="__main__", alter_sys=True)
 """
 
+# Waits for the server until a deadline, not a fixed number of tries (T4, 22 Nov).
 CLIENT_OVER_LAN = """
 import http.client, socket, sys, time
 host, port = sys.argv[1], int(sys.argv[2])
-for _ in range(200):
+deadline = time.monotonic() + 120
+while time.monotonic() < deadline:
     try:
         conn = http.client.HTTPConnection(host, port, timeout=20)
         conn.connect()
@@ -599,7 +601,7 @@ def test_the_real_server_answers_over_a_non_loopback_connection(tmp_path: Path) 
             [sys.executable, "-I", "-c", CLIENT_OVER_LAN, address, str(port)],
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=180,  # longer than the client's own 120 s wait
             check=False,
         )
         status, length = client.stdout.split()
