@@ -569,6 +569,8 @@ def _build(recipe: _Recipe, page: _Page) -> PageRecipe | None:
 
 _TAG = re.compile(r"<[A-Za-z/!][^<>]*>")  # never runs across another "<": linear time
 _WHITESPACE_BREAKS = "\t\r\x0b\x0c\x85\u2028\u2029"
+# `_strip_hidden` keeps a line break and puts a space for the others.
+_STRIP_HIDDEN = (("\n", "\n"), *((char, " ") for char in _WHITESPACE_BREAKS))
 
 
 # The texts already tidied while reading one page, so each different text is tidied once,
@@ -610,21 +612,7 @@ def _strip_hidden(text: str) -> str:
     emoji (🏴 with its tag letters) are kept, as `names` allows them."""
     if not names.has_hidden(text, newlines=True):
         return text
-    kept: list[str] = []
-    index = 0
-    while index < len(text):
-        end = names._flag_end(text, index)  # the same rule as has_hidden
-        if end > index:
-            kept.append(text[index:end])
-            index = end
-            continue
-        char = text[index]
-        index += 1
-        if char in _WHITESPACE_BREAKS:
-            kept.append(" ")
-        elif char == "\n" or not names.has_hidden(char):
-            kept.append(char)
-    return "".join(kept)
+    return names.translate_outside_flags(text, names.hidden_table(_STRIP_HIDDEN))
 
 
 def _one_line(value: object) -> str:

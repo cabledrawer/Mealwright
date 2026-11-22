@@ -4,7 +4,9 @@ No fuzzy-matching library (spec section 6, "Decided for 0.2"): just simple, pred
 rules that work offline.
 """
 
+import functools
 import re
+import sys
 import unicodedata
 
 _BRACKETS = re.compile(r"\([^()]*\)|\[[^\[\]]*\]")  # no nested "(": a run of them is linear
@@ -104,22 +106,71 @@ def _flag_end(value: str, start: int) -> int:
     return start
 
 
+_HIDDEN_CATEGORIES = ("Cc", "Cf", "Cs", "Zl", "Zp")
+# A flag's tag letters and cancel tag, the same rule as `_flag_end` (the black flag before
+# them is not hidden, so it is left out of the match). Found with regular expressions, so
+# the checks below run in C over a page-sized text instead of one Python step per character
+# (T4, 22 Nov: a 5 MB recipe field took seconds of CPU).
+_TAG_CLASS = "".join(map(chr, _TAG_LETTERS))
+_FLAG_TAGS = re.compile(f"(?<={chr(_FLAG)})([{_TAG_CLASS}]{{2,6}}{chr(_CANCEL_TAG)})")
+_ANY_TAG = re.compile("[\U000e0000-\U000e007f]")  # only these can be part of a flag
+# Line breaks that `without_hidden` makes a plain one.
+_LINE_BREAKS = "\n\r\u2028\u2029\x0b\x0c\x85"
+
+
+@functools.cache
+def _hidden_characters() -> frozenset[str]:
+    """Every character `has_hidden` refuses (its Unicode category says it shows nothing),
+    except the two joiners. Worked out once, on first use."""
+    return frozenset(
+        char
+        for char in map(chr, range(sys.maxunicode + 1))
+        if unicodedata.category(char) in _HIDDEN_CATEGORIES and char not in _JOINERS
+    )
+
+
+@functools.cache
+def _hidden_pattern(newlines: bool) -> re.Pattern[str]:
+    """One character class of every hidden character, written as ranges (much faster to
+    search than one entry per character)."""
+    codes = sorted(map(ord, _hidden_characters() - ({"\n"} if newlines else set())))
+    ranges: list[str] = []
+    start = 0
+    for index, code in enumerate(codes):
+        if index + 1 == len(codes) or codes[index + 1] != code + 1:
+            first, last = re.escape(chr(codes[start])), re.escape(chr(code))
+            ranges.append(first if codes[start] == code else f"{first}-{last}")
+            start = index + 1
+    return re.compile("[" + "".join(ranges) + "]")
+
+
+@functools.cache
+def hidden_table(replace: tuple[tuple[str, str], ...] = ()) -> dict[int, str | None]:
+    """A `str.translate` table that drops every hidden character, except those in `replace`,
+    which become the text given."""
+    table: dict[int, str | None] = dict.fromkeys(map(ord, _hidden_characters()))
+    table.update((ord(char), text) for char, text in replace)
+    return table
+
+
+def translate_outside_flags(value: str, table: dict[int, str | None]) -> str:
+    """`value.translate(table)`, except that flag emoji sequences are kept as they are."""
+    if not _ANY_TAG.search(value):
+        return value.translate(table)
+    parts = _FLAG_TAGS.split(value)  # a flag's tags are at the odd places
+    parts[::2] = [part.translate(table) for part in parts[::2]]
+    return "".join(parts)
+
+
 def has_hidden(value: str, newlines: bool = False) -> bool:
     """Does the text hold a tab, a line break (unless `newlines`), another control
     character, or an invisible formatting character?"""
-    index = 0
-    while index < len(value):
-        char = value[index]
-        end = _flag_end(value, index)
-        if end > index:
-            index = end
-            continue
-        index += 1
-        if char in _JOINERS or (newlines and char == "\n"):
-            continue
-        if unicodedata.category(char) in ("Cc", "Cf", "Cs", "Zl", "Zp"):
-            return True
-    return False
+    if _ANY_TAG.search(value):
+        value = _FLAG_TAGS.sub("", value)
+    return _hidden_pattern(newlines).search(value) is not None
+
+
+_WITHOUT_HIDDEN = (("\t", " "), *((char, "\n") for char in _LINE_BREAKS))
 
 
 def without_hidden(value: str) -> str:
@@ -127,27 +178,7 @@ def without_hidden(value: str) -> str:
     annoy. The same characters `has_hidden` finds go (the joiners and flag emoji stay).
     Windows and old Mac line breaks, and the Unicode line and paragraph separators, become
     plain line breaks; a tab becomes a space; other control characters are dropped."""
-    kept: list[str] = []
-    index = 0
-    while index < len(value):
-        char = value[index]
-        end = _flag_end(value, index)
-        if end > index:
-            kept.append(value[index:end])
-            index = end
-            continue
-        index += 1
-        if char == "\r":
-            if value[index : index + 1] == "\n":
-                index += 1
-            kept.append("\n")
-        elif char in "\n\u2028\u2029\x0b\x0c\x85":
-            kept.append("\n")
-        elif char == "\t":
-            kept.append(" ")
-        elif char in _JOINERS or unicodedata.category(char) not in ("Cc", "Cf", "Cs", "Zl", "Zp"):
-            kept.append(char)
-    return "".join(kept)
+    return translate_outside_flags(value.replace("\r\n", "\n"), hidden_table(_WITHOUT_HIDDEN))
 
 
 _SKIN_TONES = range(0x1F3FB, 0x1F400)  # the five skin tone modifiers

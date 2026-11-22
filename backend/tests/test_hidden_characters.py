@@ -3,14 +3,20 @@
 shows nothing or flips the order text is drawn in. One shared check, in mealwright.names.
 """
 
+import sys
+import time
+import unicodedata
 from typing import Any
 
 import pytest
 from conftest import ADMIN
 from fastapi.testclient import TestClient
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from sync_kit import action, new_id, ok, send
 
-from mealwright.names import has_hidden, one_line, text_block
+from mealwright import page_reader
+from mealwright.names import has_hidden, one_line, text_block, without_hidden
 
 API = "/api/v1"
 
@@ -204,5 +210,116 @@ def test_cut_text_does_not_split_a_skin_tone() -> None:
 def test_cut_text_never_cuts_a_text_of_only_marks_to_empty() -> None:
     from mealwright.names import cut_text
 
-    marks = "́" * 10
-    assert cut_text(marks, 4) == "́" * 4
+    marks = "\u0301" * 10
+    assert cut_text(marks, 4) == "\u0301" * 4
+
+
+# --- The checks run in C (T4, 22 Nov) --------------------------------------------------------
+# `has_hidden`, `without_hidden` and the page reader's `_strip_hidden` were one Python step
+# per character; a 5 MB recipe field took seconds of CPU. They now use a regular expression
+# and `str.translate`. These are the old loops, kept to show the answers didn't change.
+
+_JOINERS = {"\u200c", "\u200d"}
+_TAGS = (*range(0xE0030, 0xE003A), *range(0xE0061, 0xE007B))
+
+
+def _old_flag_end(value: str, start: int) -> int:
+    if ord(value[start]) != 0x1F3F4:
+        return start
+    end = start + 1
+    while end < len(value) and ord(value[end]) in _TAGS:
+        end += 1
+    if 2 <= end - start - 1 <= 6 and end < len(value) and ord(value[end]) == 0xE007F:
+        return end + 1
+    return start
+
+
+def _old_has_hidden(value: str, newlines: bool = False) -> bool:
+    index = 0
+    while index < len(value):
+        char = value[index]
+        end = _old_flag_end(value, index)
+        if end > index:
+            index = end
+            continue
+        index += 1
+        if char in _JOINERS or (newlines and char == "\n"):
+            continue
+        if unicodedata.category(char) in ("Cc", "Cf", "Cs", "Zl", "Zp"):
+            return True
+    return False
+
+
+def _old_without_hidden(value: str, breaks: str | None = None) -> str:
+    """`names.without_hidden`, or with `breaks` the page reader's `_strip_hidden` (those
+    become a space and a line break stays)."""
+    kept: list[str] = []
+    index = 0
+    while index < len(value):
+        end = _old_flag_end(value, index)
+        if end > index:
+            kept.append(value[index:end])
+            index = end
+            continue
+        char = value[index]
+        index += 1
+        if breaks is not None:
+            if char in breaks:
+                kept.append(" ")
+            elif char == "\n" or not _old_has_hidden(char):
+                kept.append(char)
+        elif char == "\r":
+            if value[index : index + 1] == "\n":
+                index += 1
+            kept.append("\n")
+        elif char in "\n\u2028\u2029\x0b\x0c\x85":
+            kept.append("\n")
+        elif char == "\t":
+            kept.append(" ")
+        elif char in _JOINERS or unicodedata.category(char) not in ("Cc", "Cf", "Cs", "Zl", "Zp"):
+            kept.append(char)
+    return "".join(kept)
+
+
+# Plain letters, every kind of hidden character, the joiners, the black flag, tag letters,
+# the cancel tag, other tag characters, surrogates, emoji, and any character at all.
+_TRICKY = st.sampled_from(
+    [
+        *"ab \n\r\t\x00\x0b\x0c\x85\u2028\u2029\u200b\u200c\u200d\u202e\u2066\ufeff\u00ad",
+        *("\U0001f3f4", "\U000e0067", "\U000e0062", "\U000e0073", "\U000e0031", "\U000e007f"),
+        *("\U000e0001", "\U000e0020", "\ud800", "\udfff", "\U0001f600", "\u0301"),
+    ]
+)
+_TEXT = st.lists(st.one_of(_TRICKY, _TRICKY, st.characters()), max_size=40).map("".join)
+_SCOTLAND = "\U0001f3f4\U000e0067\U000e0062\U000e0073\U000e0063\U000e0074\U000e007f"
+
+
+@settings(max_examples=3000, deadline=None)
+@given(_TEXT)
+def test_the_fast_checks_give_the_old_answers(value: str) -> None:
+    for text in (value, _SCOTLAND + value, value + _SCOTLAND + value):
+        assert has_hidden(text) == _old_has_hidden(text), repr(text)
+        assert has_hidden(text, newlines=True) == _old_has_hidden(text, newlines=True)
+        assert without_hidden(text) == _old_without_hidden(text), repr(text)
+        assert page_reader._strip_hidden(text) == _old_without_hidden(
+            text, page_reader._WHITESPACE_BREAKS
+        ), repr(text)
+
+
+def test_every_hidden_character_is_found_as_before() -> None:
+    for code in range(sys.maxunicode + 1):
+        char = chr(code)
+        assert has_hidden("a" + char) == _old_has_hidden("a" + char), hex(code)
+        assert has_hidden(char, newlines=True) == _old_has_hidden(char, newlines=True)
+
+
+@pytest.mark.parametrize("filler", ["1", "\u200b", "\U0001f3f4", _SCOTLAND, "\r\n\t"])
+def test_a_page_sized_text_is_checked_quickly(filler: str) -> None:
+    text = filler * (5_000_000 // len(filler))
+    has_hidden("")  # the tables are made on first use
+    start = time.process_time()
+    has_hidden(text)
+    has_hidden(text, newlines=True)
+    without_hidden(text)
+    page_reader._strip_hidden(text)
+    assert time.process_time() - start < 2
