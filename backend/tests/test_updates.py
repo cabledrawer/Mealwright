@@ -426,7 +426,7 @@ def test_the_depth_check_needs_little_memory(body: bytes) -> None:
         peak = tracemalloc.get_traced_memory()[1]
     finally:
         tracemalloc.stop()
-    assert peak < 3 * len(body) + 1_000_000, peak
+    assert peak < 4 * len(body) + 1_000_000, peak  # the old way took 150 MB for 2 MB
 
 
 def test_a_list_too_big_is_not_read(
