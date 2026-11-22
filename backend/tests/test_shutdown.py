@@ -87,17 +87,19 @@ def test_stops_promptly_while_a_live_stream_is_open(tmp_path: Path) -> None:
         "MEALWRIGHT_FRONTEND_DIR": str(tmp_path / "none"),
     }
     output = tmp_path / "output.txt"
+    server_log = output.open("w")
+    client_log = (tmp_path / "client.txt").open("w")
     server = subprocess.Popen(
         [sys.executable, "-m", "mealwright"],
         env=env,
         stdout=subprocess.DEVNULL,
-        stderr=output.open("w"),
+        stderr=server_log,
     )
     # The client is a separate process: this one has the network guard on.
     client = subprocess.Popen(  # noqa: S603 (fixed arguments)
         [sys.executable, "-I", "-c", CLIENT, str(port), str(output), str(START_UP_LIMIT)],
         stdout=subprocess.PIPE,
-        stderr=(tmp_path / "client.txt").open("w"),
+        stderr=client_log,
         text=True,
     )
     try:
@@ -114,3 +116,5 @@ def test_stops_promptly_while_a_live_stream_is_open(tmp_path: Path) -> None:
             if process.poll() is None:
                 process.kill()
                 process.wait()
+        server_log.close()
+        client_log.close()

@@ -18,8 +18,8 @@ CLIENT = """
 import http.client, json, sys, time
 port = int(sys.argv[1])
 out = {}
+deadline = time.monotonic() + 120
 for path in sys.argv[2:]:
-    deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
         try:
             conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
