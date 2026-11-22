@@ -1,0 +1,74 @@
+# Trial image: when the owner starts it by hand (Actions, trial-image, Run workflow) with a 0.x tag,
+# build that tag for amd64 and arm64 and push exactly one image name to GHCR:
+# ghcr.io/cabledrawer/mealwright:<version without the "v">. Written for the public trial of 0.9.5
+# (docs/dev/build-and-release.md, "The 0.9.5 trial image").
+#
+# Why nothing else can be published: it runs only on workflow_dispatch (never on a push or a tag);
+# its first step fails unless the tag looks like v0.<number>.<number> (v1.* is release.yml's, from 1.0);
+# it checks out refs/tags/<tag>, so a branch with the same name is never built; it logs in to GHCR only
+# (no Docker Hub, no secrets of its own); it pushes one tag (no latest, no minor or major tag); it makes
+# no GitHub release. The input reaches the shell only through an env variable, never inside a script.
+# The job starts with `if: github.server_url == 'https://github.com'`, so Forgejo skips it.
+name: trial-image
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The 0.x tag to build and publish, for example v0.9.5"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write   # push to GHCR with GITHUB_TOKEN
+    env:
+      GHCR_IMAGE: ghcr.io/cabledrawer/mealwright
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Check the tag looks like v0.<number>.<number>
+        # Runs first. TAG comes from env:, never from an expression inside this script.
+        run: |
+          if ! [[ "$TAG" =~ ^v0\.[0-9]+\.[0-9]+$ ]]; then
+            echo "The tag must look like v0.9.5 (v0.<number>.<number>). Nothing was built." >&2
+            exit 1
+          fi
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          ref: refs/tags/${{ inputs.tag }}   # a tag, so a branch of the same name is never built
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf  # v3.2.0
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349  # v3.7.1
+      - uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567  # v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Work out the version and the commit that was checked out
+        id: ver
+        run: |
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      - name: Build and push (amd64 and arm64)
+        uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355  # v6.10.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # The one and only tag: 0.9.5, never latest.
+          tags: ${{ env.GHCR_IMAGE }}:${{ steps.ver.outputs.version }}
+          build-args: |
+            VERSION=${{ steps.ver.outputs.version }}
+            REVISION=${{ steps.ver.outputs.revision }}
+            CREATED=${{ steps.ver.outputs.created }}
