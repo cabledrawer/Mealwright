@@ -9,7 +9,7 @@ from types import ModuleType
 import pytest
 from fastapi.testclient import TestClient
 
-from mealwright import auth, models, setup_code
+from mealwright import auth, models, setup_code, updates
 from mealwright.config import Settings
 from mealwright.household import today
 from mealwright.main import create_app
@@ -91,3 +91,11 @@ def test_the_launcher_can_set_the_setup_code(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(setup_code, "new_code", setup_code.new_code)  # put back afterwards
     _launcher().know_the_setup_code({"E2E_SETUP_CODE": "TEST-SETU-PCDE"})
     assert setup_code.new_code() == "TEST-SETU-PCDE"
+
+
+def test_the_browser_tests_never_ask_github(monkeypatch: pytest.MonkeyPatch) -> None:
+    """T4 (22 Nov): Check now in the browser tests answered from GitHub's real release list."""
+    monkeypatch.setattr(updates, "RELEASE_LIST_URL", updates.RELEASE_LIST_URL)
+    _launcher().ask_github_nothing()
+    assert f"/{updates.PLACEHOLDER_OWNER}/" in updates.RELEASE_LIST_URL
+    assert updates.OWNER not in updates.RELEASE_LIST_URL

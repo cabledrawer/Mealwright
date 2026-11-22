@@ -9,6 +9,10 @@ With E2E_SETUP_CODE set (every test server, e2e/serve.mjs and e2e/tests/clock.ts
 first-run setup code is that instead of a random one (PR A2), so the tests can create the
 admin without reading the server's output.
 
+The update check never asks GitHub from the browser tests: its release list is the
+placeholder address, so Check now answers "couldn't check" without any request (T4, 22 Nov:
+since the list named the real home, the tests' answer depended on what GitHub had published).
+
 Only this script reads those variables. It is not part of the installed package and is not in
 the Docker image, so a real install can't be started with a moved clock or a known setup code
 (tests/test_test_clock.py).
@@ -18,7 +22,7 @@ import os
 from collections.abc import Mapping
 from datetime import timedelta
 
-from mealwright import models, setup_code
+from mealwright import models, setup_code, updates
 from mealwright.__main__ import main
 
 VARIABLE = "E2E_CLOCK_SHIFT_MS"
@@ -38,7 +42,15 @@ def know_the_setup_code(environ: Mapping[str, str]) -> None:
     setup_code.new_code = lambda: code
 
 
+def ask_github_nothing() -> None:
+    """Point the update check at the placeholder release list, which it never asks."""
+    updates.RELEASE_LIST_URL = (
+        f"https://api.github.com/repos/{updates.PLACEHOLDER_OWNER}/mealwright/releases"
+    )
+
+
 if __name__ == "__main__":
+    ask_github_nothing()
     if VARIABLE in os.environ:
         move_the_clock(os.environ)
     if SETUP_CODE_VARIABLE in os.environ:
