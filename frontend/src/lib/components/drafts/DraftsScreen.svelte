@@ -718,7 +718,7 @@
     font-weight: var(--weight-extrabold);
     /* A name that is one very long word may break anywhere (at 200% it must not widen the page),
        but the column is never narrower than 7rem, so long From lines can't squeeze
-       "Minestrone" into "Minestron / e" (7f163897). */
+       "Minestrone" into "Minestron / e" (commit "Drafts: a recipe name is never broken mid-word when the From lines are long", 14 Nov 2026). */
     min-width: 7rem;
     overflow-wrap: anywhere;
   }

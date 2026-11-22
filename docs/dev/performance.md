@@ -4,7 +4,7 @@ What the app takes today on a Pi 4 class server and an older phone. **Measure on
 app was changed, and this file recommends no change.** Speed fixes are their own PR, after cabledrawer
 sets the targets (0.9.5 plan, Q3).
 
-Measured on 13 Nov 2026 on the 0.9.5 docs tip (dd77aaa9); this PR changes no app code.
+Measured on 13 Nov 2026 on the 0.9.5 docs tip; this PR changes no app code.
 
 ## How to re-run
 

@@ -2,7 +2,7 @@
 
 Written 17 Oct 2026 as the contract for milestone 0.3's building pull requests (PRs 2 to 6). It says what the server stores, what a phone sends, what the server does with it, and how we test that the pantry always ends up right. **The spec (`docs/spec.md`) wins wherever this file disagrees with it.** Once built, the generated OpenAPI (`/api/v1/openapi.json`) is the exact reference for field names and shapes; this file is the plan they follow. It builds on `docs/dev/api-endpoints.md` (conventions, errors, the change log and Undo), which still applies unless this file says otherwise.
 
-Spec line numbers below (`L271`) are from `docs/spec.md` on `main` at `1c4c341`. cabledrawer's 17 Oct and 18 Oct answers were added to the spec in this pull request, and are cited as `new L292` and so on (their line numbers on this branch). Section 16 lists the 18 Oct decisions.
+Spec line numbers below (`L271`) are from `docs/spec.md` on `main` at the commit "Release 0.2.0" (17 Oct 2026). cabledrawer's 17 Oct and 18 Oct answers were added to the spec in this pull request, and are cited as `new L292` and so on (their line numbers on this branch). Section 16 lists the 18 Oct decisions.
 
 ## Map of this file (read this first)
 

@@ -1,5 +1,6 @@
 """More of what the batched reads must still answer exactly as the one-at-a-time ones did (the
-copies in tests/golden_reads, made from the code at a386b406, before 0.9.5's speed work, twice
+copies in tests/golden_reads, made from the code at the commit "shellcheck: warnings and above;
+./check's own 8 warnings fixed …" (15 Nov 2026), before 0.9.5's speed work, twice
 with the same result): pack sizes, other
 names, an "already have it" purchase, a merged ingredient, an incremental catch-up with a removed
 line, the answer to a batch of changes, and a second household whose own ingredients and list

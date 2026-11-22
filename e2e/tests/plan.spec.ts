@@ -204,7 +204,7 @@ test('the Plan’s round buttons are real icons, centred (F41)', async ({ page }
   const { today, slot } = await setup(page);
   // A meal in the week shown, so that its round + is there (an empty meal has the “+ Add” text button).
   // Taken out again at the end: the household is shared, and Today's tests expect today's
-  // Dinner free (the full ./check on a6b191c).
+  // Dinner free.
   const item = (await planned(page, await makeRecipe(page, `Plus ${stamp()}`), today, slot.Dinner)).item_id;
   try {
     await page.goto('/plan');
@@ -488,7 +488,7 @@ test.describe('on a computer', () => {
     test.use({ serviceWorkers: 'block' });
 
     test('the arrows and Today wait until the household’s today has come (a slow connection)', async ({ page }) => {
-      // The full ./check on ae14498: “Next week” pressed before the household came threw “Invalid time value”.
+      // The full ./check: “Next week” pressed before the household came threw “Invalid time value”.
       // Since F67 they aren't shown at all until then (no empty week label between ‹ ›).
       let release = () => {};
       const held = new Promise<void>((resolve) => (release = resolve));

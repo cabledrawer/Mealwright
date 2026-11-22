@@ -124,7 +124,7 @@ def test_a_line_a_person_removed_still_names_the_person(kitchen: TestClient) -> 
     ]
 
 
-# --- RF2 fix round 1 (Opus review r1 of a1ea6692) -------------------------------------------
+# --- RF2 fix round 1 (Opus review r1) -------------------------------------------
 
 
 def test_a_second_phones_tick_does_not_split_the_line_again(kitchen: TestClient) -> None:
