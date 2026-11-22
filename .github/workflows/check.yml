@@ -38,11 +38,28 @@ jobs:
         with:
           # The same uv as the Dockerfile (backend/pyproject.toml needs uv_build >=0.13.1,<0.14).
           version: "0.13.1"
+      # The same Python as the Dockerfile's image (T4, 22 Nov). Without this, uv downloads its own
+      # build (python-build-standalone, built with Clang), which is not what the app runs on.
+      # When the Dockerfile's python:3.14 digest changes, change this version too; the next step
+      # fails until they match.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: "3.14.10"
+      - name: Check this Python is the Dockerfile's
+        run: |
+          image="$(grep -m1 '^FROM python:' Dockerfile | cut -d' ' -f2)"
+          want="$(docker run --rm "$image" python -c 'import platform; print(platform.python_version())')"
+          have="$(python -c 'import platform; print(platform.python_version())')"
+          echo "Dockerfile: $want, here: $have"
+          test "$want" = "$have"
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af  # v4.1.0
         with:
           node-version: 24
       - name: Run ./check with the scanners on
         env:
+          # uv uses the Python above and never downloads one of its own.
+          UV_PYTHON: "3.14.10"
+          UV_PYTHON_DOWNLOADS: "never"
           CHECK_SCANNERS: "1"
           # GitHub's 4-CPU runner needs more than the 20 minutes that is right for the maintainer's
           # computer (it was stopped at 1230 s; about 14 minutes there). The tests already run in
