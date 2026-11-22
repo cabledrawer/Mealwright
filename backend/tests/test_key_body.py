@@ -118,3 +118,13 @@ def test_answers_are_left_out_of_the_hash_at_any_depth() -> None:
     )
     assert body_hash(plain) == body_hash(nested)
     assert body_hash(plain) != body_hash(b'{"running_low_at": {"amount": 2, "unit": "cup"}}')
+
+
+def test_a_body_nested_too_deep_to_read_is_hashed_as_bytes() -> None:
+    """T4 (22 Nov): a body nested deeper than Python reads is hashed as its bytes, as one
+    that isn't JSON is, instead of failing the request."""
+    from mealwright.limits import body_hash
+
+    for depth in (2_000, 100_000):
+        deep = b"[" * depth + b"]" * depth
+        assert body_hash(deep) == hashlib.sha256(deep).hexdigest()

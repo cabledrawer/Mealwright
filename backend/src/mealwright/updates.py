@@ -62,6 +62,16 @@ RELEASE_LIST_URL = f"https://api.github.com/repos/{OWNER}/mealwright/releases"
 
 # The release list is about 30 releases with their notes; anything bigger isn't read.
 MAX_LIST_BYTES = 2 * 1024 * 1024
+# GitHub's release list nests 5 deep (the list, a release, its assets, an asset, its
+# uploader). Deeper answers are refused before they are parsed: how deep Python's JSON reader
+# gets before it gives up depends on the build and its stack size, and an answer that parsed
+# on one build was read as "up to date" (T4, 22 Nov).
+MAX_LIST_DEPTH = 10
+# A string runs to its closing quote, or to the end of an unfinished text: every quote
+# starts a match, so the search never goes back over the text (no slow worst case).
+_JSON_STRING = re.compile(rb'"[^"\\]*+(?:\\.?[^"\\]*+)*+(?:"|\Z)', re.DOTALL)
+_NOT_BRACKET = re.compile(rb"[^\[\]{}]+")
+_EMPTY_PAIR = re.compile(rb"\[\]|\{\}")
 # The longest one check may take, start to finish.
 CHECK_TIME_LIMIT = 20.0
 # Check now again within this long gives the answer just had, without connecting, so a busy
@@ -112,10 +122,26 @@ def tag_key(tag: str) -> Key | None:
     return _key(found) if found else None
 
 
+def _too_deep(body: bytes, depth: int) -> bool:
+    """Do the JSON text's lists and objects nest more than `depth` deep? Worked out without
+    parsing and in C: the strings are taken out, then everything but the brackets, then
+    each round takes out the innermost empty pairs. Brackets that don't pair up count as too
+    deep (the text isn't JSON anyway)."""
+    brackets = _NOT_BRACKET.sub(b"", _JSON_STRING.sub(b"", body))
+    for _ in range(depth):
+        if not brackets:
+            return False
+        brackets = _EMPTY_PAIR.sub(b"", brackets)
+    return bool(brackets)
+
+
 def newest(body: bytes, running: Key) -> str | None:
     """The tag of the newest release in GitHub's release list that is newer than `running`,
     or None. Pre-releases count only while the running version is one too (cabledrawer 12
-    Nov, accepted as built); drafts never. Raises ValueError if the answer isn't a release list."""
+    Nov, accepted as built); drafts never. Raises ValueError if the answer isn't a release
+    list: not JSON, nested deeper than MAX_LIST_DEPTH, or not a list."""
+    if _too_deep(body, MAX_LIST_DEPTH):
+        raise ValueError("nested too deep")
     releases = json.loads(body)
     if not isinstance(releases, list):
         raise ValueError("not a list")

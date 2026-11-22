@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from mealwright import migrate, sso
 from mealwright.db import make_engine, make_sessionmaker
 from mealwright.models import Household, OwnNetworkEntry
-from mealwright.outbound import USER_AGENT, Connection, OutboundGate, set_switch
+from mealwright.outbound import USER_AGENT, Connection, OutboundGate, OutboundResponse, set_switch
 from mealwright.sso import Client, SsoFailed, Used
 
 REDIRECT = "https://mealwright.example.com/auth/callback"
@@ -242,6 +242,14 @@ def test_new_keys_at_the_provider_are_fetched_once_more(
     idp.jwks = {"keys": [OTHER_KEY.as_dict(is_private=False)]}
     identity, _ = sign_in(gate, idp, id_token=lambda claims: sign(claims, key=OTHER_KEY))
     assert identity.subject == "user-1"
+
+
+def test_an_answer_nested_too_deep_to_read_is_a_bad_answer() -> None:
+    """T4 (22 Nov): the same as any answer that isn't JSON, not a server error."""
+    deep = b"[" * 100_000 + b"]" * 100_000
+    with pytest.raises(SsoFailed) as caught:
+        sso._json(OutboundResponse(200, {}, deep, "https://idp.example/x"))
+    assert caught.value.code == "bad_answer"
 
 
 def test_a_discovery_document_for_another_issuer_is_refused(

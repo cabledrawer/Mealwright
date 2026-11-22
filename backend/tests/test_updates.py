@@ -11,7 +11,7 @@ import re
 import socketserver
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -268,6 +268,7 @@ def test_check_now_works_with_the_switch_off_and_the_daily_check_does_not(
         (b"<html>rate limited</html>", 200),
         ({"message": "Not Found"}, 200),
         (b"[" * 100_000 + b"]" * 100_000, 200),
+        (b"[" * 11 + b"]" * 11, 200),  # deeper than a release list ever is
     ],
 )
 def test_an_answer_that_cant_be_used_is_couldnt_check(
@@ -281,6 +282,71 @@ def test_an_answer_that_cant_be_used_is_couldnt_check(
     serve(answer, status)
     result = checks.check_now(1)
     assert (result.outcome, result.latest) == ("failed", None)
+
+
+def _on_a_big_stack[T](work: Callable[[], T]) -> T:
+    """`work` run in a thread with a 256 MB stack, as on a build or machine with a big one
+    (GitHub's check run read 100,000 nested lists without running out)."""
+    found: list[T] = []
+    old = threading.stack_size(256 * 1024 * 1024)
+    try:
+        thread = threading.Thread(target=lambda: found.append(work()))
+        thread.start()
+        thread.join()
+    finally:
+        threading.stack_size(old)
+    assert found, "the work raised"
+    return found[0]
+
+
+def test_a_deep_answer_is_couldnt_check_even_where_python_could_read_it() -> None:
+    """T4 (22 Nov): Python 3.14 reads JSON as deep as its stack allows, so the same answer
+    raised on one build and was read as an empty release list ("up to date") on another.
+    It is refused before it is parsed, whatever the stack."""
+    deep = b"[" * 100_000 + b"]" * 100_000
+    running = updates.running_key("0.9.0")
+    assert running is not None
+    assert _on_a_big_stack(lambda: json.loads(deep)) is not None  # this stack can read it
+
+    def refused() -> str:
+        with pytest.raises(ValueError, match="too deep"):
+            updates.newest(deep, running)
+        return "refused"
+
+    assert _on_a_big_stack(refused) == "refused"
+    with pytest.raises(ValueError, match="too deep"):
+        updates.newest(deep, running)
+
+
+def test_a_real_release_list_is_not_too_deep() -> None:
+    """GitHub's list nests 5 deep (assets, their uploader); brackets in notes don't count."""
+    full = {
+        **release("v1.2.0"),
+        "body": 'Fixed [[[[[[[[[[[[ and {{{{{{{{{{{{ and \\"[[[[[[[[[[[[',
+        "assets": [{"name": "x", "uploader": {"login": "cabledrawer", "ids": [[1]]}}],
+        "reactions": {"+1": 2},
+    }
+    running = updates.running_key("1.0.0")
+    assert running is not None
+    assert updates.newest(json.dumps([full, release("v1.1.0")]).encode(), running) == "v1.2.0"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b'"' + b'\\"' * 1_000_000,  # one string that never ends: every quote is escaped
+        b'"' * 2_000_000,
+        b"[" * 1_000_000 + b"]" * 1_000_000,
+        b"[]" * 1_000_000,
+    ],
+)
+def test_the_depth_check_is_quick_on_any_answer(body: bytes) -> None:
+    running = updates.running_key("1.0.0")
+    assert running is not None
+    start = time.process_time()
+    with pytest.raises(ValueError):
+        updates.newest(body, running)
+    assert time.process_time() - start < 2
 
 
 def test_a_list_too_big_is_not_read(

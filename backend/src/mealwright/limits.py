@@ -43,7 +43,7 @@ def body_hash(raw: bytes) -> str:
     """The hash of a request body, kept with its change (0.9.5, proposed, for cabledrawer). JSON is
     hashed the way the shopping sync hashes an action's payload (`shopping.payload_hash`: keys
     sorted, no spaces), so the same JSON with its keys in another order is the same body; no
-    body, or a body that isn't JSON, is the SHA-256 of its bytes.
+    body, or a body that isn't JSON (or is nested too deep to read), is the SHA-256 of its bytes.
 
     Every `answers` key, at any depth, is left out first: the answers to an "ask once" question
     are sent only on the attempt that follows the question, and the app's "Try again" or an
@@ -57,7 +57,7 @@ def body_hash(raw: bytes) -> str:
     if raw.strip():
         try:
             return shopping.payload_hash(_without_answers(json.loads(raw)))
-        except ValueError:
+        except ValueError, RecursionError:  # nested too deep to read: hashed as bytes (T4)
             pass
     return hashlib.sha256(raw).hexdigest()
 

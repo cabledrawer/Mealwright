@@ -475,7 +475,7 @@ def _send_one(
 def _json(response: OutboundResponse) -> dict[str, Any]:
     try:
         found = json.loads(response.body)
-    except ValueError, UnicodeDecodeError:
+    except ValueError, UnicodeDecodeError, RecursionError:  # RecursionError: nested too deep
         raise SsoFailed("bad_answer") from None
     if not isinstance(found, dict):
         raise SsoFailed("bad_answer")
