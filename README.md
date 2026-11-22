@@ -1,8 +1,17 @@
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/brand/mealwright-mark-dark.svg"><img src="docs/brand/mealwright-mark.svg" width="96" alt="Mealwright"></picture></p>
+
 # Mealwright
 
 Self-hosted meal planning, pantry and shopping for your household. Private by design: no telemetry, nothing leaves your server unless you switch it on, or press Check now in About.
 
 Recipe → plan → shopping list → pantry → cook. Plan meals and batch cooks, get a shopping list built from what's actually missing, and keep the pantry up to date as you shop and cook.
+
+<table>
+<tr>
+<td><img src="docs/screenshots/today-desktop-dark.png" width="640" alt="The Today screen on a computer, in the dark theme: tubs left, use soon and to buy counts, a prompt asking whether you cooked last night's dinner, and the ingredients to use soon."></td>
+<td><img src="docs/screenshots/shopping-phone.png" width="240" alt="The Shopping screen on a phone: the week's list grouped by shop and aisle, with an add box and quantity pickers."></td>
+</tr>
+</table>
 
 ## How this was built and checked
 
